@@ -1,0 +1,894 @@
+"""Entrypoint bot. Long-running async."""
+import os
+import logging
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+from shared import config, storage, notify
+from intelligence import thesis as thesis_mod
+from intelligence import digest as digest_mod
+from intelligence import credibility as credibility_mod
+from intelligence import learning as learning_mod
+from intelligence import regime as regime_mod
+from intelligence import calendar as calendar_mod
+from intelligence.calendar import seed_macro_events, format_macro_calendar
+from intelligence.insider_digest import daily_insider_refresh, format_daily_insider_digest
+from intelligence.price_monitor import check_thesis_triggers, record_override, list_overrides
+from shared import crypto as crypto_mod
+from shared import positions as positions_mod
+from intelligence import analyze as analyze_mod
+from shared import edgar as edgar_mod
+from data_sources import gmail_
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
+log = logging.getLogger("bot")
+
+
+THESIS_TEMPLATE = (
+    "Format thesis_add (copie-colle, remplace les valeurs) :\n\n"
+    "/thesis_add\n"
+    "ticker: NVDA\n"
+    "direction: long\n"
+    "horizon: 24m\n"
+    "conviction: 4\n"
+    "drivers: AI capex growth >40%; HBM supply constraint; CUDA moat\n"
+    "invalidation: revenue Q/Q <20%; major customer defection; CUDA alternative success\n"
+    "profit_take: revenue growth peak; PE >55x; margin compression\n"
+    "entry_price: 130\n"
+    "target_partial: 250\n"
+    "target_full: 350\n"
+    "notes: AI infra primary play\n\n"
+    "Multi-item: separer par ';'"
+)
+
+
+def _parse_thesis_template(text):
+    out = {}
+    for line in text.split("\n"):
+        if ":" not in line:
+            continue
+        key, val = line.split(":", 1)
+        key = key.strip().lower().replace(" ", "_")
+        val = val.strip()
+        if val:
+            out[key] = val
+    return out
+
+
+async def cmd_ping(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    state = storage.load_state()
+    await update.message.reply_text(
+        f"alive\n"
+        f"capital: ${state['current_capital']:.0f}\n"
+        f"drawdown: {state['drawdown_pct']:.1%}\n"
+        f"theses actives: {state['active_theses_count']}\n"
+        f"paper_only: {state['paper_only']}"
+    )
+
+
+async def cmd_thesis_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text or ""
+    body_split = text.split(maxsplit=1)
+    body = body_split[1] if len(body_split) > 1 else ""
+    if not body.strip():
+        await update.message.reply_text(THESIS_TEMPLATE)
+        return
+    params = _parse_thesis_template(body)
+    if "ticker" not in params or "entry_price" not in params:
+        await update.message.reply_text(
+            "Manque 'ticker' et/ou 'entry_price'. Tape /thesis_add seul pour le template."
+        )
+        return
+    try:
+        result = thesis_mod.add_thesis(
+            ticker=params["ticker"],
+            direction=params.get("direction", "long"),
+            horizon=params.get("horizon", "12m"),
+            conviction=int(params.get("conviction", 3)),
+            key_drivers=params.get("drivers", ""),
+            invalidation_triggers=params.get("invalidation", ""),
+            entry_price=float(params["entry_price"]),
+            target_partial=float(params["target_partial"]) if "target_partial" in params else None,
+            target_full=float(params["target_full"]) if "target_full" in params else None,
+            triggers_profit_take=params.get("profit_take", ""),
+            notes=params.get("notes", ""),
+        )
+        msg = f"OK these #{result['thesis_id']} ajoutee pour {result['ticker']}"
+        if result["warnings"]:
+            msg += "\n\nWarnings:\n" + "\n".join(f"  - {w}" for w in result["warnings"])
+        await update.message.reply_text(msg)
+    except (KeyError, ValueError) as e:
+        await update.message.reply_text(f"Erreur: {e}\n\nTape /thesis_add seul pour le template.")
+
+
+async def cmd_thesis_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    msg = thesis_mod.list_active()
+    await update.message.reply_text(msg)
+
+
+async def cmd_thesis_revisit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    due = thesis_mod.get_revisit_due()
+    if not due:
+        await update.message.reply_text("Aucune these en attente de revisit mensuel.")
+        return
+    await update.message.reply_text(f"{len(due)} these(s) en attente de revisit :")
+    for t in due:
+        questions = thesis_mod.build_revisit_questions(t)
+        await update.message.reply_text(questions)
+        storage.update_thesis_revisit(t["id"])
+
+
+async def cmd_exit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args:
+        await update.message.reply_text("Usage: /exit TICKER [current_price]")
+        return
+    ticker = ctx.args[0].upper()
+    current_price = None
+    if len(ctx.args) > 1:
+        try:
+            current_price = float(ctx.args[1])
+        except ValueError:
+            await update.message.reply_text(f"Prix invalide: {ctx.args[1]}")
+            return
+    result = thesis_mod.check_exit_request(ticker, current_price)
+    await update.message.reply_text(result["message"])
+
+
+async def cmd_exit_force(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args or len(ctx.args) < 2:
+        await update.message.reply_text("Usage: /exit_force TICKER <raison>")
+        return
+    ticker = ctx.args[0].upper()
+    reason = " ".join(ctx.args[1:])
+    t = storage.get_thesis_by_ticker(ticker, status="active")
+    if not t:
+        await update.message.reply_text(f"Pas de these active sur {ticker}.")
+        return
+    check = thesis_mod.check_exit_request(ticker)
+    note_suffix = "[regret_driven]" if check["status"] == "no_trigger" else "[trigger_met]"
+    storage.close_thesis(t["id"], status="realized", reason=f"{note_suffix} {reason}")
+    await update.message.reply_text(
+        f"OK these {ticker} fermee 'realized' {note_suffix}\nRaison: {reason}"
+    )
+
+
+async def cmd_thesis_note(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args or len(ctx.args) < 2:
+        await update.message.reply_text("Usage: /thesis_note <thesis_id> <ta note>")
+        return
+    try:
+        thesis_id = int(ctx.args[0])
+    except ValueError:
+        await update.message.reply_text(f"thesis_id invalide: {ctx.args[0]}")
+        return
+    note = " ".join(ctx.args[1:])
+    storage.append_thesis_note(thesis_id, note)
+    await update.message.reply_text(f"Note ajoutee a these #{thesis_id}.")
+
+
+async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Digest en cours (fetch + scoring)... 30-60s.")
+    try:
+        ingest_stats = gmail_.ingest_new_emails(max_results=20)
+        if ingest_stats["new_ingested"]:
+            await update.message.reply_text(
+                f"+{ingest_stats['new_ingested']} nouveaux emails ingeres."
+            )
+        msg = digest_mod.run_enhanced_digest(limit=15, top_n=5)
+        if len(msg) > 3900:
+            msg = msg[:3900] + "\n\n[...tronque...]"
+        await update.message.reply_text(msg)
+    except Exception as e:
+        log.exception("Digest command failed")
+        await update.message.reply_text(f"Erreur digest: {type(e).__name__}: {e}")
+
+
+async def cmd_feedback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args or len(ctx.args) < 2:
+        await update.message.reply_text(
+            "Usage: /feedback <signal_id> <up|down>\nEx: /feedback 42 up\n(signal_id affiches dans le digest avec prefix #)"
+        )
+        return
+    try:
+        signal_id = int(ctx.args[0])
+    except ValueError:
+        await update.message.reply_text(f"signal_id invalide: {ctx.args[0]}")
+        return
+    rating = ctx.args[1].lower()
+    if rating not in ('up', 'down'):
+        await update.message.reply_text(f"rating doit etre up ou down, got: {rating}")
+        return
+    try:
+        result = credibility_mod.apply_feedback(signal_id, rating)
+        old = result.get('old_credibility') or 0.5
+        new = result.get('new_credibility') or 0.5
+        src = (result.get('source_name') or '?')[:40]
+        msg = (
+            f"OK feedback {rating} sur signal #{signal_id}.\nSource: {src}\nCredibility: {old:.2f} -> {new:.2f} (delta {result['delta']:+.2f})"
+        )
+        await update.message.reply_text(msg)
+    except Exception as e:
+        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+
+
+async def cmd_credibility(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    msg = credibility_mod.list_top_sources(n=10)
+    msg += "\n\n" + credibility_mod.list_worst_sources(n=5)
+    await update.message.reply_text(msg)
+
+
+async def cmd_predictions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    preds = storage.get_recent_predictions(limit=15)
+    if not preds:
+        await update.message.reply_text("Aucune prediction enregistree.")
+        return
+    lines = ["Predictions recentes:"]
+    for p in preds:
+        ticker = p.get("ticker", "?")
+        dir_ = (p.get("direction") or "?")[:4]
+        baseline = p.get("baseline_price") or 0
+        target = p.get("target_date", "?")
+        outcome = p.get("outcome") or "pending"
+        ret = p.get("return_pct")
+        if ret is not None:
+            lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} -> {ret*100:+.1f}% [{outcome}]")
+        else:
+            lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} target {target} [pending]")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_resolve_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Resolution en cours...")
+    try:
+        results = learning_mod.resolve_due_predictions()
+        msg = learning_mod.format_resolve_report(results)
+        await update.message.reply_text(msg[:4000])
+    except Exception as e:
+        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+
+
+async def daily_resolve_job():
+    log.info("Daily resolve predictions starting")
+    try:
+        results = learning_mod.resolve_due_predictions()
+        if results.get("resolved", 0) > 0:
+            msg = learning_mod.format_resolve_report(results)
+            await notify.send_text(msg)
+        log.info(f"Daily resolve done: {results.get('resolved', 0)} predictions")
+    except Exception as e:
+        log.error(f"Daily resolve failed: {e}")
+
+
+async def cmd_regime(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Detection regime en cours (5-10s)...")
+    try:
+        r = regime_mod.detect_regime()
+        msg = regime_mod.format_regime(r)
+        await update.message.reply_text(msg[:4000])
+    except Exception as e:
+        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+
+
+CALENDAR_REFRESH_TICKERS = [
+    "NVDA", "AMD", "TSM", "AVGO", "MU", "ASML", "LRCX", "AMAT", "KLAC", "QCOM",
+    "MRVL", "NXPI", "TXN", "MSFT", "GOOGL", "META", "AAPL", "AMZN", "ORCL", "ADBE",
+    "CRWD", "PANW", "NET", "SNOW", "TSLA", "UBER", "MSTR", "COIN", "BLK", "V",
+]
+
+
+async def cmd_calendar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    events = storage.get_upcoming_events(days_ahead=60)
+    msg = calendar_mod.format_calendar(events, days_ahead=60)
+    alerts = calendar_mod.get_pre_event_thesis_alerts(days_ahead=14)
+    alert_msg = calendar_mod.format_alerts(alerts)
+    if alert_msg:
+        msg = alert_msg + "\n\n---\n\n" + msg
+    await update.message.reply_text(msg[:4000])
+
+
+async def cmd_calendar_refresh(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"Refresh calendar sur {len(CALENDAR_REFRESH_TICKERS)} tickers (60-90s)...")
+    try:
+        n = calendar_mod.refresh_earnings_calendar(CALENDAR_REFRESH_TICKERS)
+        events = storage.get_upcoming_events(days_ahead=60)
+        msg = f"OK {n} events upserted.\n\n" + calendar_mod.format_calendar(events, days_ahead=60)
+        await update.message.reply_text(msg[:4000])
+    except Exception as e:
+        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+
+
+async def daily_calendar_refresh_job():
+    log.info("Daily calendar refresh starting")
+    try:
+        n = calendar_mod.refresh_earnings_calendar(CALENDAR_REFRESH_TICKERS)
+        log.info(f"Calendar refreshed: {n} events")
+        alerts = calendar_mod.get_pre_event_thesis_alerts(days_ahead=7)
+        alert_msg = calendar_mod.format_alerts(alerts)
+        if alert_msg:
+            await notify.send_text(alert_msg)
+            log.info(f"Sent {len(alerts)} pre-event alerts")
+    except Exception as e:
+        log.error(f"Daily calendar refresh failed: {e}")
+
+
+async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Show all available commands grouped by category."""
+    msg = """🤖 *mes-bots-finance* — commands
+
+📊 *Thesis*
+  /thesis_add        new active thesis
+  /thesis_list       active + closed
+  /thesis_revisit    review existing\n  /thesis_set        edit field : /thesis_set NVDA target_partial 260
+  /thesis_note       add note
+  /exit /exit_force  close thesis
+
+📈 *Digest & predictions*
+  /digest            top signals (regime + insider + LLM synth)
+  /feedback          rate digest items
+  /credibility       source credibility ranking
+  /predictions       open + resolved
+  /resolve_now       force resolve due predictions
+
+🌍 *Macro context*
+  /regime            current macro regime (VIX/DXY/yield/M2/F&G)
+  /calendar          upcoming earnings (next 90d)
+  /calendar_refresh  re-fetch earnings dates
+  /macro             FOMC + CPI + NFP next 90d
+
+🔍 *Insiders*
+  /insiders TICKER   SEC Form 4 last 90d for ticker
+  /insider_digest    manual trigger daily refresh
+
+₿ *Crypto*
+  /crypto            funding + OI + Mayer Multiple zone
+
+🔬 *Deep analysis*\n  /analyze TICKER    full company fiche (yfinance + EDGAR + LLM)\n\n🎯 *Triggers & overrides*
+  /price_check       manual check all theses for crossings
+  /override          /override TICKER level reason
+  /overrides         recent overrides
+
+💼 *Positions*
+  /position_set      bootstrap : /position_set NVDA 100 130
+  /position_buy      add buy   : /position_buy NVDA 10 215
+  /position_sell     sell      : /position_sell NVDA 33 250
+  /position TICKER   detail + history
+  /positions         all open with live valuation
+
+⚙ *Meta*
+  /help              this message
+  /ping              health check
+
+Scheduled jobs (Paris TZ):
+  • Hourly: heartbeat + gmail ingest
+  • 05:00: calendar refresh + pre-event alerts
+  • 06:00: daily insider digest
+  • 07:00: daily digest
+  • 09:00: resolve predictions
+  • 10:00: crypto zone check
+  • 14-22h every 15min mon-fri: price monitor / thesis triggers
+"""
+    await update.message.reply_text(msg, parse_mode='Markdown')
+
+
+async def cmd_insiders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args:
+        await update.message.reply_text("Usage: /insiders TICKER\nEx: /insiders NVDA")
+        return
+    ticker = ctx.args[0].upper()
+    await update.message.reply_text(f"Fetching Form 4 insiders {ticker} (15-30s, sleep entre fetches)...")
+    try:
+        activity = edgar_mod.get_insider_activity(ticker, days=90)
+        msg = edgar_mod.format_insider_summary(activity)
+        await update.message.reply_text(msg[:4000])
+    except Exception as e:
+        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+
+
+# === Scheduled jobs ===
+
+async def heartbeat():
+    storage.update_state()
+    log.info("heartbeat ok")
+
+
+async def ingest_gmail_job():
+    """Hourly Gmail ingestion."""
+    try:
+        stats = gmail_.ingest_new_emails(max_results=20)
+        if stats["new_ingested"]:
+            log.info(f"gmail ingest: +{stats['new_ingested']} new emails")
+    except Exception as e:
+        log.error(f"gmail ingest failed: {e}")
+
+
+async def daily_digest_job():
+    """Daily digest at 7h Paris time. Sends top-5 signals to Telegram."""
+    try:
+        ingest_stats = gmail_.ingest_new_emails(max_results=30)
+        log.info(f"morning ingest: +{ingest_stats['new_ingested']} emails")
+        msg = digest_mod.run_enhanced_digest(limit=15, top_n=5)
+        if msg and "Aucun signal" not in msg:
+            notify.send_text(f"Digest matinal\n\n{msg}")
+            log.info("daily digest sent")
+        else:
+            log.info("daily digest: no new signals")
+    except Exception as e:
+        log.error(f"daily digest failed: {e}")
+
+
+async def post_init(app):
+    """Run AFTER event loop is started."""
+    try:
+        n = seed_macro_events()
+        log.info(f"Macro events seeded ({n} upcoming)")
+    except Exception as e:
+        log.warning(f"seed_macro_events failed: {e}")
+    sched = AsyncIOScheduler(timezone=os.environ.get("TZ", "Europe/Paris"))
+    sched.add_job(heartbeat, "interval", hours=1)
+    sched.add_job(ingest_gmail_job, "interval", hours=1)
+    sched.add_job(daily_digest_job, "cron", hour=7, minute=0)
+    sched.add_job(daily_calendar_refresh_job, 'cron', hour=5, minute=0)
+    sched.add_job(daily_resolve_job, 'cron', hour=9, minute=0)
+    sched.add_job(scheduled_insider_refresh_job, 'cron', hour=6, minute=0)
+    sched.add_job(price_monitor_job, 'cron', hour='14-22', minute='*/15', day_of_week='mon-fri')
+    sched.add_job(daily_crypto_zone_job, 'cron', hour=10, minute=0)
+    sched.add_job(scheduled_buy_cluster_scan_job, 'cron', hour=6, minute=20)
+    sched.start()
+    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h, resolve 9h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20")
+    notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
+
+
+
+async def cmd_macro(update, context):
+    """Show FOMC / NFP / CPI macro events for next 90 days."""
+    try:
+        msg = format_macro_calendar(90)
+    except Exception as e:
+        msg = f"Error fetching macro calendar: {e}"
+    await update.message.reply_text(msg)
+
+
+async def cmd_insider_digest(update, context):
+    """Manual: refresh insider snapshots and post digest."""
+    await update.message.reply_text("⏳ Refreshing 13 tickers via SEC EDGAR (~30-60s)...")
+    try:
+        result = daily_insider_refresh()
+        msg = format_daily_insider_digest(result)
+    except Exception as e:
+        msg = f"Error: {e}"
+    await update.message.reply_text(msg, parse_mode='Markdown')
+
+
+async def scheduled_insider_refresh_job():
+    """Cron: 6h Paris daily — refresh + post if anything notable."""
+    try:
+        result = daily_insider_refresh()
+        msg = format_daily_insider_digest(result)
+        notify.send_text(msg)
+        log.info(f"scheduled_insider_refresh: {result['refreshed']} tickers, "
+                 f"{len(result['alerts'])} alerts")
+    except Exception as e:
+        log.error(f"scheduled_insider_refresh failed: {e}")
+
+async def price_monitor_job():
+    """Cron 15min mkt hours: check active theses for price crossings."""
+    try:
+        r = check_thesis_triggers()
+        if r['alerts']:
+            log.info(f"price_monitor: {len(r['alerts'])} alerts fired: {r['alerts']}")
+        if r['fails']:
+            log.warning(f"price_monitor: failed tickers: {r['fails']}")
+    except Exception as e:
+        log.error(f"price_monitor_job: {e}")
+
+
+async def cmd_price_check(update, ctx):
+    """Manual trigger : check all active theses for crossings right now."""
+    await update.message.reply_text("Checking active theses...")
+    try:
+        r = check_thesis_triggers()
+        if r['theses_checked'] == 0:
+            await update.message.reply_text("No active theses.")
+        elif r['alerts']:
+            await update.message.reply_text(
+                f"{r['theses_checked']} theses checked, {len(r['alerts'])} alerts fired (see above)."
+            )
+        else:
+            await update.message.reply_text(
+                f"{r['theses_checked']} theses checked, no crossings."
+            )
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_override(update, ctx):
+    """Capture override of a trigger: /override TICKER level reason"""
+    parts = update.message.text.split(maxsplit=3)
+    if len(parts) < 4:
+        await update.message.reply_text(
+            "Usage: /override <TICKER> <partial|full|stop> <reason>"
+        )
+        return
+    ticker, level, reason = parts[1].upper(), parts[2].lower(), parts[3]
+    if level not in ('partial', 'full', 'stop'):
+        await update.message.reply_text("level must be: partial / full / stop")
+        return
+    try:
+        oid = record_override(ticker, level, reason)
+        await update.message.reply_text(
+            f"✓ Override #{oid} captured: {ticker}/{level}\n"
+            f"  Reason: {reason}\n"
+            f"  Stored for BiasDetector training."
+        )
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_overrides(update, ctx):
+    """List recent overrides."""
+    rows = list_overrides(limit=15)
+    if not rows:
+        await update.message.reply_text("No overrides recorded yet.")
+        return
+    lines = ["Recent overrides:"]
+    for o in rows:
+        reason = (o['reason'] or '')[:55]
+        lines.append(f"#{o['id']:3d} {o['ticker']:6s} {o['level']:7s} | {reason}")
+        lines.append(f"    {o['created_at']}")
+    await update.message.reply_text('\n'.join(lines))
+
+
+async def cmd_crypto(update, ctx):
+    """Show crypto cycle indicators (funding, OI, Mayer Multiple)."""
+    try:
+        z = crypto_mod.compute_crypto_zone()
+        msg = crypto_mod.format_crypto_zone(z)
+    except Exception as e:
+        msg = f"Error: {e}"
+    await update.message.reply_text(msg)
+
+
+async def daily_crypto_zone_job():
+    """Cron daily 10h Paris : check crypto zone, alert if extreme. Includes position context."""
+    try:
+        z = crypto_mod.compute_crypto_zone()
+        msg = crypto_mod.format_crypto_zone(z)
+
+        # Add user's crypto exposure if any
+        try:
+            crypto_tickers = ['BTC-USD', 'ETH-USD', 'MSTR', 'IBIT', 'ETHA', 'COIN']
+            holdings = []
+            for tk in crypto_tickers:
+                p = positions_mod.get_position(tk)
+                if p and p.get('qty', 0) > 0:
+                    holdings.append(p)
+            if holdings:
+                mv_total = sum(p.get('market_value') or 0 for p in holdings)
+                msg += "\n\n📊 Your crypto exposure:"
+                for p in holdings:
+                    mv = p.get('market_value') or 0
+                    msg += f"\n  {p['ticker']:8s} qty={p.get('qty', 0):.3f}  MV=${mv:,.0f}"
+                msg += f"\n  Total: ${mv_total:,.0f}"
+        except Exception as e:
+            log.warning(f"crypto position lookup: {e}")
+
+        if z.get('zone') in ('TOP-ZONE', 'BOTTOM-ZONE'):
+            notify.send_text(f"🚨 CRYPTO ALERT\n\n{msg}")
+            log.info(f"crypto alert fired: {z['zone']}")
+        else:
+            log.info(f"crypto zone daily check: {z.get('zone', 'unknown')} — no alert")
+    except Exception as e:
+        log.error(f"daily_crypto_zone_job: {e}")
+
+
+async def cmd_position_set(update, ctx):
+    """Bootstrap position: /position_set TICKER QTY AVG_COST [notes]"""
+    parts = update.message.text.split(maxsplit=4)
+    if len(parts) < 4:
+        await update.message.reply_text("Usage: /position_set <TICKER> <QTY> <AVG_COST> [notes]")
+        return
+    try:
+        ticker, qty, avg = parts[1].upper(), float(parts[2]), float(parts[3])
+        notes = parts[4] if len(parts) > 4 else None
+        positions_mod.set_position(ticker, qty, avg, notes)
+        await update.message.reply_text(f"✓ Position set: {ticker} qty={qty:.3f} @ ${avg:.2f}")
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_position_buy(update, ctx):
+    """Add buy: /position_buy TICKER QTY PRICE [notes]"""
+    parts = update.message.text.split(maxsplit=4)
+    if len(parts) < 4:
+        await update.message.reply_text("Usage: /position_buy <TICKER> <QTY> <PRICE> [notes]")
+        return
+    try:
+        ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
+        notes = parts[4] if len(parts) > 4 else None
+        p = positions_mod.add_buy(ticker, qty, price, notes)
+        await update.message.reply_text(
+            f"✓ Bought {qty:.3f} {ticker} @ ${price:.2f}\n"
+            f"  New qty: {p['qty']:.3f}, avg cost: ${p['avg_cost']:.2f}"
+        )
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_position_sell(update, ctx):
+    """Sell: /position_sell TICKER QTY PRICE [notes]"""
+    parts = update.message.text.split(maxsplit=4)
+    if len(parts) < 4:
+        await update.message.reply_text("Usage: /position_sell <TICKER> <QTY> <PRICE> [notes]")
+        return
+    try:
+        ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
+        notes = parts[4] if len(parts) > 4 else None
+        r = positions_mod.add_sell(ticker, qty, price, notes)
+        msg = (f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ ${r['sold_price']:.2f}\n"
+               f"  Avg cost was: ${r['avg_cost']:.2f}\n"
+               f"  Realized PnL (event): ${r['realized_pnl_event']:+,.2f}\n"
+               f"  Realized PnL (total): ${r['realized_pnl_total']:+,.2f}\n"
+               f"  Remaining: {r['remaining_qty']:.3f}" + ("  [CLOSED]" if r['closed'] else ""))
+        await update.message.reply_text(msg)
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_positions(update, ctx):
+    """List all open positions with live valuation."""
+    await update.message.reply_text("Fetching live prices...")
+    try:
+        pos = positions_mod.list_positions()
+        await update.message.reply_text(positions_mod.format_positions_summary(pos))
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_position(update, ctx):
+    """Detail: /position TICKER"""
+    parts = update.message.text.split()
+    if len(parts) < 2:
+        await update.message.reply_text("Usage: /position <TICKER>")
+        return
+    try:
+        ticker = parts[1].upper()
+        p = positions_mod.get_position(ticker)
+        if not p:
+            await update.message.reply_text(f"No open position for {ticker}")
+            return
+        hist = positions_mod.get_history(ticker)
+        await update.message.reply_text(positions_mod.format_position_detail(p, hist))
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_thesis_set(update, ctx):
+    """Edit a field on active thesis: /thesis_set TICKER field value"""
+    parts = update.message.text.split(maxsplit=3)
+    if len(parts) < 4:
+        await update.message.reply_text(
+            "Usage: /thesis_set <TICKER> <field> <value>\n\n"
+            "Editable numeric: target_price, target_partial, target_full, stop_price, entry_price, conviction\n"
+            "Editable text:    notes, horizon, key_drivers, invalidation_triggers, triggers_profit_take, status\n\n"
+            "Examples:\n"
+            "  /thesis_set NVDA target_partial 260\n"
+            "  /thesis_set NVDA stop_price 175\n"
+            "  /thesis_set NVDA notes 'Post-earnings re-eval'"
+        )
+        return
+    ticker, field, value = parts[1].upper(), parts[2].lower(), parts[3]
+    EDITABLE_NUM = {'target_price', 'target_partial', 'target_full', 'stop_price', 'entry_price', 'conviction'}
+    EDITABLE_TEXT = {'notes', 'horizon', 'key_drivers', 'invalidation_triggers', 'triggers_profit_take', 'status', 'direction'}
+    if field not in EDITABLE_NUM | EDITABLE_TEXT:
+        await update.message.reply_text(
+            f"Field '{field}' not editable.\n"
+            f"Allowed: {sorted(EDITABLE_NUM | EDITABLE_TEXT)}"
+        )
+        return
+    if field in EDITABLE_NUM:
+        try:
+            value = float(value) if field != 'conviction' else int(value)
+        except ValueError:
+            await update.message.reply_text(f"'{parts[3]}' is not a valid number for {field}")
+            return
+    from shared.storage import db
+    with db() as cx:
+        r = cx.execute("SELECT id FROM theses WHERE ticker=? AND status='active'", (ticker,)).fetchone()
+        if not r:
+            await update.message.reply_text(f"No active thesis for {ticker}")
+            return
+        old = cx.execute(f"SELECT {field} FROM theses WHERE id=?", (r['id'],)).fetchone()
+        old_val = old[0] if old else None
+        cx.execute(f"UPDATE theses SET {field}=?, last_reviewed=CURRENT_TIMESTAMP WHERE id=?",
+                   (value, r['id']))
+        cx.commit()
+    await update.message.reply_text(
+        f"✓ {ticker} {field}: {old_val} → {value}"
+    )
+
+
+async def cmd_analyze(update, ctx):
+    """Full company analysis fiche: /analyze TICKER"""
+    parts = update.message.text.split()
+    if len(parts) < 2:
+        await update.message.reply_text("Usage: /analyze <TICKER>  (e.g. /analyze NVDA, /analyze BTC-USD)")
+        return
+    ticker = parts[1].upper()
+    await update.message.reply_text(f"⏳ Generating analysis for {ticker} (~15-30s)...")
+    try:
+        result = analyze_mod.analyze_stock(ticker)
+        chunks = analyze_mod.format_for_telegram(result)
+        for chunk in chunks:
+            await update.message.reply_text(chunk)
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_insider_cluster(update, ctx):
+    """Detect cluster buying/selling: /insider_cluster TICKER [days]"""
+    parts = update.message.text.split()
+    if len(parts) < 2:
+        await update.message.reply_text("Usage: /insider_cluster <TICKER> [days=14]")
+        return
+    ticker = parts[1].upper()
+    days = int(parts[2]) if len(parts) >= 3 and parts[2].isdigit() else 14
+    await update.message.reply_text("Scanning " + ticker + " insider cluster (" + str(days) + "d)...")
+    try:
+        cluster = edgar_mod.get_insider_cluster(ticker, days=days)
+        await update.message.reply_text(edgar_mod.format_insider_cluster(cluster))
+    except Exception as e:
+        await update.message.reply_text("Error: " + str(e))
+
+
+async def scheduled_buy_cluster_scan_job():
+    """Daily scan: alert if any watchlist ticker has a buy cluster."""
+    insider_list = None
+    for name in ("INSIDER_TICKERS", "WATCHLIST_INSIDERS"):
+        try:
+            mod = __import__("shared.config", fromlist=[name])
+            insider_list = getattr(mod, name)
+            break
+        except (ImportError, AttributeError):
+            pass
+    if insider_list is None:
+        from shared.config import WATCHLIST
+        insider_list = WATCHLIST[:15]
+    found = []
+    for tk in insider_list:
+        try:
+            brief = edgar_mod.get_insider_brief(tk, ttl_hours=24)
+            if not brief or (brief.get("n_buys") or 0) == 0:
+                continue
+            cluster = edgar_mod.get_insider_cluster(tk, days=14)
+            if cluster.get("is_buy_cluster"):
+                found.append(cluster)
+        except Exception as e:
+            log.warning("cluster scan " + tk + ": " + str(e))
+    if found:
+        msg = "INSIDER BUY CLUSTERS DETECTED (14d)\n\n"
+        for c in found:
+            msg += edgar_mod.format_insider_cluster(c) + "\n\n"
+        await notify.send_text(msg.strip())
+    else:
+        log.info("Daily cluster scan: no buy clusters found")
+
+
+async def cmd_credit(update, ctx):
+    try:
+        from shared import macro
+        r = macro.get_credit_regime()
+        await update.message.reply_text(macro.format_credit_regime(r))
+    except Exception as e:
+        await update.message.reply_text('Error: ' + str(e))
+
+
+async def cmd_materiality(update, ctx):
+    """View materiality scoring: /materiality (top 5 last 24h) or /materiality SIGNAL_ID"""
+    from shared import storage as storage_mod
+    parts = update.message.text.split()
+
+    if len(parts) == 1:
+        tops = storage_mod.get_top_material_signals(n=5, since_hours=24)
+        if not tops:
+            await update.message.reply_text("No material signals in last 24h")
+            return
+        lines = ["Top 5 material signals (last 24h):\n"]
+        for t in tops:
+            title = (t.get("title") or t.get("summary") or "")[:55]
+            mat = t.get("materiality") or 0
+            lines.append("#" + str(t["id"]) + " [" + (t.get("primary_ticker") or "-") + "] m=" + ("%.3f" % mat))
+            lines.append("  " + title)
+            if t.get("why_this_matters"):
+                lines.append("  --> " + t["why_this_matters"])
+            lines.append("")
+        await update.message.reply_text("\n".join(lines))
+        return
+
+    try:
+        sid = int(parts[1])
+    except ValueError:
+        await update.message.reply_text("Usage: /materiality [SIGNAL_ID]")
+        return
+
+    m = storage_mod.get_materiality(sid)
+    if not m:
+        await update.message.reply_text("No materiality data for signal #" + str(sid))
+        return
+
+    lines = [
+        "Materiality #" + str(sid) + ":",
+        "  composite:      " + ("%.3f" % (m.get("materiality") or 0)),
+        "  quality:        " + ("%.3f" % (m.get("quality") or 0)),
+        "  novelty:        " + ("%.2f" % (m.get("novelty") or 0)),
+        "  cross-conf:     " + ("%.2f" % (m.get("cross_confirmation") or 0)),
+        "  market_impact:  " + ("%.2f" % (m.get("market_impact") or 0)),
+        "  regime_fit:     " + ("%.2f" % (m.get("regime_relevance") or 0)),
+        "  type: " + str(m.get("signal_type") or "?") + " | polarity: " + str(m.get("polarity") or "?"),
+        "  primary: " + str(m.get("primary_ticker") or "-") + " | noise: " + str(bool(m.get("is_noise"))),
+        "  regime: " + str(m.get("regime_snapshot") or "?") + " | credit: " + str(m.get("credit_regime_snapshot") or "?"),
+    ]
+    if m.get("why_this_matters"):
+        lines.append("")
+        lines.append("Why this matters:")
+        lines.append("  " + m["why_this_matters"])
+    await update.message.reply_text("\n".join(lines))
+
+
+def main():
+    storage.log_event("startup", {"phase": "2"})
+    cfg = config.load()
+    log.info(f"Bot starting. Watchlist: {len(cfg['universe']['watchlist'])} tickers")
+
+    app = (
+        Application.builder()
+        .token(config.telegram_token())
+        .post_init(post_init)
+        .build()
+    )
+    app.add_handler(CommandHandler("ping", cmd_ping))
+    app.add_handler(CommandHandler("thesis_add", cmd_thesis_add))
+    app.add_handler(CommandHandler("thesis_list", cmd_thesis_list))
+    app.add_handler(CommandHandler("thesis_revisit", cmd_thesis_revisit))
+    app.add_handler(CommandHandler("thesis_set", cmd_thesis_set))
+    app.add_handler(CommandHandler("exit", cmd_exit))
+    app.add_handler(CommandHandler("exit_force", cmd_exit_force))
+    app.add_handler(CommandHandler("thesis_note", cmd_thesis_note))
+    app.add_handler(CommandHandler("digest", cmd_digest))
+    app.add_handler(CommandHandler("feedback", cmd_feedback))
+    app.add_handler(CommandHandler("credibility", cmd_credibility))
+    app.add_handler(CommandHandler("predictions", cmd_predictions))
+    app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("resolve_now", cmd_resolve_now))
+    app.add_handler(CommandHandler("regime", cmd_regime))
+    app.add_handler(CommandHandler("credit", cmd_credit))
+    app.add_handler(CommandHandler("materiality", cmd_materiality))
+    app.add_handler(CommandHandler("calendar", cmd_calendar))
+    app.add_handler(CommandHandler("calendar_refresh", cmd_calendar_refresh))
+    app.add_handler(CommandHandler("insiders", cmd_insiders))
+    app.add_handler(CommandHandler("macro", cmd_macro))
+    app.add_handler(CommandHandler("insider_digest", cmd_insider_digest))
+    app.add_handler(CommandHandler("insider_cluster", cmd_insider_cluster))
+    app.add_handler(CommandHandler("price_check", cmd_price_check))
+    app.add_handler(CommandHandler("override", cmd_override))
+    app.add_handler(CommandHandler("overrides", cmd_overrides))
+    app.add_handler(CommandHandler("crypto", cmd_crypto))
+    app.add_handler(CommandHandler("position_set", cmd_position_set))
+    app.add_handler(CommandHandler("position_buy", cmd_position_buy))
+    app.add_handler(CommandHandler("position_sell", cmd_position_sell))
+    app.add_handler(CommandHandler("position", cmd_position))
+    app.add_handler(CommandHandler("positions", cmd_positions))
+    app.add_handler(CommandHandler("analyze", cmd_analyze))
+
+    log.info("Polling Telegram...")
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
+
+

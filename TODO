@@ -1,0 +1,332 @@
+# TODO — mes-bots-finance
+
+Last updated: 2026-05-11 (session complete + strategic backlog from analyst review)
+
+---
+
+## ✅ ALL SHIPPED 2026-05-11
+
+### Foundation
+- Phase 1 substrat + 6 root docs
+- Phase 2 Gmail / Thesis / Digest / Predictions / Shadow
+
+### Macro context & insiders
+- Phase 3.1 Regime detector (VIX/DXY/yield curve/M2/F&G) + LLM prompt injection
+- Phase 3.2 Smart earnings calendar + pre-event alerts
+- Phase 4 SEC EDGAR insiders + insider context in digest + daily auto digest 6h Paris
+- 32 macro events seedés (FOMC + CPI + NFP through Dec 2026)
+
+### Action mechanization
+- **Phase 5** Price monitor + thesis triggers (cron 15min mkt hours)
+- **Phase 6** Crypto top-zone (funding + OI + Mayer Multiple, cron 10h Paris)
+- **Phase 7** Position tracking (weighted-avg cost + realized PnL + audit trail)
+
+### Polish
+- Welcome filter, /help dynamic 29 handlers, /thesis_set, yfinance silent, n_correct fixed+backfilled
+- FRED self-load, bot/main.py refactor (all 8 crons + 29 handlers wired)
+- daily_check.sh + scripts/post_mortem.py
+
+---
+
+## 🧠 STRATEGIC EVOLUTION — qualitative cognitive upgrades
+
+> Inspired by analyst review 2026-05-11. The big shift: from "news flow" → "belief change".
+> Today the bot observes + alerts. Tomorrow it understands + weights.
+
+### Phase 11 : Materiality + Belief Change (HIGH leverage, 3h)
+- [ ] **Materiality score** per signal (0-1) : novelty + measurability + contradiction
+  - DB : add `materiality` REAL col on signals
+  - LLM prompt : output materiality + reasoning
+  - Filter digest default to materiality > 0.5
+- [ ] **Belief change tracking** : new table `conviction_history(thesis_id, prev, new, trigger_signal_id, timestamp)`
+  - Capture "0.71 → 0.76 after MSFT capex print" automatically
+  - Foundation for BiasDetector
+- [ ] **"Why this matters" LLM layer** : after scoring, prompt 2-3 sentences explaining direct + indirect impact + horizon + historical analog
+
+### Phase 12 : Cross-Confirmation Network (HIGH leverage, 3-4h)
+- [ ] **Cluster insider buying** : 3+ distinct insiders, same ticker, 14d → alert (academic alpha ~5-8% OP)
+  - Extend insider_digest.py for per-insider granularity (currently aggregated)
+- [ ] **Supplier confirmation** : when 2+ upstream (TSMC, ASML, SK Hynix, Applied Materials) confirm same narrative within 14d → validated, score boost
+  - Tag sources with `position_in_supply_chain`
+- [ ] **Narrative saturation cycle** : track frequency × source diversity over time. Niche → expert → media → retail/CNBC = peak warning
+
+### Phase 13 : Guidance Language Tracking (HIGH leverage, 2-3h + data source)
+- [ ] Parse earnings call transcripts for : "raised / reaffirmed / softening / visibility / cautious / optimization"
+  - Data source : Motley Fool free transcripts OR Yahoo Finance scrape
+  - Q-over-Q semantic drift = leading indicator
+
+### Phase 14 : Evidence Graph per Thesis (MEDIUM effort, transformative)
+- [ ] New table `evidence(thesis_id, signal_id, polarity {support|contradict}, weight, created_at)`
+- [ ] /digest shows : "NVDA bullish: 4 supports vs 2 contradicts, confidence 0.81"
+- [ ] Conviction auto-updates as evidence accumulates
+- [ ] Surface fractures : "Chamath bullish but insider -$164M = contradiction"
+
+### Phase 16 : Credit Markets in Regime (EASY add, 30min)
+- [ ] FRED endpoints : BAMLH0A0HYM2 (HY OAS), BAMLC0A0CM (IG spread)
+- [ ] Add to regime.py : HY widens >100bp in 30d = CREDIT-STRESS signal
+- [ ] Credit often leads equity stress by 2-8 weeks
+
+### Phase 17 : Second-Order Effects (HEAVY, defer or skip)
+- [ ] `impact_graph(source_theme, target_ticker, relation_type, strength)` table
+- [ ] AI capex → power → utilities → {VRT, CEG, EAT, QNTA, ETN}
+- ⚠ Heavy maintenance, gain marginal unless trading second derivatives
+
+---
+
+## 🚧 NEXT EXECUTABLE — Phase 8 : Cross-Source Consensus
+
+> When 2+ sources flag same ticker × narrative within 7d → conviction boost.
+> ⚠ Wait until 50+ signals accumulated to be statistically useful (~4-6 weeks).
+
+- [ ] `intelligence/consensus.py` : detect_clusters() aggregates signals
+- [ ] ≥2 distinct sources + avg score ≥6 in 7d = cluster
+- [ ] Boost score in digest LLM prompt
+- [ ] Surface as 🔥 high-conviction in digest
+
+---
+
+## 📋 PLANNED (legacy)
+
+### Phase 9 polish
+- [x] /override + table inline with Phase 5
+- [ ] /override_list standalone
+- [ ] Weekly override summary
+
+### Phase 15 Additional sources
+- [ ] RSS (CoinDesk, Bloomberg, Reuters)
+- [ ] Twitter watched accounts (rate-limited)
+- [ ] Reddit sentiment proxy
+
+---
+
+## 🔮 BACKLOG TIER 3
+
+- [ ] **#10** Web dashboard Flask local (graphes credibility/theses/alerts)
+- [ ] **#11** Notebook Jupyter export
+- [ ] **#12** Backtesting calibration (light, NOT vectorbt) — thesis target levels via yfinance 5y vol bands. Build when creating thesis #3+.
+- [ ] **#14** Tax-loss harvesting reminders Dec/Jan
+- [ ] **#16** RRP signal in regime.py — DEFERRED (currently drained $0.79B). Fix snippet ready in repo when RRP > $500B again.
+- [ ] **#21** Portfolio risk monitor : concentration alert (>40% in one position), live drawdown from peak, simple Sharpe rolling — NOT PyPortfolioOpt (anti-pattern for thesis-driven concentrated investing)
+- [ ] **#22** Finnhub for **earnings surprises + analyst targets** ONLY — NOT for insider (EDGAR > Finnhub), NOT for real-time quotes (15min delay anyway). ~2h.
+
+---
+
+## 💤 DEFERRED — Conditions de réactivation
+
+- **Phase 10 BiasDetector** : 30+ resolved predictions + 30+ overrides. Review J+90 (2026-08-09).
+- **OpenBB** : trigger = yfinance OR EDGAR cassent >7j consécutifs. Skip otherwise (vendor lock + 300MB).
+- **vectorbt** : skip — wrong tool for thesis-driven workflow. Use lightweight calibration scripts when needed.
+- **PyPortfolioOpt** : skip — Markowitz optimizers destroy edge in concentrated thesis investing.
+
+---
+
+## ❌ EXPLICITLY REJECTED (don't suggest again)
+
+- sec-edgar-downloader lib : redundant with shared/edgar.py direct calls
+- Finnhub real-time quotes : 15min delay = same as yfinance
+- Finnhub insider data : worse than direct EDGAR (lag + middleman)
+- Job postings as alpha : data hard to get free, low signal/noise
+- General narrative saturation tracking : needs broad media monitoring
+
+---
+
+## CALENDRIER FORWARD (validation loop)
+
+| J+ | Date | Event | Attendu |
+|---|---|---|---|
+| +1 | 2026-05-12 06:00 Paris | 1er daily insider digest auto | Telegram reçu |
+| +1 | 2026-05-12 10:00 Paris | 1er crypto zone check | NEUTRAL = silent |
+| +2 | 2026-05-13 | CPI April release | 1er macro pre-event alert |
+| +10 | 2026-05-21 | NVDA earnings | thesis stress test vs insider -$164M |
+| +25 | 2026-06-05 | NFP | 2e macro alert |
+| +37 | 2026-06-17 | FOMC + SEP + dot plot | 1er rate catalyst |
+| +90 | 2026-08-09 | Review 30+ predictions resolved | Activate BiasDetector si oui |
+
+---
+
+## RECOMMENDED ORDER NEXT SESSION (when you return)
+
+1. **Bootstrap real positions** via Telegram (5 min, immediately unlocks Phase 5/6/7 personalization)
+2. **Phase 11 Materiality + "Why this matters"** (3h, transforms digest quality)
+3. **Phase 12.1 Cluster insider buying** (1h, academic alpha)
+4. **Phase 16 Credit markets** (30min, easy regime extension)
+5. **Phase 8 Cross-source consensus** (wait 4-6 weeks for data)
+6. **Phase 14 Evidence graph** (when Phase 11 + 12 mature)
+
+
+
+# ========================================================
+# UPDATES — 2026-05-11 evening (après brainstorm docs externes)
+# ========================================================
+
+## 🎯 TIER S — High value, low cost (next session priorities)
+
+### [ ] Phase 18 — Decision Journal + Error Analysis (2-3h)
+- Nouvelle table `decisions` : (id, ts, ticker, decision_type, thesis_id, confidence_pre, reasoning, regime_snapshot, credit_snapshot, materiality_snapshot, outcome_30d, outcome_90d, outcome_resolved_at, mistakes_tags)
+- decision_type ∈ {entry, scale_in, partial_exit, full_exit, override, no_action_flag}
+- Cmd `/journal <ticker> <type> <confidence> <reasoning>` → log entry
+- Cron J+30 et J+90 : auto-resolve outcome via price delta + classify mistake
+- Cmd `/journal_review` : top mistakes par regime / par decision_type / par ticker class
+- ROI : direct hit sur biais asymétrique PLTR/NVDA → mesure empirique du "sell too early"
+- Prérequis : aucun (peut tourner même sans positions réelles)
+
+### [ ] Phase 19 — Narrative Saturation Detector (2-3h)
+- Nouvelle table `narrative_state` : (narrative, ts, signal_count_30d, polarity_avg, insider_polarity_inverse, media_saturation_score, composite 0-1)
+- Cron quotidien : agrège signals.narratives JSON par narrative active
+- Score composite = signal_count_30d × |polarity_avg| × (1 - insider_alignment)
+- Cmd `/narrative` : top 5 narratives par saturation
+- Trigger alert quand narrative_saturation >0.8 + insider_distribution + credit TIGHT
+- ROI : détection late-stage automatique vs intuition
+
+### [ ] Phase 20 — Regime Transition Detector (1-2h)
+- Nouvelle table `regime_history` : snapshot quotidien de get_regime() + get_credit_regime() + breadth metrics
+- Helper `detect_regime_transition(window_days=14)` : compare T vs T-14j sur N inputs (HY OAS, yield curve, breadth, leadership)
+- Flag quand ≥3 inputs basculent en simultané
+- Cmd `/regime_delta` : diff lisible 14j
+- Notification Telegram dédiée si transition détectée
+- ROI : edge réel vs snapshot statique du régime actuel
+
+## 🛠 TIER A — Polish & quick wins
+
+### [x] Wire credit + insider cluster scores plus profondément dans /analyze prompt — DONE 2026-05-11 evening (Pick #1)
+- Actuellement passe en contexte texte, l'utiliser explicitement dans la section "PROBABILISTIC OUTLOOK"
+- Forcer le LLM à pondérer Bull/Base/Bear par credit_regime + cluster_concentration_ex_top
+
+### [x] /analyze caching — DONE 2026-05-11 evening (Pick #3, cache_hit 0.00s validated)
+- Ne pas re-call LLM si même ticker analysé <24h
+- Nouvelle table `analyze_cache` : (ticker, output_md, generated_at)
+- Économie ~$0.04/call × redondance
+
+### [x] /history TICKER cmd — DONE 2026-05-11 evening
+- Aggrège insider activity 90/180/365j + cluster events passés + thesis triggers + predictions résolues
+- Fiche historique 1-shot pour contextualiser /analyze
+
+### [x] Newsletter source health check — DONE 2026-05-11 evening (/sources_health)
+- Table `newsletter_health` : (source, last_signal_at, signals_30d)
+- Cron quotidien : flag si source silencieuse >7j (cassée ?)
+- Cmd `/sources_health` : status 9 newsletters
+
+### [x] Auto-detect tickers hors watchlist — DONE 2026-05-11 evening (/orphan_tickers)
+- Scan signals.entities sur 30j
+- Cmd `/orphan_tickers` : top tickers mentionnés mais absents de watchlist (candidats à ajouter)
+
+### [ ] Cron auto-trigger /analyze sur tickers thesis active post-earnings (1-2h)
+- Lire events table, J+1 après earnings d'un ticker avec thesis active → run analyze + push to Telegram
+- Catalyseur clé pour NVDA 21/05
+
+### [x] Idempotency formal test sur Phase 11 wrapper — DONE 2026-05-11 evening (Pick #2, 3/3 PASS)
+- Smoke test : run_enhanced_digest() × 3 fois consécutives → vérifier conviction_history pas explosée
+- Si > N rows par signal_id : trigger cleanup
+
+### [ ] Conviction history retention policy (15min)
+- Garder uniquement les 5 dernières persists par signal_id
+- Cron mensuel ou hook au persist
+
+## 📦 TIER B — Backlog (defer until DB mature ou besoin clair)
+
+### Phase 21 — Expectation Engine ("what's priced in?")
+- Champ consensus_state par ticker watchlist (analyst PT median, EPS estimate, narrative crowdedness 0-1)
+- Reportable à 60j (besoin d'historique newsletters pour calibrer "consensus")
+
+### Phase 22 — Market Memory / Analogues historiques
+- "Last N times credit spreads + insider distribution + narrative saturation à ces niveaux → outcome ?"
+- Reportable à 6 mois (besoin profondeur DB ≥ 12 mois de signals + outcomes)
+
+### Phase 23 — Evidence Graph 2nd order
+- Après Phase 14 basic (evidence per thesis) shippé et validé
+- Chaînes causales NVDA → TSMC → SK Hynix → Vertiv
+- Demande tagging manuel des relations causales (lourd)
+
+### Polish bot.log rotation
+- Actuellement manuel, mettre logrotate ou Python TimedRotatingFileHandler
+
+### Backup retention policy
+- Garder seulement les 7 derniers backups dans .backups/
+- Cron hebdo
+
+## ❌ EXPLICITLY REJECTED (ne pas re-proposer)
+
+### Architectural regressions
+- Streamlit dashboard (push Telegram > pull dashboard, déjà ton choix)
+- MarketBelief unified refactor (refactor for elegance, pas pour pain réel — schéma actuel suffit)
+
+### Data sources noise
+- LunarCrush / Santiment / sentiment social retail (bruit pour stratégie thesis-driven fundamentals/insider/macro)
+- Finnhub / Alpha Vantage / Polygon ajoutés en plus (yfinance + FRED + EDGAR couvrent 95%, surfaces de bug additionnelles sans alpha)
+- OpenBB Copilot (LLM wrapper Anthropic existant plus flexible)
+- TA-Lib RSI/MACD comme "game changer" (tout le retail les a, zero edge)
+
+### Modeling traps
+- Backtester quant sur composite scoring (overfit garanti sur stratégie thesis-driven discrétionnaire ; le Decision Journal Phase 18 est le vrai feedback loop empirique)
+- PyPortfolioOpt (anti-pattern pour concentré thesis-driven, déjà rejeté en mémoire)
+- Probabilistic Scenarios structurés (l'output /analyze LLM le fait déjà implicitement, sur-engineering)
+- Execution Intelligence "scale in / trim / hedge" automatique (trop tôt, attendre 90j de signaux mesurés)
+
+
+## DATA QUALITY ISSUES — observed 2026-05-11 evening via /sources_health + /history NVDA
+
+### [x] Sources dedup Irina Slav — DONE 2026-05-11 evening (merged source #7 welcome+orphan into #21 canonical, dropped +random-rants Gmail label)
+
+### [ ] **Upstream fix**: get_or_create_source() should strip Gmail +labels before sender match (irinaslav+xxx@substack.com → irinaslav@substack.com) to prevent future Irina-style duplicates
+- Investigate: SELECT * FROM sources WHERE name LIKE '%Irina%';
+- Fix: normalize on substack handle ou domain, merge rows
+
+### [ ] Insider snapshot persistence incomplete: total_buys_m et total_sells_m sont 0 alors que net_m est correctement -163.7M
+- Symptom: /history NVDA affiche "buys $0.0M / sells $0.0M" avec net $-163.7M
+- Root cause probable: get_insider_summary_90d() retourne (net, raw_data) mais persist ne stocke que net
+- Fix: ajouter total_buys_m et total_sells_m au INSERT INTO insider_snapshots
+
+### [x] Gmail cron — RESOLVED 2026-05-11 evening (storage._is_welcome_signal NameError, 1-line typo fix)
+- Symptom: 9+ newsletters censees s'updater quotidiennement mais 0 nouveau signal depuis le seed
+- Investigation requise: tail -200 bot.log apres prochain trigger gmail (1h), verifier "ingest_new_emails" output
+- Ou: forcer un /digest pour tester le flux end-to-end
+
+### [ ] Return_pct storage format inconsistent
+- Symptom: stocke en decimal (0.1324) mais peut creer confusion avec d'autres usages
+- Decision: standardiser - stocker en pourcentage (13.24) OU documenter clairement le format decimal
+- Touch points: predictions.return_pct, conviction_history (si applicable), thesis clv_xd
+
+
+## 🆕 ADDED 2026-05-11 evening (post-triage) — TIER A
+
+### [x] Phase 25a — Enrich /analyze with comprehensive fundamentals — DONE 2026-05-12 morning
+17 new yfinance fields populated: EBITDA absolu + margin, OCF/FCF absolu, ROE/ROA, D/E ratio, current/quick ratio, PEG, short interest (% float + days-to-cover), insider/institutional ownership %, revenue CAGR multi-year, earnings growth QoQ. Validated empirically on NVDA: LLM cite explicitement ROE 101.5% / D/E 0.07x / PEG 0.68 / OCF-FCF spread = capex inference.
+
+### [ ] Phase 25b — Structured JSON output + self-consistency (1-1.5h)
+- Force LLM response en JSON strict: {score_0_100, bull_args:[], bear_args:[], probability_bull:0-1, key_risks:[], synthesis_md}
+- Self-consistency: 3 LLM calls même prompt, vote majoritaire sur score, médiane sur probability
+- Coût: 3x ($0.12/call) compensé par cache 24h
+- Bénéfice: outputs parsables + variance réduite + comparabilité entre /analyze
+
+### [ ] Phase 24 — Monthly Resume Digest (cron 1er du mois, 7h Paris) (2h)
+Couplé à Phase 18 Decision Journal (prérequis).
+Contenu:
+- Cumulative top materiality signals (top 10 du mois)
+- Predictions résolues le mois écoulé + accuracy rate
+- Regime transitions détectées (Phase 20)
+- Top narratives par saturation (Phase 19)
+- Décisions journalisées + outcomes 30d/90d (Phase 18)
+- Biais détectés (sell-too-early count, hold-too-long count)
+- Sources credibility shifts
+Cron: APScheduler `cron 1 7 1 * *` (1er du mois à 7h)
+
+
+
+### [ ] Brier Score calibration des sources.credibility (1h)
+**ADDED 2026-05-11 late evening**
+- À chaque résolution prédiction (cron resolve 9h), calculer Brier score = (probability_predicted - outcome_actual)^2
+- Cron mensuel: recalculer sources.credibility = 1 - mean(Brier over N>=10 resolved predictions for that source)
+- Remplace les credibility hand-set actuels (Chamath 0.53, etc.) par calibration empirique
+- Add column predictions.brier_score (computed at resolve time)
+- Add column conviction_history.source_credibility_at_persist (snapshot for analysis)
+
+### [ ] Watchlist expansion data-driven (DEFER — condition: /orphan_tickers tourné 3-5 jours)
+Au lieu d'expansion à l'aveugle, attendre 5 jours d'ingestion pour analyser via /orphan_tickers les tickers les plus mentionnés hors watchlist.
+Candidates probables (à valider empiriquement):
+- Power AI: VRT, CEG, VST, ETN, GE Vernova
+- Networking AI: ANET, CRDO, CIEN
+- Cooling/datacenter: NVT (nVent)
+- Asian semis: 005930.KS (Samsung), 000660.KS (SK Hynix)
+- Crypto miners: RIOT, MARA, CLSK
+- Software AI: PLTR, SNOW, MDB
+Action: après 5j de data, /orphan_tickers top 10 → add to config.yaml universe.watchlist

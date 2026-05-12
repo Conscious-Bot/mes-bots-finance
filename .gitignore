@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+*.egg-info/
+
+# Secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+oauth_tokens/
+
+# DB (tracked via separate snapshots in ~/backups)
+data/bot.db
+data/bot.db-journal
+data/bot.db-wal
+data/bot.db-shm
+*.db
+*.sqlite
+*.sqlite3
+
+# Local backups (already separately backed up to ~/backups)
+.backups/
+
+# Logs
+*.log
+bot.log
+nohup.out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Models / embeddings cache
+.cache/
+models/
+
+# Audit reports (timestamped, don't track all)
+AUDIT_*.md
+!AUDIT_2026-05-12_marathon.md

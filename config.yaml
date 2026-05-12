@@ -1,0 +1,379 @@
+universe:
+  core:
+    semis_core:
+    - NVDA
+    - AVGO
+    - TSM
+    - MU
+    - ASML
+    - AMD
+    - ARM
+    ai_infra:
+    - VRT
+    - CRWV
+    tech_mega:
+    - MSFT
+    - GOOGL
+    - META
+    power_for_ai:
+    - CEG
+    - VST
+    - GEV
+    crypto_core:
+    - MSTR
+    - IBIT
+    - COIN
+    quality_compounders:
+    - V
+    - BLK
+    healthcare_core:
+    - LLY
+    - NVO
+  watch:
+  - QCOM
+  - MRVL
+  - NXPI
+  - TXN
+  - IFNNY
+  - TSEM
+  - LRCX
+  - AMAT
+  - KLAC
+  - TER
+  - ACMR
+  - SNPS
+  - ANSS
+  - ATEYY
+  - TOELY
+  - SMH
+  - SNDK
+  - AAOI
+  - APLD
+  - NBIS
+  - IREN
+  - INOD
+  - AAPL
+  - AMZN
+  - ORCL
+  - ADBE
+  - CRWD
+  - PANW
+  - S
+  - NET
+  - SNOW
+  - TEAM
+  - PATH
+  - TSLA
+  - LI
+  - XPEV
+  - LCID
+  - UBER
+  - RIOT
+  - RGTI
+  - QBTS
+  - RKLB
+  - LMT
+  - BE
+  - SAFRY
+  - NEE
+  - ALB
+  - ROK
+  - ABBNY
+  - CGNX
+  - IBKR
+  - STT
+  - BABA
+  - PDD
+  - MELI
+  - CPNG
+  - TCEHY
+  - SHECY
+  - PG
+  - INTC
+  - DELL
+  - OKLO
+  - CCJ
+  - MP
+  - IONQ
+  - ASTS
+  - FLNC
+  - STX
+  - COST
+  - BRK-B
+  - EQIX
+  - DLR
+  - VRTX
+  - ISRG
+  extended:
+    crypto_etfs:
+    - ETHA
+    - FBTC
+    commodities_broad:
+    - URA
+    - REMX
+    - XOP
+    - NEM
+    - FCX
+    healthcare_extended:
+    - ABBV
+    - MRK
+    - REGN
+    - PFE
+    defense_extended:
+    - RTX
+    - NOC
+    - GD
+    financials_extended:
+    - JPM
+    - MS
+    - GS
+    - MA
+    - SCHW
+    international_extended:
+    - BHP
+    - RIO
+    memory_storage:
+    - WDC
+    - MRAM
+    robotics_pure:
+    - SYM
+    nuclear:
+    - LEU
+    - UUUU
+    rare_earths:
+    - USAR
+    - CRML
+    - TMC
+    critical_minerals:
+    - TMQ
+    - UAMY
+    - LAC
+    space:
+    - PL
+    - GILT
+    - FLY
+    drones:
+    - ONDS
+    - UMAC
+    batteries_pure:
+    - TE
+    - ELVA
+    ai_infra_extended:
+    - HUT
+    power_extended:
+    - EMR
+    - FCEL
+    - PLUG
+    - VICR
+    - ETN
+    consumer_staples_extended:
+    - WMT
+    - PG
+    - TJX
+    - NKE
+    - MCD
+    reits_extended:
+    - AMT
+    - PLD
+    - IRM
+    - O
+    insurance:
+    - PGR
+    - ALL
+    - AIG
+    - TRV
+    biotech_mid_cap:
+    - EW
+    - ALNY
+    - REGN
+    - BIIB
+    energy_infra:
+    - EPD
+    - ENB
+    - WMB
+    - KMI
+    international_tier2:
+    - TM
+    - HMC
+    - SE
+    - NTES
+    - EDU
+    mining_diversification:
+    - GOLD
+    - BTG
+    - SQM
+    - FNV
+    industrials_classic:
+    - HON
+    - CAT
+    - DE
+    - EMR
+    defense_tier2:
+    - HII
+    - LDOS
+    - KTOS
+  sectors_focus:
+  - semis
+  - ai_infra
+  - hyperscalers
+  - energy_for_ai
+  topics_priority:
+  - AI infra
+  - semi cycle
+  - macro liquidity
+  - energy bottleneck
+style:
+  default_horizon: 6m
+  conviction_min: 3
+  position_max_pct: 0.05
+  sector_max_pct: 0.2
+  narrative_max_pct: 0.3
+risk:
+  drawdown_reduce_pct: 0.08
+  drawdown_stop_pct: 0.2
+  max_open_positions: 15
+  vol_scaling_threshold_vix: 25
+  vol_scaling_factor: 0.7
+models:
+  signal_scoring: claude-haiku-4-5-20251001
+  synthesis: claude-sonnet-4-6
+  deep_analysis: claude-opus-4-7
+filters:
+  signal_score_min_for_digest: 5
+  signal_decay_default_hours: 72
+  signal_decay_macro_thesis_hours: 720
+  signal_decay_earnings_leak_hours: 1
+narratives:
+  tracked:
+  - name: AI_infra
+    definition: compute, HBM, datacenters, power for AI
+  - name: sovereign_AI
+    definition: nations achetant capacity
+  - name: energy_bottleneck
+    definition: electricité comme contrainte AI
+  - name: semi_cycle
+    definition: cycle inventory + capacity
+  - name: liquidity
+    definition: Fed liquidity, RRP, conditions financières
+  - name: geopolitics
+    definition: sanctions, export controls, Taiwan
+  - name: macro_inflation
+    definition: CPI, wages, services inflation
+  - name: macro_recession
+    definition: labor weakening, credit, yield curve
+  - name: robotics
+    definition: humanoids, factory automation, embodied AI
+  - name: defense_tech
+    definition: drones, hypersonic, space, primes
+  - name: china
+    definition: reopening, stimulus, property, deflation
+  - name: crypto
+    definition: BTC cycle, ETH, regulation, stablecoins
+shadow:
+  enabled: true
+  variants_active:
+  - aggressive
+  - conservative
+sources:
+  starter_pack_phase2:
+  - name: Stratechery
+    type: newsletter
+    tier: premium
+    cost_monthly: 15
+    topics:
+    - tech
+    - business_structure
+    - aggregation
+    credibility_initial: 0.7
+  - name: SemiAnalysis
+    type: newsletter
+    tier: premium
+    cost_monthly: 50
+    topics:
+    - semis
+    - AI_infra
+    - nvidia
+    - tsmc
+    - asml
+    - hbm
+    credibility_initial: 0.8
+  - name: Glassnode
+    type: newsletter
+    tier: free
+    cost_monthly: 0
+    topics:
+    - crypto
+    - btc
+    - eth
+    - on_chain
+    credibility_initial: 0.7
+  - name: Apollo Daily Spark
+    type: newsletter
+    tier: free
+    cost_monthly: 0
+    topics:
+    - macro
+    - charts
+    credibility_initial: 0.6
+  - name: Noahpinion
+    type: newsletter
+    tier: mixed
+    cost_monthly: 0
+    topics:
+    - macro
+    - economics
+    - politics
+    credibility_initial: 0.55
+  - name: Unusual Whales
+    type: newsletter
+    tier: mixed
+    cost_monthly: 0
+    topics:
+    - options_flow
+    - unusual_activity
+    credibility_initial: 0.5
+  - name: Doomberg
+    type: newsletter
+    tier: mixed
+    cost_monthly: 0
+    topics:
+    - energy
+    - commodities
+    - critical_minerals
+    - oil
+    credibility_initial: 0.6
+  - name: Meilleurtaux Placement
+    type: newsletter
+    tier: free
+    cost_monthly: 0
+    topics:
+    - fr_market
+    - personal_finance
+    - fiscalite
+    credibility_initial: 0.4
+  - name: Nicolas Cheron
+    type: newsletter
+    tier: mixed
+    cost_monthly: 0
+    topics:
+    - fr_market
+    - technical_analysis
+    - eu_market
+    credibility_initial: 0.5
+tiers:
+  extract: claude-haiku-4-5-20251001
+  enrich: claude-sonnet-4-6
+  synthesize: claude-opus-4-7
+pricing:
+  claude-haiku-4-5-20251001:
+    input: 1.0
+    output: 5.0
+    cached_input: 0.1
+  claude-sonnet-4-6:
+    input: 3.0
+    output: 15.0
+    cached_input: 0.3
+  claude-opus-4-7:
+    input: 15.0
+    output: 75.0
+    cached_input: 1.5
