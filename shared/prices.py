@@ -12,6 +12,7 @@ _logging.getLogger("yfinance").setLevel(_logging.CRITICAL)
 import contextlib
 
 import yfinance.utils as _yfu
+from typing import Any
 
 with contextlib.suppress(Exception):
     _yfu.get_yf_logger().setLevel(_logging.CRITICAL)
@@ -19,7 +20,7 @@ with contextlib.suppress(Exception):
 import yfinance as yf
 
 
-def get_current_price(ticker):
+def get_current_price(ticker: str) -> float | None:
     """Latest close price. Returns float or None."""
     try:
         t = yf.Ticker(ticker)
@@ -32,7 +33,7 @@ def get_current_price(ticker):
         return None
 
 
-def get_price_on_date(ticker, date):
+def get_price_on_date(ticker: str, date: str) -> float | None:
     """Close price on or after `date` (str YYYY-MM-DD or datetime).
     Falls back to next trading day. Returns (actual_date_str, price) or (None, None).
     """
@@ -60,7 +61,7 @@ def get_price_on_date(ticker, date):
         return (None, None)
 
 
-def get_returns(ticker, baseline_date, current_date=None):
+def get_returns(ticker: str, baseline_date: str, current_date: str | None = None) -> dict[str, Any] | None:
     """Return between baseline_date and current_date (default now)."""
     b_actual, b_price = get_price_on_date(ticker, baseline_date)
     if b_price is None:
@@ -101,7 +102,7 @@ if __name__ == "__main__":
         )
 
 
-def get_price_window(ticker, start_date, end_date):
+def get_price_window(ticker: str, start_date: str, end_date: str) -> Any:  # pd.DataFrame | None
     """Phase A4 — Daily closes between start and end (inclusive).
     Returns list of (date_str_YYYYMMDD, close_float). Empty list on failure.
     """

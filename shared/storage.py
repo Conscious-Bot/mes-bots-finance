@@ -5,6 +5,7 @@ import sqlite3
 from contextlib import contextmanager, suppress
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).parent.parent
 DB_PATH = ROOT / "data" / "bot.db"
@@ -12,7 +13,7 @@ STATE_PATH = ROOT / "data" / "bot_state.json"
 
 
 @contextmanager
-def db():
+def db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -31,14 +32,14 @@ def save_state(state: dict):
     STATE_PATH.write_text(json.dumps(state, indent=2))
 
 
-def update_state(**kwargs):
+def update_state(**kwargs: Any) -> None:
     s = load_state()
     s.update(kwargs)
     s["last_heartbeat_ts"] = datetime.now().isoformat()
     save_state(s)
 
 
-def log_event(event_type: str, details=None):
+def log_event(event_type: str, details: Any = None) -> None:
     with db() as conn:
         conn.execute(
             "INSERT INTO bot_events(timestamp, event_type, details) VALUES(?,?,?)",
@@ -63,7 +64,15 @@ def active_signals(min_score: int = 5, since_hours: int = 24) -> list[dict]:
 
 
 def add_thesis(
-    ticker, conviction, direction, horizon, drivers, invalidation, entry_price=None, target=None, stop=None
+    ticker: str,
+    conviction: str,
+    direction: str,
+    horizon: str,
+    drivers: str,
+    invalidation: str,
+    entry_price: float | None = None,
+    target: float | None = None,
+    stop: float | None = None,
 ) -> int:
     with db() as conn:
         conn.execute(
@@ -111,7 +120,7 @@ def update_thesis_status(thesis_id: int, status: str, notes: str | None = None):
         )
 
 
-def log_prediction(source_type, source_id, ticker, claim, horizon_days, confidence) -> int:
+def log_prediction(source_type: str, source_id: int, ticker: str, claim: str, horizon_days: int, confidence: float) -> int:
     expires_at = (datetime.now() + timedelta(days=horizon_days)).isoformat()
     with db() as conn:
         conn.execute(
@@ -149,7 +158,7 @@ def expired_unresolved_predictions() -> list[dict]:
         ]
 
 
-def record_outcome(prediction_id: int, outcome: dict, correct: bool):
+def record_outcome(prediction_id: int, outcome: dict[str, Any], correct: bool) -> None:
     with db() as conn:
         conn.execute(
             """
@@ -161,7 +170,7 @@ def record_outcome(prediction_id: int, outcome: dict, correct: bool):
         )
 
 
-def add_to_watchlist(ticker, sector=None, notes=None):
+def add_to_watchlist(ticker: str, sector: str | None = None, notes: str | None = None) -> None:
     with db() as conn:
         conn.execute(
             """
@@ -176,7 +185,7 @@ def get_watchlist() -> list[str]:
         return [r["ticker"] for r in conn.execute("SELECT ticker FROM watchlist").fetchall()]
 
 
-def add_feedback(target_type, target_id, score, note=None):
+def add_feedback(target_type: str, target_id: int, score: float, note: str | None = None) -> None:
     with db() as conn:
         conn.execute(
             "INSERT INTO feedback(target_type, target_id, score, note) VALUES(?,?,?,?)",
@@ -184,7 +193,7 @@ def add_feedback(target_type, target_id, score, note=None):
         )
 
 
-def seed_narratives(narratives_config: list[dict]):
+def seed_narratives(narratives_config: list[dict[str, Any]]) -> None:
     with db() as conn:
         for n in narratives_config:
             conn.execute(
@@ -200,7 +209,7 @@ from pathlib import Path as _Path
 _DB_PATH = _Path("data/bot.db")
 
 
-def signal_exists_by_gmail_id(gmail_id):
+def signal_exists_by_gmail_id(gmail_id: str) -> bool:
     """Check if a Gmail message has already been ingested."""
     conn = _sqlite3.connect(_DB_PATH)
     try:
@@ -210,7 +219,7 @@ def signal_exists_by_gmail_id(gmail_id):
         conn.close()
 
 
-def get_or_create_source(sender):
+def get_or_create_source(sender: str) -> int:
     """Resolve sender string to source_id. Creates a new source if unknown."""
     conn = _sqlite3.connect(_DB_PATH)
     try:
@@ -227,7 +236,7 @@ def get_or_create_source(sender):
         conn.close()
 
 
-def insert_raw_signal(source_id, gmail_id, timestamp, subject, content):
+def insert_raw_signal(source_id: int, gmail_id: str, timestamp: str, subject: str, content: str) -> int | None:
     """Insert a raw email-derived signal. Returns new signal_id, or None on welcome/duplicate.
 
     Atomicity invariant: n_signals counter and last_signal_at are updated ONLY if INSERT succeeds.

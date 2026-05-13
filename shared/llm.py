@@ -9,6 +9,7 @@ from pathlib import Path
 from anthropic import Anthropic
 
 from shared import config
+from typing import Any
 
 _client = None
 _DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "bot.db")
@@ -21,14 +22,14 @@ _TASK_TO_TIER = {
 }
 
 
-def client():
+def client() -> Any:  # anthropic.Anthropic
     global _client
     if _client is None:
         _client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     return _client
 
 
-def _resolve_model(tier=None, task=None):
+def _resolve_model(tier: str | None = None, task: str | None = None) -> str:
     """Return (model_id, resolved_tier). tier overrides task."""
     cfg = config.load()
     if tier:
@@ -43,7 +44,7 @@ def _resolve_model(tier=None, task=None):
     return cfg.get("models", {}).get("synthesis"), "enrich"
 
 
-def _compute_cost(model, input_tokens, output_tokens, cached_tokens=0):
+def _compute_cost(model: str, input_tokens: int, output_tokens: int, cached_tokens: int = 0) -> float:
     cfg = config.load()
     pricing = cfg.get("pricing", {}).get(model)
     if not pricing:
@@ -171,7 +172,7 @@ def call_json(
         return json.loads(raw)
 
 
-def get_cost_summary(window_hours=24):
+def get_cost_summary(window_hours: int = 24) -> dict[str, Any]:
     """Aggregate cost stats by tier+model for last N hours."""
     conn = sqlite3.connect(_DB_PATH)
     conn.row_factory = sqlite3.Row

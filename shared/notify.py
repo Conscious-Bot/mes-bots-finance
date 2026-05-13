@@ -30,7 +30,7 @@ def send_text(text: str, parse_mode: str = "Markdown"):
             requests.post(url, data={"chat_id": chat_id, "text": chunk})
 
 
-def send_image(path, caption=None):
+def send_image(path: str, caption: str | None = None) -> None:
     token = config.telegram_token()
     chat_id = config.telegram_chat_id()
     url = API_BASE.format(token=token, method="sendPhoto")
@@ -38,7 +38,7 @@ def send_image(path, caption=None):
         requests.post(url, data={"chat_id": chat_id, "caption": caption or ""}, files={"photo": f})
 
 
-def send_document(path, caption=None):
+def send_document(path: str, caption: str | None = None) -> None:
     token = config.telegram_token()
     chat_id = config.telegram_chat_id()
     url = API_BASE.format(token=token, method="sendDocument")
