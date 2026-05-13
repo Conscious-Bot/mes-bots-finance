@@ -13,14 +13,26 @@ Real path coverage happens when user invokes commands on Telegram.
 
 def test_shared_modules_import_cleanly():
     """All shared/* modules importable. Catches import-cascade regressions."""
-    from shared import config, crypto, echo, edgar, embeddings  # noqa: F401
-    from shared import llm, macro, math_helpers, notify  # noqa: F401
-    from shared import positions, prices, prompts, storage  # noqa: F401
+    from shared import (
+        config,
+        crypto,
+        echo,
+        edgar,
+        embeddings,
+        llm,
+        macro,
+        math_helpers,
+        notify,
+        positions,
+        prices,
+        prompts,
+        storage,
+    )
 
 
 def test_intelligence_modules_import_cleanly():
     """Core intelligence/* modules importable."""
-    from intelligence import (  # noqa: F401
+    from intelligence import (
         analyze,
         asymmetry,
         bias_tagger,
@@ -39,7 +51,7 @@ def test_intelligence_modules_import_cleanly():
 
 def test_bot_main_imports_cleanly():
     """bot.main imports without crash. Catches NameError/ImportError from refactors."""
-    import bot.main  # noqa: F401
+    import bot.main
 
 
 def test_critical_handlers_callable():
@@ -124,7 +136,7 @@ def test_db_schema_critical_tables_exist():
         # Observability
         "llm_calls", "handler_calls",
         # Macro
-        "macro_events", "filings_8k_log",
+        "events", "filings_8k_log",
     }
     missing = required - tables
     assert not missing, f"Missing required tables: {missing}"
@@ -146,7 +158,7 @@ def test_llm_cascade_models_configured():
     cfg = config.load()
     tiers = cfg.get("tiers", {})
 
-    required_tiers = ["extract", "enrich", "reasoning"]
+    required_tiers = ["extract", "enrich", "synthesize"]
     for t in required_tiers:
         assert t in tiers, f"Tier '{t}' not in config.yaml"
         assert tiers[t], f"Tier '{t}' is empty"
@@ -166,8 +178,8 @@ def test_horizon_diversification_active():
 
 def test_backup_script_exists_and_executable():
     """Daily backup must be functional during observation."""
-    from pathlib import Path
     import os
+    from pathlib import Path
     p = Path("scripts/backup.sh")
     assert p.exists(), "scripts/backup.sh missing"
     assert os.access(p, os.X_OK), "scripts/backup.sh not executable"
