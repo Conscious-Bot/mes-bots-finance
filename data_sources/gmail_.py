@@ -171,14 +171,18 @@ def ingest_new_emails(label_name=LABEL_NAME, max_results=50):
             noise_count += 1
             continue
         source_id = storage.get_or_create_source(e["from"])
-        storage.insert_raw_signal(
+        # Phase Solidification — accurate count: only increment if INSERT actually succeeded
+        inserted_id = storage.insert_raw_signal(
             source_id=source_id,
             gmail_id=e["gmail_id"],
             timestamp=datetime.now(timezone.utc).isoformat(),
             subject=e["subject"],
             content=e["body"],
         )
-        new_count += 1
+        if inserted_id is not None:
+            new_count += 1
+        else:
+            noise_count += 1
     return {
         "total_fetched": len(emails),
         "new_ingested": new_count,
