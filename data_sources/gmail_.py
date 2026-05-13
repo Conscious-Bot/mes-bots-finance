@@ -8,6 +8,7 @@ import base64
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -23,7 +24,7 @@ LABEL_NAME = "Newsletters"
 MAX_BODY_CHARS = 50000
 
 
-def get_service():
+def get_service() -> Any:  # googleapiclient resource
     if not CREDS_PATH.exists():
         raise FileNotFoundError(f"{CREDS_PATH} not found. Place credentials.json at project root.")
     creds = None
@@ -39,7 +40,7 @@ def get_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def get_label_id(service, label_name=LABEL_NAME):
+def get_label_id(service: Any, label_name: str = LABEL_NAME) -> str | None:
     labels = service.users().labels().list(userId="me").execute().get("labels", [])
     for label in labels:
         if label["name"].lower() == label_name.lower():
@@ -47,7 +48,7 @@ def get_label_id(service, label_name=LABEL_NAME):
     raise ValueError(f"Label '{label_name}' not found in Gmail")
 
 
-def _extract_body(payload):
+def _extract_body(payload: dict[str, Any]) -> str:
     if "parts" in payload:
         for part in payload["parts"]:
             mime = part.get("mimeType", "")
@@ -70,7 +71,7 @@ def _extract_body(payload):
     return ""
 
 
-def _strip_html(html):
+def _strip_html(html: str) -> str:
     text = re.sub(r"<style[^>]*>.*?</style>", " ", html, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"<script[^>]*>.*?</script>", " ", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"<[^>]+>", " ", text)
@@ -82,7 +83,7 @@ def _strip_html(html):
     return text.strip()
 
 
-def _parse_email(msg):
+def _parse_email(msg: dict[str, Any]) -> dict[str, Any]:
     headers = msg["payload"].get("headers", [])
     h = {hdr["name"].lower(): hdr["value"] for hdr in headers}
     body = _extract_body(msg["payload"])
@@ -95,7 +96,7 @@ def _parse_email(msg):
     }
 
 
-def fetch_emails(label_name=LABEL_NAME, max_results=50):
+def fetch_emails(label_name: str = LABEL_NAME, max_results: int = 50) -> list[dict[str, Any]]:
     service = get_service()
     label_id = get_label_id(service, label_name)
     results = service.users().messages().list(userId="me", labelIds=[label_id], maxResults=max_results).execute()
@@ -145,7 +146,7 @@ _ONBOARDING_PATTERNS = (
 )
 
 
-def _is_onboarding_noise(subject):
+def _is_onboarding_noise(subject: str) -> bool:
     """Phase A3 — Drop welcome/onboarding emails before persistence."""
     if not subject:
         return False
@@ -153,7 +154,7 @@ def _is_onboarding_noise(subject):
     return any(p in s for p in _ONBOARDING_PATTERNS)
 
 
-def ingest_new_emails(label_name=LABEL_NAME, max_results=50):
+def ingest_new_emails(label_name: str = LABEL_NAME, max_results: int = 50) -> dict[str, Any]:
     emails = fetch_emails(label_name, max_results)
     new_count = 0
     skipped_count = 0
