@@ -152,8 +152,8 @@ def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
         try:
             if r["entities"]:
                 entities = json.loads(r["entities"])
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(f"Materiality entities parse failed (non-blocking): {e}")
         breakdown = score_materiality_structured(r["title"], r["summary"], r["content"], entities, r["cred"])
         if breakdown:
             persist_breakdown(r["id"], breakdown)

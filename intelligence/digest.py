@@ -5,10 +5,13 @@ insights (score, sentiment, tickers, narratives, summary), updates DB,
 returns formatted digest for Telegram.
 """
 
+import logging
 from typing import Any, cast
 
 from shared import config, llm, storage
 from shared.prompts import DIGEST_SYNTHESIZER
+
+log = logging.getLogger(__name__)
 
 
 def synthesize_signal(signal_dict: dict[str, Any], watchlist: list[str], regime_context: str | None = None, insider_context: str | None = None) -> dict[str, Any]:
@@ -52,12 +55,12 @@ def process_unprocessed(limit: int = 20) -> list[dict[str, Any]]:
 
         regime_context = _build_regime_context(_regime_mod.detect_regime())
     except Exception as _e:
-        print(f"Regime ctx fetch failed: {_e}")
+        log.warning(f"Regime ctx fetch failed: {_e}")
     insider_context = None
     try:
         insider_context = _build_insider_context()
     except Exception as _e:
-        print(f"Insider ctx fetch failed: {_e}")
+        log.warning(f"Insider ctx fetch failed: {_e}")
     processed = []
     for sig in signals:
         insights = synthesize_signal(sig, watchlist, regime_context=regime_context, insider_context=insider_context)
@@ -72,15 +75,15 @@ def process_unprocessed(limit: int = 20) -> list[dict[str, Any]]:
             )
             processed.append({**sig, **insights})
         except Exception as e:
-            print(f"Failed to store insights for signal {sig['id']}: {e}")
+            log.warning(f"Failed to store insights for signal {sig['id']}: {e}")
     try:
         from intelligence import learning as _learning
 
         _pids = _learning.auto_register_predictions(processed)
         if _pids:
-            print(f"Registered {len(_pids)} predictions from {len(processed)} signals")
+            log.info(f"Registered {len(_pids)} predictions from {len(processed)} signals")
     except Exception as _e:
-        print(f"Auto-register predictions failed: {_e}")
+        log.warning(f"Auto-register predictions failed: {_e}")
     return processed
 
 
@@ -130,7 +133,7 @@ def run_digest(limit: int = 20, top_n: int = 5, fallback_hours: int = 72, includ
             banner = _regime.format_regime(r)
             return cast(str, banner) + "\n\n---\n\n" + digest_msg
         except Exception as _e:
-            print(f"Regime banner failed: {_e}")
+            log.warning(f"Regime banner failed: {_e}")
     return digest_msg
 
 
@@ -343,8 +346,8 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
                 e = json.loads(r["entities"])
                 if isinstance(e, list) and e:
                     ents = " | tickers: " + ", ".join(e[:5])
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(f"Signal entities parse failed (non-blocking): {e}")
         score = r["score"] or 0
         boost = r["materiality_boost"] or 1.0
         adj = score * boost

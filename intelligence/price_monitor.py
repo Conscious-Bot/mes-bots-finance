@@ -77,8 +77,8 @@ def _build_context(ticker: str) -> list:
                 d = datetime.strptime(r["date"], "%Y-%m-%d").date()
                 days_out = (d - date.today()).days
                 lines.append(f"  • Earnings in {days_out}d ({r['date']})")
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning(f"Earnings calendar fetch in price_monitor failed: {e}")
     return lines
 
 

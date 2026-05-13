@@ -60,8 +60,8 @@ def _macro_section():
         for r in rows:
             catalysts.append(f"{r['event_date']} {r['name']}")
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning(f"Catalyst calendar fetch failed (brief degraded): {e}")
     return {"macro_regime": regime, "credit_regime": credit, "catalysts": catalysts}
 
 
@@ -198,8 +198,8 @@ def _discipline_section():
 
         if hasattr(thesis_mod, "get_revisit_due"):
             revisits = thesis_mod.get_revisit_due() or []
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning(f"Thesis revisits fetch failed (brief degraded): {e}")
     return {"unresolved": unresolved, "revisits_due": revisits}
 
 
@@ -216,8 +216,8 @@ def _stats_section():
             "SELECT SUM(cost_usd) AS total FROM llm_calls WHERE date(created_at) = date('now')"
         ).fetchone()
         llm_cost_today = float(row["total"]) if row and row["total"] else 0.0
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning(f"LLM cost query for brief failed: {e}")
     resolved_24h = 0
     try:
         row = conn.execute(
@@ -225,8 +225,8 @@ def _stats_section():
             "WHERE resolved_at IS NOT NULL AND datetime(resolved_at) >= datetime('now', '-24 hours')"
         ).fetchone()
         resolved_24h = int(row["n"]) if row and row["n"] else 0
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning(f"Resolved-24h query for brief failed: {e}")
     conn.close()
     return {"llm_cost_today": llm_cost_today, "predictions_resolved_24h": resolved_24h}
 
