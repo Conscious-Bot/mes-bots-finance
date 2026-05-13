@@ -685,3 +685,36 @@ Reordonnancement post-solidification :
 - **C8 10-K diff** → mois 6+, gros chunk
 - **Tranche D entière** → mois 9-12 minimum, post-validation Brier <0.20
 - **Tranche E entière** → mois 12+
+
+
+---
+
+## P1 Dette technique découverte (recon sources 13/05/2026)
+
+### Bug #1: last_signal_at NULL malgré n_signals > 0
+- Symptôme: majorité des sources affichent last_signal_at vide alors que n_signals > 0
+- Cause probable: multiple code paths INSERT INTO signals, certains ne callent pas UPDATE sources SET last_signal_at
+- Fix: audit grep "INSERT INTO signals" + storage.add_signal vs autres paths
+- Effort: ~1h
+- Priority: P1 (data integrity, bloque les "sources dormantes" queries)
+
+### Bug #2: materiality_v2 coverage seulement 16%
+- Symptôme: 10/62 signaux 30j ont impact_magnitude scored
+- Cause probable: cron `materiality_v2 1h` traite batch limité, ou échec silencieux LLM
+- Fix: audit logs cron + augmenter batch size + retry sur LLM errors
+- Effort: ~2h
+- Priority: P1 (le rubric est le coeur du système — 84% non-scored = système borgne)
+
+### Bug #3: SemiAnalysis 0 signaux malgré paid $65/mo
+- Symptôme: 0 signaux 30j sur paid sub majeur
+- Cause possible: filtre Gmail label "Newsletters" exclut sender, ou email pas envoyé en 30j (peu probable)
+- Fix: vérifier label Gmail manuellement + log gmail_fetch_job pour cette source
+- Effort: ~30min
+- Priority: P0.7 (financial waste si non résolu)
+
+### Bug #4: Sources dupliquées (Stratechery)
+- Symptôme: Ben Thompson <email@stratechery.com> ET Stratechery <email@stratechery.com> = 2 entries DB
+- Cause: probable case sensitivity ou normalization manquante au create_source
+- Fix: dedupe + ajouter normalize_sender_email() helper
+- Effort: ~30min
+- Priority: P2 (cosmétique mais salit les stats)
