@@ -71,3 +71,10 @@ TODO.preTriage_*
 
 # === Weird accidental files ===
 40%
+
+# === Pre-existing artifacts cleanup ===
+.coverage
+data/backups/
+data/cache/
+data/bot_state.json
+*.bak.preTierA
