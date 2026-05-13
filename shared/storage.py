@@ -213,19 +213,28 @@ def get_or_create_source(sender):
 
 
 def insert_raw_signal(source_id, gmail_id, timestamp, subject, content):
-    """Insert a raw email-derived signal. Returns new signal_id."""
+    """Insert a raw email-derived signal. Returns new signal_id, or None on welcome/duplicate.
+    
+    Atomicity invariant: n_signals counter and last_signal_at are updated ONLY if INSERT succeeds.
+    Handles UNIQUE constraint on gmail_id gracefully (duplicate emails return None).
+    """
     if _is_welcome_signal(subject, content):
         return None
     conn = _sqlite3.connect(_DB_PATH)
     try:
-        cur = conn.execute(
-            "INSERT INTO signals (source_id, gmail_id, timestamp, title, content) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (source_id, gmail_id, timestamp, subject, content)
-        )
+        try:
+            cur = conn.execute(
+                "INSERT INTO signals (source_id, gmail_id, timestamp, title, content) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (source_id, gmail_id, timestamp, subject, content)
+            )
+        except _sqlite3.IntegrityError:
+            # Duplicate gmail_id — already ingested previously
+            return None
+        # INSERT succeeded → safe to bump counter + last_signal_at atomically
         conn.execute(
-            "UPDATE sources SET n_signals = n_signals + 1 WHERE id = ?",
-            (source_id,)
+            "UPDATE sources SET n_signals = n_signals + 1, last_signal_at = ? WHERE id = ?",
+            (timestamp, source_id)
         )
         conn.commit()
         return cur.lastrowid
