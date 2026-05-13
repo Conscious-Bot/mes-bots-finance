@@ -1,4 +1,13 @@
-"""Position sizing. UNE seule formule. PAS de cascade. Réf: tennis-bot AUDIT.md."""
+"""Position sizing. UNE seule formule. PAS de cascade.
+
+STATUS: FEATURE READY, NOT YET WIRED INTO RUNTIME (as of 13 May 2026).
+
+Designed for /size_recommend handler + decision pipeline. Integration deferred
+to post-observation. See TODO.md.
+
+Reference: tennis-bot AUDIT.md (Quarter Kelly + hard cap).
+Test: tests/test_sizing.py
+"""
 
 from shared import config
 
@@ -12,16 +21,4 @@ def position_size(edge_pct: float, variance_estimate: float, capital: float, reg
     raw_kelly = edge_pct / variance_estimate
     sized = capital * raw_kelly * 0.25 * regime_factor
     capped = min(sized, capital * max_pct)
-    return max(0.0, capped)
-
-
-def test_no_cascade():
-    s = position_size(0.30, 0.25, 10000, 1.0)
-    assert s <= 10000 * 0.05, f"Sizing {s} viole le cap"
-    assert position_size(0.0, 0.25, 10000) == 0.0
-    assert position_size(-0.1, 0.25, 10000) == 0.0
-    print(f"OK sizing tests passed. Sample size = ${s:.2f}")
-
-
-if __name__ == "__main__":
-    test_no_cascade()
+    return float(max(0.0, capped))

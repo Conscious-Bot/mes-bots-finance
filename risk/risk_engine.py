@@ -1,4 +1,13 @@
-"""Validation avant tout output décisionnel."""
+"""Validation pre-trade avant tout output décisionnel.
+
+STATUS: FEATURE READY, NOT YET WIRED INTO RUNTIME (as of 13 May 2026).
+
+Designed to be called from cmd_position_buy/sell as a pre-execution guard.
+Integration deferred to post-observation (J+28+) to avoid mid-observation
+behavior changes. See TODO.md "Phase post-observation" for wiring plan.
+
+Reference: tennis-bot AUDIT.md (Quarter Kelly + drawdown gates).
+"""
 
 from dataclasses import dataclass
 

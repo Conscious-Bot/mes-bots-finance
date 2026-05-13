@@ -184,3 +184,34 @@ type hint adoption as code is touched, not top-down sweep.
 - Daily /brief ritual. Weekly Sunday auto-summaries.
 - June 10: KPI #2 batch resolution (45+ predictions due)
 - If KPI #2 GREEN: trigger ADR 001 Phase 1 (PIT implementation)
+
+
+---
+
+## risk/ module status (clarified Phase 3, 13 May 2026)
+
+**Status**: feature-ready, intentionally not yet wired into runtime.
+
+Two modules ready for post-observation integration:
+- `risk/risk_engine.py` :: `validate(decision)` - pre-trade guard
+  - Drawdown stop/reduce gates (from cfg risk.drawdown_stop_pct)
+  - Position size cap check (cfg style.position_max_pct)
+  - Conviction minimum floor (cfg style.conviction_min)
+  - paper_only block when execute_real requested
+- `risk/sizing.py` :: `position_size(edge, variance, capital, regime_factor)` - Quarter Kelly + hard cap
+  - 7 unit tests in tests/test_sizing.py (formula, edge cases, regime scaling)
+
+### Integration plan post-J+28 (after observation period):
+
+1. Wire `risk.validate()` into `cmd_position_buy` + `cmd_position_sell` BEFORE positions_mod.add_buy/sell call. Block with reason if validate().ok is False.
+2. Add `/size_recommend TICKER edge variance` handler returning Quarter Kelly suggestion.
+3. Expose ValidationResult.severity in journal logging.
+
+### Why deferred:
+
+Wiring during observation would risk:
+- False blocks on legitimate paper trades during data accumulation
+- Behavior change before KPI #2 baseline established
+- Confounding any regression analysis
+
+Observation principle: code freeze on behavior-affecting changes.
