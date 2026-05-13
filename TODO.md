@@ -132,3 +132,26 @@ table. Compromet KPI #5 (100% decisions journalisees).
 
 Action: Phase B5 features supprimees avec dead code en Ship 1.5.
 A re-integrer en session future. Priority P1, effort ~1h.
+
+
+---
+
+## Ship 1 closed (13 May 2026 ~3h, post afternoon extension)
+
+**Type hints + ruff/mypy professional treatment**:
+- ruff: 421 -> 0 errors (full sweep + auto-fix + manual cleanup)
+- mypy: 0 errors on shared/{storage,llm,prices,notify,config,math_helpers}.py
+- 7 real bugs discovered and fixed (F811 cmd_position_buy/sell, F811 get_or_create_source dead chain, F821 timezone, B005 lstrip x2, _resolve_model tuple, _compute_cost None return, prices.py tuple returns)
+- 1 dette regression noted (Phase B5 journal logging in cmd_position_buy/sell)
+- CI YAML extended with mypy gate
+- CONVENTIONS.md updated with type hints policy
+
+**Deferred to future sessions** (not blocking, gradual adoption):
+- Ship 2: type hints intelligence/* (learning, materiality_v2, asymmetry, etc.) ~30 files
+- Ship 3: type hints data_sources/* + bot/main.py key functions ~2428 LOC
+- Ship 4: docs restructure (REFERENCE_SCHEMA, HANDLERS_INDEX, PROCEDURES, runbooks/)
+- Ship 5: refactor bot/main.py into bot/handlers/* split
+
+These deferred items have diminishing Path 5/6 marginal value vs observation time
+(KPI #2 timer ticking until June 10 batch resolution). Recommended: incremental
+type hint adoption as code is touched, not top-down sweep.

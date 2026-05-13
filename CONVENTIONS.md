@@ -181,3 +181,27 @@ Checklist avant tout commit / patch :
 13. Prompts versionnes ?
 
 Si une case ne coche pas -> stop, ajuste, puis commit.
+
+---
+
+## Type hints policy (added 13 May 2026, Ship 1 closed)
+
+**Adoption**: Gradual. Modules opt-in to strict typing via `pyproject.toml` `[[tool.mypy.overrides]]`.
+
+**Currently strict-typed** (`mypy = 0 errors`):
+- `shared/math_helpers.py` — pure math helpers
+- `shared/storage.py` — DB access layer (public signatures)
+- `shared/llm.py` — LLM cascade wrapper
+- `shared/prices.py` — yfinance abstraction
+- `shared/notify.py` — Telegram notify
+- `shared/config.py` — config + env loader
+
+**Patterns used**:
+- Python 3.14 native: `dict[str, Any]`, `list[X]`, `T | None` (not `Optional[T]`)
+- `Iterator[T]` for `@contextmanager`-decorated generators
+- `cast(T, expr)` for SDK return values (anthropic, json.loads, sqlite Row tuples)
+- `# noqa: ARG001` for unused args required by external API contracts (e.g. python-telegram-bot `ctx`)
+
+**Untyped modules** (intelligence/*, data_sources/*, bot/main.py): gradual. When you touch a function in those, add a return type annotation. Don't force a top-down sweep.
+
+**CI gate**: `mypy <typed_files>` runs on every PR via `.github/workflows/ci.yml`. New modules joining the strict-typed list must reach 0 errors before being added to the override.
