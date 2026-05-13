@@ -2810,6 +2810,43 @@ async def cmd_position_buy(update, ctx):
         ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
         reasoning = parts[4] if len(parts) > 4 else "Buy via /position_buy"
 
+        # 0. B2: Risk validation gate (feature-flagged, default OFF)
+        from shared import config as _cfg_b2_mod, storage as _storage_b2_mod
+
+        _cfg_b2 = _cfg_b2_mod.load()
+        if _cfg_b2.get("risk", {}).get("validate_enabled", False):
+            from risk import risk_engine
+
+            _state_b2 = _storage_b2_mod.load_state()
+            _capital_b2 = _state_b2.get("capital_paper", 10000) or 10000
+            _size_pct_b2 = (qty * price) / _capital_b2
+            _thesis_b2 = _storage_b2_mod.get_thesis_by_ticker(ticker, status="active")
+            _conviction_b2 = (_thesis_b2.get("conviction", 3) if _thesis_b2 else 3)
+            _decision_b2 = {
+                "ticker": ticker,
+                "action": "buy",
+                "size_pct": _size_pct_b2,
+                "conviction": _conviction_b2,
+                "execute_real": False,
+            }
+            _result_b2 = risk_engine.validate(_decision_b2)
+            if not _result_b2.ok and _result_b2.severity == "block":
+                _msg_b2 = "BLOCKED by risk.validate():\n" + "\n".join(
+                    f"  - {r}" for r in _result_b2.reasons
+                )
+                _msg_b2 += "\n  Override: toggle risk.validate_enabled in config.yaml"
+                with contextlib.suppress(Exception):
+                    _storage_b2_mod.log_decision(
+                        ticker=ticker,
+                        decision_type="buy_blocked_by_risk",
+                        confidence=_conviction_b2,
+                        reasoning=f"BLOCKED: {'; '.join(_result_b2.reasons)}",
+                        direction="long",
+                        price_at_decision=price,
+                    )
+                await update.message.reply_text(_msg_b2)
+                return
+
         # 1. Detect entry vs scale_in BEFORE update
         existing_before = positions_mod.get_position(ticker)
         dtype = "scale_in" if (existing_before and existing_before.get("qty", 0) > 0) else "entry"

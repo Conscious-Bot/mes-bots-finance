@@ -273,6 +273,7 @@ risk:
   max_open_positions: 15
   vol_scaling_threshold_vix: 25
   vol_scaling_factor: 0.7
+  validate_enabled: false  # B2: gate risk.validate() on /position_buy
 models:
   signal_scoring: claude-haiku-4-5-20251001
   synthesis: claude-sonnet-4-6
