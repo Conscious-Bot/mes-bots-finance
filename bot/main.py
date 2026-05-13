@@ -2681,40 +2681,119 @@ async def cmd_position_set(update, ctx):
 
 
 async def cmd_position_buy(update, ctx):
-    """Add buy: /position_buy TICKER QTY PRICE [notes]"""
+    """Buy + Phase B5 journal logging + bias tagging (auto).
+    Usage: /position_buy <TICKER> <QTY> <PRICE> [reasoning]
+    """
     parts = update.message.text.split(maxsplit=4)
     if len(parts) < 4:
-        await update.message.reply_text("Usage: /position_buy <TICKER> <QTY> <PRICE> [notes]")
+        await update.message.reply_text("Usage: /position_buy <TICKER> <QTY> <PRICE> [reasoning]")
         return
     try:
         ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
-        notes = parts[4] if len(parts) > 4 else None
-        p = positions_mod.add_buy(ticker, qty, price, notes)
-        await update.message.reply_text(
-            f"✓ Bought {qty:.3f} {ticker} @ ${price:.2f}\n  New qty: {p['qty']:.3f}, avg cost: ${p['avg_cost']:.2f}"
-        )
+        reasoning = parts[4] if len(parts) > 4 else "Buy via /position_buy"
+
+        # 1. Detect entry vs scale_in BEFORE update
+        existing_before = positions_mod.get_position(ticker)
+        dtype = "scale_in" if (existing_before and existing_before.get("qty", 0) > 0) else "entry"
+
+        # 2. Update position via positions_mod (writes positions + position_events)
+        p = positions_mod.add_buy(ticker, qty, price, reasoning)
+
+        # 3. Phase B5 journal context + auto log_decision
+        from shared import storage as storage_mod
+        _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
+        decision_id = None
+        try:
+            decision_id = storage_mod.log_decision(
+                ticker=ticker, decision_type=dtype, confidence=3,
+                reasoning=reasoning, direction=(thesis_dir or "long"),
+                thesis_id=thesis_id, price_at_decision=price,
+                regime=regime, credit_regime=credit, materiality_top=mat_top,
+            )
+        except Exception as e:
+            await update.message.reply_text(f"Position updated but journal failed: {e}")
+
+        # 4. Auto-tag biases
+        bias_tags = []
+        if decision_id:
+            try:
+                from intelligence import bias_tagger
+                decision_full = storage_mod.get_decision(decision_id) or {}
+                position_now = storage_mod.get_position_by_ticker(ticker)
+                bias_tags = bias_tagger.auto_tag_biases(
+                    decision_full, position=position_now, regime_str=regime, top_signals=mat_top
+                )
+                if bias_tags:
+                    storage_mod.update_decision_bias_tags(decision_id, bias_tags)
+            except Exception:
+                pass
+
+        # 5. Compose response
+        msg = [f"✓ Bought {qty:.3f} {ticker} @ ${price:.2f} [{dtype}]"]
+        msg.append(f"  New qty: {p['qty']:.3f}, avg cost: ${p['avg_cost']:.2f}")
+        if decision_id:
+            tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
+            msg.append(f"  -> auto-logged decision #{decision_id} thesis={thesis_id or '-'}{tags_str}")
+        await update.message.reply_text("\n".join(msg))
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
 
 async def cmd_position_sell(update, ctx):
-    """Sell: /position_sell TICKER QTY PRICE [notes]"""
+    """Sell + Phase B5 journal logging + bias tagging (auto).
+    Usage: /position_sell <TICKER> <QTY> <PRICE> [reasoning]
+    """
     parts = update.message.text.split(maxsplit=4)
     if len(parts) < 4:
-        await update.message.reply_text("Usage: /position_sell <TICKER> <QTY> <PRICE> [notes]")
+        await update.message.reply_text("Usage: /position_sell <TICKER> <QTY> <PRICE> [reasoning]")
         return
     try:
         ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
-        notes = parts[4] if len(parts) > 4 else None
-        r = positions_mod.add_sell(ticker, qty, price, notes)
-        msg = (
-            f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ ${r['sold_price']:.2f}\n"
-            f"  Avg cost was: ${r['avg_cost']:.2f}\n"
-            f"  Realized PnL (event): ${r['realized_pnl_event']:+,.2f}\n"
-            f"  Realized PnL (total): ${r['realized_pnl_total']:+,.2f}\n"
-            f"  Remaining: {r['remaining_qty']:.3f}" + ("  [CLOSED]" if r["closed"] else "")
-        )
-        await update.message.reply_text(msg)
+        reasoning = parts[4] if len(parts) > 4 else "Sell via /position_sell"
+
+        # 1. Update position (writes positions + position_events)
+        r = positions_mod.add_sell(ticker, qty, price, reasoning)
+        dtype = "full_exit" if r["closed"] else "partial_exit"
+
+        # 2. Phase B5 journal context + auto log_decision
+        from shared import storage as storage_mod
+        _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
+        decision_id = None
+        try:
+            decision_id = storage_mod.log_decision(
+                ticker=ticker, decision_type=dtype, confidence=3,
+                reasoning=reasoning, direction=(thesis_dir or "long"),
+                thesis_id=thesis_id, price_at_decision=price,
+                regime=regime, credit_regime=credit, materiality_top=mat_top,
+            )
+        except Exception as e:
+            await update.message.reply_text(f"Position updated but journal failed: {e}")
+
+        # 3. Auto-tag biases
+        bias_tags = []
+        if decision_id:
+            try:
+                from intelligence import bias_tagger
+                decision_full = storage_mod.get_decision(decision_id) or {}
+                position_now = storage_mod.get_position_by_ticker(ticker)
+                bias_tags = bias_tagger.auto_tag_biases(
+                    decision_full, position=position_now, regime_str=regime, top_signals=mat_top
+                )
+                if bias_tags:
+                    storage_mod.update_decision_bias_tags(decision_id, bias_tags)
+            except Exception:
+                pass
+
+        # 4. Compose response
+        msg_lines = [f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ ${r['sold_price']:.2f} [{dtype}]"]
+        msg_lines.append(f"  Avg cost was: ${r['avg_cost']:.2f}")
+        msg_lines.append(f"  Realized PnL (event): ${r['realized_pnl_event']:+,.2f}")
+        msg_lines.append(f"  Realized PnL (total): ${r['realized_pnl_total']:+,.2f}")
+        msg_lines.append(f"  Remaining: {r['remaining_qty']:.3f}" + ("  [CLOSED]" if r["closed"] else ""))
+        if decision_id:
+            tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
+            msg_lines.append(f"  -> auto-logged decision #{decision_id} thesis={thesis_id or '-'}{tags_str}")
+        await update.message.reply_text("\n".join(msg_lines))
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
