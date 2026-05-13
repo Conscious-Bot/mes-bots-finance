@@ -1,73 +1,72 @@
 # Session State — mes-bots-finance
 
-**Last updated**: 13 May 2026, fin de marathon Day 2 (~8h cumulative session)
+**Last updated**: 13 May 2026, fin de marathon Day 2 + extension (~10h cumulative)
 
 ## Mode actuel
 
-**High Standard / Solidification** — Path 5/6 strategic target. Velocity-shipping STOPPED.
-NE PAS ajouter de tickers, sources, crons, ou features Tranche C/D/E avant fin P0+P1 solidification.
+**High Standard / Solidification** — Path 5/6 strategic target.
+**Reste à shipper P1+ avant nouvelles features.**
 
-## P0 status — End of Day 2
+## Status complet — End of Day 2
 
-| # | Item | Status | Effort | Notes |
-|---|---|---|---|---|
-| #1 | Property-based tests Hypothesis (4 modules) | ✅ CLOSED | ~2h | 37 tests passing, 100% coverage helpers |
-| #2 | Scheduled backup + restore test | ✅ CLOSED | ~1h30 | Daily 04:00, integrity, 14d rotation |
-| #3 | Handler usage telemetry | ✅ CLOSED | ~1h | Middleware fires, /handler_stats opérationnel |
-| #3.5 | SQLite WAL mode (bonus) | ✅ CLOSED | ~30min | Concurrency dette éliminée |
-| #4 | Sources tier S/A/B empirical | ✅ CLOSED | ~1h | docs/SOURCES.md + 4 bugs flaggés |
-| #5 | Failure modes registry top 5 | ✅ CLOSED | ~45min | docs/failure_modes.md |
+### P0 sweep (6/6 closed)
+- ✅ #1 Property-based tests Hypothesis (37 passing, 100% cov helpers)
+- ✅ #2 Backup quotidien 04:00 + restore test (integrity + 14d rotation)
+- ✅ #3 Handler usage telemetry middleware + /handler_stats
+- ✅ #3.5 SQLite WAL mode (concurrency dette)
+- ✅ #4 Sources tier S/A/B empirical (docs/SOURCES.md v2)
+- ✅ #5 Failure modes registry top 5 (docs/failure_modes.md)
 
-**6/6 P0 CLOSED. Marathon Day 2 complete.**
+### P1 dette (4/4 closed)
+- ✅ #1 last_signal_at NULL (insert_raw_signal atomic + backfill 27 sources)
+- ✅ #2 materiality_v2 coverage 16% → 100% (chained architecture + backlog cleared)
+- ✅ #3 SemiAnalysis 0 signaux (root cause: max_results=20 + uptime) → bump 50, EDA Primer ingested
+- ✅ #4 Stratechery doublons merged (+ Apollo bonus merge)
 
-## Bugs flaggés durant recon (à traiter P1)
+### P2 backlog (carry forward)
+- New: ingest_gmail_job new_count over-reports (cosmetic stats)
+- Existing: refactor bot/main.py 2428 LOC → handlers/*.py split (4h)
+- Existing: docs restructure (REFERENCE_SCHEMA, HANDLERS_INDEX, PROCEDURES, runbooks/)
+- Existing: PIT bitemporal migration ADR (~2h)
+- Existing: CI minimal GitHub Actions on push (1h)
+- Existing: type hints + ruff/mypy basics (4h)
 
-1. **last_signal_at NULL malgré n_signals > 0** — data integrity, ~1h
-2. **materiality_v2 coverage 16%** — pipeline borgne, ~2h
-3. **SemiAnalysis $65/mo, 0 signaux** — P0.7 financial waste, ~30min
-4. **Stratechery doublons** — P2 cosmetic, ~30min
+## Empirical state actuel
 
-## Entry point next session
-
-1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
-2. `ps aux | grep bot.main` confirmer vivant
-3. Lire ce SESSION_STATE.md + TODO.md section "P1 Dette technique"
-4. **First task**: P0.7 SemiAnalysis investigation (~30min) — financial waste prioritaire
-5. Puis P1: bug #1 last_signal_at audit (~1h) + bug #2 materiality_v2 coverage (~2h)
-6. NE PAS ajouter features avant P1 fini
+- **66 signals** ingested 30j (vs 62 ce matin)
+- **100% materiality_v2 coverage** (vs 16% ce matin)
+- **27 active sources** (vs 31 — 4 dedup'ed: Stratechery x1, Apollo x1, et 2 sources phantom n_signals=1 reset à 0)
+- **5 Tier S empirical**: Adam Tooze, Chamath, Wall Street Rollup, Coin Metrics, SemiAnalysis
+- **All credibilities à 0.5 default** — KPI #2 (Brier resolution J+28) reste le blocker pour ledger movement
 
 ## Architecture status
 
 - Python 3.14, SQLite WAL, APScheduler — stack inchangé
 - 215 tickers (22 core / 81 watch / 112 extended)
-- 39 sources configurées (31 actives, 8 INV)
-- 19 crons actifs (incluant backup 4:00 + handler_stats Sun 23:00)
-- 64 handlers Telegram (telemetry now tracking usage)
-- 14 tables DB
-- ~37 unit tests passing (property-based Hypothesis)
-- Coût observé: ~$0.60/jour
+- 19 crons (backup 04:00, handler_stats Sun 23:00, materiality_v2 catchup 1h)
+- 64 handlers Telegram avec telemetry middleware
+- 15 tables DB (incluant handler_calls nouvelle)
+- 37 unit tests Hypothesis (100% pass)
+- Coverage helpers math: 100% (clamp_credibility, compute_brier_score)
+- Coût observé: ~$0.60-0.80/jour
+
+## Entry point next session
+
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `ps aux | grep bot.main` confirmer vivant
+3. Lire ce SESSION_STATE.md + TODO.md
+4. **Decision point**: rester en solidification (P2 backlog) ou commencer track record mesure (KPI #2 enforcement, Brier resolution monitoring)
+
+**NE PAS BUILD nouvelles features**. P2 = solidification finition, pas extension.
 
 ## Documents canoniques
 
-- `FICHE_TECHNIQUE.md` (~80 lignes lean) — mission + stack + KPIs
-- `docs/SOURCES.md` — tiers S/A/B avec empirical data
+- `FICHE_TECHNIQUE.md` lean (~80 lines) — mission + stack + KPIs
+- `docs/SOURCES.md` v2 — tiers S/A/B empirical (composite_avg)
 - `docs/failure_modes.md` — top 5 failure scenarios + runbooks
-- `TODO.md` — backlog + Path 5/6 roadmap + P1 dette
+- `TODO.md` — backlog + Path 5/6 roadmap + P1 dette closed
 - `PHILOSOPHY.md` — High Standard Mode principles
-- `ARCHITECTURE.md` — 7-stage pipeline (à compléter)
-- `CONVENTIONS.md` — naming + structure code
-- `tests/` — property-based tests Hypothesis
+- `tests/` — 37 tests Hypothesis property-based
 - `scripts/backup.sh` + `Makefile` — automation
+- `SESSION_STATE.md` — this file, handoff canonical
 
-
-## Marathon Day 2 — Lessons learned (13/05/2026, T+8h)
-
-1. "Audit GREEN" était dangereux: linting ≠ test. Property-based Hypothesis = défense réelle.
-2. Bugs invisibles jusqu'au recon: 16% materiality_v2 coverage révélé par SQL ad-hoc.
-   → Implication: instrumenter avant d'optimiser. Telemetry is feature.
-3. Concurrency dette latente: SQLite "database is locked" intermittent jusqu'à WAL.
-   → Toute SQLite non-WAL est un timer.
-4. Sources tier honnête > tier vibé: data empirique change le tri (Short Squeez Tier S sur volume,
-   pas sur réputation).
-5. Pivot vers Path 5/6 = mental shift, pas juste tactical: chaque ship doit penser "qu'est-ce
-   qu'un acquéreur lirait dans ce diff?" La velocity ne vend pas, la discipline si.
