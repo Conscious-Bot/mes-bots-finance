@@ -499,11 +499,25 @@ async def heartbeat():
 
 
 async def ingest_gmail_job():
-    """Hourly Gmail ingestion."""
+    """Hourly Gmail ingestion + immediate materiality_v2 chaining.
+    
+    Phase Solidification P1 #2: rubric scoring runs RIGHT after ingestion to keep
+    coverage high regardless of cron timing. The standalone cron materiality_v2 1h
+    remains as catch-up safety net for any stragglers.
+    """
     try:
         stats = gmail_.ingest_new_emails(max_results=50)
         if stats["new_ingested"]:
             log.info(f"gmail ingest: +{stats['new_ingested']} new emails")
+            # Chain materiality_v2 immediately - score what was just ingested + small buffer
+            try:
+                from intelligence import materiality_v2
+                target = min(stats["new_ingested"] + 5, 30)  # cap at 30 to avoid cost spike
+                s, f, total = materiality_v2.score_pending_signals_v2(limit=target)
+                if total > 0:
+                    log.info(f"materiality_v2 chained: {s}/{total} scored, {f} failed")
+            except Exception as e:
+                log.warning(f"materiality_v2 chain error: {e}")
     except Exception as e:
         log.error(f"gmail ingest failed: {e}")
 
@@ -2088,7 +2102,7 @@ async def scheduled_materiality_v2_job():
     """Phase Digestion 3c — Score signals with structured rubric every 1h."""
     try:
         from intelligence import materiality_v2
-        s, f, total = materiality_v2.score_pending_signals_v2(limit=15)
+        s, f, total = materiality_v2.score_pending_signals_v2(limit=30)
         if total > 0:
             log.info(f"materiality_v2: {s} scored, {f} failed of {total}")
     except Exception as e:
