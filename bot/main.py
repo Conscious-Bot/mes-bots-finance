@@ -542,6 +542,106 @@ async def daily_backup_job():
         log.error(f"daily_backup_job exception: {e}")
 
 
+
+# ============ Phase Solidification P0 #3 — Handler usage telemetry ============
+
+async def log_handler_call_middleware(update, ctx):
+    """Pre-handler middleware: log every command call to handler_calls table.
+
+    Registered in group=-1 to run before all real handlers. Non-blocking failure mode:
+    telemetry exceptions never propagate to break the actual command processing.
+    """
+    try:
+        if not (update.message and update.message.text and update.message.text.startswith("/")):
+            return
+        cmd_text = update.message.text
+        handler_name = cmd_text.split()[0].lstrip("/").split("@")[0].lower()
+        user_id = update.effective_user.id if update.effective_user else None
+        chat_id = update.effective_chat.id if update.effective_chat else None
+        args_summary = cmd_text[:200]
+        import sqlite3 as _sql
+        from shared import storage as _storage
+        conn = _sql.connect(_storage._DB_PATH)
+        try:
+            conn.execute(
+                "INSERT INTO handler_calls (handler_name, user_id, chat_id, args_summary) VALUES (?, ?, ?, ?)",
+                (handler_name, user_id, chat_id, args_summary)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        log.warning(f"handler telemetry failed: {e}")
+
+
+async def cmd_handler_stats(update, ctx):
+    """Phase Solidification P0 #3 — Show handler usage stats with Pareto curve.
+
+    Usage: /handler_stats [days=30]
+    """
+    parts = update.message.text.split()
+    days = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 30
+    import sqlite3 as _sql
+    from shared import storage as _storage
+    conn = _sql.connect(_storage._DB_PATH)
+    conn.row_factory = _sql.Row
+    try:
+        rows = conn.execute(
+            "SELECT handler_name, COUNT(*) AS n, "
+            "MAX(timestamp) AS last_used, MIN(timestamp) AS first_used "
+            "FROM handler_calls "
+            "WHERE timestamp >= datetime('now', '-' || ? || ' days') "
+            "GROUP BY handler_name ORDER BY n DESC",
+            (int(days),)
+        ).fetchall()
+    finally:
+        conn.close()
+    total = sum(r["n"] for r in rows)
+    if total == 0:
+        await update.message.reply_text(f"No handler calls in last {days} days.")
+        return
+    lines = [f"HANDLER USAGE — last {days}d ({total} calls, {len(rows)} unique)"]
+    cumulative = 0
+    for r in rows:
+        cumulative += r["n"]
+        pct = 100 * cumulative / total
+        last_dt = (r["last_used"] or "")[:10]
+        lines.append(f"  {r['handler_name']:24s} n={r['n']:4d} cumul={pct:5.1f}%  last={last_dt}")
+    # Pareto threshold callout
+    pareto_80 = next((i for i, _ in enumerate(rows) if sum(rows[j]["n"] for j in range(i+1)) >= 0.8*total), len(rows))
+    if pareto_80 < len(rows) - 1:
+        lines.append(f"\nPareto: top {pareto_80+1} handlers = 80% calls. {len(rows)-pareto_80-1} handlers = long tail.")
+    msg = "\n".join(lines)
+    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    await update.message.reply_text(msg)
+
+
+async def weekly_handler_stats_job():
+    """Phase Solidification P0 #3 — Weekly handler usage summary, Sunday 23:00 Paris."""
+    try:
+        import sqlite3 as _sql
+        from shared import storage as _storage, notify as _notify
+        conn = _sql.connect(_storage._DB_PATH)
+        conn.row_factory = _sql.Row
+        rows = conn.execute(
+            "SELECT handler_name, COUNT(*) AS n FROM handler_calls "
+            "WHERE timestamp >= datetime('now', '-7 days') "
+            "GROUP BY handler_name ORDER BY n DESC"
+        ).fetchall()
+        conn.close()
+        if not rows:
+            return
+        total = sum(r["n"] for r in rows)
+        lines = [f"WEEKLY HANDLER STATS — {total} calls / {len(rows)} unique"]
+        for r in rows[:15]:
+            lines.append(f"  {r['handler_name']:24s} {r['n']:4d}")
+        unused = []
+        # Optional: detect handlers never called
+        _notify.send_text("\n".join(lines))
+    except Exception as e:
+        log.warning(f"weekly_handler_stats_job error: {e}")
+
+
 async def cmd_sources_health(update, ctx):
     """Health check newsletter sources."""
     import sqlite3
@@ -2072,11 +2172,12 @@ async def post_init(app):
     sched.add_job(scheduled_resolve_buy_cluster_returns_job, 'cron', hour=8, minute=15)
     sched.add_job(scheduled_8k_scan_job, 'cron', hour=6, minute=30)
     sched.add_job(daily_backup_job, 'cron', hour=4, minute=0)
+    sched.add_job(weekly_handler_stats_job, 'cron', day_of_week='sun', hour=23, minute=0)
     sched.add_job(scheduled_classify_signal_types_job, 'interval', minutes=30)
     sched.add_job(scheduled_recompute_materiality_boost_job, 'interval', hours=1)
     sched.add_job(scheduled_materiality_v2_job, 'interval', hours=1)
     sched.start()
-    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
+    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 
 
@@ -2505,6 +2606,10 @@ def main():
         .post_init(post_init)
         .build()
     )
+    # Phase Solidification P0 #3 — handler usage telemetry (middleware in group=-1)
+    from telegram.ext import MessageHandler, filters
+    app.add_handler(MessageHandler(filters.COMMAND, log_handler_call_middleware), group=-1)
+    app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("thesis_add", cmd_thesis_add))
     app.add_handler(CommandHandler("thesis_list", cmd_thesis_list))
