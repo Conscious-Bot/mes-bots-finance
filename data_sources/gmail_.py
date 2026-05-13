@@ -8,7 +8,7 @@ import base64
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -44,7 +44,7 @@ def get_label_id(service: Any, label_name: str = LABEL_NAME) -> str | None:
     labels = service.users().labels().list(userId="me").execute().get("labels", [])
     for label in labels:
         if label["name"].lower() == label_name.lower():
-            return label["id"]
+            return cast(str | None, label["id"])
     raise ValueError(f"Label '{label_name}' not found in Gmail")
 
 
