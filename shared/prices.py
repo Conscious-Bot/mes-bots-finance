@@ -33,7 +33,7 @@ def get_current_price(ticker: str) -> float | None:
         return None
 
 
-def get_price_on_date(ticker: str, date: str) -> float | None:
+def get_price_on_date(ticker: str, date: str) -> tuple[str | None, float | None]:
     """Close price on or after `date` (str YYYY-MM-DD or datetime).
     Falls back to next trading day. Returns (actual_date_str, price) or (None, None).
     """
@@ -61,11 +61,12 @@ def get_price_on_date(ticker: str, date: str) -> float | None:
         return (None, None)
 
 
-def get_returns(ticker: str, baseline_date: str, current_date: str | None = None) -> dict[str, Any] | None:
+def get_returns(ticker: str, baseline_date: str, current_date: str | None = None) -> dict[str, Any]:
     """Return between baseline_date and current_date (default now)."""
     b_actual, b_price = get_price_on_date(ticker, baseline_date)
     if b_price is None:
         return {"error": f"no baseline price for {ticker} @ {baseline_date}"}
+    c_actual: str | None
     if current_date is None:
         c_price = get_current_price(ticker)
         c_actual = datetime.now().strftime("%Y-%m-%d")

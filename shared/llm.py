@@ -53,7 +53,7 @@ def _compute_cost(model: str, input_tokens: int, output_tokens: int, cached_toke
     in_cost = fresh_input * pricing.get("input", 0) / 1_000_000
     cache_cost = cached_tokens * pricing.get("cached_input", 0) / 1_000_000
     out_cost = output_tokens * pricing.get("output", 0) / 1_000_000
-    return in_cost + cache_cost + out_cost
+    return float(in_cost + cache_cost + out_cost)
 
 
 def _log_call(tier, model, task, input_tokens, output_tokens, cached_tokens, cost_usd, elapsed_ms, error=None):
@@ -119,7 +119,7 @@ def call(
     in_tok = out_tok = cached_tok = 0
     try:
         msg = client().messages.create(**kwargs)
-        text = msg.content[0].text.strip()
+        text = cast(str, msg.content[0].text.strip())
         usage = getattr(msg, "usage", None)
         if usage:
             in_tok = getattr(usage, "input_tokens", 0) or 0

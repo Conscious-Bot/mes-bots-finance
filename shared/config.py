@@ -1,7 +1,9 @@
 """Loading + validation config.yaml + .env"""
 
 import os
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 from dotenv import load_dotenv
@@ -9,17 +11,17 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).parent.parent
 load_dotenv(ROOT / ".env")
 
-_config = None
+_config: dict[str, Any] | None = None
 
 
-def load() -> dict:
+def load() -> dict[str, Any]:
     global _config
     if _config is None:
-        _config = yaml.safe_load((ROOT / "config.yaml").read_text())
+        _config = cast(dict[str, Any], yaml.safe_load((ROOT / "config.yaml").read_text()))
     return _config
 
 
-def env(key: str, default=None, cast=str):
+def env(key: str, default: Any = None, cast: Callable[[Any], Any] = str) -> Any:
     v = os.environ.get(key, default)
     if v is None:
         return None
@@ -30,23 +32,23 @@ def env(key: str, default=None, cast=str):
 
 
 def capital() -> float:
-    return env("CAPITAL", 10000, float)
+    return cast(float, env("CAPITAL", 10000, float))
 
 
 def paper_only() -> bool:
-    return env("PAPER_ONLY", "true", bool)
+    return cast(bool, env("PAPER_ONLY", "true", bool))
 
 
 def min_conviction() -> int:
-    return env("MIN_CONVICTION", 3, int)
+    return cast(int, env("MIN_CONVICTION", 3, int))
 
 
 def telegram_chat_id() -> int:
-    return env("TELEGRAM_CHAT_ID", 0, int)
+    return cast(int, env("TELEGRAM_CHAT_ID", 0, int))
 
 
 def telegram_token() -> str:
-    return env("TELEGRAM_BOT_TOKEN")
+    return cast(str, env("TELEGRAM_BOT_TOKEN"))
 
 
 # ============ Tier-aware accessors (Phase Tickers Tiered) ============

@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -13,7 +14,7 @@ STATE_PATH = ROOT / "data" / "bot_state.json"
 
 
 @contextmanager
-def db() -> _sqlite3.Connection:
+def db() -> Iterator[_sqlite3.Connection]:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -24,11 +25,12 @@ def db() -> _sqlite3.Connection:
         conn.close()
 
 
-def load_state() -> dict:
-    return json.loads(STATE_PATH.read_text())
+def load_state() -> dict[str, Any]:
+    from typing import cast
+    return cast(dict[str, Any], json.loads(STATE_PATH.read_text()))
 
 
-def save_state(state: dict):
+def save_state(state: dict[str, Any]) -> None:
     STATE_PATH.write_text(json.dumps(state, indent=2))
 
 
@@ -95,7 +97,8 @@ def add_thesis(
                 stop,
             ),
         )
-        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        from typing import cast as _cast
+        return _cast(int, conn.execute("SELECT last_insert_rowid()").fetchone()[0])
 
 
 def active_theses() -> list[dict]:
@@ -140,7 +143,8 @@ def log_prediction(source_type: str, source_id: int, ticker: str, claim: str, ho
                 confidence,
             ),
         )
-        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        from typing import cast as _cast
+        return _cast(int, conn.execute("SELECT last_insert_rowid()").fetchone()[0])
 
 
 def expired_unresolved_predictions() -> list[dict]:
@@ -221,17 +225,18 @@ def signal_exists_by_gmail_id(gmail_id: str) -> bool:
 
 def get_or_create_source(sender: str) -> int:
     """Resolve sender string to source_id. Creates a new source if unknown."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn: _sqlite3.Connection = _sqlite3.connect(_DB_PATH)
     try:
         row = conn.execute("SELECT id FROM sources WHERE name = ?", (sender,)).fetchone()
         if row:
-            return row[0]
+            return int(row[0])
         cur = conn.execute(
             "INSERT INTO sources (name, type, credibility, n_signals) VALUES (?, ?, ?, ?)",
             (sender, "newsletter", 0.5, 0),
         )
         conn.commit()
-        return cur.lastrowid
+        # lastrowid is int|None per type stubs, but always int after successful INSERT
+        return cur.lastrowid or 0
     finally:
         conn.close()
 
@@ -1322,7 +1327,7 @@ def get_bias_stats(ticker=None, since_days=180):
                 (f"-{int(since_days)} days",),
             ).fetchall()
         counts: dict[str, int] = {}
-        type_counts: dict[str, int] = {}
+        type_counts: dict[str, dict[str, int]] = {}
         total_with_tags = 0
         for r in rows:
             try:
