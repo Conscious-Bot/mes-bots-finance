@@ -85,3 +85,35 @@ Si une analyse, une alerte, un score n'a pas :
 - une injection dans le contexte futur
 
 Alors c'est un produit jetable, pas une brique de la boucle.
+
+
+---
+
+## High Standard Mode (13 mai 2026)
+
+Décision : pivoter du mode "marathon ship velocity" vers mode "solidification > velocity" pour viser Path 5/6 (acquihire ou content + subscription).
+
+### Reconnaissance honnête
+Le bot fait beaucoup en 14h marathon. Mais beaucoup ≠ propre. Beaucoup ≠ vendable. Beaucoup ≠ defensible si quelqu'un me demande "comment je sais que ton Brier score est juste ?"
+
+### Nouveau principe : Velocity solidified
+Chaque nouvelle feature doit passer ces 5 gates :
+1. **Tests** : les invariants math sont vérifiés (property-based où applicable)
+2. **Cost** : le coût LLM est modélisé avant ship
+3. **Observabilité** : success rate + duration tracked
+4. **Failure modes** : que se passe-t-il si ça crashe / drift / API down ?
+5. **Doc** : ADR si décision architecturale, sinon REFERENCE update
+
+### KPIs enforcés (pas aspirationnels)
+Chaque KPI a maintenant : cadence de check, seuil de dégradation, action déclenchée. Voir TODO.md section Dimension 2.
+
+### Inversion temporelle
+Avant : "qu'est-ce que je peux ajouter ?"
+Maintenant : "qu'est-ce que je peux solidifier OU supprimer ?"
+
+Les tickers, handlers, sous-groupes qui ne produisent pas de matière décisionnelle sur 90j sont candidats à suppression. La complexité a un coût cognitif réel.
+
+### Mantra
+**Plus de précision dans la mesure > plus de surface monitorée.**
+**Plus de discipline dans l'usage > plus de discipline dans le code.**
+**Plus de track record > plus de features.**

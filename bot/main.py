@@ -177,21 +177,29 @@ async def cmd_thesis_note(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Digest en cours (fetch + scoring)... 30-60s.")
+    parts = update.message.text.split()
+    hours = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 24
+    await update.message.reply_text(f"Synthese unifiee en cours ({hours}h) ~30s...")
     try:
-        ingest_stats = gmail_.ingest_new_emails(max_results=20)
-        if ingest_stats["new_ingested"]:
-            await update.message.reply_text(
-                f"+{ingest_stats['new_ingested']} nouveaux emails ingeres."
-            )
-        msg = digest_mod.run_enhanced_digest(limit=15, top_n=5)
-        if len(msg) > 3900:
-            msg = msg[:3900] + "\n\n[...tronque...]"
-        await update.message.reply_text(msg)
+        from intelligence import digest as _digest_mod
+        narrative = _digest_mod.generate_unified_digest(since_hours=hours, max_signals=40)
     except Exception as e:
-        log.exception("Digest command failed")
-        await update.message.reply_text(f"Erreur digest: {type(e).__name__}: {e}")
-
+        await update.message.reply_text(f"Digest failed: {type(e).__name__}: {e}")
+        return
+    if len(narrative) > 3900:
+        chunks = []
+        cur = ""
+        for para in narrative.split("\n\n"):
+            if len(cur) + len(para) + 2 < 3900:
+                cur = cur + "\n\n" + para if cur else para
+            else:
+                if cur: chunks.append(cur)
+                cur = para
+        if cur: chunks.append(cur)
+        for c in chunks:
+            await update.message.reply_text(c)
+    else:
+        await update.message.reply_text(narrative)
 
 async def cmd_feedback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args or len(ctx.args) < 2:
@@ -501,21 +509,17 @@ async def ingest_gmail_job():
 
 
 async def daily_digest_job():
-    """Daily digest at 7h Paris time. Sends top-5 signals to Telegram."""
+    """Auto-trigger unified digest synthesis (12h interval = 2x/jour)."""
     try:
-        ingest_stats = gmail_.ingest_new_emails(max_results=30)
-        log.info(f"morning ingest: +{ingest_stats['new_ingested']} emails")
-        msg = digest_mod.run_enhanced_digest(limit=15, top_n=5)
-        if msg and "Aucun signal" not in msg:
-            notify.send_text(f"Digest matinal\n\n{msg}")
-            log.info("daily digest sent")
-        else:
-            log.info("daily digest: no new signals")
+        from intelligence import digest as _digest_mod
+        from shared import notify as _notify
+        narrative = _digest_mod.generate_unified_digest(since_hours=12, max_signals=30)
+        if narrative and not narrative.startswith("Aucun signal"):
+            msg = "DIGEST AUTO (12h)\n\n" + narrative
+            if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+            _notify.send_text(msg)
     except Exception as e:
-        log.error(f"daily digest failed: {e}")
-
-
-
+        log.warning(f"daily_digest_job error: {e}")
 
 async def cmd_sources_health(update, ctx):
     """Health check newsletter sources."""
@@ -2032,7 +2036,7 @@ async def post_init(app):
     sched = AsyncIOScheduler(timezone=os.environ.get("TZ", "Europe/Paris"))
     sched.add_job(heartbeat, "interval", hours=1)
     sched.add_job(ingest_gmail_job, "interval", hours=1)
-    sched.add_job(daily_digest_job, "cron", hour=7, minute=0)
+    sched.add_job(daily_digest_job, 'cron', hour='7,19', minute=0)
     sched.add_job(daily_calendar_refresh_job, 'cron', hour=5, minute=0)
     sched.add_job(daily_resolve_job, 'cron', hour=9, minute=0)
     sched.add_job(resolve_journal_decisions_job, 'cron', hour=8, minute=0)
@@ -2050,7 +2054,7 @@ async def post_init(app):
     sched.add_job(scheduled_recompute_materiality_boost_job, 'interval', hours=1)
     sched.add_job(scheduled_materiality_v2_job, 'interval', hours=1)
     sched.start()
-    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
+    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 
 

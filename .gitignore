@@ -51,3 +51,23 @@ models/
 # Audit reports (timestamped, don't track all)
 AUDIT_*.md
 !AUDIT_2026-05-12_marathon.md
+
+# === Secrets additionnels (OAuth tokens etc.) ===
+token.json
+*.token
+*.tokens
+credentials.json
+client_secret*.json
+.last_alert
+service-account*.json
+
+# === Backup pollution (cleanup .backup_avant_*, TODO.bak, etc.) ===
+*.backup_avant_*
+*.bak
+*.bak.*
+*.preTriage_*
+TODO.bak.*
+TODO.preTriage_*
+
+# === Weird accidental files ===
+40%

@@ -268,3 +268,92 @@ def run_enhanced_digest(limit=20, top_n=5, fallback_hours=72, include_regime=Tru
     except Exception as e:
         log.warning("enhance digest failed: " + str(e))
         return existing_msg
+
+
+# ============ Phase Digestion Output — Unified Narrative Synthesis ============
+
+def generate_unified_digest(since_hours=24, max_signals=40, exclude_low_score=True):
+    """Single narrative synthesizing all recent signals into themes + catalysts + noise + actions.
+
+    Replaces the per-email summary format with thematic synthesis.
+    Cost: ~$0.025/call (Sonnet enrich, ~6k input + 1k output).
+    """
+    import sqlite3, json
+    from datetime import datetime, timedelta
+    from shared import storage, llm
+    conn = sqlite3.connect(storage._DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cutoff = (datetime.now() - timedelta(hours=int(since_hours))).strftime('%Y-%m-%d %H:%M:%S')
+    where_score = "AND COALESCE(s.score, 0) >= 3" if exclude_low_score else ""
+    rows = conn.execute(
+        "SELECT s.id, s.title, s.summary, s.signal_type, s.score, "
+        "s.impact_magnitude, s.reversibility, s.time_to_realization, "
+        "s.materiality_boost, s.entities, src.name AS source "
+        "FROM signals s LEFT JOIN sources src ON s.source_id = src.id "
+        "WHERE s.timestamp >= ? " + where_score + " "
+        "ORDER BY (COALESCE(s.score, 0) * COALESCE(s.materiality_boost, 1.0)) DESC LIMIT ?",
+        (cutoff, int(max_signals))
+    ).fetchall()
+    conn.close()
+    if not rows:
+        return "Aucun signal pertinent sur les dernieres " + str(since_hours) + "h."
+    sources_set = set()
+    catalysts = narratives = opinions = data = 0
+    blocks = []
+    for r in rows:
+        sources_set.add(r['source'] or '?')
+        st = r['signal_type'] or '?'
+        if st == 'catalyst': catalysts += 1
+        elif st == 'narrative': narratives += 1
+        elif st == 'opinion': opinions += 1
+        elif st == 'data': data += 1
+        ents = ''
+        try:
+            if r['entities']:
+                e = json.loads(r['entities'])
+                if isinstance(e, list) and e:
+                    ents = ' | tickers: ' + ', '.join(e[:5])
+        except Exception:
+            pass
+        score = r['score'] or 0
+        boost = r['materiality_boost'] or 1.0
+        adj = score * boost
+        imp = r['impact_magnitude']
+        line = '[' + st + ' | adj=' + str(round(adj, 1)) + '/10'
+        if imp is not None:
+            line += ' impact=' + str(int(imp)) + '/5 time=' + str(r['time_to_realization'] or '?')
+        line += '] ' + (r['source'] or '?') + ': ' + (r['title'] or '?')[:140] + ents
+        summary = (r['summary'] or '')[:300]
+        if summary:
+            line += '\n   ' + summary
+        blocks.append(line)
+    signals_text = '\n\n'.join(blocks)
+    stats_line = ('Stats: ' + str(catalysts) + ' catalysts, ' + str(data) + ' data, ' +
+                  str(narratives) + ' narratives, ' + str(opinions) + ' opinions, ' +
+                  str(len(sources_set)) + ' sources distinctes.')
+    prompt = (
+        "Tu es l'analyste finance d'Olivier (profil thesis-driven slow alpha sur tech/semis/AI/crypto, "
+        "biais asymetriques: vend winners trop tot PLTR/NVDA, ne vend pas crypto aux tops, "
+        "univers core: NVDA AVGO TSM MU ASML AMD ARM MSFT GOOGL META CEG VST GEV MSTR IBIT COIN V BLK LLY NVO+74 watch+82 extended).\n\n"
+        "Voici " + str(len(rows)) + " signaux digeres sur les " + str(since_hours) + "h. " + stats_line + "\n\n"
+        "=== SIGNAUX BRUTS ===\n" + signals_text + "\n\n"
+        "=== PRODUIS UNE SYNTHESE NARRATIVE UNIFIEE ===\n\n"
+        "Structure obligatoire (utilise ces emojis exactement):\n\n"
+        "THEMES MAJEURS (3-5 max)\n"
+        "Pour chaque theme: nom court, tickers concernes, signaux convergents (multi-source = boost credibilite), "
+        "1-2 phrases sur pourquoi ca matte ou pas pour Olivier.\n\n"
+        "CATALYSTS A SURVEILLER\n"
+        "Top 3-5 events specifiques avec ticker + date approximative + impact attendu.\n\n"
+        "BRUIT A JETER\n"
+        "Briefly note les narratives/opinions sans matiere actionable, ce que tu IGNORES et pourquoi.\n\n"
+        "ACTION ITEMS POUR OLIVIER (max 3 bullets)\n"
+        "Decisions concretes a prendre/surveiller selon son thesis NVDA active et ses biais asymetriques.\n\n"
+        "Ton: direct, jargon pro francais, pragmatique, max 700 mots. Pas de fawning, dire les choses sans edulcorer."
+    )
+    try:
+        narrative = llm.call(prompt, tier='enrich', max_tokens=2000)
+        if not narrative:
+            return "Synthesis failed (empty response). " + str(len(rows)) + " signaux disponibles."
+        return narrative.strip()
+    except Exception as e:
+        return "Synthesis failed: " + type(e).__name__ + ": " + str(e)[:200]

@@ -531,3 +531,157 @@ Backlog tuning future (non-bloquant) :
 - [ ] 5.02 sub-classification routine vs unexpected via Sonnet reading filing body
 - [ ] 7.01 (Reg FD) detection si content material → upgrade severity dynamique
 - [ ] /analyze integration : pull 8-K severity≥medium pour ticker dans la fiche
+
+
+---
+
+## Data Layer Upgrades — Pricing (décision 13/05/2026)
+
+**❌ Ne PAS plug TradingView** — pas d'API officielle, scrapers fragiles, TOS violation, et 15-min delay yfinance suffit pour profil thesis-driven slow alpha.
+
+Roadmap d'upgrades pricing par ordre de leverage marginal :
+
+### 1. Court terme (gratuit, ~1h dev)
+**Étendre `crypto_zone_job` pour pull ETH/SOL/HYPE via CoinGecko** en plus de BTC.
+- Cost: $0/mo (CoinGecko free 30 calls/min)
+- Apporte multi-decimal real-time sur les 4 majors crypto
+- Refresh ~1min, précision 6+ décimales
+- Action: modifier `intelligence/crypto_zone.py` (ou équivalent) pour itérer sur [BTC, ETH, SOL, HYPE]
+
+### 2. Moyen terme ($14/mo)
+**FMP Starter pour EPS revisions** (= C10 backlog déjà identifié).
+- Cost: $14/mo (Financial Modeling Prep Starter plan)
+- Apporte EPS revisions + analyst estimates + earnings surprises
+- Justification académique: Bartov-Bernard alpha sur révisions d'EPS (12-18 mois fenêtre)
+- Pas un upgrade prix mais data fundamental complémentaire à yfinance
+- Pré-requis: création compte FMP user-side (async)
+
+### 3. Long terme ($29/mo) — IF needed
+**Polygon.io Starter pour real-time US equities + options chain**.
+- Cost: $29/mo
+- Apporte real-time tick (vs 15-min delay yfinance) + options chains
+- Pertinent UNIQUEMENT si décision de trader des options
+- À reconsidérer post J+60 d'usage prod si gap réel identifié
+
+---
+
+**Principe directeur** : plus de précision prix ≠ meilleur edge pour un profil slow alpha. yfinance + CoinGecko free couvrent 95% des besoins de décision. Polygon est un upgrade de luxe, pas une nécessité.
+
+
+---
+
+## Path 5/6 Strategic Pivot — High Standard Mode (13 mai 2026)
+
+### Décision stratégique
+Objectif explicite : **Path 5 (acquihire $200K-$1M, 18-24 mois) ET/OU Path 6 (content + Substack/prosumer subscription $100K-500K/an, 24-36 mois)**.
+
+Path 1 (mass B2C), Path 3 (license framework), Path 4 (open source pur) explicitement écartés. Path 2 (prosumer SaaS direct) possible en hybride avec Path 6 mois 24+.
+
+### Inflection point
+**Velocity a dépassé solidification.** 60+ features shippées en 14h marathon attendent : tests, observabilité, runbooks, documentation actionnable, sources validées, KPIs enforced. C'est exactement le moment d'arrêter d'ajouter et solidifier. Pas glamour, mais c'est ce qui fait la différence entre "j'ai construit un bot" et "j'ai un asset commercialisable".
+
+### Reconnaissance des dettes critiques (issues from audit critique)
+1. **"Audit GREEN" était overselling** — c'était linting/imports, pas audit. Zéro test unitaire. Credibility/Brier/materiality math non-vérifiés.
+2. **Backup non-scheduled = pas de backup**. Restore non-testé non plus.
+3. **PIT discipline absente** — backtest credibility ledger bloqué tant que non migré.
+4. **64 handlers sans telemetry** — distribution Pareto inconnue, pas de gating utilisation.
+5. **KPIs aspirationnels** — seul KPI #2 (≥5 predictions à J+28) a stop-rule.
+6. **60+ items shippés sans hiérarchie d'impact** — on ne sait pas distinguer utile vs cérémoniel.
+7. **Fiche mélange 5 cadences** — corruption garantie en 3 mois.
+8. **Source actives "à confirmer"** dans doc canon = précipitation.
+9. **215 tickers vs 1 thesis active** — pas de policy de gating explicite.
+10. **No failure modes registry, no cost trajectory, no glossary, no data lineage**.
+
+---
+
+## Roadmap 4 Dimensions Path 5/6
+
+### Dimension 1 — Solidification technique (4-6 semaines, ~40-45h)
+**Objectif : code base auditable par acquéreur sans embarras.**
+
+#### P0 cette semaine (8-10h)
+- [ ] Property-based tests Hypothesis sur credibility_update, brier_score, materiality_composite, asymmetry_ratio (6h)
+- [ ] Scheduled backup daily cron + restore test automatisé `make test-restore` boot instance test (2h)
+- [ ] Confirmer sources actives + tier S/A/B documenté proprement (1h)
+- [ ] Handler usage telemetry → table `handler_calls` + cron weekly stats (2h)
+- [ ] Failure modes registry `docs/failure_modes.md` — top 5 scenarios (2h)
+
+#### P1 semaine prochaine (8-12h)
+- [ ] Failure modes registry P1 — 5 scenarios supplémentaires + runbooks `docs/runbooks/` (3h)
+- [ ] Docs restructure : FICHE_TECHNIQUE lean (≤80 lignes) + REFERENCE_SCHEMA.md + HANDLERS_INDEX.md + SOURCES.md + PROCEDURES.md séparés (4h)
+- [ ] Concurrency audit + SQLite WAL mode si pas déjà (1h)
+- [ ] Cost trajectory model spreadsheet cost-per-feature × frequency × growth (2h)
+- [ ] PIT migration plan daté écrit (`docs/adrs/001-pit-bitemporal.md`) (2h)
+
+#### P2 quinzaine (10-15h)
+- [ ] CI minimal GitHub Actions running tests on push (1h)
+- [ ] Type hints + ruff/mypy basics (4h)
+- [ ] Refactor bot/main.py 2428 LOC → bot/handlers/{positions,thesis,insider,journal,filings,debate,risk,brief,asymmetry}.py (4h)
+- [ ] Refactor shared/storage.py 1605 LOC → split par domaine (3h)
+- [ ] Glossaire `docs/glossary.md` 30-50 termes (1h)
+- [ ] Data lineage Mermaid diagram dans REFERENCE_SCHEMA.md (1h)
+- [ ] Onboarding "resuming after break" checklist (1h)
+- [ ] Universe gating policy écrite dans CONVENTIONS.md (1h)
+
+### Dimension 2 — Mesure track record (6-12 mois, parallèle à D1)
+**Objectif : Brier <0.20 sur 30+ predictions résolues + benchmark TWR vs SPY/QQQ documenté.**
+
+**ZÉRO nouveau code.** Pure usage du système.
+
+#### KPIs avec stop-rules et enforcement
+| KPI | Cadence check | Seuil dégradation | Action si dégradé |
+|---|---|---|---|
+| **#2 (NON-NEG)** ≥5 predictions résolues J+28 | Hebdo dimanche | <5 à J+28 | Stop 5j build + force-use |
+| **#3** Brier <0.20 rolling 90j | Hebdo dimanche | >0.25 ou >0.30 | Alert + revue méthodo |
+| **#4** 0 panic sell thesis core | Mensuel 1er | ≥1 panic sell détecté | Pause + analysis bias_tagger |
+| **#5** 100% decisions matérielles journalisées | Mensuel 1er | <90% | Aucune nouvelle thèse jusqu'à backfill |
+| **#6** TWR vs SPY/QQQ glissant 12M | Mensuel 1er | <-5% pp | Revue stratégique trimestrielle |
+
+#### Cadence rituelle
+- Hebdo dimanche soir : review predictions résolues + Brier + calibration mental
+- Mensuel 1er : TWR cumulé + top biais bias_tagger + decisions count
+- Trimestriel : decision matrix universe/handlers cleanup
+
+### Dimension 3 — Dépersonnalisation (à partir mois 6)
+**Objectif : system devient un framework configurable, pas le bot personnel d'Olivier.**
+
+- [ ] Prompts templatisés (config-driven biases vs hardcoded "vend trop tôt") (6h)
+- [ ] Behavioral framework documenté en termes transférables decoupling profile (4h)
+- [ ] Onboarding flow capturant biais + univers d'un nouvel utilisateur (8h)
+- [ ] Universe + thesis templates par profil (slow_alpha / growth / value / macro) (4h)
+- [ ] Compliance positioning : "outil aide décision" jamais "recommandation" — wording legal review (3h)
+
+### Dimension 4 — Positionnement public (à partir mois 12)
+**Objectif : audience qui voit la méthodologie tourner avec discipline mesurée.**
+
+- [ ] Substack mensuel : Brier du mois + 1 case study anonymisée + 1 leçon méthodo
+- [ ] LinkedIn/Twitter : 1 post/semaine sur 1 invariant méthodologique
+- [ ] Page publique calibration plot live (Brier rolling 90j) — le moat
+- [ ] Optionnel : opensource framework "behavioral discipline ledger" sans prompts perso
+
+---
+
+## Mode opératoire "High Standard"
+
+À partir de maintenant :
+1. **Pas de nouvelle feature avant que les tests existent sur la math critique**
+2. **Pas de claim "production-ready" sans coverage report et backup testé**
+3. **Pas de doc canon avec "à confirmer" — soit confirmer, soit marquer [STUB]+deadline**
+4. **Toute décision architecturale majeure → ADR dans `docs/adrs/`**
+5. **Hebdo dimanche : check 5 KPIs ci-dessus + commit hebdo de réflexions**
+6. **Mensuel 1er : decision matrix cleanup univers + handlers**
+7. **Plus de cron sans observabilité (success rate, duration p50/p95, last_run)**
+8. **Plus de feature LLM sans coût modélisé (cost-per-call × estimated frequency)**
+
+---
+
+## Tranches existantes — réordonnancement Path 5/6
+
+Backlog Tranche C/D/E **DÉPRIORISÉ tant que Dimension 1 P0+P1 non shipped.**
+
+Reordonnancement post-solidification :
+- **C14 Calibration viz** → bumpé en P0.5 (pertinent track record Path 6)
+- **C10 FMP EPS revisions** → après D1 solidification, mois 4-6
+- **C8 10-K diff** → mois 6+, gros chunk
+- **Tranche D entière** → mois 9-12 minimum, post-validation Brier <0.20
+- **Tranche E entière** → mois 12+

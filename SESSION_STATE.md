@@ -578,3 +578,42 @@ Durée totale jour : ~12h KST (= 5h MARATHON 1 matin + 30min pause + 7h MARATHON
 ### KPI #2 NON-NÉGOCIABLE rappel
 À J+28 d'usage prod : ≥5 predictions résolues avec calibration trackée.
 Si non → stop 5j build et **force-utilise le système**.
+
+
+---
+
+## 🛑 PIVOT STRATÉGIQUE Path 5/6 (13/05/2026 ~14h KST)
+
+User a explicitement basculé en mode "high standard / solidification > velocity" après critique honnête de la FICHE_TECHNIQUE :
+- Velocity a dépassé solidification (zéro test unitaire malgré 60+ features)
+- "Audit GREEN" était overselling (linting ≠ audit)
+- Backup non-scheduled, PIT absent, handlers sans telemetry, KPIs aspirationnels
+
+**Objectif cible** : Path 5 (acquihire 18-24 mois) ET/OU Path 6 (content + Substack 24-36 mois).
+**Stratégie 4 Dimensions** (cf. TODO.md) :
+1. Solidification technique (4-6 sem, ~40-45h)
+2. Mesure track record (6-12 mois, ZERO new code, pur usage)
+3. Dépersonnalisation (mois 6+)
+4. Positionnement public (mois 12+)
+
+### Entry point reprise post-pause
+
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `ps aux | grep bot.main` confirmer vivant
+3. Lire TODO.md section "Path 5/6 Strategic Pivot" pour rappel cap
+4. Lire PHILOSOPHY.md section "High Standard Mode" pour mantra
+5. **Première action P0** : property-based tests Hypothesis sur 4 modules math critiques
+   - credibility_update (shared/storage.py probable)
+   - brier_score (shared/storage.py ou intelligence/learning.py)
+   - materiality_composite (intelligence/materiality_v2.py compute_composite_score)
+   - asymmetry_ratio (intelligence/asymmetry.py)
+
+### Reste à ne PAS faire pour l'instant
+- Ajouter de nouveaux tickers
+- Ajouter de nouvelles sources
+- Ajouter de nouveaux crons
+- Ajouter de nouvelles features Tranche C/D/E
+- Toucher au refactor bot/main.py / storage.py (P2, défer 2 semaines)
+
+### Backup snapshot pré-pivot
+Git commit pre-pivot pour traçabilité avant la phase solidification.

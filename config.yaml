@@ -104,6 +104,13 @@ universe:
   - DLR
   - VRTX
   - ISRG
+  - NOW
+  - LSCC
+  - HOOD
+  - PYPL
+  - TYL
+  - STM
+  - GRAB
   extended:
     crypto_etfs:
     - ETHA
@@ -132,6 +139,7 @@ universe:
     international_extended:
     - BHP
     - RIO
+    - CSU.TO
     memory_storage:
     - WDC
     - MRAM
@@ -144,6 +152,7 @@ universe:
     - USAR
     - CRML
     - TMC
+    - LYC.AX
     critical_minerals:
     - TMQ
     - UAMY
@@ -160,6 +169,11 @@ universe:
     - ELVA
     ai_infra_extended:
     - HUT
+    - BTDR
+    - LITE
+    - CORZ
+    - CIFR
+    - GLXY
     power_extended:
     - EMR
     - FCEL
@@ -192,6 +206,8 @@ universe:
     - ENB
     - WMB
     - KMI
+    - EQT
+    - SEI
     international_tier2:
     - TM
     - HMC
@@ -208,10 +224,33 @@ universe:
     - CAT
     - DE
     - EMR
+    - ROL
     defense_tier2:
     - HII
     - LDOS
     - KTOS
+    - HEI
+    semis_supporting:
+    - BESI.AS
+    european_pea:
+    - MC.PA
+    - AI.PA
+    - EL.PA
+    - DSY.PA
+    - RMS.PA
+    - SU.PA
+    - TTE.PA
+    - HO.PA
+    - BN.PA
+    - STMPA.PA
+    - ASML.AS
+    - NN.AS
+    - EVO.ST
+    - ASSA-B.ST
+    - RACE.MI
+    - SRT.DE
+    - P911.DE
+    - ULVR.L
   sectors_focus:
   - semis
   - ai_infra
