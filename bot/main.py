@@ -590,6 +590,50 @@ async def log_handler_call_middleware(update, ctx):
 
 
 
+
+def _append_log_entry(filename: str, message: str) -> None:
+    """Append a timestamped entry to a log file at the repo root."""
+    from datetime import datetime
+    from pathlib import Path as _Path
+    repo_root = _Path(__file__).resolve().parent.parent
+    log_path = repo_root / filename
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(f"{ts} | {message}\n")
+
+
+async def cmd_log_value(update, ctx):
+    """Append entry to VALUE_LOG.md. Usage: /log_value <message>"""
+    text = update.message.text.partition(" ")[2].strip()
+    if not text:
+        await update.message.reply_text(
+            "Usage: /log_value <message>\n"
+            "Exemple: /log_value bot m'a alerte sur 8K NVDA avant que je le rate"
+        )
+        return
+    try:
+        _append_log_entry("VALUE_LOG.md", text)
+        await update.message.reply_text(f"OK logged to VALUE_LOG.md:\n  {text[:300]}")
+    except Exception as e:
+        await update.message.reply_text(f"Error writing VALUE_LOG.md: {e}")
+
+
+async def cmd_log_friction(update, ctx):
+    """Append entry to friction.md. Usage: /log_friction <message>"""
+    text = update.message.text.partition(" ")[2].strip()
+    if not text:
+        await update.message.reply_text(
+            "Usage: /log_friction <message>\n"
+            "Exemple: /log_friction /brief lent ce matin (15s)"
+        )
+        return
+    try:
+        _append_log_entry("friction.md", text)
+        await update.message.reply_text(f"OK logged to friction.md:\n  {text[:300]}")
+    except Exception as e:
+        await update.message.reply_text(f"Error writing friction.md: {e}")
+
+
 async def cmd_health(update, ctx):
     """Health check: process, DB, LLM activity, data freshness, recent errors."""
     import os
@@ -3133,6 +3177,8 @@ def main():
     from telegram.ext import MessageHandler, filters
 
     app.add_handler(MessageHandler(filters.COMMAND, log_handler_call_middleware), group=-1)
+    app.add_handler(CommandHandler("log_value", cmd_log_value))
+    app.add_handler(CommandHandler("log_friction", cmd_log_friction))
     app.add_handler(CommandHandler("health", cmd_health))
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
