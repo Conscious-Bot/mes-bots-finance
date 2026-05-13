@@ -12,6 +12,7 @@ import json
 import logging
 import statistics
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def _parse_tickers(entities_json):
     return []
 
 
-def compute_signal_time_to_move(signal, threshold=DEFAULT_THRESHOLD, max_days=DEFAULT_MAX_DAYS):
+def compute_signal_time_to_move(signal: dict[str, Any], threshold: float = DEFAULT_THRESHOLD, max_days: int = DEFAULT_MAX_DAYS) -> dict[str, Any] | None:
     """Days-until-significant-move on signal's primary ticker.
     Returns dict {ticker, days, return_pct, ...} or None.
     """
@@ -54,14 +55,14 @@ def compute_signal_time_to_move(signal, threshold=DEFAULT_THRESHOLD, max_days=DE
     if (now_utc - sig_dt).days < 1:
         return None
 
-    _baseline_date_str, baseline_price = prices.get_price_on_date(ticker, sig_dt)
+    _baseline_date_str, baseline_price = prices.get_price_on_date(ticker, sig_dt)  # type: ignore[arg-type]  # datetime works at runtime, str expected by signature
     if not baseline_price:
         return None
 
     end_dt = sig_dt + timedelta(days=max_days)
     if end_dt > now_utc:
         end_dt = now_utc
-    window = prices.get_price_window(ticker, sig_dt + timedelta(days=1), end_dt)
+    window = prices.get_price_window(ticker, sig_dt + timedelta(days=1), end_dt)  # type: ignore[arg-type]  # datetime works at runtime
     if not window:
         return None
 
@@ -84,7 +85,7 @@ def compute_signal_time_to_move(signal, threshold=DEFAULT_THRESHOLD, max_days=DE
     return None
 
 
-def compute_source_half_life(source_id, min_samples=DEFAULT_MIN_SAMPLES):
+def compute_source_half_life(source_id: int, min_samples: int = DEFAULT_MIN_SAMPLES) -> dict[str, Any]:
     """Median time-to-move across ticker-having signals from source."""
     from shared import storage
 
@@ -116,7 +117,7 @@ def compute_source_half_life(source_id, min_samples=DEFAULT_MIN_SAMPLES):
     }
 
 
-def refresh_all_source_half_lives(min_samples=DEFAULT_MIN_SAMPLES):
+def refresh_all_source_half_lives(min_samples: int = DEFAULT_MIN_SAMPLES) -> dict[str, dict[str, Any]]:
     """Iterate all sources, compute half-life, persist where n_samples >= min."""
     import sqlite3
 

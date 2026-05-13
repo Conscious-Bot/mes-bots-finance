@@ -16,7 +16,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def compute_corroboration_multiplier(n_distinct_sources):
+def compute_corroboration_multiplier(n_distinct_sources: int) -> float:
     """Return multiplier 1.0-1.7 based on source corroboration."""
     if n_distinct_sources >= 4:
         return 1.7
@@ -27,7 +27,7 @@ def compute_corroboration_multiplier(n_distinct_sources):
     return 1.0
 
 
-def recompute_boosts_for_clustered_signals():
+def recompute_boosts_for_clustered_signals() -> int:
     """Cron job: recompute materiality_boost for all clustered signals.
     Returns count of signals updated.
     """

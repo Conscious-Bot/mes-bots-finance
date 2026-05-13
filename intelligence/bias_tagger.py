@@ -1,6 +1,7 @@
 """Phase B6 — Auto-classify cognitive biases on trading decisions via Haiku LLM."""
 
 import logging
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ BIASES = {
 }
 
 
-def auto_tag_biases(decision, position=None, regime_str=None, top_signals=None):
+def auto_tag_biases(decision: dict[str, Any], position: dict[str, Any] | None = None, regime_str: str | None = None, top_signals: list[Any] | None = None) -> list[str]:
     """Return list of bias tags applicable to a decision. Empty if no clear bias detected."""
     from shared import llm
 

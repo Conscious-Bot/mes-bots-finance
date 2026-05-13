@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 VALID_TYPES = ("catalyst", "data", "narrative", "opinion")
 
 
-def classify_signal_type(title, summary=None, content=None):
+def classify_signal_type(title: str | None, summary: str | None = None, content: str | None = None) -> str | None:
     """Single Haiku call. Returns one of catalyst/data/narrative/opinion or None on failure."""
     from shared import llm
 
@@ -46,13 +46,13 @@ def classify_signal_type(title, summary=None, content=None):
     return None
 
 
-def classify_pending_signals(limit=50):
+def classify_pending_signals(limit: int = 50) -> tuple[int, dict[str, int]]:
     """Run classifier on signals with signal_type=NULL. Returns count classified."""
     from shared import storage
 
     pending = storage.get_unclassified_signals(limit=limit)
     classified = 0
-    type_counts = {}
+    type_counts: dict[str, int] = {}
     for sig in pending:
         t = classify_signal_type(sig.get("title"), sig.get("summary"), sig.get("content"))
         if t:

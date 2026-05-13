@@ -12,10 +12,12 @@ Archetypes:
 - NEUTRAL / MIXED
 """
 
+from typing import Any
+
 from shared import macro
 
 
-def detect_regime(snap=None):
+def detect_regime(snap: dict[str, Any] | None = None) -> dict[str, Any]:
     if snap is None:
         snap = macro.get_macro_snapshot()
 
@@ -134,7 +136,7 @@ def _implications(overall):
     return table.get(overall, [])
 
 
-def format_regime(r):
+def format_regime(r: dict[str, Any]) -> str:
     lines = [f"REGIME: {r['overall']}"]
     lines.append(f"  Equity:  {r['equity']}")
     lines.append(f"  Crypto:  {r['crypto']}")
