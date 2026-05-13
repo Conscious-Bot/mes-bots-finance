@@ -162,32 +162,3 @@ def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
             failed += 1
     log.info(f"materiality_v2: {scored} scored, {failed} failed of {len(rows)}")
     return scored, failed, len(rows)
-
-
-def get_breakdown(signal_id: int) -> dict[str, Any] | None:
-    """Return breakdown dict for a signal_id, or None."""
-    import sqlite3
-
-    from shared import storage
-
-    conn = sqlite3.connect(storage._DB_PATH)
-    conn.row_factory = sqlite3.Row
-    try:
-        row = conn.execute(
-            "SELECT impact_magnitude, reversibility, time_to_realization, "
-            "       materiality_breakdown, score, materiality_boost "
-            "FROM signals WHERE id=?",
-            (int(signal_id),),
-        ).fetchone()
-        if not row or row["impact_magnitude"] is None:
-            return None
-        d = dict(row)
-        if d.get("materiality_breakdown"):
-            try:
-                d["raw"] = json.loads(d["materiality_breakdown"])
-            except Exception:
-                d["raw"] = {}
-        d["composite"] = compute_composite_score(d)
-        return d
-    finally:
-        conn.close()
