@@ -10,9 +10,9 @@ from datetime import datetime, timedelta
 _logging.getLogger("yfinance").setLevel(_logging.CRITICAL)
 # Also suppress yfinance's print() to stdout for missing tickers
 import contextlib
+from typing import Any
 
 import yfinance.utils as _yfu
-from typing import Any
 
 with contextlib.suppress(Exception):
     _yfu.get_yf_logger().setLevel(_logging.CRITICAL)

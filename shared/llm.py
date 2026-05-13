@@ -5,11 +5,11 @@ import os
 import sqlite3
 import time
 from pathlib import Path
+from typing import Any, cast
 
 from anthropic import Anthropic
 
 from shared import config
-from typing import Any
 
 _client = None
 _DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "bot.db")
@@ -29,7 +29,7 @@ def client() -> Any:  # anthropic.Anthropic
     return _client
 
 
-def _resolve_model(tier: str | None = None, task: str | None = None) -> str:
+def _resolve_model(tier: str | None = None, task: str | None = None) -> tuple[str, str]:
     """Return (model_id, resolved_tier). tier overrides task."""
     cfg = config.load()
     if tier:
@@ -48,7 +48,7 @@ def _compute_cost(model: str, input_tokens: int, output_tokens: int, cached_toke
     cfg = config.load()
     pricing = cfg.get("pricing", {}).get(model)
     if not pricing:
-        return None
+        return 0.0
     fresh_input = max(0, input_tokens - cached_tokens)
     in_cost = fresh_input * pricing.get("input", 0) / 1_000_000
     cache_cost = cached_tokens * pricing.get("cached_input", 0) / 1_000_000
@@ -159,7 +159,7 @@ def call_json(
     raw = raw.removeprefix("```json").removeprefix("```")
     raw = raw.removesuffix("```").strip()
     try:
-        return json.loads(raw)
+        return cast(dict[str, Any], json.loads(raw))
     except json.JSONDecodeError:
         raw = call(
             prompt + "\n\nRetourne UNIQUEMENT un objet JSON valide.",
@@ -169,7 +169,7 @@ def call_json(
             system=system,
         ).strip()
         raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        return json.loads(raw)
+        return cast(dict[str, Any], json.loads(raw))
 
 
 def get_cost_summary(window_hours: int = 24) -> dict[str, Any]:

@@ -13,7 +13,7 @@ STATE_PATH = ROOT / "data" / "bot_state.json"
 
 
 @contextmanager
-def db() -> sqlite3.Connection:
+def db() -> _sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -1321,8 +1321,8 @@ def get_bias_stats(ticker=None, since_days=180):
                 "AND date(created_at) >= date('now', ?)",
                 (f"-{int(since_days)} days",),
             ).fetchall()
-        counts = {}
-        type_counts = {}
+        counts: dict[str, int] = {}
+        type_counts: dict[str, int] = {}
         total_with_tags = 0
         for r in rows:
             try:
@@ -1573,7 +1573,7 @@ def get_recent_8k_filings_db(ticker=None, severity=None, days=60, limit=50):
     conn.row_factory = _sqlite3.Row
     try:
         q = "SELECT * FROM filings_8k_log WHERE date(filed_at) >= date('now', ?)"
-        params = [f"-{int(days)} days"]
+        params: list[Any] = [f"-{int(days)} days"]
         if ticker:
             q += " AND ticker=?"
             params.append(ticker.upper())

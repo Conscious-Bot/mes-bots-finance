@@ -82,10 +82,11 @@ no_implicit_optional = true
 # Strict mode applied per-module as type hints rolled out
 [[tool.mypy.overrides]]
 module = [
-    "shared.math_helpers",
     "shared.notify",
     "shared.prices",
+    "shared.llm",
+    "shared.storage",
 ]
-disallow_untyped_defs = false  # gradual rollout - some args still untyped
+disallow_untyped_defs = false  # gradual rollout
 warn_return_any = true
 
