@@ -10,9 +10,9 @@ import os
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+from typing import Any
 
 import requests
-from typing import Any
 
 EDGAR_UA = os.environ.get("EDGAR_USER_AGENT", "Olivier Legendre olegendre@gmail.com")
 EDGAR_HEADERS = {
@@ -21,7 +21,7 @@ EDGAR_HEADERS = {
 }
 
 _CIK_CACHE: dict[str, str] | None = None
-_CIK_CACHE_TS: float | None = None
+_CIK_CACHE_TS: Any = None  # datetime
 CIK_CACHE_TTL_HOURS = 24
 
 
