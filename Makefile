@@ -49,9 +49,15 @@ test-restore-tarball:
 	echo "  Latest tarball: $$LATEST_TAR"; \
 	TMPDIR=/tmp/test_restore_$$$$ && rm -rf $$TMPDIR && mkdir -p $$TMPDIR; \
 	tar xzf "$$LATEST_TAR" -C $$TMPDIR/ 2>/dev/null; \
-	for f in bot/main.py config.yaml intelligence/digest.py shared/math_helpers.py FICHE_TECHNIQUE.md; do \
+	for f in bot/main.py config.yaml intelligence/digest.py shared/math_helpers.py shared/storage.py; do \
 		if [ ! -f "$$TMPDIR/mes-bots-finance/$$f" ]; then \
-			echo "  FAIL: missing $$f"; rm -rf $$TMPDIR; exit 1; \
+			echo "  FAIL: missing critical file $$f"; rm -rf $$TMPDIR; exit 1; \
+		fi; \
+	done; \
+	echo "  ✓ Critical core files present"; \
+	for f in TODO.md PHILOSOPHY.md ARCHITECTURE.md SESSION_STATE.md; do \
+		if [ ! -f "$$TMPDIR/mes-bots-finance/$$f" ]; then \
+			echo "  WARN: missing doc $$f (non-blocking)"; \
 		fi; \
 	done; \
 	echo "  ✓ Critical files present in tarball"; \
