@@ -854,6 +854,151 @@ async def weekly_kpi_status_job():
         log.warning(f"weekly_kpi_status_job error: {e}")
 
 
+
+# ============ Phase Solidification P2 — Cost trajectory dashboard ============
+
+BUDGET_MONTHLY_USD = 50.0  # Target monthly LLM spend (per FICHE_TECHNIQUE)
+
+
+def _cost_compute_trajectory():
+    """Compute cost trajectory data: today, MTD, projection, breakdowns."""
+    import sqlite3 as _sql
+    from shared import storage as _storage
+    from datetime import datetime as _dt
+    import calendar as _cal
+    
+    conn = _sql.connect(_storage._DB_PATH)
+    conn.row_factory = _sql.Row
+    try:
+        today_str = _dt.now().strftime('%Y-%m-%d')
+        now = _dt.now()
+        days_in_month = _cal.monthrange(now.year, now.month)[1]
+        day_of_month = now.day
+        month_start = f"{now.year:04d}-{now.month:02d}-01"
+        
+        # Spend buckets
+        today = conn.execute(
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) = ?",
+            (today_str,)
+        ).fetchone()[0]
+        yesterday = conn.execute(
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) = DATE('now', '-1 day')"
+        ).fetchone()[0]
+        week7 = conn.execute(
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE created_at >= datetime('now', '-7 days')"
+        ).fetchone()[0]
+        days30 = conn.execute(
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE created_at >= datetime('now', '-30 days')"
+        ).fetchone()[0]
+        mtd = conn.execute(
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) >= ?",
+            (month_start,)
+        ).fetchone()[0]
+        
+        # Projection month-end (linear extrapolation)
+        projection = (mtd / day_of_month) * days_in_month if day_of_month > 0 else 0
+        budget_pct = 100.0 * projection / BUDGET_MONTHLY_USD if BUDGET_MONTHLY_USD > 0 else 0
+        
+        if projection < BUDGET_MONTHLY_USD * 0.6:
+            status = "✅ GREEN"
+        elif projection < BUDGET_MONTHLY_USD * 0.9:
+            status = "⚠️ YELLOW"
+        else:
+            status = "🚨 RED — budget breach imminent"
+        
+        # By tier 30d
+        tier_rows = conn.execute(
+            "SELECT COALESCE(tier, '?') AS tier, ROUND(SUM(cost_usd), 4) AS spend, COUNT(*) AS n "
+            "FROM llm_calls WHERE created_at >= datetime('now', '-30 days') "
+            "GROUP BY tier ORDER BY spend DESC"
+        ).fetchall()
+        
+        # By task 30d (top 8)
+        task_rows = conn.execute(
+            "SELECT COALESCE(NULLIF(task, ''), '(untagged)') AS task, "
+            "       ROUND(SUM(cost_usd), 4) AS spend, COUNT(*) AS n "
+            "FROM llm_calls WHERE created_at >= datetime('now', '-30 days') "
+            "GROUP BY task ORDER BY spend DESC LIMIT 8"
+        ).fetchall()
+        
+        # Daily trend last 7d
+        daily_rows = conn.execute(
+            "SELECT DATE(created_at) AS day, ROUND(SUM(cost_usd), 4) AS spend "
+            "FROM llm_calls WHERE created_at >= datetime('now', '-7 days') "
+            "GROUP BY day ORDER BY day"
+        ).fetchall()
+        
+        return {
+            'today': today, 'yesterday': yesterday, 'week7': week7, 'days30': days30,
+            'mtd': mtd, 'projection': projection, 'budget_pct': budget_pct, 'status': status,
+            'days_elapsed': day_of_month, 'days_in_month': days_in_month,
+            'tier_rows': [dict(r) for r in tier_rows],
+            'task_rows': [dict(r) for r in task_rows],
+            'daily_rows': [dict(r) for r in daily_rows],
+        }
+    finally:
+        conn.close()
+
+
+def _cost_format_trajectory(data):
+    """Format trajectory dict to Telegram message."""
+    lines = ["💰 *COST TRAJECTORY*", ""]
+    lines.append("*Daily*")
+    lines.append(f"  Today      : ${data['today']:.4f}")
+    lines.append(f"  Yesterday  : ${data['yesterday']:.4f}")
+    lines.append(f"  7d window  : ${data['week7']:.4f}")
+    lines.append(f"  30d window : ${data['days30']:.4f}")
+    lines.append("")
+    lines.append("*Month-to-Date*")
+    lines.append(f"  Spent     : ${data['mtd']:.4f} ({data['days_elapsed']}/{data['days_in_month']}j)")
+    lines.append(f"  Projected : ${data['projection']:.2f} (linear extrapol.)")
+    lines.append(f"  Budget    : ${BUDGET_MONTHLY_USD:.0f}/mo target")
+    lines.append(f"  Usage     : {data['budget_pct']:.1f}% of budget")
+    lines.append(f"  Status    : {data['status']}")
+    lines.append("")
+    lines.append("*Top tier 30d*")
+    for r in data['tier_rows']:
+        pct = 100 * r['spend'] / data['days30'] if data['days30'] > 0 else 0
+        lines.append(f"  {r['tier']:12s} ${r['spend']:.4f} ({pct:.0f}%, n={r['n']})")
+    lines.append("")
+    lines.append("*Top task 30d*")
+    for r in data['task_rows'][:5]:
+        lines.append(f"  {r['task'][:20]:20s} ${r['spend']:.4f} (n={r['n']})")
+    lines.append("")
+    lines.append("*Daily 7d trend*")
+    for r in data['daily_rows']:
+        bar_len = int(r['spend'] / max(0.01, max(d['spend'] for d in data['daily_rows'])) * 15)
+        bar = "█" * bar_len
+        lines.append(f"  {r['day']}  ${r['spend']:.4f}  {bar}")
+    return "\n".join(lines)
+
+
+async def cmd_cost_trajectory(update, ctx):
+    """Phase Solidification P2 — Strategic cost dashboard avec MTD + projection + budget."""
+    try:
+        data = _cost_compute_trajectory()
+        msg = _cost_format_trajectory(data)
+        await update.message.reply_text(msg, parse_mode='Markdown')
+    except Exception as e:
+        log.error(f"cmd_cost_trajectory error: {e}")
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def weekly_cost_summary_job():
+    """Phase Solidification P2 — Weekly cost summary, Sunday 22:00 Paris."""
+    try:
+        from shared import notify as _notify
+        data = _cost_compute_trajectory()
+        msg = _cost_format_trajectory(data)
+        _notify.send_text(msg)
+        log.info(f"weekly_cost_summary_job: posted (projection ${data['projection']:.2f})")
+        # Alert if RED
+        if "🚨 RED" in data['status']:
+            _notify.send_text(f"⚠️ ALERT: Projected month-end ${data['projection']:.2f} exceeds 90% of ${BUDGET_MONTHLY_USD:.0f} budget")
+    except Exception as e:
+        log.warning(f"weekly_cost_summary_job error: {e}")
+
+
 async def cmd_sources_health(update, ctx):
     """Health check newsletter sources."""
     import sqlite3
@@ -2386,11 +2531,12 @@ async def post_init(app):
     sched.add_job(daily_backup_job, 'cron', hour=4, minute=0)
     sched.add_job(weekly_handler_stats_job, 'cron', day_of_week='sun', hour=23, minute=0)
     sched.add_job(weekly_kpi_status_job, 'cron', day_of_week='sun', hour=22, minute=30)
+    sched.add_job(weekly_cost_summary_job, 'cron', day_of_week='sun', hour=22, minute=0)
     sched.add_job(scheduled_classify_signal_types_job, 'interval', minutes=30)
     sched.add_job(scheduled_recompute_materiality_boost_job, 'interval', hours=1)
     sched.add_job(scheduled_materiality_v2_job, 'interval', hours=1)
     sched.start()
-    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, kpi_status Sun 22:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
+    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, cost Sun 22:00, kpi_status Sun 22:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 
 
@@ -2824,6 +2970,7 @@ def main():
     app.add_handler(MessageHandler(filters.COMMAND, log_handler_call_middleware), group=-1)
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
+    app.add_handler(CommandHandler("cost_trajectory", cmd_cost_trajectory))
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("thesis_add", cmd_thesis_add))
     app.add_handler(CommandHandler("thesis_list", cmd_thesis_list))
