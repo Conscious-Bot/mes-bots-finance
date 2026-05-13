@@ -8,11 +8,12 @@ Integrates with existing theses + positions tables. No new schema.
 """
 
 import logging
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 
-def _get_current_price(ticker):
+def _get_current_price(ticker: str) -> float | None:
     """Best-effort latest close via yfinance."""
     try:
         import yfinance as yf
@@ -25,11 +26,13 @@ def _get_current_price(ticker):
     return None
 
 
-def compute_thesis_asymmetry(thesis):
+def compute_thesis_asymmetry(thesis: dict[str, Any]) -> dict[str, Any] | None:
     """Compute asymmetry for a thesis dict. Returns dict with ratio + verdict + breakdown."""
     if not thesis:
         return None
     ticker = thesis.get("ticker")
+    if not ticker:
+        return None
     entry = thesis.get("entry_price")
     target_full = thesis.get("target_full") or thesis.get("target_price")
     target_partial = thesis.get("target_partial")
@@ -115,7 +118,7 @@ def compute_thesis_asymmetry(thesis):
     }
 
 
-def compute_portfolio_asymmetry():
+def compute_portfolio_asymmetry() -> list[dict[str, Any]]:
     """Aggregate asymmetry across all active theses. Returns list of dicts sorted by ratio."""
     from shared import storage
 
@@ -141,7 +144,7 @@ def compute_portfolio_asymmetry():
     return sorted(results, key=lambda x: -(x.get("asymmetry_ratio") or 0))
 
 
-def format_asymmetry_single(r):
+def format_asymmetry_single(r: dict[str, Any]) -> str:
     """Single-thesis asymmetry display."""
     if not r:
         return "No data"
@@ -158,7 +161,7 @@ def format_asymmetry_single(r):
         "FLIPPED": "🔴",
         "STOP_BREACHED": "⛔",
         "TARGET_HIT": "🎯",
-    }.get(r.get("verdict"), "?")
+    }.get(r.get("verdict") or "", "?")
 
     lines = [f"{verdict_icon} {r['ticker']} — Asymmetry"]
     lines.append(
@@ -177,7 +180,7 @@ def format_asymmetry_single(r):
     return "\n".join(lines)
 
 
-def format_portfolio_asymmetry(results):
+def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
     """Portfolio-wide ranked display."""
     if not results:
         return "No active theses with complete entry/target/stop data."
@@ -194,7 +197,7 @@ def format_portfolio_asymmetry(results):
             "FLIPPED": "🔴",
             "STOP_BREACHED": "⛔",
             "TARGET_HIT": "🎯",
-        }.get(r.get("verdict"), "?")
+        }.get(r.get("verdict") or "", "?")
         ratio = r["asymmetry_ratio"]
         ratio_str = "TARGET" if ratio >= 999 else f"{ratio:.2f}x"
         lines.append(

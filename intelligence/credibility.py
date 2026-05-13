@@ -9,6 +9,8 @@ Asymmetric updates: 'down' feedback weighs 2x more than 'up'
 (info content higher when user pushes back).
 """
 
+from typing import Any
+
 from shared import storage
 
 FEEDBACK_DELTA = {
@@ -17,7 +19,7 @@ FEEDBACK_DELTA = {
 }
 
 
-def apply_feedback(signal_id, rating):
+def apply_feedback(signal_id: int, rating: str) -> dict[str, Any]:
     """Apply user feedback to a signal. Updates source credibility.
 
     Returns dict with old/new credibility for display.
@@ -43,7 +45,7 @@ def apply_feedback(signal_id, rating):
     }
 
 
-def list_top_sources(n=10):
+def list_top_sources(n: int = 10) -> str:
     """Format top sources for Telegram display."""
     sources = storage.get_top_sources(n=n, min_signals=3)
     if not sources:
@@ -54,7 +56,7 @@ def list_top_sources(n=10):
     return "\n".join(lines)
 
 
-def list_worst_sources(n=5):
+def list_worst_sources(n: int = 5) -> str:
     """Format worst sources for display (candidates to drop)."""
     sources = storage.get_worst_sources(n=n, min_signals=5)
     if not sources:

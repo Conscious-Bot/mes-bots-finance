@@ -9,6 +9,7 @@ Asymetrique: down feedback (outcome incorrect) pese 2x plus que correct.
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from shared import prices, storage
 
@@ -50,8 +51,10 @@ def horizon_for_signal_type(signal_type, impact_magnitude=None):
 
 
 def register_prediction(
-    signal_id, ticker, direction, horizon_days=None, baseline_date=None, signal_type=None, impact_magnitude=None
-):
+    signal_id: int, ticker: str, direction: str, horizon_days: int | None = None,
+    baseline_date: str | None = None, signal_type: str | None = None,
+    impact_magnitude: float | None = None,
+) -> int | None:
     if horizon_days is None:
         horizon_days = horizon_for_signal_type(signal_type, impact_magnitude)
     if direction not in ("bullish", "bearish"):
@@ -59,11 +62,11 @@ def register_prediction(
     if baseline_date is None:
         baseline_date = datetime.now(UTC).strftime("%Y-%m-%d")
     actual_date, baseline_price = prices.get_price_on_date(ticker, baseline_date)
-    if baseline_price is None:
+    if baseline_price is None or actual_date is None:
         print(f"register_prediction: no baseline price for {ticker} @ {baseline_date}")
         return None
     target = (datetime.fromisoformat(actual_date) + timedelta(days=horizon_days)).strftime("%Y-%m-%d")
-    return storage.insert_prediction(
+    return cast(int | None, storage.insert_prediction(
         signal_id=signal_id,
         ticker=ticker,
         direction=direction,
@@ -71,10 +74,10 @@ def register_prediction(
         baseline_price=baseline_price,
         baseline_date=actual_date,
         target_date=target,
-    )
+    ))
 
 
-def auto_register_predictions(signals, horizon_days=HORIZON_DAYS):
+def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int = HORIZON_DAYS) -> list[int]:
     """Iterate processed signals. Register predictions for score>=6 + bullish/bearish."""
     registered = []
     for sig in signals:
@@ -91,9 +94,12 @@ def auto_register_predictions(signals, horizon_days=HORIZON_DAYS):
             except Exception:
                 tickers = []
         baseline_date = (sig.get("timestamp") or "")[:10] or None
+        sig_id = sig.get("id")
+        if sig_id is None:
+            continue
         for tk in tickers[:5]:
             pid = register_prediction(
-                signal_id=sig.get("id"),
+                signal_id=sig_id,
                 ticker=tk,
                 direction=sentiment,
                 horizon_days=horizon_days if horizon_days != HORIZON_DAYS else None,
@@ -106,12 +112,12 @@ def auto_register_predictions(signals, horizon_days=HORIZON_DAYS):
     return registered
 
 
-def resolve_due_predictions(limit=50):
+def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
     """Find predictions past target_date, compute outcomes, update credibility."""
     due = storage.get_due_predictions(limit=limit)
     if not due:
         return {"resolved": 0, "details": []}
-    results = {"resolved": 0, "details": []}
+    results: dict[str, Any] = {"resolved": 0, "details": []}
     for pred in due:
         ticker = pred["ticker"]
         baseline_price = pred["baseline_price"]
@@ -170,7 +176,7 @@ def resolve_due_predictions(limit=50):
     return results
 
 
-def format_resolve_report(results):
+def format_resolve_report(results: dict[str, Any]) -> str:
     if results["resolved"] == 0:
         return "Aucune prediction a resoudre (target_date pas encore passe)."
     lines = [f"Resolution: {results['resolved']} predictions"]

@@ -5,11 +5,13 @@ insights (score, sentiment, tickers, narratives, summary), updates DB,
 returns formatted digest for Telegram.
 """
 
+from typing import Any, cast
+
 from shared import config, llm, storage
 from shared.prompts import DIGEST_SYNTHESIZER
 
 
-def synthesize_signal(signal_dict, watchlist, regime_context=None, insider_context=None):
+def synthesize_signal(signal_dict: dict[str, Any], watchlist: list[str], regime_context: str | None = None, insider_context: str | None = None) -> dict[str, Any]:
     """Call LLM to extract structured insights. Optionally with regime preamble."""
     body = (signal_dict.get("content") or "")[:10000]
     watchlist_str = ", ".join(watchlist[:30]) + (f"... ({len(watchlist)} total)" if len(watchlist) > 30 else "")
@@ -37,7 +39,7 @@ def synthesize_signal(signal_dict, watchlist, regime_context=None, insider_conte
         }
 
 
-def process_unprocessed(limit=20):
+def process_unprocessed(limit: int = 20) -> list[dict[str, Any]]:
     """Process up to `limit` unprocessed raw signals. Fetches regime once per batch."""
     cfg = config.load()
     watchlist = cfg.get("universe", {}).get("watchlist", [])
@@ -82,7 +84,7 @@ def process_unprocessed(limit=20):
     return processed
 
 
-def build_digest_telegram(processed_signals, top_n=5):
+def build_digest_telegram(processed_signals: list[dict[str, Any]], top_n: int = 5) -> str:
     """Format top-N scored signals for Telegram (plain text)."""
     if not processed_signals:
         return "Aucun signal a digerer."
@@ -104,7 +106,7 @@ def build_digest_telegram(processed_signals, top_n=5):
     return "\n".join(parts)
 
 
-def run_digest(limit=20, top_n=5, fallback_hours=72, include_regime=True):
+def run_digest(limit: int = 20, top_n: int = 5, fallback_hours: int = 72, include_regime: bool = True) -> str:
     """Full digest pipeline. Falls back to recent if nothing new.
     Prepends regime banner if include_regime=True.
     """
@@ -126,7 +128,7 @@ def run_digest(limit=20, top_n=5, fallback_hours=72, include_regime=True):
 
             r = _regime.detect_regime()
             banner = _regime.format_regime(r)
-            return banner + "\n\n---\n\n" + digest_msg
+            return cast(str, banner) + "\n\n---\n\n" + digest_msg
         except Exception as _e:
             print(f"Regime banner failed: {_e}")
     return digest_msg
@@ -145,7 +147,7 @@ if __name__ == "__main__":
         print("\nNo unprocessed signals. Run 'python -m data_sources.gmail_' first.")
 
 
-def _build_regime_context(r):
+def _build_regime_context(r: dict[str, Any]) -> str:
     """Build regime context preamble for LLM signal scoring."""
     if not r:
         return ""
@@ -177,19 +179,19 @@ from shared import config as _cfg
 INSIDER_TOP_TICKERS = _cfg.get_tickers("core")
 
 
-def _build_insider_context():
+def _build_insider_context() -> str:
     """Fetch top-watchlist insider briefs (cached 24h) and format for LLM prompt."""
     try:
         from shared import edgar as _edgar_mod
 
         briefs = _edgar_mod.get_insider_briefs(INSIDER_TOP_TICKERS)
-        return _edgar_mod.format_insider_context_for_prompt(briefs)
+        return cast(str, _edgar_mod.format_insider_context_for_prompt(briefs))
     except Exception as e:
         print(f"Insider context failed: {e}")
         return ""
 
 
-def run_enhanced_digest(limit=20, top_n=5, fallback_hours=72, include_regime=True, annotate_top=3, persist=True):
+def run_enhanced_digest(limit: int = 20, top_n: int = 5, fallback_hours: int = 72, include_regime: bool = True, annotate_top: int = 3, persist: bool = True) -> str:
     import logging
 
     log = logging.getLogger(__name__)
@@ -293,7 +295,7 @@ def run_enhanced_digest(limit=20, top_n=5, fallback_hours=72, include_regime=Tru
 # ============ Phase Digestion Output — Unified Narrative Synthesis ============
 
 
-def generate_unified_digest(since_hours=24, max_signals=40, exclude_low_score=True):
+def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclude_low_score: bool = True) -> str:
     """Single narrative synthesizing all recent signals into themes + catalysts + noise + actions.
 
     Replaces the per-email summary format with thematic synthesis.

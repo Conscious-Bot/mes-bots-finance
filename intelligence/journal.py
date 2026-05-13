@@ -6,6 +6,7 @@ Manual override (via /journal_clear or override_mistake_tag) is the escape valve
 """
 
 import logging
+from typing import Any
 
 log = logging.getLogger("intelligence.journal")
 
@@ -14,7 +15,7 @@ SIGNIFICANT_MOVE_PCT = 0.05
 LARGE_MISS_PCT = 0.10
 
 
-def auto_classify_mistake(decision, price_at_horizon, horizon_days):  # noqa: ARG001
+def auto_classify_mistake(decision: dict[str, Any], price_at_horizon: float, horizon_days: int) -> str | None:  # noqa: ARG001
     """Return mistake tag string based on decision + outcome.
     Args:
         decision: dict (row from decisions table)
@@ -75,7 +76,7 @@ def auto_classify_mistake(decision, price_at_horizon, horizon_days):  # noqa: AR
     return None
 
 
-def thesis_relative_position(price, thesis_dict):
+def thesis_relative_position(price: float, thesis_dict: dict[str, Any]) -> str | None:
     """Where is price relative to thesis target levels?
     Priority: full -> partial -> below_entry (dominant) -> at_or_below_stop -> between_entry_and_partial.
     Handles both normal (stop < entry) and invalidation-stop (stop > entry) thesis structures.
@@ -100,7 +101,7 @@ def thesis_relative_position(price, thesis_dict):
     return "unclassified"
 
 
-def format_decision_summary(d):
+def format_decision_summary(d: dict[str, Any]) -> str:
     """Format a decision row as a 3-line Telegram block."""
     lines = []
     tag = d.get("mistake_tag_manual") or d.get("mistake_tag_auto") or "pending"

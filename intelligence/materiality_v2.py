@@ -14,13 +14,14 @@ Justification cognitive: au lieu de "score=7 sans savoir pourquoi", tu vois
 
 import json
 import logging
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 TIME_FACTORS = {"urgent": 5.0, "medium": 3.0, "slow": 1.0, "na": 2.0}
 
 
-def score_materiality_structured(title, summary=None, content=None, entities=None, source_credibility=None):
+def score_materiality_structured(title: str, summary: str | None = None, content: str | None = None, entities: list[str] | None = None, source_credibility: float | None = None) -> dict[str, Any] | None:
     """Single Sonnet call. Returns dict with rubric components or None on failure."""
     from shared import llm
 
@@ -88,7 +89,7 @@ def score_materiality_structured(title, summary=None, content=None, entities=Non
         return None
 
 
-def compute_composite_score(breakdown):
+def compute_composite_score(breakdown: dict[str, Any]) -> float | None:
     """Composite score 0-10 from breakdown. Reversibility inverted (lower=more permanent=higher impact)."""
     if not breakdown:
         return None
@@ -97,11 +98,11 @@ def compute_composite_score(breakdown):
     time_factor = TIME_FACTORS.get(breakdown.get("time_to_realization", "na"), 2.0)
     # Reversibility inverse: 1 (irreversible) → 5, 5 (transient) → 1
     rev_inv = 6 - rev
-    composite = imp * 0.5 + rev_inv * 0.3 + time_factor * 0.2  # range 1-5
-    return round(composite * 2.0, 2)  # scale to 0-10
+    composite = float(imp) * 0.5 + float(rev_inv) * 0.3 + float(time_factor) * 0.2  # range 1-5
+    return float(round(composite * 2.0, 2))  # scale to 0-10
 
 
-def persist_breakdown(signal_id, breakdown):
+def persist_breakdown(signal_id: int, breakdown: dict[str, Any]) -> None:
     """Persist rubric to signals table."""
     import sqlite3
 
@@ -125,7 +126,7 @@ def persist_breakdown(signal_id, breakdown):
         conn.close()
 
 
-def score_pending_signals_v2(limit=20):
+def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
     """Cron: score signals where impact_magnitude IS NULL. Returns counts."""
     import sqlite3
 
@@ -163,7 +164,7 @@ def score_pending_signals_v2(limit=20):
     return scored, failed, len(rows)
 
 
-def get_breakdown(signal_id):
+def get_breakdown(signal_id: int) -> dict[str, Any] | None:
     """Return breakdown dict for a signal_id, or None."""
     import sqlite3
 

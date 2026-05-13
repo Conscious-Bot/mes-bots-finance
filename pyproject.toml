@@ -86,6 +86,13 @@ module = [
     "shared.prices",
     "shared.llm",
     "shared.storage",
+    "shared.config",
+    "intelligence.learning",
+    "intelligence.materiality_v2",
+    "intelligence.asymmetry",
+    "intelligence.digest",
+    "intelligence.journal",
+    "intelligence.credibility",
 ]
 disallow_untyped_defs = false  # gradual rollout
 warn_return_any = true

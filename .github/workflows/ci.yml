@@ -35,6 +35,17 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
       
+      - name: Ruff lint check
+        run: ruff check . --output-format=github
+      
+      - name: Mypy type check (strict-typed modules)
+        run: |
+          mypy shared/math_helpers.py shared/storage.py shared/llm.py \
+               shared/prices.py shared/notify.py shared/config.py \
+               intelligence/learning.py intelligence/materiality_v2.py \
+               intelligence/asymmetry.py intelligence/digest.py \
+               intelligence/journal.py intelligence/credibility.py \
+               --follow-imports=silent
       - name: Run pytest with coverage
         run: |
           pytest tests/ -v --tb=short \
