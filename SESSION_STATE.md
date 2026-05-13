@@ -70,3 +70,19 @@
 - `scripts/backup.sh` + `Makefile` — automation
 - `SESSION_STATE.md` — this file, handoff canonical
 
+
+
+## Known artifact — cluster temporel predictions (13 May 2026)
+
+**Empirical finding du marathon**:
+- 45 predictions existantes ont TOUTES horizon_days=30 (hardcoded default)
+- Toutes target_date entre 2026-06-10 et 2026-06-11 → batch resolution massif J+28
+- Implication: KPI #3 Brier inutilisable jusqu'au 10 juin, puis N=40 d'un coup
+
+**Fix shipped** (P2):
+- `intelligence/learning.py:horizon_for_signal_type()` — diversification par signal_type
+- SIGNAL_TYPE_HORIZONS: catalyst=14, data=30, opinion=30, narrative=60
+- Impact ≥4 narrows horizon (catalyst 14→7, narrative 60→30)
+- Effet: predictions FUTURES diversifiées, les 45 existantes laissées (intégrité historique)
+
+**Tracker**: après 10 juin, observer si Brier devient meaningful avec N≥10 continu.

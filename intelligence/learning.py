@@ -20,8 +20,37 @@ OUTCOME_DELTA = {
     'neutral': 0.0,
 }
 
+# Phase Solidification P2 — diversification horizon par signal_type
+# Rationale: catalyst = event-driven (jours/semaines), narrative = slow-burn (mois),
+# opinion/data = standard horizon. Évite cluster temporel de resolutions.
+SIGNAL_TYPE_HORIZONS = {
+    'catalyst': 14,    # event-driven, short window
+    'data': 30,        # macro prints, medium
+    'opinion': 30,     # opinion pieces, medium
+    'narrative': 60,   # slow-burn themes, long
+}
 
-def register_prediction(signal_id, ticker, direction, horizon_days=HORIZON_DAYS, baseline_date=None):
+
+def horizon_for_signal_type(signal_type, impact_magnitude=None):
+    """Map signal_type + impact_magnitude to default horizon (days).
+    
+    High impact (≥4) narrows the window for faster decisive resolution.
+    Returns HORIZON_DAYS (30) as fallback for unknown signal_type.
+    
+    Invariants:
+    - Output >= 7 (minimum useful horizon)
+    - catalyst always shorter than narrative
+    - impact_magnitude can only narrow, never extend
+    """
+    base = SIGNAL_TYPE_HORIZONS.get(signal_type, HORIZON_DAYS)
+    if impact_magnitude is not None and impact_magnitude >= 4 and base >= 14:
+        return max(7, base // 2)
+    return base
+
+
+def register_prediction(signal_id, ticker, direction, horizon_days=None, baseline_date=None, signal_type=None, impact_magnitude=None):
+    if horizon_days is None:
+        horizon_days = horizon_for_signal_type(signal_type, impact_magnitude)
     if direction not in ('bullish', 'bearish'):
         return None
     if baseline_date is None:
@@ -63,8 +92,10 @@ def auto_register_predictions(signals, horizon_days=HORIZON_DAYS):
                 signal_id=sig.get('id'),
                 ticker=tk,
                 direction=sentiment,
-                horizon_days=horizon_days,
+                horizon_days=horizon_days if horizon_days != HORIZON_DAYS else None,
                 baseline_date=baseline_date,
+                signal_type=sig.get('signal_type'),
+                impact_magnitude=sig.get('impact_magnitude'),
             )
             if pid:
                 registered.append(pid)
