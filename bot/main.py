@@ -410,7 +410,7 @@ async def daily_calendar_refresh_job():
 
 async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Show categorized list of all available commands."""
-    help_text = """mes-bots-finance — Commands (64 handlers)
+    help_text = """mes-bots-finance — Commands (61 handlers)
 
 === DAILY RITUAL ===
 /brief             Morning briefing (6 sections)
@@ -431,14 +431,13 @@ async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 === POSITIONS ===
 /position_buy      Record a buy + journal
 /position_sell     Record a sell + journal
-/portfolio         View active positions
-/positions         (alias - J+28 cleanup)
-/position          (legacy - J+28 cleanup)
-/position_set      Set position params
+/portfolio         View positions w/ concentration & PnL
+/position TICKER   Drill-down single ticker + history
+/position_set      Set position params manually
 /position_history  Position event log
 /orphan_tickers    Holdings without thesis
-/exit              Close a position
-/exit_force        Force-close (bypass checks)
+/exit TICKER       Check exit trigger status
+/exit_force TICKER reason  Force-close thesis (regret-tagged)
 
 === ANALYSIS DEEP-WORK ===
 /analyze TICKER    Deep ticker analysis (Opus)
@@ -446,8 +445,7 @@ async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 /debate_replay     Replay previous debate
 /asymmetry TICKER  Anti-sell-too-early math
 /risk_check TICKER SIDE USD  Risk premortem
-/materiality TICKER  Materiality score
-/materiality_debug TICKER  Rubric breakdown
+/materiality       Materiality (no args=top5, INT=signal_id, TICKER=last 5)
 
 === DECISIONS & JOURNAL ===
 /journal           View decision journal
@@ -495,16 +493,14 @@ async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 /llm_costs         LLM cost breakdown
 
 === ADMIN ===
-/override          Manual override
-/overrides         List active overrides
+/override [TICKER level reason]  List or create override
 /help              This help
 
 ----
-J+28 cleanup: position*/exit*/override* duplicates,
-insider_cluster vs insider_buy_cluster merge."""
+J+28 cleanup remaining: insider_cluster vs buy_cluster merge,
+journal_unresolved -> /journal flag, cost duplicates,
+exit naming clarity, LOW-conf telemetry-driven deletions."""
     await update.message.reply_text(help_text)
-
-
 
 async def cmd_insiders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
@@ -2607,64 +2603,6 @@ async def scheduled_materiality_v2_job():
         log.warning(f"materiality_v2_job error: {e}")
 
 
-async def cmd_materiality_debug(update, ctx):
-    """Phase Digestion 3c — /materiality_debug TICKER → show last 5 signals with breakdown."""
-    parts = update.message.text.split()
-    if len(parts) < 2:
-        await update.message.reply_text(
-            "Usage: /materiality_debug TICKER\nShows last 5 signals mentioning TICKER with full materiality breakdown."
-        )
-        return
-    ticker = parts[1].upper().strip()
-    import json
-    import sqlite3
-
-    from intelligence import materiality_v2
-    from shared import storage as storage_mod
-
-    conn = sqlite3.connect(storage_mod._DB_PATH)
-    conn.row_factory = sqlite3.Row
-    rows = conn.execute(
-        "SELECT s.id, s.title, s.score, s.signal_type, s.impact_magnitude, "
-        "       s.reversibility, s.time_to_realization, s.materiality_breakdown, "
-        "       s.materiality_boost, src.name AS source "
-        "FROM signals s LEFT JOIN sources src ON s.source_id = src.id "
-        "WHERE s.entities LIKE ? "
-        "ORDER BY s.timestamp DESC LIMIT 5",
-        (f"%{ticker}%",),
-    ).fetchall()
-    conn.close()
-    if not rows:
-        await update.message.reply_text(f"No signals mention {ticker} in DB.")
-        return
-    lines = [f"MATERIALITY BREAKDOWN — {ticker} (last 5)"]
-    for r in rows:
-        lines.append(f"\n[#{r['id']}] {(r['title'] or '?')[:80]}")
-        lines.append(f"  src={r['source']} | type={r['signal_type'] or '?'} | raw_score={r['score']}")
-        if r["impact_magnitude"] is not None:
-            composite = materiality_v2.compute_composite_score(dict(r))
-            reasoning = ""
-            try:
-                if r["materiality_breakdown"]:
-                    b = json.loads(r["materiality_breakdown"])
-                    reasoning = b.get("reasoning", "")[:120]
-            except Exception:
-                pass
-            boost = r["materiality_boost"] or 1.0
-            adj = composite * boost if composite else "na"
-            lines.append(
-                f"  impact={r['impact_magnitude']:.0f}/5 | reversibility={r['reversibility']:.0f}/5 | "
-                f"time={r['time_to_realization']} | composite={composite}/10 | boost={boost:.1f}x | adj={adj}"
-            )
-            if reasoning:
-                lines.append(f"  └ {reasoning}")
-        else:
-            lines.append("  [v2 scoring pending — runs hourly cron]")
-    msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
-
 
 async def post_init(app):
     """Run AFTER event loop is started."""
@@ -2765,10 +2703,29 @@ async def cmd_price_check(update, ctx):
 
 
 async def cmd_override(update, ctx):
-    """Capture override of a trigger: /override TICKER level reason"""
+    """Override capture/list: /override (list) | /override TICKER level reason (create)"""
     parts = update.message.text.split(maxsplit=3)
+
+    # No args: list mode (former /overrides behavior)
+    if len(parts) == 1:
+        rows = list_overrides(limit=15)
+        if not rows:
+            await update.message.reply_text("No overrides recorded yet.")
+            return
+        lines = ["Recent overrides:"]
+        for o in rows:
+            reason = (o["reason"] or "")[:55]
+            lines.append(f"#{o['id']:3d} {o['ticker']:6s} {o['level']:7s} | {reason}")
+            lines.append(f"    {o['created_at']}")
+        await update.message.reply_text("\n".join(lines))
+        return
+
+    # Create mode: needs TICKER + level + reason
     if len(parts) < 4:
-        await update.message.reply_text("Usage: /override <TICKER> <partial|full|stop> <reason>")
+        await update.message.reply_text(
+            "Usage:\n  /override                          (list recent)\n"
+            "  /override <TICKER> <partial|full|stop> <reason>  (create)"
+        )
         return
     ticker, level, reason = parts[1].upper(), parts[2].lower(), parts[3]
     if level not in ("partial", "full", "stop"):
@@ -2777,24 +2734,10 @@ async def cmd_override(update, ctx):
     try:
         oid = record_override(ticker, level, reason)
         await update.message.reply_text(
-            f"✓ Override #{oid} captured: {ticker}/{level}\n  Reason: {reason}\n  Stored for BiasDetector training."
+            f"OK Override #{oid} captured: {ticker}/{level}\n  Reason: {reason}\n  Stored for BiasDetector training."
         )
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
-
-
-async def cmd_overrides(update, ctx):
-    """List recent overrides."""
-    rows = list_overrides(limit=15)
-    if not rows:
-        await update.message.reply_text("No overrides recorded yet.")
-        return
-    lines = ["Recent overrides:"]
-    for o in rows:
-        reason = (o["reason"] or "")[:55]
-        lines.append(f"#{o['id']:3d} {o['ticker']:6s} {o['level']:7s} | {reason}")
-        lines.append(f"    {o['created_at']}")
-    await update.message.reply_text("\n".join(lines))
 
 
 async def cmd_crypto(update, ctx):
@@ -2973,15 +2916,6 @@ async def cmd_position_sell(update, ctx):
         await update.message.reply_text(f"Error: {e}")
 
 
-async def cmd_positions(update, ctx):
-    """List all open positions with live valuation."""
-    await update.message.reply_text("Fetching live prices...")
-    try:
-        pos = positions_mod.list_positions()
-        await update.message.reply_text(positions_mod.format_positions_summary(pos))
-    except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
-
 
 async def cmd_position(update, ctx):
     """Detail: /position TICKER"""
@@ -3149,11 +3083,16 @@ async def cmd_credit(update, ctx):
 
 
 async def cmd_materiality(update, ctx):
-    """View materiality scoring: /materiality (top 5 last 24h) or /materiality SIGNAL_ID"""
+    """Materiality views: /materiality (top 5) | /materiality SIGNAL_ID | /materiality TICKER"""
+    import json
+    import sqlite3
+
+    from intelligence import materiality_v2
     from shared import storage as storage_mod
 
     parts = update.message.text.split()
 
+    # Mode 1: no args -> top 5 last 24h
     if len(parts) == 1:
         tops = storage_mod.get_top_material_signals(n=5, since_hours=24)
         if not tops:
@@ -3171,38 +3110,80 @@ async def cmd_materiality(update, ctx):
         await update.message.reply_text("\n".join(lines))
         return
 
+    arg = parts[1].strip()
+
+    # Mode 2: integer arg -> signal_id breakdown
     try:
-        sid = int(parts[1])
+        sid = int(arg)
+        m = storage_mod.get_materiality(sid)
+        if not m:
+            await update.message.reply_text("No materiality data for signal #" + str(sid))
+            return
+        lines = [
+            "Materiality #" + str(sid) + ":",
+            "  composite:      " + ("%.3f" % (m.get("materiality") or 0)),
+            "  quality:        " + ("%.3f" % (m.get("quality") or 0)),
+            "  novelty:        " + ("%.2f" % (m.get("novelty") or 0)),
+            "  cross-conf:     " + ("%.2f" % (m.get("cross_confirmation") or 0)),
+            "  market_impact:  " + ("%.2f" % (m.get("market_impact") or 0)),
+            "  regime_fit:     " + ("%.2f" % (m.get("regime_relevance") or 0)),
+            "  type: " + str(m.get("signal_type") or "?") + " | polarity: " + str(m.get("polarity") or "?"),
+            "  primary: " + str(m.get("primary_ticker") or "-") + " | noise: " + str(bool(m.get("is_noise"))),
+            "  regime: " + str(m.get("regime_snapshot") or "?") + " | credit: " + str(m.get("credit_regime_snapshot") or "?"),
+        ]
+        if m.get("why_this_matters"):
+            lines.append("")
+            lines.append("Why this matters:")
+            lines.append("  " + m["why_this_matters"])
+        await update.message.reply_text("\n".join(lines))
+        return
     except ValueError:
-        await update.message.reply_text("Usage: /materiality [SIGNAL_ID]")
+        pass
+
+    # Mode 3: non-numeric arg -> ticker (last 5 signals mentioning ticker, former /materiality_debug)
+    ticker = arg.upper()
+    conn = sqlite3.connect(storage_mod._DB_PATH)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT s.id, s.title, s.score, s.signal_type, s.impact_magnitude, "
+        "       s.reversibility, s.time_to_realization, s.materiality_breakdown, "
+        "       s.materiality_boost, src.name AS source "
+        "FROM signals s LEFT JOIN sources src ON s.source_id = src.id "
+        "WHERE s.entities LIKE ? "
+        "ORDER BY s.timestamp DESC LIMIT 5",
+        (f"%{ticker}%",),
+    ).fetchall()
+    conn.close()
+    if not rows:
+        await update.message.reply_text(f"No signals mention {ticker} in DB.")
         return
-
-    m = storage_mod.get_materiality(sid)
-    if not m:
-        await update.message.reply_text("No materiality data for signal #" + str(sid))
-        return
-
-    lines = [
-        "Materiality #" + str(sid) + ":",
-        "  composite:      " + ("%.3f" % (m.get("materiality") or 0)),
-        "  quality:        " + ("%.3f" % (m.get("quality") or 0)),
-        "  novelty:        " + ("%.2f" % (m.get("novelty") or 0)),
-        "  cross-conf:     " + ("%.2f" % (m.get("cross_confirmation") or 0)),
-        "  market_impact:  " + ("%.2f" % (m.get("market_impact") or 0)),
-        "  regime_fit:     " + ("%.2f" % (m.get("regime_relevance") or 0)),
-        "  type: " + str(m.get("signal_type") or "?") + " | polarity: " + str(m.get("polarity") or "?"),
-        "  primary: " + str(m.get("primary_ticker") or "-") + " | noise: " + str(bool(m.get("is_noise"))),
-        "  regime: "
-        + str(m.get("regime_snapshot") or "?")
-        + " | credit: "
-        + str(m.get("credit_regime_snapshot") or "?"),
-    ]
-    if m.get("why_this_matters"):
-        lines.append("")
-        lines.append("Why this matters:")
-        lines.append("  " + m["why_this_matters"])
-    await update.message.reply_text("\n".join(lines))
-
+    lines = [f"MATERIALITY BREAKDOWN - {ticker} (last 5)"]
+    for r in rows:
+        lines.append(f"\n[#{r['id']}] {(r['title'] or '?')[:80]}")
+        lines.append(f"  src={r['source']} | type={r['signal_type'] or '?'} | raw_score={r['score']}")
+        if r["impact_magnitude"] is not None:
+            composite = materiality_v2.compute_composite_score(dict(r))
+            reasoning = ""
+            try:
+                if r["materiality_breakdown"]:
+                    b = json.loads(r["materiality_breakdown"])
+                    reasoning = b.get("reasoning", "")[:120]
+            except Exception:
+                pass
+            boost = r["materiality_boost"] or 1.0
+            adj = composite * boost if composite else "na"
+            lines.append(
+                f"  impact={r['impact_magnitude']:.0f}/5 | reversibility={r['reversibility']:.0f}/5 | "
+                f"time={r['time_to_realization']} | composite={composite}/10 | boost={boost:.1f}x | adj={adj}"
+            )
+            if reasoning:
+                lines.append(f"  -> {reasoning}")
+        else:
+            lines.append("  [v2 scoring pending - runs hourly cron]")
+    msg = "\n".join(lines)
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
+    await update.message.reply_text(msg)
 
 def main():
     storage.log_event("startup", {"phase": "2"})
@@ -3275,16 +3256,13 @@ def main():
     app.add_handler(CommandHandler("asymmetry", cmd_asymmetry))
     app.add_handler(CommandHandler("brief", cmd_brief))
     app.add_handler(CommandHandler("signals_by_type", cmd_signals_by_type))
-    app.add_handler(CommandHandler("materiality_debug", cmd_materiality_debug))
     app.add_handler(CommandHandler("price_check", cmd_price_check))
     app.add_handler(CommandHandler("override", cmd_override))
-    app.add_handler(CommandHandler("overrides", cmd_overrides))
     app.add_handler(CommandHandler("crypto", cmd_crypto))
     app.add_handler(CommandHandler("position_set", cmd_position_set))
     app.add_handler(CommandHandler("position_buy", cmd_position_buy))
     app.add_handler(CommandHandler("position_sell", cmd_position_sell))
     app.add_handler(CommandHandler("position", cmd_position))
-    app.add_handler(CommandHandler("positions", cmd_positions))
     app.add_handler(CommandHandler("analyze", cmd_analyze))
 
     log.info("Polling Telegram...")
