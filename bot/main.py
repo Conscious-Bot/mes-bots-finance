@@ -656,6 +656,194 @@ async def weekly_handler_stats_job():
         log.warning(f"weekly_handler_stats_job error: {e}")
 
 
+
+# ============ Phase Solidification P2 — KPI Status monitoring ============
+
+def _kpi_compute_all():
+    """Compute all 5 KPIs. Returns dict with status per KPI."""
+    import sqlite3 as _sql
+    from shared import storage as _storage
+    conn = _sql.connect(_storage._DB_PATH)
+    conn.row_factory = _sql.Row
+    out = {}
+
+    # KPI #2: predictions résolues 28d (target ≥5)
+    r2 = conn.execute(
+        "SELECT COUNT(*) AS resolved_28d FROM predictions "
+        "WHERE resolved_at IS NOT NULL AND resolved_at >= datetime('now', '-28 days')"
+    ).fetchone()
+    open_pred = conn.execute(
+        "SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL"
+    ).fetchone()["n"]
+    stuck = conn.execute(
+        "SELECT COUNT(*) AS n FROM predictions WHERE target_date <= datetime('now') AND resolved_at IS NULL"
+    ).fetchone()["n"]
+    target = 5
+    n2 = r2["resolved_28d"]
+    if n2 >= target:
+        s2 = "✅ GREEN"
+    elif stuck > 0:
+        s2 = f"🚨 RED — {stuck} predictions stuck (target_date passé, resolve cron failing?)"
+    elif n2 >= target * 0.6:
+        s2 = "⚠️ YELLOW — approaching"
+    else:
+        s2 = f"⏳ TIMER ACTIF — need {target - n2} more resolutions to hit target"
+    out["kpi2"] = {
+        "title": "KPI #2 NON-NEG: Predictions résolues 28d",
+        "target": f"≥{target}",
+        "current": f"{n2} resolved | {open_pred} open ({stuck} stuck)",
+        "status": s2,
+        "enforcement": "Stop build 5j + force-use si breach",
+    }
+
+    # KPI #3: Brier rolling 90d (target <0.20)
+    r3 = conn.execute(
+        "SELECT AVG(brier_score) AS brier_avg, COUNT(*) AS n FROM predictions "
+        "WHERE brier_score IS NOT NULL AND resolved_at >= datetime('now', '-90 days')"
+    ).fetchone()
+    brier = r3["brier_avg"]
+    n3 = r3["n"]
+    if n3 < 10:
+        s3 = f"🔍 INSUFFICIENT DATA — N={n3}, need ≥10"
+        b_str = f"N={n3} (insufficient)"
+    elif brier < 0.20:
+        s3 = "✅ GREEN"
+        b_str = f"{brier:.3f}"
+    elif brier < 0.25:
+        s3 = "⚠️ YELLOW — approaching ceiling"
+        b_str = f"{brier:.3f}"
+    else:
+        s3 = "🚨 RED — exceeded threshold, revue méthodo"
+        b_str = f"{brier:.3f}"
+    out["kpi3"] = {
+        "title": "KPI #3: Brier rolling 90d",
+        "target": "<0.20",
+        "current": b_str,
+        "status": s3,
+        "enforcement": "Alert + revue méthodo si >0.25",
+    }
+
+    # KPI #4: panic sells (heuristic: full_exit BEFORE thesis triggered_partial)
+    r4 = conn.execute(
+        "SELECT COUNT(*) AS n FROM decisions d "
+        "LEFT JOIN theses t ON t.id = d.thesis_id "
+        "WHERE d.decision_type = 'full_exit' "
+        "AND d.created_at >= datetime('now', '-30 days') "
+        "AND (t.triggered_partial_at IS NULL OR d.created_at < t.triggered_partial_at) "
+        "AND (t.triggered_stop_at IS NULL OR d.created_at < t.triggered_stop_at)"
+    ).fetchone()
+    n4 = r4["n"]
+    if n4 == 0:
+        s4 = "✅ GREEN"
+    elif n4 == 1:
+        s4 = "⚠️ YELLOW — 1 panic sell, monitor"
+    else:
+        s4 = f"🚨 RED — {n4} panic sells, pause + bias analysis"
+    out["kpi4"] = {
+        "title": "KPI #4: Panic sells core (30d)",
+        "target": "0",
+        "current": f"{n4} flagged (full_exit pre-partial-trigger)",
+        "status": s4,
+        "enforcement": "Pause + bias analysis si ≥1",
+    }
+
+    # KPI #5: decisions matérielles journalisées (reasoning >=30 chars AND bias_tags filled)
+    r5 = conn.execute(
+        "SELECT "
+        "  SUM(CASE WHEN decision_type IN ('entry','scale_in','partial_exit','full_exit') THEN 1 ELSE 0 END) AS material, "
+        "  SUM(CASE WHEN decision_type IN ('entry','scale_in','partial_exit','full_exit') "
+        "           AND LENGTH(COALESCE(reasoning, '')) >= 30 "
+        "           AND COALESCE(bias_tags, '') != '' THEN 1 ELSE 0 END) AS journalised "
+        "FROM decisions "
+        "WHERE created_at >= datetime('now', '-30 days')"
+    ).fetchone()
+    material = r5["material"] or 0
+    journalised = r5["journalised"] or 0
+    pct = 100.0 * journalised / material if material > 0 else None
+    if material == 0:
+        s5 = "🔍 NO MATERIAL DECISIONS 30d"
+        p_str = "N/A"
+    elif pct == 100:
+        s5 = "✅ GREEN"
+        p_str = "100%"
+    elif pct >= 90:
+        s5 = "⚠️ YELLOW"
+        p_str = f"{pct:.0f}%"
+    else:
+        s5 = "🚨 RED — backfill required avant new thesis"
+        p_str = f"{pct:.0f}%"
+    out["kpi5"] = {
+        "title": "KPI #5: Decisions matérielles journalisées",
+        "target": "100%",
+        "current": f"{journalised}/{material} = {p_str}",
+        "status": s5,
+        "enforcement": "No new thesis until backfill si <90%",
+    }
+
+    # KPI #6: skip (requires position book integration)
+    out["kpi6"] = {
+        "title": "KPI #6: TWR vs SPY/QQQ 12M",
+        "target": ">-5pp",
+        "current": "Not yet implemented",
+        "status": "⏸ NOT IMPLEMENTED — requires positions integration",
+        "enforcement": "Revue strat trimestrielle si <-5pp",
+    }
+
+    conn.close()
+    return out
+
+
+def _format_kpi_report(kpis):
+    """Format KPI dict into Telegram message."""
+    from datetime import datetime as _dt
+    lines = [f"📊 *KPI STATUS* — {_dt.now().strftime('%Y-%m-%d %H:%M')}", ""]
+    breach_count = 0
+    yellow_count = 0
+    green_count = 0
+    for key in ["kpi2", "kpi3", "kpi4", "kpi5", "kpi6"]:
+        k = kpis[key]
+        lines.append(f"*{k['title']}*")
+        lines.append(f"  Target  : {k['target']}")
+        lines.append(f"  Current : {k['current']}")
+        lines.append(f"  Status  : {k['status']}")
+        lines.append(f"  Enforce : _{k['enforcement']}_")
+        lines.append("")
+        if "🚨 RED" in k["status"]:
+            breach_count += 1
+        elif "⚠️ YELLOW" in k["status"] or "⏳ TIMER" in k["status"]:
+            yellow_count += 1
+        elif "✅ GREEN" in k["status"]:
+            green_count += 1
+    lines.append("═══════════════════════")
+    lines.append(f"Overall: {green_count} GREEN | {yellow_count} YELLOW/timer | {breach_count} RED")
+    if breach_count > 0:
+        lines.append("⚠️ Breaches detected — action required.")
+    return "\n".join(lines)
+
+
+async def cmd_kpi_status(update, ctx):
+    """Phase Solidification P2 — Show KPI status with breach detection."""
+    try:
+        kpis = _kpi_compute_all()
+        msg = _format_kpi_report(kpis)
+        await update.message.reply_text(msg, parse_mode='Markdown')
+    except Exception as e:
+        log.error(f"cmd_kpi_status error: {e}")
+        await update.message.reply_text(f"KPI status error: {e}")
+
+
+async def weekly_kpi_status_job():
+    """Phase Solidification P2 — Weekly KPI status, Sunday 23:00 Paris."""
+    try:
+        from shared import notify as _notify
+        kpis = _kpi_compute_all()
+        msg = _format_kpi_report(kpis)
+        _notify.send_text(msg)
+        log.info(f"weekly_kpi_status_job: posted")
+    except Exception as e:
+        log.warning(f"weekly_kpi_status_job error: {e}")
+
+
 async def cmd_sources_health(update, ctx):
     """Health check newsletter sources."""
     import sqlite3
@@ -2187,11 +2375,12 @@ async def post_init(app):
     sched.add_job(scheduled_8k_scan_job, 'cron', hour=6, minute=30)
     sched.add_job(daily_backup_job, 'cron', hour=4, minute=0)
     sched.add_job(weekly_handler_stats_job, 'cron', day_of_week='sun', hour=23, minute=0)
+    sched.add_job(weekly_kpi_status_job, 'cron', day_of_week='sun', hour=22, minute=30)
     sched.add_job(scheduled_classify_signal_types_job, 'interval', minutes=30)
     sched.add_job(scheduled_recompute_materiality_boost_job, 'interval', hours=1)
     sched.add_job(scheduled_materiality_v2_job, 'interval', hours=1)
     sched.start()
-    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
+    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, kpi_status Sun 22:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 
 
@@ -2624,6 +2813,7 @@ def main():
     from telegram.ext import MessageHandler, filters
     app.add_handler(MessageHandler(filters.COMMAND, log_handler_call_middleware), group=-1)
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
+    app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("thesis_add", cmd_thesis_add))
     app.add_handler(CommandHandler("thesis_list", cmd_thesis_list))
