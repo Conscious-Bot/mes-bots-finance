@@ -239,3 +239,99 @@ User directive: "je ne veux pas travailler sur de la dette technique reglons cel
 - Policy "type quand tu touches" documented in CONVENTIONS.md
 - These will be typed incrementally as code is modified
 - No observation-impact risk (paths covered by smoke tests + Phase B5 verification)
+
+
+## Session extension v2 (13 May 2026 evening, +5h cumulative)
+
+**Context**: Continued from Day 2 marathon close v3. User went deep on
+strategy + handler cleanup + Sprint 1.5 in one extended session.
+
+### Shipped this session
+- `a141029` VALUE_LOG.md + friction.md infra (anti-erosion)
+- `4b3386a` `/health` handler (process+DB+LLM+freshness+telemetry, 6 dimensions)
+- `40f2243` 13 bias_tagger tests with mocked LLM
+- `d2207e2` Type hints batch 5 cron-critical modules (14→19 strict-typed)
+- (uncommitted earlier session)`/log_value` + `/log_friction` Telegram handlers
+- `54cdee3` `/help` recategorized into 10 sections (provisional, 61 visible)
+- `ccdf6f7` Handler cleanup HIGH CONFIDENCE: 64→61 (-3 handlers, -22 LOC)
+  - DELETED `cmd_positions` (redundant with /portfolio)
+  - MERGED `cmd_overrides` → `cmd_override` (no-args = list)
+  - MERGED `cmd_materiality_debug` → `cmd_materiality` (smart routing)
+- `e6a6026` Sprint 1.5 B1: `prices.*` signatures widened `str | datetime`
+- `d74ce7d` Sprint 1.5 B2: `risk.validate()` wired on `/position_buy`
+  (feature flag `risk.validate_enabled: false` default, observation-safe)
+- `63e164e` Sprint 1.5 B4: bias_tagger observability fix + Phase B5 verify
+  - Replaced 2 silent `try/except: pass` with `logger.warning`
+  - Read-only audit: chain integrity OK (1 buy decision ↔ 1 event)
+  - Isolation test: `auto_tag_biases` returns [] legitimately on sparse data
+
+### Sprint 1.5 status: CLOSED (4/4 items addressed)
+- B1 ✅ prices widening
+- B2 ✅ risk.validate() wired (flag OFF)
+- B3 ⚪ closed without action (mpmath/tokenizers/setuptools locked
+  by torch/sympy/transformers transitive upper bounds; only pip itself
+  upgraded 26.0.1 → 26.1.1)
+- B4 ✅ verification + logger fix
+
+### Strategic alignment validated
+User explicitly chose:
+- Q4/B 12-18 months track record before commercialization
+- Q5/Hybride Telegram (push) + future web app (deep work)
+- Q6 15-20h/week realistic capacity
+- 6/6 strategic risks accepted (érosion solo, professionalisation universelle,
+  mirage feature parity, premature multi-tenancy, etc.)
+
+Strategy crystallized: **"build-for-one, architect-for-many"** — outil
+personnel premium avec discipline architecture qui permet commercialisation
+future sans payer le coût aujourd'hui.
+
+### Roadmap 12 months figée (4 phases)
+- Phase 0 J0→J+28 (observation pure, en cours)
+- Phase 1 J+28→J+90 (foundation: 1.1 refactor / 1.2 data_source_base /
+  1.3 Alembic / 1.4 cost guard / 1.5 fix bugs ✅ / 1.6 PIT bitemporal)
+- Phase 2 J+90→J+150 (wedge feature: Decision Journal complet)
+- Phase 3 J+150→J+240 (hybrid delivery: FastAPI + Next.js web app)
+- Phase 4 J+240→J+360 (decision: commerce / Substack / perso)
+
+Filtration honnête de 40+ inputs strategiques: 28 intégrés, 13 recalibrés,
+19 rejetés (naming premature, Stripe premature, AppSumo premature, SaaS
+KPIs prematures, mobile native premature, etc.).
+
+### Empirical state final
+- 32 commits cumulatifs (Day 2 marathon + extensions)
+- 101 tests passing (49 Hypothesis + 12 smoke + 7 sizing + 20 pure_logic
+  + 13 bias_tagger)
+- ruff 0 / mypy 0 (14 strict-typed modules, +5 cron-critical added)
+- 42 SQL indexes
+- 22 crons opérationnels
+- 61 Telegram handlers (down from 64)
+- Bot PID 6059 vivant
+- 1 active position NVDA 0.1@$130 (test data)
+- 3 decisions, 1 position_event, KPI #5 baseline mesurable
+
+### Next session plan (demain, ~10-15h disponibles)
+**Sprint 1.3 Alembic + Schema Bootstrap (~10h)**:
+- `requirements.txt` += `alembic>=1.13`
+- `alembic.ini` + `scripts/alembic/env.py` + `versions/0001_initial.py`
+- `shared/storage.bootstrap_schema()` idempotent
+- Remove `pytest.skip` in CI smoke tests
+- Makefile targets db-migrate, db-revision, db-bootstrap
+- ADR-005 schema versioning
+
+**Sprint 1.2 data_source_base + ADRs retro + docs restructure (~12h)**:
+- `shared/data_source_base.py` ~200 LOC abstract BaseDataSource
+- Migrate `data_sources/gmail_.py` + `edgar.py` to inherit
+- Pydantic validation models
+- `docs/adrs/`, `docs/runbooks/`, `docs/post-mortems/` structure
+- ADR-002 LLM cascade routing (retroactive)
+- ADR-003 insider signal classification (retroactive)
+- 5 runbooks: anthropic-down, gmail-oauth-expired, yfinance-corrupted,
+  db-corrupted, cron-loop
+
+### Reopen entry point demain
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `ps aux | grep bot.main` (bot should be on PID 6059 or rotated PID)
+3. `tail -20 bot.log` and `tail -5 uptime.log` to check overnight health
+4. `cat VALUE_LOG.md` to see if first entry survived
+5. Read TODO.md "Sprint 1.3" + this SESSION_STATE tail
+6. Start with Alembic install + initial migration capture
