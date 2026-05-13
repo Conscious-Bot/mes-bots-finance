@@ -409,62 +409,101 @@ async def daily_calendar_refresh_job():
 
 
 async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Show all available commands grouped by category."""
-    msg = """🤖 *mes-bots-finance* — commands
+    """Show categorized list of all available commands."""
+    help_text = """mes-bots-finance — Commands (64 handlers)
 
-📊 *Thesis*
-  /thesis_add        new active thesis
-  /thesis_list       active + closed
-  /thesis_revisit    review existing\n  /thesis_set        edit field : /thesis_set NVDA target_partial 260
-  /thesis_note       add note
-  /exit /exit_force  close thesis
+=== DAILY RITUAL ===
+/brief             Morning briefing (6 sections)
+/health            Bot health snapshot
+/ping              Liveness probe
+/log_value <msg>   Log a moment the bot helped
+/log_friction <msg> Log a friction
+/digest            Run digest pipeline now
 
-📈 *Digest & predictions*
-  /digest            top signals (regime + insider + LLM synth)
-  /feedback          rate digest items
-  /credibility       source credibility ranking
-  /predictions       open + resolved
-  /resolve_now       force resolve due predictions
+=== THESES ===
+/thesis_add        Create a new thesis
+/thesis_list       List active theses
+/thesis_set        Set thesis params
+/thesis_note       Add note to thesis
+/thesis_revisit    Trigger monthly revisit
+/thesis_premortem  Pre-mortem analysis
 
-🌍 *Macro context*
-  /regime            current macro regime (VIX/DXY/yield/M2/F&G)
-  /calendar          upcoming earnings (next 90d)
-  /calendar_refresh  re-fetch earnings dates
-  /macro             FOMC + CPI + NFP next 90d
+=== POSITIONS ===
+/position_buy      Record a buy + journal
+/position_sell     Record a sell + journal
+/portfolio         View active positions
+/positions         (alias - J+28 cleanup)
+/position          (legacy - J+28 cleanup)
+/position_set      Set position params
+/position_history  Position event log
+/orphan_tickers    Holdings without thesis
+/exit              Close a position
+/exit_force        Force-close (bypass checks)
 
-🔍 *Insiders*
-  /insiders TICKER   SEC Form 4 last 90d for ticker
-  /insider_digest    manual trigger daily refresh
+=== ANALYSIS DEEP-WORK ===
+/analyze TICKER    Deep ticker analysis (Opus)
+/analyze_debate    Multi-round debate
+/debate_replay     Replay previous debate
+/asymmetry TICKER  Anti-sell-too-early math
+/risk_check TICKER SIDE USD  Risk premortem
+/materiality TICKER  Materiality score
+/materiality_debug TICKER  Rubric breakdown
 
-₿ *Crypto*
-  /crypto            funding + OI + Mayer Multiple zone
+=== DECISIONS & JOURNAL ===
+/journal           View decision journal
+/journal_review    Review unresolved decisions
+/journal_tag       Tag a decision with bias
+/journal_unresolved  List unresolved decisions
+/bias_review       Bias patterns
+/history TICKER    Position/thesis history
+/predictions       Pending predictions
+/resolve_now       Force-resolve due predictions
+/feedback          Submit feedback
 
-🔬 *Deep analysis*\n  /analyze TICKER    full company fiche (yfinance + EDGAR + LLM)\n\n🎯 *Triggers & overrides*
-  /price_check       manual check all theses for crossings
-  /override          /override TICKER level reason
-  /overrides         recent overrides
+=== SIGNALS & SOURCES ===
+/echo_recent       Recent echo clusters
+/signals_by_type   Filter signals by type
+/credibility       Source credibility scores
+/sources_brier     Brier score per source
+/sources_half_life Source decay rates
+/sources_health    Source freshness
+/tiers             Source tier ranking (S/A/B)
+/tiers_watch       Watch tier changes
+/promote TICKER tier  Promote tier
 
-💼 *Positions*
-  /position_set      bootstrap : /position_set NVDA 100 130
-  /position_buy      add buy   : /position_buy NVDA 10 215
-  /position_sell     sell      : /position_sell NVDA 33 250
-  /position TICKER   detail + history
-  /positions         all open with live valuation
+=== MARKET CONTEXT ===
+/macro             Macro snapshot
+/regime            Current regime
+/credit            Credit spread / HY OAS
+/crypto            Crypto zone
+/price_check TICKER  Live price
+/calendar          Upcoming events
+/calendar_refresh  Force refresh
 
-⚙ *Meta*
-  /help              this message
-  /ping              health check
+=== INSIDERS & FILINGS ===
+/insiders          Recent insider activity
+/insider_cluster   Cluster analysis (full)
+/insider_buy_cluster  Buy-cluster only
+/insider_buy_cluster_stats  Stats
+/insider_digest    Daily insider digest
+/recent_8k         Recent 8-K filings
 
-Scheduled jobs (Paris TZ):
-  • Hourly: heartbeat + gmail ingest
-  • 05:00: calendar refresh + pre-event alerts
-  • 06:00: daily insider digest
-  • 07:00: daily digest
-  • 09:00: resolve predictions
-  • 10:00: crypto zone check
-  • 14-22h every 15min mon-fri: price monitor / thesis triggers
-"""
-    await update.message.reply_text(msg, parse_mode="Markdown")
+=== MONITORING & OPS ===
+/kpi_status        KPI dashboard
+/cost_trajectory   LLM cost over time
+/handler_stats     Handler usage stats
+/llm_costs         LLM cost breakdown
+
+=== ADMIN ===
+/override          Manual override
+/overrides         List active overrides
+/help              This help
+
+----
+J+28 cleanup: position*/exit*/override* duplicates,
+insider_cluster vs insider_buy_cluster merge."""
+    await update.message.reply_text(help_text)
+
 
 
 async def cmd_insiders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
