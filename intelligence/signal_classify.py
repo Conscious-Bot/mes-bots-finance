@@ -6,6 +6,7 @@ narrative: story-driven thematic piece (AI hype, China decoupling, structural ch
 opinion: commentary/analysis without new info (column, prediction, opinion piece)
 """
 import logging
+
 log = logging.getLogger(__name__)
 
 VALID_TYPES = ('catalyst', 'data', 'narrative', 'opinion')

@@ -1,6 +1,7 @@
 """Position sizing. UNE seule formule. PAS de cascade. Réf: tennis-bot AUDIT.md."""
 from shared import config
 
+
 def position_size(edge_pct: float, variance_estimate: float,
                   capital: float, regime_factor: float = 1.0) -> float:
     """Quarter Kelly + cap dur. UNE modulation régime. 3 étapes max."""

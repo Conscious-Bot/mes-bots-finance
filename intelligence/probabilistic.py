@@ -2,7 +2,6 @@
 Express uncertainty: format probs, combine weighted predictions,
 apply credibility weights, confidence intervals, calibration.
 '''
-from typing import List, Tuple
 import math
 
 

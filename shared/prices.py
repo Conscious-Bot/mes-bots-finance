@@ -3,15 +3,17 @@ in Polygon/Tiingo later without touching downstream code.
 
 Returns None on failures - downstream must handle gracefully.
 '''
-from datetime import datetime, timedelta
 import logging as _logging
+from datetime import datetime, timedelta
+
 _logging.getLogger('yfinance').setLevel(_logging.CRITICAL)
 # Also suppress yfinance's print() to stdout for missing tickers
+import contextlib
+
 import yfinance.utils as _yfu
-try:
+
+with contextlib.suppress(Exception):
     _yfu.get_yf_logger().setLevel(_logging.CRITICAL)
-except Exception:
-    pass
 
 import yfinance as yf
 

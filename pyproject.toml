@@ -1,0 +1,89 @@
+[project]
+name = "mes-bots-finance"
+version = "0.1.0"
+description = "Closed-loop personal finance intelligence: Telegram bot + Claude integration"
+requires-python = ">=3.14"
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+extend-exclude = [
+    "venv",
+    ".venv",
+    ".backups",
+    "__pycache__",
+    "data",
+    ".pytest_cache",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes (unused imports, vars)
+    "I",      # isort (import order)
+    "B",      # flake8-bugbear (likely bugs)
+    "UP",     # pyupgrade (modernize syntax)
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific rules
+    "PIE",    # misc lints
+    "PTH",    # use pathlib
+    "ARG",    # unused arguments
+    "RET",    # return value issues
+    "TID",    # tidy imports
+]
+ignore = [
+    "E501",     # line-too-long (handled by formatter)
+    "E402",     # module-level import not at top (legitimate lazy imports)
+    "B008",     # function call in default arg (sometimes intentional)
+    "B904",     # raise without from (legacy)
+    "B905",     # zip without strict (3.10+)
+    "SIM108",   # ternary not always clearer
+    "SIM117",   # nested with sometimes clearer
+    "RUF012",   # mutable class attrs ClassVar
+    "ARG002",   # unused method arguments (interfaces)
+    "PTH123",   # open() vs Path.open() (open is fine)
+    "RET504",   # unnecessary assignment before return
+    "RET505",   # unnecessary else after return
+    "RET506",   # unnecessary else after raise
+    "RET507",   # unnecessary else after continue
+    "RET508",   # unnecessary else after break
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F811", "ARG", "B011", "PIE790"]
+"scripts/*" = ["ARG", "PTH"]
+"bot/main.py" = ["E402", "F401"]
+"data_sources/*" = ["PTH"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["shared", "intelligence", "bot", "data_sources"]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.14"
+strict_optional = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+
+# Strict mode applied per-module as type hints rolled out
+[[tool.mypy.overrides]]
+module = [
+    "shared.math_helpers",
+]
+disallow_untyped_defs = true
+disallow_any_unimported = true
+

@@ -1,6 +1,7 @@
 """Telegram out. Text/image/file. Split auto si > 4096."""
+
 import requests
-from pathlib import Path
+
 from shared import config
 
 API_BASE = "https://api.telegram.org/bot{token}/{method}"

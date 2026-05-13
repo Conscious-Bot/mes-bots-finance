@@ -3,9 +3,10 @@ Company analysis fiche generator.
 Stocks: yfinance + EDGAR insiders + regime → LLM synthesis (Claude)
 Crypto (BTC-USD etc): partial — yfinance price + macro, LLM adapts
 """
+import contextlib
 import logging
-from datetime import datetime, date, timezone
-from typing import Optional
+from datetime import UTC, date, datetime
+
 import yfinance as yf
 
 from shared import edgar
@@ -38,7 +39,7 @@ def _safe(v, fmt='', default='n/a'):
 
 def _is_crypto(ticker: str) -> bool:
     t = ticker.upper()
-    return t.endswith('-USD') or t.endswith('-EUR') or t in ('BTC', 'ETH', 'SOL', 'BNB')
+    return t.endswith(('-USD', '-EUR')) or t in ('BTC', 'ETH', 'SOL', 'BNB')
 
 
 def _phase25_enrich(info, fin):
@@ -214,7 +215,6 @@ def fetch_stock_data(ticker: str) -> dict:
         'insider_n_sells': insider.get('n_sells') if insider else None,
         'cluster': cluster,
         'credit': credit,
-        'cluster': cluster,
         # Macro
         'regime': regime_overall,
         'beta': info.get('beta'),
@@ -240,12 +240,12 @@ def _cluster_section(d):
         lines.append("Top sellers (by $value, last 90d):")
         for owner, role, val in c["top_sellers"]:
             lines.append("  - " + owner.title() + " (" + (role or "?") + "): $" +
-                        ("%.2f" % val) + "M")
+                        (f"{val:.2f}") + "M")
     if c.get("top_buyers"):
         lines.append("Top buyers (by $value, last 90d):")
         for owner, role, val in c["top_buyers"]:
             lines.append("  - " + owner.title() + " (" + (role or "?") + "): $" +
-                        ("%.2f" % val) + "M")
+                        (f"{val:.2f}") + "M")
     return "\n".join(lines)
 
 
@@ -259,9 +259,9 @@ def _credit_line(d):
     parts = []
     if hy.get('bp') is not None:
         sign = '+' if hy.get('change_1m_bp', 0) >= 0 else ''
-        parts.append('HY OAS ' + ('%.0f' % hy['bp']) + 'bp (' + c.get('overall', '?') + ', 1m ' + sign + ('%.0f' % hy.get('change_1m_bp', 0)) + 'bp)')
+        parts.append('HY OAS ' + ('{:.0f}'.format(hy['bp'])) + 'bp (' + c.get('overall', '?') + ', 1m ' + sign + ('{:.0f}'.format(hy.get('change_1m_bp', 0))) + 'bp)')
     if ig.get('bp') is not None:
-        parts.append('IG OAS ' + ('%.0f' % ig['bp']) + 'bp')
+        parts.append('IG OAS ' + ('{:.0f}'.format(ig['bp'])) + 'bp')
     return '- Credit regime: ' + ', '.join(parts) if parts else '- Credit regime: unknown'
 
 
@@ -367,11 +367,12 @@ Rules: No generic statements. Cite specific numbers. If data missing, acknowledg
 
 def _get_cached_analysis(ticker, max_age_hours=24):
     """Return (content, data_dict, timestamp) if recent cache exists, else None."""
-    import sqlite3, json
+    import json
+    import sqlite3
     from datetime import datetime, timedelta
     conn = sqlite3.connect("data/bot.db")
     try:
-        cutoff = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=max_age_hours)).isoformat()
+        cutoff = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=max_age_hours)).isoformat()
         row = conn.execute(
             "SELECT content, metadata, timestamp FROM analyses "
             "WHERE ticker=? AND type='analyze' AND timestamp > ? "
@@ -392,7 +393,8 @@ def _get_cached_analysis(ticker, max_age_hours=24):
 
 def _store_analysis(ticker, synthesis, data):
     """Persist LLM synthesis + full data snapshot (JSON-safe subset)."""
-    import sqlite3, json
+    import json
+    import sqlite3
     from datetime import datetime
     def _safe(v):
         try:
@@ -406,7 +408,7 @@ def _store_analysis(ticker, synthesis, data):
         conn.execute(
             "INSERT INTO analyses(ticker, type, timestamp, content, metadata) "
             "VALUES (?, ?, ?, ?, ?)",
-            (ticker.upper(), "analyze", datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            (ticker.upper(), "analyze", datetime.now(UTC).replace(tzinfo=None).isoformat(),
              synthesis, json.dumps(meta_dict))
         )
         conn.commit()
@@ -435,9 +437,8 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
             pass
 
     data = fetch_stock_data(ticker)
-    if not data.get('name') or data.get('name') == ticker:
-        if not data.get('price'):
-            return {'error': f'No data found for {ticker}', 'data': data}
+    if (not data.get('name') or data.get('name') == ticker) and not data.get('price'):
+        return {'error': f'No data found for {ticker}', 'data': data}
 
     prompt = build_prompt(data)
 
@@ -461,10 +462,8 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
         return {'error': f'LLM call failed: {last_err}', 'data': data}
 
     # Cache write (failure must not break user-visible result)
-    try:
+    with contextlib.suppress(Exception):
         _store_analysis(ticker, synthesis, data)
-    except Exception:
-        pass
 
     return {'ticker': data['ticker'], 'data': data, 'synthesis': synthesis, 'cached': False}
 

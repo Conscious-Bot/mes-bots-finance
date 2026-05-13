@@ -11,7 +11,9 @@ Stockage: signals.impact_magnitude, reversibility, time_to_realization, material
 Justification cognitive: au lieu de "score=7 sans savoir pourquoi", tu vois
 "impact=4 reversibility=2 (durable) time=urgent (FOMC -3j)" → décision lucide.
 """
-import logging, json
+import json
+import logging
+
 log = logging.getLogger(__name__)
 
 TIME_FACTORS = {'urgent': 5.0, 'medium': 3.0, 'slow': 1.0, 'na': 2.0}
@@ -97,8 +99,9 @@ def compute_composite_score(breakdown):
 
 def persist_breakdown(signal_id, breakdown):
     """Persist rubric to signals table."""
-    from shared import storage
     import sqlite3
+
+    from shared import storage
     conn = sqlite3.connect(storage._DB_PATH)
     try:
         conn.execute(
@@ -114,8 +117,9 @@ def persist_breakdown(signal_id, breakdown):
 
 def score_pending_signals_v2(limit=20):
     """Cron: score signals where impact_magnitude IS NULL. Returns counts."""
-    from shared import storage
     import sqlite3
+
+    from shared import storage
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -150,8 +154,9 @@ def score_pending_signals_v2(limit=20):
 
 def get_breakdown(signal_id):
     """Return breakdown dict for a signal_id, or None."""
-    from shared import storage
     import sqlite3
+
+    from shared import storage
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     try:

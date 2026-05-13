@@ -2,7 +2,10 @@
 Phase 11 Materiality scoring engine v2 — calibrated.
 Penalties: tickerless, narrativeless, noise patterns.
 """
-import json, logging, re
+import json
+import logging
+import re
+
 log = logging.getLogger(__name__)
 
 
@@ -17,7 +20,7 @@ LARGE_CAP = {
     "PDD", "NEE", "CEG", "VRT", "EAT", "URA", "REMX", "XOP",
     "AMAT", "KLAC", "LRCX", "MU", "MRVL", "ARM", "MPWR",
     "NBIS", "SMCI", "ANET", "JNPR", "DELL", "HPE", "WDC",
-    "ON", "STM", "INFN", "VRT", "FLEX", "JBL",
+    "ON", "STM", "INFN", "FLEX", "JBL",
 }
 TICKER_BLACKLIST = {
     "AI", "USD", "EU", "US", "CEO", "CFO", "IPO", "ETF", "API",
@@ -265,9 +268,9 @@ def format_materiality(score_dict, width=10):
         return "#" * f + "." * (width - f)
     noise_tag = " [NOISE]" if s.get("noise") else ""
     return (
-        "composite: " + ("%.3f" % s["composite"]) + "  (quality: " + ("%.2f" % s["quality"]) + ")" + noise_tag + "\n"
-        "  novelty:        " + ("%.2f" % s["novelty"]) + "  " + bar(s["novelty"]) + "\n"
-        "  cross-conf:     " + ("%.2f" % s["cross_confirmation"]) + "  " + bar(s["cross_confirmation"]) + "\n"
-        "  market_impact:  " + ("%.2f" % s["market_impact"]) + "  " + bar(s["market_impact"]) + "\n"
-        "  regime_fit:     " + ("%.2f" % s["regime_relevance"]) + "  " + bar(s["regime_relevance"])
+        "composite: " + ("{:.3f}".format(s["composite"])) + "  (quality: " + ("{:.2f}".format(s["quality"])) + ")" + noise_tag + "\n"
+        "  novelty:        " + ("{:.2f}".format(s["novelty"])) + "  " + bar(s["novelty"]) + "\n"
+        "  cross-conf:     " + ("{:.2f}".format(s["cross_confirmation"])) + "  " + bar(s["cross_confirmation"]) + "\n"
+        "  market_impact:  " + ("{:.2f}".format(s["market_impact"])) + "  " + bar(s["market_impact"]) + "\n"
+        "  regime_fit:     " + ("{:.2f}".format(s["regime_relevance"])) + "  " + bar(s["regime_relevance"])
     )

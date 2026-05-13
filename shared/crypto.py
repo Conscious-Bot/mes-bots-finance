@@ -8,9 +8,9 @@ Indicators :
   - BTC open interest ratio vs 14d avg (Binance)
   - BTC Mayer Multiple = price / 200d MA (yfinance)
 """
+import json
 import logging
 import urllib.request
-import json
 
 log = logging.getLogger(__name__)
 

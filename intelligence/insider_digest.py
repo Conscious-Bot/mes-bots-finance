@@ -4,7 +4,6 @@ Cron-driven (6h Paris). Output formatted for Telegram.
 """
 import logging
 from datetime import date, timedelta
-from typing import Optional
 
 from shared import edgar
 from shared.storage import db
@@ -35,7 +34,7 @@ def _ensure_table(cx) -> None:
                "ON insider_snapshots(ticker, snapshot_date DESC)")
 
 
-def _prev_snapshot(cx, ticker: str, before_date: str) -> Optional[dict]:
+def _prev_snapshot(cx, ticker: str, before_date: str) -> dict | None:
     r = cx.execute(
         "SELECT snapshot_date, net_m FROM insider_snapshots "
         "WHERE ticker=? AND snapshot_date < ? "
@@ -45,7 +44,7 @@ def _prev_snapshot(cx, ticker: str, before_date: str) -> Optional[dict]:
     return {'date': r['snapshot_date'], 'net_m': r['net_m']} if r else None
 
 
-def _snapshot_at_or_before(cx, ticker: str, target_date: str) -> Optional[dict]:
+def _snapshot_at_or_before(cx, ticker: str, target_date: str) -> dict | None:
     r = cx.execute(
         "SELECT snapshot_date, net_m FROM insider_snapshots "
         "WHERE ticker=? AND snapshot_date <= ? "

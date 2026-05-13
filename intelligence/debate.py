@@ -10,6 +10,7 @@ Pattern TradingAgents : 3 rounds dialectique au lieu de single-shot synthesis.
   < 0.4 = DIVERGED (complexity flag, requires human attention)
 """
 import logging
+
 log = logging.getLogger(__name__)
 
 

@@ -9,10 +9,9 @@ Also: populate clv_7d/30d/90d milestones once windows pass.
 Also: capture user overrides via record_override() for BiasDetector training.
 """
 import logging
-from datetime import date, datetime, timedelta
-from typing import Optional
+from datetime import date, datetime
 
-from shared import prices, edgar, notify
+from shared import edgar, notify, prices
 from shared.storage import db
 
 log = logging.getLogger(__name__)

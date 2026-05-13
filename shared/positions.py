@@ -4,10 +4,9 @@ Full buy/sell history in position_events. Integrates with Phase 5 + 6 alerts.
 """
 import logging
 from datetime import datetime
-from typing import Optional
 
-from shared.storage import db
 from shared import prices
+from shared.storage import db
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ def _now() -> str:
     return datetime.now().isoformat(timespec='seconds')
 
 
-def set_position(ticker: str, qty: float, avg_cost: float, notes: Optional[str] = None) -> dict:
+def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = None) -> dict:
     """Set/replace position. Use for bootstrap of existing holdings."""
     ticker = ticker.upper()
     with db() as cx:
@@ -79,7 +78,7 @@ def set_position(ticker: str, qty: float, avg_cost: float, notes: Optional[str] 
     return get_position(ticker)
 
 
-def add_buy(ticker: str, qty: float, price: float, notes: Optional[str] = None) -> dict:
+def add_buy(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
     """Add buy; weighted-avg cost recalc on existing position, or create new."""
     ticker = ticker.upper()
     with db() as cx:
@@ -104,7 +103,7 @@ def add_buy(ticker: str, qty: float, price: float, notes: Optional[str] = None) 
     return get_position(ticker)
 
 
-def add_sell(ticker: str, qty: float, price: float, notes: Optional[str] = None) -> dict:
+def add_sell(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
     """Sell shares. Computes realized P&L. Auto-closes if qty → 0."""
     ticker = ticker.upper()
     with db() as cx:
@@ -156,7 +155,7 @@ def _enrich_with_live(d: dict) -> dict:
     return d
 
 
-def get_position(ticker: str) -> Optional[dict]:
+def get_position(ticker: str) -> dict | None:
     ticker = ticker.upper()
     with db() as cx:
         _ensure_tables(cx)

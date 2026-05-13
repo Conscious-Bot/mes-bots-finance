@@ -7,10 +7,11 @@
 Degrade gracefully when keys missing.
 '''
 import os
+
 import requests
 import yfinance as yf
-
 from dotenv import load_dotenv as _load_dotenv
+
 _load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 FRED_KEY = os.environ.get('FRED_API_KEY', '').strip()
@@ -153,7 +154,9 @@ if __name__ == '__main__':
 # === Phase 16: Credit markets ===
 
 def _fetch_fred_credit_series(series_id, limit=30):
-    import requests, os
+    import os
+
+    import requests
     key = os.environ.get("FRED_API_KEY", "").strip()
     if not key:
         return None, "FRED_API_KEY missing"
@@ -221,9 +224,9 @@ def _interpret_credit(hy, ig):
     chg = hy.get("change_1m_bp", 0)
     parts = []
     if chg > 50:
-        parts.append("widening rapidly (+" + ("%.0f" % chg) + "bp 1m)")
+        parts.append("widening rapidly (+" + (f"{chg:.0f}") + "bp 1m)")
     elif chg < -50:
-        parts.append("tightening rapidly (" + ("%.0f" % chg) + "bp 1m)")
+        parts.append("tightening rapidly (" + (f"{chg:.0f}") + "bp 1m)")
     if bp < 300:
         parts.append("historically tight (risk-on)")
     elif bp >= 700:
@@ -253,10 +256,10 @@ def format_credit_regime(reg):
     ig = reg["ig"]
     lines = ["CREDIT REGIME: " + reg["overall"], ""]
     sign_hy = "+" if hy["change_1m_bp"] >= 0 else ""
-    lines.append("HY OAS: " + ("%.0f" % hy["bp"]) + "bp  (1m " + sign_hy + ("%.0f" % hy["change_1m_bp"]) + "bp)")
+    lines.append("HY OAS: " + ("{:.0f}".format(hy["bp"])) + "bp  (1m " + sign_hy + ("{:.0f}".format(hy["change_1m_bp"])) + "bp)")
     if "error" not in ig:
         sign_ig = "+" if ig["change_1m_bp"] >= 0 else ""
-        lines.append("IG OAS: " + ("%.0f" % ig["bp"]) + "bp  (1m " + sign_ig + ("%.0f" % ig["change_1m_bp"]) + "bp)")
+        lines.append("IG OAS: " + ("{:.0f}".format(ig["bp"])) + "bp  (1m " + sign_ig + ("{:.0f}".format(ig["change_1m_bp"])) + "bp)")
     lines.append("As of: " + hy["date"])
     lines.append("")
     lines.append("Read: " + reg["interpretation"])

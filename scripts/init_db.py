@@ -1,8 +1,8 @@
 """Init SQLite DB + bot_state.json. À lancer UNE fois."""
-import sqlite3
 import json
-from pathlib import Path
+import sqlite3
 from datetime import datetime
+from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"

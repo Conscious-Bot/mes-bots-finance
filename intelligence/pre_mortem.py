@@ -9,6 +9,7 @@ Forces exit discipline pre-commit. Anti loss-aversion + anti hold-too-long.
 """
 import json
 import logging
+
 log = logging.getLogger(__name__)
 
 PROMPT = """You are a behavioral finance advisor performing a PRE-MORTEM on a fresh trading thesis.
@@ -112,7 +113,7 @@ def format_pre_mortem_display(pm_json_str, max_len_per_field=220):
         lines.append(f"\n{i}. {p_str} — {sc}")
         sigs = fm.get('signals_to_monitor') or []
         if sigs:
-            lines.append(f"   Monitor: " + "; ".join(s[:50] for s in sigs[:3]))
+            lines.append("   Monitor: " + "; ".join(s[:50] for s in sigs[:3]))
         mit = (fm.get('mitigation') or '')[:max_len_per_field]
         if mit:
             lines.append(f"   Action: {mit}")

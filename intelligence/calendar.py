@@ -6,7 +6,9 @@ Telegram /calendar reads from DB without yfinance latency.
 Future v2: macro events hardcoded (FOMC/CPI/NFP), thesis cross-ref alerts.
 '''
 from datetime import datetime, timedelta
+
 import yfinance as yf
+
 from shared import storage
 
 

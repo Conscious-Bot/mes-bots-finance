@@ -1,6 +1,6 @@
 """Phase B6 — Auto-classify cognitive biases on trading decisions via Haiku LLM."""
-import json
 import logging
+
 log = logging.getLogger(__name__)
 
 BIASES = {

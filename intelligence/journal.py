@@ -5,6 +5,7 @@ Rules are conservative — they flag CLEAR patterns, not nuance.
 Manual override (via /journal_clear or override_mistake_tag) is the escape valve.
 """
 import logging
+
 log = logging.getLogger("intelligence.journal")
 
 

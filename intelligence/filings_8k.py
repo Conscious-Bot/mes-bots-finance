@@ -6,6 +6,7 @@ to filings_8k_log. Push immediate alerts for high+catastrophic.
 Item severity taxonomy aligned with SEC 8-K General Instructions + market signal value.
 """
 import logging
+
 log = logging.getLogger(__name__)
 
 

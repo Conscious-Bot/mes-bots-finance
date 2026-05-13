@@ -1,6 +1,7 @@
 """Property-based tests for materiality_v2.compute_composite_score."""
-from hypothesis import given, strategies as st, settings
-from intelligence.materiality_v2 import compute_composite_score, TIME_FACTORS
+from hypothesis import given, settings, strategies as st
+
+from intelligence.materiality_v2 import TIME_FACTORS, compute_composite_score
 
 
 def _bd(imp, rev, time='medium'):

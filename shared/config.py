@@ -1,7 +1,8 @@
 """Loading + validation config.yaml + .env"""
 import os
-import yaml
 from pathlib import Path
+
+import yaml
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).parent.parent
@@ -112,13 +113,12 @@ def promote_ticker(ticker, new_tier):
     if old_tier:
         section = universe.get(old_tier)
         if isinstance(section, dict):
-            for cat, lst in section.items():
+            for _cat, lst in section.items():
                 if isinstance(lst, list) and ticker in lst:
                     lst.remove(ticker)
                     break
-        elif isinstance(section, list):
-            if ticker in section:
-                section.remove(ticker)
+        elif isinstance(section, list) and ticker in section:
+            section.remove(ticker)
     # Add to new tier
     target = universe.get(new_tier)
     if isinstance(target, dict):

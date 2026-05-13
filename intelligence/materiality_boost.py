@@ -11,6 +11,7 @@ Counter to behavioral biais "vu une fois sur Twitter → trade".
 Refreshed by cron after echo_clusters_job runs (every 1h).
 """
 import logging
+
 log = logging.getLogger(__name__)
 
 
@@ -26,8 +27,9 @@ def recompute_boosts_for_clustered_signals():
     """Cron job: recompute materiality_boost for all clustered signals.
     Returns count of signals updated.
     """
-    from shared import storage
     import sqlite3
+
+    from shared import storage
     updated = 0
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row

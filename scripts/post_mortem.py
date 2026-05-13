@@ -4,9 +4,10 @@ Post-mortem : observable state of the bot over N days.
 Schema-aware (introspects bot.db).
 Usage: python scripts/post_mortem.py [--days=10] [--out=report.md]
 """
-import argparse, sqlite3
-from pathlib import Path
+import argparse
+import sqlite3
 from datetime import date, timedelta
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DB = ROOT / 'data' / 'bot.db'
@@ -187,9 +188,9 @@ def report(days: int = 10, out_path: str | None = None):
             p(f'  CORRECT — main:{m}  aggressive:{a}  conservative:{c}  (out of {rez})')
             if rez >= 5:
                 if a > m:
-                    p(f'  ⚠ aggressive > main — bot may be under-confident, raise scoring')
+                    p('  ⚠ aggressive > main — bot may be under-confident, raise scoring')
                 elif c > m:
-                    p(f'  ⚠ conservative > main — bot may be over-confident, lower scoring')
+                    p('  ⚠ conservative > main — bot may be over-confident, lower scoring')
         p()
 
     # ── Source credibility + activity ────────────────────────────

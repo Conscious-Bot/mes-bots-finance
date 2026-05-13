@@ -4,7 +4,7 @@ Reads unprocessed raw email signals from DB, calls Claude to extract structured
 insights (score, sentiment, tickers, narratives, summary), updates DB,
 returns formatted digest for Telegram.
 """
-from shared import storage, llm, config
+from shared import config, llm, storage
 from shared.prompts import DIGEST_SYNTHESIZER
 
 
@@ -161,7 +161,10 @@ def _build_regime_context(r):
 
 
 # Phase Tickers Tiered — dynamic from config.yaml universe.core
+import contextlib
+
 from shared import config as _cfg
+
 INSIDER_TOP_TICKERS = _cfg.get_tickers('core')
 
 
@@ -204,10 +207,8 @@ def run_enhanced_digest(limit=20, top_n=5, fallback_hours=72, include_regime=Tru
             regime_info["overall"] = r.get("overall", "NEUTRAL")
         except Exception:
             regime_info["overall"] = "NEUTRAL"
-        try:
+        with contextlib.suppress(Exception):
             regime_info["credit"] = macro.get_credit_regime()
-        except Exception:
-            pass
 
         scored = []
         for sig in signals:
@@ -257,7 +258,7 @@ def run_enhanced_digest(limit=20, top_n=5, fallback_hours=72, include_regime=Tru
             sig_type = derived.get("signal_type", "?")
             title = (sig.get("title") or sig.get("summary") or "")[:80]
             why = why_map.get(sig["id"], "")
-            sections.append("#" + str(i) + " [" + primary + "] [" + sig_type + "] materiality=" + ("%.3f" % score["composite"]))
+            sections.append("#" + str(i) + " [" + primary + "] [" + sig_type + "] materiality=" + ("{:.3f}".format(score["composite"])))
             sections.append("   " + title)
             if why:
                 sections.append("   --> " + why)
@@ -278,9 +279,11 @@ def generate_unified_digest(since_hours=24, max_signals=40, exclude_low_score=Tr
     Replaces the per-email summary format with thematic synthesis.
     Cost: ~$0.025/call (Sonnet enrich, ~6k input + 1k output).
     """
-    import sqlite3, json
+    import json
+    import sqlite3
     from datetime import datetime, timedelta
-    from shared import storage, llm
+
+    from shared import llm, storage
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     cutoff = (datetime.now() - timedelta(hours=int(since_hours))).strftime('%Y-%m-%d %H:%M:%S')

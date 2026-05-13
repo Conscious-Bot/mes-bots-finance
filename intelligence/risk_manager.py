@@ -11,8 +11,9 @@ Aligned with Olivier's behavioral profile: counters "tient trop long crypto tops
 by surfacing concentration before scale-up; counters "vend trop tôt winners" by
 flagging timing-discipline traps.
 """
-import json
+import contextlib
 import logging
+
 log = logging.getLogger(__name__)
 
 
@@ -120,10 +121,8 @@ def run_risk_check(ticker, side, proposed_usd, reasoning):
     positions = storage.get_active_positions() or []
     thesis = storage.get_thesis_by_ticker(ticker, status='active')
     decisions = []
-    try:
+    with contextlib.suppress(Exception):
         decisions = storage.get_decisions_for_ticker(ticker, since_days=90, limit=10)
-    except Exception:
-        pass
     bias_stats = storage.get_bias_stats(ticker=ticker, since_days=180)
 
     # Regime context
@@ -141,12 +140,6 @@ def run_risk_check(ticker, side, proposed_usd, reasoning):
     except Exception:
         pass
 
-    portfolio_snapshot = {
-        'positions': positions,
-        'thesis': thesis,
-        'recent_decisions': decisions,
-        'bias_stats': bias_stats,
-    }
 
     prompt = RISK_PROMPT.format(
         ticker=ticker.upper(), side=side, proposed_usd=proposed_usd,
@@ -186,7 +179,7 @@ def format_risk_check_display(result, ticker, side, proposed_usd):
         lines.append("")
     cp = result.get('counter_proposal') or {}
     if cp.get('size_usd') is not None:
-        lines.append(f"COUNTER-PROPOSAL:")
+        lines.append("COUNTER-PROPOSAL:")
         lines.append(f"  Size: ${cp.get('size_usd'):,.0f}")
         if cp.get('size_reasoning'):
             lines.append(f"  Why: {cp.get('size_reasoning')}")

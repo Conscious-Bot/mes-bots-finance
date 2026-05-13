@@ -8,7 +8,8 @@ Builds on existing edgar.get_insider_cluster (Phase 12.1) but adds:
 - Empirical alpha aggregation
 """
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 log = logging.getLogger(__name__)
 
 
@@ -34,8 +35,8 @@ def detect_and_log_buy_clusters(watchlist, window_days=30, dedup_days=7):
     """Run detection on watchlist tickers. Returns list of NEW clusters (not deduped)."""
     from shared import edgar, storage
     new_found = []
-    detected_at = datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')
-    today = datetime.now(timezone.utc).replace(tzinfo=None)
+    detected_at = datetime.now(UTC).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')
+    today = datetime.now(UTC).replace(tzinfo=None)
     for tk in watchlist:
         try:
             brief = edgar.get_insider_brief(tk, ttl_hours=24)
@@ -63,13 +64,13 @@ def resolve_pending_returns(checkpoint_days):
     """Resolve return_30d or return_90d for clusters past their checkpoint."""
     from shared import storage
     pending = storage.get_unresolved_buy_clusters(checkpoint_days)
-    resolved_now = datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')
+    resolved_now = datetime.now(UTC).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')
     resolved_list = []
     for c in pending:
         try:
             detected = datetime.strptime(c['detected_at'][:10], '%Y-%m-%d')
             target_date = detected + timedelta(days=checkpoint_days)
-            if target_date > datetime.now(timezone.utc).replace(tzinfo=None):
+            if target_date > datetime.now(UTC).replace(tzinfo=None):
                 continue
             price_now = _close_at_or_after(c['ticker'], target_date)
             if not price_now or not c['price_at_detection']:

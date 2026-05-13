@@ -1,6 +1,7 @@
 """Property-based tests for horizon_for_signal_type."""
-from hypothesis import given, strategies as st, settings
-from intelligence.learning import horizon_for_signal_type, SIGNAL_TYPE_HORIZONS
+from hypothesis import given, settings, strategies as st
+
+from intelligence.learning import SIGNAL_TYPE_HORIZONS, horizon_for_signal_type
 
 
 def test_catalyst_short_horizon():
@@ -62,7 +63,7 @@ def test_low_impact_keeps_base(impact):
 
 
 @given(
-    stype=st.sampled_from(list(SIGNAL_TYPE_HORIZONS.keys()) + ['unknown', None]),
+    stype=st.sampled_from([*list(SIGNAL_TYPE_HORIZONS.keys()), 'unknown', None]),
     impact=st.one_of(st.none(), st.floats(0.0, 5.0, allow_nan=False)),
 )
 @settings(max_examples=200)

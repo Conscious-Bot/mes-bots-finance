@@ -1,25 +1,27 @@
 """Entrypoint bot. Long-running async."""
-import os
+import contextlib
 import logging
+import os
+from datetime import UTC
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from shared import config, storage, notify
-from intelligence import thesis as thesis_mod
-from intelligence import digest as digest_mod
-from intelligence import credibility as credibility_mod
-from intelligence import learning as learning_mod
-from intelligence import regime as regime_mod
-from intelligence import calendar as calendar_mod
-from intelligence.calendar import seed_macro_events, format_macro_calendar
-from intelligence.insider_digest import daily_insider_refresh, format_daily_insider_digest
-from intelligence.price_monitor import check_thesis_triggers, record_override, list_overrides
-from shared import crypto as crypto_mod
-from shared import positions as positions_mod
-from intelligence import analyze as analyze_mod
-from shared import edgar as edgar_mod
 from data_sources import gmail_
+from intelligence import (
+    analyze as analyze_mod,
+    calendar as calendar_mod,
+    credibility as credibility_mod,
+    digest as digest_mod,
+    learning as learning_mod,
+    regime as regime_mod,
+    thesis as thesis_mod,
+)
+from intelligence.calendar import format_macro_calendar, seed_macro_events
+from intelligence.insider_digest import daily_insider_refresh, format_daily_insider_digest
+from intelligence.price_monitor import check_thesis_triggers, list_overrides, record_override
+from shared import config, crypto as crypto_mod, edgar as edgar_mod, notify, positions as positions_mod, storage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -273,10 +275,12 @@ async def resolve_journal_decisions_job():
     """
     log.info("Resolve journal decisions starting")
     try:
-        from shared import storage as storage_mod
-        from intelligence import journal as journal_mod
-        import yfinance as yf
         import sqlite3 as _sql
+
+        import yfinance as yf
+
+        from intelligence import journal as journal_mod
+        from shared import storage as storage_mod
 
         total_30 = 0
         total_90 = 0
@@ -500,7 +504,7 @@ async def heartbeat():
 
 async def ingest_gmail_job():
     """Hourly Gmail ingestion + immediate materiality_v2 chaining.
-    
+
     Phase Solidification P1 #2: rubric scoring runs RIGHT after ingestion to keep
     coverage high regardless of cron timing. The standalone cron materiality_v2 1h
     remains as catch-up safety net for any stragglers.
@@ -541,15 +545,15 @@ async def daily_backup_job():
     Runs 04:00 Paris before any market activity. Tarball + DB snapshot + 14d rotation.
     """
     try:
-        import subprocess
         import os as _os
+        import subprocess
         proj = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
         result = subprocess.run(
             ["bash", "scripts/backup.sh"],
             cwd=proj, capture_output=True, text=True, timeout=180,
         )
         if result.returncode == 0:
-            log.info(f"daily_backup_job: success")
+            log.info("daily_backup_job: success")
         else:
             log.error(f"daily_backup_job FAILED code={result.returncode} stderr={result.stderr[:300]}")
     except Exception as e:
@@ -574,6 +578,7 @@ async def log_handler_call_middleware(update, ctx):
         chat_id = update.effective_chat.id if update.effective_chat else None
         args_summary = cmd_text[:200]
         import sqlite3 as _sql
+
         from shared import storage as _storage
         conn = _sql.connect(_storage._DB_PATH)
         try:
@@ -596,6 +601,7 @@ async def cmd_handler_stats(update, ctx):
     parts = update.message.text.split()
     days = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 30
     import sqlite3 as _sql
+
     from shared import storage as _storage
     conn = _sql.connect(_storage._DB_PATH)
     conn.row_factory = _sql.Row
@@ -634,7 +640,8 @@ async def weekly_handler_stats_job():
     """Phase Solidification P0 #3 — Weekly handler usage summary, Sunday 23:00 Paris."""
     try:
         import sqlite3 as _sql
-        from shared import storage as _storage, notify as _notify
+
+        from shared import notify as _notify, storage as _storage
         conn = _sql.connect(_storage._DB_PATH)
         conn.row_factory = _sql.Row
         rows = conn.execute(
@@ -649,7 +656,6 @@ async def weekly_handler_stats_job():
         lines = [f"WEEKLY HANDLER STATS — {total} calls / {len(rows)} unique"]
         for r in rows[:15]:
             lines.append(f"  {r['handler_name']:24s} {r['n']:4d}")
-        unused = []
         # Optional: detect handlers never called
         _notify.send_text("\n".join(lines))
     except Exception as e:
@@ -662,6 +668,7 @@ async def weekly_handler_stats_job():
 def _kpi_compute_all():
     """Compute all 5 KPIs. Returns dict with status per KPI."""
     import sqlite3 as _sql
+
     from shared import storage as _storage
     conn = _sql.connect(_storage._DB_PATH)
     conn.row_factory = _sql.Row
@@ -849,7 +856,7 @@ async def weekly_kpi_status_job():
         kpis = _kpi_compute_all()
         msg = _format_kpi_report(kpis)
         _notify.send_text(msg)
-        log.info(f"weekly_kpi_status_job: posted")
+        log.info("weekly_kpi_status_job: posted")
     except Exception as e:
         log.warning(f"weekly_kpi_status_job error: {e}")
 
@@ -862,11 +869,12 @@ BUDGET_MONTHLY_USD = 50.0  # Target monthly LLM spend (per FICHE_TECHNIQUE)
 
 def _cost_compute_trajectory():
     """Compute cost trajectory data: today, MTD, projection, breakdowns."""
-    import sqlite3 as _sql
-    from shared import storage as _storage
-    from datetime import datetime as _dt
     import calendar as _cal
-    
+    import sqlite3 as _sql
+    from datetime import datetime as _dt
+
+    from shared import storage as _storage
+
     conn = _sql.connect(_storage._DB_PATH)
     conn.row_factory = _sql.Row
     try:
@@ -875,7 +883,7 @@ def _cost_compute_trajectory():
         days_in_month = _cal.monthrange(now.year, now.month)[1]
         day_of_month = now.day
         month_start = f"{now.year:04d}-{now.month:02d}-01"
-        
+
         # Spend buckets
         today = conn.execute(
             "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) = ?",
@@ -894,25 +902,25 @@ def _cost_compute_trajectory():
             "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) >= ?",
             (month_start,)
         ).fetchone()[0]
-        
+
         # Projection month-end (linear extrapolation)
         projection = (mtd / day_of_month) * days_in_month if day_of_month > 0 else 0
         budget_pct = 100.0 * projection / BUDGET_MONTHLY_USD if BUDGET_MONTHLY_USD > 0 else 0
-        
+
         if projection < BUDGET_MONTHLY_USD * 0.6:
             status = "✅ GREEN"
         elif projection < BUDGET_MONTHLY_USD * 0.9:
             status = "⚠️ YELLOW"
         else:
             status = "🚨 RED — budget breach imminent"
-        
+
         # By tier 30d
         tier_rows = conn.execute(
             "SELECT COALESCE(tier, '?') AS tier, ROUND(SUM(cost_usd), 4) AS spend, COUNT(*) AS n "
             "FROM llm_calls WHERE created_at >= datetime('now', '-30 days') "
             "GROUP BY tier ORDER BY spend DESC"
         ).fetchall()
-        
+
         # By task 30d (top 8)
         task_rows = conn.execute(
             "SELECT COALESCE(NULLIF(task, ''), '(untagged)') AS task, "
@@ -920,14 +928,14 @@ def _cost_compute_trajectory():
             "FROM llm_calls WHERE created_at >= datetime('now', '-30 days') "
             "GROUP BY task ORDER BY spend DESC LIMIT 8"
         ).fetchall()
-        
+
         # Daily trend last 7d
         daily_rows = conn.execute(
             "SELECT DATE(created_at) AS day, ROUND(SUM(cost_usd), 4) AS spend "
             "FROM llm_calls WHERE created_at >= datetime('now', '-7 days') "
             "GROUP BY day ORDER BY day"
         ).fetchall()
-        
+
         return {
             'today': today, 'yesterday': yesterday, 'week7': week7, 'days30': days30,
             'mtd': mtd, 'projection': projection, 'budget_pct': budget_pct, 'status': status,
@@ -1022,7 +1030,7 @@ async def cmd_sources_health(update, ctx):
         await update.message.reply_text("No newsletter sources found")
         return
     lines = ["Newsletter sources health (30d window):\n"]
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     for name, cred, n_30d, last_seen in rows:
         short = (name.split('<')[0].strip() or name)[:30]
         age_days = None
@@ -1047,7 +1055,9 @@ async def cmd_sources_health(update, ctx):
 
 async def cmd_orphan_tickers(update, ctx):
     """Tickers in signals (30d) NOT in watchlist."""
-    import sqlite3, json, re
+    import json
+    import re
+    import sqlite3
     from collections import Counter
     watchlist = set()
     # Strategy 1: shared.config exposed function
@@ -1059,7 +1069,7 @@ async def cmd_orphan_tickers(update, ctx):
                 cfg = fn()
                 wl = (cfg or {}).get('universe', {}).get('watchlist')
                 if wl:
-                    watchlist = set(t.upper() for t in wl)
+                    watchlist = {t.upper() for t in wl}
                     break
         except Exception:
             continue
@@ -1071,14 +1081,15 @@ async def cmd_orphan_tickers(update, ctx):
             if cfg:
                 wl = cfg.get('universe', {}).get('watchlist')
                 if wl:
-                    watchlist = set(t.upper() for t in wl)
+                    watchlist = {t.upper() for t in wl}
         except Exception:
             pass
     # Strategy 3: direct YAML read
     if not watchlist:
         try:
-            import yaml
             from pathlib import Path
+
+            import yaml
             here = Path(__file__).parent
             for parent in [here, here.parent, here.parent.parent]:
                 candidate = parent / 'config.yaml'
@@ -1086,7 +1097,7 @@ async def cmd_orphan_tickers(update, ctx):
                     cfg = yaml.safe_load(candidate.read_text())
                     wl = (cfg or {}).get('universe', {}).get('watchlist')
                     if wl:
-                        watchlist = set(t.upper() for t in wl)
+                        watchlist = {t.upper() for t in wl}
                     break
         except Exception:
             pass
@@ -1196,7 +1207,7 @@ async def cmd_history(update, ctx):
         lines.append(f"  Net: ${net_m:+.1f}M (buys ${buys_m or 0:.1f}M / sells ${sells_m or 0:.1f}M)")
         lines.append(f"  N: {n_b or 0} buys / {n_s or 0} sells")
         if ins_365 and ins_365[0] is not None:
-            n365, b365, s365 = ins_365
+            n365, _b365, _s365 = ins_365
             lines.append(f"  365d cumul net: ${n365:+.1f}M")
         lines.append("")
     if preds:
@@ -1369,8 +1380,8 @@ async def cmd_journal(update, ctx):
 
 async def cmd_journal_review(update, ctx):
     """Review journal stats + recent decisions. Usage: /journal_review [TICKER]"""
-    from shared import storage as storage_mod
     from intelligence import journal
+    from shared import storage as storage_mod
 
     parts = update.message.text.split()
     ticker_filter = parts[1].upper() if len(parts) > 1 else None
@@ -1417,8 +1428,8 @@ async def cmd_journal_review(update, ctx):
 
 async def cmd_journal_unresolved(update, ctx):
     """List decisions awaiting J+30 or J+90 resolution."""
-    from shared import storage as storage_mod
     from intelligence import journal
+    from shared import storage as storage_mod
 
     unres_30 = storage_mod.get_unresolved_decisions(30)
     unres_90 = storage_mod.get_unresolved_decisions(90)
@@ -1599,9 +1610,7 @@ async def update_echo_clusters_job():
     """Phase A3 — Hourly: embed pending signals + compute echo clusters in 48h window."""
     log.info("Echo clusters update starting")
     try:
-        from shared import storage as storage_mod
-        from shared import embeddings as emb_mod
-        from shared import echo as echo_mod
+        from shared import echo as echo_mod, embeddings as emb_mod, storage as storage_mod
 
         pending = storage_mod.get_unembedded_signals(limit=100)
         if pending:
@@ -1627,8 +1636,7 @@ async def cmd_echo_recent(update, ctx):
     parts = update.message.text.split()
     window = 48
     if len(parts) > 1:
-        try: window = int(parts[1])
-        except ValueError: pass
+        with contextlib.suppress(ValueError): window = int(parts[1])
 
     from shared import echo as echo_mod
     clusters = echo_mod.get_recent_multi_source_clusters(
@@ -1706,7 +1714,7 @@ async def cmd_sources_half_life(update, ctx):
     with_hl = [r for r in rows if r.get('half_life_days') is not None]
     without_hl = [r for r in rows if r.get('half_life_days') is None]
 
-    lines = [f"Information Half-Life per source"]
+    lines = ["Information Half-Life per source"]
     lines.append(f"  {len(with_hl)} computed, {len(without_hl)} awaiting data (need N>=3 signals with tickers + 30j forward)")
     lines.append("")
 
@@ -1814,7 +1822,7 @@ async def cmd_position_buy(update, ctx):
     except ValueError:
         await update.message.reply_text(f"Invalid qty or price: {parts[2]}, {parts[3]}")
         return
-    reasoning = parts[4] if len(parts) > 4 else f"Buy via /position_buy"
+    reasoning = parts[4] if len(parts) > 4 else "Buy via /position_buy"
 
     from shared import storage as storage_mod
     try:
@@ -1825,7 +1833,7 @@ async def cmd_position_buy(update, ctx):
         await update.message.reply_text(f"Error: {e}")
         return
 
-    px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
+    _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
     try:
         decision_id = storage_mod.log_decision(
             ticker=ticker, decision_type=dtype, confidence=3,
@@ -1879,7 +1887,7 @@ async def cmd_position_sell(update, ctx):
     except ValueError:
         await update.message.reply_text(f"Invalid qty or price: {parts[2]}, {parts[3]}")
         return
-    reasoning = parts[4] if len(parts) > 4 else f"Sell via /position_sell"
+    reasoning = parts[4] if len(parts) > 4 else "Sell via /position_sell"
 
     from shared import storage as storage_mod
     try:
@@ -1890,7 +1898,7 @@ async def cmd_position_sell(update, ctx):
         await update.message.reply_text(f"Error: {e}")
         return
 
-    px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
+    _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
     try:
         decision_id = storage_mod.log_decision(
             ticker=ticker, decision_type=dtype, confidence=3,
@@ -1922,7 +1930,7 @@ async def cmd_position_sell(update, ctx):
     if new_qty > 0:
         msg.append(f"  remaining: {new_qty:g} units")
     else:
-        msg.append(f"  POSITION CLOSED")
+        msg.append("  POSITION CLOSED")
     if decision_id:
         msg.append(f"  -> auto-logged decision #{decision_id} [{dtype}] thesis={thesis_id or '-'}")
     await update.message.reply_text("\n".join(msg))
@@ -1983,10 +1991,10 @@ async def cmd_position_history(update, ctx):
     positions = storage_mod.get_positions_history(ticker=ticker, limit=20)
     if not positions:
         await update.message.reply_text(
-            f"No position history" + (f" for {ticker}" if ticker else "") + "."
+            "No position history" + (f" for {ticker}" if ticker else "") + "."
         )
         return
-    lines = [f"Position history" + (f" — {ticker}" if ticker else "")]
+    lines = ["Position history" + (f" — {ticker}" if ticker else "")]
     for p in positions:
         state = "CLOSED" if (p.get('status') == 'closed') else f"OPEN ({p['qty']:g})"
         rpnl = p.get('realized_pnl') or 0
@@ -2008,11 +2016,11 @@ async def cmd_bias_review(update, ctx):
     stats = storage_mod.get_bias_stats(ticker=ticker, since_days=180)
     if stats['total_decisions_analyzed'] == 0:
         await update.message.reply_text(
-            f"No tagged decisions" + (f" for {ticker}" if ticker else "") + " in last 180 days."
+            "No tagged decisions" + (f" for {ticker}" if ticker else "") + " in last 180 days."
         )
         return
 
-    lines = [f"Bias review" + (f" — {ticker}" if ticker else "") + " (last 180d)"]
+    lines = ["Bias review" + (f" — {ticker}" if ticker else "") + " (last 180d)"]
     lines.append(f"  Decisions with bias tags: {stats['total_with_tags']}/{stats['total_decisions_analyzed']}")
     lines.append("")
     if stats['bias_counts']:
@@ -2111,8 +2119,8 @@ async def cmd_insider_buy_cluster(update, ctx):
 
 async def cmd_insider_buy_cluster_stats(update, ctx):
     """Phase C7 — Empirical alpha summary across all logged BUY clusters."""
-    from shared import storage as storage_mod
     from intelligence import insider_buy_cluster as ibc
+    from shared import storage as storage_mod
     stats = storage_mod.get_buy_cluster_stats(since_days=365)
     if stats['n_total'] == 0:
         await update.message.reply_text(
@@ -2163,8 +2171,8 @@ async def cmd_recent_8k(update, ctx):
             severity = p.lower()
         else:
             ticker = p_up
-    from shared import storage as storage_mod
     from intelligence import filings_8k
+    from shared import storage as storage_mod
     rows = storage_mod.get_recent_8k_filings_db(ticker=ticker, severity=severity, days=60, limit=30)
     msg = filings_8k.format_8k_list(rows)
     if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
@@ -2178,8 +2186,8 @@ async def cmd_eight_k_history(update, ctx):
         await update.message.reply_text("Usage: /eight_k_history <TICKER>")
         return
     ticker = parts[1].upper()
-    from shared import storage as storage_mod
     from intelligence import filings_8k
+    from shared import storage as storage_mod
     rows = storage_mod.get_recent_8k_filings_db(ticker=ticker, days=365, limit=50)
     if not rows:
         await update.message.reply_text(f"No 8-K filings logged for {ticker} in last 365d.")
@@ -2199,8 +2207,7 @@ async def cmd_analyze_debate(update, ctx):
     ticker = parts[1].upper()
     await update.message.reply_text(f"Running 3-round adversarial debate on {ticker} (~30-60s, ~$0.10)...")
     try:
-        from intelligence import analyze as analyze_mod_local
-        from intelligence import debate as debate_mod
+        from intelligence import analyze as analyze_mod_local, debate as debate_mod
         from shared import storage as storage_mod
         data = analyze_mod_local.fetch_stock_data(ticker)
         if not data:
@@ -2238,8 +2245,8 @@ async def cmd_debate_replay(update, ctx):
     except ValueError:
         await update.message.reply_text("Invalid id.")
         return
-    from shared import storage as storage_mod
     from intelligence import debate as debate_mod
+    from shared import storage as storage_mod
     rows = storage_mod.get_recent_debates(limit=50)
     target = next((r for r in rows if r["id"] == did), None)
     if not target:
@@ -2309,7 +2316,7 @@ async def cmd_tiers(update, ctx):
         if isinstance(tks, list):
             lines.append(f"  {cat:22s} {tks}")
     lines.append(f"\n━━━ T2 WATCH ({bd['counts']['watch']}) — scan moyen ━━━")
-    lines.append(f"  (flat list, see /tiers_watch for full list)")
+    lines.append("  (flat list, see /tiers_watch for full list)")
     lines.append(f"\n━━━ T3 EXTENDED ({bd['counts']['extended']}) — scan minimal ━━━")
     for cat, tks in (bd['extended'] or {}).items():
         if isinstance(tks, list):
@@ -2462,9 +2469,11 @@ async def cmd_materiality_debug(update, ctx):
         )
         return
     ticker = parts[1].upper().strip()
-    from shared import storage as storage_mod
+    import json
+    import sqlite3
+
     from intelligence import materiality_v2
-    import sqlite3, json
+    from shared import storage as storage_mod
     conn = sqlite3.connect(storage_mod._DB_PATH)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
@@ -2499,7 +2508,7 @@ async def cmd_materiality_debug(update, ctx):
             if reasoning:
                 lines.append(f"  └ {reasoning}")
         else:
-            lines.append(f"  [v2 scoring pending — runs hourly cron]")
+            lines.append("  [v2 scoring pending — runs hourly cron]")
     msg = "\n".join(lines)
     if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
@@ -2916,7 +2925,7 @@ async def cmd_materiality(update, ctx):
         for t in tops:
             title = (t.get("title") or t.get("summary") or "")[:55]
             mat = t.get("materiality") or 0
-            lines.append("#" + str(t["id"]) + " [" + (t.get("primary_ticker") or "-") + "] m=" + ("%.3f" % mat))
+            lines.append("#" + str(t["id"]) + " [" + (t.get("primary_ticker") or "-") + "] m=" + (f"{mat:.3f}"))
             lines.append("  " + title)
             if t.get("why_this_matters"):
                 lines.append("  --> " + t["why_this_matters"])
@@ -2956,7 +2965,7 @@ async def cmd_materiality(update, ctx):
 
 def main():
     storage.log_event("startup", {"phase": "2"})
-    cfg = config.load()
+    config.load()
     log.info(f"Bot starting. Tickers: {len(config.get_tickers('core'))} core + {len(config.get_tickers('watch'))} watch + {len(config.get_tickers('extended'))} extended = {len(config.get_tickers('all'))} total")
 
     app = (

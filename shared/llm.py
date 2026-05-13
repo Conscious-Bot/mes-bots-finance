@@ -1,10 +1,12 @@
 """Wrapper Claude. Phase A2 — tier routing + cost logging + prefix caching."""
-import os
 import json
-import time
+import os
 import sqlite3
+import time
 from pathlib import Path
+
 from anthropic import Anthropic
+
 from shared import config
 
 _client = None
@@ -69,9 +71,9 @@ def _log_call(tier, model, task, input_tokens, output_tokens, cached_tokens,
         pass
 
 
-def call(prompt: str, task: str = None, tier: str = None,
-         max_tokens: int = 1500, system: str = None,
-         cache_invariant: str = None) -> str:
+def call(prompt: str, task: str | None = None, tier: str | None = None,
+         max_tokens: int = 1500, system: str | None = None,
+         cache_invariant: str | None = None) -> str:
     """Phase A2: tier-routed Claude call with optional prefix caching.
 
     Args:
@@ -132,9 +134,9 @@ def call(prompt: str, task: str = None, tier: str = None,
                   cost, elapsed_ms, error)
 
 
-def call_json(prompt: str, task: str = None, tier: str = None,
-              max_tokens: int = 800, system: str = None,
-              cache_invariant: str = None) -> dict:
+def call_json(prompt: str, task: str | None = None, tier: str | None = None,
+              max_tokens: int = 800, system: str | None = None,
+              cache_invariant: str | None = None) -> dict:
     """Like call() but expects + parses JSON response."""
     if tier is None and task is None:
         task = 'signal_scoring'

@@ -1,6 +1,7 @@
 """Phase Brief — Morning ritual aggregator (corrected APIs)."""
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 log = logging.getLogger(__name__)
 
 
@@ -40,8 +41,9 @@ def _macro_section():
         log.warning(f"credit regime failed: {e}")
     catalysts = []
     try:
-        from shared import storage
         import sqlite3
+
+        from shared import storage
         conn = sqlite3.connect(storage._DB_PATH)
         conn.row_factory = sqlite3.Row
         cutoff = (datetime.now() + timedelta(days=21)).strftime("%Y-%m-%d")
@@ -59,11 +61,12 @@ def _macro_section():
 
 
 def _signals_section():
-    from shared import storage
     import sqlite3
+
+    from shared import storage
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
-    cutoff = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    cutoff = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     top_signals = []
     try:
         rows = conn.execute(
@@ -95,8 +98,9 @@ def _signals_section():
 
 
 def _filings_insider_section():
-    from shared import storage
     import sqlite3
+
+    from shared import storage
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     high_8k = []
@@ -137,8 +141,9 @@ def _portfolio_section():
 
 
 def _discipline_section():
-    from shared import storage
     import sqlite3
+
+    from shared import storage
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     unresolved = []
@@ -181,8 +186,9 @@ def _discipline_section():
 
 
 def _stats_section():
-    from shared import storage
     import sqlite3
+
+    from shared import storage
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     llm_cost_today = 0.0

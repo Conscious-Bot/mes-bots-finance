@@ -5,7 +5,7 @@ Subsequent runs: token.json reused (auto-refreshed when needed).
 """
 import base64
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from google.auth.transport.requests import Request
@@ -175,7 +175,7 @@ def ingest_new_emails(label_name=LABEL_NAME, max_results=50):
         inserted_id = storage.insert_raw_signal(
             source_id=source_id,
             gmail_id=e["gmail_id"],
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             subject=e["subject"],
             content=e["body"],
         )

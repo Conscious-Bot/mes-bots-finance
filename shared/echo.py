@@ -1,7 +1,9 @@
 """Phase A3 — Echo cluster detection via cosine similarity over embedded signals."""
-import numpy as np
 from collections import defaultdict
-from shared import storage, embeddings
+
+import numpy as np
+
+from shared import embeddings, storage
 
 
 def compute_clusters(window_hours=48, sim_threshold=0.85):
@@ -76,7 +78,7 @@ def get_recent_multi_source_clusters(window_hours=48, min_unique_sources=2):
             by_cluster[cid].append(r)
     result = []
     for cid, signals in by_cluster.items():
-        unique_srcs = set(s.get('source_name') for s in signals if s.get('source_name'))
+        unique_srcs = {s.get('source_name') for s in signals if s.get('source_name')}
         if len(unique_srcs) >= min_unique_sources:
             result.append({
                 'cluster_id': cid,

@@ -1,5 +1,6 @@
 """Property-based tests for Brier score (mirrors learning.py L107-111)."""
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, settings, strategies as st
+
 from shared.math_helpers import compute_brier_score
 
 

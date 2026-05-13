@@ -7,9 +7,9 @@ Resolution: apres target_date, fetch current_price, compare a baseline.
 - sinon : neutral (cred +0)
 Asymetrique: down feedback (outcome incorrect) pese 2x plus que correct.
 '''
-from datetime import datetime, timezone, timedelta
-from shared import storage, prices
+from datetime import UTC, datetime, timedelta
 
+from shared import prices, storage
 
 HORIZON_DAYS = 30
 OUTCOME_THRESHOLD = 0.05
@@ -33,10 +33,10 @@ SIGNAL_TYPE_HORIZONS = {
 
 def horizon_for_signal_type(signal_type, impact_magnitude=None):
     """Map signal_type + impact_magnitude to default horizon (days).
-    
+
     High impact (≥4) narrows the window for faster decisive resolution.
     Returns HORIZON_DAYS (30) as fallback for unknown signal_type.
-    
+
     Invariants:
     - Output >= 7 (minimum useful horizon)
     - catalyst always shorter than narrative
@@ -54,7 +54,7 @@ def register_prediction(signal_id, ticker, direction, horizon_days=None, baselin
     if direction not in ('bullish', 'bearish'):
         return None
     if baseline_date is None:
-        baseline_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        baseline_date = datetime.now(UTC).strftime('%Y-%m-%d')
     actual_date, baseline_price = prices.get_price_on_date(ticker, baseline_date)
     if baseline_price is None:
         print(f"register_prediction: no baseline price for {ticker} @ {baseline_date}")

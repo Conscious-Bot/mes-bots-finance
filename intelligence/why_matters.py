@@ -4,6 +4,7 @@ Takes a scored signal + regime context, returns 1 sentence (max 30 words).
 Used to annotate top-3 daily digest signals.
 """
 import logging
+
 from shared import llm
 
 log = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def _build_prompt(signal, score_dict, regime_info):
         hy_bp = None
     credit_line = "Credit regime: " + credit_overall
     if hy_bp:
-        credit_line += " (HY OAS " + ("%.0f" % hy_bp) + "bp)"
+        credit_line += " (HY OAS " + (f"{hy_bp:.0f}") + "bp)"
 
     overall = (regime_info or {}).get("overall", "unknown")
 
@@ -42,11 +43,11 @@ def _build_prompt(signal, score_dict, regime_info):
         "- Polarity: " + (derived.get("polarity") or "n/a") + "\n"
         "- Narratives: " + narratives + "\n\n"
         "Context:\n"
-        "- Materiality: " + ("%.3f" % score_dict.get("composite", 0)) +
-        " (novelty " + ("%.2f" % score_dict.get("novelty", 0)) +
-        ", cross-conf " + ("%.2f" % score_dict.get("cross_confirmation", 0)) +
-        ", impact " + ("%.2f" % score_dict.get("market_impact", 0)) +
-        ", regime-fit " + ("%.2f" % score_dict.get("regime_relevance", 0)) + ")\n"
+        "- Materiality: " + ("{:.3f}".format(score_dict.get("composite", 0))) +
+        " (novelty " + ("{:.2f}".format(score_dict.get("novelty", 0))) +
+        ", cross-conf " + ("{:.2f}".format(score_dict.get("cross_confirmation", 0))) +
+        ", impact " + ("{:.2f}".format(score_dict.get("market_impact", 0))) +
+        ", regime-fit " + ("{:.2f}".format(score_dict.get("regime_relevance", 0))) + ")\n"
         "- Macro regime: " + str(overall) + "\n"
         "- " + credit_line + "\n\n"
         "Rules:\n"

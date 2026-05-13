@@ -7,9 +7,10 @@ Future v2: persist to insider_trades table, daily refresh, big-sell alerts.
 '''
 import os
 import time
-import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+
+import requests
 
 EDGAR_UA = os.environ.get('EDGAR_USER_AGENT', 'Olivier Legendre olegendre@gmail.com')
 EDGAR_HEADERS = {
@@ -198,6 +199,7 @@ if __name__ == '__main__':
 
 
 # === Lazy cache for digest prompt integration ===
+import contextlib
 import json as _json
 import os as _os
 
@@ -237,10 +239,8 @@ def get_insider_brief(ticker, days=90, ttl_hours=INSIDER_CACHE_TTL_HOURS):
             'n_sells': len(sales),
             'n_big_sales': len(big_sales),
         }
-    try:
+    with contextlib.suppress(Exception):
         _json.dump({'brief': brief, 'cached_at': datetime.now().timestamp()}, open(cache_file, 'w'))
-    except Exception:
-        pass
     return brief
 
 
@@ -368,25 +368,25 @@ def format_insider_cluster(cluster):
 
     if c["is_buy_cluster"]:
         marks = {"strong": "!!!", "moderate": "!!", "weak": "!", "none": ""}.get(c["cluster_strength"], "")
-        out.append("BUY CLUSTER " + marks + ": " + str(c["distinct_buyers"]) + " insiders, $" + ("%.2f" % c["total_buy_m"]) + "M")
+        out.append("BUY CLUSTER " + marks + ": " + str(c["distinct_buyers"]) + " insiders, $" + ("{:.2f}".format(c["total_buy_m"])) + "M")
         out.append("Strength: " + c["cluster_strength"].upper())
         out.append("Top buyers:")
         for owner, role, val in c["top_buyers"]:
-            out.append("  - " + owner.title() + " (" + (role or "?") + "): $" + ("%.2f" % val) + "M")
+            out.append("  - " + owner.title() + " (" + (role or "?") + "): $" + (f"{val:.2f}") + "M")
     elif c["distinct_buyers"] == 0:
         out.append("No buying (0 P-code transactions)")
     else:
-        out.append("BUYS: " + str(c["distinct_buyers"]) + " insider(s), $" + ("%.2f" % c["total_buy_m"]) + "M")
+        out.append("BUYS: " + str(c["distinct_buyers"]) + " insider(s), $" + ("{:.2f}".format(c["total_buy_m"])) + "M")
         for owner, role, val in c["top_buyers"]:
-            out.append("  - " + owner.title() + " (" + (role or "?") + "): $" + ("%.2f" % val) + "M")
+            out.append("  - " + owner.title() + " (" + (role or "?") + "): $" + (f"{val:.2f}") + "M")
 
     out.append("")
 
     if c["distinct_sellers"] > 0:
         sig = " DISTRIBUTED" if c["is_distributed_selling"] else ""
-        out.append("SELLS: " + str(c["distinct_sellers"]) + " insider(s), $" + ("%.2f" % c["total_sell_m"]) + "M  (conc " + ("%.0f" % (c["sell_concentration"]*100)) + "%, ex-top " + ("%.0f" % (c["sell_concentration_ex_top"]*100)) + "%)" + sig)
+        out.append("SELLS: " + str(c["distinct_sellers"]) + " insider(s), $" + ("{:.2f}".format(c["total_sell_m"])) + "M  (conc " + ("%.0f" % (c["sell_concentration"]*100)) + "%, ex-top " + ("%.0f" % (c["sell_concentration_ex_top"]*100)) + "%)" + sig)
         for owner, role, val in c["top_sellers"]:
-            out.append("  - " + owner.title() + " (" + (role or "?") + "): $" + ("%.2f" % val) + "M")
+            out.append("  - " + owner.title() + " (" + (role or "?") + "): $" + (f"{val:.2f}") + "M")
     else:
         out.append("No selling")
 
@@ -397,7 +397,7 @@ def format_insider_cluster(cluster):
 
 def get_recent_8k_filings(ticker, days=30):
     """Phase C9 — Fetch recent 8-K filings via SEC submissions JSON.
-    
+
     Returns list of dicts: {accession, cik, filed_at, items_raw, item_codes, url, form}.
     Uses recent.items[] parallel-indexed array, zero HTML parsing.
     """

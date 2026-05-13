@@ -1,6 +1,8 @@
 """Validation avant tout output décisionnel."""
 from dataclasses import dataclass
-from shared import storage, config
+
+from shared import config, storage
+
 
 @dataclass
 class ValidationResult:

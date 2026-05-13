@@ -10,7 +10,7 @@ long-half-life sources retain actionability over days/weeks.
 import json
 import logging
 import statistics
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 log = logging.getLogger(__name__)
 
@@ -48,11 +48,11 @@ def compute_signal_time_to_move(signal, threshold=DEFAULT_THRESHOLD, max_days=DE
     except Exception:
         return None
 
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     if (now_utc - sig_dt).days < 1:
         return None
 
-    baseline_date_str, baseline_price = prices.get_price_on_date(ticker, sig_dt)
+    _baseline_date_str, baseline_price = prices.get_price_on_date(ticker, sig_dt)
     if not baseline_price:
         return None
 
@@ -112,8 +112,9 @@ def compute_source_half_life(source_id, min_samples=DEFAULT_MIN_SAMPLES):
 
 def refresh_all_source_half_lives(min_samples=DEFAULT_MIN_SAMPLES):
     """Iterate all sources, compute half-life, persist where n_samples >= min."""
-    from shared import storage
     import sqlite3
+
+    from shared import storage
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     sources = [dict(r) for r in conn.execute("SELECT id, name FROM sources").fetchall()]

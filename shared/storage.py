@@ -1,10 +1,9 @@
 """SQLite accessors. Toute la mémoire passe par ici."""
-import sqlite3
 import json
+import sqlite3
+from contextlib import contextmanager, suppress
+from datetime import datetime, timedelta
 from pathlib import Path
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 ROOT = Path(__file__).parent.parent
 DB_PATH = ROOT / "data" / "bot.db"
@@ -106,12 +105,12 @@ def active_theses() -> list[dict]:
             "SELECT * FROM theses WHERE status = 'active' ORDER BY opened_at DESC"
         ).fetchall()]
 
-def thesis_by_id(thesis_id: int) -> Optional[dict]:
+def thesis_by_id(thesis_id: int) -> dict | None:
     with db() as conn:
         row = conn.execute("SELECT * FROM theses WHERE id = ?", (thesis_id,)).fetchone()
         return dict(row) if row else None
 
-def update_thesis_status(thesis_id: int, status: str, notes: str = None):
+def update_thesis_status(thesis_id: int, status: str, notes: str | None = None):
     with db() as conn:
         conn.execute(
             "UPDATE theses SET status = ?, last_reviewed = ?, notes = COALESCE(?, notes) WHERE id = ?",
@@ -214,7 +213,7 @@ def get_or_create_source(sender):
 
 def insert_raw_signal(source_id, gmail_id, timestamp, subject, content):
     """Insert a raw email-derived signal. Returns new signal_id, or None on welcome/duplicate.
-    
+
     Atomicity invariant: n_signals counter and last_signal_at are updated ONLY if INSERT succeeds.
     Handles UNIQUE constraint on gmail_id gracefully (duplicate emails return None).
     """
@@ -245,7 +244,7 @@ def insert_raw_signal(source_id, gmail_id, timestamp, subject, content):
 # === Phase 2 : Thesis tracker helpers ===
 
 import json as _t_json
-from datetime import datetime as _t_dt, timezone as _t_tz, timedelta as _t_td
+from datetime import UTC, datetime as _t_dt, timedelta as _t_td
 
 
 def _parse_thesis_row(row):
@@ -253,10 +252,8 @@ def _parse_thesis_row(row):
     d = dict(row)
     for fld in ('key_drivers', 'invalidation_triggers', 'triggers_profit_take'):
         if d.get(fld):
-            try:
+            with suppress(TypeError, ValueError):
                 d[fld] = _t_json.loads(d[fld])
-            except (TypeError, ValueError):
-                pass
     return d
 
 
@@ -267,7 +264,7 @@ def insert_thesis(ticker, direction, horizon, conviction,
                   triggers_profit_take=None,
                   stop_price=None, notes=None):
     """Insert a new thesis. Returns thesis_id."""
-    now = _t_dt.now(_t_tz.utc).isoformat()
+    now = _t_dt.now(UTC).isoformat()
     def _to_list(v):
         if v is None: return []
         if isinstance(v, list): return v
@@ -342,7 +339,7 @@ def get_thesis_by_ticker(ticker, status='active'):
 
 def update_thesis_revisit(thesis_id):
     """Mark thesis as revisited now."""
-    now = _t_dt.now(_t_tz.utc).isoformat()
+    now = _t_dt.now(UTC).isoformat()
     conn = _sqlite3.connect(_DB_PATH)
     try:
         conn.execute("UPDATE theses SET last_revisit_at = ? WHERE id = ?", (now, thesis_id))
@@ -353,7 +350,7 @@ def update_thesis_revisit(thesis_id):
 
 def append_thesis_note(thesis_id, note):
     """Append a timestamped note to a thesis."""
-    now = _t_dt.now(_t_tz.utc).isoformat()
+    now = _t_dt.now(UTC).isoformat()
     conn = _sqlite3.connect(_DB_PATH)
     try:
         row = conn.execute("SELECT notes FROM theses WHERE id = ?", (thesis_id,)).fetchone()
@@ -369,7 +366,7 @@ def close_thesis(thesis_id, status, exit_price=None, reason=None):
     """Close a thesis. status must be 'invalidated' | 'realized' | 'stale'."""
     if status not in ('invalidated', 'realized', 'stale'):
         raise ValueError(f"Invalid close status: {status}")
-    now = _t_dt.now(_t_tz.utc).isoformat()
+    now = _t_dt.now(UTC).isoformat()
     parts = [status.upper() + ":"]
     if exit_price is not None:
         parts.append(f"exit_price={exit_price}")
@@ -392,7 +389,7 @@ def close_thesis(thesis_id, status, exit_price=None, reason=None):
 
 def get_theses_due_for_revisit(days_threshold=30):
     """Return active theses where last_revisit_at older than threshold."""
-    cutoff = (_t_dt.now(_t_tz.utc) - _t_td(days=days_threshold)).isoformat()
+    cutoff = (_t_dt.now(UTC) - _t_td(days=days_threshold)).isoformat()
     conn = _sqlite3.connect(_DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
@@ -562,10 +559,8 @@ def get_recent_processed_signals(hours=72, limit=20):
             for jkey in ('entities', 'narratives'):
                 val = d.get(jkey)
                 if val:
-                    try:
+                    with suppress(Exception):
                         d[jkey] = _json.loads(val)
-                    except Exception:
-                        pass
                 else:
                     d[jkey] = []
             d['tickers'] = d.get('entities') or []
@@ -714,6 +709,7 @@ def delete_old_events(keep_days=30):
 
 
 import re as _re_w
+
 _WELCOME_RE = _re_w.compile(
     r"welcome to|confirm your|verify your|subscription confirmed|"
     r"thanks? for subscribing|you'?re subscribed|successfully subscribed|"
@@ -727,9 +723,7 @@ def _is_welcome_signal(title, body):
     """True if email looks like welcome/confirmation/short noise."""
     if title and _WELCOME_RE.search(title):
         return True
-    if not body or len(body) < 500:
-        return True
-    return False
+    return bool(not body or len(body) < 500)
 
 
 # === Phase 11: conviction_history helpers ===
@@ -864,7 +858,7 @@ def resolve_decision(decision_id, horizon_days, price, return_pct,
             f"return_{suffix}_pct = ?, thesis_relative_{suffix} = ?, "
             f"mistake_tag_auto = COALESCE(mistake_tag_auto, ?) "
             f"WHERE id = ?",
-            (datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), price, return_pct,
+            (datetime.now(UTC).replace(tzinfo=None).isoformat(), price, return_pct,
              thesis_relative, mistake_tag_auto, decision_id)
         )
         conn.commit()
@@ -1118,7 +1112,7 @@ def get_all_sources_with_half_life():
             SELECT s.id, s.name, s.credibility, s.n_signals,
                    s.half_life_days, s.half_life_n_samples, s.half_life_computed_at
             FROM sources s
-            ORDER BY 
+            ORDER BY
               CASE WHEN s.half_life_days IS NULL THEN 1 ELSE 0 END,
               s.half_life_days ASC
         """).fetchall()

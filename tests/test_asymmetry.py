@@ -1,5 +1,6 @@
 """Property-based + unit tests for asymmetry verdict logic (mocks yfinance)."""
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, settings, strategies as st
+
 from intelligence import asymmetry
 
 

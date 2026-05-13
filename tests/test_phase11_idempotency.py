@@ -1,7 +1,10 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 """Smoke test Phase 11: run_enhanced_digest() x3 + verifier persist + dedup."""
 import sqlite3
+
 from intelligence import digest
 from shared import storage
 

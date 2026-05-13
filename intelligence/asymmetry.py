@@ -7,6 +7,7 @@ current price. Surface verdicts ranging STRONG RUN to FLIPPED.
 Integrates with existing theses + positions tables. No new schema.
 """
 import logging
+
 log = logging.getLogger(__name__)
 
 
@@ -147,7 +148,7 @@ def format_asymmetry_single(r):
     ratio = r.get('asymmetry_ratio')
     if ratio is not None:
         if ratio >= 999:
-            lines.append(f"Ratio: TARGET HIT")
+            lines.append("Ratio: TARGET HIT")
         else:
             lines.append(f"Ratio: {ratio:.2f}  →  {r['verdict']}")
     if r.get('note'):
