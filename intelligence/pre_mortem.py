@@ -7,6 +7,7 @@ with probabilities, signals to monitor, and mitigation actions.
 This is the structural antidote to optimism bias + post-hoc rationalization.
 Forces exit discipline pre-commit. Anti loss-aversion + anti hold-too-long.
 """
+
 import json
 import logging
 
@@ -57,14 +58,15 @@ Be specific (mention real catalysts, real numbers, real comparable assets). Avoi
 def generate_pre_mortem(thesis):
     """Run Opus pre-mortem. Returns JSON string or None on failure."""
     from shared import llm
+
     try:
-        drivers = thesis.get('key_drivers') or []
+        drivers = thesis.get("key_drivers") or []
         if isinstance(drivers, str):
             try:
                 drivers = json.loads(drivers)
             except Exception:
                 drivers = [drivers]
-        invalidation = thesis.get('invalidation_triggers') or []
+        invalidation = thesis.get("invalidation_triggers") or []
         if isinstance(invalidation, str):
             try:
                 invalidation = json.loads(invalidation)
@@ -72,21 +74,21 @@ def generate_pre_mortem(thesis):
                 invalidation = [invalidation]
 
         prompt = PROMPT.format(
-            ticker=thesis.get('ticker', '?'),
-            direction=thesis.get('direction', '?'),
-            horizon=thesis.get('horizon', 'medium'),
-            conviction=thesis.get('conviction', '?'),
-            entry_price=thesis.get('entry_price', '?'),
-            target_partial=thesis.get('target_partial', 'n/a'),
-            target_full=thesis.get('target_full', 'n/a'),
-            stop_price=thesis.get('stop_price', 'n/a'),
+            ticker=thesis.get("ticker", "?"),
+            direction=thesis.get("direction", "?"),
+            horizon=thesis.get("horizon", "medium"),
+            conviction=thesis.get("conviction", "?"),
+            entry_price=thesis.get("entry_price", "?"),
+            target_partial=thesis.get("target_partial", "n/a"),
+            target_full=thesis.get("target_full", "n/a"),
+            stop_price=thesis.get("stop_price", "n/a"),
             drivers="\n".join(f"- {d}" for d in drivers) or "(none)",
             invalidation="\n".join(f"- {t}" for t in invalidation) or "(none)",
-            regime=thesis.get('regime') or 'unknown',
-            credit_regime=thesis.get('credit_regime') or 'unknown',
+            regime=thesis.get("regime") or "unknown",
+            credit_regime=thesis.get("credit_regime") or "unknown",
         )
-        result = llm.call_json(prompt, tier='synthesize', max_tokens=2000)
-        if isinstance(result, dict) and 'failure_modes' in result:
+        result = llm.call_json(prompt, tier="synthesize", max_tokens=2000)
+        if isinstance(result, dict) and "failure_modes" in result:
             return json.dumps(result, ensure_ascii=False)
     except Exception as e:
         log.warning(f"pre_mortem generation failed: {e}")
@@ -103,25 +105,25 @@ def format_pre_mortem_display(pm_json_str, max_len_per_field=220):
         return None
 
     lines = ["PRE-MORTEM — 5 failure modes"]
-    for i, fm in enumerate(pm.get('failure_modes', [])[:5], 1):
-        p = fm.get('probability', 0)
+    for i, fm in enumerate(pm.get("failure_modes", [])[:5], 1):
+        p = fm.get("probability", 0)
         if isinstance(p, (int, float)):
             p_str = f"P={p:.0%}"
         else:
             p_str = f"P={p}"
-        sc = (fm.get('scenario') or '')[:max_len_per_field]
+        sc = (fm.get("scenario") or "")[:max_len_per_field]
         lines.append(f"\n{i}. {p_str} — {sc}")
-        sigs = fm.get('signals_to_monitor') or []
+        sigs = fm.get("signals_to_monitor") or []
         if sigs:
             lines.append("   Monitor: " + "; ".join(s[:50] for s in sigs[:3]))
-        mit = (fm.get('mitigation') or '')[:max_len_per_field]
+        mit = (fm.get("mitigation") or "")[:max_len_per_field]
         if mit:
             lines.append(f"   Action: {mit}")
 
-    overall = pm.get('overall_assessment')
+    overall = pm.get("overall_assessment")
     if overall:
         lines.append(f"\nKey fragility: {overall[:200]}")
-    asym = pm.get('asymmetry_warning')
-    if asym and asym != 'null':
+    asym = pm.get("asymmetry_warning")
+    if asym and asym != "null":
         lines.append(f"\nASYMMETRY WARNING: {asym[:200]}")
     return "\n".join(lines)

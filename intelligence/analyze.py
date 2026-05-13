@@ -3,6 +3,7 @@ Company analysis fiche generator.
 Stocks: yfinance + EDGAR insiders + regime → LLM synthesis (Claude)
 Crypto (BTC-USD etc): partial — yfinance price + macro, LLM adapts
 """
+
 import contextlib
 import logging
 from datetime import UTC, date, datetime
@@ -16,30 +17,39 @@ log = logging.getLogger(__name__)
 
 
 def _fmt_money(v):
-    if v is None: return "n/a"
+    if v is None:
+        return "n/a"
     av = abs(v)
-    if av >= 1e12: return f"${v/1e12:.2f}T"
-    if av >= 1e9:  return f"${v/1e9:.2f}B"
-    if av >= 1e6:  return f"${v/1e6:.1f}M"
-    if av >= 1e3:  return f"${v/1e3:.1f}K"
+    if av >= 1e12:
+        return f"${v / 1e12:.2f}T"
+    if av >= 1e9:
+        return f"${v / 1e9:.2f}B"
+    if av >= 1e6:
+        return f"${v / 1e6:.1f}M"
+    if av >= 1e3:
+        return f"${v / 1e3:.1f}K"
     return f"${v:.2f}"
 
 
 def _fmt_pct(v, sign=False):
-    if v is None: return "n/a"
-    s = '+' if sign and v > 0 else ''
-    return f"{s}{v*100:.1f}%"
+    if v is None:
+        return "n/a"
+    s = "+" if sign and v > 0 else ""
+    return f"{s}{v * 100:.1f}%"
 
 
-def _safe(v, fmt='', default='n/a'):
-    if v is None: return default
-    try: return f"{v:{fmt}}"
-    except (TypeError, ValueError): return str(v)
+def _safe(v, fmt="", default="n/a"):
+    if v is None:
+        return default
+    try:
+        return f"{v:{fmt}}"
+    except TypeError, ValueError:
+        return str(v)
 
 
 def _is_crypto(ticker: str) -> bool:
     t = ticker.upper()
-    return t.endswith(('-USD', '-EUR')) or t in ('BTC', 'ETH', 'SOL', 'BNB')
+    return t.endswith(("-USD", "-EUR")) or t in ("BTC", "ETH", "SOL", "BNB")
 
 
 def _phase25_enrich(info, fin):
@@ -49,33 +59,33 @@ def _phase25_enrich(info, fin):
     if not info:
         return {}
     out = {}
-    out['ebitda_abs'] = info.get('ebitda')
-    out['ebitda_margin'] = info.get('ebitdaMargins')
-    out['operating_cashflow_abs'] = info.get('operatingCashflow')
-    out['free_cashflow_abs'] = info.get('freeCashflow')
-    out['roe'] = info.get('returnOnEquity')
-    out['roa'] = info.get('returnOnAssets')
-    dte_pct = info.get('debtToEquity')
-    out['debt_to_equity_ratio'] = (dte_pct / 100.0) if dte_pct is not None else None
-    out['current_ratio'] = info.get('currentRatio')
-    out['quick_ratio'] = info.get('quickRatio')
-    out['insider_ownership_pct'] = info.get('heldPercentInsiders')
-    out['institutional_ownership_pct'] = info.get('heldPercentInstitutions')
-    out['short_pct_float'] = info.get('shortPercentOfFloat')
-    out['short_ratio_days'] = info.get('shortRatio')
-    out['peg_ratio'] = info.get('pegRatio')
-    out['earnings_growth_qoq'] = info.get('earningsGrowth')
+    out["ebitda_abs"] = info.get("ebitda")
+    out["ebitda_margin"] = info.get("ebitdaMargins")
+    out["operating_cashflow_abs"] = info.get("operatingCashflow")
+    out["free_cashflow_abs"] = info.get("freeCashflow")
+    out["roe"] = info.get("returnOnEquity")
+    out["roa"] = info.get("returnOnAssets")
+    dte_pct = info.get("debtToEquity")
+    out["debt_to_equity_ratio"] = (dte_pct / 100.0) if dte_pct is not None else None
+    out["current_ratio"] = info.get("currentRatio")
+    out["quick_ratio"] = info.get("quickRatio")
+    out["insider_ownership_pct"] = info.get("heldPercentInsiders")
+    out["institutional_ownership_pct"] = info.get("heldPercentInstitutions")
+    out["short_pct_float"] = info.get("shortPercentOfFloat")
+    out["short_ratio_days"] = info.get("shortRatio")
+    out["peg_ratio"] = info.get("pegRatio")
+    out["earnings_growth_qoq"] = info.get("earningsGrowth")
     try:
-        if fin is not None and 'Total Revenue' in fin.index:
-            revs = fin.loc['Total Revenue'].dropna()
+        if fin is not None and "Total Revenue" in fin.index:
+            revs = fin.loc["Total Revenue"].dropna()
             if len(revs) >= 3:
                 recent = float(revs.iloc[0])
                 oldest = float(revs.iloc[-1])
                 years = len(revs) - 1
                 if oldest > 0 and recent > 0:
                     cagr = (recent / oldest) ** (1.0 / years) - 1.0
-                    out['revenue_cagr_multiyear'] = cagr
-                    out['revenue_cagr_years'] = years
+                    out["revenue_cagr_multiyear"] = cagr
+                    out["revenue_cagr_years"] = years
     except Exception:
         pass
     return out
@@ -98,18 +108,18 @@ def fetch_stock_data(ticker: str) -> dict:
     bs = t.balance_sheet
     cf = t.cashflow
 
-    revenue = _safe_df(fin, 'Total Revenue')
-    revenue_prev = _safe_df(fin, 'Total Revenue', col=1)
-    rev_growth = (revenue / revenue_prev - 1) if (revenue and revenue_prev) else info.get('revenueGrowth')
+    revenue = _safe_df(fin, "Total Revenue")
+    revenue_prev = _safe_df(fin, "Total Revenue", col=1)
+    rev_growth = (revenue / revenue_prev - 1) if (revenue and revenue_prev) else info.get("revenueGrowth")
 
-    net_income = _safe_df(fin, 'Net Income')
-    op_income = _safe_df(fin, 'Operating Income')
-    gross_profit = _safe_df(fin, 'Gross Profit')
+    net_income = _safe_df(fin, "Net Income")
+    op_income = _safe_df(fin, "Operating Income")
+    gross_profit = _safe_df(fin, "Gross Profit")
 
-    fcf = _safe_df(cf, 'Free Cash Flow')
+    fcf = _safe_df(cf, "Free Cash Flow")
 
-    cash = _safe_df(bs, 'Cash And Cash Equivalents')
-    debt = _safe_df(bs, 'Total Debt')
+    cash = _safe_df(bs, "Cash And Cash Equivalents")
+    debt = _safe_df(bs, "Total Debt")
 
     # Insider
     insider = None
@@ -127,8 +137,9 @@ def fetch_stock_data(ticker: str) -> dict:
     regime_overall = None
     try:
         from intelligence import regime as regime_mod
+
         r = regime_mod.detect_regime()
-        regime_overall = r.get('overall') if isinstance(r, dict) else None
+        regime_overall = r.get("overall") if isinstance(r, dict) else None
     except Exception:
         pass
 
@@ -136,6 +147,7 @@ def fetch_stock_data(ticker: str) -> dict:
     credit = None
     try:
         from shared import macro
+
         credit = macro.get_credit_regime()
     except Exception as e:
         log.warning(f"credit fetch: {e}")
@@ -147,81 +159,80 @@ def fetch_stock_data(ticker: str) -> dict:
             row = cx.execute(
                 "SELECT date FROM events WHERE event_type='earnings' AND ticker=? "
                 "AND date >= date('now') ORDER BY date LIMIT 1",
-                (ticker,)
+                (ticker,),
             ).fetchone()
             if row:
-                next_earnings = row['date']
-                days_to_earnings = (datetime.strptime(row['date'], '%Y-%m-%d').date() - date.today()).days
+                next_earnings = row["date"]
+                days_to_earnings = (datetime.strptime(row["date"], "%Y-%m-%d").date() - date.today()).days
     except Exception:
         pass
 
     # CEO from officers
     ceo = None
     try:
-        for o in (info.get('companyOfficers') or []):
-            title = (o.get('title') or '').upper()
-            if 'CEO' in title or 'CHIEF EXECUTIVE' in title:
-                ceo = o.get('name')
+        for o in info.get("companyOfficers") or []:
+            title = (o.get("title") or "").upper()
+            if "CEO" in title or "CHIEF EXECUTIVE" in title:
+                ceo = o.get("name")
                 break
     except Exception:
         pass
 
     return {
-        'ticker': ticker.upper(),
-        'is_crypto': _is_crypto(ticker),
-        'name': info.get('longName') or info.get('shortName') or ticker,
-        'sector': info.get('sector'),
-        'industry': info.get('industry'),
-        'country': info.get('country'),
-        'employees': info.get('fullTimeEmployees'),
-        'ceo': ceo,
-        'market_cap': info.get('marketCap'),
-        'price': info.get('currentPrice') or info.get('regularMarketPrice'),
-        '52w_high': info.get('fiftyTwoWeekHigh'),
-        '52w_low': info.get('fiftyTwoWeekLow'),
-        'business_summary': (info.get('longBusinessSummary') or '')[:1500],
+        "ticker": ticker.upper(),
+        "is_crypto": _is_crypto(ticker),
+        "name": info.get("longName") or info.get("shortName") or ticker,
+        "sector": info.get("sector"),
+        "industry": info.get("industry"),
+        "country": info.get("country"),
+        "employees": info.get("fullTimeEmployees"),
+        "ceo": ceo,
+        "market_cap": info.get("marketCap"),
+        "price": info.get("currentPrice") or info.get("regularMarketPrice"),
+        "52w_high": info.get("fiftyTwoWeekHigh"),
+        "52w_low": info.get("fiftyTwoWeekLow"),
+        "business_summary": (info.get("longBusinessSummary") or "")[:1500],
         # Analyst
-        'target_mean': info.get('targetMeanPrice'),
-        'target_high': info.get('targetHighPrice'),
-        'target_low': info.get('targetLowPrice'),
-        'rec_key': info.get('recommendationKey'),
-        'analyst_count': info.get('numberOfAnalystOpinions'),
+        "target_mean": info.get("targetMeanPrice"),
+        "target_high": info.get("targetHighPrice"),
+        "target_low": info.get("targetLowPrice"),
+        "rec_key": info.get("recommendationKey"),
+        "analyst_count": info.get("numberOfAnalystOpinions"),
         # Valuation
-        'forward_pe': info.get('forwardPE'),
-        'trailing_pe': info.get('trailingPE'),
-        'ev_ebitda': info.get('enterpriseToEbitda'),
-        'ev_sales': info.get('enterpriseToRevenue'),
-        'price_to_book': info.get('priceToBook'),
+        "forward_pe": info.get("forwardPE"),
+        "trailing_pe": info.get("trailingPE"),
+        "ev_ebitda": info.get("enterpriseToEbitda"),
+        "ev_sales": info.get("enterpriseToRevenue"),
+        "price_to_book": info.get("priceToBook"),
         # Growth & profit
-        'revenue': revenue,
-        'revenue_growth': rev_growth,
-        'net_income': net_income,
-        'net_margin': (net_income / revenue) if (net_income and revenue) else info.get('profitMargins'),
-        'op_margin': (op_income / revenue) if (op_income and revenue) else info.get('operatingMargins'),
-        'gross_margin': (gross_profit / revenue) if (gross_profit and revenue) else info.get('grossMargins'),
-        'fcf_margin': (fcf / revenue) if (fcf and revenue) else None,
-        'eps_growth_5y': info.get('earningsGrowth'),
+        "revenue": revenue,
+        "revenue_growth": rev_growth,
+        "net_income": net_income,
+        "net_margin": (net_income / revenue) if (net_income and revenue) else info.get("profitMargins"),
+        "op_margin": (op_income / revenue) if (op_income and revenue) else info.get("operatingMargins"),
+        "gross_margin": (gross_profit / revenue) if (gross_profit and revenue) else info.get("grossMargins"),
+        "fcf_margin": (fcf / revenue) if (fcf and revenue) else None,
+        "eps_growth_5y": info.get("earningsGrowth"),
         # Balance
-        'cash': cash,
-        'debt': debt,
-        'net_cash': (cash - debt) if (cash and debt) else cash,
+        "cash": cash,
+        "debt": debt,
+        "net_cash": (cash - debt) if (cash and debt) else cash,
         # Forward
-        'forward_eps': info.get('forwardEps'),
-        'next_earnings': next_earnings,
-        'days_to_earnings': days_to_earnings,
+        "forward_eps": info.get("forwardEps"),
+        "next_earnings": next_earnings,
+        "days_to_earnings": days_to_earnings,
         # Insider
-        'insider_net_m': insider.get('net_m') if insider else None,
-        'insider_n_buys': insider.get('n_buys') if insider else None,
-        'insider_n_sells': insider.get('n_sells') if insider else None,
-        'cluster': cluster,
-        'credit': credit,
+        "insider_net_m": insider.get("net_m") if insider else None,
+        "insider_n_buys": insider.get("n_buys") if insider else None,
+        "insider_n_sells": insider.get("n_sells") if insider else None,
+        "cluster": cluster,
+        "credit": credit,
         # Macro
-        'regime': regime_overall,
-        'beta': info.get('beta'),
-        'dividend_yield': info.get('dividendYield'),
+        "regime": regime_overall,
+        "beta": info.get("beta"),
+        "dividend_yield": info.get("dividendYield"),
         **_phase25_enrich(info, fin),
     }
-
 
 
 def _cluster_section(d):
@@ -230,105 +241,117 @@ def _cluster_section(d):
     if not c or "error" in c:
         return ""
     lines = ["", "Per-insider breakdown (last 90d):"]
-    lines.append("- Distinct sellers: " + str(c["distinct_sellers"]) +
-                 " (concentration " + ("%.0f" % (c["sell_concentration"]*100)) + "%" +
-                 ", ex-top " + ("%.0f" % (c["sell_concentration_ex_top"]*100)) + "%)")
+    lines.append(
+        "- Distinct sellers: "
+        + str(c["distinct_sellers"])
+        + " (concentration "
+        + ("%.0f" % (c["sell_concentration"] * 100))
+        + "%"
+        + ", ex-top "
+        + ("%.0f" % (c["sell_concentration_ex_top"] * 100))
+        + "%)"
+    )
     lines.append("- Distinct buyers: " + str(c["distinct_buyers"]))
-    lines.append("- Buy cluster: " + str(c["is_buy_cluster"]) +
-                 " (strength: " + c["cluster_strength"] + ")")
+    lines.append("- Buy cluster: " + str(c["is_buy_cluster"]) + " (strength: " + c["cluster_strength"] + ")")
     if c.get("top_sellers"):
         lines.append("Top sellers (by $value, last 90d):")
         for owner, role, val in c["top_sellers"]:
-            lines.append("  - " + owner.title() + " (" + (role or "?") + "): $" +
-                        (f"{val:.2f}") + "M")
+            lines.append("  - " + owner.title() + " (" + (role or "?") + "): $" + (f"{val:.2f}") + "M")
     if c.get("top_buyers"):
         lines.append("Top buyers (by $value, last 90d):")
         for owner, role, val in c["top_buyers"]:
-            lines.append("  - " + owner.title() + " (" + (role or "?") + "): $" +
-                        (f"{val:.2f}") + "M")
+            lines.append("  - " + owner.title() + " (" + (role or "?") + "): $" + (f"{val:.2f}") + "M")
     return "\n".join(lines)
 
 
-
 def _credit_line(d):
-    c = d.get('credit')
-    if not c or 'error' in c:
-        return '- Credit regime: data unavailable'
-    hy = c.get('hy', {})
-    ig = c.get('ig', {})
+    c = d.get("credit")
+    if not c or "error" in c:
+        return "- Credit regime: data unavailable"
+    hy = c.get("hy", {})
+    ig = c.get("ig", {})
     parts = []
-    if hy.get('bp') is not None:
-        sign = '+' if hy.get('change_1m_bp', 0) >= 0 else ''
-        parts.append('HY OAS ' + ('{:.0f}'.format(hy['bp'])) + 'bp (' + c.get('overall', '?') + ', 1m ' + sign + ('{:.0f}'.format(hy.get('change_1m_bp', 0))) + 'bp)')
-    if ig.get('bp') is not None:
-        parts.append('IG OAS ' + ('{:.0f}'.format(ig['bp'])) + 'bp')
-    return '- Credit regime: ' + ', '.join(parts) if parts else '- Credit regime: unknown'
+    if hy.get("bp") is not None:
+        sign = "+" if hy.get("change_1m_bp", 0) >= 0 else ""
+        parts.append(
+            "HY OAS "
+            + ("{:.0f}".format(hy["bp"]))
+            + "bp ("
+            + c.get("overall", "?")
+            + ", 1m "
+            + sign
+            + ("{:.0f}".format(hy.get("change_1m_bp", 0)))
+            + "bp)"
+        )
+    if ig.get("bp") is not None:
+        parts.append("IG OAS " + ("{:.0f}".format(ig["bp"])) + "bp")
+    return "- Credit regime: " + ", ".join(parts) if parts else "- Credit regime: unknown"
 
 
 def build_prompt(d: dict) -> str:
     crypto_note = ""
-    if d['is_crypto']:
+    if d["is_crypto"]:
         crypto_note = "\nNOTE: This is a cryptocurrency. Fundamental ratios may be n/a — focus on cycle position, macro liquidity sensitivity, and on-chain dynamics inferred from price action + market cap. Acknowledge data gaps honestly.\n"
 
-    return f"""You are a senior buy-side analyst. Produce a concise, decision-useful analysis fiche for {d['name']} ({d['ticker']}).
+    return f"""You are a senior buy-side analyst. Produce a concise, decision-useful analysis fiche for {d["name"]} ({d["ticker"]}).
 {crypto_note}
 === STRUCTURED DATA ===
 
 Identity:
-- Sector: {d.get('sector') or 'n/a'} / {d.get('industry') or 'n/a'}
-- Country: {d.get('country') or 'n/a'}  •  Employees: {_safe(d.get('employees'), ',')}
-- CEO: {d.get('ceo') or 'n/a'}
-- Market cap: {_fmt_money(d.get('market_cap'))}
+- Sector: {d.get("sector") or "n/a"} / {d.get("industry") or "n/a"}
+- Country: {d.get("country") or "n/a"}  •  Employees: {_safe(d.get("employees"), ",")}
+- CEO: {d.get("ceo") or "n/a"}
+- Market cap: {_fmt_money(d.get("market_cap"))}
 
 Business summary:
-{d.get('business_summary') or 'n/a'}
+{d.get("business_summary") or "n/a"}
 
 Price & valuation:
-- Price: {_safe(d.get('price'), '.2f')} (52w {_safe(d.get('52w_low'), '.2f')}-{_safe(d.get('52w_high'), '.2f')})
-- Trailing P/E: {_safe(d.get('trailing_pe'), '.1f')} | Forward P/E: {_safe(d.get('forward_pe'), '.1f')}
-- EV/EBITDA: {_safe(d.get('ev_ebitda'), '.1f')} | EV/Sales: {_safe(d.get('ev_sales'), '.1f')} | P/Book: {_safe(d.get('price_to_book'), '.1f')}
+- Price: {_safe(d.get("price"), ".2f")} (52w {_safe(d.get("52w_low"), ".2f")}-{_safe(d.get("52w_high"), ".2f")})
+- Trailing P/E: {_safe(d.get("trailing_pe"), ".1f")} | Forward P/E: {_safe(d.get("forward_pe"), ".1f")}
+- EV/EBITDA: {_safe(d.get("ev_ebitda"), ".1f")} | EV/Sales: {_safe(d.get("ev_sales"), ".1f")} | P/Book: {_safe(d.get("price_to_book"), ".1f")}
 
 Profitability & growth:
-- Revenue (latest yr): {_fmt_money(d.get('revenue'))}, growth YoY: {_fmt_pct(d.get('revenue_growth'), sign=True)}
-- Gross margin: {_fmt_pct(d.get('gross_margin'))}
-- Operating margin: {_fmt_pct(d.get('op_margin'))}
-- Net margin: {_fmt_pct(d.get('net_margin'))}
-- FCF margin: {_fmt_pct(d.get('fcf_margin'))}
-- 5y EPS growth: {_fmt_pct(d.get('eps_growth_5y'), sign=True)}
-- EBITDA (TTM): {_fmt_money(d.get('ebitda_abs'))}, margin {_fmt_pct(d.get('ebitda_margin'))}
-- OCF (TTM): {_fmt_money(d.get('operating_cashflow_abs'))} | FCF (TTM): {_fmt_money(d.get('free_cashflow_abs'))}
-- ROE: {_fmt_pct(d.get('roe'))} | ROA: {_fmt_pct(d.get('roa'))}
-- Revenue CAGR ({d.get('revenue_cagr_years') or '?'}Y): {_fmt_pct(d.get('revenue_cagr_multiyear'), sign=True)}
-- Earnings growth (latest Q YoY): {_fmt_pct(d.get('earnings_growth_qoq'), sign=True)}
+- Revenue (latest yr): {_fmt_money(d.get("revenue"))}, growth YoY: {_fmt_pct(d.get("revenue_growth"), sign=True)}
+- Gross margin: {_fmt_pct(d.get("gross_margin"))}
+- Operating margin: {_fmt_pct(d.get("op_margin"))}
+- Net margin: {_fmt_pct(d.get("net_margin"))}
+- FCF margin: {_fmt_pct(d.get("fcf_margin"))}
+- 5y EPS growth: {_fmt_pct(d.get("eps_growth_5y"), sign=True)}
+- EBITDA (TTM): {_fmt_money(d.get("ebitda_abs"))}, margin {_fmt_pct(d.get("ebitda_margin"))}
+- OCF (TTM): {_fmt_money(d.get("operating_cashflow_abs"))} | FCF (TTM): {_fmt_money(d.get("free_cashflow_abs"))}
+- ROE: {_fmt_pct(d.get("roe"))} | ROA: {_fmt_pct(d.get("roa"))}
+- Revenue CAGR ({d.get("revenue_cagr_years") or "?"}Y): {_fmt_pct(d.get("revenue_cagr_multiyear"), sign=True)}
+- Earnings growth (latest Q YoY): {_fmt_pct(d.get("earnings_growth_qoq"), sign=True)}
 
 Balance sheet:
-- Cash: {_fmt_money(d.get('cash'))}
-- Debt: {_fmt_money(d.get('debt'))}
-- Net cash: {_fmt_money(d.get('net_cash'))}
-- D/E ratio: {_safe(d.get('debt_to_equity_ratio'), '.2f')}x | Current ratio: {_safe(d.get('current_ratio'), '.2f')} | Quick ratio: {_safe(d.get('quick_ratio'), '.2f')}
+- Cash: {_fmt_money(d.get("cash"))}
+- Debt: {_fmt_money(d.get("debt"))}
+- Net cash: {_fmt_money(d.get("net_cash"))}
+- D/E ratio: {_safe(d.get("debt_to_equity_ratio"), ".2f")}x | Current ratio: {_safe(d.get("current_ratio"), ".2f")} | Quick ratio: {_safe(d.get("quick_ratio"), ".2f")}
 
 Analyst consensus:
-- Mean target: {_safe(d.get('target_mean'), '.2f')} (high {_safe(d.get('target_high'), '.0f')} / low {_safe(d.get('target_low'), '.0f')})
-- Recommendation: {d.get('rec_key') or 'n/a'} ({d.get('analyst_count') or 0} analysts)
-- PEG ratio: {_safe(d.get('peg_ratio'), '.2f')}
+- Mean target: {_safe(d.get("target_mean"), ".2f")} (high {_safe(d.get("target_high"), ".0f")} / low {_safe(d.get("target_low"), ".0f")})
+- Recommendation: {d.get("rec_key") or "n/a"} ({d.get("analyst_count") or 0} analysts)
+- PEG ratio: {_safe(d.get("peg_ratio"), ".2f")}
 
 Insider activity (90d via SEC EDGAR):
-- Net flow: {_fmt_money((d.get('insider_net_m') or 0) * 1e6)}
-- # buys / # sells: {d.get('insider_n_buys') or 0} / {d.get('insider_n_sells') or 0}
+- Net flow: {_fmt_money((d.get("insider_net_m") or 0) * 1e6)}
+- # buys / # sells: {d.get("insider_n_buys") or 0} / {d.get("insider_n_sells") or 0}
 {_cluster_section(d)}
 
 Market positioning:
-- Short interest: {_fmt_pct(d.get('short_pct_float'))} of float | Days to cover: {_safe(d.get('short_ratio_days'), '.1f')}
-- Insider ownership: {_fmt_pct(d.get('insider_ownership_pct'))} | Institutional ownership: {_fmt_pct(d.get('institutional_ownership_pct'))}
+- Short interest: {_fmt_pct(d.get("short_pct_float"))} of float | Days to cover: {_safe(d.get("short_ratio_days"), ".1f")}
+- Insider ownership: {_fmt_pct(d.get("insider_ownership_pct"))} | Institutional ownership: {_fmt_pct(d.get("institutional_ownership_pct"))}
 
 Forward catalysts:
-- Next earnings: {d.get('next_earnings') or 'n/a'} ({d.get('days_to_earnings') or 'n/a'}d away)
-- Forward EPS: {_safe(d.get('forward_eps'), '.2f')}
+- Next earnings: {d.get("next_earnings") or "n/a"} ({d.get("days_to_earnings") or "n/a"}d away)
+- Forward EPS: {_safe(d.get("forward_eps"), ".2f")}
 
 Macro context:
-- Current regime: {d.get('regime') or 'unknown'}
+- Current regime: {d.get("regime") or "unknown"}
 {_credit_line(d)}
-- Beta: {_safe(d.get('beta'), '.2f')}
+- Beta: {_safe(d.get("beta"), ".2f")}
 
 === OUTPUT REQUIRED ===
 
@@ -363,13 +386,12 @@ Rules: No generic statements. Cite specific numbers. If data missing, acknowledg
 """
 
 
-
-
 def _get_cached_analysis(ticker, max_age_hours=24):
     """Return (content, data_dict, timestamp) if recent cache exists, else None."""
     import json
     import sqlite3
     from datetime import datetime, timedelta
+
     conn = sqlite3.connect("data/bot.db")
     try:
         cutoff = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=max_age_hours)).isoformat()
@@ -377,7 +399,7 @@ def _get_cached_analysis(ticker, max_age_hours=24):
             "SELECT content, metadata, timestamp FROM analyses "
             "WHERE ticker=? AND type='analyze' AND timestamp > ? "
             "ORDER BY id DESC LIMIT 1",
-            (ticker.upper(), cutoff)
+            (ticker.upper(), cutoff),
         ).fetchone()
         if not row:
             return None
@@ -396,20 +418,26 @@ def _store_analysis(ticker, synthesis, data):
     import json
     import sqlite3
     from datetime import datetime
+
     def _safe(v):
         try:
             json.dumps(v)
             return True
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return False
+
     meta_dict = {k: v for k, v in data.items() if _safe(v)}
     conn = sqlite3.connect("data/bot.db")
     try:
         conn.execute(
-            "INSERT INTO analyses(ticker, type, timestamp, content, metadata) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (ticker.upper(), "analyze", datetime.now(UTC).replace(tzinfo=None).isoformat(),
-             synthesis, json.dumps(meta_dict))
+            "INSERT INTO analyses(ticker, type, timestamp, content, metadata) VALUES (?, ?, ?, ?, ?)",
+            (
+                ticker.upper(),
+                "analyze",
+                datetime.now(UTC).replace(tzinfo=None).isoformat(),
+                synthesis,
+                json.dumps(meta_dict),
+            ),
         )
         conn.commit()
     finally:
@@ -425,27 +453,29 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
             cached = _get_cached_analysis(ticker, max_age_hours=24)
             if cached:
                 content_cached, data_cached, ts_cached = cached
-                data_cached.setdefault('ticker', ticker.upper())
-                data_cached.setdefault('name', ticker.upper())
-                data_cached['_cache_hit'] = True
-                data_cached['_cache_ts'] = ts_cached
-                return {'ticker': data_cached.get('ticker'),
-                        'data': data_cached,
-                        'synthesis': content_cached,
-                        'cached': True}
+                data_cached.setdefault("ticker", ticker.upper())
+                data_cached.setdefault("name", ticker.upper())
+                data_cached["_cache_hit"] = True
+                data_cached["_cache_ts"] = ts_cached
+                return {
+                    "ticker": data_cached.get("ticker"),
+                    "data": data_cached,
+                    "synthesis": content_cached,
+                    "cached": True,
+                }
         except Exception:
             pass
 
     data = fetch_stock_data(ticker)
-    if (not data.get('name') or data.get('name') == ticker) and not data.get('price'):
-        return {'error': f'No data found for {ticker}', 'data': data}
+    if (not data.get("name") or data.get("name") == ticker) and not data.get("price"):
+        return {"error": f"No data found for {ticker}", "data": data}
 
     prompt = build_prompt(data)
 
     # Defensive LLM call - try multiple common signatures
     synthesis = None
     last_err = None
-    for fn_name in ['complete', 'ask', 'call', 'generate', 'chat']:
+    for fn_name in ["complete", "ask", "call", "generate", "chat"]:
         fn = getattr(llm, fn_name, None)
         if not fn:
             continue
@@ -459,21 +489,21 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
         except Exception as e:
             last_err = e
     if not synthesis:
-        return {'error': f'LLM call failed: {last_err}', 'data': data}
+        return {"error": f"LLM call failed: {last_err}", "data": data}
 
     # Cache write (failure must not break user-visible result)
     with contextlib.suppress(Exception):
         _store_analysis(ticker, synthesis, data)
 
-    return {'ticker': data['ticker'], 'data': data, 'synthesis': synthesis, 'cached': False}
+    return {"ticker": data["ticker"], "data": data, "synthesis": synthesis, "cached": False}
 
 
 def format_for_telegram(result: dict) -> list:
-    if 'error' in result:
+    if "error" in result:
         return [f"❌ Analysis failed: {result['error']}"]
 
-    d = result['data']
-    syn = result['synthesis']
+    d = result["data"]
+    syn = result["synthesis"]
 
     header = (
         f"📊 {d['name']} ({d['ticker']})\n"
@@ -486,11 +516,11 @@ def format_for_telegram(result: dict) -> list:
 
     chunks = []
     current = header
-    for line in syn.split('\n'):
+    for line in syn.split("\n"):
         if len(current) + len(line) + 1 > 3800:
             chunks.append(current)
-            current = ''
-        current += line + '\n'
+            current = ""
+        current += line + "\n"
     if current.strip():
         chunks.append(current)
     return chunks

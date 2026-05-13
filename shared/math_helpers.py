@@ -8,6 +8,7 @@ These are NOT yet used by production code. Production refactor is next step
 once tests validate the helpers vs current behavior.
 """
 
+
 def clamp_credibility(current, delta):
     """Mirror SQL `MAX(0, MIN(1, credibility + ?))`.
 
@@ -22,7 +23,7 @@ def clamp_credibility(current, delta):
     return max(0.0, min(1.0, float(current) + float(delta)))
 
 
-_BRIER_OUTCOME_MAP = {'correct': 1.0, 'incorrect': 0.0, 'neutral': 0.5}
+_BRIER_OUTCOME_MAP = {"correct": 1.0, "incorrect": 0.0, "neutral": 0.5}
 
 
 def compute_brier_score(prob, outcome):

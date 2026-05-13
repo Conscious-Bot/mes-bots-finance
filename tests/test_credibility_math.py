@@ -1,4 +1,5 @@
 """Property-based tests for credibility clamping (mirrors SQL MAX(0, MIN(1, c+delta)))."""
+
 from hypothesis import given, settings, strategies as st
 
 from shared.math_helpers import clamp_credibility

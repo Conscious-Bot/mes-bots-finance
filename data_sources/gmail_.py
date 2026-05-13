@@ -3,6 +3,7 @@
 First run: OAuth flow opens browser, user authorizes, token.json is saved.
 Subsequent runs: token.json reused (auto-refreshed when needed).
 """
+
 import base64
 import re
 from datetime import UTC, datetime
@@ -24,9 +25,7 @@ MAX_BODY_CHARS = 50000
 
 def get_service():
     if not CREDS_PATH.exists():
-        raise FileNotFoundError(
-            f"{CREDS_PATH} not found. Place credentials.json at project root."
-        )
+        raise FileNotFoundError(f"{CREDS_PATH} not found. Place credentials.json at project root.")
     creds = None
     if TOKEN_PATH.exists():
         creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
@@ -99,18 +98,13 @@ def _parse_email(msg):
 def fetch_emails(label_name=LABEL_NAME, max_results=50):
     service = get_service()
     label_id = get_label_id(service, label_name)
-    results = service.users().messages().list(
-        userId="me", labelIds=[label_id], maxResults=max_results
-    ).execute()
+    results = service.users().messages().list(userId="me", labelIds=[label_id], maxResults=max_results).execute()
     messages = results.get("messages", [])
     emails = []
     for m in messages:
-        full = service.users().messages().get(
-            userId="me", id=m["id"], format="full"
-        ).execute()
+        full = service.users().messages().get(userId="me", id=m["id"], format="full").execute()
         emails.append(_parse_email(full))
     return emails
-
 
 
 _ONBOARDING_PATTERNS = (
@@ -157,6 +151,7 @@ def _is_onboarding_noise(subject):
         return False
     s = subject.lower().strip()
     return any(p in s for p in _ONBOARDING_PATTERNS)
+
 
 def ingest_new_emails(label_name=LABEL_NAME, max_results=50):
     emails = fetch_emails(label_name, max_results)

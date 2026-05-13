@@ -2,6 +2,7 @@
 Daily insider digest : refresh top tickers, snapshot net flows, alert on shifts.
 Cron-driven (6h Paris). Output formatted for Telegram.
 """
+
 import logging
 from datetime import date, timedelta
 
@@ -9,9 +10,9 @@ from shared import edgar
 from shared.storage import db
 
 # Alert thresholds (USD millions)
-DELTA_1D_THRESHOLD = 30.0   # Δnet between today and prior snapshot
-DELTA_7D_THRESHOLD = 75.0   # Δnet over 7 days
-BIG_NET_THRESHOLD = 100.0   # absolute net flow >$100M (any direction)
+DELTA_1D_THRESHOLD = 30.0  # Δnet between today and prior snapshot
+DELTA_7D_THRESHOLD = 75.0  # Δnet over 7 days
+BIG_NET_THRESHOLD = 100.0  # absolute net flow >$100M (any direction)
 
 log = logging.getLogger(__name__)
 
@@ -30,8 +31,7 @@ def _ensure_table(cx) -> None:
             PRIMARY KEY (ticker, snapshot_date)
         )
     """)
-    cx.execute("CREATE INDEX IF NOT EXISTS idx_insider_snap_ticker "
-               "ON insider_snapshots(ticker, snapshot_date DESC)")
+    cx.execute("CREATE INDEX IF NOT EXISTS idx_insider_snap_ticker ON insider_snapshots(ticker, snapshot_date DESC)")
 
 
 def _prev_snapshot(cx, ticker: str, before_date: str) -> dict | None:
@@ -39,9 +39,9 @@ def _prev_snapshot(cx, ticker: str, before_date: str) -> dict | None:
         "SELECT snapshot_date, net_m FROM insider_snapshots "
         "WHERE ticker=? AND snapshot_date < ? "
         "ORDER BY snapshot_date DESC LIMIT 1",
-        (ticker, before_date)
+        (ticker, before_date),
     ).fetchone()
-    return {'date': r['snapshot_date'], 'net_m': r['net_m']} if r else None
+    return {"date": r["snapshot_date"], "net_m": r["net_m"]} if r else None
 
 
 def _snapshot_at_or_before(cx, ticker: str, target_date: str) -> dict | None:
@@ -49,9 +49,9 @@ def _snapshot_at_or_before(cx, ticker: str, target_date: str) -> dict | None:
         "SELECT snapshot_date, net_m FROM insider_snapshots "
         "WHERE ticker=? AND snapshot_date <= ? "
         "ORDER BY snapshot_date DESC LIMIT 1",
-        (ticker, target_date)
+        (ticker, target_date),
     ).fetchone()
-    return {'date': r['snapshot_date'], 'net_m': r['net_m']} if r else None
+    return {"date": r["snapshot_date"], "net_m": r["net_m"]} if r else None
 
 
 def daily_insider_refresh() -> dict:
@@ -78,47 +78,65 @@ def daily_insider_refresh() -> dict:
                     failed.append(ticker)
                     continue
 
-                net = brief.get('net_m', 0.0) or 0.0
-                cx.execute("""
+                net = brief.get("net_m", 0.0) or 0.0
+                cx.execute(
+                    """
                     INSERT OR REPLACE INTO insider_snapshots
                     (ticker, snapshot_date, net_m, n_buys, n_sells, total_buys_m, total_sells_m)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    ticker, today, net,
-                    brief.get('n_buys', 0),
-                    brief.get('n_sells', 0),
-                    brief.get('total_buys_m', 0.0) or 0.0,
-                    brief.get('total_sells_m', 0.0) or 0.0,
-                ))
+                """,
+                    (
+                        ticker,
+                        today,
+                        net,
+                        brief.get("n_buys", 0),
+                        brief.get("n_sells", 0),
+                        brief.get("total_buys_m", 0.0) or 0.0,
+                        brief.get("total_sells_m", 0.0) or 0.0,
+                    ),
+                )
                 refreshed += 1
 
                 # Compute deltas
                 prev = _prev_snapshot(cx, ticker, today)
                 snap7 = _snapshot_at_or_before(cx, ticker, j7)
 
-                d1 = (net - prev['net_m']) if prev else None
-                d7 = (net - snap7['net_m']) if snap7 and snap7['date'] != today else None
+                d1 = (net - prev["net_m"]) if prev else None
+                d7 = (net - snap7["net_m"]) if snap7 and snap7["date"] != today else None
 
                 # Alert if 1d delta exceeds threshold
                 if d1 is not None and abs(d1) >= DELTA_1D_THRESHOLD:
-                    alerts.append({
-                        'ticker': ticker, 'kind': '1d',
-                        'delta_m': d1, 'now_m': net,
-                        'prev_date': prev['date'],
-                    })
+                    alerts.append(
+                        {
+                            "ticker": ticker,
+                            "kind": "1d",
+                            "delta_m": d1,
+                            "now_m": net,
+                            "prev_date": prev["date"],
+                        }
+                    )
                 # Alert if 7d delta exceeds threshold
                 if d7 is not None and abs(d7) >= DELTA_7D_THRESHOLD:
-                    alerts.append({
-                        'ticker': ticker, 'kind': '7d',
-                        'delta_m': d7, 'now_m': net,
-                        'prev_date': snap7['date'],
-                    })
+                    alerts.append(
+                        {
+                            "ticker": ticker,
+                            "kind": "7d",
+                            "delta_m": d7,
+                            "now_m": net,
+                            "prev_date": snap7["date"],
+                        }
+                    )
 
                 # Big absolute positions (context, not alert)
                 if abs(net) >= BIG_NET_THRESHOLD:
-                    big_positions.append({'ticker': ticker, 'net_m': net,
-                                          'n_buys': brief.get('n_buys', 0),
-                                          'n_sells': brief.get('n_sells', 0)})
+                    big_positions.append(
+                        {
+                            "ticker": ticker,
+                            "net_m": net,
+                            "n_buys": brief.get("n_buys", 0),
+                            "n_sells": brief.get("n_sells", 0),
+                        }
+                    )
 
             except Exception as e:
                 log.warning(f"insider_refresh {ticker} failed: {e}")
@@ -127,11 +145,11 @@ def daily_insider_refresh() -> dict:
         cx.commit()
 
     return {
-        'date': today,
-        'refreshed': refreshed,
-        'failed': failed,
-        'alerts': alerts,
-        'big_positions': sorted(big_positions, key=lambda x: x['net_m']),
+        "date": today,
+        "refreshed": refreshed,
+        "failed": failed,
+        "alerts": alerts,
+        "big_positions": sorted(big_positions, key=lambda x: x["net_m"]),
     }
 
 
@@ -139,15 +157,16 @@ def format_daily_insider_digest(r: dict) -> str:
     if not r:
         return "(no data)"
     lines = [f"📋 *Daily Insider Digest* — {r['date']}"]
-    lines.append(f"Refreshed: {r['refreshed']} tickers"
-                 + (f" | failed: {','.join(r['failed'])}" if r['failed'] else ""))
+    lines.append(
+        f"Refreshed: {r['refreshed']} tickers" + (f" | failed: {','.join(r['failed'])}" if r["failed"] else "")
+    )
     lines.append("")
 
-    if r['alerts']:
+    if r["alerts"]:
         lines.append("🚨 *Flow shifts*")
-        for a in sorted(r['alerts'], key=lambda x: x['delta_m']):
-            arrow = '⬇' if a['delta_m'] < 0 else '⬆'
-            sign = 'dump' if a['delta_m'] < 0 else 'accumulation'
+        for a in sorted(r["alerts"], key=lambda x: x["delta_m"]):
+            arrow = "⬇" if a["delta_m"] < 0 else "⬆"
+            sign = "dump" if a["delta_m"] < 0 else "accumulation"
             lines.append(
                 f"  {arrow} {a['ticker']:6s} {a['kind']} {sign}: "
                 f"Δ={a['delta_m']:+.0f}M (vs {a['prev_date']}) → now ${a['now_m']:+.0f}M"
@@ -157,10 +176,9 @@ def format_daily_insider_digest(r: dict) -> str:
         lines.append("No flow shifts above threshold today.")
         lines.append("")
 
-    if r['big_positions']:
+    if r["big_positions"]:
         lines.append("📊 *Heavy positions (absolute)*")
-        for p in r['big_positions'][:8]:
-            lines.append(f"  {p['ticker']:6s} ${p['net_m']:+.0f}M "
-                         f"({p['n_buys']}B/{p['n_sells']}S)")
+        for p in r["big_positions"][:8]:
+            lines.append(f"  {p['ticker']:6s} ${p['net_m']:+.0f}M ({p['n_buys']}B/{p['n_sells']}S)")
 
     return "\n".join(lines)

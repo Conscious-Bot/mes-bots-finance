@@ -115,3 +115,20 @@ Tracking pour la mémoire, ne pas re-shipper :
   - Decision: bitemporal append-only ledger pour credibility, materiality, half-life
   - Implementation: déferrée à juin (post KPI #2 satisfait OU 1er recal mensuel)
   - Path 5/6 value: backtest + calibration plot dynamique + drift detection
+
+
+---
+
+## DETTE decouverte session 13/05 (carry-forward)
+
+### Phase B5 journal logging regression (cmd_position_buy/sell)
+
+Detection ruff F811: cmd_position_buy + cmd_position_sell etaient definis 2x
+(lines 1888 + 2830). Version active (later) est SIMPLIFIEE sans journal_mod
+integration. Version riche Phase B5 etait dead code shadowed.
+
+Impact empirique: /position_buy /position_sell ne loguent PAS dans decisions
+table. Compromet KPI #5 (100% decisions journalisees).
+
+Action: Phase B5 features supprimees avec dead code en Ship 1.5.
+A re-integrer en session future. Priority P1, effort ~1h.

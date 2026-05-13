@@ -9,6 +9,7 @@ Pattern TradingAgents : 3 rounds dialectique au lieu de single-shot synthesis.
   0.4-0.7 = MODERATE
   < 0.4 = DIVERGED (complexity flag, requires human attention)
 """
+
 import logging
 
 log = logging.getLogger(__name__)
@@ -106,6 +107,7 @@ RECOMMENDED ACTION: [SHORT / AVOID / WAIT]"""
 
 def _cosine_similarity(v1, v2):
     import numpy as np
+
     if v1 is None or v2 is None:
         return None
     norm = float(np.linalg.norm(v1) * np.linalg.norm(v2))
@@ -117,48 +119,31 @@ def _cosine_similarity(v1, v2):
 def run_multi_round_debate(ticker, context_text):
     """3-round dialectic. Returns dict with rounds + convergence_score + verdict."""
     from shared import llm
+
     try:
         from shared import embeddings
     except ImportError:
         embeddings = None
 
-    out = {'ticker': ticker.upper(), 'rounds': []}
+    out = {"ticker": ticker.upper(), "rounds": []}
 
     # Round 1 — parallel
     log.info(f"debate {ticker} R1 start")
-    r1_bull = llm.call(
-        ROUND_1_BULL.format(ticker=ticker, context=context_text),
-        tier='enrich', max_tokens=900
-    )
-    r1_bear = llm.call(
-        ROUND_1_BEAR.format(ticker=ticker, context=context_text),
-        tier='enrich', max_tokens=900
-    )
-    out['rounds'].append({'round': 1, 'bull': r1_bull, 'bear': r1_bear})
+    r1_bull = llm.call(ROUND_1_BULL.format(ticker=ticker, context=context_text), tier="enrich", max_tokens=900)
+    r1_bear = llm.call(ROUND_1_BEAR.format(ticker=ticker, context=context_text), tier="enrich", max_tokens=900)
+    out["rounds"].append({"round": 1, "bull": r1_bull, "bear": r1_bear})
 
     # Round 2 — cross-challenge
     log.info(f"debate {ticker} R2 start")
-    r2_bull = llm.call(
-        ROUND_2_BULL.format(bear_r1=r1_bear),
-        tier='enrich', max_tokens=700
-    )
-    r2_bear = llm.call(
-        ROUND_2_BEAR.format(bull_r1=r1_bull),
-        tier='enrich', max_tokens=700
-    )
-    out['rounds'].append({'round': 2, 'bull': r2_bull, 'bear': r2_bear})
+    r2_bull = llm.call(ROUND_2_BULL.format(bear_r1=r1_bear), tier="enrich", max_tokens=700)
+    r2_bear = llm.call(ROUND_2_BEAR.format(bull_r1=r1_bull), tier="enrich", max_tokens=700)
+    out["rounds"].append({"round": 2, "bull": r2_bull, "bear": r2_bear})
 
     # Round 3 — final positions
     log.info(f"debate {ticker} R3 start")
-    r3_bull = llm.call(
-        ROUND_3_BULL.format(bull_r2=r2_bull, bear_r2=r2_bear),
-        tier='enrich', max_tokens=500
-    )
-    r3_bear = llm.call(
-        ROUND_3_BEAR.format(bear_r2=r2_bear, bull_r2=r2_bull),
-        tier='enrich', max_tokens=500
-    )
-    out['rounds'].append({'round': 3, 'bull': r3_bull, 'bear': r3_bear})
+    r3_bull = llm.call(ROUND_3_BULL.format(bull_r2=r2_bull, bear_r2=r2_bear), tier="enrich", max_tokens=500)
+    r3_bear = llm.call(ROUND_3_BEAR.format(bear_r2=r2_bear, bull_r2=r2_bull), tier="enrich", max_tokens=500)
+    out["rounds"].append({"round": 3, "bull": r3_bull, "bear": r3_bear})
 
     # Convergence on R3 final positions
     cs = None
@@ -170,26 +155,26 @@ def run_multi_round_debate(ticker, context_text):
         except Exception as e:
             log.warning(f"convergence embedding failed: {e}")
 
-    out['convergence_score'] = cs
+    out["convergence_score"] = cs
     if cs is None:
-        out['verdict'] = 'UNKNOWN — embedding unavailable'
+        out["verdict"] = "UNKNOWN — embedding unavailable"
     elif cs > 0.7:
-        out['verdict'] = 'CONVERGED — high conviction signal'
+        out["verdict"] = "CONVERGED — high conviction signal"
     elif cs > 0.4:
-        out['verdict'] = 'MODERATE — partial agreement'
+        out["verdict"] = "MODERATE — partial agreement"
     else:
-        out['verdict'] = 'DIVERGED — complexity flag, deserves caution'
+        out["verdict"] = "DIVERGED — complexity flag, deserves caution"
 
     return out
 
 
 def format_debate_for_telegram(out, max_chunk=3500):
     """Format multi-round debate into Telegram chunks."""
-    if 'error' in out:
+    if "error" in out:
         return [f"Debate failed: {out['error']}"]
     chunks = []
-    cs = out.get('convergence_score')
-    verdict = out.get('verdict', 'unknown')
+    cs = out.get("convergence_score")
+    verdict = out.get("verdict", "unknown")
     header = f"MULTI-ROUND DEBATE — {out['ticker']}"
     if cs is not None:
         header += f"\nConvergence: {cs:.2f}  → {verdict}"
@@ -197,10 +182,10 @@ def format_debate_for_telegram(out, max_chunk=3500):
         header += f"\n{verdict}"
     chunks.append(header)
 
-    for r in out.get('rounds', []):
-        rn = r['round']
-        bull = (r.get('bull') or '')[:max_chunk-200]
-        bear = (r.get('bear') or '')[:max_chunk-200]
+    for r in out.get("rounds", []):
+        rn = r["round"]
+        bull = (r.get("bull") or "")[: max_chunk - 200]
+        bear = (r.get("bear") or "")[: max_chunk - 200]
         chunks.append(f"━━━ ROUND {rn} • BULL ━━━\n\n{bull}")
         chunks.append(f"━━━ ROUND {rn} • BEAR ━━━\n\n{bear}")
     return chunks

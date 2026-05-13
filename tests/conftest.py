@@ -1,4 +1,5 @@
 """pytest config — adds project root to sys.path."""
+
 import os
 import sys
 

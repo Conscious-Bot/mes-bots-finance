@@ -8,11 +8,12 @@ Updates from two channels:
 Asymmetric updates: 'down' feedback weighs 2x more than 'up'
 (info content higher when user pushes back).
 """
+
 from shared import storage
 
 FEEDBACK_DELTA = {
-    'up': 0.05,
-    'down': -0.10,
+    "up": 0.05,
+    "down": -0.10,
 }
 
 
@@ -29,16 +30,16 @@ def apply_feedback(signal_id, rating):
 
     storage.set_signal_feedback(signal_id, rating)
     delta = FEEDBACK_DELTA[rating]
-    new_cred = storage.update_source_credibility(sig['source_id'], delta)
+    new_cred = storage.update_source_credibility(sig["source_id"], delta)
 
     return {
-        'signal_id': signal_id,
-        'source_id': sig['source_id'],
-        'source_name': sig.get('source_name'),
-        'old_credibility': sig.get('source_credibility'),
-        'new_credibility': new_cred,
-        'rating': rating,
-        'delta': delta,
+        "signal_id": signal_id,
+        "source_id": sig["source_id"],
+        "source_name": sig.get("source_name"),
+        "old_credibility": sig.get("source_credibility"),
+        "new_credibility": new_cred,
+        "rating": rating,
+        "delta": delta,
     }
 
 

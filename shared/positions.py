@@ -2,6 +2,7 @@
 Position tracking — actual portfolio holdings (qty + avg_cost per ticker).
 Full buy/sell history in position_events. Integrates with Phase 5 + 6 alerts.
 """
+
 import logging
 from datetime import datetime
 
@@ -43,7 +44,7 @@ def _ensure_tables(cx) -> None:
 
 
 def _now() -> str:
-    return datetime.now().isoformat(timespec='seconds')
+    return datetime.now().isoformat(timespec="seconds")
 
 
 def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = None) -> dict:
@@ -51,28 +52,26 @@ def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = N
     ticker = ticker.upper()
     with db() as cx:
         _ensure_tables(cx)
-        existing = cx.execute(
-            "SELECT id FROM positions WHERE ticker=? AND status='open'", (ticker,)
-        ).fetchone()
+        existing = cx.execute("SELECT id FROM positions WHERE ticker=? AND status='open'", (ticker,)).fetchone()
         if existing:
             cx.execute(
                 "UPDATE positions SET qty=?, avg_cost=?, last_updated=?, notes=? WHERE id=?",
-                (qty, avg_cost, _now(), notes, existing['id'])
+                (qty, avg_cost, _now(), notes, existing["id"]),
             )
-            pid = existing['id']
+            pid = existing["id"]
             cx.execute(
                 "INSERT INTO position_events (position_id, ticker, event_type, qty, price, notes) VALUES (?, ?, 'adjust', ?, ?, ?)",
-                (pid, ticker, qty, avg_cost, notes or 'set_position override')
+                (pid, ticker, qty, avg_cost, notes or "set_position override"),
             )
         else:
             cur = cx.execute(
                 "INSERT INTO positions (ticker, qty, avg_cost, notes) VALUES (?, ?, ?, ?)",
-                (ticker, qty, avg_cost, notes)
+                (ticker, qty, avg_cost, notes),
             )
             pid = cur.lastrowid
             cx.execute(
                 "INSERT INTO position_events (position_id, ticker, event_type, qty, price, notes) VALUES (?, ?, 'buy', ?, ?, ?)",
-                (pid, ticker, qty, avg_cost, notes or 'initial position')
+                (pid, ticker, qty, avg_cost, notes or "initial position"),
             )
         cx.commit()
     return get_position(ticker)
@@ -87,18 +86,23 @@ def add_buy(ticker: str, qty: float, price: float, notes: str | None = None) -> 
             "SELECT id, qty, avg_cost FROM positions WHERE ticker=? AND status='open'", (ticker,)
         ).fetchone()
         if existing:
-            old_qty, old_avg = existing['qty'], existing['avg_cost']
+            old_qty, old_avg = existing["qty"], existing["avg_cost"]
             new_qty = old_qty + qty
             new_avg = ((old_qty * old_avg) + (qty * price)) / new_qty if new_qty > 0 else 0
-            cx.execute("UPDATE positions SET qty=?, avg_cost=?, last_updated=? WHERE id=?",
-                       (new_qty, new_avg, _now(), existing['id']))
-            pid = existing['id']
+            cx.execute(
+                "UPDATE positions SET qty=?, avg_cost=?, last_updated=? WHERE id=?",
+                (new_qty, new_avg, _now(), existing["id"]),
+            )
+            pid = existing["id"]
         else:
-            cur = cx.execute("INSERT INTO positions (ticker, qty, avg_cost, notes) VALUES (?, ?, ?, ?)",
-                             (ticker, qty, price, notes))
+            cur = cx.execute(
+                "INSERT INTO positions (ticker, qty, avg_cost, notes) VALUES (?, ?, ?, ?)", (ticker, qty, price, notes)
+            )
             pid = cur.lastrowid
-        cx.execute("INSERT INTO position_events (position_id, ticker, event_type, qty, price, notes) VALUES (?, ?, 'buy', ?, ?, ?)",
-                   (pid, ticker, qty, price, notes))
+        cx.execute(
+            "INSERT INTO position_events (position_id, ticker, event_type, qty, price, notes) VALUES (?, ?, 'buy', ?, ?, ?)",
+            (pid, ticker, qty, price, notes),
+        )
         cx.commit()
     return get_position(ticker)
 
@@ -109,47 +113,54 @@ def add_sell(ticker: str, qty: float, price: float, notes: str | None = None) ->
     with db() as cx:
         _ensure_tables(cx)
         existing = cx.execute(
-            "SELECT id, qty, avg_cost, realized_pnl FROM positions WHERE ticker=? AND status='open'",
-            (ticker,)
+            "SELECT id, qty, avg_cost, realized_pnl FROM positions WHERE ticker=? AND status='open'", (ticker,)
         ).fetchone()
         if not existing:
             raise ValueError(f"No open position for {ticker}")
-        if qty > existing['qty'] + 1e-9:
+        if qty > existing["qty"] + 1e-9:
             raise ValueError(f"Sell qty {qty} > position qty {existing['qty']}")
-        new_qty = existing['qty'] - qty
-        pnl = qty * (price - existing['avg_cost'])
-        new_realized = (existing['realized_pnl'] or 0) + pnl
+        new_qty = existing["qty"] - qty
+        pnl = qty * (price - existing["avg_cost"])
+        new_realized = (existing["realized_pnl"] or 0) + pnl
         if new_qty <= 1e-6:
-            cx.execute("UPDATE positions SET qty=0, realized_pnl=?, status='closed', last_updated=? WHERE id=?",
-                       (new_realized, _now(), existing['id']))
+            cx.execute(
+                "UPDATE positions SET qty=0, realized_pnl=?, status='closed', last_updated=? WHERE id=?",
+                (new_realized, _now(), existing["id"]),
+            )
             closed = True
         else:
-            cx.execute("UPDATE positions SET qty=?, realized_pnl=?, last_updated=? WHERE id=?",
-                       (new_qty, new_realized, _now(), existing['id']))
+            cx.execute(
+                "UPDATE positions SET qty=?, realized_pnl=?, last_updated=? WHERE id=?",
+                (new_qty, new_realized, _now(), existing["id"]),
+            )
             closed = False
-        cx.execute("INSERT INTO position_events (position_id, ticker, event_type, qty, price, pnl, notes) VALUES (?, ?, 'sell', ?, ?, ?, ?)",
-                   (existing['id'], ticker, qty, price, pnl, notes))
+        cx.execute(
+            "INSERT INTO position_events (position_id, ticker, event_type, qty, price, pnl, notes) VALUES (?, ?, 'sell', ?, ?, ?, ?)",
+            (existing["id"], ticker, qty, price, pnl, notes),
+        )
         cx.commit()
     return {
-        'ticker': ticker, 'sold_qty': qty, 'sold_price': price,
-        'avg_cost': existing['avg_cost'],
-        'realized_pnl_event': pnl,
-        'realized_pnl_total': new_realized,
-        'remaining_qty': max(new_qty, 0),
-        'closed': closed,
+        "ticker": ticker,
+        "sold_qty": qty,
+        "sold_price": price,
+        "avg_cost": existing["avg_cost"],
+        "realized_pnl_event": pnl,
+        "realized_pnl_total": new_realized,
+        "remaining_qty": max(new_qty, 0),
+        "closed": closed,
     }
 
 
 def _enrich_with_live(d: dict) -> dict:
-    if d['qty'] <= 0:
+    if d["qty"] <= 0:
         return d
     try:
-        p = prices.get_current_price(d['ticker'])
+        p = prices.get_current_price(d["ticker"])
         if p:
-            d['current_price'] = p
-            d['market_value'] = p * d['qty']
-            d['unrealized_pnl'] = (p - d['avg_cost']) * d['qty']
-            d['unrealized_pct'] = ((p - d['avg_cost']) / d['avg_cost']) if d['avg_cost'] else 0
+            d["current_price"] = p
+            d["market_value"] = p * d["qty"]
+            d["unrealized_pnl"] = (p - d["avg_cost"]) * d["qty"]
+            d["unrealized_pct"] = ((p - d["avg_cost"]) / d["avg_cost"]) if d["avg_cost"] else 0
     except Exception as e:
         log.warning(f"live price fetch {d['ticker']}: {e}")
     return d
@@ -165,12 +176,12 @@ def get_position(ticker: str) -> dict | None:
     return _enrich_with_live(dict(r))
 
 
-def list_positions(status: str = 'open') -> list:
+def list_positions(status: str = "open") -> list:
     with db() as cx:
         _ensure_tables(cx)
         rows = cx.execute("SELECT * FROM positions WHERE status=? ORDER BY ticker", (status,)).fetchall()
     out = [_enrich_with_live(dict(r)) for r in rows]
-    out.sort(key=lambda x: -(x.get('market_value') or 0))
+    out.sort(key=lambda x: -(x.get("market_value") or 0))
     return out
 
 
@@ -178,8 +189,9 @@ def get_history(ticker: str, limit: int = 50) -> list:
     ticker = ticker.upper()
     with db() as cx:
         _ensure_tables(cx)
-        rows = cx.execute("SELECT * FROM position_events WHERE ticker=? ORDER BY id DESC LIMIT ?",
-                          (ticker, limit)).fetchall()
+        rows = cx.execute(
+            "SELECT * FROM position_events WHERE ticker=? ORDER BY id DESC LIMIT ?", (ticker, limit)
+        ).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -189,13 +201,15 @@ def format_positions_summary(positions: list) -> str:
     lines = ["📊 Open positions:"]
     total_mv, total_upl = 0, 0
     for p in positions:
-        qty, avg = p.get('qty', 0), p.get('avg_cost', 0)
-        mv, upl, upct = p.get('market_value'), p.get('unrealized_pnl'), p.get('unrealized_pct')
-        cur = p.get('current_price')
-        if mv: total_mv += mv
-        if upl: total_upl += upl
+        qty, avg = p.get("qty", 0), p.get("avg_cost", 0)
+        mv, upl, upct = p.get("market_value"), p.get("unrealized_pnl"), p.get("unrealized_pct")
+        cur = p.get("current_price")
+        if mv:
+            total_mv += mv
+        if upl:
+            total_upl += upl
         if cur:
-            sign = '🟢' if (upl or 0) > 0 else '🔴'
+            sign = "🟢" if (upl or 0) > 0 else "🔴"
             lines.append(f"  {sign} {p['ticker']:6s} {qty:>9.3f} @ ${avg:.2f} → ${cur:.2f}")
             lines.append(f"       MV ${mv:>10,.0f}  UPL ${upl:+,.0f} ({upct:+.1%})")
         else:
@@ -203,7 +217,7 @@ def format_positions_summary(positions: list) -> str:
     lines.append("")
     lines.append(f"  Total MV:  ${total_mv:>11,.0f}")
     lines.append(f"  Total UPL: ${total_upl:>+11,.0f}")
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def format_position_detail(p: dict, history: list) -> str:
@@ -213,7 +227,7 @@ def format_position_detail(p: dict, history: list) -> str:
     lines.append(f"  Qty:            {p['qty']:.3f}")
     lines.append(f"  Avg cost:       ${p['avg_cost']:.2f}")
     lines.append(f"  Realized PnL:   ${(p.get('realized_pnl') or 0):+,.2f}")
-    if p.get('current_price'):
+    if p.get("current_price"):
         lines.append(f"  Current price:  ${p['current_price']:.2f}")
         lines.append(f"  Market value:   ${p['market_value']:,.2f}")
         lines.append(f"  Unrealized PnL: ${p['unrealized_pnl']:+,.2f} ({p['unrealized_pct']:+.1%})")
@@ -222,9 +236,9 @@ def format_position_detail(p: dict, history: list) -> str:
         lines.append("")
         lines.append("  History (last 10):")
         for h in history[:10]:
-            sign = '+' if h['event_type'] == 'buy' else '-' if h['event_type'] == 'sell' else '~'
+            sign = "+" if h["event_type"] == "buy" else "-" if h["event_type"] == "sell" else "~"
             ln = f"    {h.get('timestamp', '')[:10]}  {h['event_type']:6s} {sign}{h['qty']:.3f} @ ${h.get('price', 0):.2f}"
-            if h.get('pnl') is not None:
+            if h.get("pnl") is not None:
                 ln += f"  PnL ${h['pnl']:+,.2f}"
             lines.append(ln)
-    return '\n'.join(lines)
+    return "\n".join(lines)

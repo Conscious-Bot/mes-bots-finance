@@ -1,4 +1,5 @@
 """Phase Brief — Morning ritual aggregator (corrected APIs)."""
+
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -10,6 +11,7 @@ def _macro_section():
     credit = "unknown"
     try:
         from shared import macro as _macro
+
         snap = _macro.get_macro_snapshot()
         if isinstance(snap, dict):
             vix = snap.get("vix")
@@ -28,6 +30,7 @@ def _macro_section():
         log.warning(f"macro snapshot failed: {e}")
     try:
         from shared import macro as _macro
+
         reg = _macro.get_credit_regime()
         if isinstance(reg, dict):
             try:
@@ -44,13 +47,15 @@ def _macro_section():
         import sqlite3
 
         from shared import storage
+
         conn = sqlite3.connect(storage._DB_PATH)
         conn.row_factory = sqlite3.Row
         cutoff = (datetime.now() + timedelta(days=21)).strftime("%Y-%m-%d")
         rows = conn.execute(
             "SELECT name, event_date FROM macro_events "
             "WHERE event_date BETWEEN date('now') AND ? "
-            "ORDER BY event_date ASC LIMIT 5", (cutoff,)
+            "ORDER BY event_date ASC LIMIT 5",
+            (cutoff,),
         ).fetchall()
         for r in rows:
             catalysts.append(f"{r['event_date']} {r['name']}")
@@ -64,6 +69,7 @@ def _signals_section():
     import sqlite3
 
     from shared import storage
+
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     cutoff = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
@@ -73,21 +79,25 @@ def _signals_section():
             "SELECT s.id, s.title, s.score, s.entities, s.timestamp, src.name AS source_name "
             "FROM signals s LEFT JOIN sources src ON s.source_id = src.id "
             "WHERE s.timestamp >= ? AND s.score IS NOT NULL "
-            "ORDER BY s.score DESC LIMIT 5", (cutoff,)
+            "ORDER BY s.score DESC LIMIT 5",
+            (cutoff,),
         ).fetchall()
         for r in rows:
-            top_signals.append({
-                "title": r["title"] or "?",
-                "score": r["score"],
-                "source": r["source_name"] or "?",
-                "entities": r["entities"] or "[]",
-            })
+            top_signals.append(
+                {
+                    "title": r["title"] or "?",
+                    "score": r["score"],
+                    "source": r["source_name"] or "?",
+                    "entities": r["entities"] or "[]",
+                }
+            )
     except Exception as e:
         log.warning(f"signals section: {e}")
     conn.close()
     echo_clusters = []
     try:
         from shared import echo
+
         if hasattr(echo, "get_recent_multi_source_clusters"):
             clusters = echo.get_recent_multi_source_clusters(window_hours=24, min_unique_sources=2)
             for c in clusters[:5]:
@@ -101,6 +111,7 @@ def _filings_insider_section():
     import sqlite3
 
     from shared import storage
+
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     high_8k = []
@@ -134,8 +145,10 @@ def _filings_insider_section():
 
 def _portfolio_section():
     from intelligence import asymmetry
+
     theses_asym = asymmetry.compute_portfolio_asymmetry()
     from shared import storage
+
     positions = storage.get_active_positions() or []
     return {"theses_asym": theses_asym, "positions": positions}
 
@@ -144,6 +157,7 @@ def _discipline_section():
     import sqlite3
 
     from shared import storage
+
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     unresolved = []
@@ -166,18 +180,22 @@ def _discipline_section():
                     due_status = "pending"
             except Exception:
                 due_status = "pending"
-            unresolved.append({
-                "id": r["id"], "ticker": r["ticker"],
-                "decision_type": r["decision_type"],
-                "created_at": r["created_at"][:10],
-                "due_status": due_status,
-            })
+            unresolved.append(
+                {
+                    "id": r["id"],
+                    "ticker": r["ticker"],
+                    "decision_type": r["decision_type"],
+                    "created_at": r["created_at"][:10],
+                    "due_status": due_status,
+                }
+            )
     except Exception as e:
         log.warning(f"discipline section: {e}")
     conn.close()
     revisits = []
     try:
         from intelligence import thesis as thesis_mod
+
         if hasattr(thesis_mod, "get_revisit_due"):
             revisits = thesis_mod.get_revisit_due() or []
     except Exception:
@@ -189,6 +207,7 @@ def _stats_section():
     import sqlite3
 
     from shared import storage
+
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     llm_cost_today = 0.0
@@ -249,7 +268,9 @@ def format_brief(brief):
         lines.append(f"NEW Insider BUY clusters: {len(fi['buy_clusters'])}")
         for r in fi["buy_clusters"][:5]:
             ret = f" J+30={r['return_30d']:+.1%}" if r.get("return_30d") is not None else " (pending)"
-            lines.append(f"  {r['ticker']} {r['detected_at'][:10]} {r['cluster_strength']} n={r['distinct_buyers']}{ret}")
+            lines.append(
+                f"  {r['ticker']} {r['detected_at'][:10]} {r['cluster_strength']} n={r['distinct_buyers']}{ret}"
+            )
     else:
         lines.append("NEW Insider BUY clusters: 0")
     chunks.append("\n".join(lines))
@@ -261,9 +282,15 @@ def format_brief(brief):
         lines.append(f"Active theses ({len(p['theses_asym'])}):")
         for r in p["theses_asym"]:
             if "asymmetry_ratio" in r:
-                icon = {"STRONG_RUN": "🟢🟢", "FAVORABLE": "🟢", "BALANCED": "🟡",
-                        "UNFAVORABLE": "🟠", "FLIPPED": "🔴",
-                        "STOP_BREACHED": "⛔", "TARGET_HIT": "🎯"}.get(r["verdict"], "?")
+                icon = {
+                    "STRONG_RUN": "🟢🟢",
+                    "FAVORABLE": "🟢",
+                    "BALANCED": "🟡",
+                    "UNFAVORABLE": "🟠",
+                    "FLIPPED": "🔴",
+                    "STOP_BREACHED": "⛔",
+                    "TARGET_HIT": "🎯",
+                }.get(r["verdict"], "?")
                 ratio = r["asymmetry_ratio"]
                 ratio_str = "TARGET" if ratio >= 999 else f"{ratio:.2f}x"
                 lines.append(f"  {icon} {r['ticker']:6s} asym={ratio_str:>7s}  → {r['verdict']}")

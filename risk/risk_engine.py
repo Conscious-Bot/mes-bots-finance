@@ -1,4 +1,5 @@
 """Validation avant tout output décisionnel."""
+
 from dataclasses import dataclass
 
 from shared import config, storage
@@ -10,6 +11,7 @@ class ValidationResult:
     reasons: list
     severity: str
 
+
 def validate(decision: dict) -> ValidationResult:
     """decision: {ticker, action, size_pct, conviction, sector, narrative}"""
     reasons = []
@@ -19,10 +21,12 @@ def validate(decision: dict) -> ValidationResult:
     dd = state["drawdown_pct"]
     if dd >= cfg["risk"]["drawdown_stop_pct"]:
         return ValidationResult(False, [f"Drawdown STOP ({dd:.1%})"], "block")
-    if dd >= cfg["risk"]["drawdown_reduce_pct"]:
-        if decision.get("size_pct", 0) > cfg["style"]["position_max_pct"] * 0.5:
-            reasons.append(f"Drawdown reduce: size halved (current {dd:.1%})")
-            decision["size_pct"] *= 0.5
+    if (
+        dd >= cfg["risk"]["drawdown_reduce_pct"]
+        and decision.get("size_pct", 0) > cfg["style"]["position_max_pct"] * 0.5
+    ):
+        reasons.append(f"Drawdown reduce: size halved (current {dd:.1%})")
+        decision["size_pct"] *= 0.5
 
     if decision.get("size_pct", 0) > cfg["style"]["position_max_pct"]:
         reasons.append(f"Size > max_pct {cfg['style']['position_max_pct']}")

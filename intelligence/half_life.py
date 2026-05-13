@@ -7,6 +7,7 @@ Aggregate per source as median (in days).
 Use case: signals from short-half-life sources decay urgency fast,
 long-half-life sources retain actionability over days/weeks.
 """
+
 import json
 import logging
 import statistics
@@ -36,15 +37,16 @@ def compute_signal_time_to_move(signal, threshold=DEFAULT_THRESHOLD, max_days=DE
     Returns dict {ticker, days, return_pct, ...} or None.
     """
     from shared import prices
-    tickers = _parse_tickers(signal.get('entities'))
+
+    tickers = _parse_tickers(signal.get("entities"))
     if not tickers:
         return None
     ticker = tickers[0]
-    sig_ts = signal.get('timestamp')
+    sig_ts = signal.get("timestamp")
     if not sig_ts:
         return None
     try:
-        sig_dt = datetime.fromisoformat(sig_ts.replace('Z', '+00:00'))
+        sig_dt = datetime.fromisoformat(sig_ts.replace("Z", "+00:00"))
     except Exception:
         return None
 
@@ -72,12 +74,12 @@ def compute_signal_time_to_move(signal, threshold=DEFAULT_THRESHOLD, max_days=DE
             except Exception:
                 continue
             return {
-                'ticker': ticker,
-                'days': days_delta,
-                'return_pct': ret,
-                'baseline_price': baseline_price,
-                'hit_price': close,
-                'hit_date': date_str,
+                "ticker": ticker,
+                "days": days_delta,
+                "return_pct": ret,
+                "baseline_price": baseline_price,
+                "hit_price": close,
+                "hit_date": date_str,
             }
     return None
 
@@ -85,6 +87,7 @@ def compute_signal_time_to_move(signal, threshold=DEFAULT_THRESHOLD, max_days=DE
 def compute_source_half_life(source_id, min_samples=DEFAULT_MIN_SAMPLES):
     """Median time-to-move across ticker-having signals from source."""
     from shared import storage
+
     signals = storage.get_signals_by_source_with_tickers(source_id)
     days_list = []
     samples_detail = []
@@ -92,21 +95,24 @@ def compute_source_half_life(source_id, min_samples=DEFAULT_MIN_SAMPLES):
         try:
             result = compute_signal_time_to_move(sig)
             if result is not None:
-                days_list.append(result['days'])
-                samples_detail.append({**result, 'signal_id': sig['id']})
+                days_list.append(result["days"])
+                samples_detail.append({**result, "signal_id": sig["id"]})
         except Exception as e:
             log.warning(f"time_to_move failed signal {sig.get('id')}: {e}")
 
     if len(days_list) < min_samples:
         return {
-            'source_id': source_id, 'n_samples': len(days_list),
-            'median_days': None, 'samples': samples_detail,
-            'insufficient': True,
+            "source_id": source_id,
+            "n_samples": len(days_list),
+            "median_days": None,
+            "samples": samples_detail,
+            "insufficient": True,
         }
     return {
-        'source_id': source_id, 'n_samples': len(days_list),
-        'median_days': statistics.median(days_list),
-        'samples': samples_detail,
+        "source_id": source_id,
+        "n_samples": len(days_list),
+        "median_days": statistics.median(days_list),
+        "samples": samples_detail,
     }
 
 
@@ -115,6 +121,7 @@ def refresh_all_source_half_lives(min_samples=DEFAULT_MIN_SAMPLES):
     import sqlite3
 
     from shared import storage
+
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     sources = [dict(r) for r in conn.execute("SELECT id, name FROM sources").fetchall()]
@@ -123,21 +130,21 @@ def refresh_all_source_half_lives(min_samples=DEFAULT_MIN_SAMPLES):
     results = {}
     for src in sources:
         try:
-            r = compute_source_half_life(src['id'], min_samples=min_samples)
+            r = compute_source_half_life(src["id"], min_samples=min_samples)
             if r:
-                if r.get('median_days') is not None:
-                    storage.update_source_half_life(src['id'], r['median_days'], r['n_samples'])
-                    results[src['name']] = {
-                        'median_days': r['median_days'],
-                        'n_samples': r['n_samples'],
-                        'persisted': True,
+                if r.get("median_days") is not None:
+                    storage.update_source_half_life(src["id"], r["median_days"], r["n_samples"])
+                    results[src["name"]] = {
+                        "median_days": r["median_days"],
+                        "n_samples": r["n_samples"],
+                        "persisted": True,
                     }
                 else:
-                    results[src['name']] = {
-                        'median_days': None,
-                        'n_samples': r['n_samples'],
-                        'persisted': False,
-                        'reason': f"insufficient samples ({r['n_samples']} < {min_samples})",
+                    results[src["name"]] = {
+                        "median_days": None,
+                        "n_samples": r["n_samples"],
+                        "persisted": False,
+                        "reason": f"insufficient samples ({r['n_samples']} < {min_samples})",
                     }
         except Exception as e:
             log.exception(f"refresh failed source {src['name']}: {e}")

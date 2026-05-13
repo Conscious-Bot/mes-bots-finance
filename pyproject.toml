@@ -54,9 +54,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["F401", "F811", "ARG", "B011", "PIE790"]
+"tests/*" = ["F401", "F811", "ARG", "B011", "PIE790", "PTH"]  # test setup boilerplate
 "scripts/*" = ["ARG", "PTH"]
-"bot/main.py" = ["E402", "F401"]
+"bot/main.py" = ["E402", "F401", "ARG001"]  # ARG: python-telegram-bot signature exige (update, ctx)
 "data_sources/*" = ["PTH"]
 
 [tool.ruff.lint.isort]

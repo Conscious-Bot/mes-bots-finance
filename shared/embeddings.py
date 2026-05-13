@@ -1,8 +1,9 @@
 """Phase A3 — Embedding wrapper for echo chamber resolution (semantic cross-source dedup)."""
+
 import numpy as np
 
 _model = None
-_MODEL_NAME = 'BAAI/bge-small-en-v1.5'
+_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 _DIM = 384
 
 
@@ -11,6 +12,7 @@ def model():
     global _model
     if _model is None:
         from sentence_transformers import SentenceTransformer
+
         _model = SentenceTransformer(_MODEL_NAME)
     return _model
 

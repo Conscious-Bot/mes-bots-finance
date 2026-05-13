@@ -1,4 +1,5 @@
 """Init SQLite DB + bot_state.json. À lancer UNE fois."""
+
 import json
 import sqlite3
 from datetime import datetime
@@ -127,6 +128,7 @@ CREATE TABLE IF NOT EXISTS bot_events (
 );
 """
 
+
 def main():
     DATA.mkdir(exist_ok=True, parents=True)
     conn = sqlite3.connect(DB_PATH)
@@ -138,16 +140,21 @@ def main():
 
     if not STATE_PATH.exists():
         state = {
-            "peak_capital": 10000.0, "current_capital": 10000.0,
-            "drawdown_pct": 0.0, "last_alert_drawdown_pct": 0.0,
+            "peak_capital": 10000.0,
+            "current_capital": 10000.0,
+            "drawdown_pct": 0.0,
+            "last_alert_drawdown_pct": 0.0,
             "last_balance_alert_ts": None,
             "last_heartbeat_ts": datetime.now().isoformat(),
             "bot_start_ts": datetime.now().isoformat(),
-            "session_id": "session_1", "paper_only": True,
-            "active_theses_count": 0, "predictions_pending_resolution": 0,
+            "session_id": "session_1",
+            "paper_only": True,
+            "active_theses_count": 0,
+            "predictions_pending_resolution": 0,
         }
         STATE_PATH.write_text(json.dumps(state, indent=2))
         print(f"OK bot_state initialisé : {STATE_PATH}")
+
 
 if __name__ == "__main__":
     main()

@@ -10,11 +10,13 @@ from shared import storage
 
 DB = "data/bot.db"
 
+
 def n_rows():
     conn = sqlite3.connect(DB)
     n = conn.execute("SELECT COUNT(*) FROM conviction_history").fetchone()[0]
     conn.close()
     return n
+
 
 def main():
     print("=== Phase 11 Idempotency Smoke Test ===\n")
@@ -32,7 +34,7 @@ def main():
     after = n_rows()
     growth = after - before
     print(f"\nNet growth: +{growth} rows over 3 runs")
-    print(f"Avg per run: {growth/3:.0f} rows (expected ~15-20)")
+    print(f"Avg per run: {growth / 3:.0f} rows (expected ~15-20)")
 
     # Dedup check via lecture
     tops = storage.get_top_material_signals(n=5, since_hours=24)
@@ -57,6 +59,7 @@ def main():
         print(f"FAIL bloat: +{growth} excede attendu (60), persist peut-etre non-borne")
 
     print("\nDone.")
+
 
 if __name__ == "__main__":
     main()

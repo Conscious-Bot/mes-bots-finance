@@ -1,4 +1,4 @@
-'''Shadow decisions: parallel variants for empirical optimization.
+"""Shadow decisions: parallel variants for empirical optimization.
 
 For each decision (/exit verdict, signal scoring), compute parallel
 variants (main/aggressive/conservative). Outcome resolution (Chunk 5)
@@ -7,7 +7,8 @@ measures which performs best.
 Asymmetric behavioral correction:
 - aggressive: fights premature exits (PLTR/NVDA-style)
 - conservative: fights late exits (BTC/ETH-style)
-'''
+"""
+
 import json as _json
 
 from shared import storage

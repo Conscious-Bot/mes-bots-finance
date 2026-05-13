@@ -1,4 +1,5 @@
 """Entrypoint bot. Long-running async."""
+
 import contextlib
 import logging
 import os
@@ -82,9 +83,7 @@ async def cmd_thesis_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     params = _parse_thesis_template(body)
     if "ticker" not in params or "entry_price" not in params:
-        await update.message.reply_text(
-            "Manque 'ticker' et/ou 'entry_price'. Tape /thesis_add seul pour le template."
-        )
+        await update.message.reply_text("Manque 'ticker' et/ou 'entry_price'. Tape /thesis_add seul pour le template.")
         return
     try:
         result = thesis_mod.add_thesis(
@@ -159,9 +158,7 @@ async def cmd_exit_force(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     check = thesis_mod.check_exit_request(ticker)
     note_suffix = "[regret_driven]" if check["status"] == "no_trigger" else "[trigger_met]"
     storage.close_thesis(t["id"], status="realized", reason=f"{note_suffix} {reason}")
-    await update.message.reply_text(
-        f"OK these {ticker} fermee 'realized' {note_suffix}\nRaison: {reason}"
-    )
+    await update.message.reply_text(f"OK these {ticker} fermee 'realized' {note_suffix}\nRaison: {reason}")
 
 
 async def cmd_thesis_note(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -184,6 +181,7 @@ async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Synthese unifiee en cours ({hours}h) ~30s...")
     try:
         from intelligence import digest as _digest_mod
+
         narrative = _digest_mod.generate_unified_digest(since_hours=hours, max_signals=40)
     except Exception as e:
         await update.message.reply_text(f"Digest failed: {type(e).__name__}: {e}")
@@ -195,13 +193,16 @@ async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             if len(cur) + len(para) + 2 < 3900:
                 cur = cur + "\n\n" + para if cur else para
             else:
-                if cur: chunks.append(cur)
+                if cur:
+                    chunks.append(cur)
                 cur = para
-        if cur: chunks.append(cur)
+        if cur:
+            chunks.append(cur)
         for c in chunks:
             await update.message.reply_text(c)
     else:
         await update.message.reply_text(narrative)
+
 
 async def cmd_feedback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args or len(ctx.args) < 2:
@@ -215,17 +216,15 @@ async def cmd_feedback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"signal_id invalide: {ctx.args[0]}")
         return
     rating = ctx.args[1].lower()
-    if rating not in ('up', 'down'):
+    if rating not in ("up", "down"):
         await update.message.reply_text(f"rating doit etre up ou down, got: {rating}")
         return
     try:
         result = credibility_mod.apply_feedback(signal_id, rating)
-        old = result.get('old_credibility') or 0.5
-        new = result.get('new_credibility') or 0.5
-        src = (result.get('source_name') or '?')[:40]
-        msg = (
-            f"OK feedback {rating} sur signal #{signal_id}.\nSource: {src}\nCredibility: {old:.2f} -> {new:.2f} (delta {result['delta']:+.2f})"
-        )
+        old = result.get("old_credibility") or 0.5
+        new = result.get("new_credibility") or 0.5
+        src = (result.get("source_name") or "?")[:40]
+        msg = f"OK feedback {rating} sur signal #{signal_id}.\nSource: {src}\nCredibility: {old:.2f} -> {new:.2f} (delta {result['delta']:+.2f})"
         await update.message.reply_text(msg)
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
@@ -251,7 +250,7 @@ async def cmd_predictions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         outcome = p.get("outcome") or "pending"
         ret = p.get("return_pct")
         if ret is not None:
-            lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} -> {ret*100:+.1f}% [{outcome}]")
+            lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} -> {ret * 100:+.1f}% [{outcome}]")
         else:
             lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} target {target} [pending]")
     await update.message.reply_text("\n".join(lines))
@@ -265,7 +264,6 @@ async def cmd_resolve_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg[:4000])
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
-
 
 
 async def resolve_journal_decisions_job():
@@ -289,43 +287,37 @@ async def resolve_journal_decisions_job():
         for horizon in (30, 90):
             unres = storage_mod.get_unresolved_decisions(horizon)
             for d in unres:
-                ticker = d['ticker']
+                ticker = d["ticker"]
                 try:
                     info = yf.Ticker(ticker).info or {}
-                    price_now = info.get('regularMarketPrice') or info.get('currentPrice')
+                    price_now = info.get("regularMarketPrice") or info.get("currentPrice")
                 except Exception as e:
                     log.warning(f"resolve_journal: yfinance failed for {ticker}: {e}")
                     continue
 
-                if not price_now or not d.get('price_at_decision'):
+                if not price_now or not d.get("price_at_decision"):
                     log.warning(f"resolve_journal: missing prices for #{d['id']} {ticker}")
                     continue
 
-                p0 = d['price_at_decision']
+                p0 = d["price_at_decision"]
                 ret = (price_now / p0) - 1.0
 
                 thesis_rel = None
-                if d.get('thesis_id'):
+                if d.get("thesis_id"):
                     try:
                         conn = _sql.connect("data/bot.db")
                         conn.row_factory = _sql.Row
-                        trow = conn.execute(
-                            "SELECT * FROM theses WHERE id=?", (d['thesis_id'],)
-                        ).fetchone()
+                        trow = conn.execute("SELECT * FROM theses WHERE id=?", (d["thesis_id"],)).fetchone()
                         conn.close()
                         if trow:
-                            thesis_rel = journal_mod.thesis_relative_position(
-                                price_now, dict(trow)
-                            )
+                            thesis_rel = journal_mod.thesis_relative_position(price_now, dict(trow))
                     except Exception as e:
                         log.warning(f"resolve_journal: thesis fetch failed: {e}")
 
                 tag = journal_mod.auto_classify_mistake(d, price_now, horizon)
 
                 try:
-                    storage_mod.resolve_decision(
-                        d['id'], horizon, price_now, ret, thesis_rel, tag
-                    )
+                    storage_mod.resolve_decision(d["id"], horizon, price_now, ret, thesis_rel, tag)
                 except Exception as e:
                     log.error(f"resolve_journal: persist failed #{d['id']}: {e}")
                     continue
@@ -337,29 +329,23 @@ async def resolve_journal_decisions_job():
 
                 summaries.append(
                     f"#{d['id']} {ticker} [{d['decision_type']}] J+{horizon}: "
-                    f"${p0:.2f} -> ${price_now:.2f} ({ret*100:+.1f}%) -> {tag}"
+                    f"${p0:.2f} -> ${price_now:.2f} ({ret * 100:+.1f}%) -> {tag}"
                 )
 
         if total_30 + total_90 > 0:
-            msg_parts = [
-                f"Journal auto-resolved: {total_30} J+30 + {total_90} J+90"
-            ]
+            msg_parts = [f"Journal auto-resolved: {total_30} J+30 + {total_90} J+90"]
             msg_parts.extend(summaries[:10])
             if len(summaries) > 10:
-                msg_parts.append(
-                    f"... ({len(summaries) - 10} more, use /journal_review)"
-                )
+                msg_parts.append(f"... ({len(summaries) - 10} more, use /journal_review)")
             try:
                 notify.send_text("\n".join(msg_parts))
             except Exception as e:
                 log.warning(f"resolve_journal: telegram send failed: {e}")
 
-        log.info(
-            f"Resolve journal decisions done: "
-            f"{total_30} J+30, {total_90} J+90 resolved"
-        )
+        log.info(f"Resolve journal decisions done: {total_30} J+30, {total_90} J+90 resolved")
     except Exception as e:
         log.exception(f"resolve_journal_decisions_job crashed: {e}")
+
 
 async def daily_resolve_job():
     log.info("Daily resolve predictions starting")
@@ -384,7 +370,7 @@ async def cmd_regime(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 # Phase Tickers Tiered — dynamic from config.yaml universe.core
-CALENDAR_REFRESH_TICKERS = config.get_tickers('core') if hasattr(config, 'get_tickers') else []
+CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_tickers") else []
 
 
 async def cmd_calendar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -478,7 +464,7 @@ Scheduled jobs (Paris TZ):
   • 10:00: crypto zone check
   • 14-22h every 15min mon-fri: price monitor / thesis triggers
 """
-    await update.message.reply_text(msg, parse_mode='Markdown')
+    await update.message.reply_text(msg, parse_mode="Markdown")
 
 
 async def cmd_insiders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -496,6 +482,7 @@ async def cmd_insiders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 # === Scheduled jobs ===
+
 
 async def heartbeat():
     storage.update_state()
@@ -516,6 +503,7 @@ async def ingest_gmail_job():
             # Chain materiality_v2 immediately - score what was just ingested + small buffer
             try:
                 from intelligence import materiality_v2
+
                 target = min(stats["new_ingested"] + 5, 30)  # cap at 30 to avoid cost spike
                 s, f, total = materiality_v2.score_pending_signals_v2(limit=target)
                 if total > 0:
@@ -531,10 +519,12 @@ async def daily_digest_job():
     try:
         from intelligence import digest as _digest_mod
         from shared import notify as _notify
+
         narrative = _digest_mod.generate_unified_digest(since_hours=12, max_signals=30)
         if narrative and not narrative.startswith("Aucun signal"):
             msg = "DIGEST AUTO (12h)\n\n" + narrative
-            if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+            if len(msg) > 3900:
+                msg = msg[:3900] + "\n[truncated]"
             _notify.send_text(msg)
     except Exception as e:
         log.warning(f"daily_digest_job error: {e}")
@@ -547,10 +537,15 @@ async def daily_backup_job():
     try:
         import os as _os
         import subprocess
-        proj = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        from pathlib import Path as _Path
+
+        proj = str(_Path(__file__).resolve().parent.parent)
         result = subprocess.run(
             ["bash", "scripts/backup.sh"],
-            cwd=proj, capture_output=True, text=True, timeout=180,
+            cwd=proj,
+            capture_output=True,
+            text=True,
+            timeout=180,
         )
         if result.returncode == 0:
             log.info("daily_backup_job: success")
@@ -560,8 +555,8 @@ async def daily_backup_job():
         log.error(f"daily_backup_job exception: {e}")
 
 
-
 # ============ Phase Solidification P0 #3 — Handler usage telemetry ============
+
 
 async def log_handler_call_middleware(update, ctx):
     """Pre-handler middleware: log every command call to handler_calls table.
@@ -580,11 +575,12 @@ async def log_handler_call_middleware(update, ctx):
         import sqlite3 as _sql
 
         from shared import storage as _storage
+
         conn = _sql.connect(_storage._DB_PATH)
         try:
             conn.execute(
                 "INSERT INTO handler_calls (handler_name, user_id, chat_id, args_summary) VALUES (?, ?, ?, ?)",
-                (handler_name, user_id, chat_id, args_summary)
+                (handler_name, user_id, chat_id, args_summary),
             )
             conn.commit()
         finally:
@@ -603,6 +599,7 @@ async def cmd_handler_stats(update, ctx):
     import sqlite3 as _sql
 
     from shared import storage as _storage
+
     conn = _sql.connect(_storage._DB_PATH)
     conn.row_factory = _sql.Row
     try:
@@ -612,7 +609,7 @@ async def cmd_handler_stats(update, ctx):
             "FROM handler_calls "
             "WHERE timestamp >= datetime('now', '-' || ? || ' days') "
             "GROUP BY handler_name ORDER BY n DESC",
-            (int(days),)
+            (int(days),),
         ).fetchall()
     finally:
         conn.close()
@@ -628,11 +625,16 @@ async def cmd_handler_stats(update, ctx):
         last_dt = (r["last_used"] or "")[:10]
         lines.append(f"  {r['handler_name']:24s} n={r['n']:4d} cumul={pct:5.1f}%  last={last_dt}")
     # Pareto threshold callout
-    pareto_80 = next((i for i, _ in enumerate(rows) if sum(rows[j]["n"] for j in range(i+1)) >= 0.8*total), len(rows))
+    pareto_80 = next(
+        (i for i, _ in enumerate(rows) if sum(rows[j]["n"] for j in range(i + 1)) >= 0.8 * total), len(rows)
+    )
     if pareto_80 < len(rows) - 1:
-        lines.append(f"\nPareto: top {pareto_80+1} handlers = 80% calls. {len(rows)-pareto_80-1} handlers = long tail.")
+        lines.append(
+            f"\nPareto: top {pareto_80 + 1} handlers = 80% calls. {len(rows) - pareto_80 - 1} handlers = long tail."
+        )
     msg = "\n".join(lines)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
 
@@ -642,6 +644,7 @@ async def weekly_handler_stats_job():
         import sqlite3 as _sql
 
         from shared import notify as _notify, storage as _storage
+
         conn = _sql.connect(_storage._DB_PATH)
         conn.row_factory = _sql.Row
         rows = conn.execute(
@@ -662,14 +665,15 @@ async def weekly_handler_stats_job():
         log.warning(f"weekly_handler_stats_job error: {e}")
 
 
-
 # ============ Phase Solidification P2 — KPI Status monitoring ============
+
 
 def _kpi_compute_all():
     """Compute all 5 KPIs. Returns dict with status per KPI."""
     import sqlite3 as _sql
 
     from shared import storage as _storage
+
     conn = _sql.connect(_storage._DB_PATH)
     conn.row_factory = _sql.Row
     out = {}
@@ -679,15 +683,12 @@ def _kpi_compute_all():
         "SELECT COUNT(*) AS resolved_28d FROM predictions "
         "WHERE resolved_at IS NOT NULL AND resolved_at >= datetime('now', '-28 days')"
     ).fetchone()
-    open_pred = conn.execute(
-        "SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL"
-    ).fetchone()["n"]
+    open_pred = conn.execute("SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL").fetchone()["n"]
     stuck = conn.execute(
         "SELECT COUNT(*) AS n FROM predictions WHERE target_date <= datetime('now') AND resolved_at IS NULL"
     ).fetchone()["n"]
     projected_28d = conn.execute(
-        "SELECT COUNT(*) AS n FROM predictions "
-        "WHERE resolved_at IS NULL AND target_date <= datetime('now', '+28 days')"
+        "SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL AND target_date <= datetime('now', '+28 days')"
     ).fetchone()["n"]
     target = 5
     n2 = r2["resolved_28d"]
@@ -813,6 +814,7 @@ def _kpi_compute_all():
 def _format_kpi_report(kpis):
     """Format KPI dict into Telegram message."""
     from datetime import datetime as _dt
+
     lines = [f"📊 *KPI STATUS* — {_dt.now().strftime('%Y-%m-%d %H:%M')}", ""]
     breach_count = 0
     yellow_count = 0
@@ -843,7 +845,7 @@ async def cmd_kpi_status(update, ctx):
     try:
         kpis = _kpi_compute_all()
         msg = _format_kpi_report(kpis)
-        await update.message.reply_text(msg, parse_mode='Markdown')
+        await update.message.reply_text(msg, parse_mode="Markdown")
     except Exception as e:
         log.error(f"cmd_kpi_status error: {e}")
         await update.message.reply_text(f"KPI status error: {e}")
@@ -853,13 +855,13 @@ async def weekly_kpi_status_job():
     """Phase Solidification P2 — Weekly KPI status, Sunday 23:00 Paris."""
     try:
         from shared import notify as _notify
+
         kpis = _kpi_compute_all()
         msg = _format_kpi_report(kpis)
         _notify.send_text(msg)
         log.info("weekly_kpi_status_job: posted")
     except Exception as e:
         log.warning(f"weekly_kpi_status_job error: {e}")
-
 
 
 # ============ Phase Solidification P2 — Cost trajectory dashboard ============
@@ -878,7 +880,7 @@ def _cost_compute_trajectory():
     conn = _sql.connect(_storage._DB_PATH)
     conn.row_factory = _sql.Row
     try:
-        today_str = _dt.now().strftime('%Y-%m-%d')
+        today_str = _dt.now().strftime("%Y-%m-%d")
         now = _dt.now()
         days_in_month = _cal.monthrange(now.year, now.month)[1]
         day_of_month = now.day
@@ -886,8 +888,7 @@ def _cost_compute_trajectory():
 
         # Spend buckets
         today = conn.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) = ?",
-            (today_str,)
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) = ?", (today_str,)
         ).fetchone()[0]
         yesterday = conn.execute(
             "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) = DATE('now', '-1 day')"
@@ -899,8 +900,7 @@ def _cost_compute_trajectory():
             "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE created_at >= datetime('now', '-30 days')"
         ).fetchone()[0]
         mtd = conn.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) >= ?",
-            (month_start,)
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) >= ?", (month_start,)
         ).fetchone()[0]
 
         # Projection month-end (linear extrapolation)
@@ -937,12 +937,19 @@ def _cost_compute_trajectory():
         ).fetchall()
 
         return {
-            'today': today, 'yesterday': yesterday, 'week7': week7, 'days30': days30,
-            'mtd': mtd, 'projection': projection, 'budget_pct': budget_pct, 'status': status,
-            'days_elapsed': day_of_month, 'days_in_month': days_in_month,
-            'tier_rows': [dict(r) for r in tier_rows],
-            'task_rows': [dict(r) for r in task_rows],
-            'daily_rows': [dict(r) for r in daily_rows],
+            "today": today,
+            "yesterday": yesterday,
+            "week7": week7,
+            "days30": days30,
+            "mtd": mtd,
+            "projection": projection,
+            "budget_pct": budget_pct,
+            "status": status,
+            "days_elapsed": day_of_month,
+            "days_in_month": days_in_month,
+            "tier_rows": [dict(r) for r in tier_rows],
+            "task_rows": [dict(r) for r in task_rows],
+            "daily_rows": [dict(r) for r in daily_rows],
         }
     finally:
         conn.close()
@@ -965,17 +972,17 @@ def _cost_format_trajectory(data):
     lines.append(f"  Status    : {data['status']}")
     lines.append("")
     lines.append("*Top tier 30d*")
-    for r in data['tier_rows']:
-        pct = 100 * r['spend'] / data['days30'] if data['days30'] > 0 else 0
+    for r in data["tier_rows"]:
+        pct = 100 * r["spend"] / data["days30"] if data["days30"] > 0 else 0
         lines.append(f"  {r['tier']:12s} ${r['spend']:.4f} ({pct:.0f}%, n={r['n']})")
     lines.append("")
     lines.append("*Top task 30d*")
-    for r in data['task_rows'][:5]:
+    for r in data["task_rows"][:5]:
         lines.append(f"  {r['task'][:20]:20s} ${r['spend']:.4f} (n={r['n']})")
     lines.append("")
     lines.append("*Daily 7d trend*")
-    for r in data['daily_rows']:
-        bar_len = int(r['spend'] / max(0.01, max(d['spend'] for d in data['daily_rows'])) * 15)
+    for r in data["daily_rows"]:
+        bar_len = int(r["spend"] / max(0.01, max(d["spend"] for d in data["daily_rows"])) * 15)
         bar = "█" * bar_len
         lines.append(f"  {r['day']}  ${r['spend']:.4f}  {bar}")
     return "\n".join(lines)
@@ -986,7 +993,7 @@ async def cmd_cost_trajectory(update, ctx):
     try:
         data = _cost_compute_trajectory()
         msg = _cost_format_trajectory(data)
-        await update.message.reply_text(msg, parse_mode='Markdown')
+        await update.message.reply_text(msg, parse_mode="Markdown")
     except Exception as e:
         log.error(f"cmd_cost_trajectory error: {e}")
         await update.message.reply_text(f"Error: {e}")
@@ -996,13 +1003,16 @@ async def weekly_cost_summary_job():
     """Phase Solidification P2 — Weekly cost summary, Sunday 22:00 Paris."""
     try:
         from shared import notify as _notify
+
         data = _cost_compute_trajectory()
         msg = _cost_format_trajectory(data)
         _notify.send_text(msg)
         log.info(f"weekly_cost_summary_job: posted (projection ${data['projection']:.2f})")
         # Alert if RED
-        if "🚨 RED" in data['status']:
-            _notify.send_text(f"⚠️ ALERT: Projected month-end ${data['projection']:.2f} exceeds 90% of ${BUDGET_MONTHLY_USD:.0f} budget")
+        if "🚨 RED" in data["status"]:
+            _notify.send_text(
+                f"⚠️ ALERT: Projected month-end ${data['projection']:.2f} exceeds 90% of ${BUDGET_MONTHLY_USD:.0f} budget"
+            )
     except Exception as e:
         log.warning(f"weekly_cost_summary_job error: {e}")
 
@@ -1011,6 +1021,7 @@ async def cmd_sources_health(update, ctx):
     """Health check newsletter sources."""
     import sqlite3
     from datetime import datetime, timezone
+
     conn = sqlite3.connect("data/bot.db")
     try:
         rows = conn.execute("""
@@ -1032,11 +1043,11 @@ async def cmd_sources_health(update, ctx):
     lines = ["Newsletter sources health (30d window):\n"]
     now = datetime.now(UTC).replace(tzinfo=None)
     for name, cred, n_30d, last_seen in rows:
-        short = (name.split('<')[0].strip() or name)[:30]
+        short = (name.split("<")[0].strip() or name)[:30]
         age_days = None
         if last_seen:
             try:
-                last_dt = datetime.fromisoformat(last_seen.replace('Z', '').split('.')[0])
+                last_dt = datetime.fromisoformat(last_seen.replace("Z", "").split(".")[0])
                 age_days = (now - last_dt).days
             except Exception:
                 pass
@@ -1059,15 +1070,17 @@ async def cmd_orphan_tickers(update, ctx):
     import re
     import sqlite3
     from collections import Counter
+
     watchlist = set()
     # Strategy 1: shared.config exposed function
-    for fn_name in ['load', 'get', 'get_config']:
+    for fn_name in ["load", "get", "get_config"]:
         try:
             from shared import config as cfg_mod
+
             fn = getattr(cfg_mod, fn_name, None)
             if fn:
                 cfg = fn()
-                wl = (cfg or {}).get('universe', {}).get('watchlist')
+                wl = (cfg or {}).get("universe", {}).get("watchlist")
                 if wl:
                     watchlist = {t.upper() for t in wl}
                     break
@@ -1077,9 +1090,10 @@ async def cmd_orphan_tickers(update, ctx):
     if not watchlist:
         try:
             from shared import config as cfg_mod
-            cfg = getattr(cfg_mod, '_config', None)
+
+            cfg = getattr(cfg_mod, "_config", None)
             if cfg:
-                wl = cfg.get('universe', {}).get('watchlist')
+                wl = cfg.get("universe", {}).get("watchlist")
                 if wl:
                     watchlist = {t.upper() for t in wl}
         except Exception:
@@ -1090,12 +1104,13 @@ async def cmd_orphan_tickers(update, ctx):
             from pathlib import Path
 
             import yaml
+
             here = Path(__file__).parent
             for parent in [here, here.parent, here.parent.parent]:
-                candidate = parent / 'config.yaml'
+                candidate = parent / "config.yaml"
                 if candidate.exists():
                     cfg = yaml.safe_load(candidate.read_text())
-                    wl = (cfg or {}).get('universe', {}).get('watchlist')
+                    wl = (cfg or {}).get("universe", {}).get("watchlist")
                     if wl:
                         watchlist = {t.upper() for t in wl}
                     break
@@ -1104,9 +1119,35 @@ async def cmd_orphan_tickers(update, ctx):
     if not watchlist:
         await update.message.reply_text("Could not load watchlist from any source")
         return
-    BLACKLIST = {"AI","IA","USD","HTML","JSON","OK","OS","CEO","CFO",
-                 "GPU","CPU","AGI","ML","DL","API","TPU","CN","US",
-                 "EU","UK","FED","ETF","IPO","PE","ROE","NA","ON"}
+    BLACKLIST = {
+        "AI",
+        "IA",
+        "USD",
+        "HTML",
+        "JSON",
+        "OK",
+        "OS",
+        "CEO",
+        "CFO",
+        "GPU",
+        "CPU",
+        "AGI",
+        "ML",
+        "DL",
+        "API",
+        "TPU",
+        "CN",
+        "US",
+        "EU",
+        "UK",
+        "FED",
+        "ETF",
+        "IPO",
+        "PE",
+        "ROE",
+        "NA",
+        "ON",
+    }
     conn = sqlite3.connect("data/bot.db")
     try:
         rows = conn.execute("""
@@ -1122,7 +1163,7 @@ async def cmd_orphan_tickers(update, ctx):
             ts = json.loads(entities_json) if entities_json else []
             for t in ts:
                 t = t.upper().strip()
-                if not re.match(r'^[A-Z]{1,5}(-USD)?$', t):
+                if not re.match(r"^[A-Z]{1,5}(-USD)?$", t):
                     continue
                 if t in watchlist or t in BLACKLIST:
                     continue
@@ -1143,6 +1184,7 @@ async def cmd_orphan_tickers(update, ctx):
 async def cmd_history(update, ctx):
     """Historical context for a ticker."""
     import sqlite3
+
     parts = update.message.text.split()
     if len(parts) < 2:
         await update.message.reply_text("Usage: /history TICKER")
@@ -1150,36 +1192,55 @@ async def cmd_history(update, ctx):
     ticker = parts[1].upper().strip()
     conn = sqlite3.connect("data/bot.db")
     try:
-        theses = conn.execute("""
+        theses = conn.execute(
+            """
             SELECT direction, entry_price, target_partial, target_full, stop_price,
                    status, opened_at, last_price, conviction
             FROM theses WHERE ticker=? ORDER BY opened_at DESC LIMIT 3
-        """, (ticker,)).fetchall()
-        ins_90 = conn.execute("""
+        """,
+            (ticker,),
+        ).fetchall()
+        ins_90 = conn.execute(
+            """
             SELECT net_m, total_buys_m, total_sells_m, n_buys, n_sells, snapshot_date
             FROM insider_snapshots
             WHERE ticker=? AND snapshot_date > date('now', '-90 days')
             ORDER BY snapshot_date DESC LIMIT 1
-        """, (ticker,)).fetchone()
-        ins_365 = conn.execute("""
+        """,
+            (ticker,),
+        ).fetchone()
+        ins_365 = conn.execute(
+            """
             SELECT SUM(net_m), SUM(total_buys_m), SUM(total_sells_m)
             FROM insider_snapshots
             WHERE ticker=? AND snapshot_date > date('now', '-365 days')
-        """, (ticker,)).fetchone()
-        preds = conn.execute("""
+        """,
+            (ticker,),
+        ).fetchone()
+        preds = conn.execute(
+            """
             SELECT direction, horizon_days, baseline_price, final_price, return_pct,
                    outcome, baseline_date
             FROM predictions WHERE ticker=? ORDER BY baseline_date DESC LIMIT 5
-        """, (ticker,)).fetchall()
-        sig_30 = conn.execute("""
+        """,
+            (ticker,),
+        ).fetchall()
+        sig_30 = conn.execute(
+            """
             SELECT COUNT(*) FROM signals
             WHERE entities LIKE ? AND timestamp > datetime('now', '-30 days')
-        """, (f'%"{ticker}"%',)).fetchone()[0]
-        sig_90 = conn.execute("""
+        """,
+            (f'%"{ticker}"%',),
+        ).fetchone()[0]
+        sig_90 = conn.execute(
+            """
             SELECT COUNT(*) FROM signals
             WHERE entities LIKE ? AND timestamp > datetime('now', '-90 days')
-        """, (f'%"{ticker}"%',)).fetchone()[0]
-        material = conn.execute("""
+        """,
+            (f'%"{ticker}"%',),
+        ).fetchone()[0]
+        material = conn.execute(
+            """
             SELECT s.id, ch.materiality, s.title
             FROM signals s
             JOIN conviction_history ch ON s.id = ch.signal_id
@@ -1187,17 +1248,24 @@ async def cmd_history(update, ctx):
               AND ch.id IN (SELECT MAX(id) FROM conviction_history GROUP BY signal_id)
               AND ch.is_noise = 0
             ORDER BY ch.materiality DESC LIMIT 5
-        """, (ticker,)).fetchall()
+        """,
+            (ticker,),
+        ).fetchall()
     finally:
         conn.close()
     lines = [f"History {ticker}\n"]
     if theses:
         lines.append("== Thesis ==")
         for direction, entry, partial, full, stop, status, opened_at, lp, conv in theses:
-            def fm(v): return f"${v:.0f}" if v else "?"
-            opd = (opened_at or '')[:10]
+
+            def fm(v):
+                return f"${v:.0f}" if v else "?"
+
+            opd = (opened_at or "")[:10]
             lp_s = f"${lp:.2f}" if lp else "?"
-            lines.append(f"  [{direction or '?'}] entry {fm(entry)} / partial {fm(partial)} / full {fm(full)} / stop {fm(stop)}")
+            lines.append(
+                f"  [{direction or '?'}] entry {fm(entry)} / partial {fm(partial)} / full {fm(full)} / stop {fm(stop)}"
+            )
             lines.append(f"  Opened {opd} status={status} last={lp_s} conv={conv or '?'}")
         lines.append("")
     if ins_90 and ins_90[0] is not None:
@@ -1213,10 +1281,12 @@ async def cmd_history(update, ctx):
     if preds:
         lines.append("== Predictions ==")
         for direction, hd, baseline, final, ret, outcome, bd in preds:
-            ret_s = f"{ret*100:+.1f}%" if ret is not None else "pending"
+            ret_s = f"{ret * 100:+.1f}%" if ret is not None else "pending"
             final_s = f"${final:.2f}" if final else "open"
             base_s = f"${baseline:.2f}" if baseline else "?"
-            lines.append(f"  [{direction} {hd}d] {(bd or '')[:10]}: {base_s} -> {final_s} ({ret_s}) {outcome or 'pending'}")
+            lines.append(
+                f"  [{direction} {hd}d] {(bd or '')[:10]}: {base_s} -> {final_s} ({ret_s}) {outcome or 'pending'}"
+            )
         lines.append("")
     lines.append("== Signal mentions ==")
     lines.append(f"  30d: {sig_30}  /  90d: {sig_90}")
@@ -1224,13 +1294,12 @@ async def cmd_history(update, ctx):
     if material:
         lines.append("== Top material signals ==")
         for sid, mat, title in material:
-            t = (title or '')[:60]
+            t = (title or "")[:60]
             lines.append(f"  #{sid} mat={mat:.3f}: {t}")
     msg = "\n".join(lines)
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[...truncated...]"
     await update.message.reply_text(msg)
-
 
 
 async def cmd_journal(update, ctx):
@@ -1239,6 +1308,7 @@ async def cmd_journal(update, ctx):
     Abbrev: e, si, pe, fe, o, nf
     """
     from datetime import date, timedelta
+
     text = update.message.text
     parts = text.split(None, 4)
     if len(parts) < 5:
@@ -1246,7 +1316,7 @@ async def cmd_journal(update, ctx):
             "Usage: /journal <TICKER> <type> <confidence_1_5> <reasoning>\n"
             "Types: entry|scale_in|partial_exit|full_exit|override|no_action_flag\n"
             "Abbrev: e|si|pe|fe|o|nf\n"
-            "Example: /journal NVDA nf 3 Won\'t add at 52w high before earnings"
+            "Example: /journal NVDA nf 3 Won't add at 52w high before earnings"
         )
         return
 
@@ -1254,19 +1324,26 @@ async def cmd_journal(update, ctx):
     ticker = ticker_raw.upper()
 
     ALIASES = {
-        'e': 'entry', 'entry': 'entry',
-        'si': 'scale_in', 'scale_in': 'scale_in', 'scalein': 'scale_in',
-        'pe': 'partial_exit', 'partial_exit': 'partial_exit',
-        'fe': 'full_exit', 'full_exit': 'full_exit', 'exit': 'full_exit',
-        'o': 'override', 'override': 'override',
-        'nf': 'no_action_flag', 'no_action_flag': 'no_action_flag',
-        'noaction': 'no_action_flag', 'flag': 'no_action_flag'
+        "e": "entry",
+        "entry": "entry",
+        "si": "scale_in",
+        "scale_in": "scale_in",
+        "scalein": "scale_in",
+        "pe": "partial_exit",
+        "partial_exit": "partial_exit",
+        "fe": "full_exit",
+        "full_exit": "full_exit",
+        "exit": "full_exit",
+        "o": "override",
+        "override": "override",
+        "nf": "no_action_flag",
+        "no_action_flag": "no_action_flag",
+        "noaction": "no_action_flag",
+        "flag": "no_action_flag",
     }
     dtype = ALIASES.get(type_raw.lower())
     if not dtype:
-        await update.message.reply_text(
-            f"Unknown type: {type_raw}\nValid: {sorted(set(ALIASES.values()))}"
-        )
+        await update.message.reply_text(f"Unknown type: {type_raw}\nValid: {sorted(set(ALIASES.values()))}")
         return
 
     try:
@@ -1280,28 +1357,31 @@ async def cmd_journal(update, ctx):
     price = None
     try:
         import yfinance as yf
+
         info = yf.Ticker(ticker).info or {}
-        price = info.get('regularMarketPrice') or info.get('currentPrice')
+        price = info.get("regularMarketPrice") or info.get("currentPrice")
     except Exception:
         pass
 
     regime_str = None
     try:
         from intelligence import regime as regime_mod
+
         r = regime_mod.detect_regime()
-        regime_str = r.get('overall') if isinstance(r, dict) else None
+        regime_str = r.get("overall") if isinstance(r, dict) else None
     except Exception:
         pass
 
     credit_str = None
     try:
         from shared import macro
+
         cr = macro.get_credit_regime()
-        if cr and not cr.get('error') and cr.get('hy'):
-            hy = cr['hy']
-            bp = hy.get('bp')
-            klass = hy.get('classification')
-            chg = hy.get('change_1m_bp')
+        if cr and not cr.get("error") and cr.get("hy"):
+            hy = cr["hy"]
+            bp = hy.get("bp")
+            klass = hy.get("classification")
+            chg = hy.get("change_1m_bp")
             if bp and klass:
                 chg_s = f" (1m {chg:+.0f}bp)" if chg is not None else ""
                 credit_str = f"{klass} {bp:.0f}bp{chg_s}"
@@ -1312,39 +1392,47 @@ async def cmd_journal(update, ctx):
     direction = None
     try:
         import sqlite3
+
         conn = sqlite3.connect("data/bot.db")
         conn.row_factory = sqlite3.Row
         row = conn.execute(
-            "SELECT id, direction FROM theses WHERE ticker=? AND status='active' "
-            "ORDER BY opened_at DESC LIMIT 1",
-            (ticker,)
+            "SELECT id, direction FROM theses WHERE ticker=? AND status='active' ORDER BY opened_at DESC LIMIT 1",
+            (ticker,),
         ).fetchone()
         conn.close()
         if row:
-            thesis_id = row['id']
-            direction = row['direction']
+            thesis_id = row["id"]
+            direction = row["direction"]
     except Exception:
         pass
 
-    if not direction and dtype in ('entry', 'scale_in'):
-        direction = 'long'
+    if not direction and dtype in ("entry", "scale_in"):
+        direction = "long"
 
     materiality_top = None
     try:
         from shared import storage as storage_mod
+
         tops = storage_mod.get_top_material_signals(n=10, since_hours=72)
-        ticker_tops = [t['id'] for t in tops if t.get('primary_ticker') == ticker][:3]
+        ticker_tops = [t["id"] for t in tops if t.get("primary_ticker") == ticker][:3]
         materiality_top = ticker_tops if ticker_tops else None
     except Exception:
         pass
 
     try:
         from shared import storage as storage_mod
+
         did = storage_mod.log_decision(
-            ticker=ticker, decision_type=dtype, confidence=confidence,
-            reasoning=reasoning, direction=direction, thesis_id=thesis_id,
-            price_at_decision=price, regime=regime_str,
-            credit_regime=credit_str, materiality_top=materiality_top
+            ticker=ticker,
+            decision_type=dtype,
+            confidence=confidence,
+            reasoning=reasoning,
+            direction=direction,
+            thesis_id=thesis_id,
+            price_at_decision=price,
+            regime=regime_str,
+            credit_regime=credit_str,
+            materiality_top=materiality_top,
         )
     except Exception as e:
         await update.message.reply_text(f"Error logging decision: {e}")
@@ -1353,11 +1441,11 @@ async def cmd_journal(update, ctx):
     bias_tags = []
     try:
         from intelligence import bias_tagger
+
         decision_full = storage_mod.get_decision(did) or {}
         position = storage_mod.get_position_by_ticker(ticker)
         bias_tags = bias_tagger.auto_tag_biases(
-            decision_full, position=position, regime_str=regime_str,
-            top_signals=materiality_top
+            decision_full, position=position, regime_str=regime_str, top_signals=materiality_top
         )
         if bias_tags:
             storage_mod.update_decision_bias_tags(did, bias_tags)
@@ -1387,8 +1475,8 @@ async def cmd_journal_review(update, ctx):
     ticker_filter = parts[1].upper() if len(parts) > 1 else None
 
     stats = storage_mod.get_journal_stats()
-    by_m = stats['by_mistake']
-    by_t = stats['by_type']
+    by_m = stats["by_mistake"]
+    by_t = stats["by_type"]
 
     lines = ["Journal review"]
     if ticker_filter:
@@ -1402,14 +1490,14 @@ async def cmd_journal_review(update, ctx):
         lines.append("Stats by mistake_tag (resolved only):")
         for r in by_m:
             tag, n, avg30, avg90 = r
-            avg30_s = f"{avg30*100:+.1f}%" if avg30 is not None else "n/a"
-            avg90_s = f"{avg90*100:+.1f}%" if avg90 is not None else "n/a"
+            avg30_s = f"{avg30 * 100:+.1f}%" if avg30 is not None else "n/a"
+            avg90_s = f"{avg90 * 100:+.1f}%" if avg90 is not None else "n/a"
             lines.append(f"  {tag:25s} n={n} avg30={avg30_s} avg90={avg90_s}")
         lines.append("")
         lines.append("Stats by decision_type:")
         for r in by_t:
             dtype, n, avg30 = r
-            avg30_s = f"{avg30*100:+.1f}%" if avg30 is not None else "n/a"
+            avg30_s = f"{avg30 * 100:+.1f}%" if avg30 is not None else "n/a"
             lines.append(f"  {dtype:20s} n={n} avg30={avg30_s}")
         lines.append("")
 
@@ -1461,8 +1549,7 @@ async def cmd_journal_tag(update, ctx):
     parts = update.message.text.split()
     if len(parts) < 3:
         await update.message.reply_text(
-            "Usage: /journal_tag <decision_id> <new_tag>\n"
-            "Example: /journal_tag 12 sold_too_early"
+            "Usage: /journal_tag <decision_id> <new_tag>\nExample: /journal_tag 12 sold_too_early"
         )
         return
     try:
@@ -1473,6 +1560,7 @@ async def cmd_journal_tag(update, ctx):
     new_tag = " ".join(parts[2:])
 
     from shared import storage as storage_mod
+
     d = storage_mod.get_decision(did)
     if not d:
         await update.message.reply_text(f"Decision #{did} not found")
@@ -1480,10 +1568,8 @@ async def cmd_journal_tag(update, ctx):
 
     storage_mod.override_mistake_tag(did, new_tag)
     await update.message.reply_text(
-        f"OK decision #{did}: mistake_tag_manual='{new_tag}'\n"
-        f"  (was auto: {d.get('mistake_tag_auto') or 'pending'})"
+        f"OK decision #{did}: mistake_tag_manual='{new_tag}'\n  (was auto: {d.get('mistake_tag_auto') or 'pending'})"
     )
-
 
 
 async def recalibrate_credibility_brier_job():
@@ -1491,6 +1577,7 @@ async def recalibrate_credibility_brier_job():
     log.info("Brier credibility recalibration starting")
     try:
         from shared import storage as storage_mod
+
         updates = storage_mod.recalibrate_source_credibility_from_brier(min_n=10)
         if updates:
             lines = [f"Brier recalibration: {len(updates)} sources updated"]
@@ -1510,14 +1597,15 @@ async def recalibrate_credibility_brier_job():
 async def cmd_sources_brier(update, ctx):
     """Phase A1 — Display per-source Brier calibration stats."""
     from shared import storage as storage_mod
+
     try:
         stats = storage_mod.get_brier_stats_by_source()
     except Exception as e:
         await update.message.reply_text(f"Error fetching brier stats: {e}")
         return
 
-    with_brier = [s for s in stats if s.get('n_resolved') and s['n_resolved'] > 0]
-    no_data = [s for s in stats if not s.get('n_resolved')]
+    with_brier = [s for s in stats if s.get("n_resolved") and s["n_resolved"] > 0]
+    no_data = [s for s in stats if not s.get("n_resolved")]
 
     lines = ["Brier calibration stats"]
     lines.append(f"  Sources with resolved predictions: {len(with_brier)}")
@@ -1527,23 +1615,20 @@ async def cmd_sources_brier(update, ctx):
     if with_brier:
         lines.append("Top calibrated (low Brier = good):")
         for s in with_brier[:10]:
-            mb = s.get('mean_brier')
+            mb = s.get("mean_brier")
             mb_s = f"{mb:.3f}" if mb is not None else "n/a"
-            cr = s.get('current_cred') or 0.5
-            n = s.get('n_resolved') or 0
-            nc = s.get('n_correct') or 0
-            nn = s.get('n_neutral') or 0
-            ni = s.get('n_incorrect') or 0
-            lines.append(
-                f"  {s['source_name'][:25]:25s} brier={mb_s} cred={cr:.2f} "
-                f"n={n} ({nc}c/{nn}n/{ni}i)"
-            )
+            cr = s.get("current_cred") or 0.5
+            n = s.get("n_resolved") or 0
+            nc = s.get("n_correct") or 0
+            nn = s.get("n_neutral") or 0
+            ni = s.get("n_incorrect") or 0
+            lines.append(f"  {s['source_name'][:25]:25s} brier={mb_s} cred={cr:.2f} n={n} ({nc}c/{nn}n/{ni}i)")
 
     if no_data:
         lines.append("")
         lines.append(f"Sources awaiting (first 5 of {len(no_data)}):")
         for s in no_data[:5]:
-            cr = s.get('current_cred') or 0.5
+            cr = s.get("current_cred") or 0.5
             lines.append(f"  {s['source_name'][:25]:25s} cred={cr:.2f} (no resolved preds yet)")
 
     lines.append("")
@@ -1552,7 +1637,6 @@ async def cmd_sources_brier(update, ctx):
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 
 async def cmd_llm_costs(update, ctx):
@@ -1566,27 +1650,26 @@ async def cmd_llm_costs(update, ctx):
         hours = 24
 
     from shared import llm
+
     try:
         data = llm.get_cost_summary(window_hours=hours)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
         return
 
-    rows = data['rows']
-    errors = data['errors']
+    rows = data["rows"]
+    errors = data["errors"]
 
     if not rows:
-        await update.message.reply_text(
-            f"No LLM calls in last {hours}h. (errors: {errors})"
-        )
+        await update.message.reply_text(f"No LLM calls in last {hours}h. (errors: {errors})")
         return
 
     lines = [f"LLM costs last {hours}h"]
-    total_cost = sum(r.get('cost') or 0 for r in rows)
-    total_calls = sum(r['n_calls'] for r in rows)
-    total_in = sum(r['in_t'] or 0 for r in rows)
-    total_out = sum(r['out_t'] or 0 for r in rows)
-    total_cached = sum(r['cached_t'] or 0 for r in rows)
+    total_cost = sum(r.get("cost") or 0 for r in rows)
+    total_calls = sum(r["n_calls"] for r in rows)
+    total_in = sum(r["in_t"] or 0 for r in rows)
+    total_out = sum(r["out_t"] or 0 for r in rows)
+    total_cached = sum(r["cached_t"] or 0 for r in rows)
     cache_pct = (total_cached / total_in * 100) if total_in else 0
     lines.append(f"  Total: {total_calls} calls, ${total_cost:.4f}")
     lines.append(f"  Tokens: {total_in:,} in ({total_cached:,} cached, {cache_pct:.1f}%) / {total_out:,} out")
@@ -1595,15 +1678,11 @@ async def cmd_llm_costs(update, ctx):
     lines.append("")
     lines.append("By tier/model:")
     for r in rows:
-        cost = r.get('cost') or 0
-        avg = (r.get('avg_ms') or 0)
-        lines.append(
-            f"  {r['tier']:11s} {r['model'][:30]:30s} "
-            f"n={r['n_calls']} ${cost:.4f} avg={avg:.0f}ms"
-        )
+        cost = r.get("cost") or 0
+        avg = r.get("avg_ms") or 0
+        lines.append(f"  {r['tier']:11s} {r['model'][:30]:30s} n={r['n_calls']} ${cost:.4f} avg={avg:.0f}ms")
     msg = "\n".join(lines)
     await update.message.reply_text(msg)
-
 
 
 async def update_echo_clusters_job():
@@ -1614,19 +1693,17 @@ async def update_echo_clusters_job():
 
         pending = storage_mod.get_unembedded_signals(limit=100)
         if pending:
-            txts = [(p.get('text_for_embed') or '')[:500] for p in pending]
+            txts = [(p.get("text_for_embed") or "")[:500] for p in pending]
             vecs = emb_mod.embed_batch(txts)
             for p, v in zip(pending, vecs):
                 blob = emb_mod.serialize(v)
-                storage_mod.store_signal_embedding(p['id'], blob, emb_mod.model_name())
+                storage_mod.store_signal_embedding(p["id"], blob, emb_mod.model_name())
             log.info(f"Embedded {len(pending)} pending signals")
 
         clusters = echo_mod.compute_clusters(window_hours=48, sim_threshold=0.85)
         echo_mod.persist_clusters(clusters)
-        multi = [c for c in clusters if c['n_unique_sources'] >= 2]
-        log.info(
-            f"Echo clusters done: {len(clusters)} total, {len(multi)} multi-source"
-        )
+        multi = [c for c in clusters if c["n_unique_sources"] >= 2]
+        log.info(f"Echo clusters done: {len(clusters)} total, {len(multi)} multi-source")
     except Exception as e:
         log.exception(f"update_echo_clusters_job crashed: {e}")
 
@@ -1636,12 +1713,12 @@ async def cmd_echo_recent(update, ctx):
     parts = update.message.text.split()
     window = 48
     if len(parts) > 1:
-        with contextlib.suppress(ValueError): window = int(parts[1])
+        with contextlib.suppress(ValueError):
+            window = int(parts[1])
 
     from shared import echo as echo_mod
-    clusters = echo_mod.get_recent_multi_source_clusters(
-        window_hours=window, min_unique_sources=2
-    )
+
+    clusters = echo_mod.get_recent_multi_source_clusters(window_hours=window, min_unique_sources=2)
 
     if not clusters:
         await update.message.reply_text(
@@ -1652,23 +1729,22 @@ async def cmd_echo_recent(update, ctx):
 
     lines = [f"Echo clusters last {window}h ({len(clusters)} corroborated)"]
     for c in clusters[:10]:
-        srcs_str = ", ".join(s[:18] for s in c['sources'][:3])
-        if len(c['sources']) > 3:
-            srcs_str += f" +{len(c['sources'])-3}"
+        srcs_str = ", ".join(s[:18] for s in c["sources"][:3])
+        if len(c["sources"]) > 3:
+            srcs_str += f" +{len(c['sources']) - 3}"
         lines.append(f"\nCluster #{c['cluster_id']}: {c['n_unique_sources']} sources, {len(c['signals'])} signals")
         lines.append(f"  Sources: {srcs_str}")
-        for s in c['signals'][:3]:
-            title = (s.get('title') or '')[:55]
-            src = (s.get('source_name') or '?')[:18]
+        for s in c["signals"][:3]:
+            title = (s.get("title") or "")[:55]
+            src = (s.get("source_name") or "?")[:18]
             lines.append(f"    #{s['id']} {src}: {title}")
-        if len(c['signals']) > 3:
-            lines.append(f"    ... ({len(c['signals'])-3} more)")
+        if len(c["signals"]) > 3:
+            lines.append(f"    ... ({len(c['signals']) - 3} more)")
 
     msg = "\n".join(lines)
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 
 async def score_pending_signals_job():
@@ -1678,17 +1754,16 @@ async def score_pending_signals_job():
     log.info("Score pending signals starting")
     try:
         from intelligence import digest as digest_mod
+
         results = digest_mod.process_unprocessed(limit=50)
         if results:
-            n_with_tickers = sum(1 for r in results if r.get('tickers'))
-            n_errors = sum(1 for r in results if r.get('error'))
+            n_with_tickers = sum(1 for r in results if r.get("tickers"))
+            n_errors = sum(1 for r in results if r.get("error"))
             log.info(
-                f"Score pending: processed {len(results)} signals, "
-                f"{n_with_tickers} with tickers, {n_errors} LLM errors"
+                f"Score pending: processed {len(results)} signals, {n_with_tickers} with tickers, {n_errors} LLM errors"
             )
     except Exception as e:
         log.exception(f"score_pending_signals_job crashed: {e}")
-
 
 
 async def refresh_source_half_lives_job():
@@ -1696,8 +1771,9 @@ async def refresh_source_half_lives_job():
     log.info("Refresh source half-lives starting")
     try:
         from intelligence import half_life as hl_mod
+
         results = hl_mod.refresh_all_source_half_lives(min_samples=3)
-        persisted = sum(1 for r in results.values() if r.get('persisted'))
+        persisted = sum(1 for r in results.values() if r.get("persisted"))
         log.info(f"Half-lives refreshed: {persisted}/{len(results)} sources updated")
     except Exception as e:
         log.exception(f"refresh_source_half_lives_job crashed: {e}")
@@ -1706,33 +1782,36 @@ async def refresh_source_half_lives_job():
 async def cmd_sources_half_life(update, ctx):
     """Phase A4 — Display per-source information half-life."""
     from shared import storage as storage_mod
+
     rows = storage_mod.get_all_sources_with_half_life()
     if not rows:
         await update.message.reply_text("No sources found.")
         return
 
-    with_hl = [r for r in rows if r.get('half_life_days') is not None]
-    without_hl = [r for r in rows if r.get('half_life_days') is None]
+    with_hl = [r for r in rows if r.get("half_life_days") is not None]
+    without_hl = [r for r in rows if r.get("half_life_days") is None]
 
     lines = ["Information Half-Life per source"]
-    lines.append(f"  {len(with_hl)} computed, {len(without_hl)} awaiting data (need N>=3 signals with tickers + 30j forward)")
+    lines.append(
+        f"  {len(with_hl)} computed, {len(without_hl)} awaiting data (need N>=3 signals with tickers + 30j forward)"
+    )
     lines.append("")
 
     if with_hl:
         lines.append("Computed (ascending = signals decay fastest):")
         for r in with_hl[:15]:
-            hl = r['half_life_days']
-            n = r.get('half_life_n_samples') or 0
-            cr = r.get('credibility') or 0.5
-            name = r['name'][:30]
+            hl = r["half_life_days"]
+            n = r.get("half_life_n_samples") or 0
+            cr = r.get("credibility") or 0.5
+            name = r["name"][:30]
             lines.append(f"  {name:30s} hl={hl:5.1f}d n={n:2d} cred={cr:.2f}")
 
     if without_hl:
         lines.append("")
         lines.append(f"Awaiting data (top 5 of {len(without_hl)}):")
         for r in without_hl[:5]:
-            n = r.get('half_life_n_samples') or 0
-            n_sig = r.get('n_signals') or 0
+            n = r.get("half_life_n_samples") or 0
+            n_sig = r.get("n_signals") or 0
             lines.append(f"  {r['name'][:30]:30s} n_sig={n_sig} (n_with_move={n})")
 
     lines.append("")
@@ -1744,33 +1823,35 @@ async def cmd_sources_half_life(update, ctx):
     await update.message.reply_text(msg)
 
 
-
 def _portfolio_journal_ctx(ticker):
     """Phase B5 — Auto-context for journal log_decision: price, regime, credit, thesis_id, materiality_top."""
     ticker = ticker.upper()
     price = None
     try:
         import yfinance as yf
+
         info = yf.Ticker(ticker).info or {}
-        price = info.get('regularMarketPrice') or info.get('currentPrice')
+        price = info.get("regularMarketPrice") or info.get("currentPrice")
     except Exception:
         pass
     regime_str = None
     try:
         from intelligence import regime as regime_mod
+
         r = regime_mod.detect_regime()
-        regime_str = r.get('overall') if isinstance(r, dict) else None
+        regime_str = r.get("overall") if isinstance(r, dict) else None
     except Exception:
         pass
     credit_str = None
     try:
         from shared import macro
+
         cr = macro.get_credit_regime()
-        if cr and not cr.get('error') and cr.get('hy'):
-            hy = cr['hy']
-            bp = hy.get('bp')
-            klass = hy.get('classification')
-            chg = hy.get('change_1m_bp')
+        if cr and not cr.get("error") and cr.get("hy"):
+            hy = cr["hy"]
+            bp = hy.get("bp")
+            klass = hy.get("classification")
+            chg = hy.get("change_1m_bp")
             if bp and klass:
                 chg_s = f" (1m {chg:+.0f}bp)" if chg is not None else ""
                 credit_str = f"{klass} {bp:.0f}bp{chg_s}"
@@ -1780,232 +1861,99 @@ def _portfolio_journal_ctx(ticker):
     direction = None
     try:
         import sqlite3
+
         conn = sqlite3.connect("data/bot.db")
         conn.row_factory = sqlite3.Row
         row = conn.execute(
             "SELECT id, direction FROM theses WHERE ticker=? AND status='active' ORDER BY opened_at DESC LIMIT 1",
-            (ticker,)
+            (ticker,),
         ).fetchone()
         conn.close()
         if row:
-            thesis_id = row['id']
-            direction = row['direction']
+            thesis_id = row["id"]
+            direction = row["direction"]
     except Exception:
         pass
     materiality_top = None
     try:
         from shared import storage as storage_mod
+
         tops = storage_mod.get_top_material_signals(n=10, since_hours=72)
-        ticker_tops = [t['id'] for t in tops if t.get('primary_ticker') == ticker][:3]
+        ticker_tops = [t["id"] for t in tops if t.get("primary_ticker") == ticker][:3]
         materiality_top = ticker_tops if ticker_tops else None
     except Exception:
         pass
     return price, regime_str, credit_str, thesis_id, direction, materiality_top
 
 
-async def cmd_position_buy(update, ctx):
-    """Phase B5 — Record a buy + auto-log decision.
-    Usage: /position_buy <TICKER> <qty> <price> [reasoning]
-    """
-    text = update.message.text
-    parts = text.split(None, 4)
-    if len(parts) < 4:
-        await update.message.reply_text(
-            "Usage: /position_buy <TICKER> <qty> <price> [reasoning]\n"
-            "Example: /position_buy NVDA 10 215.50 Adding on dip post-earnings"
-        )
-        return
-    try:
-        ticker = parts[1].upper()
-        qty = float(parts[2])
-        price = float(parts[3])
-    except ValueError:
-        await update.message.reply_text(f"Invalid qty or price: {parts[2]}, {parts[3]}")
-        return
-    reasoning = parts[4] if len(parts) > 4 else "Buy via /position_buy"
-
-    from shared import storage as storage_mod
-    try:
-        pos_id, dtype, new_avg, new_qty = storage_mod.create_or_update_position_on_buy(
-            ticker, qty, price, notes=reasoning
-        )
-    except ValueError as e:
-        await update.message.reply_text(f"Error: {e}")
-        return
-
-    _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
-    try:
-        decision_id = storage_mod.log_decision(
-            ticker=ticker, decision_type=dtype, confidence=3,
-            reasoning=reasoning, direction=(thesis_dir or 'long'),
-            thesis_id=thesis_id, price_at_decision=price,
-            regime=regime, credit_regime=credit, materiality_top=mat_top
-        )
-    except Exception as e:
-        decision_id = None
-        await update.message.reply_text(f"Position recorded but journal failed: {e}")
-
-    bias_tags = []
-    if decision_id:
-        try:
-            from intelligence import bias_tagger
-            decision_full = storage_mod.get_decision(decision_id) or {}
-            position = storage_mod.get_position_by_ticker(ticker)
-            bias_tags = bias_tagger.auto_tag_biases(
-                decision_full, position=position, regime_str=regime, top_signals=mat_top
-            )
-            if bias_tags:
-                storage_mod.update_decision_bias_tags(decision_id, bias_tags)
-        except Exception:
-            pass
-
-    msg = [f"Position {dtype.upper()}: #{pos_id} {ticker}"]
-    msg.append(f"  +{qty:g} @ ${price:.2f}")
-    msg.append(f"  new state: {new_qty:g} units @ avg ${new_avg:.2f}")
-    if decision_id:
-        msg.append(f"  -> auto-logged decision #{decision_id} [{dtype}] thesis={thesis_id or '-'}")
-    if regime: msg.append(f"  context: regime={regime} credit={credit or '?'}")
-    await update.message.reply_text("\n".join(msg))
-
-
-async def cmd_position_sell(update, ctx):
-    """Phase B5 — Record a sell + auto-log decision.
-    Usage: /position_sell <TICKER> <qty> <price> [reasoning]
-    """
-    text = update.message.text
-    parts = text.split(None, 4)
-    if len(parts) < 4:
-        await update.message.reply_text(
-            "Usage: /position_sell <TICKER> <qty> <price> [reasoning]\n"
-            "Example: /position_sell NVDA 5 245.00 Taking partial at 5w high"
-        )
-        return
-    try:
-        ticker = parts[1].upper()
-        qty = float(parts[2])
-        price = float(parts[3])
-    except ValueError:
-        await update.message.reply_text(f"Invalid qty or price: {parts[2]}, {parts[3]}")
-        return
-    reasoning = parts[4] if len(parts) > 4 else "Sell via /position_sell"
-
-    from shared import storage as storage_mod
-    try:
-        pos_id, dtype, realized, new_qty = storage_mod.record_position_sell(
-            ticker, qty, price
-        )
-    except ValueError as e:
-        await update.message.reply_text(f"Error: {e}")
-        return
-
-    _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
-    try:
-        decision_id = storage_mod.log_decision(
-            ticker=ticker, decision_type=dtype, confidence=3,
-            reasoning=reasoning, direction=(thesis_dir or 'long'),
-            thesis_id=thesis_id, price_at_decision=price,
-            regime=regime, credit_regime=credit, materiality_top=mat_top
-        )
-    except Exception as e:
-        decision_id = None
-        await update.message.reply_text(f"Position recorded but journal failed: {e}")
-
-    bias_tags = []
-    if decision_id:
-        try:
-            from intelligence import bias_tagger
-            decision_full = storage_mod.get_decision(decision_id) or {}
-            position = storage_mod.get_position_by_ticker(ticker)
-            bias_tags = bias_tagger.auto_tag_biases(
-                decision_full, position=position, regime_str=regime, top_signals=mat_top
-            )
-            if bias_tags:
-                storage_mod.update_decision_bias_tags(decision_id, bias_tags)
-        except Exception:
-            pass
-
-    msg = [f"Position {dtype.upper()}: #{pos_id} {ticker}"]
-    msg.append(f"  -{qty:g} @ ${price:.2f}")
-    msg.append(f"  realized PnL this leg: {realized:+.2f}")
-    if new_qty > 0:
-        msg.append(f"  remaining: {new_qty:g} units")
-    else:
-        msg.append("  POSITION CLOSED")
-    if decision_id:
-        msg.append(f"  -> auto-logged decision #{decision_id} [{dtype}] thesis={thesis_id or '-'}")
-    await update.message.reply_text("\n".join(msg))
-
-
 async def cmd_portfolio(update, ctx):
     """Phase B5 — Show active positions + concentration + unrealized PnL."""
     from shared import storage as storage_mod
+
     positions = storage_mod.get_active_positions()
     if not positions:
         await update.message.reply_text("No active positions.\n\nUse /position_buy <TICKER> <qty> <price> to open one.")
         return
 
-    total_cost = sum(p['qty'] * p['avg_cost'] for p in positions)
+    total_cost = sum(p["qty"] * p["avg_cost"] for p in positions)
     enriched = []
     total_mv = 0
     for p in positions:
-        ticker = p['ticker']
+        ticker = p["ticker"]
         cur_price = None
         try:
             import yfinance as yf
+
             info = yf.Ticker(ticker).info or {}
-            cur_price = info.get('regularMarketPrice') or info.get('currentPrice')
+            cur_price = info.get("regularMarketPrice") or info.get("currentPrice")
         except Exception:
             pass
-        mv = (cur_price * p['qty']) if cur_price else (p['avg_cost'] * p['qty'])
-        unreal = (mv - p['qty'] * p['avg_cost']) if cur_price else 0.0
-        enriched.append({**p, 'current_price': cur_price, 'market_value': mv, 'unrealized_pnl': unreal})
+        mv = (cur_price * p["qty"]) if cur_price else (p["avg_cost"] * p["qty"])
+        unreal = (mv - p["qty"] * p["avg_cost"]) if cur_price else 0.0
+        enriched.append({**p, "current_price": cur_price, "market_value": mv, "unrealized_pnl": unreal})
         total_mv += mv
 
     lines = [f"Portfolio — {len(positions)} active positions"]
     lines.append(f"  Cost basis: ${total_cost:,.2f}")
     lines.append(f"  Market value: ${total_mv:,.2f}")
     if total_cost > 0:
-        lines.append(f"  Unrealized PnL: {total_mv - total_cost:+,.2f} ({(total_mv/total_cost - 1)*100:+.1f}%)")
+        lines.append(f"  Unrealized PnL: {total_mv - total_cost:+,.2f} ({(total_mv / total_cost - 1) * 100:+.1f}%)")
     lines.append("")
     lines.append("Positions (% of book):")
-    for p in sorted(enriched, key=lambda x: x['market_value'], reverse=True):
-        pct = (p['market_value'] / total_mv * 100) if total_mv else 0
-        cur = f"${p['current_price']:.2f}" if p.get('current_price') else "?"
-        avg = p['avg_cost']
-        upnl = p['unrealized_pnl']
-        upnl_pct = (upnl / (p['qty'] * avg) * 100) if avg else 0
+    for p in sorted(enriched, key=lambda x: x["market_value"], reverse=True):
+        pct = (p["market_value"] / total_mv * 100) if total_mv else 0
+        cur = f"${p['current_price']:.2f}" if p.get("current_price") else "?"
+        avg = p["avg_cost"]
+        upnl = p["unrealized_pnl"]
+        upnl_pct = (upnl / (p["qty"] * avg) * 100) if avg else 0
         lines.append(
-            f"  {p['ticker']:6s} {p['qty']:g}@${avg:.2f} now {cur} "
-            f"upnl={upnl:+,.0f} ({upnl_pct:+.1f}%) [{pct:.1f}%]"
+            f"  {p['ticker']:6s} {p['qty']:g}@${avg:.2f} now {cur} upnl={upnl:+,.0f} ({upnl_pct:+.1f}%) [{pct:.1f}%]"
         )
     msg = "\n".join(lines)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
 
 async def cmd_position_history(update, ctx):
     """Phase B5 — Show position history. Usage: /position_history [TICKER]"""
     from shared import storage as storage_mod
+
     parts = update.message.text.split()
     ticker = parts[1].upper() if len(parts) > 1 else None
     positions = storage_mod.get_positions_history(ticker=ticker, limit=20)
     if not positions:
-        await update.message.reply_text(
-            "No position history" + (f" for {ticker}" if ticker else "") + "."
-        )
+        await update.message.reply_text("No position history" + (f" for {ticker}" if ticker else "") + ".")
         return
     lines = ["Position history" + (f" — {ticker}" if ticker else "")]
     for p in positions:
-        state = "CLOSED" if (p.get('status') == 'closed') else f"OPEN ({p['qty']:g})"
-        rpnl = p.get('realized_pnl') or 0
-        lines.append(
-            f"  #{p['id']} {p['ticker']} {state} entry={p['qty']:g}@${p['avg_cost']:.2f} "
-            f"rpnl={rpnl:+,.2f}"
-        )
+        state = "CLOSED" if (p.get("status") == "closed") else f"OPEN ({p['qty']:g})"
+        rpnl = p.get("realized_pnl") or 0
+        lines.append(f"  #{p['id']} {p['ticker']} {state} entry={p['qty']:g}@${p['avg_cost']:.2f} rpnl={rpnl:+,.2f}")
     msg = "\n".join(lines)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 
 async def cmd_bias_review(update, ctx):
@@ -2013,8 +1961,9 @@ async def cmd_bias_review(update, ctx):
     parts = update.message.text.split()
     ticker = parts[1].upper() if len(parts) > 1 else None
     from shared import storage as storage_mod
+
     stats = storage_mod.get_bias_stats(ticker=ticker, since_days=180)
-    if stats['total_decisions_analyzed'] == 0:
+    if stats["total_decisions_analyzed"] == 0:
         await update.message.reply_text(
             "No tagged decisions" + (f" for {ticker}" if ticker else "") + " in last 180 days."
         )
@@ -2023,23 +1972,23 @@ async def cmd_bias_review(update, ctx):
     lines = ["Bias review" + (f" — {ticker}" if ticker else "") + " (last 180d)"]
     lines.append(f"  Decisions with bias tags: {stats['total_with_tags']}/{stats['total_decisions_analyzed']}")
     lines.append("")
-    if stats['bias_counts']:
-        total = sum(c for _, c in stats['bias_counts'])
+    if stats["bias_counts"]:
+        total = sum(c for _, c in stats["bias_counts"])
         lines.append("Bias frequencies:")
-        for tag, n in stats['bias_counts']:
+        for tag, n in stats["bias_counts"]:
             pct = (n / total * 100) if total else 0
             lines.append(f"  {tag:25s} n={n:3d}  ({pct:.1f}%)")
         lines.append("")
-    if stats['by_decision_type']:
+    if stats["by_decision_type"]:
         lines.append("By decision type:")
-        for dtype, biases in stats['by_decision_type'].items():
+        for dtype, biases in stats["by_decision_type"].items():
             top = sorted(biases.items(), key=lambda x: -x[1])[:3]
             top_str = ", ".join(f"{t}({n})" for t, n in top)
             lines.append(f"  {dtype:20s} {top_str}")
     msg = "\n".join(lines)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 
 async def cmd_thesis_premortem(update, ctx):
@@ -2054,6 +2003,7 @@ async def cmd_thesis_premortem(update, ctx):
         await update.message.reply_text(f"Invalid id: {parts[1]}")
         return
     from shared import storage as storage_mod
+
     pm_json = storage_mod.get_thesis_pre_mortem(tid)
     if not pm_json:
         await update.message.reply_text(
@@ -2061,6 +2011,7 @@ async def cmd_thesis_premortem(update, ctx):
         )
         return
     from intelligence import pre_mortem as pm_mod
+
     display = pm_mod.format_pre_mortem_display(pm_json)
     if not display:
         await update.message.reply_text("Pre-mortem stored but parse failed.")
@@ -2070,10 +2021,10 @@ async def cmd_thesis_premortem(update, ctx):
     await update.message.reply_text(display)
 
 
-
 async def cmd_insider_buy_cluster(update, ctx):
     """Phase C7 — List BUY clusters. Usage: /insider_buy_cluster [TICKER]"""
     from shared import storage as storage_mod
+
     parts = update.message.text.split()
     ticker = parts[1].upper() if len(parts) > 1 else None
     if ticker:
@@ -2083,8 +2034,8 @@ async def cmd_insider_buy_cluster(update, ctx):
             return
         lines = [f"BUY CLUSTERS — {ticker} (last 20)"]
         for r in rows:
-            ret30 = f"{r['return_30d']:+.2%}" if r['return_30d'] is not None else "pending"
-            ret90 = f"{r['return_90d']:+.2%}" if r['return_90d'] is not None else "pending"
+            ret30 = f"{r['return_30d']:+.2%}" if r["return_30d"] is not None else "pending"
+            ret90 = f"{r['return_90d']:+.2%}" if r["return_90d"] is not None else "pending"
             lines.append(
                 f"\n#{r['id']} {r['detected_at'][:10]} | {r['cluster_strength']:8s} | "
                 f"{r['distinct_buyers']} buyers ${r['total_buy_m']:.1f}M @ ${r['price_at_detection'] or 0:.2f}"
@@ -2092,14 +2043,16 @@ async def cmd_insider_buy_cluster(update, ctx):
             lines.append(f"   J+30: {ret30}  |  J+90: {ret90}")
         msg = "\n".join(lines)
     else:
-        from datetime import datetime, timedelta
-        cutoff = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=90)).strftime('%Y-%m-%d')
+        from datetime import datetime, timedelta, timezone
+
+        cutoff = (datetime.now(UTC).replace(tzinfo=None) - timedelta(days=90)).strftime("%Y-%m-%d")
         import sqlite3
+
         conn = sqlite3.connect(storage_mod._DB_PATH)
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
-            "SELECT * FROM insider_buy_clusters_log WHERE date(detected_at) >= ? "
-            "ORDER BY detected_at DESC LIMIT 20", (cutoff,)
+            "SELECT * FROM insider_buy_clusters_log WHERE date(detected_at) >= ? ORDER BY detected_at DESC LIMIT 20",
+            (cutoff,),
         ).fetchall()
         conn.close()
         if not rows:
@@ -2107,13 +2060,14 @@ async def cmd_insider_buy_cluster(update, ctx):
             return
         lines = ["BUY CLUSTERS — last 90 days"]
         for r in rows:
-            ret30 = f"{r['return_30d']:+.2%}" if r['return_30d'] is not None else "pending"
+            ret30 = f"{r['return_30d']:+.2%}" if r["return_30d"] is not None else "pending"
             lines.append(
                 f"\n{r['ticker']:6s} {r['detected_at'][:10]} {r['cluster_strength']:8s} "
                 f"n={r['distinct_buyers']} ${r['total_buy_m']:.1f}M J+30={ret30}"
             )
         msg = "\n".join(lines)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
 
@@ -2121,8 +2075,9 @@ async def cmd_insider_buy_cluster_stats(update, ctx):
     """Phase C7 — Empirical alpha summary across all logged BUY clusters."""
     from intelligence import insider_buy_cluster as ibc
     from shared import storage as storage_mod
+
     stats = storage_mod.get_buy_cluster_stats(since_days=365)
-    if stats['n_total'] == 0:
+    if stats["n_total"] == 0:
         await update.message.reply_text(
             "No BUY clusters logged yet (last 365d).\nFirst clusters will appear after cron 6:20."
         )
@@ -2131,20 +2086,21 @@ async def cmd_insider_buy_cluster_stats(update, ctx):
     await update.message.reply_text(msg)
 
 
-
 async def scheduled_8k_scan_job():
     """Phase C9 — Daily cron 6:30: scan watchlist for new 8-K filings, push high+catastrophic alerts."""
     from intelligence import filings_8k
+
     insider_list = None
     for name in ("INSIDER_TICKERS", "WATCHLIST_INSIDERS"):
         try:
             mod = __import__("shared.config", fromlist=[name])
             insider_list = getattr(mod, name)
             break
-        except (ImportError, AttributeError):
+        except ImportError, AttributeError:
             pass
     if insider_list is None:
         from shared.config import WATCHLIST
+
         insider_list = WATCHLIST[:15]
     try:
         new_logged = filings_8k.scan_and_log_8k_filings(insider_list, days=7)
@@ -2173,9 +2129,11 @@ async def cmd_recent_8k(update, ctx):
             ticker = p_up
     from intelligence import filings_8k
     from shared import storage as storage_mod
+
     rows = storage_mod.get_recent_8k_filings_db(ticker=ticker, severity=severity, days=60, limit=30)
     msg = filings_8k.format_8k_list(rows)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
 
@@ -2188,14 +2146,15 @@ async def cmd_eight_k_history(update, ctx):
     ticker = parts[1].upper()
     from intelligence import filings_8k
     from shared import storage as storage_mod
+
     rows = storage_mod.get_recent_8k_filings_db(ticker=ticker, days=365, limit=50)
     if not rows:
         await update.message.reply_text(f"No 8-K filings logged for {ticker} in last 365d.")
         return
     msg = filings_8k.format_8k_list(rows)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 
 async def cmd_analyze_debate(update, ctx):
@@ -2209,6 +2168,7 @@ async def cmd_analyze_debate(update, ctx):
     try:
         from intelligence import analyze as analyze_mod_local, debate as debate_mod
         from shared import storage as storage_mod
+
         data = analyze_mod_local.fetch_stock_data(ticker)
         if not data:
             await update.message.reply_text(f"No data available for {ticker}.")
@@ -2219,13 +2179,15 @@ async def cmd_analyze_debate(update, ctx):
             await update.message.reply_text("Debate produced no rounds. Aborting.")
             return
         debate_id = storage_mod.save_debate_transcript(
-            ticker=ticker, transcript_dict=result,
+            ticker=ticker,
+            transcript_dict=result,
             convergence_score=result.get("convergence_score"),
             verdict=result.get("verdict"),
         )
         chunks = debate_mod.format_debate_for_telegram(result)
         for c in chunks:
-            if len(c) > 3900: c = c[:3900] + "\n[truncated]"
+            if len(c) > 3900:
+                c = c[:3900] + "\n[truncated]"
             await update.message.reply_text(c)
         await update.message.reply_text(f"Debate #{debate_id} saved. Replayable via /debate_replay {debate_id}")
     except Exception as e:
@@ -2236,6 +2198,7 @@ async def cmd_analyze_debate(update, ctx):
 async def cmd_debate_replay(update, ctx):
     """Phase C11 — Replay stored debate by id. Usage: /debate_replay <id>"""
     import json
+
     parts = update.message.text.split()
     if len(parts) < 2:
         await update.message.reply_text("Usage: /debate_replay <debate_id>")
@@ -2247,6 +2210,7 @@ async def cmd_debate_replay(update, ctx):
         return
     from intelligence import debate as debate_mod
     from shared import storage as storage_mod
+
     rows = storage_mod.get_recent_debates(limit=50)
     target = next((r for r in rows if r["id"] == did), None)
     if not target:
@@ -2255,9 +2219,9 @@ async def cmd_debate_replay(update, ctx):
     transcript = json.loads(target["transcript_json"])
     chunks = debate_mod.format_debate_for_telegram(transcript)
     for c in chunks:
-        if len(c) > 3900: c = c[:3900] + "\n[truncated]"
+        if len(c) > 3900:
+            c = c[:3900] + "\n[truncated]"
         await update.message.reply_text(c)
-
 
 
 async def cmd_risk_check(update, ctx):
@@ -2280,56 +2244,61 @@ async def cmd_risk_check(update, ctx):
         await update.message.reply_text(f"Invalid USD amount: {parts[3]}")
         return
     reasoning = parts[4] if len(parts) > 4 else ""
-    await update.message.reply_text(
-        f"Running risk check on {ticker} {side.upper()} ${proposed_usd:,.0f} (~15-30s)..."
-    )
+    await update.message.reply_text(f"Running risk check on {ticker} {side.upper()} ${proposed_usd:,.0f} (~15-30s)...")
     try:
         from intelligence import risk_manager
         from shared import storage as storage_mod
+
         result = risk_manager.run_risk_check(ticker, side, proposed_usd, reasoning)
         positions = storage_mod.get_active_positions() or []
         thesis = storage_mod.get_thesis_by_ticker(ticker, status="active")
         snapshot = {"positions": positions, "thesis": thesis}
         rcid = storage_mod.save_risk_check(
-            ticker=ticker, side=side, proposed_usd=proposed_usd,
+            ticker=ticker,
+            side=side,
+            proposed_usd=proposed_usd,
             verdict=result.get("verdict", "unknown"),
-            risk_check_dict=result, portfolio_snapshot=snapshot
+            risk_check_dict=result,
+            portfolio_snapshot=snapshot,
         )
         msg = risk_manager.format_risk_check_display(result, ticker, side, proposed_usd)
         msg += f"\n\nRisk check #{rcid} saved."
-        if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+        if len(msg) > 3900:
+            msg = msg[:3900] + "\n[truncated]"
         await update.message.reply_text(msg)
     except Exception as e:
         log.warning(f"risk_check error: {e}")
         await update.message.reply_text(f"Error: {e}")
 
 
-
 async def cmd_tiers(update, ctx):
     """Phase Tickers Tiered — display ticker tier breakdown."""
     from shared import config as cfg_mod
+
     bd = cfg_mod.get_tier_breakdown()
     lines = ["TICKER UNIVERSE — Tiered Architecture"]
     lines.append(f"Total: {bd['total']} tickers\n")
     lines.append(f"━━━ T1 CORE ({bd['counts']['core']}) — scan complet ━━━")
-    for cat, tks in (bd['core'] or {}).items():
+    for cat, tks in (bd["core"] or {}).items():
         if isinstance(tks, list):
             lines.append(f"  {cat:22s} {tks}")
     lines.append(f"\n━━━ T2 WATCH ({bd['counts']['watch']}) — scan moyen ━━━")
     lines.append("  (flat list, see /tiers_watch for full list)")
     lines.append(f"\n━━━ T3 EXTENDED ({bd['counts']['extended']}) — scan minimal ━━━")
-    for cat, tks in (bd['extended'] or {}).items():
+    for cat, tks in (bd["extended"] or {}).items():
         if isinstance(tks, list):
             lines.append(f"  {cat:22s} {tks}")
     msg = "\n".join(lines)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
 
 async def cmd_tiers_watch(update, ctx):
     """Full list of T2 watch tickers."""
     from shared import config as cfg_mod
-    watch = cfg_mod.get_tickers('watch')
+
+    watch = cfg_mod.get_tickers("watch")
     msg = f"T2 WATCH ({len(watch)} tickers):\n\n" + ", ".join(watch)
     await update.message.reply_text(msg)
 
@@ -2340,17 +2309,15 @@ async def cmd_promote(update, ctx):
     parts = update.message.text.split()
     if len(parts) < 3:
         await update.message.reply_text(
-            "Usage: /promote TICKER tier\n"
-            "  tier = core | watch | extended\n"
-            "  Example: /promote PLTR core"
+            "Usage: /promote TICKER tier\n  tier = core | watch | extended\n  Example: /promote PLTR core"
         )
         return
     ticker = parts[1].upper()
     new_tier = parts[2].lower()
     from shared import config as cfg_mod
+
     ok, msg = cfg_mod.promote_ticker(ticker, new_tier)
     await update.message.reply_text(("OK " if ok else "FAIL ") + msg)
-
 
 
 async def cmd_asymmetry(update, ctx):
@@ -2358,6 +2325,7 @@ async def cmd_asymmetry(update, ctx):
     parts = update.message.text.split()
     from intelligence import asymmetry as asym_mod
     from shared import storage as storage_mod
+
     if len(parts) >= 2:
         ticker = parts[1].upper()
         thesis = storage_mod.get_thesis_by_ticker(ticker, status="active")
@@ -2371,9 +2339,9 @@ async def cmd_asymmetry(update, ctx):
         await update.message.reply_text("Computing portfolio-wide asymmetry...")
         results = asym_mod.compute_portfolio_asymmetry()
         msg = asym_mod.format_portfolio_asymmetry(results)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 
 async def cmd_brief(update, ctx):
@@ -2381,21 +2349,23 @@ async def cmd_brief(update, ctx):
     await update.message.reply_text("Building morning brief (10-20s)...")
     try:
         from intelligence import morning_brief as mb
+
         brief = mb.build_brief()
         chunks = mb.format_brief(brief)
         for c in chunks:
-            if len(c) > 3900: c = c[:3900] + "\n[truncated]"
+            if len(c) > 3900:
+                c = c[:3900] + "\n[truncated]"
             await update.message.reply_text(c)
     except Exception as e:
         log.warning(f"brief error: {e}")
         await update.message.reply_text(f"Brief failed: {e}")
 
 
-
 async def scheduled_classify_signal_types_job():
     """Phase Digestion 3a — Classify signals with signal_type=NULL every 30min."""
     try:
         from intelligence import signal_classify
+
         n_classified, types = signal_classify.classify_pending_signals(limit=30)
         if n_classified > 0:
             log.info(f"signal_type classifier: {n_classified} classified, distribution={types}")
@@ -2407,6 +2377,7 @@ async def scheduled_recompute_materiality_boost_job():
     """Phase Digestion 3b — Recompute corroboration multipliers after echo clusters update."""
     try:
         from intelligence import materiality_boost
+
         n = materiality_boost.recompute_boosts_for_clustered_signals()
         if n > 0:
             log.info(f"materiality_boost: {n} signals re-boosted")
@@ -2420,7 +2391,7 @@ async def cmd_signals_by_type(update, ctx):
     if len(parts) < 2:
         await update.message.reply_text(
             "Usage: /signals_by_type catalyst|data|narrative|opinion [hours=72]\n"
-            "Returns signals sorted by adjusted materiality (score × corroboration boost)."
+            "Returns signals sorted by adjusted materiality (score x corroboration boost)."
         )
         return
     sig_type = parts[1].lower()
@@ -2429,6 +2400,7 @@ async def cmd_signals_by_type(update, ctx):
         return
     hours = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 72
     from shared import storage as storage_mod
+
     rows = storage_mod.get_signals_by_type(sig_type, since_hours=hours, limit=20)
     if not rows:
         await update.message.reply_text(f"No '{sig_type}' signals in last {hours}h.")
@@ -2443,15 +2415,16 @@ async def cmd_signals_by_type(update, ctx):
         lines.append(f"\n[adj={adj:.1f} raw={score} boost={boost:.1f}x] {src}")
         lines.append(f"  {title}")
     msg = "\n".join(lines)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 
 async def scheduled_materiality_v2_job():
     """Phase Digestion 3c — Score signals with structured rubric every 1h."""
     try:
         from intelligence import materiality_v2
+
         s, f, total = materiality_v2.score_pending_signals_v2(limit=30)
         if total > 0:
             log.info(f"materiality_v2: {s} scored, {f} failed of {total}")
@@ -2464,8 +2437,7 @@ async def cmd_materiality_debug(update, ctx):
     parts = update.message.text.split()
     if len(parts) < 2:
         await update.message.reply_text(
-            "Usage: /materiality_debug TICKER\n"
-            "Shows last 5 signals mentioning TICKER with full materiality breakdown."
+            "Usage: /materiality_debug TICKER\nShows last 5 signals mentioning TICKER with full materiality breakdown."
         )
         return
     ticker = parts[1].upper().strip()
@@ -2474,6 +2446,7 @@ async def cmd_materiality_debug(update, ctx):
 
     from intelligence import materiality_v2
     from shared import storage as storage_mod
+
     conn = sqlite3.connect(storage_mod._DB_PATH)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
@@ -2482,7 +2455,8 @@ async def cmd_materiality_debug(update, ctx):
         "       s.materiality_boost, src.name AS source "
         "FROM signals s LEFT JOIN sources src ON s.source_id = src.id "
         "WHERE s.entities LIKE ? "
-        "ORDER BY s.timestamp DESC LIMIT 5", (f'%{ticker}%',)
+        "ORDER BY s.timestamp DESC LIMIT 5",
+        (f"%{ticker}%",),
     ).fetchall()
     conn.close()
     if not rows:
@@ -2492,26 +2466,30 @@ async def cmd_materiality_debug(update, ctx):
     for r in rows:
         lines.append(f"\n[#{r['id']}] {(r['title'] or '?')[:80]}")
         lines.append(f"  src={r['source']} | type={r['signal_type'] or '?'} | raw_score={r['score']}")
-        if r['impact_magnitude'] is not None:
+        if r["impact_magnitude"] is not None:
             composite = materiality_v2.compute_composite_score(dict(r))
-            reasoning = ''
+            reasoning = ""
             try:
-                if r['materiality_breakdown']:
-                    b = json.loads(r['materiality_breakdown'])
-                    reasoning = b.get('reasoning', '')[:120]
+                if r["materiality_breakdown"]:
+                    b = json.loads(r["materiality_breakdown"])
+                    reasoning = b.get("reasoning", "")[:120]
             except Exception:
                 pass
-            boost = r['materiality_boost'] or 1.0
-            adj = composite * boost if composite else 'na'
-            lines.append(f"  impact={r['impact_magnitude']:.0f}/5 | reversibility={r['reversibility']:.0f}/5 | "
-                        f"time={r['time_to_realization']} | composite={composite}/10 | boost={boost:.1f}x | adj={adj}")
+            boost = r["materiality_boost"] or 1.0
+            adj = composite * boost if composite else "na"
+            lines.append(
+                f"  impact={r['impact_magnitude']:.0f}/5 | reversibility={r['reversibility']:.0f}/5 | "
+                f"time={r['time_to_realization']} | composite={composite}/10 | boost={boost:.1f}x | adj={adj}"
+            )
             if reasoning:
                 lines.append(f"  └ {reasoning}")
         else:
             lines.append("  [v2 scoring pending — runs hourly cron]")
     msg = "\n".join(lines)
-    if len(msg) > 3900: msg = msg[:3900] + "\n[truncated]"
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
+
 
 async def post_init(app):
     """Run AFTER event loop is started."""
@@ -2523,31 +2501,32 @@ async def post_init(app):
     sched = AsyncIOScheduler(timezone=os.environ.get("TZ", "Europe/Paris"))
     sched.add_job(heartbeat, "interval", hours=1)
     sched.add_job(ingest_gmail_job, "interval", hours=1)
-    sched.add_job(daily_digest_job, 'cron', hour='7,19', minute=0)
-    sched.add_job(daily_calendar_refresh_job, 'cron', hour=5, minute=0)
-    sched.add_job(daily_resolve_job, 'cron', hour=9, minute=0)
-    sched.add_job(resolve_journal_decisions_job, 'cron', hour=8, minute=0)
-    sched.add_job(recalibrate_credibility_brier_job, 'cron', day=1, hour=6, minute=0)
-    sched.add_job(update_echo_clusters_job, 'interval', hours=1)
-    sched.add_job(score_pending_signals_job, 'interval', hours=1)
-    sched.add_job(refresh_source_half_lives_job, 'cron', day_of_week='sun', hour=5, minute=0)
-    sched.add_job(scheduled_insider_refresh_job, 'cron', hour=6, minute=0)
-    sched.add_job(price_monitor_job, 'cron', hour='14-22', minute='*/15', day_of_week='mon-fri')
-    sched.add_job(daily_crypto_zone_job, 'cron', hour=10, minute=0)
-    sched.add_job(scheduled_buy_cluster_scan_job, 'cron', hour=6, minute=20)
-    sched.add_job(scheduled_resolve_buy_cluster_returns_job, 'cron', hour=8, minute=15)
-    sched.add_job(scheduled_8k_scan_job, 'cron', hour=6, minute=30)
-    sched.add_job(daily_backup_job, 'cron', hour=4, minute=0)
-    sched.add_job(weekly_handler_stats_job, 'cron', day_of_week='sun', hour=23, minute=0)
-    sched.add_job(weekly_kpi_status_job, 'cron', day_of_week='sun', hour=22, minute=30)
-    sched.add_job(weekly_cost_summary_job, 'cron', day_of_week='sun', hour=22, minute=0)
-    sched.add_job(scheduled_classify_signal_types_job, 'interval', minutes=30)
-    sched.add_job(scheduled_recompute_materiality_boost_job, 'interval', hours=1)
-    sched.add_job(scheduled_materiality_v2_job, 'interval', hours=1)
+    sched.add_job(daily_digest_job, "cron", hour="7,19", minute=0)
+    sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
+    sched.add_job(daily_resolve_job, "cron", hour=9, minute=0)
+    sched.add_job(resolve_journal_decisions_job, "cron", hour=8, minute=0)
+    sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=0)
+    sched.add_job(update_echo_clusters_job, "interval", hours=1)
+    sched.add_job(score_pending_signals_job, "interval", hours=1)
+    sched.add_job(refresh_source_half_lives_job, "cron", day_of_week="sun", hour=5, minute=0)
+    sched.add_job(scheduled_insider_refresh_job, "cron", hour=6, minute=0)
+    sched.add_job(price_monitor_job, "cron", hour="14-22", minute="*/15", day_of_week="mon-fri")
+    sched.add_job(daily_crypto_zone_job, "cron", hour=10, minute=0)
+    sched.add_job(scheduled_buy_cluster_scan_job, "cron", hour=6, minute=20)
+    sched.add_job(scheduled_resolve_buy_cluster_returns_job, "cron", hour=8, minute=15)
+    sched.add_job(scheduled_8k_scan_job, "cron", hour=6, minute=30)
+    sched.add_job(daily_backup_job, "cron", hour=4, minute=0)
+    sched.add_job(weekly_handler_stats_job, "cron", day_of_week="sun", hour=23, minute=0)
+    sched.add_job(weekly_kpi_status_job, "cron", day_of_week="sun", hour=22, minute=30)
+    sched.add_job(weekly_cost_summary_job, "cron", day_of_week="sun", hour=22, minute=0)
+    sched.add_job(scheduled_classify_signal_types_job, "interval", minutes=30)
+    sched.add_job(scheduled_recompute_materiality_boost_job, "interval", hours=1)
+    sched.add_job(scheduled_materiality_v2_job, "interval", hours=1)
     sched.start()
-    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, cost Sun 22:00, kpi_status Sun 22:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
+    log.info(
+        "Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, cost Sun 22:00, kpi_status Sun 22:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h"
+    )
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
-
 
 
 async def cmd_macro(update, context):
@@ -2567,7 +2546,7 @@ async def cmd_insider_digest(update, context):
         msg = format_daily_insider_digest(result)
     except Exception as e:
         msg = f"Error: {e}"
-    await update.message.reply_text(msg, parse_mode='Markdown')
+    await update.message.reply_text(msg, parse_mode="Markdown")
 
 
 async def scheduled_insider_refresh_job():
@@ -2576,18 +2555,18 @@ async def scheduled_insider_refresh_job():
         result = daily_insider_refresh()
         msg = format_daily_insider_digest(result)
         notify.send_text(msg)
-        log.info(f"scheduled_insider_refresh: {result['refreshed']} tickers, "
-                 f"{len(result['alerts'])} alerts")
+        log.info(f"scheduled_insider_refresh: {result['refreshed']} tickers, {len(result['alerts'])} alerts")
     except Exception as e:
         log.error(f"scheduled_insider_refresh failed: {e}")
+
 
 async def price_monitor_job():
     """Cron 15min mkt hours: check active theses for price crossings."""
     try:
         r = check_thesis_triggers()
-        if r['alerts']:
+        if r["alerts"]:
             log.info(f"price_monitor: {len(r['alerts'])} alerts fired: {r['alerts']}")
-        if r['fails']:
+        if r["fails"]:
             log.warning(f"price_monitor: failed tickers: {r['fails']}")
     except Exception as e:
         log.error(f"price_monitor_job: {e}")
@@ -2598,16 +2577,14 @@ async def cmd_price_check(update, ctx):
     await update.message.reply_text("Checking active theses...")
     try:
         r = check_thesis_triggers()
-        if r['theses_checked'] == 0:
+        if r["theses_checked"] == 0:
             await update.message.reply_text("No active theses.")
-        elif r['alerts']:
+        elif r["alerts"]:
             await update.message.reply_text(
                 f"{r['theses_checked']} theses checked, {len(r['alerts'])} alerts fired (see above)."
             )
         else:
-            await update.message.reply_text(
-                f"{r['theses_checked']} theses checked, no crossings."
-            )
+            await update.message.reply_text(f"{r['theses_checked']} theses checked, no crossings.")
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
@@ -2616,20 +2593,16 @@ async def cmd_override(update, ctx):
     """Capture override of a trigger: /override TICKER level reason"""
     parts = update.message.text.split(maxsplit=3)
     if len(parts) < 4:
-        await update.message.reply_text(
-            "Usage: /override <TICKER> <partial|full|stop> <reason>"
-        )
+        await update.message.reply_text("Usage: /override <TICKER> <partial|full|stop> <reason>")
         return
     ticker, level, reason = parts[1].upper(), parts[2].lower(), parts[3]
-    if level not in ('partial', 'full', 'stop'):
+    if level not in ("partial", "full", "stop"):
         await update.message.reply_text("level must be: partial / full / stop")
         return
     try:
         oid = record_override(ticker, level, reason)
         await update.message.reply_text(
-            f"✓ Override #{oid} captured: {ticker}/{level}\n"
-            f"  Reason: {reason}\n"
-            f"  Stored for BiasDetector training."
+            f"✓ Override #{oid} captured: {ticker}/{level}\n  Reason: {reason}\n  Stored for BiasDetector training."
         )
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
@@ -2643,10 +2616,10 @@ async def cmd_overrides(update, ctx):
         return
     lines = ["Recent overrides:"]
     for o in rows:
-        reason = (o['reason'] or '')[:55]
+        reason = (o["reason"] or "")[:55]
         lines.append(f"#{o['id']:3d} {o['ticker']:6s} {o['level']:7s} | {reason}")
         lines.append(f"    {o['created_at']}")
-    await update.message.reply_text('\n'.join(lines))
+    await update.message.reply_text("\n".join(lines))
 
 
 async def cmd_crypto(update, ctx):
@@ -2667,23 +2640,23 @@ async def daily_crypto_zone_job():
 
         # Add user's crypto exposure if any
         try:
-            crypto_tickers = ['BTC-USD', 'ETH-USD', 'MSTR', 'IBIT', 'ETHA', 'COIN']
+            crypto_tickers = ["BTC-USD", "ETH-USD", "MSTR", "IBIT", "ETHA", "COIN"]
             holdings = []
             for tk in crypto_tickers:
                 p = positions_mod.get_position(tk)
-                if p and p.get('qty', 0) > 0:
+                if p and p.get("qty", 0) > 0:
                     holdings.append(p)
             if holdings:
-                mv_total = sum(p.get('market_value') or 0 for p in holdings)
+                mv_total = sum(p.get("market_value") or 0 for p in holdings)
                 msg += "\n\n📊 Your crypto exposure:"
                 for p in holdings:
-                    mv = p.get('market_value') or 0
+                    mv = p.get("market_value") or 0
                     msg += f"\n  {p['ticker']:8s} qty={p.get('qty', 0):.3f}  MV=${mv:,.0f}"
                 msg += f"\n  Total: ${mv_total:,.0f}"
         except Exception as e:
             log.warning(f"crypto position lookup: {e}")
 
-        if z.get('zone') in ('TOP-ZONE', 'BOTTOM-ZONE'):
+        if z.get("zone") in ("TOP-ZONE", "BOTTOM-ZONE"):
             notify.send_text(f"🚨 CRYPTO ALERT\n\n{msg}")
             log.info(f"crypto alert fired: {z['zone']}")
         else:
@@ -2718,8 +2691,7 @@ async def cmd_position_buy(update, ctx):
         notes = parts[4] if len(parts) > 4 else None
         p = positions_mod.add_buy(ticker, qty, price, notes)
         await update.message.reply_text(
-            f"✓ Bought {qty:.3f} {ticker} @ ${price:.2f}\n"
-            f"  New qty: {p['qty']:.3f}, avg cost: ${p['avg_cost']:.2f}"
+            f"✓ Bought {qty:.3f} {ticker} @ ${price:.2f}\n  New qty: {p['qty']:.3f}, avg cost: ${p['avg_cost']:.2f}"
         )
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
@@ -2735,11 +2707,13 @@ async def cmd_position_sell(update, ctx):
         ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
         notes = parts[4] if len(parts) > 4 else None
         r = positions_mod.add_sell(ticker, qty, price, notes)
-        msg = (f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ ${r['sold_price']:.2f}\n"
-               f"  Avg cost was: ${r['avg_cost']:.2f}\n"
-               f"  Realized PnL (event): ${r['realized_pnl_event']:+,.2f}\n"
-               f"  Realized PnL (total): ${r['realized_pnl_total']:+,.2f}\n"
-               f"  Remaining: {r['remaining_qty']:.3f}" + ("  [CLOSED]" if r['closed'] else ""))
+        msg = (
+            f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ ${r['sold_price']:.2f}\n"
+            f"  Avg cost was: ${r['avg_cost']:.2f}\n"
+            f"  Realized PnL (event): ${r['realized_pnl_event']:+,.2f}\n"
+            f"  Realized PnL (total): ${r['realized_pnl_total']:+,.2f}\n"
+            f"  Remaining: {r['remaining_qty']:.3f}" + ("  [CLOSED]" if r["closed"] else "")
+        )
         await update.message.reply_text(msg)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
@@ -2788,34 +2762,39 @@ async def cmd_thesis_set(update, ctx):
         )
         return
     ticker, field, value = parts[1].upper(), parts[2].lower(), parts[3]
-    EDITABLE_NUM = {'target_price', 'target_partial', 'target_full', 'stop_price', 'entry_price', 'conviction'}
-    EDITABLE_TEXT = {'notes', 'horizon', 'key_drivers', 'invalidation_triggers', 'triggers_profit_take', 'status', 'direction'}
+    EDITABLE_NUM = {"target_price", "target_partial", "target_full", "stop_price", "entry_price", "conviction"}
+    EDITABLE_TEXT = {
+        "notes",
+        "horizon",
+        "key_drivers",
+        "invalidation_triggers",
+        "triggers_profit_take",
+        "status",
+        "direction",
+    }
     if field not in EDITABLE_NUM | EDITABLE_TEXT:
         await update.message.reply_text(
-            f"Field '{field}' not editable.\n"
-            f"Allowed: {sorted(EDITABLE_NUM | EDITABLE_TEXT)}"
+            f"Field '{field}' not editable.\nAllowed: {sorted(EDITABLE_NUM | EDITABLE_TEXT)}"
         )
         return
     if field in EDITABLE_NUM:
         try:
-            value = float(value) if field != 'conviction' else int(value)
+            value = float(value) if field != "conviction" else int(value)
         except ValueError:
             await update.message.reply_text(f"'{parts[3]}' is not a valid number for {field}")
             return
     from shared.storage import db
+
     with db() as cx:
         r = cx.execute("SELECT id FROM theses WHERE ticker=? AND status='active'", (ticker,)).fetchone()
         if not r:
             await update.message.reply_text(f"No active thesis for {ticker}")
             return
-        old = cx.execute(f"SELECT {field} FROM theses WHERE id=?", (r['id'],)).fetchone()
+        old = cx.execute(f"SELECT {field} FROM theses WHERE id=?", (r["id"],)).fetchone()
         old_val = old[0] if old else None
-        cx.execute(f"UPDATE theses SET {field}=?, last_reviewed=CURRENT_TIMESTAMP WHERE id=?",
-                   (value, r['id']))
+        cx.execute(f"UPDATE theses SET {field}=?, last_reviewed=CURRENT_TIMESTAMP WHERE id=?", (value, r["id"]))
         cx.commit()
-    await update.message.reply_text(
-        f"✓ {ticker} {field}: {old_val} → {value}"
-    )
+    await update.message.reply_text(f"✓ {ticker} {field}: {old_val} → {value}")
 
 
 async def cmd_analyze(update, ctx):
@@ -2854,16 +2833,18 @@ async def cmd_insider_cluster(update, ctx):
 async def scheduled_buy_cluster_scan_job():
     """Daily scan: detect + log + alert on new BUY clusters (CMP 30d window, 7d dedup)."""
     from intelligence import insider_buy_cluster as ibc
+
     insider_list = None
     for name in ("INSIDER_TICKERS", "WATCHLIST_INSIDERS"):
         try:
             mod = __import__("shared.config", fromlist=[name])
             insider_list = getattr(mod, name)
             break
-        except (ImportError, AttributeError):
+        except ImportError, AttributeError:
             pass
     if insider_list is None:
         from shared.config import WATCHLIST
+
         insider_list = WATCHLIST[:15]
     try:
         found = ibc.detect_and_log_buy_clusters(insider_list, window_days=30, dedup_days=7)
@@ -2883,6 +2864,7 @@ async def scheduled_buy_cluster_scan_job():
 async def scheduled_resolve_buy_cluster_returns_job():
     """Daily cron: resolve return_30d and return_90d for pending BUY clusters."""
     from intelligence import insider_buy_cluster as ibc
+
     try:
         r30 = ibc.resolve_pending_returns(30)
         r90 = ibc.resolve_pending_returns(90)
@@ -2905,15 +2887,17 @@ async def scheduled_resolve_buy_cluster_returns_job():
 async def cmd_credit(update, ctx):
     try:
         from shared import macro
+
         r = macro.get_credit_regime()
         await update.message.reply_text(macro.format_credit_regime(r))
     except Exception as e:
-        await update.message.reply_text('Error: ' + str(e))
+        await update.message.reply_text("Error: " + str(e))
 
 
 async def cmd_materiality(update, ctx):
     """View materiality scoring: /materiality (top 5 last 24h) or /materiality SIGNAL_ID"""
     from shared import storage as storage_mod
+
     parts = update.message.text.split()
 
     if len(parts) == 1:
@@ -2954,7 +2938,10 @@ async def cmd_materiality(update, ctx):
         "  regime_fit:     " + ("%.2f" % (m.get("regime_relevance") or 0)),
         "  type: " + str(m.get("signal_type") or "?") + " | polarity: " + str(m.get("polarity") or "?"),
         "  primary: " + str(m.get("primary_ticker") or "-") + " | noise: " + str(bool(m.get("is_noise"))),
-        "  regime: " + str(m.get("regime_snapshot") or "?") + " | credit: " + str(m.get("credit_regime_snapshot") or "?"),
+        "  regime: "
+        + str(m.get("regime_snapshot") or "?")
+        + " | credit: "
+        + str(m.get("credit_regime_snapshot") or "?"),
     ]
     if m.get("why_this_matters"):
         lines.append("")
@@ -2966,16 +2953,14 @@ async def cmd_materiality(update, ctx):
 def main():
     storage.log_event("startup", {"phase": "2"})
     config.load()
-    log.info(f"Bot starting. Tickers: {len(config.get_tickers('core'))} core + {len(config.get_tickers('watch'))} watch + {len(config.get_tickers('extended'))} extended = {len(config.get_tickers('all'))} total")
-
-    app = (
-        Application.builder()
-        .token(config.telegram_token())
-        .post_init(post_init)
-        .build()
+    log.info(
+        f"Bot starting. Tickers: {len(config.get_tickers('core'))} core + {len(config.get_tickers('watch'))} watch + {len(config.get_tickers('extended'))} extended = {len(config.get_tickers('all'))} total"
     )
+
+    app = Application.builder().token(config.telegram_token()).post_init(post_init).build()
     # Phase Solidification P0 #3 — handler usage telemetry (middleware in group=-1)
     from telegram.ext import MessageHandler, filters
+
     app.add_handler(MessageHandler(filters.COMMAND, log_handler_call_middleware), group=-1)
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
@@ -3051,5 +3036,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

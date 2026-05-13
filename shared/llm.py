@@ -1,4 +1,5 @@
 """Wrapper Claude. Phase A2 — tier routing + cost logging + prefix caching."""
+
 import json
 import os
 import sqlite3
@@ -13,10 +14,10 @@ _client = None
 _DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "bot.db")
 
 _TASK_TO_TIER = {
-    'signal_scoring': 'extract',
-    'why_matters': 'enrich',
-    'synthesis': 'synthesize',
-    'deep_analysis': 'synthesize',
+    "signal_scoring": "extract",
+    "why_matters": "enrich",
+    "synthesis": "synthesize",
+    "deep_analysis": "synthesize",
 }
 
 
@@ -31,39 +32,37 @@ def _resolve_model(tier=None, task=None):
     """Return (model_id, resolved_tier). tier overrides task."""
     cfg = config.load()
     if tier:
-        m = cfg.get('tiers', {}).get(tier)
+        m = cfg.get("tiers", {}).get(tier)
         if m:
             return m, tier
     if task:
-        m = cfg.get('models', {}).get(task)
+        m = cfg.get("models", {}).get(task)
         if m:
-            return m, _TASK_TO_TIER.get(task, 'enrich')
-        return cfg.get('models', {}).get('synthesis'), 'enrich'
-    return cfg.get('models', {}).get('synthesis'), 'enrich'
+            return m, _TASK_TO_TIER.get(task, "enrich")
+        return cfg.get("models", {}).get("synthesis"), "enrich"
+    return cfg.get("models", {}).get("synthesis"), "enrich"
 
 
 def _compute_cost(model, input_tokens, output_tokens, cached_tokens=0):
     cfg = config.load()
-    pricing = cfg.get('pricing', {}).get(model)
+    pricing = cfg.get("pricing", {}).get(model)
     if not pricing:
         return None
     fresh_input = max(0, input_tokens - cached_tokens)
-    in_cost = fresh_input * pricing.get('input', 0) / 1_000_000
-    cache_cost = cached_tokens * pricing.get('cached_input', 0) / 1_000_000
-    out_cost = output_tokens * pricing.get('output', 0) / 1_000_000
+    in_cost = fresh_input * pricing.get("input", 0) / 1_000_000
+    cache_cost = cached_tokens * pricing.get("cached_input", 0) / 1_000_000
+    out_cost = output_tokens * pricing.get("output", 0) / 1_000_000
     return in_cost + cache_cost + out_cost
 
 
-def _log_call(tier, model, task, input_tokens, output_tokens, cached_tokens,
-              cost_usd, elapsed_ms, error=None):
+def _log_call(tier, model, task, input_tokens, output_tokens, cached_tokens, cost_usd, elapsed_ms, error=None):
     try:
         conn = sqlite3.connect(_DB_PATH)
         conn.execute(
             "INSERT INTO llm_calls (tier, model, task, input_tokens, output_tokens, "
             "cached_tokens, cost_usd, elapsed_ms, error) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (tier, model, task, input_tokens, output_tokens, cached_tokens,
-             cost_usd, elapsed_ms, error)
+            (tier, model, task, input_tokens, output_tokens, cached_tokens, cost_usd, elapsed_ms, error),
         )
         conn.commit()
         conn.close()
@@ -71,9 +70,14 @@ def _log_call(tier, model, task, input_tokens, output_tokens, cached_tokens,
         pass
 
 
-def call(prompt: str, task: str | None = None, tier: str | None = None,
-         max_tokens: int = 1500, system: str | None = None,
-         cache_invariant: str | None = None) -> str:
+def call(
+    prompt: str,
+    task: str | None = None,
+    tier: str | None = None,
+    max_tokens: int = 1500,
+    system: str | None = None,
+    cache_invariant: str | None = None,
+) -> str:
     """Phase A2: tier-routed Claude call with optional prefix caching.
 
     Args:
@@ -90,10 +94,7 @@ def call(prompt: str, task: str | None = None, tier: str | None = None,
     model, resolved_tier = _resolve_model(tier=tier, task=task)
 
     if cache_invariant:
-        system_blocks = [
-            {"type": "text", "text": cache_invariant,
-             "cache_control": {"type": "ephemeral"}}
-        ]
+        system_blocks = [{"type": "text", "text": cache_invariant, "cache_control": {"type": "ephemeral"}}]
         if system:
             system_blocks.append({"type": "text", "text": system})
         kwargs = {
@@ -118,11 +119,11 @@ def call(prompt: str, task: str | None = None, tier: str | None = None,
     try:
         msg = client().messages.create(**kwargs)
         text = msg.content[0].text.strip()
-        usage = getattr(msg, 'usage', None)
+        usage = getattr(msg, "usage", None)
         if usage:
-            in_tok = getattr(usage, 'input_tokens', 0) or 0
-            out_tok = getattr(usage, 'output_tokens', 0) or 0
-            cached_tok = getattr(usage, 'cache_read_input_tokens', 0) or 0
+            in_tok = getattr(usage, "input_tokens", 0) or 0
+            out_tok = getattr(usage, "output_tokens", 0) or 0
+            cached_tok = getattr(usage, "cache_read_input_tokens", 0) or 0
         return text
     except Exception as e:
         error = f"{type(e).__name__}: {str(e)[:200]}"
@@ -130,27 +131,43 @@ def call(prompt: str, task: str | None = None, tier: str | None = None,
     finally:
         elapsed_ms = int((time.time() - t0) * 1000)
         cost = _compute_cost(model, in_tok, out_tok, cached_tok)
-        _log_call(resolved_tier, model, task, in_tok, out_tok, cached_tok,
-                  cost, elapsed_ms, error)
+        _log_call(resolved_tier, model, task, in_tok, out_tok, cached_tok, cost, elapsed_ms, error)
 
 
-def call_json(prompt: str, task: str | None = None, tier: str | None = None,
-              max_tokens: int = 800, system: str | None = None,
-              cache_invariant: str | None = None) -> dict:
+def call_json(
+    prompt: str,
+    task: str | None = None,
+    tier: str | None = None,
+    max_tokens: int = 800,
+    system: str | None = None,
+    cache_invariant: str | None = None,
+) -> dict:
     """Like call() but expects + parses JSON response."""
     if tier is None and task is None:
-        task = 'signal_scoring'
-    raw = call(prompt + "\n\nRéponds UNIQUEMENT en JSON valide, sans markdown.",
-               task=task, tier=tier, max_tokens=max_tokens,
-               system=system, cache_invariant=cache_invariant)
-    raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        task = "signal_scoring"
+    raw = call(
+        prompt + "\n\nRéponds UNIQUEMENT en JSON valide, sans markdown.",
+        task=task,
+        tier=tier,
+        max_tokens=max_tokens,
+        system=system,
+        cache_invariant=cache_invariant,
+    )
+    raw = raw.strip()
+    # Strip markdown code fences (was using lstrip with multi-char, fragile)
+    raw = raw.removeprefix("```json").removeprefix("```")
+    raw = raw.removesuffix("```").strip()
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
-        raw = call(prompt + "\n\nRetourne UNIQUEMENT un objet JSON valide.",
-                   task=task, tier=tier, max_tokens=max_tokens,
-                   system=system).strip()
-        raw = raw.lstrip("```json").lstrip("```").rstrip("```").strip()
+        raw = call(
+            prompt + "\n\nRetourne UNIQUEMENT un objet JSON valide.",
+            task=task,
+            tier=tier,
+            max_tokens=max_tokens,
+            system=system,
+        ).strip()
+        raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         return json.loads(raw)
 
 
@@ -175,6 +192,6 @@ def get_cost_summary(window_hours=24):
             WHERE datetime(created_at) >= datetime('now', '-{int(window_hours)} hours')
               AND error IS NOT NULL
         """).fetchone()
-        return {'rows': [dict(r) for r in rows], 'errors': errors[0] if errors else 0}
+        return {"rows": [dict(r) for r in rows], "errors": errors[0] if errors else 0}
     finally:
         conn.close()
