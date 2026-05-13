@@ -521,6 +521,27 @@ async def daily_digest_job():
     except Exception as e:
         log.warning(f"daily_digest_job error: {e}")
 
+
+async def daily_backup_job():
+    """Phase Solidification P0 #2 — Daily backup via scripts/backup.sh.
+    Runs 04:00 Paris before any market activity. Tarball + DB snapshot + 14d rotation.
+    """
+    try:
+        import subprocess
+        import os as _os
+        proj = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        result = subprocess.run(
+            ["bash", "scripts/backup.sh"],
+            cwd=proj, capture_output=True, text=True, timeout=180,
+        )
+        if result.returncode == 0:
+            log.info(f"daily_backup_job: success")
+        else:
+            log.error(f"daily_backup_job FAILED code={result.returncode} stderr={result.stderr[:300]}")
+    except Exception as e:
+        log.error(f"daily_backup_job exception: {e}")
+
+
 async def cmd_sources_health(update, ctx):
     """Health check newsletter sources."""
     import sqlite3
@@ -2050,11 +2071,12 @@ async def post_init(app):
     sched.add_job(scheduled_buy_cluster_scan_job, 'cron', hour=6, minute=20)
     sched.add_job(scheduled_resolve_buy_cluster_returns_job, 'cron', hour=8, minute=15)
     sched.add_job(scheduled_8k_scan_job, 'cron', hour=6, minute=30)
+    sched.add_job(daily_backup_job, 'cron', hour=4, minute=0)
     sched.add_job(scheduled_classify_signal_types_job, 'interval', minutes=30)
     sched.add_job(scheduled_recompute_materiality_boost_job, 'interval', hours=1)
     sched.add_job(scheduled_materiality_v2_job, 'interval', hours=1)
     sched.start()
-    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
+    log.info("Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, signal_classify 30min, materiality_boost 1h, materiality_v2 1h")
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 
 
