@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 from intelligence.bias_tagger import BIASES, auto_tag_biases
 
-
 # ─────────────────────────────────────────────────────────
 # Response shape handling
 # ─────────────────────────────────────────────────────────
