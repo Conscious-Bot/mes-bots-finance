@@ -132,3 +132,53 @@ signal_classify 30min, materiality_boost 1h, materiality_v2 1h
 - intelligence/learning: NEW horizon_for_signal_type 100%
 
 ### Total session : 14 items shipped (6 P0 + 4 P1 + 4 P2), 49 tests, 0 régression
+
+
+## Day 2 Marathon FINAL CLOSE v3 (13 May 2026 ~16h cumulative)
+
+### Total items shipped in session: ~28
+
+**Original Marathon (Day 2, ~14h)**: 18 items
+- P0 sweep 6/6 (Hypothesis tests, backup, telemetry, WAL, sources, failure modes)
+- P1 dette 4/4 (last_signal_at, materiality 100%, SemiAnalysis, dedup)
+- P2 ships 4/4 (kpi_status, horizon diversification, CI YAML, cost_trajectory)
+- ADR 001 PIT bitemporal (Proposed, implementation deferred to juin)
+- Quick wins 3/3 (gmail stats fix, glossary, data_lineage Mermaid)
+
+**Type hints + ruff marathon (~3h)**: 10 ships
+- Ship 1.x: ruff 421 -> 0 errors, shared/* type hints (storage, llm, prices, notify, config, math_helpers)
+- Ship 2.x: intelligence/* type hints (learning, materiality_v2, asymmetry, digest, journal, credibility)
+- Ship 3: docs/REFERENCE_SCHEMA (28 tables) + docs/HANDLERS_INDEX (67 handlers)
+- Ship 4: docs/PROCEDURES (runbook)
+- mypy gate: 0 errors on 12 strict-typed modules
+- CI YAML: ruff + mypy + pytest enforcement
+
+### Real bugs discovered & fixed: ~15
+- F811 cmd_position_buy/sell dup (Phase B5 regression noted in TODO)
+- F811 get_or_create_source + add_signal dead chain in storage.py
+- F821 timezone undefined in bot/main.py
+- B005 raw.lstrip("```json") fragile multi-char (2 occurrences in llm.py)
+- _resolve_model returns tuple[str, str], was typed -> str (wrong)
+- _compute_cost returns None when pricing missing, was typed -> float
+- prices.get_price_on_date returns tuple, was typed -> float | None (wrong)
+- prices.get_returns always returns dict, was typed Optional (wrong)
+- auto_register_predictions returns list[int], was typed -> int (wrong)
+- resolve_due_predictions returns dict, was typed -> list (wrong)
+- compute_thesis_asymmetry can return None, was typed required (wrong)
+- thesis_relative_position returns categorical str | None, was typed -> float (wrong)
+- score_materiality_structured returns None on parse fail, was typed required (wrong)
+- score_pending_signals_v2 returns tuple, was typed -> int (wrong)
+- credibility list_top/worst_sources return formatted str, was typed -> list[dict] (wrong)
+
+### Carry-forward (post-observation work):
+- Phase B5 journal logging in cmd_position_buy/sell (P1, ~1h)
+- Refactor bot/main.py 2428 LOC split (P3, ~4h)
+- Type hints remaining modules (P3, ~6h)
+- User TODO: setup GitHub repo + push (5 min, then CI active)
+
+### Observation mode active until June 10, 2026
+- 46 open predictions cluster J+28 due 10 juin
+- KPI #2 forecast: ON TRACK (40 due in 28d, target >=5)
+- Cost: $15/mo projected, 5% GREEN
+- 0 ruff / 0 mypy on 12 typed modules
+- Bot running PID 99276 (will rotate naturally)
