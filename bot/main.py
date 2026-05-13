@@ -667,7 +667,7 @@ def _kpi_compute_all():
     conn.row_factory = _sql.Row
     out = {}
 
-    # KPI #2: predictions résolues 28d (target ≥5)
+    # KPI #2: predictions résolues 28d (target ≥5) + forecast 28d ahead
     r2 = conn.execute(
         "SELECT COUNT(*) AS resolved_28d FROM predictions "
         "WHERE resolved_at IS NOT NULL AND resolved_at >= datetime('now', '-28 days')"
@@ -678,20 +678,30 @@ def _kpi_compute_all():
     stuck = conn.execute(
         "SELECT COUNT(*) AS n FROM predictions WHERE target_date <= datetime('now') AND resolved_at IS NULL"
     ).fetchone()["n"]
+    projected_28d = conn.execute(
+        "SELECT COUNT(*) AS n FROM predictions "
+        "WHERE resolved_at IS NULL AND target_date <= datetime('now', '+28 days')"
+    ).fetchone()["n"]
     target = 5
     n2 = r2["resolved_28d"]
+    # Forecast at J+28: current resolutions in window won't all stay (rolling), but new ones come in
+    # Simpler heuristic: projected = current + new resolutions expected in next 28d
+    forecast_j28 = n2 + projected_28d  # upper bound
     if n2 >= target:
         s2 = "✅ GREEN"
     elif stuck > 0:
         s2 = f"🚨 RED — {stuck} predictions stuck (target_date passé, resolve cron failing?)"
+    elif forecast_j28 >= target:
+        s2 = f"⏳ ON TRACK — {projected_28d} resolutions dues in next 28d, forecast J+28: {forecast_j28}"
     elif n2 >= target * 0.6:
-        s2 = "⚠️ YELLOW — approaching"
+        s2 = f"⚠️ YELLOW — forecast J+28: {forecast_j28} < target {target}"
     else:
-        s2 = f"⏳ TIMER ACTIF — need {target - n2} more resolutions to hit target"
+        deficit = target - forecast_j28
+        s2 = f"🚨 PROJECTED BREACH — forecast J+28: {forecast_j28}, need {deficit} more predictions created"
     out["kpi2"] = {
         "title": "KPI #2 NON-NEG: Predictions résolues 28d",
         "target": f"≥{target}",
-        "current": f"{n2} resolved | {open_pred} open ({stuck} stuck)",
+        "current": f"{n2} resolved | {open_pred} open ({stuck} stuck) | {projected_28d} due in 28d",
         "status": s2,
         "enforcement": "Stop build 5j + force-use si breach",
     }
