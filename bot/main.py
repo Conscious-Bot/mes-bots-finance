@@ -678,7 +678,7 @@ async def cmd_health(update, ctx):
 
     lines.append("")
     lines.append("_Run /handler_stats for detailed call breakdown._")
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    await update.message.reply_text("\n".join(lines))
 
 
 async def cmd_handler_stats(update, ctx):
