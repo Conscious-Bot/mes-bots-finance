@@ -104,3 +104,14 @@ Tracking pour la mémoire, ne pas re-shipper :
 - ✅ /llm_costs existait déjà — séparé de /cost_trajectory (operational vs strategic)
 - ✅ SQLite locking sur changements journal_mode (besoin de stop bot complet)
 
+
+
+---
+
+## 📋 ADRs (Architecture Decision Records)
+
+- **ADR 001** — PIT Bitemporal Credibility Ledger (`docs/adrs/001-pit-bitemporal-credibility.md`)
+  - Status: **Proposed** (13 mai 2026)
+  - Decision: bitemporal append-only ledger pour credibility, materiality, half-life
+  - Implementation: déferrée à juin (post KPI #2 satisfait OU 1er recal mensuel)
+  - Path 5/6 value: backtest + calibration plot dynamique + drift detection
