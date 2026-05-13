@@ -59,3 +59,15 @@ NE PAS ajouter de tickers, sources, crons, ou features Tranche C/D/E avant fin P
 - `tests/` — property-based tests Hypothesis
 - `scripts/backup.sh` + `Makefile` — automation
 
+
+## Marathon Day 2 — Lessons learned (13/05/2026, T+8h)
+
+1. "Audit GREEN" était dangereux: linting ≠ test. Property-based Hypothesis = défense réelle.
+2. Bugs invisibles jusqu'au recon: 16% materiality_v2 coverage révélé par SQL ad-hoc.
+   → Implication: instrumenter avant d'optimiser. Telemetry is feature.
+3. Concurrency dette latente: SQLite "database is locked" intermittent jusqu'à WAL.
+   → Toute SQLite non-WAL est un timer.
+4. Sources tier honnête > tier vibé: data empirique change le tri (Short Squeez Tier S sur volume,
+   pas sur réputation).
+5. Pivot vers Path 5/6 = mental shift, pas juste tactical: chaque ship doit penser "qu'est-ce
+   qu'un acquéreur lirait dans ce diff?" La velocity ne vend pas, la discipline si.
