@@ -501,7 +501,7 @@ async def heartbeat():
 async def ingest_gmail_job():
     """Hourly Gmail ingestion."""
     try:
-        stats = gmail_.ingest_new_emails(max_results=20)
+        stats = gmail_.ingest_new_emails(max_results=50)
         if stats["new_ingested"]:
             log.info(f"gmail ingest: +{stats['new_ingested']} new emails")
     except Exception as e:
