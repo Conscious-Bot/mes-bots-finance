@@ -182,3 +182,60 @@ signal_classify 30min, materiality_boost 1h, materiality_v2 1h
 - Cost: $15/mo projected, 5% GREEN
 - 0 ruff / 0 mypy on 12 typed modules
 - Bot running PID 99276 (will rotate naturally)
+
+
+## Debt clearance phase (Ships 5-8, ~2h additional)
+
+User directive: "je ne veux pas travailler sur de la dette technique reglons cela"
+-> systematic debt clearance before observation mode.
+
+### Ship 5 — Phase B5 journal regression REPAIRED (~1h)
+- Root cause: Ship 1.5 deleted dead Phase B5 cmd_position_buy/sell handlers (L1888)
+  shadowed by simpler positions_mod versions (L2830). Simple versions lacked
+  journal logging + bias tagging -> compromised KPI #5.
+- Forensic recovery: extracted bot/main.py from commit 276883c (pre-deletion),
+  verified all Phase B5 helpers still alive (storage.log_decision, get_decision,
+  update_decision_bias_tags, _portfolio_journal_ctx, bias_tagger.auto_tag_biases).
+- Re-integration strategy: hybrid. Keep positions_mod.add_buy/add_sell (richer:
+  writes position_events log) + add Phase B5 journal+bias chain AFTER state update.
+- 4-step chain restored: detect dtype -> ctx capture -> log_decision -> auto_tag_biases
+- KPI #5 (100% decisions journalisees) now functional on /position_buy /position_sell
+
+### Ship 6 — Smoke tests for 28-day observation (~30min)
+- 12 fail-fast tests in tests/test_smoke_observation.py
+- Import-level: shared/*, intelligence/*, bot.main load cleanly
+- Symbol-level: critical handlers + cron jobs callable
+- Phase B5 helpers exposed verification (post-Ship 5)
+- Infrastructure: DB schema, WAL mode, LLM tiers configured
+- Algorithmic: horizon diversification active
+- Ops: backup script exists + executable
+- Catches refactor regressions fast without complex LLM/Gmail/yfinance mocks
+- Test count: 49 -> 61 passing
+
+### Ship 7 — shared/edgar.py mypy clean (~20min)
+- 6 latent type errors fixed (cron 8k_scan 6:30 + insider 6h critical path)
+- _CIK_CACHE: dict[str, str] | None annotation
+- _CIK_CACHE_TS: Any (datetime stored)
+- results: list[dict[str, Any]] annotation
+- float() casts on value_m arithmetic (str/int division latent bug prevented)
+- Added to strict-typed override: 13 modules total
+
+### Ship 8 — data_sources/gmail_.py type hints (~15min)
+- 8 public functions typed (entry point, runs ingest_gmail_job 1h cron)
+- get_service, get_label_id, _extract_body, _strip_html, _parse_email,
+  fetch_emails, _is_onboarding_noise, ingest_new_emails
+- cast(str | None, label["id"]) for Google API JSON Any return
+- Added to strict-typed override: 14 modules total
+
+### Final state after debt clearance
+- ruff: 0 errors maintained
+- mypy: 0 errors on 14 modules (strict-typed override)
+- tests: 61/61 passing (49 Hypothesis + 12 smoke)
+- bot: PID 99706 vivant
+- Pipeline ingestion->scoring->prediction->restitution: type-safe end-to-end
+
+### Remaining as deferred (not debt, gradual adoption):
+- ~25 modules untyped (intelligence/{older}, shared/{macro,crypto,positions,echo,embeddings}, bot/main.py)
+- Policy "type quand tu touches" documented in CONVENTIONS.md
+- These will be typed incrementally as code is modified
+- No observation-impact risk (paths covered by smoke tests + Phase B5 verification)

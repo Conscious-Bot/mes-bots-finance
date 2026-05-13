@@ -155,3 +155,32 @@ A re-integrer en session future. Priority P1, effort ~1h.
 These deferred items have diminishing Path 5/6 marginal value vs observation time
 (KPI #2 timer ticking until June 10 batch resolution). Recommended: incremental
 type hint adoption as code is touched, not top-down sweep.
+
+
+---
+
+## Debt clearance complete (Ships 5-8, 13 May 2026 evening)
+
+### Closed:
+- ✅ **Phase B5 journal regression** (Ship 5) - KPI #5 fully functional now
+- ✅ **Smoke test coverage gap** (Ship 6) - 12 new fail-fast tests
+- ✅ **shared/edgar.py latent type errors** (Ship 7) - 8k_scan + insider crons protected
+- ✅ **data_sources/gmail_.py untyped** (Ship 8) - ingestion entry point covered
+
+### Status: OBSERVATION READY
+- 14 modules strict-typed (ingestion -> scoring -> prediction -> restitution covered)
+- 61/61 tests passing
+- ruff/mypy gates active in CI YAML (12 modules)
+- Bot vivant, all 22 crons scheduled
+
+### Carry-forward (NOT urgent, gradual adoption):
+- Type hints remaining ~25 modules (P3, incremental)
+- Refactor bot/main.py 2428 LOC split (P3, architectural choice)
+- ADR 001 PIT bitemporal implementation (P2, trigger = KPI #2 GREEN or 1st recal)
+- User TODO: setup GitHub repo + push (CI gates only enforce locally until then)
+
+### Observation rules (per docs/PROCEDURES.md):
+- NO new features. NO new tickers. NO new sources.
+- Daily /brief ritual. Weekly Sunday auto-summaries.
+- June 10: KPI #2 batch resolution (45+ predictions due)
+- If KPI #2 GREEN: trigger ADR 001 Phase 1 (PIT implementation)
