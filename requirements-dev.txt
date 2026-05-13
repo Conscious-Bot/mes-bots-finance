@@ -1,0 +1,4 @@
+# Dev/test dependencies (for CI + local dev)
+pytest>=9.0.0
+hypothesis>=6.150.0
+pytest-cov>=7.0.0
