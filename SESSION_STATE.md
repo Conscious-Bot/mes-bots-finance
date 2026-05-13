@@ -86,3 +86,49 @@
 - Effet: predictions FUTURES diversifiées, les 45 existantes laissées (intégrité historique)
 
 **Tracker**: après 10 juin, observer si Brier devient meaningful avec N≥10 continu.
+
+
+## Afternoon extension (13/05/2026 ~4h additional)
+
+### P2 ships closed in series
+- **/kpi_status handler + weekly cron Sun 22:30**: Path 5/6 dimension 2 monitoring active
+  - KPI #2 forecast J+28: ON TRACK (40 due in 28d, projection 41 ≥ target 5)
+  - KPI #3 Brier: insufficient data (N=0, awaiting June 10 resolutions)
+  - KPI #4 panic sells: 0 ✅
+  - KPI #5 decisions journalisées: N/A (no material decisions 30d)
+  - KPI #6: not yet implemented (positions integration needed)
+
+- **Ship A — horizon diversification** (anti-cluster temporel)
+  - SIGNAL_TYPE_HORIZONS: catalyst=14, data=30, opinion=30, narrative=60
+  - High impact ≥4 narrows further (catalyst→7, narrative→30)
+  - 12 new Hypothesis tests (49 total)
+  - Effect: FUTURE predictions diversified; existing 45 untouched (June 10 batch remains)
+
+- **Ship B — CI minimal GitHub Actions**
+  - .github/workflows/ci.yml: Python 3.14 matrix, pytest + coverage XML artifact
+  - requirements.txt updated (numpy, yfinance, sentence-transformers)
+  - requirements-dev.txt separated (pytest, hypothesis, pytest-cov)
+  - README.md minimal with CI badge placeholder
+  - Pending: user creates GitHub remote + push
+
+- **Ship C — /cost_trajectory handler + weekly cost cron Sun 22:00**
+  - MTD spend + linear projection vs $50/mo budget
+  - Tier + task breakdown 30d
+  - Daily 7d trend bar chart ASCII
+  - Auto-alert via notify if RED (>90% budget)
+  - Current trajectory: $0.50/day → $15/mo projected (5% budget, ✅ GREEN)
+
+### Final cron schedule
+heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h,
+resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h,
+price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15,
+8k_scan 6:30, **backup 4:00**, **cost Sun 22:00**, **kpi_status Sun 22:30**, **handler_stats Sun 23:00**,
+signal_classify 30min, materiality_boost 1h, materiality_v2 1h
+
+### Tests final: 49/49 passing
+- shared/math_helpers: 100% coverage
+- intelligence/asymmetry: 41%
+- intelligence/materiality_v2: 17% (pure math path)
+- intelligence/learning: NEW horizon_for_signal_type 100%
+
+### Total session : 14 items shipped (6 P0 + 4 P1 + 4 P2), 49 tests, 0 régression
