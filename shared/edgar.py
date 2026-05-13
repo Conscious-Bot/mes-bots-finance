@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 
 import requests
+from typing import Any
 
 EDGAR_UA = os.environ.get("EDGAR_USER_AGENT", "Olivier Legendre olegendre@gmail.com")
 EDGAR_HEADERS = {
@@ -19,8 +20,8 @@ EDGAR_HEADERS = {
     "Accept-Encoding": "gzip, deflate",
 }
 
-_CIK_CACHE = None
-_CIK_CACHE_TS = None
+_CIK_CACHE: dict[str, str] | None = None
+_CIK_CACHE_TS: float | None = None
 CIK_CACHE_TTL_HOURS = 24
 
 
@@ -62,7 +63,7 @@ def get_recent_form4_filings(ticker, days=90, limit=30):
     primary_docs = recent.get("primaryDocument", [])
     cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     cik_int = str(int(cik))
-    results = []
+    results: list[dict[str, Any]] = []
     for i, form in enumerate(forms):
         if form != "4":
             continue
@@ -368,11 +369,11 @@ def get_insider_cluster(ticker, days=14):
     def _top(d):
         return sorted([(o, b["role"], b["value_m"]) for o, b in d.items()], key=lambda x: -x[2])[:5]
 
-    total_sell_m = sum(s["value_m"] for s in sellers.values())
+    total_sell_m = sum(float(s["value_m"]) for s in sellers.values())
     concentration = 0.0
     concentration_ex_top = 0.0
     if sellers and total_sell_m > 0:
-        sorted_vals = sorted([s["value_m"] for s in sellers.values()], reverse=True)
+        sorted_vals = sorted([float(s["value_m"]) for s in sellers.values()], reverse=True)
         concentration = sorted_vals[0] / total_sell_m
         if len(sorted_vals) >= 2:
             rest = sum(sorted_vals[1:])
