@@ -2880,8 +2880,11 @@ async def cmd_position_buy(update, ctx):
                 )
                 if bias_tags:
                     storage_mod.update_decision_bias_tags(decision_id, bias_tags)
-            except Exception:
-                pass
+            except Exception as bias_err:
+                logging.getLogger("bot.position_buy").warning(
+                    f"bias_tagger failed for decision_id={decision_id} ticker={ticker}: "
+                    f"{type(bias_err).__name__}: {bias_err}"
+                )
 
         # 5. Compose response
         msg = [f"✓ Bought {qty:.3f} {ticker} @ ${price:.2f} [{dtype}]"]
@@ -2936,8 +2939,11 @@ async def cmd_position_sell(update, ctx):
                 )
                 if bias_tags:
                     storage_mod.update_decision_bias_tags(decision_id, bias_tags)
-            except Exception:
-                pass
+            except Exception as bias_err:
+                logging.getLogger("bot.position_buy").warning(
+                    f"bias_tagger failed for decision_id={decision_id} ticker={ticker}: "
+                    f"{type(bias_err).__name__}: {bias_err}"
+                )
 
         # 4. Compose response
         msg_lines = [f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ ${r['sold_price']:.2f} [{dtype}]"]
