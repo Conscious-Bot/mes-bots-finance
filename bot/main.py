@@ -589,6 +589,98 @@ async def log_handler_call_middleware(update, ctx):
         log.warning(f"handler telemetry failed: {e}")
 
 
+
+async def cmd_health(update, ctx):
+    """Health check: process, DB, LLM activity, data freshness, recent errors."""
+    import os
+    from datetime import datetime
+    from pathlib import Path
+
+    from shared import storage as storage_mod
+
+    lines = ["*Bot health check*", ""]
+
+    # Process
+    pid = os.getpid()
+    bot_start_iso = storage_mod.load_state().get("bot_start_ts", "?")
+    try:
+        bot_start = datetime.fromisoformat(bot_start_iso.replace("Z", "+00:00"))
+        uptime_min = int((datetime.utcnow() - bot_start.replace(tzinfo=None)).total_seconds() / 60)
+        uptime_str = f"{uptime_min // 60}h {uptime_min % 60}min"
+    except Exception:
+        uptime_str = "?"
+    lines.append(f"*Process:* PID {pid}, uptime {uptime_str}")
+
+    # DB
+    try:
+        db_path = storage_mod._DB_PATH
+        db_size_mb = round(Path(db_path).stat().st_size / 1024 / 1024, 2)
+        with storage_mod.db() as conn:
+            wal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        lines.append(f"*DB:* OK, {db_size_mb} MB, WAL={wal_mode}")
+    except Exception as e:
+        lines.append(f"*DB:* FAILED ({e})")
+
+    # LLM activity (last call from llm_calls table)
+    try:
+        with storage_mod.db() as conn:
+            row = conn.execute(
+                "SELECT MAX(created_at) as last, COUNT(*) as n FROM llm_calls WHERE created_at > datetime('now', '-24 hours')"
+            ).fetchone()
+            last_llm = row["last"] if row else None
+            n_llm_24h = row["n"] if row else 0
+            cost_24h_row = conn.execute(
+                "SELECT COALESCE(SUM(cost_usd), 0) as c FROM llm_calls WHERE created_at > datetime('now', '-24 hours')"
+            ).fetchone()
+            cost_24h = float(cost_24h_row["c"]) if cost_24h_row else 0.0
+        lines.append(f"*LLM:* {n_llm_24h} calls last 24h, ${cost_24h:.2f}, last @ {last_llm or 'never'}")
+    except Exception as e:
+        lines.append(f"*LLM:* FAILED ({e})")
+
+    # Data freshness (signals, gmail cron health)
+    try:
+        with storage_mod.db() as conn:
+            row = conn.execute(
+                "SELECT MAX(timestamp) as last, COUNT(*) as n FROM signals WHERE timestamp > datetime('now', '-24 hours')"
+            ).fetchone()
+            last_sig = row["last"] if row else None
+            n_sig_24h = row["n"] if row else 0
+        lines.append(f"*Signals 24h:* {n_sig_24h} ingested, last @ {last_sig or 'never'}")
+    except Exception as e:
+        lines.append(f"*Signals:* FAILED ({e})")
+
+    # Predictions + theses active count
+    try:
+        with storage_mod.db() as conn:
+            open_pred = conn.execute(
+                "SELECT COUNT(*) FROM predictions WHERE actual_date IS NULL"
+            ).fetchone()[0]
+            active_theses = conn.execute(
+                "SELECT COUNT(*) FROM theses WHERE COALESCE(status, 'active') = 'active'"
+            ).fetchone()[0]
+            open_pos = conn.execute(
+                "SELECT COUNT(*) FROM positions WHERE status = 'open'"
+            ).fetchone()[0]
+        lines.append(f"*Active state:* {open_pred} open predictions, {active_theses} active theses, {open_pos} open positions")
+    except Exception as e:
+        lines.append(f"*Active state:* FAILED ({e})")
+
+    # Recent handler usage (proves Telegram polling works)
+    try:
+        with storage_mod.db() as conn:
+            row = conn.execute(
+                "SELECT MAX(ts) as last FROM handler_calls WHERE ts > datetime('now', '-1 hour')"
+            ).fetchone()
+            last_handler = row["last"] if row and row["last"] else "no calls 1h"
+        lines.append(f"*Telegram:* last handler call @ {last_handler}")
+    except Exception:
+        lines.append("*Telegram:* (no handler_calls table or empty)")
+
+    lines.append("")
+    lines.append("_Run /handler_stats for detailed call breakdown._")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 async def cmd_handler_stats(update, ctx):
     """Phase Solidification P0 #3 — Show handler usage stats with Pareto curve.
 
@@ -3041,6 +3133,7 @@ def main():
     from telegram.ext import MessageHandler, filters
 
     app.add_handler(MessageHandler(filters.COMMAND, log_handler_call_middleware), group=-1)
+    app.add_handler(CommandHandler("health", cmd_health))
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
     app.add_handler(CommandHandler("cost_trajectory", cmd_cost_trajectory))
