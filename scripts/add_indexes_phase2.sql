@@ -19,3 +19,19 @@ CREATE INDEX IF NOT EXISTS idx_shadow_decisions_type_created
 
 CREATE INDEX IF NOT EXISTS idx_shadow_decisions_resolved
     ON shadow_decisions(resolved_at);
+
+-- Step 1 nice-to-have (13 May 2026 evening): indexes on growing tables
+-- theses queried frequently by handlers (cmd_thesis, cmd_thesis_list, cmd_brief)
+-- sources queried by credibility ranking commands (/tiers, /sources_brier)
+
+CREATE INDEX IF NOT EXISTS idx_theses_ticker_status
+    ON theses(ticker, status);
+
+CREATE INDEX IF NOT EXISTS idx_theses_status
+    ON theses(status);
+
+CREATE INDEX IF NOT EXISTS idx_sources_credibility
+    ON sources(credibility DESC);
+
+CREATE INDEX IF NOT EXISTS idx_sources_last_signal
+    ON sources(last_signal_at DESC);
