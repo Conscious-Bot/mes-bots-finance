@@ -55,14 +55,14 @@ def compute_signal_time_to_move(signal: dict[str, Any], threshold: float = DEFAU
     if (now_utc - sig_dt).days < 1:
         return None
 
-    _baseline_date_str, baseline_price = prices.get_price_on_date(ticker, sig_dt)  # type: ignore[arg-type]  # datetime works at runtime, str expected by signature
+    _baseline_date_str, baseline_price = prices.get_price_on_date(ticker, sig_dt)
     if not baseline_price:
         return None
 
     end_dt = sig_dt + timedelta(days=max_days)
     if end_dt > now_utc:
         end_dt = now_utc
-    window = prices.get_price_window(ticker, sig_dt + timedelta(days=1), end_dt)  # type: ignore[arg-type]  # datetime works at runtime
+    window = prices.get_price_window(ticker, sig_dt + timedelta(days=1), end_dt)
     if not window:
         return None
 

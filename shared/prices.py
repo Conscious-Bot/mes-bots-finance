@@ -33,7 +33,7 @@ def get_current_price(ticker: str) -> float | None:
         return None
 
 
-def get_price_on_date(ticker: str, date: str) -> tuple[str | None, float | None]:
+def get_price_on_date(ticker: str, date: str | datetime) -> tuple[str | None, float | None]:
     """Close price on or after `date` (str YYYY-MM-DD or datetime).
     Falls back to next trading day. Returns (actual_date_str, price) or (None, None).
     """
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         )
 
 
-def get_price_window(ticker: str, start_date: str, end_date: str) -> Any:  # pd.DataFrame | None
+def get_price_window(ticker: str, start_date: str | datetime, end_date: str | datetime) -> Any:  # pd.DataFrame | None
     """Phase A4 — Daily closes between start and end (inclusive).
     Returns list of (date_str_YYYYMMDD, close_float). Empty list on failure.
     """
