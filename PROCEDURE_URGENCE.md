@@ -114,7 +114,8 @@
 
 ## CONTACTS / RESSOURCES
 
-- Backups : data/backups/data_*.tar.gz (30 derniers jours)
-- Backups nommes patches : */*.backup_avant_*
+- Backups primary (04:00 in-bot) : `~/backups/mes-bots-finance/snapshot_*.tar.gz` + `bot.db.*` (integrity-checked, rotation 14j)
+- Backups secondary (23:15 crontab) : `data/backups/data_*.tar.gz` (rotation 30j, legacy)
+- Backups nommes patches : `*/*.backup_avant_*`
 - Docs : TODO.md, PHILOSOPHY.md, CONVENTIONS.md
 - Logs : bot.log, uptime.log, data/backups/backup.log

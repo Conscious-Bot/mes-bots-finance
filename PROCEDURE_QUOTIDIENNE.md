@@ -31,9 +31,17 @@ Regarde ton chat Telegram bot finance. Aucune alerte = OK.
 
 ### 5. Backup quotidien fait ?
 
-    ls -lat data/backups/ | head -5
+Primary (04:00 Paris, in-bot APScheduler, integrity-checked) :
 
-Un backup data_YYYYMMDD_*.tar.gz doit dater de cette nuit (~23:00).
+    ls -lat ~/backups/mes-bots-finance/ | head -5
+
+Un `snapshot_YYYYMMDD_*.tar.gz` doit dater de cette nuit (~04:00 Paris).
+
+Secondary (23:15 Paris, crontab legacy) :
+
+    ls -lat data/backups/ | head -3
+
+Un `data_YYYYMMDD_*.tar.gz` doit dater de cette nuit (~23:15 Paris).
 
 ### 6. Digest matinal recu ? (Phase 2+)
 

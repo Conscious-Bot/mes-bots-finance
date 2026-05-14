@@ -27,9 +27,15 @@ Metriques de performance et sante du bot.
 
 ### 4. Backup quotidien
 
-- Cible : backup data_YYYYMMDD_*.tar.gz cree chaque nuit
-- Mesure : ls -lat data/backups/
-- Alert : pas de backup depuis > 24h
+Two mechanisms run in parallel (Day 2 marathon legacy):
+
+- **Primary** : 04:00 Paris, in-bot APScheduler `daily_backup_job` -> `scripts/backup.sh` -> `~/backups/mes-bots-finance/snapshot_YYYYMMDD_*.tar.gz` (tarball + DB snapshot + integrity_check + 14d rotation).
+- **Secondary** (legacy) : 23:15 Paris, crontab `crons/daily_backup.sh` -> `data/backups/data_YYYYMMDD_*.tar.gz` (simple tar, 30d rotation).
+
+- Cible : un `snapshot_*.tar.gz` dans `~/backups/mes-bots-finance/` cree chaque nuit (~04:00 Paris)
+- Mesure primary : `ls -lat ~/backups/mes-bots-finance/ | head -5`
+- Mesure secondary : `ls -lat data/backups/ | head -3`
+- Alert : pas de backup primary depuis > 24h
 
 ## METRIQUES HEBDOMADAIRES
 
