@@ -13,3 +13,4 @@ Anti-erosion mechanism for solo 12-month build. If this file is empty at J+30, t
 
 2026-05-13 12:54 | premiere tentative le bot tourne bien jaime la lecture des tickers et leurs descriptions, aussi jaime beaucoup la feature orphan_ticker
 2026-05-13 13:27 | le brief est trop succint les resumes ne sont pas clairs du tout
+2026-05-14 02:47 | le slash digest est bien meilleur et fais un meilleur resume que le / brief il faut revoir ca pour peut etre revoir le nombre de ligne, le style d'ecriture et peut etre reunir les 2 en 1

@@ -1,4 +1,4 @@
-.PHONY: test test-cov backup test-restore test-restore-db test-restore-tarball help
+.PHONY: test test-cov backup test-restore test-restore-db test-restore-tarball help db-bootstrap db-current db-history db-migrate db-revision
 
 help:
 	@echo "Available targets:"
@@ -6,6 +6,11 @@ help:
 	@echo "  test-cov      - Run tests with coverage report"
 	@echo "  backup        - Run backup script manually"
 	@echo "  test-restore  - Validate latest backup can be restored (DB + tarball)"
+	@echo "  db-bootstrap  - Create fresh DB from migrations (CI/new install)"
+	@echo "  db-current    - Show current alembic revision"
+	@echo "  db-history    - Show full alembic migration history"
+	@echo "  db-migrate    - Apply pending alembic migrations (upgrade head)"
+	@echo "  db-revision   - Generate empty migration (MSG=desc required)"
 	@echo "  help          - Show this help"
 
 test:
@@ -67,3 +72,20 @@ test-restore-tarball:
 test-restore: test-restore-db test-restore-tarball
 	@echo ""
 	@echo "✅ FULL RESTORE TEST PASS"
+
+db-bootstrap:
+	@echo "=== Bootstrap fresh DB from migrations"
+	@python3 -c "from shared.storage import bootstrap_schema; bootstrap_schema(); print('OK schema bootstrapped to head')"
+
+db-current:
+	@alembic current
+
+db-history:
+	@alembic history
+
+db-migrate:
+	@alembic upgrade head
+
+db-revision:
+	@if [ -z "$(MSG)" ]; then echo "Usage: make db-revision MSG=\"description\""; exit 1; fi
+	@alembic revision -m "$(MSG)"

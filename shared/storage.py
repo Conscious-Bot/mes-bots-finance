@@ -1744,3 +1744,42 @@ def get_signals_in_cluster_with_sources(cluster_id):
         return int(n)
     finally:
         conn.close()
+
+
+def bootstrap_schema(db_path: str | None = None, alembic_ini: str | None = None) -> None:
+    """Idempotently bootstrap the DB schema to head (latest migration).
+
+    Equivalent to `alembic upgrade head` programmatically. Use this:
+    - In tests that need a fresh DB
+    - In CI environments where DB doesn't exist
+    - On fresh installs / new deployments
+    - In migration scripts that need to ensure baseline
+
+    Args:
+        db_path: Path to SQLite DB file. If None, uses default from alembic.ini.
+        alembic_ini: Path to alembic.ini. If None, finds it at project root.
+
+    Sprint 1.3 deliverable. Sole entry point for non-runtime DB creation.
+    """
+    from pathlib import Path as _Path
+
+    from alembic import command
+    from alembic.config import Config
+
+    if alembic_ini is None:
+        # Default: alembic.ini at project root (parent of shared/)
+        alembic_ini = str(_Path(__file__).resolve().parent.parent / "alembic.ini")
+
+    config = Config(alembic_ini)
+    if db_path:
+        config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+
+    command.upgrade(config, "head")
+
+    # Set WAL mode for concurrent reads (matches bot runtime config)
+    import sqlite3 as _sqlite3
+    target_db = db_path or config.get_main_option("sqlalchemy.url", "").replace("sqlite:///", "")
+    if target_db:
+        conn = _sqlite3.connect(target_db)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.close()

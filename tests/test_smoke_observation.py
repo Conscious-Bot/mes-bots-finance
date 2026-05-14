@@ -119,20 +119,24 @@ def test_portfolio_journal_ctx_in_bot_main():
     assert callable(main._portfolio_journal_ctx)
 
 
-def test_db_schema_critical_tables_exist():
-    """DB has all tables that observation period depends on.
-    Skipped if DB not bootstrapped (CI fresh env). Schema bootstrap is manual
-    (one-time sqlite3 CLI setup, no init code in repo - pre-existing debt).
+def test_db_schema_critical_tables_exist(tmp_path):
+    """DB schema bootstrap creates all tables required by observation period.
+
+    Sprint 1.3: now uses bootstrap_schema() on a fresh tmp DB instead of
+    skipping in CI. Validates the migration is self-sufficient.
     """
-    from shared import storage
+    import sqlite3
 
-    with storage.db() as conn:
-        tables = {r["name"] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-        ).fetchall()}
+    from shared.storage import bootstrap_schema
 
-    if not tables:
-        pytest.skip("DB schema not bootstrapped (CI/fresh env) - smoke test is local-dev only")
+    test_db = tmp_path / "test_bootstrap.db"
+    bootstrap_schema(db_path=str(test_db))
+
+    conn = sqlite3.connect(test_db)
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()}
+    conn.close()
 
     required = {
         # Core entities
@@ -150,19 +154,23 @@ def test_db_schema_critical_tables_exist():
     assert not missing, f"Missing required tables: {missing}"
 
 
-def test_db_wal_mode_active():
-    """SQLite WAL mode required for concurrent reads during cron jobs.
-    Skipped if DB not bootstrapped (WAL set on first bot startup).
-    """
-    from shared import storage
+def test_db_wal_mode_active(tmp_path):
+    """bootstrap_schema sets WAL mode on the DB.
 
-    with storage.db() as conn:
-        tables = {r["name"] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-        ).fetchall()}
-        if not tables:
-            pytest.skip("DB not bootstrapped (CI/fresh env) - WAL set on bot startup")
-        mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+    Sprint 1.3: now uses bootstrap_schema() on a fresh tmp DB instead of
+    skipping in CI. Validates WAL is part of the bootstrap protocol.
+    """
+    import sqlite3
+
+    from shared.storage import bootstrap_schema
+
+    test_db = tmp_path / "test_wal.db"
+    bootstrap_schema(db_path=str(test_db))
+
+    conn = sqlite3.connect(test_db)
+    mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+    conn.close()
+
     assert mode.lower() == "wal", f"DB not in WAL mode (got: {mode})"
 
 
