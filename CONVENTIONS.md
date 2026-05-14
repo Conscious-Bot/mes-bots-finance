@@ -270,3 +270,42 @@ implementations that drift in subtle ways, multiplying maintenance cost.
 captured this rule in the same session as the detector-validation rule above.
 Both stem from the same root cause: confident action without empirical
 pre-check.
+
+## 18. Paste-safe bash blocks rule (zsh interactive_comments)
+
+**Added 2026-05-14 evening, meta-lesson 9.** Context: Phase 6b commit + push
++ backup block was paste-rejected on 2026-05-14 with `zsh: parse error near
+')'`. Root cause: `interactive_comments` option OFF in user's zsh setup,
+so lines starting with `#` were parsed as commands. Comments containing
+parens like `# 1. Commit (paste-safe)` triggered subshell parsing on
+`(paste-safe)`, failing on the unmatched paren and rejecting the entire
+batch. Zero of the 80+ line block executed despite full paste.
+
+This was a recurrence: the same root cause hit on 2026-05-13 morning paste
+catastrophe. First occurrence noted informally in SESSION_STATE without
+codification. Second occurrence justifies promotion to CONVENTIONS.
+
+**Rule**: Interactive paste blocks for zsh MUST follow one of two patterns:
+
+1. **Preferred — zero `#` comments outside heredocs.** Annotate intent in
+   the chat message or in the source file the block modifies. Heredoc
+   bodies (`<< 'TAG'` ... `TAG`) are exempt because their content is
+   literal, not parsed as zsh.
+
+2. **Fallback — `setopt interactive_comments` as the first line of every
+   block**, no exceptions. Less robust because it relies on remembering
+   every paste. Still requires `setopt no_bang_hist` alongside to neutralize
+   `!` history expansion in the same input.
+
+**Forbidden**: pasting any bash block with `#` comments containing parens,
+backticks, semicolons, or shell metacharacters when target shell is zsh
+with default options.
+
+**Detection**: if a paste fails with `zsh: parse error near` followed by
+any single char from `() {} ; & | < >`, suspect commented metacharacter
+as the cause. Recovery = inspect with diagnostic block (git status, file
+existence checks) to confirm nothing executed, then retry without comments.
+
+**Adjacent reading**: §16 (detector validation), §17 (recon-before-ship).
+Same family — assumptions about default tool/shell behavior that bite at
+ship/paste time.
