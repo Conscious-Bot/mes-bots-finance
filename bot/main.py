@@ -3303,8 +3303,6 @@ def main():
     app.add_handler(CommandHandler("override", cmd_override))
     app.add_handler(CommandHandler("crypto", cmd_crypto))
     app.add_handler(CommandHandler("position_set", cmd_position_set))
-    app.add_handler(CommandHandler("position_buy", cmd_position_buy))
-    app.add_handler(CommandHandler("position_sell", cmd_position_sell))
     app.add_handler(CommandHandler("position", cmd_position))
     app.add_handler(CommandHandler("analyze", cmd_analyze))
 
