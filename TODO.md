@@ -274,3 +274,27 @@ Observation principle: code freeze on behavior-affecting changes.
 
 These are NOT in this week's scope. They're listed here so they're not forgotten
 when re-entering work post-J+28 (10 juin batch resolution).
+
+
+---
+
+## Tier 1+2 closed evening 14 May 2026 (db4bd43 + 26678e9)
+
+### Closed
+- Sprint 1.1 equivalence checkpoint scripts/sprint_1_1_checkpoint.py
+- Sprint 1.7 unification candidates scaffold docs/sprint-1.7-unification-candidates.md
+- Baseline chunk 0 baselines/sprint-1.1-chunk-0.json (98 funcs at 2158adf)
+- AI #3 scripts/bot_health_check.sh + 5 regression tests (124 tests total)
+
+### New P3 carry-forward
+- KPI_DASHBOARD.md schema drift: KPI #9 references outcome_evaluated_at,
+  actual schema has resolved_at. 15min fix. Second instance of doc drift
+  after backups path Day 2 evening. Triggers §16 detector if 3rd case emerges.
+- Predictions schema doc audit: grep project for any other outcome_evaluated_at
+  refs. Defer to Sprint 1.1 Monday pre-flight as recon step.
+
+### Status
+- Observation mode active until 2026-06-10 (27d KPI #2 timer)
+- 45 open predictions due 2026-06-10
+- 124 tests passing, bot health GREEN
+- Sprint 1.1 STRICT mode confirmed for Monday 2026-05-19

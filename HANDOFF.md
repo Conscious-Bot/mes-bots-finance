@@ -213,3 +213,36 @@ preserved; correction supersedes impact claims.
 
 Fix c6d959a remains valid as code hygiene (dead-code removal).
 AI #10 (handler-uniqueness AST smoke test) UNCHANGED — still ships Monday.
+
+---
+
+## Day 3 evening Tier 1+2 final (14 May 2026, post 26678e9)
+
+Canonical state. Supersedes earlier HANDOFF sections.
+
+### Empirical
+- 31 commits Day 3, PID 10657 vivant
+- 124 tests passing (119 + 5 from AI #3 regression guards)
+- 30 DB tables, 45 open predictions due 2026-06-10
+- Cost: 5 dollars/mo projected, 10% budget GREEN
+- Bot health: GREEN via scripts/bot_health_check.sh (8 signals)
+- Sprint 1.1 baseline chunk 0 captured at 2158adf (98 functions hashed)
+
+### AIs closed Day 3 (7)
+#3, #4, #5, #6-Phase-0, #8, #9, #10
+
+### AIs open
+- #6 Phase 1-6: TZ migration storage+edgar+intelligence, 4-5h, tracked in ADR 002
+- #7: bot_state.json refresh, 1h, post-J+28
+- #11: SQL audit predictions for TZ-offset, 1h, post-J+28 batch
+- P3 NEW: KPI_DASHBOARD.md outcome_evaluated_at to resolved_at, 15min
+
+### Reopen reflexes (revised)
+1. cd to mes-bots-finance and source venv/bin/activate
+2. ./scripts/bot_health_check.sh
+3. python scripts/sprint_1_1_checkpoint.py list-chunks
+4. cat HANDOFF.md
+5. cat docs/sprint-1.1-plan.md
+
+### Observation discipline
+KPI #2 timer: 27d to 2026-06-10. No new features. Sprint 1.1 STRICT mode Monday 2026-05-19.

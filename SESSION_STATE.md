@@ -623,3 +623,39 @@ Recursion worked as intended: pre-flight (CONVENTIONS §17) found code smell
 -> fix shipped + postmortem written -> audit (AI #9) verified actual impact
 -> over-claim detected -> correction shipped. The bot's discipline
 mechanism applied to the build of the bot itself. Right outcome.
+
+
+## Day 3 evening Tier 1+2 extension v2 (14 May 2026)
+
+### Decision
+After AI #9 postmortem correction earlier evening, user reported energy + early
+KST time. Tier 1 (Sprint 1.1 equivalence harness) + Tier 2 (AI #3 health check)
+shipped sequentially. Strict cutoff on AI #6 Phase 1 TZ migration deferred to
+fresh morning per solidification > velocity.
+
+### Tier 1 shipped (db4bd43)
+- scripts/sprint_1_1_checkpoint.py: AST function-body SHA256 + structural counts
+  + tooling gates. Subcommands snapshot/verify/list-chunks. 5 fault modes tested.
+- docs/sprint-1.7-unification-candidates.md: append-only scaffold for chunk reads.
+- baselines/sprint-1.1-chunk-0.json: 98 functions, 65 handlers, 23 jobs, 3314 LOC.
+- .gitignore: removed baselines so chunk snapshots are versioned.
+
+### Tier 2 shipped (26678e9)
+- scripts/bot_health_check.sh: 8 observability signals, exit codes 0/1/2/3.
+- 5 new tests in tests/test_smoke_observation.py. Test count 119 to 124.
+
+### Real-world findings on Tier 2 first deploy
+1. TZ drift caught: bot_state.json writes naive CEST timestamps. Script initially
+   parsed as UTC, false ORANGE. Fixed via zoneinfo Europe/Paris fallback.
+   Script now also serves as TZ drift detector, reinforces ADR 002.
+2. Schema drift caught: predictions column is resolved_at not outcome_evaluated_at.
+   46 rows, 45 open. KPI_DASHBOARD.md KPI #9 has same stale ref, added to
+   carry-forward as P3 15min.
+
+### State post 26678e9
+- 31 commits Day 3
+- 124 tests, 0 ruff, 2 mypy baseline
+- Bot GREEN, 45 open predictions cluster J+28
+- Cost trajectory 5 dollars/mo projected, 10% budget
+- 7 AIs closed Day 3, #3 closed 7d early
+- Sprint 1.1 Monday 2026-05-19 pre-flight artifacts in place
