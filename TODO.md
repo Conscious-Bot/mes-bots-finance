@@ -233,14 +233,18 @@ Observation principle: code freeze on behavior-affecting changes.
 - **Postmortem 2026-05-14**: uptime_monitor case-sensitivity bug (b5e2fb4)
 - **Doc drift fix**: dual backup paths in 3 docs (efa88d7)
 - SESSION_STATE + TODO refresh (this commit)
-- Quick-win cost alert in `cost_trajectory` cron (~30min, next)
+- ~~Quick-win cost alert in `cost_trajectory` cron~~ — **already shipped Day 2 as Ship C** (line 1173 weekly_cost_summary_job at 90% threshold). Recon confirmed. No new code.
 
-### Sprint 1.4 STATUS REVISED
-- **Was**: "Cost enforcement, ~10h, week 18-25 May"
-- **Now**: Replaced by quick-win (~30min) - notify_telegram if MTD projection > 80% budget
-- **Justification**: 7d cost = $1.16, projected $5/mo = 10% of $50/mo budget.
-  10h sprint not empirically justified. Minimal alert locks tail risk
-  (retry storms, prompt creep) without unjustified infrastructure.
+### Sprint 1.4 STATUS RESOLVED (no work shipped)
+- **Was**: "Cost enforcement, ~10h, week 18-25 May" (initial scope)
+- **Revised this morning**: replaced by quick-win (~30min)
+- **Actual reality (confirmed by recon)**: **already shipped Day 2 afternoon as Ship C**.
+  `weekly_cost_summary_job` cron + `_cost_compute_trajectory` engine already implement
+  MTD + projection + 3-tier status + alert at 90% threshold.
+- **Empirical state**: 7d cost = $1.16, projected $5/mo = 10% of $50/mo budget.
+  Existing weekly check at 90% is sufficient for this consumption regime.
+- **Process lesson**: I nearly re-shipped this. Grep SESSION_STATE/commit-log
+  for named features BEFORE scoping a sprint. See meta-lesson in SESSION_STATE.
 
 ---
 

@@ -438,7 +438,7 @@ evolved into infrastructure dette discovery + 3 commits clearing it.
 - `b5e2fb4` — Postmortem + uptime_monitor.sh + PROCEDURE_URGENCE.md patches
 - `efa88d7` — Dual backup paths in 3 docs
 - (this) — SESSION_STATE + TODO refresh
-- (next, ~30min) — Cost alert quick-win in `cost_trajectory` cron
+- **(step 4 RESOLVED, no commit needed)** — Cost alert was already shipped Day 2 afternoon as Ship C. `weekly_cost_summary_job` (cron Sun 22:00, line 1173) calls `_cost_compute_trajectory()` (line 1044) which computes MTD + projection vs `BUDGET_MONTHLY_USD`, posts via `_notify.send_text`, and fires extra ALERT message if status RED (projection ≥ 90% budget). Re-discovered today via recon. **Recon-before-ship discipline saved ~30min of duplicate work.**
 
 ### Carry-forward (postmortem AIs)
 - AI #3 due 2026-05-21: `scripts/bot_health_check.sh` multi-signal alive check
@@ -461,3 +461,32 @@ evolved into infrastructure dette discovery + 3 commits clearing it.
 6. If alerts spike or empirical anomaly -> write postmortem using template
    `docs/post-mortems/2026-05-14-uptime-monitor-case-bug.md` as reference.
 7. Resist scope creep. The hardest discipline is doing nothing during observation.
+
+
+
+---
+
+## Meta-lesson from step 4 recon (14 May 2026)
+
+The "Sprint 1.4 cost alert quick-win" I was about to ship today was already
+shipped Day 2 afternoon as Ship C. Code recon revealed:
+- `cmd_cost_trajectory` handler (line 1162)
+- `weekly_cost_summary_job` cron Sun 22:00 (line 1173)
+- `_cost_compute_trajectory` computes MTD + projection (line 1044)
+- 3-tier GREEN (<60%) / YELLOW (<90%) / RED (≥90%) status vs `BUDGET_MONTHLY_USD`
+- Extra ALERT message fires when status RED
+
+Recon-before-ship discipline caught the duplicate. The SESSION_STATE Day 2
+afternoon entry explicitly stated `Auto-alert via notify if RED (>90% budget)`,
+but context was lost across sessions.
+
+**Process rule to internalize** (to be added to CONVENTIONS.md alongside
+postmortem AI #8 detector-validation rule):
+
+> Before scoping any sprint on a named feature, grep SESSION_STATE.md +
+> `git log --grep="<feature_name>"` to confirm prior implementations.
+> Re-implementing existing features = dette + drift, not progress.
+
+Adjacent: this is the second "almost-rebuilt-something-that-exists" pattern
+of the day (first was the diagnostic loop on a bot that was alive). Both
+trace to the same root: confident action without empirical pre-check.
