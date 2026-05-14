@@ -78,7 +78,7 @@ Two mechanisms run in parallel (Day 2 marathon legacy):
 - Necessite : > 30 predictions resolues
 - Mesure :
 
-    sqlite3 data/bot.db "SELECT correct, count(*) FROM predictions WHERE outcome_evaluated_at IS NOT NULL GROUP BY correct"
+    sqlite3 data/bot.db "SELECT outcome, count(*) FROM predictions WHERE resolved_at IS NOT NULL GROUP BY outcome"
 
 ### 10. Sharpe ratio des theses (Phase 5+)
 
@@ -104,7 +104,7 @@ Two mechanisms run in parallel (Day 2 marathon legacy):
 ## SCRIPTS UTILES (quick view)
 
     sqlite3 data/bot.db "SELECT count(*) as theses_actives FROM theses WHERE status='active'"
-    sqlite3 data/bot.db "SELECT count(*) as predictions_pending FROM predictions WHERE outcome_evaluated_at IS NULL"
+    sqlite3 data/bot.db "SELECT count(*) as predictions_pending FROM predictions WHERE resolved_at IS NULL"
     sqlite3 data/bot.db "SELECT count(*) as signaux_24h FROM signals WHERE timestamp > datetime('now', '-1 day')"
     grep "OK alive" uptime.log | wc -l
     grep "FAIL" uptime.log | wc -l

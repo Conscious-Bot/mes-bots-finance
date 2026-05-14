@@ -298,3 +298,17 @@ when re-entering work post-J+28 (10 juin batch resolution).
 - 45 open predictions due 2026-06-10
 - 124 tests passing, bot health GREEN
 - Sprint 1.1 STRICT mode confirmed for Monday 2026-05-19
+
+### AI #12 NEW (P3, post-J+28, 30-60min): Storage.py legacy dead code + alembic discipline gap
+
+Discovered during P3 KPI doc drift investigation Day 3 evening (post 93e6f7d).
+
+Findings:
+1. shared/storage.py:126-175 contains 3 legacy functions (log_prediction, expired_unresolved_predictions, record_outcome) referencing columns absent from current predictions schema (expires_at, outcome_evaluated_at, actual_outcome_json, correct).
+2. Zero external call sites confirmed via grep, pure dead code.
+3. Active flow uses NEW functions insert_prediction/get_due_predictions/resolve_prediction_row (storage.py:634-689) via intelligence/learning.py auto_register_predictions and resolve_due_predictions.
+4. alembic_version row = 0001 (baseline only) but actual schema differs from baseline. Migration discipline gap.
+
+Action post-J+28: delete 3 legacy functions, decide alembic discipline (revive migrations OR document informal schema evolution + write current schema as new baseline).
+
+Risk if not done: low. Dead code = cognitive overhead + slight attack surface (silent OperationalError on accidental call). Path 5/6 defensibility benefit from clean codebase.

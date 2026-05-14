@@ -4,9 +4,8 @@ Closed-loop personal finance intelligence: Telegram bot + Claude integration. Se
 
 ## CI Status
 
-![CI](https://github.com/OLIVIER_GITHUB_USER/mes-bots-finance/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Conscious-Bot/mes-bots-finance/actions/workflows/ci.yml/badge.svg)
 
-(Replace `OLIVIER_GITHUB_USER` with your actual GitHub username once repo is created.)
 
 ## Stack
 
