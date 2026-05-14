@@ -8,6 +8,10 @@ Item severity taxonomy aligned with SEC 8-K General Instructions + market signal
 
 import logging
 
+from pydantic import BaseModel
+
+from shared.data_source_base import BaseDataSource
+
 log = logging.getLogger(__name__)
 
 
@@ -68,37 +72,112 @@ def classify_severity(item_codes):
     return (best_sev, f"Item {best_code}: {best_reason}")
 
 
-def scan_and_log_8k_filings(tickers, days=7):
-    """Scan list of tickers for new 8-K filings, persist, return newly-logged rows."""
-    from shared import edgar, storage
+class EightKFiling(BaseModel):
+    """Pydantic schema for validated 8-K filing (Sprint 1.2 item 3c)."""
 
-    new_logged = []
-    for tk in tickers:
-        try:
-            filings = edgar.get_recent_8k_filings(tk, days=days)
-            for f in filings:
-                if storage.get_8k_filing_by_accession(f["accession"]):
-                    continue
-                severity, reason = classify_severity(f["item_codes"])
-                row_id = storage.log_8k_filing(
-                    ticker=tk,
-                    cik=f["cik"],
-                    accession=f["accession"],
-                    filed_at=f["filed_at"],
-                    items_raw=f["items_raw"],
-                    item_codes=f["item_codes"],
-                    severity=severity,
-                    severity_reason=reason,
-                    filing_url=f["url"],
-                )
-                if row_id:
-                    log.info(f"8-K logged: {tk} {f['filed_at']} {f['items_raw']} [{severity}] id={row_id}")
-                    new_logged.append(
-                        {"id": row_id, "ticker": tk, **f, "severity": severity, "severity_reason": reason}
-                    )
-        except Exception as e:
-            log.warning(f"scan_and_log_8k {tk} failed: {e}")
-    return new_logged
+    ticker: str
+    cik: str
+    accession: str
+    filed_at: str
+    items_raw: str
+    item_codes: list[str]
+    url: str
+    severity: str
+    severity_reason: str
+
+
+class EightKSource(BaseDataSource):
+    """SEC 8-K filing ingestion across watchlist tickers (Sprint 1.2)."""
+
+    source_name = "sec_8k"
+    rate_limit_rpm = 300  # SEC EDGAR conservative (10 req/sec public limit)
+
+    def __init__(self, tickers: list[str], days: int = 7) -> None:
+        super().__init__()
+        self.tickers = tickers
+        self.days = days
+        # Backward-compat: collect newly-logged rows for legacy return value
+        self.new_logged: list[dict] = []
+
+    def fetch(self, since=None):
+        """Fetch 8-K filings across all watchlist tickers (flatten to per-filing list)."""
+        from shared import edgar
+
+        out = []
+        for tk in self.tickers:
+            try:
+                filings = edgar.get_recent_8k_filings(tk, days=self.days)
+                for f in filings:
+                    out.append({"ticker": tk, **f})
+            except Exception as e:
+                log.warning(f"fetch 8-K for {tk} failed: {e}")
+        return out
+
+    def validate(self, raw):
+        """Dedup + classify severity. Returns EightKFiling or None (skip)."""
+        from shared import storage
+
+        if storage.get_8k_filing_by_accession(raw["accession"]):
+            return None  # silent dedup skip
+        severity, reason = classify_severity(raw["item_codes"])
+        return EightKFiling(
+            ticker=raw["ticker"],
+            cik=raw["cik"],
+            accession=raw["accession"],
+            filed_at=raw["filed_at"],
+            items_raw=raw["items_raw"],
+            item_codes=raw["item_codes"],
+            url=raw["url"],
+            severity=severity,
+            severity_reason=reason,
+        )
+
+    def persist(self, validated: EightKFiling, provenance):
+        """Insert into filings_8k_log table + accumulate for legacy return value."""
+        from shared import storage
+
+        row_id = storage.log_8k_filing(
+            ticker=validated.ticker,
+            cik=validated.cik,
+            accession=validated.accession,
+            filed_at=validated.filed_at,
+            items_raw=validated.items_raw,
+            item_codes=validated.item_codes,
+            severity=validated.severity,
+            severity_reason=validated.severity_reason,
+            filing_url=validated.url,
+        )
+        if row_id:
+            log.info(
+                f"8-K logged: {validated.ticker} {validated.filed_at} "
+                f"{validated.items_raw} [{validated.severity}] id={row_id}"
+            )
+            self.new_logged.append(
+                {
+                    "id": row_id,
+                    "ticker": validated.ticker,
+                    "cik": validated.cik,
+                    "accession": validated.accession,
+                    "filed_at": validated.filed_at,
+                    "items_raw": validated.items_raw,
+                    "item_codes": validated.item_codes,
+                    "url": validated.url,
+                    "severity": validated.severity,
+                    "severity_reason": validated.severity_reason,
+                }
+            )
+        return row_id
+
+
+def scan_and_log_8k_filings(tickers, days=7):
+    """Scan list of tickers for new 8-K filings, persist, return newly-logged rows.
+
+    Sprint 1.2 item 3c: thin wrapper around EightKSource. Cron entry point
+    (bot/main.scheduled_8k_scan_job) unchanged.
+    """
+    source = EightKSource(tickers=tickers, days=days)
+    source.ingest()
+    return source.new_logged
 
 
 def format_8k_alert(row):
