@@ -296,3 +296,82 @@ def test_no_duplicate_handler_registrations():
         + "\n  ".join(duplicates)
         + "\nSee docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md"
     )
+
+
+# === Regression guards for scripts/bot_health_check.sh (AI #3, 2026-05-14) ===
+from pathlib import Path as _Path_for_health
+_HEALTH_REPO_ROOT = _Path_for_health(__file__).resolve().parents[1]
+HEALTH_SCRIPT = _HEALTH_REPO_ROOT / "scripts" / "bot_health_check.sh"
+
+
+def test_bot_health_check_exists_and_executable():
+    """Script file is present and has the executable bit set."""
+    assert HEALTH_SCRIPT.exists(), f"missing: {HEALTH_SCRIPT}"
+    assert HEALTH_SCRIPT.stat().st_mode & 0o111, "bot_health_check.sh is not executable"
+
+
+def test_bot_health_check_uses_case_insensitive_pgrep():
+    """Every pgrep invocation in the script uses -fi (or -i).
+
+    Same lesson as uptime_monitor case-bug 2026-05-14: macOS pgrep is
+    case-sensitive on cmdline by default. Python.app binary path contains
+    capital P, so `pgrep -f python` misses it. Use -fi.
+    """
+    text = HEALTH_SCRIPT.read_text()
+    pgrep_lines = [
+        line.rstrip()
+        for line in text.splitlines()
+        if "pgrep" in line and not line.lstrip().startswith("#")
+    ]
+    assert pgrep_lines, "no pgrep calls found — has the script been refactored?"
+    for line in pgrep_lines:
+        assert ("-fi" in line) or (" -i " in line) or (" -i\"" in line), (
+            f"pgrep without case-insensitive flag (-fi or -i): {line!r}\n"
+            "macOS Python.app cmdline contains capital P. Use -fi."
+        )
+
+
+def test_bot_health_check_trap_preserves_exit_code():
+    """EXIT trap must capture $? before cleanup and re-exit with it.
+
+    Bash EXIT trap runs the trap action, and the LAST command's rc becomes the
+    shell's exit code unless explicitly preserved. A naive `trap 'rm -f X' EXIT`
+    silently overrides `exit 3` with `rm`'s rc=0.
+    """
+    text = HEALTH_SCRIPT.read_text()
+    assert "rc=$?" in text, (
+        "EXIT trap must capture $? at entry. Without it, cleanup overrides "
+        "the script's intended exit code."
+    )
+    assert 'exit "$rc"' in text or "exit $rc" in text, (
+        "EXIT trap must re-exit with the preserved rc."
+    )
+
+
+def test_bot_health_check_handles_missing_files_gracefully():
+    """Critical file paths are guarded with [ -f ... ] checks (no unguarded reads).
+
+    The script must not crash if data/bot.db, data/bot_state.json, or bot.log
+    are missing — those are the failure modes the health check is meant to
+    surface, not blow up on.
+    """
+    text = HEALTH_SCRIPT.read_text()
+    for var in ["DB_PATH", "STATE_JSON", "BOT_LOG"]:
+        has_guard = (
+            f'[ -f "${var}" ]' in text
+            or f'[ ! -f "${var}" ]' in text
+        )
+        assert has_guard, (
+            f"${var} is used but never guarded with [ -f ... ]. "
+            "Missing-file scenarios will crash the script instead of "
+            "being reported as a signal."
+        )
+
+
+def test_bot_health_check_exit_codes_documented():
+    """The script's header documents all four exit codes (0/1/2/3) and the
+    corresponding GREEN/RED/ORANGE/CRITICAL verdict labels are present."""
+    text = HEALTH_SCRIPT.read_text()
+    for code, label in [("0", "GREEN"), ("1", "RED"), ("2", "ORANGE"), ("3", "CRITICAL")]:
+        assert f"{code} =" in text or f"{code}=" in text, f"exit code {code} not documented"
+        assert label in text, f"verdict label {label} not present in script"
