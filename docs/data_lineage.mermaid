@@ -1,0 +1,16 @@
+
+# Sprint 1.2 item 3 closure (14 May 2026)
+# ------------------------------------------
+# MIGRATED to BaseDataSource pattern:
+#   - data_sources/gmail_.py        -> GmailSource          (item 2)
+#   - intelligence/filings_8k.py    -> EightKSource         (item 3c)
+#   - intelligence/insider_buy_cluster.py -> BuyClusterSource  (item 3d)
+#
+# Foundational improvement:
+#   - shared/edgar.py: rate limiter + retry on 4 SEC GET calls (item 3a)
+#
+# NOT migrated, by design:
+#   - intelligence/insider_digest.py:daily_insider_refresh
+#     Orchestrator with non-linear flow (READ deltas BEFORE WRITE snapshot,
+#     aggregates operational counters across tickers). Pattern fetch->validate->persist
+#     does not map cleanly. Revisit only if persistence concerns emerge.
