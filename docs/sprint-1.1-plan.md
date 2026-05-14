@@ -28,7 +28,7 @@ Sprint 1.4 confirmed already-shipped Day 2 (Ship C, meta-lesson in commit
 (gated by KPI #2 GREEN on 10 June).
 
 Refactoring before Phase 2 (Decision Journal, J+90→J+150) prevents Decision
-Journal from being built on a 2428-LOC monolith. Smaller surface = lower
+Journal from being built on a 3314-LOC monolith. Smaller surface = lower
 risk in Phase 2.
 
 ## Risk analysis
@@ -174,7 +174,7 @@ git add bot/handlers/<D>.py bot/main.py
 git commit -m "Sprint 1.1 chunk <N>/10: extract <D> handlers
 
 - Moved: cmd_X, cmd_Y, cmd_Z to bot/handlers/<D>.py
-- bot/main.py: 2428 -> NNN LOC (-MMM)
+- bot/main.py: 3314 -> NNN LOC (-MMM)
 - Smoke tests pass, /<D>-cmd verified in Telegram
 - Detector validation: positive=PASS (bot started, handler responds),
   negative=N/A (no detector code touched)"
