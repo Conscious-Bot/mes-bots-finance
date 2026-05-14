@@ -309,3 +309,55 @@ existence checks) to confirm nothing executed, then retry without comments.
 **Adjacent reading**: §16 (detector validation), §17 (recon-before-ship).
 Same family — assumptions about default tool/shell behavior that bite at
 ship/paste time.
+
+
+## 19. macOS process targeting (Python.app launcher gotchas)
+
+**Added 2026-05-14 evening from apscheduler-hang-restart-cascade postmortem.**
+
+Two related macOS-specific rules for any code/script targeting a running Python process. Both rules surfaced during a single incident with two cascading violations (21:13 KST + 21:25 KST same evening).
+
+### Rule 1: §16 scope extension — case-insensitive matching applies to ALL process commands
+
+§16 (Detector validation rule) initially covered `pgrep -f` in KPI-backing detectors. This rule **extends** to:
+- `pkill -f <pattern>` — same case-sensitive trap as pgrep
+- `ps -ef | grep <pattern>` — same trap
+- Any process matching against macOS bin paths containing `/Python.app/Contents/MacOS/Python` (capital P)
+
+**Required**: use `-i` flag on `pkill -if`, `pgrep -if`, or `grep -i` for any process matching. Without `-i`, lowercase `python` patterns will not match capital `Python` bins.
+
+**Forbidden**: case-sensitive process matching in any restart, kill, or detection script for production bot operations.
+
+### Rule 2: Python.app launcher PID ≠ interpreter PID
+
+`/Library/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python` is a **launcher app**, not the interpreter directly. When invoked, it forks the actual Python interpreter into a different PID. The launcher may exit shortly after fork, leaving the interpreter orphaned and reparented.
+
+Concrete consequence for `nohup python -m bot.main > bot.log 2>&1 &`:
+- bash job `[N]` PID = launcher PID (e.g., 13201)
+- Actual interpreter running bot.main = different PID (e.g., 13403), forked child
+- `kill %N` or `kill <launcher_pid>` only kills the launcher (often already dead)
+- Interpreter PID survives, PPID becomes shell PID after reparent
+
+**Required for cleanup**: kill by interpreter PID discovered via pgrep, not by bash job PID or launcher PID.
+
+Canonical pattern:
+pgrep -if "python.*bot.main" | xargs kill -9
+
+Or per-PID loop:
+for pid in (pgrep−if"python.∗bot.main");dokill−9"(pgrep -if "python.*bot.main"); do kill -9 "
+(pgrep−if"python.∗bot.main");dokill−9"pid"; done
+
+**Forbidden**: `kill %1`, `kill %2`, or kill by bash job PID alone. Always verify via `pgrep -ifl` after kill to confirm interpreter is actually dead.
+
+### Adjacent reading
+- §16 (detector validation rule, root of case-sensitivity trap)
+- §18 (paste-safe bash blocks, also macOS shell gotcha family)
+- `docs/post-mortems/2026-05-14-apscheduler-hang-restart-cascade.md`
+- `docs/failure_modes.md` #6 (APScheduler hang runbook)
+
+### Recurrence count
+2 violations on 2026-05-14 alone (in single evening):
+- 21:13 KST — `pkill -f` case-sensitive failed during first restart attempt
+- 21:25 KST — kill by job PID didn't kill interpreter, leaving 13403 alive
+
+Justifies promotion from informal note to codified §19.

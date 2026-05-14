@@ -169,3 +169,47 @@ Path 5/6 requires demonstrating not just "ça marche" but "je sais quand ça cas
 - **Post-incident**: ajouter learnings, mettre à jour likelihood
 - **Quarterly**: re-rank top 5 selon incidents réels observés
 
+
+
+## #6 — APScheduler scheduler thread hangs silently (added 2026-05-14)
+
+### Symptoms
+- Process alive (`pgrep -if` finds it)
+- bot.log shows no new entries for >1h despite hourly crons
+- All scheduled jobs (heartbeat, gmail_ingest, materiality_v2, etc.) silently stop firing
+- Telegram handlers may still respond (asyncio polling loop unaffected)
+- Often preceded by "Run time of job X was missed by Y" warnings in log
+
+### Detection
+- `bot_health_check.sh` → `heartbeat_fresh FAIL` (>60min threshold)
+- Secondary: `signal_ingest_freshness WARN` (>180min threshold)
+- Manual: `tail bot.log` shows no recent entries despite alive process
+
+### Cause hypotheses
+1. ThreadPoolExecutor saturation (default max_workers=10, gmail_ingest ~20s blocking)
+2. Job exception killing worker thread without propagation to main
+3. APScheduler internal deadlock on event loop
+
+### Runbook
+cp bot.log HOME/backups/mes-bots-finance/bot.log.scheduler_hang_
+(date +%Y%m%d_%H%M%S).log
+pgrep -if "python.*bot.main" | xargs kill -9
+sleep 30
+pgrep -ifl "python.*bot.main"
+nohup python -m bot.main > bot.log 2>&1 &
+head -10 bot.log
+./scripts/bot_health_check.sh
+
+**Important**: do NOT use `pkill -f "python.*bot.main"` (case-sensitive on macOS where bin is `Python` capital P — see CONVENTIONS §16, §19). Use `pgrep -if | xargs kill -9` pattern instead.
+
+Heartbeat_fresh will mechanically remain FAIL for ~1h post-restart until first cron fires. That's expected behavior, not a re-occurrence.
+
+### References
+- Postmortem: `docs/post-mortems/2026-05-14-apscheduler-hang-restart-cascade.md`
+- CONVENTIONS §19 (macOS process targeting, Python.app launcher gotchas)
+- CONVENTIONS §16 (detector validation, case-sensitivity trap origin)
+
+### Open follow-ups (P2, post-J+28)
+- APScheduler config tuning (max_workers, coalesce, executor type)
+- Internal APScheduler INFO logging for stuck worker detection
+- Consider multiprocessing executor for long-running gmail/LLM jobs
