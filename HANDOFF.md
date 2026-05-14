@@ -198,3 +198,18 @@ Empirical refresh: bot PID 10657, 23 commits Day 3, 117/117 tests, ruff 0, mypy 
 | #10 Handler-registration uniqueness AST smoke test | Sprint 1.1 chunk 1 | ~20min | NEW |
 
 AIs #3, #4, #6, #7 from morning postmortem remain open per original schedule.
+
+
+## AI #9 CLOSED 2026-05-14 14h30 KST
+
+Empirical audit (handler_calls + position_events + positions + decisions
+cross-check) proves the dup handler registration was DEAD CODE in
+python-telegram-bot v21+, NOT double-firing. 0 duplicates in any table.
+KPI #5 was never corrupted.
+
+Postmortem at `docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md`
+now has "CORRECTION 2026-05-14 14h30 KST" section. Original analysis
+preserved; correction supersedes impact claims.
+
+Fix c6d959a remains valid as code hygiene (dead-code removal).
+AI #10 (handler-uniqueness AST smoke test) UNCHANGED — still ships Monday.

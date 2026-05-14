@@ -107,3 +107,87 @@ Defer #2. Adopt #3 implicitly via refactor architecture.
 - CONVENTIONS §17 found this — validates the rule
 - CONVENTIONS §16 detector validation embedded in fix command
 - Adjacent: 2026-05-14-uptime-monitor-case-bug.md (same session, similar root pattern)
+
+---
+
+## CORRECTION 2026-05-14 14h30 KST (added after AI #9 audit)
+
+The IMPACT section above is OVERSTATED. Empirical audit (AI #9, closed this
+date) proves the dup handler registration did NOT cause double-firing in
+python-telegram-bot v21+.
+
+### Evidence
+
+`handler_calls` table for `/position_buy` invocations EVER:
+
+| id | timestamp UTC | args |
+|---|---|---|
+| 22 | 2026-05-13 13:35:27 | `/position_buy NVDA 0.1 130 test b2 flag off` |
+| 23 | 2026-05-13 13:40:12 | `/position_buy 1000 100 test gate on with massive size` |
+
+The 2 entries are **4 minutes 45 seconds apart** with **completely different
+args**. These are two separate user invocations, NOT one invocation
+double-fired. If the dup had actually double-fired, invocation 22 alone
+would have produced 2 handler_calls entries (the middleware fires once per
+Telegram message regardless of how many CommandHandlers match in subsequent
+groups) within milliseconds. Observed 4-minute spacing definitively
+confirms separate invocations.
+
+Data effects observed:
+- Invocation 22 -> 1 position (#6 NVDA 0.1@130), 1 position_event (#5),
+  1 decision row (#7). **Single set of writes**, not doubled.
+- Invocation 23 -> 0 rows anywhere (presumably blocked by `risk_engine.validate()`
+  given qty 1000 * $100 = $100K position > `position_max_pct=0.05` cap).
+
+### Why the dup was dead code in python-telegram-bot v21+
+
+Per `requirements.txt`: `python-telegram-bot>=21.0`. The v21+ default
+`Application.process_update()` semantics within a single handler group
+(group=0 for our CommandHandlers): the FIRST matching handler runs, subsequent
+same-group handlers are NOT invoked (`block=True` default). The second
+`add_handler(CommandHandler("position_buy", cmd_position_buy))` at L3306
+was therefore **unreachable** — dead code, not double-fire trigger.
+
+### Corrected impact assessment
+
+- **No data corruption**. KPI #5 entries are NOT doubled.
+- Fix in commit c6d959a is still correct — it removed dead code (smaller
+  cognitive surface, ruff-cleaner, defends against PTB version upgrades
+  that might change group semantics). But it did NOT fix a runtime bug.
+- Original "Severity: HIGH principle, LOW magnitude" claim reduced to
+  "Severity: LOW (code smell, dead code)".
+
+### Why the over-claim happened
+
+The original analysis assumed python-telegram-bot fires all matching handlers
+in a group. This is true for aiogram and PTB v13 in some configs. It is
+FALSE for PTB v21+ default. I did not verify library behavior empirically
+(no docs read, no reproducer test, no AST inspection) before writing the
+impact section. The hypothesis was embedded in the commit message
+(c6d959a) before any audit.
+
+### Meta-leçon
+
+Postmortem impact sections deserve the same empirical discipline as code
+(CONVENTIONS §16 detector validation). Hypothesis-as-fact in a postmortem
+is the same class of error as untested KPI detector. When audit pending,
+label "SUSPECTED, pending AI #N" rather than asserting.
+
+This finding does NOT yet add a CONVENTIONS rule — per §16 recurrence
+criterion (capture on pattern repeat). Logged as known meta-pattern for
+the next postmortem.
+
+### AI #9 outcome: CLOSED
+
+- 0 duplicates in decisions table
+- 0 unexpected position_events or positions
+- KPI #5 was never corrupted
+- No retroactive cleanup needed
+
+### AI #10 status: STILL VALID
+
+Handler-registration uniqueness AST smoke test remains scheduled for
+pre-flight Monday or Sprint 1.1 chunk 1. Reasoning:
+- Dead-code dup registrations are still bad (confusing, ruff-invisible)
+- Defends against PTB version upgrades that might change group semantics
+- Low cost (~20min), catches the issue in <1s in CI vs expert recon

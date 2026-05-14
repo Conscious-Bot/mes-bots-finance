@@ -575,3 +575,51 @@ New AIs:
    (preventive) or DURING chunk 1 (after extraction)?
 3. **AI #9 SQL audit**: window 2026-05-13 18:00 → 2026-05-14 13:43 KST.
    If 0 duplicates found → close immediately. If >=1 → decide cleanup.
+
+
+## Day 3 evening v4 — AI #9 CLOSED, postmortem CORRECTED (14 May 2026 ~14h30 KST)
+
+AI #9 SQL audit overturns the prior postmortem impact claim. Empirical findings:
+
+### Evidence
+- `handler_calls` shows 2 distinct /position_buy invocations: id=22 at
+  2026-05-13 13:35:27 UTC ("test b2 flag off"), id=23 at 13:40:12 UTC
+  ("test gate on with massive size"). 4m45s gap + completely different args
+  = 2 separate user invocations, NOT double-fire.
+- python-telegram-bot v21+ default group semantics: only FIRST matching
+  handler in group=0 fires. Second `add_handler` at L3306 was DEAD CODE.
+- Data state: 1 position (#6 NVDA), 1 position_event (#5), 1 decision (#7).
+  Single set of writes per real invocation. No duplicates anywhere.
+
+### AI #9 CLOSED
+
+- 0 duplicates in decisions table during dup-handler window
+- KPI #5 was NEVER corrupted (original postmortem over-claimed impact)
+- Fix c6d959a remains valid as dead-code removal (hygiene only, not runtime bug)
+- No retroactive cleanup needed
+
+### Postmortem amended
+
+`docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md` now
+has a "CORRECTION 2026-05-14 14h30 KST" section appended. Original analysis
+preserved for history; correction supersedes the impact claims.
+
+### Meta-leçon (captured, not yet a §18 rule per §16 recurrence policy)
+
+Postmortem impact sections deserve the same empirical discipline as code.
+Hypothesis-as-fact in a postmortem = same class of error as untested KPI
+detector. Label "SUSPECTED, pending AI #N" when audit pending, NOT
+authoritative assertion.
+
+### AI #10 unchanged
+
+Handler-uniqueness AST smoke test still ships pre-flight Monday or Sprint 1.1
+chunk 1. Dead-code dups are still bad even if not double-firing — defends
+against PTB version upgrades + caught in <1s vs expert recon.
+
+### System validation
+
+Recursion worked as intended: pre-flight (CONVENTIONS §17) found code smell
+-> fix shipped + postmortem written -> audit (AI #9) verified actual impact
+-> over-claim detected -> correction shipped. The bot's discipline
+mechanism applied to the build of the bot itself. Right outcome.
