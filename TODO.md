@@ -312,3 +312,28 @@ Findings:
 Action post-J+28: delete 3 legacy functions, decide alembic discipline (revive migrations OR document informal schema evolution + write current schema as new baseline).
 
 Risk if not done: low. Dead code = cognitive overhead + slight attack surface (silent OperationalError on accidental call). Path 5/6 defensibility benefit from clean codebase.
+
+
+---
+
+## Appropriation roadmap items (defined 14 May 2026 Day 3 close)
+
+### Phase 1 pre-conditions (P0 once Sprint 1.1 closes, ~26 mai)
+- [ ] FileVault enabled (Settings, Privacy and Security)
+- [ ] Audit ~/mes-bots-finance NOT in iCloud Drive sync path
+- [ ] Manual backup restore end-to-end test on data/bot.db
+- [ ] Wire risk.validate() into cmd_position_buy / cmd_position_sell
+- [ ] Verify paper_only toggle blocks all position writes when True
+
+### Phase 2 trigger (~12-15 juin, post J+28 KPI #2 batch)
+- [ ] Choose 2-3 quality compounder positions for first entry (no PLTR/NVDA/crypto)
+- [ ] Pre-position backup + tag manual_pre_first_real_position_TIMESTAMP
+- [ ] First /position_buy with real ticker + size + thesis text
+- [ ] Note expected emotional response in VALUE_LOG.md
+- [ ] 30d observation cycle compare expected vs actual
+
+### Phase 3-4 (milestone-gated, post-July)
+Trigger: 30d of Phase 2 with no panic sell on neutral positions
+Then: introduce PLTR-equivalent positions one at a time
+
+See FICHE_TECHNIQUE.md "Appropriation roadmap" section for full rationale.

@@ -659,3 +659,21 @@ fresh morning per solidification > velocity.
 - Cost trajectory 5 dollars/mo projected, 10% budget
 - 7 AIs closed Day 3, #3 closed 7d early
 - Sprint 1.1 Monday 2026-05-19 pre-flight artifacts in place
+
+
+## Day 3 final close — CI iteration + appropriation discussion (14 May 2026 ~16h KST)
+
+### CI iteration journey
+3 CI runs revealed cross-env type-checker divergence:
+- e879a86 RED ruff I001 (import sort)
+- 72c4863 RED mypy stubs mismatch (types-requests missing in CI)
+- 347c59b expected GREEN (types-requests + mypy pinned in requirements-dev.txt)
+
+### Appropriation roadmap discussion
+User raised entering real portfolio. Decision: YES staged 3-4 months, NOT tonight, NOT before Sprint 1.1 close. 4-phase plan captured in FICHE_TECHNIQUE.md + actionable items in TODO.md.
+
+### Day 3 final tally
+36 commits, 7 AIs closed (#3 #4 #5 #6-P0 #8 #9 #10), AIs open #6-P1-6 #7 #11 #12 + Phase 1 appropriation pre-conditions.
+
+### Meta-lesson 8 (candidate §19 if recurrence)
+Cross-env type-checker divergence requires type stub pinning. CONVENTIONS §17 recon-before-ship should add version-reproducibility check.

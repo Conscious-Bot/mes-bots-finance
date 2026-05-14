@@ -246,3 +246,49 @@ Canonical state. Supersedes earlier HANDOFF sections.
 
 ### Observation discipline
 KPI #2 timer: 27d to 2026-06-10. No new features. Sprint 1.1 STRICT mode Monday 2026-05-19.
+
+
+---
+
+## Day 3 FINAL state (14 May 2026 evening close, post 347c59b)
+
+Canonical state. Supersedes all earlier HANDOFF sections.
+
+### What shipped today (36 commits)
+- 7 AIs closed (#3 #4 #5 #6-P0 #8 #9 #10), 1 new captured (#12)
+- Sprint 1.1 equivalence checkpoint harness + chunk 0 baseline
+- Multi-signal bot health check (8 signals) + 5 regression tests
+- 2 real-world findings caught by health check (TZ drift + schema drift)
+- Docs aligned with current predictions schema
+- GitHub repo public + 3-cycle CI iteration
+- Type stubs pinned (types-requests + mypy>=2.1.0)
+- Appropriation 4-phase roadmap defined
+
+### Empirical state
+- 124 tests passing, 0 ruff, 0 mypy on 19 CI modules
+- Bot health GREEN, 45 open predictions due 2026-06-10
+- Cost: 5 dollars/mo projected, 10% budget
+- GitHub: https://github.com/Conscious-Bot/mes-bots-finance
+
+### Open AIs
+- #6 Phase 1-6 TZ migration (4-5h, ADR 002)
+- #7 bot_state.json refresh (1h, post-J+28)
+- #11 predictions TZ-offset audit (1h, post-J+28)
+- #12 storage.py legacy dead code (30-60min, post-J+28)
+- Appropriation Phase 1 pre-conditions (30min, post Sprint 1.1)
+
+### Next reopen checklist
+1. cd ~/mes-bots-finance and source venv/bin/activate
+2. ./scripts/bot_health_check.sh
+3. git log --oneline -5
+4. cat HANDOFF.md
+5. python scripts/sprint_1_1_checkpoint.py list-chunks
+
+### Sprint 1.1 Monday 2026-05-19
+STRICT mode, pre-flight artifacts in place. See docs/sprint-1.1-plan.md.
+
+### Appropriation roadmap
+4 phases defined Day 3 close. See FICHE_TECHNIQUE.md and TODO.md for detail. Phase 1 trigger: Sprint 1.1 complete.
+
+### Observation discipline
+KPI #2 timer 27d to 2026-06-10. NO new features. NO new tickers. NO new sources.

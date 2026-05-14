@@ -123,3 +123,29 @@ Le bot **ne trade pas**. Il force la réflexion structurée pré-commit via thes
 8. Hygiene = feature
 9. Backup + versioning obligatoire
 10. Track record > features (Path 5/6 narrative)
+
+---
+
+## Appropriation roadmap (defined 14 May 2026 Day 3 close)
+
+Le bot n'est pas un simulator. Sa philosophie repose sur instrumentation de DECISIONS reelles. Sans positions reelles, les boucles bidirectionnelles asymetriques (anti-sell-trop-tot, anti-hold-trop-long) n'ont rien a instrumenter.
+
+Appropriation = condition de validite du projet, staged sur 3-4 mois pour gerer le risque psychologique. La rencontre du bot avec tes biais sur tes vraies positions est un evenement emotionnel, pas seulement technique.
+
+### Phase 1 (post Sprint 1.1, ~26 mai 2026): safety pre-conditions
+- FileVault active sur Mac
+- bot.db PAS dans iCloud sync
+- Backup restore test end-to-end sur vraies donnees
+- risk_engine wired sur /position_buy /position_sell
+- Mode paper_only toggle verifie actif
+
+### Phase 2 (post-J+28, ~12-15 juin 2026): premieres positions neutres
+2-3 quality compounders sans charge emotionnelle (V, BLK, mega-cap stable). Apprivoiser /brief, /asymmetry, alerts. PAS PLTR / NVDA / crypto en premiere.
+
+### Phase 3 (~juillet 2026, apres 30j Phase 2): positions chargees
+Ajouter graduellement les positions a fort biais. PLTR-equivalent en dernier. Confiance se gagne par exposition incrementale.
+
+### Phase 4 (~aout-septembre 2026): full portfolio + decisions execute_real si retenu
+
+### Principe sous-jacent
+Echelle de mois, pas de jours. Stage l'appropriation comme un evenement psychologique, pas un toggle on/off.
