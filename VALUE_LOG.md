@@ -14,3 +14,22 @@ Anti-erosion mechanism for solo 12-month build. If this file is empty at J+30, t
 2026-05-13 12:54 | premiere tentative le bot tourne bien jaime la lecture des tickers et leurs descriptions, aussi jaime beaucoup la feature orphan_ticker
 2026-05-13 13:27 | le brief est trop succint les resumes ne sont pas clairs du tout
 2026-05-14 02:47 | le slash digest est bien meilleur et fais un meilleur resume que le / brief il faut revoir ca pour peut etre revoir le nombre de ligne, le style d'ecriture et peut etre reunir les 2 en 1
+
+2026-05-14 21:45 | Day 3 close — Tier 2 ship validation empirique
+Tier 2 bot_health_check.sh (commit 26678e9, déployé Day 3 evening) a détecté
+l incident APScheduler hang dans les 24h de son déploiement. Sans cette feature
+l incident serait resté invisible jusqu au prochain check manuel (probablement
+demain matin). Detector value validée empiriquement.
+
+Postmortem propre + CONVENTIONS §19 + failure_modes #6 documentés (commit
+a34f705). 40+ commits Day 3, CI triple GREEN, Sprint 1.1 pre-flight validé
+8/9 gates (mypy cosmetic à fixer Friday).
+
+Friction batch (6 items: /brief, /digest, metrics proliferation, pipeline
+coherence, /analyze + /orphan_ticker comme north stars) capturée raw dans
+friction.md (commit 3a3ae2f) au lieu d être supprimée par fix immédiat —
+preserves wedge signal pour /brief redesign post-Sprint-1.1.
+
+Sprint 1.1 baseline verify: 98/98 function bodies unchanged, structural
+counts unchanged, zéro commit a touché bot/main.py depuis le baseline 2158adf.
+Ready Monday.
