@@ -206,3 +206,93 @@ def test_backup_script_exists_and_executable():
     p = Path("scripts/backup.sh")
     assert p.exists(), "scripts/backup.sh missing"
     assert os.access(p, os.X_OK), "scripts/backup.sh not executable"
+
+
+def test_uptime_monitor_uses_case_insensitive_pgrep():
+    """Regression guard for 2026-05-14 case-sensitivity postmortem (AI #4).
+
+    `crons/uptime_monitor.sh` must use case-insensitive pgrep. macOS Python
+    binary is capital-P; case-sensitive `pgrep -f` missed it for 3+ days,
+    producing 422 false-negative FAIL entries.
+
+    See docs/post-mortems/2026-05-14-uptime-monitor-case-bug.md
+    """
+    from pathlib import Path
+
+    script = Path("crons/uptime_monitor.sh")
+    assert script.exists(), "crons/uptime_monitor.sh missing"
+
+    content = script.read_text()
+    has_case_insensitive = (
+        "pgrep -fi" in content
+        or "pgrep -if" in content
+        or "pgrep -i " in content
+        or "pgrep -i\t" in content
+    )
+    assert has_case_insensitive, (
+        "crons/uptime_monitor.sh does not use case-insensitive pgrep. "
+        "macOS capital-P Python binary requires -i flag. "
+        "See docs/post-mortems/2026-05-14-uptime-monitor-case-bug.md"
+    )
+
+
+def test_no_duplicate_handler_registrations():
+    """Regression guard for 2026-05-14 dup handler postmortem (AI #10).
+
+    bot/main.py must not register the same CommandHandler command name
+    twice. Ship 5 deleted dup cmd_position_buy/sell defs but left both
+    add_handler() calls (commit c6d959a fixed this). Per AI #9 audit, dup
+    registrations are dead code in python-telegram-bot v21+ (only first
+    matching handler in group fires), but still bad hygiene + defensive
+    against library version upgrades that might change group semantics.
+
+    AST inspection — no runtime import needed.
+
+    See docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md
+    """
+    import ast
+    from pathlib import Path
+
+    src = Path("bot/main.py").read_text()
+    tree = ast.parse(src)
+
+    seen_commands: dict[str, int] = {}
+    duplicates: list[str] = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not (isinstance(node.func, ast.Attribute) and node.func.attr == "add_handler"):
+            continue
+        if not node.args:
+            continue
+
+        first_arg = node.args[0]
+        if not (
+            isinstance(first_arg, ast.Call)
+            and isinstance(first_arg.func, ast.Name)
+            and first_arg.func.id == "CommandHandler"
+        ):
+            continue
+
+        if not first_arg.args:
+            continue
+        cmd_arg = first_arg.args[0]
+        if not (isinstance(cmd_arg, ast.Constant) and isinstance(cmd_arg.value, str)):
+            continue
+
+        cmd_name = cmd_arg.value
+        line_no = node.lineno
+
+        if cmd_name in seen_commands:
+            duplicates.append(
+                f"/{cmd_name} registered at L{seen_commands[cmd_name]} AND L{line_no}"
+            )
+        else:
+            seen_commands[cmd_name] = line_no
+
+    assert not duplicates, (
+        "Duplicate CommandHandler registrations found in bot/main.py:\n  "
+        + "\n  ".join(duplicates)
+        + "\nSee docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md"
+    )
