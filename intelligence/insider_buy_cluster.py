@@ -11,6 +11,10 @@ Builds on existing edgar.get_insider_cluster (Phase 12.1) but adds:
 import logging
 from datetime import UTC, datetime, timedelta
 
+from pydantic import BaseModel
+
+from shared.data_source_base import BaseDataSource
+
 log = logging.getLogger(__name__)
 
 
@@ -33,34 +37,95 @@ def _close_at_or_after(ticker, target_date):
         return None
 
 
-def detect_and_log_buy_clusters(watchlist, window_days=30, dedup_days=7):
-    """Run detection on watchlist tickers. Returns list of NEW clusters (not deduped)."""
-    from shared import edgar, storage
+class BuyClusterValidated(BaseModel):
+    """Pydantic schema for a validated buy cluster (Sprint 1.2 item 3d, pre-persist)."""
 
-    new_found = []
-    detected_at = datetime.now(UTC).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
-    today = datetime.now(UTC).replace(tzinfo=None)
-    for tk in watchlist:
-        try:
-            brief = edgar.get_insider_brief(tk, ttl_hours=24)
-            if not brief or (brief.get("n_buys") or 0) == 0:
-                continue
-            cluster = edgar.get_insider_cluster(tk, days=window_days)
-            if not cluster.get("is_buy_cluster"):
-                continue
-            recent = storage.get_recent_buy_cluster_log(tk, days=dedup_days)
-            if recent:
-                log.info(f"BUY cluster {tk} suppressed (recent log id={recent['id']})")
-                continue
-            price = _close_at_or_after(tk, today)
-            cid = storage.log_buy_cluster(tk, detected_at, window_days, cluster, price)
-            cluster["_log_id"] = cid
-            cluster["_price_at_detection"] = price
-            new_found.append(cluster)
-            log.info(f"BUY cluster logged: {tk} id={cid} strength={cluster.get('cluster_strength')} price=${price}")
-        except Exception as e:
-            log.warning(f"detect_and_log {tk} failed: {e}")
-    return new_found
+    model_config = {"arbitrary_types_allowed": True}
+
+    ticker: str
+    cluster: dict  # opaque from edgar.get_insider_cluster
+    detected_at: str  # ISO-ish timestamp string for storage
+
+
+class BuyClusterSource(BaseDataSource):
+    """Insider BUY cluster detection across watchlist (Sprint 1.2)."""
+
+    source_name = "insider_buy_cluster"
+    rate_limit_rpm = 300  # SEC EDGAR conservative (10 req/sec public limit)
+
+    def __init__(self, watchlist: list[str], window_days: int = 30, dedup_days: int = 7) -> None:
+        super().__init__()
+        self.watchlist = watchlist
+        self.window_days = window_days
+        self.dedup_days = dedup_days
+        # Backward-compat: collect NEW clusters with _log_id and _price_at_detection
+        self.new_found: list[dict] = []
+        # Cache time-of-ingest to keep all rows consistent
+        self._today = datetime.now(UTC).replace(tzinfo=None)
+        self._detected_at = self._today.strftime("%Y-%m-%d %H:%M:%S")
+
+    def fetch(self, since=None):
+        """Fetch raw cluster candidates: brief filter + full cluster analysis per ticker."""
+        from shared import edgar
+
+        out = []
+        for tk in self.watchlist:
+            try:
+                brief = edgar.get_insider_brief(tk, ttl_hours=24)
+                if not brief or (brief.get("n_buys") or 0) == 0:
+                    continue
+                cluster = edgar.get_insider_cluster(tk, days=self.window_days)
+                if not cluster.get("is_buy_cluster"):
+                    continue
+                out.append({"ticker": tk, "cluster": cluster})
+            except Exception as e:
+                log.warning(f"fetch insider cluster for {tk} failed: {e}")
+        return out
+
+    def validate(self, raw):
+        """Dedup against recent log. Returns BuyClusterValidated or None (skip)."""
+        from shared import storage
+
+        tk = raw["ticker"]
+        recent = storage.get_recent_buy_cluster_log(tk, days=self.dedup_days)
+        if recent:
+            log.info(f"BUY cluster {tk} suppressed (recent log id={recent['id']})")
+            return None
+        return BuyClusterValidated(
+            ticker=tk,
+            cluster=raw["cluster"],
+            detected_at=self._detected_at,
+        )
+
+    def persist(self, validated: BuyClusterValidated, provenance):
+        """Get price + insert into buy_cluster_log + mutate cluster dict for legacy compat."""
+        from shared import storage
+
+        price = _close_at_or_after(validated.ticker, self._today)
+        cid = storage.log_buy_cluster(
+            validated.ticker, validated.detected_at, self.window_days, validated.cluster, price
+        )
+        # Mutate cluster dict to preserve legacy return shape (caller uses _log_id + _price_at_detection)
+        cluster = validated.cluster
+        cluster["_log_id"] = cid
+        cluster["_price_at_detection"] = price
+        self.new_found.append(cluster)
+        log.info(
+            f"BUY cluster logged: {validated.ticker} id={cid} "
+            f"strength={cluster.get('cluster_strength')} price=${price}"
+        )
+        return cid
+
+
+def detect_and_log_buy_clusters(watchlist, window_days=30, dedup_days=7):
+    """Run detection on watchlist tickers. Returns list of NEW clusters (not deduped).
+
+    Sprint 1.2 item 3d: thin wrapper around BuyClusterSource. Cron entry point
+    (bot/main.scheduled_buy_cluster_scan_job) unchanged.
+    """
+    source = BuyClusterSource(watchlist=watchlist, window_days=window_days, dedup_days=dedup_days)
+    source.ingest()
+    return source.new_found
 
 
 def resolve_pending_returns(checkpoint_days):
