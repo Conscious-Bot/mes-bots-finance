@@ -176,3 +176,25 @@ Target: under 200 lines, one or two screens, no chronological history.
 **End of handoff.** Anyone reading this: respect observation mode. The right
 answer to "should I do X" between now and 2026-06-10 is almost always
 "no — wait for the batch resolution or a real alert."
+
+
+## Evening pre-flight Day 3 (14 May 2026 ~14h KST) — refresh
+
+Pre-flight Sprint 1.1 recon found and fixed 1 real defect + 2 doc drifts:
+
+- **Fixed**: /position_buy /position_sell double-registered (commit c6d959a).
+  Postmortem: `docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md`
+- **Doc drift corrected**: bot/main.py = 3314 LOC (not 2428). SESSION_STATE v3 refreshed.
+- **Doc drift tolerated**: mypy 2 errors pre-existing baseline; pyproject.toml strict
+  override = 11 modules (not 14). Both documented in SESSION_STATE.
+
+Empirical refresh: bot PID 10657, 23 commits Day 3, 117/117 tests, ruff 0, mypy 2 tolerated.
+
+### Open AIs updated
+
+| AI | Échéance | Effort | Status |
+|---|---|---|---|
+| #9 SQL audit decisions for dup KPI #5 entries since 2026-05-13 18:00 KST | 2026-05-21 | ~1h | NEW |
+| #10 Handler-registration uniqueness AST smoke test | Sprint 1.1 chunk 1 | ~20min | NEW |
+
+AIs #3, #4, #6, #7 from morning postmortem remain open per original schedule.

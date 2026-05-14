@@ -9,7 +9,7 @@
 
 ## Goal & scope
 
-Split `bot/main.py` (2428 LOC at refactor start) into a domain-organized
+Split `bot/main.py` (3314 LOC at refactor start) into a domain-organized
 `bot/handlers/*.py` structure. **Behavior must be 100% identical pre/post
 refactor** — verified via smoke tests + manual Telegram exercises after each
 chunk. No new features, no renaming, no consolidation. Pure cut+paste
@@ -276,7 +276,7 @@ rollback (replace + restart).
 
 ## References
 
-- `bot/main.py` (2428 LOC at 2026-05-14)
+- `bot/main.py` (3314 LOC at 2026-05-14)
 - `SESSION_STATE.md:374` (Day 3 morning carry-forward, week 18-25 May)
 - `TODO.md:178` (P3 architectural choice)
 - `CONVENTIONS.md §16` (detector validation — for any new test added)
@@ -287,3 +287,49 @@ rollback (replace + restart).
 ---
 
 **End of plan. Sprint 1.1 starts Monday 2026-05-19 after pre-flight on Monday morning.**
+
+
+## Pre-flight findings 14 May 2026 evening (added pre-Monday)
+
+Pre-flight recon during the evening of 2026-05-14 (post Day 3 close session)
+discovered and resolved several anomalies that affect this plan.
+
+### Corrected facts
+
+| Was | Now | Source |
+|---|---|---|
+| bot/main.py 2428 LOC | **3314 LOC** | `wc -l bot/main.py` post Phase 2.D fix |
+| 22 cron jobs | **23** | `grep -c sched.add_job` |
+| ~64 handlers | **65 unique** CommandHandlers | Phase 2 recon |
+| Strict-typed = 14 modules | **11** (pyproject truth) | Phase 1 audit |
+
+### Anomalies caught (handled before Sprint 1.1 start)
+
+1. **Double handler registration** /position_buy /position_sell — fixed in
+   commit c6d959a. Postmortem: docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md
+   New AIs opened: #9 (SQL audit), #10 (AST smoke test).
+2. **Mypy 2 errors baseline** — tolerated, NOT blocker. Pre-existing in
+   non-strict modules. Sprint 1.1 acceptance criteria updated to maintain
+   <=2 mypy errors, not "0 mypy errors".
+
+### Effort re-estimate (PENDING Monday pre-flight)
+
+Original 45h estimate was for 2428 LOC. Actual 3314 LOC (+36%). **Plan effort
+estimate flagged TO BE RE-VALIDATED MONDAY**.
+
+Monday pre-flight Step 6 (counts recorded) becomes critical. Possible outcomes:
+- LOC/handler ratio similar → effort scales linearly to ~60h, plan needs 6 days
+- LOC/handler ratio lower → effort doesn't scale linearly, stays near 45h
+- Ratio very low → bigger handlers inflate LOC, fewer moving parts, <45h
+
+### Acceptance criteria updated
+
+Add to checklist:
+- [ ] Mypy errors post-refactor <= 2 (pre-existing baseline maintained)
+- [ ] AI #10 (handler uniqueness AST smoke test) PASS
+- [ ] No commits between pre-flight branch creation and Monday start
+
+### References
+
+- Postmortem: docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md
+- Recon details: SESSION_STATE.md "Day 3 evening pre-flight v3" section

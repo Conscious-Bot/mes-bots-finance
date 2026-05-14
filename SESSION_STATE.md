@@ -490,3 +490,88 @@ postmortem AI #8 detector-validation rule):
 Adjacent: this is the second "almost-rebuilt-something-that-exists" pattern
 of the day (first was the diagnostic loop on a bot that was alive). Both
 trace to the same root: confident action without empirical pre-check.
+
+
+## Day 3 evening pre-flight v3 (14 May 2026 ~14h KST)
+
+User requested Sprint 1.1 prep tonight after I prematurely closed Day 3.
+Distinction recognized: prep != build. Observation mode compatible.
+
+### Phase 1 audit findings
+
+All green except:
+
+- **mypy 2 errors** on full 14-file check: pre-existing baseline, NOT regression.
+  - `intelligence/materiality.py:291` — V1 file (449 LOC), NOT in strict override.
+    `similar += 0.5` after `similar += 1` infers int but assigns float. Dette latente.
+  - `shared/edgar.py:33` — `retry_with_backoff` returns Any but `_edgar_get`
+    declared `-> requests.Response`. Introduced Sprint 1.2 item 3a (commit 980cddb).
+    `shared.edgar` NOT in strict override despite Ship 7 claim.
+- **pyproject.toml strict override = 11 modules**, NOT 14 as Ships 7/8 claimed.
+  Ship 7 type-hinted shared.edgar; Ship 8 type-hinted data_sources.gmail_. Neither
+  was added to `[[tool.mypy.overrides]]`. Doc drift corrected here, no pyproject
+  change tonight (needs the 2 baseline errors fixed first).
+- 20 commits ahead of `origin/main` (CI YAML inactive until push).
+
+### Phase 2 recon findings
+
+- **bot/main.py = 3316 LOC** (post Phase 2.D fix: 3314). Documented value "2428"
+  was off by 36% (~888 lines). FICHE_TECHNIQUE, SESSION_STATE prior, TODO,
+  sprint-1.1-plan all carried the stale number.
+- 67 CommandHandler registrations, 65 unique commands.
+- 23 scheduler.add_job calls (documented as 22).
+- 7 module-level helpers (_*), tightly coupled to specific handlers.
+- Telemetry middleware `log_handler_call_middleware` at L596, registered L3242
+  with `group=-1` BEFORE all CommandHandlers.
+- Helpers and handlers tightly grouped by domain — confirms 10-domain taxonomy
+  in plan is workable.
+
+### Phase 2.D defect fixed (commit c6d959a)
+
+/position_buy and /position_sell were DOUBLE-REGISTERED. Ship 5 deleted dead
+shadowed defs but NOT corresponding add_handler lines. Result: KPI #5 journal
+entries doubled since 2026-05-13 18:00 KST (~18-22h window).
+
+Fix: awk-filter removed 2 duplicate registration lines. Function defs untouched.
+
+Postmortem: `docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md`
+
+New AIs:
+- **AI #9** SQL audit decisions table for dups since 2026-05-13 18:00 KST (~1h, due 2026-05-21)
+- **AI #10** Add handler-registration uniqueness smoke test (~20min, chunk 1)
+
+### Phase 3 ships (this evening)
+
+- Postmortem doc for dup handler (this batch)
+- This SESSION_STATE refresh section
+- HANDOFF.md updated (AI #9, #10 added, empirical refresh)
+- sprint-1.1-plan.md updated (LOC 2428 -> 3314 globally, pre-flight findings appended, effort flagged TO BE RE-VALIDATED)
+- Pre-Sprint-1.1 backup tar + DB snapshot (Phase 3.F, separate command)
+
+### Empirical state post-evening (14 May 2026 ~14h KST)
+
+| Metric | Value |
+|---|---|
+| Bot PID | 10657 (restart post dup handler fix, 13:43 KST = 06:43 CEST) |
+| Predictions open | 45 |
+| Predictions resolved 28d | 1 |
+| Predictions due 28d cluster 10 juin | 40 (intact) |
+| Signals 30d | 82 (+16 vs morning) |
+| Active sources | 31 (+4 vs morning) |
+| bot/main.py | 3314 LOC |
+| CommandHandlers unique | 65 |
+| Crons | 23 |
+| Tests | 117/117 pass |
+| Lint | ruff 0, mypy 2 baseline tolerated |
+| Strict-typed modules pyproject | 11 (truth, not 14 as claimed) |
+| Commits Day 3 total | 23 (added evening: c6d959a) |
+
+### Open questions for Monday pre-flight
+
+1. **Sprint 1.1 effort revision**: original 45h estimate for 2428 LOC.
+   3314 LOC = +36%. Re-estimate Monday after counting LOC per handler average.
+   Plan flagged "TO BE RE-VALIDATED MONDAY".
+2. **AI #10 timing**: ship handler-uniqueness smoke test BEFORE chunk 1
+   (preventive) or DURING chunk 1 (after extraction)?
+3. **AI #9 SQL audit**: window 2026-05-13 18:00 → 2026-05-14 13:43 KST.
+   If 0 duplicates found → close immediately. If >=1 → decide cleanup.
