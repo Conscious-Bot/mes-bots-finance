@@ -80,7 +80,7 @@ git log --oneline -10
 
 | Échéance | AI | Effort | Status |
 |---|---|---|---|
-| 2026-05-15 (optional) | #5 purge or annotate `uptime.log` pre-fix false FAILs (~422 entries) | 30 min | open |
+| 2026-05-15 (closed 2026-05-14) | ~~#5 purge or annotate `uptime.log` pre-fix false FAILs~~ DONE: archived to `uptime.log.pre_case_fix_20260514`, main log filtered to >= 12:26 with explanatory header | 30 min | ✅ done |
 | 2026-05-21 | #3 `scripts/bot_health_check.sh` multi-signal alive check | ~1h | open |
 | 2026-05-21 | #4 smoke test `pgrep -fi` regression guard in `tests/test_smoke_observation.py` | ~30 min | open |
 | 2026-05-28 | #6 TZ standardization across logging components | ~2h | open |
