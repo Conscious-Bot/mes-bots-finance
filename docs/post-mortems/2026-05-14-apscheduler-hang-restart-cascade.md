@@ -75,3 +75,41 @@ Heartbeat_fresh will remain FAIL ~1h post-restart until first cron fires. Expect
 ## Validation
 
 Bot restarted clean PID 13697 at 14:32:49 CEST (21:32 KST). Log shows canonical startup: `Bot starting. Tickers: 22 core + 81 watch + 112 extended = 215 total`, `Polling Telegram...`, `Scheduler started: heartbeat 1h, gmail 1h, ...` with all 23 jobs. Zero Telegram Conflict in new bot.log.
+
+## Correction (added 2026-05-14 22:00, post pre-flight code analysis)
+
+The initial root cause hypothesis above ("ThreadPoolExecutor saturation, max_workers=10") is **wrong**. Pre-flight `grep` of `bot/main.py` during Sprint 1.1 readiness check revealed:
+
+- Line 8: `from apscheduler.schedulers.asyncio import AsyncIOScheduler`
+- Line 2614: `sched = AsyncIOScheduler(timezone=os.environ.get("TZ", "Europe/Paris"))`
+
+The bot uses **AsyncIOScheduler**, not BackgroundScheduler. AsyncIOScheduler shares the asyncio event loop with the main app (Telegram polling via python-telegram-bot). It does NOT have its own thread pool.
+
+### Revised root cause hypothesis
+
+A synchronous (blocking) call inside an async scheduled job blocks the entire event loop, including:
+- Telegram polling (incoming /commands queue silently)
+- Scheduler dispatcher (cannot fire next due jobs)
+- All concurrent async tasks
+
+The "missed by 20-23s" batches in logs match exactly when gmail_ingest is running. google-api-python-client is **synchronous**; each gmail call blocks the loop for ~20s. During that 20s, other jobs scheduled at the same hour offset queue up.
+
+The "11:15 missed by 31min" is the smoking gun: ONE blocking call hung for 31+ minutes without a timeout. Most likely candidates:
+1. Google API call without explicit timeout, hit network hang
+2. yfinance call (synchronous library) waiting for slow Yahoo response
+3. anthropic SDK sync client without `timeout=N` param
+4. Any `requests.get(...)` without timeout
+
+After this 31+ min hang, the event loop never recovered.
+
+### Revised action items (override original P2 items above)
+
+- [P2] Audit all I/O in async scheduled jobs for synchronous blocking calls
+- [P2] Wrap blocking I/O in `await asyncio.to_thread(sync_func, *args)` (Python 3.9+)
+- [P2] Add explicit timeouts to all external API SDKs (anthropic, google-api-python-client, yfinance, requests)
+- [P2] Consider `asyncio.wait_for(coro, timeout=N)` wrapper on each scheduled job
+- [P2] Investigate gmail_ingest 20s baseline — async alternative or to_thread wrapping
+
+### Why the original hypothesis was wrong
+
+Claude (me) pattern-matched "APScheduler hang" to "ThreadPoolExecutor saturation" without grep-ing the code first. The actual `AsyncIOScheduler` import was discoverable in one command. Principle: **read the actual code before hypothesizing root cause**, even when a pattern feels familiar. Caught within 12h of postmortem writing during Sprint 1.1 pre-flight.

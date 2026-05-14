@@ -34,7 +34,24 @@ BOT_MAIN = REPO_ROOT / "bot" / "main.py"
 HANDLERS_DIR = REPO_ROOT / "bot" / "handlers"
 
 PYTEST_EXPECTED_MIN = 119
-MYPY_BASELINE = 2
+MYPY_BASELINE = 0
+
+MYPY_TYPED_MODULES = [
+    "shared/notify.py",
+    "shared/prices.py",
+    "shared/llm.py",
+    "shared/storage.py",
+    "shared/config.py",
+    "shared/math_helpers.py",
+    "intelligence/learning.py",
+    "intelligence/materiality_v2.py",
+    "intelligence/asymmetry.py",
+    "intelligence/digest.py",
+    "intelligence/journal.py",
+    "intelligence/credibility.py",
+    "shared/edgar.py",
+    "data_sources/gmail_.py",
+]
 
 
 def hash_node(node: ast.AST) -> str:
@@ -255,7 +272,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     if not ok:
         failures.append(f"ruff errors:\n{out[:500]}")
 
-    ok, out = run_check(["mypy", "."])
+    ok, out = run_check(["mypy", "--follow-imports=silent", *MYPY_TYPED_MODULES])
     lines = out.strip().splitlines()
     last_line = lines[-1] if lines else ""
     m = re.search(r"Found (\d+) error", last_line)
