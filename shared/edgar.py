@@ -14,11 +14,28 @@ from typing import Any
 
 import requests
 
+from shared.data_source_base import RateLimiter, retry_with_backoff
+
 EDGAR_UA = os.environ.get("EDGAR_USER_AGENT", "Olivier Legendre olegendre@gmail.com")
 EDGAR_HEADERS = {
     "User-Agent": EDGAR_UA,
     "Accept-Encoding": "gzip, deflate",
 }
+
+
+# SEC EDGAR public rate limit is 10 req/sec; be conservative at 5 req/sec = 300 rpm
+_EDGAR_RATE_LIMITER = RateLimiter(requests_per_minute=300)
+
+
+def _edgar_get(url: str, timeout: int = 10) -> requests.Response:
+    """Rate-limited + retried GET to SEC EDGAR. Sprint 1.2 item 3a."""
+    _EDGAR_RATE_LIMITER.acquire()
+    return retry_with_backoff(
+        lambda: requests.get(url, headers=EDGAR_HEADERS, timeout=timeout),
+        max_attempts=3,
+        base_delay=2.0,
+        exceptions=(requests.RequestException,),
+    )
 
 _CIK_CACHE: dict[str, str] | None = None
 _CIK_CACHE_TS: Any = None  # datetime
@@ -32,7 +49,7 @@ def get_cik_for_ticker(ticker):
     stale = _CIK_CACHE_TS is None or (now - _CIK_CACHE_TS).total_seconds() > CIK_CACHE_TTL_HOURS * 3600
     if _CIK_CACHE is None or stale:
         try:
-            r = requests.get("https://www.sec.gov/files/company_tickers.json", headers=EDGAR_HEADERS, timeout=10)
+            r = _edgar_get("https://www.sec.gov/files/company_tickers.json", timeout=10)
             data = r.json()
             _CIK_CACHE = {}
             for entry in data.values():
@@ -51,7 +68,7 @@ def get_recent_form4_filings(ticker, days=90, limit=30):
         return []
     url = f"https://data.sec.gov/submissions/CIK{cik}.json"
     try:
-        r = requests.get(url, headers=EDGAR_HEADERS, timeout=10)
+        r = _edgar_get(url, timeout=10)
         data = r.json()
     except Exception as e:
         print(f"Submissions fetch failed for {ticker}: {e}")
@@ -94,7 +111,7 @@ def get_recent_form4_filings(ticker, days=90, limit=30):
 def parse_form4(url):
     """Fetch + parse Form 4 XML. Returns dict or None."""
     try:
-        r = requests.get(url, headers=EDGAR_HEADERS, timeout=10)
+        r = _edgar_get(url, timeout=10)
         if r.status_code != 200:
             return None
         content = r.content
@@ -466,7 +483,7 @@ def get_recent_8k_filings(ticker, days=30):
         return []
     url = f"https://data.sec.gov/submissions/CIK{cik}.json"
     try:
-        r = requests.get(url, headers=EDGAR_HEADERS, timeout=15)
+        r = _edgar_get(url, timeout=15)
         if r.status_code != 200:
             return []
         data = r.json()
