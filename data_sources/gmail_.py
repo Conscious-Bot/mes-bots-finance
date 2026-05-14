@@ -6,7 +6,6 @@ Subsequent runs: token.json reused (auto-refreshed when needed).
 
 import base64
 import re
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -14,8 +13,10 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from pydantic import BaseModel, Field
 
 from shared import storage
+from shared.data_source_base import BaseDataSource
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 TOKEN_PATH = Path("token.json")
@@ -154,36 +155,76 @@ def _is_onboarding_noise(subject: str) -> bool:
     return any(p in s for p in _ONBOARDING_PATTERNS)
 
 
-def ingest_new_emails(label_name: str = LABEL_NAME, max_results: int = 50) -> dict[str, Any]:
-    emails = fetch_emails(label_name, max_results)
-    new_count = 0
-    skipped_count = 0
-    noise_count = 0
-    for e in emails:
-        if storage.signal_exists_by_gmail_id(e["gmail_id"]):
-            skipped_count += 1
-            continue
-        if _is_onboarding_noise(e.get("subject", "")):
-            noise_count += 1
-            continue
-        source_id = storage.get_or_create_source(e["from"])
-        # Phase Solidification — accurate count: only increment if INSERT actually succeeded
-        inserted_id = storage.insert_raw_signal(
+class GmailSignal(BaseModel):
+    """Validated gmail signal ready to persist (Sprint 1.2 Pydantic schema)."""
+
+    gmail_id: str
+    subject: str
+    from_addr: str = Field(alias="from")
+    date: str
+    body: str
+
+    model_config = {"populate_by_name": True}
+
+
+class GmailSource(BaseDataSource):
+    """Gmail newsletter ingestion via BaseDataSource pattern (Sprint 1.2).
+
+    Backward-compatible: existing helpers (fetch_emails, _is_onboarding_noise)
+    are reused inside fetch() and validate(). Cron entry point
+    `ingest_new_emails()` is a thin wrapper around this class.
+    """
+
+    source_name = "gmail"
+    rate_limit_rpm = 100  # Gmail API quota is generous
+
+    def __init__(self, label_name: str = LABEL_NAME, max_results: int = 50) -> None:
+        super().__init__()
+        self.label_name = label_name
+        self.max_results = max_results
+        # Stats counters (preserve legacy dict breakdown)
+        self.skipped_duplicates = 0
+        self.skipped_noise = 0
+
+    def fetch(self, since=None):
+        """Pull emails from Gmail (since param unused yet — uses label filter)."""
+        return fetch_emails(self.label_name, self.max_results)
+
+    def validate(self, raw):
+        """Skip duplicates + onboarding noise. Return GmailSignal or None."""
+        if storage.signal_exists_by_gmail_id(raw["gmail_id"]):
+            self.skipped_duplicates += 1
+            return None
+        if _is_onboarding_noise(raw.get("subject", "")):
+            self.skipped_noise += 1
+            return None
+        return GmailSignal.model_validate(raw)
+
+    def persist(self, validated: GmailSignal, provenance):
+        """Insert into signals table. Returns inserted_id or None on dedup."""
+        source_id = storage.get_or_create_source(validated.from_addr)
+        return storage.insert_raw_signal(
             source_id=source_id,
-            gmail_id=e["gmail_id"],
-            timestamp=datetime.now(UTC).isoformat(),
-            subject=e["subject"],
-            content=e["body"],
+            gmail_id=validated.gmail_id,
+            timestamp=provenance.as_of.isoformat(),
+            subject=validated.subject,
+            content=validated.body,
         )
-        if inserted_id is not None:
-            new_count += 1
-        else:
-            noise_count += 1
+
+
+def ingest_new_emails(label_name: str = LABEL_NAME, max_results: int = 50) -> dict[str, Any]:
+    """Cron entry point. Sprint 1.2: now a thin wrapper around GmailSource.
+
+    Returns the same legacy dict shape for backward compat. The cron job and
+    bot/main.py callers do not need any change.
+    """
+    source = GmailSource(label_name=label_name, max_results=max_results)
+    result = source.ingest()
     return {
-        "total_fetched": len(emails),
-        "new_ingested": new_count,
-        "skipped_duplicates": skipped_count,
-        "skipped_onboarding_noise": noise_count,
+        "total_fetched": result.fetched,
+        "new_ingested": result.persisted,
+        "skipped_duplicates": source.skipped_duplicates,
+        "skipped_onboarding_noise": source.skipped_noise,
     }
 
 
