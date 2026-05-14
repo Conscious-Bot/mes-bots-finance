@@ -270,3 +270,68 @@ implementations that drift in subtle ways, multiplying maintenance cost.
 captured this rule in the same session as the detector-validation rule above.
 Both stem from the same root cause: confident action without empirical
 pre-check.
+
+
+---
+
+## 16. Detector validation rule (KPI integrity)
+
+**Added 2026-05-14 from postmortem AI #8.** Context: `uptime_monitor.sh` used a
+case-sensitive `pgrep -f` pattern that never matched the macOS capital-P
+`Python` binary. KPI #1 (uptime > 95 percent) was tied to this broken detector
+for 3+ days, accumulating 422 false-negative FAIL entries before discovery.
+
+**Rule**: Any detector backing a KPI must have an independent validation test
+at authoring time. Applies to:
+- Process detection scripts (pgrep, systemd checks, port scans)
+- Cron health checks
+- DB-based liveness queries
+- LLM cost / error / latency sensors
+- Any function whose output feeds a KPI in `KPI_DASHBOARD.md` or `HANDOFF.md`
+
+**Required at authoring time**:
+1. Positive case test: detector returns "alive/OK" when the thing IS present/healthy.
+2. Negative case test: detector returns "down/FAIL" when the thing is genuinely absent/broken.
+3. Both results documented in commit message OR automated via `tests/test_smoke_*.py`
+   (preferred for KPI-critical detectors).
+
+**Forbidden**: shipping a KPI whose detector has not been exercised in both
+directions. KPI inheritance from an unverified detector = silent metric
+breakage with delayed discovery.
+
+**Enforcement gate**: commit message must contain a "Detector validation:
+positive=PASS, negative=PASS" line for any change touching a KPI-backing
+detector.
+
+## 17. Recon-before-ship rule (sprint scoping)
+
+**Added 2026-05-14 from Day 3 afternoon meta-lesson.** Context: Sprint 1.4
+cost enforcement was nearly re-shipped on 2026-05-14 despite being already
+implemented Day 2 as "Ship C" (`weekly_cost_summary_job` at `bot/main.py:1173`).
+The SESSION_STATE Day 2 afternoon entry stated this explicitly but context
+was lost across sessions.
+
+**Rule**: Before scoping any sprint, sub-sprint, or "Ship X" on a named
+feature, run two recon commands:
+
+```bash
+grep -i "feature_name" SESSION_STATE.md
+git log --oneline --grep="feature_name"
+```
+
+If either returns prior implementations, **read them first**. Only proceed
+with new work after confirming one of:
+1. The named feature does not already exist.
+2. The existing implementation has a documented gap that the new work fills.
+
+**Forbidden**: scoping or committing on a named feature without running the
+two recon commands above.
+
+**Why this matters**: re-implementing existing features = pure dette + drift,
+no Path 5/6 value. Each re-implementation also creates two parallel
+implementations that drift in subtle ways, multiplying maintenance cost.
+
+**Adjacent reading**: `docs/post-mortems/2026-05-14-uptime-monitor-case-bug.md`
+captured this rule in the same session as the detector-validation rule above.
+Both stem from the same root cause: confident action without empirical
+pre-check.
