@@ -333,3 +333,125 @@ Add to checklist:
 
 - Postmortem: docs/post-mortems/2026-05-14-duplicate-position-handler-registration.md
 - Recon details: SESSION_STATE.md "Day 3 evening pre-flight v3" section
+
+
+## Chunk 1 detailed blueprint (anti_erosion) — pre-analyzed 14 May 2026 evening
+
+Pre-flight code-read of L625-680 of bot/main.py reveals chunk 1 is ULTRA-clean.
+Recorded here so Monday extraction is mechanical (~10min), not analytical.
+
+### Scope (43 LOC actual)
+
+| Source location | Symbol | LOC | Purpose |
+|---|---|---|---|
+| bot/main.py L629-637 | `_append_log_entry(filename, message)` | 10 | Helper: append timestamped line to repo-root file |
+| bot/main.py L640-654 | `cmd_log_value(update, ctx)` | 15 | /log_value handler → VALUE_LOG.md |
+| bot/main.py L656-670 | `cmd_log_friction(update, ctx)` | 15 | /log_friction handler → friction.md |
+
+### Couplings
+
+- `_append_log_entry` is referenced ONLY by `cmd_log_value` (L650) and `cmd_log_friction` (L666). Confirmed by grep across bot/main.py. Moves with the handlers.
+- Zero imports from shared, intelligence, data_sources, risk, positions.
+- Pure stdlib usage: `datetime`, `pathlib.Path` (imported lazily inside `_append_log_entry`).
+- No type annotations on `update, ctx` — no `telegram.ext` imports needed.
+- Registrations at L3243 + L3244 stay in bot/main.py, just need import added at top.
+
+### KNOWN PIEGE (single fix required)
+
+`_append_log_entry` line 632:
+```pythonrepo_root = _Path(file).resolve().parent.parent
+
+This assumes `__file__` is at `bot/main.py` (2 levels deep from repo root).
+After extraction to `bot/handlers/anti_erosion.py`, `__file__` is 3 levels
+deep, so `parent.parent` would resolve to `bot/`, NOT repo root. Log files
+would be written to `bot/VALUE_LOG.md` / `bot/friction.md` instead of
+`./VALUE_LOG.md` / `./friction.md`. **Breaks the documented contract.**
+
+**Fix**: replace `parent.parent` with `parents[2]` in the extracted file.
+`parents[2]` is unambiguous "3 levels up" and gives repo root from
+`bot/handlers/anti_erosion.py`.
+
+This is the ONLY behavioral change required. All other code copies verbatim.
+
+### Extraction steps (Monday, ~10 min)
+
+1. Create `bot/handlers/__init__.py` (empty file).
+2. Create `bot/handlers/anti_erosion.py` with:
+```python"""Anti-erosion handlers: /log_value and /log_friction.Append timestamped entries to VALUE_LOG.md and friction.md respectively.
+Part of Path 5/6 dimension 2 (track record measurement infrastructure).
+"""def _append_log_entry(filename: str, message: str) -> None:
+"""Append a timestamped entry to a log file at the repo root."""
+from datetime import datetime
+from pathlib import Path as _Path
+repo_root = _Path(file).resolve().parents[2]   # <-- CHANGED from .parent.parent
+log_path = repo_root / filename
+ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+with open(log_path, "a", encoding="utf-8") as f:
+f.write(f"{ts} | {message}\n")async def cmd_log_value(update, ctx):
+"""Append entry to VALUE_LOG.md. Usage: /log_value <message>"""
+text = update.message.text.partition(" ")[2].strip()
+if not text:
+await update.message.reply_text(
+"Usage: /log_value <message>\n"
+"Exemple: /log_value bot m'a alerte sur 8K NVDA avant que je le rate"
+)
+return
+try:
+_append_log_entry("VALUE_LOG.md", text)
+await update.message.reply_text(f"OK logged to VALUE_LOG.md:\n  {text[:300]}")
+except Exception as e:
+await update.message.reply_text(f"Error writing VALUE_LOG.md: {e}")async def cmd_log_friction(update, ctx):
+"""Append entry to friction.md. Usage: /log_friction <message>"""
+text = update.message.text.partition(" ")[2].strip()
+if not text:
+await update.message.reply_text(
+"Usage: /log_friction <message>\n"
+"Exemple: /log_friction /brief lent ce matin (15s)"
+)
+return
+try:
+_append_log_entry("friction.md", text)
+await update.message.reply_text(f"OK logged to friction.md:\n  {text[:300]}")
+except Exception as e:
+await update.message.reply_text(f"Error writing friction.md: {e}")
+3. In `bot/main.py`:
+   - Add at imports (near line 25, with the other `from bot...` etc. imports... actually there are none yet, add cleanly after the `from intelligence import ...` block):
+```python from bot.handlers.anti_erosion import cmd_log_value, cmd_log_friction
+   - Delete L629-670 entirely (the 3 function defs).
+4. Verify:
+```bashpython -c "import bot.main; print('import OK')"
+ruff check bot/ shared/ intelligence/
+mypy <strict-typed modules>
+pytest -v  # expect 119/119 (test_no_duplicate_handler_registrations still passes since registrations at L3243/L3244 unchanged)
+5. Live test:
+   - Kill bot, restart (`pkill -fi "python.*bot.main" && nohup python -m bot.main > bot.log 2>&1 &`)
+   - Wait 10s, `tail -20 bot.log` — scheduler init clean, no error
+   - In Telegram: `/log_value chunk 1 extraction test` → verify response + verify entry appears in `VALUE_LOG.md` (NOT `bot/VALUE_LOG.md`)
+   - In Telegram: `/log_friction extraction smoke test` → same verification for `friction.md`
+6. Commit:Sprint 1.1 chunk 1/10: extract anti_erosion handlers (43 LOC)
+Moved _append_log_entry, cmd_log_value, cmd_log_friction to bot/handlers/anti_erosion.py
+Added bot/handlers/init.py (empty)
+bot/main.py: import added at top, 42 LOC of defs deleted
+bot/main.py LOC change: 3314 -> 3272 (-42)
+Fix: _append_log_entry uses parents[2] now (3 levels up from bot/handlers/X.py vs prior 2 levels from bot/main.py) — required to keep VALUE_LOG.md / friction.md at repo root
+Tests pass: 119/119 (no_duplicate_handler_registrations still green)
+/log_value + /log_friction verified working in Telegram
+Detector validation: positive=PASS (live Telegram tests + log file contents at repo root); negative=N/A (no detector code changed)
+
+
+### Acceptance criteria for chunk 1
+
+- [ ] bot/main.py < 3272 LOC (3314 - 42 = 3272)
+- [ ] bot/handlers/anti_erosion.py exists, ~70 LOC with docstring
+- [ ] bot/handlers/__init__.py exists, empty
+- [ ] pytest 119/119 pass
+- [ ] ruff 0 errors
+- [ ] mypy: same baseline (2 errors tolerated)
+- [ ] Bot starts cleanly, scheduler init log unchanged
+- [ ] /log_value <test> writes entry to VALUE_LOG.md (at repo root, not bot/)
+- [ ] /log_friction <test> writes entry to friction.md (at repo root, not bot/)
+
+### Time estimate post-blueprint
+
+Original chunk 1 plan: ~30-60 min (with code analysis).
+With blueprint pre-done: ~10-15 min (mechanical + smoke test).
