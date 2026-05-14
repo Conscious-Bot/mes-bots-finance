@@ -6,7 +6,7 @@ PROJECT_DIR="/Users/olivierlegendre/mes-bots-finance"
 LOG="$PROJECT_DIR/uptime.log"
 ALERT_MARKER="$PROJECT_DIR/.last_alert"
 
-if pgrep -f "python.*bot\.main" > /dev/null; then
+if pgrep -fi "python.*bot\.main" > /dev/null; then
     echo "$(date +'%Y-%m-%d %H:%M:%S') OK alive" >> "$LOG"
     rm -f "$ALERT_MARKER"
     exit 0

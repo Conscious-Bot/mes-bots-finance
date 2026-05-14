@@ -5,7 +5,7 @@
 ### Diagnostic (2 min)
 
     cd ~/mes-bots-finance
-    pgrep -fl "python.*bot.main"
+    pgrep -fli "python.*bot.main"
     tail -30 bot.log 2>/dev/null
     tail -50 uptime.log
 
@@ -17,7 +17,7 @@
     python -c "import bot.main; print('syntax OK')"
     nohup python -m bot.main > bot.log 2>&1 &
     sleep 5
-    pgrep -fl "python.*bot.main"
+    pgrep -fli "python.*bot.main"
     tail -20 bot.log
 
 ### Si syntax FAIL
