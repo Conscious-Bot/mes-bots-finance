@@ -30,7 +30,7 @@ _EDGAR_RATE_LIMITER = RateLimiter(requests_per_minute=300)
 def _edgar_get(url: str, timeout: int = 10) -> requests.Response:
     """Rate-limited + retried GET to SEC EDGAR. Sprint 1.2 item 3a."""
     _EDGAR_RATE_LIMITER.acquire()
-    return retry_with_backoff(
+    return retry_with_backoff(  # type: ignore[no-any-return]  # Sprint 1.2 baseline: retry_with_backoff is untyped
         lambda: requests.get(url, headers=EDGAR_HEADERS, timeout=timeout),
         max_attempts=3,
         base_delay=2.0,

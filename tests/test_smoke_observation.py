@@ -300,6 +300,7 @@ def test_no_duplicate_handler_registrations():
 
 # === Regression guards for scripts/bot_health_check.sh (AI #3, 2026-05-14) ===
 from pathlib import Path as _Path_for_health
+
 _HEALTH_REPO_ROOT = _Path_for_health(__file__).resolve().parents[1]
 HEALTH_SCRIPT = _HEALTH_REPO_ROOT / "scripts" / "bot_health_check.sh"
 
