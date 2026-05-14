@@ -1,7 +1,7 @@
 """Tests for shared/data_source_base.py — Sprint 1.2 deliverable."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 
 import pytest
@@ -13,7 +13,6 @@ from shared.data_source_base import (
     RateLimiter,
     retry_with_backoff,
 )
-
 
 # === RateLimiter ===
 
@@ -230,7 +229,7 @@ def test_basesource_feature_flag_disabled():
 
 
 def test_provenance_dataclass():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     p = Provenance(source="test", as_of=now, vintage="v1")
     assert p.source == "test"
     assert p.as_of == now

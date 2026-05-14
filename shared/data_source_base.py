@@ -39,7 +39,7 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -199,7 +199,7 @@ class BaseDataSource(ABC):
         result.fetched = len(raws)
 
         # Build provenance for this batch (immutable, shared by all rows)
-        as_of = datetime.now(timezone.utc)
+        as_of = datetime.now(UTC)
         provenance = Provenance(
             source=self.source_name,
             as_of=as_of,
