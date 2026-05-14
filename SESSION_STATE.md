@@ -381,3 +381,83 @@ KPIs prematures, mobile native premature, etc.).
 3. `git log --oneline -15` review recent commits
 4. `tail -30 uptime.log` check overnight
 5. **DEFAULT**: observation mode. NO new features. Daily `/brief` + `/log_friction` if anything frustrates.
+
+
+---
+
+## Day 3 afternoon session — diagnostic recovery + cleanup (14 May 2026, ~2h)
+
+### Context
+Reopened with intent to ship Sprint 1.4 cost enforcement (~10h). Stale uptime.log
+snapshot in chat context led to false "bot down 56h+" diagnosis. Recovery session
+evolved into infrastructure dette discovery + 3 commits clearing it.
+
+### Findings (validated empirically)
+
+1. **uptime_monitor.sh case-sensitivity bug**
+   - Pattern `pgrep -f "python.*bot\.main"` never matched: macOS Python binary
+     is `/.../Python.app/.../Python` (capital P). Pattern is lowercase.
+   - 422 false `FAIL bot down` entries over 3+ days. KPI #1 unmeasurable since
+     metric creation. Operator (you) muted Telegram channel due to noise.
+   - 1-char fix shipped (`-f` -> `-fi`). Full postmortem in
+     `docs/post-mortems/2026-05-14-uptime-monitor-case-bug.md` (b5e2fb4).
+
+2. **2 backup mechanisms running in parallel** (discovery, no bug)
+   - Primary: 04:00 Paris, in-bot APScheduler -> `scripts/backup.sh`
+     -> `~/backups/mes-bots-finance/` (integrity-checked, 14d rotation).
+   - Secondary (legacy): 23:15 Paris, crontab -> `crons/daily_backup.sh`
+     -> `data/backups/` (30d rotation, simpler).
+   - Docs mentioned only secondary -> partial blindness. 3 docs fixed (efa88d7).
+
+3. **bot_state.json stale fields** (cosmetic, deferred P2)
+   - `predictions_pending_resolution: 0` (real 45)
+   - `active_theses_count: 0` (real 1 NVDA test position)
+   - `bot_start_ts: 2026-05-11T10:26:07` (real today 03:30 CEST)
+   - Heartbeat field refreshes correctly; others set at init only.
+
+4. **TZ inconsistency across logging components**
+   - bot.log + bot_state.json: CEST (APScheduler Europe/Paris)
+   - backup.log: UTC (explicit `date -u`)
+   - shell scripts: system local (KST here)
+   - Briefly led to false "PID 8112 hung" conclusion mid-diagnostic.
+   - Postmortem AI #6, due 2026-05-28.
+
+5. **Sprint 1.4 economic null hypothesis confirmed**
+   - 7-day LLM cost = $1.16 (Sonnet $0.63 + Haiku $0.32 + Opus $0.22)
+   - Projected $5/mo = 10% of $50 budget
+   - 10h "cost enforcement" sprint not empirically justified
+   - Replaced by quick-win (~30min): notify_telegram if MTD projection > 80%.
+
+### Empirical state confirmed mid-session
+- PID 8112 alive since 03:30 CEST today, healthy. ETIME 2h, CPU 4.5s (idle polling).
+- 6 signals ingested in last 30 min (gmail cron working in real time).
+- DB clean: 45 open predictions, 1 resolved, 0 overdue. KPI #2 forecast unchanged.
+- ~/backups/ has today's 04:00 snapshot (15MB tarball + 2.5MB DB, integrity OK).
+
+### Commits this afternoon
+- `b5e2fb4` — Postmortem + uptime_monitor.sh + PROCEDURE_URGENCE.md patches
+- `efa88d7` — Dual backup paths in 3 docs
+- (this) — SESSION_STATE + TODO refresh
+- (next, ~30min) — Cost alert quick-win in `cost_trajectory` cron
+
+### Carry-forward (postmortem AIs)
+- AI #3 due 2026-05-21: `scripts/bot_health_check.sh` multi-signal alive check
+- AI #4 due 2026-05-21: smoke test `pgrep -fi` regression guard
+- AI #5 due 2026-05-15: purge or annotate uptime.log false-negatives
+- AI #6 due 2026-05-28: TZ standardization across logging components
+- AI #7 P2: bot_state.json field refresh logic
+- AI #8 P0 process: CONVENTIONS.md rule on detector-backed-KPI validation
+
+### Reopen entry point (replaces previous Day 3 morning entry)
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `pgrep -fi "python.*bot.main"` confirm vivant (NOTE: `-fi` case-insensitive,
+   post-2026-05-14 fix. Lowercase `-f` gives false negative on macOS.)
+3. `bash crons/uptime_monitor.sh && tail -3 uptime.log` confirm detector works.
+4. `git log --oneline -10` review recent commits.
+5. **Default mode: observation pure jusqu'au 10 juin 2026 (KPI #2 batch resolution)**
+   - NO new features, NO new tickers, NO new sources
+   - Daily `/brief`. Use `/log_friction` on annoyances, `/log_value` on wins
+   - Weekly auto-summaries: Sun 22:00 (cost) + 22:30 (KPI) + 23:00 (handler stats)
+6. If alerts spike or empirical anomaly -> write postmortem using template
+   `docs/post-mortems/2026-05-14-uptime-monitor-case-bug.md` as reference.
+7. Resist scope creep. The hardest discipline is doing nothing during observation.

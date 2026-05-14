@@ -1,6 +1,6 @@
 # TODO — mes-bots-finance
 
-**Last refresh**: 13 May 2026 (post Day 2 marathon + afternoon extension, ~12h cumulative)
+**Last refresh**: 14 May 2026 afternoon (post-recovery diagnostic + 3 commits dette clearance)
 **Mode actuel**: High Standard / Solidification — Path 5/6 strategic target
 
 ---
@@ -215,3 +215,58 @@ Wiring during observation would risk:
 - Confounding any regression analysis
 
 Observation principle: code freeze on behavior-affecting changes.
+
+
+---
+
+## CLOSED — Day 3 (14 May 2026, ~7h cumulative)
+
+### Morning (Sprint 1.2 + 1.3 closeout, ~5h)
+- Sprint 1.3 Alembic schema versioning + bootstrap + ADR-005 (commit 0e3a04d)
+- Sprint 1.2 item 1: shared/data_source_base.py + 16 Hypothesis tests (304ff51)
+- Sprint 1.2 item 2: GmailSource migration (73d17a3)
+- Sprint 1.2 item 3: EightK + BuyCluster sources + edgar RateLimiter (980cddb / 195503e / ba2691e / 12d22a1)
+- Sprint 1.2 items 4+6: docs/runbooks + docs/post-mortems + 5 ops runbooks (a134c59)
+- Sprint 1.2 item 5 (ADRs 002/003/004 retroactifs): DEFERRED
+
+### Afternoon (recovery diagnostic + cleanup, ~2h)
+- **Postmortem 2026-05-14**: uptime_monitor case-sensitivity bug (b5e2fb4)
+- **Doc drift fix**: dual backup paths in 3 docs (efa88d7)
+- SESSION_STATE + TODO refresh (this commit)
+- Quick-win cost alert in `cost_trajectory` cron (~30min, next)
+
+### Sprint 1.4 STATUS REVISED
+- **Was**: "Cost enforcement, ~10h, week 18-25 May"
+- **Now**: Replaced by quick-win (~30min) - notify_telegram if MTD projection > 80% budget
+- **Justification**: 7d cost = $1.16, projected $5/mo = 10% of $50/mo budget.
+  10h sprint not empirically justified. Minimal alert locks tail risk
+  (retry storms, prompt creep) without unjustified infrastructure.
+
+---
+
+## KPI table (corrected post 2026-05-14)
+
+| KPI | Cadence | Status | Action si breach |
+|---|---|---|---|
+| **#1 uptime > 95%** | Daily | detector fixed today; pre-fix data = noise | Real measurement starts 2026-05-14 12:26 KST |
+| **#2 NON-NEG** >=5 resolved/28d | Hebdo dim | ON TRACK (45 due 10-11 juin) | Stop 5j build |
+| **#3 Brier < 0.20 rolling 90d** | Hebdo | NOT YET MEASURABLE (N=1) | Alert si >0.25 post-N>=10 |
+| **#4 0 panic sell core** | Mensuel 1er | GREEN | Pause + bias analysis |
+| **#5 100% decisions journalisees** | Mensuel | N/A (0 material decisions 30d) | No new thesis si <90% |
+| **#6 TWR vs SPY/QQQ 12M** | Trim. | not implemented | Revue strat. trim. si <-5pp |
+
+**Cible KPI #2: 10 juin 2026, 45+ resolutions batch.**
+
+---
+
+## Open AIs from postmortem 2026-05-14
+
+- AI #3 due 2026-05-21: `scripts/bot_health_check.sh` multi-signal alive check
+- AI #4 due 2026-05-21: smoke test `pgrep -fi` regression guard
+- AI #5 due 2026-05-15: purge or annotate uptime.log historical false negatives
+- AI #6 due 2026-05-28: TZ standardization across logging components
+- AI #7 P2: bot_state.json stale fields refresh
+- AI #8 P0 process: CONVENTIONS.md detector-backed-KPI validation rule
+
+These are NOT in this week's scope. They're listed here so they're not forgotten
+when re-entering work post-J+28 (10 juin batch resolution).
