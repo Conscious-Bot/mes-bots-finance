@@ -82,3 +82,7 @@ data/bot_state.json
 # DB snapshots (Sprint 1.3 onwards)
 data/bot.db.pre_*
 data/bot.db.bak*
+
+# DB snapshots (Sprint 1.3 onwards)
+data/bot.db.pre_*
+data/bot.db.bak*
