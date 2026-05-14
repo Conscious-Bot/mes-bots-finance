@@ -78,3 +78,7 @@ data/backups/
 data/cache/
 data/bot_state.json
 *.bak.preTierA
+
+# DB snapshots (Sprint 1.3 onwards)
+data/bot.db.pre_*
+data/bot.db.bak*
