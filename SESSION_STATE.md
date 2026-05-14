@@ -335,3 +335,49 @@ KPIs prematures, mobile native premature, etc.).
 4. `cat VALUE_LOG.md` to see if first entry survived
 5. Read TODO.md "Sprint 1.3" + this SESSION_STATE tail
 6. Start with Alembic install + initial migration capture
+
+---
+
+## Day 3 morning closeout (14 May 2026, ~5h cumulative)
+
+### Sprint 1.3 — Alembic schema versioning [CLOSED]
+- ADR-005 Accepted
+- `scripts/alembic/versions/0001_initial_schema_baseline.py` (364 lines, full 28-table schema)
+- Production DB stamped at 0001 (head) without re-executing
+- `shared/storage.bootstrap_schema()` programmatic schema setup
+- 2 ex-skipped tests now actively pass via `bootstrap_schema()` on tmp_path
+- Makefile: 5 new `db-*` targets
+- Sprint 1.6 PIT bitemporal dependency unlocked
+
+### Sprint 1.2 — data_source_base + ADRs + docs [CLOSED, item 5 deferred]
+- Item 1: `shared/data_source_base.py` (239 LOC) + 16 Hypothesis tests
+- Item 2: `data_sources/gmail_.py` migrated to GmailSource (BaseDataSource)
+- Item 3: 4-chunk migration
+  - 3a: `shared/edgar.py` rate limiter (300 rpm) + retry on 4 SEC GET calls
+  - 3c: `intelligence/filings_8k.py` -> EightKSource (live NVDA validated)
+  - 3d: `intelligence/insider_buy_cluster.py` -> BuyClusterSource
+  - 3e: `intelligence/insider_digest.py` documented as orchestrator, not migrated
+- Item 4: `docs/runbooks/` + `docs/post-mortems/` dirs + READMEs
+- Item 6: 5 ops runbooks (anthropic-down, gmail-oauth-expired, yfinance-corrupted, db-corrupted, cron-loop) — 372 LOC
+- Item 5 (ADRs 002/003/004 retroactifs) DEFERRED — high effort, historical docs, low marginal value vs observation time
+
+### Empirical state after day 3 morning
+- 117 tests passing (101 prior + 16 data_source_base)
+- ruff 0 / mypy 0 on 14 strict-typed modules (unchanged)
+- 28 DB tables stamped at alembic 0001
+- Bot PID 8112 vivant
+- 22 crons opérationnels (incl. backup 04:00, kpi_status Sun 22:30, cost Sun 22:00)
+- 4 modules now using BaseDataSource pattern: GmailSource, EightKSource, BuyClusterSource, + the abstract base itself
+
+### Carry-forward for next session
+- **Observation primary**: 46 predictions cluster J+28 = 10 juin 2026 (KPI #2 batch resolution)
+- **No more Sprint 1.x work this week**. Sprint 1.4 (cost enforcement ~10h) and Sprint 1.1 (refactor bot/main.py ~45h) wait for week of 18-25 May.
+- ADRs 002/003/004 retroactifs deferred — write during slow periods async, not blocking
+- Sprint 1.6 PIT bitemporal: triggered by KPI #2 GREEN OR 1st recal monthly (whichever first)
+
+### Entry point next session
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `pgrep -fl "python.*bot.main"` confirm vivant
+3. `git log --oneline -15` review recent commits
+4. `tail -30 uptime.log` check overnight
+5. **DEFAULT**: observation mode. NO new features. Daily `/brief` + `/log_friction` if anything frustrates.
