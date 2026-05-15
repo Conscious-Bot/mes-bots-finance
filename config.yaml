@@ -114,6 +114,16 @@ universe:
   - 285A.T
   - 7011.T
   - STVN
+  - 6890.T
+  - 6920.T
+  - COHR
+  - VRT
+  - WST
+  - DIM.PA
+  - 6268.T
+  - PSTG
+  - 6324.T
+  - 6861.T
   extended:
     crypto_etfs:
     - ETHA

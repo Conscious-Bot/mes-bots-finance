@@ -123,3 +123,17 @@ Post-thesis-candidates-queue creation, user opted for "Option 2": limited univer
 Discipline boundary respected: cognitive momentum from external IA conversation converted into prep-work (universe + queue), not impulsive logging. Test of Option 2 success: at 2026-06-11, how many of these 3 candidates survive a fresh /analyze_debate + /asymmetry pass?
 
 Process note: this is the FIRST universe modification during the observation window. Treating as one-time exception, not pattern. Future candidates remain in thesis-candidates-queue.md until post-J+28 default.
+
+## 2026-05-15 afternoon -- 21 sector theses logged + watch tier 96 tickers
+
+User feedback this session: "il n y a que les imbeciles qui ne changent pas d'avis". Acknowledged my earlier rigidity. Pivoted from "queue only, no thesis logging" to "log structured theses for cold review J+30+". 5 sector narratives with 21 ticker-level theses provide much richer learning substrate than 0-3 individual theses.
+
+Structural innovation: theses grouped by sector_thesis_id embedded in `notes` column (storage schema doesn't support sector grouping natively; using Option B from earlier framing -- tags in notes for parseability). Allows synchronous sector-level review while preserving ticker-level granularity.
+
+Discipline preserved:
+- NO position commit (direction='watch' default)
+- Soak period 27 days minimum before any /thesis_revisit promotion to long/short
+- Sector-level invalidation tracking separate from ticker-level
+- No schema change (sector_thesis_id is convention, not column)
+
+This is the moment where the bot transitions from "system in waiting" to "operational personal tool with substrate to learn from". KPI #5 (decisions journalisees) trajectory shifts: from 0 material thesis decisions to 21 future revisit decision points scheduled.

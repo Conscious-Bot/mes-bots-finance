@@ -408,3 +408,28 @@ Justification: limited universe expansion (not behavior change to existing 45 pr
 
 Cross-ref: docs/thesis-candidates-queue.md "In soak" section, docs/adrs/002-universe-scaling-strategy.md.
 
+
+
+---
+
+## 2026-05-15 afternoon: 21 sector theses logged (5 sector narratives)
+
+5 sector_thesis_id groupings, 21 theses total inserted via storage.add_thesis() + update_thesis_status() pour notes structurées. All direction='watch', status='active', conviction 2-4.
+
+Sectors:
+1. **HPQ_WAFER_CHOKEPOINT_2026** (4 tickers): 4063.T, 3436.T, 6890.T, MTUS
+2. **POWER_GEN_AI_BOTTLENECK_2026** (5 tickers): 7011.T, GEV, CEG, BWXT, 5411.T
+3. **PHARMA_FILL_FINISH_GLP1_2026** (4 tickers): STVN, WST, YPSN.SW, DIM.PA
+4. **PHYSICAL_AI_ROBOTICS_ENABLERS_2027** (4 tickers): 6324.T, 6268.T, 6861.T, CGNX
+5. **STORAGE_AI_HYPERSCALE_2026** (4 tickers): 285A.T, STX, 000660.KS, PSTG
+
+Universe.watch expanded 84 -> 96 tickers (added: WST, DIM.PA, 6268.T, CGNX, STX, PSTG, 6324.T, 6861.T pour assurer signal coverage).
+
+Hard rules:
+- NO /position_buy on these tickers before /thesis_revisit at J+30+ (2026-06-15+)
+- /thesis_revisit individual theses to update conviction with empirical signals
+- Sector-level review at J+30 / J+60 / J+90 / J+180 (dates in docs/personal/sector-theses-tracker.md)
+- If conviction drops to 1 on multiple theses within same sector, re-evaluate sector claim itself (not just tickers)
+
+Next action 2026-06-15 (post-J+28): batch /thesis_revisit on 21 theses with signal data accumulated during soak period.
+
