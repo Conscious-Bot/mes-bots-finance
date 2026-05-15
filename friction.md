@@ -49,3 +49,15 @@ Investigation revealed pipeline coherence gap: `signals.score` column deprecated
 This empirically validates friction items 4 (/brief + /digest review together), 5 (metrics handlers without explanation), and 6 (whole pipeline coherence). User's intuition was correct: the friction was a real architecture gap, not just UX preference.
 
 Full analysis: `docs/pipeline-coherence-audit.md`. Disposition: Sprint 1.2 critical input, no fix during observation window.
+
+## 2026-05-15 — backup architecture drift + Makefile glob bug (Phase E audit)
+
+Phase E pre-conditions sweep for Appropriation Phase 1 surfaced dual-script backup configuration mismatch:
+- `crons/daily_backup.sh` (in crontab, 23:15 Paris) writes lean 2-file backup (DB + state.json) to `data/backups/`. Insufficient for disaster recovery — no code, config, or docs in archive.
+- `scripts/backup.sh` (NOT in crontab) writes full 18M tarball with project files + atomic SQLite backup + 14d rotation to `~/backups/mes-bots-finance/`. Ran today at 04:00 Paris via unknown trigger mechanism — not visible in crontab or launchd output.
+
+Day 2 marathon claim "✅ #2 Daily backup 04:00 + restore test + 14d rotation" was empirically misaligned: 04:00 schedule applies to scripts/backup.sh which isn't scheduled; 23:15 cron uses crons/daily_backup.sh which doesn't match Makefile restore test target paths.
+
+Makefile glob bug: `ls -t ~/backups/mes-bots-finance/bot.db.*` matched SQLite SHM/WAL artifacts (sqlite3 fail "file is not a database 26"). The Day 2 "✅ restore test PASS" claim had never actually executed end-to-end until 2026-05-15 audit caught it.
+
+Disposition: Makefile glob fix shipped 2026-05-15 (1-line ops, no behavior change). Dual-script drift documented for Sprint 1.2 reconciliation — decide: (a) unify on scripts/backup.sh + schedule via cron, (b) remove crons/daily_backup.sh, (c) keep both with explicit separation. Also investigate 04:00 mystery trigger mechanism.

@@ -28,7 +28,7 @@ backup:
 
 test-restore-db:
 	@echo "=== Test restore: DB snapshot"
-	@LATEST_DB=$$(ls -t ~/backups/mes-bots-finance/bot.db.* 2>/dev/null | head -1); \
+	@LATEST_DB=$$(ls -t ~/backups/mes-bots-finance/bot.db.* 2>/dev/null | grep -v -- '-shm' | grep -v -- '-wal' | head -1); \
 	if [ -z "$$LATEST_DB" ]; then \
 		echo "FAIL: no DB backups in ~/backups/mes-bots-finance/"; exit 1; \
 	fi; \
