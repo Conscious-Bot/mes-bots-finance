@@ -2082,39 +2082,34 @@ async def cmd_portfolio(update, ctx):
         await update.message.reply_text("No active positions.\n\nUse /position_buy <TICKER> <qty> <price> to open one.")
         return
 
+    from shared.prices import get_current_price_eur
+
     total_cost = sum(p["qty"] * p["avg_cost"] for p in positions)
     enriched = []
-    total_mv = 0
+    total_mv = 0.0
     for p in positions:
         ticker = p["ticker"]
-        cur_price = None
-        try:
-            import yfinance as yf
-
-            info = yf.Ticker(ticker).info or {}
-            cur_price = info.get("regularMarketPrice") or info.get("currentPrice")
-        except Exception:
-            pass
+        cur_price = get_current_price_eur(ticker)
         mv = (cur_price * p["qty"]) if cur_price else (p["avg_cost"] * p["qty"])
         unreal = (mv - p["qty"] * p["avg_cost"]) if cur_price else 0.0
         enriched.append({**p, "current_price": cur_price, "market_value": mv, "unrealized_pnl": unreal})
         total_mv += mv
 
-    lines = [f"Portfolio — {len(positions)} active positions"]
-    lines.append(f"  Cost basis: ${total_cost:,.2f}")
-    lines.append(f"  Market value: ${total_mv:,.2f}")
+    lines = [f"Portfolio — {len(positions)} active positions (EUR)"]
+    lines.append(f"  Cost basis: €{total_cost:,.2f}")
+    lines.append(f"  Market value: €{total_mv:,.2f}")
     if total_cost > 0:
-        lines.append(f"  Unrealized PnL: {total_mv - total_cost:+,.2f} ({(total_mv / total_cost - 1) * 100:+.1f}%)")
+        lines.append(f"  Unrealized PnL: €{total_mv - total_cost:+,.2f} ({(total_mv / total_cost - 1) * 100:+.1f}%)")
     lines.append("")
     lines.append("Positions (% of book):")
     for p in sorted(enriched, key=lambda x: x["market_value"], reverse=True):
         pct = (p["market_value"] / total_mv * 100) if total_mv else 0
-        cur = f"${p['current_price']:.2f}" if p.get("current_price") else "?"
+        cur = f"€{p['current_price']:.2f}" if p.get("current_price") else "?"
         avg = p["avg_cost"]
         upnl = p["unrealized_pnl"]
         upnl_pct = (upnl / (p["qty"] * avg) * 100) if avg else 0
         lines.append(
-            f"  {p['ticker']:6s} {p['qty']:g}@${avg:.2f} now {cur} upnl={upnl:+,.0f} ({upnl_pct:+.1f}%) [{pct:.1f}%]"
+            f"  {p['ticker']:9s} {p['qty']:>7.3f} @€{avg:>7.2f} now {cur:>9s} upnl=€{upnl:+>7,.0f} ({upnl_pct:+5.1f}%) [{pct:4.1f}%]"
         )
     msg = "\n".join(lines)
     if len(msg) > 3900:

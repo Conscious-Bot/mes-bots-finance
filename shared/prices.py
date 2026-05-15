@@ -124,3 +124,77 @@ def get_price_window(ticker: str, start_date: str | datetime, end_date: str | da
     except Exception as e:
         print(f"price window error for {ticker}: {e}")
         return []
+
+
+
+# Currency conversion helpers added 2026-05-15 evening — portfolio_targets FX bug fix
+# Pattern: ticker suffix determines native currency; FX rate cached per session.
+
+_FX_CACHE: dict[str, float] = {}  # native_currency -> EUR_per_unit_native
+
+
+def _ticker_currency(ticker: str) -> str:
+    """Map ticker suffix to native currency."""
+    t = ticker.upper()
+    if t.endswith((".PA", ".AS", ".SW", ".DE", ".MI", ".ST")):
+        return "EUR"
+    if t.endswith(".T"):
+        return "JPY"
+    if t.endswith(".KS"):
+        return "KRW"
+    if t.endswith(".HK"):
+        return "HKD"
+    if t.endswith(".L"):
+        return "GBP"
+    return "USD"
+
+
+def _get_fx_rate_to_eur(currency: str) -> float:
+    """EUR per 1 unit of native currency. Cached per session."""
+    if currency == "EUR":
+        return 1.0
+    if currency in _FX_CACHE:
+        return _FX_CACHE[currency]
+    try:
+        import yfinance as yf
+        pair = f"EUR{currency}=X"
+        hist = yf.Ticker(pair).history(period="1d")
+        if hist.empty:
+            _FX_CACHE[currency] = 1.0
+            return 1.0
+        eur_per_native = 1.0 / float(hist["Close"].iloc[-1])
+        _FX_CACHE[currency] = eur_per_native
+        return eur_per_native
+    except Exception:
+        _FX_CACHE[currency] = 1.0
+        return 1.0
+
+
+def get_current_price_eur(ticker: str) -> float | None:
+    """Fetch current market price in EUR. Returns None if fetch fails.
+    
+    Applies FX conversion based on ticker suffix:
+      .PA/.AS/.SW/.DE/.MI/.ST -> EUR (no conversion)
+      .T -> JPY * (EUR/JPY)
+      .KS -> KRW * (EUR/KRW)
+      .HK -> HKD * (EUR/HKD)
+      .L -> GBP * (EUR/GBP)
+      no suffix -> USD * (EUR/USD)
+    """
+    try:
+        import yfinance as yf
+        info = yf.Ticker(ticker).info or {}
+        price_native = info.get("regularMarketPrice") or info.get("currentPrice")
+        if price_native is None:
+            return None
+        currency = _ticker_currency(ticker)
+        fx = _get_fx_rate_to_eur(currency)
+        return float(price_native) * fx
+    except Exception:
+        return None
+
+
+def clear_fx_cache() -> None:
+    """Force re-fetch of FX rates on next call."""
+    global _FX_CACHE
+    _FX_CACHE = {}
