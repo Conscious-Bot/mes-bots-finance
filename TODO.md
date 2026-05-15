@@ -337,3 +337,53 @@ Trigger: 30d of Phase 2 with no panic sell on neutral positions
 Then: introduce PLTR-equivalent positions one at a time
 
 See FICHE_TECHNIQUE.md "Appropriation roadmap" section for full rationale.
+
+
+---
+
+## Thesis candidates queue (added 2026-05-15 Day 4 afternoon, post-conversation chokepoint analysis)
+
+Source: conversation analytique chokepoints/AI waves avec autre IA, ~150 tickers cités, ~30 candidates serious. Voir docs/thesis-candidates-queue.md pour pipeline structuré.
+
+### Pre-flight gates avant tout add to config.yaml
+
+**Gate 0 — Observation window respected**: NO universe expansion before 2026-06-10 (KPI #2 batch resolution). Adding tickers during observation pollutes the calibration cohort.
+
+**Gate 1 — Pure-play test**: ticker exposes >70% revenue/EBITDA to thesis driver. Conglomerates rejected (DD, BASF, Evonik diluted plays out).
+
+**Gate 2 — Valuation discipline**: P/E or EV/EBITDA must be in the bottom 40% of comparable peer set OR have a falsifiable mispricing thesis. "Chokepoint exists" alone is insufficient — the chokepoint must not be priced.
+
+**Gate 3 — Falsifiable invalidation on 6-12 months**: testable price/event/data triggers, not "narrative deteriorates."
+
+**Gate 4 — Articulable mispricing**: explanation for why Mr Market is wrong must not rely solely on "narrative is undercovered."
+
+### Candidates from 2026-05-15 conversation (max 5 to add post-J+28)
+
+Priority A (strong pure-play + measurable valuation gap):
+- **Kioxia (285A.T)** — NAND pure-play, IPO récente, comparison vs Micron testable
+- **Mitsubishi Heavy Industries (7011.T)** — turbines + nuclear + defense, P/E ~half of GE Vernova
+- **Stevanato (STVN)** — borosilicate vials for GLP-1, oligopole, falsifiable on demand/utilization metrics
+
+Priority B (intéressant but qualification needed):
+- **Ypsomed (YPSN.SW)** — auto-injector pens duopole
+- **Lasertec (6920.T)** — EUV mask inspection monopole BUT verify multiple post-rally before adding
+- **Ferrotec (6890.T)** — semi consumables, P/E ~12x
+
+Priority C (watch only, NOT add to config.yaml):
+- **DEME Group (DEME.BR)** — subsea cable vessels (geographic/political risk to assess)
+- **NKT (NKT.CO)** — HV subsea cable
+- **Momentive Technologies (MTUS)** — HPQ chokepoint hedge NVDA, but recent IPO + volatile + thesis depends on hyperscaler capex maintaining
+- **Centrus Energy (LEU)** — HALEU pure-play, +5x déjà en 2024, sizing strict
+- **MP Materials (MP)** — REE vertical, China dumping tail risk historiquement vérifié (Molycorp 2013-2016)
+
+### Action items
+
+- [P2 post-J+28] Apply Gates 1-4 to Priority A candidates with empirical valuation pull from yfinance/EDGAR
+- [P2 post-J+28] Decision: add 0-3 candidates to config.yaml watch tier (NOT core)
+- [P3] Document the analytical framework used (chokepoint scoring /30) as either valid or rejected with rationale
+- [P3 ADR-002] Universe scaling strategy decision: vertical (depth, quality) vs horizontal (size). Currently 178 tickers, 1 thesis, 45 predictions all clustered J+28. Universal expansion (1000+ tickers) violates PHILOSOPHY High Standard Mode unless justified by track record evidence post-J+28.
+
+### What NOT to add to TODO
+
+The conversation produced ~150 names. Of those, ~30 made the "serious" cut. Of those, ~5 might survive Gates 1-4. The discipline is to let 90% of intellectual stimulation dissolve before it becomes a position. The bot exists precisely to prevent this batch-logging.
+

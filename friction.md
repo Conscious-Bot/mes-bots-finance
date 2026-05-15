@@ -94,3 +94,20 @@ Day 3 catastrophic "missed by 31min" hang was structural, not a fluke. Chronic "
 Sprint 1.2 P0 fix architecture: wrap each sync-I/O job with `asyncio.wait_for(asyncio.to_thread(impl), timeout=N)`. ~2h critical path on 4 P0 jobs, ~6h full sweep on 23 jobs. No fix during observation — bot_health_check.sh + manual restart covers risk window.
 
 Full risk-ranked table + recommended architecture in `docs/post-mortems/2026-05-14-apscheduler-hang-restart-cascade.md` Phase B section.
+
+## 2026-05-15 afternoon — universal scaling temptation flagged
+
+User raised possibility of "rendre le bot universel" supportant "milliers de tickers". This represents a fundamental shift from Path 5/6 High Standard Mode philosophy (precision in measurement > surface monitored) toward broad coverage. Flagged for cold-decision ADR rather than ad-hoc TODO line.
+
+Symptoms suggesting universal scaling NOT yet justified:
+- Current 178 tickers + 1 thesis = signal/decision ratio already misaligned
+- 45 predictions clustered J+28 = horizon diversification not yet validated empirically
+- /digest broken, materiality_v2 not yet wired to all downstream consumers
+- AsyncIOScheduler structural fragility = 5x universe = 5x event-loop blocking probability
+- KPI #2 NOT YET MEASURED — 0 empirical evidence current pipeline produces calibrated predictions
+
+Universal scaling without prior track record evidence violates the central PHILOSOPHY constraint: "Plus de précision dans la mesure > plus de surface monitorée."
+
+Decision deferred to ADR-002. To be drafted post-J+28 with empirical inputs from first KPI #2 batch resolution. Until then, NO universe expansion beyond max 3 thesis-candidate adds from queue.
+
+Cross-ref: TODO.md "Thesis candidates queue" section, docs/thesis-candidates-queue.md, ADR-002 (to be drafted).
