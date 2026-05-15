@@ -16,11 +16,12 @@ FX rates fetched once via yfinance pairs (EURUSD=X etc.).
 """
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import yfinance as yf
-from shared import storage, positions as positions_mod
 
+from shared import positions as positions_mod, storage
 
 # (ticker, account, eur_invested)
 LEGACY_POSITIONS = [
@@ -126,12 +127,12 @@ def main():
         qty = eur_invested / price_eur
         notes = f"{note_tag} | account={account} | eur_invested={eur_invested}"
 
-        result = positions_mod.add_buy(ticker, qty, price_eur, notes=notes)
-        # add_buy doesn't set account column; do it now via direct UPDATE
+        positions_mod.add_buy(ticker, qty, price_eur, notes=notes)
+        # add_buy returns {ticker, ...} but not position_id; UPDATE by ticker + most recent
         with storage.db() as cx:
             cx.execute(
-                "UPDATE positions SET account=? WHERE id=?",
-                (account, result["position_id"]),
+                "UPDATE positions SET account=? WHERE id=(SELECT MAX(id) FROM positions WHERE ticker=? AND status='open')",
+                (account, ticker),
             )
 
         print(f"  ADD  {ticker:12s} {account:4s}  €{eur_invested:>5.0f}  qty={qty:>9.3f}  px_eur={price_eur:>8.2f}")

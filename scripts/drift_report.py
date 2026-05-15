@@ -4,6 +4,7 @@ Output: Markdown to stdout.
 """
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared import storage

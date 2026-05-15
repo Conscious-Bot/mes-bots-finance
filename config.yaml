@@ -125,6 +125,13 @@ universe:
   - PSTG
   - 6324.T
   - 6861.T
+  - 0388.HK
+  - HDB
+  - 1347.HK
+  - SAF.PA
+  - 6273.T
+  - 8035.T
+  - ASM.AS
   extended:
     crypto_etfs:
     - ETHA

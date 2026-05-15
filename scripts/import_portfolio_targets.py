@@ -2,11 +2,10 @@
 
 Idempotent: deletes existing targets where source_doc matches, then re-inserts.
 """
-import sqlite3
-from pathlib import Path
-
 # Find DB path via storage module
 import sys
+from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared import storage
 
