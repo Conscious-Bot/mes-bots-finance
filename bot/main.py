@@ -425,98 +425,98 @@ async def daily_calendar_refresh_job():
 
 
 async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Show categorized list of all available commands."""
-    help_text = """mes-bots-finance — Commands (61 handlers)
+    """Show categorized list of all 65 registered commands."""
+    help_text = """mes-bots-finance — 65 commands (consolidation V4 spec'd Sprint 1.2)
 
-=== DAILY RITUAL ===
-/brief             Morning briefing (6 sections)
-/health            Bot health snapshot
-/ping              Liveness probe
-/log_value <msg>   Log a moment the bot helped
-/log_friction <msg> Log a friction
-/digest            Run digest pipeline now
+DAILY RITUAL (6)
+  /brief             Morning briefing (6 sections)
+  /health            Bot health snapshot
+  /ping              Liveness probe
+  /digest            Run digest pipeline now
+  /log_value <msg>   Log a moment the bot helped
+  /log_friction <msg> Log a friction
 
-=== THESES ===
-/thesis_add        Create a new thesis
-/thesis_list       List active theses
-/thesis_set        Set thesis params
-/thesis_note       Add note to thesis
-/thesis_revisit    Trigger monthly revisit
-/thesis_premortem  Pre-mortem analysis
+THESES (8)
+  /thesis_list       List active theses (chunked)
+  /thesis_add        Create new thesis
+  /thesis_set        Set thesis params
+  /thesis_note       Add note
+  /thesis_revisit    Monthly revisit
+  /thesis_premortem  Pre-mortem analysis
+  /exit TICKER       Check exit triggers
+  /exit_force        Force-close (regret-tagged)
 
-=== POSITIONS ===
-/position_buy      Record a buy + journal
-/position_sell     Record a sell + journal
-/portfolio         View positions w/ concentration & PnL
-/position TICKER   Drill-down single ticker + history
-/position_set      Set position params manually
-/position_history  Position event log
-/orphan_tickers    Holdings without thesis
-/exit TICKER       Check exit trigger status
-/exit_force TICKER reason  Force-close thesis (regret-tagged)
+POSITIONS (8)
+  /portfolio         View positions w/ PnL
+  /position TICKER   Drill-down
+  /position_buy      Record buy + journal
+  /position_sell     Record sell + journal
+  /position_set      Set position manually
+  /position_history  Event log
+  /orphan_tickers    Holdings w/o thesis
+  /override          Manual override
 
-=== ANALYSIS DEEP-WORK ===
-/analyze TICKER    Deep ticker analysis (Opus)
-/analyze_debate    Multi-round debate
-/debate_replay     Replay previous debate
-/asymmetry TICKER  Anti-sell-too-early math
-/risk_check TICKER SIDE USD  Risk premortem
-/materiality       Materiality (no args=top5, INT=signal_id, TICKER=last 5)
+ANALYSIS (6)
+  /analyze TICKER    Deep analysis (Opus, $0.20)
+  /analyze_debate    Multi-round debate
+  /debate_replay     Replay debate
+  /asymmetry TICKER  Anti-sell-too-early math
+  /risk_check        Risk premortem (Opus reads journal+biases)
+  /materiality       Materiality (no args=top5, INT=signal_id, TICKER=last 5)
 
-=== DECISIONS & JOURNAL ===
-/journal           View decision journal
-/journal_review    Review unresolved decisions
-/journal_tag       Tag a decision with bias
-/journal_unresolved  List unresolved decisions
-/bias_review       Bias patterns
-/history TICKER    Position/thesis history
-/predictions       Pending predictions
-/resolve_now       Force-resolve due predictions
-/feedback          Submit feedback
+JOURNAL (9)
+  /journal           View decision journal
+  /journal_review    Review unresolved
+  /journal_unresolved List unresolved
+  /journal_tag       Tag with bias
+  /bias_review       Bias patterns
+  /history TICKER    Position/thesis history
+  /predictions       Pending predictions
+  /resolve_now       Force-resolve due
+  /feedback          Submit feedback
 
-=== SIGNALS & SOURCES ===
-/echo_recent       Recent echo clusters
-/signals_by_type   Filter signals by type
-/credibility       Source credibility scores
-/sources_brier     Brier score per source
-/sources_half_life Source decay rates
-/sources_health    Source freshness
-/tiers             Source tier ranking (S/A/B)
-/tiers_watch       Watch tier changes
-/promote TICKER tier  Promote tier
+SIGNALS & SOURCES (9)
+  /echo_recent       Recent echo clusters
+  /signals_by_type   Filter signals
+  /credibility       Source credibility
+  /sources_brier     Brier per source
+  /sources_half_life Source decay rates
+  /sources_health    Source freshness
+  /tiers             Source tier ranking
+  /tiers_watch       Watch tier changes
+  /promote           Promote tier
 
-=== MARKET CONTEXT ===
-/macro             Macro snapshot
-/regime            Current regime
-/credit            Credit spread / HY OAS
-/crypto            Crypto zone
-/price_check TICKER  Live price
-/calendar          Upcoming events
-/calendar_refresh  Force refresh
+MARKET (7)
+  /macro             Macro snapshot
+  /regime            Current regime
+  /credit            Credit / HY OAS
+  /crypto            Crypto zone
+  /price_check TICK  Live price
+  /calendar          Upcoming events
+  /calendar_refresh  Force refresh
 
-=== INSIDERS & FILINGS ===
-/insiders          Recent insider activity
-/insider_cluster   Cluster analysis (full)
-/insider_buy_cluster  Buy-cluster only
-/insider_buy_cluster_stats  Stats
-/insider_digest    Daily insider digest
-/recent_8k         Recent 8-K filings
+INSIDERS (7)
+  /insiders          Recent activity
+  /insider_cluster   Cluster analysis
+  /insider_buy_cluster      Buy-cluster only
+  /insider_buy_cluster_stats Stats
+  /insider_digest    Daily digest
+  /recent_8k         Recent 8-K filings
+  /eight_k_history   Historical 8-K
 
-=== MONITORING & OPS ===
-/kpi_status        KPI dashboard
-/cost_trajectory   LLM cost over time
-/handler_stats     Handler usage stats
-/llm_costs         LLM cost breakdown
+OPS & MONITORING (5)
+  /kpi_status        KPI dashboard
+  /cost_trajectory   LLM cost + budget
+  /llm_costs         Operational LLM costs
+  /handler_stats     Handler usage telemetry
+  /help              This message
 
-=== ADMIN ===
-/override [TICKER level reason]  List or create override
-/help              This help
+Spec V4: 65 -> 18 handlers in Sprint 1.2 (post 2026-06-10).
+See docs/personal/handlers-consolidation-plan.md
+"""
+    await update.message.reply_text(help_text, parse_mode="Markdown")
 
-----
-J+28 cleanup remaining: insider_cluster vs buy_cluster merge,
-journal_unresolved -> /journal flag, cost duplicates,
-exit naming clarity, LOW-conf telemetry-driven deletions."""
-    await update.message.reply_text(help_text)
+
 
 async def cmd_insiders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
