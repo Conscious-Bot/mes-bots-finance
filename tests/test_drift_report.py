@@ -1,5 +1,6 @@
 """Property-based tests for storage.compute_drift_report."""
 from hypothesis import given, strategies as st
+
 from shared import storage
 
 
