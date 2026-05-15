@@ -111,3 +111,15 @@ Universal scaling without prior track record evidence violates the central PHILO
 Decision deferred to ADR-002. To be drafted post-J+28 with empirical inputs from first KPI #2 batch resolution. Until then, NO universe expansion beyond max 3 thesis-candidate adds from queue.
 
 Cross-ref: TODO.md "Thesis candidates queue" section, docs/thesis-candidates-queue.md, ADR-002 (to be drafted).
+
+## 2026-05-15 — Universe expansion Option 2 (3 tickers, no thesis)
+
+Post-thesis-candidates-queue creation, user opted for "Option 2": limited universe expansion (3 tickers added to config.yaml watch tier) WITHOUT logging any thesis. Justification:
+- Universe expansion ≠ thesis logged ≠ position taken
+- Bot begins ingesting signals on Kioxia/MHI/Stevanato, preparing post-J+28 evaluation
+- Existing 45 predictions cohort untouched → KPI #2 batch resolution 2026-06-10 not contaminated
+- 27-day soak before any /thesis_set or position action
+
+Discipline boundary respected: cognitive momentum from external IA conversation converted into prep-work (universe + queue), not impulsive logging. Test of Option 2 success: at 2026-06-11, how many of these 3 candidates survive a fresh /analyze_debate + /asymmetry pass?
+
+Process note: this is the FIRST universe modification during the observation window. Treating as one-time exception, not pattern. Future candidates remain in thesis-candidates-queue.md until post-J+28 default.

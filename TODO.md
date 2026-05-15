@@ -387,3 +387,24 @@ Priority C (watch only, NOT add to config.yaml):
 
 The conversation produced ~150 names. Of those, ~30 made the "serious" cut. Of those, ~5 might survive Gates 1-4. The discipline is to let 90% of intellectual stimulation dissolve before it becomes a position. The bot exists precisely to prevent this batch-logging.
 
+
+
+---
+
+## Universe expansion 2026-05-15 (Option 2 — limited 3 tickers, no thesis logged)
+
+Added to `config.yaml` `universe.watch`:
+- **Kioxia (285A.T)** — NAND pure-play
+- **Mitsubishi Heavy Industries (7011.T)** — turbines/nuclear/defense decotted vs GEV
+- **Stevanato (STVN)** — borosilicate vials chokepoint GLP-1
+
+Justification: limited universe expansion (not behavior change to existing 45 predictions cohort) to begin signal ingestion ahead of post-J+28 thesis evaluation. 27-day soak period.
+
+**Hard rules**:
+- NO /thesis_set before 2026-06-11
+- NO position commitment before /thesis_set
+- At 2026-06-11: re-evaluate with empirical signal data + KPI #2 batch results
+- Promotion to thesis requires full pipeline: /analyze_debate → /asymmetry → /thesis_set → /thesis_premortem
+
+Cross-ref: docs/thesis-candidates-queue.md "In soak" section, docs/adrs/002-universe-scaling-strategy.md.
+

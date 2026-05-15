@@ -18,6 +18,20 @@
 
 ---
 
+## In soak (added to config.yaml watch tier 2026-05-15)
+
+Tickers added to `config.yaml` `universe.watch` on 2026-05-15 afternoon. Bot will begin ingesting signals on these names via Gmail newsletters + EDGAR (when applicable) + price monitoring + materiality_v2 scoring. **NO thesis logged in DB.** Soak period: 27 days minimum until 2026-06-11. At end of soak, apply Gates 1-4 with empirical signal data + KPI #2 batch results in hand.
+
+- **Kioxia (285A.T)** — added 2026-05-15. Mispricing hypothesis: pure-play NAND under-covered ex-Asia vs Micron. Re-evaluate post-J+28 with: empirical P/E, NAND ASP trajectory, signal volume from semiconductor sources.
+- **Mitsubishi Heavy Industries (7011.T)** — added 2026-05-15. Mispricing hypothesis: turbines + nuclear + defense conglomerate, P/E ~half of GE Vernova. Re-evaluate with: segment-level revenue breakdown, turbine backlog trajectory, defense exposure quantified.
+- **Stevanato (STVN)** — added 2026-05-15. Mispricing hypothesis: borosilicate vials chokepoint for GLP-1 + biologics, FDA 5-year qualification moat. Re-evaluate with: current forward multiple post any rally, GLP-1 demand trajectory, Schott/Corning competitive moves.
+
+**Discipline rules during soak**:
+- NO /thesis_set on these names before 2026-06-11
+- NO /position_buy on these names before /thesis_set
+- Signals can be observed via `/signals_by_type` or direct SQL on `signals` table filtered by entity match
+- If conviction inflates pre-J+28 (urge to log thesis early), re-read PHILOSOPHY.md High Standard Mode and apply 24h cool-off before any action
+
 ## Pre-screen — Priority A (test seriously post-J+28)
 
 ### Kioxia Corporation (285A.T)
