@@ -37,3 +37,15 @@ Captures the wedge-feature signal for Phase 2 decision (Decision Journal vs Beha
 - Item 5: handler metrics consolidation sprint, separate scope.
 - Item 6: pipeline-wide review, Phase 3 scope (~juillet 2026 earliest).
 - Item 7: expansion candidates for `/analyze` and `/orphan_ticker`, post-J+28 batch resolution.
+2026-05-15 04:31 | it seems that i did the digest feature and nothing came when i actually belive my mail is loaded on new newsletters with interesting content
+2026-05-15 05:34 | comment est ce possible qu'il n y est aucun signal pertinent sur les dernières 24h
+
+## 2026-05-15 — empirical validation of items 4, 5, 6
+
+User reported /digest "bizarre — aucun signal pertinent ces dernieres 24h" despite 16 signals ingested in window.
+
+Investigation revealed pipeline coherence gap: `signals.score` column deprecated since 2026-05-13 (materiality_v2 introduction Day 2 marathon), but /digest still filters on it. 31 of 92 signals have NULL score, all from May 13 onward. /digest filter `COALESCE(s.score, 0) >= 3` excludes all NULL scores → empty digest.
+
+This empirically validates friction items 4 (/brief + /digest review together), 5 (metrics handlers without explanation), and 6 (whole pipeline coherence). User's intuition was correct: the friction was a real architecture gap, not just UX preference.
+
+Full analysis: `docs/pipeline-coherence-audit.md`. Disposition: Sprint 1.2 critical input, no fix during observation window.
