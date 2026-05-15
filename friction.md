@@ -157,3 +157,21 @@ Fixed via 3 data migrations: convert plain strings to JSON list for key_drivers,
 **Process lesson**: when CONVENTIONS §5 says "DB SQLite -> toujours via shared/storage.py", knowing WHICH function in storage.py to call matters. The signature `add_thesis(ticker, conviction, direction, horizon, drivers, invalidation, ...)` looks identical to insert_thesis but doesn't serialize properly. Add API choice documentation OR consolidate to single canonical entry point.
 
 Also: NVDA dummy thesis (id=1) soft-deleted via update_thesis_status('deleted') to preserve audit trail and predictions integrity. 22 -> 21 active theses now match the 21 sector theses logged this afternoon.
+
+## 2026-05-15 evening — Handler typo rate 10.8% empirical
+
+Audit handler_calls telemetry (2.1 days, 74 calls, 36 unique handlers used).
+Found 8/74 calls (10.8%) are typo variants of intended command:
+- thesis_list intent: 5 variants (thesis_list, list_theses, list_thesis, theses_list, theses)
+- orphan_tickers intent: 2 variants (orphan_ticker, orphan_tickers)
+- health intent: healthy (typo)
+- log_value/log_friction intent: log (typo)
+- insider_cluster intent: insider_clusters (plural typo)
+
+65 handlers exceeds memory ergonomics. Consolidation 65 -> ~20 verb-root
+handlers spec'd in docs/personal/handlers-consolidation-plan.md. Execution
+deferred to Sprint 1.2 post-J+28 (observation window protected).
+
+Process lesson: every typo costs ~3-5 seconds (read error + retry).
+At 4 typos/day average, that's ~15-20 sec daily friction tax. Annual = 1.5h.
+Consolidation value is mostly UX/discipline, not perf. Justifiable but not urgent.

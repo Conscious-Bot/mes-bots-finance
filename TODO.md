@@ -451,3 +451,23 @@ Discovered 2026-05-15 evening: `shared/storage.py:add_thesis()` (L68) stores dri
 
 Cross-ref: friction.md 2026-05-15 evening entry.
 
+
+
+---
+
+## Sprint 1.2 P0 — Handler consolidation 65 -> 20 verb-root
+
+**Spec**: `docs/personal/handlers-consolidation-plan.md` (created 2026-05-15)
+**Empirical basis**: 2.1d telemetry, 10.8% typo rate, Pareto 54% on 9 handlers
+**Trigger**: post-J+28 = 2026-06-10+
+**Effort estimate**: 8-12h across 4-5 commits (1 per verb-root module)
+**Dependency**: Sprint 1.1 mechanical extraction must complete first (Monday 2026-05-19)
+
+Ordered ship sequence (post-Sprint 1.1):
+1. /thesis verb-root (handlers/thesis.py) — highest typo rate, biggest win
+2. /portfolio verb-root (handlers/portfolio.py)
+3. /journal + /signals + /market + /insider_detail (medium impact)
+4. /ops + /predictions + /filings + /tiers (low usage, residual)
+
+KPI for success: typo rate <2% at J+60.
+
