@@ -15,6 +15,7 @@ universe:
     - MSFT
     - GOOGL
     - META
+    - AMZN
     power_for_ai:
     - CEG
     - VST

@@ -1783,3 +1783,94 @@ def bootstrap_schema(db_path: str | None = None, alembic_ini: str | None = None)
         conn = _sqlite3.connect(target_db)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.close()
+
+
+
+def compute_drift_report() -> dict:
+    """Compute drift between portfolio_targets (active) and positions (open) per account.
+
+    Returns dict with structure:
+      {
+        "PEA": {
+          "rows": [{ticker, target_eur, actual_eur, drift_eur, status, ...}, ...],
+          "total_target": float,
+          "total_actual": float,
+          "total_drift": float,
+        },
+        "TR": {...},
+        "summary": {
+          "capital_deployed_eur": float,
+          "capital_pending_eur": float,
+          "capital_target_eur": float,
+          "pct_deployed": float,
+        }
+      }
+    """
+    with db() as cx:
+        targets = cx.execute(
+            "SELECT ticker, account, target_eur, status, priority, phase_week, narrative, bucket "
+            "FROM portfolio_targets WHERE active_to IS NULL ORDER BY account, target_eur DESC"
+        ).fetchall()
+
+        positions_rows = cx.execute(
+            "SELECT ticker, account, SUM(qty * avg_cost) AS actual_eur "
+            "FROM positions WHERE status='open' GROUP BY ticker, account"
+        ).fetchall()
+
+    actual_by_key = {(r["ticker"], r["account"]): r["actual_eur"] for r in positions_rows}
+
+    by_account: dict = {}
+    for t in targets:
+        acc = t["account"]
+        if acc not in by_account:
+            by_account[acc] = {"rows": [], "total_target": 0.0, "total_actual": 0.0, "total_drift": 0.0}
+        actual = actual_by_key.get((t["ticker"], acc), 0.0) or 0.0
+        drift = t["target_eur"] - actual
+        by_account[acc]["rows"].append({
+            "ticker": t["ticker"],
+            "target_eur": t["target_eur"],
+            "actual_eur": actual,
+            "drift_eur": drift,
+            "status": t["status"],
+            "priority": t["priority"],
+            "phase_week": t["phase_week"],
+            "narrative": t["narrative"],
+            "bucket": t["bucket"],
+        })
+        by_account[acc]["total_target"] += t["target_eur"]
+        by_account[acc]["total_actual"] += actual
+        by_account[acc]["total_drift"] += drift
+
+    # Add positions without target (orphan holdings)
+    target_keys = {(t["ticker"], t["account"]) for t in targets}
+    for (ticker, acc), actual in actual_by_key.items():
+        if (ticker, acc) not in target_keys:
+            if acc not in by_account:
+                by_account[acc] = {"rows": [], "total_target": 0.0, "total_actual": 0.0, "total_drift": 0.0}
+            by_account[acc]["rows"].append({
+                "ticker": ticker,
+                "target_eur": 0.0,
+                "actual_eur": actual,
+                "drift_eur": -actual,
+                "status": "orphan_no_target",
+                "priority": None,
+                "phase_week": None,
+                "narrative": None,
+                "bucket": None,
+            })
+            by_account[acc]["total_actual"] += actual
+            by_account[acc]["total_drift"] -= actual
+
+    total_target = sum(a["total_target"] for a in by_account.values())
+    total_actual = sum(a["total_actual"] for a in by_account.values())
+    pct_deployed = (total_actual / total_target * 100.0) if total_target > 0 else 0.0
+
+    return {
+        **by_account,
+        "summary": {
+            "capital_deployed_eur": total_actual,
+            "capital_pending_eur": total_target - total_actual,
+            "capital_target_eur": total_target,
+            "pct_deployed": pct_deployed,
+        },
+    }

@@ -175,3 +175,26 @@ deferred to Sprint 1.2 post-J+28 (observation window protected).
 Process lesson: every typo costs ~3-5 seconds (read error + retry).
 At 4 typos/day average, that's ~15-20 sec daily friction tax. Annual = 1.5h.
 Consolidation value is mostly UX/discipline, not perf. Justifiable but not urgent.
+
+
+## 2026-05-15 evening late — Portfolio targets schema ship
+
+Empirical discovery during portfolio import:
+- User provided allocation document with 24 target positions
+- Holdings list pivoted twice in same session (8 tickers -> 15 tickers TR exec + 6 PEA)
+- Original target doc had inaccessible tickers (MTUS, KWEB, DIXON) reallocated
+  on the fly during conversation
+- 86% of holdings actuels NOT in target allocation = legacy portfolio requires
+  active rebalancing over 8-12 weeks
+
+Process lesson: portfolio audit empirique BEFORE any code touching positions
+table. The 10-minute gap between user's two holdings lists revealed massive
+divergence. Without this audit, drift report would have been computed on
+stale data.
+
+Implementation lesson: positions table needed account column (PEA vs TR) for
+multi-broker tracking. ADR-003 documents the bitemporal pattern reuse from
+ADR-001 credibility ledger.
+
+Currency complexity: legacy import stores cost_basis in EUR uniformly. Native
+currency tracking (Sprint 1.3 candidate) preserved as open question in ADR-003.

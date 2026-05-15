@@ -742,3 +742,27 @@ All Phase B P0/P1/P2 scheduler wrapping, /digest v2 migration, dual backup recon
 1. Lundi 19/05 morning: execute Sprint 1.1 chunk 1 (~10 min mechanical extraction per blueprint)
 2. Tier-1 daily ritual continues (bot_health_check.sh, friction.md additions if observed)
 3. June 10: KPI #2 batch resolution event (45 predictions), trigger ADR 001 PIT bitemporal Phase 1 if Brier green
+
+
+## Day 4 evening EXTRA close — portfolio_targets ship — 2026-05-15 20:37
+
+### Additional commits this evening
+- Migration 0002 portfolio_targets + positions.account
+- ADR-003 PIT bitemporal multi-account
+- 37 portfolio_targets rows imported (6 PEA locked + 15 TR exec + 11 TR planned + 3 watchlist + 1 dropped + 1 MHI topup integration)
+- 21 legacy positions imported (cost_basis = current market value in EUR, qty computed via yfinance + FX)
+- storage.compute_drift_report() helper
+- scripts/drift_report.py Markdown output
+- 4 Hypothesis property-based tests for drift logic
+- config.yaml: +8 tickers (AMZN, 0388.HK, HDB, 1347.HK, SAF.PA, 6273.T, 8035.T, ASM.AS)
+
+### Empirical state after import
+- positions table: 21 active rows (1 closed NVDA test soft-deleted)
+- portfolio_targets: 37 rows active
+- ~67% capital deployed (€43K / €64K target)
+- W1 priority buys identified: 0388.HK €2,500 + HDB €2,000 + 6890.T €2,000 + 0700.HK €1,500 = €8,000
+
+### Observation discipline status
+- NO new Telegram handlers shipped (V4 consolidation respect)
+- KPI 4, 5, 6 now empirically measurable from today
+- Sprint 1.2 will ship /target_set /target_compare /portfolio_drift handlers post-J+28
