@@ -2106,8 +2106,6 @@ async def cmd_portfolio(update, ctx):
         pct = (p["market_value"] / total_mv * 100) if total_mv else 0
         cur = f"€{p['current_price']:.2f}" if p.get("current_price") else "?"
         avg = p["avg_cost"]
-        upnl = p["unrealized_pnl"]
-        upnl_pct = (upnl / (p["qty"] * avg) * 100) if avg else 0
         mv_str = f"€{p['market_value']:>6,.0f}"
         lines.append(
             f"  {p['ticker']:9s} {p['qty']:>7.3f} @€{avg:>7.2f} now {cur:>9s} = {mv_str:>8s}  [{pct:4.1f}%]"
