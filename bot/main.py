@@ -2110,7 +2110,7 @@ async def cmd_portfolio(update, ctx):
         upnl_pct = (upnl / (p["qty"] * avg) * 100) if avg else 0
         mv_str = f"€{p['market_value']:>6,.0f}"
         lines.append(
-            f"  {p['ticker']:9s} {p['qty']:>7.3f} @€{avg:>7.2f} now {cur:>9s} = {mv_str:>8s}  upnl={upnl:>+7,.0f} ({upnl_pct:+5.1f}%) [{pct:4.1f}%]"
+            f"  {p['ticker']:9s} {p['qty']:>7.3f} @€{avg:>7.2f} now {cur:>9s} = {mv_str:>8s}  [{pct:4.1f}%]"
         )
     msg = "\n".join(lines)
     if len(msg) > 3900:
