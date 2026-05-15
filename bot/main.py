@@ -514,7 +514,7 @@ OPS & MONITORING (5)
 Spec V4: 65 -> 18 handlers in Sprint 1.2 (post 2026-06-10).
 See docs/personal/handlers-consolidation-plan.md
 """
-    await update.message.reply_text(help_text, parse_mode="Markdown")
+    await update.message.reply_text(help_text)
 
 
 
