@@ -61,3 +61,23 @@ Day 2 marathon claim "✅ #2 Daily backup 04:00 + restore test + 14d rotation" w
 Makefile glob bug: `ls -t ~/backups/mes-bots-finance/bot.db.*` matched SQLite SHM/WAL artifacts (sqlite3 fail "file is not a database 26"). The Day 2 "✅ restore test PASS" claim had never actually executed end-to-end until 2026-05-15 audit caught it.
 
 Disposition: Makefile glob fix shipped 2026-05-15 (1-line ops, no behavior change). Dual-script drift documented for Sprint 1.2 reconciliation — decide: (a) unify on scripts/backup.sh + schedule via cron, (b) remove crons/daily_backup.sh, (c) keep both with explicit separation. Also investigate 04:00 mystery trigger mechanism.
+
+## 2026-05-15 — Phase C audit: uncommitted WIP was actively broken (reverted)
+
+Phase C Sprint 1.1 mental rehearsal surfaced uncommitted local edits on two files that broke verify checkpoint 0 silently and would have shipped active regressions to the health check:
+
+1. tests/test_smoke_observation.py +80 lines duplicated already-committed tests (commit 26678e9). Python silently deduped function names (last def wins), but the duplicate block contained `HEALTH_SCRIPT = REPO_ROOT / ...` where REPO_ROOT was undefined. Ruff caught F821, breaking pytest collection entirely.
+
+2. scripts/bot_health_check.sh L89-93 removed ZoneInfo Europe/Paris fallback in favor of pure UTC. Empirically broken: bot writes last_heartbeat_ts in Paris local without offset (AI #6 deferred). UTC interpretation makes timestamp appear in the future, triggering false "clock skew?" WARN.
+
+3. scripts/bot_health_check.sh L244-245 renamed column resolved_at -> outcome_evaluated_at. Empirically wrong: predictions table column IS resolved_at (verified via .schema). outcome_evaluated_at does NOT exist. SQL errors silently swallowed by `|| echo 0`, making /health report "0 open predictions" when reality is 45 — false-GREEN on a KPI #2 critical metric.
+
+KPI_DASHBOARD.md side-finding: it documents the same non-existent column (outcome_evaluated_at) on its win-rate query (line ~100). Documentation drift — the column never existed under that name. Track for Sprint 1.2 docs reconciliation.
+
+Disposition: full revert via `git checkout HEAD --`. Verify restored to 9/9 PASS. Health check now reports correctly (heartbeat fresh + 45 open predictions).
+
+Process lessons (codify if recurrence):
+- Recon-before-ship (§17): grep for existing test names BEFORE adding new ones with same name
+- Empirically check schema BEFORE writing column renames in scripts
+- Final verify checkpoint MUST be re-run after any WIP, else drift accumulates silently
+- Silent SQL error swallowing (`|| echo 0`) hides schema drift — consider failing loud instead
