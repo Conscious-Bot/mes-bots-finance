@@ -81,3 +81,16 @@ Process lessons (codify if recurrence):
 - Empirically check schema BEFORE writing column renames in scripts
 - Final verify checkpoint MUST be re-run after any WIP, else drift accumulates silently
 - Silent SQL error swallowing (`|| echo 0`) hides schema drift — consider failing loud instead
+
+## 2026-05-15 — Phase B: AsyncIOScheduler structural fragility confirmed
+
+Phase B audit of 23 sched.add_job sites in bot/main.py confirms Day 3 evening postmortem hypothesis empirically:
+- 23/23 jobs are async def (all run in event loop)
+- 0 uses of asyncio.to_thread, run_in_executor, asyncio.wait_for
+- Zero sync-I/O isolation, zero timeout protection
+
+Day 3 catastrophic "missed by 31min" hang was structural, not a fluke. Chronic "missed by 20-33s" entries in bot.log are sub-threshold manifestations of the same fragility. P0 suspects (hourly, sync remote APIs): ingest_gmail_job, score_pending_signals_job, scheduled_materiality_v2_job, scheduled_classify_signal_types_job.
+
+Sprint 1.2 P0 fix architecture: wrap each sync-I/O job with `asyncio.wait_for(asyncio.to_thread(impl), timeout=N)`. ~2h critical path on 4 P0 jobs, ~6h full sweep on 23 jobs. No fix during observation — bot_health_check.sh + manual restart covers risk window.
+
+Full risk-ranked table + recommended architecture in `docs/post-mortems/2026-05-14-apscheduler-hang-restart-cascade.md` Phase B section.

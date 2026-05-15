@@ -113,3 +113,77 @@ After this 31+ min hang, the event loop never recovered.
 ### Why the original hypothesis was wrong
 
 Claude (me) pattern-matched "APScheduler hang" to "ThreadPoolExecutor saturation" without grep-ing the code first. The actual `AsyncIOScheduler` import was discoverable in one command. Principle: **read the actual code before hypothesizing root cause**, even when a pattern feels familiar. Caught within 12h of postmortem writing during Sprint 1.1 pre-flight.
+
+---
+
+## Phase B audit empirical confirmation (Day 4 — 2026-05-15)
+
+Day 3 evening postmortem hypothesized "AsyncIOScheduler shares asyncio event loop with Telegram polling; sync blocking call inside async job stalls the loop." Phase B audit empirically confirms this is **systemic**, not isolated to one job.
+
+### Quantified state
+
+    sched.add_job sites: 23/23
+    async def jobs:      23/23  (every job runs in event loop)
+    sync def jobs:        0/23  (no threadpool isolation by APScheduler)
+    asyncio.to_thread:    0     (no manual sync-I/O isolation either)
+    run_in_executor:      0
+    asyncio.wait_for:     0     (no timeout protection on any job)
+
+**Interpretation**: every APScheduler job in bot/main.py runs in the event loop with zero sync-I/O isolation and zero timeout protection. The Day 3 catastrophic "missed by 31min" hang was not a fluke — it is a structural fragility that will recur whenever any of these 23 jobs makes a sync I/O call exceeding ~30s (network hang, API throttle, sentence-transformers warmup, large sqlite query).
+
+### Risk-ranked suspects (frequency × likelihood of sync I/O)
+
+| Frequency | Job | Sync I/O risk | Priority |
+|---|---|---|---|
+| 1h | ingest_gmail_job | google-api-python-client sync, no built-in timeout | **P0** |
+| 1h | score_pending_signals_job | anthropic SDK sync; chronic "missed by 20-33s" observed | **P0** |
+| 1h | scheduled_materiality_v2_job | anthropic SDK sync | **P0** |
+| 30min | scheduled_classify_signal_types_job | anthropic Haiku sync | **P0** |
+| 1h | update_echo_clusters_job | sentence-transformers BGE inference CPU-bound | P1 |
+| 15min mkt | price_monitor_job | yfinance (sync requests internally) | P1 |
+| 1h | scheduled_recompute_materiality_boost_job | sqlite + math | P2 |
+| 1h | heartbeat | sqlite + JSON write | P2 |
+| daily | daily_digest_job | anthropic + sqlite | P1 |
+| daily | daily_resolve_job | yfinance + sqlite | P1 |
+| daily | scheduled_insider_refresh_job | EDGAR HTTP sync | P1 |
+| daily | scheduled_8k_scan_job | EDGAR HTTP sync | P1 |
+| daily | scheduled_buy_cluster_scan_job | EDGAR + yfinance | P1 |
+| weekly | weekly_*_job (3 jobs) | sqlite | P3 |
+| daily | daily_backup_job | filesystem + sqlite atomic | P3 |
+| cron | refresh_source_half_lives_job, recalibrate_credibility_brier_job | sqlite | P3 |
+| cron | daily_calendar_refresh_job, daily_crypto_zone_job, scheduled_resolve_buy_cluster_returns_job, resolve_journal_decisions_job | mixed sqlite/API | P2 |
+
+Chronic "missed by 20-33s" entries in bot.log are sub-threshold manifestations of the same fragility. P0 jobs all run hourly with slow remote API dependencies — when any hangs beyond 60s without timeout, the next hourly batch is dropped and the event loop accumulates delay.
+
+### Recommended Sprint 1.2 fix architecture
+
+Each async job performing sync I/O should be wrapped:
+
+    async def ingest_gmail_job():
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(_sync_ingest_gmail_impl),
+                timeout=120.0
+            )
+        except asyncio.TimeoutError:
+            log.warning("ingest_gmail_job timeout after 120s")
+        except Exception:
+            log.exception("ingest_gmail_job crashed")
+
+Releases event loop during sync I/O + hard timeout. Same shape for all 23 jobs (~30 min/job, ~6h full sweep, ~2h P0 critical path on 4 jobs).
+
+### Defensive interim mitigation (observation window 2026-05-15 → 2026-06-10)
+
+No code change. Operational compensation:
+- Tier 2 detector `scripts/bot_health_check.sh` catches scheduler hang within ~7h (validated Day 3 empirically — heartbeat freshness gate triggered)
+- Manual restart procedure: `PROCEDURE_URGENCE.md` Scenario 1
+- AsyncIOScheduler `misfire_grace_time` could be tuned longer but doesn't fix root cause
+
+Risk acceptance: another hang during 28-day window is **likely** (chronic "missed by 20-33s" is ongoing). Cost = ~24h ingestion loss + 5min manual restart. Acceptable vs piecemeal fix violating observation discipline.
+
+### Status
+
+- Phase B audit: complete, empirical confirmation captured
+- Hypothesis "structural fragility" upgraded to confirmed diagnosis
+- Sprint 1.2 P0 batch defined (4 jobs, ~2h critical path)
+- Full sprint scope: 23 jobs, ~6h batched with shared helper
