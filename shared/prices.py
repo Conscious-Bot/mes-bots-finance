@@ -172,7 +172,7 @@ def _get_fx_rate_to_eur(currency: str) -> float:
 
 def get_current_price_eur(ticker: str) -> float | None:
     """Fetch current market price in EUR. Returns None if fetch fails.
-    
+
     Applies FX conversion based on ticker suffix:
       .PA/.AS/.SW/.DE/.MI/.ST -> EUR (no conversion)
       .T -> JPY * (EUR/JPY)
