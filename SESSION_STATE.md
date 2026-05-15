@@ -677,3 +677,68 @@ User raised entering real portfolio. Decision: YES staged 3-4 months, NOT tonigh
 
 ### Meta-lesson 8 (candidate §19 if recurrence)
 Cross-env type-checker divergence requires type stub pinning. CONVENTIONS §17 recon-before-ship should add version-reproducibility check.
+
+
+## Day 4 morning closure (15 May 2026 ~13:30 KST, ~4h session)
+
+### Mode: STRICT OBSERVATION preserved
+Zero behavior change to bot. 5 commits ship empirical audit findings + ops fixes + revert of broken WIP. Verify 9/9 PASS preserved throughout. Bot health GREEN end of session.
+
+### Phases executed (sequence E → C → B per user directive)
+
+**Phase E — Appropriation Phase 1 pre-conditions sweep**
+- E.1 FileVault: ON
+- E.2 iCloud sync: project not in CloudDocs, zero .icloud placeholders
+- E.3 Backup restore test: PASS empirically (after Makefile glob fix — see commit 0f37fae)
+- E.4 paper_only toggle: True, execute_real key absent (schema simplicity)
+- Side-finding: dual backup script drift documented (crons/daily_backup.sh in cron 23:15 Paris vs scripts/backup.sh ad-hoc 04:00 mystery trigger)
+
+**Phase C — Sprint 1.1 chunk 1 mental rehearsal**
+- Blueprint validated: 43 LOC scope (`_append_log_entry` + `cmd_log_value` + `cmd_log_friction`), single piège `parents[2]` confirmed
+- CATASTROPHE avoided: uncommitted WIP on tests/test_smoke_observation.py + scripts/bot_health_check.sh broke verify checkpoint 0 silently
+- Three distinct bugs in WIP: (1) +80 duplicate test lines with REPO_ROOT typo (F821 broke pytest collection), (2) TZ fallback removed from script (false "future timestamp" WARN), (3) column renamed resolved_at → outcome_evaluated_at (column doesn't exist, false-GREEN 0 predictions)
+- Full revert via `git checkout HEAD --`, verify restored to 9/9 PASS
+
+**Phase B — AsyncIOScheduler audit empirical confirmation**
+- 23/23 jobs are `async def`, 0 uses of `asyncio.to_thread` / `run_in_executor` / `asyncio.wait_for`
+- Day 3 hang upgraded from "hypothesis" to "confirmed structural diagnosis"
+- Chronic "missed by 20-33s" entries in bot.log = sub-threshold manifestations of same fragility
+- P0 batch defined: ingest_gmail_job, score_pending_signals_job, scheduled_materiality_v2_job, scheduled_classify_signal_types_job (~2h critical path)
+- Full sprint scope: 23 jobs, ~6h with shared helper
+
+### Sprint 1.2 priorities tightened (post-J+28 activation)
+
+**P0** (architectural debt blocking observation reliability):
+- Scheduler async/sync hardening on 4 P0 jobs (~2h, postmortem Phase B section)
+- /digest filter migration from `score` to materiality_v2 fields (pipeline-coherence-audit.md)
+
+**P1** (drift + cleanup):
+- Remaining 19 scheduler jobs wrapping (~4h)
+- Handler audit live review (65 rows K/D/U/?, ~30-45 min focused session)
+- Dual backup script reconciliation (decide: unify on scripts/backup.sh or keep both)
+- 04:00 mystery cron trigger investigation
+
+**P2** (docs alignment):
+- KPI_DASHBOARD.md uses fictional column `outcome_evaluated_at` (track for docs reconciliation)
+- ADR retroactif materiality v1 → v2 transition
+
+### State preserved
+- Verify checkpoint 9/9 PASS (Sprint 1.1 baseline GREEN for Monday 19/05 chunk 1)
+- Bot PID 13697 alive 15h52m+, heartbeat fresh
+- 45 open predictions, **KPI #2 timer J+26** to 2026-06-10 batch resolution
+- Cost trajectory: $15/mo projected (5% of $50 budget, GREEN)
+- friction.md: 5 entries Day 4 morning (digest validation + backup drift + Phase C lesson + Phase B fragility + KPI_DASHBOARD doc drift)
+
+### Reopen entry point (canonical)
+cd ~/mes-bots-finance && source venv/bin/activate
+./scripts/bot_health_check.sh
+cat HANDOFF.md
+python scripts/sprint_1_1_checkpoint.py verify 0
+
+### Carry-forward (zero urgency, post-J+28 activation)
+All Phase B P0/P1/P2 scheduler wrapping, /digest v2 migration, dual backup reconciliation, KPI_DASHBOARD column fix, 04:00 cron mystery, ADR materiality transition.
+
+### Next session priorities
+1. Lundi 19/05 morning: execute Sprint 1.1 chunk 1 (~10 min mechanical extraction per blueprint)
+2. Tier-1 daily ritual continues (bot_health_check.sh, friction.md additions if observed)
+3. June 10: KPI #2 batch resolution event (45 predictions), trigger ADR 001 PIT bitemporal Phase 1 if Brier green
