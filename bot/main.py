@@ -114,7 +114,23 @@ async def cmd_thesis_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_thesis_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     msg = thesis_mod.list_active()
-    await update.message.reply_text(msg)
+    # Telegram hard limit 4096 chars; chunk on paragraph boundaries if needed
+    if len(msg) <= 3900:
+        await update.message.reply_text(msg)
+        return
+    chunks = []
+    cur = ""
+    for para in msg.split("\n\n"):
+        if len(cur) + len(para) + 2 < 3900:
+            cur = cur + "\n\n" + para if cur else para
+        else:
+            if cur:
+                chunks.append(cur)
+            cur = para
+    if cur:
+        chunks.append(cur)
+    for c in chunks:
+        await update.message.reply_text(c)
 
 
 async def cmd_thesis_revisit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):

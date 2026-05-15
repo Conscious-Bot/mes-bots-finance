@@ -433,3 +433,21 @@ Hard rules:
 
 Next action 2026-06-15 (post-J+28): batch /thesis_revisit on 21 theses with signal data accumulated during soak period.
 
+
+
+---
+
+## P1 Sprint 1.2 — add_thesis() canonical entry point fix
+
+Discovered 2026-05-15 evening: `shared/storage.py:add_thesis()` (L68) stores drivers/invalidation/triggers as plain strings, while `insert_thesis()` (L288) correctly serializes via `_t_json.dumps(_to_list(...))`. Divergent behavior between two parallel APIs causes downstream consumers (format_thesis_card, /thesis_list) to fail when add_thesis() was used.
+
+**Affected callers** (to audit): all bot/main.py functions calling storage.add_thesis vs storage.insert_thesis.
+
+**Fix options**:
+- (a) Make add_thesis() call _to_list + json.dumps internally on string fields, matching insert_thesis() behavior (preferred)
+- (b) Deprecate add_thesis(), migrate all callers to insert_thesis()
+
+**Workaround currently in place**: Data migration converted plain strings to JSON list for the 21 sector theses logged 2026-05-15. Future add_thesis() calls will recur the bug.
+
+Cross-ref: friction.md 2026-05-15 evening entry.
+

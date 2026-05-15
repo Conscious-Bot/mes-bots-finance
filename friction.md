@@ -137,3 +137,23 @@ Discipline preserved:
 - No schema change (sector_thesis_id is convention, not column)
 
 This is the moment where the bot transitions from "system in waiting" to "operational personal tool with substrate to learn from". KPI #5 (decisions journalisees) trajectory shifts: from 0 material thesis decisions to 21 future revisit decision points scheduled.
+
+## 2026-05-15 evening — /thesis_list bug + add_thesis() vs insert_thesis() canonical divergence
+
+User attempted /thesis_list in Telegram after logging 21 sector theses. Bot crashed silently with `telegram.error.BadRequest: Text is too long` (Telegram hard limit 4096 chars). Root cause investigation revealed TWO distinct bugs:
+
+**Bug 1 — Telegram message size**: cmd_thesis_list at bot/main.py:115 calls await update.message.reply_text(msg) with no chunking. With 22 theses, msg = 47672 chars (well over Telegram's 4096 limit). Fixed via chunking pattern (~16 LOC added to cmd_thesis_list).
+
+**Bug 2 — add_thesis() stores plain strings, list_active() expects JSON lists**: Output was not just too long, it was corrupted — `for d in thesis.get("key_drivers")` iterates char-by-char when key_drivers is plain string instead of JSON list. shared/storage.py has TWO insertion functions:
+- `add_thesis()` (L68): stores drivers/invalidation/triggers as plain string verbatim — BROKEN for format_thesis_card consumers
+- `insert_thesis()` (L288, L328): calls `_t_json.dumps(_to_list(...))` to convert to JSON list — CORRECT
+
+NVDA dummy thesis (created Phase 2 marathon) was logged via insert_thesis() — worked fine. The 21 sector theses I added 2026-05-15 afternoon used add_thesis() — all broken on read.
+
+Fixed via 3 data migrations: convert plain strings to JSON list for key_drivers, invalidation_triggers, triggers_profit_take across all affected theses. Used `to_jsonlist()` with separator heuristics (". " for drivers/invalidation, " OR " for triggers_profit_take).
+
+**Sprint 1.2 P1 candidate**: Either deprecate add_thesis() (route all callers to insert_thesis()) or fix add_thesis() to also call _to_list+json.dumps. Currently two parallel APIs with divergent behavior = future bug magnet.
+
+**Process lesson**: when CONVENTIONS §5 says "DB SQLite -> toujours via shared/storage.py", knowing WHICH function in storage.py to call matters. The signature `add_thesis(ticker, conviction, direction, horizon, drivers, invalidation, ...)` looks identical to insert_thesis but doesn't serialize properly. Add API choice documentation OR consolidate to single canonical entry point.
+
+Also: NVDA dummy thesis (id=1) soft-deleted via update_thesis_status('deleted') to preserve audit trail and predictions integrity. 22 -> 21 active theses now match the 21 sector theses logged this afternoon.
