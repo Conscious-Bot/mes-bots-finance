@@ -1,138 +1,276 @@
-# Handlers Consolidation Plan — 65 → 13-20 verb-root
+# Handlers Consolidation Plan — 65 → 16 verb-root (V3 FINAL)
 
 **Created**: 2026-05-15 evening (Day 4 close)
 **Status**: SPEC ONLY, execution Sprint 1.2 post-J+28 (2026-06-10+)
-**Empirical basis**: 2.1 days of handler_calls telemetry (74 total, 36 unique)
+**Naming votes finalized**: 2026-05-15 evening session
 
 ---
 
-## Why consolidate
+## Naming principles (user-validated)
 
-### Empirical signal: typo rate
-- 8/74 calls (10.8%) were typos: `list_theses`, `list_thesis`, `theses_list`, `theses` (4 variants for /thesis_list), `orphan_ticker` (vs `orphan_tickers`), `healthy` (vs `health`), `log` (vs `log_value`), `insider_clusters` (vs `insider_cluster`).
-- Surface of 65 handlers exceeds memory ergonomics.
-
-### Empirical signal: Pareto
-- 9 handlers = 54% of volume (digest, brief, help, health, log_value, analyze, insiders, log_friction, thesis_list)
-- 16 handlers = 73% of volume
-- 37 handlers = NEVER-USED in 2.1 days
-
-### Why NEVER-USED ≠ dead code
-The 37 NEVER-USED handlers are predominantly workflow-pending features (journal review, debate, risk_check, signals_by_type, sources_brier, tiers). They activate post-J+28 (KPI #2 batch resolution) when the bot transitions from build to operational. Consolidate, don't purge.
+1. **Mot complet > abbréviation privée** (rejected `/PF`, kept `/portfolio`)
+2. **Singulier > pluriel** (`/signal /insider /filing` not `/signals /insiders /filings`)
+3. **Verbe ou nom-domaine, jamais composé** (no `/insider_detail`)
+4. **Sub-actions = mot anglais simple** (`add`, `buys`, `cluster`, jamais `buy_cluster_stats`)
+5. **Default action returns useful state** (`/portfolio` without args = list view)
 
 ---
 
-## Design: V2 (recommended)
+## Empirical basis (unchanged from V2)
 
-### TIER S — KEEP DIRECT (6 handlers)
-Frequent + atomic + memorable. Coût subcommand non justifié./brief           — daily ritual
-/digest          — digest now
-/help            — list commands
-/health          — bot status (alias /healthy)
-/ping            — liveness
-/thesis_list     — view all theses (used 3x in 2 days, will increase)
+- 2.1d telemetry, 74 calls, 36 unique handlers used
+- 10.8% typo rate (8/74) — primary driver for consolidation
+- Pareto: 9 handlers = 54% volume, 16 = 73%
+- 37 NEVER-USED = workflow-pending features (post-J+28 resolution activates journal, signal, analyze deep work)
 
-### TIER A — KEEP DIRECT pour Pareto top (4 handlers)
-Used ≥3 times in window, will be daily./log_value <msg>      — instant logging, no friction
-/log_friction <msg>   — instant logging, no friction
-/analyze TICKER       — primary deep work entry
-/insiders             — insiders dashboard
+---
 
-### VERB-ROOT — Consolidate the rest (10 handlers)/thesis <action>
-add | set | note | premortem | revisit | exit | exit_force
-(no action defaults to /thesis_list which stays as alias)/portfolio <action>
-[list] | buy | sell | set | history | orphans | override
-list as default action (no arg = portfolio view)/journal <action>
-[view] | review | unresolved | tag | bias/signals <action>
-echo | by_type | sources | brier | half_life | health/tiers <action>
-[list] | watch | promote/market <topic>
-macro | regime | crypto | credit | calendar | price TICKER/insider_detail <kind>
-cluster | buy_cluster | buy_cluster_stats | digest/filings <kind>
-recent_8k | 8k_history/predictions <action>
-[list] | resolve_now | feedback/ops <topic>
-stats | kpi | costs | llm | materiality
+## V3 Final Design — 16 handlers
 
-**Total: 6 (TIER S) + 4 (TIER A) + 10 (verb-root) = 20 handlers**
+### TIER S — Atomic (5)
+No args, instant response. Daily ritual + bot health.
+/brief         daily ritual (6 sections)
+/digest        run digest pipeline now
+/help          show all commands
+/health        bot health snapshot
+/ping          liveness probe
+
+### TIER A — Verb-root (11)
+Default action when no subcommand. Verb-root pattern via `args[0]` dispatch.
+/log <kind> <msg>
+kinds: value | friction
+Default: error "specify value or friction"
+/thesis [action]
+actions: list (default) | add | set | note | premortem | revisit | exit
+No-arg: list active theses (chunked)
+/analyze TICKER [kind]
+kinds: deep (default) | debate | asymmetry | risk SIDE USD | materiality | replay
+Pattern: ticker first, kind optional, kind-args follow
+/portfolio [action]
+actions: list (default) | buy | sell | set | history | orphans | override
+/journal [action]
+actions: view (default) | review | unresolved | tag | bias
+/signal [action]
+actions: recent (default) | type | source | brier | half_life
+/insider [action]
+actions: recent (default) | cluster | buys | digest
+/filing [action]
+actions: recent (default) | history
+/market <topic>
+topics: macro | regime | crypto | credit | calendar | price TICKER
+Default: error "specify topic"
+/source [action]
+actions: list (default) | tier | promote | brier_top
+/admin <topic>
+topics: stats | kpi | costs | llm | resolve | predictions | feedback
+Default: error "specify topic"
+
+**Total: 5 + 11 = 16 handlers** (was 65, -75%)
+
+---
+
+## Mapping 65 → 16 (canonical reference)
+
+### Direct preserved (5)
+- `/brief` → `/brief` ✓
+- `/digest` → `/digest` ✓
+- `/help` → `/help` ✓
+- `/health` → `/health` ✓
+- `/ping` → `/ping` ✓
+
+### /log consolidation (was 2)
+- `/log_value <msg>` → `/log value <msg>`
+- `/log_friction <msg>` → `/log friction <msg>`
+
+### /thesis consolidation (was 8)
+- `/thesis_list` → `/thesis` or `/thesis list`
+- `/thesis_add` → `/thesis add`
+- `/thesis_set` → `/thesis set`
+- `/thesis_note` → `/thesis note`
+- `/thesis_premortem` → `/thesis premortem`
+- `/thesis_revisit` → `/thesis revisit`
+- `/exit` → `/thesis exit`
+- `/exit_force` → `/thesis exit_force` (or `/thesis force_exit`)
+
+### /analyze consolidation (was 6)
+- `/analyze TICKER` → `/analyze TICKER` (deep default)
+- `/analyze_debate TICKER` → `/analyze TICKER debate`
+- `/asymmetry TICKER` → `/analyze TICKER asymmetry`
+- `/risk_check TICKER SIDE USD` → `/analyze TICKER risk SIDE USD`
+- `/materiality [args]` → `/analyze TICKER materiality` or `/admin materiality`
+- `/debate_replay TICKER` → `/analyze TICKER replay`
+
+### /portfolio consolidation (was 8)
+- `/portfolio` → `/portfolio` (list default)
+- `/position TICKER` → `/portfolio TICKER` (drill-down)
+- `/position_buy` → `/portfolio buy`
+- `/position_sell` → `/portfolio sell`
+- `/position_set` → `/portfolio set`
+- `/position_history` → `/portfolio history`
+- `/orphan_tickers` → `/portfolio orphans`
+- `/override` → `/portfolio override`
+
+### /journal consolidation (was 6)
+- `/journal` → `/journal` (view default)
+- `/journal_review` → `/journal review`
+- `/journal_unresolved` → `/journal unresolved`
+- `/journal_tag` → `/journal tag`
+- `/bias_review` → `/journal bias`
+- `/history TICKER` → `/journal history TICKER` or `/portfolio history TICKER`
+
+### /signal consolidation (was 6)
+- `/echo_recent` → `/signal` (recent default) or `/signal recent`
+- `/signals_by_type` → `/signal type`
+- `/credibility` → `/signal source` or `/source list`
+- `/sources_brier` → `/signal brier` or `/source brier_top`
+- `/sources_half_life` → `/signal half_life`
+- `/sources_health` → `/signal health` or `/source health`
+
+### /insider consolidation (was 5)
+- `/insiders` → `/insider` (recent default)
+- `/insider_cluster` → `/insider cluster`
+- `/insider_buy_cluster` → `/insider buys`
+- `/insider_buy_cluster_stats` → `/insider buys stats`
+- `/insider_digest` → `/insider digest`
+
+### /filing consolidation (was 2)
+- `/recent_8k` → `/filing` (recent default)
+- `/eight_k_history` → `/filing history`
+
+### /market consolidation (was 6)
+- `/macro` → `/market macro`
+- `/regime` → `/market regime`
+- `/crypto` → `/market crypto`
+- `/credit` → `/market credit`
+- `/calendar` + `/calendar_refresh` → `/market calendar` (+ optional `refresh` arg)
+- `/price_check TICKER` → `/market price TICKER`
+
+### /source consolidation (was 3)
+- `/tiers` → `/source` (list default)
+- `/tiers_watch` → `/source tier`
+- `/promote TICKER tier` → `/source promote TICKER tier`
+
+### /admin consolidation (was 7)
+- `/handler_stats` → `/admin stats`
+- `/kpi_status` → `/admin kpi`
+- `/cost_trajectory` → `/admin costs`
+- `/llm_costs` → `/admin llm`
+- `/resolve_now` → `/admin resolve`
+- `/predictions` → `/admin predictions`
+- `/feedback` → `/admin feedback`
+
+---
+
+## Typo absorption (aliases registered 30d backward-compat)
+
+Empirically detected typos route to canonical:
+```python
+app.add_handler(CommandHandler("list_theses", cmd_thesis))    # 1 call
+app.add_handler(CommandHandler("list_thesis", cmd_thesis))    # 1 call
+app.add_handler(CommandHandler("theses_list", cmd_thesis))    # 1 call
+app.add_handler(CommandHandler("theses", cmd_thesis))         # 1 call
+app.add_handler(CommandHandler("thesis_list", cmd_thesis))    # 3 calls (legit, kept alias forever)
+app.add_handler(CommandHandler("orphan_ticker", cmd_portfolio_orphans_alias))
+app.add_handler(CommandHandler("healthy", cmd_health))
+app.add_handler(CommandHandler("log", cmd_log_hint))  # replies "use /log value or /log friction"
+app.add_handler(CommandHandler("insider_clusters", cmd_insider))
+```
+
+Old commands (e.g. `/position_buy`, `/macro`, `/insiders`) registered as aliases for 30d.
 
 ---
 
 ## Implementation strategy (Sprint 1.2 post-J+28)
 
-### Phase 1 — Sprint 1.1 Monday 2026-05-19 (already planned, mechanical)
-- Extract current 65 handlers into bot/handlers/*.py per category
+### Phase 1 — Sprint 1.1 Monday 2026-05-19 (planned, mechanical)
+- Extract current 65 handlers into bot/handlers/*.py modules
 - ZERO consolidation logic at this stage
-- Output: ~10 modules, same handler count
+- Result: 10 modules, same 65 handlers
 
-### Phase 2 — Sprint 1.2 (post-J+28, by module)
-For each verb-root in design:
-1. Create wrapper handler `cmd_thesis(update, ctx)` in handlers/thesis.py
-2. Parse `args[0]` to determine action
-3. Dispatch to existing internal function (now private `_thesis_add_impl` etc.)
-4. Keep OLD handler `cmd_thesis_add` registered as alias for 30j (backward compat)
-5. Help text updated to show verb-root pattern
-6. Ship per module: thesis (1 commit), portfolio (1), etc.
+### Phase 2 — Sprint 1.2 post-J+28 (per-module ship)
+For each verb-root in V3 design:
+1. Create wrapper `cmd_<verb>(update, ctx)` in handlers/<verb>.py
+2. Parse `ctx.args[0]` to determine action
+3. Dispatch to existing impl (now private `_<verb>_<action>_impl`)
+4. Register OLD handler names as aliases (backward compat)
+5. Update /help to show verb-root pattern
+6. Ship per verb-root (1 commit per module)
 
 ### Phase 3 — J+30 alias purge
 - Re-check handler_calls telemetry
-- For each old-name alias: if 0 calls in 30d, deregister
-- For aliases still used: keep permanently (typing habit signal)
+- Aliases with 0 calls in 30d → deregister
+- Aliases still used → keep permanently (typing habit signal)
 
 ---
 
-## Routing pattern (canonical per verb-root)
+## Routing pattern (canonical)
 
-```pythonasync def cmd_thesis(update, ctx):
-"""Verb-root /thesis: dispatch to action."""
-args = ctx.args
-if not args:
-return await _thesis_list_impl(update, ctx)
-action = args[0].lower()
-remaining = args[1:]
-dispatch = {
-"list": _thesis_list_impl,
-"add": _thesis_add_impl,
-"set": _thesis_set_impl,
-"note": _thesis_note_impl,
-"premortem": _thesis_premortem_impl,
-"revisit": _thesis_revisit_impl,
-"exit": _thesis_exit_impl,
-"exit_force": _thesis_exit_force_impl,
-}
-handler = dispatch.get(action)
-if not handler:
-return await update.message.reply_text(
-f"Unknown /thesis action: {action}\n"
-f"Available: {', '.join(dispatch.keys())}"
-)
-# Inject remaining args back into ctx for the impl function
-ctx.args = remaining
-return await handler(update, ctx)
+```python
+async def cmd_thesis(update, ctx):
+    """Verb-root /thesis: dispatch to action."""
+    args = ctx.args
+    if not args:
+        return await _thesis_list_impl(update, ctx)
+    action = args[0].lower()
+    remaining = args[1:]
+    dispatch = {
+        "list": _thesis_list_impl,
+        "add": _thesis_add_impl,
+        "set": _thesis_set_impl,
+        "note": _thesis_note_impl,
+        "premortem": _thesis_premortem_impl,
+        "revisit": _thesis_revisit_impl,
+        "exit": _thesis_exit_impl,
+        "exit_force": _thesis_exit_force_impl,
+    }
+    handler = dispatch.get(action)
+    if not handler:
+        return await update.message.reply_text(
+            f"Unknown /thesis action: `{action}`\n"
+            f"Available: {', '.join(dispatch.keys())}\n"
+            f"Default (no action): list",
+            parse_mode="Markdown",
+        )
+    ctx.args = remaining
+    return await handler(update, ctx)
+```
+
+For `/analyze TICKER [kind]` pattern (ticker-first):
+```python
+async def cmd_analyze(update, ctx):
+    """Verb-root /analyze: ticker first, kind optional."""
+    args = ctx.args
+    if not args:
+        return await update.message.reply_text("Usage: /analyze TICKER [kind]")
+    ticker = args[0].upper()
+    kind = args[1].lower() if len(args) >= 2 else "deep"
+    remaining = args[2:]
+    dispatch = {
+        "deep": _analyze_deep_impl,
+        "debate": _analyze_debate_impl,
+        "asymmetry": _analyze_asymmetry_impl,
+        "risk": _analyze_risk_impl,
+        "materiality": _analyze_materiality_impl,
+        "replay": _analyze_replay_impl,
+    }
+    handler = dispatch.get(kind)
+    if not handler:
+        return await update.message.reply_text(
+            f"Unknown /analyze kind: `{kind}`\n"
+            f"Available: {', '.join(dispatch.keys())}",
+            parse_mode="Markdown",
+        )
+    ctx.args = [ticker] + list(remaining)
+    return await handler(update, ctx)
+```
 
 ---
 
-## Backward-compat strategy
+## KPIs for consolidation success (measured J+60 post Sprint 1.2 ship)
 
-### Aliases (kept 30d post Sprint 1.2 ship per module)
-```pythonapp.add_handler(CommandHandler("thesis_list", cmd_thesis))    # routes to /thesis list
-app.add_handler(CommandHandler("thesis_add", cmd_thesis_add_alias))
-app.add_handler(CommandHandler("list_theses", cmd_thesis))    # typo absorption
-app.add_handler(CommandHandler("list_thesis", cmd_thesis))    # typo absorption
-app.add_handler(CommandHandler("theses", cmd_thesis))         # typo absorption
-
-### Typo absorption priority (from empirical data)
-- `/list_theses`, `/list_thesis`, `/theses_list`, `/theses` → all route to `/thesis [args]`
-- `/orphan_ticker` → `/portfolio orphans`
-- `/healthy` → `/health`
-- `/log` → reply "Did you mean /log_value or /log_friction?"
-
----
-
-## KPI for consolidation success
-
-Measured 30 days post Sprint 1.2 ship (J+60 from now):
-- **Typo rate**: target <2% (currently 10.8%)
-- **Mean unique handlers used per week**: target 8-12 (currently 15+ fragmented)
-- **Handler discovery rate** (/help calls): expected to drop (less need to look up)
+- **Typo rate**: <2% (currently 10.8%)
+- **Mean unique handlers/week**: 6-8 (currently 15+ fragmented)
+- **`/help` invocations**: drop expected (less lookup needed)
 
 ---
 
@@ -140,16 +278,23 @@ Measured 30 days post Sprint 1.2 ship (J+60 from now):
 
 | Risk | Mitigation |
 |------|------------|
-| User taps less-discoverable subcommands | Tier S frequent kept direct + autocomplete shows verb-roots |
-| Routing logic adds bugs | Property-based tests on dispatch table, smoke tests per verb |
-| Old habits → friction during transition | Aliases for 30d + Telegram bot.set_my_commands hint |
-| Telegram autocomplete shows 13 instead of 65 | Acceptable — discoverability via /help + verb-root /thesis without args shows actions |
+| User taps less-discoverable subcommands | Verb-root `/thesis` without args shows actions; Telegram autocomplete shows 16 clean roots |
+| Routing logic adds bugs | Property-based tests on dispatch dict per verb, smoke tests per verb-root |
+| Old habits → friction during transition | Aliases for 30d + bot.set_my_commands hint + /help updated |
+| `/analyze TICKER kind args` parsing ambiguity | Strict pattern: ticker[0], kind[1], rest from [2:]. Type errors → return usage hint |
 
 ---
 
 ## Status
 
-- ✅ Spec written (2026-05-15)
+- ✅ Spec V3 finalized (2026-05-15 evening)
 - ⏳ Sprint 1.1 mechanical extraction (Monday 2026-05-19)
 - ⏳ Sprint 1.2 consolidation per module (post-J+28 = 2026-06-10+)
 - ⏳ J+30 alias telemetry review (~2026-07-10)
+
+## Decision log
+
+- **2026-05-15**: User vote `/PF` rejected after pushback (case-insensitive, zero discoverability, breaks consistency). Final = `/portfolio`.
+- **2026-05-15**: Singular cohérent across signal/insider/filing/source/journal/market.
+- **2026-05-15**: `/analyze TICKER [kind]` ticker-first verb-root, NOT separate handlers per kind.
+- **2026-05-15**: No `/find` aggregator command (user did not vote yes).
