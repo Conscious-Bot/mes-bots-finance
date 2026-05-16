@@ -82,17 +82,43 @@ no_implicit_optional = true
 # Strict mode applied per-module as type hints rolled out
 [[tool.mypy.overrides]]
 module = [
+    # Core shared
     "shared.notify",
     "shared.prices",
     "shared.llm",
     "shared.storage",
     "shared.config",
+    "shared.math_helpers",
+    "shared.edgar",
+    # Day 5 ship A3 additions (mypy clean empirically)
+    "shared.crypto",
+    "shared.echo",
+    "shared.embeddings",
+    "shared.macro",
+    "shared.data_source_base",
+    # Core intelligence
     "intelligence.learning",
     "intelligence.materiality_v2",
     "intelligence.asymmetry",
     "intelligence.digest",
     "intelligence.journal",
     "intelligence.credibility",
+    "intelligence.bias_tagger",
+    "intelligence.signal_classify",
+    "intelligence.materiality_boost",
+    "intelligence.half_life",
+    "intelligence.regime",
+    # Day 5 ship A3 additions
+    "intelligence.calendar",
+    "intelligence.analyze",
+    "intelligence.thesis",
+    "intelligence.insider_digest",
+    "intelligence.price_monitor",
+    # Data sources
+    "data_sources.gmail_",
+    # Risk
+    "risk.risk_engine",
+    "risk.sizing",
 ]
 disallow_untyped_defs = false  # gradual rollout
 warn_return_any = true
