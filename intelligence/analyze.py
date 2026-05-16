@@ -289,11 +289,27 @@ def _credit_line(d):
 
 
 def build_prompt(d: dict) -> str:
+    from datetime import datetime as _dt
+    today_str = _dt.now().strftime("%d %B %Y")
+    today_iso = _dt.now().strftime("%Y-%m-%d")
+    current_quarter = f"Q{((_dt.now().month - 1) // 3) + 1} {_dt.now().year}"
+    next_quarter_year = _dt.now().year + (1 if _dt.now().month >= 10 else 0)
+    next_quarter = f"Q{((_dt.now().month - 1) // 3 + 1) % 4 + 1} {next_quarter_year}"
+
     crypto_note = ""
     if d["is_crypto"]:
         crypto_note = "\nNOTE: This is a cryptocurrency. Fundamental ratios may be n/a — focus on cycle position, macro liquidity sensitivity, and on-chain dynamics inferred from price action + market cap. Acknowledge data gaps honestly.\n"
 
     return f"""You are a senior buy-side analyst. Produce a concise, decision-useful analysis fiche for {d["name"]} ({d["ticker"]}).
+
+=== ANCHOR DATE (CRITICAL) ===
+TODAY IS {today_str} ({today_iso}). Current quarter is {current_quarter}.
+- ALL catalysts in "CATALYSTS NEXT 6 MONTHS" MUST be events AFTER {today_iso}.
+  NEXT earnings event for most companies = {next_quarter} or {current_quarter} (end-of-quarter releases).
+- DO NOT cite past events (Q3 2024, FY2024, October 2024 announcements) as if they were future catalysts.
+- DO NOT cite "post-election" without specifying which election.
+- If your training data is older than today, acknowledge it and reason from the structured data provided.
+- The "next_earnings" field below tells you the actual upcoming earnings date — use it.
 {crypto_note}
 === STRUCTURED DATA ===
 
