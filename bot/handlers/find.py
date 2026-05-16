@@ -30,7 +30,7 @@ def _format_position(conn: sqlite3.Connection, ticker: str) -> str:
     if not rows:
         return "\U0001F4CC POSITION\n  None\n"
     lines = ["\U0001F4CC POSITION"]
-    for qty, avg_cost, account, status, opened_at in rows:
+    for qty, avg_cost, account, _status, opened_at in rows:
         cost_basis = qty * avg_cost
         lines.append(
             f"  Qty: {qty:.4f} @ \u20AC{avg_cost:.2f}  "
