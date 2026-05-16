@@ -10,6 +10,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
+from bot.handlers.find import cmd_find
 from data_sources import gmail_
 from intelligence import (
     analyze as analyze_mod,
@@ -3210,6 +3211,7 @@ def main():
     app.add_handler(MessageHandler(filters.COMMAND, log_handler_call_middleware), group=-1)
     app.add_handler(CommandHandler("log_value", cmd_log_value))
     app.add_handler(CommandHandler("log_friction", cmd_log_friction))
+    app.add_handler(CommandHandler("find", cmd_find))
     app.add_handler(CommandHandler("health", cmd_health))
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
