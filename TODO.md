@@ -717,3 +717,19 @@ Per docs/sprint-1.2-plan.md:
 ### Discipline
 - AMD, GOOGL, TSLA, SAF.PA held without thesis until Day 5 (orphan flagged)
 - This empirical gap = exactly the "vendre trop tôt sans thesis structurée" risk
+
+---
+
+## 🎯 Mission queue next session (validated 16/05 evening)
+
+**Execution order**:
+1. P1 /thesis_health empirical retest (5 min gate) - validates 88db101 prompt fix
+2. P1 UX-fix /find (30-45 min) - user favori, 5th handler
+3. P1 UX-fix /journal audit (30-45 min) - KPI #5 enforcement
+4. P0 Source coverage gap (1-3h) - Japan/Korea/EU newsletter sourcing
+5. P2 Timezone audit (1h) - fix "-1d old" global
+6. P2 Tier inflation review (30 min) - c4 saturation methodology
+
+**Total**: 4-7h spread across 3-5 sessions.
+**Deadline**: J+24 = 10 juin 2026 (KPI #2 batch resolution).
+

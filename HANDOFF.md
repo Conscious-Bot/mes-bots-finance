@@ -197,13 +197,59 @@ Candidates per Sprint 1.2 plan:
 - Document UX-fix replicable pattern for future handlers
 - Update docs/sprint-1.2-plan.md with empirical learnings
 
-**Recommended priority next session**:
-1. /thesis_health empirical retest after 24h of cron (signal_classify should
-   pickup intl tickers per new prompt). Verify ASML/TSM/Lasertec signals
-   start appearing in 'sig' count.
-2. UX-fix sweep: /find (user favori), /journal audit, /signal_drilldown rename
-3. Carry-forward dette: source coverage gap (Japan/Korea/Europe), timezone
-   audit (-1d old bug), tier-based inflation watch.
+**Mission queue next session (validated user 16/05 evening, ordered execution)**:
+
+### Step 1 — /thesis_health empirical retest (5 min, FREE gate)
+- Wait 24h+ from 88db101 commit (Day 5 close) to let cron signal_classify
+  ingest new signals with intl-aware prompt.
+- Run `/thesis_health` in Telegram.
+- VERIFY: ASML/TSM/Lasertec/4063.T/000660.KS have 'sig' count > 0.
+- If YES: prompt fix is sufficient, proceed to Step 2.
+- If NO: P0 source coverage is THE only remaining lever, jump directly to Step 4.
+
+### Step 2 — UX-fix /find handler (30-45 min)
+- Empirical paste -> diagnose -> redesign -> smoke -> gates -> commit.
+- /find = user favori for cross-domain drill-down (signals + thesis + recent
+  decisions + price action for a single ticker).
+- 5th handler UX-fixed (after /brief, /digest, /portfolio, /thesis_health).
+
+### Step 3 — UX-fix /journal audit (30-45 min)
+- Same method.
+- /journal audit = KPI #5 enforcement: surface tickers with signals but no
+  logged decision. Now critical because 21 theses logged Day 5 = baseline.
+
+### Step 4 — P0 Source coverage gap (1-3h, depends on Step 1 result)
+- Identify 2-3 newsletters Japan equities:
+  candidates Asianometry deep, Smartkarma free tier, JapanInvest, Hayek Japan
+- Identify 1-2 Korea equities:
+  candidates Korea Investing, KospiKosdaq Weekly
+- Identify 1-2 EU deep coverage:
+  candidates Vinland Capital EU, Petrostevia EU equities, Morningstar EU
+- Subscribe + Gmail filter "Newsletters" routing.
+- Empirical verification: 7 days cron, /sources_brier shows new sources active.
+
+### Step 5 — P2 Timezone audit (1h)
+- Fix "-1d old" bug in /thesis_health and across /digest /portfolio.
+- Root cause: datetime.now() machine = KST, opened_at stored UTC-naive ->
+  mismatch. Need datetime.now(timezone.utc) consistent everywhere.
+- Audit all `datetime.now()` calls in handlers, normalize.
+
+### Step 6 — P2 Tier inflation review (30 min methodology)
+- Empirical c4 = 30% of theses (10/33) post-Day 5 tier-based mapping.
+- PHILOSOPHY watch >20% c5 only, but c4 saturation is silent inflation.
+- Revisit 10 c4 theses: identify which are TRULY Tier A monopole vs
+  "quality company in sector" (which should be c3).
+- Candidates for downgrade: SNPS (duopoly not monopole), KLAC (duopoly),
+  BESI.AS (duopoly hybrid bonding), COHR (multi-product).
+- Updates: status='active', conviction downgrade as decided, note appended.
+
+---
+
+**Estimated total**: 4-7h spread across 3-5 sessions.
+**Deadline empirical**: J+24 = 10 juin 2026 (KPI #2 batch resolution).
+
+After 10 juin: decision Path 5 (acquihire 18-24mo) vs Path 6 (Substack 24-36mo)
+based on first Brier baseline + track record empirical.
 
 ---
 
