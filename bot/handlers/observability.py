@@ -30,8 +30,11 @@ __all__ = [
     "cmd_llm_costs",
 ]
 
+# Module-level constants (migrated from bot/main.py during chunk 2 extract)
+BUDGET_MONTHLY_USD = 50.0  # Target monthly LLM spend (per FICHE_TECHNIQUE)
 
-async def cmd_health(update, ctx):
+
+async def cmd_health(update, ctx):  # noqa: ARG001
     """Health check: process, DB, LLM activity, data freshness, recent errors."""
     import os
     from datetime import datetime
@@ -122,7 +125,7 @@ async def cmd_health(update, ctx):
     await update.message.reply_text("\n".join(lines))
 
 
-async def cmd_handler_stats(update, ctx):
+async def cmd_handler_stats(update, ctx):  # noqa: ARG001
     """Phase Solidification P0 #3 — Show handler usage stats with Pareto curve.
 
     Usage: /handler_stats [days=30]
@@ -343,7 +346,7 @@ def _format_kpi_report(kpis):
     return "\n".join(lines)
 
 
-async def cmd_kpi_status(update, ctx):
+async def cmd_kpi_status(update, ctx):  # noqa: ARG001
     """Phase Solidification P2 — Show KPI status with breach detection."""
     try:
         kpis = _kpi_compute_all()
@@ -473,7 +476,7 @@ def _cost_format_trajectory(data):
     return "\n".join(lines)
 
 
-async def cmd_cost_trajectory(update, ctx):
+async def cmd_cost_trajectory(update, ctx):  # noqa: ARG001
     """Phase Solidification P2 — Strategic cost dashboard avec MTD + projection + budget."""
     try:
         data = _cost_compute_trajectory()
@@ -484,7 +487,7 @@ async def cmd_cost_trajectory(update, ctx):
         await update.message.reply_text(f"Error: {e}")
 
 
-async def cmd_llm_costs(update, ctx):
+async def cmd_llm_costs(update, ctx):  # noqa: ARG001
     """Phase A2 — Display LLM call costs + token usage by tier.
     Usage: /llm_costs [hours]   (default 24h)
     """
