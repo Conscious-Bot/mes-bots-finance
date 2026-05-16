@@ -20,7 +20,7 @@ Path 5/6 requires demonstrating not just "ça marche" but "je sais quand ça cas
 - Budget mensuel >$50 breaché (cible: $8-15/mo)
 
 ### Detection
-- `SELECT COUNT(*), SUM(cost_usd) FROM llm_calls WHERE created_at >= datetime('now', '-1 hour') AND status='error'` — si >10 errors/h → alert
+- `SELECT COUNT(*), SUM(cost_usd) FROM llm_calls WHERE created_at >= datetime('now', '-1 hour') AND error IS NOT NULL` — si >10 errors/h → alert
 - `SELECT SUM(cost_usd) FROM llm_calls WHERE created_at >= datetime('now', '-1 day')` — si >$3/jour → alert
 - Heartbeat 1h cron silencieux → bot.log grep "anthropic" errors
 
@@ -78,7 +78,7 @@ Path 5/6 requires demonstrating not just "ça marche" but "je sais quand ça cas
 - credentials.json rotated chez Google Cloud Console
 
 ### Detection
-- `SELECT COUNT(*) FROM signals WHERE type='newsletter' AND timestamp >= datetime('now', '-2 days')` — si 0 sur 48h → alert
+- `SELECT COUNT(*) FROM signals s JOIN sources src ON s.source_id = src.id WHERE src.type = 'newsletter' AND s.timestamp >= datetime('now', '-2 days')` — si 0 sur 48h → alert
 - bot.log grep "gmail_fetch" errors
 - `gmail_fetch_job` returns n_fetched=0 sur >3 runs consécutives
 
