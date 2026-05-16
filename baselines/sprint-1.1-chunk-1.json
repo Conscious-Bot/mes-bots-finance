@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-16T04:23:10.179032+00:00",
+  "captured_at": "2026-05-16T04:27:44.656075+00:00",
   "chunk": 1,
   "cmd_def_count": 71,
   "files_scanned": [
@@ -13,7 +13,8 @@
     "bot/handlers/portfolio_views.py",
     "bot/handlers/positions.py",
     "bot/handlers/signal_drilldown.py",
-    "bot/handlers/sources_admin.py"
+    "bot/handlers/sources_admin.py",
+    "bot/handlers/thesis_analyze.py"
   ],
   "function_hashes": {
     "_append_log_entry": "067b947dce7c3be5",
@@ -140,9 +141,9 @@
     "weekly_handler_stats_job": "785d4bfa88a99625",
     "weekly_kpi_status_job": "266ca0043cfc1d64"
   },
-  "git_commit": "dc505a9",
+  "git_commit": "69758ff",
   "handler_registration_count": 71,
-  "label": "common_helpers_dedup",
-  "main_py_lines": 2281,
+  "label": "thesis_analyze_extracted",
+  "main_py_lines": 2132,
   "scheduler_jobs_count": 23
 }
