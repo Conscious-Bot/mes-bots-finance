@@ -376,24 +376,33 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         + str(len(sources_set))
         + " sources distinctes."
     )
+    from datetime import datetime as _dt
+    today_str = _dt.now().strftime("%d/%m/%Y %H:%M")
     prompt = (
         "Tu es l'analyste finance d'Olivier (profil thesis-driven slow alpha sur tech/semis/AI/crypto, "
         "biais asymetriques: vend winners trop tot PLTR/NVDA, ne vend pas crypto aux tops, "
         "univers core: NVDA AVGO TSM MU ASML AMD ARM MSFT GOOGL META CEG VST GEV MSTR IBIT COIN V BLK LLY NVO+74 watch+82 extended).\n\n"
-        "Voici " + str(len(rows)) + " signaux digeres sur les " + str(since_hours) + "h. " + stats_line + "\n\n"
+        "Date du jour: " + today_str + ". Window analyse: derniers " + str(since_hours) + "h.\n\n"
+        "Voici " + str(len(rows)) + " signaux digeres. " + stats_line + "\n\n"
         "=== SIGNAUX BRUTS ===\n" + signals_text + "\n\n"
         "=== PRODUIS UNE SYNTHESE NARRATIVE UNIFIEE ===\n\n"
-        "Structure obligatoire (utilise ces emojis exactement):\n\n"
+        "REGLE CRITIQUE: ne JAMAIS inventer ou hardcoder une date dans ton output. La date du jour est ci-dessus. "
+        "Si tu references une date, elle doit etre soit la date du jour (" + today_str[:10] + ") soit une date explicite d'un signal cite.\n\n"
+        "REGLE CATALYSTS: un CATALYST est un event marche concret avec date approximative (earnings, FOMC, FDA decision, etc). "
+        "Une 'newsletter a lire' ou 'reunion regulateurs dans semaines/mois' N'EST PAS un catalyst. Si rien de concret: dis 'Aucun catalyst date concret detecte dans ce window'.\n\n"
+        "Structure obligatoire:\n\n"
+        "VERDICT: X urgent / Y monitoring / Z noise\n"
+        "(1 ligne tout en haut. X+Y+Z doit correspondre a ton analyse globale, pas au count brut.)\n\n"
         "THEMES MAJEURS (3-5 max)\n"
         "Pour chaque theme: nom court, tickers concernes, signaux convergents (multi-source = boost credibilite), "
         "1-2 phrases sur pourquoi ca matte ou pas pour Olivier.\n\n"
         "CATALYSTS A SURVEILLER\n"
-        "Top 3-5 events specifiques avec ticker + date approximative + impact attendu.\n\n"
-        "BRUIT A JETER\n"
-        "Briefly note les narratives/opinions sans matiere actionable, ce que tu IGNORES et pourquoi.\n\n"
+        "Top 3-5 events specifiques avec ticker + date approximative + impact attendu. Si aucun: une ligne explicite.\n\n"
+        "BRUIT JETE\n"
+        "UNE SEULE LIGNE format: 'Skipped: N sources, mostly [theme1, theme2]'. Pas de details, pas de liste.\n\n"
         "ACTION ITEMS POUR OLIVIER (max 3 bullets)\n"
-        "Decisions concretes a prendre/surveiller selon son thesis NVDA active et ses biais asymetriques.\n\n"
-        "Ton: direct, jargon pro francais, pragmatique, max 700 mots. Pas de fawning, dire les choses sans edulcorer."
+        "Decisions concretes a prendre/surveiller selon son thesis active et ses biais asymetriques.\n\n"
+        "Ton: direct, jargon pro francais, pragmatique, max 600 mots. Pas de fawning, dire les choses sans edulcorer."
     )
     try:
         narrative = llm.call(prompt, tier="enrich", max_tokens=2000)
