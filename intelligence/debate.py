@@ -118,6 +118,8 @@ def _cosine_similarity(v1, v2):
 
 def run_multi_round_debate(ticker, context_text):
     """3-round dialectic. Returns dict with rounds + convergence_score + verdict."""
+    from datetime import datetime as _dt
+
     from shared import llm
 
     try:
@@ -125,12 +127,31 @@ def run_multi_round_debate(ticker, context_text):
     except ImportError:
         embeddings = None
 
+    # Inject anchor date into context for all 3 rounds (Round 2/3 inherit via R1)
+    today_str = _dt.now().strftime("%d %B %Y")
+    today_iso = _dt.now().strftime("%Y-%m-%d")
+    current_quarter = f"Q{((_dt.now().month - 1) // 3) + 1} {_dt.now().year}"
+    next_quarter_year = _dt.now().year + (1 if _dt.now().month >= 10 else 0)
+    next_quarter = f"Q{((_dt.now().month - 1) // 3 + 1) % 4 + 1} {next_quarter_year}"
+
+    anchor_block = (
+        f"\n=== ANCHOR DATE (CRITICAL) ===\n"
+        f"TODAY IS {today_str} ({today_iso}). Current quarter is {current_quarter}.\n"
+        f"- ALL forward-looking catalysts MUST be events AFTER {today_iso}.\n"
+        f"  NEXT earnings for most companies = {next_quarter} or {current_quarter}.\n"
+        f"- DO NOT cite past events (Q3 2024, FY2024, October 2024) as forward catalysts.\n"
+        f"- DO NOT cite 'post-election' without specifying which election.\n"
+        f"- If your training data is older than today, acknowledge it and reason from\n"
+        f"  the structured context provided below.\n"
+    )
+    context_with_anchor = anchor_block + "\n" + context_text
+
     out = {"ticker": ticker.upper(), "rounds": []}
 
     # Round 1 — parallel
     log.info(f"debate {ticker} R1 start")
-    r1_bull = llm.call(ROUND_1_BULL.format(ticker=ticker, context=context_text), tier="enrich", max_tokens=900)
-    r1_bear = llm.call(ROUND_1_BEAR.format(ticker=ticker, context=context_text), tier="enrich", max_tokens=900)
+    r1_bull = llm.call(ROUND_1_BULL.format(ticker=ticker, context=context_with_anchor), tier="enrich", max_tokens=900)
+    r1_bear = llm.call(ROUND_1_BEAR.format(ticker=ticker, context=context_with_anchor), tier="enrich", max_tokens=900)
     out["rounds"].append({"round": 1, "bull": r1_bull, "bear": r1_bear})
 
     # Round 2 — cross-challenge

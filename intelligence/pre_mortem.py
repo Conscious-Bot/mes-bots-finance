@@ -15,7 +15,14 @@ log = logging.getLogger(__name__)
 
 PROMPT = """You are a behavioral finance advisor performing a PRE-MORTEM on a fresh trading thesis.
 
-The investor has just decided to open this thesis. Your job: imagine that 12 months from NOW, this thesis HAS FAILED — either lost money or failed to deliver. Generate the 5 most PLAUSIBLE failure scenarios. Be specific to the ticker, not generic.
+The investor has just decided to open this thesis. Your job: imagine that 12 months AFTER {today_iso}, this thesis HAS FAILED — either lost money or failed to deliver. Generate the 5 most PLAUSIBLE failure scenarios. Be specific to the ticker, not generic.
+
+ANCHOR DATE (CRITICAL):
+TODAY IS {today_str} ({today_iso}). 12-month horizon = {horizon_end_iso}.
+- ALL failure mode signals/catalysts must be plausible WITHIN {today_iso} to {horizon_end_iso}.
+- DO NOT cite past events (Q3 2024, FY2024, October 2024 announcements) as future failure signals.
+- DO NOT cite "post-election" without specifying which election.
+- If your training data is older than today, acknowledge it and reason from the structured thesis data provided.
 
 THESIS:
 - Ticker: {ticker}
@@ -73,7 +80,15 @@ def generate_pre_mortem(thesis):
             except Exception:
                 invalidation = [invalidation]
 
+        from datetime import datetime as _dt, timedelta as _td
+        today_str = _dt.now().strftime("%d %B %Y")
+        today_iso = _dt.now().strftime("%Y-%m-%d")
+        horizon_end_iso = (_dt.now() + _td(days=365)).strftime("%Y-%m-%d")
+
         prompt = PROMPT.format(
+            today_str=today_str,
+            today_iso=today_iso,
+            horizon_end_iso=horizon_end_iso,
             ticker=thesis.get("ticker", "?"),
             direction=thesis.get("direction", "?"),
             horizon=thesis.get("horizon", "medium"),
