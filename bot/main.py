@@ -23,6 +23,7 @@ from intelligence.calendar import format_macro_calendar, seed_macro_events
 from intelligence.insider_digest import daily_insider_refresh, format_daily_insider_digest
 from intelligence.price_monitor import check_thesis_triggers, list_overrides, record_override
 from shared import config, crypto as crypto_mod, edgar as edgar_mod, notify, positions as positions_mod, storage
+from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -640,49 +641,6 @@ async def log_handler_call_middleware(update, ctx):
         log.warning(f"handler telemetry failed: {e}")
 
 
-
-
-def _append_log_entry(filename: str, message: str) -> None:
-    """Append a timestamped entry to a log file at the repo root."""
-    from datetime import datetime
-    from pathlib import Path as _Path
-    repo_root = _Path(__file__).resolve().parent.parent
-    log_path = repo_root / filename
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(f"{ts} | {message}\n")
-
-
-async def cmd_log_value(update, ctx):
-    """Append entry to VALUE_LOG.md. Usage: /log_value <message>"""
-    text = update.message.text.partition(" ")[2].strip()
-    if not text:
-        await update.message.reply_text(
-            "Usage: /log_value <message>\n"
-            "Exemple: /log_value bot m'a alerte sur 8K NVDA avant que je le rate"
-        )
-        return
-    try:
-        _append_log_entry("VALUE_LOG.md", text)
-        await update.message.reply_text(f"OK logged to VALUE_LOG.md:\n  {text[:300]}")
-    except Exception as e:
-        await update.message.reply_text(f"Error writing VALUE_LOG.md: {e}")
-
-
-async def cmd_log_friction(update, ctx):
-    """Append entry to friction.md. Usage: /log_friction <message>"""
-    text = update.message.text.partition(" ")[2].strip()
-    if not text:
-        await update.message.reply_text(
-            "Usage: /log_friction <message>\n"
-            "Exemple: /log_friction /brief lent ce matin (15s)"
-        )
-        return
-    try:
-        _append_log_entry("friction.md", text)
-        await update.message.reply_text(f"OK logged to friction.md:\n  {text[:300]}")
-    except Exception as e:
-        await update.message.reply_text(f"Error writing friction.md: {e}")
 
 
 async def cmd_health(update, ctx):
