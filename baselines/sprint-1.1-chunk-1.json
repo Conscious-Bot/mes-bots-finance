@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-16T04:38:08.571345+00:00",
+  "captured_at": "2026-05-16T04:42:13.082236+00:00",
   "chunk": 1,
   "cmd_def_count": 71,
   "files_scanned": [
@@ -7,6 +7,7 @@
     "bot/handlers/__init__.py",
     "bot/handlers/_common.py",
     "bot/handlers/anti_erosion.py",
+    "bot/handlers/echo_crypto_macro.py",
     "bot/handlers/find.py",
     "bot/handlers/journal_audit.py",
     "bot/handlers/journal_bias.py",
@@ -143,9 +144,9 @@
     "weekly_handler_stats_job": "785d4bfa88a99625",
     "weekly_kpi_status_job": "266ca0043cfc1d64"
   },
-  "git_commit": "80e4c08",
+  "git_commit": "61db600",
   "handler_registration_count": 71,
-  "label": "journal_bias_extracted",
-  "main_py_lines": 1549,
+  "label": "echo_crypto_macro_extracted",
+  "main_py_lines": 1223,
   "scheduler_jobs_count": 23
 }
