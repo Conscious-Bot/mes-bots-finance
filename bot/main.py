@@ -9,6 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
 from data_sources import gmail_
 from intelligence import (
     analyze as analyze_mod,
@@ -23,7 +24,6 @@ from intelligence.calendar import format_macro_calendar, seed_macro_events
 from intelligence.insider_digest import daily_insider_refresh, format_daily_insider_digest
 from intelligence.price_monitor import check_thesis_triggers, list_overrides, record_override
 from shared import config, crypto as crypto_mod, edgar as edgar_mod, notify, positions as positions_mod, storage
-from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)

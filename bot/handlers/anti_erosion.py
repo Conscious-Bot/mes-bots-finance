@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-__all__ = ["_append_log_entry", "cmd_log_value", "cmd_log_friction"]
+__all__ = ["_append_log_entry", "cmd_log_friction", "cmd_log_value"]
 
 
 def _append_log_entry(filename: str, message: str) -> None:
