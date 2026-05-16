@@ -766,3 +766,74 @@ All Phase B P0/P1/P2 scheduler wrapping, /digest v2 migration, dual backup recon
 - NO new Telegram handlers shipped (V4 consolidation respect)
 - KPI 4, 5, 6 now empirically measurable from today
 - Sprint 1.2 will ship /target_set /target_compare /portfolio_drift handlers post-J+28
+
+
+## Day 5 marathon FINAL CLOSE (16 May 2026 ~12h cumulative)
+
+### Total ships: 21 commits
+
+**Architecture refactor (4 Sprint 1.1 chunks)**:
+- Chunk 1: anti_erosion → bot/handlers/anti_erosion.py (43 LOC)
+- Chunk 2: observability → bot/handlers/observability.py (499 LOC, 3 attempts)
+- Chunk 4: positions → bot/handlers/positions.py (263 LOC incl _portfolio_journal_ctx)
+- Chunk 5: sources_admin → bot/handlers/sources_admin.py (179 LOC)
+
+**New features (5 handlers)**:
+- /find TICKER — cross-domain aggregator (244 LOC, bot/handlers/find.py)
+- /portfolio_sectors — sector breakdown (config.yaml taxonomy)
+- /portfolio_narratives — narrative breakdown (regex sector_thesis_id)
+- /portfolio_drift — vs portfolio_targets, red/green/blue indicators
+- /journal_audit — KPI #5 empirical alignment (bot/handlers/journal_audit.py + 11 tests)
+
+**Infrastructure**:
+- Backup reconciliation (crons/daily_backup.sh removed, scripts/backup.sh single source)
+- Doc drift fix: REFERENCE_SCHEMA + failure_modes SQL (3 schema bugs)
+- Type hints: mypy strict override 11 → 29 modules (+18)
+- shared/config.py: BUDGET_MONTHLY_USD moved to break circular import
+
+### Empirical state
+- bot/main.py LOC: 3324 → 2279 (-31% / -1045 lines)
+- Handlers: 65 → 70 (+5)
+- Tests: 128 → 139 (+11, all property-based Hypothesis)
+- mypy strict: 11 → 29 modules
+- Crons: 23 active
+- Bot PID: 30199 alive
+
+### Gated commit pattern emergence
+- Day 5 introduced "gated commit script": ruff + mypy + pytest + smoke before git commit
+- Empirical impact: bug/feature ratio dropped from ~4 fix iters/ship to 0-2
+- Commits 17-21 ALL via gated pattern
+- /journal_audit had 1 runtime bug (Telegram Markdown unbalanced underscore)
+  not caught by tests — added as P3 carry-forward: Telegram-safe formatter
+
+### Empirical findings (data discovery via shipping)
+- 26 silent tickers in 30d (high-impact signals + ZERO decisions)
+- Top silent: AMD (10), AVGO (10), QCOM (8), MSFT (7), META (7)
+- Only NVDA tracked (11 sig / 3 dec)
+- This DATA was invisible before /journal_audit. KPI #5 now empirically measurable.
+
+### Carry-forward P3 (deferred)
+1. _db_path dedup → bot/handlers/_common.py (3 modules duplicate)
+2. Telegram-safe text formatter helper in bot/handlers/_common.py
+3. shared/positions.py + intelligence/insider_digest.py + intelligence/price_monitor.py
+   mypy errors (3 errors, ~30 min total fix when touched)
+4. Sprint 1.1 chunks remaining: 3 (admin?), 6-10 (thesis, brief, signals, analytics, cleanup)
+5. ADR 001 PIT bitemporal (deferred to post J+28 = post 10 June 2026)
+6. Pre-commit git hook (currently gated script is manual, should be hook)
+
+### Observation mode (active until 2026-06-10)
+- 45 open predictions cluster J+28 due 10 juin
+- KPI #2 forecast: ON TRACK
+- /journal_audit NEW: KPI #5 runtime visible
+- /cost_trajectory: $15/mo projected (5% of $50 budget, GREEN)
+- NO touching materiality pipeline, predictions schema, /digest threshold, Brier paths
+
+### Entry point next session
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. Read this SESSION_STATE.md tail + TODO.md
+3. Test bot empirically: /journal_audit + /portfolio_sectors + /find + /digest
+4. Next ship candidates (priority order):
+   a) **STOP** — Day 5 was excellent, no more features needed pre-J+28
+   b) Sprint 1.1 chunk 3 admin (if cmd_help/version/etc to extract)
+   c) Sprint 1.1 chunk 6 thesis handlers
+   d) P3 dette: _db_path dedup → bot/handlers/_common.py + Telegram-safe formatter

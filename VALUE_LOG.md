@@ -33,3 +33,5 @@ preserves wedge signal pour /brief redesign post-Sprint-1.1.
 Sprint 1.1 baseline verify: 98/98 function bodies unchanged, structural
 counts unchanged, zéro commit a touché bot/main.py depuis le baseline 2158adf.
 Ready Monday.
+
+2026-05-16 ~13:00 | /journal_audit empirical KPI #5 | 26 silent tickers révélés (AMD 10, AVGO 10, QCOM 8) — data invisible avant aujourd'hui, now measurable runtime. Only NVDA tracked sur 27 tickers high-impact 30d. Insight brut: signaux narrative-level n'attendent pas tous une decision, mais 7+ tickers core position avec material signals + 0 decision = blind spots vs portfolio.
