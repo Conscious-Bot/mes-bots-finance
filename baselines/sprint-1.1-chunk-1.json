@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-16T04:46:16.842771+00:00",
+  "captured_at": "2026-05-16T04:51:03.732443+00:00",
   "chunk": 1,
   "cmd_def_count": 72,
   "files_scanned": [
@@ -11,6 +11,7 @@
     "bot/handlers/find.py",
     "bot/handlers/journal_audit.py",
     "bot/handlers/journal_bias.py",
+    "bot/handlers/misc.py",
     "bot/handlers/observability.py",
     "bot/handlers/portfolio_views.py",
     "bot/handlers/positions.py",
@@ -148,9 +149,9 @@
     "weekly_handler_stats_job": "785d4bfa88a99625",
     "weekly_kpi_status_job": "266ca0043cfc1d64"
   },
-  "git_commit": "e6d717c",
+  "git_commit": "9980e74",
   "handler_registration_count": 72,
-  "label": "thesis_health_added",
-  "main_py_lines": 1225,
+  "label": "misc_extracted_sprint1_1_done",
+  "main_py_lines": 1113,
   "scheduler_jobs_count": 23
 }
