@@ -559,3 +559,64 @@ small fixes to be added to strict override:
 After all 3 fixed, add modules to mypy strict override in pyproject.toml + ci.yml.
 Trigger: Sprint 1.2 type hints completion sweep OR opportunistic when these
 modules are touched.
+
+---
+
+## P0 DISCOVERED 16/05/2026 evening — Handler UX review one-by-one
+
+**Empirical finding (user honest feedback)**: 73 handlers registered but
+many display illisible/rebarbatif output. Code passes gates but
+empirical value not delivered.
+
+**Symptom**: gap between "smoke test Python OK" and "Telegram output
+actually useful for decision making".
+
+**Action plan**:
+
+1. Inventory: list all 73 handlers grouped by category (already exists
+   in docs/HANDLERS_INDEX.md to verify currency).
+
+2. Categorize by usage intent:
+   - CRITICAL: commands wanted daily/weekly (5-7 candidates)
+   - OCCASIONAL: useful trimestriel
+   - DEAD: never-use candidates -> deletion review per PHILOSOPHY
+     "complexité a un coût cognitif"
+
+3. Empirical audit CRITICAL handlers:
+   - For each, capture verbatim Telegram output
+   - Document in friction.md: command, output, intent, gap, priority
+   - Identify pattern: is it format issue? labels énigmatiques?
+     too much text? no TL;DR? wrong info hierarchy?
+
+4. Fix strategy (TBD post-audit):
+   - Incremental fixes per handler OR
+   - Refactor unified output format if pattern emerges
+
+5. DEAD handlers: trigger suppression per modify deprecation
+   policy CONVENTIONS.md §15 (mark DEPRECATED 1 month, then delete)
+
+**Priority**: P0. Test empirique reveals features without usable
+output are not features. Blocks Path 5/6 narrative (track record
+requires demonstrable empirical value).
+
+**Effort**: 2-3h audit + variable fixes.
+
+**Trigger**: post-J+28 batch resolution OR immediate if pre-J+28
+audit reveals critical UX gaps.
+
+---
+
+## Sprint 1.2 — Handler consolidation + UX fix (planned 2026-05-16)
+
+**Doc**: `docs/sprint-1.2-plan.md`
+**Decisions**: `docs/handler-review-2026-05-16/decisions.md` (12 blocs)
+**Surface reduction**: 73 -> 24 commands (-67%)
+
+**Trigger**: post-J+28 (2026-06-10) OR earlier if UX blocks daily ritual.
+
+**Estimated effort**: 23-28h Phase A-M + 8-15h Phase N UX fix.
+
+**Critical path**:
+- Phase A (renames only, 4 cmds): low risk, can ship pre-J+28
+- Phase B-M (family unifications): post-J+28 only
+- Phase N (UX redesign output): on demand per daily ritual blocker
