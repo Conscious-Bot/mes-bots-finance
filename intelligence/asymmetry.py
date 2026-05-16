@@ -14,16 +14,19 @@ log = logging.getLogger(__name__)
 
 
 def _get_current_price(ticker: str) -> float | None:
-    """Best-effort latest close via yfinance."""
-    try:
-        import yfinance as yf
+    """Latest close in EUR (user base currency).
 
-        h = yf.Ticker(ticker).history(period="5d")
-        if not h.empty:
-            return float(h["Close"].iloc[-1])
+    Delegates to shared.prices.get_current_price_in_eur which handles
+    currency conversion for tickers quoted in JPY (.T), KRW (.KS), USD,
+    etc. This ensures asymmetry math compares like-for-like with entry_price
+    (stored in EUR from broker avg_cost).
+    """
+    try:
+        from shared.prices import get_current_price_in_eur
+        return get_current_price_in_eur(ticker)
     except Exception as e:
         log.warning(f"price fetch {ticker}: {e}")
-    return None
+        return None
 
 
 def compute_thesis_asymmetry(thesis: dict[str, Any]) -> dict[str, Any] | None:
@@ -181,13 +184,16 @@ def format_asymmetry_single(r: dict[str, Any]) -> str:
 
 
 def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
-    """Portfolio-wide ranked display with status breakdown.
+    """Portfolio-wide display: RAW distances only, no qualitative verdicts.
 
-    Bucketize all theses into:
-    - COMPUTED: full asymmetry ratio available
-    - INCOMPLETE: long thesis missing entry/target/stop
-    - WATCH: direction != long (no asymmetry math applicable)
-    - ERROR: price fetch failed
+    Design rationale (post-2026-05-16 empirical review):
+    User correctly identified that STRONG_RUN/FAVORABLE/BALANCED verdicts are
+    mechanically derived from user's own framework (stop/target choices) at
+    thesis logging time. Since current ≈ entry on day-1, ratio = target%/stop%
+    which is tautological. The colored verdicts create FALSE confirmation bias,
+    confirming user's own assumptions rather than challenging them. Removed
+    icons + labels. Kept objective distances (current, entry, target, stop +
+    % from current to each).
     """
     if not results:
         return "No active theses."
@@ -210,36 +216,35 @@ def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
             incomplete.append(r)
 
     total = len(results)
-    lines = [f"PORTFOLIO ASYMMETRY ({total} active theses)"]
+    lines = [f"PORTFOLIO POSITIONS ({total} active theses)"]
     lines.append(
         f"Computed: {len(computed)}  |  Incomplete: {len(incomplete)}  |  "
         f"Watch: {len(watch)}  |  Errors: {len(errored)}"
     )
     lines.append("")
 
-    # Section 1: COMPUTED — actionable asymmetry
+    # Section 1: COMPUTED — raw distances, no verdict
     if computed:
-        lines.append(f"━━ COMPUTED ({len(computed)}) — ranked by ratio ━━")
-        computed_sorted = sorted(computed, key=lambda x: -(x.get("asymmetry_ratio") or 0))
+        lines.append(f"━━ COMPUTED ({len(computed)}) — raw distances ━━")
+        # Sort alphabetically (no ranking by ratio to avoid suggesting a verdict)
+        computed_sorted = sorted(computed, key=lambda x: x.get("ticker", ""))
         for r in computed_sorted:
-            verdict_icon = {
-                "STRONG_RUN": "🟢🟢",
-                "FAVORABLE": "🟢",
-                "BALANCED": "🟡",
-                "UNFAVORABLE": "🟠",
-                "FLIPPED": "🔴",
-                "STOP_BREACHED": "⛔",
-                "TARGET_HIT": "🎯",
-            }.get(r.get("verdict") or "", "?")
-            ratio = r["asymmetry_ratio"]
-            ratio_str = "TARGET" if ratio >= 999 else f"{ratio:.2f}x"
+            ticker = r["ticker"]
+            current = r.get("current_price", 0)
+            entry = r.get("entry", 0)
+            target = r.get("target_full", 0)
+            stop = r.get("stop", 0)
+            up_pct = r.get("upside_pct", 0)
+            down_pct = r.get("downside_pct", 0)
+            # Distance from entry (pnl since entry)
+            pnl_pct = ((current - entry) / entry * 100) if entry else 0
             lines.append(
-                f"{verdict_icon} {r['ticker']:10s} ratio={ratio_str:>7s}  "
-                f"up=+{r.get('upside_pct', 0):.0f}%  down=-{r.get('downside_pct', 0):.0f}%  → {r['verdict']}"
+                f"  {ticker:10s} cur=€{current:>8.2f}  entry=€{entry:>8.2f} ({pnl_pct:+.1f}%)  "
+                f"target=€{target:>8.2f} (+{up_pct:.0f}%)  stop=€{stop:>8.2f} (-{down_pct:.0f}%)"
             )
         lines.append("")
 
-    # Section 2: INCOMPLETE — missing entry/target/stop
+    # Section 2: INCOMPLETE
     if incomplete:
         lines.append(f"━━ INCOMPLETE ({len(incomplete)}) — missing target/stop ━━")
         for r in sorted(incomplete, key=lambda x: x.get("ticker", "")):
@@ -256,7 +261,7 @@ def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
         lines.append("  Fix via /thesis_set TICKER target X stop Y")
         lines.append("")
 
-    # Section 3: WATCH — direction != long
+    # Section 3: WATCH
     if watch:
         lines.append(f"━━ WATCH ({len(watch)}) — direction not long ━━")
         for r in sorted(watch, key=lambda x: x.get("ticker", "")):
@@ -270,3 +275,5 @@ def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
             lines.append(f"  {r['ticker']:10s}: {r.get('error', '?')}")
 
     return "\n".join(lines)
+
+
