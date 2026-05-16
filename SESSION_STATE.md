@@ -837,3 +837,121 @@ All Phase B P0/P1/P2 scheduler wrapping, /digest v2 migration, dual backup recon
    b) Sprint 1.1 chunk 3 admin (if cmd_help/version/etc to extract)
    c) Sprint 1.1 chunk 6 thesis handlers
    d) P3 dette: _db_path dedup → bot/handlers/_common.py + Telegram-safe formatter
+
+
+---
+
+## Day 5 marathon COMPLETE close (16 May 2026, ~14h cumulative)
+
+### Total items shipped Day 5: 32 commits
+
+**Morning Reframe (3 commits)**:
+- ac8b6a7: PHILOSOPHY reframe — measurement pipeline immutable until J+28
+- c037e35: Sprint 1.1 chunk 1 extract anti_erosion
+- 41d1a5d: Ship /find TICKER aggregator (244 LOC, cross-domain)
+
+**Sprint 1.1 chunks (9 PLAIN handler extractions)**:
+- 1: anti_erosion (3 handlers) - c037e35 + dd5bd8f + a157813
+- 2: observability (5 handlers + 4 helpers) - c150750 + 8d79f23 + 7aa9842
+- 4: positions (gated 0 iter) - 19529bc
+- 5: sources_admin (gated 1 iter UTC) - 4cf0765
+- 6: thesis_analyze (5 handlers, gated 1 iter analyze_mod) - 6238d0f
+- 7: signals_filings (7 handlers, gated 1 iter edgar_mod) - 80e4c08
+- 8: journal_bias (7 handlers, 478 LOC largest, gated 1 iter I001) - 61db600
+- 9: echo_crypto_macro (8 handlers, gated 2 iter contextlib+crypto_mod) - e6d717c
+- 10: misc PLAIN final (5 handlers) - f5b91f5
+
+**Features shipped (empirical tetrahedron)**:
+- /find TICKER aggregator - 41d1a5d
+- /portfolio_sectors, /portfolio_narratives, /portfolio_drift - a678381
+- /journal_audit (KPI #5 visibility, 26 silent tickers revealed) - b73f5f1 + 69e70c1
+- /signal_drilldown TICKER (per-ticker investigate, 14 AMD signals) - dc505a9
+- /thesis_health (21 theses, 5 narratives) - 9980e74
+- /bias_pattern (10 BIASES taxonomy + mistake_tag aggregation) - 77ad4a0
+
+**Other ships**:
+- Reconcile backup scripts - 6714aa9
+- Doc drift fix REFERENCE_SCHEMA + failure_modes SQL - 4b02ca3 + acf23b2
+- Type hints extension mypy strict 11 -> 30 (later 29 after cleanup) - 654369b
+- Cleanup remove insider_digest + price_monitor from override - f832669
+- Dedup _db_path via bot/handlers/_common.py - 06499d5
+
+### Empirical state end-of-marathon
+
+- **bot/main.py LOC**: 3324 -> 1115 (-66%)
+- **bot/handlers/ modules**: 14 (_common, anti_erosion, bias_pattern,
+  echo_crypto_macro, find, journal_audit, journal_bias, misc, observability,
+  portfolio_views, positions, signal_drilldown, signals_filings, sources_admin,
+  thesis_analyze, thesis_health)
+- **Tests**: 128 (Day 4) -> 189 (Day 5)
+- **Handlers registered**: 65 -> 73 (+8 new features)
+- **mypy strict modules**: 11 -> 29
+- **Crons active**: 23
+- **Bot PID**: alive (post last restart f5b91f5/77ad4a0)
+
+### Sprint 1.1 final status
+
+**Complete: 9/10 PLAIN chunks** (1, 2, 4, 5, 6, 7, 8, 9, 10).
+
+**Chunk 3 RESERVED** for Sprint 1.2 type-hints unified refactor:
+17 TYPED handlers remain in bot/main.py (~345 LOC), signatures
+`(update: Update, ctx: ContextTypes.DEFAULT_TYPE)`:
+- cmd_ping, cmd_thesis_add/list/revisit/note
+- cmd_exit, cmd_exit_force
+- cmd_digest, cmd_feedback, cmd_credibility, cmd_predictions, cmd_resolve_now
+- cmd_regime, cmd_calendar, cmd_calendar_refresh, cmd_help, cmd_insiders
+
+Extraction strategy differs (no noqa: ARG001 needed, signature unified
+with typing). Defer to Sprint 1.2.
+
+### Gated commit pattern: EMPIRICAL VALIDATION
+
+**Before gated commit (Day 5 commits 1-16)**: ~50% bug rate post-push
+**After gated commit (commits 17-32)**: 1-2 fix iters max, 0 push regressions
+
+**Recurring patterns caught by gates** (lesson #11 mental checklist):
+1. ruff I001 import organize after every chunk (always auto-fix)
+2. F821 missing top-level *_mod aliases at extraction (log, analyze_mod,
+   edgar_mod, crypto_mod, positions_mod, contextlib)
+3. F541 f-strings no placeholders
+4. F841/B007 unused vars in tests
+
+**Lesson #11 final mental checklist for chunk recon**:
+- log = logging.getLogger references
+- *_mod aliases top-level (storage_mod, analyze_mod, edgar_mod, etc)
+- *_mod aliases inline (in body, lazy imports)
+- contextlib / functools / other stdlib top-level
+- ALL_CAPS module-level constants
+- Top-level functions imported (daily_insider_refresh, format_macro_calendar)
+
+### P3 carry-forward (post-observation):
+
+1. _extract_narrative dupliqué (portfolio_views.py, thesis_health.py)
+2. _ticker_in_entities dupliqué (signal_drilldown.py, thesis_health.py, bias_pattern.py x?)
+   Both -> bot/handlers/_common.py
+3. Sprint 1.2: chunk 3 TYPED handlers (17 handlers, 345 LOC)
+4. Type hints remaining modules (intelligence/{older}, shared/{macro,crypto,positions,echo,embeddings})
+5. ADR 001 PIT bitemporal implementation (trigger = KPI #2 GREEN J+28)
+6. Pre-commit git hook (currently /tmp/gate_check.py manual)
+
+### Observation mode REAFFIRMED until 2026-06-10 (J+28)
+
+- 46 open predictions cluster due 10 juin
+- KPI #2 forecast: ON TRACK (40 due in 28d, target >=5)
+- Cost: $15/mo projected, 5% GREEN
+- 0 ruff / 0 mypy on 29 typed modules
+- Bot PID alive, 73 handlers, 23 crons
+- Empirical tetrahedron complete for self-audit pre-resolution
+
+### Test empirique recommendations:
+- /thesis_health: 21 theses, 5 narratives balanced
+- /journal_audit: 26 silent tickers (AMD 10, AVGO 10, QCOM 8, MSFT 7, META 7)
+- /signal_drilldown AMD: 14 signals (Short Squeez 6, Wall Street Rollup 3)
+- /bias_pattern: 3 decisions sparse (1 manual override), 0 auto-tagged
+
+### Entry point next session:
+1. cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate
+2. ps aux | grep bot.main (confirm alive)
+3. cat HANDOFF.md (canonical reopen entry)
+4. Read this SESSION_STATE.md Day 5 section
+5. **DEFAULT: NO new features**. Observation mode until 10 juin.

@@ -35,3 +35,12 @@ counts unchanged, zéro commit a touché bot/main.py depuis le baseline 2158adf.
 Ready Monday.
 
 2026-05-16 ~13:00 | /journal_audit empirical KPI #5 | 26 silent tickers révélés (AMD 10, AVGO 10, QCOM 8) — data invisible avant aujourd'hui, now measurable runtime. Only NVDA tracked sur 27 tickers high-impact 30d. Insight brut: signaux narrative-level n'attendent pas tous une decision, mais 7+ tickers core position avec material signals + 0 decision = blind spots vs portfolio.
+
+2026-05-16 ~late evening | Day 5 marathon close | 32 commits, empirical tetrahedron complete:
+  /journal_audit revealed 26 silent tickers (high signal, zero decisions)
+  /signal_drilldown drills per ticker (e.g. AMD 14 signals, Short Squeez 6)
+  /thesis_health shows 21 active theses, 5 narratives, no inflation
+  /bias_pattern aggregates BIASES taxonomy (sparse data confirmed
+    bias_tagger gap on no_action_flag decisions)
+  Refactor: bot/main.py 3324 -> 1115 LOC (-66%), 14 handler modules,
+  Sprint 1.1 9/10 chunks closed, mypy strict 29 modules, 189 tests.
