@@ -22,6 +22,11 @@ from bot.handlers.observability import (
     cmd_kpi_status,
     cmd_llm_costs,
 )
+from bot.handlers.portfolio_views import (
+    cmd_portfolio_drift,
+    cmd_portfolio_narratives,
+    cmd_portfolio_sectors,
+)
 from data_sources import gmail_
 from intelligence import (
     analyze as analyze_mod,
@@ -2626,6 +2631,9 @@ def main():
     app.add_handler(CommandHandler("log_value", cmd_log_value))
     app.add_handler(CommandHandler("log_friction", cmd_log_friction))
     app.add_handler(CommandHandler("find", cmd_find))
+    app.add_handler(CommandHandler("portfolio_sectors", cmd_portfolio_sectors))
+    app.add_handler(CommandHandler("portfolio_narratives", cmd_portfolio_narratives))
+    app.add_handler(CommandHandler("portfolio_drift", cmd_portfolio_drift))
     app.add_handler(CommandHandler("health", cmd_health))
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))

@@ -1,19 +1,24 @@
 {
-  "captured_at": "2026-05-16T03:28:48.624097+00:00",
+  "captured_at": "2026-05-16T03:41:50.085347+00:00",
   "chunk": 1,
-  "cmd_def_count": 66,
+  "cmd_def_count": 69,
   "files_scanned": [
     "bot/main.py",
     "bot/handlers/__init__.py",
     "bot/handlers/anti_erosion.py",
     "bot/handlers/find.py",
-    "bot/handlers/observability.py"
+    "bot/handlers/observability.py",
+    "bot/handlers/portfolio_views.py"
   ],
   "function_hashes": {
     "_append_log_entry": "067b947dce7c3be5",
+    "_build_ticker_to_sector": "318674829afff47a",
+    "_compute_book_market_value": "53afbaf466eb4431",
+    "_config_path": "5c275e1410c4d956",
     "_cost_compute_trajectory": "c7d2b6921973a17f",
     "_cost_format_trajectory": "cd8d1eb9f37dcd77",
     "_db_path": "347c02402d1f7702",
+    "_extract_narrative": "043a1ab1f55b56a6",
     "_format_filings": "5b3ce759790cd4b8",
     "_format_insider": "b0fec0e907162746",
     "_format_kpi_report": "b5fa3a8bdb7a5062",
@@ -66,6 +71,9 @@
     "cmd_override": "618c866b64a6fb4e",
     "cmd_ping": "5c38197148a69898",
     "cmd_portfolio": "d7f7ff25d37503a0",
+    "cmd_portfolio_drift": "10c647a6eafb788d",
+    "cmd_portfolio_narratives": "43a0c3b0578ba9de",
+    "cmd_portfolio_sectors": "2e406eba47235021",
     "cmd_position": "7b82884018ac721e",
     "cmd_position_buy": "3b94e4458d92576a",
     "cmd_position_history": "c77d9e1b84e0c1de",
@@ -98,7 +106,7 @@
     "heartbeat": "a407a1c6cf524d6e",
     "ingest_gmail_job": "b8140d005c8bbd13",
     "log_handler_call_middleware": "becbfe02940ee9bf",
-    "main": "7b1685172eec68fe",
+    "main": "a933e241eb59a316",
     "post_init": "705901ee1b9fe2a5",
     "price_monitor_job": "4d5beaee2c6b98f5",
     "recalibrate_credibility_brier_job": "5379b9b9aa4d8452",
@@ -117,9 +125,9 @@
     "weekly_handler_stats_job": "785d4bfa88a99625",
     "weekly_kpi_status_job": "266ca0043cfc1d64"
   },
-  "git_commit": "8d79f23",
-  "handler_registration_count": 66,
-  "label": "anti_erosion_find_observability_v3_fixed",
-  "main_py_lines": 2697,
+  "git_commit": "7aa9842",
+  "handler_registration_count": 69,
+  "label": "portfolio_views_added",
+  "main_py_lines": 2705,
   "scheduler_jobs_count": 23
 }
