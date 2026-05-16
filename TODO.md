@@ -471,3 +471,64 @@ Ordered ship sequence (post-Sprint 1.1):
 
 KPI for success: typo rate <2% at J+60.
 
+
+
+---
+
+## 🔬 Deepening dimensions — added 2026-05-16
+
+Features ajoutées en attente de prérequis empiriques. **Aucune implémentation avant que les prérequis soient remplis**. Ré-évaluer empiriquement à chaque trigger date.
+
+### À activer post-M+6 minimum (~juillet 2026)
+
+- [ ] **Calibration plot par bucket (1.2)** — ~4 jours
+  - **Prérequis empirique** : N≥30 résolutions
+  - Trigger date earliest : 2026-07-15 (après J+28 batch resolution + 30j additional)
+  - Compute calibration par bucket de confidence (10-20%, 20-40%, 40-60%, 60-80%, 80-100%)
+  - Generate matplotlib calibration curve PNG
+  - Handler `/calibration_curve` : send PNG via Telegram
+  - Identifier zones overconfident / underconfident empiriquement
+  - Inject drift dans prompts `/analyze` (Path 5/6 dimension 2 calibration engine)
+  - Impact : précision >> score scalaire Brier
+
+- [ ] **Source dependency mapping (3.4)** — ~5 jours
+  - **Prérequis empirique** : N≥30 outcomes résolus traçables à source
+  - Trigger date earliest : 2026-07-15
+  - Schema : chaque thesis logged → champ `source_inspiration_ids[]` (FK signals)
+  - Post-resolution : trace outcome accuracy par source
+  - Handler `/source_alpha` : par source → win_rate, avg_brier, count_theses
+  - Identify top 2-3 vs bottom 5-10 sur signal/noise ratio
+  - Cron monthly : trim universe sources si bottom 5 underperform >3mo
+  - Impact : concentrate signal, eliminate noise empiriquement
+
+### À activer post-M+9 minimum (~août-sept 2026)
+
+- [ ] **Anti-rationalization detector (2.2)** — ~7 jours
+  - **Prérequis empirique** : corpus de ≥10 theses avec status='invalidated'
+  - Trigger date earliest : 2026-09-01
+  - Hook dans `cmd_log_thesis` : embedding new thesis vs failed theses corpus
+  - BGE similarity threshold : si top-3 match cumul >0.85 → flag
+  - Sonnet call : "Cette thesis ressemble à TICKER_X (Brier 0.65) failed sur drivers Y. Différence empirique vs narrative ?"
+  - User force-acknowledge ou cancel decision
+  - Logue similarity matches dans `theses.anti_rationalization_flags`
+  - Impact : catch "this time is different" patterns automatiquement
+
+### À évaluer post-M+12 (gros build, scope risk élevé)
+
+- [ ] **Counterfactual paper portfolio (1.3)** — ~45 jours
+  - **Prérequis empirique** : ADR 001 PIT bitemporal implémenté + decision rules formalisées
+  - Trigger date earliest : 2026-12-01
+  - Construire decision engine déterministe :
+    - Input : signals + thesis state + position state + risk params
+    - Output : signed action (buy/sell/hold) + size + reasoning
+    - Rule-based, zero LLM in hot path (reproducibility)
+  - Run paralllèle au portfolio réel, mêmes prix d'entrée
+  - Cron daily : compute divergence paper vs réel
+  - Handler `/bias_cost` : différence cumulative = coût empirique des biais
+  - **Risques connus** :
+    - Definition of "rules you should follow" subjective → confirmation bias inverse
+    - N=21 positions, bruit statistique massif vs signal biais
+    - Maintenance lourde (rules evolution sur 24mo)
+  - Impact si réussi : mesure exacte coût émotionnel des biais
+  - Impact si raté : theater of measurement, false confidence
+  - **Decision gate avant build** : revue ADR dédiée requise avant ship
