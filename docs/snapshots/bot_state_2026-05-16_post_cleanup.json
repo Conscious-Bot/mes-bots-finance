@@ -1,0 +1,14 @@
+{
+  "peak_capital": 42726.0,
+  "current_capital": 42726.0,
+  "drawdown_pct": 0.0,
+  "last_alert_drawdown_pct": 0.0,
+  "last_balance_alert_ts": null,
+  "last_heartbeat_ts": "2026-05-16T08:17:01.015613",
+  "bot_start_ts": "2026-05-11T10:26:07.591404",
+  "session_id": "session_20260516",
+  "paper_only": true,
+  "active_theses_count": 0,
+  "predictions_pending_resolution": 0,
+  "notes": "Reset 2026-05-16: removed dummy 10k test state. PF real = 21 positions. NVDA monitored (theses/predictions) but not held."
+}
