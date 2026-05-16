@@ -78,6 +78,7 @@ from bot.handlers.thesis_analyze import (
     cmd_risk_check,
     cmd_thesis_premortem,
 )
+from bot.handlers.thesis_health import cmd_thesis_health
 from data_sources import gmail_
 from intelligence import (
     analyze as analyze_mod,
@@ -1178,6 +1179,7 @@ def main():
     app.add_handler(CommandHandler("journal", cmd_journal))
     app.add_handler(CommandHandler("journal_review", cmd_journal_review))
     app.add_handler(CommandHandler("journal_audit", cmd_journal_audit))
+    app.add_handler(CommandHandler("thesis_health", cmd_thesis_health))
     app.add_handler(CommandHandler("signal_drilldown", cmd_signal_drilldown))
     app.add_handler(CommandHandler("journal_unresolved", cmd_journal_unresolved))
     app.add_handler(CommandHandler("journal_tag", cmd_journal_tag))

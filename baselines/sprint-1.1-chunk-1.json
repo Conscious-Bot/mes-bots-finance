@@ -1,7 +1,7 @@
 {
-  "captured_at": "2026-05-16T04:42:13.082236+00:00",
+  "captured_at": "2026-05-16T04:46:16.842771+00:00",
   "chunk": 1,
-  "cmd_def_count": 71,
+  "cmd_def_count": 72,
   "files_scanned": [
     "bot/main.py",
     "bot/handlers/__init__.py",
@@ -17,7 +17,8 @@
     "bot/handlers/signal_drilldown.py",
     "bot/handlers/signals_filings.py",
     "bot/handlers/sources_admin.py",
-    "bot/handlers/thesis_analyze.py"
+    "bot/handlers/thesis_analyze.py",
+    "bot/handlers/thesis_health.py"
   ],
   "function_hashes": {
     "_append_log_entry": "067b947dce7c3be5",
@@ -25,13 +26,15 @@
     "_compute_audit": "35b3f2da4649595c",
     "_compute_book_market_value": "53afbaf466eb4431",
     "_compute_drilldown": "76e1e5720d279e90",
+    "_compute_health": "ff4dfadd08e18cd2",
     "_cost_compute_trajectory": "c7d2b6921973a17f",
     "_cost_format_trajectory": "cd8d1eb9f37dcd77",
-    "_extract_narrative": "043a1ab1f55b56a6",
+    "_extract_narrative": "9af21077ab30e719",
     "_extract_tickers": "666b3ea16d8150ad",
     "_format_audit": "d20028a25dc8f399",
     "_format_drilldown": "5d495274ce44cb2e",
     "_format_filings": "5b3ce759790cd4b8",
+    "_format_health": "bd3a83a792fdf0a4",
     "_format_insider": "b0fec0e907162746",
     "_format_kpi_report": "b5fa3a8bdb7a5062",
     "_format_position": "f388d24e91b45ff9",
@@ -42,7 +45,7 @@
     "_parse_breakdown": "582c380f43a61150",
     "_parse_thesis_template": "0434efddede50ab0",
     "_portfolio_journal_ctx": "5886ff47a67dfda8",
-    "_ticker_in_entities": "d24ceea4d8c6a7c1",
+    "_ticker_in_entities": "36b2fcabeba8b49a",
     "cmd_analyze": "fc9292a338fc3cea",
     "cmd_analyze_debate": "e9ea9128f284f51c",
     "cmd_asymmetry": "832105db9a9141a9",
@@ -107,6 +110,7 @@
     "cmd_sources_half_life": "77a9e07f408f5a28",
     "cmd_sources_health": "8551ad2cb1fc0096",
     "cmd_thesis_add": "4841afd523239cac",
+    "cmd_thesis_health": "8a3ee823d56b0c63",
     "cmd_thesis_list": "7207ed3a34015b7c",
     "cmd_thesis_note": "31f4c9c5f88f4ff0",
     "cmd_thesis_premortem": "efa92efdbd92703f",
@@ -124,7 +128,7 @@
     "heartbeat": "a407a1c6cf524d6e",
     "ingest_gmail_job": "b8140d005c8bbd13",
     "log_handler_call_middleware": "becbfe02940ee9bf",
-    "main": "3a0fde3782848273",
+    "main": "dfa2408f409384bf",
     "post_init": "705901ee1b9fe2a5",
     "price_monitor_job": "4d5beaee2c6b98f5",
     "recalibrate_credibility_brier_job": "5379b9b9aa4d8452",
@@ -144,9 +148,9 @@
     "weekly_handler_stats_job": "785d4bfa88a99625",
     "weekly_kpi_status_job": "266ca0043cfc1d64"
   },
-  "git_commit": "61db600",
-  "handler_registration_count": 71,
-  "label": "echo_crypto_macro_extracted",
-  "main_py_lines": 1223,
+  "git_commit": "e6d717c",
+  "handler_registration_count": 72,
+  "label": "thesis_health_added",
+  "main_py_lines": 1225,
   "scheduler_jobs_count": 23
 }
