@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-__all__ = ["db_path", "config_path", "telegram_safe"]
+__all__ = ["config_path", "db_path", "telegram_safe"]
 
 
 def db_path() -> Path:
