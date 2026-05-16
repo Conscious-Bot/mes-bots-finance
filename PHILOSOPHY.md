@@ -117,3 +117,46 @@ Les tickers, handlers, sous-groupes qui ne produisent pas de matière décisionn
 **Plus de précision dans la mesure > plus de surface monitorée.**
 **Plus de discipline dans l'usage > plus de discipline dans le code.**
 **Plus de track record > plus de features.**
+
+
+---
+
+## Clarification 2026-05-16 — Reframe "Observation Mode"
+
+Le terme "observation mode strict" écrit Day 2-3 était trop large et créait blocage cognitif sur 25 jours. Reframe empirique :
+
+### Vrai contraint : Measurement pipeline immutable jusqu'à J+28
+
+Ce qui est **FERMÉ** jusqu'à 2026-06-10 (batch resolution 45 predictions cohort) :
+
+1. Modification du scoring system (materiality_v2 weights, composite formula)
+2. Modification de la resolution logic (auto-resolve crons, outcome computation)
+3. Modification du schema predictions / theses / outcomes (sauf migrations PIT formelles)
+4. Modification du filter `/digest` threshold après J+28 actif
+5. Modification de la cascade LLM tiers (cost contamination)
+6. Modification des Brier computation paths
+
+**Raison** : ces modifs contamineraient les 45 predictions in-flight et invalideraient le premier Brier mesurable empiriquement.
+
+### Ce qui est **OUVERT** normalement avec les 5 gates High Standard :
+
+- Bug fixes critiques découverts par usage (Day 4 a shippé 4 fixes pendant "observation")
+- Refactor mécanique sans changement de comportement (Sprint 1.1 chunks)
+- Nouveaux handlers READ-ONLY (queries, displays, dashboards)
+- Nouvelles features qui n'écrivent PAS dans predictions/theses/outcomes
+- Type hints sweep, ruff cleanup
+- Documentation restructure
+- CI activation
+- Backup automation
+- Display improvements (formatting, chunking, FX, etc.)
+
+### Test pour décider si une feature est shipable avant J+28
+
+Une seule question : **"Cette feature modifie-t-elle ce qui va être mesuré par Brier le 10 juin ?"**
+
+- Oui → bloqué jusqu'à 11 juin
+- Non → 5 gates normales (tests + cost + observability + failure modes + doc)
+
+### Ce qui ne change pas du High Standard Mode
+
+Les 5 gates restent intactes. Lessons #11 (verify avant commit) et #12 (audit ≠ fix) restent enforced. La discipline cognitive n'est pas le contraint qui pose problème. C'est le scope du contraint qui était mal calibré.
