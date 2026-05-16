@@ -313,7 +313,9 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     cutoff = (datetime.now() - timedelta(hours=int(since_hours))).strftime("%Y-%m-%d %H:%M:%S")
-    where_score = "AND COALESCE(s.score, 0) >= 3" if exclude_low_score else ""
+    # Use impact_magnitude (materiality_v2) instead of deprecated score field
+    # Threshold 2.0 = materially impactful events on scale 1-5
+    where_score = "AND COALESCE(s.impact_magnitude, 0) >= 2.0" if exclude_low_score else ""
     rows = conn.execute(
         "SELECT s.id, s.title, s.summary, s.signal_type, s.score, "
         "s.impact_magnitude, s.reversibility, s.time_to_realization, "
