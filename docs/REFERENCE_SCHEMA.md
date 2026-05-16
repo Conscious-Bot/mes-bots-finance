@@ -460,7 +460,7 @@ CREATE TABLE user_decisions (
     id INTEGER PRIMARY KEY, timestamp TEXT NOT NULL,
     ticker TEXT, action TEXT, bot_recommendation_id INTEGER,
     user_reasoning TEXT, outcome_horizon_days INTEGER,
-    outcome_evaluated_at TEXT, outcome_json TEXT
+    resolved_at TEXT, final_price REAL, return_pct REAL, outcome TEXT, credibility_delta REAL, probability_at_creation REAL, brier_score REAL
 )
 ```
 

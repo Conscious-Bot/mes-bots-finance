@@ -78,7 +78,7 @@ Path 5/6 requires demonstrating not just "ça marche" but "je sais quand ça cas
 - credentials.json rotated chez Google Cloud Console
 
 ### Detection
-- `SELECT COUNT(*) FROM signals WHERE source_type='newsletter' AND timestamp >= datetime('now', '-2 days')` — si 0 sur 48h → alert
+- `SELECT COUNT(*) FROM signals WHERE type='newsletter' AND timestamp >= datetime('now', '-2 days')` — si 0 sur 48h → alert
 - bot.log grep "gmail_fetch" errors
 - `gmail_fetch_job` returns n_fetched=0 sur >3 runs consécutives
 
@@ -106,7 +106,7 @@ Path 5/6 requires demonstrating not just "ça marche" but "je sais quand ça cas
 - Ticker delisting silencieux → yfinance retourne NaN
 
 ### Detection
-- `SELECT ticker, COUNT(*) FROM positions WHERE current_price IS NULL` — si >5 tickers NULL → alert
+- `-- DEPRECATED: positions.current_price column doesn't exist. Real price fetched live via yfinance. Use bot_health_check.sh for price coverage diagnosis.` — si >5 tickers NULL → alert
 - bot.log grep "price fetch" warnings >10/h
 - /asymmetry retourne "price fetch failed" pour core tickers
 - price_monitor_job logs "fetched 0/215"
