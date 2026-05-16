@@ -30,12 +30,24 @@ log = logging.getLogger("bot")
 
 
 _SECTOR_THESIS_RE = re.compile(r"sector_thesis_id:\s*([A-Z0-9_]+)")
+_NARRATIVE_RE = re.compile(r"narrative\s*=\s*(\w+)")
 
 
 def _extract_narrative(notes: str | None) -> str:
-    """Extract sector_thesis_id from notes; returns 'untagged' if absent."""
+    """Extract narrative tag from notes.
+
+    Recognizes 2 formats:
+    1. 'narrative=AI_compute | tier=A | ...' (16/05 doc format)
+    2. 'sector_thesis_id: STORAGE_AI_HYPERSCALE_2026' (15/05 framework format)
+    Returns 'untagged' if neither present.
+    """
     if not notes:
         return "untagged"
+    # Try 16/05 narrative= format first (recent)
+    m = _NARRATIVE_RE.search(notes)
+    if m:
+        return m.group(1)
+    # Fallback to 15/05 sector_thesis_id format
     m = _SECTOR_THESIS_RE.search(notes)
     return m.group(1) if m else "untagged"
 

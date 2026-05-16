@@ -181,7 +181,7 @@ JSON STRICT, aucun texte autour. Format exact :
 {{
   "score": <int 0-10>,
   "sentiment": "bullish" | "bearish" | "neutral",
-  "tickers": [<list of US tickers from watchlist that this content concerns>],
+  "tickers": [<list of tickers from watchlist that this content concerns, including international tickers with suffixes .T .PA .AS .KS .SW .L>],
   "drivers": [<list of 2-4 short driver strings, in French>],
   "summary": "<2-3 sentences max in French>",
   "actionable": <true if user should act, false if just info>,
@@ -201,7 +201,7 @@ JSON STRICT, aucun texte autour. Format exact :
 
 1. Si rien d'utile, retourne score=1 ou 2 et summary court explicatif.
 2. Pas de texte hors du JSON. Pas de markdown.
-3. tickers DOIT etre une intersection avec la watchlist (sinon liste vide).
+3. tickers DOIT etre une intersection avec la watchlist (sinon liste vide). La watchlist contient tickers US ET internationaux (suffixes .T Japon, .PA Paris, .AS Amsterdam, .KS Coree, .SW Suisse, .L Londres). Inclure les tickers internationaux si le contenu parle de la societe correspondante.
 4. Si non-sur, baisse confidence."""
 
 DIGEST_SYNTHESIZER = DIGEST_SYNTHESIZER_V2
