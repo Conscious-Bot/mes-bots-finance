@@ -663,8 +663,6 @@ async def weekly_kpi_status_job():
 
 # ============ Phase Solidification P2 — Cost trajectory dashboard ============
 
-BUDGET_MONTHLY_USD = 50.0  # Target monthly LLM spend (per FICHE_TECHNIQUE)
-
 async def weekly_cost_summary_job():
     """Phase Solidification P2 — Weekly cost summary, Sunday 22:00 Paris."""
     try:
@@ -677,7 +675,7 @@ async def weekly_cost_summary_job():
         # Alert if RED
         if "🚨 RED" in data["status"]:
             _notify.send_text(
-                f"⚠️ ALERT: Projected month-end ${data['projection']:.2f} exceeds 90% of ${BUDGET_MONTHLY_USD:.0f} budget"
+                f"⚠️ ALERT: Projected month-end ${data['projection']:.2f} exceeds 90% of ${config.BUDGET_MONTHLY_USD:.0f} budget"
             )
     except Exception as e:
         log.warning(f"weekly_cost_summary_job error: {e}")

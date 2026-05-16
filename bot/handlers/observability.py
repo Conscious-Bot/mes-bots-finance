@@ -18,6 +18,12 @@ Helpers exposed for cron jobs (weekly_kpi_status_job in bot/main.py):
 """
 from __future__ import annotations
 
+import logging
+
+from shared.config import BUDGET_MONTHLY_USD  # single source of truth, lives in shared/config.py
+
+log = logging.getLogger("bot")
+
 __all__ = [
     "_cost_compute_trajectory",
     "_cost_format_trajectory",
@@ -29,9 +35,6 @@ __all__ = [
     "cmd_kpi_status",
     "cmd_llm_costs",
 ]
-
-# Module-level constants (migrated from bot/main.py during chunk 2 extract)
-BUDGET_MONTHLY_USD = 50.0  # Target monthly LLM spend (per FICHE_TECHNIQUE)
 
 
 async def cmd_health(update, ctx):  # noqa: ARG001

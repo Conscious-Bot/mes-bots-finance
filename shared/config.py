@@ -163,3 +163,9 @@ def __getattr__(name):
     if name == "INSIDER_TICKERS":
         return get_tickers("core")
     raise AttributeError(f"module 'shared.config' has no attribute {name!r}")
+
+
+# Phase Solidification P2 — Cost budget (per FICHE_TECHNIQUE)
+# Moved from bot/main.py 2026-05-16 to break circular import after chunk 2 extract.
+# Consumed by: bot/handlers/observability.py (/cost_trajectory) + bot/main.py (weekly_cost_summary_job cron)
+BUDGET_MONTHLY_USD = 50.0

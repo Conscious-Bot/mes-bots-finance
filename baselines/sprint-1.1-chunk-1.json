@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-16T03:24:53.383224+00:00",
+  "captured_at": "2026-05-16T03:28:48.624097+00:00",
   "chunk": 1,
   "cmd_def_count": 66,
   "files_scanned": [
@@ -113,13 +113,13 @@
     "scheduled_resolve_buy_cluster_returns_job": "2527431b19555963",
     "score_pending_signals_job": "eb5c5172869f4118",
     "update_echo_clusters_job": "7d4fd62cadbfa85e",
-    "weekly_cost_summary_job": "eef5755e9cffbadf",
+    "weekly_cost_summary_job": "7eed03b70302976a",
     "weekly_handler_stats_job": "785d4bfa88a99625",
     "weekly_kpi_status_job": "266ca0043cfc1d64"
   },
-  "git_commit": "c150750",
+  "git_commit": "8d79f23",
   "handler_registration_count": 66,
-  "label": "anti_erosion_find_observability_fixed",
-  "main_py_lines": 2699,
+  "label": "anti_erosion_find_observability_v3_fixed",
+  "main_py_lines": 2697,
   "scheduler_jobs_count": 23
 }
