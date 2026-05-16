@@ -34,6 +34,7 @@ from bot.handlers.positions import (
     cmd_position_buy,
     cmd_position_sell,
 )
+from bot.handlers.signal_drilldown import cmd_signal_drilldown
 from bot.handlers.sources_admin import (
     cmd_promote,
     cmd_sources_brier,
@@ -2235,6 +2236,7 @@ def main():
     app.add_handler(CommandHandler("journal", cmd_journal))
     app.add_handler(CommandHandler("journal_review", cmd_journal_review))
     app.add_handler(CommandHandler("journal_audit", cmd_journal_audit))
+    app.add_handler(CommandHandler("signal_drilldown", cmd_signal_drilldown))
     app.add_handler(CommandHandler("journal_unresolved", cmd_journal_unresolved))
     app.add_handler(CommandHandler("journal_tag", cmd_journal_tag))
     app.add_handler(CommandHandler("sources_brier", cmd_sources_brier))
