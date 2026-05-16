@@ -205,7 +205,7 @@ async def cmd_journal_audit(update, ctx):  # noqa: ARG001
         msg = _format_audit(data)
         if len(msg) > 3900:
             msg = msg[:3900] + "\n[truncated]"
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        await update.message.reply_text(msg)
     except Exception as e:
         log.error(f"cmd_journal_audit error: {e}")
         await update.message.reply_text(f"Audit error: {e}")
