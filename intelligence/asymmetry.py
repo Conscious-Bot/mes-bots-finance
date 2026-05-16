@@ -181,27 +181,92 @@ def format_asymmetry_single(r: dict[str, Any]) -> str:
 
 
 def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
-    """Portfolio-wide ranked display."""
+    """Portfolio-wide ranked display with status breakdown.
+
+    Bucketize all theses into:
+    - COMPUTED: full asymmetry ratio available
+    - INCOMPLETE: long thesis missing entry/target/stop
+    - WATCH: direction != long (no asymmetry math applicable)
+    - ERROR: price fetch failed
+    """
     if not results:
-        return "No active theses with complete entry/target/stop data."
-    lines = [f"PORTFOLIO ASYMMETRY ({len(results)} active theses)"]
-    lines.append("Ranked by upside/downside ratio (best first):\n")
+        return "No active theses."
+
+    computed = []
+    incomplete = []
+    watch = []
+    errored = []
+
     for r in results:
-        if "error" in r or "asymmetry_ratio" not in r:
-            continue
-        verdict_icon = {
-            "STRONG_RUN": "🟢🟢",
-            "FAVORABLE": "🟢",
-            "BALANCED": "🟡",
-            "UNFAVORABLE": "🟠",
-            "FLIPPED": "🔴",
-            "STOP_BREACHED": "⛔",
-            "TARGET_HIT": "🎯",
-        }.get(r.get("verdict") or "", "?")
-        ratio = r["asymmetry_ratio"]
-        ratio_str = "TARGET" if ratio >= 999 else f"{ratio:.2f}x"
-        lines.append(
-            f"{verdict_icon} {r['ticker']:6s} ratio={ratio_str:>7s}  "
-            f"up=+{r.get('upside_pct', 0):.0f}%  down=-{r.get('downside_pct', 0):.0f}%  → {r['verdict']}"
-        )
+        if "error" in r:
+            errored.append(r)
+        elif "asymmetry_ratio" in r:
+            computed.append(r)
+        elif r.get("note", "").startswith("incomplete thesis"):
+            incomplete.append(r)
+        elif r.get("note", "").startswith("asymmetry not computed for direction"):
+            watch.append(r)
+        else:
+            incomplete.append(r)
+
+    total = len(results)
+    lines = [f"PORTFOLIO ASYMMETRY ({total} active theses)"]
+    lines.append(
+        f"Computed: {len(computed)}  |  Incomplete: {len(incomplete)}  |  "
+        f"Watch: {len(watch)}  |  Errors: {len(errored)}"
+    )
+    lines.append("")
+
+    # Section 1: COMPUTED — actionable asymmetry
+    if computed:
+        lines.append(f"━━ COMPUTED ({len(computed)}) — ranked by ratio ━━")
+        computed_sorted = sorted(computed, key=lambda x: -(x.get("asymmetry_ratio") or 0))
+        for r in computed_sorted:
+            verdict_icon = {
+                "STRONG_RUN": "🟢🟢",
+                "FAVORABLE": "🟢",
+                "BALANCED": "🟡",
+                "UNFAVORABLE": "🟠",
+                "FLIPPED": "🔴",
+                "STOP_BREACHED": "⛔",
+                "TARGET_HIT": "🎯",
+            }.get(r.get("verdict") or "", "?")
+            ratio = r["asymmetry_ratio"]
+            ratio_str = "TARGET" if ratio >= 999 else f"{ratio:.2f}x"
+            lines.append(
+                f"{verdict_icon} {r['ticker']:10s} ratio={ratio_str:>7s}  "
+                f"up=+{r.get('upside_pct', 0):.0f}%  down=-{r.get('downside_pct', 0):.0f}%  → {r['verdict']}"
+            )
+        lines.append("")
+
+    # Section 2: INCOMPLETE — missing entry/target/stop
+    if incomplete:
+        lines.append(f"━━ INCOMPLETE ({len(incomplete)}) — missing target/stop ━━")
+        for r in sorted(incomplete, key=lambda x: x.get("ticker", "")):
+            missing = []
+            if not r.get("entry"):
+                missing.append("entry")
+            if not r.get("target_full"):
+                missing.append("target")
+            if not r.get("stop"):
+                missing.append("stop")
+            missing_str = ", ".join(missing) if missing else "?"
+            lines.append(f"  {r['ticker']:10s} (missing: {missing_str})")
+        lines.append("")
+        lines.append("  Fix via /thesis_set TICKER target X stop Y")
+        lines.append("")
+
+    # Section 3: WATCH — direction != long
+    if watch:
+        lines.append(f"━━ WATCH ({len(watch)}) — direction not long ━━")
+        for r in sorted(watch, key=lambda x: x.get("ticker", "")):
+            lines.append(f"  {r['ticker']:10s}")
+        lines.append("")
+
+    # Section 4: ERRORS
+    if errored:
+        lines.append(f"━━ ERRORS ({len(errored)}) ━━")
+        for r in sorted(errored, key=lambda x: x.get("ticker", "")):
+            lines.append(f"  {r['ticker']:10s}: {r.get('error', '?')}")
+
     return "\n".join(lines)
