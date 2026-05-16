@@ -1,17 +1,25 @@
 {
-  "captured_at": "2026-05-16T02:58:49.978009+00:00",
+  "captured_at": "2026-05-16T03:08:09.941043+00:00",
   "chunk": 1,
-  "cmd_def_count": 65,
+  "cmd_def_count": 66,
   "files_scanned": [
     "bot/main.py",
     "bot/handlers/__init__.py",
-    "bot/handlers/anti_erosion.py"
+    "bot/handlers/anti_erosion.py",
+    "bot/handlers/find.py"
   ],
   "function_hashes": {
     "_append_log_entry": "067b947dce7c3be5",
     "_cost_compute_trajectory": "c7d2b6921973a17f",
     "_cost_format_trajectory": "cd8d1eb9f37dcd77",
+    "_db_path": "347c02402d1f7702",
+    "_format_filings": "5b3ce759790cd4b8",
+    "_format_insider": "b0fec0e907162746",
     "_format_kpi_report": "b5fa3a8bdb7a5062",
+    "_format_position": "f388d24e91b45ff9",
+    "_format_signals": "c74465686d7f5aee",
+    "_format_target": "a5d889f2e20a3cc2",
+    "_format_theses": "97626f7989df7227",
     "_kpi_compute_all": "340596912c6b95ef",
     "_parse_thesis_template": "0434efddede50ab0",
     "_portfolio_journal_ctx": "5886ff47a67dfda8",
@@ -33,6 +41,7 @@
     "cmd_exit": "feae4fa12754c9c2",
     "cmd_exit_force": "4fa55936aac49065",
     "cmd_feedback": "6f8d57ae4d1a892f",
+    "cmd_find": "427b124b5e566b49",
     "cmd_handler_stats": "1763d2e3e4ca9a92",
     "cmd_health": "4dfd1ba47b5e7752",
     "cmd_help": "8c703c87032b9766",
@@ -88,7 +97,7 @@
     "heartbeat": "a407a1c6cf524d6e",
     "ingest_gmail_job": "b8140d005c8bbd13",
     "log_handler_call_middleware": "becbfe02940ee9bf",
-    "main": "dfdf9744e1da7924",
+    "main": "7b1685172eec68fe",
     "post_init": "705901ee1b9fe2a5",
     "price_monitor_job": "4d5beaee2c6b98f5",
     "recalibrate_credibility_brier_job": "5379b9b9aa4d8452",
@@ -107,9 +116,9 @@
     "weekly_handler_stats_job": "785d4bfa88a99625",
     "weekly_kpi_status_job": "266ca0043cfc1d64"
   },
-  "git_commit": "dd5bd8f",
-  "handler_registration_count": 65,
-  "label": "anti_erosion_extracted",
-  "main_py_lines": 3282,
+  "git_commit": "1c649af",
+  "handler_registration_count": 66,
+  "label": "anti_erosion_plus_find_aggregator",
+  "main_py_lines": 3284,
   "scheduler_jobs_count": 23
 }
