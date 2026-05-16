@@ -11,6 +11,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
 from bot.handlers.find import cmd_find
+from bot.handlers.journal_audit import cmd_journal_audit
 from bot.handlers.observability import (
     _cost_compute_trajectory,
     _cost_format_trajectory,
@@ -2233,6 +2234,7 @@ def main():
     app.add_handler(CommandHandler("history", cmd_history))
     app.add_handler(CommandHandler("journal", cmd_journal))
     app.add_handler(CommandHandler("journal_review", cmd_journal_review))
+    app.add_handler(CommandHandler("journal_audit", cmd_journal_audit))
     app.add_handler(CommandHandler("journal_unresolved", cmd_journal_unresolved))
     app.add_handler(CommandHandler("journal_tag", cmd_journal_tag))
     app.add_handler(CommandHandler("sources_brier", cmd_sources_brier))
