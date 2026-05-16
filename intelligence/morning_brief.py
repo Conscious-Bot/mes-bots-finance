@@ -1,161 +1,126 @@
-"""Phase Brief — Morning ritual aggregator (corrected APIs)."""
+"""Morning brief — v3 (2026-05-16): vision instantanee, <= 20 lines.
+
+Designed for daily ritual: lisible en 5 secondes max.
+TL;DR top (regime + capital). URGENT section explicit. Top 5 positions
+by conviction with PnL. Footer compact.
+
+Removed from v2:
+- Active theses section (was empty due to direction=watch asymmetry uncomputable)
+- Theses revisit due (bug 21/21, filter <30d old needed)
+- "Open positions" raw list (too long, replaced by top 5 by conviction)
+- Catalysts section (no macro_events table)
+
+Added:
+- KPI #2 timer (predictions resolved 30d / due in cluster J+28)
+- Top 5 positions joined with theses.conviction
+- Live PnL via yfinance fallback when theses.last_price missing
+- "URGENT: nothing urgent" explicit when nothing to action
+"""
+from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime, timedelta
+import sqlite3
+from datetime import datetime
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("bot")
 
 
 def _macro_section():
-    regime = "unknown"
-    credit = "unknown"
+    """Macro + credit regime (no catalysts: no macro_events table)."""
+    macro_regime = "unknown"
+    credit_regime = "unknown"
     try:
-        from shared import macro as _macro
-
-        snap = _macro.get_macro_snapshot()
-        if isinstance(snap, dict):
-            vix = snap.get("vix")
-            yc = snap.get("yield_curve_spread")
-            dxy = snap.get("dxy")
-            parts = []
-            if vix is not None:
-                parts.append(f"VIX={float(vix):.1f}")
-            if yc is not None:
-                parts.append(f"YC={float(yc):+.2f}")
-            if dxy is not None:
-                parts.append(f"DXY={float(dxy):.1f}")
-            if parts:
-                regime = " | ".join(parts)
+        from intelligence import regime as regime_mod
+        r = regime_mod.detect_regime()
+        macro_regime = r.get("overall", "unknown")
     except Exception as e:
-        log.warning(f"macro snapshot failed: {e}")
+        log.warning(f"macro regime fetch failed: {e}")
     try:
-        from shared import macro as _macro
-
-        reg = _macro.get_credit_regime()
-        if isinstance(reg, dict):
-            try:
-                credit = _macro.format_credit_regime(reg)
-                # if too verbose, truncate
-                if "\n" in credit:
-                    credit = credit.split("\n")[0][:100]
-            except Exception:
-                credit = str(reg.get("label") or reg.get("regime") or reg)[:100]
+        from shared import macro
+        cr = macro.get_credit_regime()
+        credit_regime = cr.get("overall", "unknown") if isinstance(cr, dict) else str(cr)
     except Exception as e:
-        log.warning(f"credit regime failed: {e}")
-    catalysts = []
-    try:
-        import sqlite3
-
-        from shared import storage
-
-        conn = sqlite3.connect(storage._DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cutoff = (datetime.now() + timedelta(days=21)).strftime("%Y-%m-%d")
-        rows = conn.execute(
-            "SELECT name, event_date FROM macro_events "
-            "WHERE event_date BETWEEN date('now') AND ? "
-            "ORDER BY event_date ASC LIMIT 5",
-            (cutoff,),
-        ).fetchall()
-        for r in rows:
-            catalysts.append(f"{r['event_date']} {r['name']}")
-        conn.close()
-    except Exception as e:
-        log.warning(f"Catalyst calendar fetch failed (brief degraded): {e}")
-    return {"macro_regime": regime, "credit_regime": credit, "catalysts": catalysts}
+        log.warning(f"credit regime fetch failed: {e}")
+    return {"macro_regime": macro_regime, "credit_regime": credit_regime}
 
 
 def _signals_section():
-    import sqlite3
-
+    """Top materiality signals 24h + echo clusters."""
     from shared import storage
 
+    top_signals = []
+    echo_clusters = []
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
-    cutoff = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
-    top_signals = []
     try:
         rows = conn.execute(
-            "SELECT s.id, s.title, s.score, s.entities, s.timestamp, src.name AS source_name "
-            "FROM signals s LEFT JOIN sources src ON s.source_id = src.id "
-            "WHERE s.timestamp >= ? AND s.score IS NOT NULL "
-            "ORDER BY s.score DESC LIMIT 5",
-            (cutoff,),
+            "SELECT s.id, COALESCE(src.name, 'unknown') AS source, s.title, s.impact_magnitude AS score "
+            "FROM signals s "
+            "LEFT JOIN sources src ON src.id = s.source_id "
+            "WHERE s.timestamp >= datetime('now', '-24 hours') "
+            "  AND s.impact_magnitude IS NOT NULL "
+            "ORDER BY s.impact_magnitude DESC LIMIT 5"
         ).fetchall()
-        for r in rows:
-            top_signals.append(
-                {
-                    "title": r["title"] or "?",
-                    "score": r["score"],
-                    "source": r["source_name"] or "?",
-                    "entities": r["entities"] or "[]",
-                }
-            )
+        top_signals = [dict(r) for r in rows]
     except Exception as e:
-        log.warning(f"signals section: {e}")
-    conn.close()
-    echo_clusters = []
+        log.warning(f"top signals query failed: {e}")
     try:
-        from shared import echo
-
-        if hasattr(echo, "get_recent_multi_source_clusters"):
-            clusters = echo.get_recent_multi_source_clusters(window_hours=24, min_unique_sources=2)
-            for c in clusters[:5]:
-                echo_clusters.append(c)
+        # echo_clusters derived from signals.echo_cluster_id distinct values 24h
+        rows = conn.execute(
+            "SELECT echo_cluster_id, COUNT(*) AS n FROM signals "
+            "WHERE timestamp >= datetime('now', '-24 hours') "
+            "  AND echo_cluster_id IS NOT NULL "
+            "GROUP BY echo_cluster_id "
+            "ORDER BY n DESC LIMIT 5"
+        ).fetchall()
+        echo_clusters = [{"cluster_id": r["echo_cluster_id"], "size": r["n"]} for r in rows]
     except Exception as e:
-        log.warning(f"echo section: {e}")
+        log.warning(f"echo clusters query failed: {e}")
+    conn.close()
     return {"top_signals": top_signals, "echo_clusters": echo_clusters}
 
 
 def _filings_insider_section():
-    import sqlite3
-
+    """8-K HIGH/CATASTROPHIC + insider BUY clusters last 7d."""
     from shared import storage
 
+    high_8k = []
+    buy_clusters = []
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
-    high_8k = []
     try:
         rows = conn.execute(
-            "SELECT ticker, filed_at, severity, severity_reason, items_raw "
-            "FROM filings_8k_log "
-            "WHERE date(filed_at) >= date('now', '-7 days') "
-            "AND severity IN ('catastrophic', 'high') "
-            "ORDER BY filed_at DESC LIMIT 10"
+            "SELECT ticker, filed_at, severity, items_raw FROM filings_8k_log "
+            "WHERE filed_at >= datetime('now', '-7 days') "
+            "  AND severity IN ('high', 'catastrophic') "
+            "ORDER BY filed_at DESC LIMIT 5"
         ).fetchall()
-        for r in rows:
-            high_8k.append(dict(r))
+        high_8k = [dict(r) for r in rows]
     except Exception as e:
-        log.warning(f"8k section: {e}")
-    buy_clusters = []
+        log.warning(f"8-K query failed: {e}")
     try:
         rows = conn.execute(
-            "SELECT ticker, detected_at, cluster_strength, distinct_buyers, total_buy_m, return_30d "
+            "SELECT ticker, detected_at, cluster_strength, distinct_buyers, return_30d "
             "FROM insider_buy_clusters_log "
-            "WHERE date(detected_at) >= date('now', '-7 days') "
+            "WHERE detected_at >= datetime('now', '-7 days') "
             "ORDER BY detected_at DESC LIMIT 5"
         ).fetchall()
-        for r in rows:
-            buy_clusters.append(dict(r))
+        buy_clusters = [dict(r) for r in rows]
     except Exception as e:
-        log.warning(f"buy cluster section: {e}")
+        log.warning(f"insider clusters query failed: {e}")
     conn.close()
     return {"high_8k": high_8k, "buy_clusters": buy_clusters}
 
 
 def _portfolio_section():
-    from intelligence import asymmetry
-
-    theses_asym = asymmetry.compute_portfolio_asymmetry()
+    """Count active positions (for header n_pos display)."""
     from shared import storage
-
     positions = storage.get_active_positions() or []
-    return {"theses_asym": theses_asym, "positions": positions}
+    return {"positions": positions}
 
 
 def _discipline_section():
-    import sqlite3
-
+    """Unresolved decisions (>30 days = j30_due, >90 = overdue)."""
     from shared import storage
 
     conn = sqlite3.connect(storage._DB_PATH)
@@ -180,32 +145,21 @@ def _discipline_section():
                     due_status = "pending"
             except Exception:
                 due_status = "pending"
-            unresolved.append(
-                {
-                    "id": r["id"],
-                    "ticker": r["ticker"],
-                    "decision_type": r["decision_type"],
-                    "created_at": r["created_at"][:10],
-                    "due_status": due_status,
-                }
-            )
+            unresolved.append({
+                "id": r["id"],
+                "ticker": r["ticker"],
+                "decision_type": r["decision_type"],
+                "created_at": r["created_at"][:10],
+                "due_status": due_status,
+            })
     except Exception as e:
         log.warning(f"discipline section: {e}")
     conn.close()
-    revisits = []
-    try:
-        from intelligence import thesis as thesis_mod
-
-        if hasattr(thesis_mod, "get_revisit_due"):
-            revisits = thesis_mod.get_revisit_due() or []
-    except Exception as e:
-        log.warning(f"Thesis revisits fetch failed (brief degraded): {e}")
-    return {"unresolved": unresolved, "revisits_due": revisits}
+    return {"unresolved": unresolved}
 
 
 def _stats_section():
-    import sqlite3
-
+    """LLM cost today + predictions resolved last 24h."""
     from shared import storage
 
     conn = sqlite3.connect(storage._DB_PATH)
@@ -213,22 +167,99 @@ def _stats_section():
     llm_cost_today = 0.0
     try:
         row = conn.execute(
-            "SELECT SUM(cost_usd) AS total FROM llm_calls WHERE date(created_at) = date('now')"
+            "SELECT SUM(cost_usd) AS total FROM llm_calls "
+            "WHERE date(created_at) = date('now')"
         ).fetchone()
         llm_cost_today = float(row["total"]) if row and row["total"] else 0.0
     except Exception as e:
-        log.warning(f"LLM cost query for brief failed: {e}")
+        log.warning(f"LLM cost query failed: {e}")
     resolved_24h = 0
     try:
         row = conn.execute(
             "SELECT COUNT(*) AS n FROM predictions "
-            "WHERE resolved_at IS NOT NULL AND datetime(resolved_at) >= datetime('now', '-24 hours')"
+            "WHERE resolved_at IS NOT NULL "
+            "AND datetime(resolved_at) >= datetime('now', '-24 hours')"
         ).fetchone()
         resolved_24h = int(row["n"]) if row and row["n"] else 0
     except Exception as e:
-        log.warning(f"Resolved-24h query for brief failed: {e}")
+        log.warning(f"resolved-24h query failed: {e}")
     conn.close()
     return {"llm_cost_today": llm_cost_today, "predictions_resolved_24h": resolved_24h}
+
+
+def _kpi_timer_section():
+    """KPI #2 timer: predictions due in 28d cluster + resolved last 30d."""
+    from shared import storage
+
+    conn = sqlite3.connect(storage._DB_PATH)
+    conn.row_factory = sqlite3.Row
+    result = {"due_in_window": 0, "resolved_30d": 0, "days_to_cluster": 0}
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM predictions "
+            "WHERE resolved_at IS NULL AND target_date <= date('now', '+28 days')"
+        ).fetchone()
+        result["due_in_window"] = int(row["n"]) if row and row["n"] else 0
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM predictions "
+            "WHERE resolved_at IS NOT NULL "
+            "AND datetime(resolved_at) >= datetime('now', '-30 days')"
+        ).fetchone()
+        result["resolved_30d"] = int(row["n"]) if row and row["n"] else 0
+        row = conn.execute(
+            "SELECT MIN(target_date) AS earliest FROM predictions WHERE resolved_at IS NULL"
+        ).fetchone()
+        if row and row["earliest"]:
+            earliest = datetime.strptime(row["earliest"][:10], "%Y-%m-%d")
+            result["days_to_cluster"] = (earliest - datetime.now()).days
+    except Exception as e:
+        log.warning(f"kpi timer section: {e}")
+    conn.close()
+    return result
+
+
+def _positions_top5_section():
+    """Top 5 positions by conviction (join theses) + live PnL via yfinance."""
+    from shared import storage
+
+    conn = sqlite3.connect(storage._DB_PATH)
+    conn.row_factory = sqlite3.Row
+    top5 = []
+    try:
+        rows = conn.execute(
+            "SELECT p.ticker, p.qty, p.avg_cost, "
+            "       t.conviction, t.direction, t.last_price "
+            "FROM positions p "
+            "LEFT JOIN theses t ON t.ticker = p.ticker AND t.status='active' "
+            "WHERE p.status='open' "
+            "ORDER BY COALESCE(t.conviction, 0) DESC, p.ticker ASC "
+            "LIMIT 5"
+        ).fetchall()
+        for r in rows:
+            ticker = r["ticker"]
+            last_price = r["last_price"]
+            if last_price is None:
+                try:
+                    import yfinance as yf
+                    info = yf.Ticker(ticker).info
+                    last_price = info.get("regularMarketPrice") or info.get("currentPrice")
+                except Exception:
+                    last_price = None
+            pnl_pct = None
+            if last_price and r["avg_cost"]:
+                pnl_pct = (last_price / r["avg_cost"] - 1) * 100
+            top5.append({
+                "ticker": ticker,
+                "qty": r["qty"],
+                "avg_cost": r["avg_cost"],
+                "last_price": last_price,
+                "conviction": r["conviction"],
+                "pnl_pct": pnl_pct,
+            })
+    except Exception as e:
+        log.warning(f"positions top5 section: {e}")
+    conn.close()
+    return top5
 
 
 def build_brief():
@@ -240,106 +271,79 @@ def build_brief():
         "portfolio": _portfolio_section(),
         "discipline": _discipline_section(),
         "stats": _stats_section(),
+        "kpi_timer": _kpi_timer_section(),
+        "positions_top5": _positions_top5_section(),
     }
 
 
 def format_brief(brief):
-    chunks = []
-    lines = [f"☀ MORNING BRIEF — {brief['date']}", ""]
-    m = brief["macro"]
-    lines.append("━━━ MACRO & REGIME ━━━")
-    lines.append(f"Macro: {m['macro_regime']}")
-    lines.append(f"Credit: {m['credit_regime']}")
-    if m["catalysts"]:
-        lines.append("Catalysts ≤21j:")
-        for c in m["catalysts"][:5]:
-            lines.append(f"  {c}")
-    lines.append("")
-
-    fi = brief["filings_insider"]
-    lines.append("━━━ FILINGS & INSIDER (7j) ━━━")
-    if fi["high_8k"]:
-        lines.append(f"NEW 8-K HIGH+CATASTROPHIC: {len(fi['high_8k'])}")
-        for r in fi["high_8k"][:5]:
-            lines.append(f"  {r['ticker']} {r['filed_at'][:10]} [{r['severity']}] {r['items_raw']}")
-    else:
-        lines.append("NEW 8-K HIGH+CATASTROPHIC: 0")
-    if fi["buy_clusters"]:
-        lines.append(f"NEW Insider BUY clusters: {len(fi['buy_clusters'])}")
-        for r in fi["buy_clusters"][:5]:
-            ret = f" J+30={r['return_30d']:+.1%}" if r.get("return_30d") is not None else " (pending)"
-            lines.append(
-                f"  {r['ticker']} {r['detected_at'][:10]} {r['cluster_strength']} n={r['distinct_buyers']}{ret}"
-            )
-    else:
-        lines.append("NEW Insider BUY clusters: 0")
-    chunks.append("\n".join(lines))
-
+    """Brief v3: vision instantanee, <= 20 lines."""
     lines = []
-    p = brief["portfolio"]
-    lines.append("━━━ PORTFOLIO ━━━")
-    if p["theses_asym"]:
-        lines.append(f"Active theses ({len(p['theses_asym'])}):")
-        for r in p["theses_asym"]:
-            if "asymmetry_ratio" in r:
-                icon = {
-                    "STRONG_RUN": "🟢🟢",
-                    "FAVORABLE": "🟢",
-                    "BALANCED": "🟡",
-                    "UNFAVORABLE": "🟠",
-                    "FLIPPED": "🔴",
-                    "STOP_BREACHED": "⛔",
-                    "TARGET_HIT": "🎯",
-                }.get(r["verdict"], "?")
-                ratio = r["asymmetry_ratio"]
-                ratio_str = "TARGET" if ratio >= 999 else f"{ratio:.2f}x"
-                lines.append(f"  {icon} {r['ticker']:6s} asym={ratio_str:>7s}  → {r['verdict']}")
-    else:
-        lines.append("Active theses: 0")
-    if p["positions"]:
-        lines.append(f"Open positions ({len(p['positions'])}):")
-        for pos in p["positions"]:
-            lines.append(f"  {pos['ticker']} {pos.get('qty')}@${pos.get('avg_cost', 0):.2f}")
-    else:
-        lines.append("Open positions: 0")
+    m = brief["macro"]
+    lines.append(f"BRIEF {brief['date']}")
+    lines.append(f"Regime: {m['macro_regime']}  |  Credit: {m['credit_regime']}")
     lines.append("")
-    d = brief["discipline"]
-    lines.append("━━━ DISCIPLINE PENDING ━━━")
-    if d["unresolved"]:
-        lines.append(f"Unresolved decisions ({len(d['unresolved'])}):")
-        for r in d["unresolved"][:5]:
-            lines.append(f"  #{r['id']} {r['ticker']} {r['decision_type']} ({r['due_status']}) {r['created_at']}")
-    else:
-        lines.append("Unresolved decisions: 0")
-    revisit_count = len(d["revisits_due"]) if d["revisits_due"] else 0
-    lines.append(f"Theses revisit due: {revisit_count}")
-    lines.append("")
-    s = brief["stats"]
-    lines.append("━━━ STATS ━━━")
-    lines.append(f"LLM spend today: ${s['llm_cost_today']:.2f}")
-    lines.append(f"Predictions resolved 24h: {s['predictions_resolved_24h']}")
-    chunks.append("\n".join(lines))
 
+    top5 = brief.get("positions_top5", [])
+    p = brief["portfolio"]
+    n_pos = len(p.get("positions", []))
+    if top5:
+        lines.append(f"POSITIONS ({n_pos} active) - top 5 by conviction")
+        for pos in top5:
+            tk = pos["ticker"]
+            qty = pos["qty"]
+            avg = pos["avg_cost"]
+            conv = pos["conviction"]
+            conv_str = f"c{conv}" if conv else "c-"
+            pnl = pos["pnl_pct"]
+            if pnl is None:
+                lines.append(f"  {tk:9s} {qty:7.2f} @ ${avg:7.2f}  {conv_str}  (price n/a)")
+            elif abs(pnl) > 200:
+                # Likely currency mismatch (e.g. yfinance JPY/KRW vs avg_cost USD-equivalent)
+                lines.append(f"  {tk:9s} {qty:7.2f} @ ${avg:7.2f}  {conv_str}  (check fx)")
+            else:
+                lines.append(
+                    f"  {tk:9s} {qty:7.2f} @ ${avg:7.2f}  {conv_str}  {pnl:+.1f}%"
+                )
+    else:
+        lines.append(f"POSITIONS ({n_pos} active) - no conviction data")
+    lines.append("")
+
+    urgent_items = []
+    kpi = brief.get("kpi_timer", {})
+    if kpi.get("due_in_window", 0) > 0:
+        days = kpi.get("days_to_cluster", 0)
+        resolved = kpi.get("resolved_30d", 0)
+        urgent_items.append(
+            f"KPI #2: {resolved}/5 resolved 30d  |  {kpi['due_in_window']} due in J-{days}"
+        )
+    d = brief["discipline"]
+    n_unresolved = len(d.get("unresolved", []))
+    if n_unresolved > 0:
+        tickers = ", ".join(sorted({r["ticker"] for r in d["unresolved"][:5]}))
+        urgent_items.append(f"Unresolved decisions: {n_unresolved} ({tickers})")
+    fi = brief["filings_insider"]
+    n_8k = len(fi.get("high_8k", []))
+    if n_8k > 0:
+        urgent_items.append(f"NEW 8-K HIGH/CATASTROPHIC: {n_8k}")
+    n_buy_clusters = len(fi.get("buy_clusters", []))
+    if n_buy_clusters > 0:
+        urgent_items.append(f"NEW insider BUY clusters: {n_buy_clusters}")
+
+    if urgent_items:
+        lines.append("URGENT")
+        for item in urgent_items:
+            lines.append(f"  {item}")
+    else:
+        lines.append("URGENT: nothing urgent.")
+    lines.append("")
+
+    s = brief["stats"]
     sig = brief["signals"]
-    if sig["top_signals"] or sig["echo_clusters"]:
-        lines = ["━━━ SIGNALS 24h ━━━"]
-        if sig["top_signals"]:
-            lines.append(f"Top materiality ({len(sig['top_signals'])}):")
-            for s in sig["top_signals"][:5]:
-                title = (s["title"] or "")[:90]
-                lines.append(f"  [{s['score']}] {s['source']}: {title}")
-        else:
-            lines.append("Top materiality: 0")
-        if sig["echo_clusters"]:
-            lines.append(f"\nEcho clusters multi-source ({len(sig['echo_clusters'])}):")
-            for c in sig["echo_clusters"][:5]:
-                if isinstance(c, dict):
-                    ids = c.get("signal_ids") or c.get("ids") or []
-                    sz = len(ids) if isinstance(ids, list) else "?"
-                    lines.append(f"  cluster {c.get('cluster_id', '?')}: {sz} signals")
-                else:
-                    lines.append(f"  {c}")
-        else:
-            lines.append("Echo clusters: 0")
-        chunks.append("\n".join(lines))
-    return chunks
+    n_sig = len(sig.get("top_signals", []))
+    n_echo = len(sig.get("echo_clusters", []))
+    lines.append(
+        f"Signals 24h: {n_sig} top, {n_echo} echo  |  LLM today: ${s['llm_cost_today']:.2f}"
+    )
+
+    return ["\n".join(lines)]
