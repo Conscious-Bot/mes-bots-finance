@@ -237,6 +237,11 @@ def _positions_top5_section():
         ).fetchall()
         for r in rows:
             ticker = r["ticker"]
+            try:
+                from shared.ticker_names import get_short_name
+                name = get_short_name(ticker) or ticker
+            except Exception:
+                name = ticker
             last_price = r["last_price"]
             if last_price is None:
                 try:
@@ -247,13 +252,16 @@ def _positions_top5_section():
             pnl_pct = None
             if last_price and r["avg_cost"]:
                 pnl_pct = (last_price / r["avg_cost"] - 1) * 100
+            value_eur = (r["qty"] * last_price) if (last_price and r["qty"]) else None
             top5.append({
                 "ticker": ticker,
+                "name": name,
                 "qty": r["qty"],
                 "avg_cost": r["avg_cost"],
                 "last_price": last_price,
                 "conviction": r["conviction"],
                 "pnl_pct": pnl_pct,
+                "value_eur": value_eur,
             })
     except Exception as e:
         log.warning(f"positions top5 section: {e}")
@@ -290,19 +298,20 @@ def format_brief(brief):
         lines.append(f"POSITIONS ({n_pos} active) - top 5 by conviction")
         for pos in top5:
             tk = pos["ticker"]
-            qty = pos["qty"]
-            avg = pos["avg_cost"]
+            name = pos.get("name", tk)[:22]
             conv = pos["conviction"]
             conv_str = f"c{conv}" if conv else "c-"
             pnl = pos["pnl_pct"]
-            if pnl is None:
-                lines.append(f"  {tk:9s} {qty:7.2f} @ ${avg:7.2f}  {conv_str}  (price n/a)")
-            elif abs(pnl) > 200:
-                # Likely currency mismatch (e.g. yfinance JPY/KRW vs avg_cost USD-equivalent)
-                lines.append(f"  {tk:9s} {qty:7.2f} @ ${avg:7.2f}  {conv_str}  (check fx)")
+            value = pos.get("value_eur")
+            if value is None:
+                lines.append(f"  {tk:9s} {name:22s} {conv_str}  (price n/a)")
+            elif pnl is not None and abs(pnl) > 200:
+                # Currency mismatch guard (legacy, should not fire post-A2-1)
+                lines.append(f"  {tk:9s} {name:22s} {conv_str}  (check fx)")
             else:
+                pnl_str = f"{pnl:+.1f}%" if pnl is not None else "n/a"
                 lines.append(
-                    f"  {tk:9s} {qty:7.2f} @ ${avg:7.2f}  {conv_str}  {pnl:+.1f}%"
+                    f"  {tk:9s} {name:22s} {conv_str}  €{value:>6,.0f}  {pnl_str}"
                 )
     else:
         lines.append(f"POSITIONS ({n_pos} active) - no conviction data")
