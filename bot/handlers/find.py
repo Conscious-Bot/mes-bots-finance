@@ -11,14 +11,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from datetime import datetime, timedelta
-from pathlib import Path
+
+from bot.handlers._common import db_path
 
 __all__ = ["cmd_find"]
-
-
-def _db_path() -> Path:
-    """Resolve repo_root/data/bot.db from this module location."""
-    return Path(__file__).resolve().parent.parent.parent / "data" / "bot.db"
 
 
 def _format_position(conn: sqlite3.Connection, ticker: str) -> str:
@@ -205,13 +201,13 @@ async def cmd_find(update, ctx):  # noqa: ARG001
         await update.message.reply_text("Ticker vide")
         return
 
-    db_path = _db_path()
-    if not db_path.exists():
-        await update.message.reply_text(f"DB not found at {db_path}")
+    db_file = db_path()
+    if not db_file.exists():
+        await update.message.reply_text(f"DB not found at {db_file}")
         return
 
     try:
-        conn = sqlite3.connect(str(db_path))
+        conn = sqlite3.connect(str(db_file))
         sections = [
             f"\U0001F50D /find {ticker}\n",
             _format_position(conn, ticker),

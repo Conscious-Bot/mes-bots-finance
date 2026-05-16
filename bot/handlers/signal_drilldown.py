@@ -19,15 +19,12 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from pathlib import Path
+
+from bot.handlers._common import db_path
 
 __all__ = ["cmd_signal_drilldown"]
 
 log = logging.getLogger("bot")
-
-
-def _db_path() -> Path:
-    return Path(__file__).resolve().parent.parent.parent / "data" / "bot.db"
 
 
 def _parse_breakdown(breakdown_json: str | None) -> dict:
@@ -64,7 +61,7 @@ def _compute_drilldown(ticker: str, window_days: int, min_impact: float) -> dict
     source_counts (dict), decision_count (int).
     """
     ticker = ticker.upper()
-    conn = sqlite3.connect(str(_db_path()))
+    conn = sqlite3.connect(str(db_path()))
     conn.row_factory = sqlite3.Row
     try:
         rows = conn.execute(

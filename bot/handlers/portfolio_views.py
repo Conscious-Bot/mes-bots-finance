@@ -13,9 +13,10 @@ from __future__ import annotations
 import logging
 import re
 import sqlite3
-from pathlib import Path
 
 import yaml
+
+from bot.handlers._common import config_path, db_path
 
 __all__ = [
     "cmd_portfolio_drift",
@@ -26,23 +27,13 @@ __all__ = [
 log = logging.getLogger("bot")
 
 
-def _db_path() -> Path:
-    """Resolve repo_root/data/bot.db from this module location."""
-    return Path(__file__).resolve().parent.parent.parent / "data" / "bot.db"
-
-
-def _config_path() -> Path:
-    """Resolve repo_root/config.yaml."""
-    return Path(__file__).resolve().parent.parent.parent / "config.yaml"
-
-
 def _build_ticker_to_sector() -> dict[str, str]:
     """Map every ticker in config.yaml universe to its sector label.
 
     Returns dict ticker -> sector_label (e.g. "core_semis_core", "watch", "ext_european_pea").
     Unknown tickers default to "unknown" via .get() fallback in callers.
     """
-    cfg = yaml.safe_load(_config_path().read_text())
+    cfg = yaml.safe_load(config_path().read_text())
     universe = cfg.get("universe", {})
     mapping: dict[str, str] = {}
 
@@ -122,7 +113,7 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
         await update.message.reply_text(f"Config load error: {e}")
         return
 
-    conn = sqlite3.connect(str(_db_path()))
+    conn = sqlite3.connect(str(db_path()))
     try:
         total_mv, positions = _compute_book_market_value(conn)
     finally:
@@ -173,7 +164,7 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
 
 async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
     """Show portfolio breakdown by sector_thesis_id narrative. Usage: /portfolio_narratives"""
-    conn = sqlite3.connect(str(_db_path()))
+    conn = sqlite3.connect(str(db_path()))
     try:
         total_mv, positions = _compute_book_market_value(conn)
 
@@ -225,7 +216,7 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
 
 async def cmd_portfolio_drift(update, ctx):  # noqa: ARG001
     """Show drift between actual positions and portfolio_targets. Usage: /portfolio_drift"""
-    conn = sqlite3.connect(str(_db_path()))
+    conn = sqlite3.connect(str(db_path()))
     try:
         # Fetch all targets with their actual positions
         rows = conn.execute("""

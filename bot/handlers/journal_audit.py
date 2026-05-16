@@ -26,15 +26,12 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from pathlib import Path
+
+from bot.handlers._common import db_path
 
 __all__ = ["cmd_journal_audit"]
 
 log = logging.getLogger("bot")
-
-
-def _db_path() -> Path:
-    return Path(__file__).resolve().parent.parent.parent / "data" / "bot.db"
 
 
 def _extract_tickers(entities_json: str | None) -> list[str]:
@@ -77,7 +74,7 @@ def _compute_audit(window_days: int, min_impact: float) -> dict:
             "tickers_tracked": list[(ticker, sig_count, dec_count)],
         }
     """
-    conn = sqlite3.connect(str(_db_path()))
+    conn = sqlite3.connect(str(db_path()))
     conn.row_factory = sqlite3.Row
     try:
         sig_rows = conn.execute(
