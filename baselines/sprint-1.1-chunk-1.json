@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-16T03:49:56.959119+00:00",
+  "captured_at": "2026-05-16T03:55:11.663419+00:00",
   "chunk": 1,
   "cmd_def_count": 69,
   "files_scanned": [
@@ -9,7 +9,8 @@
     "bot/handlers/find.py",
     "bot/handlers/observability.py",
     "bot/handlers/portfolio_views.py",
-    "bot/handlers/positions.py"
+    "bot/handlers/positions.py",
+    "bot/handlers/sources_admin.py"
   ],
   "function_hashes": {
     "_append_log_entry": "067b947dce7c3be5",
@@ -90,7 +91,7 @@
     "cmd_signals_by_type": "d92a926c8fecb448",
     "cmd_sources_brier": "46d46cfcdfb76212",
     "cmd_sources_half_life": "77a9e07f408f5a28",
-    "cmd_sources_health": "ae1c442ec6af809e",
+    "cmd_sources_health": "8551ad2cb1fc0096",
     "cmd_thesis_add": "4841afd523239cac",
     "cmd_thesis_list": "7207ed3a34015b7c",
     "cmd_thesis_note": "31f4c9c5f88f4ff0",
@@ -126,9 +127,9 @@
     "weekly_handler_stats_job": "785d4bfa88a99625",
     "weekly_kpi_status_job": "266ca0043cfc1d64"
   },
-  "git_commit": "a678381",
+  "git_commit": "19529bc",
   "handler_registration_count": 69,
-  "label": "positions_extracted",
-  "main_py_lines": 2448,
+  "label": "sources_admin_extracted",
+  "main_py_lines": 2277,
   "scheduler_jobs_count": 23
 }
