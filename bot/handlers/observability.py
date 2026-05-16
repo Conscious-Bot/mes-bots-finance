@@ -100,7 +100,7 @@ async def cmd_health(update, ctx):  # noqa: ARG001
     try:
         with storage_mod.db() as conn:
             open_pred = conn.execute(
-                "SELECT COUNT(*) FROM predictions WHERE actual_date IS NULL"
+                "SELECT COUNT(*) FROM predictions WHERE resolved_at IS NULL"
             ).fetchone()[0]
             active_theses = conn.execute(
                 "SELECT COUNT(*) FROM theses WHERE COALESCE(status, 'active') = 'active'"
@@ -116,7 +116,7 @@ async def cmd_health(update, ctx):  # noqa: ARG001
     try:
         with storage_mod.db() as conn:
             row = conn.execute(
-                "SELECT MAX(ts) as last FROM handler_calls WHERE ts > datetime('now', '-1 hour')"
+                "SELECT MAX(timestamp) as last FROM handler_calls WHERE timestamp > datetime('now', '-1 hour')"
             ).fetchone()
             last_handler = row["last"] if row and row["last"] else "no calls 1h"
         lines.append(f"*Telegram:* last handler call @ {last_handler}")
@@ -207,7 +207,7 @@ def _kpi_compute_all():
     if n2 >= target:
         s2 = "✅ GREEN"
     elif stuck > 0:
-        s2 = f"🚨 RED — {stuck} predictions stuck (target_date passé, resolve cron failing?)"
+        s2 = f"🚨 RED — {stuck} predictions stuck (target date passé, resolve cron failing?)"
     elif forecast_j28 >= target:
         s2 = f"⏳ ON TRACK — {projected_28d} resolutions dues in next 28d, forecast J+28: {forecast_j28}"
     elif n2 >= target * 0.6:
@@ -269,7 +269,7 @@ def _kpi_compute_all():
     out["kpi4"] = {
         "title": "KPI #4: Panic sells core (30d)",
         "target": "0",
-        "current": f"{n4} flagged (full_exit pre-partial-trigger)",
+        "current": f"{n4} flagged (full-exit pre-partial-trigger)",
         "status": s4,
         "enforcement": "Pause + bias analysis si ≥1",
     }
@@ -287,7 +287,7 @@ def _kpi_compute_all():
     material = r5["material"] or 0
     journalised = r5["journalised"] or 0
     pct = 100.0 * journalised / material if material > 0 else None
-    if material == 0:
+    if material == 0 or pct is None:
         s5 = "🔍 NO MATERIAL DECISIONS 30d"
         p_str = "N/A"
     elif pct == 100:
