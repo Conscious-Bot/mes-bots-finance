@@ -10,6 +10,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
+from bot.handlers.bias_pattern import cmd_bias_pattern
 from bot.handlers.echo_crypto_macro import (
     cmd_credit,
     cmd_crypto,
@@ -1068,6 +1069,7 @@ def main():
     app.add_handler(CommandHandler("journal_review", cmd_journal_review))
     app.add_handler(CommandHandler("journal_audit", cmd_journal_audit))
     app.add_handler(CommandHandler("thesis_health", cmd_thesis_health))
+    app.add_handler(CommandHandler("bias_pattern", cmd_bias_pattern))
     app.add_handler(CommandHandler("signal_drilldown", cmd_signal_drilldown))
     app.add_handler(CommandHandler("journal_unresolved", cmd_journal_unresolved))
     app.add_handler(CommandHandler("journal_tag", cmd_journal_tag))
