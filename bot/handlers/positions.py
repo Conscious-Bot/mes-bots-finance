@@ -100,7 +100,7 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
     from datetime import datetime as _dt
 
     from shared import config as cfg_mod, storage as storage_mod
-    from shared.prices import get_current_price_eur
+    from shared.prices import get_current_price_in_eur
     from shared.ticker_names import get_short_name
 
     positions = storage_mod.get_active_positions()
@@ -138,7 +138,7 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
     total_mv = 0.0
     for p in positions:
         ticker = p["ticker"]
-        cur_price = get_current_price_eur(ticker)
+        cur_price = get_current_price_in_eur(ticker)
         cost_value = p["qty"] * p["avg_cost"]
         mv = (cur_price * p["qty"]) if cur_price else cost_value
         unreal_pct = ((cur_price / p["avg_cost"] - 1) * 100) if cur_price and p["avg_cost"] else None

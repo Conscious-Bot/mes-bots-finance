@@ -75,7 +75,7 @@ def _compute_book_market_value(conn: sqlite3.Connection) -> tuple[float, list[di
     Returns (total_market_value, list_of_position_dicts).
     Falls back to cost_basis if live price unavailable (network failure resilience).
     """
-    from shared.prices import get_current_price_eur
+    from shared.prices import get_current_price_in_eur
 
     rows = conn.execute(
         "SELECT ticker, qty, avg_cost, account FROM positions WHERE status='open'"
@@ -85,7 +85,7 @@ def _compute_book_market_value(conn: sqlite3.Connection) -> tuple[float, list[di
     total_mv = 0.0
     for ticker, qty, avg_cost, account in rows:
         try:
-            cur_price = get_current_price_eur(ticker)
+            cur_price = get_current_price_in_eur(ticker)
         except Exception:
             cur_price = None
         cost_basis = qty * avg_cost
