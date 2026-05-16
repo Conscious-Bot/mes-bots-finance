@@ -620,3 +620,100 @@ audit reveals critical UX gaps.
 - Phase A (renames only, 4 cmds): low risk, can ship pre-J+28
 - Phase B-M (family unifications): post-J+28 only
 - Phase N (UX redesign output): on demand per daily ritual blocker
+
+---
+
+## Day 5 closed (16 May 2026, 38 commits)
+
+### Morning marathon (33 commits)
+- Sprint 1.1: 9/10 PLAIN chunks bot/main.py 3324 -> 1115 LOC (-66%)
+- 8 new features: /find, /portfolio_sectors/narratives/drift, /journal_audit, /signal_drilldown, /thesis_health, /bias_pattern
+- mypy strict: 11 -> 30 modules
+- Tests: 49 -> 189 Hypothesis property-based
+- Chunk 3 TYPED reserved Sprint 1.2 (17 handlers, ~345 LOC)
+
+### Pivot 1 — Handler UX audit (1 commit, 4a8eaa1)
+- User feedback: "73 handlers, beaucoup affichent des textes incomprehensibles"
+- 12 blocs K/U/D in docs/handler-review-2026-05-16/decisions.md
+- 73 -> 24 commands planned (Sprint 1.2)
+- docs/sprint-1.2-plan.md Phases A-N execution plan
+
+### Pivot 2 — UX-fix sweep (3 commits, empirical Telegram validated)
+- /brief v3.1 (43831d9): 16 lines, KPI #2 timer, top 5 conviction
+- /digest v2 (0b01fd4): VERDICT line, header metadata, 1-line bruit
+- /portfolio v2.1 (0d1735d): ALERTS + conviction + common names cache
+
+### Pivot 3 — Portfolio thesis logging (1 commit, 5aeea1c)
+- DELETE positions.NVDA zombi + bot_state reset
+- INSERT 21 theses from user 5-thesis doc (Tier S/A/B mapping)
+- 4 orphan c1 flagged for J+30 review (AMD, GOOGL, TSLA, SAF.PA)
+- docs/snapshots/ for audit trail
+
+---
+
+## 🚧 P0 next session — Path A (10 min cleanup)
+
+- **Supersede 6 watch theses HPQ + Pharma** (SQL ready in HANDOFF.md)
+  - HPQ: 3436.T, MTUS (redundant Shin-Etsu)
+  - Pharma: WST, STVN, DIM.PA, YPSN.SW (out of current focus)
+  - Result: 39 -> 33 active theses
+- Decide on remaining 12 watch theses (POWER_GEN, PHYSICAL_AI, STORAGE)
+  - User reco: keep POWER + PHYSICAL, drop STORAGE
+- Document handler-ux-2026-05-16/log.md (currently untracked)
+- /portfolio empirical Telegram retest post-thesis-logging (should show all c1-c5, no c-)
+
+---
+
+## 🚧 P1 next session — Path B (30-45 min per handler)
+
+Sprint 1.2 UX-fix sweep continues:
+- /find (user favori) — diagnose + redesign + smoke + commit
+- /journal audit (post-thesis logging KPI #5 enforcement)
+- /thesis health (overview after 21 logged)
+- /signal_drilldown (rename to /signal per Sprint 1.2)
+- /biases (was /bias_pattern, rename)
+
+---
+
+## ⏱ KPI runtime check (Day 5 close)
+
+| KPI | Cadence | Current | Status |
+|---|---|---|---|
+| **#2 NON-NEG** | Hebdo dim | 1 résolu 30d, 46 due in 24d | ⏳ ON TRACK |
+| #3 Brier rolling 90d | Hebdo | N=0 (insufficient) | 🔍 NOT YET MEASURABLE |
+| #4 Panic sells core | Mensuel 1er | 0 | ✅ GREEN |
+| **#5 Decisions journalisées** | Mensuel | All theses logged = baseline established | ✅ DAY 5 ENABLED |
+| #6 TWR vs SPY/QQQ 12M | Mensuel | Not implemented | ⏸ Sprint 1.2 |
+
+**Cible KPI #2 J+24 = 10 juin 2026**. 46 predictions auto-resolve.
+
+---
+
+## 📋 Sprint 1.2 backlog (post-J+28)
+
+Per docs/sprint-1.2-plan.md:
+- Phase A: 73 -> 24 handlers consolidation (sub-command routing)
+- Phase B: /thesis family fusion (9 handlers -> 1 with subcommands)
+- Phase C: /portfolio sub-commands (sectors/narratives/drift in 1)
+- ...
+- Phase N: Full execution
+
+---
+
+## DETTE découverte Day 5 (carry-forward, not blocking)
+
+### Tech
+- Alembic migration for ticker_names table NOT added (table exists DB-only)
+- /brief still uses "(check fx)" fallback instead of get_current_price_eur
+- /digest VERDICT sometimes inconsistent with body (Sonnet inventing min 1 urgent)
+- positions.currency column for real FX (workaround via get_current_price_eur)
+- shared/ticker_names.py: no refresh logic (manual SQL update if company rebrands)
+
+### Data hygiene (empirical discovery)
+- 18 watch theses from 15/05 sector_thesis_id framework still active (decision pending)
+- 4 orphan c1 positions need 30-day review window opens J+31 (16 juin)
+- bot_state.last_heartbeat_ts may go stale (timestamp from 11/05 in JSON?)
+
+### Discipline
+- AMD, GOOGL, TSLA, SAF.PA held without thesis until Day 5 (orphan flagged)
+- This empirical gap = exactly the "vendre trop tôt sans thesis structurée" risk
