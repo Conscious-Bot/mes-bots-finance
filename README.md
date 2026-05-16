@@ -4,8 +4,9 @@ Closed-loop personal finance intelligence: Telegram bot + Claude integration. Se
 
 ## CI Status
 
-![CI](https://github.com/Conscious-Bot/mes-bots-finance/actions/workflows/ci.yml/badge.svg)
+Private repo — CI runs on every push to main against ruff + mypy (14 strict-typed modules) + pytest (128 tests). Visible in GitHub Actions tab. Badge omitted (requires public repo OR PAT setup).
 
+Going public is a post-J+28 decision pending Brier baseline empirical.
 
 ## Stack
 
