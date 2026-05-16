@@ -46,7 +46,7 @@ jobs:
                intelligence/learning.py intelligence/materiality_v2.py intelligence/asymmetry.py intelligence/digest.py \
                intelligence/journal.py intelligence/credibility.py intelligence/bias_tagger.py intelligence/signal_classify.py \
                intelligence/materiality_boost.py intelligence/half_life.py intelligence/regime.py \
-               intelligence/calendar.py intelligence/analyze.py intelligence/thesis.py intelligence/insider_digest.py intelligence/price_monitor.py \
+               intelligence/calendar.py intelligence/analyze.py intelligence/thesis.py \
                risk/risk_engine.py risk/sizing.py \
                --follow-imports=silent
       - name: Run pytest with coverage

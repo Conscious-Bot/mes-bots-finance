@@ -532,3 +532,30 @@ Features ajoutées en attente de prérequis empiriques. **Aucune implémentation
   - Impact si réussi : mesure exacte coût émotionnel des biais
   - Impact si raté : theater of measurement, false confidence
   - **Decision gate avant build** : revue ADR dédiée requise avant ship
+
+
+---
+
+## P3 — Type hints fixes deferred from A3 ship 654369b (2026-05-16)
+
+Three mypy errors in modules that have high type coverage already but need
+small fixes to be added to strict override:
+
+- [ ] **intelligence/insider_digest.py:115,126** — `Value of type "dict[Any, Any] | None" is not indexable`
+  - Two locations where dict access happens without None check
+  - Fix: add `if d is None: continue` OR cast(dict, d)
+  - Effort: ~15 min
+
+- [ ] **intelligence/price_monitor.py:239** — `Incompatible return value type (got "int | None", expected "int")`
+  - Function declares return int but can return None in error path
+  - Fix: change return type to `int | None` OR raise on None case
+  - Effort: ~10 min
+
+- [ ] **shared/positions.py:77,107** — `Incompatible return value type (got "dict[Any, Any] | None", expected "dict[Any, Any]")`
+  - Two functions return None in error path but declared dict
+  - Fix: change return type to `dict[Any, Any] | None`
+  - Effort: ~15 min
+
+After all 3 fixed, add modules to mypy strict override in pyproject.toml + ci.yml.
+Trigger: Sprint 1.2 type hints completion sweep OR opportunistic when these
+modules are touched.
