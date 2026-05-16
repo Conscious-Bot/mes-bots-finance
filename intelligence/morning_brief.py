@@ -240,9 +240,8 @@ def _positions_top5_section():
             last_price = r["last_price"]
             if last_price is None:
                 try:
-                    import yfinance as yf
-                    info = yf.Ticker(ticker).info
-                    last_price = info.get("regularMarketPrice") or info.get("currentPrice")
+                    from shared.prices import get_current_price_in_eur
+                    last_price = get_current_price_in_eur(ticker)
                 except Exception:
                     last_price = None
             pnl_pct = None
