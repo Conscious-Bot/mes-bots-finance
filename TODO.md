@@ -733,3 +733,88 @@ Per docs/sprint-1.2-plan.md:
 **Total**: 4-7h spread across 3-5 sessions.
 **Deadline**: J+24 = 10 juin 2026 (KPI #2 batch resolution).
 
+
+---
+
+## Day 5 final close (16 May 2026 ~20:45 KST, HEAD=cec0f41)
+
+### Ships Day 5 evening v3+extended (16 commits post-tag day5-final)
+
+- ✅ 108d57d HPQ + Pharma cleanup (6 watch superseded, 6890.T rollback)
+- ✅ 88db101 Intl pipeline fix (config+prompts US-bias-removed+thesis_health narrative=)
+- ✅ 192b62c HANDOFF refresh post Day 5 evening
+- ✅ a60b062 Mission queue 6 steps
+- ✅ 65c7265 /analyze today_str fix
+- ✅ b68120c /asymmetry 3-section bucketize (computed/incomplete/watch/errors)
+- ✅ 6b97f2d F1b Phase 1 fx layer + /asymmetry strip verdict
+- ✅ c1032b8 DB snapshot pre target/stop fill
+- ✅ 7cec21e HANDOFF refresh v3 close
+- ✅ cec0f41 C1+C2 today_str /analyze_debate + /thesis_premortem
+
+### 9 handler UX-fixes Day 5 total
+1. /brief v3.1 (instant vision, KPI #2 timer, top 5 conviction)
+2. /digest v2 (header metadata + verdict line + 1-line bruit + drill-down)
+3. /portfolio v2.1 (alerts top, conviction, PnL%, common names)
+4. /thesis_health v2 (3 intl fixes)
+5. /analyze today_str (Opus stale data fix)
+6. /asymmetry verbose (3-section bucketize)
+7. /asymmetry strip verdict (confirmation bias removed)
+8. /analyze_debate today_str (multi-round dialectic anchor)
+9. /thesis_premortem today_str (Opus failure-mode anchor)
+
+### Dette systémique today_str ÉLIMINÉE empirique
+- 4 LLM handlers fixés : /digest, /analyze, /analyze_debate, /thesis_premortem
+- Pattern identifié + addressed empirique
+- **Carry-forward audit** : /risk_check empirique semble OK (Day 5 evening test "January earnings" cohérent) mais audit empirique à confirmer
+
+### 17 target/stop UPDATEs via framework empirique
+- c5: stop=-25% target=+70% (L5 metrology cyclical mod=-20%)
+- c4: stop=-20% target=+60% (L1 litho mod=-22%, HBM cyclical mod=-25%)
+- c3: stop=-18% target=+50% (story stock mod=-25%, defense low vol mod=-15%)
+- 4 orphans c1 (AMD/GOOGL/SAF.PA/TSLA) SKIPPED → review J+30=2026-06-16
+
+### FX layer Phase 1 R3 calibrated empirique
+- shared/prices.py HARDCODED_FX_TO_EUR
+- JPY=0.005467, KRW=0.000591, USD=0.858 (calibrated vs broker)
+- 6 modules NOT migrated yet (carry-forward S1)
+- Phase 2 R1 SQLite fx_rates + daily cron deferred
+
+### Philosophical insights Day 5 v3
+- /asymmetry verdicts auto-derivés = tautologie + confirmation bias nocif
+  → Stripped icons + labels + ratio number
+  → Raw distances only (current/entry/target/stop in EUR + %)
+- /analyze_debate convergence 0.93 NVDA "18-month thesis with cliff Q3-Q4 2026"
+  → exactement le counter-bias system working empirique
+  → bot dit où est le cliff AVANT panique
+
+### Carry-forward critical (next session)
+
+**P1 — F1b S1 full replace (8 modules, 60-90 min)**:
+- intelligence/morning_brief.py (line 244 + comment line 302)
+- intelligence/price_monitor.py:185
+- intelligence/learning.py:125
+- intelligence/thesis.py:149
+- intelligence/shadow_decisions.py
+- shared/positions.py:158
+- bot/handlers/positions.py:103
+- bot/handlers/portfolio_views.py:78
+
+**P1 — Clarify dup function shared/prices.py**:
+- Line 104 `get_current_price_in_eur` (new Day 5)
+- Line 262 `get_current_price_eur` (existing)
+- Investigate before migration to avoid double API call
+
+**P1 — F1b Phase 2 R1 SQLite fx_rates table (60 min)**
+
+**P2 — /risk_check today_str audit** (5 min check, +10 min if bug)
+
+**P2 — Regenerate 21 PF pre-mortems** with anchored prompt (~$1 + 20 min, optional)
+
+**P2 — Calibration tracking** (90+ min) : historique targets hit/missed
+
+**P2 — Challenger layer** (120+ min) : compare targets to analyst consensus
+
+**P3 — 26 silent tickers KPI #5** : user action, log decisions on AMD/AVGO/MRVL/GOOGL/MSFT/META
+
+**P3 — 4 orphans c1 review J+30** : 2026-06-16
+

@@ -161,3 +161,21 @@ no decisions logged. User action: log decisions next session.
 5. `/asymmetry` empirique Telegram to see raw distances
 6. Decide next priority: P1 (F1b S1 full replace) or P2 (calibration/challenger)
 
+
+---
+
+## Update 16 May 2026 ~20:45 KST — C1+C2 today_str fixes
+
+**Commit cec0f41**: Fix /analyze_debate + /thesis_premortem today_str
+anchor. Same systemic bug pattern as /digest + /analyze (Day 5 morning +
+evening). 4 LLM handlers now anchored empirique.
+
+**Day 5 final**: 51 commits total (HEAD=cec0f41), 9 handler UX-fixes,
+fx layer calibrated, 17 target/stop filled, philosophical insight on
+verdict confirmation bias.
+
+**Bot state**: PID 35358 alive, scheduler healthy.
+
+**Next session P1 priority**: F1b S1 full replace 8 modules OR
+/risk_check today_str audit (5 min check).
+
