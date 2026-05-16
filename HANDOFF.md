@@ -1,24 +1,26 @@
 # HANDOFF — mes-bots-finance
 
-**Last close**: 16 May 2026, 17:30 KST (Seoul) — Day 5 final wrap
-**Latest commit**: 5aeea1c (DB snapshot: thesis logging + NVDA dummy cleanup)
-**Tag**: day5-final
-**Bot**: PID 33159 alive, single instance, scheduler started (22 crons)
+**Last close**: 16 May 2026, 18:00 KST (Seoul) — Day 5 final + 3 bonus commits
+**Latest commit**: 88db101 (Fix intl ticker pipeline + /thesis_health narrative parsing)
+**Tag**: day5-final (on 60cf504, marks official close before 3 bonus commits)
+**Bot**: PID 33688 alive, single instance, scheduler started (22 crons)
 
 ---
 
 ## TL;DR for new session
 
-Day 5 = **2 pivots empirique** :
+Day 5 = **4 pivots empirique** (matin marathon -> midi audit -> soir UX-fix -> nuit thesis logging + cleanup) :
 1. **Pivot 1 (matin)**: ship marathon -> handler UX audit (73 handlers -> 24 planned)
 2. **Pivot 2 (soir)**: handler UX-fix -> portfolio thesis logging (real 21-position alignment)
 
 **Critical state**:
 - 21 positions réelles (dummy NVDA cleaned up)
-- 21 theses actives mappées 1:1 with /portfolio (4 orphans c1 flagged J+30 review)
-- 18 additional watch theses from 15/05 sector_thesis_id framework (untouched, decision pending)
+- 33 theses actives total: 21 PF (1:1 with /portfolio) + 12 watch carry-forward
+- 9 theses superseded (3 old 15/05 + 6 HPQ/Pharma evening cleanup, 6890.T rollback-kept)
+- 4 orphans c1 flagged J+30 review (AMD, GOOGL, TSLA, SAF.PA)
 - 46 predictions due 2026-06-10 (J+24 from this close)
 - KPI #2 timer ON TRACK for first Brier baseline
+- Intl ticker pipeline FIXED (config + prompts + handler) - empirical effect within 1h cron
 
 ---
 
@@ -43,6 +45,20 @@ User feedback: "73 handlers, beaucoup affichent des textes incomprehensibles"
 3. **/portfolio v2.1** (0d1735d): ALERTS top + conviction + PnL% + common names cache + drill-down
    + NEW shared/ticker_names.py + DB table ticker_names (yfinance shortName cache)
 
+### Post-close bonus (3 commits, after tag day5-final)
+- **108d57d**: supersede 6 HPQ + Pharma watch theses (clean carry-forward)
+  - Empirical catch: 7 rows updated initially (6890.T double-classified HPQ+PHYSICAL_AI)
+  - Rollback 6890.T to active per Thèse #3 (Ferrotec ferrofluids/thermal)
+  - Final: 33 active / 9 superseded
+- **88db101**: Fix intl ticker pipeline + /thesis_health narrative parsing
+  - Fix 1: config.yaml +3 tickers (4063.T, 000660.KS, ALAB)
+  - Fix 2: shared/prompts.py removed "US tickers" bias, intl explicit (.T .PA .AS .KS .SW .L)
+  - Fix 3: bot/handlers/thesis_health.py recognizes both narrative= and sector_thesis_id formats
+  - Empirical: /thesis_health now shows AI_compute/Electrification/EU_defense narratives
+    instead of "untagged" for the 21 PF theses
+  - Limitation documented: source coverage gap (no dedicated Japan/Korea newsletter)
+- 4th handler UX-fixed empirical validated: /thesis_health v2 (3 fixes)
+
 ### Late evening — thesis logging (1 commit, DB ops not git-tracked except snapshot)
 - 5aeea1c: docs/snapshots/ DB dump (21 theses + bot_state) for audit trail
 - DB ops (NOT in git, only in DB):
@@ -63,7 +79,7 @@ User feedback: "73 handlers, beaucoup affichent des textes incomprehensibles"
 | /find | as-is | Favori user, UX-review queued |
 | /journal audit | as-is | Created Day 5 morning, UX-review queued |
 | /signal_drilldown | as-is | UX-review queued (will become /signal Sprint 1.2) |
-| /thesis health | as-is | UX-review queued |
+| /thesis_health | v2 ✅ | 3 fixes shipped 88db101 (narrative parsing + intl pipeline) |
 | 70+ others | as-is | Sprint 1.2 audit (24 final commands planned) |
 
 ---
@@ -166,8 +182,8 @@ git log --oneline -10
 
 ## Recommended next session 3 paths
 
-### Path A — Finish thesis cleanup (~10 min)
-Supersede HPQ + Pharma 6 tickers (SQL above), commit.
+### Path A — Finish thesis cleanup (~10 min) [DONE 108d57d post-close]
+~~Supersede HPQ + Pharma 6 tickers~~ DONE. 33 active / 9 superseded final state.
 
 ### Path B — Continue handler UX-fix sweep (~30-45 min per handler)
 Candidates per Sprint 1.2 plan:
@@ -181,7 +197,13 @@ Candidates per Sprint 1.2 plan:
 - Document UX-fix replicable pattern for future handlers
 - Update docs/sprint-1.2-plan.md with empirical learnings
 
-**Recommended priority**: A (5 min hygiene) -> B (1-2 handlers) -> C if energy left.
+**Recommended priority next session**:
+1. /thesis_health empirical retest after 24h of cron (signal_classify should
+   pickup intl tickers per new prompt). Verify ASML/TSM/Lasertec signals
+   start appearing in 'sig' count.
+2. UX-fix sweep: /find (user favori), /journal audit, /signal_drilldown rename
+3. Carry-forward dette: source coverage gap (Japan/Korea/Europe), timezone
+   audit (-1d old bug), tier-based inflation watch.
 
 ---
 
@@ -200,6 +222,28 @@ Candidates per Sprint 1.2 plan:
 | docs/snapshots/bot_state_2026-05-16_post_cleanup.json | bot_state snapshot |
 
 ---
+
+## Source coverage gap (NEW dette discovered Day 5 evening)
+
+**Empirical finding**: 9 newsletters subscribed = US-centric (Stratechery,
+SemiAnalysis, Apollo, Unusual Whales, Wall Street Rollup, Adam Tooze,
+Noahpinion, Stoller, Defiant) + 1 FR aggregator (Meilleurtaux, Bourseko).
+
+**NO dedicated source for**:
+- Japan equities (4063.T, 6920.T, 7011.T held c4-c5 = 67% of Thèse #1 critical mass)
+- Korea equities (000660.KS held c4)
+- European deep-coverage (ASML.AS, BESI.AS, SU.PA, HO.PA detailed)
+
+**Consequence**: even with intl ticker prompt fix shipped 88db101, signal volume
+for intl positions will stay LOW because sources don't cover them deeply.
+
+**Action items Sprint 1.2 or earlier**:
+- Identify Japan equities newsletter source (search candidates: Asianometry deep,
+  Smartkarma, Tobias Carlisle Japan, Hayek Japan Equities)
+- Identify Korea equities newsletter (search: Korea Investing, Korea Stocks Weekly)
+- Identify European deep-coverage (Société Européenne, Investing.com EU deep,
+  Morningstar EU)
+- Decision: add free tier subscription + Gmail Newsletters filter routing
 
 ## Empirical lessons Day 5
 
