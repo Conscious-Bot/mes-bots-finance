@@ -179,3 +179,93 @@ verdict confirmation bias.
 **Next session P1 priority**: F1b S1 full replace 8 modules OR
 /risk_check today_str audit (5 min check).
 
+
+
+---
+
+## Day 6 close — 16 May 2026 17:35 KST (~5h session, +4 commits)
+
+**HEAD**: dfb74e4 | **Tag**: day6-close
+
+### Commits this session
+
+1. **21b8fd5** fix(observability) scope C — 4 latent bugs Sprint 1.1 extraction
+   - actual_date -> resolved_at (KPI #2 query)
+   - ts -> timestamp (handler_calls drift)
+   - target_date -> target date (kpi defensive)
+   - full_exit -> full-exit (unpaired _ broke /kpi_status Markdown V1)
+   - mypy narrowing if material == 0 or pct is None
+
+2. **0963369** feat(prices) A1 canonical migration
+   - 4 swaps get_current_price_eur -> get_current_price_in_eur (positions, portfolio_views)
+   - Delete 74 lines legacy chain (shared/prices.py 289->215)
+   - Root cause Day 5 "broker mismatch": silent FX fallback 1.0
+   - Empirical: TSM EUR346.93 (-0.16%), 6920.T EUR209.99 (-0.005%)
+
+3. **ed98573** feat(brief) A2-1 morning_brief fallback canonical
+   - intelligence/morning_brief.py:244 yfinance native -> canonical EUR
+   - Findings: theses.last_price NULL all samples (cache jamais peuple)
+
+4. **dfb74e4** feat(brief) readable POSITIONS layout
+   - Names from get_short_name + value total + EUR Unicode
+   - Validated /brief @ 17:31
+   - CANONICAL FORMAT: currency symbol > ASCII codes, total value > qty*price, names > tickers
+
+### Empirical state end-of-session
+- 21 positions EUR ~42.7K, 8 intl (.T/.KS/.AS/.PA)
+- KPI #2: 1 resolu lifetime, 45 due 10-11 juin -> J+28 forecast 46 ON TRACK
+- KPI #4: 0 panic sells GREEN (mais voir A2-2: faussement vert intl)
+- 22 crons, 189 tests pytest, 30 modules mypy strict
+- /portfolio /brief /health /kpi_status /handler_stats all clean
+
+### Carry-forward PRIORITY NEXT SESSION
+
+**γ2 A2-2 CRITIQUE (~45-60 min, priority 1)** — intelligence/price_monitor.py:173
+p = prices.get_current_price(ticker)         (NATIVE price JPY/KRW raw)
+if t["stop_price"] and p <= t["stop_price"]: (vs EUR-stored stop)
+
+8 intl positions (28% book) triggers ne firent JAMAIS depuis Day 5 target fill.
+KPI #4 dependance + alertes runtime cassees.
+Fix surface = 1 ligne, MAIS audit store-at-rest serre pre-patch OBLIGATOIRE:
+sqlite3 data/bot.db "SELECT ticker, stop_price, target_price, avg_cost FROM theses WHERE ticker LIKE '%.%'"
+
+Verifier theses.stop_price EUR pour tous intl + test fake target avant deploy.
+
+### Carry-forward A2-3/4/5/6 (chained, NOT batched per protocol §6)
+- intelligence/learning.py:125 (KPI #3 Brier critical, return_pct dependency)
+- intelligence/thesis.py:149 (comparison vs entry_price)
+- intelligence/shadow_decisions.py (shadow variants)
+- shared/positions.py:158 (DB layer audit complet)
+
+### Architectural dette (P2, ~5-10h)
+**shared/display.py canonical refactor** — single source of truth absent.
+Currency symbol / ticker widths / price decimals / pct copy-pasted across 5+
+handlers. Solution: format_price, format_position_line, format_currency_symbol,
+format_pct. Migration: morning_brief, positions, portfolio_views, digest.
+
+### Dettes mineures (accumulation, non-bloquant)
+- KPI #5 semantique gap: decision events (position_buy/sell + reasoning + bias_tags) != thesis events. HANDOFF Day 5 "all theses logged = baseline" imprecis.
+- bot_state.bot_start_ts stale (uptime 123h vs restart frais)
+- /kpi_status Overall undercount ("TIMER" string match misses "ON TRACK")
+- pyproject.toml 25 unused module overrides
+- shared/ticker_names.py:36,70 mypy no-any-return
+- shared/positions.py:77,107 mypy dict|None return
+- NVDA zombie "Unresolved decisions: 3"
+- _stats_section "LLM today: $X" hardcoded $ (hors canonical format)
+- format value:>6,.0f truncate si >EUR99,999 (non-issue current PF max EUR5K)
+
+### Meta-lesson session (3 erreurs diagnostic Claude corrigees)
+Empirique > pattern-matching:
+1. "Tests 152 vs 189" — grep def test_ rate Hypothesis @given cases
+2. "KPI #2 query cassee" — confusion theses.outcome_evaluated_at vs predictions.resolved_at
+3. "Bot DOWN" — pgrep case-sensitive echoue sur Python.app macOS framework
+Lecture profonde + validation second canal avant action.
+
+### NEXT SESSION reopen sequence
+1. cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate
+2. ps aux | grep -i bot.main (filter -i OBLIGATOIRE, pas -f seul)
+3. Read this Day 6 close section
+4. PRIORITY γ2: A2-2 price_monitor.py canonical (CRITIQUE)
+5. Pre-patch audit: SELECT theses.stop_price/target_price intl (verif store-at-rest EUR)
+6. Patch 1 ligne get_current_price -> get_current_price_in_eur
+7. Smoke test fake target intl avant deploy
