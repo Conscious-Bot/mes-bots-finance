@@ -11,6 +11,17 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
 from bot.handlers.find import cmd_find
+from bot.handlers.observability import (
+    _cost_compute_trajectory,
+    _cost_format_trajectory,
+    _format_kpi_report,
+    _kpi_compute_all,
+    cmd_cost_trajectory,
+    cmd_handler_stats,
+    cmd_health,
+    cmd_kpi_status,
+    cmd_llm_costs,
+)
 from data_sources import gmail_
 from intelligence import (
     analyze as analyze_mod,
@@ -33,7 +44,6 @@ logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 log = logging.getLogger("bot")
 
-
 THESIS_TEMPLATE = (
     "Format thesis_add (copie-colle, remplace les valeurs) :\n\n"
     "/thesis_add\n"
@@ -51,7 +61,6 @@ THESIS_TEMPLATE = (
     "Multi-item: separer par ';'"
 )
 
-
 def _parse_thesis_template(text):
     out = {}
     for line in text.split("\n"):
@@ -64,7 +73,6 @@ def _parse_thesis_template(text):
             out[key] = val
     return out
 
-
 async def cmd_ping(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     state = storage.load_state()
     await update.message.reply_text(
@@ -74,7 +82,6 @@ async def cmd_ping(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"theses actives: {state['active_theses_count']}\n"
         f"paper_only: {state['paper_only']}"
     )
-
 
 async def cmd_thesis_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or ""
@@ -113,7 +120,6 @@ async def cmd_thesis_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except (KeyError, ValueError) as e:
         await update.message.reply_text(f"Erreur: {e}\n\nTape /thesis_add seul pour le template.")
 
-
 async def cmd_thesis_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     msg = thesis_mod.list_active()
     # Telegram hard limit 4096 chars; chunk on paragraph boundaries if needed
@@ -134,7 +140,6 @@ async def cmd_thesis_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     for c in chunks:
         await update.message.reply_text(c)
 
-
 async def cmd_thesis_revisit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     due = thesis_mod.get_revisit_due()
     if not due:
@@ -145,7 +150,6 @@ async def cmd_thesis_revisit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         questions = thesis_mod.build_revisit_questions(t)
         await update.message.reply_text(questions)
         storage.update_thesis_revisit(t["id"])
-
 
 async def cmd_exit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
@@ -162,7 +166,6 @@ async def cmd_exit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     result = thesis_mod.check_exit_request(ticker, current_price)
     await update.message.reply_text(result["message"])
 
-
 async def cmd_exit_force(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args or len(ctx.args) < 2:
         await update.message.reply_text("Usage: /exit_force TICKER <raison>")
@@ -178,7 +181,6 @@ async def cmd_exit_force(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     storage.close_thesis(t["id"], status="realized", reason=f"{note_suffix} {reason}")
     await update.message.reply_text(f"OK these {ticker} fermee 'realized' {note_suffix}\nRaison: {reason}")
 
-
 async def cmd_thesis_note(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args or len(ctx.args) < 2:
         await update.message.reply_text("Usage: /thesis_note <thesis_id> <ta note>")
@@ -191,7 +193,6 @@ async def cmd_thesis_note(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     note = " ".join(ctx.args[1:])
     storage.append_thesis_note(thesis_id, note)
     await update.message.reply_text(f"Note ajoutee a these #{thesis_id}.")
-
 
 async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     parts = update.message.text.split()
@@ -221,7 +222,6 @@ async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(narrative)
 
-
 async def cmd_feedback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args or len(ctx.args) < 2:
         await update.message.reply_text(
@@ -247,12 +247,10 @@ async def cmd_feedback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
 
-
 async def cmd_credibility(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     msg = credibility_mod.list_top_sources(n=10)
     msg += "\n\n" + credibility_mod.list_worst_sources(n=5)
     await update.message.reply_text(msg)
-
 
 async def cmd_predictions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     preds = storage.get_recent_predictions(limit=15)
@@ -273,7 +271,6 @@ async def cmd_predictions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} target {target} [pending]")
     await update.message.reply_text("\n".join(lines))
 
-
 async def cmd_resolve_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Resolution en cours...")
     try:
@@ -282,7 +279,6 @@ async def cmd_resolve_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg[:4000])
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
-
 
 async def resolve_journal_decisions_job():
     """Phase 18 Batch 3 — Daily cron: resolve J+30 and J+90 pending decisions.
@@ -364,7 +360,6 @@ async def resolve_journal_decisions_job():
     except Exception as e:
         log.exception(f"resolve_journal_decisions_job crashed: {e}")
 
-
 async def daily_resolve_job():
     log.info("Daily resolve predictions starting")
     try:
@@ -376,7 +371,6 @@ async def daily_resolve_job():
     except Exception as e:
         log.error(f"Daily resolve failed: {e}")
 
-
 async def cmd_regime(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Detection regime en cours (5-10s)...")
     try:
@@ -386,10 +380,8 @@ async def cmd_regime(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
 
-
 # Phase Tickers Tiered — dynamic from config.yaml universe.core
 CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_tickers") else []
-
 
 async def cmd_calendar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     events = storage.get_upcoming_events(days_ahead=60)
@@ -400,7 +392,6 @@ async def cmd_calendar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         msg = alert_msg + "\n\n---\n\n" + msg
     await update.message.reply_text(msg[:4000])
 
-
 async def cmd_calendar_refresh(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Refresh calendar sur {len(CALENDAR_REFRESH_TICKERS)} tickers (60-90s)...")
     try:
@@ -410,7 +401,6 @@ async def cmd_calendar_refresh(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg[:4000])
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
-
 
 async def daily_calendar_refresh_job():
     log.info("Daily calendar refresh starting")
@@ -424,7 +414,6 @@ async def daily_calendar_refresh_job():
             log.info(f"Sent {len(alerts)} pre-event alerts")
     except Exception as e:
         log.error(f"Daily calendar refresh failed: {e}")
-
 
 async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Show categorized list of all 65 registered commands."""
@@ -518,8 +507,6 @@ See docs/personal/handlers-consolidation-plan.md
 """
     await update.message.reply_text(help_text)
 
-
-
 async def cmd_insiders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
         await update.message.reply_text("Usage: /insiders TICKER\nEx: /insiders NVDA")
@@ -533,14 +520,11 @@ async def cmd_insiders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
 
-
 # === Scheduled jobs ===
-
 
 async def heartbeat():
     storage.update_state()
     log.info("heartbeat ok")
-
 
 async def ingest_gmail_job():
     """Hourly Gmail ingestion + immediate materiality_v2 chaining.
@@ -566,7 +550,6 @@ async def ingest_gmail_job():
     except Exception as e:
         log.error(f"gmail ingest failed: {e}")
 
-
 async def daily_digest_job():
     """Auto-trigger unified digest synthesis (12h interval = 2x/jour)."""
     try:
@@ -581,7 +564,6 @@ async def daily_digest_job():
             _notify.send_text(msg)
     except Exception as e:
         log.warning(f"daily_digest_job error: {e}")
-
 
 async def daily_backup_job():
     """Phase Solidification P0 #2 — Daily backup via scripts/backup.sh.
@@ -607,9 +589,7 @@ async def daily_backup_job():
     except Exception as e:
         log.error(f"daily_backup_job exception: {e}")
 
-
 # ============ Phase Solidification P0 #3 — Handler usage telemetry ============
-
 
 async def log_handler_call_middleware(update, ctx):
     """Pre-handler middleware: log every command call to handler_calls table.
@@ -641,149 +621,6 @@ async def log_handler_call_middleware(update, ctx):
     except Exception as e:
         log.warning(f"handler telemetry failed: {e}")
 
-
-
-
-async def cmd_health(update, ctx):
-    """Health check: process, DB, LLM activity, data freshness, recent errors."""
-    import os
-    from datetime import datetime
-    from pathlib import Path
-
-    from shared import storage as storage_mod
-
-    lines = ["*Bot health check*", ""]
-
-    # Process
-    pid = os.getpid()
-    bot_start_iso = storage_mod.load_state().get("bot_start_ts", "?")
-    try:
-        bot_start = datetime.fromisoformat(bot_start_iso.replace("Z", "+00:00"))
-        uptime_min = int((datetime.utcnow() - bot_start.replace(tzinfo=None)).total_seconds() / 60)
-        uptime_str = f"{uptime_min // 60}h {uptime_min % 60}min"
-    except Exception:
-        uptime_str = "?"
-    lines.append(f"*Process:* PID {pid}, uptime {uptime_str}")
-
-    # DB
-    try:
-        db_path = storage_mod._DB_PATH
-        db_size_mb = round(Path(db_path).stat().st_size / 1024 / 1024, 2)
-        with storage_mod.db() as conn:
-            wal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
-        lines.append(f"*DB:* OK, {db_size_mb} MB, WAL={wal_mode}")
-    except Exception as e:
-        lines.append(f"*DB:* FAILED ({e})")
-
-    # LLM activity (last call from llm_calls table)
-    try:
-        with storage_mod.db() as conn:
-            row = conn.execute(
-                "SELECT MAX(created_at) as last, COUNT(*) as n FROM llm_calls WHERE created_at > datetime('now', '-24 hours')"
-            ).fetchone()
-            last_llm = row["last"] if row else None
-            n_llm_24h = row["n"] if row else 0
-            cost_24h_row = conn.execute(
-                "SELECT COALESCE(SUM(cost_usd), 0) as c FROM llm_calls WHERE created_at > datetime('now', '-24 hours')"
-            ).fetchone()
-            cost_24h = float(cost_24h_row["c"]) if cost_24h_row else 0.0
-        lines.append(f"*LLM:* {n_llm_24h} calls last 24h, ${cost_24h:.2f}, last @ {last_llm or 'never'}")
-    except Exception as e:
-        lines.append(f"*LLM:* FAILED ({e})")
-
-    # Data freshness (signals, gmail cron health)
-    try:
-        with storage_mod.db() as conn:
-            row = conn.execute(
-                "SELECT MAX(timestamp) as last, COUNT(*) as n FROM signals WHERE timestamp > datetime('now', '-24 hours')"
-            ).fetchone()
-            last_sig = row["last"] if row else None
-            n_sig_24h = row["n"] if row else 0
-        lines.append(f"*Signals 24h:* {n_sig_24h} ingested, last @ {last_sig or 'never'}")
-    except Exception as e:
-        lines.append(f"*Signals:* FAILED ({e})")
-
-    # Predictions + theses active count
-    try:
-        with storage_mod.db() as conn:
-            open_pred = conn.execute(
-                "SELECT COUNT(*) FROM predictions WHERE actual_date IS NULL"
-            ).fetchone()[0]
-            active_theses = conn.execute(
-                "SELECT COUNT(*) FROM theses WHERE COALESCE(status, 'active') = 'active'"
-            ).fetchone()[0]
-            open_pos = conn.execute(
-                "SELECT COUNT(*) FROM positions WHERE status = 'open'"
-            ).fetchone()[0]
-        lines.append(f"*Active state:* {open_pred} open predictions, {active_theses} active theses, {open_pos} open positions")
-    except Exception as e:
-        lines.append(f"*Active state:* FAILED ({e})")
-
-    # Recent handler usage (proves Telegram polling works)
-    try:
-        with storage_mod.db() as conn:
-            row = conn.execute(
-                "SELECT MAX(ts) as last FROM handler_calls WHERE ts > datetime('now', '-1 hour')"
-            ).fetchone()
-            last_handler = row["last"] if row and row["last"] else "no calls 1h"
-        lines.append(f"*Telegram:* last handler call @ {last_handler}")
-    except Exception:
-        lines.append("*Telegram:* (no handler_calls table or empty)")
-
-    lines.append("")
-    lines.append("_Run /handler_stats for detailed call breakdown._")
-    await update.message.reply_text("\n".join(lines))
-
-
-async def cmd_handler_stats(update, ctx):
-    """Phase Solidification P0 #3 — Show handler usage stats with Pareto curve.
-
-    Usage: /handler_stats [days=30]
-    """
-    parts = update.message.text.split()
-    days = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 30
-    import sqlite3 as _sql
-
-    from shared import storage as _storage
-
-    conn = _sql.connect(_storage._DB_PATH)
-    conn.row_factory = _sql.Row
-    try:
-        rows = conn.execute(
-            "SELECT handler_name, COUNT(*) AS n, "
-            "MAX(timestamp) AS last_used, MIN(timestamp) AS first_used "
-            "FROM handler_calls "
-            "WHERE timestamp >= datetime('now', '-' || ? || ' days') "
-            "GROUP BY handler_name ORDER BY n DESC",
-            (int(days),),
-        ).fetchall()
-    finally:
-        conn.close()
-    total = sum(r["n"] for r in rows)
-    if total == 0:
-        await update.message.reply_text(f"No handler calls in last {days} days.")
-        return
-    lines = [f"HANDLER USAGE — last {days}d ({total} calls, {len(rows)} unique)"]
-    cumulative = 0
-    for r in rows:
-        cumulative += r["n"]
-        pct = 100 * cumulative / total
-        last_dt = (r["last_used"] or "")[:10]
-        lines.append(f"  {r['handler_name']:24s} n={r['n']:4d} cumul={pct:5.1f}%  last={last_dt}")
-    # Pareto threshold callout
-    pareto_80 = next(
-        (i for i, _ in enumerate(rows) if sum(rows[j]["n"] for j in range(i + 1)) >= 0.8 * total), len(rows)
-    )
-    if pareto_80 < len(rows) - 1:
-        lines.append(
-            f"\nPareto: top {pareto_80 + 1} handlers = 80% calls. {len(rows) - pareto_80 - 1} handlers = long tail."
-        )
-    msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
-
-
 async def weekly_handler_stats_job():
     """Phase Solidification P0 #3 — Weekly handler usage summary, Sunday 23:00 Paris."""
     try:
@@ -810,192 +647,7 @@ async def weekly_handler_stats_job():
     except Exception as e:
         log.warning(f"weekly_handler_stats_job error: {e}")
 
-
 # ============ Phase Solidification P2 — KPI Status monitoring ============
-
-
-def _kpi_compute_all():
-    """Compute all 5 KPIs. Returns dict with status per KPI."""
-    import sqlite3 as _sql
-
-    from shared import storage as _storage
-
-    conn = _sql.connect(_storage._DB_PATH)
-    conn.row_factory = _sql.Row
-    out = {}
-
-    # KPI #2: predictions résolues 28d (target ≥5) + forecast 28d ahead
-    r2 = conn.execute(
-        "SELECT COUNT(*) AS resolved_28d FROM predictions "
-        "WHERE resolved_at IS NOT NULL AND resolved_at >= datetime('now', '-28 days')"
-    ).fetchone()
-    open_pred = conn.execute("SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL").fetchone()["n"]
-    stuck = conn.execute(
-        "SELECT COUNT(*) AS n FROM predictions WHERE target_date <= datetime('now') AND resolved_at IS NULL"
-    ).fetchone()["n"]
-    projected_28d = conn.execute(
-        "SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL AND target_date <= datetime('now', '+28 days')"
-    ).fetchone()["n"]
-    target = 5
-    n2 = r2["resolved_28d"]
-    # Forecast at J+28: current resolutions in window won't all stay (rolling), but new ones come in
-    # Simpler heuristic: projected = current + new resolutions expected in next 28d
-    forecast_j28 = n2 + projected_28d  # upper bound
-    if n2 >= target:
-        s2 = "✅ GREEN"
-    elif stuck > 0:
-        s2 = f"🚨 RED — {stuck} predictions stuck (target_date passé, resolve cron failing?)"
-    elif forecast_j28 >= target:
-        s2 = f"⏳ ON TRACK — {projected_28d} resolutions dues in next 28d, forecast J+28: {forecast_j28}"
-    elif n2 >= target * 0.6:
-        s2 = f"⚠️ YELLOW — forecast J+28: {forecast_j28} < target {target}"
-    else:
-        deficit = target - forecast_j28
-        s2 = f"🚨 PROJECTED BREACH — forecast J+28: {forecast_j28}, need {deficit} more predictions created"
-    out["kpi2"] = {
-        "title": "KPI #2 NON-NEG: Predictions résolues 28d",
-        "target": f"≥{target}",
-        "current": f"{n2} resolved | {open_pred} open ({stuck} stuck) | {projected_28d} due in 28d",
-        "status": s2,
-        "enforcement": "Stop build 5j + force-use si breach",
-    }
-
-    # KPI #3: Brier rolling 90d (target <0.20)
-    r3 = conn.execute(
-        "SELECT AVG(brier_score) AS brier_avg, COUNT(*) AS n FROM predictions "
-        "WHERE brier_score IS NOT NULL AND resolved_at >= datetime('now', '-90 days')"
-    ).fetchone()
-    brier = r3["brier_avg"]
-    n3 = r3["n"]
-    if n3 < 10:
-        s3 = f"🔍 INSUFFICIENT DATA — N={n3}, need ≥10"
-        b_str = f"N={n3} (insufficient)"
-    elif brier < 0.20:
-        s3 = "✅ GREEN"
-        b_str = f"{brier:.3f}"
-    elif brier < 0.25:
-        s3 = "⚠️ YELLOW — approaching ceiling"
-        b_str = f"{brier:.3f}"
-    else:
-        s3 = "🚨 RED — exceeded threshold, revue méthodo"
-        b_str = f"{brier:.3f}"
-    out["kpi3"] = {
-        "title": "KPI #3: Brier rolling 90d",
-        "target": "<0.20",
-        "current": b_str,
-        "status": s3,
-        "enforcement": "Alert + revue méthodo si >0.25",
-    }
-
-    # KPI #4: panic sells (heuristic: full_exit BEFORE thesis triggered_partial)
-    r4 = conn.execute(
-        "SELECT COUNT(*) AS n FROM decisions d "
-        "LEFT JOIN theses t ON t.id = d.thesis_id "
-        "WHERE d.decision_type = 'full_exit' "
-        "AND d.created_at >= datetime('now', '-30 days') "
-        "AND (t.triggered_partial_at IS NULL OR d.created_at < t.triggered_partial_at) "
-        "AND (t.triggered_stop_at IS NULL OR d.created_at < t.triggered_stop_at)"
-    ).fetchone()
-    n4 = r4["n"]
-    if n4 == 0:
-        s4 = "✅ GREEN"
-    elif n4 == 1:
-        s4 = "⚠️ YELLOW — 1 panic sell, monitor"
-    else:
-        s4 = f"🚨 RED — {n4} panic sells, pause + bias analysis"
-    out["kpi4"] = {
-        "title": "KPI #4: Panic sells core (30d)",
-        "target": "0",
-        "current": f"{n4} flagged (full_exit pre-partial-trigger)",
-        "status": s4,
-        "enforcement": "Pause + bias analysis si ≥1",
-    }
-
-    # KPI #5: decisions matérielles journalisées (reasoning >=30 chars AND bias_tags filled)
-    r5 = conn.execute(
-        "SELECT "
-        "  SUM(CASE WHEN decision_type IN ('entry','scale_in','partial_exit','full_exit') THEN 1 ELSE 0 END) AS material, "
-        "  SUM(CASE WHEN decision_type IN ('entry','scale_in','partial_exit','full_exit') "
-        "           AND LENGTH(COALESCE(reasoning, '')) >= 30 "
-        "           AND COALESCE(bias_tags, '') != '' THEN 1 ELSE 0 END) AS journalised "
-        "FROM decisions "
-        "WHERE created_at >= datetime('now', '-30 days')"
-    ).fetchone()
-    material = r5["material"] or 0
-    journalised = r5["journalised"] or 0
-    pct = 100.0 * journalised / material if material > 0 else None
-    if material == 0:
-        s5 = "🔍 NO MATERIAL DECISIONS 30d"
-        p_str = "N/A"
-    elif pct == 100:
-        s5 = "✅ GREEN"
-        p_str = "100%"
-    elif pct >= 90:
-        s5 = "⚠️ YELLOW"
-        p_str = f"{pct:.0f}%"
-    else:
-        s5 = "🚨 RED — backfill required avant new thesis"
-        p_str = f"{pct:.0f}%"
-    out["kpi5"] = {
-        "title": "KPI #5: Decisions matérielles journalisées",
-        "target": "100%",
-        "current": f"{journalised}/{material} = {p_str}",
-        "status": s5,
-        "enforcement": "No new thesis until backfill si <90%",
-    }
-
-    # KPI #6: skip (requires position book integration)
-    out["kpi6"] = {
-        "title": "KPI #6: TWR vs SPY/QQQ 12M",
-        "target": ">-5pp",
-        "current": "Not yet implemented",
-        "status": "⏸ NOT IMPLEMENTED — requires positions integration",
-        "enforcement": "Revue strat trimestrielle si <-5pp",
-    }
-
-    conn.close()
-    return out
-
-
-def _format_kpi_report(kpis):
-    """Format KPI dict into Telegram message."""
-    from datetime import datetime as _dt
-
-    lines = [f"📊 *KPI STATUS* — {_dt.now().strftime('%Y-%m-%d %H:%M')}", ""]
-    breach_count = 0
-    yellow_count = 0
-    green_count = 0
-    for key in ["kpi2", "kpi3", "kpi4", "kpi5", "kpi6"]:
-        k = kpis[key]
-        lines.append(f"*{k['title']}*")
-        lines.append(f"  Target  : {k['target']}")
-        lines.append(f"  Current : {k['current']}")
-        lines.append(f"  Status  : {k['status']}")
-        lines.append(f"  Enforce : _{k['enforcement']}_")
-        lines.append("")
-        if "🚨 RED" in k["status"]:
-            breach_count += 1
-        elif "⚠️ YELLOW" in k["status"] or "⏳ TIMER" in k["status"]:
-            yellow_count += 1
-        elif "✅ GREEN" in k["status"]:
-            green_count += 1
-    lines.append("═══════════════════════")
-    lines.append(f"Overall: {green_count} GREEN | {yellow_count} YELLOW/timer | {breach_count} RED")
-    if breach_count > 0:
-        lines.append("⚠️ Breaches detected — action required.")
-    return "\n".join(lines)
-
-
-async def cmd_kpi_status(update, ctx):
-    """Phase Solidification P2 — Show KPI status with breach detection."""
-    try:
-        kpis = _kpi_compute_all()
-        msg = _format_kpi_report(kpis)
-        await update.message.reply_text(msg, parse_mode="Markdown")
-    except Exception as e:
-        log.error(f"cmd_kpi_status error: {e}")
-        await update.message.reply_text(f"KPI status error: {e}")
-
 
 async def weekly_kpi_status_job():
     """Phase Solidification P2 — Weekly KPI status, Sunday 23:00 Paris."""
@@ -1009,141 +661,9 @@ async def weekly_kpi_status_job():
     except Exception as e:
         log.warning(f"weekly_kpi_status_job error: {e}")
 
-
 # ============ Phase Solidification P2 — Cost trajectory dashboard ============
 
 BUDGET_MONTHLY_USD = 50.0  # Target monthly LLM spend (per FICHE_TECHNIQUE)
-
-
-def _cost_compute_trajectory():
-    """Compute cost trajectory data: today, MTD, projection, breakdowns."""
-    import calendar as _cal
-    import sqlite3 as _sql
-    from datetime import datetime as _dt
-
-    from shared import storage as _storage
-
-    conn = _sql.connect(_storage._DB_PATH)
-    conn.row_factory = _sql.Row
-    try:
-        today_str = _dt.now().strftime("%Y-%m-%d")
-        now = _dt.now()
-        days_in_month = _cal.monthrange(now.year, now.month)[1]
-        day_of_month = now.day
-        month_start = f"{now.year:04d}-{now.month:02d}-01"
-
-        # Spend buckets
-        today = conn.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) = ?", (today_str,)
-        ).fetchone()[0]
-        yesterday = conn.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) = DATE('now', '-1 day')"
-        ).fetchone()[0]
-        week7 = conn.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE created_at >= datetime('now', '-7 days')"
-        ).fetchone()[0]
-        days30 = conn.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE created_at >= datetime('now', '-30 days')"
-        ).fetchone()[0]
-        mtd = conn.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE DATE(created_at) >= ?", (month_start,)
-        ).fetchone()[0]
-
-        # Projection month-end (linear extrapolation)
-        projection = (mtd / day_of_month) * days_in_month if day_of_month > 0 else 0
-        budget_pct = 100.0 * projection / BUDGET_MONTHLY_USD if BUDGET_MONTHLY_USD > 0 else 0
-
-        if projection < BUDGET_MONTHLY_USD * 0.6:
-            status = "✅ GREEN"
-        elif projection < BUDGET_MONTHLY_USD * 0.9:
-            status = "⚠️ YELLOW"
-        else:
-            status = "🚨 RED — budget breach imminent"
-
-        # By tier 30d
-        tier_rows = conn.execute(
-            "SELECT COALESCE(tier, '?') AS tier, ROUND(SUM(cost_usd), 4) AS spend, COUNT(*) AS n "
-            "FROM llm_calls WHERE created_at >= datetime('now', '-30 days') "
-            "GROUP BY tier ORDER BY spend DESC"
-        ).fetchall()
-
-        # By task 30d (top 8)
-        task_rows = conn.execute(
-            "SELECT COALESCE(NULLIF(task, ''), '(untagged)') AS task, "
-            "       ROUND(SUM(cost_usd), 4) AS spend, COUNT(*) AS n "
-            "FROM llm_calls WHERE created_at >= datetime('now', '-30 days') "
-            "GROUP BY task ORDER BY spend DESC LIMIT 8"
-        ).fetchall()
-
-        # Daily trend last 7d
-        daily_rows = conn.execute(
-            "SELECT DATE(created_at) AS day, ROUND(SUM(cost_usd), 4) AS spend "
-            "FROM llm_calls WHERE created_at >= datetime('now', '-7 days') "
-            "GROUP BY day ORDER BY day"
-        ).fetchall()
-
-        return {
-            "today": today,
-            "yesterday": yesterday,
-            "week7": week7,
-            "days30": days30,
-            "mtd": mtd,
-            "projection": projection,
-            "budget_pct": budget_pct,
-            "status": status,
-            "days_elapsed": day_of_month,
-            "days_in_month": days_in_month,
-            "tier_rows": [dict(r) for r in tier_rows],
-            "task_rows": [dict(r) for r in task_rows],
-            "daily_rows": [dict(r) for r in daily_rows],
-        }
-    finally:
-        conn.close()
-
-
-def _cost_format_trajectory(data):
-    """Format trajectory dict to Telegram message."""
-    lines = ["💰 *COST TRAJECTORY*", ""]
-    lines.append("*Daily*")
-    lines.append(f"  Today      : ${data['today']:.4f}")
-    lines.append(f"  Yesterday  : ${data['yesterday']:.4f}")
-    lines.append(f"  7d window  : ${data['week7']:.4f}")
-    lines.append(f"  30d window : ${data['days30']:.4f}")
-    lines.append("")
-    lines.append("*Month-to-Date*")
-    lines.append(f"  Spent     : ${data['mtd']:.4f} ({data['days_elapsed']}/{data['days_in_month']}j)")
-    lines.append(f"  Projected : ${data['projection']:.2f} (linear extrapol.)")
-    lines.append(f"  Budget    : ${BUDGET_MONTHLY_USD:.0f}/mo target")
-    lines.append(f"  Usage     : {data['budget_pct']:.1f}% of budget")
-    lines.append(f"  Status    : {data['status']}")
-    lines.append("")
-    lines.append("*Top tier 30d*")
-    for r in data["tier_rows"]:
-        pct = 100 * r["spend"] / data["days30"] if data["days30"] > 0 else 0
-        lines.append(f"  {r['tier']:12s} ${r['spend']:.4f} ({pct:.0f}%, n={r['n']})")
-    lines.append("")
-    lines.append("*Top task 30d*")
-    for r in data["task_rows"][:5]:
-        lines.append(f"  {r['task'][:20]:20s} ${r['spend']:.4f} (n={r['n']})")
-    lines.append("")
-    lines.append("*Daily 7d trend*")
-    for r in data["daily_rows"]:
-        bar_len = int(r["spend"] / max(0.01, max(d["spend"] for d in data["daily_rows"])) * 15)
-        bar = "█" * bar_len
-        lines.append(f"  {r['day']}  ${r['spend']:.4f}  {bar}")
-    return "\n".join(lines)
-
-
-async def cmd_cost_trajectory(update, ctx):
-    """Phase Solidification P2 — Strategic cost dashboard avec MTD + projection + budget."""
-    try:
-        data = _cost_compute_trajectory()
-        msg = _cost_format_trajectory(data)
-        await update.message.reply_text(msg, parse_mode="Markdown")
-    except Exception as e:
-        log.error(f"cmd_cost_trajectory error: {e}")
-        await update.message.reply_text(f"Error: {e}")
-
 
 async def weekly_cost_summary_job():
     """Phase Solidification P2 — Weekly cost summary, Sunday 22:00 Paris."""
@@ -1161,7 +681,6 @@ async def weekly_cost_summary_job():
             )
     except Exception as e:
         log.warning(f"weekly_cost_summary_job error: {e}")
-
 
 async def cmd_sources_health(update, ctx):
     """Health check newsletter sources."""
@@ -1208,7 +727,6 @@ async def cmd_sources_health(update, ctx):
         cred = cred or 0
         lines.append(f"{short:<30} cred={cred:.2f} 30d={n_30d:>3} {status}")
     await update.message.reply_text("\n".join(lines))
-
 
 async def cmd_orphan_tickers(update, ctx):
     """Tickers in signals (30d) NOT in watchlist."""
@@ -1325,7 +843,6 @@ async def cmd_orphan_tickers(update, ctx):
         lines.append(f"  {ticker:<8} {count} mention(s)")
     lines.append(f"\nTotal distinct orphans: {len(counter)}")
     await update.message.reply_text("\n".join(lines))
-
 
 async def cmd_history(update, ctx):
     """Historical context for a ticker."""
@@ -1446,7 +963,6 @@ async def cmd_history(update, ctx):
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[...truncated...]"
     await update.message.reply_text(msg)
-
 
 async def cmd_journal(update, ctx):
     """Log a decision. Usage: /journal <TICKER> <type> <confidence_1_5> <reasoning>
@@ -1611,7 +1127,6 @@ async def cmd_journal(update, ctx):
     msg.append(f"  J+30 resolution = {resolve_30}, J+90 = {resolve_90}")
     await update.message.reply_text("\n".join(msg))
 
-
 async def cmd_journal_review(update, ctx):
     """Review journal stats + recent decisions. Usage: /journal_review [TICKER]"""
     from intelligence import journal
@@ -1659,7 +1174,6 @@ async def cmd_journal_review(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def cmd_journal_unresolved(update, ctx):
     """List decisions awaiting J+30 or J+90 resolution."""
     from intelligence import journal
@@ -1689,7 +1203,6 @@ async def cmd_journal_unresolved(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def cmd_journal_tag(update, ctx):
     """Manually override mistake tag. Usage: /journal_tag <id> <tag>"""
     parts = update.message.text.split()
@@ -1717,7 +1230,6 @@ async def cmd_journal_tag(update, ctx):
         f"OK decision #{did}: mistake_tag_manual='{new_tag}'\n  (was auto: {d.get('mistake_tag_auto') or 'pending'})"
     )
 
-
 async def recalibrate_credibility_brier_job():
     """Phase A1 — Monthly cron: recalibrate sources.credibility from rolling Brier scores."""
     log.info("Brier credibility recalibration starting")
@@ -1738,7 +1250,6 @@ async def recalibrate_credibility_brier_job():
         log.info(f"Brier recalibration done: {len(updates)} sources updated")
     except Exception as e:
         log.exception(f"recalibrate_credibility_brier_job crashed: {e}")
-
 
 async def cmd_sources_brier(update, ctx):
     """Phase A1 — Display per-source Brier calibration stats."""
@@ -1784,53 +1295,6 @@ async def cmd_sources_brier(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
-async def cmd_llm_costs(update, ctx):
-    """Phase A2 — Display LLM call costs + token usage by tier.
-    Usage: /llm_costs [hours]   (default 24h)
-    """
-    parts = update.message.text.split()
-    try:
-        hours = int(parts[1]) if len(parts) > 1 else 24
-    except ValueError:
-        hours = 24
-
-    from shared import llm
-
-    try:
-        data = llm.get_cost_summary(window_hours=hours)
-    except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
-        return
-
-    rows = data["rows"]
-    errors = data["errors"]
-
-    if not rows:
-        await update.message.reply_text(f"No LLM calls in last {hours}h. (errors: {errors})")
-        return
-
-    lines = [f"LLM costs last {hours}h"]
-    total_cost = sum(r.get("cost") or 0 for r in rows)
-    total_calls = sum(r["n_calls"] for r in rows)
-    total_in = sum(r["in_t"] or 0 for r in rows)
-    total_out = sum(r["out_t"] or 0 for r in rows)
-    total_cached = sum(r["cached_t"] or 0 for r in rows)
-    cache_pct = (total_cached / total_in * 100) if total_in else 0
-    lines.append(f"  Total: {total_calls} calls, ${total_cost:.4f}")
-    lines.append(f"  Tokens: {total_in:,} in ({total_cached:,} cached, {cache_pct:.1f}%) / {total_out:,} out")
-    if errors:
-        lines.append(f"  Errors: {errors}")
-    lines.append("")
-    lines.append("By tier/model:")
-    for r in rows:
-        cost = r.get("cost") or 0
-        avg = r.get("avg_ms") or 0
-        lines.append(f"  {r['tier']:11s} {r['model'][:30]:30s} n={r['n_calls']} ${cost:.4f} avg={avg:.0f}ms")
-    msg = "\n".join(lines)
-    await update.message.reply_text(msg)
-
-
 async def update_echo_clusters_job():
     """Phase A3 — Hourly: embed pending signals + compute echo clusters in 48h window."""
     log.info("Echo clusters update starting")
@@ -1852,7 +1316,6 @@ async def update_echo_clusters_job():
         log.info(f"Echo clusters done: {len(clusters)} total, {len(multi)} multi-source")
     except Exception as e:
         log.exception(f"update_echo_clusters_job crashed: {e}")
-
 
 async def cmd_echo_recent(update, ctx):
     """Phase A3 — Show recent multi-source echo clusters. Usage: /echo_recent [hours]"""
@@ -1892,7 +1355,6 @@ async def cmd_echo_recent(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def score_pending_signals_job():
     """Phase data-quality fix — Hourly: score signals with entities IS NULL.
     Drains backlog of signals that the daily digest (limit=20/day) didn't cover.
@@ -1911,7 +1373,6 @@ async def score_pending_signals_job():
     except Exception as e:
         log.exception(f"score_pending_signals_job crashed: {e}")
 
-
 async def refresh_source_half_lives_job():
     """Phase A4 — Weekly: refresh half-life per source from forward price windows."""
     log.info("Refresh source half-lives starting")
@@ -1923,7 +1384,6 @@ async def refresh_source_half_lives_job():
         log.info(f"Half-lives refreshed: {persisted}/{len(results)} sources updated")
     except Exception as e:
         log.exception(f"refresh_source_half_lives_job crashed: {e}")
-
 
 async def cmd_sources_half_life(update, ctx):
     """Phase A4 — Display per-source information half-life."""
@@ -1967,7 +1427,6 @@ async def cmd_sources_half_life(update, ctx):
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 def _portfolio_journal_ctx(ticker):
     """Phase B5 — Auto-context for journal log_decision: price, regime, credit, thesis_id, materiality_top."""
@@ -2031,7 +1490,6 @@ def _portfolio_journal_ctx(ticker):
         pass
     return price, regime_str, credit_str, thesis_id, direction, materiality_top
 
-
 async def cmd_portfolio(update, ctx):
     """Phase B5 — Show active positions + concentration + unrealized PnL."""
     from shared import storage as storage_mod
@@ -2074,7 +1532,6 @@ async def cmd_portfolio(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def cmd_position_history(update, ctx):
     """Phase B5 — Show position history. Usage: /position_history [TICKER]"""
     from shared import storage as storage_mod
@@ -2094,7 +1551,6 @@ async def cmd_position_history(update, ctx):
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 async def cmd_bias_review(update, ctx):
     """Phase B6 — Show aggregated bias frequencies. Usage: /bias_review [TICKER]"""
@@ -2130,7 +1586,6 @@ async def cmd_bias_review(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def cmd_thesis_premortem(update, ctx):
     """Phase B7 — Display pre-mortem for a thesis. Usage: /thesis_premortem <id>"""
     parts = update.message.text.split()
@@ -2159,7 +1614,6 @@ async def cmd_thesis_premortem(update, ctx):
     if len(display) > 3900:
         display = display[:3900] + "\n[truncated]"
     await update.message.reply_text(display)
-
 
 async def cmd_insider_buy_cluster(update, ctx):
     """Phase C7 — List BUY clusters. Usage: /insider_buy_cluster [TICKER]"""
@@ -2210,7 +1664,6 @@ async def cmd_insider_buy_cluster(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def cmd_insider_buy_cluster_stats(update, ctx):
     """Phase C7 — Empirical alpha summary across all logged BUY clusters."""
     from intelligence import insider_buy_cluster as ibc
@@ -2224,7 +1677,6 @@ async def cmd_insider_buy_cluster_stats(update, ctx):
         return
     msg = ibc.format_stats(stats)
     await update.message.reply_text(msg)
-
 
 async def scheduled_8k_scan_job():
     """Phase C9 — Daily cron 6:30: scan watchlist for new 8-K filings, push high+catastrophic alerts."""
@@ -2255,7 +1707,6 @@ async def scheduled_8k_scan_job():
         notify.send_text(msg.strip())
     log.info(f"8-K scan: {len(new_logged)} new logged, {len(alerts)} alerted")
 
-
 async def cmd_recent_8k(update, ctx):
     """Phase C9 — List recent 8-Ks. Usage: /recent_8k [TICKER] [severity]"""
     parts = update.message.text.split()
@@ -2276,7 +1727,6 @@ async def cmd_recent_8k(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def cmd_eight_k_history(update, ctx):
     """Phase C9 — Full 8-K history for ticker. Usage: /eight_k_history TICKER"""
     parts = update.message.text.split()
@@ -2295,7 +1745,6 @@ async def cmd_eight_k_history(update, ctx):
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
 
 async def cmd_analyze_debate(update, ctx):
     """Phase C11 — Multi-round Bull/Bear debate. Usage: /analyze_debate TICKER"""
@@ -2334,7 +1783,6 @@ async def cmd_analyze_debate(update, ctx):
         log.warning(f"analyze_debate error: {e}")
         await update.message.reply_text(f"Error: {e}")
 
-
 async def cmd_debate_replay(update, ctx):
     """Phase C11 — Replay stored debate by id. Usage: /debate_replay <id>"""
     import json
@@ -2362,7 +1810,6 @@ async def cmd_debate_replay(update, ctx):
         if len(c) > 3900:
             c = c[:3900] + "\n[truncated]"
         await update.message.reply_text(c)
-
 
 async def cmd_risk_check(update, ctx):
     """Phase C12 — Pre-commit discipline check on proposed trade.
@@ -2410,7 +1857,6 @@ async def cmd_risk_check(update, ctx):
         log.warning(f"risk_check error: {e}")
         await update.message.reply_text(f"Error: {e}")
 
-
 async def cmd_tiers(update, ctx):
     """Phase Tickers Tiered — display ticker tier breakdown."""
     from shared import config as cfg_mod
@@ -2433,7 +1879,6 @@ async def cmd_tiers(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def cmd_tiers_watch(update, ctx):
     """Full list of T2 watch tickers."""
     from shared import config as cfg_mod
@@ -2441,7 +1886,6 @@ async def cmd_tiers_watch(update, ctx):
     watch = cfg_mod.get_tickers("watch")
     msg = f"T2 WATCH ({len(watch)} tickers):\n\n" + ", ".join(watch)
     await update.message.reply_text(msg)
-
 
 async def cmd_promote(update, ctx):
     """Phase Tickers Tiered — promote ticker between tiers.
@@ -2458,7 +1902,6 @@ async def cmd_promote(update, ctx):
 
     ok, msg = cfg_mod.promote_ticker(ticker, new_tier)
     await update.message.reply_text(("OK " if ok else "FAIL ") + msg)
-
 
 async def cmd_asymmetry(update, ctx):
     """Phase C13 — Show asymmetry ratio for thesis. Usage: /asymmetry [TICKER]"""
@@ -2483,7 +1926,6 @@ async def cmd_asymmetry(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def cmd_brief(update, ctx):
     """Phase Brief — Morning ritual aggregator."""
     await update.message.reply_text("Building morning brief (10-20s)...")
@@ -2500,7 +1942,6 @@ async def cmd_brief(update, ctx):
         log.warning(f"brief error: {e}")
         await update.message.reply_text(f"Brief failed: {e}")
 
-
 async def scheduled_classify_signal_types_job():
     """Phase Digestion 3a — Classify signals with signal_type=NULL every 30min."""
     try:
@@ -2512,7 +1953,6 @@ async def scheduled_classify_signal_types_job():
     except Exception as e:
         log.warning(f"classify_signal_types_job error: {e}")
 
-
 async def scheduled_recompute_materiality_boost_job():
     """Phase Digestion 3b — Recompute corroboration multipliers after echo clusters update."""
     try:
@@ -2523,7 +1963,6 @@ async def scheduled_recompute_materiality_boost_job():
             log.info(f"materiality_boost: {n} signals re-boosted")
     except Exception as e:
         log.warning(f"recompute_boost_job error: {e}")
-
 
 async def cmd_signals_by_type(update, ctx):
     """Phase Digestion 3a — Usage: /signals_by_type catalyst|data|narrative|opinion [hours]"""
@@ -2559,7 +1998,6 @@ async def cmd_signals_by_type(update, ctx):
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
-
 async def scheduled_materiality_v2_job():
     """Phase Digestion 3c — Score signals with structured rubric every 1h."""
     try:
@@ -2570,8 +2008,6 @@ async def scheduled_materiality_v2_job():
             log.info(f"materiality_v2: {s} scored, {f} failed of {total}")
     except Exception as e:
         log.warning(f"materiality_v2_job error: {e}")
-
-
 
 async def post_init(app):
     """Run AFTER event loop is started."""
@@ -2610,7 +2046,6 @@ async def post_init(app):
     )
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 
-
 async def cmd_macro(update, context):
     """Show FOMC / NFP / CPI macro events for next 90 days."""
     try:
@@ -2618,7 +2053,6 @@ async def cmd_macro(update, context):
     except Exception as e:
         msg = f"Error fetching macro calendar: {e}"
     await update.message.reply_text(msg)
-
 
 async def cmd_insider_digest(update, context):
     """Manual: refresh insider snapshots and post digest."""
@@ -2630,7 +2064,6 @@ async def cmd_insider_digest(update, context):
         msg = f"Error: {e}"
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-
 async def scheduled_insider_refresh_job():
     """Cron: 6h Paris daily — refresh + post if anything notable."""
     try:
@@ -2640,7 +2073,6 @@ async def scheduled_insider_refresh_job():
         log.info(f"scheduled_insider_refresh: {result['refreshed']} tickers, {len(result['alerts'])} alerts")
     except Exception as e:
         log.error(f"scheduled_insider_refresh failed: {e}")
-
 
 async def price_monitor_job():
     """Cron 15min mkt hours: check active theses for price crossings."""
@@ -2652,7 +2084,6 @@ async def price_monitor_job():
             log.warning(f"price_monitor: failed tickers: {r['fails']}")
     except Exception as e:
         log.error(f"price_monitor_job: {e}")
-
 
 async def cmd_price_check(update, ctx):
     """Manual trigger : check all active theses for crossings right now."""
@@ -2669,7 +2100,6 @@ async def cmd_price_check(update, ctx):
             await update.message.reply_text(f"{r['theses_checked']} theses checked, no crossings.")
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
-
 
 async def cmd_override(update, ctx):
     """Override capture/list: /override (list) | /override TICKER level reason (create)"""
@@ -2708,7 +2138,6 @@ async def cmd_override(update, ctx):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
-
 async def cmd_crypto(update, ctx):
     """Show crypto cycle indicators (funding, OI, Mayer Multiple)."""
     try:
@@ -2717,7 +2146,6 @@ async def cmd_crypto(update, ctx):
     except Exception as e:
         msg = f"Error: {e}"
     await update.message.reply_text(msg)
-
 
 async def daily_crypto_zone_job():
     """Cron daily 10h Paris : check crypto zone, alert if extreme. Includes position context."""
@@ -2751,7 +2179,6 @@ async def daily_crypto_zone_job():
     except Exception as e:
         log.error(f"daily_crypto_zone_job: {e}")
 
-
 async def cmd_position_set(update, ctx):
     """Bootstrap position: /position_set TICKER QTY AVG_COST [notes]"""
     parts = update.message.text.split(maxsplit=4)
@@ -2765,7 +2192,6 @@ async def cmd_position_set(update, ctx):
         await update.message.reply_text(f"✓ Position set: {ticker} qty={qty:.3f} @ ${avg:.2f}")
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
-
 
 async def cmd_position_buy(update, ctx):
     """Buy + Phase B5 journal logging + bias tagging (auto).
@@ -2865,7 +2291,6 @@ async def cmd_position_buy(update, ctx):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
-
 async def cmd_position_sell(update, ctx):
     """Sell + Phase B5 journal logging + bias tagging (auto).
     Usage: /position_sell <TICKER> <QTY> <PRICE> [reasoning]
@@ -2927,8 +2352,6 @@ async def cmd_position_sell(update, ctx):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
-
-
 async def cmd_position(update, ctx):
     """Detail: /position TICKER"""
     parts = update.message.text.split()
@@ -2945,7 +2368,6 @@ async def cmd_position(update, ctx):
         await update.message.reply_text(positions_mod.format_position_detail(p, hist))
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
-
 
 async def cmd_thesis_set(update, ctx):
     """Edit a field on active thesis: /thesis_set TICKER field value"""
@@ -2996,7 +2418,6 @@ async def cmd_thesis_set(update, ctx):
         cx.commit()
     await update.message.reply_text(f"✓ {ticker} {field}: {old_val} → {value}")
 
-
 async def cmd_analyze(update, ctx):
     """Full company analysis fiche: /analyze TICKER"""
     parts = update.message.text.split()
@@ -3013,7 +2434,6 @@ async def cmd_analyze(update, ctx):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
-
 async def cmd_insider_cluster(update, ctx):
     """Detect cluster buying/selling: /insider_cluster TICKER [days]"""
     parts = update.message.text.split()
@@ -3028,7 +2448,6 @@ async def cmd_insider_cluster(update, ctx):
         await update.message.reply_text(edgar_mod.format_insider_cluster(cluster))
     except Exception as e:
         await update.message.reply_text("Error: " + str(e))
-
 
 async def scheduled_buy_cluster_scan_job():
     """Daily scan: detect + log + alert on new BUY clusters (CMP 30d window, 7d dedup)."""
@@ -3060,7 +2479,6 @@ async def scheduled_buy_cluster_scan_job():
     else:
         log.info("Daily buy cluster scan: no new clusters logged")
 
-
 async def scheduled_resolve_buy_cluster_returns_job():
     """Daily cron: resolve return_30d and return_90d for pending BUY clusters."""
     from intelligence import insider_buy_cluster as ibc
@@ -3083,7 +2501,6 @@ async def scheduled_resolve_buy_cluster_returns_job():
     except Exception as e:
         log.warning(f"resolve buy cluster returns error: {e}")
 
-
 async def cmd_credit(update, ctx):
     try:
         from shared import macro
@@ -3092,7 +2509,6 @@ async def cmd_credit(update, ctx):
         await update.message.reply_text(macro.format_credit_regime(r))
     except Exception as e:
         await update.message.reply_text("Error: " + str(e))
-
 
 async def cmd_materiality(update, ctx):
     """Materiality views: /materiality (top 5) | /materiality SIGNAL_ID | /materiality TICKER"""
@@ -3278,7 +2694,6 @@ def main():
 
     log.info("Polling Telegram...")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()

@@ -1,12 +1,13 @@
 {
-  "captured_at": "2026-05-16T03:08:09.941043+00:00",
+  "captured_at": "2026-05-16T03:23:01.463795+00:00",
   "chunk": 1,
   "cmd_def_count": 66,
   "files_scanned": [
     "bot/main.py",
     "bot/handlers/__init__.py",
     "bot/handlers/anti_erosion.py",
-    "bot/handlers/find.py"
+    "bot/handlers/find.py",
+    "bot/handlers/observability.py"
   ],
   "function_hashes": {
     "_append_log_entry": "067b947dce7c3be5",
@@ -116,9 +117,9 @@
     "weekly_handler_stats_job": "785d4bfa88a99625",
     "weekly_kpi_status_job": "266ca0043cfc1d64"
   },
-  "git_commit": "1c649af",
+  "git_commit": "f832669",
   "handler_registration_count": 66,
-  "label": "anti_erosion_plus_find_aggregator",
-  "main_py_lines": 3284,
+  "label": "anti_erosion_find_observability_extracted",
+  "main_py_lines": 2699,
   "scheduler_jobs_count": 23
 }
