@@ -2,9 +2,8 @@
 
 import contextlib
 import logging
-from datetime import datetime
 import os
-from datetime import UTC
+from datetime import UTC, datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Update
