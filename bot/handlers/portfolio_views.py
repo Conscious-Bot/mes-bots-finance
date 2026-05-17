@@ -209,8 +209,10 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
         n = len(data["tickers"])
         pnl_pct = ((data["mv"] / data["cost_basis"] - 1) * 100) if data["cost_basis"] else 0
         tickers_str = ", ".join(sorted(data["tickers"]))
+        # Escape underscores in narrative for Telegram Markdown legacy (avoid italic in bold)
+        narrative_display = narrative.replace("_", "\\_")
         lines.append(
-            f"  *{narrative}*  {format_finance(data['mv'], decimals=0)}  "
+            f"  *{narrative_display}*  {format_finance(data['mv'], decimals=0)}  "
             f"[{pct:4.1f}%]  ({n} pos, PnL {format_pct(pnl_pct, decimals=1, signed=True)})"
         )
         lines.append(f"    {tickers_str}")
