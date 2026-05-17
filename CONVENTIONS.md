@@ -361,3 +361,76 @@ for pid in (pgrep−if"python.∗bot.main");dokill−9"(pgrep -if "python.*bot.m
 - 21:25 KST — kill by job PID didn't kill interpreter, leaving 13403 alive
 
 Justifies promotion from informal note to codified §19.
+
+
+---
+
+## Section 16: Gates 5/5 discipline (added Day 9, 17 mai 2026)
+
+Lessons acquired through 3 protocol failures dans Sprint 1 Day 9.
+Cette section est non-negotiable - violations = bot crash / KPI undercount /
+silent data corruption observees empiriquement.
+
+### Regle 1: Ruff = boolean STOP
+Si `ruff check` retourne ANY error (exit != 0), commit STRICTEMENT bloque.
+Aucune agregation avec autres gates (import OK, pytest passed, mypy clean
+ne sont PAS des exceptions). La gate ruff se lit boolean isole.
+
+Anti-pattern observe Day 9 Sprint 1: shipped commit avec ruff F821 RED
+en s'appuyant sur "import OK + pytest 218 passed = good enough" -> bot crash
+post-restart (NameError 'datetime' not defined).
+
+### Regle 2: WARN halt upstream
+Les WARN dans output de patches scripts (anchor count != 1, conditional
+skip silencieux, missing import inference) = HALT signal. Ne pas continuer
+aux gates si WARN detected. Investiguer + corriger le patch script avant
+runs gates.
+
+Anti-pattern observe Day 9 Sprint 1: ignored WARN "couldn't find anchor
+for UTC injection" -> shipped F821 RED -> 2eme ruff failure dans meme sprint.
+
+### Regle 3: Scope match producer
+Empirical smoke test DOIT couvrir TOUTES les branches du producer, pas
+juste un cas connu. Si fixing un classifier qui handle 5 status types,
+tester les 5. Si fixing un formatter qui rend N cas, tester N.
+
+Anti-pattern observe Day 9 Sprint 1: tested only 5 KPI #2 branches dans
+smoke beta v1 -> production avait KPI #3-6 avec d'autres emojis (cible/
+en_attente) -> Overall count undercount persisted post-fix.
+
+### Regle 4: Carry-forward dette = inline
+Si commit message mentionne explicitly "carry-forward dette remains" pour
+une issue connexe au fix shipped: per meta-rule "default = option la plus
+complete", fixer inline. Reporter cette dette = echec discipline.
+
+Anti-pattern observe Day 9 Sprint 1: commit alpha v1 explicitly noted
+"timezone consistency dette remains - separate carry-forward" et shipped
+quand meme -> uptime "-2h 7min" negative empirically -> alpha2 closure
+forcee meme sprint.
+
+### Regle 5: Conditional patch logic risk
+Heuristics dans patching scripts (`if X not in content[:1000]`) = misfire
+risk silencieux. Preferer EXPLICIT anchors + asserts. Si l'anchor n'est
+pas trouvable, l'erreur doit etre bruyante (assert fail), pas silencieuse
+(skip + WARN).
+
+Anti-pattern observe Day 9 Sprint 1: heuristic UTC injection failed
+silently because content slice didn't match expected pattern -> WARN logged
+but execution continued -> patches referenced unbound UTC -> ruff F821.
+
+### Regle 6: Transcript compaction = duplicate commit risk
+Sur reopen post-transcript-compaction, ALWAYS run `git log -5` +
+`git rev-parse --verify <tag>` AVANT toute action de closure proposee.
+Tag/commit du jour existe deja -> diagnostic first, action ensuite.
+
+Anti-pattern observe Day 8 closure: duplicate Day 8 close commit shipped
+because pre-compaction commit not visible in active context -> force-reset
++ force-push recovery.
+
+### Regle 7: Bash inline # = path separator (zsh)
+zsh `interactive_comments` not active inline. `git log A..HEAD # comment`
+-> "fatal: ambiguous argument '#': unknown revision or path". Use `;`
+separator or `||true` continuation, JAMAIS inline comment dans bash bloc.
+
+Anti-pattern observe Day 8/9 multiple times: inline `#` comments breaking
+diagnostic outputs.
