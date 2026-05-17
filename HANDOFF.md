@@ -1,9 +1,12 @@
 # HANDOFF — mes-bots-finance
 
-**Last refresh**: 16 May 2026 ~20:15 KST — Day 5 evening v3 final close
-**Mode**: High Standard / Solidification — Path 5/6 strategic target
-**Current commit**: c1032b8 (49 commits Day 5 total)
-**Bot state**: PID 34990 vivant, scheduler healthy, 22 crons active
+**Last refresh**: 17 May 2026 ~14:15 KST — Day 9 P3 closure complete (~10-11h cumulative session)
+**Mode**: High Standard / Solidification + Observation phase (J-23 vers 10 juin 2026 KPI #2 batch resolution)
+**Current commit**: 85440e4 (HEAD = origin/main, day9-close tag stable @ 52bd3a0)
+**Bot state**: PID 41435 vivant, scheduler 23 crons active
+**Tests**: 226 passing (218 prior + 8 new Hypothesis portfolio_metrics)
+**Mypy**: 16 modules strict-typed (+ shared.portfolio_metrics Day 9)
+**KPI #6**: wired Day 9 P3 (auto-flip GREEN/YELLOW/RED post-J+365 = 10 mai 2027)
 
 ---
 

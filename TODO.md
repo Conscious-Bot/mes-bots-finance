@@ -845,3 +845,44 @@ Per docs/sprint-1.2-plan.md:
 
 **Path 5/6 alignment** : "Plus de discipline dans l'usage > plus de
 discipline dans le code". Deprecation = solidification, pas regression.
+
+
+---
+
+## Day 9 session close (17 May 2026 ~14:15 KST)
+
+### Closed this session (all 5 ships + extensions post-day9-close tag 52bd3a0)
+- P1: CONVENTIONS Section 16 (7 rules codified) + Day 9 close tag aligned
+- P2: telemetry middleware verified DB-side + lesson 8 channel verification appended
+- P3: KPI #6 wired (shared/portfolio_metrics.py + 8 Hypothesis tests + observability wire + canonical schema)
+
+### Empirical state end-of-Day-9
+- 226 tests passing (218 prior + 8 new portfolio_metrics)
+- 16 modules strict-typed mypy (+ shared.portfolio_metrics)
+- ruff 0 errors all files
+- Bot PID 41435 alive, scheduler 23 crons
+- HEAD 85440e4 = origin/main, day9-close tag stable @ 52bd3a0
+- 5 KPIs all wired:
+  - #2 ON TRACK (45 resolutions dues 28d, forecast J+28: 46)
+  - #3 INSUFFICIENT DATA (N=0, awaits 10 juin batch resolution)
+  - #4 GREEN (0 panic sells)
+  - #5 NO MATERIAL DECISIONS 30d (post-DELETE row 7 hygiene)
+  - #6 INSUFFICIENT (1d/365d provisional, auto-flip 10 mai 2027)
+- /kpi_status Overall: 2 GREEN | 0 YELLOW | 0 RED | 3 N/A (sum to 5)
+
+### Backups Day 9 close (local, audit trail)
+- data/backups/pre_kpi5_delete_20260517_133157.db (Sprint 2 epsilon hygiene)
+- data/backups/pre_zeta_backfill_20260517_134038.db (Sprint 3 zeta hygiene)
+- data/backups/day9_close_db_20260517_1411.db (atomic snapshot 3.1MB, 32 tables, integrity OK)
+- data/backups/day9_close_20260517_1411.tar.gz (full data/ tar 3.2MB)
+
+### Carry-forward Day 10 (none urgent, observation phase active)
+- DEFER strict: bot/main.py 2428 LOC split (architectural session frais)
+- DEFER strict: USD canonical migration (post J+30 = 10 juin 2026)
+- Q3 (post-J+90 = ~15 aout 2026): dormant-handler triage post-telemetry-mature
+- KPI #6 auto-transition post-J+365 = 10 mai 2027 (no action needed)
+
+### Active timer
+- **J-23 vers KPI #2 batch resolution = 10 juin 2026** (45+ predictions due)
+- Observation phase: aucune feature build, monitoring passif uniquement
+- Discipline CONVENTIONS Section 16 (8 rules total) stricte applied
