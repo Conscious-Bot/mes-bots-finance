@@ -155,7 +155,7 @@ def _enrich_with_live(d: dict) -> dict:
     if d["qty"] <= 0:
         return d
     try:
-        p = prices.get_current_price(d["ticker"])
+        p = prices.get_current_price_in_eur(d["ticker"])
         if p:
             d["current_price"] = p
             d["market_value"] = p * d["qty"]
