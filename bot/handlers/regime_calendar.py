@@ -1,3 +1,5 @@
+from shared import config
+
 """Day 10 E batch 2+3 extracted from bot/main.py.
 
 Handlers: cmd_calendar, cmd_calendar_refresh, cmd_regime
