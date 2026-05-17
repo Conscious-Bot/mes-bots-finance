@@ -628,3 +628,42 @@ handles portfolio side. yfinance EURUSD=X = USD per 1 EUR.
 2. ps aux | grep -i bot.main
 3. Read this Day 9 P3 closure section
 4. Observation phase active jusqu au 10 juin 2026 (KPI #2 batch resolution)
+
+
+---
+
+## Day 9 audit H1 verdict (17 May 2026, closure by-design)
+
+**Audit question** : 22 position_events buys vs 2 decisions rows → KPI #5 regression ?
+
+**Empirical analysis** :
+- 21 Day 5 fills (2026-05-15) ALL tagged `legacy_import_2026_05_15` → bulk
+  SQL import bypassed cmd_position_buy Telegram handler → log_decision
+  NOT called (expected, architectural)
+- 1 Day 2 buy (2026-05-13 NVDA "test b2 flag off") = Phase B5 Ship 5
+  test artifact (Day 2 marathon)
+- 2 existing decisions rows : decision_type = `no_action_flag`
+  (test_manual_override + retest credit fix Day 2 marathon)
+  -> meta-decisions, NOT entry/scale/exit, excluded from KPI #5 trade scope
+
+**Phase B5 chain verified wired** in bot/handlers/positions.py:
+- L280 storage.log_decision (Phase B5 Ship 5 hybrid integration)
+- L303 storage.log_decision + L319 bias_tagger.auto_tag_biases
+- L362 storage.log_decision + L378 bias_tagger.auto_tag_biases
+- _portfolio_journal_ctx helper providing price + regime + credit + thesis_id
+
+**Verdict** : KPI #5 `🔍 NO MATERIAL DECISIONS 30d` = informative N/A
+correct. Chain will engage at first real /position_buy Telegram invocation.
+Zero such invocations in 30d window = explained by user workflow (all fills
+via bulk import Day 5).
+
+**No code change**. Audit closed.
+
+### Deferred non-debts (rationale documented for future audits)
+- L1 TZ ambiguity in opened_at parsing: precision impact <0.1% on 365d
+  KPI #6 windows, defer to PIT migration ADR 001 implementation
+- M4 telemetry typo pollution in handler_calls: cosmetic noise (porfolio,
+  portfolio_drive, healthy registered as distinct handler_name), defer
+  to Q3 dormant-handler triage when telemetry mature
+- M2 SMH/sectoral benchmark for KPI #6: new feature scope, not debt
+- L4 KPI #1 uptime wire to /kpi_status: new feature scope, not debt
