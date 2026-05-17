@@ -355,3 +355,140 @@ non-borne.
 4. NO new priority urgent (3 critical bugs patched Day 7)
 5. Si energie + temps: tackle shared/display.py architectural refactor (P2)
 6. Sinon: observation phase active jusqu'au 10 juin 2026 (KPI #2 batch resolution)
+
+
+---
+
+## Day 8 close (17/05/2026 ~04h45 KST, ~3h session)
+
+**HEAD**: 7c6d9a0 | **Tag**: day8-close
+
+### Ships this session (5 commits + B.4 NO-OP)
+
+1. **ddced97** feat(display) Phase A — shared/display.py centralized canonical API
+   - Currency StrEnum + CANONICAL_FINANCE=EUR, CANONICAL_BILLING=USD constants
+   - Primitives: format_money, format_finance, format_billing, format_pct,
+     format_pnl_pct, format_position_line, format_brief_position_line,
+     format_aggregate_line
+   - 29 Hypothesis property-based tests, currency-agnostic invariants
+     (assert against CANONICAL_FINANCE.value, not hard-coded "€")
+   - UX fix: format_pct normalizes -0.0 and round-to-zero -> "+0.0%" (caught
+     by Hypothesis edge case, prevented "-0.0%" production artifact)
+   - mypy strict override added for shared.display
+
+2. **43940db** feat(display) Phase B.1 — intelligence/morning_brief.py
+   - 3 sites: POSITIONS loop (3 branches -> 1 call), LLM cost line
+   - REMOVED legacy `(check fx)` defensive guard `elif abs(pnl) > 200`
+     (was masking legitimate +200% winners: PLTR 4x 2022, NVDA 3x 2023)
+   - Empirical cross-check: Python smoke IDENTICAL Day 6 /brief @ 17:31
+
+3. **38302bf** feat(display) Phase B.2 — bot/handlers/positions.py + 6 BUG FIXES
+   - Workstream A (4 sites display migration): portfolio totals, worst3, best3
+   - Workstream B (6 REAL BUGS $ -> EUR): trade-confirm messages rendered $
+     symbol pour prices EUR-stored. Bought/Sold price, avg_cost, Realized PnL
+     event + total. Latent bug shipped en production avant Day 8.
+   - API EXTENSION: added `signed: bool = False` to format_money/finance/billing
+   - +5 signed-behavior tests, baseline 213 -> 218
+
+4. **237367a** feat(display) Phase B.3 — bot/handlers/portfolio_views.py
+   - 11 sites, 3 fonctions (cmd_portfolio_sectors / _narratives / _drift)
+   - L148 sector aggregate -> format_aggregate_line (direct drop-in, valide
+     que API design Phase A etait empiriquement ground)
+   - Net drift, Executed/Locked/Planned lines all canonical EUR
+   - Empirical Telegram: /portfolio_sectors, /_narratives, /_drift OK
+
+5. **B.4 digest.py** — NO-OP (zero display sites empirical scout)
+   - L305 docstring "Cost: ~$0.025/call" = comment, pas display
+   - Skipped directly to B.5
+
+6. **7c6d9a0** feat(display) Phase B.5 — bot/handlers/observability.py
+   - 14 patches (1 import + 13 sites LLM billing $)
+   - 3 fonctions: cmd_health, _cost_format_trajectory, cmd_llm_costs
+   - Migration vers format_billing() preserve $ via Currency.USD canonical
+   - Future-proof pour flip canonical (storage migration + constant flip)
+   - Phase B COMPLETE: tous handlers display-active migres
+
+### Architecture insight: canonical centralisation definitive
+
+Avant Phase B: chaque handler hardcoded `"€"`, `f"${value:.2f}"`, ad-hoc
+formatters. Future USD migration aurait force distributed search-replace
+sur ~50 sites avec risque de drift visuel.
+
+Apres Phase B: un seul point de verite (`shared/display.py`). Future flip
+EUR -> USD = (1) `CANONICAL_FINANCE = Currency.USD`, (2) storage migration
+broker. Display layer auto-suit. ZERO modification dans handlers.
+
+Invariant API: `format_finance(value)` assumes value already in
+CANONICAL_FINANCE. Caller responsable storage-currency match.
+
+### Empirical state end-of-session
+
+- 21 positions EUR ~42.7K (unchanged Day 7)
+- 6 commits cumules (Phase A + B.1 + B.2 + B.3 + B.5)
+- 218 tests passing (vs 189 Day 7, +29 Phase A property-based)
+- mypy 0 errors sur 17 modules strict-typed (vs 16 Day 7, +shared.display)
+- ruff 0 errors
+- Bot PID 39396 healthy, 22 crons schedules, 239 tickers
+- 6 REAL BUGS fixed inline (Phase B.2 trade-confirm $ -> EUR)
+
+### Carry-forward Day 8 (clean state)
+
+**Phase B finition (next session first-ship, ~30min)**:
+- B.2.5 position line `bot/handlers/positions.py` L221-226 migration vers
+  format_position_line. Design decision: `pos["conv_str"]` pre-formatted vs
+  format_position_line attend raw conviction. Choix: expose raw conviction
+  dans pos dict OU adjust signature. Frais first-ship next session.
+
+**Data hygiene (empirical Day 8 obs, non-bloquant)**:
+- Sector flatten bug `_build_ticker_to_sector()` rend "coresemiscore",
+  "extsemissupporting" au lieu de "core/semis_core", "ext/semis_supporting".
+  Cosmetique /portfolio_sectors output.
+- Narrative tagging gap: 100% positions "untagged" dans /portfolio_narratives.
+  positions.notes pas peuplee avec narrative tags. Data hygiene, pas display.
+
+**Dettes accumulees (carry Day 7 -> Day 8, non-bloquant)**:
+- pyproject.toml ~21 unused module overrides
+- KPI #5 semantique gap, bot_start_ts stale, /kpi_status undercount
+- NVDA zombie "Unresolved decisions: 3"
+- shared/ticker_names.py:36,70 mypy no-any-return
+- {value:>6,.0f} truncate >€99,999 (non-issue, current PF max ~€5K)
+
+**Strategic (post J+30 KPI#2 resolution)**:
+- USD canonical migration. Olivier confirmation Day 7: pas urgent, EUR mieux
+  usage perso francais + broker EUR reconciliation. Reconsiderer post-track
+  record measurable.
+
+### Lessons learned cumulees Day 8
+
+1. **Defensive guard `abs(pnl) > 200` REMOVED** (Phase B.1). Etait suppose
+   detecter fx mismatch but masquait des legitimate winners 2x+. Removed
+   pour eviter UX worse-than-the-bug-it-tries-to-prevent.
+
+2. **format_pct UX `-0.0` normalization** (Phase A). Hypothesis property-based
+   test caught edge case. Production-quality polish via fuzz testing > eye
+   review.
+
+3. **format_aggregate_line direct drop-in L148** (Phase B.3). API designed
+   Phase A empirically mirroring sector pattern. Confirms design Phase A
+   wasn't speculative.
+
+4. **Bash inline `#` interpreted as path** (today's gates). `git log A..HEAD
+   # comment` -> "fatal: ambiguous argument '#'". Recurring zsh lesson:
+   `interactive_comments` not active inline. Use `;` separator or `||true`.
+
+5. **6 latent bugs fixed Phase B.2 trade-confirm $ -> EUR**. Avant Phase B
+   ces bugs etaient invisibles (`$` rendered but on EUR-stored values).
+   Migration force-cast displayed correctly. Canonical centralization expose
+   l'inconsistance qu'ad-hoc cache.
+
+### NEXT SESSION reopen sequence
+
+1. cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate
+2. ps aux | grep -i bot.main (filter -i obligatoire pour macOS Python.app)
+3. Read this Day 8 close section
+4. **First-ship recommended**: B.2.5 position line migration (~30min frais).
+   Phase B truly 100% complete apres ca.
+5. Sinon: observation phase active jusqu'au 10 juin 2026 (KPI #2 batch
+   resolution = 45+ predictions due)
+6. Si KPI #2 GREEN post-resolution -> ADR 001 PIT bitemporal Phase 1
+   implementation trigger
