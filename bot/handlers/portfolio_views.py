@@ -16,7 +16,7 @@ import sqlite3
 
 import yaml
 
-from bot.handlers._common import config_path, db_path
+from bot.handlers._common import config_path, db_path, telegram_safe
 from shared.display import format_aggregate_line, format_finance, format_pct
 
 __all__ = [
@@ -145,8 +145,8 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
         tickers_str = ", ".join(sorted(data["tickers"])[:5])
         if n > 5:
             tickers_str += f" +{n-5}"
-        # Escape underscores in sub_cat for Telegram Markdown legacy (avoid italic)
-        sector_display = sector.replace("_", "\\_")
+        # Day 9 V H3 refactor: centralized escape via _common.telegram_safe
+        sector_display = telegram_safe(sector)
         lines.append(format_aggregate_line(
             label=sector_display,
             market_value=data["mv"],
@@ -209,10 +209,10 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
         n = len(data["tickers"])
         pnl_pct = ((data["mv"] / data["cost_basis"] - 1) * 100) if data["cost_basis"] else 0
         tickers_str = ", ".join(sorted(data["tickers"]))
-        # Escape underscores in narrative for Telegram Markdown legacy (avoid italic in bold)
-        narrative_display = narrative.replace("_", "\\_")
+        # Day 9 V H3 refactor: centralized escape via _common.telegram_safe
+        narrative_display = telegram_safe(narrative)
         lines.append(
-            f"  *{narrative_display}*  {format_finance(data['mv'], decimals=0)}  "
+            f"  {narrative_display}  {format_finance(data['mv'], decimals=0)}  "
             f"[{pct:4.1f}%]  ({n} pos, PnL {format_pct(pnl_pct, decimals=1, signed=True)})"
         )
         lines.append(f"    {tickers_str}")

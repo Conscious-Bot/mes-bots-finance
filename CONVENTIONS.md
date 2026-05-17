@@ -480,3 +480,63 @@ ghosts = [m for m in mods if not Path(m.replace('.','/') + '.py').exists()]
 Audit Day 9 P3 closing : 31 modules override, 0 ghosts confirme override
 list propre. Warning mypy contextuel only - safe to ignore lors de
 single-file invocations.
+
+
+### Regle 9: Helper deduplication discipline (grep before defining)
+
+Avant de definir N'IMPORTE QUEL nouveau helper / utility / fonction
+partagee, grep pour variants existants :
+
+```bash
+grep -rn "def helper_name\|def similar_name" --include="*.py" .
+```
+
+Anti-pattern observe Day 9 Ship V H3 (Phase A retracted) : ajout de
+`escape_markdown` dans `shared/display.py` sans grep prealable. Decouvert
+Phase B que `bot/handlers/_common.py:telegram_safe` existait deja avec
+couverture PLUS complete (5 chars vs 2). Duplicate function = silent
+debt + future audit regression risk.
+
+Discipline : chercher au-dela du naming evident. Multiple aliases possibles:
+- escape_markdown / escape_md / md_escape / markdown_escape
+- telegram_safe / tg_safe / md_safe / sanitize
+- format_safe
+
+Si audit trouve une utility existante : etendre (si besoin), pas duplicate.
+Si usage pattern differe significativement : rationale explicite dans
+docstring + cross-reference vers l'existante.
+
+Audit Day 9 P3 Ship V : 0 nouveau helper ajoute, 2 inline escapes refactores
+vers `telegram_safe` existant dans `bot/handlers/_common.py`. Cosmetic +
+defensive (couverture 5 chars vs ad-hoc 1 char per site).
+
+
+### Regle 10: Telegram MarkdownV1 backslash escape NOT consumed inside *bold*
+
+Empirical observation Day 9 Ship V Phase D :
+
+- PLAIN context : source `text\_word` -> Telegram render `text_word` (backslash escape consume)
+- BOLD context : source `*text\_word*` -> Telegram render `text\_word` (backslash literal visible)
+
+Telegram MarkdownV1 parser ne consomme le backslash escape qu'en plain
+context. Inside `*bold*` ou `_italic_`, backslash render literal.
+
+Discipline pour dynamic content avec potential `_` chars destine a contexte
+emphasis :
+
+1. **Drop emphasis** : plain text label sans `*` ni `_` wrap.
+   Mid-word `_` (entre 2 letters) n'est pas italic-triggered en MarkdownV1.
+2. **HTML parse_mode** : `parse_mode="HTML"` avec `<b>...</b>`.
+   HTML escape `&lt; &amp;` only, supports nested formatting cleanly.
+3. **MarkdownV2** : explicit escape complet mais spec stricte + verbeux.
+
+Anti-pattern observe Day 9 zeta : `narrative.replace("_", "\\_")` +
+`*narrative*` wrap shipped sans visual empirical verify in bold context.
+Bug ne render correctement qu'en Ship V Phase D correction (24h later).
+
+Lesson : empirical retest DOIT inclure visual diff du rendu rendu Telegram,
+pas seulement "command returns without crash". Section 16 Regle 3 scope
+match producer = tester rendering paths reels, pas juste code paths.
+
+Audit Day 9 Ship V Phase D : /portfolio_narratives bold dropped, telegram_safe
+maintenu defensive plain context. Mid-word `_` literal sans backslash.
