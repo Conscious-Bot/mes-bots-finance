@@ -1170,7 +1170,7 @@ def main():
     app.add_handler(CommandHandler("analyze", cmd_analyze))
 
     log.info("Polling Telegram...")
-    storage.update_state(bot_start_ts=datetime.now().isoformat())
+    storage.update_state(bot_start_ts=datetime.now(UTC).isoformat())
     app.run_polling()
 
 if __name__ == "__main__":

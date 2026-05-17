@@ -41,7 +41,7 @@ __all__ = [
 async def cmd_health(update, ctx):  # noqa: ARG001
     """Health check: process, DB, LLM activity, data freshness, recent errors."""
     import os
-    from datetime import datetime
+    from datetime import UTC, datetime
     from pathlib import Path
 
     from shared import storage as storage_mod
@@ -53,7 +53,10 @@ async def cmd_health(update, ctx):  # noqa: ARG001
     bot_start_iso = storage_mod.load_state().get("bot_start_ts", "?")
     try:
         bot_start = datetime.fromisoformat(bot_start_iso.replace("Z", "+00:00"))
-        uptime_min = int((datetime.utcnow() - bot_start.replace(tzinfo=None)).total_seconds() / 60)
+        # Backward compat: legacy naive bot_state values treated as UTC
+        if bot_start.tzinfo is None:
+            bot_start = bot_start.replace(tzinfo=UTC)
+        uptime_min = int((datetime.now(UTC) - bot_start).total_seconds() / 60)
         uptime_str = f"{uptime_min // 60}h {uptime_min % 60}min"
     except Exception:
         uptime_str = "?"
@@ -329,6 +332,7 @@ def _format_kpi_report(kpis):
     breach_count = 0
     yellow_count = 0
     green_count = 0
+    na_count = 0
     for key in ["kpi2", "kpi3", "kpi4", "kpi5", "kpi6"]:
         k = kpis[key]
         lines.append(f"*{k['title']}*")
@@ -343,8 +347,10 @@ def _format_kpi_report(kpis):
             yellow_count += 1
         elif "✅" in k["status"] or "⏳" in k["status"]:
             green_count += 1
+        elif "🔍" in k["status"] or "⏸" in k["status"]:
+            na_count += 1
     lines.append("═══════════════════════")
-    lines.append(f"Overall: {green_count} GREEN | {yellow_count} YELLOW/timer | {breach_count} RED")
+    lines.append(f"Overall: {green_count} GREEN | {yellow_count} YELLOW/timer | {breach_count} RED | {na_count} N/A")
     if breach_count > 0:
         lines.append("⚠️ Breaches detected — action required.")
     return "\n".join(lines)
