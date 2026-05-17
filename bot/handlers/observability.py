@@ -317,14 +317,18 @@ def _kpi_compute_all():
         "enforcement": "No new thesis until backfill si <90%",
     }
 
-    # KPI #6: skip (requires position book integration)
-    out["kpi6"] = {
-        "title": "KPI #6: TWR vs SPY/QQQ 12M",
-        "target": ">-5pp",
-        "current": "Not yet implemented",
-        "status": "⏸ NOT IMPLEMENTED — requires positions integration",
-        "enforcement": "Revue strat trimestrielle si <-5pp",
-    }
+    # KPI #6: portfolio return vs SPY/QQQ benchmarks (Day 9 P3 wired)
+    try:
+        from shared.portfolio_metrics import compute_kpi6 as _compute_kpi6
+        out["kpi6"] = _compute_kpi6()
+    except Exception as _kpi6_err:
+        out["kpi6"] = {
+            "title": "KPI #6: Portfolio return vs SPY/QQQ (EUR)",
+            "target": ">-5pp",
+            "current": f"compute error: {type(_kpi6_err).__name__}",
+            "status": "🔍 ERROR — see logs",
+            "enforcement": "Revue strat trimestrielle si <-5pp",
+        }
 
     conn.close()
     return out

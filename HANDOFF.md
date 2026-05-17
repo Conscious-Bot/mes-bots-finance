@@ -556,7 +556,7 @@ Net: 2 ships reels (alpha + beta) + 3 self-correction commits.
 - Lesson 8 channel verification added CONVENTIONS Section 16
 
 **Eligible quick wins Day 10 (low risk, scope-bounded)**:
-- KPI #6 NOT IMPLEMENTED -> wire positions/SPY-QQQ benchmark (~1-2h)
+- (KPI #6 wiring CLOSED Day 9 P3 - see closure section below)
 - zeta extension: finer narrative granularity if desired (SQL UPDATE on
   demand, no code change required)
 - Day 9 carry: /handler_stats Pareto curve validation post-telemetry-fix
@@ -570,3 +570,58 @@ predictions batch resolution).
 3. Read this Day 9 close section
 4. Apply CONVENTIONS Section 16 discipline strictly (no protocol failures)
 5. Observation phase: passive monitoring + low-risk carry-forward only
+
+
+---
+
+## Day 9 P3 closure - KPI #6 wired (17/05/2026 ~15h KST, ~1h30 session)
+
+**Status**: Day 9 P3 closed, 2 commits post-day9-close tag.
+
+### Phase A - new shared/portfolio_metrics.py + 8 tests
+- parse_eur_invested(): regex extraction of legacy_import_2026_05_15 tag
+- compute_portfolio_return_eur(): aggregate EUR P&L via canonical
+  Day 7 get_current_price_in_eur() + list_positions() accessors
+- fetch_benchmark_return_eur(): SPY/QQQ USD + EURUSD=X -> EUR-equivalent
+  return (FX-adjusted, correct for cross-currency)
+- compute_kpi6(): orchestrator returning canonical schema dict
+- 8 Hypothesis property-based tests (parse_eur_invested invariants)
+- mypy strict override added (15 modules now enforced in CI)
+
+### Phase B - bot/handlers/observability.py wire
+- Drop hardcoded "NOT IMPLEMENTED" stub at lines 320-326
+- Replace with try/except compute_kpi6() + graceful fallback dict
+- Schema-aligned: {title, target, current, status, enforcement}
+
+### Empirical state post-Phase-B (Telegram verified PID 41435)
+KPI #6 transitions: "NOT IMPLEMENTED" -> "INSUFFICIENT" (semantic upgrade)
+- Pf -1.30% | SPY-eur +2.05% (delta -3.3pp) | QQQ-eur +3.04% (delta -4.3pp)
+- 1d window, 21/21 positions priced (100% live EUR coverage)
+- Overall: 2 GREEN | 0 YELLOW | 0 RED | 3 N/A (sum to 5)
+- Auto-flips GREEN/YELLOW/RED post-J+365 (10 mai 2027)
+
+### Math FX validation
+EUR investor in USD asset: (USD_t/EURUSD_t) / (USD_0/EURUSD_0) - 1.
+Currency invariance argument applies only WITHIN single currency, NOT
+across cross-currency benchmark. Day 7 canonical get_current_price_in_eur()
+handles portfolio side. yfinance EURUSD=X = USD per 1 EUR.
+
+### Gates Phase A + B
+- ruff 0 errors all files
+- mypy 0 errors on portfolio_metrics + observability
+- pytest 226/226 passing (218 prior + 8 new Hypothesis)
+- import bot.main OK
+- bot restart clean PID 41435, scheduler 23 crons
+- Telegram /kpi_status empirical visual GREEN
+
+### Carry-forward Day 10 (post-P3)
+- DEFER strict: bot/main.py 2428 LOC split (architectural session)
+- DEFER strict: USD canonical migration (post J+30 = 10 juin 2026)
+- Q3 (post-J+90): dormant-handler triage (telemetry mature)
+- KPI #6 auto-transitions post-J+365 (10 mai 2027)
+
+### NEXT SESSION reopen
+1. cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate
+2. ps aux | grep -i bot.main
+3. Read this Day 9 P3 closure section
+4. Observation phase active jusqu au 10 juin 2026 (KPI #2 batch resolution)
