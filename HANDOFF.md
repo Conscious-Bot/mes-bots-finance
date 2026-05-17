@@ -269,3 +269,89 @@ Lecture profonde + validation second canal avant action.
 5. Pre-patch audit: SELECT theses.stop_price/target_price intl (verif store-at-rest EUR)
 6. Patch 1 ligne get_current_price -> get_current_price_in_eur
 7. Smoke test fake target intl avant deploy
+
+
+---
+
+## Day 7 close - 17 May 2026 ~04h KST (~3h session, +3 commits)
+
+**HEAD**: e1e2e50 | **Tag**: day7-close
+
+### Ships this session
+
+1. **7aeac4a** fix(price_monitor) A2-2 canonical EUR thesis triggers
+   - intelligence/price_monitor.py:185 swap NATIVE -> EUR
+   - 8 intl positions (28% book) triggers ne firent JAMAIS depuis Day 5
+   - KPI #4 maintenant fonctionnel pour intl (was faussement vert)
+   - Empirical post-patch: theses_checked=33, alerts=0, fails=0
+
+2. **f5a6300** fix(positions) A2-6 canonical EUR _enrich_with_live
+   - shared/positions.py:158 - Day 6 commit 0963369 missed this helper
+   - Bug latent: market_value=NATIVE x qty, pnl=NATIVE-EUR_avg, garbage intl
+   - Path consumers: price_monitor alerts, bot/handlers/misc, scripts
+   - Cross-path EUR consistency proof: smoke IDENTICAL Day 6 /brief @ 17:31
+
+3. **e1e2e50** chore(types) eta3 mypy cleanup
+   - price_monitor.py:239 + positions.py:77 + positions.py:107
+   - cur.lastrowid + get_position(ticker) return types narrowed via assertion
+   - Per CONVENTIONS.md "Erreurs explicites"
+   - mypy: 3 errors -> 0 sur les 2 fichiers
+
+### Audit classification eps1 (carry-forward cleanup)
+
+False alarms identifies + REMOVED Day 6 carry-forward:
+- A2-3 learning.py:125 - pattern (curr-baseline)/baseline ratio NATIVE/NATIVE
+  mathematically INVARIANT (currency cancels). PAS de bug.
+- A2-4 thesis.py:149 - check_exit_request(current_price) recoit prix en param,
+  zero prices.* calls dans thesis.py. Caller-dependent, pas bug local.
+- A2-5 shadow_decisions.py - zero prices.* calls dans le file. Pas de bug.
+
+Real bug confirme + patche: A2-6 positions.py:158 (threshold-based mix).
+
+**Lesson learned pour futurs audits "canonical EUR migration"**:
+- Ratio-based (p_t - p_0) / p_0 -> currency-INVARIANT -> no patch needed
+- Threshold-based (p compared to EUR-stored value) -> currency-SENSITIVE -> patch
+
+### Meta-rule session
+
+Olivier directive Day 7: **default = option la plus complete**, pas de question
+gamma/delta/eps/eta decision matrices au stop point. Garde-fou protocol Sec.6
+maintenu: "plus complet" = clore session proprement, PAS scope creep refactor
+non-borne.
+
+### Empirical state end-of-session
+- 21 positions EUR ~42.7K, 8 intl maintenant firing-eligible (vs jamais Day 5/6)
+- KPI #2: 1 resolu lifetime, 45 due 10-11 juin -> forecast J+24 ON TRACK
+- KPI #4: GREEN avec confidence accrue (mecanisme intl fonctionnel)
+- 22 crons, 189 tests, mypy: 0 errors sur 16 modules strict-typed (vs 14 Day 6)
+- Bot PID 38520 vivant
+
+### Carry-forward Day 7 (clean state)
+
+**Strategic (post J+30 KPI#2 resolution)**:
+- USD canonical migration ~10-15h. Olivier decision Day 7: confirmed
+  carry-forward, pas urgent. Lecture honnete: EUR canonical mieux pour usage
+  perso francais + broker EUR reconciliation. USD justifie seulement si Path
+  5/6 acquihire/Substack global devient driver principal. Reconsiderer
+  post-track record measurable.
+
+**Architectural (P2, ~5-10h)**:
+- shared/display.py canonical refactor (format_price, format_position_line,
+  format_currency_symbol, format_pct). Migration: morning_brief, positions,
+  portfolio_views, digest, observability.
+
+**Dettes mineures (accumulation, non-bloquant)**:
+- pyproject.toml ~21 unused module overrides (single-file mypy noise)
+- KPI #5 semantique gap (decision events vs thesis events imprecis)
+- bot_state.bot_start_ts stale (uptime mismatch)
+- /kpi_status Overall undercount ("TIMER" vs "ON TRACK" string match)
+- NVDA zombie "Unresolved decisions: 3"
+- _stats_section "LLM today: $X" hardcoded $ (hors canonical EUR display)
+
+### NEXT SESSION reopen sequence
+1. cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate
+2. ps aux | grep -i bot.main (filter -i obligatoire)
+3. Read this Day 7 close section
+4. NO new priority urgent (3 critical bugs patched Day 7)
+5. Si energie + temps: tackle shared/display.py architectural refactor (P2)
+6. Sinon: observation phase active jusqu'au 10 juin 2026 (KPI #2 batch resolution)
