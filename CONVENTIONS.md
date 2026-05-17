@@ -434,3 +434,25 @@ separator or `||true` continuation, JAMAIS inline comment dans bash bloc.
 
 Anti-pattern observe Day 8/9 multiple times: inline `#` comments breaking
 diagnostic outputs.
+
+### Regle 8: Channel verification before bug assumption
+Avant de conclure "X est silencieux donc X est broken", verifier TOUS
+les channels potentiels :
+- bot.log (file-based logging)
+- data/bot.db (DB-persisted telemetry / events / calls tables)
+- data/bot_state.json (state-based heartbeats)
+- in-memory caches
+
+Bot finance utilise au moins 3 channels distincts. Telemetry middleware
+ecrit en DB (handler_calls table 155 rows), PAS dans bot.log (by design,
+avoid spam). Si tu vois bot.log silent + /health "last handler call @
+T+recent", c'est NORMAL : telemetry DB-side fonctionne.
+
+Anti-pattern observe Day 9 morning diagnostic : `grep "cmd_|update_id"
+bot.log` returns nothing -> conclusion hative "telemetry broken" -> false
+positive inscrit dans HANDOFF carry-forward Day 10. Corrige soiree Day 9 :
+empirique handler_calls table 155 rows, /handler_stats Pareto working
+end-to-end, top-10 handlers concentrent 60% des calls.
+
+Discipline : checker DB tables relevantes AVANT d'inscrire un "X silent"
+en carry-forward.

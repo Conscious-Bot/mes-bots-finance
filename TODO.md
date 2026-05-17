@@ -818,3 +818,30 @@ Per docs/sprint-1.2-plan.md:
 
 **P3 — 4 orphans c1 review J+30** : 2026-06-16
 
+
+
+---
+
+## P3 Q3 (post-J+90 = ~10 aout 2026) — dormant-handler triage
+
+**Trigger** : telemetry handler_calls table avec >=90j de donnees continues
+(actuellement demarre ~13/05/2026, mature ~15/08/2026).
+
+**Empirical state Day 9 (17/05/2026)** :
+- 47 unique handlers used / 73 registered (35% surface dormant)
+- Top-10 = 60% calls (brief/digest/portfolio/health/help/asymmetry/find/
+  kpi_status/analyze/handler_stats)
+- Long tail 26 handlers a 1-2 calls (window 4-5j effectif, premature)
+- Naming variants chaos sur theses : 5 commands listed (`theses`,
+  `theses_list`, `thesis_list`, `list_theses`, `list_thesis`) - cross-check
+  registry pour identifier aliases vs typos vs duplicates
+
+**Action post-J+90** :
+1. /handler_stats 90 -> Pareto curve mature
+2. Identifier handlers <=1 call sur 90j -> candidats deprecation
+3. Cross-check vs bot/main.py CommandHandler registry (intersect set diff)
+4. Decision : delete / alias / keep selon utilite empirique vs design
+5. Reduit organiquement bot/main.py LOC avant split architectural
+
+**Path 5/6 alignment** : "Plus de discipline dans l'usage > plus de
+discipline dans le code". Deprecation = solidification, pas regression.

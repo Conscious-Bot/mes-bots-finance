@@ -546,9 +546,16 @@ Net: 2 ships reels (alpha + beta) + 3 self-correction commits.
 - bot/main.py 2428 LOC split (session architectural dediee frais)
 - USD canonical migration (post J+30 = 10 juin 2026)
 
-**Eligible quick wins (low risk, scope-bounded)**:
-- Telemetry middleware silent (bot.log zero handler calls observed Day 9
-  diagnostic - observability gap, ~30-60min investigate)
+**Telemetry verified end-of-Day-9** (post-P2 investigation) :
+- handler_calls table 155 rows, /handler_stats Pareto curve works
+- Top-10 handlers (brief/digest/portfolio/health/help/asymmetry/find/
+  kpi_status/analyze/handler_stats) = 60% calls
+- 47 unique used / 73 registered -> ~26 zero-use 30d (telemetry fenetre
+  effective 4-5j, triage premature)
+- bot.log silent = by design (telemetry DB-side, no log spam)
+- Lesson 8 channel verification added CONVENTIONS Section 16
+
+**Eligible quick wins Day 10 (low risk, scope-bounded)**:
 - KPI #6 NOT IMPLEMENTED -> wire positions/SPY-QQQ benchmark (~1-2h)
 - zeta extension: finer narrative granularity if desired (SQL UPDATE on
   demand, no code change required)
