@@ -11,6 +11,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
 from bot.handlers.bias_pattern import cmd_bias_pattern
+from bot.handlers.digest import cmd_digest
 from bot.handlers.echo_crypto_macro import (
     cmd_credit,
     cmd_crypto,
@@ -61,6 +62,8 @@ from bot.handlers.positions import (
     cmd_position_buy,
     cmd_position_sell,
 )
+from bot.handlers.predictions import cmd_credibility, cmd_feedback, cmd_predictions, cmd_resolve_now
+from bot.handlers.regime_calendar import cmd_calendar, cmd_calendar_refresh, cmd_regime
 from bot.handlers.signal_drilldown import cmd_signal_drilldown
 from bot.handlers.signals_filings import (
     cmd_eight_k_history,
@@ -259,159 +262,6 @@ async def cmd_thesis_note(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Note ajoutee a these #{thesis_id}.")
 
 
-async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Digest v2: header metadata + narrative Sonnet + footer drill-down."""
-    import sqlite3
-    from datetime import datetime as _dt
-
-    from shared import storage as _storage
-
-    parts = update.message.text.split()
-    hours = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 24
-    await update.message.reply_text(f"Synthese unifiee en cours ({hours}h) ~30s...")
-
-    # Pre-compute metadata for header (before LLM call)
-    conn = sqlite3.connect(_storage._DB_PATH)
-    conn.row_factory = sqlite3.Row
-    try:
-        meta_row = conn.execute(
-            "SELECT COUNT(DISTINCT src.name) AS sources, COUNT(*) AS n_signals "
-            "FROM signals s LEFT JOIN sources src ON s.source_id = src.id "
-            "WHERE s.timestamp >= datetime('now', ?) "
-            "  AND COALESCE(s.impact_magnitude, 0) >= 2.0",
-            (f"-{hours} hours",),
-        ).fetchone()
-        n_signals = meta_row["n_signals"] if meta_row else 0
-        n_sources = meta_row["sources"] if meta_row else 0
-        last_call_id = conn.execute("SELECT MAX(id) AS max_id FROM llm_calls").fetchone()
-        last_id_before = last_call_id["max_id"] if last_call_id and last_call_id["max_id"] else 0
-    except Exception:
-        n_signals, n_sources, last_id_before = 0, 0, 0
-    finally:
-        conn.close()
-
-    try:
-        from intelligence import digest as _digest_mod
-
-        narrative = _digest_mod.generate_unified_digest(since_hours=hours, max_signals=40)
-    except Exception as e:
-        await update.message.reply_text(f"Digest failed: {type(e).__name__}: {e}")
-        return
-
-    # Post-call: lookup cost from llm_calls
-    cost_usd = 0.0
-    try:
-        conn = sqlite3.connect(_storage._DB_PATH)
-        row = conn.execute(
-            "SELECT SUM(cost_usd) AS cost FROM llm_calls WHERE id > ?",
-            (last_id_before,),
-        ).fetchone()
-        if row and row[0]:
-            cost_usd = float(row[0])
-        conn.close()
-    except Exception:
-        pass
-
-    # Header
-    now_str = _dt.now().strftime("%d/%m %H:%M")
-    header = (
-        f"DIGEST {now_str} ({hours}h window)\n"
-        f"Signals: {n_signals} | Sources: {n_sources} | Cost: ${cost_usd:.3f}\n"
-        f"{'-' * 40}"
-    )
-
-    # Footer
-    footer = (
-        f"{'-' * 40}\n"
-        f"Drill-down:\n"
-        f"  /signal TICKER     -> signals 30d for ticker\n"
-        f"  /find TICKER       -> cross-domain snapshot\n"
-        f"  /thesis health     -> portfolio coverage check"
-    )
-
-    full_output = header + "\n\n" + narrative + "\n\n" + footer
-
-    # Chunk if needed
-    if len(full_output) > 3900:
-        chunks = []
-        cur = ""
-        for para in full_output.split("\n\n"):
-            if len(cur) + len(para) + 2 < 3900:
-                cur = cur + "\n\n" + para if cur else para
-            else:
-                if cur:
-                    chunks.append(cur)
-                cur = para
-        if cur:
-            chunks.append(cur)
-        for c in chunks:
-            await update.message.reply_text(c)
-    else:
-        await update.message.reply_text(full_output)
-
-
-async def cmd_feedback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    if not ctx.args or len(ctx.args) < 2:
-        await update.message.reply_text(
-            "Usage: /feedback <signal_id> <up|down>\nEx: /feedback 42 up\n(signal_id affiches dans le digest avec prefix #)"
-        )
-        return
-    try:
-        signal_id = int(ctx.args[0])
-    except ValueError:
-        await update.message.reply_text(f"signal_id invalide: {ctx.args[0]}")
-        return
-    rating = ctx.args[1].lower()
-    if rating not in ("up", "down"):
-        await update.message.reply_text(f"rating doit etre up ou down, got: {rating}")
-        return
-    try:
-        result = credibility_mod.apply_feedback(signal_id, rating)
-        old = result.get("old_credibility") or 0.5
-        new = result.get("new_credibility") or 0.5
-        src = (result.get("source_name") or "?")[:40]
-        msg = f"OK feedback {rating} sur signal #{signal_id}.\nSource: {src}\nCredibility: {old:.2f} -> {new:.2f} (delta {result['delta']:+.2f})"
-        await update.message.reply_text(msg)
-    except Exception as e:
-        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
-
-
-async def cmd_credibility(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    msg = credibility_mod.list_top_sources(n=10)
-    msg += "\n\n" + credibility_mod.list_worst_sources(n=5)
-    await update.message.reply_text(msg)
-
-
-async def cmd_predictions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    preds = storage.get_recent_predictions(limit=15)
-    if not preds:
-        await update.message.reply_text("Aucune prediction enregistree.")
-        return
-    lines = ["Predictions recentes:"]
-    for p in preds:
-        ticker = p.get("ticker", "?")
-        dir_ = (p.get("direction") or "?")[:4]
-        baseline = p.get("baseline_price") or 0
-        target = p.get("target_date", "?")
-        outcome = p.get("outcome") or "pending"
-        ret = p.get("return_pct")
-        if ret is not None:
-            lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} -> {ret * 100:+.1f}% [{outcome}]")
-        else:
-            lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} target {target} [pending]")
-    await update.message.reply_text("\n".join(lines))
-
-
-async def cmd_resolve_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Resolution en cours...")
-    try:
-        results = learning_mod.resolve_due_predictions()
-        msg = learning_mod.format_resolve_report(results)
-        await update.message.reply_text(msg[:4000])
-    except Exception as e:
-        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
-
-
 async def resolve_journal_decisions_job():
     """Phase 18 Batch 3 — Daily cron: resolve J+30 and J+90 pending decisions.
     Computes current price + return + thesis_relative + auto-classifies mistake_tag.
@@ -505,39 +355,8 @@ async def daily_resolve_job():
         log.error(f"Daily resolve failed: {e}")
 
 
-async def cmd_regime(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Detection regime en cours (5-10s)...")
-    try:
-        r = regime_mod.detect_regime()
-        msg = regime_mod.format_regime(r)
-        await update.message.reply_text(msg[:4000])
-    except Exception as e:
-        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
-
-
 # Phase Tickers Tiered — dynamic from config.yaml universe.core
 CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_tickers") else []
-
-
-async def cmd_calendar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    events = storage.get_upcoming_events(days_ahead=60)
-    msg = calendar_mod.format_calendar(events, days_ahead=60)
-    alerts = calendar_mod.get_pre_event_thesis_alerts(days_ahead=14)
-    alert_msg = calendar_mod.format_alerts(alerts)
-    if alert_msg:
-        msg = alert_msg + "\n\n---\n\n" + msg
-    await update.message.reply_text(msg[:4000])
-
-
-async def cmd_calendar_refresh(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"Refresh calendar sur {len(CALENDAR_REFRESH_TICKERS)} tickers (60-90s)...")
-    try:
-        n = calendar_mod.refresh_earnings_calendar(CALENDAR_REFRESH_TICKERS)
-        events = storage.get_upcoming_events(days_ahead=60)
-        msg = f"OK {n} events upserted.\n\n" + calendar_mod.format_calendar(events, days_ahead=60)
-        await update.message.reply_text(msg[:4000])
-    except Exception as e:
-        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
 
 
 async def daily_calendar_refresh_job():
