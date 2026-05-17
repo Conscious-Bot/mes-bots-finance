@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from typing import cast
 
 from shared import storage
 
@@ -33,7 +34,7 @@ def get_short_name(ticker: str) -> str | None:
             (ticker,),
         ).fetchone()
         if row and row["short_name"]:
-            return row["short_name"]
+            return cast(str | None, row["short_name"])
     except Exception as e:
         log.warning(f"ticker_names cache read failed for {ticker}: {e}")
     finally:
@@ -67,7 +68,7 @@ def get_short_name(ticker: str) -> str | None:
     except Exception as e:
         log.warning(f"ticker_names cache write failed for {ticker}: {e}")
 
-    return short_name
+    return cast(str | None, short_name)
 
 
 def get_short_names_bulk(tickers: list[str]) -> dict[str, str]:
