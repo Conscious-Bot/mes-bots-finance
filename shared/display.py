@@ -155,12 +155,12 @@ def format_position_line(
     name_safe = name if name else ticker
     name_trunc = name_safe[:name_width]
     conv_str = f"c{conviction}" if conviction else "c-"
-    cur_str = format_finance(current_price, decimals=2, width=7) if current_price is not None else "  n/a  "
+    cur_str = format_finance(current_price, decimals=2, width=8) if current_price is not None else "  n/a  "
     pnl_str = format_pnl_pct(pnl_pct, width=7)
 
     return (
         f"  {ticker:<{ticker_width}s} {name_trunc:<{name_width}s} {conv_str:<{conv_width}s} "
-        f"{format_finance(avg_cost, decimals=2, width=7)} "
+        f"{format_finance(avg_cost, decimals=2, width=8)} "
         f"{cur_str:>9s} {format_finance(market_value, decimals=0, width=6)} "
         f"{pct_book:>4.1f}% {pnl_str:>7s}"
     )

@@ -22,7 +22,7 @@ import contextlib
 import logging
 
 from shared import positions as positions_mod
-from shared.display import format_finance, format_pct
+from shared.display import format_finance, format_pct, format_position_line
 
 __all__ = [
     "_portfolio_journal_ctx",
@@ -144,7 +144,6 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
         mv = (cur_price * p["qty"]) if cur_price else cost_value
         unreal_pct = ((cur_price / p["avg_cost"] - 1) * 100) if cur_price and p["avg_cost"] else None
         conviction = theses_map.get(ticker)
-        conv_str = "c" + str(conviction) if conviction else "c-"
         short_name = get_short_name(ticker) or ticker
         name_display = short_name[:22]
         enriched.append({
@@ -153,7 +152,6 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
             "market_value": mv,
             "pnl_pct": unreal_pct,
             "conviction": conviction,
-            "conv_str": conv_str,
             "name_display": name_display,
         })
         total_mv += mv
@@ -191,13 +189,15 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
         worst_strs = []
         for p in worst3:
             pnl_s = format_pct(p["pnl_pct"], decimals=1, signed=True)
-            worst_strs.append(p["ticker"] + " " + p["conv_str"] + " " + pnl_s)
+            conv_s = f"c{p['conviction']}" if p["conviction"] else "c-"
+            worst_strs.append(f"{p['ticker']} {conv_s} {pnl_s}")
         alerts_lines.append(f"  Worst 3: {', '.join(worst_strs)}")
     if best3:
         best_strs = []
         for p in best3:
             pnl_s = format_pct(p["pnl_pct"], decimals=1, signed=True)
-            best_strs.append(p["ticker"] + " " + p["conv_str"] + " " + pnl_s)
+            conv_s = f"c{p['conviction']}" if p["conviction"] else "c-"
+            best_strs.append(f"{p['ticker']} {conv_s} {pnl_s}")
         alerts_lines.append(f"  Best 3: {', '.join(best_strs)}")
     if alerts_lines:
         lines.append("ALERTS")
@@ -212,19 +212,19 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
         f"{'Now':>9s} {'Value':>8s} {'%Bk':>5s} {'PnL%':>7s}"
     )
     for pos in enriched_sorted:
-        ticker = pos["ticker"]
-        conv_str = pos["conv_str"]
-        avg = pos["avg_cost"]
-        cur = pos["current_price"]
         mv = pos["market_value"]
         pct_book = (mv / total_mv * 100) if total_mv else 0
-        pnl = pos["pnl_pct"]
-        cur_str = "\u20ac" + format(cur, "7.2f") if cur else "    ?   "
-        pnl_str = (format(pnl, "+.1f") + "%") if pnl is not None else "  n/a "
-        name = pos["name_display"]
         lines.append(
-            f"  {ticker:<10s} {name:<24s} {conv_str:<4s} \u20ac{avg:>7.2f} "
-            f"{cur_str:>9s} \u20ac{mv:>6,.0f} {pct_book:>4.1f}% {pnl_str:>7s}"
+            format_position_line(
+                ticker=pos["ticker"],
+                name=pos["name_display"],
+                conviction=pos["conviction"],
+                avg_cost=pos["avg_cost"],
+                current_price=pos["current_price"],
+                market_value=mv,
+                pct_book=pct_book,
+                pnl_pct=pos["pnl_pct"],
+            )
         )
 
     lines.append("")
