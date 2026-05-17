@@ -236,7 +236,9 @@ def record_override(ticker: str, level: str, reason: str) -> int:
             (ticker.upper(), thesis_id, level, reason),
         )
         cx.commit()
-        return cur.lastrowid
+        last_id = cur.lastrowid
+        assert last_id is not None, "INSERT into overrides produced no lastrowid"
+        return last_id
 
 
 def list_overrides(limit: int = 20) -> list:

@@ -74,7 +74,9 @@ def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = N
                 (pid, ticker, qty, avg_cost, notes or "initial position"),
             )
         cx.commit()
-    return get_position(ticker)
+    result = get_position(ticker)
+    assert result is not None, "position lookup after upsert failed"
+    return result
 
 
 def add_buy(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
@@ -104,7 +106,9 @@ def add_buy(ticker: str, qty: float, price: float, notes: str | None = None) -> 
             (pid, ticker, qty, price, notes),
         )
         cx.commit()
-    return get_position(ticker)
+    result = get_position(ticker)
+    assert result is not None, "position lookup after upsert failed"
+    return result
 
 
 def add_sell(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
