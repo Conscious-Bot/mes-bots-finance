@@ -589,7 +589,7 @@ predictions batch resolution).
   return (FX-adjusted, correct for cross-currency)
 - compute_kpi6(): orchestrator returning canonical schema dict
 - 8 Hypothesis property-based tests (parse_eur_invested invariants)
-- mypy strict override added (15 modules now enforced in CI)
+- mypy strict override added (16 modules now enforced in CI - portfolio_metrics included)
 
 ### Phase B - bot/handlers/observability.py wire
 - Drop hardcoded "NOT IMPLEMENTED" stub at lines 320-326

@@ -456,3 +456,27 @@ end-to-end, top-10 handlers concentrent 60% des calls.
 
 Discipline : checker DB tables relevantes AVANT d'inscrire un "X silent"
 en carry-forward.
+
+
+### Regle 8 addendum: mypy "unused section(s)" warning is contextual
+
+Si mypy reporte `note: unused section(s): module = [...]` lors d'une
+invocation single-file (e.g. `mypy shared/portfolio_metrics.py`), c'est
+NORMAL : mypy signale les modules dans override list qui ne sont PAS
+checks dans cette invocation. Pas une ghost entry, pas une dette technique.
+
+Anti-pattern observe Day 9 audit : interpreter le warning comme presence
+de modules fantomes dans override. Cross-reference empirique requise :
+
+```python
+import tomllib
+from pathlib import Path
+with open('pyproject.toml','rb') as f:
+    cfg = tomllib.load(f)
+mods = [m for o in cfg['tool']['mypy']['overrides'] for m in o.get('module',[])]
+ghosts = [m for m in mods if not Path(m.replace('.','/') + '.py').exists()]
+```
+
+Audit Day 9 P3 closing : 31 modules override, 0 ghosts confirme override
+list propre. Warning mypy contextuel only - safe to ignore lors de
+single-file invocations.
