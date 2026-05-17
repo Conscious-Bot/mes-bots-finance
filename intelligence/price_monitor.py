@@ -182,7 +182,7 @@ def check_thesis_triggers() -> dict:
         for t in active:
             ticker = t["ticker"]
             try:
-                p = prices.get_current_price(ticker)
+                p = prices.get_current_price_in_eur(ticker)
                 if not p or p <= 0:
                     fails.append(ticker)
                     continue
