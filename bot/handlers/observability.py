@@ -337,11 +337,11 @@ def _format_kpi_report(kpis):
         lines.append(f"  Status  : {k['status']}")
         lines.append(f"  Enforce : _{k['enforcement']}_")
         lines.append("")
-        if "🚨 RED" in k["status"]:
+        if "🚨" in k["status"]:
             breach_count += 1
-        elif "⚠️ YELLOW" in k["status"] or "⏳ TIMER" in k["status"]:
+        elif "⚠️" in k["status"]:
             yellow_count += 1
-        elif "✅ GREEN" in k["status"]:
+        elif "✅" in k["status"] or "⏳" in k["status"]:
             green_count += 1
     lines.append("═══════════════════════")
     lines.append(f"Overall: {green_count} GREEN | {yellow_count} YELLOW/timer | {breach_count} RED")
