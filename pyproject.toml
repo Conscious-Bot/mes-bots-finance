@@ -83,6 +83,7 @@ no_implicit_optional = true
 [[tool.mypy.overrides]]
 module = [
     # Core shared
+    "shared.display",
     "shared.notify",
     "shared.prices",
     "shared.llm",
