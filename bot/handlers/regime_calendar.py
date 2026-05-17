@@ -6,6 +6,8 @@ Handlers: cmd_calendar, cmd_calendar_refresh, cmd_regime
 from intelligence import calendar as calendar_mod, regime as regime_mod
 from shared import storage
 
+CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_tickers") else []
+
 
 async def cmd_regime(update, ctx):  # noqa: ARG001
     await update.message.reply_text("Detection regime en cours (5-10s)...")

@@ -356,7 +356,6 @@ async def daily_resolve_job():
 
 
 # Phase Tickers Tiered — dynamic from config.yaml universe.core
-CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_tickers") else []
 
 
 async def daily_calendar_refresh_job():
