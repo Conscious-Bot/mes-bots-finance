@@ -555,3 +555,7 @@ Rule: before extraction, audit `[tool.ruff.lint.per-file-ignores]` + target conv
 Extension of R3 (scope match producer): per-file-ignore is part of the function's effective scope. Moving the function moves it out of that scope; destination must replicate equivalent silence (inline noqa) or be brought to convention.
 
 Implementation note for batches E2/E3/E4: AST extraction script must include annotation-stripping + noqa injection BEFORE first gate run.
+
+### R13 — pkill/ps macOS Python case-sensitive (Day 10 17/05/2026)
+
+`pkill -f "python.*"` ne match pas le binaire macOS framework `Python` (capital P). Toujours utiliser `pkill -9 -if "python..."` ou pattern `[Pp]ython` pour kill bot.main de façon fiable. Idem pour ps/grep de vérif post-kill. Voir docs/failure_modes.md FM-7.

@@ -237,3 +237,26 @@ Verified workflow:
 6. `grep -c Conflict bot.log` should be 0
 
 Force-flush option if conflict persists: `curl -s "https://api.telegram.org/bot$TOKEN/deleteWebhook?drop_pending_updates=true"` (no-op if no webhook, but drops pending update buffer that can hold session state).
+
+## FM-7: pkill case-sensitivity sur macOS Python binary
+
+**Symptôme** : restart cascades successifs créent des zombies bot.main qui ne meurent jamais. `ps aux | grep "python.*bot.main"` retourne (clean) mais lsof bot.log montre N writers.
+
+**Root cause** : macOS Python framework expose le binaire comme `/Library/Frameworks/Python.framework/Versions/3.X/Resources/Python.app/Contents/MacOS/Python` (capital P). `pkill -f` et `grep` sans `-i` matchent case-sensitively par défaut. Pattern `python.*bot.main` ne match jamais → zombies accumulent.
+
+**Detection** :
+```bash
+ps -ax -o pid,etime,command | grep -E "[Pp]ython.*bot\.main" | grep -v grep
+lsof ~/mes-bots-finance/bot.log
+```
+
+**Fix** :
+```bash
+pkill -9 -f "[Pp]ython.*bot\.main"
+# ou
+pkill -9 -if "python.*bot.main"
+```
+
+**Impact** : multi-instance polling Telegram → cascade Conflict (chaque getUpdates kick les autres). Confondu pendant Day 10 session avec "retry behavior normal" → ~2h perdues. Token regen #1 inutile sur ce symptôme (rotation n'aurait servi à rien tant que les 10 zombies tapaient le même token).
+
+**Source découverte** : Day 10 17/05/2026 ~12h KST.
