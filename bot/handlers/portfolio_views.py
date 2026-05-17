@@ -31,7 +31,7 @@ log = logging.getLogger("bot")
 def _build_ticker_to_sector() -> dict[str, str]:
     """Map every ticker in config.yaml universe to its sector label.
 
-    Returns dict ticker -> sector_label (e.g. "core_semis_core", "watch", "ext_european_pea").
+    Returns dict ticker -> sector_label (e.g. "core/semis_core", "watch", "ext/european_pea").
     Unknown tickers default to "unknown" via .get() fallback in callers.
     """
     cfg = yaml.safe_load(config_path().read_text())
@@ -42,7 +42,7 @@ def _build_ticker_to_sector() -> dict[str, str]:
     for sub_cat, tickers in universe.get("core", {}).items():
         if isinstance(tickers, list):
             for t in tickers:
-                mapping[t] = f"core_{sub_cat}"
+                mapping[t] = f"core/{sub_cat}"
 
     # Watch is flat list
     for t in universe.get("watch", []):
@@ -54,7 +54,7 @@ def _build_ticker_to_sector() -> dict[str, str]:
         if isinstance(tickers, list):
             for t in tickers:
                 if t not in mapping:
-                    mapping[t] = f"ext_{sub_cat}"
+                    mapping[t] = f"ext/{sub_cat}"
 
     return mapping
 
@@ -145,8 +145,10 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
         tickers_str = ", ".join(sorted(data["tickers"])[:5])
         if n > 5:
             tickers_str += f" +{n-5}"
+        # Escape underscores in sub_cat for Telegram Markdown legacy (avoid italic)
+        sector_display = sector.replace("_", "\\_")
         lines.append(format_aggregate_line(
-            label=sector,
+            label=sector_display,
             market_value=data["mv"],
             pct_total=pct,
             n_positions=n,
