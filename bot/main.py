@@ -1105,7 +1105,7 @@ def main():
 
     log.info("Polling Telegram...")
     storage.update_state(bot_start_ts=datetime.now(UTC).isoformat())
-    app.run_polling()
+    app.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":
