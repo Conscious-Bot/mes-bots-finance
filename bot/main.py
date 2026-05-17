@@ -68,6 +68,7 @@ from bot.handlers.signals_filings import (
     cmd_insider_buy_cluster_stats,
     cmd_insider_cluster,
     cmd_insider_digest,
+    cmd_insiders,
     cmd_recent_8k,
     cmd_signals_by_type,
 )
@@ -79,6 +80,7 @@ from bot.handlers.sources_admin import (
     cmd_tiers,
     cmd_tiers_watch,
 )
+from bot.handlers.system import cmd_help, cmd_ping
 from bot.handlers.thesis_analyze import (
     cmd_analyze,
     cmd_analyze_debate,
@@ -126,6 +128,7 @@ THESIS_TEMPLATE = (
     "Multi-item: separer par ';'"
 )
 
+
 def _parse_thesis_template(text):
     out = {}
     for line in text.split("\n"):
@@ -138,15 +141,6 @@ def _parse_thesis_template(text):
             out[key] = val
     return out
 
-async def cmd_ping(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    state = storage.load_state()
-    await update.message.reply_text(
-        f"alive\n"
-        f"capital: ${state['current_capital']:.0f}\n"
-        f"drawdown: {state['drawdown_pct']:.1%}\n"
-        f"theses actives: {state['active_theses_count']}\n"
-        f"paper_only: {state['paper_only']}"
-    )
 
 async def cmd_thesis_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or ""
@@ -185,6 +179,7 @@ async def cmd_thesis_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except (KeyError, ValueError) as e:
         await update.message.reply_text(f"Erreur: {e}\n\nTape /thesis_add seul pour le template.")
 
+
 async def cmd_thesis_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     msg = thesis_mod.list_active()
     # Telegram hard limit 4096 chars; chunk on paragraph boundaries if needed
@@ -205,6 +200,7 @@ async def cmd_thesis_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     for c in chunks:
         await update.message.reply_text(c)
 
+
 async def cmd_thesis_revisit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     due = thesis_mod.get_revisit_due()
     if not due:
@@ -215,6 +211,7 @@ async def cmd_thesis_revisit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         questions = thesis_mod.build_revisit_questions(t)
         await update.message.reply_text(questions)
         storage.update_thesis_revisit(t["id"])
+
 
 async def cmd_exit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
@@ -231,6 +228,7 @@ async def cmd_exit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     result = thesis_mod.check_exit_request(ticker, current_price)
     await update.message.reply_text(result["message"])
 
+
 async def cmd_exit_force(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args or len(ctx.args) < 2:
         await update.message.reply_text("Usage: /exit_force TICKER <raison>")
@@ -246,6 +244,7 @@ async def cmd_exit_force(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     storage.close_thesis(t["id"], status="realized", reason=f"{note_suffix} {reason}")
     await update.message.reply_text(f"OK these {ticker} fermee 'realized' {note_suffix}\nRaison: {reason}")
 
+
 async def cmd_thesis_note(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args or len(ctx.args) < 2:
         await update.message.reply_text("Usage: /thesis_note <thesis_id> <ta note>")
@@ -258,6 +257,7 @@ async def cmd_thesis_note(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     note = " ".join(ctx.args[1:])
     storage.append_thesis_note(thesis_id, note)
     await update.message.reply_text(f"Note ajoutee a these #{thesis_id}.")
+
 
 async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Digest v2: header metadata + narrative Sonnet + footer drill-down."""
@@ -292,6 +292,7 @@ async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     try:
         from intelligence import digest as _digest_mod
+
         narrative = _digest_mod.generate_unified_digest(since_hours=hours, max_signals=40)
     except Exception as e:
         await update.message.reply_text(f"Digest failed: {type(e).__name__}: {e}")
@@ -348,6 +349,7 @@ async def cmd_digest(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(full_output)
 
+
 async def cmd_feedback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args or len(ctx.args) < 2:
         await update.message.reply_text(
@@ -373,10 +375,12 @@ async def cmd_feedback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
 
+
 async def cmd_credibility(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     msg = credibility_mod.list_top_sources(n=10)
     msg += "\n\n" + credibility_mod.list_worst_sources(n=5)
     await update.message.reply_text(msg)
+
 
 async def cmd_predictions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     preds = storage.get_recent_predictions(limit=15)
@@ -397,6 +401,7 @@ async def cmd_predictions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} target {target} [pending]")
     await update.message.reply_text("\n".join(lines))
 
+
 async def cmd_resolve_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Resolution en cours...")
     try:
@@ -405,6 +410,7 @@ async def cmd_resolve_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg[:4000])
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+
 
 async def resolve_journal_decisions_job():
     """Phase 18 Batch 3 — Daily cron: resolve J+30 and J+90 pending decisions.
@@ -486,6 +492,7 @@ async def resolve_journal_decisions_job():
     except Exception as e:
         log.exception(f"resolve_journal_decisions_job crashed: {e}")
 
+
 async def daily_resolve_job():
     log.info("Daily resolve predictions starting")
     try:
@@ -497,6 +504,7 @@ async def daily_resolve_job():
     except Exception as e:
         log.error(f"Daily resolve failed: {e}")
 
+
 async def cmd_regime(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Detection regime en cours (5-10s)...")
     try:
@@ -506,8 +514,10 @@ async def cmd_regime(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
 
+
 # Phase Tickers Tiered — dynamic from config.yaml universe.core
 CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_tickers") else []
+
 
 async def cmd_calendar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     events = storage.get_upcoming_events(days_ahead=60)
@@ -518,6 +528,7 @@ async def cmd_calendar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         msg = alert_msg + "\n\n---\n\n" + msg
     await update.message.reply_text(msg[:4000])
 
+
 async def cmd_calendar_refresh(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Refresh calendar sur {len(CALENDAR_REFRESH_TICKERS)} tickers (60-90s)...")
     try:
@@ -527,6 +538,7 @@ async def cmd_calendar_refresh(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg[:4000])
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+
 
 async def daily_calendar_refresh_job():
     log.info("Daily calendar refresh starting")
@@ -541,116 +553,14 @@ async def daily_calendar_refresh_job():
     except Exception as e:
         log.error(f"Daily calendar refresh failed: {e}")
 
-async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Show categorized list of all 65 registered commands."""
-    help_text = """mes-bots-finance — 65 commands (consolidation V4 spec'd Sprint 1.2)
-
-DAILY RITUAL (6)
-  /brief             Morning briefing (6 sections)
-  /health            Bot health snapshot
-  /ping              Liveness probe
-  /digest            Run digest pipeline now
-  /log_value <msg>   Log a moment the bot helped
-  /log_friction <msg> Log a friction
-
-THESES (8)
-  /thesis_list       List active theses (chunked)
-  /thesis_add        Create new thesis
-  /thesis_set        Set thesis params
-  /thesis_note       Add note
-  /thesis_revisit    Monthly revisit
-  /thesis_premortem  Pre-mortem analysis
-  /exit TICKER       Check exit triggers
-  /exit_force        Force-close (regret-tagged)
-
-POSITIONS (8)
-  /portfolio         View positions w/ PnL
-  /position TICKER   Drill-down
-  /position_buy      Record buy + journal
-  /position_sell     Record sell + journal
-  /position_set      Set position manually
-  /position_history  Event log
-  /orphan_tickers    Holdings w/o thesis
-  /override          Manual override
-
-ANALYSIS (6)
-  /analyze TICKER    Deep analysis (Opus, $0.20)
-  /analyze_debate    Multi-round debate
-  /debate_replay     Replay debate
-  /asymmetry TICKER  Anti-sell-too-early math
-  /risk_check        Risk premortem (Opus reads journal+biases)
-  /materiality       Materiality (no args=top5, INT=signal_id, TICKER=last 5)
-
-JOURNAL (9)
-  /journal           View decision journal
-  /journal_review    Review unresolved
-  /journal_unresolved List unresolved
-  /journal_tag       Tag with bias
-  /bias_review       Bias patterns
-  /history TICKER    Position/thesis history
-  /predictions       Pending predictions
-  /resolve_now       Force-resolve due
-  /feedback          Submit feedback
-
-SIGNALS & SOURCES (9)
-  /echo_recent       Recent echo clusters
-  /signals_by_type   Filter signals
-  /credibility       Source credibility
-  /sources_brier     Brier per source
-  /sources_half_life Source decay rates
-  /sources_health    Source freshness
-  /tiers             Source tier ranking
-  /tiers_watch       Watch tier changes
-  /promote           Promote tier
-
-MARKET (7)
-  /macro             Macro snapshot
-  /regime            Current regime
-  /credit            Credit / HY OAS
-  /crypto            Crypto zone
-  /price_check TICK  Live price
-  /calendar          Upcoming events
-  /calendar_refresh  Force refresh
-
-INSIDERS (7)
-  /insiders          Recent activity
-  /insider_cluster   Cluster analysis
-  /insider_buy_cluster      Buy-cluster only
-  /insider_buy_cluster_stats Stats
-  /insider_digest    Daily digest
-  /recent_8k         Recent 8-K filings
-  /eight_k_history   Historical 8-K
-
-OPS & MONITORING (5)
-  /kpi_status        KPI dashboard
-  /cost_trajectory   LLM cost + budget
-  /llm_costs         Operational LLM costs
-  /handler_stats     Handler usage telemetry
-  /help              This message
-
-Spec V4: 65 -> 18 handlers in Sprint 1.2 (post 2026-06-10).
-See docs/personal/handlers-consolidation-plan.md
-"""
-    await update.message.reply_text(help_text)
-
-async def cmd_insiders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    if not ctx.args:
-        await update.message.reply_text("Usage: /insiders TICKER\nEx: /insiders NVDA")
-        return
-    ticker = ctx.args[0].upper()
-    await update.message.reply_text(f"Fetching Form 4 insiders {ticker} (15-30s, sleep entre fetches)...")
-    try:
-        activity = edgar_mod.get_insider_activity(ticker, days=90)
-        msg = edgar_mod.format_insider_summary(activity)
-        await update.message.reply_text(msg[:4000])
-    except Exception as e:
-        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
 
 # === Scheduled jobs ===
+
 
 async def heartbeat():
     storage.update_state()
     log.info("heartbeat ok")
+
 
 async def ingest_gmail_job():
     """Hourly Gmail ingestion + immediate materiality_v2 chaining.
@@ -676,6 +586,7 @@ async def ingest_gmail_job():
     except Exception as e:
         log.error(f"gmail ingest failed: {e}")
 
+
 async def daily_digest_job():
     """Auto-trigger unified digest synthesis (12h interval = 2x/jour)."""
     try:
@@ -690,6 +601,7 @@ async def daily_digest_job():
             _notify.send_text(msg)
     except Exception as e:
         log.warning(f"daily_digest_job error: {e}")
+
 
 async def daily_backup_job():
     """Phase Solidification P0 #2 — Daily backup via scripts/backup.sh.
@@ -715,7 +627,9 @@ async def daily_backup_job():
     except Exception as e:
         log.error(f"daily_backup_job exception: {e}")
 
+
 # ============ Phase Solidification P0 #3 — Handler usage telemetry ============
+
 
 async def log_handler_call_middleware(update, ctx):
     """Pre-handler middleware: log every command call to handler_calls table.
@@ -747,6 +661,7 @@ async def log_handler_call_middleware(update, ctx):
     except Exception as e:
         log.warning(f"handler telemetry failed: {e}")
 
+
 async def weekly_handler_stats_job():
     """Phase Solidification P0 #3 — Weekly handler usage summary, Sunday 23:00 Paris."""
     try:
@@ -773,7 +688,9 @@ async def weekly_handler_stats_job():
     except Exception as e:
         log.warning(f"weekly_handler_stats_job error: {e}")
 
+
 # ============ Phase Solidification P2 — KPI Status monitoring ============
+
 
 async def weekly_kpi_status_job():
     """Phase Solidification P2 — Weekly KPI status, Sunday 23:00 Paris."""
@@ -787,7 +704,9 @@ async def weekly_kpi_status_job():
     except Exception as e:
         log.warning(f"weekly_kpi_status_job error: {e}")
 
+
 # ============ Phase Solidification P2 — Cost trajectory dashboard ============
+
 
 async def weekly_cost_summary_job():
     """Phase Solidification P2 — Weekly cost summary, Sunday 22:00 Paris."""
@@ -805,6 +724,7 @@ async def weekly_cost_summary_job():
             )
     except Exception as e:
         log.warning(f"weekly_cost_summary_job error: {e}")
+
 
 async def recalibrate_credibility_brier_job():
     """Phase A1 — Monthly cron: recalibrate sources.credibility from rolling Brier scores."""
@@ -826,6 +746,7 @@ async def recalibrate_credibility_brier_job():
         log.info(f"Brier recalibration done: {len(updates)} sources updated")
     except Exception as e:
         log.exception(f"recalibrate_credibility_brier_job crashed: {e}")
+
 
 async def update_echo_clusters_job():
     """Phase A3 — Hourly: embed pending signals + compute echo clusters in 48h window."""
@@ -849,6 +770,7 @@ async def update_echo_clusters_job():
     except Exception as e:
         log.exception(f"update_echo_clusters_job crashed: {e}")
 
+
 async def score_pending_signals_job():
     """Phase data-quality fix — Hourly: score signals with entities IS NULL.
     Drains backlog of signals that the daily digest (limit=20/day) didn't cover.
@@ -867,6 +789,7 @@ async def score_pending_signals_job():
     except Exception as e:
         log.exception(f"score_pending_signals_job crashed: {e}")
 
+
 async def refresh_source_half_lives_job():
     """Phase A4 — Weekly: refresh half-life per source from forward price windows."""
     log.info("Refresh source half-lives starting")
@@ -878,6 +801,7 @@ async def refresh_source_half_lives_job():
         log.info(f"Half-lives refreshed: {persisted}/{len(results)} sources updated")
     except Exception as e:
         log.exception(f"refresh_source_half_lives_job crashed: {e}")
+
 
 async def scheduled_8k_scan_job():
     """Phase C9 — Daily cron 6:30: scan watchlist for new 8-K filings, push high+catastrophic alerts."""
@@ -908,6 +832,7 @@ async def scheduled_8k_scan_job():
         notify.send_text(msg.strip())
     log.info(f"8-K scan: {len(new_logged)} new logged, {len(alerts)} alerted")
 
+
 async def scheduled_classify_signal_types_job():
     """Phase Digestion 3a — Classify signals with signal_type=NULL every 30min."""
     try:
@@ -918,6 +843,7 @@ async def scheduled_classify_signal_types_job():
             log.info(f"signal_type classifier: {n_classified} classified, distribution={types}")
     except Exception as e:
         log.warning(f"classify_signal_types_job error: {e}")
+
 
 async def scheduled_recompute_materiality_boost_job():
     """Phase Digestion 3b — Recompute corroboration multipliers after echo clusters update."""
@@ -930,6 +856,7 @@ async def scheduled_recompute_materiality_boost_job():
     except Exception as e:
         log.warning(f"recompute_boost_job error: {e}")
 
+
 async def scheduled_materiality_v2_job():
     """Phase Digestion 3c — Score signals with structured rubric every 1h."""
     try:
@@ -940,6 +867,7 @@ async def scheduled_materiality_v2_job():
             log.info(f"materiality_v2: {s} scored, {f} failed of {total}")
     except Exception as e:
         log.warning(f"materiality_v2_job error: {e}")
+
 
 async def post_init(app):
     """Run AFTER event loop is started."""
@@ -978,6 +906,7 @@ async def post_init(app):
     )
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 
+
 async def scheduled_insider_refresh_job():
     """Cron: 6h Paris daily — refresh + post if anything notable."""
     try:
@@ -987,6 +916,7 @@ async def scheduled_insider_refresh_job():
         log.info(f"scheduled_insider_refresh: {result['refreshed']} tickers, {len(result['alerts'])} alerts")
     except Exception as e:
         log.error(f"scheduled_insider_refresh failed: {e}")
+
 
 async def price_monitor_job():
     """Cron 15min mkt hours: check active theses for price crossings."""
@@ -998,6 +928,7 @@ async def price_monitor_job():
             log.warning(f"price_monitor: failed tickers: {r['fails']}")
     except Exception as e:
         log.error(f"price_monitor_job: {e}")
+
 
 async def daily_crypto_zone_job():
     """Cron daily 10h Paris : check crypto zone, alert if extreme. Includes position context."""
@@ -1031,6 +962,7 @@ async def daily_crypto_zone_job():
     except Exception as e:
         log.error(f"daily_crypto_zone_job: {e}")
 
+
 async def scheduled_buy_cluster_scan_job():
     """Daily scan: detect + log + alert on new BUY clusters (CMP 30d window, 7d dedup)."""
     from intelligence import insider_buy_cluster as ibc
@@ -1061,6 +993,7 @@ async def scheduled_buy_cluster_scan_job():
     else:
         log.info("Daily buy cluster scan: no new clusters logged")
 
+
 async def scheduled_resolve_buy_cluster_returns_job():
     """Daily cron: resolve return_30d and return_90d for pending BUY clusters."""
     from intelligence import insider_buy_cluster as ibc
@@ -1082,6 +1015,7 @@ async def scheduled_resolve_buy_cluster_returns_job():
                 notify.send_text("\n".join(lines))
     except Exception as e:
         log.warning(f"resolve buy cluster returns error: {e}")
+
 
 def main():
     storage.log_event("startup", {"phase": "2"})
@@ -1172,6 +1106,7 @@ def main():
     log.info("Polling Telegram...")
     storage.update_state(bot_start_ts=datetime.now(UTC).isoformat())
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()

@@ -21,6 +21,7 @@ from shared import edgar as edgar_mod
 Note: scheduled_insider_refresh_job cron in bot/main.py also uses
 daily_insider_refresh + format_daily_insider_digest (same imports there).
 """
+
 from __future__ import annotations
 
 from intelligence.insider_digest import daily_insider_refresh, format_daily_insider_digest
@@ -203,3 +204,17 @@ async def cmd_insider_cluster(update, ctx):  # noqa: ARG001
         await update.message.reply_text(edgar_mod.format_insider_cluster(cluster))
     except Exception as e:
         await update.message.reply_text("Error: " + str(e))
+
+
+async def cmd_insiders(update, ctx):
+    if not ctx.args:
+        await update.message.reply_text("Usage: /insiders TICKER\nEx: /insiders NVDA")
+        return
+    ticker = ctx.args[0].upper()
+    await update.message.reply_text(f"Fetching Form 4 insiders {ticker} (15-30s, sleep entre fetches)...")
+    try:
+        activity = edgar_mod.get_insider_activity(ticker, days=90)
+        msg = edgar_mod.format_insider_summary(activity)
+        await update.message.reply_text(msg[:4000])
+    except Exception as e:
+        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")

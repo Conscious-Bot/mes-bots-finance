@@ -540,3 +540,18 @@ match producer = tester rendering paths reels, pas juste code paths.
 
 Audit Day 9 Ship V Phase D : /portfolio_narratives bold dropped, telegram_safe
 maintenu defensive plain context. Mid-word `_` literal sans backslash.
+
+### Regle 11 — Cross-config drift on AST extraction
+
+Context: when extracting a function from a file inside `[tool.ruff.lint.per-file-ignores]` zone (ex `bot/main.py = ["ARG001"]`) to a file outside that zone (ex `bot/handlers/*` no ignore), the silent per-file-ignore safety net disappears at the destination.
+
+Day 10 E batch 1 manifestation: cmd_ping/cmd_help/cmd_insiders extracted from bot/main.py (ARG001 ignored) to system.py + signals_filings.py (no ignore) → 4× ruff ARG001 + 2× mypy union-attr fired at first gate (annotations `update: Update` + `ctx: ContextTypes.DEFAULT_TYPE` triggered Message|None strict check + unused-arg flag).
+
+Rule: before extraction, audit `[tool.ruff.lint.per-file-ignores]` + target convention. Normalize at extraction time:
+- Strip type annotations on update/ctx if target convention is untyped (bot/handlers/* convention)
+- Add inline `# noqa: ARG001` for unused ctx
+- Remove orphaned imports (`from telegram import Update`, `ContextTypes`) if no longer referenced
+
+Extension of R3 (scope match producer): per-file-ignore is part of the function's effective scope. Moving the function moves it out of that scope; destination must replicate equivalent silence (inline noqa) or be brought to convention.
+
+Implementation note for batches E2/E3/E4: AST extraction script must include annotation-stripping + noqa injection BEFORE first gate run.

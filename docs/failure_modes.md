@@ -213,3 +213,27 @@ Heartbeat_fresh will mechanically remain FAIL for ~1h post-restart until first c
 - APScheduler config tuning (max_workers, coalesce, executor type)
 - Internal APScheduler INFO logging for stuck worker detection
 - Consider multiprocessing executor for long-running gmail/LLM jobs
+
+---
+
+## FM-6: Telegram getUpdates session persistence after bot restart
+
+Symptom: after `pkill -9 bot.main` followed by immediate restart, new bot logs `telegram.error.Conflict: Conflict: terminated by other getUpdates request` within 6-10s of startup. Local `ps aux | grep bot.main` shows no competing process.
+
+Root cause: Telegram retains the getUpdates long-poll session on its servers for ~30-90s after client disconnect. New polling within that window is rejected with Conflict even though no local instance is running.
+
+False suspects ruled out one by one (Day 10 E batch 1 restart sequence):
+- Webhook set: check `curl -s "https://api.telegram.org/bot$TOKEN/getWebhookInfo"` → `url: ""` means no webhook
+- Other local process: `ps aux | grep "python.*bot"` → clean
+- Same-token tennis-bot: token comparison `.env` files → different tokens
+- launchd / cron auto-restart: check `launchctl list` + `crontab -l | grep bot.main` → none
+
+Verified workflow:
+1. `pkill -9 -f "python.*bot.main"`
+2. Verify `ps aux | grep "python.*bot.main" | grep -v grep` returns empty
+3. Verify `curl -s "https://api.telegram.org/bot$TOKEN/getWebhookInfo"` shows `url: ""`
+4. Wait 60-90s (not 30s) for Telegram-side session expiry
+5. Restart `nohup python -m bot.main > bot.log 2>&1 &`
+6. `grep -c Conflict bot.log` should be 0
+
+Force-flush option if conflict persists: `curl -s "https://api.telegram.org/bot$TOKEN/deleteWebhook?drop_pending_updates=true"` (no-op if no webhook, but drops pending update buffer that can hold session state).

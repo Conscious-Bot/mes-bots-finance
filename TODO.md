@@ -886,3 +886,18 @@ discipline dans le code". Deprecation = solidification, pas regression.
 - **J-23 vers KPI #2 batch resolution = 10 juin 2026** (45+ predictions due)
 - Observation phase: aucune feature build, monitoring passif uniquement
 - Discipline CONVENTIONS Section 16 (8 rules total) stricte applied
+
+---
+
+## Day 10 Sprint — 17 May 2026 (observation freeze LIFTED)
+
+Order: D → E → F → B → B' → A → C
+
+- ✅ D Investigation position_buy n=2 anomaly Day 9 (NOT A BUG, friction.md captured)
+- 🚧 E bot/main.py split → bot/handlers/* (4 batches, ~2.5-3h)
+- ⏳ F USD canonical migration (~3-5h)
+- ⏳ B L4 KPI #1 uptime wire vers /kpi_status (~45min)
+- ⏳ B' handler_calls.is_typo column + migrate existing rows (~30min, adjacent observability)
+- ⏳ A M2 SMH sectoral benchmark wire KPI #6 (~1.5-2h)
+- ⏳ C Q3 dormant-handler triage post-telemetry (~2h)
+
