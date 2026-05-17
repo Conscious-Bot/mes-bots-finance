@@ -22,6 +22,7 @@ import contextlib
 import logging
 
 from shared import positions as positions_mod
+from shared.display import format_finance, format_pct
 
 __all__ = [
     "_portfolio_journal_ctx",
@@ -176,8 +177,8 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
     pnl_total = total_mv - total_cost
     pnl_total_pct = (pnl_total / total_cost * 100) if total_cost else 0
     lines.append(
-        f"Book: \u20ac{total_mv:,.0f}  Cost: \u20ac{total_cost:,.0f}  "
-        f"PnL: \u20ac{pnl_total:+,.0f} ({pnl_total_pct:+.1f}%)"
+        f"Book: {format_finance(total_mv, decimals=0)}  Cost: {format_finance(total_cost, decimals=0)}  "
+        f"PnL: {format_finance(pnl_total, decimals=0, signed=True)} ({format_pct(pnl_total_pct, decimals=1, signed=True)})"
     )
     lines.append(f"{len(positions)} positions  |  Max sizing policy: {max_pct_threshold:.0f}%")
     lines.append("")
@@ -189,13 +190,13 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
     if worst3:
         worst_strs = []
         for p in worst3:
-            pnl_s = format(p["pnl_pct"], "+.1f") + "%"
+            pnl_s = format_pct(p["pnl_pct"], decimals=1, signed=True)
             worst_strs.append(p["ticker"] + " " + p["conv_str"] + " " + pnl_s)
         alerts_lines.append(f"  Worst 3: {', '.join(worst_strs)}")
     if best3:
         best_strs = []
         for p in best3:
-            pnl_s = format(p["pnl_pct"], "+.1f") + "%"
+            pnl_s = format_pct(p["pnl_pct"], decimals=1, signed=True)
             best_strs.append(p["ticker"] + " " + p["conv_str"] + " " + pnl_s)
         alerts_lines.append(f"  Best 3: {', '.join(best_strs)}")
     if alerts_lines:
@@ -327,8 +328,8 @@ async def cmd_position_buy(update, ctx):  # noqa: ARG001
                 )
 
         # 5. Compose response
-        msg = [f"✓ Bought {qty:.3f} {ticker} @ ${price:.2f} [{dtype}]"]
-        msg.append(f"  New qty: {p['qty']:.3f}, avg cost: ${p['avg_cost']:.2f}")
+        msg = [f"✓ Bought {qty:.3f} {ticker} @ {format_finance(price, decimals=2)} [{dtype}]"]
+        msg.append(f"  New qty: {p['qty']:.3f}, avg cost: {format_finance(p['avg_cost'], decimals=2)}")
         if decision_id:
             tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
             msg.append(f"  -> auto-logged decision #{decision_id} thesis={thesis_id or '-'}{tags_str}")
@@ -386,10 +387,10 @@ async def cmd_position_sell(update, ctx):  # noqa: ARG001
                 )
 
         # 4. Compose response
-        msg_lines = [f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ ${r['sold_price']:.2f} [{dtype}]"]
-        msg_lines.append(f"  Avg cost was: ${r['avg_cost']:.2f}")
-        msg_lines.append(f"  Realized PnL (event): ${r['realized_pnl_event']:+,.2f}")
-        msg_lines.append(f"  Realized PnL (total): ${r['realized_pnl_total']:+,.2f}")
+        msg_lines = [f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ {format_finance(r['sold_price'], decimals=2)} [{dtype}]"]
+        msg_lines.append(f"  Avg cost was: {format_finance(r['avg_cost'], decimals=2)}")
+        msg_lines.append(f"  Realized PnL (event): {format_finance(r['realized_pnl_event'], decimals=2, signed=True)}")
+        msg_lines.append(f"  Realized PnL (total): {format_finance(r['realized_pnl_total'], decimals=2, signed=True)}")
         msg_lines.append(f"  Remaining: {r['remaining_qty']:.3f}" + ("  [CLOSED]" if r["closed"] else ""))
         if decision_id:
             tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""

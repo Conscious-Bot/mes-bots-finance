@@ -193,3 +193,37 @@ def test_format_aggregate_line_render():
     assert "28.9%" in line
     assert "7 pos" in line
     assert "+12.3%" in line
+
+
+
+# ===== signed=True behavior (for PnL displays) =====
+def test_format_money_signed_positive_has_plus():
+    assert display.format_money(100.0, Currency.EUR, signed=True) == "\u20ac+100.00"
+
+
+def test_format_money_signed_negative_has_minus():
+    assert display.format_money(-100.0, Currency.EUR, signed=True) == "\u20ac-100.00"
+
+
+def test_format_finance_signed_works():
+    """format_finance inherits signed param via format_money."""
+    assert display.format_finance(50.0, signed=True).startswith(CANONICAL_FINANCE.value)
+    assert "+50" in display.format_finance(50.0, signed=True)
+    assert "-50" in display.format_finance(-50.0, signed=True)
+
+
+def test_format_finance_signed_with_thousands_sep():
+    """signed + thousands separator both apply."""
+    result = display.format_finance(1234.56, signed=True)
+    assert "+" in result
+    assert "," in result
+    assert "1,234.56" in result
+
+
+def test_format_finance_signed_with_width():
+    """signed + width both apply."""
+    result = display.format_finance(100.0, decimals=2, width=10, signed=True)
+    assert result.startswith(CANONICAL_FINANCE.value)
+    numeric = result[1:]
+    assert len(numeric) >= 10  # respects min width
+    assert "+100.00" in result

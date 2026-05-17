@@ -65,6 +65,7 @@ def format_money(
     currency: Currency,
     decimals: int = 2,
     width: int | None = None,
+    signed: bool = False,
 ) -> str:
     """Format money value with currency prefix. Low-level primitive.
 
@@ -76,27 +77,33 @@ def format_money(
         currency: Currency enum (EUR, USD, ...)
         decimals: digits after decimal point (default 2)
         width: pad numeric part to this width (None = no padding)
+        signed: include explicit + sign for non-negative values (default False).
+            Use for PnL display where direction matters (realized PnL, etc.).
     """
+    sign_part = "+" if signed else ""
     if width is not None:
-        return f"{currency.value}{value:>{width},.{decimals}f}"
-    return f"{currency.value}{value:,.{decimals}f}"
+        return f"{currency.value}{value:>{sign_part}{width},.{decimals}f}"
+    return f"{currency.value}{value:{sign_part},.{decimals}f}"
 
 
-def format_finance(value: float, decimals: int = 2, width: int | None = None) -> str:
+def format_finance(value: float, decimals: int = 2, width: int | None = None, signed: bool = False) -> str:
     """Format finance value (positions, MV, pnl, aggregates) in canonical currency.
 
     INVARIANT: `value` must already be expressed in CANONICAL_FINANCE.
     Caller is responsible for ensuring storage-currency matches at call site.
+
+    Use signed=True for PnL displays where direction matters (realized PnL events).
     """
-    return format_money(value, CANONICAL_FINANCE, decimals, width)
+    return format_money(value, CANONICAL_FINANCE, decimals, width, signed=signed)
 
 
-def format_billing(value: float, decimals: int = 2, width: int | None = None) -> str:
+def format_billing(value: float, decimals: int = 2, width: int | None = None, signed: bool = False) -> str:
     """Format Anthropic/LLM billing value in CANONICAL_BILLING (USD).
 
     Use for LLM cost reporting, budget tracking, MTD spend, projections.
+    signed=True for spend deltas if ever needed.
     """
-    return format_money(value, CANONICAL_BILLING, decimals, width)
+    return format_money(value, CANONICAL_BILLING, decimals, width, signed=signed)
 
 
 def format_pct(value: float, decimals: int = 1, signed: bool = True, width: int | None = None) -> str:
