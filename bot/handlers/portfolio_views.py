@@ -17,6 +17,7 @@ import sqlite3
 import yaml
 
 from bot.handlers._common import config_path, db_path
+from shared.display import format_aggregate_line, format_finance, format_pct
 
 __all__ = [
     "cmd_portfolio_drift",
@@ -136,7 +137,7 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
     # Sort by market value descending
     sorted_sectors = sorted(sectors.items(), key=lambda x: x[1]["mv"], reverse=True)
 
-    lines = [f"\U0001F4CA *PORTFOLIO BY SECTOR* — \u20AC{total_mv:,.0f} total\n"]
+    lines = [f"\U0001F4CA *PORTFOLIO BY SECTOR* — {format_finance(total_mv, decimals=0)} total\n"]
     for sector, data in sorted_sectors:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
         n = len(data["tickers"])
@@ -144,9 +145,13 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
         tickers_str = ", ".join(sorted(data["tickers"])[:5])
         if n > 5:
             tickers_str += f" +{n-5}"
-        lines.append(
-            f"  {sector:28s}  \u20AC{data['mv']:>6,.0f}  [{pct:4.1f}%]  ({n} pos, PnL {pnl_pct:+.1f}%)"
-        )
+        lines.append(format_aggregate_line(
+            label=sector,
+            market_value=data["mv"],
+            pct_total=pct,
+            n_positions=n,
+            pnl_pct=pnl_pct,
+        ))
         lines.append(f"    {tickers_str}")
 
     # Warnings
@@ -196,14 +201,15 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
 
     sorted_narratives = sorted(narratives.items(), key=lambda x: x[1]["mv"], reverse=True)
 
-    lines = [f"\U0001F3AF *PORTFOLIO BY NARRATIVE* — \u20AC{total_mv:,.0f} total\n"]
+    lines = [f"\U0001F3AF *PORTFOLIO BY NARRATIVE* — {format_finance(total_mv, decimals=0)} total\n"]
     for narrative, data in sorted_narratives:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
         n = len(data["tickers"])
         pnl_pct = ((data["mv"] / data["cost_basis"] - 1) * 100) if data["cost_basis"] else 0
         tickers_str = ", ".join(sorted(data["tickers"]))
         lines.append(
-            f"  *{narrative}*  \u20AC{data['mv']:,.0f}  [{pct:4.1f}%]  ({n} pos, PnL {pnl_pct:+.1f}%)"
+            f"  *{narrative}*  {format_finance(data['mv'], decimals=0)}  "
+            f"[{pct:4.1f}%]  ({n} pos, PnL {format_pct(pnl_pct, decimals=1, signed=True)})"
         )
         lines.append(f"    {tickers_str}")
         lines.append("")
@@ -276,10 +282,10 @@ async def cmd_portfolio_drift(update, ctx):  # noqa: ARG001
     pct_deployed = (total_actual / total_target * 100) if total_target else 0
 
     lines = ["\U0001F4C9 *PORTFOLIO DRIFT vs TARGETS*\n"]
-    lines.append(f"  Total target  : \u20AC{total_target:>7,.0f}")
-    lines.append(f"  Total actual  : \u20AC{total_actual:>7,.0f}")
+    lines.append(f"  Total target  : {format_finance(total_target, decimals=0, width=7)}")
+    lines.append(f"  Total actual  : {format_finance(total_actual, decimals=0, width=7)}")
     lines.append(f"  Deployed      : {pct_deployed:.1f}%")
-    lines.append(f"  Net drift     : \u20AC{total_drift:+,.0f}")
+    lines.append(f"  Net drift     : {format_finance(total_drift, decimals=0, signed=True)}")
     lines.append("")
 
     # Executed positions with drift
@@ -288,7 +294,11 @@ async def cmd_portfolio_drift(update, ctx):  # noqa: ARG001
         for item in sorted(executed, key=lambda x: x["drift"], reverse=False)[:15]:
             sign = "\U0001F534" if item["drift_pct"] < -10 else ("\U0001F7E2" if abs(item["drift_pct"]) <= 10 else "\U0001F535")
             lines.append(
-                f"  {sign} {item['ticker']:10s} \u20AC{item['actual']:>5,.0f}/\u20AC{item['target']:>5,.0f}  drift {item['drift']:+,.0f} ({item['drift_pct']:+.0f}%)"
+                f"  {sign} {item['ticker']:10s} "
+                f"{format_finance(item['actual'], decimals=0, width=5)}/"
+                f"{format_finance(item['target'], decimals=0, width=5)}  "
+                f"drift {format_finance(item['drift'], decimals=0, signed=True)} "
+                f"({format_pct(item['drift_pct'], decimals=0, signed=True)})"
             )
         lines.append("")
 
@@ -296,7 +306,7 @@ async def cmd_portfolio_drift(update, ctx):  # noqa: ARG001
     if locked:
         lines.append(f"*LOCKED* ({len(locked)} PEA)")
         for item in locked[:10]:
-            lines.append(f"  \U0001F512 {item['ticker']:10s} \u20AC{item['actual']:>5,.0f}/\u20AC{item['target']:>5,.0f}")
+            lines.append(f"  \U0001F512 {item['ticker']:10s} {format_finance(item['actual'], decimals=0, width=5)}/{format_finance(item['target'], decimals=0, width=5)}")
         lines.append("")
 
     # Planned (to execute)
@@ -305,7 +315,7 @@ async def cmd_portfolio_drift(update, ctx):  # noqa: ARG001
         for item in sorted(planned, key=lambda x: (x["phase_week"] or 99, -x["target"]))[:10]:
             phase_str = f"W{item['phase_week']}" if item['phase_week'] else "—"
             prio_str = f" [{item['priority']}]" if item['priority'] else ""
-            lines.append(f"  \u23F3 {item['ticker']:10s} \u20AC{item['target']:>5,.0f}  phase {phase_str}{prio_str}")
+            lines.append(f"  \u23F3 {item['ticker']:10s} {format_finance(item['target'], decimals=0, width=5)}  phase {phase_str}{prio_str}")
         lines.append("")
 
     if dropped:
