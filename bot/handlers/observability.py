@@ -132,16 +132,36 @@ async def cmd_health(update, ctx):  # noqa: ARG001
     await update.message.reply_text("\n".join(lines))
 
 
-async def cmd_handler_stats(update, ctx):  # noqa: ARG001
+async def cmd_handler_stats(update, ctx):
     """Phase Solidification P0 #3 — Show handler usage stats with Pareto curve.
 
     Usage: /handler_stats [days=30]
+
+    M4 fix Day 9 audit: filters known registered CommandHandler.commands set
+    via ctx.application.handlers introspection (PTB v21+) to exclude telemetry
+    typos (e.g. 'porfolio', 'portfolio_drive', 'healthy') from Pareto curve.
+    Typos displayed as separate footer for visibility without pollution.
+    Graceful fallback to display-all if introspection fails.
     """
     parts = update.message.text.split()
     days = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 30
     import sqlite3 as _sql
 
+    from telegram.ext import CommandHandler as _CmdHandler
+
     from shared import storage as _storage
+
+    # M4: introspect registered command names from app.handlers
+    known_cmds: set[str] = set()
+    try:
+        if ctx is not None and hasattr(ctx, "application") and ctx.application is not None:
+            for handler_list in ctx.application.handlers.values():
+                for h in handler_list:
+                    if isinstance(h, _CmdHandler):
+                        for cmd in h.commands:
+                            known_cmds.add(cmd)
+    except Exception:
+        known_cmds = set()
 
     conn = _sql.connect(_storage._DB_PATH)
     conn.row_factory = _sql.Row
@@ -156,25 +176,51 @@ async def cmd_handler_stats(update, ctx):  # noqa: ARG001
         ).fetchall()
     finally:
         conn.close()
-    total = sum(r["n"] for r in rows)
-    if total == 0:
+
+    if known_cmds:
+        known_rows = [r for r in rows if r["handler_name"] in known_cmds]
+        typo_rows = [r for r in rows if r["handler_name"] not in known_cmds]
+    else:
+        known_rows = list(rows)
+        typo_rows = []
+
+    total = sum(r["n"] for r in known_rows)
+    typo_total = sum(r["n"] for r in typo_rows)
+
+    if total == 0 and typo_total == 0:
         await update.message.reply_text(f"No handler calls in last {days} days.")
         return
-    lines = [f"HANDLER USAGE — last {days}d ({total} calls, {len(rows)} unique)"]
+
+    header_extra = ""
+    if typo_rows:
+        header_extra = f" (+ {typo_total} typo calls / {len(typo_rows)} variants filtered)"
+    lines = [f"HANDLER USAGE — last {days}d ({total} known calls, {len(known_rows)} unique){header_extra}"]
+
     cumulative = 0
-    for r in rows:
+    for r in known_rows:
         cumulative += r["n"]
-        pct = 100 * cumulative / total
+        pct = 100 * cumulative / total if total > 0 else 0
         last_dt = (r["last_used"] or "")[:10]
         lines.append(f"  {r['handler_name']:24s} n={r['n']:4d} cumul={pct:5.1f}%  last={last_dt}")
-    # Pareto threshold callout
-    pareto_80 = next(
-        (i for i, _ in enumerate(rows) if sum(rows[j]["n"] for j in range(i + 1)) >= 0.8 * total), len(rows)
-    )
-    if pareto_80 < len(rows) - 1:
-        lines.append(
-            f"\nPareto: top {pareto_80 + 1} handlers = 80% calls. {len(rows) - pareto_80 - 1} handlers = long tail."
+
+    if total > 0 and len(known_rows) > 1:
+        pareto_80 = next(
+            (i for i, _ in enumerate(known_rows) if sum(known_rows[j]["n"] for j in range(i + 1)) >= 0.8 * total),
+            len(known_rows),
         )
+        if pareto_80 < len(known_rows) - 1:
+            lines.append(
+                f"\nPareto: top {pareto_80 + 1} handlers = 80% calls. {len(known_rows) - pareto_80 - 1} handlers = long tail."
+            )
+
+    # M4 footer: surface typos detected (telemetry middleware logs failed cmds too)
+    if typo_rows:
+        lines.append("")
+        sample_names = ", ".join(r["handler_name"] for r in typo_rows[:6])
+        if len(typo_rows) > 6:
+            sample_names += f", ...({len(typo_rows) - 6} more)"
+        lines.append(f"Typos/untracked ({typo_total} calls, {len(typo_rows)} unique): {sample_names}")
+
     msg = "\n".join(lines)
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
