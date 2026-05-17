@@ -114,6 +114,8 @@ logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 log = logging.getLogger("bot")
 
+CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_tickers") else []
+
 THESIS_TEMPLATE = (
     "Format thesis_add (copie-colle, remplace les valeurs) :\n\n"
     "/thesis_add\n"
