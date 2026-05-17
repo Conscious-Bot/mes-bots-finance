@@ -292,8 +292,18 @@ async def cmd_position_buy(update, ctx):  # noqa: ARG001
         existing_before = positions_mod.get_position(ticker)
         dtype = "scale_in" if (existing_before and existing_before.get("qty", 0) > 0) else "entry"
 
+        # 1.5 Compute EUR-equivalent + enrich notes (H2 fix Day 9 audit, KPI #6 traceability)
+        from shared.prices import get_currency_for_ticker as _get_cur, get_fx_rate as _get_fx
+        _ticker_cur = _get_cur(ticker)
+        _fx_to_eur = _get_fx(_ticker_cur, "EUR") or 1.0
+        _eur_inv = qty * price * _fx_to_eur
+        if "eur_invested=" in reasoning:
+            _enriched_notes = reasoning  # idempotent: already tagged
+        else:
+            _enriched_notes = f"{reasoning} | eur_invested={_eur_inv:.2f}"
+
         # 2. Update position via positions_mod (writes positions + position_events)
-        p = positions_mod.add_buy(ticker, qty, price, reasoning)
+        p = positions_mod.add_buy(ticker, qty, price, _enriched_notes)
 
         # 3. Phase B5 journal context + auto log_decision
         from shared import storage as storage_mod

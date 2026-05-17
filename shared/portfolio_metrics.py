@@ -2,10 +2,19 @@
 
 KPI #6: TWR vs SPY/QQQ 12M, target >-5pp underperformance.
 
-Currency: portfolio is EUR-denominated (legacy_import_2026_05_15 positions
-tagged with `eur_invested=N`). Benchmark fetched USD via yfinance, converted
-to EUR-equivalent via EURUSD=X spot at window endpoints. FX adjustment is
-non-negligible on windows >30d (EUR/USD typically moves 5-10% per year).
+Currency: portfolio is EUR-denominated. Entry value extracted from
+`eur_invested=N` tag in position notes (canonical, injected by cmd_position_buy
+upstream Day 9 H2 fix). Fallback for positions without tag: qty * avg_cost
+* fx(native_currency, EUR) via shared.prices canonical helpers
+(get_currency_for_ticker + get_fx_rate). Benchmark fetched USD via yfinance,
+converted to EUR-equivalent via EURUSD=X spot at window endpoints. FX
+adjustment is non-negligible on windows >30d (EUR/USD typically moves
+5-10% per year).
+
+Time/timezone convention (per CONVENTIONS Section 1):
+- positions.opened_at stored as UTC ISO 8601 (CURRENT_TIMESTAMP default)
+- Legacy bulk imports may store naive datetime; treated as UTC with warning
+- Defer formal TZ migration to PIT bitemporal ADR 001 implementation
 
 Math (EUR investor in USD asset):
     eur_start = usd_start / EURUSD_start
@@ -33,7 +42,7 @@ from typing import Any
 import yfinance as yf
 
 from shared.positions import list_positions
-from shared.prices import get_current_price_in_eur
+from shared.prices import get_currency_for_ticker, get_current_price_in_eur, get_fx_rate
 
 log = logging.getLogger(__name__)
 
@@ -91,10 +100,14 @@ def compute_portfolio_return_eur() -> dict[str, Any] | None:
         if eur_inv is None:
             qty = float(p.get("qty", 0) or 0)
             avg_cost = float(p.get("avg_cost", 0) or 0)
-            eur_inv = qty * avg_cost
+            # Currency-aware fallback: avg_cost stored in NATIVE currency per
+            # shared.positions. H2 fix Day 9 audit (was: silent currency mix bug).
+            currency = get_currency_for_ticker(ticker)
+            fx = get_fx_rate(currency, "EUR") or 1.0
+            eur_inv = qty * avg_cost * fx
             log.warning(
-                f"kpi6: {ticker} missing eur_invested tag, "
-                f"fallback qty*avg_cost = {eur_inv:.2f} (may be wrong currency)"
+                f"kpi6: {ticker} missing eur_invested tag, fallback "
+                f"qty*avg_cost*fx ({currency}->EUR={fx:.6f}) = {eur_inv:.2f}"
             )
 
         total_entry += eur_inv
@@ -113,6 +126,13 @@ def compute_portfolio_return_eur() -> dict[str, Any] | None:
         try:
             opened_dt = datetime.fromisoformat(earliest_opened)
             if opened_dt.tzinfo is None:
+                # L1 fix Day 9 audit: per CONVENTIONS Section 1, naive datetime
+                # assumed UTC. Legacy bulk imports may differ (off by TZ offset);
+                # defer formal migration to PIT bitemporal ADR 001.
+                log.warning(
+                    f"kpi6: naive opened_at {earliest_opened!r}, treating as UTC "
+                    f"(CONVENTIONS Section 1); legacy imports may be off by TZ"
+                )
                 opened_dt = opened_dt.replace(tzinfo=UTC)
             days = (datetime.now(UTC) - opened_dt).total_seconds() / 86400
         except (ValueError, TypeError) as e:
