@@ -667,3 +667,74 @@ via bulk import Day 5).
   to Q3 dormant-handler triage when telemetry mature
 - M2 SMH/sectoral benchmark for KPI #6: new feature scope, not debt
 - L4 KPI #1 uptime wire to /kpi_status: new feature scope, not debt
+
+
+---
+
+## Day 10 close (17 May 2026 ~12h KST, ~9h session)
+
+**E REFACTOR COMPLETE** — bot/main.py architectural split shipped + empirically validated via /help Telegram.
+
+### Empirical state Day 10 close
+
+| Métrique | Day 9 close | Day 10 close | Δ |
+|---|---|---|---|
+| bot/main.py LOC | 2428 | **793** | -1635 (-67%) |
+| cmd_ defs in main.py | 73 | **0** | -73 |
+| handler modules bot/handlers/ | 6 | **22** | +16 |
+| Tests passing | 239 | 239 | (0 régression) |
+| failure_modes FMs | 5 | **7** | +FM-6 +FM-7 |
+| CONVENTIONS Section 16 | 11 | **13** | +R11 +R12 +R13 |
+| Commits Day 10 | — | **8** (656198b → 8537a10) | — |
+| Tags pushed | day9-close | + day10-close | — |
+
+### Ships closed Day 10
+
+- **E batch 1** `7f32335` : cmd_ping + cmd_help → system.py NEW, cmd_insiders → signals_filings.py
+- **E polling robustness** `cbc3519` : `app.run_polling(drop_pending_updates=True)` baked
+- **E batch 2+3** `b134bf9` : cmd_digest → digest.py NEW, cmd_regime + cmd_calendar* → regime_calendar.py NEW, cmd_credibility + cmd_predictions + cmd_resolve_now + cmd_feedback → predictions.py NEW
+- **E fixups** `767f141` + `5988705` + `6844012` : CAPS const auto-detection bug + config import + assignment-vs-reference regex
+- **E batch 4 FINAL** `1d57d9a` : cmd_thesis_* + cmd_exit* + _parse_thesis_template (sync helper) + THESIS_TEMPLATE → thesis_crud.py NEW
+- **Day 10 close docs** `8537a10` : FM-7 + R13
+
+### Empirical validation
+- `/help` Telegram → 65 commands listés depuis extracted modules = chain entière batches 1+2+3+4 fonctionnelle
+- `/regime` mid-session served from bot/handlers/regime_calendar.py (bot 44229)
+- Bot 44580 single instance post-cleanup, Conflict: 0, scheduler 22 crons up
+
+### Discoveries Day 10
+
+**FM-7 macOS pkill case-sensitivity** (~2h diagnostic detour) :
+- macOS Python framework binary = `/Library/Frameworks/Python.framework/.../Python` (capital P)
+- `pkill -f "python.*"` lowercase pattern ne match jamais → ghost processes accumulés
+- 10 zombies bot.main vivants en simultané toute la session, tous polling Telegram = **vraie cause** des Conflict cascades (PAS retry behavior comme j'avais hypothèsé initialement)
+- Fix : `pkill -9 -if "python.*bot.main"` ou pattern `[Pp]ython`
+- Token regen #1 mid-session = **inutile** sur ce symptôme (10 zombies tapaient le même token quoi qu'il arrive)
+- Detection canon : `lsof bot.log` montre N writers même si pgrep `(clean)`
+- Documenté FM-7 + CONVENTIONS R13
+
+**Observation freeze lifted Day 10** avec user signoff explicite pour exécuter sprint E. Sprint 1.2 (Consolidation V4 65→18 handlers, plan `docs/personal/handlers-consolidation-plan.md`) reste post-J+28 = post 10 juin 2026.
+
+**AST extraction script évolué 4 itérations** : auto-import detection → R11 annotation stripping → CAPS const auto-detection (regex assignment vs name reference, R12) → sync FunctionDef support (batch 4 helper). Script réutilisable pour futurs splits architecturaux.
+
+### Carry-forward post-Day-10
+
+E refactor **RÉSORBÉ** (no longer deferred). Sprint queue restante :
+
+- **J+24 → 10 juin 2026** : KPI #2 batch resolution (45+ predictions cluster, target ≥5 résolues, timer non-négociable)
+- **Post-June-10** : Sprint 1.2 Consolidation V4 (65→18 handlers, élagage informé par /handler_stats 30j+ empirique)
+- **F** USD canonical migration (strategic, post-J+30)
+- **B** L4 KPI #1 uptime wire to /kpi_status
+- **B'** handler_calls.is_typo column + migration rows existants
+- **A** M2 SMH/sectoral benchmark wire KPI #6
+- **C** dormant-handler triage post-telemetry mature
+- **Pre-existing cleanup** : main.py 3× union-attr `update.message`, intelligence/materiality.py:291 float→int (P3, not blocking)
+- **ADR 001 PIT bitemporal** : trigger = KPI #2 GREEN OR 1er recal mensuel post-juin
+
+### NEXT SESSION reopen
+
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `pgrep -if "python.*bot.main"` (**case-insensitive obligatoire** post FM-7)
+3. `tail -120 HANDOFF.md` (lire cette section Day 10 close)
+4. Observation phase active jusqu'au 10 juin 2026 (KPI #2 trigger)
+5. Optional : alias `kbot='pkill -9 -if "python.*bot.main"'` dans `~/.zshrc` pour discipline future
