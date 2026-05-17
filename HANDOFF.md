@@ -492,3 +492,74 @@ CANONICAL_FINANCE. Caller responsable storage-currency match.
    resolution = 45+ predictions due)
 6. Si KPI #2 GREEN post-resolution -> ADR 001 PIT bitemporal Phase 1
    implementation trigger
+
+
+---
+
+## Day 9 close (17/05/2026 ~14h KST, ~7h session split Sprint 1+2+3)
+
+**HEAD**: 9412bd4baf6e072459e128b3743756afc1629840 | **Tag**: day9-close
+
+### Sprint 1 (~1h30): alpha + beta + recovery + alpha2 + beta2
+3 protocol failures Sprint 1 (ruff RED shipped, WARN ignored, carry-forward
+dette mentioned but not fixed inline). Lessons captured CONVENTIONS Section 16.
+
+- ca89ff3 fix(uptime) alpha v1: bot_start_ts update on restart
+- c220a0b fix(kpi) beta v1: emoji classifier KPI #2 ON TRACK + PROJECTED BREACH
+- f75f2f9 fix(main) hotfix: missing datetime import (ruff F821 caught but shipped)
+- 9eced50 style(main) cleanup: isort I001 merge datetime imports
+- f27335a fix(observability) alpha2 + beta2: UTC end-to-end + KPI N/A bucket
+
+Net: 2 ships reels (alpha + beta) + 3 self-correction commits.
+
+### Sprint 2 (~45min): delta + epsilon (discipline clean, no recovery)
+- 629e443 fix(portfolio_sectors) delta: Telegram Markdown italic bug in sector labels
+- 9d5136a fix(kpi5) epsilon: title scope refinement + inline criteria docstring
+- DB hygiene: DELETE FROM decisions WHERE id=7 (test data row, backup
+  pre_kpi5_delete_20260517_133157.db)
+
+### Sprint 3 (~30min): zeta (discipline clean)
+- dbe695b fix(portfolio_narratives) zeta: escape _ in narrative display
+- DB hygiene: 21 theses backfilled with sector_thesis_id via path alpha
+  4-bucket mapping editorial:
+  - AI_COMPUTE_2026          : 14 positions (semis + AI infra)
+  - ELECTRIFICATION_2026     :  2 positions (7011.T, SU.PA)
+  - EU_DEFENSE_2026          :  1 position (HO.PA)
+  - ORPHAN_C1_REVIEW_J30_2026:  4 positions (AMD, GOOGL, SAF.PA, TSLA)
+  Backup: pre_zeta_backfill_20260517_134038.db
+
+### Empirical state end-of-Day-9
+- 21 positions all narrative-tagged + sector-tagged
+- KPI #5 N/A bucket (post-delete row 7) -> enforcement removed
+- KPI #2 ON TRACK correctly classified green
+- KPI #3-6 all correctly bucketed
+- /health uptime returns positive minutes (UTC end-to-end)
+- /portfolio_sectors + /portfolio_narratives Markdown safe (escape _)
+- /kpi_status Overall sum to 5 (no silent undercount)
+- 218 tests preserved across all 8 commits
+- mypy 0 errors on 18+ modules strict-typed
+- Bot PID 41102 healthy
+
+### Carry-forward Day 10
+
+**DEFER strict (no action this session)**:
+- bot/main.py 2428 LOC split (session architectural dediee frais)
+- USD canonical migration (post J+30 = 10 juin 2026)
+
+**Eligible quick wins (low risk, scope-bounded)**:
+- Telemetry middleware silent (bot.log zero handler calls observed Day 9
+  diagnostic - observability gap, ~30-60min investigate)
+- KPI #6 NOT IMPLEMENTED -> wire positions/SPY-QQQ benchmark (~1-2h)
+- zeta extension: finer narrative granularity if desired (SQL UPDATE on
+  demand, no code change required)
+- Day 9 carry: /handler_stats Pareto curve validation post-telemetry-fix
+
+**Observation phase active**: KPI #2 timer J-23 vers 10 juin 2026 (45+
+predictions batch resolution).
+
+### NEXT SESSION reopen sequence
+1. cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate
+2. ps aux | grep -i bot.main (-i obligatoire macOS Python.app)
+3. Read this Day 9 close section
+4. Apply CONVENTIONS Section 16 discipline strictly (no protocol failures)
+5. Observation phase: passive monitoring + low-risk carry-forward only
