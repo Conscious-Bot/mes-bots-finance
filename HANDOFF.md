@@ -731,6 +731,24 @@ E refactor **RÉSORBÉ** (no longer deferred). Sprint queue restante :
 - **Pre-existing cleanup** : main.py 3× union-attr `update.message`, intelligence/materiality.py:291 float→int (P3, not blocking)
 - **ADR 001 PIT bitemporal** : trigger = KPI #2 GREEN OR 1er recal mensuel post-juin
 
+### Lessons learned Day 10 (time-wasters codifiés)
+
+Anti-patterns identifiés et documentés pour ne PAS reperdre du temps dessus :
+
+| Time-waster | Cost | Codifié dans |
+|---|---|---|
+| pkill case-sensitivity macOS | ~2h | FM-7 + R13 |
+| pgrep/ps grep menteurs post-kill | (corollaire) | FM-8 |
+| Token regen comme "fix" Conflict | ~30min + BotFather social cost | R17 |
+| AST extraction substring vs assignment | 3 fixup commits, ~30min | R14 |
+| Heredoc + zsh `#` | cosmetic noise | R15 |
+| Restart cascade escalation sans forensics | ~1h amplifié | R16 |
+| Claude solution-first sur symptômes weird | ~2h amplifié (cumulé R16+R17) | R17 |
+
+**Anti-pattern méta canonique** : *quand le 1er restart après "fix" produit même symptôme, le fix N'A PAS marché. Pas la peine de répéter en plus aggressive. Pivot forensics.*
+
+Lecture obligatoire pour Claude reopen futur : CONVENTIONS Section 16 R13→R17 + failure_modes.md FM-7+FM-8. Ces 5 rules + 2 FMs couvrent l'intégralité des erreurs opérationnelles Day 10.
+
 ### NEXT SESSION reopen
 
 1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`

@@ -559,3 +559,44 @@ Implementation note for batches E2/E3/E4: AST extraction script must include ann
 ### R13 — pkill/ps macOS Python case-sensitive (Day 10 17/05/2026)
 
 `pkill -f "python.*"` ne match pas le binaire macOS framework `Python` (capital P). Toujours utiliser `pkill -9 -if "python..."` ou pattern `[Pp]ython` pour kill bot.main de façon fiable. Idem pour ps/grep de vérif post-kill. Voir docs/failure_modes.md FM-7.
+
+### R14 — AST extraction "name exists" check : assignment regex obligatoire
+
+Quand un script AST/regex vérifie si un nom (constante, variable, fonction) existe au niveau module, JAMAIS utiliser `if 'NAME' in src` (substring match) — toujours regex assignment :
+
+```pythonre.search(r'^NAME\s*=', src, re.MULTILINE)
+
+Pourquoi : le nom apparaît aussi comme référence dans les corps de fonction. Substring match retourne True → script skip l'insertion → bug silencieux jusqu'à utilisation runtime.
+
+**Source** : Day 10 17/05/2026 batch 2+3 fixup #2 (CALENDAR_REFRESH_TICKERS skippé parce que cron L364 contenait le nom comme référence). Coût ~30min + 1 fixup commit en plus.
+
+### R15 — Heredocs zsh : `#` début de ligne = `command not found`
+
+Les lignes commençant par `#` à l'intérieur d'un heredoc Python `<< 'PYEOF' ... PYEOF` sont OK (commentaires Python), mais hors heredoc dans le même bloc bash zsh interprète `#` comme commande inexistante → `zsh: command not found: #`.
+
+Fix : `: # comment` (no-op builtin) ou strip les commentaires hors heredoc Python.
+
+**Source** : Day 10 17/05/2026, 2 occurrences dans le bash clean-kill.
+
+### R16 — Diagnostic discipline : symptôme persistant après "fix" = STOP forensics
+
+Quand une cleanup/restart cycle produit le même symptôme N fois consécutives malgré des "fixes" appliqués entre temps :
+
+1. **STOP** d'appliquer des fixes
+2. **STOP** d'escalader le même pattern (kill plus fort, wait plus long, regen plus de tokens)
+3. **PIVOT** vers forensic deep-dive : lsof, ps -ax broad pattern, file descriptors
+4. Le root cause est presque toujours invisible à l'outil de diagnostic primaire (FM-7 = pgrep ment, FM-8 = ps grep ment)
+
+**Anti-pattern observé Day 10** : 10 restart attempts cascade → 10 zombies accumulés → cascade Conflicts → hypothèse "Telegram retry" sans verif lsof → ~2h perdues. Le 1er restart qui Conflict après "kill" aurait dû déclencher `lsof bot.log` immédiatement, pas un 2ème restart.
+
+**Source** : Day 10 17/05/2026.
+
+### R17 — Claude diagnostic priority : forensic before solution
+
+Pour Claude opérant sur ce projet : quand l'user reporte un symptôme persistant matching un anti-pattern connu (Conflict cascade, ghost process, état contradictoire), le first move est **TOUJOURS** une commande de forensics (lsof, broad ps, network state), JAMAIS une "solution" supposée (regen, restart, retry).
+
+Erreur Day 10 : Claude a suggéré token regen #1 comme "solution" Conflict → user a exécuté (BotFather workflow + .env update) → symptôme inchangé → preuve que diagnostic était faux. Le bon move était `lsof bot.log` au premier Conflict cascade observé.
+
+Règle : 1ère réponse à un symptôme "weird operational" = forensic command + paste output. PAS hypothèse + fix avant données empiriques.
+
+**Source** : Day 10 17/05/2026 mea culpa Claude.

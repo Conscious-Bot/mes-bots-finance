@@ -260,3 +260,21 @@ pkill -9 -if "python.*bot.main"
 **Impact** : multi-instance polling Telegram → cascade Conflict (chaque getUpdates kick les autres). Confondu pendant Day 10 session avec "retry behavior normal" → ~2h perdues. Token regen #1 inutile sur ce symptôme (rotation n'aurait servi à rien tant que les 10 zombies tapaient le même token).
 
 **Source découverte** : Day 10 17/05/2026 ~12h KST.
+
+## FM-8 : false-clean pgrep — toujours cross-verify lsof
+
+**Symptôme** : pgrep / ps grep retournent `(clean)` après kill cascade, mais le bot semble encore tourner (logs heartbeat continuent à écrire).
+
+**Cause** : combo FM-7 (pkill case-sensitive) + grep verification utilisant le même pattern lowercase → diagnostic fait croire que la cleanup est complète alors qu'elle n'a rien fait.
+
+**Detection canon** : `lsof <log_file>` qui montre TOUS les writers réels indépendamment du nom de processus. Si N writers > 1 ou writers inattendus → zombies présents.
+
+```bashlsof ~/mes-bots-finance/bot.log
+Si plusieurs PIDs listés = zombies, pas un seul bot vivant
+
+**Discipline** : pour TOUTE cleanup process bot, séquence canon :
+1. `pkill -9 -if "python.*bot.main"` (case-insensitive)
+2. `lsof bot.log` (validation par file descriptors, pas par command name)
+3. Si writers > 0 après sleep 5, escalade : `ps -ax -o pid,command | grep -iE "python|Python"` puis kill par PID explicite
+
+**Source** : Day 10 17/05/2026, corollaire de FM-7.
