@@ -278,7 +278,13 @@ def _kpi_compute_all():
         "enforcement": "Pause + bias analysis si ≥1",
     }
 
-    # KPI #5: decisions matérielles journalisées (reasoning >=30 chars AND bias_tags filled)
+    # KPI #5: Trade decisions journalisées (30d window)
+    # Material scope (whitelist): entry, scale_in, partial_exit, full_exit
+    # Excluded: no_action_flag (passive), thesis_add/set (thesis events, separate KPI),
+    #           position_set/override (manual admin overrides, no journal req)
+    # Journalisation criteria: reasoning >=30 chars AND bias_tags filled
+    # Enforcement: blocks new thesis creation if <90% (prevents adding theses
+    # without proper retrospective audit trail on recent trade behavior)
     r5 = conn.execute(
         "SELECT "
         "  SUM(CASE WHEN decision_type IN ('entry','scale_in','partial_exit','full_exit') THEN 1 ELSE 0 END) AS material, "
@@ -304,7 +310,7 @@ def _kpi_compute_all():
         s5 = "🚨 RED — backfill required avant new thesis"
         p_str = f"{pct:.0f}%"
     out["kpi5"] = {
-        "title": "KPI #5: Decisions matérielles journalisées",
+        "title": "KPI #5: Trade decisions journalisées (entry/scale/exit, 30d)",
         "target": "100%",
         "current": f"{journalised}/{material} = {p_str}",
         "status": s5,
