@@ -22,6 +22,8 @@ import logging
 import sqlite3
 from datetime import datetime
 
+from shared.display import format_billing, format_brief_position_line
+
 log = logging.getLogger("bot")
 
 
@@ -297,22 +299,13 @@ def format_brief(brief):
     if top5:
         lines.append(f"POSITIONS ({n_pos} active) - top 5 by conviction")
         for pos in top5:
-            tk = pos["ticker"]
-            name = pos.get("name", tk)[:22]
-            conv = pos["conviction"]
-            conv_str = f"c{conv}" if conv else "c-"
-            pnl = pos["pnl_pct"]
-            value = pos.get("value_eur")
-            if value is None:
-                lines.append(f"  {tk:9s} {name:22s} {conv_str}  (price n/a)")
-            elif pnl is not None and abs(pnl) > 200:
-                # Currency mismatch guard (legacy, should not fire post-A2-1)
-                lines.append(f"  {tk:9s} {name:22s} {conv_str}  (check fx)")
-            else:
-                pnl_str = f"{pnl:+.1f}%" if pnl is not None else "n/a"
-                lines.append(
-                    f"  {tk:9s} {name:22s} {conv_str}  €{value:>6,.0f}  {pnl_str}"
-                )
+            lines.append(format_brief_position_line(
+                ticker=pos["ticker"],
+                name=pos.get("name"),
+                conviction=pos["conviction"],
+                value=pos.get("value_eur"),
+                pnl_pct=pos["pnl_pct"],
+            ))
     else:
         lines.append(f"POSITIONS ({n_pos} active) - no conviction data")
     lines.append("")
@@ -351,7 +344,7 @@ def format_brief(brief):
     n_sig = len(sig.get("top_signals", []))
     n_echo = len(sig.get("echo_clusters", []))
     lines.append(
-        f"Signals 24h: {n_sig} top, {n_echo} echo  |  LLM today: ${s['llm_cost_today']:.2f}"
+        f"Signals 24h: {n_sig} top, {n_echo} echo  |  LLM today: {format_billing(s['llm_cost_today'])}"
     )
 
     return ["\n".join(lines)]
