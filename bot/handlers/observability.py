@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 
 from shared.config import BUDGET_MONTHLY_USD  # single source of truth, lives in shared/config.py
+from shared.display import format_billing
 
 log = logging.getLogger("bot")
 
@@ -80,7 +81,7 @@ async def cmd_health(update, ctx):  # noqa: ARG001
                 "SELECT COALESCE(SUM(cost_usd), 0) as c FROM llm_calls WHERE created_at > datetime('now', '-24 hours')"
             ).fetchone()
             cost_24h = float(cost_24h_row["c"]) if cost_24h_row else 0.0
-        lines.append(f"*LLM:* {n_llm_24h} calls last 24h, ${cost_24h:.2f}, last @ {last_llm or 'never'}")
+        lines.append(f"*LLM:* {n_llm_24h} calls last 24h, {format_billing(cost_24h, decimals=2)}, last @ {last_llm or 'never'}")
     except Exception as e:
         lines.append(f"*LLM:* FAILED ({e})")
 
@@ -450,32 +451,32 @@ def _cost_format_trajectory(data):
     """Format trajectory dict to Telegram message."""
     lines = ["💰 *COST TRAJECTORY*", ""]
     lines.append("*Daily*")
-    lines.append(f"  Today      : ${data['today']:.4f}")
-    lines.append(f"  Yesterday  : ${data['yesterday']:.4f}")
-    lines.append(f"  7d window  : ${data['week7']:.4f}")
-    lines.append(f"  30d window : ${data['days30']:.4f}")
+    lines.append(f"  Today      : {format_billing(data['today'], decimals=4)}")
+    lines.append(f"  Yesterday  : {format_billing(data['yesterday'], decimals=4)}")
+    lines.append(f"  7d window  : {format_billing(data['week7'], decimals=4)}")
+    lines.append(f"  30d window : {format_billing(data['days30'], decimals=4)}")
     lines.append("")
     lines.append("*Month-to-Date*")
-    lines.append(f"  Spent     : ${data['mtd']:.4f} ({data['days_elapsed']}/{data['days_in_month']}j)")
-    lines.append(f"  Projected : ${data['projection']:.2f} (linear extrapol.)")
-    lines.append(f"  Budget    : ${BUDGET_MONTHLY_USD:.0f}/mo target")
+    lines.append(f"  Spent     : {format_billing(data['mtd'], decimals=4)} ({data['days_elapsed']}/{data['days_in_month']}j)")
+    lines.append(f"  Projected : {format_billing(data['projection'], decimals=2)} (linear extrapol.)")
+    lines.append(f"  Budget    : {format_billing(BUDGET_MONTHLY_USD, decimals=0)}/mo target")
     lines.append(f"  Usage     : {data['budget_pct']:.1f}% of budget")
     lines.append(f"  Status    : {data['status']}")
     lines.append("")
     lines.append("*Top tier 30d*")
     for r in data["tier_rows"]:
         pct = 100 * r["spend"] / data["days30"] if data["days30"] > 0 else 0
-        lines.append(f"  {r['tier']:12s} ${r['spend']:.4f} ({pct:.0f}%, n={r['n']})")
+        lines.append(f"  {r['tier']:12s} {format_billing(r['spend'], decimals=4)} ({pct:.0f}%, n={r['n']})")
     lines.append("")
     lines.append("*Top task 30d*")
     for r in data["task_rows"][:5]:
-        lines.append(f"  {r['task'][:20]:20s} ${r['spend']:.4f} (n={r['n']})")
+        lines.append(f"  {r['task'][:20]:20s} {format_billing(r['spend'], decimals=4)} (n={r['n']})")
     lines.append("")
     lines.append("*Daily 7d trend*")
     for r in data["daily_rows"]:
         bar_len = int(r["spend"] / max(0.01, max(d["spend"] for d in data["daily_rows"])) * 15)
         bar = "█" * bar_len
-        lines.append(f"  {r['day']}  ${r['spend']:.4f}  {bar}")
+        lines.append(f"  {r['day']}  {format_billing(r['spend'], decimals=4)}  {bar}")
     return "\n".join(lines)
 
 
@@ -522,7 +523,7 @@ async def cmd_llm_costs(update, ctx):  # noqa: ARG001
     total_out = sum(r["out_t"] or 0 for r in rows)
     total_cached = sum(r["cached_t"] or 0 for r in rows)
     cache_pct = (total_cached / total_in * 100) if total_in else 0
-    lines.append(f"  Total: {total_calls} calls, ${total_cost:.4f}")
+    lines.append(f"  Total: {total_calls} calls, {format_billing(total_cost, decimals=4)}")
     lines.append(f"  Tokens: {total_in:,} in ({total_cached:,} cached, {cache_pct:.1f}%) / {total_out:,} out")
     if errors:
         lines.append(f"  Errors: {errors}")
@@ -531,6 +532,6 @@ async def cmd_llm_costs(update, ctx):  # noqa: ARG001
     for r in rows:
         cost = r.get("cost") or 0
         avg = r.get("avg_ms") or 0
-        lines.append(f"  {r['tier']:11s} {r['model'][:30]:30s} n={r['n_calls']} ${cost:.4f} avg={avg:.0f}ms")
+        lines.append(f"  {r['tier']:11s} {r['model'][:30]:30s} n={r['n_calls']} {format_billing(cost, decimals=4)} avg={avg:.0f}ms")
     msg = "\n".join(lines)
     await update.message.reply_text(msg)
