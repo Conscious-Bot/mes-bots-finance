@@ -118,6 +118,7 @@ module = [
     # Risk
     "risk.risk_engine",
     "risk.sizing",
+    "shared.portfolio_metrics",
 ]
 disallow_untyped_defs = false  # gradual rollout
 warn_return_any = true

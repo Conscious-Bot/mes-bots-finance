@@ -1,0 +1,228 @@
+"""Portfolio-level metrics for KPI #6 monitoring.
+
+KPI #6: TWR vs SPY/QQQ 12M, target >-5pp underperformance.
+
+Currency: portfolio is EUR-denominated (legacy_import_2026_05_15 positions
+tagged with `eur_invested=N`). Benchmark fetched USD via yfinance, converted
+to EUR-equivalent via EURUSD=X spot at window endpoints. FX adjustment is
+non-negligible on windows >30d (EUR/USD typically moves 5-10% per year).
+
+Math (EUR investor in USD asset):
+    eur_start = usd_start / EURUSD_start
+    eur_end   = usd_end   / EURUSD_end
+    return    = eur_end / eur_start - 1
+
+Status logic:
+- INSUFFICIENT if portfolio_age < 365d (KPI #6 spec demands 12M window)
+- INSUFFICIENT_BENCHMARK if yfinance fetch fails for SPY/QQQ/EURUSD
+- GREEN if delta vs SPY AND delta vs QQQ > -5pp
+- YELLOW if delta vs ONE benchmark < -5pp
+- RED if delta vs BOTH benchmarks < -5pp
+
+Entry value extraction:
+- Canonical: parse `eur_invested=N` from position notes (legacy import format)
+- Fallback: qty * avg_cost (may be incorrect currency for non-EUR-stored
+  positions; caveat logged)
+"""
+
+import logging
+import re
+from datetime import UTC, datetime
+from typing import Any
+
+import yfinance as yf
+
+from shared.positions import list_positions
+from shared.prices import get_current_price_in_eur
+
+log = logging.getLogger(__name__)
+
+_EUR_INVESTED_RE = re.compile(r"eur_invested=(\d+(?:\.\d+)?)")
+
+
+def parse_eur_invested(notes: str | None) -> float | None:
+    """Extract `eur_invested=N` value from position notes string.
+
+    Returns float if tag present and parseable, None otherwise.
+    Caller handles fallback to qty * avg_cost.
+    """
+    if not notes:
+        return None
+    m = _EUR_INVESTED_RE.search(notes)
+    if m is None:
+        return None
+    try:
+        return float(m.group(1))
+    except (ValueError, TypeError):
+        return None
+
+
+def compute_portfolio_return_eur() -> dict[str, Any] | None:
+    """Aggregate cumulative return on open portfolio, EUR-denominated.
+
+    Algorithm:
+    1. List open positions via canonical accessor
+    2. For each: skip if get_current_price_in_eur returns None (don't bias
+       either side by partial pricing)
+    3. Entry value: parse_eur_invested(notes) -> fallback qty * avg_cost
+    4. Current value: qty * get_current_price_in_eur(ticker)
+    5. Return = sum(current) / sum(entry) - 1
+    6. Days = (now - earliest_opened) in days
+
+    Returns None if no priceable positions or total_entry <= 0.
+    """
+    positions = list_positions(status="open")
+    if not positions:
+        return None
+
+    total_entry = 0.0
+    total_current = 0.0
+    positions_priced = 0
+    earliest_opened: str | None = None
+
+    for p in positions:
+        ticker = p["ticker"]
+        cur_price_eur = get_current_price_in_eur(ticker)
+        if cur_price_eur is None:
+            log.debug(f"kpi6: skipping {ticker} (no live EUR price)")
+            continue
+
+        eur_inv = parse_eur_invested(p.get("notes"))
+        if eur_inv is None:
+            qty = float(p.get("qty", 0) or 0)
+            avg_cost = float(p.get("avg_cost", 0) or 0)
+            eur_inv = qty * avg_cost
+            log.warning(
+                f"kpi6: {ticker} missing eur_invested tag, "
+                f"fallback qty*avg_cost = {eur_inv:.2f} (may be wrong currency)"
+            )
+
+        total_entry += eur_inv
+        total_current += float(p["qty"]) * cur_price_eur
+        positions_priced += 1
+
+        opened = p.get("opened_at")
+        if opened and (earliest_opened is None or opened < earliest_opened):
+            earliest_opened = opened
+
+    if total_entry <= 0 or positions_priced == 0:
+        return None
+
+    days = 0.0
+    if earliest_opened:
+        try:
+            opened_dt = datetime.fromisoformat(earliest_opened)
+            if opened_dt.tzinfo is None:
+                opened_dt = opened_dt.replace(tzinfo=UTC)
+            days = (datetime.now(UTC) - opened_dt).total_seconds() / 86400
+        except (ValueError, TypeError) as e:
+            log.warning(f"kpi6: cannot parse opened_at {earliest_opened!r}: {e}")
+
+    return_pct = (total_current / total_entry - 1) * 100
+
+    return {
+        "total_entry_eur": total_entry,
+        "total_current_eur": total_current,
+        "return_pct": return_pct,
+        "earliest_opened": earliest_opened,
+        "days": days,
+        "positions_total": len(positions),
+        "positions_priced": positions_priced,
+    }
+
+
+def fetch_benchmark_return_eur(ticker: str, days: int) -> float | None:
+    """Fetch ticker price history over window, return EUR-equivalent return in %.
+
+    EUR investor experiences: (USD_t / FX_t) / (USD_0 / FX_0) - 1
+    where FX = EURUSD=X (USD per 1 EUR).
+
+    Returns None on any fetch failure (graceful degradation upstream).
+    """
+    try:
+        period_days = max(days + 5, 7)  # pad weekends/holidays
+        h = yf.Ticker(ticker).history(period=f"{period_days}d")
+        if h.empty or len(h) < 2:
+            log.warning(f"kpi6: {ticker} yfinance empty/short ({len(h)} rows)")
+            return None
+        usd_start = float(h["Close"].iloc[0])
+        usd_end = float(h["Close"].iloc[-1])
+
+        fx_h = yf.Ticker("EURUSD=X").history(period=f"{period_days}d")
+        if fx_h.empty or len(fx_h) < 2:
+            log.warning(f"kpi6: EURUSD=X yfinance empty/short ({len(fx_h)} rows)")
+            return None
+        fx_start = float(fx_h["Close"].iloc[0])
+        fx_end = float(fx_h["Close"].iloc[-1])
+
+        if usd_start <= 0 or fx_start <= 0:
+            return None
+
+        eur_start = usd_start / fx_start
+        eur_end = usd_end / fx_end
+        return (eur_end / eur_start - 1) * 100
+    except Exception as e:
+        log.warning(f"kpi6: benchmark {ticker} fetch failed: {e}")
+        return None
+
+
+def compute_kpi6() -> dict[str, Any]:
+    """KPI #6 orchestrator for /kpi_status producer.
+
+    Output schema matches existing KPI dicts in observability.py:
+    {title, value, target, status}.
+    """
+    title = "KPI #6: Portfolio return vs SPY/QQQ (EUR)"
+    target = "12M delta vs SPY+QQQ > -5pp"
+
+    pf = compute_portfolio_return_eur()
+    if pf is None:
+        return {
+            "title": title,
+            "target": target,
+            "current": "no open positions or no live prices",
+            "status": "🔍 INSUFFICIENT — no portfolio data",
+            "enforcement": "Revue strat trimestrielle si <-5pp",
+        }
+
+    days = int(pf["days"])
+    pf_ret = pf["return_pct"]
+    window_days = max(days, 1)
+
+    spy_ret = fetch_benchmark_return_eur("SPY", window_days)
+    qqq_ret = fetch_benchmark_return_eur("QQQ", window_days)
+
+    if spy_ret is None or qqq_ret is None:
+        return {
+            "title": title,
+            "target": target,
+            "current": f"Pf {pf_ret:+.2f}% over {days}d ({pf['positions_priced']}/{pf['positions_total']} priced)",
+            "status": "🔍 INSUFFICIENT_BENCHMARK — yfinance fetch failed",
+            "enforcement": "Revue strat trimestrielle si <-5pp",
+        }
+
+    delta_spy = pf_ret - spy_ret
+    delta_qqq = pf_ret - qqq_ret
+
+    value_str = (
+        f"Pf {pf_ret:+.2f}% | SPY-eur {spy_ret:+.2f}% (Δ {delta_spy:+.1f}pp) "
+        f"| QQQ-eur {qqq_ret:+.2f}% (Δ {delta_qqq:+.1f}pp) | {days}d "
+        f"({pf['positions_priced']}/{pf['positions_total']} priced)"
+    )
+
+    if days < 365:
+        status = f"🔍 INSUFFICIENT — need 365d, have {days}d (provisional)"
+    elif delta_spy < -5 and delta_qqq < -5:
+        status = "🚨 RED — underperforming both benchmarks <-5pp"
+    elif delta_spy < -5 or delta_qqq < -5:
+        status = "⚠️ YELLOW — underperforming one benchmark <-5pp"
+    else:
+        status = "✅ GREEN — delta both benchmarks > -5pp"
+
+    return {
+        "title": title,
+        "target": target,
+        "current": value_str,
+        "status": status,
+        "enforcement": "Revue strat trimestrielle si <-5pp",
+    }
