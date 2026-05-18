@@ -615,3 +615,44 @@ Anti-pattern observé Day 11 (item A kpi6 SMH) : 4 ruff errors + 1 mypy error + 
 **Lien R14** : R18 protège quand R14 (et autres règles de patching) échouent. Defense in depth.
 
 **Source** : Day 11 17/05/2026 (item A SMH benchmark).
+
+
+## R19 — Explicit pytest/mypy/ruff gate pattern (Day 11, FM-9 mitigation)
+
+**Rule**: Shipping bash MUST use explicit exit-code capture for every gate
+that decides whether to commit/push. NEVER rely on `set -eo pipefail` to
+abort on a `cmd 2>&1 | tail -N` pipeline inside a subshell wrapped in
+`|| echo`.
+
+**Empirical motivation**: Day 11 saw 2 R18 self-violations (commits 7f7bb7d
+and f2b23fe) where the previous pattern silently allowed broken commits.
+Root cause: see docs/failure_modes.md FM-9.
+
+**Required pattern**:
+```bash
+pytest -q > /tmp/pt 2>&1 && rc=0 || rc=$?
+if [ "$rc" -ne 0 ]; then
+  tail -15 /tmp/pt
+  echo "===== ABORT — R19 gate triggered ====="
+  exit 1
+fi
+echo "  pytest GREEN: $(tail -1 /tmp/pt)"
+```
+
+**Forbidden patterns** (proven unreliable in zsh):
+- `pytest -q 2>&1 | tail -3` followed by `git commit` (pipe-to-tail masks exit)
+- `mypy ... 2>&1 | tail -3` followed by `git commit` (same)
+- `ruff check . 2>&1 | tail -3` followed by `git commit` (same)
+
+**`grep -c` counting gotcha** (related — `grep -c` returns exit 1 + stdout 0
+when no matches):
+```bash
+# BAD: || echo 0 appends a SECOND "0" → err_count = "0\n0" → [ test fails
+err_count=$(grep -cE 'error:' /tmp/mypy || echo 0)
+
+# GOOD: || true preserves stdout "0" without appending
+err_count=$(grep -cE 'error:' /tmp/mypy 2>/dev/null || true)
+```
+
+**Scope**: every shipping bash containing `git commit` / `git push` / any
+file mutation past a quality gate.

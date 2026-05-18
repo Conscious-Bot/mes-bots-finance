@@ -771,3 +771,48 @@ Lecture obligatoire pour Claude reopen futur : CONVENTIONS Section 16 R13→R17 
 3. `tail -120 HANDOFF.md` (lire cette section Day 10 close)
 4. Observation phase active jusqu'au 10 juin 2026 (KPI #2 trigger)
 5. Optional : alias `kbot='pkill -9 -if "python.*bot.main"'` dans `~/.zshrc` pour discipline future
+
+
+## Day 11 R18 violations post-mortem (18 May 2026 KST)
+
+**Two broken commits landed in the Day 11 sprint**:
+
+1. **7f7bb7d** (SMH benchmark wire) — R14 violation: `_BENCHMARKS not in src`
+   substring check returned False because new function body contained
+   `for tk in _BENCHMARKS:` as reference → constant declaration skipped
+   silently → 4 ruff + 1 mypy + 7 pytest failures. Fixed in 6233e95
+   (R14 strengthened with `re.search(r'^NAME\s*[:=]', src, re.MULTILINE)`).
+
+2. **f2b23fe** (Batch 2 USD canonical) — `ruff --fix` auto-removed unused
+   imports `get_current_price_in_eur`/`_usd` from `shared/portfolio_metrics.py`
+   after parametric refactor. Tests in `TestComputePortfolioReturnEur`
+   monkeypatched the now-absent module attributes → 6 AttributeError test
+   failures. Fixed in 12973a1 (mocks redirected to
+   `shared.portfolio_metrics.get_current_price_in` with 2-arg signature).
+
+**Common root cause**: shipping bash gate pattern
+`(set -eo pipefail; ... pytest -q 2>&1 | tail; git commit; git push) || echo`
+did NOT abort on test failure under zsh. R18 was process *intent* but its
+*implementation* was unreliable. See FM-9 + R19 in failure_modes.md /
+CONVENTIONS.md for mitigation.
+
+**Process discipline going forward (Batches 3-5)**:
+- Every shipping bash uses R19 explicit gate pattern
+- Defect rate tracking: pre-R19 = 2/7 commits broken (28%). Target post-R19 = 0%
+- Belt-and-suspenders: `pytest -q | tail -3` immediately after every push
+
+**Day 11 final stats (post-fix)**:
+- 9 commits since Day 10 close (e8c81cf base):
+  - e8c81cf (materiality), 7ecb10c (KPI #1), 7f7bb7d (broken SMH),
+    6233e95 (fix SMH), f3dc54c (mypy floor), 08df457 (ADR 004),
+    e6fed9d (Batch 1 prices), f2b23fe (broken Batch 2), 12973a1 (fix tests),
+    + this commit (R19 codify)
+- 270 tests passing, 0 mypy errors codebase-wide
+- USD migration: ADR 004 documented, Batches 1-2 of 5 shipped
+- Bot still on PID 44580 cached f3dc54c (will pick up new code on next restart)
+
+**Remaining Day 11 work (or carry-forward)**:
+- Batch 3 — `shared/positions.py _enrich_with_live` + `intelligence/price_monitor.py` USD canonical (~1h)
+- Batch 4 — display layer: bot/handlers/positions.py + portfolio_views.py + find.py ($ primary, € secondary) (~1h)
+- Batch 5 — `intelligence/morning_brief.py` + /digest /brief USD primary (~45min)
+- Restart bot post-Batch-5 (or earlier for staging if needed)

@@ -232,7 +232,7 @@ class TestFetchBenchmarkReturnEur:
     def test_returns_none_on_empty_history(self, monkeypatch):
         empty_mock = MagicMock()
         empty_mock.history.return_value = pd.DataFrame()
-        monkeypatch.setattr("yfinance.Ticker", lambda t, c: empty_mock)
+        monkeypatch.setattr("yfinance.Ticker", lambda t: empty_mock)
         assert fetch_benchmark_return_eur("SPY", 30) is None
 
     def test_eur_return_with_fx_change(self, monkeypatch):

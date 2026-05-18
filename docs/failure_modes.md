@@ -278,3 +278,56 @@ Si plusieurs PIDs listés = zombies, pas un seul bot vivant
 3. Si writers > 0 après sleep 5, escalade : `ps -ax -o pid,command | grep -iE "python|Python"` puis kill par PID explicite
 
 **Source** : Day 10 17/05/2026, corollaire de FM-7.
+
+
+## FM-9 — zsh subshell + pipefail + outer `||` silently swallows pipeline failure
+
+**Discovered**: Day 11, 18 May 2026 KST (post commits 7f7bb7d and f2b23fe broken).
+
+**Symptom**: Shipping bash pattern
+```bash
+(
+  set -eo pipefail
+  pytest -q 2>&1 | tail -3
+  git commit -m "..."  # ← runs even when pytest exits non-zero
+  git push
+) || echo "===== Subshell aborted ====="
+```
+Allows `git commit` to execute despite pytest failure. Broken commit lands.
+Empirically reproduced twice in Day 11 (28% defect rate on shipping discipline).
+
+**Root cause hypothesis**: zsh subshell `set -e` does NOT reliably abort on
+pipeline failure when:
+1. The failing command is piped through `tail` (or any post-processor)
+2. The whole subshell is wrapped in `... || echo "..."`
+
+The outer `||` swallows the subshell's non-zero exit code, masking the
+failure to the operator. Inside the subshell, `pipefail` flag fails to
+propagate through `set -e` in this exact configuration. macOS default zsh
+exhibits this; bash semantics may differ.
+
+**Detection**: post-hoc inspection of bash log — pytest summary shows
+"N failed" but commit message follows in same trace.
+
+**Mitigation — R19 v2 explicit gate pattern** (CONVENTIONS Section 16):
+```bash
+pytest -q > /tmp/pt 2>&1 && rc=0 || rc=$?
+if [ "$rc" -ne 0 ]; then
+  tail -15 /tmp/pt
+  echo "===== ABORT — R19 v2 gate triggered ====="
+  exit 1
+fi
+echo "  pytest GREEN: $(tail -1 /tmp/pt)"
+```
+
+Key elements:
+- Redirect to file via `>`, NOT pipe to `tail` (preserves direct exit code)
+- Explicit `&& rc=0 || rc=$?` captures exit code WITHOUT triggering set -e
+- Explicit `[ "$rc" -ne 0 ] && exit 1` aborts the subshell cleanly
+- Display tail AFTER capture, not in the failing pipeline
+
+**Belt-and-suspenders runbook** (post-push verification):
+1. After every shipping bash that includes `git push`, run `pytest -q | tail -3`
+2. If RED, immediately: `git revert HEAD` OR fix-forward commit
+3. Check next 24h for downstream broken consumers
+4. Codify any new lesson in this file
