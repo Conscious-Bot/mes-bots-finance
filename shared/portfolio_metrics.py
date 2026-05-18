@@ -62,7 +62,7 @@ def parse_eur_invested(notes: str | None) -> float | None:
         return None
     try:
         return float(m.group(1))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 
@@ -189,11 +189,21 @@ def fetch_benchmark_return_eur(ticker: str, days: int) -> float | None:
 def compute_kpi6() -> dict[str, Any]:
     """KPI #6 orchestrator for /kpi_status producer.
 
+    Compares portfolio return (EUR) to 3 benchmarks: SPY (broad US),
+    QQQ (Nasdaq-100 tech), SMH (VanEck Semiconductor — most relevant to
+    AI/semis-tilted portfolio).
+
+    Status:
+    - GREEN: 0 benchmarks underperformed >-5pp
+    - YELLOW: 1 of 3 benchmarks underperformed >-5pp
+    - RED: >=2 of 3 benchmarks underperformed >-5pp
+
     Output schema matches existing KPI dicts in observability.py:
-    {title, value, target, status}.
+    {title, target, current, status, enforcement}.
     """
-    title = "KPI #6: Portfolio return vs SPY/QQQ (EUR)"
-    target = "12M delta vs SPY+QQQ > -5pp"
+    title = f"KPI #6: Portfolio return vs {'/'.join(_BENCHMARKS)} (EUR)"
+    target = "12M delta vs majority benchmarks > -5pp"
+    enforcement = "Revue strat trimestrielle si majority <-5pp"
 
     pf = compute_portfolio_return_eur()
     if pf is None:
@@ -202,47 +212,49 @@ def compute_kpi6() -> dict[str, Any]:
             "target": target,
             "current": "no open positions or no live prices",
             "status": "🔍 INSUFFICIENT — no portfolio data",
-            "enforcement": "Revue strat trimestrielle si <-5pp",
+            "enforcement": enforcement,
         }
 
     days = int(pf["days"])
     pf_ret = pf["return_pct"]
     window_days = max(days, 1)
 
-    spy_ret = fetch_benchmark_return_eur("SPY", window_days)
-    qqq_ret = fetch_benchmark_return_eur("QQQ", window_days)
+    bench_data: dict[str, float] = {}
+    for tk in _BENCHMARKS:
+        ret = fetch_benchmark_return_eur(tk, window_days)
+        if ret is None:
+            return {
+                "title": title,
+                "target": target,
+                "current": (
+                    f"Pf {pf_ret:+.2f}% over {days}d ({pf['positions_priced']}/{pf['positions_total']} priced)"
+                ),
+                "status": f"🔍 INSUFFICIENT_BENCHMARK — yfinance fetch failed for {tk}",
+                "enforcement": enforcement,
+            }
+        bench_data[tk] = ret
 
-    if spy_ret is None or qqq_ret is None:
-        return {
-            "title": title,
-            "target": target,
-            "current": f"Pf {pf_ret:+.2f}% over {days}d ({pf['positions_priced']}/{pf['positions_total']} priced)",
-            "status": "🔍 INSUFFICIENT_BENCHMARK — yfinance fetch failed",
-            "enforcement": "Revue strat trimestrielle si <-5pp",
-        }
+    deltas: dict[str, float] = {tk: pf_ret - r for tk, r in bench_data.items()}
+    breaches = [tk for tk, d in deltas.items() if d < -5]
+    n_breach = len(breaches)
+    n_total = len(_BENCHMARKS)
 
-    delta_spy = pf_ret - spy_ret
-    delta_qqq = pf_ret - qqq_ret
-
-    value_str = (
-        f"Pf {pf_ret:+.2f}% | SPY-eur {spy_ret:+.2f}% (Δ {delta_spy:+.1f}pp) "
-        f"| QQQ-eur {qqq_ret:+.2f}% (Δ {delta_qqq:+.1f}pp) | {days}d "
-        f"({pf['positions_priced']}/{pf['positions_total']} priced)"
-    )
+    bench_str = " | ".join(f"{tk}-eur {bench_data[tk]:+.2f}% (Δ {deltas[tk]:+.1f}pp)" for tk in _BENCHMARKS)
+    value_str = f"Pf {pf_ret:+.2f}% | {bench_str} | {days}d ({pf['positions_priced']}/{pf['positions_total']} priced)"
 
     if days < 365:
         status = f"🔍 INSUFFICIENT — need 365d, have {days}d (provisional)"
-    elif delta_spy < -5 and delta_qqq < -5:
-        status = "🚨 RED — underperforming both benchmarks <-5pp"
-    elif delta_spy < -5 or delta_qqq < -5:
-        status = "⚠️ YELLOW — underperforming one benchmark <-5pp"
+    elif n_breach >= 2:
+        status = f"🚨 RED — underperforming {n_breach}/{n_total} benchmarks <-5pp ({', '.join(breaches)})"
+    elif n_breach == 1:
+        status = f"⚠️ YELLOW — underperforming {breaches[0]} <-5pp"
     else:
-        status = "✅ GREEN — delta both benchmarks > -5pp"
+        status = f"✅ GREEN — delta all {n_total} benchmarks > -5pp"
 
     return {
         "title": title,
         "target": target,
         "current": value_str,
         "status": status,
-        "enforcement": "Revue strat trimestrielle si <-5pp",
+        "enforcement": enforcement,
     }
