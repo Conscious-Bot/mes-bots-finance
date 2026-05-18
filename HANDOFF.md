@@ -879,3 +879,89 @@ Estimated Day 12: 2-2.5h single sprint.
 **KPI timers**:
 - KPI #2: J-23 to 10 juin 2026 batch resolution (45+ predictions due)
 - KPI #6 USD primary: live since Batch 2 (commit f2b23fe), 0 panic sells, INSUFFICIENT (need 365d)
+
+
+---
+
+## Day 12 close — 2026-05-18 ~16:19 KST (Path γ COMPLETE + smoke verified)
+
+**HEAD**: aa6976e  •  **Tag**: day12-close  •  **Bot PID**: 55387 (cached aa6976e)
+**Day 12 commits**: 7 (since day11-close 7090820)
+
+### Day 12 commit chain
+- 4ceb084 — feat(display): Step 1 — currency kwarg on 4 formatters
+- 094f33d — fix(display+lint): Step 1.5 corrective + R19 v3 + R14 v2
+- a9c3adf — feat(handlers): Step 2A retrofit (PARTIAL, 3 patches missed silently)
+- 2ef6c73 — fix(handlers): Step 2A.5 R19 v4 codify (FM-12 swallowed abort)
+- c4eb24e — fix(handlers): Step 2A.6 REAL patches + FM-12 + R19 v5
+- a25ed81 — feat(brief): Step 2B morning_brief Batch 5 USD + FM-10 fix
+- aa6976e — fix(positions): Step 2D cmd_portfolio summary USD coverage gap
+
+### Ships (architectural)
+
+**display.py Path γ infrastructure** (Step 1+1.5):
+- format_finance, format_position_line, format_aggregate_line, format_brief_position_line all extended with `currency: Currency | None = None` kwarg
+- CANONICAL_FINANCE=EUR default preserved (backward compat)
+
+**Handler retrofit USD primary** (Steps 2A.6, 2B, 2D):
+- /portfolio: 4 markers (Book + Cost + PnL summary + format_position_line)
+- /portfolio_sectors: 2 markers (header + format_aggregate_line)
+- /portfolio_narratives: 2 markers (header + per-narrative)
+- /brief: 1 marker + FM-10 fix in _positions_top5_section (avg_cost native→USD, last_price EUR→USD, coherent pnl_pct)
+- Total: 9 USD activation markers across 3 files
+
+### Process discipline R19 stack consolidated
+
+- **v2 (Day 11)**: pytest + mypy explicit rc check (FM-9 mitigation)
+- **v3 (Day 12 Step 1.5)**: ruff added to gate set
+- **v4 (Day 12 Step 2A.5)**: AST function-scoped marker count gate (semantic completeness)
+- **v5 (Day 12 Step 2A.6)**: explicit rc check applied to ALL commands incl python3 heredocs (FM-12 mitigation)
+
+R14 v2 reinforced after Step 1 substring contamination. R20 (display-layer forensic) preserved.
+
+### Failure modes added
+
+- **FM-12 (Day 12)**: zsh `set -e` bypass on python3 heredoc commands in subshells. Same family as FM-9 (pipefail) but broader. Mitigation = R19 v5 explicit rc check for ALL commands.
+
+### ADR 004 USD canonical migration
+
+✅ COMPLETE for daily-usage handlers (smoke verified Olivier 09:13+ KST):
+- /portfolio: $ summary line + per-position line — GREEN
+- /portfolio_sectors: $ header + sector lines — GREEN
+- /portfolio_narratives: $ header + narrative lines — GREEN
+- /brief: $ top5 + coherent pnl_pct FM-10 fix — GREEN
+- /find ASML.AS: $ primary + € secondary — GREEN
+- /portfolio_drift: € symbol (negative test, FM-11 deferral) — GREEN
+
+🚧 DEFERRED post-J+30 (J-22):
+- **Batch 3B**: price_monitor.py thesis triggers (KPI #4 protection, DB threshold audit needed)
+- **Batch 4D**: cmd_portfolio_drift FM-11 (target_eur DB column + SQL aggregation currency-mixed, 8 format_finance calls stay EUR — empirically validated unchanged)
+- **FM-10 systematic**: cmd_position_buy / cmd_position_sell display NATIVE-currency values with €. Pre-existing JPY/KRW=€ inconsistency. Out of D11+12 scope. Native-display batch post-J+30.
+
+### Empirical state Day 12 close
+
+- Tests: 270 passing (Hypothesis property-based + integration + smoke)
+- mypy: 0 errors on 16 strict-typed modules
+- ruff: 0 errors codebase-wide
+- Bot uptime: PID 55387 alive on aa6976e (rotated from 44580 at 09:13 KST)
+- 0 Traceback/ERROR/CRITICAL post-init
+- Telegram smoke 5/5 USD GREEN + 1/1 EUR deferral GREEN
+
+### Carry-forward post-Day-12
+
+- Batch 3B price_monitor (post-J+30, KPI #4 protection)
+- Batch 4D cmd_portfolio_drift FM-11 (post-J+30)
+- FM-10 systematic native-display batch (post-J+30, pre-existing JPY/KRW=€)
+- Latent: bot/handlers/* untyped tree strict-typed override (~6h post-J+30)
+- KPI #2 trigger: 10 juin 2026 (J-22, 45+ predictions cluster batch resolution)
+
+### Next session reopen
+
+1. `cd ~/mes-bots-finance && source venv/bin/activate`
+2. `pgrep -if "python.*bot.main"` (expect PID 55387 or rotated)
+3. `git log --oneline day12-close..HEAD` for any commits since
+4. `tail -120 HANDOFF.md` for this Day 12 close + commits chain
+5. Per CONVENTIONS.md Section 16: R19 v5 explicit rc check pattern for all discipline-critical bashes
+6. Per ADR 004: Batch 3B/4D + FM-10 systematic deferred to post-J+30
+
+KPI #2 timer: J-22 (10 juin 2026 = 45+ predictions cluster batch resolution).
