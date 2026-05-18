@@ -99,8 +99,8 @@ class TestComputePortfolioReturnEur:
             lambda status="open": positions,
         )
         monkeypatch.setattr(
-            "shared.portfolio_metrics.get_current_price_in_eur",
-            lambda t: 1350.0,
+            "shared.portfolio_metrics.get_current_price_in",
+            lambda t, c: 1350.0,
         )
         r = compute_portfolio_return_eur()
         assert r is not None
@@ -123,8 +123,8 @@ class TestComputePortfolioReturnEur:
             lambda status="open": positions,
         )
         monkeypatch.setattr(
-            "shared.portfolio_metrics.get_current_price_in_eur",
-            lambda t: 180.0,
+            "shared.portfolio_metrics.get_current_price_in",
+            lambda t, c: 180.0,
         )
         r = compute_portfolio_return_eur()
         assert r is not None
@@ -145,8 +145,8 @@ class TestComputePortfolioReturnEur:
             lambda status="open": positions,
         )
         monkeypatch.setattr(
-            "shared.portfolio_metrics.get_current_price_in_eur",
-            lambda t: 25.0,
+            "shared.portfolio_metrics.get_current_price_in",
+            lambda t, c: 25.0,
         )
         r = compute_portfolio_return_eur()
         assert r is not None
@@ -164,14 +164,14 @@ class TestComputePortfolioReturnEur:
              "opened_at": "2026-05-15T11:39:19+00:00"},
         ]
 
-        def mock_price(t):
+        def mock_price(t, c):
             return 1350.0 if t == "ASML.AS" else None
         monkeypatch.setattr(
             "shared.portfolio_metrics.list_positions",
             lambda status="open": positions,
         )
         monkeypatch.setattr(
-            "shared.portfolio_metrics.get_current_price_in_eur", mock_price,
+            "shared.portfolio_metrics.get_current_price_in", mock_price,
         )
         r = compute_portfolio_return_eur()
         assert r is not None
@@ -190,8 +190,8 @@ class TestComputePortfolioReturnEur:
             lambda status="open": positions,
         )
         monkeypatch.setattr(
-            "shared.portfolio_metrics.get_current_price_in_eur",
-            lambda t: None,
+            "shared.portfolio_metrics.get_current_price_in",
+            lambda t, c: None,
         )
         assert compute_portfolio_return_eur() is None
 
@@ -207,8 +207,8 @@ class TestComputePortfolioReturnEur:
             lambda status="open": positions,
         )
         monkeypatch.setattr(
-            "shared.portfolio_metrics.get_current_price_in_eur",
-            lambda t: 1350.0,
+            "shared.portfolio_metrics.get_current_price_in",
+            lambda t, c: 1350.0,
         )
         with caplog.at_level(logging.WARNING):
             r = compute_portfolio_return_eur()
@@ -232,7 +232,7 @@ class TestFetchBenchmarkReturnEur:
     def test_returns_none_on_empty_history(self, monkeypatch):
         empty_mock = MagicMock()
         empty_mock.history.return_value = pd.DataFrame()
-        monkeypatch.setattr("yfinance.Ticker", lambda t: empty_mock)
+        monkeypatch.setattr("yfinance.Ticker", lambda t, c: empty_mock)
         assert fetch_benchmark_return_eur("SPY", 30) is None
 
     def test_eur_return_with_fx_change(self, monkeypatch):
