@@ -18,7 +18,7 @@ import sqlite3
 import yaml
 
 from bot.handlers._common import config_path, db_path, telegram_safe
-from shared.display import format_aggregate_line, format_finance, format_pct
+from shared.display import Currency, format_aggregate_line, format_finance, format_pct
 
 __all__ = [
     "cmd_portfolio_drift",
@@ -223,7 +223,7 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
         # Day 9 V H3 refactor: centralized escape via _common.telegram_safe
         narrative_display = telegram_safe(narrative)
         lines.append(
-            f"  {narrative_display}  {format_finance(data['mv'], decimals=0)}  "
+            f"  {narrative_display}  {format_finance(data['mv'], decimals=0, currency=Currency.USD)}  "
             f"[{pct:4.1f}%]  ({n} pos, PnL {format_pct(pnl_pct, decimals=1, signed=True)})"
         )
         lines.append(f"    {tickers_str}")

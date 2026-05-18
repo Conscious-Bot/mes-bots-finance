@@ -102,6 +102,7 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
     from datetime import datetime as _dt
 
     from shared import config as cfg_mod, storage as storage_mod
+    from shared.display import Currency
     from shared.prices import get_currency_for_ticker, get_current_price_in_usd, get_fx_rate
     from shared.ticker_names import get_short_name
 
@@ -230,6 +231,7 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
                 market_value=mv,
                 pct_book=pct_book,
                 pnl_pct=pos["pnl_pct"],
+                currency=Currency.USD,
             )
         )
 
