@@ -16,6 +16,7 @@ Module exports:
 - cmd_position_sell   : /position_sell <TICKER> <QTY> <PRICE> [reasoning]
 - _portfolio_journal_ctx : helper (re-exported via bot.main for smoke test compat)
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -101,14 +102,12 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
     from datetime import datetime as _dt
 
     from shared import config as cfg_mod, storage as storage_mod
-    from shared.prices import get_current_price_in_eur
+    from shared.prices import get_currency_for_ticker, get_current_price_in_usd, get_fx_rate
     from shared.ticker_names import get_short_name
 
     positions = storage_mod.get_active_positions()
     if not positions:
-        await update.message.reply_text(
-            "No active positions.\n\nUse /position_buy <TICKER> <qty> <price> to open one."
-        )
+        await update.message.reply_text("No active positions.\n\nUse /position_buy <TICKER> <qty> <price> to open one.")
         return
 
     try:
@@ -123,9 +122,7 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
     conn.row_factory = sqlite3.Row
     theses_map = {}
     try:
-        rows = conn.execute(
-            "SELECT ticker, conviction FROM theses WHERE status='active'"
-        ).fetchall()
+        rows = conn.execute("SELECT ticker, conviction FROM theses WHERE status='active'").fetchall()
         for r in rows:
             theses_map[r["ticker"]] = r["conviction"]
     except Exception:
@@ -134,26 +131,36 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
         conn.close()
 
     # Enrich positions
-    total_cost = sum(p["qty"] * p["avg_cost"] for p in positions)
     enriched = []
+    total_cost = 0.0
     total_mv = 0.0
     for p in positions:
         ticker = p["ticker"]
-        cur_price = get_current_price_in_eur(ticker)
-        cost_value = p["qty"] * p["avg_cost"]
+        # Day 11 ADR 004 Batch 4A: USD canonical + FM-10 fix (currency-coherent pnl).
+        # avg_cost stored in NATIVE currency per shared.positions convention.
+        # Convert native -> USD via current fx for coherent USD-denominated display.
+        native_cur = get_currency_for_ticker(ticker)
+        fx_native_to_usd = get_fx_rate(native_cur, "USD") or 1.0
+        cur_price = get_current_price_in_usd(ticker)
+        avg_cost_usd = p["avg_cost"] * fx_native_to_usd
+        cost_value = p["qty"] * avg_cost_usd
         mv = (cur_price * p["qty"]) if cur_price else cost_value
-        unreal_pct = ((cur_price / p["avg_cost"] - 1) * 100) if cur_price and p["avg_cost"] else None
+        unreal_pct = ((cur_price / avg_cost_usd - 1) * 100) if cur_price and avg_cost_usd else None
         conviction = theses_map.get(ticker)
         short_name = get_short_name(ticker) or ticker
         name_display = short_name[:22]
-        enriched.append({
-            **p,
-            "current_price": cur_price,
-            "market_value": mv,
-            "pnl_pct": unreal_pct,
-            "conviction": conviction,
-            "name_display": name_display,
-        })
+        enriched.append(
+            {
+                **p,
+                "avg_cost": avg_cost_usd,
+                "current_price": cur_price,
+                "market_value": mv,
+                "pnl_pct": unreal_pct,
+                "conviction": conviction,
+                "name_display": name_display,
+            }
+        )
+        total_cost += cost_value
         total_mv += mv
 
     enriched_sorted = sorted(enriched, key=lambda x: x["market_value"], reverse=True)
@@ -171,7 +178,7 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
 
     now_str = _dt.now().strftime("%d/%m %H:%M")
     lines = []
-    lines.append(f"PORTFOLIO {now_str} (EUR)")
+    lines.append(f"PORTFOLIO {now_str} (USD)")
     pnl_total = total_mv - total_cost
     pnl_total_pct = (pnl_total / total_cost * 100) if total_cost else 0
     lines.append(
@@ -208,8 +215,7 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
 
     lines.append("POSITIONS (sorted by size)")
     lines.append(
-        f"  {'Ticker':<10s} {'Name':<24s} {'Conv':<4s} {'Cost':>9s} "
-        f"{'Now':>9s} {'Value':>8s} {'%Bk':>5s} {'PnL%':>7s}"
+        f"  {'Ticker':<10s} {'Name':<24s} {'Conv':<4s} {'Cost':>9s} {'Now':>9s} {'Value':>8s} {'%Bk':>5s} {'PnL%':>7s}"
     )
     for pos in enriched_sorted:
         mv = pos["market_value"]
@@ -262,7 +268,7 @@ async def cmd_position_buy(update, ctx):  # noqa: ARG001
             _capital_b2 = _state_b2.get("capital_paper", 10000) or 10000
             _size_pct_b2 = (qty * price) / _capital_b2
             _thesis_b2 = _storage_b2_mod.get_thesis_by_ticker(ticker, status="active")
-            _conviction_b2 = (_thesis_b2.get("conviction", 3) if _thesis_b2 else 3)
+            _conviction_b2 = _thesis_b2.get("conviction", 3) if _thesis_b2 else 3
             _decision_b2 = {
                 "ticker": ticker,
                 "action": "buy",
@@ -272,9 +278,7 @@ async def cmd_position_buy(update, ctx):  # noqa: ARG001
             }
             _result_b2 = risk_engine.validate(_decision_b2)
             if not _result_b2.ok and _result_b2.severity == "block":
-                _msg_b2 = "BLOCKED by risk.validate():\n" + "\n".join(
-                    f"  - {r}" for r in _result_b2.reasons
-                )
+                _msg_b2 = "BLOCKED by risk.validate():\n" + "\n".join(f"  - {r}" for r in _result_b2.reasons)
                 _msg_b2 += "\n  Override: toggle risk.validate_enabled in config.yaml"
                 with contextlib.suppress(Exception):
                     _storage_b2_mod.log_decision(
@@ -294,6 +298,7 @@ async def cmd_position_buy(update, ctx):  # noqa: ARG001
 
         # 1.5 Compute EUR-equivalent + enrich notes (H2 fix Day 9 audit, KPI #6 traceability)
         from shared.prices import get_currency_for_ticker as _get_cur, get_fx_rate as _get_fx
+
         _ticker_cur = _get_cur(ticker)
         _fx_to_eur = _get_fx(_ticker_cur, "EUR") or 1.0
         _eur_inv = qty * price * _fx_to_eur
@@ -307,14 +312,21 @@ async def cmd_position_buy(update, ctx):  # noqa: ARG001
 
         # 3. Phase B5 journal context + auto log_decision
         from shared import storage as storage_mod
+
         _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
         decision_id = None
         try:
             decision_id = storage_mod.log_decision(
-                ticker=ticker, decision_type=dtype, confidence=3,
-                reasoning=reasoning, direction=(thesis_dir or "long"),
-                thesis_id=thesis_id, price_at_decision=price,
-                regime=regime, credit_regime=credit, materiality_top=mat_top,
+                ticker=ticker,
+                decision_type=dtype,
+                confidence=3,
+                reasoning=reasoning,
+                direction=(thesis_dir or "long"),
+                thesis_id=thesis_id,
+                price_at_decision=price,
+                regime=regime,
+                credit_regime=credit,
+                materiality_top=mat_top,
             )
         except Exception as e:
             await update.message.reply_text(f"Position updated but journal failed: {e}")
@@ -324,6 +336,7 @@ async def cmd_position_buy(update, ctx):  # noqa: ARG001
         if decision_id:
             try:
                 from intelligence import bias_tagger
+
                 decision_full = storage_mod.get_decision(decision_id) or {}
                 position_now = storage_mod.get_position_by_ticker(ticker)
                 bias_tags = bias_tagger.auto_tag_biases(
@@ -366,14 +379,21 @@ async def cmd_position_sell(update, ctx):  # noqa: ARG001
 
         # 2. Phase B5 journal context + auto log_decision
         from shared import storage as storage_mod
+
         _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
         decision_id = None
         try:
             decision_id = storage_mod.log_decision(
-                ticker=ticker, decision_type=dtype, confidence=3,
-                reasoning=reasoning, direction=(thesis_dir or "long"),
-                thesis_id=thesis_id, price_at_decision=price,
-                regime=regime, credit_regime=credit, materiality_top=mat_top,
+                ticker=ticker,
+                decision_type=dtype,
+                confidence=3,
+                reasoning=reasoning,
+                direction=(thesis_dir or "long"),
+                thesis_id=thesis_id,
+                price_at_decision=price,
+                regime=regime,
+                credit_regime=credit,
+                materiality_top=mat_top,
             )
         except Exception as e:
             await update.message.reply_text(f"Position updated but journal failed: {e}")
@@ -383,6 +403,7 @@ async def cmd_position_sell(update, ctx):  # noqa: ARG001
         if decision_id:
             try:
                 from intelligence import bias_tagger
+
                 decision_full = storage_mod.get_decision(decision_id) or {}
                 position_now = storage_mod.get_position_by_ticker(ticker)
                 bias_tags = bias_tagger.auto_tag_biases(
@@ -397,7 +418,9 @@ async def cmd_position_sell(update, ctx):  # noqa: ARG001
                 )
 
         # 4. Compose response
-        msg_lines = [f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ {format_finance(r['sold_price'], decimals=2)} [{dtype}]"]
+        msg_lines = [
+            f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ {format_finance(r['sold_price'], decimals=2)} [{dtype}]"
+        ]
         msg_lines.append(f"  Avg cost was: {format_finance(r['avg_cost'], decimals=2)}")
         msg_lines.append(f"  Realized PnL (event): {format_finance(r['realized_pnl_event'], decimals=2, signed=True)}")
         msg_lines.append(f"  Realized PnL (total): {format_finance(r['realized_pnl_total'], decimals=2, signed=True)}")
