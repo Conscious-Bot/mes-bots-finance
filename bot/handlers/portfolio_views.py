@@ -8,6 +8,7 @@ Three handlers:
 - /portfolio_narratives : breakdown by sector_thesis_id from theses.notes
 - /portfolio_drift      : positions vs portfolio_targets, over/underweight
 """
+
 from __future__ import annotations
 
 import logging
@@ -71,35 +72,43 @@ def _extract_narrative(notes: str | None) -> str | None:
 
 
 def _compute_book_market_value(conn: sqlite3.Connection) -> tuple[float, list[dict]]:
-    """Fetch open positions + compute market value via FX-aware price helper.
+    """Fetch open positions + compute market value, USD-canonical.
 
-    Returns (total_market_value, list_of_position_dicts).
-    Falls back to cost_basis if live price unavailable (network failure resilience).
+    Day 11 ADR 004 Batch 4B: USD canonical + FM-10 fix. Per-position native
+    currency conversion to USD via current fx, applied to BOTH cost_basis
+    and market_value for currency-coherent aggregation in downstream views
+    (cmd_portfolio_sectors, cmd_portfolio_narratives).
+
+    Returns (total_market_value_usd, list_of_position_dicts) with USD-denominated
+    cost_basis + market_value. Falls back to cost_basis if live price unavailable.
     """
-    from shared.prices import get_current_price_in_eur
+    from shared.prices import get_currency_for_ticker, get_current_price_in_usd, get_fx_rate
 
-    rows = conn.execute(
-        "SELECT ticker, qty, avg_cost, account FROM positions WHERE status='open'"
-    ).fetchall()
+    rows = conn.execute("SELECT ticker, qty, avg_cost, account FROM positions WHERE status='open'").fetchall()
 
     positions = []
     total_mv = 0.0
     for ticker, qty, avg_cost, account in rows:
+        native_cur = get_currency_for_ticker(ticker)
+        fx_native_to_usd = get_fx_rate(native_cur, "USD") or 1.0
+        avg_cost_usd = avg_cost * fx_native_to_usd
         try:
-            cur_price = get_current_price_in_eur(ticker)
+            cur_price = get_current_price_in_usd(ticker)
         except Exception:
             cur_price = None
-        cost_basis = qty * avg_cost
+        cost_basis = qty * avg_cost_usd
         mv = (cur_price * qty) if cur_price else cost_basis
-        positions.append({
-            "ticker": ticker,
-            "qty": qty,
-            "avg_cost": avg_cost,
-            "account": account,
-            "cost_basis": cost_basis,
-            "market_value": mv,
-            "has_live_price": cur_price is not None,
-        })
+        positions.append(
+            {
+                "ticker": ticker,
+                "qty": qty,
+                "avg_cost": avg_cost_usd,
+                "account": account,
+                "cost_basis": cost_basis,
+                "market_value": mv,
+                "has_live_price": cur_price is not None,
+            }
+        )
         total_mv += mv
 
     return total_mv, positions
@@ -137,30 +146,34 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
     # Sort by market value descending
     sorted_sectors = sorted(sectors.items(), key=lambda x: x[1]["mv"], reverse=True)
 
-    lines = [f"\U0001F4CA *PORTFOLIO BY SECTOR* — {format_finance(total_mv, decimals=0)} total\n"]
+    lines = [f"\U0001f4ca *PORTFOLIO BY SECTOR* — {format_finance(total_mv, decimals=0)} total\n"]
     for sector, data in sorted_sectors:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
         n = len(data["tickers"])
         pnl_pct = ((data["mv"] / data["cost_basis"] - 1) * 100) if data["cost_basis"] else 0
         tickers_str = ", ".join(sorted(data["tickers"])[:5])
         if n > 5:
-            tickers_str += f" +{n-5}"
+            tickers_str += f" +{n - 5}"
         # Day 9 V H3 refactor: centralized escape via _common.telegram_safe
         sector_display = telegram_safe(sector)
-        lines.append(format_aggregate_line(
-            label=sector_display,
-            market_value=data["mv"],
-            pct_total=pct,
-            n_positions=n,
-            pnl_pct=pnl_pct,
-        ))
+        lines.append(
+            format_aggregate_line(
+                label=sector_display,
+                market_value=data["mv"],
+                pct_total=pct,
+                n_positions=n,
+                pnl_pct=pnl_pct,
+            )
+        )
         lines.append(f"    {tickers_str}")
 
     # Warnings
     unknown_count = len(sectors.get("unknown", {}).get("tickers", []))
     if unknown_count > 0:
         lines.append("")
-        lines.append(f"\u26A0\uFE0F {unknown_count} tickers not in config.yaml universe: {', '.join(sectors['unknown']['tickers'])}")
+        lines.append(
+            f"\u26a0\ufe0f {unknown_count} tickers not in config.yaml universe: {', '.join(sectors['unknown']['tickers'])}"
+        )
         lines.append("Add them to universe.core/watch/extended in config.yaml")
 
     msg = "\n".join(lines)
@@ -176,9 +189,7 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
         total_mv, positions = _compute_book_market_value(conn)
 
         # Fetch theses notes for narrative extraction
-        rows = conn.execute(
-            "SELECT ticker, notes FROM theses WHERE status='active'"
-        ).fetchall()
+        rows = conn.execute("SELECT ticker, notes FROM theses WHERE status='active'").fetchall()
         ticker_to_narrative: dict[str, str] = {}
         for ticker, notes in rows:
             narrative = _extract_narrative(notes)
@@ -203,7 +214,7 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
 
     sorted_narratives = sorted(narratives.items(), key=lambda x: x[1]["mv"], reverse=True)
 
-    lines = [f"\U0001F3AF *PORTFOLIO BY NARRATIVE* — {format_finance(total_mv, decimals=0)} total\n"]
+    lines = [f"\U0001f3af *PORTFOLIO BY NARRATIVE* — {format_finance(total_mv, decimals=0)} total\n"]
     for narrative, data in sorted_narratives:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
         n = len(data["tickers"])
@@ -285,7 +296,7 @@ async def cmd_portfolio_drift(update, ctx):  # noqa: ARG001
     total_drift = total_actual - total_target
     pct_deployed = (total_actual / total_target * 100) if total_target else 0
 
-    lines = ["\U0001F4C9 *PORTFOLIO DRIFT vs TARGETS*\n"]
+    lines = ["\U0001f4c9 *PORTFOLIO DRIFT vs TARGETS*\n"]
     lines.append(f"  Total target  : {format_finance(total_target, decimals=0, width=7)}")
     lines.append(f"  Total actual  : {format_finance(total_actual, decimals=0, width=7)}")
     lines.append(f"  Deployed      : {pct_deployed:.1f}%")
@@ -296,7 +307,11 @@ async def cmd_portfolio_drift(update, ctx):  # noqa: ARG001
     if executed:
         lines.append(f"*EXECUTED* ({len(executed)})")
         for item in sorted(executed, key=lambda x: x["drift"], reverse=False)[:15]:
-            sign = "\U0001F534" if item["drift_pct"] < -10 else ("\U0001F7E2" if abs(item["drift_pct"]) <= 10 else "\U0001F535")
+            sign = (
+                "\U0001f534"
+                if item["drift_pct"] < -10
+                else ("\U0001f7e2" if abs(item["drift_pct"]) <= 10 else "\U0001f535")
+            )
             lines.append(
                 f"  {sign} {item['ticker']:10s} "
                 f"{format_finance(item['actual'], decimals=0, width=5)}/"
@@ -310,16 +325,20 @@ async def cmd_portfolio_drift(update, ctx):  # noqa: ARG001
     if locked:
         lines.append(f"*LOCKED* ({len(locked)} PEA)")
         for item in locked[:10]:
-            lines.append(f"  \U0001F512 {item['ticker']:10s} {format_finance(item['actual'], decimals=0, width=5)}/{format_finance(item['target'], decimals=0, width=5)}")
+            lines.append(
+                f"  \U0001f512 {item['ticker']:10s} {format_finance(item['actual'], decimals=0, width=5)}/{format_finance(item['target'], decimals=0, width=5)}"
+            )
         lines.append("")
 
     # Planned (to execute)
     if planned:
         lines.append(f"*PLANNED* ({len(planned)} pending)")
         for item in sorted(planned, key=lambda x: (x["phase_week"] or 99, -x["target"]))[:10]:
-            phase_str = f"W{item['phase_week']}" if item['phase_week'] else "—"
-            prio_str = f" [{item['priority']}]" if item['priority'] else ""
-            lines.append(f"  \u23F3 {item['ticker']:10s} {format_finance(item['target'], decimals=0, width=5)}  phase {phase_str}{prio_str}")
+            phase_str = f"W{item['phase_week']}" if item["phase_week"] else "—"
+            prio_str = f" [{item['priority']}]" if item["priority"] else ""
+            lines.append(
+                f"  \u23f3 {item['ticker']:10s} {format_finance(item['target'], decimals=0, width=5)}  phase {phase_str}{prio_str}"
+            )
         lines.append("")
 
     if dropped:
