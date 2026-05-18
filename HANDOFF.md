@@ -981,7 +981,8 @@ documents 7 post-tag commits within same calendar day (Bucket A + ADR narrative)
 - db7213f fix(adr): rename 005 to 006 (collision corrective + lesson)
 - 3ab76be fix(types/positions): Step C strict-typed + 20-error corrective
 - 74bacd7 docs(adr): ADR 007 Bidirectional Thesis Tracker (RETROACTIVE)
-- (this commit) docs(handoff): Day 12 extended section
+- e207a1c docs(handoff): Day 12 extended section
+- 7e18e14 docs(adr): ADR 008 LLM Cascade Architecture (RETROACTIVE)
 
 ### Bucket A status (Olivier directive: tout le bucket A doit etre fait)
 - A.1 Cleanup debt: shipped (gitignore + .keep patterns)
@@ -1000,6 +1001,7 @@ ADR registry answers the three audit questions:
 - What does this bot do uniquely? ADR 007 (bidirectional thesis tracker)
 - How does it ship reliably? ADR 006 (process discipline R19 stack)
 - How does it stay coherent? ADR 004 (USD canonical migration)
+- How is it economically sustainable? ADR 008 (LLM cascade, 70% budget headroom)
 Plus supporting infra ADRs (001 credibility, 002 universe, 003 targets, 005 schema).
 
 ### Discipline tally Day 11+12 final: 8 violations = 8 codifications
@@ -1018,7 +1020,7 @@ Each violation = durable system improvement. Path 5/6 defensibility tangible.
 - Tests: 270 passing
 - mypy: 0 errors on 17 strict-typed modules (Day 12 close was 16, +1 via Step C)
 - ruff: 0 errors codebase-wide
-- ADRs: 7 total (001-007, no gaps)
+- ADRs: 8 total (001-008, no gaps)
 - Failure modes: 12 documented (FM-1 to FM-12)
 - Bot: PID 55387 alive on aa6976e (Step C type-only, no restart needed)
 
