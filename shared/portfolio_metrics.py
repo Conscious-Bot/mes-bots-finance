@@ -42,7 +42,11 @@ from typing import Any
 import yfinance as yf
 
 from shared.positions import list_positions
-from shared.prices import get_currency_for_ticker, get_current_price_in_eur, get_fx_rate
+from shared.prices import (
+    get_currency_for_ticker,
+    get_current_price_in,
+    get_fx_rate,
+)
 
 log = logging.getLogger(__name__)
 
@@ -69,17 +73,16 @@ def parse_eur_invested(notes: str | None) -> float | None:
         return None
 
 
-def compute_portfolio_return_eur() -> dict[str, Any] | None:
-    """Aggregate cumulative return on open portfolio, EUR-denominated.
+def compute_portfolio_return(target_cur: str = "USD") -> dict[str, Any] | None:
+    """Aggregate cumulative return on open portfolio, in ``target_cur``.
 
-    Algorithm:
-    1. List open positions via canonical accessor
-    2. For each: skip if get_current_price_in_eur returns None (don't bias
-       either side by partial pricing)
-    3. Entry value: parse_eur_invested(notes) -> fallback qty * avg_cost
-    4. Current value: qty * get_current_price_in_eur(ticker)
-    5. Return = sum(current) / sum(entry) - 1
-    6. Days = (now - earliest_opened) in days
+    Day 11 ADR 004: parametric core supporting USD (canonical/primary) and
+    EUR (legacy/secondary).
+
+    Math note: EUR-stored entry values from notes are converted to target_cur
+    via CURRENT fx rate (historical fx at acquisition unknown for legacy
+    positions). Acceptable for KPI #6 vs USD benchmarks at current fx
+    (apples-to-apples). For strict EUR-investor experience, use _eur wrapper.
 
     Returns None if no priceable positions or total_entry <= 0.
     """
@@ -92,29 +95,32 @@ def compute_portfolio_return_eur() -> dict[str, Any] | None:
     positions_priced = 0
     earliest_opened: str | None = None
 
+    fx_eur_to_target = 1.0 if target_cur == "EUR" else get_fx_rate("EUR", target_cur)
+    if fx_eur_to_target is None:
+        log.warning(f"compute_portfolio_return: no fx EUR->{target_cur}")
+        return None
+
     for p in positions:
         ticker = p["ticker"]
-        cur_price_eur = get_current_price_in_eur(ticker)
-        if cur_price_eur is None:
-            log.debug(f"kpi6: skipping {ticker} (no live EUR price)")
+        cur_price = get_current_price_in(ticker, target_cur)
+        if cur_price is None:
+            log.debug(f"kpi6: skipping {ticker} (no live {target_cur} price)")
             continue
 
         eur_inv = parse_eur_invested(p.get("notes"))
         if eur_inv is None:
             qty = float(p.get("qty", 0) or 0)
             avg_cost = float(p.get("avg_cost", 0) or 0)
-            # Currency-aware fallback: avg_cost stored in NATIVE currency per
-            # shared.positions. H2 fix Day 9 audit (was: silent currency mix bug).
             currency = get_currency_for_ticker(ticker)
-            fx = get_fx_rate(currency, "EUR") or 1.0
-            eur_inv = qty * avg_cost * fx
+            fx_to_eur = get_fx_rate(currency, "EUR") or 1.0
+            eur_inv = qty * avg_cost * fx_to_eur
             log.warning(
                 f"kpi6: {ticker} missing eur_invested tag, fallback "
-                f"qty*avg_cost*fx ({currency}->EUR={fx:.6f}) = {eur_inv:.2f}"
+                f"qty*avg_cost*fx ({currency}->EUR={fx_to_eur:.6f}) = {eur_inv:.2f}"
             )
 
-        total_entry += eur_inv
-        total_current += float(p["qty"]) * cur_price_eur
+        total_entry += eur_inv * fx_eur_to_target
+        total_current += float(p["qty"]) * cur_price
         positions_priced += 1
 
         opened = p.get("opened_at")
@@ -129,9 +135,6 @@ def compute_portfolio_return_eur() -> dict[str, Any] | None:
         try:
             opened_dt = datetime.fromisoformat(earliest_opened)
             if opened_dt.tzinfo is None:
-                # L1 fix Day 9 audit: per CONVENTIONS Section 1, naive datetime
-                # assumed UTC. Legacy bulk imports may differ (off by TZ offset);
-                # defer formal migration to PIT bitemporal ADR 001.
                 log.warning(
                     f"kpi6: naive opened_at {earliest_opened!r}, treating as UTC "
                     f"(CONVENTIONS Section 1); legacy imports may be off by TZ"
@@ -144,8 +147,9 @@ def compute_portfolio_return_eur() -> dict[str, Any] | None:
     return_pct = (total_current / total_entry - 1) * 100
 
     return {
-        "total_entry_eur": total_entry,
-        "total_current_eur": total_current,
+        "total_entry": total_entry,
+        "total_current": total_current,
+        "currency": target_cur,
         "return_pct": return_pct,
         "earliest_opened": earliest_opened,
         "days": days,
@@ -154,39 +158,72 @@ def compute_portfolio_return_eur() -> dict[str, Any] | None:
     }
 
 
-def fetch_benchmark_return_eur(ticker: str, days: int) -> float | None:
-    """Fetch ticker price history over window, return EUR-equivalent return in %.
+def compute_portfolio_return_usd() -> dict[str, Any] | None:
+    """Primary: USD canonical (Day 11 ADR 004)."""
+    return compute_portfolio_return("USD")
 
-    EUR investor experiences: (USD_t / FX_t) / (USD_0 / FX_0) - 1
-    where FX = EURUSD=X (USD per 1 EUR).
 
-    Returns None on any fetch failure (graceful degradation upstream).
+def compute_portfolio_return_eur() -> dict[str, Any] | None:
+    """Legacy/secondary: EUR. Backward compat wrapper with EUR-suffixed key aliases."""
+    result = compute_portfolio_return("EUR")
+    if result is None:
+        return None
+    result["total_entry_eur"] = result["total_entry"]
+    result["total_current_eur"] = result["total_current"]
+    return result
+
+
+def fetch_benchmark_return(ticker: str, days: int, target_cur: str = "USD") -> float | None:
+    """Fetch ticker return over window in ``target_cur``.
+
+    Day 11 ADR 004: parametric core. USD returns native (no fx noise).
+    EUR returns fx-adjusted via EURUSD=X spot at window endpoints
+    (preserves Day 7 EUR-investor algorithm).
     """
     try:
-        period_days = max(days + 5, 7)  # pad weekends/holidays
+        period_days = max(days + 5, 7)
         h = yf.Ticker(ticker).history(period=f"{period_days}d")
         if h.empty or len(h) < 2:
             log.warning(f"kpi6: {ticker} yfinance empty/short ({len(h)} rows)")
             return None
         usd_start = float(h["Close"].iloc[0])
         usd_end = float(h["Close"].iloc[-1])
-
-        fx_h = yf.Ticker("EURUSD=X").history(period=f"{period_days}d")
-        if fx_h.empty or len(fx_h) < 2:
-            log.warning(f"kpi6: EURUSD=X yfinance empty/short ({len(fx_h)} rows)")
-            return None
-        fx_start = float(fx_h["Close"].iloc[0])
-        fx_end = float(fx_h["Close"].iloc[-1])
-
-        if usd_start <= 0 or fx_start <= 0:
+        if usd_start <= 0:
             return None
 
-        eur_start = usd_start / fx_start
-        eur_end = usd_end / fx_end
-        return (eur_end / eur_start - 1) * 100
+        if target_cur == "USD":
+            return (usd_end / usd_start - 1) * 100
+
+        if target_cur == "EUR":
+            fx_h = yf.Ticker("EURUSD=X").history(period=f"{period_days}d")
+            if fx_h.empty or len(fx_h) < 2:
+                log.warning(f"kpi6: EURUSD=X yfinance empty/short ({len(fx_h)} rows)")
+                return None
+            fx_start = float(fx_h["Close"].iloc[0])
+            fx_end = float(fx_h["Close"].iloc[-1])
+            if fx_start <= 0:
+                return None
+            eur_start = usd_start / fx_start
+            eur_end = usd_end / fx_end
+            return (eur_end / eur_start - 1) * 100
+
+        fx = get_fx_rate("USD", target_cur)
+        if fx is None:
+            return None
+        return (usd_end / usd_start - 1) * 100
     except Exception as e:
         log.warning(f"kpi6: benchmark {ticker} fetch failed: {e}")
         return None
+
+
+def fetch_benchmark_return_usd(ticker: str, days: int) -> float | None:
+    """Primary: native USD return (Day 11 ADR 004, no fx conversion)."""
+    return fetch_benchmark_return(ticker, days, "USD")
+
+
+def fetch_benchmark_return_eur(ticker: str, days: int) -> float | None:
+    """Legacy: EUR-adjusted via EURUSD=X spot (Day 7 algorithm preserved)."""
+    return fetch_benchmark_return(ticker, days, "EUR")
 
 
 def compute_kpi6() -> dict[str, Any]:
@@ -204,11 +241,11 @@ def compute_kpi6() -> dict[str, Any]:
     Output schema matches existing KPI dicts in observability.py:
     {title, target, current, status, enforcement}.
     """
-    title = f"KPI #6: Portfolio return vs {'/'.join(_BENCHMARKS)} (EUR)"
+    title = f"KPI #6: Portfolio return vs {'/'.join(_BENCHMARKS)} (USD)"
     target = "12M delta vs majority benchmarks > -5pp"
     enforcement = "Revue strat trimestrielle si majority <-5pp"
 
-    pf = compute_portfolio_return_eur()
+    pf = compute_portfolio_return_usd()
     if pf is None:
         return {
             "title": title,
@@ -224,7 +261,7 @@ def compute_kpi6() -> dict[str, Any]:
 
     bench_data: dict[str, float] = {}
     for tk in _BENCHMARKS:
-        ret = fetch_benchmark_return_eur(tk, window_days)
+        ret = fetch_benchmark_return_usd(tk, window_days)
         if ret is None:
             return {
                 "title": title,
@@ -242,7 +279,7 @@ def compute_kpi6() -> dict[str, Any]:
     n_breach = len(breaches)
     n_total = len(_BENCHMARKS)
 
-    bench_str = " | ".join(f"{tk}-eur {bench_data[tk]:+.2f}% (Δ {deltas[tk]:+.1f}pp)" for tk in _BENCHMARKS)
+    bench_str = " | ".join(f"{tk}-usd {bench_data[tk]:+.2f}% (Δ {deltas[tk]:+.1f}pp)" for tk in _BENCHMARKS)
     value_str = f"Pf {pf_ret:+.2f}% | {bench_str} | {days}d ({pf['positions_priced']}/{pf['positions_total']} priced)"
 
     if days < 365:
