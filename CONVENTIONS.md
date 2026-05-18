@@ -731,3 +731,64 @@ for node in ast.walk(tree):
 **Scope**: any sequential multi-function patch in same file. AST function-
 scoped extraction mandatory for both "already patched" checks AND for the
 patch itself when matching needs to be precise (line-range replacement).
+
+
+## R19 v4 — Semantic completeness gate (Day 12 Step 2A lesson)
+
+**Rule extension of R19 v3**: when applying a batch of N pattern-replace
+patches across one or more files, MUST verify N transformations actually
+occurred via AST function-scoped marker count BEFORE commit. Syntactic gates
+(ruff + pytest + mypy from R19 v2/v3) only catch breakage from APPLIED
+patches, NOT missed-pattern silent failures.
+
+**Empirical motivation**: Day 12 Step 2A commit a9c3adf landed with 3 of 4
+portfolio_views.py patches MISSED due to pattern mismatch (file uses emoji
+literal chars 📊/🎯 while pattern expected \\U escape form from forensic
+dump). 'WARNING: pattern not matched' messages were visible but bash did
+NOT abort. Syntactic gates passed because unchanged source remains valid
+Python. Display would render '\u20ac{USD_value}' on bot restart for sectors
+header + format_aggregate_line + narratives header (partial USD migration).
+
+**Required pattern (after batch of patches, before commit)**:
+```python
+expectations = {
+    'function_name_1': expected_marker_count,
+    'function_name_2': expected_marker_count,
+    'function_intentionally_not_patched': 0,  # explicit declaration
+}
+failures = []
+tree = ast.parse(src)
+for fn, expected in expectations.items():
+    found = False
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == fn:
+            body = '\n'.join(src.splitlines()[node.lineno-1:node.end_lineno])
+            actual = body.count(MARKER)
+            if actual != expected:
+                failures.append(f"{fn}: expected {expected}, got {actual}")
+            found = True
+            break
+    if not found:
+        failures.append(f"{fn}: not found")
+if failures:
+    raise SystemExit(1)
+```
+
+**Scope**: any bash applying batch of pattern-replace patches where missed
+patches would cause semantic regression (display, behavior, output). Explicit
+`expected_count` per function — functions intentionally NOT patched get
+explicit 0 as DECLARATION of intent (not silent default).
+
+**R19 stack complete**:
+- R19 v2: pytest + mypy via explicit gate (FM-9 mitigation)
+- R19 v3: ruff added to v2 (Step 1.5 lesson)
+- R19 v4: AST function-scoped marker count (Step 2A lesson)
+
+All gates explicit, none relies on subshell pipefail. Bash shipping discipline
+solid.
+
+**Pattern-mismatch lesson (paired with R19 v4)**: when source file may use
+emoji/unicode literals (chars like 📊 🎯) instead of \\U escape form, derive
+the patch pattern from LIVE-READ file content via Path.read_text + split,
+not from heredoc-encoded escape strings. Forensic dumps via terminal may
+show one form while file source has another.
