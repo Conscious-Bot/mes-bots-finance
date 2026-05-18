@@ -14,6 +14,7 @@ DEPS migrated (top-level):
 - import logging + log instance (used by 1 handler)
 - from shared import positions as positions_mod (used by cmd_position, cmd_position_set)
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,6 +46,9 @@ async def cmd_asymmetry(update, ctx):  # noqa: ARG001
             return
         await update.message.reply_text(f"Computing asymmetry on {ticker}...")
         r = asym_mod.compute_thesis_asymmetry(thesis)
+        if r is None:
+            await update.message.reply_text(f"Cannot compute asymmetry for {ticker} (no thesis data).")
+            return
         msg = asym_mod.format_asymmetry_single(r)
     else:
         await update.message.reply_text("Computing portfolio-wide asymmetry...")

@@ -106,6 +106,7 @@ def daily_insider_refresh() -> dict:
 
                 # Alert if 1d delta exceeds threshold
                 if d1 is not None and abs(d1) >= DELTA_1D_THRESHOLD:
+                    assert prev is not None
                     alerts.append(
                         {
                             "ticker": ticker,
@@ -117,6 +118,7 @@ def daily_insider_refresh() -> dict:
                     )
                 # Alert if 7d delta exceeds threshold
                 if d7 is not None and abs(d7) >= DELTA_7D_THRESHOLD:
+                    assert snap7 is not None
                     alerts.append(
                         {
                             "ticker": ticker,

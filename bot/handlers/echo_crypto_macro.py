@@ -17,6 +17,7 @@ DEPS migrated (top-level):
 - from intelligence.calendar import format_macro_calendar (for cmd_macro)
 - from intelligence.price_monitor import check_thesis_triggers, list_overrides, record_override
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -130,7 +131,7 @@ async def cmd_orphan_tickers(update, ctx):  # noqa: ARG001
         """).fetchall()
     finally:
         conn.close()
-    counter = Counter()
+    counter: Counter[str] = Counter()
     for (entities_json,) in rows:
         try:
             ts = json.loads(entities_json) if entities_json else []
@@ -324,7 +325,10 @@ async def cmd_materiality(update, ctx):  # noqa: ARG001
             "  regime_fit:     " + ("%.2f" % (m.get("regime_relevance") or 0)),
             "  type: " + str(m.get("signal_type") or "?") + " | polarity: " + str(m.get("polarity") or "?"),
             "  primary: " + str(m.get("primary_ticker") or "-") + " | noise: " + str(bool(m.get("is_noise"))),
-            "  regime: " + str(m.get("regime_snapshot") or "?") + " | credit: " + str(m.get("credit_regime_snapshot") or "?"),
+            "  regime: "
+            + str(m.get("regime_snapshot") or "?")
+            + " | credit: "
+            + str(m.get("credit_regime_snapshot") or "?"),
         ]
         if m.get("why_this_matters"):
             lines.append("")

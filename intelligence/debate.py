@@ -125,7 +125,7 @@ def run_multi_round_debate(ticker, context_text):
     try:
         from shared import embeddings
     except ImportError:
-        embeddings = None
+        embeddings = None  # type: ignore[assignment]
 
     # Inject anchor date into context for all 3 rounds (Round 2/3 inherit via R1)
     today_str = _dt.now().strftime("%d %B %Y")
