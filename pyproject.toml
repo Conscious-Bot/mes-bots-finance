@@ -36,6 +36,7 @@ select = [
     "TID",    # tidy imports
 ]
 ignore = [
+    "RUF002",   # ambiguous unicode char in docstring (we use γ for Path γ refs intentionally)
     "E501",     # line-too-long (handled by formatter)
     "E402",     # module-level import not at top (legitimate lazy imports)
     "B008",     # function call in default arg (sometimes intentional)

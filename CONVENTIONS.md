@@ -681,3 +681,53 @@ audit before bot restart. Damage contained to repo.
 
 **Scope**: any commit touching user-visible display strings via centralized
 formatters. Applies to currency, percentages, dates, billing.
+
+
+## R19 v3 — Ruff gate mandatory + R14 v2 reinforcement (Day 12 Step 1.5 lesson)
+
+**R19 v3 — extension of R19 v2**: ruff gate MUST be added to every shipping
+bash alongside pytest + mypy gates. Day 12 Step 1 commit 4ceb084 landed with
+3 ruff errors unresolved because R19 v2 only gated pytest + mypy. Day 12
+Step 1.5 retrofit attempt was correctly aborted by R19 v3 ruff gate on
+4 RUF002 errors before commit could land.
+
+**Required pattern (add alongside R19 v2 gates)**:
+```bash
+ruff check <files> > /tmp/ruff 2>&1 && ruff_rc=0 || ruff_rc=$?
+if [ "$ruff_rc" -ne 0 ]; then
+  cat /tmp/ruff
+  echo "===== ABORT — ruff gate ====="
+  exit 1
+fi
+echo "  ruff GREEN"
+```
+
+Order in bash: ruff -> pytest -> mypy (cheapest first, catches lint + syntax
++ auto-fixable issues earliest).
+
+**R14 v2 — function-scoped AST checks**: when applying SEQUENTIAL pattern-replace
+patches across multiple sibling functions in the SAME file in the SAME bash run,
+"already patched" substring `in src` checks are CONTAMINATED by earlier
+patches.
+
+Day 12 Step 1 example: step 2 added `format_finance(market_value, decimals=0,
+width=6, currency=currency)` inside format_position_line. Step 3's check
+`'format_finance(market_value, decimals=0, width=6, currency=currency)' in src`
+returned True from step 2's edit -> step 3 incorrectly skipped patching
+format_aggregate_line (silent substring contamination by sibling function in
+same file).
+
+**Required pattern**: use AST function-scoped detection, NOT global `in src`:
+```python
+tree = ast.parse(src)
+for node in ast.walk(tree):
+    if isinstance(node, ast.FunctionDef) and node.name == target_fn:
+        body = '\n'.join(src.splitlines()[node.lineno-1:node.end_lineno])
+        if marker_text in body:
+            already_patched = True
+        break
+```
+
+**Scope**: any sequential multi-function patch in same file. AST function-
+scoped extraction mandatory for both "already patched" checks AND for the
+patch itself when matching needs to be precise (line-range replacement).

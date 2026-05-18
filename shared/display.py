@@ -221,12 +221,14 @@ def format_aggregate_line(
     pnl_pct: float,
     *,
     label_width: int = 28,
+    currency: Currency | None = None,
 ) -> str:
     """Canonical sector/narrative aggregate line.
 
-    `market_value` in CANONICAL_FINANCE units.
+    Day 12 ADR 004 Path γ: `currency` kwarg propagated. `market_value` in
+    `currency` units (or CANONICAL_FINANCE if None).
     """
     return (
-        f"  {label:<{label_width}s}  {format_finance(market_value, decimals=0, width=6)}  "
+        f"  {label:<{label_width}s}  {format_finance(market_value, decimals=0, width=6, currency=currency)}  "
         f"[{pct_total:>4.1f}%]  ({n_positions} pos, PnL {format_pct(pnl_pct, decimals=1, signed=True)})"
     )
