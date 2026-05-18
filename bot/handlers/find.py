@@ -6,6 +6,7 @@ filings_8k_log (30d) + insider activity (30d).
 
 Use case: instant ticker dump before deep /analyze. Quotidien.
 """
+
 from __future__ import annotations
 
 import json
@@ -13,24 +14,32 @@ import sqlite3
 from datetime import datetime, timedelta
 
 from bot.handlers._common import db_path
+from shared.prices import get_currency_for_ticker, get_fx_rate
 
 __all__ = ["cmd_find"]
 
 
 def _format_position(conn: sqlite3.Connection, ticker: str) -> str:
     rows = conn.execute(
-        "SELECT qty, avg_cost, account, status, opened_at "
-        "FROM positions WHERE ticker = ? AND status = 'open'",
+        "SELECT qty, avg_cost, account, status, opened_at FROM positions WHERE ticker = ? AND status = 'open'",
         (ticker,),
     ).fetchall()
     if not rows:
-        return "\U0001F4CC POSITION\n  None\n"
-    lines = ["\U0001F4CC POSITION"]
+        return "\U0001f4cc POSITION\n  None\n"
+    # Day 11 ADR 004 Batch 4C: USD primary, EUR secondary (FM-10 fix).
+    # avg_cost stored in NATIVE currency. Convert to both USD + EUR for dual display.
+    native_cur = get_currency_for_ticker(ticker)
+    fx_native_to_usd = get_fx_rate(native_cur, "USD") or 1.0
+    fx_native_to_eur = get_fx_rate(native_cur, "EUR") or 1.0
+    lines = ["\U0001f4cc POSITION"]
     for qty, avg_cost, account, _status, opened_at in rows:
-        cost_basis = qty * avg_cost
+        avg_cost_usd = avg_cost * fx_native_to_usd
+        avg_cost_eur = avg_cost * fx_native_to_eur
+        cost_basis_usd = qty * avg_cost_usd
+        cost_basis_eur = qty * avg_cost_eur
         lines.append(
-            f"  Qty: {qty:.4f} @ \u20AC{avg_cost:.2f}  "
-            f"= \u20AC{cost_basis:,.0f} cost basis"
+            f"  Qty: {qty:.4f} @ ${avg_cost_usd:.2f} (\u20ac{avg_cost_eur:.2f})  "
+            f"= ${cost_basis_usd:,.0f} (\u20ac{cost_basis_eur:,.0f}) cost basis"
         )
         lines.append(f"  Account: {account}  Opened: {opened_at[:10] if opened_at else '?'}")
     lines.append("")
@@ -45,16 +54,20 @@ def _format_target(conn: sqlite3.Connection, ticker: str) -> str:
         (ticker,),
     ).fetchall()
     if not rows:
-        return "\U0001F3AF PORTFOLIO TARGET\n  None\n"
-    lines = ["\U0001F3AF PORTFOLIO TARGET"]
+        return "\U0001f3af PORTFOLIO TARGET\n  None\n"
+    # Day 11 ADR 004 Batch 4C: USD primary, EUR secondary. target_eur from DB
+    # schema column (unchanged in observation phase). Static fx at display time.
+    fx_eur_to_usd = get_fx_rate("EUR", "USD") or 1.1655
+    lines = ["\U0001f3af PORTFOLIO TARGET"]
     for account, target_eur, weight_pct, status, phase_week, narrative, priority, bucket in rows:
         phase_str = f"W{phase_week}" if phase_week is not None else "—"
         narr_str = f" — {narrative}" if narrative else ""
         prio_str = f" [{priority}]" if priority else ""
         bucket_str = f" ({bucket})" if bucket else ""
         weight_str = f", {weight_pct:.1f}%" if weight_pct else ""
+        target_usd = target_eur * fx_eur_to_usd
         lines.append(
-            f"  {account}{bucket_str}: \u20AC{target_eur:,.0f}{weight_str} "
+            f"  {account}{bucket_str}: ${target_usd:,.0f} (\u20ac{target_eur:,.0f}){weight_str} "
             f"— {status}{prio_str} (phase {phase_str}){narr_str}"
         )
     lines.append("")
@@ -70,14 +83,11 @@ def _format_theses(conn: sqlite3.Connection, ticker: str) -> str:
         (ticker,),
     ).fetchall()
     if not rows:
-        return "\U0001F4C8 THESIS\n  None\n"
-    lines = ["\U0001F4C8 THESIS"]
+        return "\U0001f4c8 THESIS\n  None\n"
+    lines = ["\U0001f4c8 THESIS"]
     for tid, conv, direction, horizon, drivers, triggers, status, opened_at, notes in rows:
         opened = opened_at[:10] if opened_at else "?"
-        lines.append(
-            f"  #{tid} {status} | conv {conv}/5 | {direction} | "
-            f"{horizon or '?'} | opened {opened}"
-        )
+        lines.append(f"  #{tid} {status} | conv {conv}/5 | {direction} | {horizon or '?'} | opened {opened}")
         # Drivers: try JSON list first, fallback to string
         if drivers:
             try:
@@ -86,7 +96,7 @@ def _format_theses(conn: sqlite3.Connection, ticker: str) -> str:
                     drv_str = "; ".join(str(d) for d in drv_list[:3])
                 else:
                     drv_str = str(drivers)[:120]
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 drv_str = str(drivers)[:120]
             lines.append(f"    Drivers: {drv_str}")
         if triggers:
@@ -96,7 +106,7 @@ def _format_theses(conn: sqlite3.Connection, ticker: str) -> str:
                     trg_str = " OR ".join(str(t) for t in trg_list[:2])
                 else:
                     trg_str = str(triggers)[:120]
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 trg_str = str(triggers)[:120]
             lines.append(f"    Invalidation: {trg_str}")
         if notes and "sector_thesis_id" in notes:
@@ -121,16 +131,14 @@ def _format_signals(conn: sqlite3.Connection, ticker: str, days: int = 7) -> str
         (f'%"{ticker}"%', cutoff),
     ).fetchall()
     if not rows:
-        return f"\U0001F4F0 SIGNALS ({days}j)\n  None\n"
-    lines = [f"\U0001F4F0 SIGNALS ({days}j)"]
+        return f"\U0001f4f0 SIGNALS ({days}j)\n  None\n"
+    lines = [f"\U0001f4f0 SIGNALS ({days}j)"]
     for sid, title, stype, impact, ts, source_name in rows:
         impact_str = f"{impact:.1f}" if impact is not None else "?"
         type_str = stype or "?"
         src_str = (source_name or "?")[:25]
         date_str = ts[:10] if ts else "?"
-        lines.append(
-            f"  #{sid} [{date_str}] {src_str} | impact {impact_str} | {type_str}"
-        )
+        lines.append(f"  #{sid} [{date_str}] {src_str} | impact {impact_str} | {type_str}")
         lines.append(f"    {title}")
     lines.append("")
     return "\n".join(lines)
@@ -149,8 +157,8 @@ def _format_filings(conn: sqlite3.Connection, ticker: str, days: int = 30) -> st
         # Column names may differ; try generic
         rows = []
     if not rows:
-        return f"\U0001F3DB 8-K FILINGS ({days}j)\n  None\n"
-    lines = [f"\U0001F3DB 8-K FILINGS ({days}j)"]
+        return f"\U0001f3db 8-K FILINGS ({days}j)\n  None\n"
+    lines = [f"\U0001f3db 8-K FILINGS ({days}j)"]
     for filed_at, item_code, severity, summary in rows:
         sev_str = f"sev {severity}" if severity is not None else "?"
         item_str = item_code or "?"
@@ -174,10 +182,10 @@ def _format_insider(conn: sqlite3.Connection, ticker: str, days: int = 30) -> st
     except sqlite3.OperationalError:
         rows = []
     if not rows:
-        return f"\U0001F465 INSIDER BUY CLUSTERS ({days}j)\n  None\n"
-    lines = [f"\U0001F465 INSIDER BUY CLUSTERS ({days}j)"]
+        return f"\U0001f465 INSIDER BUY CLUSTERS ({days}j)\n  None\n"
+    lines = [f"\U0001f465 INSIDER BUY CLUSTERS ({days}j)"]
     for detected_at, cluster_size, value_m, summary in rows:
-        val_str = f"\u20AC{value_m:.1f}M" if value_m else "?"
+        val_str = f"\u20ac{value_m:.1f}M" if value_m else "?"
         size_str = f"{cluster_size} buyers" if cluster_size else "?"
         lines.append(f"  [{detected_at[:10]}] {size_str}, total {val_str}")
         if summary:
@@ -209,7 +217,7 @@ async def cmd_find(update, ctx):  # noqa: ARG001
     try:
         conn = sqlite3.connect(str(db_file))
         sections = [
-            f"\U0001F50D /find {ticker}\n",
+            f"\U0001f50d /find {ticker}\n",
             _format_position(conn, ticker),
             _format_target(conn, ticker),
             _format_theses(conn, ticker),
