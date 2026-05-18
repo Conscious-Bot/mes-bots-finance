@@ -91,3 +91,5 @@ data/bot.db.bak*
 *.bak_*
 *.before_restart_*
 uptime.log.pre_case_fix_*
+bot.log*
+*.keep
