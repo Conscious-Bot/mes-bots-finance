@@ -21,6 +21,10 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from typing import Any
+
+from telegram import Update
+from telegram.ext import ContextTypes
 
 from shared import positions as positions_mod
 from shared.display import format_finance, format_pct, format_position_line
@@ -33,7 +37,7 @@ __all__ = [
 ]
 
 
-def _portfolio_journal_ctx(ticker):
+def _portfolio_journal_ctx(ticker: str) -> tuple[Any | None, Any | None, str | None, Any | None, Any | None, list[Any] | None]:
     """Phase B5 — Auto-context for journal log_decision: price, regime, credit, thesis_id, materiality_top."""
     ticker = ticker.upper()
     price = None
@@ -96,8 +100,9 @@ def _portfolio_journal_ctx(ticker):
     return price, regime_str, credit_str, thesis_id, direction, materiality_top
 
 
-async def cmd_portfolio(update, ctx):  # noqa: ARG001
+async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
     """Portfolio v2: alerts top, conviction, PnL%, drill-down footer."""
+    assert update.message is not None  # type narrowing — command handlers always receive message
     import sqlite3
     from datetime import datetime as _dt
 
@@ -247,10 +252,11 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
     await update.message.reply_text(msg)
 
 
-async def cmd_position_buy(update, ctx):  # noqa: ARG001
+async def cmd_position_buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
     """Buy + Phase B5 journal logging + bias tagging (auto).
     Usage: /position_buy <TICKER> <QTY> <PRICE> [reasoning]
     """
+    assert update.message is not None and update.message.text is not None  # type narrowing
     parts = update.message.text.split(maxsplit=4)
     if len(parts) < 4:
         await update.message.reply_text("Usage: /position_buy <TICKER> <QTY> <PRICE> [reasoning]")
@@ -363,10 +369,11 @@ async def cmd_position_buy(update, ctx):  # noqa: ARG001
         await update.message.reply_text(f"Error: {e}")
 
 
-async def cmd_position_sell(update, ctx):  # noqa: ARG001
+async def cmd_position_sell(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
     """Sell + Phase B5 journal logging + bias tagging (auto).
     Usage: /position_sell <TICKER> <QTY> <PRICE> [reasoning]
     """
+    assert update.message is not None and update.message.text is not None  # type narrowing
     parts = update.message.text.split(maxsplit=4)
     if len(parts) < 4:
         await update.message.reply_text("Usage: /position_sell <TICKER> <QTY> <PRICE> [reasoning]")

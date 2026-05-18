@@ -107,6 +107,8 @@ module = [
     "intelligence.credibility",
     "shared.uptime",
     "intelligence.bias_tagger",
+    # Day 12 Step C: bot/handlers tree strict-typed adoption (start)
+    "bot.handlers.positions",
     "intelligence.signal_classify",
     "intelligence.materiality_boost",
     "intelligence.half_life",
