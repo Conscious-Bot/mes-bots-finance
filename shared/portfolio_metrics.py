@@ -49,6 +49,9 @@ log = logging.getLogger(__name__)
 _EUR_INVESTED_RE = re.compile(r"eur_invested=(\d+(?:\.\d+)?)")
 
 
+_BENCHMARKS: tuple[str, ...] = ("SPY", "QQQ", "SMH")
+
+
 def parse_eur_invested(notes: str | None) -> float | None:
     """Extract `eur_invested=N` value from position notes string.
 

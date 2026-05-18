@@ -600,3 +600,18 @@ Erreur Day 10 : Claude a suggéré token regen #1 comme "solution" Conflict → 
 Règle : 1ère réponse à un symptôme "weird operational" = forensic command + paste output. PAS hypothèse + fix avant données empiriques.
 
 **Source** : Day 10 17/05/2026 mea culpa Claude.
+
+### R18 — Bash shipping code DOIT gate-abort sur RED
+
+Tout bash qui (a) modifie du code source ET (b) git commit ce code dans la même séquence DOIT inclure un mécanisme d'abort si une gate échoue. Sinon le commit passe malgré des erreurs visibles dans le output → broken code in git.
+
+Patterns acceptables :
+- `set -e` au début du bash (toutes commandes abort sur exit != 0)
+- `command || { echo "X FAILED"; exit 1; }` après chaque gate critique
+- Test pytest avec `$?` capture explicite avant le `git commit`
+
+Anti-pattern observé Day 11 (item A kpi6 SMH) : 4 ruff errors + 1 mypy error + 7 pytest failures dans output → commit a quand même tourné car séquence linéaire sans abort → commit 7f7bb7d shipped broken. Fix forward même session, mais discipline aurait évité.
+
+**Lien R14** : R18 protège quand R14 (et autres règles de patching) échouent. Defense in depth.
+
+**Source** : Day 11 17/05/2026 (item A SMH benchmark).

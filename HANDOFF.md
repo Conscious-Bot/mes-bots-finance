@@ -737,6 +737,15 @@ E refactor **RÉSORBÉ** (no longer deferred). Sprint queue restante :
 - **Pre-existing cleanup** : main.py 3× union-attr `update.message`, intelligence/materiality.py:291 float→int (P3, not blocking)
 - **ADR 001 PIT bitemporal** : trigger = KPI #2 GREEN OR 1er recal mensuel post-juin
 
+
+### Day 11 lessons (R14 self-violation + R18 added)
+
+**R14 self-violation** : codifié Day 10 ("name exists check = assignment regex JAMAIS substring"), violé Day 11 dans le patcher python pour SMH benchmark insertion (`if '_BENCHMARKS' not in new_src` → False car nouveau corps de fonction contenait référence → insertion skip silencieuse → commit broken). Fix forward 1 commit après.
+
+**R18 added** : tout bash qui git commit du code DOIT gate-abort sur RED. Le pattern Day 11 (4 ruff + 1 mypy + 7 pytest fails → commit quand même) prouve que les gates seules ne suffisent pas sans abort mechanism. Pattern : `set -e` ou `cmd || { echo X; exit 1; }`.
+
+**Méta-leçon** : codifier une règle ≠ la suivre. Re-lire R14-R17 au début de chaque patcher Python est obligatoire. Ne pas trust la mémoire en-context.
+
 ### Lessons learned Day 10 (time-wasters codifiés)
 
 Anti-patterns identifiés et documentés pour ne PAS reperdre du temps dessus :
