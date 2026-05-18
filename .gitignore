@@ -93,3 +93,6 @@ data/bot.db.bak*
 uptime.log.pre_case_fix_*
 bot.log*
 *.keep
+
+# Bot log rotations + temp files (Day 12 cleanup)
+bot.log.*
