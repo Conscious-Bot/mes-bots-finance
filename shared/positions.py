@@ -155,11 +155,23 @@ def add_sell(ticker: str, qty: float, price: float, notes: str | None = None) ->
     }
 
 
-def _enrich_with_live(d: dict) -> dict:
+def _enrich_with_live(d: dict, target_cur: str = "EUR") -> dict:
+    """Enrich position dict with live current_price, market_value, unrealized_pnl.
+
+    Day 11 ADR 004 Batch 3 Part A: parametric target_cur. Default EUR for
+    backward compatibility during USD migration. New callers (Batch 4 display
+    layer) should pass target_cur='USD' for canonical USD pricing.
+
+    Latent currency mix (FM-10 candidate, NOT introduced here): avg_cost
+    stored in NATIVE currency (per shared.positions convention). p in
+    target_cur. Their difference (p - avg_cost) is incorrect for any ticker
+    whose native currency differs from target_cur. Existing bug. Fix scope:
+    full currency-aware pnl computation per position, deferred post-J+30.
+    """
     if d["qty"] <= 0:
         return d
     try:
-        p = prices.get_current_price_in_eur(d["ticker"])
+        p = prices.get_current_price_in(d["ticker"], target_cur)
         if p:
             d["current_price"] = p
             d["market_value"] = p * d["qty"]

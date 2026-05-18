@@ -77,3 +77,28 @@ Migrate internal canonical from EUR to USD. Display primary devient USD. EUR ava
 - HANDOFF Day 7 close "FX migration COMPLETE" section
 - CONVENTIONS Section 16 R11/R13/R14/R17/R18 + R19 candidate (subshell pattern)
 - Day 11 sub-session item B (this work)
+
+
+## Batch 3 amendment (18 May 2026, post-forensic)
+
+Original plan: Batch 3 = `shared/positions.py _enrich_with_live` + `intelligence/price_monitor.py` thesis triggers, both flipped to USD canonical.
+
+**Empirical forensic revealed**: `price_monitor.check_thesis_triggers` compares live price `p` against DB-stored thresholds `target_partial`, `target_full`, `stop_price`. These thresholds were typed by the user at thesis creation in unknown currency convention (likely native or EUR per legacy /thesis handler). Flipping `p` to USD without verifying threshold currency convention would cause silent trigger drift:
+- False positives if thresholds are higher-magnitude currency (JPY threshold ¥4500, USD price $30 -> erroneous comparison)
+- Missed triggers if thresholds are lower-magnitude currency
+
+**Risk**: KPI #4 (zero panic sells core) is the failure mode this monitor protects against. Silent trigger drift during observation phase would corrupt the very metric being monitored.
+
+**Revised Batch 3 scope**:
+- **Part A (shipped)**: `_enrich_with_live(target_cur="EUR")` parametric, default EUR (backward compat preserved). Batch 4 display handlers will opt-in to USD by passing target_cur kwarg.
+- **Part B (deferred post-J+30)**: `price_monitor` requires a DB forensic + threshold currency audit before flipping. Diagnostic plan:
+  1. `SELECT id, ticker, target_partial, target_full, stop_price, notes FROM theses WHERE status='active'`
+  2. For each thesis, compare threshold magnitude to plausible currency range (native, EUR, USD)
+  3. If currency convention inconsistent across theses -> schema migration needed (currency column on theses table)
+  4. If uniform -> simple `get_current_price_in(ticker, threshold_currency)` switch
+  5. Codify result in ADR 004 Batch 3B addendum
+
+**Impact on overall ADR 004**: full UX swap option-b achieved for DISPLAY layer (Batches 4-5). Internal price_monitor alerting math preserves correct comparison currency during observation. User-facing display shows USD primary post-Batch-5. KPI #4 fidelity preserved.
+
+**FM-10 candidate (latent, pre-existing bug, NOT introduced by this batch)**:
+`_enrich_with_live` computes `unrealized_pnl = (p - avg_cost) * qty` where `p` is in target_cur but `avg_cost` is in NATIVE currency. For any ticker whose native currency != target_cur, this difference is currency-mixed. Affects 8 international positions (.T, .KS, .AS, .PA). Fix scope: full currency-aware pnl computation, deferred to post-J+30 alongside Batch 3 Part B DB audit.
