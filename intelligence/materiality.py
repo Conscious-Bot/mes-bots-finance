@@ -278,7 +278,7 @@ def score_novelty(signal, recent_signals):
     target_id = signal.get("id")
     if not target_tickers and len(target_narratives) <= 1:
         return 0.3
-    similar = 0
+    similar: float = 0.0
     for other in recent_signals or []:
         if other.get("id") == target_id:
             continue

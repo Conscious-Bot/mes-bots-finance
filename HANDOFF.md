@@ -717,6 +717,12 @@ via bulk import Day 5).
 
 **AST extraction script évolué 4 itérations** : auto-import detection → R11 annotation stripping → CAPS const auto-detection (regex assignment vs name reference, R12) → sync FunctionDef support (batch 4 helper). Script réutilisable pour futurs splits architecturaux.
 
+
+### Latent debt post-Day-10 (Day 11 17/05/2026)
+
+- `bot/handlers/*.py` (22 modules) utilisent signatures untyped `def cmd_x(update, ctx):` per R11 stripping → mypy ne flag pas les `update.message.reply_text` sans guard → runtime risk None-deref si message manquant. Cleanup possible : ajouter les modules au mypy strict-typed override + annotate. Effort ~6h. Bénéfice : type safety end-to-end sur la chaîne handler. Trigger candidat : post J+30 ou après 1st runtime None-deref encountered.
+- `intelligence.materiality:291` FIXED Day 11 (similar: float = 0.0).
+
 ### Carry-forward post-Day-10
 
 E refactor **RÉSORBÉ** (no longer deferred). Sprint queue restante :
