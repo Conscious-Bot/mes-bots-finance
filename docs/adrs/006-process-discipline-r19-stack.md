@@ -1,4 +1,4 @@
-# ADR 005 — Process Discipline: R19 v2-v5 Stack for Bash Shipping
+# ADR 006 — Process Discipline: R19 v2-v5 Stack for Bash Shipping
 
 **Status**: Accepted (Day 12, 18 May 2026)
 **Author**: Olivier Legendre (with Claude as code partner)
