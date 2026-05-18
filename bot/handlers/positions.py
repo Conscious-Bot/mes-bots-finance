@@ -183,8 +183,8 @@ async def cmd_portfolio(update, ctx):  # noqa: ARG001
     pnl_total = total_mv - total_cost
     pnl_total_pct = (pnl_total / total_cost * 100) if total_cost else 0
     lines.append(
-        f"Book: {format_finance(total_mv, decimals=0)}  Cost: {format_finance(total_cost, decimals=0)}  "
-        f"PnL: {format_finance(pnl_total, decimals=0, signed=True)} ({format_pct(pnl_total_pct, decimals=1, signed=True)})"
+        f"Book: {format_finance(total_mv, decimals=0, currency=Currency.USD)}  Cost: {format_finance(total_cost, decimals=0, currency=Currency.USD)}  "
+        f"PnL: {format_finance(pnl_total, decimals=0, signed=True, currency=Currency.USD)} ({format_pct(pnl_total_pct, decimals=1, signed=True)})"
     )
     lines.append(f"{len(positions)} positions  |  Max sizing policy: {max_pct_threshold:.0f}%")
     lines.append("")
