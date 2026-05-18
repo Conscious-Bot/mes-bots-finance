@@ -86,15 +86,24 @@ def format_money(
     return f"{currency.value}{value:{sign_part},.{decimals}f}"
 
 
-def format_finance(value: float, decimals: int = 2, width: int | None = None, signed: bool = False) -> str:
-    """Format finance value (positions, MV, pnl, aggregates) in canonical currency.
+def format_finance(
+    value: float,
+    decimals: int = 2,
+    width: int | None = None,
+    signed: bool = False,
+    currency: Currency | None = None,
+) -> str:
+    """Format finance value (positions, MV, pnl, aggregates).
 
-    INVARIANT: `value` must already be expressed in CANONICAL_FINANCE.
-    Caller is responsible for ensuring storage-currency matches at call site.
+    Day 12 ADR 004 Path γ: `currency` kwarg for explicit per-call control.
+    Defaults to CANONICAL_FINANCE (backward compat with legacy EUR callers).
+    USD-primary callers pass `currency=Currency.USD`.
 
-    Use signed=True for PnL displays where direction matters (realized PnL events).
+    INVARIANT: `value` must be expressed in `currency` (or CANONICAL_FINANCE
+    if None). Caller responsible for currency coherence at call site.
     """
-    return format_money(value, CANONICAL_FINANCE, decimals, width, signed=signed)
+    effective_cur = currency if currency is not None else CANONICAL_FINANCE
+    return format_money(value, effective_cur, decimals, width, signed=signed)
 
 
 def format_billing(value: float, decimals: int = 2, width: int | None = None, signed: bool = False) -> str:
@@ -146,22 +155,29 @@ def format_position_line(
     ticker_width: int = 10,
     name_width: int = 24,
     conv_width: int = 4,
+    currency: Currency | None = None,
 ) -> str:
     """Canonical position line for /portfolio etc.
 
-    All monetary inputs (avg_cost, current_price, market_value) must be in
-    CANONICAL_FINANCE units.
+    Day 12 ADR 004 Path γ: `currency` kwarg propagated to internal
+    format_finance calls. All monetary inputs (avg_cost, current_price,
+    market_value) must be expressed in the same `currency` (or CANONICAL_FINANCE
+    if None).
     """
     name_safe = name if name else ticker
     name_trunc = name_safe[:name_width]
     conv_str = f"c{conviction}" if conviction else "c-"
-    cur_str = format_finance(current_price, decimals=2, width=8) if current_price is not None else "  n/a  "
+    cur_str = (
+        format_finance(current_price, decimals=2, width=8, currency=currency)
+        if current_price is not None
+        else "  n/a  "
+    )
     pnl_str = format_pnl_pct(pnl_pct, width=7)
 
     return (
         f"  {ticker:<{ticker_width}s} {name_trunc:<{name_width}s} {conv_str:<{conv_width}s} "
-        f"{format_finance(avg_cost, decimals=2, width=8)} "
-        f"{cur_str:>9s} {format_finance(market_value, decimals=0, width=6)} "
+        f"{format_finance(avg_cost, decimals=2, width=8, currency=currency)} "
+        f"{cur_str:>9s} {format_finance(market_value, decimals=0, width=6, currency=currency)} "
         f"{pct_book:>4.1f}% {pnl_str:>7s}"
     )
 
@@ -176,10 +192,12 @@ def format_brief_position_line(
     ticker_width: int = 9,
     name_width: int = 22,
     conv_width: int = 2,
+    currency: Currency | None = None,
 ) -> str:
     """Compact position line for /brief POSITIONS (Day 6 canonical 5-col layout).
 
-    `value` in CANONICAL_FINANCE units.
+    Day 12 ADR 004 Path γ: `currency` kwarg propagated. `value` in `currency`
+    units (or CANONICAL_FINANCE if None).
     """
     name_safe = name if name else ticker
     name_trunc = name_safe[:name_width]
@@ -191,7 +209,7 @@ def format_brief_position_line(
     pnl_str = format_pct(pnl_pct, decimals=1, signed=True) if pnl_pct is not None else "n/a"
     return (
         f"  {ticker:<{ticker_width}s} {name_trunc:<{name_width}s} {conv_str:<{conv_width}s}  "
-        f"{format_finance(value, decimals=0, width=6)}  {pnl_str}"
+        f"{format_finance(value, decimals=0, width=6, currency=currency)}  {pnl_str}"
     )
 
 
