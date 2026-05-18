@@ -146,7 +146,7 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
     # Sort by market value descending
     sorted_sectors = sorted(sectors.items(), key=lambda x: x[1]["mv"], reverse=True)
 
-    lines = [f"\U0001f4ca *PORTFOLIO BY SECTOR* — {format_finance(total_mv, decimals=0)} total\n"]
+    lines = [f"\U0001f4ca *PORTFOLIO BY SECTOR* — {format_finance(total_mv, decimals=0, currency=Currency.USD)} total\n"]
     for sector, data in sorted_sectors:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
         n = len(data["tickers"])
@@ -163,6 +163,7 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
                 pct_total=pct,
                 n_positions=n,
                 pnl_pct=pnl_pct,
+                currency=Currency.USD,
             )
         )
         lines.append(f"    {tickers_str}")
@@ -214,7 +215,7 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
 
     sorted_narratives = sorted(narratives.items(), key=lambda x: x[1]["mv"], reverse=True)
 
-    lines = [f"\U0001f3af *PORTFOLIO BY NARRATIVE* — {format_finance(total_mv, decimals=0)} total\n"]
+    lines = [f"\U0001f3af *PORTFOLIO BY NARRATIVE* — {format_finance(total_mv, decimals=0, currency=Currency.USD)} total\n"]
     for narrative, data in sorted_narratives:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
         n = len(data["tickers"])

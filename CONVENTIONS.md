@@ -792,3 +792,38 @@ emoji/unicode literals (chars like 📊 🎯) instead of \\U escape form, derive
 the patch pattern from LIVE-READ file content via Path.read_text + split,
 not from heredoc-encoded escape strings. Forensic dumps via terminal may
 show one form while file source has another.
+
+
+## R19 v5 — Explicit rc check for ALL commands (Day 12 FM-12 lesson)
+
+**Rule extension**: R19 stack (v2 pytest+mypy, v3 ruff, v4 AST semantic) uses
+explicit `cmd && rc=0 || rc=$?` + `[ $rc -ne 0 ] && exit 1` pattern for EVERY
+discipline-critical command, including python3 heredocs. zsh `set -e` does
+NOT reliably propagate failures from heredoc commands in subshells (FM-12).
+
+**Required pattern**:
+```bash
+cmd > /tmp/out 2>&1 && rc=0 || rc=$?
+if [ "$rc" -ne 0 ]; then
+    cat /tmp/out
+    echo "===== ABORT — context (rc=$rc) ====="
+    exit 1
+fi
+```
+
+Applied to:
+- ruff / pytest / mypy gates (R19 v2/v3)
+- python3 heredoc patches (R19 v5 NEW)
+- python3 heredoc semantic gates including R19 v4 itself (R19 v5)
+- git commit / push if their failure should abort downstream
+
+**Anti-pattern**: relying on `set -eo pipefail` alone in zsh subshell.
+
+**R19 stack final**:
+- v2: pytest + mypy explicit rc check (FM-9 mitigation)
+- v3: ruff added
+- v4: AST function-scoped marker count (semantic completeness)
+- v5: explicit rc check applied to ALL commands incl. python3 heredocs (FM-12 mitigation)
+
+The disciplined bash pattern: NO bare command with reliance on set -e in zsh
+subshell. Every command captures rc, checks, aborts explicitly.

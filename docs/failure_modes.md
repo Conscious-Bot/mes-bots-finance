@@ -331,3 +331,18 @@ Key elements:
 2. If RED, immediately: `git revert HEAD` OR fix-forward commit
 3. Check next 24h for downstream broken consumers
 4. Codify any new lesson in this file
+
+
+## FM-12 — zsh subshell `set -e` bypass on python3 heredoc (Day 12)
+
+**Symptom**: `(set -eo pipefail; python3 << 'PYEOF' ... raise SystemExit(1) ... PYEOF; later_cmd)` does NOT abort the subshell on python3 non-zero exit. The shell continues to `later_cmd`. No fallback fires.
+
+**Empirical case**: Day 12 Step 2A.5 commit 2ef6c73. Section B python3 raised SystemExit('format_aggregate_line block not found') — bash continued to C. Section C python3 raised SystemExit(1) on R19 v4 gate failure — bash continued to D/E/F. Final commit landed with portfolio_views.py UNCHANGED (3 patches missed), only R19 v4 codification + 1 narratives display marker. R19 v4 gate FIRED correctly but FM-12 swallowed its abort.
+
+**Mechanism**: zsh `set -e` does not reliably propagate exit codes from heredoc commands in subshells. Same family as FM-9 (pipefail) but broader scope. FM-9 was framed as pipeline-only; FM-12 confirms the issue extends to ALL heredoc commands.
+
+**Mitigation (R19 v5)**: every discipline-critical command MUST use explicit `cmd > /tmp/out 2>&1 && rc=0 || rc=$?` + `[ "$rc" -ne 0 ] && exit 1`. This includes python3 heredocs, NOT just pytest/mypy/ruff gates.
+
+**Anti-pattern**: relying on `set -eo pipefail` + `() || echo "aborted"` for failure detection in zsh.
+
+**Cross-ref**: FM-9 (pipefail subshell), R19 v2/v3/v4/v5 stack.
