@@ -102,3 +102,27 @@ Original plan: Batch 3 = `shared/positions.py _enrich_with_live` + `intelligence
 
 **FM-10 candidate (latent, pre-existing bug, NOT introduced by this batch)**:
 `_enrich_with_live` computes `unrealized_pnl = (p - avg_cost) * qty` where `p` is in target_cur but `avg_cost` is in NATIVE currency. For any ticker whose native currency != target_cur, this difference is currency-mixed. Affects 8 international positions (.T, .KS, .AS, .PA). Fix scope: full currency-aware pnl computation, deferred to post-J+30 alongside Batch 3 Part B DB audit.
+
+
+## Display layer coupling audit (18 May 2026, post-Batch 4C)
+
+**Finding**: `shared/display.py` has `CANONICAL_FINANCE: Final[Currency] = Currency.EUR` + module docstring:
+> "Future USD migration requires BOTH storage migration AND CANONICAL_FINANCE flip together. Display layer auto-updates with no handler edits."
+
+**Diagnostic Batches 4A/4B**:
+- 4A `cmd_portfolio` passes USD values to `format_position_line` -> internally `format_finance(value)` with CANONICAL_FINANCE=EUR -> would render `€{USD_value}` on restart. Symbol/magnitude mismatch.
+- 4B `_compute_book_market_value` returns USD values consumed by sectors/narratives via `format_finance` + `format_aggregate_line` -> same mismatch.
+- 4C find.py uses explicit `${X} (€{Y})` f-strings, bypasses format_finance -> CORRECT regardless of CANONICAL_FINANCE.
+
+**Bot status**: still on cached f3dc54c, no restart since pre-Batch-1. Display still uniform EUR. No runtime damage. Caught by forensic during Batch 5 planning.
+
+**Day 12 plan (Path γ — currency kwarg extension)**:
+1. display.py: add `currency: Currency | None = None` kwarg to `format_finance`, `format_position_line`, `format_aggregate_line`, `format_brief_position_line`. Default to CANONICAL_FINANCE. Backward-compat for legacy callers.
+2. 4A/4B retrofit: pass `currency=Currency.USD` explicitly at call sites.
+3. Batch 5 morning_brief: same pattern.
+4. Restart bot + smoke /portfolio /portfolio_sectors /portfolio_narratives /brief /find ASML.AS.
+5. Tag day12-close.
+
+Estimated Day 12: ~2-2.5h.
+
+**Path δ alternative** (NOT chosen): flip CANONICAL_FINANCE = Currency.USD. Requires audit + migration of ALL existing format_finance callers to pass USD. Higher risk (silent legacy callers breaking).

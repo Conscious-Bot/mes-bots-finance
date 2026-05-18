@@ -816,3 +816,66 @@ CONVENTIONS.md for mitigation.
 - Batch 4 — display layer: bot/handlers/positions.py + portfolio_views.py + find.py ($ primary, € secondary) (~1h)
 - Batch 5 — `intelligence/morning_brief.py` + /digest /brief USD primary (~45min)
 - Restart bot post-Batch-5 (or earlier for staging if needed)
+
+
+## Day 11 close (18 May 2026 KST)
+
+**Final stats**: 14 commits since Day 10 close (e8c81cf), 270 tests, 0 mypy errors, R19 holding 8 commits since 12973a1.
+
+**USD migration ADR 004 status**:
+- Batch 1: shared/prices.py foundation (e6fed9d)
+- Batch 2: portfolio_metrics + KPI #6 USD primary (f2b23fe + fix 12973a1)
+- Batch 3A: positions._enrich_with_live parametric (5d04a25)
+- Batch 3B: DEFERRED post-J+30 (price_monitor thesis triggers, KPI #4 protection)
+- Batch 4A: cmd_portfolio (911dcfd) — repo state: USD values, AWAITING Path γ display retrofit
+- Batch 4B: _compute_book_market_value (f262c71) — same, AWAITING Path γ
+- Batch 4C: find.py format helpers (5153982) — CORRECT, uses explicit f-strings
+- Batch 4D candidate: cmd_portfolio_drift (FM-11, deferred post-J+30)
+- Batch 5: morning_brief NOT shipped (would have same coupling)
+
+**Critical audit (this close commit)**: shared/display.py has CANONICAL_FINANCE
+= Currency.EUR + explicit doctrine. Batches 4A/4B values are USD but pass
+through format_finance internally -> display lies `€{USD_value}` if restarted.
+Path γ fix planned Day 12.
+
+**Bot status**: PID 44580 still on cached f3dc54c. **DO NOT RESTART** until
+Day 12 Path γ lands. Restart now = broken display.
+
+**Day 12 plan (Path γ — currency kwarg extension)**:
+
+1. display.py extension (~30min): add `currency: Currency | None = None` kwarg
+   to format_finance + format_position_line + format_aggregate_line +
+   format_brief_position_line. Default CANONICAL_FINANCE. Backward-compat.
+
+2. 4A retrofit (~15min): cmd_portfolio passes `currency=Currency.USD` to
+   format_position_line.
+
+3. 4B retrofit (~15min): cmd_portfolio_sectors + cmd_portfolio_narratives
+   pass `currency=Currency.USD` to format_finance + format_aggregate_line.
+
+4. Batch 5 (~45min): morning_brief _positions_top5_section USD canonical
+   via get_current_price_in_usd. format_brief_position_line gets
+   `currency=Currency.USD`. Audit _stats_section for any pre-existing issue
+   (Day 6 memory mentioned hardcoded \$).
+
+5. Restart + smoke (~15min): kbot alias + nohup + Telegram smoke
+   /portfolio /portfolio_sectors /portfolio_narratives /brief /find ASML.AS.
+   Confirm USD primary + EUR secondary where applicable + FM-10 coherent pnl_pct.
+
+6. Tag day12-close (~5min).
+
+Estimated Day 12: 2-2.5h single sprint.
+
+**Process discipline lessons codified Day 11**:
+- FM-9: zsh subshell pipefail unreliability (post commit 12973a1, R19 mitigation)
+- R20: display-layer forensic before centralized formatter refactor (this close)
+
+**Carry-forward post-Day-11**:
+- Batch 3B price_monitor (post-J+30)
+- FM-10 unrealized_pnl currency mix (partial fix in 4A/4B scope only)
+- FM-11 cmd_portfolio_drift SQL aggregation currency mix (Batch 4D, post-J+30)
+- Day 12 Path γ implementation (above)
+
+**KPI timers**:
+- KPI #2: J-23 to 10 juin 2026 batch resolution (45+ predictions due)
+- KPI #6 USD primary: live since Batch 2 (commit f2b23fe), 0 panic sells, INSUFFICIENT (need 365d)

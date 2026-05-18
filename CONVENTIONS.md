@@ -656,3 +656,28 @@ err_count=$(grep -cE 'error:' /tmp/mypy 2>/dev/null || true)
 
 **Scope**: every shipping bash containing `git commit` / `git push` / any
 file mutation past a quality gate.
+
+
+## R20 — Display-layer forensic before display-affecting refactor (Day 11, ADR 004 audit)
+
+**Rule**: Before refactoring ANY handler that calls a centralized formatter
+(`format_finance`, `format_position_line`, `format_aggregate_line`,
+`format_brief_position_line`, `format_money`, `format_pct`, `format_billing`,
+`format_pnl_pct`), VIEW the formatter source FIRST. Identify:
+- Hardcoded canonical constants (e.g. CANONICAL_FINANCE, CANONICAL_BILLING)
+- Symbol/format logic embedded in shared module
+- Architectural invariants in module docstring
+
+**Empirical motivation**: Day 11 ADR 004 Batches 4A/4B passed USD-converted
+values through `format_finance` (CANONICAL_FINANCE=EUR). Would render
+`€{USD_value}` on restart = symbol/magnitude mismatch. Caught by forensic
+audit before bot restart. Damage contained to repo.
+
+**Required workflow**:
+1. Forensic view of formatter source code + docstring + canonical constants
+2. Identify architectural assumptions (currency invariants, type contracts)
+3. Design patch to RESPECT architecture (add kwarg, migrate constants, etc.)
+4. If architecture is wrong shape for refactor: codify in ADR amendment first
+
+**Scope**: any commit touching user-visible display strings via centralized
+formatters. Applies to currency, percentages, dates, billing.
