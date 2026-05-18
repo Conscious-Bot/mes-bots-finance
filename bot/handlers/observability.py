@@ -16,6 +16,7 @@ Helpers exposed for cron jobs (weekly_kpi_status_job in bot/main.py):
 - _cost_compute_trajectory
 - _cost_format_trajectory
 """
+
 from __future__ import annotations
 
 import logging
@@ -84,7 +85,9 @@ async def cmd_health(update, ctx):  # noqa: ARG001
                 "SELECT COALESCE(SUM(cost_usd), 0) as c FROM llm_calls WHERE created_at > datetime('now', '-24 hours')"
             ).fetchone()
             cost_24h = float(cost_24h_row["c"]) if cost_24h_row else 0.0
-        lines.append(f"*LLM:* {n_llm_24h} calls last 24h, {format_billing(cost_24h, decimals=2)}, last @ {last_llm or 'never'}")
+        lines.append(
+            f"*LLM:* {n_llm_24h} calls last 24h, {format_billing(cost_24h, decimals=2)}, last @ {last_llm or 'never'}"
+        )
     except Exception as e:
         lines.append(f"*LLM:* FAILED ({e})")
 
@@ -103,16 +106,14 @@ async def cmd_health(update, ctx):  # noqa: ARG001
     # Predictions + theses active count
     try:
         with storage_mod.db() as conn:
-            open_pred = conn.execute(
-                "SELECT COUNT(*) FROM predictions WHERE resolved_at IS NULL"
-            ).fetchone()[0]
+            open_pred = conn.execute("SELECT COUNT(*) FROM predictions WHERE resolved_at IS NULL").fetchone()[0]
             active_theses = conn.execute(
                 "SELECT COUNT(*) FROM theses WHERE COALESCE(status, 'active') = 'active'"
             ).fetchone()[0]
-            open_pos = conn.execute(
-                "SELECT COUNT(*) FROM positions WHERE status = 'open'"
-            ).fetchone()[0]
-        lines.append(f"*Active state:* {open_pred} open predictions, {active_theses} active theses, {open_pos} open positions")
+            open_pos = conn.execute("SELECT COUNT(*) FROM positions WHERE status = 'open'").fetchone()[0]
+        lines.append(
+            f"*Active state:* {open_pred} open predictions, {active_theses} active theses, {open_pos} open positions"
+        )
     except Exception as e:
         lines.append(f"*Active state:* FAILED ({e})")
 
@@ -236,6 +237,20 @@ def _kpi_compute_all():
     conn = _sql.connect(_storage._DB_PATH)
     conn.row_factory = _sql.Row
     out = {}
+
+    # KPI #1: Bot uptime (read from uptime.log, not DB)
+    try:
+        from shared.uptime import compute_kpi1
+
+        out["kpi1"] = compute_kpi1(window_days=30)
+    except Exception as _kpi1_err:
+        out["kpi1"] = {
+            "title": "KPI #1: Bot uptime (30d)",
+            "target": ">95%",
+            "current": f"compute error: {type(_kpi1_err).__name__}",
+            "status": "🔍 ERROR — see logs",
+            "enforcement": "Alert si <95%",
+        }
 
     # KPI #2: predictions résolues 28d (target ≥5) + forecast 28d ahead
     r2 = conn.execute(
@@ -366,6 +381,7 @@ def _kpi_compute_all():
     # KPI #6: portfolio return vs SPY/QQQ benchmarks (Day 9 P3 wired)
     try:
         from shared.portfolio_metrics import compute_kpi6 as _compute_kpi6
+
         out["kpi6"] = _compute_kpi6()
     except Exception as _kpi6_err:
         out["kpi6"] = {
@@ -389,7 +405,7 @@ def _format_kpi_report(kpis):
     yellow_count = 0
     green_count = 0
     na_count = 0
-    for key in ["kpi2", "kpi3", "kpi4", "kpi5", "kpi6"]:
+    for key in ["kpi1", "kpi2", "kpi3", "kpi4", "kpi5", "kpi6"]:
         k = kpis[key]
         lines.append(f"*{k['title']}*")
         lines.append(f"  Target  : {k['target']}")
@@ -519,7 +535,9 @@ def _cost_format_trajectory(data):
     lines.append(f"  30d window : {format_billing(data['days30'], decimals=4)}")
     lines.append("")
     lines.append("*Month-to-Date*")
-    lines.append(f"  Spent     : {format_billing(data['mtd'], decimals=4)} ({data['days_elapsed']}/{data['days_in_month']}j)")
+    lines.append(
+        f"  Spent     : {format_billing(data['mtd'], decimals=4)} ({data['days_elapsed']}/{data['days_in_month']}j)"
+    )
     lines.append(f"  Projected : {format_billing(data['projection'], decimals=2)} (linear extrapol.)")
     lines.append(f"  Budget    : {format_billing(BUDGET_MONTHLY_USD, decimals=0)}/mo target")
     lines.append(f"  Usage     : {data['budget_pct']:.1f}% of budget")
@@ -594,6 +612,8 @@ async def cmd_llm_costs(update, ctx):  # noqa: ARG001
     for r in rows:
         cost = r.get("cost") or 0
         avg = r.get("avg_ms") or 0
-        lines.append(f"  {r['tier']:11s} {r['model'][:30]:30s} n={r['n_calls']} {format_billing(cost, decimals=4)} avg={avg:.0f}ms")
+        lines.append(
+            f"  {r['tier']:11s} {r['model'][:30]:30s} n={r['n_calls']} {format_billing(cost, decimals=4)} avg={avg:.0f}ms"
+        )
     msg = "\n".join(lines)
     await update.message.reply_text(msg)

@@ -104,6 +104,7 @@ module = [
     "intelligence.digest",
     "intelligence.journal",
     "intelligence.credibility",
+    "shared.uptime",
     "intelligence.bias_tagger",
     "intelligence.signal_classify",
     "intelligence.materiality_boost",
