@@ -36,23 +36,23 @@ def get_current_price(ticker: str) -> float | None:
 # ===== FX CONVERSION LAYER (Phase 1: hardcoded constants, Phase 2: SQLite-cached) =====
 
 # Base currency = user portfolio currency (PEA/TR account)
-BASE_CURRENCY = "EUR"
+BASE_CURRENCY = "USD"  # Day 11 ADR 004 (was "EUR" pre-migration)
 
 # Ticker suffix -> quote currency mapping
 SUFFIX_TO_CURRENCY = {
-    ".T": "JPY",      # Tokyo
-    ".KS": "KRW",     # Korea (Seoul)
-    ".AS": "EUR",     # Amsterdam
-    ".PA": "EUR",     # Paris
-    ".DE": "EUR",     # Germany
-    ".MI": "EUR",     # Milan
-    ".L": "GBP",      # London
-    ".AX": "AUD",     # Australia
-    ".TO": "CAD",     # Toronto
-    ".ST": "SEK",     # Stockholm
-    ".HK": "HKD",     # Hong Kong
-    ".SS": "CNY",     # Shanghai
-    ".SZ": "CNY",     # Shenzhen
+    ".T": "JPY",  # Tokyo
+    ".KS": "KRW",  # Korea (Seoul)
+    ".AS": "EUR",  # Amsterdam
+    ".PA": "EUR",  # Paris
+    ".DE": "EUR",  # Germany
+    ".MI": "EUR",  # Milan
+    ".L": "GBP",  # London
+    ".AX": "AUD",  # Australia
+    ".TO": "CAD",  # Toronto
+    ".ST": "SEK",  # Stockholm
+    ".HK": "HKD",  # Hong Kong
+    ".SS": "CNY",  # Shanghai
+    ".SZ": "CNY",  # Shenzhen
 }
 
 # Hardcoded fx rates to EUR (Phase 1 R3)
@@ -72,6 +72,11 @@ HARDCODED_FX_TO_EUR = {
     "SEK": 0.087,
     "HKD": 0.118,
     "CNY": 0.128,
+}
+
+
+HARDCODED_FX_TO_USD: dict[str, float] = {
+    cur: rate / HARDCODED_FX_TO_EUR["USD"] for cur, rate in HARDCODED_FX_TO_EUR.items()
 }
 
 
@@ -101,25 +106,36 @@ def get_fx_rate(from_cur: str, to_cur: str = "EUR") -> float | None:
     return HARDCODED_FX_TO_EUR.get(from_cur)
 
 
-def get_current_price_in_eur(ticker: str) -> float | None:
-    """Return current price converted to EUR (user base currency).
+def get_current_price_in(ticker: str, target_cur: str) -> float | None:
+    """Return current price converted to ``target_cur``.
 
-    For tickers quoted in foreign currency (.T=JPY, .KS=KRW, etc.),
-    converts using cached fx rate. For EUR-native tickers (.AS, .PA, .DE),
-    returns price as-is. For USD tickers (no suffix), applies USD/EUR fx.
-
-    Returns None if price fetch or fx conversion fails.
+    Generic helper supporting any currency in HARDCODED_FX_TO_EUR.
+    Day 11 ADR 004: parametric core for USD/EUR dual-currency support.
     """
     raw_price = get_current_price(ticker)
     if raw_price is None:
         return None
     cur = get_currency_for_ticker(ticker)
-    if cur == BASE_CURRENCY:
+    if cur == target_cur:
         return raw_price
-    fx = get_fx_rate(cur, BASE_CURRENCY)
+    fx = get_fx_rate(cur, target_cur)
     if fx is None:
         return None
     return raw_price * fx
+
+
+def get_current_price_in_usd(ticker: str) -> float | None:
+    """Return current price converted to USD (canonical, Day 11 ADR 004)."""
+    return get_current_price_in(ticker, "USD")
+
+
+def get_current_price_in_eur(ticker: str) -> float | None:
+    """Return current price converted to EUR (legacy display/secondary, ADR 004).
+
+    Preserved for backward compatibility during USD migration. New code
+    should prefer get_current_price_in_usd or get_current_price_in.
+    """
+    return get_current_price_in(ticker, "EUR")
 
 
 def get_price_on_date(ticker: str, date: str | datetime) -> tuple[str | None, float | None]:
