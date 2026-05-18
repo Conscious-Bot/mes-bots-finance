@@ -965,3 +965,76 @@ R14 v2 reinforced after Step 1 substring contamination. R20 (display-layer foren
 6. Per ADR 004: Batch 3B/4D + FM-10 systematic deferred to post-J+30
 
 KPI #2 timer: J-22 (10 juin 2026 = 45+ predictions cluster batch resolution).
+
+
+---
+
+## Day 12 extended (post day12-close) - 18 May 2026 evening KST
+
+day12-close tag at 0183c88 remains canonical operational snapshot. This section
+documents 7 post-tag commits within same calendar day (Bucket A + ADR narrative).
+
+### Post-tag commits
+- 1361efb chore(gitignore): bot.log rotation + patterns
+- 57b9056 docs(readme): stale numbers refresh post Day 11+12
+- f520bd7 docs(adr): ADR 005 process-discipline (with collision)
+- db7213f fix(adr): rename 005 to 006 (collision corrective + lesson)
+- 3ab76be fix(types/positions): Step C strict-typed + 20-error corrective
+- 74bacd7 docs(adr): ADR 007 Bidirectional Thesis Tracker (RETROACTIVE)
+- (this commit) docs(handoff): Day 12 extended section
+
+### Bucket A status (Olivier directive: tout le bucket A doit etre fait)
+- A.1 Cleanup debt: shipped (gitignore + .keep patterns)
+- A.2 format_billing audit: stale memory note, no work needed (diagnostic confirmed)
+- A.3 README polish: shipped (Conscious-Bot org + 270 tests + 12 FMs)
+- A.4 Type hints bot/handlers/positions.py: 17th strict-typed module
+- A.5 Handler integration tests: deferred multi-session
+- A.6 Observation tooling: deferred multi-session
+
+### Strategic ADRs added
+- ADR 006 Process Discipline R19 v2-v5 stack: formalizes Day 11+12 lessons
+- ADR 007 Bidirectional Thesis Tracker: RETROACTIVE, core mechanism since Day 2
+
+### Path 5/6 narrative arc COMPLETE
+ADR registry answers the three audit questions:
+- What does this bot do uniquely? ADR 007 (bidirectional thesis tracker)
+- How does it ship reliably? ADR 006 (process discipline R19 stack)
+- How does it stay coherent? ADR 004 (USD canonical migration)
+Plus supporting infra ADRs (001 credibility, 002 universe, 003 targets, 005 schema).
+
+### Discipline tally Day 11+12 final: 8 violations = 8 codifications
+1. R14 violation Day 10 SMH = R14 v2
+2. R14 v2 self-violation Day 12 Step 1 = reinforced (function-scoped AST)
+3. R18 violations Day 11 x2 = R19 v2
+4. R17 violation Day 11 (display.py audit miss) = R20
+5. R19 v2 hole Day 12 (ruff missing) = R19 v3
+6. R19 v3 hole Day 12 (semantic gate missing) = R19 v4
+7. FM-12 Day 12 (zsh set-e bypass python3 heredoc) = R19 v5
+8. ADR numbering collision Day 12 = mental checklist update
+
+Each violation = durable system improvement. Path 5/6 defensibility tangible.
+
+### Final empirical state at HEAD
+- Tests: 270 passing
+- mypy: 0 errors on 17 strict-typed modules (Day 12 close was 16, +1 via Step C)
+- ruff: 0 errors codebase-wide
+- ADRs: 7 total (001-007, no gaps)
+- Failure modes: 12 documented (FM-1 to FM-12)
+- Bot: PID 55387 alive on aa6976e (Step C type-only, no restart needed)
+
+### Carry-forward post-J+30 (unchanged from day12-close)
+- Batch 3B: price_monitor.py thesis triggers (KPI #4 protection)
+- Batch 4D: cmd_portfolio_drift FM-11 (DB column + SQL aggregation)
+- FM-10 systematic: cmd_position_buy/sell native-currency display batch
+- bot/handlers/* tree strict-typed expansion (15+ modules remaining)
+- Bucket A.5 handler integration tests + A.6 observation tooling
+- KPI #2 trigger: 10 juin 2026 (J-22, 45+ predictions cluster batch resolution)
+
+### Next session reopen
+1. cd ~/mes-bots-finance && source venv/bin/activate
+2. pgrep -if "python.*bot.main" (expect PID 55387 or rotated)
+3. git log --oneline day12-close..HEAD for 8 extension commits
+4. tail -200 HANDOFF.md for Day 12 close + extension sections
+5. CONVENTIONS.md Section 16: R19 v5 + R14 v2 + R17 + R20 patterns
+6. ADR 007 = canonical reference for product mechanism questions
+7. KPI #2 timer: J-22 to 10 juin 2026
