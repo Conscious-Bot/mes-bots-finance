@@ -22,7 +22,7 @@ import logging
 import sqlite3
 from datetime import datetime
 
-from shared.display import format_billing, format_brief_position_line
+from shared.display import Currency, format_billing, format_brief_position_line
 
 log = logging.getLogger("bot")
 
@@ -244,26 +244,47 @@ def _positions_top5_section():
                 name = get_short_name(ticker) or ticker
             except Exception:
                 name = ticker
+            # Day 12 ADR 004 Batch 5: USD canonical + FM-10 currency-coherent pnl.
+            # avg_cost stored NATIVE -> convert to USD via fx(native, USD).
+            # last_price from theses.last_price assumed EUR-stored (legacy) -> convert
+            # to USD via fx(EUR, USD), or live-fetch USD if absent.
+            try:
+                from shared.prices import (
+                    get_currency_for_ticker,
+                    get_current_price_in_usd,
+                    get_fx_rate,
+                )
+                native_cur = get_currency_for_ticker(ticker)
+                fx_native_to_usd = get_fx_rate(native_cur, "USD") or 1.0
+            except Exception:
+                native_cur = "USD"
+                fx_native_to_usd = 1.0
             last_price = r["last_price"]
-            if last_price is None:
+            if last_price is not None:
                 try:
-                    from shared.prices import get_current_price_in_eur
-                    last_price = get_current_price_in_eur(ticker)
+                    fx_eur_to_usd = get_fx_rate("EUR", "USD") or 1.1655
+                    last_price = last_price * fx_eur_to_usd
+                except Exception:
+                    pass
+            else:
+                try:
+                    last_price = get_current_price_in_usd(ticker)
                 except Exception:
                     last_price = None
+            avg_cost_usd = r["avg_cost"] * fx_native_to_usd if r["avg_cost"] else None
             pnl_pct = None
-            if last_price and r["avg_cost"]:
-                pnl_pct = (last_price / r["avg_cost"] - 1) * 100
-            value_eur = (r["qty"] * last_price) if (last_price and r["qty"]) else None
+            if last_price and avg_cost_usd:
+                pnl_pct = (last_price / avg_cost_usd - 1) * 100
+            value = (r["qty"] * last_price) if (last_price and r["qty"]) else None
             top5.append({
                 "ticker": ticker,
                 "name": name,
                 "qty": r["qty"],
-                "avg_cost": r["avg_cost"],
+                "avg_cost": avg_cost_usd,
                 "last_price": last_price,
                 "conviction": r["conviction"],
                 "pnl_pct": pnl_pct,
-                "value_eur": value_eur,
+                "value": value,
             })
     except Exception as e:
         log.warning(f"positions top5 section: {e}")
@@ -303,8 +324,9 @@ def format_brief(brief):
                 ticker=pos["ticker"],
                 name=pos.get("name"),
                 conviction=pos["conviction"],
-                value=pos.get("value_eur"),
+                value=pos.get("value"),
                 pnl_pct=pos["pnl_pct"],
+                currency=Currency.USD,
             ))
     else:
         lines.append(f"POSITIONS ({n_pos} active) - no conviction data")
