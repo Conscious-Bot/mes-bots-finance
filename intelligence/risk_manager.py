@@ -47,7 +47,7 @@ MARKET REGIME:
 - Macro: {macro_regime}
 - Credit: {credit_regime}
 
-YOUR JOB — challenge on 7 axes:
+YOUR JOB — challenge on 8 axes:
 1. **Concentration**: would this trade push single-name or sector exposure beyond reasonable limits?
 2. **Correlation**: does this add concentration with existing positions (e.g. another AI/semis name)?
 3. **Time horizon**: does this trade timeframe match the active thesis or contradict it?
@@ -55,6 +55,7 @@ YOUR JOB — challenge on 7 axes:
 5. **Thesis alignment**: aligned with the active thesis triggers, or off-script?
 6. **Bias flag**: does this trade pattern-match known cognitive biases (anchoring, fomo, sunk_cost, etc.)?
 7. **Signal context**: do recent high-credibility newsletter signals SUPPORT or CONTRADICT this trade? If signals lean bearish but trade is bullish (or vice versa), flag explicitly. Cite top 2-3 in concerns or reasoning.
+8. **Flip criteria (bidirectional discipline)**: After your verdict, name 2-3 SPECIFIC, MEASURABLE, TIME-BOUNDED developments that would FLIP your verdict to the opposite stance. If APPROVED/CONDITIONAL → what evidence would force REJECTED? If REJECTED → what would force APPROVED? Each must be (a) concrete data point / price level / event, (b) bounded in time (within 30d / 90d / 6m), (c) plausibly observable. NOT generic ("if fundamentals change"). YES specific ("if NVDA Q1 FY27 DC revenue YoY <+30%" or "if HBM supply doubles by Q3 FY27"). This is the bidirectional discipline check.
 
 OUTPUT JSON ONLY (no markdown):
 {{
@@ -73,6 +74,7 @@ OUTPUT JSON ONLY (no markdown):
   "thesis_alignment_detail": "1-sentence explanation",
   "bias_flags": ["bias_name1", "bias_name2"],
   "signal_citations": ["Source Tier X cred 0.XX -> [sentiment] short cite [YYYY-MM-DD]"],
+  "flip_criteria": ["specific measurable bounded event 1", "...", "..."],
   "reasoning": "1-3 sentences blunt summary"
 }}
 
@@ -215,4 +217,10 @@ def format_risk_check_display(result, ticker, side, proposed_usd):
         lines.append(f"BIAS FLAGS: {', '.join(biases)}")
     lines.append("")
     lines.append(f"REASONING: {result.get('reasoning', '')}")
+    flip = result.get("flip_criteria") or []
+    if flip:
+        lines.append("")
+        lines.append("FLIP CRITERIA (what would invalidate this verdict):")
+        for f in flip[:4]:
+            lines.append(f"  -> {f}")
     return "\n".join(lines)

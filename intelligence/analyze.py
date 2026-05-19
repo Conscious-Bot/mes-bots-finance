@@ -397,6 +397,9 @@ Bearish:
 NEWSLETTER SIGNAL CONTEXT
 [2-3 bullets synthesizing what the recent newsletter signals (above section) say about this name. Are they SUPPORTING or CONTRADICTING the quality/catalyst picture? Cite source names. If no signals, state that and move on.]
 
+FLIP CRITERIA — BIDIRECTIONAL DISCIPLINE
+[3 specific, measurable, time-bounded developments that would INVALIDATE this analysis. Each must be (a) concrete data point / price level / event, (b) bounded within 30d / 90d / 6m / 12m, (c) plausibly observable. NOT generic. YES specific (e.g., "if FCF margin compresses below 20% over 2 consecutive quarters" or "if forward P/E re-rates to >35x without commensurate growth acceleration"). This is the most important section: reading it should make a thoughtful reader say "yes, those are the right things to watch for an exit."]
+
 PROBABILISTIC OUTLOOK (6M)
 Probability weighting MUST explicitly cite: (a) current credit regime (HY OAS bp level + classification + 1m trend), (b) insider concentration_ex_top from past 90d (distinguishing broad executive distribution from single-seller idiosyncratic noise). Tether each scenario weight to these two anchors plus catalyst proximity. No abstract probabilities.
 - Bull case (N%): price target $X, drivers: ...
