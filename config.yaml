@@ -86,6 +86,12 @@ universe:
   - CPSH
   - SLB
   - APH
+  - ANET
+  - ADI
+  - PLTR
+  - CSCO
+  - IBM
+  - BA
   - HDB
   - HOOD
   - IBKR
@@ -265,6 +271,10 @@ universe:
     - EDU
     - 7011.T
     - 6501.T
+    - 9984.T
+    - SONY
+    - 002594.SZ
+    - 300750.SZ
     mining_diversification:
     - GOLD
     - BTG
@@ -297,6 +307,7 @@ universe:
     - 4062.T
     - 6628.T
     - 3110.T
+    - 005930.KS
     european_pea:
     - MC.PA
     - AI.PA
@@ -334,6 +345,11 @@ universe:
     - ITM.L
     - FTC.L
     - SMT.L
+    - IBE.MC
+    - LIN
+    - AIR.PA
+    - SIE.DE
+    - RR.L
   sectors_focus:
   - semis
   - ai_infra
