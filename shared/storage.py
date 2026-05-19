@@ -1888,7 +1888,7 @@ def get_signals_for_ticker(ticker, days=30, limit=8):
     ticker_up = ticker.upper()
     json_match = f'%"{ticker_up}"%'
 
-    with get_conn() as conn:
+    with db() as conn:
         rows = conn.execute(
             """SELECT s.id, s.title, s.summary, s.signal_type, s.sentiment,
                       s.materiality_v2, s.timestamp, s.echo_cluster_id, s.entities,
