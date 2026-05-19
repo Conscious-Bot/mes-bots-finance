@@ -15,6 +15,8 @@ flagging timing-discipline traps.
 import contextlib
 import logging
 
+from shared.storage import build_signals_context_block
+
 log = logging.getLogger(__name__)
 
 
@@ -159,7 +161,7 @@ def run_risk_check(ticker, side, proposed_usd, reasoning):
         thesis_state=_build_thesis_state(thesis),
         decisions_state=_build_decisions_state(decisions),
         bias_state=_build_bias_state(bias_stats),
-        signals_state=_build_signals_state(ticker),
+        signals_state=build_signals_context_block(ticker),
         macro_regime=macro_regime,
         credit_regime=credit_regime,
     )
@@ -213,38 +215,4 @@ def format_risk_check_display(result, ticker, side, proposed_usd):
         lines.append(f"BIAS FLAGS: {', '.join(biases)}")
     lines.append("")
     lines.append(f"REASONING: {result.get('reasoning', '')}")
-    return "\n".join(lines)
-
-
-
-def _build_signals_state(ticker):
-    """Build signals state context for risk_check prompt.
-
-    P0 of /risk_check v2 roadmap — bridges newsletter harvest to decisional handler.
-    """
-    from shared import storage
-    try:
-        signals = storage.get_signals_for_ticker(ticker, days=30, limit=8) or []
-    except Exception as e:
-        log.warning(f"signals query {ticker} failed: {e}")
-        return "Signal query failed; no recent signals context available."
-
-    if not signals:
-        return f"No recent signals on {ticker} in past 30 days from monitored sources."
-
-    lines = [f"Top {len(signals)} weighted signals on {ticker} (last 30d, by credibility x materiality):"]
-    for s in signals:
-        date = (s.get("timestamp") or "")[:10]
-        source = s.get("source_name") or "unknown"
-        cred = s.get("source_credibility") or 0.5
-        tier = "S" if cred >= 0.7 else "A" if cred >= 0.5 else "B" if cred >= 0.3 else "?"
-        mat = s.get("materiality") or 0.5
-        sentiment = s.get("sentiment") or "neutral"
-        sig_type = s.get("signal_type") or "?"
-        title = (s.get("title") or "")[:100]
-        weighted = s.get("weighted_score", cred * mat)
-        lines.append(
-            f"  - [{date}] {source} (Tier {tier}, cred {cred:.2f}) {sig_type}/{sentiment} mat={mat:.2f} -> {title} [w={weighted:.2f}]"
-        )
-
     return "\n".join(lines)

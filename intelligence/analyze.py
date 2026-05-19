@@ -11,7 +11,7 @@ from datetime import UTC, date, datetime
 import yfinance as yf
 
 from shared import edgar
-from shared.storage import db
+from shared.storage import build_signals_context_block, db
 
 log = logging.getLogger(__name__)
 
@@ -369,6 +369,10 @@ Macro context:
 {_credit_line(d)}
 - Beta: {_safe(d.get("beta"), ".2f")}
 
+=== RECENT NEWSLETTER SIGNALS (last 30d) ===
+
+{d.get("newsletter_signals_block") or "(no signals available)"}
+
 === OUTPUT REQUIRED ===
 
 Plain text (no markdown headers, no bold). Structure:
@@ -384,10 +388,14 @@ INSIDER & MACRO CONTEXT
 
 CATALYSTS NEXT 6 MONTHS
 Bullish:
-- [specific catalyst, with date/timeframe]
+- [specific catalyst, with date/timeframe; cite supporting signals if any]
 - [...]
 Bearish:
+- [specific catalyst; cite supporting signals if any]
 - [...]
+
+NEWSLETTER SIGNAL CONTEXT
+[2-3 bullets synthesizing what the recent newsletter signals (above section) say about this name. Are they SUPPORTING or CONTRADICTING the quality/catalyst picture? Cite source names. If no signals, state that and move on.]
 
 PROBABILISTIC OUTLOOK (6M)
 Probability weighting MUST explicitly cite: (a) current credit regime (HY OAS bp level + classification + 1m trend), (b) insider concentration_ex_top from past 90d (distinguishing broad executive distribution from single-seller idiosyncratic noise). Tether each scenario weight to these two anchors plus catalyst proximity. No abstract probabilities.
@@ -483,6 +491,11 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
             pass
 
     data = fetch_stock_data(ticker)
+    try:
+        data["newsletter_signals_block"] = build_signals_context_block(ticker)
+    except Exception as e:
+        log.warning(f"analyze: signals fetch {ticker} failed: {e}")
+        data["newsletter_signals_block"] = "(signal query unavailable)"
     if (not data.get("name") or data.get("name") == ticker) and not data.get("price"):
         return {"error": f"No data found for {ticker}", "data": data}
 

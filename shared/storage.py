@@ -1927,3 +1927,36 @@ def get_signals_for_ticker(ticker, days=30, limit=8):
             break
 
     return results
+
+def build_signals_context_block(ticker: str) -> str:
+    """Public formatter: top-N weighted signals on ticker as text block for LLM prompts.
+
+    P0 of /risk_check v2 roadmap. Single source of truth, consumed by:
+    - run_risk_check (intelligence/risk_manager)
+    - analyze_stock.build_prompt (intelligence/analyze)
+    """
+    import logging
+    log = logging.getLogger(__name__)
+    try:
+        signals = get_signals_for_ticker(ticker, days=30, limit=8) or []
+    except Exception as e:
+        log.warning(f"signals query {ticker} failed: {e}")
+        return "Signal query failed; no recent signals context available."
+    if not signals:
+        return f"No recent signals on {ticker} in past 30 days from monitored sources."
+    lines = [f"Top {len(signals)} weighted signals on {ticker} (last 30d, by credibility x materiality):"]
+    for s in signals:
+        date = (s.get("timestamp") or "")[:10]
+        source = s.get("source_name") or "unknown"
+        cred = s.get("source_credibility") or 0.5
+        tier = "S" if cred >= 0.7 else "A" if cred >= 0.5 else "B" if cred >= 0.3 else "?"
+        mat = s.get("materiality") or 0.5
+        sentiment = s.get("sentiment") or "neutral"
+        sig_type = s.get("signal_type") or "?"
+        title = (s.get("title") or "")[:100]
+        weighted = s.get("weighted_score", cred * mat)
+        lines.append(
+            f"  - [{date}] {source} (Tier {tier}, cred {cred:.2f}) {sig_type}/{sentiment} mat={mat:.2f} -> {title} [w={weighted:.2f}]"
+        )
+    return "\n".join(lines)
+
