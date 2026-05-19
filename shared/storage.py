@@ -1891,9 +1891,8 @@ def get_signals_for_ticker(ticker, days=30, limit=8):
     with db() as conn:
         rows = conn.execute(
             """SELECT s.id, s.title, s.summary, s.signal_type, s.sentiment,
-                      s.materiality_v2, s.timestamp, s.echo_cluster_id, s.entities,
-                      src.name AS source_name, src.credibility AS source_credibility,
-                      src.tier AS source_tier
+                      s.score, s.materiality_boost, s.timestamp, s.echo_cluster_id, s.entities,
+                      src.name AS source_name, src.credibility AS source_credibility
                FROM signals s
                LEFT JOIN sources src ON s.source_id = src.id
                WHERE s.entities LIKE ?
@@ -1901,7 +1900,7 @@ def get_signals_for_ticker(ticker, days=30, limit=8):
                  AND s.entities IS NOT NULL
                  AND s.entities != ''
                  AND s.entities != '[]'
-               ORDER BY (COALESCE(s.materiality_v2, 0.5) * COALESCE(src.credibility, 0.5)) DESC
+               ORDER BY (COALESCE(s.score, 50) * COALESCE(s.materiality_boost, 1.0) * COALESCE(src.credibility, 0.5)) DESC
                LIMIT ?""",
             (json_match, days, limit * 2),
         ).fetchall()
@@ -1916,7 +1915,10 @@ def get_signals_for_ticker(ticker, days=30, limit=8):
                 upper_list = [e.upper() if isinstance(e, str) else "" for e in entities_list]
                 if ticker_up in upper_list:
                     cred = d.get("source_credibility") or 0.5
-                    mat = d.get("materiality_v2") or 0.5
+                    score = d.get("score") or 50
+                    boost = d.get("materiality_boost") or 1.0
+                    mat = score * boost / 100.0
+                    d["materiality"] = mat
                     d["weighted_score"] = cred * mat
                     results.append(d)
         except (json.JSONDecodeError, TypeError):

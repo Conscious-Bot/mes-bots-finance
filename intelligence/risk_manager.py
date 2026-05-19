@@ -236,9 +236,9 @@ def _build_signals_state(ticker):
     for s in signals:
         date = (s.get("timestamp") or "")[:10]
         source = s.get("source_name") or "unknown"
-        tier = s.get("source_tier") or "?"
         cred = s.get("source_credibility") or 0.5
-        mat = s.get("materiality_v2") or 0.5
+        tier = "S" if cred >= 0.7 else "A" if cred >= 0.5 else "B" if cred >= 0.3 else "?"
+        mat = s.get("materiality") or 0.5
         sentiment = s.get("sentiment") or "neutral"
         sig_type = s.get("signal_type") or "?"
         title = (s.get("title") or "")[:100]
