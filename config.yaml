@@ -73,6 +73,9 @@ universe:
   - EQIX
   - FLNC
   - GRAB
+  - ENTG
+  - LNG
+  - HWM
   - HDB
   - HOOD
   - IBKR
@@ -172,6 +175,7 @@ universe:
     nuclear:
     - LEU
     - UUUU
+    - BWXT
     rare_earths:
     - USAR
     - CRML
@@ -238,6 +242,7 @@ universe:
     - SE
     - NTES
     - EDU
+    - 7011.T
     mining_diversification:
     - GOLD
     - BTG
@@ -256,6 +261,12 @@ universe:
     - HEI
     semis_supporting:
     - BESI.AS
+    asia_semis:
+    - 4063.T
+    - 000660.KS
+    - 6920.T
+    - 6857.T
+    - 4062.T
     european_pea:
     - MC.PA
     - AI.PA
@@ -275,6 +286,15 @@ universe:
     - SRT.DE
     - P911.DE
     - ULVR.L
+    - SAF.PA
+    - NDA.DE
+    - TE.PA
+    - RHM.DE
+    - HAG.DE
+    - ENR.DE
+    - PRY.MI
+    - ATCO-A.ST
+    - ASM.AS
   sectors_focus:
   - semis
   - ai_infra
