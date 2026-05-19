@@ -1040,3 +1040,64 @@ Each violation = durable system improvement. Path 5/6 defensibility tangible.
 5. CONVENTIONS.md Section 16: R19 v5 + R14 v2 + R17 + R20 patterns
 6. ADR 007 = canonical reference for product mechanism questions
 7. KPI #2 timer: J-22 to 10 juin 2026
+
+---
+
+## Day 13 close — 19 May 2026 ~22h KST (10h+ session)
+
+**HEAD**: 9cc907b (tag day13-close on this commit). 6 commits since e29a887.
+
+### Ships (chronological)
+1. `dfff980` feat(universe): +19 Bucket B align (asia_semis sub-group NEW)
+2. `2622e39` feat(universe): +39 exclus tickers user-directed (watchlist override "less surface" philosophy break, J+30 review tagged in friction.md)
+3. `f4fbfc1` feat(universe): +16 tier1 mega-caps B-16 strict
+4. `abe7c23` docs: /risk_check + /analyze v2 roadmap (docs/risk_check_v2_roadmap.md, 10 improvements)
+5. `d4925b3` feat(risk_check): P0 newsletter signal injection v1 [BROKEN: F821 get_conn + materiality_v2 column]
+6. `c7e5ed0` fix(storage): get_conn -> db canonical context manager
+7. `e29a887` fix(risk_check): P0 schema correction (materiality_v2/tier columns don't exist - decomposed v2 schema)
+8. `7f9b759` docs: CONVENTIONS Lessons 12-14 + PROCEDURE_URGENCE case-insensitive flags
+9. `9cc907b` feat(analyze): P0 extension /analyze + refactor build_signals_context_block to shared/storage
+
+### Universe end state
+313 tickers (23 core / 123 watch / 167 extended). Asia_semis sub-group added (Samsung 005930.KS, BYD 002594.SZ, CATL 300750.SZ, SoftBank 9984.T, Sony 6758.T). J+30 prune audit mid-juin per friction.md.
+
+### P0 newsletter signal injection — VALIDATED end-to-end
+- shared/storage.py: build_signals_context_block(ticker) public formatter
+- intelligence/risk_manager.py: imports + calls shared helper (dropped 25 LOC local copy)
+- intelligence/analyze.py: enriches data[newsletter_signals_block] in analyze_stock, renders RECENT NEWSLETTER SIGNALS section in build_prompt, adds NEWSLETTER SIGNAL CONTEXT axis in output template
+
+Empirical validation /risk_check NVDA + GEV: LLM cited 4 of 5 injected signals (Stratechery Inference Shift, Chamath SpaceX-Anthropic 300MW, WSR weekly, Substack Photonics SuperCycle) and synthesized SUPPORTING vs CONTRADICTING in verdict reasoning. Closes the philosophical loop (PHILOSOPHY.md core principle): signals harvested -> decisional handler enriched -> bidirectional discipline output.
+
+### Disasters + recoveries (3 violations, 3 codifications)
+
+**Violation 1 (Lesson 12)**: R19 v5 plain `ruff check .` without `|| exit 1` allowed F821 to ship in d4925b3. Fixed c7e5ed0.
+
+**Violation 2 (Lesson 13)**: Schema presumed (materiality_v2, tier columns). Empirical sqlite3 .schema reality: decomposed v2 = score INTEGER + materiality_boost REAL; sources has credibility only (tier derived dynamically S>=0.7/A>=0.5/B>=0.3). Fixed e29a887.
+
+**Violation 3 (Lesson 14)**: macOS Python.app uses capital `Python` executable. `pgrep -f "python.*..."` silently misses since Day 5. PID 55387 zombie since 2026-05-04 (15j) caused persistent Telegram Conflict. 4 instances accumulated. PROCEDURE_URGENCE.md patched.
+
+### Discipline audit
+- WAL integrity intact despite 4-instance disaster: 125 signals = 125 distinct gmail_ids (zero duplicates 15j)
+- Daily signal flow normal (3-26/day, 47 spike May 11 backfill)
+- 270 tests passing
+- Gates ALL GREEN at close (ruff/pytest/mypy)
+- Bot PID 64509 single-instance, scheduler 22 crons
+
+### Day 13 substantive wins (rank-ordered)
+1. P0 newsletter injection validated end-to-end /risk_check + /analyze (closes philosophical loop)
+2. WAL audit clean despite zombies (data integrity confirmed)
+3. Lessons 12-14 codified (R19 v5 + schema verify + macOS case-i)
+4. /risk_check + /analyze v2 roadmap docs (10 improvements pour post-J+30)
+5. Universe +90 tickers (313 stable, J+30 prune scheduled)
+
+### Carry-forward (NOT urgent)
+- **Smoke test /analyze on fresh ticker** to verify NEWSLETTER SIGNAL CONTEXT axis renders (cache 24h)
+- **score column scale**: empirically 0-10 not 0-100. Mat normalization in build_signals_context_block divides by 100, producing weights too low. Recalibrate when convenient (no behavior impact, just absolute magnitudes)
+- **v2 roadmap improvements 1-9** (28h cumulative): #1 reverse stress test bidirectional, #2 inverted framing, #3 historical analogues (needs ADR 001 PIT), #4 multi-scenario probabilities, #5 cluster sizing math, #6 calibrated probability output, #7 at-a-glance header, #8 track record context line, #9 ASCII decision tree
+- **Universe J+30 audit** (mid-juin per friction.md)
+- **KPI #2 timer J-21** to 10 juin 2026 batch resolution
+- **Plan A Big Bang preparation** mi-juin (ENR.DE, NDA.DE, RHM.DE, HAG.DE, 4062.T fresh /analyze + /risk_check)
+
+### Strategic note
+Day 13 fait passer un cap : le bot ne consomme plus juste son own decisions, il consomme aussi les newsletters payantes (SemiAnalysis $65/mo + Stratechery + Apollo + 6 autres) DIRECTEMENT dans ses decisional handlers. C'est l'argument central de Path 5/6 narrative : un système qui digère un curated stream + applique discipline bidirectionnelle calibrée. Plus juste un wrapper LLM.
+
