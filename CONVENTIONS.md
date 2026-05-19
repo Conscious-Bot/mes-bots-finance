@@ -827,3 +827,39 @@ Applied to:
 
 The disciplined bash pattern: NO bare command with reliance on set -e in zsh
 subshell. Every command captures rc, checks, aborts explicitly.
+
+### Lesson 12 (Day 13 — R19 v5 explicit rc gate mandatory)
+
+Gate commands (`ruff`, `pytest`, `mypy`) MUST be wrapped in explicit rc check:
+
+```bash
+ruff check . || { echo "RUFF FAIL"; exit 1; }
+pytest -q || { echo "PYTEST FAIL"; exit 1; }
+```
+
+Plain `ruff check .` allows gate failure to be silently absorbed by command chains, propagating broken code to commit/push.
+
+**Incident** (commit d4925b3, 2026-05-19): Shipped P0 v1 with F821 (`get_conn` undefined). Bash sequence wrote bare `ruff check .` without rc gate. Ruff flagged error in stdout but subsequent commands continued; commit landed broken. Required emergency fix c7e5ed0.
+
+### Lesson 13 (Day 13 — schema empirical verification before queries)
+
+Before writing SQL referencing a column, verify schema empirically:
+
+```bash
+sqlite3 data/bot.db ".schema <table>"
+```
+
+**Incident** (commit d4925b3, 2026-05-19): Wrote `SELECT s.materiality_v2, src.tier FROM signals JOIN sources` — neither column existed. Reality: `signals` has `score INTEGER` + `materiality_boost REAL` (decomposed v2); `sources` has `credibility REAL` only (tier dynamically derived: S ≥ 0.7 / A ≥ 0.5 / B ≥ 0.3). Cost: emergency fix e29a887. Same anti-pattern as Lesson 12.
+
+### Lesson 14 (Day 13 — macOS process discovery requires `-i`)
+
+macOS Python framework executable is **`Python`** (capital P) at `/Library/Frameworks/Python.framework/.../MacOS/Python`. `pgrep -f "python.*bot.main"` is case-sensitive by default → **silently misses macOS Python processes**. Always use `pgrep -fil` / `pkill -fi`.
+
+**Incident** (Day 13, 2026-05-19): PID 55387 zombie since 2026-05-04 (15 days) caused persistent Telegram `getUpdates` Conflict. 4 simultaneous bot instances accumulated; every `pkill -f` since Day 5 was a silent no-op. WAL integrity protected DB (125 signals = 125 distinct gmail_ids audited clean). `PROCEDURE_URGENCE.md` Scenario 1 patched.
+
+Empirical:
+```bash
+pgrep -fl "python.*bot.main"    # macOS: NOTHING (case-sensitive miss)
+pgrep -fil "python.*bot.main"   # macOS: all bot instances
+```
+

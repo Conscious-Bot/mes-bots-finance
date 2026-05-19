@@ -12,7 +12,7 @@
 ### Restart
 
     source venv/bin/activate
-    pkill -f "python.*bot.main" 2>/dev/null
+    pkill -fi "python.*bot.main"  # -i: macOS Python.app uses capital P (Lesson) 2>/dev/null
     sleep 2
     python -c "import bot.main; print('syntax OK')"
     nohup python -m bot.main > bot.log 2>&1 &
