@@ -38,17 +38,21 @@ RECENT DECISIONS ON THIS TICKER (last 90d):
 BIAS PATTERNS (your historical aggregate on this ticker):
 {bias_state}
 
+RECENT NEWSLETTER SIGNALS ON {ticker} (last 30d, weighted by source credibility * materiality):
+{signals_state}
+
 MARKET REGIME:
 - Macro: {macro_regime}
 - Credit: {credit_regime}
 
-YOUR JOB — challenge on 6 axes:
+YOUR JOB — challenge on 7 axes:
 1. **Concentration**: would this trade push single-name or sector exposure beyond reasonable limits?
 2. **Correlation**: does this add concentration with existing positions (e.g. another AI/semis name)?
 3. **Time horizon**: does this trade timeframe match the active thesis or contradict it?
 4. **Stress scenario**: if this goes -20% in 3 months, what's the portfolio impact?
 5. **Thesis alignment**: aligned with the active thesis triggers, or off-script?
 6. **Bias flag**: does this trade pattern-match known cognitive biases (anchoring, fomo, sunk_cost, etc.)?
+7. **Signal context**: do recent high-credibility newsletter signals SUPPORT or CONTRADICT this trade? If signals lean bearish but trade is bullish (or vice versa), flag explicitly. Cite top 2-3 in concerns or reasoning.
 
 OUTPUT JSON ONLY (no markdown):
 {{
@@ -66,6 +70,7 @@ OUTPUT JSON ONLY (no markdown):
   "thesis_alignment": "aligned" | "partially aligned" | "contradicted" | "no active thesis",
   "thesis_alignment_detail": "1-sentence explanation",
   "bias_flags": ["bias_name1", "bias_name2"],
+  "signal_citations": ["Source Tier X cred 0.XX -> [sentiment] short cite [YYYY-MM-DD]"],
   "reasoning": "1-3 sentences blunt summary"
 }}
 
@@ -154,6 +159,7 @@ def run_risk_check(ticker, side, proposed_usd, reasoning):
         thesis_state=_build_thesis_state(thesis),
         decisions_state=_build_decisions_state(decisions),
         bias_state=_build_bias_state(bias_stats),
+        signals_state=_build_signals_state(ticker),
         macro_regime=macro_regime,
         credit_regime=credit_regime,
     )
@@ -207,4 +213,38 @@ def format_risk_check_display(result, ticker, side, proposed_usd):
         lines.append(f"BIAS FLAGS: {', '.join(biases)}")
     lines.append("")
     lines.append(f"REASONING: {result.get('reasoning', '')}")
+    return "\n".join(lines)
+
+
+
+def _build_signals_state(ticker):
+    """Build signals state context for risk_check prompt.
+
+    P0 of /risk_check v2 roadmap — bridges newsletter harvest to decisional handler.
+    """
+    from shared import storage
+    try:
+        signals = storage.get_signals_for_ticker(ticker, days=30, limit=8) or []
+    except Exception as e:
+        log.warning(f"signals query {ticker} failed: {e}")
+        return "Signal query failed; no recent signals context available."
+
+    if not signals:
+        return f"No recent signals on {ticker} in past 30 days from monitored sources."
+
+    lines = [f"Top {len(signals)} weighted signals on {ticker} (last 30d, by credibility x materiality):"]
+    for s in signals:
+        date = (s.get("timestamp") or "")[:10]
+        source = s.get("source_name") or "unknown"
+        tier = s.get("source_tier") or "?"
+        cred = s.get("source_credibility") or 0.5
+        mat = s.get("materiality_v2") or 0.5
+        sentiment = s.get("sentiment") or "neutral"
+        sig_type = s.get("signal_type") or "?"
+        title = (s.get("title") or "")[:100]
+        weighted = s.get("weighted_score", cred * mat)
+        lines.append(
+            f"  - [{date}] {source} (Tier {tier}, cred {cred:.2f}) {sig_type}/{sentiment} mat={mat:.2f} -> {title} [w={weighted:.2f}]"
+        )
+
     return "\n".join(lines)

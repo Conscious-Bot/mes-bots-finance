@@ -1874,3 +1874,54 @@ def compute_drift_report() -> dict:
             "pct_deployed": pct_deployed,
         },
     }
+
+
+
+def get_signals_for_ticker(ticker, days=30, limit=8):
+    """Get recent signals mentioning ticker, weighted by source_credibility * materiality_v2.
+
+    Returns list of dicts sorted by weighted_score desc, capped at limit.
+    Uses LIKE match against entities JSON, then Python-side parse for false-positive elimination.
+    P0 of /risk_check v2 roadmap (docs/risk_check_v2_roadmap.md).
+    """
+    import json
+    ticker_up = ticker.upper()
+    json_match = f'%"{ticker_up}"%'
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT s.id, s.title, s.summary, s.signal_type, s.sentiment,
+                      s.materiality_v2, s.timestamp, s.echo_cluster_id, s.entities,
+                      src.name AS source_name, src.credibility AS source_credibility,
+                      src.tier AS source_tier
+               FROM signals s
+               LEFT JOIN sources src ON s.source_id = src.id
+               WHERE s.entities LIKE ?
+                 AND s.timestamp > datetime('now', '-' || ? || ' days')
+                 AND s.entities IS NOT NULL
+                 AND s.entities != ''
+                 AND s.entities != '[]'
+               ORDER BY (COALESCE(s.materiality_v2, 0.5) * COALESCE(src.credibility, 0.5)) DESC
+               LIMIT ?""",
+            (json_match, days, limit * 2),
+        ).fetchall()
+
+    results = []
+    for r in rows:
+        d = dict(r)
+        entities_str = d.get("entities") or "[]"
+        try:
+            entities_list = json.loads(entities_str)
+            if isinstance(entities_list, list):
+                upper_list = [e.upper() if isinstance(e, str) else "" for e in entities_list]
+                if ticker_up in upper_list:
+                    cred = d.get("source_credibility") or 0.5
+                    mat = d.get("materiality_v2") or 0.5
+                    d["weighted_score"] = cred * mat
+                    results.append(d)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if len(results) >= limit:
+            break
+
+    return results
