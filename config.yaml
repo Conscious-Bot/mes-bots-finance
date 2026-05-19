@@ -76,6 +76,16 @@ universe:
   - ENTG
   - LNG
   - HWM
+  - CDNS
+  - POET
+  - CRDO
+  - AEHR
+  - ASPI
+  - XYZ
+  - SOFI
+  - CPSH
+  - SLB
+  - APH
   - HDB
   - HOOD
   - IBKR
@@ -148,6 +158,8 @@ universe:
     - XOP
     - NEM
     - FCX
+    - SGLN.L
+    - PHYS
     healthcare_extended:
     - ABBV
     - MRK
@@ -172,6 +184,7 @@ universe:
     - MRAM
     robotics_pure:
     - SYM
+    - 6954.T
     nuclear:
     - LEU
     - UUUU
@@ -189,6 +202,11 @@ universe:
     - PL
     - GILT
     - FLY
+    - LUNR
+    - VSAT
+    - BKSY
+    - NASA
+    - VNP.TO
     drones:
     - ONDS
     - UMAC
@@ -202,6 +220,8 @@ universe:
     - CORZ
     - CIFR
     - GLXY
+    - CLSK
+    - HIVE
     power_extended:
     - EMR
     - FCEL
@@ -229,6 +249,7 @@ universe:
     - ALNY
     - REGN
     - BIIB
+    - CMPS
     energy_infra:
     - EPD
     - ENB
@@ -243,11 +264,18 @@ universe:
     - NTES
     - EDU
     - 7011.T
+    - 6501.T
     mining_diversification:
     - GOLD
     - BTG
     - SQM
     - FNV
+    - ANTO.L
+    - EQX
+    - AII.TO
+    - GFI
+    - AEM
+    - AGI
     industrials_classic:
     - HON
     - CAT
@@ -267,6 +295,8 @@ universe:
     - 6920.T
     - 6857.T
     - 4062.T
+    - 6628.T
+    - 3110.T
     european_pea:
     - MC.PA
     - AI.PA
@@ -295,6 +325,15 @@ universe:
     - PRY.MI
     - ATCO-A.ST
     - ASM.AS
+    - SGO.PA
+    - SOI.PA
+    - ABBN.SW
+    - APAM.AS
+    - SOLB.BR
+    - AMS.SW
+    - ITM.L
+    - FTC.L
+    - SMT.L
   sectors_focus:
   - semis
   - ai_infra
