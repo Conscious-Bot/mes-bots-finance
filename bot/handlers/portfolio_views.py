@@ -29,6 +29,26 @@ __all__ = [
 log = logging.getLogger("bot")
 
 
+def _build_ticker_to_gics_sector() -> dict[str, str]:
+    """Map every ticker in config.yaml sectors_taxonomy to its GICS sector label.
+
+    Returns dict ticker -> sector_name (e.g. 'Information Technology', 'Industrials').
+    Unknown tickers default to 'unknown' via .get() fallback in callers.
+
+    Replaces _build_ticker_to_sector (universe-tier-derived, misleading semantics).
+    Universe-tier classifies tradability bucket, not industry exposure.
+    """
+    cfg = yaml.safe_load(config_path().read_text())
+    taxonomy = cfg.get("sectors_taxonomy", {})
+    mapping: dict[str, str] = {}
+    for sector, tickers in taxonomy.items():
+        if not isinstance(tickers, list):
+            continue
+        for ticker in tickers:
+            mapping[ticker] = sector
+    return mapping
+
+
 def _build_ticker_to_sector() -> dict[str, str]:
     """Map every ticker in config.yaml universe to its sector label.
 
@@ -130,9 +150,14 @@ def _compute_book_market_value(conn: sqlite3.Connection) -> tuple[float, list[di
 
 
 async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
-    """Show portfolio breakdown by sector taxonomy (config.yaml). Usage: /portfolio_sectors"""
+    """Show portfolio breakdown by GICS sector taxonomy.
+
+    Uses config.yaml sectors_taxonomy (manual classification).
+    Tickers not in taxonomy appear as 'unknown' — extend taxonomy to classify them.
+    Usage: /portfolio_sectors
+    """
     try:
-        ticker_to_sector = _build_ticker_to_sector()
+        ticker_to_sector = _build_ticker_to_gics_sector()
     except Exception as e:
         log.error(f"cmd_portfolio_sectors config load error: {e}")
         await update.message.reply_text(f"Config load error: {e}")
@@ -209,9 +234,9 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
     if unknown_count > 0:
         lines.append("")
         lines.append(
-            f"\u26a0\ufe0f {unknown_count} tickers not in config.yaml universe: {', '.join(sectors['unknown']['tickers'])}"
+            f"\u26a0\ufe0f {unknown_count} tickers not classified in sectors_taxonomy: {', '.join(sectors['unknown']['tickers'])}"
         )
-        lines.append("Add them to universe.core/watch/extended in config.yaml")
+        lines.append("Add them to sectors_taxonomy in config.yaml under their GICS sector")
 
     msg = "\n".join(lines)
     if len(msg) > 3900:
