@@ -883,3 +883,112 @@ for ticker, _qty, stored_value in db_rows:
 ```
 
 **Trigger**: any time you read a comment that asserts a data convention (storage unit, currency, semantic shape) before modifying logic that depends on it. Failure-mode signature: tests pass because they encode the same aspirational assumption as the code (Day 13 `test_fallback_currency_aware_*` encoded the same broken NATIVE assumption — both broken in sync). Property-based tests on real DB data, not mocked, detect this.
+
+### Lesson 16 (Day 14 — heredoc-in-heredoc double-escape diligence)
+
+When a bash heredoc invokes Python which writes Python code to a file, escape sequences pass through TWO interpretation layers:
+
+1. The outer heredoc Python parses its own source. Inside a triple-quoted string, `\\n` collapses to `\n` (two chars: backslash + n). A bare `\n` collapses to a literal newline char inside the string — which then ends up in the output file as an actual line break inside a quote pair, producing invalid Python syntax.
+2. The output file's Python parses the literal text. `"\n"` (2 chars) is interpreted as a newline at runtime.
+
+**Incident** (Bash 66-67, Day 14 evening): Heredoc patch contained `messages.append("\n".join(msg_lines))` intended as a join on newlines. The outer Python heredoc collapsed `\n` to a literal newline, writing a multi-line broken string literal to `intelligence/debt_monitor.py`. Ruff caught 11 cascading SyntaxErrors. Fix: replace `\n` with `\\n` in heredoc source so the output file contains `"\n"` literal.
+
+**Companion trap — triple-quote nesting** (Bash 70-71, Day 14 evening): Embedding a triple-single-quote sequence (`'''`) anywhere inside a triple-single-quote-delimited heredoc string terminates the outer string prematurely. Even in prose (backtick code refs in markdown). Olivier example: `f"writing Python code using triple-single-quote delimiters"` killed parsing because of the embedded literal triple-quote in the description.
+
+**Rules**:
+- Outer heredoc delimiter MUST differ from any sequence appearing inside content (`"""` outer when content has `'''`, vice versa)
+- Backslash escapes destined for output file MUST be doubled: `\\n` → `\n` (file) → newline (runtime)
+- Verify with `ast.parse(p.read_text())` immediately after write_text before any commit
+
+**Trigger**: any patch script using Python heredoc to write Python source code. Defaults to "double-escape + outer-delimiter swap if content has same triple-quote type".
+
+### Lesson 17 (Day 14 — audit must read complete control flow before declaring SEVERE)
+
+Audit findings labeled SEVERE create disproportionate response (urgent fixes, pre-deadline races, scope expansion). A false-positive SEVERE erodes signal-to-noise across future audits and triggers wasted refactor cycles.
+
+**Incident** (Day 14 evening, audit response): Declared "S1 SEVERE: cron_tier1_daily recomputes partial composite from only Tier 1 indicators, corrupting state". Proposed full architecture refactor (tier_scan + recompute_composite_from_latest split). Reality: lines 391-400 of `intelligence/debt_monitor.run_scan` already iterated ALL 15 indicators, merging fresh-scanned tiers with stale cached values from `get_latest_indicator()` for non-scanned tiers, computing composite on full 15 with `stale: True` markers. The fix I proposed already existed.
+
+Root cause: I read the function signature + opening loop, pattern-matched against my mental model of "tier scoped means tier limited", and skipped reading lines 391-400 where the conditional branch handled exactly the case I claimed was broken.
+
+**Rules**:
+- Before declaring SEVERE, read the COMPLETE function body line-by-line
+- Verify with: (a) empirical test on real data, OR (b) `git log -p` to see if the pattern was previously intentional, OR (c) recon grep for related comments/tests
+- If unsure within 5 minutes, downgrade to HIGH or "potential" pending verification
+- Track audit accuracy: false-positive rate matters more than total finding count
+
+**Anti-pattern signature**: audit finding stated with high confidence but without quoting the specific lines of code that exhibit the bug. If you can't paste 3-5 lines showing the bug, you haven't read enough.
+
+**Trigger**: any audit response. Apply meta-discipline before propagating findings.
+
+### Lesson 18 (Day 14 — cron entry points MUST have try/except + notify envelope)
+
+APScheduler runs jobs in its event loop. An uncaught exception in a cron function logs the traceback and continues, but no other surface exists for the failure: no retry, no alert, no signal to operator that the daily 06:00 protective layer just silently broke. The bot keeps running; the cron next-cycle is 24h away. Empty interval.
+
+**Pattern (canonical)**:
+```python
+def cron_X() -> None:
+    try:
+        log.info("cron_X starting")
+        # ... real work ...
+        log.info("cron_X complete")
+    except Exception as e:
+        log.exception(f"cron_X crashed: {e}")
+        try:
+            from shared import notify
+            notify.send_text(
+                f"⚠️ *cron_X* crashed\n\n"
+                f"`{type(e).__name__}: {e}`\n\n"
+                f"Bot continues. Next attempt next cycle. Investigate logs."
+            )
+        except Exception:
+            pass  # never let the alert dispatch raise; cron must return cleanly
+```
+
+Reference implementation: `intelligence/debt_monitor._cron_run(tier, label)` shared helper. The 3 debt_monitor crons delegate to it. Tested via mock.patch.object(run_scan, side_effect=RuntimeError) — confirms cron does NOT raise, crash-alert dispatches with proper format.
+
+**Trigger**: any function passed to `sched.add_job(...)` as the callable. If it's a cron entry point, it MUST have the try/except envelope. Exceptions in regular handlers are caught by `python-telegram-bot` framework; crons have no such safety net.
+
+### Lesson 19 (Day 14 — user-facing alerts MUST include actionable recommendation)
+
+A Telegram push that says "Phase 2 → Phase 3, drivers: Gold P3, RepoSRF P3 — see /debt_status for more" is informational at best and useless at worst. The user (Olivier) is woken up at 06:00 Paris by the buzz, opens phone, reads alert, must context-switch to recall the playbook ("what does Phase 3 mean? what was I supposed to do? cash percentage? trim what?"), open /debt_status, cross-reference with portfolio state, then make a decision. Each step is a friction point. In a crisis, friction = abandonment of the protocol.
+
+**Pattern**: every alert that announces a state change MUST include the action recommended for that state, inline, before the "see X for more" reference. The user should be able to take the right action with the push notification alone, even with the screen still locked.
+
+**Reference**: `_PHASE_ACTIONS` dict in `intelligence/debt_monitor.py`:
+```python
+_PHASE_ACTIONS = {
+    1: "Monitor. No portfolio action required.",
+    2: "Cash +5%, halt aggressive deploys, watch Tier 1 daily for escalation.",
+    3: "Cash +10-15%, defensive rotation, trim leveraged or concentrated positions.",
+    4: "Cash 25%+, kill leverage, hedge tail risk (puts/inverse), defensive only.",
+}
+```
+Composite escalation message appends `*Action:* {playbook[new_phase]}` before the /debt_status reference.
+
+**Trigger**: any new push notification or Telegram alert that announces a state transition or threshold breach. Ship blocker: action playbook must exist before the alert can be enabled.
+
+### Lesson 20 (Day 14 — UTC explicit on all persisted datetime fields)
+
+Naive `datetime.now()` produces a timezone-unaware timestamp. When persisted to SQLite and queried later for chronological ordering or date arithmetic, ambiguity surfaces: was it server-local? UTC? CEST? KST? Cross-timezone migrations break silently. Comparing a naive datetime to a UTC-aware datetime raises `TypeError` at runtime.
+
+**Rule**: all persisted datetime fields MUST use:
+```python
+from datetime import UTC, datetime
+ts = datetime.now(UTC).isoformat()
+```
+
+This produces ISO 8601 with explicit `+00:00` offset. Roundtrip via `datetime.fromisoformat(s)` preserves tz info.
+
+Display layer (Telegram, CLI prints) can convert to local via `ts_utc.astimezone(local_tz)`. Storage stays UTC.
+
+**Incident** (Day 14 audit, scope: read-only finding): Discovered 20+ violations across legacy modules. Top offenders:
+- `shared/storage.py:40` `last_heartbeat_ts = datetime.now().isoformat()` — naive, written every minute
+- `shared/positions.py:47` position event timestamps
+- `shared/edgar.py` (6 sites) caching layer timestamps
+- `intelligence/{digest, morning_brief, calendar, price_monitor}.py` cutoff computations
+- `bot/handlers/{thesis_health, anti_erosion, find}.py`
+
+`intelligence/debt_monitor.py` was already correct (lines 318, 332). Audit produced full inventory; sweep tracked in TODO P2.
+
+**Trigger**: any new `datetime.now()` call without arg → STOP, write `datetime.now(UTC)` instead. Existing violations sweep deferred to a dedicated session, not boil-the-ocean during feature work. Ruff custom rule candidate: detect `datetime.now()` (zero args) → flag.
+

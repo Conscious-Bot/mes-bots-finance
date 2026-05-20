@@ -980,3 +980,56 @@ Cross-source ratio audit pending (Lesson 15 pattern):
 - First autonomous alert opportunity: if Gold/RepoSRF transition OR composite escalates to P3
 - VALUE_LOG candidate event tomorrow morning: if alert fires while Olivier sleeps, then surfaces at wake = Path 6 narrative evidence
 
+---
+
+## Day 14 evening (FINAL CLOSE post-audit) — UTC datetime sweep tracking + Lessons 16-20
+
+### Closed Day 14 evening (post-audit)
+- ✅ L1 cron exception envelope (commit 2eebde3) — `_cron_run` shared helper, all 3 debt crons wrapped
+- ✅ H1 alert content actionability (2eebde3) — `_PHASE_ACTIONS` injected in composite alert
+- ✅ H3 None-prev composite docstring (2eebde3) — `_dispatch_alerts` behavior contract documented
+- ✅ Phase 2C ship complete (2eebde3) — `/debt_history INDICATOR` + `/debt_alerts on|off`
+- ✅ H2 integration tests (d6463fa) — 9 scenarios mocking notify.send_text, 299 → 308 tests
+- ✅ Lessons 16-20 codified in CONVENTIONS.md
+  - Lesson 16: heredoc double-escape + triple-quote nesting
+  - Lesson 17: audit must read complete control flow (anti-false-positive)
+  - Lesson 18: cron try/except + notify envelope mandatory
+  - Lesson 19: alerts MUST include actionable recommendation
+  - Lesson 20: UTC explicit on all persisted datetimes
+
+### S1 false alarm closure (audit accuracy log)
+Lesson 17 codified after I claimed SEVERE bug in `cron_tier1_daily` partial-tier composite. Re-read of `run_scan` lines 391-400 revealed the code already merges stale cached Tier 2+3 with fresh-scanned tier values into a full 15-indicator composite (with `stale: True` markers). My audit was wrong — pattern-matched without reading full control flow. Codified to prevent recurrence: never declare SEVERE without quoting the specific 3-5 lines exhibiting the bug.
+
+### P2 — UTC datetime sweep (legacy violations, tracked)
+
+20+ `datetime.now()` (naive) violations of CONVENTIONS §1 + Lesson 20. Sweep deferred to a dedicated session to avoid scope creep during observation period. Tracked inventory:
+
+**shared/** (high-impact paths, fix first when touched):
+- `shared/storage.py:40` — `last_heartbeat_ts` (cron heartbeat every minute, persisted in bot_state.json)
+- `shared/positions.py:47` — position event timestamps
+- `shared/edgar.py` — 6 sites (lines 48, 81, 247, 280, 355, 498) cache layer + cutoffs
+
+**intelligence/** (signal pipeline):
+- `intelligence/digest.py:315` — gmail ingest cutoff
+- `intelligence/morning_brief.py:142, 217, 290` — thesis age + cluster timing
+- `intelligence/calendar.py:47, 48, 68` — macro event cutoffs
+- `intelligence/price_monitor.py:161, 207` — thesis lifecycle + override timestamps
+
+**bot/handlers/** (display layer, lower stakes but consistent):
+- `bot/handlers/thesis_health.py:112`
+- `bot/handlers/anti_erosion.py:25` — friction/value log entries
+- `bot/handlers/find.py:120, 145, 171` — date cutoffs
+
+**Strategy**: when touching ANY of these files for unrelated work, fix the datetime usage in same commit (R14 "touch = type" rule extended to UTC). Avoid top-down sweep — high risk of regressions in modules without test coverage.
+
+**Ruff custom rule candidate**: write a custom ruff plugin or grep-based pre-commit hook that flags `datetime.now()` (zero args). Day 15+ infra task.
+
+### State at this close (20 May 2026, ~12:00 KST)
+
+- 308/308 tests passing (299 base + 9 new debt_dispatch integration)
+- 25 crons live (22 + 3 debt_monitor with try/except envelope)
+- Composite persisted: 42.0 → Phase 2 STRESS (Gold P3, RepoSRF P3, MfgIP_yoy P2)
+- Bot PID rotating naturally, current = 71677 (last restart 11:53:52 KST)
+- `_alerts_enabled()` toggle live (default True)
+- Path 6 narrative material: clean audit + lessons codification = engineering rigor evidence
+
