@@ -430,6 +430,22 @@ def run_scan(tiers: list[int] | None = None, dispatch_alerts: bool = False) -> d
 
 _PHASE_EMOJI = {1: "🟢", 2: "🟡", 3: "🟠", 4: "🔴"}
 _PHASE_NAME = {1: "NORMAL", 2: "STRESS", 3: "SEVERE", 4: "CRISIS"}
+_PHASE_ACTIONS = {
+    1: "Monitor. No portfolio action required.",
+    2: "Cash +5%, halt aggressive deploys, watch Tier 1 daily for escalation.",
+    3: "Cash +10-15%, defensive rotation, trim leveraged or concentrated positions.",
+    4: "Cash 25%+, kill leverage, hedge tail risk (puts/inverse), defensive only.",
+}
+
+
+def _alerts_enabled() -> bool:
+    """Check bot_state.json debt_alerts_enabled flag. Fail-open (default True)."""
+    try:
+        from shared import storage
+        state = storage.load_state()
+        return bool(state.get("debt_alerts_enabled", True))
+    except Exception:
+        return True
 
 
 def _dispatch_alerts(
@@ -437,7 +453,19 @@ def _dispatch_alerts(
     prev_composite_phase: int | None,
     prev_indicator_phases: dict[str, int | None],
 ) -> list[str]:
-    """Build + send Telegram alerts on composite escalation or Tier 1 indicator transitioning to P3+."""
+    """Build + send Telegram alerts on composite escalation or Tier 1 indicator transitioning to P3+.
+
+    Behavior contract:
+    - If _alerts_enabled() is False (via /debt_alerts off), returns [] without sending.
+    - If prev_composite_phase is None (first-ever scan), no composite alert is sent
+      (baseline establishment). Subsequent escalations from baseline trigger alerts.
+    - Tier 1 indicator alerts fire only on fresh transition into P3+ (prev_p < 3 or None).
+      Re-alerting suppressed while indicator persists at P3+ (deduplication).
+    """
+    if not _alerts_enabled():
+        log.info("debt_monitor: alerts disabled via bot_state, skipping dispatch")
+        return []
+
     from shared import notify
 
     new_phase = new_result["phase"]
@@ -472,6 +500,8 @@ def _dispatch_alerts(
                     )
                     p_e = _PHASE_EMOJI[entry["phase"]]
                     msg_lines.append(f"  {p_e} {label}: {val_s} (P{entry['phase']}, +{entry['contribution']:.1f}pts)")
+        msg_lines.append("")
+        msg_lines.append(f"*Action:* {_PHASE_ACTIONS[new_phase]}")
         msg_lines.append("")
         msg_lines.append("Run /debt_status for full breakdown.")
         messages.append("\n".join(msg_lines))
@@ -518,24 +548,43 @@ def _dispatch_alerts(
 
 
 def cron_tier1_daily() -> None:
-    """APScheduler entry: scan Tier 1 daily 06:00 Paris."""
-    log.info("debt_monitor: tier 1 daily scan starting")
-    r = run_scan(tiers=[1], dispatch_alerts=True)
-    log.info(f"debt_monitor: tier 1 scan complete, composite phase {r['phase']} score {r['score']:.1f}")
+    """APScheduler entry: scan Tier 1 daily 06:00 Paris. Try/except envelope + crash alert."""
+    _cron_run(tier=1, label="tier 1 daily")
 
 
 def cron_tier2_weekly() -> None:
-    """APScheduler entry: scan Tier 2 weekly Mon 06:30 Paris."""
-    log.info("debt_monitor: tier 2 weekly scan starting")
-    r = run_scan(tiers=[2], dispatch_alerts=True)
-    log.info(f"debt_monitor: tier 2 scan complete, composite phase {r['phase']} score {r['score']:.1f}")
+    """APScheduler entry: scan Tier 2 weekly Mon 06:30 Paris. Try/except envelope + crash alert."""
+    _cron_run(tier=2, label="tier 2 weekly")
 
 
 def cron_tier3_monthly() -> None:
-    """APScheduler entry: scan Tier 3 monthly 1st 07:00 Paris."""
-    log.info("debt_monitor: tier 3 monthly scan starting")
-    r = run_scan(tiers=[3], dispatch_alerts=True)
-    log.info(f"debt_monitor: tier 3 scan complete, composite phase {r['phase']} score {r['score']:.1f}")
+    """APScheduler entry: scan Tier 3 monthly 1st 07:00 Paris. Try/except envelope + crash alert."""
+    _cron_run(tier=3, label="tier 3 monthly")
+
+
+def _cron_run(tier: int, label: str) -> None:
+    """Shared cron pattern: try/except envelope + Telegram notify on crash.
+
+    Aligns with bot/main.py existing cron pattern (try/except + log.exception + notify).
+    Silent crashes break observability and the daily 06:00 protective layer.
+    """
+    try:
+        log.info(f"debt_monitor: {label} starting")
+        r = run_scan(tiers=[tier], dispatch_alerts=True)
+        log.info(
+            f"debt_monitor: {label} complete, composite phase {r['phase']} score {r['score']:.1f}"
+        )
+    except Exception as e:
+        log.exception(f"debt_monitor: {label} cron crashed: {e}")
+        try:
+            from shared import notify
+            notify.send_text(
+                f"⚠️ *debt_monitor {label}* cron crashed\n\n"
+                f"`{type(e).__name__}: {e}`\n\n"
+                f"Bot continues. Next attempt next cycle. Investigate logs."
+            )
+        except Exception as alert_err:
+            log.warning(f"debt_monitor: crash-alert dispatch failed: {alert_err}")
 
 
 def status_snapshot() -> dict[str, Any]:

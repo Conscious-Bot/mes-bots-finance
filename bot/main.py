@@ -11,7 +11,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
 from bot.handlers.bias_pattern import cmd_bias_pattern
-from bot.handlers.debt_crisis import cmd_debt_status
+from bot.handlers.debt_crisis import cmd_debt_alerts, cmd_debt_history, cmd_debt_status
 from bot.handlers.digest import cmd_digest
 from bot.handlers.echo_crypto_macro import (
     cmd_credit,
@@ -789,6 +789,8 @@ def main():
     app.add_handler(CommandHandler("position", cmd_position))
     app.add_handler(CommandHandler("analyze", cmd_analyze))
     app.add_handler(CommandHandler("debt_status", cmd_debt_status))
+    app.add_handler(CommandHandler("debt_history", cmd_debt_history))
+    app.add_handler(CommandHandler("debt_alerts", cmd_debt_alerts))
 
     log.info("Polling Telegram...")
     storage.update_state(bot_start_ts=datetime.now(UTC).isoformat())
