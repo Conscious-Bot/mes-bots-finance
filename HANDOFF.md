@@ -1304,7 +1304,7 @@ This ultra-final close embodies that principle. Five commits, zero shortcuts, ze
 ### Carry-forward Day 15+
 
 **P0 strategic (still unresolved)**:
-- **Concentration policy decision** (a) trim / (b) bump 5%→8-10% / (c) ignore legacy — required BEFORE next `/position_buy`. Decision deferred for 3+ sessions. Force the call.
+- ~~Concentration policy decision (a/b/c)~~ — RETRACTED Day 14 ultra-final. Was misframed: bot is intelligence not management, PHILOSOPHY clarifies the bot informs and Olivier acts. Position trims/holds are operator decisions, not config rules. Ship A (commit pending) wires narrative_max_pct + sector_max_pct as advisory OVERWEIGHT markers in /portfolio_narratives + /portfolio_sectors. Phantom rules eliminated.
 - **KPI #2 timer J-19** to 2026-06-10 (44 predictions batch resolution). Observation discipline required.
 
 **P2 infra**:

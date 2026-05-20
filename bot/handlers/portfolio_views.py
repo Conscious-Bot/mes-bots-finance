@@ -63,6 +63,21 @@ def _build_ticker_to_sector() -> dict[str, str]:
 _SECTOR_THESIS_RE = re.compile(r"sector_thesis_id:\s*([A-Z0-9_]+)")
 
 
+def _get_caps_from_config() -> tuple[float, float]:
+    """Read (narrative_max_pct, sector_max_pct) from config.yaml style section.
+
+    Pure advisory caps surfaced in /portfolio_narratives + /portfolio_sectors as
+    OVERWEIGHT markers. NOT enforcement gates. PHILOSOPHY: bot informs, Olivier acts.
+    Defaults to 0.30 / 0.20 if missing.
+    """
+    cfg = yaml.safe_load(config_path().read_text())
+    style = cfg.get("style", {})
+    return (
+        float(style.get("narrative_max_pct", 0.30)),
+        float(style.get("sector_max_pct", 0.20)),
+    )
+
+
 def _extract_narrative(notes: str | None) -> str | None:
     """Extract sector_thesis_id from theses.notes multi-line string. Returns None if absent."""
     if not notes:
@@ -133,6 +148,9 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
         await update.message.reply_text("No active positions.")
         return
 
+    _, sector_cap_pct_frac = _get_caps_from_config()
+    sector_cap_pct = sector_cap_pct_frac * 100
+
     # Group by sector
     sectors: dict[str, dict] = {}
     for p in positions:
@@ -156,6 +174,10 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
             tickers_str += f" +{n - 5}"
         # Day 9 V H3 refactor: centralized escape via _common.telegram_safe
         sector_display = telegram_safe(sector)
+        breach_suffix = ""
+        if pct > sector_cap_pct and sector != "unknown":
+            overweight_pp = pct - sector_cap_pct
+            breach_suffix = f"  ⚠️ OVERWEIGHT +{overweight_pp:.1f}pp (cap {sector_cap_pct:.0f}%)"
         lines.append(
             format_aggregate_line(
                 label=sector_display,
@@ -165,8 +187,22 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
                 pnl_pct=pnl_pct,
                 currency=Currency.USD,
             )
+            + breach_suffix
         )
         lines.append(f"    {tickers_str}")
+
+    # Concentration summary (advisory, not enforcement)
+    breach_count = sum(
+        1
+        for sector, data in sorted_sectors
+        if sector != "unknown" and (data["mv"] / total_mv * 100 if total_mv else 0) > sector_cap_pct
+    )
+    if breach_count > 0:
+        lines.append("")
+        lines.append(f"⚠️ {breach_count} sector(s) overweight vs {sector_cap_pct:.0f}% advisory cap")
+    else:
+        lines.append("")
+        lines.append(f"✅ All sectors within {sector_cap_pct:.0f}% advisory cap")
 
     # Warnings
     unknown_count = len(sectors.get("unknown", {}).get("tickers", []))
@@ -215,6 +251,9 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
 
     sorted_narratives = sorted(narratives.items(), key=lambda x: x[1]["mv"], reverse=True)
 
+    narrative_cap_pct_frac, _ = _get_caps_from_config()
+    narrative_cap_pct = narrative_cap_pct_frac * 100
+
     lines = [f"\U0001f3af *PORTFOLIO BY NARRATIVE* — {format_finance(total_mv, decimals=0, currency=Currency.USD)} total\n"]
     for narrative, data in sorted_narratives:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
@@ -223,12 +262,26 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
         tickers_str = ", ".join(sorted(data["tickers"]))
         # Day 9 V H3 refactor: centralized escape via _common.telegram_safe
         narrative_display = telegram_safe(narrative)
+        breach_suffix = ""
+        if pct > narrative_cap_pct and narrative != "untagged":
+            overweight_pp = pct - narrative_cap_pct
+            breach_suffix = f"  ⚠️ OVERWEIGHT +{overweight_pp:.1f}pp (cap {narrative_cap_pct:.0f}%)"
         lines.append(
             f"  {narrative_display}  {format_finance(data['mv'], decimals=0, currency=Currency.USD)}  "
-            f"[{pct:4.1f}%]  ({n} pos, PnL {format_pct(pnl_pct, decimals=1, signed=True)})"
+            f"[{pct:4.1f}%]  ({n} pos, PnL {format_pct(pnl_pct, decimals=1, signed=True)}){breach_suffix}"
         )
         lines.append(f"    {tickers_str}")
         lines.append("")
+
+    breach_count = sum(
+        1
+        for narrative, data in sorted_narratives
+        if narrative != "untagged" and (data["mv"] / total_mv * 100 if total_mv else 0) > narrative_cap_pct
+    )
+    if breach_count > 0:
+        lines.append(f"⚠️ {breach_count} narrative(s) overweight vs {narrative_cap_pct:.0f}% advisory cap")
+    else:
+        lines.append(f"✅ All narratives within {narrative_cap_pct:.0f}% advisory cap")
 
     msg = "\n".join(lines)
     if len(msg) > 3900:
