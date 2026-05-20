@@ -118,14 +118,15 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
     },
     "BankReserves": {
         "tier": 2, "weight": 0.75, "source": "fred:WRESBAL",
-        "label": "Bank Reserves at Fed ($B)",
-        # Reserves of Depository Institutions, weekly, billions USD.
-        # Direct stress proxy: Sept 2019 repo blowup at ~$1.4T forced Fed QE restart.
-        # LCLOR (Lowest Comfortable Operating Level) estimated $2.5-3T currently.
-        # < $2T = Phase 4 crisis territory (forced Fed intervention).
+        "label": "Bank Reserves at Fed ($M)",
+        # Reserves of Depository Institutions, weekly. FRED returns MILLIONS USD
+        # (empirical: $3.1T = 3,102,810). Phase ranges in millions:
+        # < $2T = Phase 4 crisis (Sept 2019 repo blowup at ~$1.4T forced Fed QE).
+        # $2-2.5T = Phase 3 scarcity, $2.5-3T = Phase 2 tight, > $3T = Phase 1 ample.
         # Replaces RepoSRF (ON RRP) which was ambiguous post-QT — see ADR 006 audit.
         "phase_ranges": [
-            (0, 2000, 4), (2000, 2500, 3), (2500, 3000, 2), (3000, 99999, 1),
+            (0, 2_000_000, 4), (2_000_000, 2_500_000, 3),
+            (2_500_000, 3_000_000, 2), (3_000_000, 99_999_999, 1),
         ],
     },
     "CopperGold": {
