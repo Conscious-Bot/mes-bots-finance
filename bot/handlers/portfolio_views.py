@@ -18,7 +18,7 @@ import sqlite3
 import yaml
 
 from bot.handlers._common import config_path, db_path, telegram_safe
-from shared.display import Currency, format_aggregate_line, format_finance, format_pct
+from shared.display import Currency, format_finance, format_pct
 
 __all__ = [
     "cmd_portfolio_drift",
@@ -174,9 +174,9 @@ def _compute_book_market_value(conn: sqlite3.Connection) -> tuple[float, list[di
 async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
     """Show portfolio breakdown by GICS sector + industry hierarchy.
 
-    Uses config.yaml sectors_taxonomy (manual classification: sector → industry → tickers).
+    Uses config.yaml sectors_taxonomy (manual classification: sector -> industry -> tickers).
     Sector-level advisory cap from style.sector_max_pct (default 20%).
-    Tickers not in taxonomy appear as 'unknown' — extend taxonomy to classify them.
+    Hierarchical monospace display: sector header + industry sub-breakdown + tickers.
     Usage: /portfolio_sectors
     """
     try:
@@ -200,7 +200,6 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
     _, sector_cap_pct_frac = _get_caps_from_config()
     sector_cap_pct = sector_cap_pct_frac * 100
 
-    # Group positions by (sector, industry)
     by_si: dict[tuple[str, str], dict] = {}
     for p in positions:
         s = ticker_to_sector.get(p["ticker"], "unknown")
@@ -212,7 +211,6 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
         by_si[key]["mv"] += p["market_value"]
         by_si[key]["cost_basis"] += p["cost_basis"]
 
-    # Roll up to sector level
     sectors: dict[str, dict] = {}
     for (s, i), data in by_si.items():
         if s not in sectors:
@@ -223,7 +221,14 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
 
     sorted_sectors = sorted(sectors.items(), key=lambda x: x[1]["mv"], reverse=True)
 
-    lines = [f"\U0001f4ca *PORTFOLIO BY SECTOR / INDUSTRY* — {format_finance(total_mv, decimals=0, currency=Currency.USD)} total\n"]
+    # Header
+    header = f"PORTFOLIO BY SECTOR / INDUSTRY — ${total_mv:,.0f} total"
+    lines = [header, ""]
+
+    LABEL_W = 32  # column width for both sector + industry names
+
+    def truncate(s: str, w: int) -> str:
+        return s if len(s) <= w else s[: w - 1] + "…"
 
     for sector, data in sorted_sectors:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
@@ -233,22 +238,16 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
         breach_suffix = ""
         if pct > sector_cap_pct and sector != "unknown":
             overweight_pp = pct - sector_cap_pct
-            breach_suffix = f"  \u26a0\ufe0f OVERWEIGHT +{overweight_pp:.1f}pp (cap {sector_cap_pct:.0f}%)"
+            breach_suffix = f"  ⚠ +{overweight_pp:.1f}pp"
 
-        sector_display = telegram_safe(sector)
-        lines.append(
-            format_aggregate_line(
-                label=sector_display,
-                market_value=data["mv"],
-                pct_total=pct,
-                n_positions=n_total,
-                pnl_pct=pnl_pct,
-                currency=Currency.USD,
-            )
-            + breach_suffix
+        label_pad = truncate(sector, LABEL_W).ljust(LABEL_W)
+        sector_line = (
+            f"▼ {label_pad}  ${data['mv']:>8,.0f}  "
+            f"{pct:5.1f}%  {n_total:>2} pos  {pnl_pct:+5.1f}%"
+            f"{breach_suffix}"
         )
+        lines.append(sector_line)
 
-        # Industries sub-breakdown
         sorted_industries = sorted(
             data["industries"].items(),
             key=lambda x: x[1]["mv"],
@@ -257,27 +256,27 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
         for industry, ind_data in sorted_industries:
             ind_pct = (ind_data["mv"] / total_mv * 100) if total_mv else 0
             n_ind = len(ind_data["tickers"])
-            ind_mv_s = format_finance(ind_data["mv"], decimals=0, currency=Currency.USD)
-            tickers_str = ", ".join(sorted(ind_data["tickers"])[:5])
-            if n_ind > 5:
-                tickers_str += f" +{n_ind - 5}"
-            industry_display = telegram_safe(industry)
-            lines.append(f"    {industry_display}  {ind_mv_s}  {ind_pct:5.1f}%  ({n_ind} pos)")
-            lines.append(f"      {tickers_str}")
+            ind_label_pad = truncate(industry, LABEL_W).ljust(LABEL_W)
+            ind_line = (
+                f"    {ind_label_pad}  ${ind_data['mv']:>8,.0f}  "
+                f"{ind_pct:5.1f}%  {n_ind:>2} pos"
+            )
+            lines.append(ind_line)
+            tickers_str = ", ".join(sorted(ind_data["tickers"]))
+            lines.append(f"        {tickers_str}")
         lines.append("")
 
-    # Concentration summary
+    # Summary
     breach_count = sum(
         1
         for sector, data in sorted_sectors
         if sector != "unknown" and (data["mv"] / total_mv * 100 if total_mv else 0) > sector_cap_pct
     )
     if breach_count > 0:
-        lines.append(f"\u26a0\ufe0f {breach_count} sector(s) overweight vs {sector_cap_pct:.0f}% advisory cap")
+        lines.append(f"⚠ {breach_count} sector(s) overweight vs {sector_cap_pct:.0f}% advisory cap")
     else:
-        lines.append(f"\u2705 All sectors within {sector_cap_pct:.0f}% advisory cap")
+        lines.append(f"✅ All sectors within {sector_cap_pct:.0f}% advisory cap")
 
-    # Unknown warning
     unknown_tickers = []
     if "unknown" in sectors:
         for _industry, ind_data in sectors["unknown"]["industries"].items():
@@ -285,16 +284,15 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
     unknown_count = len(unknown_tickers)
     if unknown_count > 0:
         lines.append("")
-        lines.append(
-            f"\u26a0\ufe0f {unknown_count} tickers not classified in sectors_taxonomy: {', '.join(unknown_tickers)}"
-        )
-        lines.append("Add them to sectors_taxonomy in config.yaml under their GICS sector/industry")
+        lines.append(f"⚠ {unknown_count} not classified: {', '.join(unknown_tickers)}")
+        lines.append("Add to sectors_taxonomy in config.yaml under their GICS sector/industry")
 
     msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    if len(msg) > 3800:
+        msg = msg[:3800] + "\n[truncated]"
 
+    # Monospace block for column alignment
+    await update.message.reply_text(f"```\n{msg}\n```", parse_mode="Markdown")
 
 
 async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
