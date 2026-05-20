@@ -9,7 +9,7 @@ Future v2: persist to insider_trades table, daily refresh, big-sell alerts.
 import os
 import time
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import requests
@@ -45,7 +45,7 @@ CIK_CACHE_TTL_HOURS = 24
 def get_cik_for_ticker(ticker):
     """Lookup CIK for ticker. Cached 24h."""
     global _CIK_CACHE, _CIK_CACHE_TS
-    now = datetime.now()
+    now = datetime.now(UTC)
     stale = _CIK_CACHE_TS is None or (now - _CIK_CACHE_TS).total_seconds() > CIK_CACHE_TTL_HOURS * 3600
     if _CIK_CACHE is None or stale:
         try:
@@ -78,7 +78,7 @@ def get_recent_form4_filings(ticker, days=90, limit=30):
     filing_dates = recent.get("filingDate", [])
     accessions = recent.get("accessionNumber", [])
     primary_docs = recent.get("primaryDocument", [])
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
     cik_int = str(int(cik))
     results: list[dict[str, Any]] = []
     for i, form in enumerate(forms):
@@ -244,7 +244,7 @@ def get_insider_brief(ticker, days=90, ttl_hours=INSIDER_CACHE_TTL_HOURS):
             with open(cache_file) as _cf:
                 data = _json.load(_cf)
             ts = data.get("cached_at", 0)
-            age_h = (datetime.now().timestamp() - ts) / 3600
+            age_h = (datetime.now(UTC).timestamp() - ts) / 3600
             if age_h < ttl_hours:
                 return data["brief"]
         except Exception:
@@ -277,7 +277,7 @@ def get_insider_brief(ticker, days=90, ttl_hours=INSIDER_CACHE_TTL_HOURS):
         }
     with contextlib.suppress(Exception):
         with open(cache_file, "w") as _cf:
-            _json.dump({"brief": brief, "cached_at": datetime.now().timestamp()}, _cf)
+            _json.dump({"brief": brief, "cached_at": datetime.now(UTC).timestamp()}, _cf)
     return brief
 
 
@@ -352,7 +352,7 @@ def get_insider_cluster(ticker, days=14):
     except Exception as e:
         return {"ticker": ticker.upper(), "error": str(e), "days": days}
 
-    cutoff = datetime.now() - timedelta(days=days)
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     buyers, sellers = {}, {}
 
     for t in activity or []:
@@ -495,7 +495,7 @@ def get_recent_8k_filings(ticker, days=30):
     dates = recent.get("filingDate", [])
     items_list = recent.get("items", [])
     primary_docs = recent.get("primaryDocument", [])
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
     result = []
     for i, form in enumerate(forms):
         if form not in ("8-K", "8-K/A"):
