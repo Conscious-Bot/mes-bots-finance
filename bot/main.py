@@ -112,6 +112,7 @@ from intelligence import (
     thesis as thesis_mod,
 )
 from intelligence.calendar import format_macro_calendar, seed_macro_events
+from intelligence.debt_monitor import cron_tier1_daily, cron_tier2_weekly, cron_tier3_monthly
 from intelligence.insider_digest import daily_insider_refresh, format_daily_insider_digest
 from intelligence.price_monitor import check_thesis_triggers, list_overrides, record_override
 from shared import config, crypto as crypto_mod, edgar as edgar_mod, notify, positions as positions_mod, storage
@@ -579,12 +580,15 @@ async def post_init(app):
     sched.add_job(weekly_handler_stats_job, "cron", day_of_week="sun", hour=23, minute=0)
     sched.add_job(weekly_kpi_status_job, "cron", day_of_week="sun", hour=22, minute=30)
     sched.add_job(weekly_cost_summary_job, "cron", day_of_week="sun", hour=22, minute=0)
+    sched.add_job(cron_tier1_daily, "cron", hour=6, minute=0)
+    sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)
+    sched.add_job(cron_tier3_monthly, "cron", day=1, hour=7, minute=0)
     sched.add_job(scheduled_classify_signal_types_job, "interval", minutes=30)
     sched.add_job(scheduled_recompute_materiality_boost_job, "interval", hours=1)
     sched.add_job(scheduled_materiality_v2_job, "interval", hours=1)
     sched.start()
     log.info(
-        "Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, cost Sun 22:00, kpi_status Sun 22:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h"
+        "Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, cost Sun 22:00, kpi_status Sun 22:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h, debt_tier1 6:00, debt_tier2 Mon 6:30, debt_tier3 1st 7:00"
     )
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 

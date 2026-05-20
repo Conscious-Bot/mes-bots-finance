@@ -362,10 +362,24 @@ def get_latest_composite() -> dict | None:
 # ============================================================
 
 
-def run_scan(tiers: list[int] | None = None) -> dict[str, Any]:
-    """Fetch+classify+persist all indicators in given tiers (default all)."""
+def run_scan(tiers: list[int] | None = None, dispatch_alerts: bool = False) -> dict[str, Any]:
+    """Fetch+classify+persist all indicators in given tiers (default all).
+
+    If dispatch_alerts=True, sends Telegram notification on composite phase
+    escalation OR any Tier 1 indicator transitioning to Phase 3+.
+    """
     if tiers is None:
         tiers = [1, 2, 3]
+
+    # Capture previous state BEFORE persist (for transition detection)
+    prev_composite = get_latest_composite()
+    prev_composite_phase = prev_composite["phase"] if prev_composite else None
+    prev_indicator_phases: dict[str, int | None] = {}
+    if dispatch_alerts:
+        for name in INDICATOR_CONFIG:
+            latest = get_latest_indicator(name)
+            prev_indicator_phases[name] = latest["phase"] if latest else None
+
     results = {}
     breakdown_by_tier = {1: [], 2: [], 3: []}
     total_score = 0.0
@@ -399,12 +413,129 @@ def run_scan(tiers: list[int] | None = None) -> dict[str, Any]:
 
     overall_phase = composite_phase_from_score(total_score)
     persist_composite(total_score, overall_phase, breakdown_by_tier)
-    return {
+    result = {
         "score": total_score,
         "phase": overall_phase,
         "breakdown": breakdown_by_tier,
         "results": results,
     }
+    if dispatch_alerts:
+        _dispatch_alerts(result, prev_composite_phase, prev_indicator_phases)
+    return result
+
+
+# ============================================================
+# Alert dispatch
+# ============================================================
+
+_PHASE_EMOJI = {1: "🟢", 2: "🟡", 3: "🟠", 4: "🔴"}
+_PHASE_NAME = {1: "NORMAL", 2: "STRESS", 3: "SEVERE", 4: "CRISIS"}
+
+
+def _dispatch_alerts(
+    new_result: dict[str, Any],
+    prev_composite_phase: int | None,
+    prev_indicator_phases: dict[str, int | None],
+) -> list[str]:
+    """Build + send Telegram alerts on composite escalation or Tier 1 indicator transitioning to P3+."""
+    from shared import notify
+
+    new_phase = new_result["phase"]
+    messages = []
+
+    # 1. Composite phase escalation
+    if prev_composite_phase is not None and new_phase > prev_composite_phase:
+        prev_e = _PHASE_EMOJI[prev_composite_phase]
+        prev_n = _PHASE_NAME[prev_composite_phase]
+        new_e = _PHASE_EMOJI[new_phase]
+        new_n = _PHASE_NAME[new_phase]
+        urgency = "URGENT" if new_phase >= 3 else "WATCH"
+        msg_lines = [
+            f"*💣 DEBT MONITOR — {urgency}*",
+            "",
+            f"Composite: {prev_e} {prev_n} → {new_e} {new_n}",
+            f"Score: {new_result['score']:.1f} pts (was Phase {prev_composite_phase})",
+            "",
+            "*Active stress drivers:*",
+        ]
+        for tier in [1, 2, 3]:
+            for entry in new_result["breakdown"].get(tier, []):
+                if entry.get("phase", 1) >= 2:
+                    cfg = INDICATOR_CONFIG.get(entry["name"], {})
+                    label = cfg.get("label", entry["name"])
+                    val = entry.get("value")
+                    val_s = (
+                        "n/a" if val is None
+                        else f"{val:,.0f}" if val >= 1000
+                        else f"{val:.2f}" if val >= 1
+                        else f"{val:.4f}"
+                    )
+                    p_e = _PHASE_EMOJI[entry["phase"]]
+                    msg_lines.append(f"  {p_e} {label}: {val_s} (P{entry['phase']}, +{entry['contribution']:.1f}pts)")
+        msg_lines.append("")
+        msg_lines.append("Run /debt_status for full breakdown.")
+        messages.append("\n".join(msg_lines))
+
+    # 2. Tier 1 individual indicator transitioning to Phase 3+
+    for entry in new_result["breakdown"].get(1, []):
+        name = entry["name"]
+        new_p = entry.get("phase")
+        prev_p = prev_indicator_phases.get(name)
+        if new_p is None or new_p < 3:
+            continue
+        if prev_p is not None and prev_p >= 3:
+            continue  # Already at P3+, no new transition
+        cfg = INDICATOR_CONFIG.get(name, {})
+        label = cfg.get("label", name)
+        val = entry.get("value")
+        val_s = (
+            "n/a" if val is None
+            else f"{val:,.0f}" if val >= 1000
+            else f"{val:.2f}" if val >= 1
+            else f"{val:.4f}"
+        )
+        p_e = _PHASE_EMOJI[new_p]
+        messages.append(
+            f"{p_e} *TIER 1 ALERT — {label}*\n\n"
+            f"Value: {val_s}\n"
+            f"Phase: {new_p} (was P{prev_p if prev_p is not None else '?'})\n\n"
+            f"Single-indicator escalation. Run /debt_status."
+        )
+
+    # Dispatch all
+    for m in messages:
+        try:
+            notify.send_text(m)
+        except Exception as e:
+            log.warning(f"alert dispatch failed: {e}")
+
+    return messages
+
+
+# ============================================================
+# Cron wrappers (scheduler entry points)
+# ============================================================
+
+
+def cron_tier1_daily() -> None:
+    """APScheduler entry: scan Tier 1 daily 06:00 Paris."""
+    log.info("debt_monitor: tier 1 daily scan starting")
+    r = run_scan(tiers=[1], dispatch_alerts=True)
+    log.info(f"debt_monitor: tier 1 scan complete, composite phase {r['phase']} score {r['score']:.1f}")
+
+
+def cron_tier2_weekly() -> None:
+    """APScheduler entry: scan Tier 2 weekly Mon 06:30 Paris."""
+    log.info("debt_monitor: tier 2 weekly scan starting")
+    r = run_scan(tiers=[2], dispatch_alerts=True)
+    log.info(f"debt_monitor: tier 2 scan complete, composite phase {r['phase']} score {r['score']:.1f}")
+
+
+def cron_tier3_monthly() -> None:
+    """APScheduler entry: scan Tier 3 monthly 1st 07:00 Paris."""
+    log.info("debt_monitor: tier 3 monthly scan starting")
+    r = run_scan(tiers=[3], dispatch_alerts=True)
+    log.info(f"debt_monitor: tier 3 scan complete, composite phase {r['phase']} score {r['score']:.1f}")
 
 
 def status_snapshot() -> dict[str, Any]:
