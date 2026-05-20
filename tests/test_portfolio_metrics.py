@@ -109,8 +109,14 @@ class TestComputePortfolioReturnEur:
         assert r["positions_priced"] == 1
         assert r["positions_total"] == 1
 
-    def test_fallback_currency_aware_usd(self, monkeypatch):
-        """H2 fix: position without tag, USD avg_cost converted via fx=0.858."""
+    def test_fallback_eur_canonical_usd_ticker(self, monkeypatch):
+        """ADR 005 (Day 13): avg_cost stored EUR canonical regardless of ticker native.
+
+        Fallback (no eur_invested tag) uses qty * avg_cost direct, NO fx conversion.
+        Pre-Day-13 'currency_aware' tests encoded aspirational Day 11 Batch 4A
+        NATIVE storage that never materialized (empirical audit Day 13 confirmed
+        all 21 positions stored EUR via legacy_import_2026_05_15, ratio 0.94-1.15).
+        """
         positions = [{
             "ticker": "AMD",
             "qty": 10.0,
@@ -128,11 +134,10 @@ class TestComputePortfolioReturnEur:
         )
         r = compute_portfolio_return_eur()
         assert r is not None
-        expected_entry = 10.0 * 200.0 * 0.858
-        assert abs(r["total_entry_eur"] - expected_entry) < 1.0
+        assert abs(r["total_entry_eur"] - 2000.0) < 0.01  # qty * avg_cost EUR, no fx
 
-    def test_fallback_currency_aware_jpy(self, monkeypatch):
-        """H2 fix: .T suffix infers JPY currency."""
+    def test_fallback_eur_canonical_jpy_ticker(self, monkeypatch):
+        """ADR 005 (Day 13): same EUR-canonical fallback regardless of native (JPY here)."""
         positions = [{
             "ticker": "4063.T",
             "qty": 30.0,
@@ -150,8 +155,7 @@ class TestComputePortfolioReturnEur:
         )
         r = compute_portfolio_return_eur()
         assert r is not None
-        expected_entry = 30.0 * 4500.0 * 0.005467
-        assert abs(r["total_entry_eur"] - expected_entry) < 1.0
+        assert abs(r["total_entry_eur"] - 135000.0) < 0.01  # qty * avg_cost EUR, no fx
 
     def test_unpriced_position_skipped_both_sides(self, monkeypatch):
         """Position with None live price excluded from BOTH entry and current sums."""

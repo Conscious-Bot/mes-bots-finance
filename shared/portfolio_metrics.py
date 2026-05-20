@@ -43,7 +43,6 @@ import yfinance as yf
 
 from shared.positions import list_positions
 from shared.prices import (
-    get_currency_for_ticker,
     get_current_price_in,
     get_fx_rate,
 )
@@ -110,13 +109,12 @@ def compute_portfolio_return(target_cur: str = "USD") -> dict[str, Any] | None:
         eur_inv = parse_eur_invested(p.get("notes"))
         if eur_inv is None:
             qty = float(p.get("qty", 0) or 0)
-            avg_cost = float(p.get("avg_cost", 0) or 0)
-            currency = get_currency_for_ticker(ticker)
-            fx_to_eur = get_fx_rate(currency, "EUR") or 1.0
-            eur_inv = qty * avg_cost * fx_to_eur
+            avg_cost_eur = float(p.get("avg_cost", 0) or 0)
+            # Day 13 ADR 005: avg_cost EUR canonical, no native conversion needed.
+            eur_inv = qty * avg_cost_eur
             log.warning(
                 f"kpi6: {ticker} missing eur_invested tag, fallback "
-                f"qty*avg_cost*fx ({currency}->EUR={fx_to_eur:.6f}) = {eur_inv:.2f}"
+                f"qty*avg_cost (EUR canonical) = {eur_inv:.2f}"
             )
 
         total_entry += eur_inv * fx_eur_to_target

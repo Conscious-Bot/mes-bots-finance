@@ -14,7 +14,7 @@ import sqlite3
 from datetime import datetime, timedelta
 
 from bot.handlers._common import db_path
-from shared.prices import get_currency_for_ticker, get_fx_rate
+from shared.prices import get_fx_rate
 
 __all__ = ["cmd_find"]
 
@@ -26,15 +26,12 @@ def _format_position(conn: sqlite3.Connection, ticker: str) -> str:
     ).fetchall()
     if not rows:
         return "\U0001f4cc POSITION\n  None\n"
-    # Day 11 ADR 004 Batch 4C: USD primary, EUR secondary (FM-10 fix).
-    # avg_cost stored in NATIVE currency. Convert to both USD + EUR for dual display.
-    native_cur = get_currency_for_ticker(ticker)
-    fx_native_to_usd = get_fx_rate(native_cur, "USD") or 1.0
-    fx_native_to_eur = get_fx_rate(native_cur, "EUR") or 1.0
+    # Day 13 ADR 005: avg_cost EUR canonical via cost_in helper.
+    from shared.positions import cost_in
     lines = ["\U0001f4cc POSITION"]
     for qty, avg_cost, account, _status, opened_at in rows:
-        avg_cost_usd = avg_cost * fx_native_to_usd
-        avg_cost_eur = avg_cost * fx_native_to_eur
+        avg_cost_usd = cost_in(avg_cost, "USD") or 0.0
+        avg_cost_eur = avg_cost  # already EUR canonical
         cost_basis_usd = qty * avg_cost_usd
         cost_basis_eur = qty * avg_cost_eur
         lines.append(

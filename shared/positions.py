@@ -47,6 +47,25 @@ def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def cost_in(avg_cost_eur: float | None, target_cur: str = "USD") -> float | None:
+    """Convert EUR-stored avg_cost to target currency. Canonical per ADR 005 (Day 13).
+
+    Single source of truth: positions.avg_cost is ALWAYS stored EUR (Day 7
+    broker import convention). Replaces 4+ ad-hoc handlers that wrongly
+    multiplied by fx_native_to_X (treating EUR-stored value as native),
+    producing 1000x+ P&L errors on JPY/KRW tickers (Lesson 15 audit Day 13).
+    """
+    if avg_cost_eur is None:
+        return None
+    tc = target_cur.upper()
+    if tc == "EUR":
+        return avg_cost_eur
+    from shared.prices import get_fx_rate
+    fx = get_fx_rate("EUR", tc) or 1.0
+    return avg_cost_eur * fx
+
+
+
 def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = None) -> dict:
     """Set/replace position. Use for bootstrap of existing holdings."""
     ticker = ticker.upper()
@@ -158,25 +177,22 @@ def add_sell(ticker: str, qty: float, price: float, notes: str | None = None) ->
 def _enrich_with_live(d: dict, target_cur: str = "EUR") -> dict:
     """Enrich position dict with live current_price, market_value, unrealized_pnl.
 
-    Day 11 ADR 004 Batch 3 Part A: parametric target_cur. Default EUR for
-    backward compatibility during USD migration. New callers (Batch 4 display
-    layer) should pass target_cur='USD' for canonical USD pricing.
-
-    Latent currency mix (FM-10 candidate, NOT introduced here): avg_cost
-    stored in NATIVE currency (per shared.positions convention). p in
-    target_cur. Their difference (p - avg_cost) is incorrect for any ticker
-    whose native currency differs from target_cur. Existing bug. Fix scope:
-    full currency-aware pnl computation per position, deferred post-J+30.
+    Day 13 ADR 005: FM-10 latent currency mix RESOLVED. avg_cost is EUR-canonical
+    stored (empirical truth confirmed Day 13 audit, contrary to Day 11 Batch 4A
+    aspirational comment about NATIVE storage). Convert avg_cost EUR -> target_cur
+    via cost_in helper for coherent (price, cost) pair in same currency.
     """
     if d["qty"] <= 0:
         return d
     try:
         p = prices.get_current_price_in(d["ticker"], target_cur)
         if p:
+            avg_cost_target = cost_in(d["avg_cost"], target_cur)
             d["current_price"] = p
             d["market_value"] = p * d["qty"]
-            d["unrealized_pnl"] = (p - d["avg_cost"]) * d["qty"]
-            d["unrealized_pct"] = ((p - d["avg_cost"]) / d["avg_cost"]) if d["avg_cost"] else 0
+            if avg_cost_target:
+                d["unrealized_pnl"] = (p - avg_cost_target) * d["qty"]
+                d["unrealized_pct"] = ((p - avg_cost_target) / avg_cost_target)
     except Exception as e:
         log.warning(f"live price fetch {d['ticker']}: {e}")
     return d

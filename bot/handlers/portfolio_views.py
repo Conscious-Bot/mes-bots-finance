@@ -82,16 +82,16 @@ def _compute_book_market_value(conn: sqlite3.Connection) -> tuple[float, list[di
     Returns (total_market_value_usd, list_of_position_dicts) with USD-denominated
     cost_basis + market_value. Falls back to cost_basis if live price unavailable.
     """
-    from shared.prices import get_currency_for_ticker, get_current_price_in_usd, get_fx_rate
+    from shared.positions import cost_in
+    from shared.prices import get_current_price_in_usd
 
     rows = conn.execute("SELECT ticker, qty, avg_cost, account FROM positions WHERE status='open'").fetchall()
 
     positions = []
     total_mv = 0.0
     for ticker, qty, avg_cost, account in rows:
-        native_cur = get_currency_for_ticker(ticker)
-        fx_native_to_usd = get_fx_rate(native_cur, "USD") or 1.0
-        avg_cost_usd = avg_cost * fx_native_to_usd
+        # Day 13 ADR 005: avg_cost EUR canonical via cost_in helper.
+        avg_cost_usd = cost_in(avg_cost, "USD") or 0.0
         try:
             cur_price = get_current_price_in_usd(ticker)
         except Exception:

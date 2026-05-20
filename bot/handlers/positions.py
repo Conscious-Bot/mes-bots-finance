@@ -108,7 +108,7 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     from shared import config as cfg_mod, storage as storage_mod
     from shared.display import Currency
-    from shared.prices import get_currency_for_ticker, get_current_price_in_usd, get_fx_rate
+    from shared.prices import get_current_price_in_usd
     from shared.ticker_names import get_short_name
 
     positions = storage_mod.get_active_positions()
@@ -140,15 +140,13 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     enriched = []
     total_cost = 0.0
     total_mv = 0.0
+    from shared.positions import cost_in
     for p in positions:
         ticker = p["ticker"]
-        # Day 11 ADR 004 Batch 4A: USD canonical + FM-10 fix (currency-coherent pnl).
-        # avg_cost stored in NATIVE currency per shared.positions convention.
-        # Convert native -> USD via current fx for coherent USD-denominated display.
-        native_cur = get_currency_for_ticker(ticker)
-        fx_native_to_usd = get_fx_rate(native_cur, "USD") or 1.0
+        # Day 13 ADR 005: avg_cost EUR canonical (Day 11 Batch 4A NATIVE comment
+        # was aspirational, storage never migrated). Use cost_in helper centrally.
         cur_price = get_current_price_in_usd(ticker)
-        avg_cost_usd = p["avg_cost"] * fx_native_to_usd
+        avg_cost_usd = cost_in(p["avg_cost"], "USD") or 0.0
         cost_value = p["qty"] * avg_cost_usd
         mv = (cur_price * p["qty"]) if cur_price else cost_value
         unreal_pct = ((cur_price / avg_cost_usd - 1) * 100) if cur_price and avg_cost_usd else None
