@@ -1306,3 +1306,98 @@ canonical names, remove redundant local imports. ~1h focused.
 5. Lessons 21-26 codified ✓
 6. Schema discipline tooling shipped — NOT done (P3 carry-forward)
 
+
+
+---
+
+## POST-CHANTIER #1 BACKLOG — High-ROI infra (added 21/05/2026 end of session)
+
+Triaged from a wishlist of 40+ items down to 2 multipliers worth shipping
+during observation window (J-19 → 10/06/2026). Strictly post-Chantier #1,
+no work before next session.
+
+### Item 1 — Query observability wrapper (~2h)
+
+Goal: catch + diagnose silent SQL failures (cf. _store_analysis-class bugs)
+in 10sec instead of 30min.
+
+Design sketch:
+- New `shared/storage.py` :: `def query(sql, params=None, *, tag=None)`
+- Wraps `cx.execute()` with:
+  - Duration (perf_counter)
+  - Rows count (cursor.rowcount or fetchall len)
+  - Exception capture + context (table+column from sqlite error msg if possible)
+  - Caller frame inspect (`inspect.stack()[1]` for module:function:line)
+  - Tag métier (optional explicit label, e.g. "positions.load_open")
+- Log format:
+  - Happy: `[SQL] {tag or caller} {duration_ms}ms rows={n}`
+  - Error: `[SQL ERROR] {tag} table={t} column={c} caller={f}\n  {exception}`
+- Use logging.getLogger("sql") with own handler if separated routing needed
+
+Migration progressive (NO big-bang):
+- Phase 1: ship the wrapper + unit tests
+- Phase 2: migrate sensitive sites only (storage.py heavy paths,
+  intelligence/digest.py, intelligence/price_monitor.py, intelligence/morning_brief.py)
+- Phase 3 (optional, later): ruff custom rule encouraging `query()` over
+  bare `cx.execute()` for new code
+
+Multiplier ROI: next "silent SQL fail" bug becomes self-diagnosing.
+
+### Item 2 — Invariants métier tests (~2h)
+
+Goal: catch silent data corruption that schema discipline can't detect.
+
+Target file: `tests/test_invariants_metier.py`
+
+Assertions to ship (5-8 critical):
+1. `qty >= 0` on positions (no negative inventory)
+2. No two ACTIVE positions on same ticker (uniqueness invariant)
+3. Brier scores ∈ [0, 1] on resolved predictions
+4. `decisions.return_{30,90}d_pct` mathematically consistent with
+   `price_{30,90}d / price_at_decision` (within float epsilon)
+5. `theses.target_partial < target_full` when direction='long'
+   (and inverse for direction='short')
+6. Timestamps monotones per time-series (position_events.ts strictly
+   increasing per position_id)
+7. (optional) `theses.entry_price > 0` when status='active'
+8. (optional) `signals.score ∈ [0, 100]` when score IS NOT NULL
+
+Run in CI gate (pytest -q already wires it). Fast (single sqlite read per
+invariant). No mocking needed.
+
+Multiplier ROI: data corruption surfaces at next pytest run instead of
+when the bot produces wrong output to user.
+
+### Items NOT shipping during observation (deferred or rejected)
+
+REJECTED — viole stack contraint (PHILOSOPHY.md):
+- Postgres migration → Python 3.14 + SQLite locked
+- Cloud deployment / Grafana / centralized logging → MacBook Pro local
+- Health check HTTP endpoint → pgrep + uptime.log + /handler_stats suffices
+
+DEFERRED post-10/06 (conditioned on KPI #2 GREEN + external demand):
+- Multi-user / beta family/friends → not a single external user today
+- Onboarding guided / PDF exports / visibility levels → pre-product-market-fit UX
+- Environment-based config (dev/prod/beta) → one environment exists
+- Bias Detector personnalisé → presupposes N>=30 resolutions
+- Conviction decay intelligent → same data volume problem
+
+DEFERRED post-J+90 (conditioned on real data signal):
+- UX polish handlers → /handler_stats Pareto reveals which to polish
+- Brief + digest actionability tuning → A/B requires baseline first
+
+ALREADY SHIPPED (not re-ship):
+- Logging structuré + niveaux → logging stdlib used in bot.log + handler_calls
+- Métriques crons → /handler_stats + /llm_costs + /cost_trajectory + /kpi_status
+- Détection doublons signaux → echo_clusters + Stratechery/Apollo dedup Day 2
+- Typed row access → sqlite3.Row pattern already in storage.py
+- Migration discipline → alembic_version table + scripts/alembic/ exist
+- Brier + calibration infra → ready, awaits 10/06 batch
+
+### Observation rules until 10/06/2026 (per PROCEDURES.md)
+
+- NO new features. NO new tickers. NO new sources. NO new handlers.
+- Daily /brief ritual.
+- Sunday auto-summaries (handler_stats + cost + kpi_status).
+- 10/06: ~44 predictions auto-resolve → first real Brier measurement.
+- Decision point Path 5/6 based on KPI #2 outcome.
