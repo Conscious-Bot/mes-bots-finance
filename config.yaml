@@ -518,78 +518,98 @@ pricing:
     cached_input: 1.5
 
 sectors_taxonomy:
-  # GICS 11 standard sectors + Cryptocurrency (custom non-GICS).
-  # Classify tickers to render meaningful /portfolio_sectors output.
-  # Tickers not listed here will appear as 'unknown' sector.
-  # Add new tickers as you trade them.
-
-  Communication Services:
-    - GOOGL
-    - META
-
-  Consumer Discretionary:
-    - AMZN
-    - TSLA
-
-  Consumer Staples: []
-
-  Energy: []
-
-  Financials:
-    - BLK
-    - V
-
-  Health Care:
-    - LLY
-    - NVO
-
-  Industrials:
-    - 7011.T       # Mitsubishi Heavy Industries
-    - GEV          # GE Vernova (power-for-AI)
-    - HO.PA        # Thales (defense)
-    - SAF.PA       # Safran (aerospace defense)
-    - SU.PA        # Schneider Electric (electrical equipment)
+  # GICS hierarchy: Sector (top-level) → Industry → ticker list.
+  # /portfolio_sectors aggregates by Sector for cap policy (20% advisory).
+  # Industry sub-breakdown shown inline for thesis-aware granularity.
+  # Add new tickers under their GICS Industry as you trade them.
 
   Information Technology:
-    # Semis (core + held)
-    - 000660.KS    # SK hynix (memory)
-    - 6920.T       # Lasertec (semi inspection)
-    - ALAB         # Astera Labs
-    - AMD
-    - ARM
-    - ASML
-    - ASML.AS      # ASML EU listing
-    - AVGO         # Broadcom
-    - BESI.AS      # BE Semiconductor
-    - COHR         # Coherent (photonics)
-    - KLAC         # KLA Corp
-    - MRVL         # Marvell
-    - MU
-    - NVDA
-    - SNPS         # Synopsys (EDA software)
-    - STMPA.PA     # STMicroelectronics
-    - TER          # Teradyne
-    - TSM          # TSMC
-    # AI infra
-    - CRWV         # CoreWeave
-    - VRT          # Vertiv
-    # Tech mega (non-Comm-Services)
-    - MSFT
-    # Frequent watch IT
-    - AAPL
-    - ORCL
+    Semiconductors:
+      - 000660.KS    # SK hynix (memory)
+      - ALAB         # Astera Labs (fabless connectivity)
+      - AMD
+      - ARM
+      - AVGO         # Broadcom (fabless networking)
+      - MRVL         # Marvell (fabless)
+      - MU
+      - NVDA
+      - STMPA.PA     # STMicroelectronics (IDM)
+      - TSM          # TSMC foundry
+    Semiconductor Equipment:
+      - 6920.T       # Lasertec (inspection)
+      - ASML
+      - ASML.AS      # ASML EU listing
+      - BESI.AS      # BE Semiconductor (assembly)
+      - COHR         # Coherent (laser/photonics)
+      - KLAC         # KLA (process control)
+      - TER          # Teradyne (test)
+    Application Software:
+      - ADBE
+      - CRWD
+      - NOW
+      - PANW
+      - SNPS         # Synopsys (EDA)
+    Systems Software:
+      - MSFT
+    IT Services:
+      - CRWV         # CoreWeave (AI cloud)
+      - VRT          # Vertiv (data center infra)
+    Technology Hardware:
+      - AAPL
+
+  Communication Services:
+    Interactive Media & Services:
+      - GOOGL
+      - META
+
+  Consumer Discretionary:
+    Automobile Manufacturers:
+      - TSLA
+    Internet & Direct Marketing Retail:
+      - AMZN
+
+  Consumer Staples: {}
+
+  Energy: {}
+
+  Financials:
+    Asset Management & Custody Banks:
+      - BLK
+    Transaction & Payment Processing Services:
+      - V
+
+  Health Care:
+    Pharmaceuticals:
+      - LLY
+      - NVO
+
+  Industrials:
+    Aerospace & Defense:
+      - HO.PA        # Thales
+      - SAF.PA       # Safran
+    Electrical Components & Equipment:
+      - SU.PA        # Schneider Electric
+    Heavy Electrical Equipment:
+      - GEV          # GE Vernova
+    Industrial Conglomerates:
+      - 7011.T       # Mitsubishi Heavy Industries
 
   Materials:
-    - 4063.T       # Shin-Etsu Chemical — silicon wafers but classified Materials (Chemicals) per GICS
+    Specialty Chemicals:
+      - 4063.T       # Shin-Etsu Chemical (silicon wafers — GICS classifies under Chemicals)
 
-  Real Estate: []
+  Real Estate: {}
 
   Utilities:
-    - CEG          # Constellation Energy (nuclear power for AI)
-    - VST          # Vistra Energy
+    Electric Utilities:
+      - CEG          # Constellation Energy
+      - VST          # Vistra Energy
 
   Cryptocurrency:
-    # Custom non-GICS sector for crypto exposure clarity
-    - COIN         # Coinbase exchange
-    - IBIT         # iShares Bitcoin Trust ETF
-    - MSTR         # MicroStrategy (BTC proxy via balance sheet)
+    # Non-GICS custom sector. Industries for granularity.
+    Crypto Treasury:
+      - MSTR         # MicroStrategy (BTC balance sheet proxy)
+    Crypto Exchange:
+      - COIN         # Coinbase
+    Crypto ETF:
+      - IBIT         # iShares Bitcoin Trust

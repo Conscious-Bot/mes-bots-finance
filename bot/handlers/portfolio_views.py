@@ -32,20 +32,42 @@ log = logging.getLogger("bot")
 def _build_ticker_to_gics_sector() -> dict[str, str]:
     """Map every ticker in config.yaml sectors_taxonomy to its GICS sector label.
 
-    Returns dict ticker -> sector_name (e.g. 'Information Technology', 'Industrials').
+    Reads nested structure: sector -> industry -> tickers.
+    Returns dict ticker -> sector_name.
     Unknown tickers default to 'unknown' via .get() fallback in callers.
-
-    Replaces _build_ticker_to_sector (universe-tier-derived, misleading semantics).
-    Universe-tier classifies tradability bucket, not industry exposure.
     """
     cfg = yaml.safe_load(config_path().read_text())
     taxonomy = cfg.get("sectors_taxonomy", {})
     mapping: dict[str, str] = {}
-    for sector, tickers in taxonomy.items():
-        if not isinstance(tickers, list):
+    for sector, industries in taxonomy.items():
+        if not isinstance(industries, dict):
             continue
-        for ticker in tickers:
-            mapping[ticker] = sector
+        for _industry, tickers in industries.items():
+            if not isinstance(tickers, list):
+                continue
+            for ticker in tickers:
+                mapping[ticker] = sector
+    return mapping
+
+
+def _build_ticker_to_gics_industry() -> dict[str, str]:
+    """Map every ticker in config.yaml sectors_taxonomy to its GICS industry label.
+
+    Reads nested structure: sector -> industry -> tickers.
+    Returns dict ticker -> industry_name (e.g. 'Semiconductors', 'Aerospace & Defense').
+    Unknown tickers default to 'unknown' via .get() fallback in callers.
+    """
+    cfg = yaml.safe_load(config_path().read_text())
+    taxonomy = cfg.get("sectors_taxonomy", {})
+    mapping: dict[str, str] = {}
+    for _sector, industries in taxonomy.items():
+        if not isinstance(industries, dict):
+            continue
+        for industry, tickers in industries.items():
+            if not isinstance(tickers, list):
+                continue
+            for ticker in tickers:
+                mapping[ticker] = industry
     return mapping
 
 
@@ -150,14 +172,16 @@ def _compute_book_market_value(conn: sqlite3.Connection) -> tuple[float, list[di
 
 
 async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
-    """Show portfolio breakdown by GICS sector taxonomy.
+    """Show portfolio breakdown by GICS sector + industry hierarchy.
 
-    Uses config.yaml sectors_taxonomy (manual classification).
+    Uses config.yaml sectors_taxonomy (manual classification: sector → industry → tickers).
+    Sector-level advisory cap from style.sector_max_pct (default 20%).
     Tickers not in taxonomy appear as 'unknown' — extend taxonomy to classify them.
     Usage: /portfolio_sectors
     """
     try:
         ticker_to_sector = _build_ticker_to_gics_sector()
+        ticker_to_industry = _build_ticker_to_gics_industry()
     except Exception as e:
         log.error(f"cmd_portfolio_sectors config load error: {e}")
         await update.message.reply_text(f"Config load error: {e}")
@@ -176,72 +200,101 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
     _, sector_cap_pct_frac = _get_caps_from_config()
     sector_cap_pct = sector_cap_pct_frac * 100
 
-    # Group by sector
-    sectors: dict[str, dict] = {}
+    # Group positions by (sector, industry)
+    by_si: dict[tuple[str, str], dict] = {}
     for p in positions:
-        sector = ticker_to_sector.get(p["ticker"], "unknown")
-        if sector not in sectors:
-            sectors[sector] = {"tickers": [], "mv": 0.0, "cost_basis": 0.0}
-        sectors[sector]["tickers"].append(p["ticker"])
-        sectors[sector]["mv"] += p["market_value"]
-        sectors[sector]["cost_basis"] += p["cost_basis"]
+        s = ticker_to_sector.get(p["ticker"], "unknown")
+        i = ticker_to_industry.get(p["ticker"], "unknown")
+        key = (s, i)
+        if key not in by_si:
+            by_si[key] = {"tickers": [], "mv": 0.0, "cost_basis": 0.0}
+        by_si[key]["tickers"].append(p["ticker"])
+        by_si[key]["mv"] += p["market_value"]
+        by_si[key]["cost_basis"] += p["cost_basis"]
 
-    # Sort by market value descending
+    # Roll up to sector level
+    sectors: dict[str, dict] = {}
+    for (s, i), data in by_si.items():
+        if s not in sectors:
+            sectors[s] = {"mv": 0.0, "cost_basis": 0.0, "industries": {}}
+        sectors[s]["mv"] += data["mv"]
+        sectors[s]["cost_basis"] += data["cost_basis"]
+        sectors[s]["industries"][i] = data
+
     sorted_sectors = sorted(sectors.items(), key=lambda x: x[1]["mv"], reverse=True)
 
-    lines = [f"\U0001f4ca *PORTFOLIO BY SECTOR* — {format_finance(total_mv, decimals=0, currency=Currency.USD)} total\n"]
+    lines = [f"\U0001f4ca *PORTFOLIO BY SECTOR / INDUSTRY* — {format_finance(total_mv, decimals=0, currency=Currency.USD)} total\n"]
+
     for sector, data in sorted_sectors:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
-        n = len(data["tickers"])
+        n_total = sum(len(ind["tickers"]) for ind in data["industries"].values())
         pnl_pct = ((data["mv"] / data["cost_basis"] - 1) * 100) if data["cost_basis"] else 0
-        tickers_str = ", ".join(sorted(data["tickers"])[:5])
-        if n > 5:
-            tickers_str += f" +{n - 5}"
-        # Day 9 V H3 refactor: centralized escape via _common.telegram_safe
-        sector_display = telegram_safe(sector)
+
         breach_suffix = ""
         if pct > sector_cap_pct and sector != "unknown":
             overweight_pp = pct - sector_cap_pct
-            breach_suffix = f"  ⚠️ OVERWEIGHT +{overweight_pp:.1f}pp (cap {sector_cap_pct:.0f}%)"
+            breach_suffix = f"  \u26a0\ufe0f OVERWEIGHT +{overweight_pp:.1f}pp (cap {sector_cap_pct:.0f}%)"
+
+        sector_display = telegram_safe(sector)
         lines.append(
             format_aggregate_line(
                 label=sector_display,
                 market_value=data["mv"],
                 pct_total=pct,
-                n_positions=n,
+                n_positions=n_total,
                 pnl_pct=pnl_pct,
                 currency=Currency.USD,
             )
             + breach_suffix
         )
-        lines.append(f"    {tickers_str}")
 
-    # Concentration summary (advisory, not enforcement)
+        # Industries sub-breakdown
+        sorted_industries = sorted(
+            data["industries"].items(),
+            key=lambda x: x[1]["mv"],
+            reverse=True,
+        )
+        for industry, ind_data in sorted_industries:
+            ind_pct = (ind_data["mv"] / total_mv * 100) if total_mv else 0
+            n_ind = len(ind_data["tickers"])
+            ind_mv_s = format_finance(ind_data["mv"], decimals=0, currency=Currency.USD)
+            tickers_str = ", ".join(sorted(ind_data["tickers"])[:5])
+            if n_ind > 5:
+                tickers_str += f" +{n_ind - 5}"
+            industry_display = telegram_safe(industry)
+            lines.append(f"    {industry_display}  {ind_mv_s}  {ind_pct:5.1f}%  ({n_ind} pos)")
+            lines.append(f"      {tickers_str}")
+        lines.append("")
+
+    # Concentration summary
     breach_count = sum(
         1
         for sector, data in sorted_sectors
         if sector != "unknown" and (data["mv"] / total_mv * 100 if total_mv else 0) > sector_cap_pct
     )
     if breach_count > 0:
-        lines.append("")
-        lines.append(f"⚠️ {breach_count} sector(s) overweight vs {sector_cap_pct:.0f}% advisory cap")
+        lines.append(f"\u26a0\ufe0f {breach_count} sector(s) overweight vs {sector_cap_pct:.0f}% advisory cap")
     else:
-        lines.append("")
-        lines.append(f"✅ All sectors within {sector_cap_pct:.0f}% advisory cap")
+        lines.append(f"\u2705 All sectors within {sector_cap_pct:.0f}% advisory cap")
 
-    # Warnings
-    unknown_count = len(sectors.get("unknown", {}).get("tickers", []))
+    # Unknown warning
+    unknown_tickers = []
+    if "unknown" in sectors:
+        for _industry, ind_data in sectors["unknown"]["industries"].items():
+            unknown_tickers.extend(ind_data["tickers"])
+    unknown_count = len(unknown_tickers)
     if unknown_count > 0:
         lines.append("")
         lines.append(
-            f"\u26a0\ufe0f {unknown_count} tickers not classified in sectors_taxonomy: {', '.join(sectors['unknown']['tickers'])}"
+            f"\u26a0\ufe0f {unknown_count} tickers not classified in sectors_taxonomy: {', '.join(unknown_tickers)}"
         )
-        lines.append("Add them to sectors_taxonomy in config.yaml under their GICS sector")
+        lines.append("Add them to sectors_taxonomy in config.yaml under their GICS sector/industry")
 
     msg = "\n".join(lines)
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg, parse_mode="Markdown")
+
 
 
 async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
