@@ -1247,3 +1247,87 @@ b601bfd  fix(positions,kpi6) ADR 005 EUR canonical via cost_in helper + 6 Hypoth
 ### Tag
 `day14-debt` on commit `1e4c745` (alongside `day14-close` on `0bedcff` for morning close).
 
+---
+
+## Day 14 ULTRA-FINAL CLOSE (post-audit, ~12:15 KST 20 May 2026)
+
+**Trigger**: audit complet demandé by Olivier after Day 14 evening close. Surfaced 1 false alarm + 4 real findings + 5 codification needs. All resolved.
+
+### 5 new commits since day14-debt (`30a7e3c`)
+82e1fb5  docs(conventions,todo) codify Lessons 16-20 + UTC sweep tracking
+d6463fa  test(debt_monitor) H2 integration tests for _dispatch_alerts (9 scenarios)
+2eebde3  fix(debt_monitor,handlers) post-audit L1+H1+H3 fixes + Phase 2C ship complete
+30a7e3c  docs(adr006,handoff,todo) Day 14 evening CLOSE — ADR 006 Phase 2A+2B shipped  [TAG day14-debt]
+
+### Bug fixes shipped post-audit
+
+- **L1 cron exception envelope** — `_cron_run(tier, label)` shared helper, all 3 debt crons wrapped. Empirically verified via mock RuntimeError → cron does not raise, Telegram crash-alert dispatched.
+- **H1 action playbook in alerts** — `_PHASE_ACTIONS` dict + inline injection in composite escalation message. Wake-up push now contains decision recommendation.
+- **H3 None-prev documented** — `_dispatch_alerts` behavior contract in docstring (baseline rule, dedup, fail-open).
+
+### Phase 2C SHIPPED COMPLETE (M3 dette closed)
+
+- `/debt_history INDICATOR` — 30d sparkline (Unicode blocks ▁▂▃▄▅▆▇█) + transitions count + last 5 obs
+- `/debt_alerts on|off` — bot_state.json toggle, fail-open default True
+
+### H2 integration tests added (~30 min work, +9 tests)
+
+`tests/test_debt_dispatch.py` mocks notify.send_text + _alerts_enabled. 9 scenarios cover all behavior contract documented in _dispatch_alerts docstring. 299 → 308 tests.
+
+### Lessons 16-20 codified (CONVENTIONS.md Section 16)
+
+| # | Title | Trigger |
+|---|---|---|
+| 16 | Heredoc double-escape + triple-quote nesting | Any patch script writing Python via heredoc |
+| 17 | Audit complete control flow before SEVERE | Any audit declaration |
+| 18 | Cron try/except + notify envelope mandatory | Any APScheduler add_job target |
+| 19 | Alerts MUST include actionable recommendation | Any push notification on state transition |
+| 20 | UTC explicit on all persisted datetimes | Any new datetime.now() |
+
+### UTC sweep tracking (P2 carry-forward)
+
+20+ legacy violations of CONVENTIONS §1 / Lesson 20 inventoried in TODO.md across shared/, intelligence/, bot/handlers/. Strategy: R14 "touch = type" rule extended (fix in same commit when touching file for other reasons), avoid top-down sweep. Custom ruff plugin candidate for Day 15+ infra task.
+
+### S1 false alarm closure (audit accuracy log)
+
+Claimed cron_tier1_daily partial-tier composite bug. Re-read run_scan lines 391-400 → code already merges stale cached + fresh tier values into full 15-indicator composite. False positive. Codified as Lesson 17. Audit accuracy matters: false-positives erode signal-to-noise and waste fix cycles.
+
+### Lesson META for myself (Claude) at this close
+
+12h+ Day 14 session ending pattern: "tout faire et de facon professionnel". Olivier's instruction translates to:
+- No surface patches. Fix + lock + codify so problems can't recur.
+- No discipline tradeoff for speed at stop point.
+- Audit accuracy is a feature of audits, not a nice-to-have.
+
+This ultra-final close embodies that principle. Five commits, zero shortcuts, zero scope deferred without explicit tracking. Net delta: bugs resolved, observability hardened, contracts documented, rules locked.
+
+### Carry-forward Day 15+
+
+**P0 strategic (still unresolved)**:
+- **Concentration policy decision** (a) trim / (b) bump 5%→8-10% / (c) ignore legacy — required BEFORE next `/position_buy`. Decision deferred for 3+ sessions. Force the call.
+- **KPI #2 timer J-19** to 2026-06-10 (44 predictions batch resolution). Observation discipline required.
+
+**P2 infra**:
+- UTC datetime sweep (per Lesson 20 + tracking inventory)
+- ADR 005 P2 residual audit (position_events.price, positions.realized_pnl, decisions.price_at_decision deeper investigation)
+- OAuth Cloud Console "Push to Production" (Gmail sensitive scope, prevents weekly token revocation)
+
+**P3 code health**:
+- bot/main.py 2428 LOC split bot/handlers/* (incremental as touched)
+- Type hints remaining ~25 modules (gradual adoption)
+
+### Tag
+
+`day14-pro` on commit `82e1fb5` (final docs commit). Represents the audit-hardened state: bugs fixed, tests locked, lessons codified, ADR 006 closed.
+
+Existing tags: `day14-close` (morning ship), `day14-debt` (ADR 006 Phase 2A+2B), `day14-pro` (post-audit ultra-final).
+
+### Reopen entry point Day 15
+
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `pgrep -fil "python.*bot.main"` confirm (last PID 71677, may rotate)
+3. Overnight check: `/debt_status` to see if cron fired + alert state
+4. Read this Day 14 ULTRA-FINAL section + `docs/adrs/006-debt-crisis-monitor.md` Phase 2C+audit + CONVENTIONS Lessons 16-20
+5. Decision call: concentration policy (a/b/c) — NO position_buy until resolved
+6. Observation discipline: J-19 to KPI #2 batch resolution. Resist build mode.
+

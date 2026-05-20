@@ -168,3 +168,63 @@ Strategic alignment with concentration breach finding: Phase 2 = "Cash +5%, halt
 
 **Rationale for deferral:** Phase 2B = full functional protective layer. Phase 2C is UX nice-to-have, not core. 12h+ Day 14 cumulative — diminishing returns. Phase 2C value < closing propre + observation discipline restart.
 
+---
+
+## Phase 2C SHIPPED + audit findings (Day 14 evening post-audit)
+
+### Phase 2C ships (commits 2eebde3, d6463fa)
+
+**`/debt_history INDICATOR`** handler (`bot/handlers/debt_crisis.py`):
+- 30d sparkline via Unicode block characters (▁▂▃▄▅▆▇█) normalized over min/max value range
+- Phase transitions count + last 5 observations table with timestamps
+- No-arg call lists all 15 indicators grouped by tier
+- Case-insensitive indicator name matching
+- Helper `_format_val_compact()` is abs-aware for negatives (fixes latent legacy bug in `_fmt_indicator_line` where `val >= 1000` missed negative magnitudes)
+
+**`/debt_alerts on|off`** toggle (`bot/handlers/debt_crisis.py`):
+- Persists state in `bot_state.json` key `debt_alerts_enabled` (default True)
+- When OFF: cron scans persist data normally, but no Telegram push fires on transitions
+- Manual `/debt_status` queries still work
+- Round-trip verified empirically via `storage.update_state` + `storage.load_state`
+- Fail-open contract: any read error returns True (never accidentally muted by bot_state corruption)
+
+### Audit findings + fixes (commit 2eebde3)
+
+Post-Day-14-evening rigorous audit produced 1 false positive (S1, retracted) and 4 real findings (L1, H1, H2, H3) plus 2 codification needs (Lessons 17-20).
+
+**S1 — FALSE ALARM (retracted)**: Claimed `cron_tier1_daily` would corrupt composite by recomputing on only Tier 1 indicators. Reality: `run_scan` lines 391-400 already merged stale cached Tier 2+3 values from `get_latest_indicator()` with fresh-scanned tier values, computing composite on full 15 with `stale: True` markers. My audit was wrong — read function signature + opening loop, pattern-matched without reading the full conditional branch. Codified as Lesson 17 (CONVENTIONS.md) to prevent recurrence.
+
+**L1 — Cron exception envelope** (FIXED): All 3 cron wrappers (`cron_tier1_daily`, `cron_tier2_weekly`, `cron_tier3_monthly`) previously called `run_scan(...)` directly with no try/except. A FRED API outage or scheduler crash would log a traceback and silently die — bot continues but the 06:00 Paris protective layer is blind for 24h. Fix: shared `_cron_run(tier, label)` helper wraps work in try/except with `log.exception` + `notify.send_text` crash alert. Pattern aligned with existing bot/main.py crons. Empirically verified via `mock.patch.object(run_scan, side_effect=RuntimeError)` — cron does NOT raise, crash-alert dispatched with class+message preview. Codified as Lesson 18.
+
+**H1 — Alert content actionability** (FIXED): Composite escalation alert previously contained drivers breakdown + "Run /debt_status for full breakdown" — pure data, no recommendation. A 06:00 wake-up push that requires context-switch to recall the playbook = friction = abandonment. Fix: `_PHASE_ACTIONS` constant with phase-specific cash% + defensive actions, injected as `*Action:* {playbook[new_phase]}` line in composite alert before /debt_status reference. Codified as Lesson 19.
+
+**H2 — Integration tests for dispatch path** (FIXED): The previous 18 Hypothesis tests covered pure math (classify_phase, composite, score_contribution, INDICATOR_CONFIG structure). Zero tests on `_dispatch_alerts` — the alert formatting and dispatch behavior was production-only validated. Fix: `tests/test_debt_dispatch.py` with 9 integration scenarios mocking `shared.notify.send_text` + `_alerts_enabled`. Coverage: P1→P2/P2→P3/P3→P4 escalations (each with action playbook assertion), no-transition no-alert, first-scan baseline rule (prev=None), Tier 1 indicator P1→P3 transition, Tier 1 dedup at P3+, Tier 1 first-observation baseline label, alerts-disabled short-circuit. 299 → 308 tests passing.
+
+**H3 — None-prev composite documented** (FIXED): `_dispatch_alerts` previously had a one-line docstring. Now includes full behavior contract: alerts-enabled gate, prev=None = baseline establishment (no alert), Tier 1 dedup rule, fail-open on bot_state read errors.
+
+### Lessons codified (CONVENTIONS.md Section 16)
+
+- **Lesson 16**: heredoc-in-heredoc double-escape diligence + triple-quote nesting trap (caught in Bash 66-67 and Bash 70-71 during this work)
+- **Lesson 17**: audits MUST read complete control flow before declaring SEVERE (anti-false-positive discipline, retroactive from S1)
+- **Lesson 18**: cron entry points MUST have try/except + notify envelope
+- **Lesson 19**: user-facing alerts MUST include actionable recommendation
+- **Lesson 20**: UTC explicit on all persisted datetime fields (20+ legacy violations tracked in TODO P2 sweep)
+
+### Final state Day 14 ultra-final
+
+- 308/308 tests passing (281 pre-audit + 18 debt_monitor pure math + 9 debt_dispatch integration)
+- 25 crons live (22 baseline + 3 debt_monitor with try/except envelope)
+- Composite persisted: 42.0 → Phase 2 STRESS (Gold P3, RepoSRF P3, MfgIP_yoy P2)
+- 5 commits since `day14-debt` tag: L1+H1+H3+Phase2C ship, H2 tests, Lessons 16-20 + UTC sweep
+- Bot PID 71677 vivant
+- `_alerts_enabled()` toggle live (default True), `/debt_alerts off` available if needed during testing
+- ADR 006 status: **CLOSED** (all phases shipped, audit findings resolved, lessons codified)
+
+### Reopen entry point
+
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `pgrep -fil "python.*bot.main"` confirm
+3. Overnight check: did `debt_tier1_daily` fire at 06:00 Paris? Any Telegram alert?
+4. KPI #2 timer J-19 to 2026-06-10 (44 predictions batch resolution)
+5. Concentration policy decision (a/b/c) STILL unresolved — block before next `/position_buy`
+
