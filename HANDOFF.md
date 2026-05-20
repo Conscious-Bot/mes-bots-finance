@@ -1185,3 +1185,65 @@ Day 13 fait passer un cap : le bot ne consomme plus juste son own decisions, il 
 **Ships Phase 1**: intelligence/debt_monitor.py + bot/handlers/debt_crisis.py + docs/adrs/006 + HANDOFF entry. 281 tests still passing.
 
 **Phase 2 tomorrow (~4-5h)**: Fix CoreCPI+ISMMfg silent fails, APScheduler cron registration (3 schedules), alerts dispatch on phase escalation, /debt_history + /debt_alerts handlers, Hypothesis property tests, final ADR 006 update + day14-debt tag.
+
+---
+
+## Day 14 evening (CLOSE) — ADR 006 Phase 2A + 2B SHIPPED
+
+**Status**: Debt Crisis Monitor protective layer LIVE end-to-end.
+
+### Phase 2A (commit e49c326)
+- CoreCPI YoY fixed (limit=14 + obs[11])
+- ISMMfg → MfgIP_yoy (FRED dropped ISM 2024+)
+- 18 Hypothesis property tests on classify_phase + composite + INDICATOR_CONFIG
+- 281 → 299 tests passing
+- Re-scan: Composite **42.0 pts → Phase 2 STRESS** (drivers Gold P3, RepoSRF P3, MfgIP_yoy P2)
+
+### Phase 2B (commit 1e4c745)
+- `_dispatch_alerts()`: composite escalation OR Tier 1 → P3+ transition → Telegram push
+- `run_scan(dispatch_alerts=False)`: capture prev state pre-persist, diff post-persist
+- 3 cron wrappers: cron_tier1_daily / cron_tier2_weekly / cron_tier3_monthly
+- bot/main.py: 3 sched.add_job (Tier 1 daily 06:00 Paris, Tier 2 Mon 06:30, Tier 3 1st 07:00)
+- Smoke verified: no spurious alert on no-transition state
+- Total crons 22 → 25
+
+### Tools matin protective layer (next session reopen)
+- `/debt_status` — manual composite snapshot
+- `/debt_status refresh` — force re-scan + persist
+- Autonomous alerts: bot Telegram push on regime transition (no command needed)
+
+### Lesson 16 — Heredoc-Python writing Python: double-escape diligence
+Inside a Python heredoc string delimited by triple-single-quote, two pitfalls bit Day 14 evening:
+1. Backslash escapes are interpreted by the heredoc Python BEFORE writing the file. To produce literal backslash-n in the output, use four backslashes plus n in the heredoc source.
+2. Embedding the triple-single-quote sequence anywhere inside the heredoc content (even in prose backticks) terminates the string prematurely. Avoid the sequence in content or switch outer delimiter to triple-double-quote.
+
+Caught both in Bash 66/67 and Bash 70/71. Codification deferred to CONVENTIONS.md only if recurrence — currently a tooling lesson, not a project rule.
+
+### Day 14 final commit chain (post day13-close baseline)
+1e4c745  feat(debt_monitor) ADR 006 Phase 2B — scheduler crons + transition alerts
+e49c326  feat(debt_monitor) ADR 006 Phase 2A — fixes + Hypothesis property tests
+13c9741  feat(debt_monitor) ADR 006 Phase 1 — 15-indicator debt crisis overlay
+14cc1f2  docs(substack) Path 6 opening post draft — SK hynix bug case study
+6978cdd  feat(risk_manager) ADR 005 P2 theses USD coherence + audit findings
+815ed8b  docs(todo) Day 14 archive + carry-forward P1/P2
+0bedcff  docs(adr005) ADR 005 doc + Lesson 15 + HANDOFF Day 14 close [TAG day14-close]
+8e345c2  fix(display) Group C currency labels
+b601bfd  fix(positions,kpi6) ADR 005 EUR canonical via cost_in helper + 6 Hypothesis
+1cefee6  fix(morning_brief) FX bug avg_cost EUR canonical
+
+### Carry-forward additions Day 14 evening
+
+**P2 — ADR 006 Phase 2C (~1h):**
+- `/debt_history INDICATOR` handler (30d sparkline + phase transitions)
+- `/debt_alerts on|off` handler (global mute, default ON)
+
+**Reopen entry point updated:**
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `pgrep -fil "python.*bot.main"` confirm
+3. Check overnight: did debt_tier1 cron fire at 06:00? Any Telegram alert?
+4. Read this Day 14 evening section + `docs/adrs/006-debt-crisis-monitor.md` Phase 2A+2B
+5. P1 still: concentration policy (a/b/c) before next /position_buy; KPI #2 wait J-19 → 10 juin
+
+### Tag
+`day14-debt` on commit `1e4c745` (alongside `day14-close` on `0bedcff` for morning close).
+

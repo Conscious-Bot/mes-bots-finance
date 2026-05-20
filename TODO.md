@@ -954,3 +954,29 @@ Cross-source ratio audit pending (Lesson 15 pattern):
 ### Carry-forward P2 — Universe
 
 - Universe pruning audit J+30 mid-juin (313 tickers vs PHILOSOPHY "less surface")
+
+---
+
+## Day 14 evening — ADR 006 Phase 2A + 2B CLOSED
+
+### Closed
+- ✅ Phase 2A — CoreCPI fix + ISMMfg → MfgIP_yoy + 18 Hypothesis tests (e49c326)
+- ✅ Phase 2B — _dispatch_alerts + 3 cron wrappers + bot/main.py wiring + smoke verify (1e4c745)
+- ✅ Tests 281 → 299 passing
+- ✅ Crons 22 → 25 active (Tier 1 daily 06:00 / Tier 2 Mon 06:30 / Tier 3 1st 07:00 Paris)
+- ✅ ADR 006 doc updated with Phase 2A+2B closeout sections
+- ✅ HANDOFF.md Day 14 evening close appended
+- ✅ Tag `day14-debt` on HEAD `1e4c745`
+
+### Carry-forward Phase 2C (~1h, next session UX layer)
+- `/debt_history INDICATOR` — 30d sparkline + phase transitions per indicator
+- `/debt_alerts on|off` — global mute toggle for autonomous alerts (default ON)
+
+**Priority**: P2 (low). Core protective layer LIVE without these. Marginal UX value vs further observation time.
+
+### Empirical state at close (20 May 2026 ~11:30 KST = ~04:30 Paris)
+- Composite: **42.0 pts → Phase 2 STRESS** persisted in DB
+- Tier 1 daily cron will fire at 06:00 Paris (in ~1.5h from close)
+- First autonomous alert opportunity: if Gold/RepoSRF transition OR composite escalates to P3
+- VALUE_LOG candidate event tomorrow morning: if alert fires while Olivier sleeps, then surfaces at wake = Path 6 narrative evidence
+
