@@ -220,8 +220,6 @@ def insert_raw_signal(source_id: int, gmail_id: str, timestamp: str, subject: st
 
 # === Phase 2 : Thesis tracker helpers ===
 
-import json as _t_json
-from datetime import UTC, datetime as _t_dt, timedelta as _t_td
 
 
 def _parse_thesis_row(row):
@@ -230,7 +228,7 @@ def _parse_thesis_row(row):
     for fld in ("key_drivers", "invalidation_triggers", "triggers_profit_take"):
         if d.get(fld):
             with suppress(TypeError, ValueError):
-                d[fld] = _t_json.loads(d[fld])
+                d[fld] = json.loads(d[fld])
     return d
 
 
@@ -250,7 +248,7 @@ def insert_thesis(
     notes=None,
 ):
     """Insert a new thesis. Returns thesis_id."""
-    now = _t_dt.now(UTC).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     def _to_list(v):
         if v is None:
@@ -274,13 +272,13 @@ def insert_thesis(
                 direction,
                 horizon,
                 int(conviction),
-                _t_json.dumps(_to_list(key_drivers)),
-                _t_json.dumps(_to_list(invalidation_triggers)),
+                json.dumps(_to_list(key_drivers)),
+                json.dumps(_to_list(invalidation_triggers)),
                 float(entry_price),
                 float(target_price) if target_price is not None else None,
                 float(target_partial) if target_partial is not None else None,
                 float(target_full) if target_full is not None else None,
-                _t_json.dumps(_to_list(triggers_profit_take)),
+                json.dumps(_to_list(triggers_profit_take)),
                 float(stop_price) if stop_price is not None else None,
                 notes,
                 now,
@@ -331,7 +329,7 @@ def get_thesis_by_ticker(ticker, status="active"):
 
 def update_thesis_revisit(thesis_id):
     """Mark thesis as revisited now."""
-    now = _t_dt.now(UTC).isoformat()
+    now = datetime.now(UTC).isoformat()
     conn = _sqlite3.connect(_DB_PATH)
     try:
         conn.execute("UPDATE theses SET last_revisit_at = ? WHERE id = ?", (now, thesis_id))
@@ -342,7 +340,7 @@ def update_thesis_revisit(thesis_id):
 
 def append_thesis_note(thesis_id, note):
     """Append a timestamped note to a thesis."""
-    now = _t_dt.now(UTC).isoformat()
+    now = datetime.now(UTC).isoformat()
     conn = _sqlite3.connect(_DB_PATH)
     try:
         row = conn.execute("SELECT notes FROM theses WHERE id = ?", (thesis_id,)).fetchone()
@@ -358,7 +356,7 @@ def close_thesis(thesis_id, status, exit_price=None, reason=None):
     """Close a thesis. status must be 'invalidated' | 'realized' | 'stale'."""
     if status not in ("invalidated", "realized", "stale"):
         raise ValueError(f"Invalid close status: {status}")
-    now = _t_dt.now(UTC).isoformat()
+    now = datetime.now(UTC).isoformat()
     parts = [status.upper() + ":"]
     if exit_price is not None:
         parts.append(f"exit_price={exit_price}")
@@ -378,7 +376,7 @@ def close_thesis(thesis_id, status, exit_price=None, reason=None):
 
 def get_theses_due_for_revisit(days_threshold=30):
     """Return active theses where last_revisit_at older than threshold."""
-    cutoff = (_t_dt.now(UTC) - _t_td(days=days_threshold)).isoformat()
+    cutoff = (datetime.now(UTC) - timedelta(days=days_threshold)).isoformat()
     conn = _sqlite3.connect(_DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
@@ -427,8 +425,8 @@ def update_signal_insights(signal_id, score, sentiment, tickers, narratives, sum
             (
                 int(score),
                 sentiment,
-                _t_json.dumps(tickers if isinstance(tickers, list) else []),
-                _t_json.dumps(narratives if isinstance(narratives, list) else []),
+                json.dumps(tickers if isinstance(tickers, list) else []),
+                json.dumps(narratives if isinstance(narratives, list) else []),
                 summary,
                 signal_id,
             ),
