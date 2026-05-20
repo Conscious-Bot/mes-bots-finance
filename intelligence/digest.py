@@ -306,13 +306,13 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     """
     import json
     import sqlite3
-    from datetime import datetime, timedelta
+    from datetime import UTC, datetime, timedelta
 
     from shared import llm, storage
 
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
-    cutoff = (datetime.now() - timedelta(hours=int(since_hours))).strftime("%Y-%m-%d %H:%M:%S")
+    cutoff = (datetime.now(UTC) - timedelta(hours=int(since_hours))).strftime("%Y-%m-%d %H:%M:%S")
     # Use impact_magnitude (materiality_v2) instead of deprecated score field
     # Threshold 2.0 = materially impactful events on scale 1-5
     where_score = "AND COALESCE(s.impact_magnitude, 0) >= 2.0" if exclude_low_score else ""

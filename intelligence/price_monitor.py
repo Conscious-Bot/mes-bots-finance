@@ -10,7 +10,7 @@ Also: capture user overrides via record_override() for BiasDetector training.
 """
 
 import logging
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from shared import edgar, notify, prices
 from shared.storage import db
@@ -158,7 +158,7 @@ def _maybe_update_clv(cx, thesis, current_price: float) -> None:
         opened_date = datetime.fromisoformat(thesis["opened_at"][:10])
     except ValueError, TypeError:
         return
-    days_since = (datetime.now() - opened_date).days
+    days_since = (datetime.now(UTC) - opened_date).days
     entry = thesis["entry_price"]
     keys = thesis.keys()
     for d, col_p, col_c in [(7, "price_7d", "clv_7d"), (30, "price_30d", "clv_30d"), (90, "price_90d", "clv_90d")]:
@@ -204,7 +204,7 @@ def check_thesis_triggers() -> dict:
                     if t["stop_price"] and p >= t["stop_price"] and not t["triggered_stop_at"]:
                         crossings.append("stop")
 
-                now_iso = datetime.now().isoformat(timespec="seconds")
+                now_iso = datetime.now(UTC).isoformat(timespec="seconds")
                 for level in crossings:
                     msg = _format_alert(ticker, level, t, p)
                     try:
