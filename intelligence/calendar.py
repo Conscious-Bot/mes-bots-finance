@@ -6,7 +6,7 @@ Telegram /calendar reads from DB without yfinance latency.
 Future v2: macro events hardcoded (FOMC/CPI/NFP), thesis cross-ref alerts.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import yfinance as yf
 
@@ -44,8 +44,8 @@ def get_ticker_next_earnings(ticker):
 
 def refresh_earnings_calendar(tickers, days_ahead=90):
     """Refresh earnings dates for tickers within days_ahead. Returns count."""
-    cutoff = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
-    today = datetime.now().strftime("%Y-%m-%d")
+    cutoff = (datetime.now(UTC) + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
     count = 0
     for tk in tickers:
         info = get_ticker_next_earnings(tk)
@@ -65,7 +65,7 @@ def format_calendar(events, days_ahead=14):
     if not events:
         return f"Aucun evenement dans les {days_ahead} prochains jours."
     lines = [f"Events {days_ahead}j ahead:"]
-    today = datetime.now().date()
+    today = datetime.now(UTC).date()
     for e in events:
         try:
             ev_date = datetime.fromisoformat(e["date"]).date()
@@ -122,7 +122,7 @@ def get_pre_event_thesis_alerts(days_ahead=7):
         th = theses_by_ticker[tk]
         try:
             ev_date = datetime.fromisoformat(e["date"]).date()
-            days_to = (ev_date - datetime.now().date()).days
+            days_to = (ev_date - datetime.now(UTC).date()).days
         except Exception:
             days_to = None
         last_touch = th.get("last_revisit_at") or th.get("created_at") or ""
@@ -130,7 +130,7 @@ def get_pre_event_thesis_alerts(days_ahead=7):
         if last_touch:
             try:
                 last_dt = datetime.fromisoformat(str(last_touch).split(".")[0].replace("Z", ""))
-                days_since = (datetime.now() - last_dt).days
+                days_since = (datetime.now(UTC) - last_dt).days
             except Exception:
                 pass
         alerts.append(

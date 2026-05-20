@@ -21,7 +21,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 
 from shared.display import Currency, format_billing, format_brief_position_line
 
@@ -139,7 +139,7 @@ def _discipline_section():
         for r in rows:
             try:
                 created = datetime.strptime(r["created_at"][:10], "%Y-%m-%d")
-                days_old = (datetime.now() - created).days
+                days_old = (datetime.now(UTC) - created).days
                 if days_old > 90:
                     due_status = "overdue"
                 elif days_old >= 30:
@@ -214,7 +214,7 @@ def _kpi_timer_section():
         ).fetchone()
         if row and row["earliest"]:
             earliest = datetime.strptime(row["earliest"][:10], "%Y-%m-%d")
-            result["days_to_cluster"] = (earliest - datetime.now()).days
+            result["days_to_cluster"] = (earliest - datetime.now(UTC)).days
     except Exception as e:
         log.warning(f"kpi timer section: {e}")
     conn.close()
@@ -287,7 +287,7 @@ def _positions_top5_section():
 
 def build_brief():
     return {
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "date": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
         "macro": _macro_section(),
         "signals": _signals_section(),
         "filings_insider": _filings_insider_section(),
