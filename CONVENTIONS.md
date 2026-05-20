@@ -992,3 +992,59 @@ Display layer (Telegram, CLI prints) can convert to local via `ts_utc.astimezone
 
 **Trigger**: any new `datetime.now()` call without arg → STOP, write `datetime.now(UTC)` instead. Existing violations sweep deferred to a dedicated session, not boil-the-ocean during feature work. Ruff custom rule candidate: detect `datetime.now()` (zero args) → flag.
 
+
+
+---
+
+## Lessons learnt — session 20/05/2026 (Chantier #1 start)
+
+### Lesson 21 — Grep before invoke
+
+Avant tout call cross-module à une fonction, classe, ou attribut:
+- `grep -nE "^(async )?def {name}" {module}` OU inspect `__all__`
+- N'invente JAMAIS de nom sur intuition
+
+Three name-guess failures this session as forcing function:
+- `tier_scan` invented (actual: `run_scan`)
+- `recompute_composite_from_latest` invented (actual: `run_scan` persists already)
+- WRESBAL units assumed billions (actual: millions per FRED native)
+
+Sub-rule FRED-specific: empirical fetch + log value range AVANT de définir phase_ranges.
+FRED units inconsistent (billions vs millions vs index vs % vs bp).
+
+### Lesson 22 — Imports via ruff --fix only, never isort standalone
+
+`pyproject.toml [tool.ruff.lint.isort]` config (combine-as-imports=true) takes
+precedence for project canonical style. Standalone `isort` tool default behavior
+SPLITS `from X import a, b` into two lines, opposite of ruff's combine.
+
+Running both produces 18+ violations. Single source of truth:
+- `ruff check --fix` for imports
+- Drop `isort` from requirements-dev.txt and from CI workflows
+
+### Lesson 23 — task= field optional by design in llm wrapper
+
+`llm.call(tier=..., task=...)` has `task` as legacy/optional parameter.
+Canonical pattern: use `tier=` (cost cascade routing). 19/21 call sites use
+`tier=`. Only 2 sites use `task=` for legacy reasons (digest.py:29 signal_scoring,
+why_matters.py:75 why_matters).
+
+Empty task='' in llm_calls table is expected, NOT a bug. The `tier` column
+provides sufficient cost attribution (haiku/sonnet/opus breakdown).
+
+Documentation only; no code change required.
+
+### Lesson 24 — Vulture is occasional audit, not CI gate
+
+Vulture and ruff have overlapping concerns:
+- ruff ARG001 catches unused function arguments via `# noqa: ARG001`
+- vulture catches unused variables but doesn't read `# noqa` comments
+
+This produces false positives on Telegram handler signatures
+`async def cmd_X(update, context): # noqa: ARG001` which ruff allows but
+vulture flags.
+
+Resolution: vulture removed from regular gate workflow. Run occasionally
+for audits via `vulture --min-confidence 80 --ignore-names context shared/ ...`.
+Keep `ruff check` as the canonical CI gate for unused-arg detection.
+

@@ -1033,3 +1033,141 @@ Lesson 17 codified after I claimed SEVERE bug in `cron_tier1_daily` partial-tier
 - `_alerts_enabled()` toggle live (default True)
 - Path 6 narrative material: clean audit + lessons codification = engineering rigor evidence
 
+
+
+---
+
+## CHANTIER #1 — Immaculate Sweep J-21 (started 20/05/2026)
+
+**Objectif Olivier (verbatim)**: "tout soit bien plug que tout les liens soit propres,
+que la boucle fermee fonctionne bien, que la recolte de data, feed de data, apprentissage
+soit solide, que les chiffres soient bons actuels et se refresh correctement, que tout
+fonctionne bien de bout en bout proprement" + "propreté du code".
+
+Closing date: 10/06/2026 (KPI #2 batch resolution day = decision point).
+
+### Audit baseline 20/05/2026 (Bash 103-105)
+
+System integrity:
+- 66 signals 30d, 100% materiality coverage, 33 24h healthy
+- 17/17 debt indicators fresh
+- LLM cost $0.50/jour, $15-20/mo projected vs $50 budget HEALTHY
+- 33 tables, integrity_check ok, WAL 0B clean, disk 15% used
+- Bot DOWN detected mid-audit (SIGHUP zsh) — restarted PID 73366
+
+System gaps identified:
+- KPI #5 decisions: 2 logged on 21 positions distinct = 9.5% (1 distinct ticker = 4.8%)
+- briefs table absent (ephemeral or persist?)
+- 51/52 sources stuck 0.5 default credibility (expected pre-J-21)
+- task='' on 19/21 LLM call sites (NOT a bug, by design — tier= is canonical)
+
+Code cleanliness baseline:
+- ruff 0 errors (post-fix)
+- mypy 0 errors on 77 source files (post-fix)
+- vulture: 2 false positives (Telegram signatures)
+- 13 files with datetime.now() zero-arg violations (~35 sites)
+- shared/storage.py: 1962 LOC (biggest non-backup file)
+- bot/main.py: 801 LOC (already <1000 implicit target)
+- 3 TODO comments (legit defers, not debt)
+
+### Done P0 (4 commits, 20/05 evening)
+- fce38c3 fix(debt_monitor) replace RepoSRF (ON RRP ambiguous) → BankReserves WRESBAL
+- 246aaea fix(debt_monitor) BankReserves phase_ranges in millions USD (FRED native)
+- 1d90ffe chore(immaculate-sweep) P0 free wins mypy 6→0 + _os dead + isort 14 files
+- 9d8848c fix(immaculate-sweep) ruff --fix harmonize imports (combine-as-imports)
+
+### P1 Sprint this week (~1.5h)
+- [ ] KPI #5 investigation: trace cmd_position_buy → log_decision flow.
+      Empirical: 2 decisions on 21 positions distinct. Three hypotheses to test:
+      (a) bulk backfill 16/05 bypass expected (Phase B5 works on live adds)
+      (b) Phase B5 hook still broken (Ship 5 regression)
+      (c) no material live decisions taken since 12 mai
+      Method: simulate /position_buy + verify decisions row created.
+- [ ] docs/REFERENCE_SCHEMA.md accuracy audit. Mental model wrong on 4 columns
+      this session: predictions.outcome_evaluated_at→resolved_at, claim_json absent,
+      signals.materiality_v2 dispersed (impact_magnitude/reversibility/etc),
+      llm_calls.timestamp→created_at.
+
+### P2 Sprint week 27/05 - 02/06 (~5-7h dispersés)
+- [ ] UTC sweep top-down (exception R14 "touch=type", immaculate is explicit mandate):
+      - shared/storage.py (8 sites): heartbeat, events, theses, predictions, outcomes
+      - shared/edgar.py (6 sites): age caches, cutoffs
+      - intelligence/morning_brief.py (3 sites), digest.py (1), price_monitor.py (2),
+        calendar.py (4)
+      - bot/handlers/find.py (3), anti_erosion.py (1), thesis_health.py (1)
+      - shared/positions.py (1), prices.py (1), uptime.py (1)
+      - scripts/init_db.py (2)
+      Total ~35 sites. Strategy: per-file commit, gates after each.
+- [ ] Decision: briefs persistence.
+      Either create briefs table + persist /brief outputs (track record artifact
+      for Path 5/6 narrative), or accept "ephemeral by design" + document.
+
+### P3 Defer post-10/06
+- [ ] shared/storage.py 1962 LOC split (architecturally complex per R5 single-gateway)
+- [ ] task= field everywhere for finer LLM attribution (low ROI, tier= sufficient)
+- [ ] vulture as occasional audit only, not CI gate (overlap with ruff ARG001)
+
+### Closing criteria 10/06
+At J+0 (10/06) batch resolution, Chantier #1 closed if:
+1. ruff 0 / mypy 0 / pytest passing maintained
+2. UTC sweep complete (0 datetime.now() zero-arg)
+3. KPI #5 either functional or explicitly N/A documented
+4. REFERENCE_SCHEMA.md accurate
+5. Lessons 21-24 codified in CONVENTIONS.md
+
+### Lessons codified this session (20/05/2026)
+- L21: grep before invoke — 3 name-guess fails (tier_scan, recompute_composite_from_latest, WRESBAL units)
+- L22: imports via ruff --fix only, never isort standalone (split vs combine conflict)
+- L23: task= field in llm wrapper is optional by design; tier= is canonical for cost attribution
+- L24: vulture is occasional-audit tool, not CI gate (overlap + false positives on Telegram args)
+
+
+---
+
+## MIGRATION VPS FUTURE — Archive plan (drafted 20/05/2026)
+
+**Status**: deferred. Trigger = post-10/06 KPI #2 GREEN + concierge demand validated.
+
+**Target stack**: Hetzner CX22 (€4.51/mo, 4 vCPU / 4 GB / 40 GB SSD) + Backblaze B2
+(€1/mo backups) + Uptimerobot free. Total ~€6/mo. Replaces Mac local dependency.
+
+### Migration phases (4-8h focused, 1-2 days dispersed)
+1. Préparation locale (1-3h): audit secrets, snapshot scripts, lock files
+2. Provisioning VPS (30 min): create + SSH key
+3. System setup (1-2h): Ubuntu 24.04 LTS + pyenv 3.14.4 + UFW + fail2ban
+4. Code + data transfer (1h): git clone + scp secrets + SQLite .backup snapshot
+5. Service config (1h): systemd unit + logrotate + backup cron + monitoring
+6. First boot + smoke test (1-2h): 10-15 commands sequence verify
+7. Cutover atomique (15 min): stop Mac → start VPS (no overlap, Telegram one-poller)
+8. Observation 24-48h (Mac standby)
+
+### Preparation tasks (can do now, no VPS required)
+- [ ] Gmail OAuth Cloud Console push to Production (avoid 7-day refresh token expiry)
+- [ ] Audit MIGRATION_SECRETS.md (gitignore) inventory
+- [ ] .env.example commit (document all env vars)
+- [ ] scripts/migration_snapshot.sh tested locally
+- [ ] systemd unit file deploy/mes-bots-finance.service drafted
+- [ ] requirements.lock.txt via pip freeze
+- [ ] Backblaze B2 account + bucket created
+- [ ] Hetzner account ready (no server yet)
+- [ ] Smoke test checklist (10-15 Telegram commands)
+- [ ] Local cold start test (clean venv reproduction)
+
+### Specificités projet à anticiper
+- Python 3.14: not in Ubuntu repos, pyenv install required
+- Gmail OAuth: refresh token 7d if Testing mode, 6mo if Production
+- SQLite WAL: snapshot atomique via .backup before transfer
+- Telegram: ONE polling instance globally (no overlap)
+- Timezone: timedatectl set Europe/Paris (APScheduler tz-aware)
+- yfinance: IP rate-limit risk on cloud IPs (test post-migration)
+- Anthropic/FRED: account-tied not IP-tied (no migration risk)
+
+### Pièges classiques
+- Marche sur Mac pas sur Linux (SQLite, paths case-sensitive, SSL libs)
+- Refresh token Gmail expire pendant migration
+- Telegram dual-instance overlap
+- Timezone scheduler mismatch
+- yfinance bloqué par Yahoo sur IP cloud
+- Disk plein silencieux
+- API key leak via git commit
+
