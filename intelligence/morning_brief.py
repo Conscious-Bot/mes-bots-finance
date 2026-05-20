@@ -18,6 +18,7 @@ Added:
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 import sqlite3
 from datetime import datetime
@@ -244,34 +245,26 @@ def _positions_top5_section():
                 name = get_short_name(ticker) or ticker
             except Exception:
                 name = ticker
-            # Day 12 ADR 004 Batch 5: USD canonical + FM-10 currency-coherent pnl.
-            # avg_cost stored NATIVE -> convert to USD via fx(native, USD).
-            # last_price from theses.last_price assumed EUR-stored (legacy) -> convert
-            # to USD via fx(EUR, USD), or live-fetch USD if absent.
+            # Day 13 Bug FX-2 fix: avg_cost stored in EUR (Day 7 migration),
+            # NOT native as ADR 004 Batch 5 comment suggested. Storage migration
+            # to native canonical never completed -- only code was changed.
+            # Empirical: SK hynix avg_cost=1043 (matches EUR per share, not KRW).
+            # Fix: uniform EUR -> USD conversion for both avg_cost and last_price.
             try:
-                from shared.prices import (
-                    get_currency_for_ticker,
-                    get_current_price_in_usd,
-                    get_fx_rate,
-                )
-                native_cur = get_currency_for_ticker(ticker)
-                fx_native_to_usd = get_fx_rate(native_cur, "USD") or 1.0
+                from shared.prices import get_current_price_in_usd, get_fx_rate
+                fx_eur_to_usd = get_fx_rate("EUR", "USD") or 1.1655
             except Exception:
-                native_cur = "USD"
-                fx_native_to_usd = 1.0
+                fx_eur_to_usd = 1.1655
             last_price = r["last_price"]
             if last_price is not None:
-                try:
-                    fx_eur_to_usd = get_fx_rate("EUR", "USD") or 1.1655
+                with contextlib.suppress(Exception):
                     last_price = last_price * fx_eur_to_usd
-                except Exception:
-                    pass
             else:
                 try:
                     last_price = get_current_price_in_usd(ticker)
                 except Exception:
                     last_price = None
-            avg_cost_usd = r["avg_cost"] * fx_native_to_usd if r["avg_cost"] else None
+            avg_cost_usd = r["avg_cost"] * fx_eur_to_usd if r["avg_cost"] else None
             pnl_pct = None
             if last_price and avg_cost_usd:
                 pnl_pct = (last_price / avg_cost_usd - 1) * 100
