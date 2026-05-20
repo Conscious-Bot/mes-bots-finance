@@ -129,7 +129,7 @@ def get_pre_event_thesis_alerts(days_ahead=7):
         days_since = None
         if last_touch:
             try:
-                last_dt = datetime.fromisoformat(str(last_touch).split(".")[0].replace("Z", ""))
+                last_dt = datetime.fromisoformat(str(last_touch).split(".")[0].replace("Z", "")).replace(tzinfo=UTC)
                 days_since = (datetime.now(UTC) - last_dt).days
             except Exception:
                 pass

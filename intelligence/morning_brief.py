@@ -138,7 +138,7 @@ def _discipline_section():
         ).fetchall()
         for r in rows:
             try:
-                created = datetime.strptime(r["created_at"][:10], "%Y-%m-%d")
+                created = datetime.strptime(r["created_at"][:10], "%Y-%m-%d").replace(tzinfo=UTC)
                 days_old = (datetime.now(UTC) - created).days
                 if days_old > 90:
                     due_status = "overdue"
@@ -213,7 +213,7 @@ def _kpi_timer_section():
             "SELECT MIN(target_date) AS earliest FROM predictions WHERE resolved_at IS NULL"
         ).fetchone()
         if row and row["earliest"]:
-            earliest = datetime.strptime(row["earliest"][:10], "%Y-%m-%d")
+            earliest = datetime.strptime(row["earliest"][:10], "%Y-%m-%d").replace(tzinfo=UTC)
             result["days_to_cluster"] = (earliest - datetime.now(UTC)).days
     except Exception as e:
         log.warning(f"kpi timer section: {e}")
