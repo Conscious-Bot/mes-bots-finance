@@ -4,7 +4,7 @@
 Composite scoring → overall debt crisis phase (1/2/3/4).
 
 Tier 1 (daily, weight 1.0):  TYX, Gold, USDJPY, VIX, HY_OAS, DXY, BTC
-Tier 2 (weekly, weight 0.75): MOVE, KRE, T10Y2Y, RepoSRF, CopperGold
+Tier 2 (weekly, weight 0.75): MOVE, KRE, T10Y2Y, BankReserves, CopperGold
 Tier 3 (monthly, weight 0.5): CoreCPI, FedBalance, ISMMfg
 
 Reads:
@@ -116,13 +116,16 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
             (-999, 0, 1), (0, 1.0, 1), (1.0, 2.0, 2), (2.0, 999, 3),
         ],
     },
-    "RepoSRF": {
-        "tier": 2, "weight": 0.75, "source": "fred:RRPONTSYD",
-        "label": "Reverse Repo ($B)",
-        # NOTE: spec is SRF usage; FRED RRPONTSYD is inverse-related but available.
-        # High RRP = excess liquidity (Phase 1). Crash to zero = stress.
+    "BankReserves": {
+        "tier": 2, "weight": 0.75, "source": "fred:WRESBAL",
+        "label": "Bank Reserves at Fed ($B)",
+        # Reserves of Depository Institutions, weekly, billions USD.
+        # Direct stress proxy: Sept 2019 repo blowup at ~$1.4T forced Fed QE restart.
+        # LCLOR (Lowest Comfortable Operating Level) estimated $2.5-3T currently.
+        # < $2T = Phase 4 crisis territory (forced Fed intervention).
+        # Replaces RepoSRF (ON RRP) which was ambiguous post-QT — see ADR 006 audit.
         "phase_ranges": [
-            (0, 50, 3), (50, 200, 2), (200, 99999, 1),
+            (0, 2000, 4), (2000, 2500, 3), (2500, 3000, 2), (3000, 99999, 1),
         ],
     },
     "CopperGold": {
