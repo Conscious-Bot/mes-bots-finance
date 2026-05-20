@@ -123,57 +123,6 @@ def update_thesis_status(thesis_id: int, status: str, notes: str | None = None):
         )
 
 
-def log_prediction(source_type: str, source_id: int, ticker: str, claim: str, horizon_days: int, confidence: float) -> int:
-    expires_at = (datetime.now() + timedelta(days=horizon_days)).isoformat()
-    with db() as conn:
-        conn.execute(
-            """
-            INSERT INTO predictions(timestamp, source_type, source_id, ticker,
-                                    claim_json, horizon_days, expires_at, confidence)
-            VALUES(?,?,?,?,?,?,?,?)
-        """,
-            (
-                datetime.now().isoformat(),
-                source_type,
-                source_id,
-                ticker,
-                json.dumps(claim),
-                horizon_days,
-                expires_at,
-                confidence,
-            ),
-        )
-        from typing import cast as _cast
-        return _cast(int, conn.execute("SELECT last_insert_rowid()").fetchone()[0])
-
-
-def expired_unresolved_predictions() -> list[dict]:
-    now = datetime.now().isoformat()
-    with db() as conn:
-        return [
-            dict(r)
-            for r in conn.execute(
-                """
-            SELECT * FROM predictions
-            WHERE expires_at < ? AND outcome_evaluated_at IS NULL
-        """,
-                (now,),
-            ).fetchall()
-        ]
-
-
-def record_outcome(prediction_id: int, outcome: dict[str, Any], correct: bool) -> None:
-    with db() as conn:
-        conn.execute(
-            """
-            UPDATE predictions
-            SET outcome_evaluated_at = ?, actual_outcome_json = ?, correct = ?
-            WHERE id = ?
-        """,
-            (datetime.now().isoformat(), json.dumps(outcome), correct, prediction_id),
-        )
-
-
 def add_to_watchlist(ticker: str, sector: str | None = None, notes: str | None = None) -> None:
     with db() as conn:
         conn.execute(
