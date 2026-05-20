@@ -42,10 +42,7 @@ from typing import Any
 import yfinance as yf
 
 from shared.positions import list_positions
-from shared.prices import (
-    get_current_price_in,
-    get_fx_rate,
-)
+from shared.prices import get_current_price_in, get_fx_rate
 
 log = logging.getLogger(__name__)
 

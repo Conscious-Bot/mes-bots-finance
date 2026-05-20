@@ -227,8 +227,8 @@ def _fetch_fred_cpi_yoy() -> float | None:
     obs = macro._fred_series("CPILFESL", limit=14)
     if not obs or len(obs) < 12:
         return None
-    current = obs[0]["value"]
-    year_ago = obs[11]["value"]  # 12 calendar months back
+    current = float(obs[0]["value"])
+    year_ago = float(obs[11]["value"])  # 12 calendar months back
     return (current - year_ago) / year_ago * 100
 
 
@@ -237,8 +237,8 @@ def _fetch_fred_ipman_yoy() -> float | None:
     obs = macro._fred_series("IPMAN", limit=14)
     if not obs or len(obs) < 12:
         return None
-    current = obs[0]["value"]
-    year_ago = obs[11]["value"]
+    current = float(obs[0]["value"])
+    year_ago = float(obs[11]["value"])
     return (current - year_ago) / year_ago * 100
 
 
@@ -384,8 +384,8 @@ def run_scan(tiers: list[int] | None = None, dispatch_alerts: bool = False) -> d
             latest = get_latest_indicator(name)
             prev_indicator_phases[name] = latest["phase"] if latest else None
 
-    results = {}
-    breakdown_by_tier = {1: [], 2: [], 3: []}
+    results: dict[str, Any] = {}
+    breakdown_by_tier: dict[int, list[dict[str, Any]]] = {1: [], 2: [], 3: []}
     total_score = 0.0
 
     for name, cfg in INDICATOR_CONFIG.items():
