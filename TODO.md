@@ -901,3 +901,56 @@ Order: D → E → F → B → B' → A → C
 - ⏳ A M2 SMH sectoral benchmark wire KPI #6 (~1.5-2h)
 - ⏳ C Q3 dormant-handler triage post-telemetry (~2h)
 
+
+---
+
+## ✅ CLOSED — Day 14 (2026-05-20, ~6h session)
+
+### ADR 005 EUR canonical refactor
+
+**4 commits** since day13-close:
+- `1cefee6` morning_brief FX (Bug 3 EUR canonical discovery)
+- `b601bfd` ADR 005 core + cost_in + 6 Hypothesis tests + 2 test rewrites
+- `8e345c2` Group C labels (risk_manager + bias_tagger prompts + journal_bias + format_position_history)
+- `0bedcff` ADR 005 doc + Lesson 15 + HANDOFF + format_position_detail residuals + .gitignore
+
+**Dettes résolues:**
+- ✅ FM-10 latent currency mix (avg_cost EUR canonical via cost_in helper)
+- ✅ KPI #6 bullshit -4.12% → real -4.05% currency-coherent
+- ✅ 4 sites Group A broken (positions.py:146, portfolio_views.py:94+247, find.py:36, portfolio_metrics.py:113-119)
+- ✅ Group C display labels (3 sites code + 5 sites string labels)
+- ✅ morning_brief avg_cost_usd uniform EUR→USD (commit 1cefee6)
+- ✅ Pipeline backlog clearing (28 signals classified + materiality_v2 chained, 4 zombies killed)
+- ✅ Gmail OAuth re-auth flow (28 new signals, dead token cleanup)
+
+**Documentation shipped:**
+- docs/adrs/005-eur-canonical-positions.md (full ADR + 21-position empirical ratio audit table)
+- CONVENTIONS.md Lesson 15 (empirical verification beyond SQL)
+- HANDOFF.md Day 14 close section
+
+**Tests**: 275 → 281 (+6 cost_in Hypothesis)
+
+### Carry-forward P1 strategic (next session decision points)
+
+- **Concentration breach** — `style.position_max_pct = 5%` violated by 6 positions (46.5% AI_compute cluster). 4063.T 10.5%, TSM 9.0%, ASML.AS 9.0%, SNPS 7.0%, 7011.T 6.0%, STMPA.PA 5.3%. Decision (a) trim / (b) bump policy 8-10% documented / (c) ignore legacy + watch new — required before next /position_buy.
+- **KPI #2 timer J-20** to 2026-06-10 (45 predictions batch resolution day)
+- **NVDA** — 2 high 8-K 5.02 in 12d, 2 unresolved decisions, /risk_check NVDA candidate
+- **VALUE_LOG.md entry Day 14** — first /digest with action-grade synthesis tied to biases (Path 6 narrative evidence)
+
+### Carry-forward P2 — ADR 005 incomplete coverage audit
+
+Cross-source ratio audit pending (Lesson 15 pattern):
+- `theses.entry_price/target_partial/target_full/stop_price` currency
+- `decisions.price_at_decision` currency
+- `position_events.price/pnl` currency
+- `positions.realized_pnl` currency
+
+### Carry-forward P2 — Infra
+
+- OAuth Cloud Console "Push to Production" (15 min, prevent weekly token re-revocation)
+- score column scale 0-10 vs 0-100 recal in build_signals_context_block
+- Price snapshot drift /brief vs /portfolio caching audit (UX consistency)
+
+### Carry-forward P2 — Universe
+
+- Universe pruning audit J+30 mid-juin (313 tickers vs PHILOSOPHY "less surface")
