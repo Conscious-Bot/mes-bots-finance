@@ -1173,3 +1173,15 @@ Day 13 fait passer un cap : le bot ne consomme plus juste son own decisions, il 
 3. Read this HANDOFF Day 14 close + `docs/adrs/005-eur-canonical-positions.md`
 4. Pick P1 item: concentration policy OR KPI #2 wait OR ADR 005 P2 audit
 
+
+---
+
+## Day 14 evening — Debt Crisis Monitor Phase 1 (CONSCIOUS observation discipline override)
+
+**Override rationale**: ADR 006 system addresses tail-risk on EXISTING thesis cluster (AI_compute 46.5%), not a new thesis/ticker/source. Empirical justification stronger than discipline cost: first scan returned **Composite 37.5 = Phase 2 STRESS**, driven by Gold $4,485 (P3) and RepoSRF $12.9B drainage (P3). The macro signal that the framework was designed to catch is already firing.
+
+**Strategic alignment surface**: Phase 2 = "Cash +5%, halt aggressive deploy" per spec. Coherent with the Day 14 morning concentration breach finding (6 positions >5% cap). Combined reading: trim direction (option a) > bump policy (option b) for concentration decision.
+
+**Ships Phase 1**: intelligence/debt_monitor.py + bot/handlers/debt_crisis.py + docs/adrs/006 + HANDOFF entry. 281 tests still passing.
+
+**Phase 2 tomorrow (~4-5h)**: Fix CoreCPI+ISMMfg silent fails, APScheduler cron registration (3 schedules), alerts dispatch on phase escalation, /debt_history + /debt_alerts handlers, Hypothesis property tests, final ADR 006 update + day14-debt tag.
