@@ -84,13 +84,20 @@ Be concrete. No platitudes. If the trade is fine, say "approved" with brief just
 def _build_portfolio_state(positions):
     if not positions:
         return "No active positions. This would be the first exposure."
-    total_book = sum((p.get("qty", 0) or 0) * (p.get("avg_cost", 0) or 0) for p in positions)
-    lines = [f"Total long book at cost basis: ${total_book:,.0f}"]
-    lines.append("Positions:")
+    # ADR 005: avg_cost EUR canonical -> convert to USD for prompt currency
+    # coherence (RISK_PROMPT uses proposed_usd and USD-denominated prices throughout).
+    from shared.positions import cost_in
+    rows = []
     for p in positions:
-        val = (p.get("qty", 0) or 0) * (p.get("avg_cost", 0) or 0)
-        pct = (val / total_book * 100) if total_book > 0 else 0
-        lines.append(f"  - {p['ticker']}: {p.get('qty')} @ ${p.get('avg_cost', 0):.2f} (${val:,.0f}, {pct:.1f}%)")
+        qty = p.get("qty", 0) or 0
+        avg_usd = cost_in(p.get("avg_cost", 0) or 0, "USD") or 0
+        rows.append((p["ticker"], qty, avg_usd, qty * avg_usd))
+    total_book_usd = sum(val for _, _, _, val in rows)
+    lines = [f"Total long book at cost basis: ${total_book_usd:,.0f}"]
+    lines.append("Positions:")
+    for ticker, qty, avg_usd, val in rows:
+        pct = (val / total_book_usd * 100) if total_book_usd > 0 else 0
+        lines.append(f"  - {ticker}: {qty} @ ${avg_usd:.2f} (${val:,.0f}, {pct:.1f}%)")
     return "\n".join(lines)
 
 

@@ -242,13 +242,15 @@ def format_positions_summary(positions: list) -> str:
             total_upl += upl
         if cur:
             sign = "🟢" if (upl or 0) > 0 else "🔴"
-            lines.append(f"  {sign} {p['ticker']:6s} {qty:>9.3f} @ ${avg:.2f} → ${cur:.2f}")
-            lines.append(f"       MV ${mv:>10,.0f}  UPL ${upl:+,.0f} ({upct:+.1%})")
+            # ADR 005: avg_cost EUR canonical; _enrich_with_live default target_cur=EUR
+            # so avg/cur/mv/upl all in EUR. Label € (no conversion needed).
+            lines.append(f"  {sign} {p['ticker']:6s} {qty:>9.3f} @ €{avg:.2f} → €{cur:.2f}")
+            lines.append(f"       MV €{mv:>10,.0f}  UPL €{upl:+,.0f} ({upct:+.1%})")
         else:
-            lines.append(f"  ⚪ {p['ticker']:6s} {qty:>9.3f} @ ${avg:.2f} (no live price)")
+            lines.append(f"  ⚪ {p['ticker']:6s} {qty:>9.3f} @ €{avg:.2f} (no live price)")
     lines.append("")
-    lines.append(f"  Total MV:  ${total_mv:>11,.0f}")
-    lines.append(f"  Total UPL: ${total_upl:>+11,.0f}")
+    lines.append(f"  Total MV:  €{total_mv:>11,.0f}")
+    lines.append(f"  Total UPL: €{total_upl:>+11,.0f}")
     return "\n".join(lines)
 
 
@@ -257,7 +259,7 @@ def format_position_detail(p: dict, history: list) -> str:
         return "No open position."
     lines = [f"📋 {p['ticker']} position"]
     lines.append(f"  Qty:            {p['qty']:.3f}")
-    lines.append(f"  Avg cost:       ${p['avg_cost']:.2f}")
+    lines.append(f"  Avg cost:       €{p['avg_cost']:.2f}")  # ADR 005: EUR canonical
     lines.append(f"  Realized PnL:   ${(p.get('realized_pnl') or 0):+,.2f}")
     if p.get("current_price"):
         lines.append(f"  Current price:  ${p['current_price']:.2f}")

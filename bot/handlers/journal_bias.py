@@ -432,11 +432,14 @@ async def cmd_position_history(update, ctx):  # noqa: ARG001
     if not positions:
         await update.message.reply_text("No position history" + (f" for {ticker}" if ticker else "") + ".")
         return
+    # ADR 005: avg_cost EUR canonical -> convert via cost_in for $ display.
+    from shared.positions import cost_in
     lines = ["Position history" + (f" — {ticker}" if ticker else "")]
     for p in positions:
         state = "CLOSED" if (p.get("status") == "closed") else f"OPEN ({p['qty']:g})"
         rpnl = p.get("realized_pnl") or 0
-        lines.append(f"  #{p['id']} {p['ticker']} {state} entry={p['qty']:g}@${p['avg_cost']:.2f} rpnl={rpnl:+,.2f}")
+        avg_usd = cost_in(p["avg_cost"], "USD") or 0
+        lines.append(f"  #{p['id']} {p['ticker']} {state} entry={p['qty']:g}@${avg_usd:.2f} rpnl={rpnl:+,.2f}")
     msg = "\n".join(lines)
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"

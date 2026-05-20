@@ -39,8 +39,12 @@ def auto_tag_biases(decision: dict[str, Any], position: dict[str, Any] | None = 
     if position:
         parts.append("")
         parts.append("POSITION CONTEXT:")
+        # ADR 005: avg_cost EUR canonical -> convert to USD for prompt coherence.
+        # realized_pnl currency convention not audited (out of ADR 005 scope).
+        from shared.positions import cost_in
+        avg_usd = cost_in(position.get("avg_cost"), "USD") or 0
         parts.append(
-            f"Holding {position.get('qty')} @ avg ${position.get('avg_cost')}, realized PnL ${position.get('realized_pnl', 0):.2f}"
+            f"Holding {position.get('qty')} @ avg ${avg_usd:.2f}, realized PnL ${position.get('realized_pnl', 0):.2f}"
         )
     if regime_str:
         parts.append(f"Market regime: {regime_str}")
