@@ -262,9 +262,9 @@ def format_position_detail(p: dict, history: list) -> str:
     lines.append(f"  Avg cost:       €{p['avg_cost']:.2f}")  # ADR 005: EUR canonical
     lines.append(f"  Realized PnL:   ${(p.get('realized_pnl') or 0):+,.2f}")
     if p.get("current_price"):
-        lines.append(f"  Current price:  ${p['current_price']:.2f}")
-        lines.append(f"  Market value:   ${p['market_value']:,.2f}")
-        lines.append(f"  Unrealized PnL: ${p['unrealized_pnl']:+,.2f} ({p['unrealized_pct']:+.1%})")
+        lines.append(f"  Current price:  €{p['current_price']:.2f}")  # ADR 005: EUR via _enrich_with_live
+        lines.append(f"  Market value:   €{p['market_value']:,.2f}")
+        lines.append(f"  Unrealized PnL: €{p['unrealized_pnl']:+,.2f} ({p['unrealized_pct']:+.1%})")
     lines.append(f"  Opened:         {p.get('opened_at', '?')[:10]}")
     if history:
         lines.append("")

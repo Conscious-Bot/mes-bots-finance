@@ -863,3 +863,23 @@ pgrep -fl "python.*bot.main"    # macOS: NOTHING (case-sensitive miss)
 pgrep -fil "python.*bot.main"   # macOS: all bot instances
 ```
 
+
+### Lesson 15 (Day 13-14 — empirical verification applies beyond SQL)
+
+Storage convention claims in comments are documentation of *intent at time of writing*; the actual storage IS what storage IS. When auditing a system claim, derive truth from **data**, not from **text**. The Lesson 13 SQL-schema pattern generalizes to ANY structural assumption: function signatures, storage layouts, return shapes, currency conventions.
+
+**Incident** (Day 13-14 audit, commits `1cefee6` + `b601bfd` + `8e345c2`): Day 11 ADR 004 Batch 4A inline comments asserted `positions.avg_cost` stored in NATIVE currency (JPY for `.T`, KRW for `.KS`, etc.). Actual broker import path (`legacy_import_2026_05_15`) stored EUR canonical for all 21 positions. Mismatch caused cascading bugs: morning_brief SK hynix display $0.76 (actual: $1,216), KPI #6 entry deflation -4.12% bullshit (actual currency-coherent: -4.05%). Discovery required cross-currency ratio audit on real DB rows. See `docs/adrs/005-eur-canonical-positions.md`.
+
+**Empirical tooling pattern** (verified Day 14, generalizable):
+```python
+# Cross-currency ratio audit for storage convention
+from shared.prices import get_current_price_in
+for ticker, _qty, stored_value in db_rows:
+    pe = get_current_price_in(ticker, "EUR")
+    ratio = stored_value / pe
+    # All ratios ~1.0 across native currencies → EUR canonical
+    # Ratios cluster on native_fx_to_EUR rates  → NATIVE canonical
+    # Mixed cluster                             → dette empirical, per-row audit
+```
+
+**Trigger**: any time you read a comment that asserts a data convention (storage unit, currency, semantic shape) before modifying logic that depends on it. Failure-mode signature: tests pass because they encode the same aspirational assumption as the code (Day 13 `test_fallback_currency_aware_*` encoded the same broken NATIVE assumption — both broken in sync). Property-based tests on real DB data, not mocked, detect this.

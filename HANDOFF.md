@@ -1101,3 +1101,75 @@ Empirical validation /risk_check NVDA + GEV: LLM cited 4 of 5 injected signals (
 ### Strategic note
 Day 13 fait passer un cap : le bot ne consomme plus juste son own decisions, il consomme aussi les newsletters payantes (SemiAnalysis $65/mo + Stratechery + Apollo + 6 autres) DIRECTEMENT dans ses decisional handlers. C'est l'argument central de Path 5/6 narrative : un système qui digère un curated stream + applique discipline bidirectionnelle calibrée. Plus juste un wrapper LLM.
 
+
+---
+
+## Day 14 close — 2026-05-20 ~08:15 KST (~6h session)
+
+### Ships (4 commits since day13-close)
+
+1. `1cefee6` fix(morning_brief): FX bug avg_cost EUR canonical (morning)
+2. `b601bfd` fix(positions,kpi6): ADR 005 EUR canonical via cost_in helper
+3. `8e345c2` fix(display): Group C currency labels follow-up
+4. (this commit) docs+fix: ADR 005 doc + Lesson 15 + format_position_detail residuals + HANDOFF close + .gitignore dead tokens
+
+### State
+
+- HEAD pending commit, tag `day14-close`
+- 281 tests passing, 0 ruff, 0 mypy (14 strict modules)
+- Bot PID 69278, 22 crons clean
+- Universe: 313 tickers (23/123/167)
+- DB: 21 positions, 45 open predictions, 66 signals 30d, 27 active sources
+
+### KPI snapshot
+
+| KPI | Value | Status |
+|---|---|---|
+| #1 uptime 30d | 99.9% | ✅ GREEN |
+| #2 NON-NEG | 1 res, 45 due J-20 (10 juin), forecast 46 | ⏳ ON TRACK |
+| #3 Brier 90d | N=0 | 🔍 insufficient |
+| #4 panic sells | 0 | ✅ GREEN |
+| #5 decisions journalisées | 0 material 30d | 🔍 N/A |
+| #6 Pf vs benchmarks | Pf -4.07%, Δ-4.4pp SPY / -5.0pp QQQ / -4.8pp SMH, 4d (21/21 priced) | 🔍 INSUFFICIENT (need 365d) |
+
+### Concentration breach finding
+
+`style.position_max_pct = 5%` violated by 6 positions (46.5% cluster, AI_compute thesis):
+- 4063.T 10.5%, TSM 9.0%, ASML.AS 9.0%, SNPS 7.0%, 7011.T 6.0%, STMPA.PA 5.3%
+
+**Decision pendante**: (a) trim, (b) bump policy à 8-10% documented, (c) ignore legacy inheritance + watch new. Required before next `/position_buy`.
+
+### Carry-forward (priority order)
+
+**P1 — Strategic/empirical:**
+- KPI #2 timer J-20 to 2026-06-10 batch (45 predictions)
+- Concentration policy decision (a/b/c) before next /position_buy
+- VALUE_LOG.md entry Day 14: first /digest with action-grade synthesis (Path 6 evidence)
+- NVDA: 2 high 8-K 5.02 in 12 days, 2 unresolved decisions, /risk_check NVDA candidate
+
+**P2 — ADR 005 incomplete coverage (audit follow-up):**
+- `theses.entry_price/target_*/stop_price` currency audit
+- `decisions.price_at_decision` currency audit
+- `position_events.price/pnl` currency audit
+- `positions.realized_pnl` currency audit
+- Each requires Lesson 15 cross-source ratio audit pattern
+
+**P2 — Infra:**
+- OAuth Cloud Console "Push to Production" (15 min, prevent weekly re-revocation)
+- score column scale 0-10 vs 0-100 recal in build_signals_context_block
+- Price snapshot drift /brief vs /portfolio caching audit (UX consistency)
+
+**P2 — Universe:**
+- Universe pruning audit J+30 mid-juin (313 tickers vs PHILOSOPHY "less surface")
+
+**P3 — Code health:**
+- bot/main.py 2428 LOC split bot/handlers/* (incremental as touched)
+- Type hints remaining modules (gradual)
+
+### Reopen entry point
+
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `pgrep -fil "python.*bot.main"` confirm (PID 69278 or rotated)
+3. Read this HANDOFF Day 14 close + `docs/adrs/005-eur-canonical-positions.md`
+4. Pick P1 item: concentration policy OR KPI #2 wait OR ADR 005 P2 audit
+
