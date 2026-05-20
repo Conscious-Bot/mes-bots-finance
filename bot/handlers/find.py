@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from bot.handlers._common import db_path
 from shared.prices import get_fx_rate
@@ -117,7 +117,7 @@ def _format_theses(conn: sqlite3.Connection, ticker: str) -> str:
 
 
 def _format_signals(conn: sqlite3.Connection, ticker: str, days: int = 7) -> str:
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
     # JSON list match: entities like \'%"TICKER"%\' covers ["TICKER", ...] and ["X", "TICKER", ...]
     rows = conn.execute(
         "SELECT s.id, substr(s.title, 1, 70) AS title, s.signal_type, "
@@ -142,7 +142,7 @@ def _format_signals(conn: sqlite3.Connection, ticker: str, days: int = 7) -> str
 
 
 def _format_filings(conn: sqlite3.Connection, ticker: str, days: int = 30) -> str:
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
     try:
         rows = conn.execute(
             "SELECT filed_at, item_code, severity, summary "
@@ -168,7 +168,7 @@ def _format_filings(conn: sqlite3.Connection, ticker: str, days: int = 30) -> st
 
 
 def _format_insider(conn: sqlite3.Connection, ticker: str, days: int = 30) -> str:
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
     try:
         rows = conn.execute(
             "SELECT detected_at, cluster_size, total_value_m, summary "

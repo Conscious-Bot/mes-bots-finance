@@ -4,7 +4,7 @@ Full buy/sell history in position_events. Integrates with Phase 5 + 6 alerts.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from shared import prices
 from shared.storage import db
@@ -44,7 +44,7 @@ def _ensure_tables(cx) -> None:
 
 
 def _now() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def cost_in(avg_cost_eur: float | None, target_cur: str = "USD") -> float | None:

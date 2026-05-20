@@ -5,7 +5,7 @@ Returns None on failures - downstream must handle gracefully.
 """
 
 import logging as _logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 _logging.getLogger("yfinance").setLevel(_logging.CRITICAL)
 # Also suppress yfinance's print() to stdout for missing tickers
@@ -174,7 +174,7 @@ def get_returns(ticker: str, baseline_date: str, current_date: str | None = None
     c_actual: str | None
     if current_date is None:
         c_price = get_current_price(ticker)
-        c_actual = datetime.now().strftime("%Y-%m-%d")
+        c_actual = datetime.now(UTC).strftime("%Y-%m-%d")
     else:
         c_actual, c_price = get_price_on_date(ticker, current_date)
     if c_price is None:

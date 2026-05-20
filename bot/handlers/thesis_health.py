@@ -20,7 +20,7 @@ import logging
 import re
 import sqlite3
 from collections import Counter
-from datetime import datetime
+from datetime import UTC, datetime
 
 from bot.handlers._common import db_path
 
@@ -109,7 +109,7 @@ def _compute_health(window_days: int, min_impact: float) -> dict:
         except (json.JSONDecodeError, ValueError):
             pass
 
-    now = datetime.now()
+    now = datetime.now(UTC)
     theses = []
     stale = 0
     weak = 0

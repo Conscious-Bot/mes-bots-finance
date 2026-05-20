@@ -9,7 +9,7 @@ window (default 30d).
 """
 
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TypedDict
 
@@ -44,7 +44,7 @@ def parse_uptime_log(path: Path, window_days: int = 30) -> UptimeStats:
     }
     if not path.exists():
         return base
-    cutoff = datetime.now() - timedelta(days=window_days)
+    cutoff = datetime.now(UTC) - timedelta(days=window_days)
     ok = fail = 0
     earliest: datetime | None = None
     latest: datetime | None = None

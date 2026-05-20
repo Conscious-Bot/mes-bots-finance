@@ -12,7 +12,7 @@ entries the bot is not being used reflectively.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 __all__ = ["_append_log_entry", "cmd_log_friction", "cmd_log_value"]
@@ -22,7 +22,7 @@ def _append_log_entry(filename: str, message: str) -> None:
     """Append a timestamped entry to a log file at the repo root."""
     repo_root = Path(__file__).resolve().parent.parent.parent
     log_path = repo_root / filename
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+    ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(f"{ts} | {message}\n")
 

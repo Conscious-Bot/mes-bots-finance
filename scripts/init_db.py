@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -145,8 +145,8 @@ def main():
             "drawdown_pct": 0.0,
             "last_alert_drawdown_pct": 0.0,
             "last_balance_alert_ts": None,
-            "last_heartbeat_ts": datetime.now().isoformat(),
-            "bot_start_ts": datetime.now().isoformat(),
+            "last_heartbeat_ts": datetime.now(UTC).isoformat(),
+            "bot_start_ts": datetime.now(UTC).isoformat(),
             "session_id": "session_1",
             "paper_only": True,
             "active_theses_count": 0,
