@@ -1099,3 +1099,50 @@ runtime bombs; full sweep + test feedback is the safest discovery path.
 Open backlog: `datetime.now(UTC).replace(tzinfo=None)` anti-pattern in 8 live
 sites (intelligence/, bot/handlers/, shared/storage.py L868). Equivalent to
 deprecated datetime.utcnow(). Harmonization candidate for separate P3 ship.
+
+
+### Lesson 27 — Schema discipline tooling (Chantier #1 closing 21/05/2026)
+
+Forcing function for Lesson 21 'grep before invoke': two complementary mechanisms.
+
+**Write-time guard (opt-in, per developer)**:
+```python
+from shared.schema import assert_column_exists
+
+def my_query():
+    assert_column_exists("position_events", "ts")  # raises SchemaError on drift
+    cx.execute("SELECT ts FROM position_events WHERE ...")
+```
+
+Use `shared.schema` helpers whenever writing new SQL touching a table.
+LRU-cached, near-zero overhead. Discipline > performance.
+
+Available helpers:
+- `list_tables()` → all table names
+- `list_columns(table)` → all column names of a table (raises if table missing)
+- `assert_table_exists(table)` → raises SchemaError if missing
+- `assert_column_exists(table, column)` → raises SchemaError if column or table missing
+- `clear_cache()` → for tests / post-migration
+
+**CI smoke gate (automatic, every test run)**:
+`tests/test_schema_drift.py` AST-walks every `.execute()` / `.executemany()`
+call site, regex-extracts table refs from constant SQL strings, validates
+against current DB schema. Fails CI on orphan references.
+
+Scope: tables only. Dynamic SQL (f-strings, concatenations with variables)
+is skipped — accept those rare cases can't be statically verified.
+
+When `test_no_orphan_table_refs` fails:
+1. Typo / invented identifier → fix the SQL.
+2. Legitimate new table → ensure table is in DB, run
+   `python scripts/regen_schema_doc.py`, re-run tests.
+3. SQL construct false positive (CTE alias, subquery name) → add to
+   `_WHITELIST` in tests/test_schema_drift.py with rationale comment.
+
+Empirical context: 5 Lesson 21 violations occurred during ad-hoc sqlite3
+investigation in Bash 99-105 (May 2026). All would have been caught at
+write-time with `assert_column_exists` / `assert_table_exists`. The
+AST-based CI test would have caught the same patterns had they reached
+actual code (they didn't — investigation only).
+
+Chantier #1 closing criterion #6 closed via Option C (combo helpers + CI).
