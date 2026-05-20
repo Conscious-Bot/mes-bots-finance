@@ -118,8 +118,8 @@ def _compute_health(window_days: int, min_impact: float) -> dict:
         opened = row["opened_at"]
         try:
             opened_dt = datetime.fromisoformat(opened.replace("Z", "+00:00"))
-            if opened_dt.tzinfo is not None:
-                opened_dt = opened_dt.replace(tzinfo=None)
+            if opened_dt.tzinfo is None:
+                opened_dt = opened_dt.replace(tzinfo=UTC)
             days_old = (now - opened_dt).days
         except (ValueError, AttributeError):
             days_old = -1
@@ -128,8 +128,8 @@ def _compute_health(window_days: int, min_impact: float) -> dict:
         if last_rev:
             try:
                 rev_dt = datetime.fromisoformat(last_rev.replace("Z", "+00:00"))
-                if rev_dt.tzinfo is not None:
-                    rev_dt = rev_dt.replace(tzinfo=None)
+                if rev_dt.tzinfo is None:
+                    rev_dt = rev_dt.replace(tzinfo=UTC)
                 days_since_review = (now - rev_dt).days
             except (ValueError, AttributeError):
                 days_since_review = days_old
