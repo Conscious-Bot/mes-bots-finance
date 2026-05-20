@@ -307,6 +307,7 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     """
     import json
     import sqlite3
+
     from shared import llm, storage
 
     conn = sqlite3.connect(storage._DB_PATH)
