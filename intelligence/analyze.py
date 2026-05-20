@@ -421,7 +421,7 @@ def _get_cached_analysis(ticker, max_age_hours=24):
 
     conn = sqlite3.connect("data/bot.db")
     try:
-        cutoff = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=max_age_hours)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(hours=max_age_hours)).replace(tzinfo=None).isoformat()
         row = conn.execute(
             "SELECT content, metadata, timestamp FROM analyses "
             "WHERE ticker=? AND type='analyze' AND timestamp > ? "
@@ -446,6 +446,8 @@ def _store_analysis(ticker, synthesis, data):
     import sqlite3
     from datetime import datetime
 
+    from shared.storage import _naive_utc_iso
+
     def _safe(v):
         try:
             json.dumps(v)
@@ -461,7 +463,7 @@ def _store_analysis(ticker, synthesis, data):
             (
                 ticker.upper(),
                 "analyze",
-                datetime.now(UTC).replace(tzinfo=None).isoformat(),
+                _naive_utc_iso(),
                 synthesis,
                 json.dumps(meta_dict),
             ),

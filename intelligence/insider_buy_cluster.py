@@ -61,6 +61,7 @@ class BuyClusterSource(BaseDataSource):
         # Backward-compat: collect NEW clusters with _log_id and _price_at_detection
         self.new_found: list[dict] = []
         # Cache time-of-ingest to keep all rows consistent
+        # naive datetime by design — matches detected_at column format and _close_at_or_after consumer
         self._today = datetime.now(UTC).replace(tzinfo=None)
         self._detected_at = self._today.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -133,13 +134,14 @@ def resolve_pending_returns(checkpoint_days):
     from shared import storage
 
     pending = storage.get_unresolved_buy_clusters(checkpoint_days)
+    # naive UTC string for DB-write — matches insider_buy_clusters_log.resolved_at column format
     resolved_now = datetime.now(UTC).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
     resolved_list = []
     for c in pending:
         try:
-            detected = datetime.strptime(c["detected_at"][:10], "%Y-%m-%d")
+            detected = datetime.strptime(c["detected_at"][:10], "%Y-%m-%d").replace(tzinfo=UTC)
             target_date = detected + timedelta(days=checkpoint_days)
-            if target_date > datetime.now(UTC).replace(tzinfo=None):
+            if target_date > datetime.now(UTC):
                 continue
             price_now = _close_at_or_after(c["ticker"], target_date)
             if not price_now or not c["price_at_detection"]:

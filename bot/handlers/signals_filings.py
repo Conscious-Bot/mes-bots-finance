@@ -62,7 +62,7 @@ async def cmd_insider_buy_cluster(update, ctx):  # noqa: ARG001
     else:
         from datetime import UTC, datetime, timedelta
 
-        cutoff = (datetime.now(UTC).replace(tzinfo=None) - timedelta(days=90)).strftime("%Y-%m-%d")
+        cutoff = (datetime.now(UTC) - timedelta(days=90)).strftime("%Y-%m-%d")
         import sqlite3
 
         conn = sqlite3.connect(storage_mod._DB_PATH)

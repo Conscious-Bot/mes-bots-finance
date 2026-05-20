@@ -162,6 +162,25 @@ from pathlib import Path as _Path
 _DB_PATH = _Path("data/bot.db")
 
 
+
+def _naive_utc_iso() -> str:
+    """Generate UTC timestamp as naive ISO 8601 string (no offset suffix).
+
+    Used for DB columns historically storing naive timestamps. The strip-tz
+    antipattern wrapped here is intentional: existing DB columns (decisions.
+    resolved_*_at, analyses.timestamp, insider_buy_clusters_log.detected_at,
+    etc.) store naive ISO. Migrating columns to aware = string-compare format
+    risk on existing rows (see Lesson 26 in CONVENTIONS.md).
+
+    Equivalent to deprecated datetime.utcnow().isoformat() but explicit about
+    UTC source and naive-by-design intent. Use this helper at every DB write
+    site that targets a naive-convention column.
+
+    Schema-migration to aware-aware everywhere is tracked as P4 (separate ship).
+    """
+    return datetime.now(UTC).replace(tzinfo=None).isoformat()
+
+
 def signal_exists_by_gmail_id(gmail_id: str) -> bool:
     """Check if a Gmail message has already been ingested."""
     conn = _sqlite3.connect(_DB_PATH)
@@ -865,7 +884,7 @@ def resolve_decision(decision_id, horizon_days, price, return_pct, thesis_relati
             f"mistake_tag_auto = COALESCE(mistake_tag_auto, ?) "
             f"WHERE id = ?",
             (
-                datetime.now(UTC).replace(tzinfo=None).isoformat(),
+                _naive_utc_iso(),
                 price,
                 return_pct,
                 thesis_relative,

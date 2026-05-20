@@ -47,13 +47,15 @@ async def cmd_sources_health(update, ctx):  # noqa: ARG001
         await update.message.reply_text("No newsletter sources found")
         return
     lines = ["Newsletter sources health (30d window):\n"]
-    now = datetime.now(UTC).replace(tzinfo=None)
+    now = datetime.now(UTC)
     for name, cred, n_30d, last_seen in rows:
         short = (name.split("<")[0].strip() or name)[:30]
         age_days = None
         if last_seen:
             try:
                 last_dt = datetime.fromisoformat(last_seen.replace("Z", "").split(".")[0])
+                if last_dt.tzinfo is None:
+                    last_dt = last_dt.replace(tzinfo=UTC)
                 age_days = (now - last_dt).days
             except Exception:
                 pass
