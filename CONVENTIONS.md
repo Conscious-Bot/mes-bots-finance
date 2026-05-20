@@ -1068,3 +1068,34 @@ Indicates bulk imports + zero live decisions. Forward-tracking is the right metr
 before declaring code bug. A smoke test taking 30 seconds eliminates hypothesis (b) 
 "code broken" before lengthy investigation of hypothesis (a) "data flow expected".
 
+
+
+### Lesson 26 — UTC sweep audits ALL datetime touchpoints in same module
+
+When sweeping `datetime.now()` → `datetime.now(UTC)` in a module, the change
+makes computed timestamps tz-aware. ALL downstream operations that touch
+these values must also be aware, otherwise TypeError on arithmetic.
+
+Audit checklist for any module receiving UTC sweep:
+1. `datetime.strptime(...)` → result is naive → `.replace(tzinfo=UTC)` needed
+2. `datetime.fromisoformat(...)` → may be naive depending on input string
+   - If input has `+00:00`/`Z` suffix → aware ✓
+   - If input is naive ISO `2026-05-20T12:34:56` → naive → needs promote
+3. `dt.replace(tzinfo=None)` strip pattern → ANTI-PATTERN with UTC-aware now
+   - Invert logic: if dt.tzinfo is None: dt = dt.replace(tzinfo=UTC)
+4. `(now - other_dt)` arithmetic → both must be aware OR both naive
+
+Empirical regressions surfaced by Bash 124 sweep:
+- shared/uptime.py: strptime parsed naive, compared to UTC cutoff → TypeError
+  → fixed by .replace(tzinfo=UTC) on strptime result (Bash 126)
+- bot/handlers/thesis_health.py: parsed datetimes had tz STRIPPED explicitly,
+  then compared to UTC now → TypeError
+  → fixed by inverting strip logic (Bash 128)
+
+Trust the gates: tests + pytest surface these mismatches deterministically.
+A failing test post-sweep IS the audit. Half-aware codebases are silent
+runtime bombs; full sweep + test feedback is the safest discovery path.
+
+Open backlog: `datetime.now(UTC).replace(tzinfo=None)` anti-pattern in 8 live
+sites (intelligence/, bot/handlers/, shared/storage.py L868). Equivalent to
+deprecated datetime.utcnow(). Harmonization candidate for separate P3 ship.

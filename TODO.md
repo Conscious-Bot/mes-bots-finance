@@ -1240,3 +1240,69 @@ Effort: variable 2-8h selon option. Aligne avec PHILOSOPHY "Tout output non inst
 5. Lessons 21-25 codified ✓ (done)
 6. **NEW** Schema discipline tooling shipped (P3 option chosen)
 
+
+
+---
+
+## CHANTIER #1 — P2 UTC SWEEP CLOSED (21/05/2026)
+
+### Done — 7 commits série post-end-session-refresh
+793ce4e fix(thesis_health) tz strip → promote pattern regression
+f9fb321 fix(uptime) strptime tz-aware UTC regression
+9419768 fix(utc-sweep) final batch 10 sites bot/handlers + shared + scripts
+48ddb32 fix(intelligence) complete UTC sweep 3 remaining digest + price_monitor
+ac7db2e fix(intelligence) UTC sweep 11 sites across 4 files
+388351b fix(edgar) UTC sweep 6 sites
+9299671 refactor(storage) remove _t_dt/_t_td/_t_json alias pattern
+513e5e7 fix(storage) UTC sweep 6 sites
+6a8a58d refactor(storage) purge 3 dead prediction functions schema drift
+
+### Empirical tally
+- 39 datetime.now() sites swept → UTC-aware (12 storage + 6 edgar + 11 intelligence + 10 final)
+- 3 dead prediction functions purged storage.py (-51 LOC)
+- _t_dt/_t_td/_t_json alias pattern removed storage.py
+- 2 regression bugs found + fixed (uptime strptime + thesis_health strip)
+- 308 tests passing / ruff 0 / mypy 0 maintained throughout
+
+### NEW P3 follow-ups discovered during sweep
+
+**P3-A: tz-strip anti-pattern (8 live sites)**
+`datetime.now(UTC).replace(tzinfo=None)` pattern equivalent to deprecated utcnow().
+Sites:
+- intelligence/insider_buy_cluster.py L64, L136, L142
+- intelligence/analyze.py L424, L464
+- shared/storage.py L868 (flagged Bash 120, preserved for downstream contract)
+- bot/handlers/sources_admin.py L50
+- bot/handlers/signals_filings.py L65
+
+Strategy: audit each downstream consumer (DB column expectations, comparison
+sites) THEN harmonize to tz-aware OR document explicit naive contract. ~3-5h.
+
+**P3-B: local re-import / alias pattern cleanup**
+Multiple files re-import datetime modules at function scope (redundant with
+top-level import OR aliased to avoid conflicts):
+- edgar.py L348, L479: `from datetime import datetime, timedelta` local
+- digest.py L379: `from datetime import datetime as _dt` alias
+- calendar.py L171: `from datetime import date as _date, timedelta as _td` alias
+- calendar.py L263: `from datetime import datetime` local
+
+Strategy: same pattern as storage.py Bash 120 cleanup. Replace aliases with
+canonical names, remove redundant local imports. ~1h focused.
+
+**P3-C: NEW lesson 26 codified** ← already done this session
+
+### Remaining Chantier #1 backlog J-21
+
+- [ ] P2 briefs persistence decision (2h) — unchanged
+- [ ] P3-A tz-strip anti-pattern harmonization (3-5h)
+- [ ] P3-B local re-import cleanup (1h)
+- [ ] P3 schema discipline tooling (Lesson 21 5× violations — see prior section)
+
+### Closing criteria 10/06 — progress
+1. ruff 0 / mypy 0 / pytest passing maintained ✓
+2. UTC sweep complete ✓ **(this session)**
+3. KPI #5 either functional or explicitly N/A documented ✓
+4. REFERENCE_SCHEMA.md accurate — NOT done (P1 carry-forward)
+5. Lessons 21-26 codified ✓
+6. Schema discipline tooling shipped — NOT done (P3 carry-forward)
+
