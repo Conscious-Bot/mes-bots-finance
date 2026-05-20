@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-**Generated**: 20 May 2026 (auto-regen via Bash 138)
+**Generated**: 20 May 2026 (auto-regen via `scripts/regen_schema_doc.py`)
 **SQLite mode**: WAL (concurrent reads OK)
 **DB path**: `data/bot.db`
 
@@ -550,8 +550,5 @@ CREATE TABLE llm_calls (
 ## Regeneration
 
 ```bash
-# Regen this doc from actual DB schema:
-python -c 'import sys; sys.path.insert(0,"."); exec(open("scripts/regen_schema_doc.py").read())'
+python scripts/regen_schema_doc.py
 ```
-
-Or one-shot inline: see Bash 138 in transcript 2026-05-20.
