@@ -139,3 +139,54 @@ Two mechanisms run in parallel (Day 2 marathon legacy):
 3. Tag signaux d alerte ROUGE / ORANGE / VERT
 4. Document dans weekly_log.md (a creer plus tard)
 5. Action items eventuels
+
+
+---
+
+## KPI #5 — Measurement Window Reset (21/05/2026)
+
+### Empirical baseline post-investigation
+
+Phase B5 journal logging chain (cmd_position_buy/sell → log_decision → bias_tagger
+→ update_decision_bias_tags) is **validated functional live** as of 2026-05-20 12:21:58 UTC
+via smoke test (decision #8 entry SMOKE / #9 full_exit SMOKE, both auto-tagged biases).
+
+### Historical state (pre-21/05/2026)
+
+- 20/21 active positions = bulk backfill 2026-05-15 via `scripts/import_positions_legacy.py`
+  which intentionally bypasses cmd_position_buy handler (calls `positions_mod.add_buy()` direct).
+  By design: legacy positions imported with current market price as cost basis = no real
+  entry decision rationale to journal honestly.
+- 1 historical /position_buy live test on 2026-05-13 13:35 (NVDA 0.1 @ 130 "test b2 flag off")
+  predates Ship 5 of Day 2 marathon OR errored silent in except branch — no decision row created.
+- 2 historical decisions (12/05 NVDA `no_action_flag`) via journal_bias.py handler,
+  NOT via cmd_position_buy path.
+- **Net: zero `entry` or `scale_in` decisions tracked before 21/05/2026.**
+
+### Decision: forward-only honest tracking (option β)
+
+KPI #5 measurement window **starts 21/05/2026**. All material decisions taken via
+/position_buy /position_sell /no_action_flag (or other journal-instrumented handlers)
+from this date forward count toward the 100% target.
+
+Legacy 20 positions explicitly out-of-scope with documented rationale "pre-journal era,
+bulk import design bypass." No retroactive backfill — that would be metric manipulation
+inconsistent with PHILOSOPHY "Tout output non instrumenté est gaspillé" (the gasp is
+historical, faking output ex-post falsifies track record).
+
+### Measurement formula
+
+KPI #5 = decisions_journaled / decisions_taken WHERE created_at >= '2026-05-21'
+
+Action si breach (<90% over 30d rolling): pause new thesis creation, audit the gap source
+(handler bug vs discipline lapse), fix root cause before resuming.
+
+### Tracking query
+
+```sql
+SELECT COUNT(*) AS journaled, decision_type
+FROM decisions
+WHERE created_at >= '2026-05-21'
+GROUP BY decision_type;
+```
+

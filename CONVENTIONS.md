@@ -1048,3 +1048,23 @@ Resolution: vulture removed from regular gate workflow. Run occasionally
 for audits via `vulture --min-confidence 80 --ignore-names context shared/ ...`.
 Keep `ruff check` as the canonical CI gate for unused-arg detection.
 
+
+
+### Lesson 25 — Phase B5 chain validated live, gap was discipline not code
+
+Investigation 20/05/2026 KPI #5 (decisions journaled = 2/21 positions = 9.5%):
+
+Diagnostic empirical via smoke test (/position_buy SMOKE → decision #8 entry / 
+/position_sell SMOKE → decision #9 full_exit, both with auto-tagged biases):
+- Phase B5 hook (positions.py:325 + L393) functional bout-en-bout
+- Bulk backfill scripts (import_positions_legacy.py) intentionally bypass handler
+  by calling `positions_mod.add_buy()` direct without log_decision
+- Gap was discipline-of-use, not code regression
+
+**Conclusion**: lower KPI #5 historical reading does NOT indicate Phase B5 broken.
+Indicates bulk imports + zero live decisions. Forward-tracking is the right metric.
+
+**Pattern for future audits**: when a KPI seems "off", trace data path empirically
+before declaring code bug. A smoke test taking 30 seconds eliminates hypothesis (b) 
+"code broken" before lengthy investigation of hypothesis (a) "data flow expected".
+
