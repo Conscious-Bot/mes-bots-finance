@@ -4,7 +4,7 @@ import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +37,7 @@ def save_state(state: dict[str, Any]) -> None:
 def update_state(**kwargs: Any) -> None:
     s = load_state()
     s.update(kwargs)
-    s["last_heartbeat_ts"] = datetime.now().isoformat()
+    s["last_heartbeat_ts"] = datetime.now(UTC).isoformat()
     save_state(s)
 
 
@@ -45,13 +45,13 @@ def log_event(event_type: str, details: Any = None) -> None:
     with db() as conn:
         conn.execute(
             "INSERT INTO bot_events(timestamp, event_type, details) VALUES(?,?,?)",
-            (datetime.now().isoformat(), event_type, json.dumps(details) if isinstance(details, dict) else details),
+            (datetime.now(UTC).isoformat(), event_type, json.dumps(details) if isinstance(details, dict) else details),
         )
 
 
 def active_signals(min_score: int = 5, since_hours: int = 24) -> list[dict]:
-    since = (datetime.now() - timedelta(hours=since_hours)).isoformat()
-    now = datetime.now().isoformat()
+    since = (datetime.now(UTC) - timedelta(hours=since_hours)).isoformat()
+    now = datetime.now(UTC).isoformat()
     with db() as conn:
         rows = conn.execute(
             """
@@ -86,7 +86,7 @@ def add_thesis(
         """,
             (
                 ticker,
-                datetime.now().isoformat(),
+                datetime.now(UTC).isoformat(),
                 conviction,
                 direction,
                 horizon,
@@ -119,7 +119,7 @@ def update_thesis_status(thesis_id: int, status: str, notes: str | None = None):
     with db() as conn:
         conn.execute(
             "UPDATE theses SET status = ?, last_reviewed = ?, notes = COALESCE(?, notes) WHERE id = ?",
-            (status, datetime.now().isoformat(), notes, thesis_id),
+            (status, datetime.now(UTC).isoformat(), notes, thesis_id),
         )
 
 
