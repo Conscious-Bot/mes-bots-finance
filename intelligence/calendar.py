@@ -6,7 +6,7 @@ Telegram /calendar reads from DB without yfinance latency.
 Future v2: macro events hardcoded (FOMC/CPI/NFP), thesis cross-ref alerts.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import yfinance as yf
 
@@ -168,7 +168,6 @@ def format_alerts(alerts):
 # CPI = BLS approximate (verify against bls.gov/schedule/news_release/cpi.htm).
 # ============================================================================
 import calendar as _cal_mod
-from datetime import date as _date, timedelta as _td
 
 # Day-2 (decision/press-conf day) for each remaining 2026 FOMC
 FOMC_DATES_2026 = [
@@ -192,7 +191,7 @@ CPI_DATES_2026 = [
 ]
 
 
-def _first_friday(year: int, month: int) -> _date:
+def _first_friday(year: int, month: int) -> date:
     for d in _cal_mod.Calendar().itermonthdates(year, month):
         if d.month == month and d.weekday() == 4:
             return d
@@ -200,7 +199,7 @@ def _first_friday(year: int, month: int) -> _date:
 
 
 def get_nfp_dates(start_year: int = 2026, end_year: int = 2027) -> list:
-    today = _date.today()
+    today = date.today()
     out = []
     for y in range(start_year, end_year + 1):
         for m in range(1, 13):
@@ -214,7 +213,7 @@ def seed_macro_events() -> int:
     """Insert FOMC + NFP + CPI into events table. Idempotent (INSERT OR IGNORE)."""
     from shared.storage import db
 
-    today_str = _date.today().isoformat()
+    today_str = date.today().isoformat()
     with db() as cx:
         for d_str, is_sep, desc in FOMC_DATES_2026:
             if d_str < today_str:
@@ -247,8 +246,8 @@ def format_macro_calendar(days_ahead: int = 90) -> str:
     """Formatted macro events for next N days."""
     from shared.storage import db
 
-    today = _date.today()
-    end = (today + _td(days=days_ahead)).isoformat()
+    today = date.today()
+    end = (today + timedelta(days=days_ahead)).isoformat()
     with db() as cx:
         rows = cx.execute(
             "SELECT date, event_type, description FROM events "
@@ -260,8 +259,6 @@ def format_macro_calendar(days_ahead: int = 90) -> str:
         return "(no macro events in next 90d — run seed_macro_events)"
     icons = {"fomc": "🏦", "nfp": "💼", "cpi": "📊"}
     lines = [f"=== MACRO CALENDAR (next {days_ahead}d) ==="]
-    from datetime import datetime
-
     for r in rows:
         d_obj = datetime.strptime(r["date"], "%Y-%m-%d").date()
         days_out = (d_obj - today).days

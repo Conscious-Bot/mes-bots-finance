@@ -6,6 +6,7 @@ returns formatted digest for Telegram.
 """
 
 import logging
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from shared import config, llm, storage
@@ -306,8 +307,6 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     """
     import json
     import sqlite3
-    from datetime import UTC, datetime, timedelta
-
     from shared import llm, storage
 
     conn = sqlite3.connect(storage._DB_PATH)
@@ -376,8 +375,7 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         + str(len(sources_set))
         + " sources distinctes."
     )
-    from datetime import datetime as _dt
-    today_str = _dt.now().strftime("%d/%m/%Y %H:%M")
+    today_str = datetime.now(UTC).strftime("%d/%m/%Y %H:%M")
     prompt = (
         "Tu es l'analyste finance d'Olivier (profil thesis-driven slow alpha sur tech/semis/AI/crypto, "
         "biais asymetriques: vend winners trop tot PLTR/NVDA, ne vend pas crypto aux tops, "

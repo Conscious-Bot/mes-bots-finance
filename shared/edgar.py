@@ -345,8 +345,6 @@ def _classify_buy_cluster(buyers):
 
 
 def get_insider_cluster(ticker, days=14):
-    from datetime import datetime, timedelta
-
     try:
         activity = get_insider_activity(ticker, days=days)
     except Exception as e:
@@ -476,8 +474,6 @@ def get_recent_8k_filings(ticker, days=30):
     Returns list of dicts: {accession, cik, filed_at, items_raw, item_codes, url, form}.
     Uses recent.items[] parallel-indexed array, zero HTML parsing.
     """
-    from datetime import datetime, timedelta
-
     cik = get_cik_for_ticker(ticker)
     if not cik:
         return []
