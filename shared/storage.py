@@ -871,7 +871,6 @@ def get_unresolved_decisions(horizon_days):
 
 def resolve_decision(decision_id, horizon_days, price, return_pct, thesis_relative, mistake_tag_auto):
     """Persist J+30 or J+90 resolution."""
-    from datetime import datetime
 
     if horizon_days not in (30, 90):
         raise ValueError("horizon_days must be 30 or 90")

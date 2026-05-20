@@ -444,7 +444,6 @@ def _store_analysis(ticker, synthesis, data):
     """Persist LLM synthesis + full data snapshot (JSON-safe subset)."""
     import json
     import sqlite3
-    from datetime import datetime
 
     from shared.storage import _naive_utc_iso
 
