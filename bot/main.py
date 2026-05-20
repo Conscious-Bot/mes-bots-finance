@@ -9,80 +9,98 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from bot.handlers.anti_erosion import (_append_log_entry, cmd_log_friction,
-                                       cmd_log_value)
+from bot.handlers.anti_erosion import _append_log_entry, cmd_log_friction, cmd_log_value
 from bot.handlers.bias_pattern import cmd_bias_pattern
-from bot.handlers.debt_crisis import (cmd_debt_alerts, cmd_debt_history,
-                                      cmd_debt_status)
+from bot.handlers.debt_crisis import cmd_debt_alerts, cmd_debt_history, cmd_debt_status
 from bot.handlers.digest import cmd_digest
-from bot.handlers.echo_crypto_macro import (cmd_credit, cmd_crypto,
-                                            cmd_echo_recent, cmd_macro,
-                                            cmd_materiality,
-                                            cmd_orphan_tickers, cmd_override,
-                                            cmd_price_check)
+from bot.handlers.echo_crypto_macro import (
+    cmd_credit,
+    cmd_crypto,
+    cmd_echo_recent,
+    cmd_macro,
+    cmd_materiality,
+    cmd_orphan_tickers,
+    cmd_override,
+    cmd_price_check,
+)
 from bot.handlers.find import cmd_find
 from bot.handlers.journal_audit import cmd_journal_audit
-from bot.handlers.journal_bias import (cmd_bias_review, cmd_history,
-                                       cmd_journal, cmd_journal_review,
-                                       cmd_journal_tag, cmd_journal_unresolved,
-                                       cmd_position_history)
-from bot.handlers.misc import (cmd_asymmetry, cmd_brief, cmd_position,
-                               cmd_position_set, cmd_thesis_set)
-from bot.handlers.observability import (_cost_compute_trajectory,
-                                        _cost_format_trajectory,
-                                        _format_kpi_report, _kpi_compute_all,
-                                        cmd_cost_trajectory, cmd_handler_stats,
-                                        cmd_health, cmd_kpi_status,
-                                        cmd_llm_costs)
-from bot.handlers.portfolio_views import (cmd_portfolio_drift,
-                                          cmd_portfolio_narratives,
-                                          cmd_portfolio_sectors)
-from bot.handlers.positions import (_portfolio_journal_ctx, cmd_portfolio,
-                                    cmd_position_buy, cmd_position_sell)
-from bot.handlers.predictions import (cmd_credibility, cmd_feedback,
-                                      cmd_predictions, cmd_resolve_now)
-from bot.handlers.regime_calendar import (cmd_calendar, cmd_calendar_refresh,
-                                          cmd_regime)
+from bot.handlers.journal_bias import (
+    cmd_bias_review,
+    cmd_history,
+    cmd_journal,
+    cmd_journal_review,
+    cmd_journal_tag,
+    cmd_journal_unresolved,
+    cmd_position_history,
+)
+from bot.handlers.misc import cmd_asymmetry, cmd_brief, cmd_position, cmd_position_set, cmd_thesis_set
+from bot.handlers.observability import (
+    _cost_compute_trajectory,
+    _cost_format_trajectory,
+    _format_kpi_report,
+    _kpi_compute_all,
+    cmd_cost_trajectory,
+    cmd_handler_stats,
+    cmd_health,
+    cmd_kpi_status,
+    cmd_llm_costs,
+)
+from bot.handlers.portfolio_views import cmd_portfolio_drift, cmd_portfolio_narratives, cmd_portfolio_sectors
+from bot.handlers.positions import _portfolio_journal_ctx, cmd_portfolio, cmd_position_buy, cmd_position_sell
+from bot.handlers.predictions import cmd_credibility, cmd_feedback, cmd_predictions, cmd_resolve_now
+from bot.handlers.regime_calendar import cmd_calendar, cmd_calendar_refresh, cmd_regime
 from bot.handlers.signal_drilldown import cmd_signal_drilldown
-from bot.handlers.signals_filings import (cmd_eight_k_history,
-                                          cmd_insider_buy_cluster,
-                                          cmd_insider_buy_cluster_stats,
-                                          cmd_insider_cluster,
-                                          cmd_insider_digest, cmd_insiders,
-                                          cmd_recent_8k, cmd_signals_by_type)
-from bot.handlers.sources_admin import (cmd_promote, cmd_sources_brier,
-                                        cmd_sources_half_life,
-                                        cmd_sources_health, cmd_tiers,
-                                        cmd_tiers_watch)
+from bot.handlers.signals_filings import (
+    cmd_eight_k_history,
+    cmd_insider_buy_cluster,
+    cmd_insider_buy_cluster_stats,
+    cmd_insider_cluster,
+    cmd_insider_digest,
+    cmd_insiders,
+    cmd_recent_8k,
+    cmd_signals_by_type,
+)
+from bot.handlers.sources_admin import (
+    cmd_promote,
+    cmd_sources_brier,
+    cmd_sources_half_life,
+    cmd_sources_health,
+    cmd_tiers,
+    cmd_tiers_watch,
+)
 from bot.handlers.system import cmd_help, cmd_ping
-from bot.handlers.thesis_analyze import (cmd_analyze, cmd_analyze_debate,
-                                         cmd_debate_replay, cmd_risk_check,
-                                         cmd_thesis_premortem)
-from bot.handlers.thesis_crud import (cmd_exit, cmd_exit_force, cmd_thesis_add,
-                                      cmd_thesis_list, cmd_thesis_note,
-                                      cmd_thesis_revisit)
+from bot.handlers.thesis_analyze import (
+    cmd_analyze,
+    cmd_analyze_debate,
+    cmd_debate_replay,
+    cmd_risk_check,
+    cmd_thesis_premortem,
+)
+from bot.handlers.thesis_crud import (
+    cmd_exit,
+    cmd_exit_force,
+    cmd_thesis_add,
+    cmd_thesis_list,
+    cmd_thesis_note,
+    cmd_thesis_revisit,
+)
 from bot.handlers.thesis_health import cmd_thesis_health
 from data_sources import gmail_
-from intelligence import analyze as analyze_mod
-from intelligence import calendar as calendar_mod
-from intelligence import credibility as credibility_mod
-from intelligence import digest as digest_mod
-from intelligence import learning as learning_mod
-from intelligence import regime as regime_mod
-from intelligence import thesis as thesis_mod
+from intelligence import (
+    analyze as analyze_mod,
+    calendar as calendar_mod,
+    credibility as credibility_mod,
+    digest as digest_mod,
+    learning as learning_mod,
+    regime as regime_mod,
+    thesis as thesis_mod,
+)
 from intelligence.calendar import format_macro_calendar, seed_macro_events
-from intelligence.debt_monitor import (cron_tier1_daily, cron_tier2_weekly,
-                                       cron_tier3_monthly)
-from intelligence.insider_digest import (daily_insider_refresh,
-                                         format_daily_insider_digest)
-from intelligence.price_monitor import (check_thesis_triggers, list_overrides,
-                                        record_override)
-from shared import config
-from shared import crypto as crypto_mod
-from shared import edgar as edgar_mod
-from shared import notify
-from shared import positions as positions_mod
-from shared import storage
+from intelligence.debt_monitor import cron_tier1_daily, cron_tier2_weekly, cron_tier3_monthly
+from intelligence.insider_digest import daily_insider_refresh, format_daily_insider_digest
+from intelligence.price_monitor import check_thesis_triggers, list_overrides, record_override
+from shared import config, crypto as crypto_mod, edgar as edgar_mod, notify, positions as positions_mod, storage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -316,8 +334,7 @@ async def weekly_handler_stats_job():
     try:
         import sqlite3 as _sql
 
-        from shared import notify as _notify
-        from shared import storage as _storage
+        from shared import notify as _notify, storage as _storage
 
         conn = _sql.connect(_storage._DB_PATH)
         conn.row_factory = _sql.Row
@@ -402,9 +419,7 @@ async def update_echo_clusters_job():
     """Phase A3 — Hourly: embed pending signals + compute echo clusters in 48h window."""
     log.info("Echo clusters update starting")
     try:
-        from shared import echo as echo_mod
-        from shared import embeddings as emb_mod
-        from shared import storage as storage_mod
+        from shared import echo as echo_mod, embeddings as emb_mod, storage as storage_mod
 
         pending = storage_mod.get_unembedded_signals(limit=100)
         if pending:

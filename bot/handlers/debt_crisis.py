@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from intelligence.debt_monitor import (
-    INDICATOR_CONFIG,
-    run_scan,
-    status_snapshot,
-)
+from intelligence.debt_monitor import INDICATOR_CONFIG, run_scan, status_snapshot
 from shared import storage
 from shared.storage import db
 

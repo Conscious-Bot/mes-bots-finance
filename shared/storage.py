@@ -272,9 +272,7 @@ def insert_raw_signal(source_id: int, gmail_id: str, timestamp: str, subject: st
 # === Phase 2 : Thesis tracker helpers ===
 
 import json as _t_json
-from datetime import UTC
-from datetime import datetime as _t_dt
-from datetime import timedelta as _t_td
+from datetime import UTC, datetime as _t_dt, timedelta as _t_td
 
 
 def _parse_thesis_row(row):
@@ -1711,8 +1709,7 @@ def get_signals_by_type(signal_type, since_hours=72, limit=20):
     conn = _sqlite3.connect(_DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
-        from datetime import datetime as _dt
-        from datetime import timedelta as _td
+        from datetime import datetime as _dt, timedelta as _td
 
         cutoff = (_dt.now() - _td(hours=int(since_hours))).strftime("%Y-%m-%d %H:%M:%S")
         rows = conn.execute(
