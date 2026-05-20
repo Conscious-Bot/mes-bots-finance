@@ -1171,3 +1171,72 @@ At J+0 (10/06) batch resolution, Chantier #1 closed if:
 - Disk plein silencieux
 - API key leak via git commit
 
+
+
+---
+
+## CHANTIER #1 — Status refresh end of session 20-21/05/2026
+
+### Done (6 commits série, 20-21/05/2026)
+
+**P0 free wins (4 commits)**:
+- ✅ fce38c3 fix(debt_monitor) RepoSRF (ON RRP ambiguous post-QT) → BankReserves WRESBAL
+- ✅ 246aaea fix(debt_monitor) BankReserves phase_ranges in millions USD (FRED native units)
+- ✅ 1d90ffe chore(immaculate-sweep) mypy 6→0 + _os dead import + isort 14 files
+- ✅ 9d8848c fix(immaculate-sweep) ruff --fix harmonize imports (combine-as-imports)
+
+**P0 documentation (1 commit)**:
+- ✅ 59931c6 docs(chantier-1) TODO Immaculate Sweep J-21 + Migration archive + Lessons 21-24
+
+**P1 KPI #5 investigation closed (1 commit)**:
+- ✅ 4964f22 docs(kpi5) baseline reset 21/05/2026 + Lesson 25 Phase B5 validated live
+
+Empirical resolution via smoke test (decision #8 entry SMOKE + #9 full_exit SMOKE):
+- Hypothesis (a) bulk backfill bypass = CONFIRMED
+- Hypothesis (b) Phase B5 broken = ELIMINATED (chain validated live)
+- Hypothesis (c) zero live entry since 12/05 = CONFIRMED
+- Decision: forward-only honest tracking from 21/05/2026, no retroactive backfill
+
+### Remaining P2 (5-7h focused future session)
+
+- [ ] **UTC sweep top-down** : ~35 sites datetime.now() zero-arg sur 13 files
+  - shared/storage.py (8 sites)
+  - shared/edgar.py (6 sites)
+  - intelligence/{morning_brief,digest,price_monitor,calendar}.py (10 sites)
+  - bot/handlers/{find,anti_erosion,thesis_health}.py (5 sites)
+  - shared/{positions,prices,uptime}.py (3 sites)
+  - scripts/init_db.py (2 sites)
+  Strategy: per-file commit, gates after each, NO top-down sweep brute (touch=type per R14 sauf exception immaculate mandate)
+
+- [ ] **Briefs persistence decision** (2h)
+  - Currently no `briefs` table; /brief outputs ephemeral
+  - Decide: persist for Path 5/6 track record artifact, OR accept ephemeral + document
+
+### NEW P3 — Schema discipline tooling (issu Lesson 21 répétée 5×)
+
+**Problem**: Lesson 21 (grep before invoke) violated 5 times in single session despite codification :
+1. tier_scan invented (réel run_scan)
+2. recompute_composite_from_latest invented (n'existe pas)
+3. WRESBAL units billions assumed (réel millions)
+4. position_events.created_at assumed (réel timestamp)
+5. conviction_history.ticker + risk_checks.ticker assumed (n'existent pas)
+
+Doc-only règle insuffisante. Pattern trop ancré. Vrai fix demande contrainte structurelle.
+
+**Options à explorer (post-J-21)**:
+- (a) Wrapper Python `schema.assert_column_exists(table, col)` à appeler avant tout query
+- (b) Custom ruff plugin qui scan SQL strings dans le code Python vs vrai schema sqlite
+- (c) Abandonner SQL ad-hoc au profit ORM typé (SQLAlchemy + reflection)
+- (d) Generated typed wrapper depuis schema via codegen
+- (e) Pré-commit hook qui exécute sqlite3 .schema vs queries dans diff
+
+Effort: variable 2-8h selon option. Aligne avec PHILOSOPHY "Tout output non instrumenté est gaspillé" — un schema implicite est un output non-instrumenté.
+
+### Closing criteria 10/06 (unchanged)
+1. ruff 0 / mypy 0 / pytest passing maintained ✓ (current: clean)
+2. UTC sweep complete (0 datetime.now() zero-arg)
+3. KPI #5 either functional or explicitly N/A documented ✓ (done)
+4. REFERENCE_SCHEMA.md accurate
+5. Lessons 21-25 codified ✓ (done)
+6. **NEW** Schema discipline tooling shipped (P3 option chosen)
+
