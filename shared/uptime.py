@@ -53,7 +53,7 @@ def parse_uptime_log(path: Path, window_days: int = 30) -> UptimeStats:
         if not m:
             continue
         try:
-            ts = datetime.strptime(f"{m.group(1)} {m.group(2)}", "%Y-%m-%d %H:%M:%S")
+            ts = datetime.strptime(f"{m.group(1)} {m.group(2)}", "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
         except ValueError:
             continue
         if ts < cutoff:
