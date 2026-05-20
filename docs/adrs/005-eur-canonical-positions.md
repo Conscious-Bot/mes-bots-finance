@@ -137,3 +137,64 @@ JPY ratios ~18293% (1/0.005467), USD ratios ~117% (1/0.858).
 - Commit `b601bfd` — core fix + cost_in helper + tests (Day 14)
 - Commit `8e345c2` — Group C display label coherence (Day 14)
 - Lesson 15 (CONVENTIONS.md §16) — empirical verification applies beyond SQL
+
+---
+
+## P2 Audit Follow-up (Day 14 afternoon)
+
+### `theses` table — EUR canonical CONFIRMED
+
+Cross-source ratio audit Day 14 on 21 active priced theses:
+
+| Currency | n | avg entry/live_EUR ratio | Verdict |
+|----------|---|-------------------------|---------|
+| KRW | 1 | 1.007 | EUR canonical |
+| JPY | 3 | 1.035 | EUR canonical |
+| USD | 11 | 1.065 | EUR canonical |
+| EUR | 6 | 1.015 | EUR canonical |
+
+All 4 price fields (`entry_price`, `target_partial`, `target_full`, `stop_price`)
+follow same EUR convention as `positions.avg_cost`. Target_full ratios 1.4-1.8x
+(thesis upside), stop ratios 0.7-0.9x (thesis downside) — consistent with
+asymmetric target/stop design at entry.
+
+**Display fix**: `intelligence/risk_manager.py::_build_thesis_state` converted
+via `cost_in()` to USD for RISK_PROMPT prompt currency coherence (matching
+Group C pattern for portfolio_state).
+
+### `decisions.price_at_decision` — SUSPECT USD/NATIVE (insufficient evidence)
+
+Cross-source ratio audit Day 14 (N=2 NVDA decisions only):
+
+| Currency | n | avg ratio | Note |
+|----------|---|-----------|------|
+| USD | 2 | 1.159 | Suspiciously close to EUR→USD fx (1.166) |
+
+N=2 is below conviction threshold. Could be (a) NATIVE storage matching fx
+or (b) EUR canonical with coincidental ~1.16 ratio for NVDA on 2026-05-12.
+
+**Verdict pending**: requires code-path audit of `storage.log_decision()` call
+sites to determine what currency `price_at_decision` was sourced from. If
+different from positions+theses (EUR), this is **active dette** that crosses
+boundaries when computing return_30d_pct or thesis_relative_30d.
+
+**Action carry-forward**: trace `log_decision()` call sites + cross-table
+join sites (especially `intelligence/journal.py::auto_register_predictions`)
+before next session if /risk_check NVDA exhibits incoherence.
+
+### Tables not yet audited (P2 carry-forward)
+
+- `position_events.price` / `position_events.pnl` — historical buy/sell events,
+  no live cross-reference available; requires code-path audit
+- `positions.realized_pnl` — derived from (sell_price - avg_cost) * qty;
+  currency depends on what `add_sell()` stored at sale time
+- `decisions.price_30d` / `decisions.price_90d` — paired with price_at_decision
+  for return computation; same convention assumed
+
+### Schema dette observations (separate cleanup, not ADR 005)
+
+- `theses.target_partial` NULL for 33/33 active theses (column added later,
+  never populated by /thesis_add or /thesis_set workflows)
+- `theses.target_price` legacy 0 active uses (deprecated, droppable in next
+  schema migration)
+- `theses.target_full` 17/33 active (modern field in active use)

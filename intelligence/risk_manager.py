@@ -104,13 +104,26 @@ def _build_portfolio_state(positions):
 def _build_thesis_state(thesis):
     if not thesis:
         return "No active thesis on this ticker."
+    # ADR 005 P2 (Day 14): theses prices EUR canonical (cross-source ratio audit
+    # confirmed ~1.0 across all 4 native currencies). Convert to USD for prompt
+    # currency coherence with rest of RISK_PROMPT.
+    from shared.positions import cost_in
+    def _u(field):
+        v = thesis.get(field)
+        return cost_in(v, "USD") if v is not None else None
+    entry_u = _u("entry_price")
+    partial_u = _u("target_partial")
+    full_u = _u("target_full")
+    stop_u = _u("stop_price")
+    def _fmt(x):
+        return f"${x:.2f}" if x is not None else "n/a"
     parts = [
         f"Direction: {thesis.get('direction')}",
         f"Conviction: {thesis.get('conviction')}",
-        f"Entry: ${thesis.get('entry_price')}",
-        f"Target partial: ${thesis.get('target_partial')}",
-        f"Target full: ${thesis.get('target_full')}",
-        f"Stop: ${thesis.get('stop_price') or 'n/a'}",
+        f"Entry: {_fmt(entry_u)}",
+        f"Target partial: {_fmt(partial_u)}",
+        f"Target full: {_fmt(full_u)}",
+        f"Stop: {_fmt(stop_u)}",
     ]
     return "\n".join(parts)
 
