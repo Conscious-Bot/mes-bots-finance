@@ -150,12 +150,14 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
             (0, 7000000, 1), (7000000, 8000000, 2), (8000000, 9000000, 3), (9000000, 99999999, 4),
         ],
     },
-    "ISMMfg": {
-        "tier": 3, "weight": 0.5, "source": "fred:NAPM",
-        "label": "ISM Manufacturing PMI",
-        # Inverse: lower = contraction
+    "MfgIP_yoy": {
+        "tier": 3, "weight": 0.5, "source": "fred:IPMAN_yoy",
+        "label": "Mfg Industrial Production YoY (%)",
+        # ISM Mfg PMI replacement: FRED dropped ISM series 2024+.
+        # YoY % change of IPMAN as proxy. >2% = expansion (P1),
+        # 0-2% = sluggish (P2), -2 to 0 = contraction (P3), <-2 = recession (P4).
         "phase_ranges": [
-            (0, 40, 4), (40, 45, 3), (45, 48, 2), (48, 999, 1),
+            (-999, -2, 4), (-2, 0, 3), (0, 2, 2), (2, 999, 1),
         ],
     },
 }
@@ -217,11 +219,22 @@ def _fetch_fred_latest(series_id: str) -> float | None:
 
 
 def _fetch_fred_cpi_yoy() -> float | None:
-    obs = macro._fred_series("CPILFESL", limit=13)
-    if not obs or len(obs) < 13:
+    """Core CPI YoY %. obs[11] = 12 months back, obs[0] = latest."""
+    obs = macro._fred_series("CPILFESL", limit=14)
+    if not obs or len(obs) < 12:
         return None
     current = obs[0]["value"]
-    year_ago = obs[12]["value"]
+    year_ago = obs[11]["value"]  # 12 calendar months back
+    return (current - year_ago) / year_ago * 100
+
+
+def _fetch_fred_ipman_yoy() -> float | None:
+    """Manufacturing Industrial Production YoY %. ISM PMI replacement (paywalled)."""
+    obs = macro._fred_series("IPMAN", limit=14)
+    if not obs or len(obs) < 12:
+        return None
+    current = obs[0]["value"]
+    year_ago = obs[11]["value"]
     return (current - year_ago) / year_ago * 100
 
 
@@ -248,6 +261,8 @@ def fetch_indicator(name: str) -> float | None:
         sid = src.split(":", 1)[1]
         if sid == "CPILFESL_yoy":
             return _fetch_fred_cpi_yoy()
+        if sid == "IPMAN_yoy":
+            return _fetch_fred_ipman_yoy()
         return _fetch_fred_latest(sid)
 
     if src == "derived:copper_gold":
@@ -413,5 +428,12 @@ if __name__ == "__main__":
         for entry in r["breakdown"][tier]:
             stale = " [stale]" if entry.get("stale") else ""
             val = entry.get("value")
-            val_s = f"{val:.2f}" if val is not None else "n/a"
+            if val is None:
+                val_s = "n/a"
+            elif abs(val) < 1:
+                val_s = f"{val:.4f}"
+            elif val >= 1000:
+                val_s = f"{val:,.0f}"
+            else:
+                val_s = f"{val:.2f}"
             print(f"  {entry['name']:14} {val_s:>12} phase={entry['phase']} +{entry['contribution']:.1f}pts{stale}")
