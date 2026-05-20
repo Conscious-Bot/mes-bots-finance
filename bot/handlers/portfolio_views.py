@@ -225,7 +225,7 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
     header = f"PORTFOLIO BY SECTOR / INDUSTRY — ${total_mv:,.0f} total"
     lines = [header, ""]
 
-    LABEL_W = 32  # column width for both sector + industry names
+    LABEL_W = 34  # sector label width (industry uses literal 32 for $ col alignment)
 
     def truncate(s: str, w: int) -> str:
         return s if len(s) <= w else s[: w - 1] + "…"
@@ -256,7 +256,7 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
         for industry, ind_data in sorted_industries:
             ind_pct = (ind_data["mv"] / total_mv * 100) if total_mv else 0
             n_ind = len(ind_data["tickers"])
-            ind_label_pad = truncate(industry, LABEL_W).ljust(LABEL_W)
+            ind_label_pad = truncate(industry, 32).ljust(32)
             ind_line = (
                 f"    {ind_label_pad}  ${ind_data['mv']:>8,.0f}  "
                 f"{ind_pct:5.1f}%  {n_ind:>2} pos"
