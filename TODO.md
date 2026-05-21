@@ -932,7 +932,16 @@ Order: D → E → F → B → B' → A → C
 
 ### Carry-forward P1 strategic (next session decision points)
 
-- **Concentration breach** — `style.position_max_pct = 5%` violated by 6 positions (46.5% AI_compute cluster). 4063.T 10.5%, TSM 9.0%, ASML.AS 9.0%, SNPS 7.0%, 7011.T 6.0%, STMPA.PA 5.3%. Decision (a) trim / (b) bump policy 8-10% documented / (c) ignore legacy + watch new — required before next /position_buy.
+- [x] **Concentration breach** — ✅ DECIDED 21/05/2026 (ADR 008)
+  Empirical re-audit: cluster level concentration is the binding invariant.
+  AI_COMPUTE = 76.6% of book (14 positions). The "46.5%" in Day 14 note was
+  sum of breached individual positions, not cluster total.
+  Decision: cluster cap 35% per narrative_tag + position cap 5% kept soft +
+  grandfather strict + revisit J+28.
+  Phase 1 (ADR) DONE. Phase 2 (/portfolio alert section) NEXT.
+  Phase 3 (risk.validate() wiring) deferred to post-J+28 per existing
+  Appropriation roadmap L325.
+  See docs/adrs/008-cluster-cap-grandfather.md
 - **KPI #2 timer J-20** to 2026-06-10 (45 predictions batch resolution day)
 - **NVDA** — 2 high 8-K 5.02 in 12d, 2 unresolved decisions, /risk_check NVDA candidate
 - **VALUE_LOG.md entry Day 14** — first /digest with action-grade synthesis tied to biases (Path 6 narrative evidence)
