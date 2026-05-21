@@ -304,107 +304,7 @@ async def cmd_position_buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> No
     try:
         ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
         reasoning = parts[4] if len(parts) > 4 else "Buy via /position_buy"
-
-        # 0. B2: Risk validation gate (feature-flagged, default OFF)
-        from shared import config as _cfg_b2_mod, storage as _storage_b2_mod
-
-        _cfg_b2 = _cfg_b2_mod.load()
-        if _cfg_b2.get("risk", {}).get("validate_enabled", False):
-            from risk import risk_engine
-
-            _state_b2 = _storage_b2_mod.load_state()
-            _capital_b2 = _state_b2.get("capital_paper", 10000) or 10000
-            _size_pct_b2 = (qty * price) / _capital_b2
-            _thesis_b2 = _storage_b2_mod.get_thesis_by_ticker(ticker, status="active")
-            _conviction_b2 = _thesis_b2.get("conviction", 3) if _thesis_b2 else 3
-            _decision_b2 = {
-                "ticker": ticker,
-                "action": "buy",
-                "size_pct": _size_pct_b2,
-                "conviction": _conviction_b2,
-                "execute_real": False,
-            }
-            _result_b2 = risk_engine.validate(_decision_b2)
-            if not _result_b2.ok and _result_b2.severity == "block":
-                _msg_b2 = "BLOCKED by risk.validate():\n" + "\n".join(f"  - {r}" for r in _result_b2.reasons)
-                _msg_b2 += "\n  Override: toggle risk.validate_enabled in config.yaml"
-                with contextlib.suppress(Exception):
-                    _storage_b2_mod.log_decision(
-                        ticker=ticker,
-                        decision_type="buy_blocked_by_risk",
-                        confidence=_conviction_b2,
-                        reasoning=f"BLOCKED: {'; '.join(_result_b2.reasons)}",
-                        direction="long",
-                        price_at_decision=price,
-                    )
-                await update.message.reply_text(_msg_b2)
-                return
-
-        # 1. Detect entry vs scale_in BEFORE update
-        existing_before = positions_mod.get_position(ticker)
-        dtype = "scale_in" if (existing_before and existing_before.get("qty", 0) > 0) else "entry"
-
-        # 1.5 Compute EUR-equivalent + enrich notes (H2 fix Day 9 audit, KPI #6 traceability)
-        from shared.prices import get_currency_for_ticker as _get_cur, get_fx_rate as _get_fx
-
-        _ticker_cur = _get_cur(ticker)
-        _fx_to_eur = _get_fx(_ticker_cur, "EUR") or 1.0
-        _eur_inv = qty * price * _fx_to_eur
-        if "eur_invested=" in reasoning:
-            _enriched_notes = reasoning  # idempotent: already tagged
-        else:
-            _enriched_notes = f"{reasoning} | eur_invested={_eur_inv:.2f}"
-
-        # 2. Update position via positions_mod (writes positions + position_events)
-        p = positions_mod.add_buy(ticker, qty, price, _enriched_notes)
-
-        # 3. Phase B5 journal context + auto log_decision
-        from shared import storage as storage_mod
-
-        _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
-        decision_id = None
-        try:
-            decision_id = storage_mod.log_decision(
-                ticker=ticker,
-                decision_type=dtype,
-                confidence=3,
-                reasoning=reasoning,
-                direction=(thesis_dir or "long"),
-                thesis_id=thesis_id,
-                price_at_decision=price,
-                regime=regime,
-                credit_regime=credit,
-                materiality_top=mat_top,
-            )
-        except Exception as e:
-            await update.message.reply_text(f"Position updated but journal failed: {e}")
-
-        # 4. Auto-tag biases
-        bias_tags = []
-        if decision_id:
-            try:
-                from intelligence import bias_tagger
-
-                decision_full = storage_mod.get_decision(decision_id) or {}
-                position_now = storage_mod.get_position_by_ticker(ticker)
-                bias_tags = bias_tagger.auto_tag_biases(
-                    decision_full, position=position_now, regime_str=regime, top_signals=mat_top
-                )
-                if bias_tags:
-                    storage_mod.update_decision_bias_tags(decision_id, bias_tags)
-            except Exception as bias_err:
-                logging.getLogger("bot.position_buy").warning(
-                    f"bias_tagger failed for decision_id={decision_id} ticker={ticker}: "
-                    f"{type(bias_err).__name__}: {bias_err}"
-                )
-
-        # 5. Compose response
-        msg = [f"✓ Bought {qty:.3f} {ticker} @ {format_finance(price, decimals=2)} [{dtype}]"]
-        msg.append(f"  New qty: {p['qty']:.3f}, avg cost: {format_finance(p['avg_cost'], decimals=2)}")
-        if decision_id:
-            tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
-            msg.append(f"  -> auto-logged decision #{decision_id} thesis={thesis_id or '-'}{tags_str}")
-        await update.message.reply_text("\n".join(msg))
+        await _buy_impl(update, ticker, qty, price, reasoning)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
@@ -421,62 +321,237 @@ async def cmd_position_sell(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> N
     try:
         ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
         reasoning = parts[4] if len(parts) > 4 else "Sell via /position_sell"
-
-        # 1. Update position (writes positions + position_events)
-        r = positions_mod.add_sell(ticker, qty, price, reasoning)
-        dtype = "full_exit" if r["closed"] else "partial_exit"
-
-        # 2. Phase B5 journal context + auto log_decision
-        from shared import storage as storage_mod
-
-        _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
-        decision_id = None
-        try:
-            decision_id = storage_mod.log_decision(
-                ticker=ticker,
-                decision_type=dtype,
-                confidence=3,
-                reasoning=reasoning,
-                direction=(thesis_dir or "long"),
-                thesis_id=thesis_id,
-                price_at_decision=price,
-                regime=regime,
-                credit_regime=credit,
-                materiality_top=mat_top,
-            )
-        except Exception as e:
-            await update.message.reply_text(f"Position updated but journal failed: {e}")
-
-        # 3. Auto-tag biases
-        bias_tags = []
-        if decision_id:
-            try:
-                from intelligence import bias_tagger
-
-                decision_full = storage_mod.get_decision(decision_id) or {}
-                position_now = storage_mod.get_position_by_ticker(ticker)
-                bias_tags = bias_tagger.auto_tag_biases(
-                    decision_full, position=position_now, regime_str=regime, top_signals=mat_top
-                )
-                if bias_tags:
-                    storage_mod.update_decision_bias_tags(decision_id, bias_tags)
-            except Exception as bias_err:
-                logging.getLogger("bot.position_buy").warning(
-                    f"bias_tagger failed for decision_id={decision_id} ticker={ticker}: "
-                    f"{type(bias_err).__name__}: {bias_err}"
-                )
-
-        # 4. Compose response
-        msg_lines = [
-            f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ {format_finance(r['sold_price'], decimals=2)} [{dtype}]"
-        ]
-        msg_lines.append(f"  Avg cost was: {format_finance(r['avg_cost'], decimals=2)}")
-        msg_lines.append(f"  Realized PnL (event): {format_finance(r['realized_pnl_event'], decimals=2, signed=True)}")
-        msg_lines.append(f"  Realized PnL (total): {format_finance(r['realized_pnl_total'], decimals=2, signed=True)}")
-        msg_lines.append(f"  Remaining: {r['remaining_qty']:.3f}" + ("  [CLOSED]" if r["closed"] else ""))
-        if decision_id:
-            tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
-            msg_lines.append(f"  -> auto-logged decision #{decision_id} thesis={thesis_id or '-'}{tags_str}")
-        await update.message.reply_text("\n".join(msg_lines))
+        await _sell_impl(update, ticker, qty, price, reasoning)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
+
+
+async def _buy_impl(update, ticker: str, qty: float, price: float, reasoning: str) -> None:
+    """Internal: execute buy with B2 risk + B5 journal + bias chain.
+
+    Used by cmd_position_buy (legacy /position_buy alias) and cmd_trade
+    (Sprint 1.2 Phase C dispatcher). Body extracted verbatim from prior
+    cmd_position_buy implementation to preserve Day 13 Ship 5 KPI #5 chain.
+    """
+    assert update.message is not None
+
+    # 0. B2: Risk validation gate (feature-flagged, default OFF)
+    from shared import config as _cfg_b2_mod, storage as _storage_b2_mod
+
+    _cfg_b2 = _cfg_b2_mod.load()
+    if _cfg_b2.get("risk", {}).get("validate_enabled", False):
+        from risk import risk_engine
+
+        _state_b2 = _storage_b2_mod.load_state()
+        _capital_b2 = _state_b2.get("capital_paper", 10000) or 10000
+        _size_pct_b2 = (qty * price) / _capital_b2
+        _thesis_b2 = _storage_b2_mod.get_thesis_by_ticker(ticker, status="active")
+        _conviction_b2 = _thesis_b2.get("conviction", 3) if _thesis_b2 else 3
+        _decision_b2 = {
+            "ticker": ticker,
+            "action": "buy",
+            "size_pct": _size_pct_b2,
+            "conviction": _conviction_b2,
+            "execute_real": False,
+        }
+        _result_b2 = risk_engine.validate(_decision_b2)
+        if not _result_b2.ok and _result_b2.severity == "block":
+            _msg_b2 = "BLOCKED by risk.validate():\n" + "\n".join(f"  - {r}" for r in _result_b2.reasons)
+            _msg_b2 += "\n  Override: toggle risk.validate_enabled in config.yaml"
+            with contextlib.suppress(Exception):
+                _storage_b2_mod.log_decision(
+                    ticker=ticker,
+                    decision_type="buy_blocked_by_risk",
+                    confidence=_conviction_b2,
+                    reasoning=f"BLOCKED: {'; '.join(_result_b2.reasons)}",
+                    direction="long",
+                    price_at_decision=price,
+                )
+            await update.message.reply_text(_msg_b2)
+            return
+
+    # 1. Detect entry vs scale_in BEFORE update
+    existing_before = positions_mod.get_position(ticker)
+    dtype = "scale_in" if (existing_before and existing_before.get("qty", 0) > 0) else "entry"
+
+    # 1.5 Compute EUR-equivalent + enrich notes (H2 fix Day 9 audit, KPI #6 traceability)
+    from shared.prices import get_currency_for_ticker as _get_cur, get_fx_rate as _get_fx
+
+    _ticker_cur = _get_cur(ticker)
+    _fx_to_eur = _get_fx(_ticker_cur, "EUR") or 1.0
+    _eur_inv = qty * price * _fx_to_eur
+    if "eur_invested=" in reasoning:
+        _enriched_notes = reasoning  # idempotent: already tagged
+    else:
+        _enriched_notes = f"{reasoning} | eur_invested={_eur_inv:.2f}"
+
+    # 2. Update position via positions_mod (writes positions + position_events)
+    p = positions_mod.add_buy(ticker, qty, price, _enriched_notes)
+
+    # 3. Phase B5 journal context + auto log_decision
+    from shared import storage as storage_mod
+
+    _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
+    decision_id = None
+    try:
+        decision_id = storage_mod.log_decision(
+            ticker=ticker,
+            decision_type=dtype,
+            confidence=3,
+            reasoning=reasoning,
+            direction=(thesis_dir or "long"),
+            thesis_id=thesis_id,
+            price_at_decision=price,
+            regime=regime,
+            credit_regime=credit,
+            materiality_top=mat_top,
+        )
+    except Exception as e:
+        await update.message.reply_text(f"Position updated but journal failed: {e}")
+
+    # 4. Auto-tag biases
+    bias_tags = []
+    if decision_id:
+        try:
+            from intelligence import bias_tagger
+
+            decision_full = storage_mod.get_decision(decision_id) or {}
+            position_now = storage_mod.get_position_by_ticker(ticker)
+            bias_tags = bias_tagger.auto_tag_biases(
+                decision_full, position=position_now, regime_str=regime, top_signals=mat_top
+            )
+            if bias_tags:
+                storage_mod.update_decision_bias_tags(decision_id, bias_tags)
+        except Exception as bias_err:
+            logging.getLogger("bot.position_buy").warning(
+                f"bias_tagger failed for decision_id={decision_id} ticker={ticker}: "
+                f"{type(bias_err).__name__}: {bias_err}"
+            )
+
+    # 5. Compose response
+    msg = [f"✓ Bought {qty:.3f} {ticker} @ {format_finance(price, decimals=2)} [{dtype}]"]
+    msg.append(f"  New qty: {p['qty']:.3f}, avg cost: {format_finance(p['avg_cost'], decimals=2)}")
+    if decision_id:
+        tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
+        msg.append(f"  -> auto-logged decision #{decision_id} thesis={thesis_id or '-'}{tags_str}")
+    await update.message.reply_text("\n".join(msg))
+
+
+async def _sell_impl(update, ticker: str, qty: float, price: float, reasoning: str) -> None:
+    """Internal: execute sell with B5 journal + bias chain.
+
+    Used by cmd_position_sell (legacy /position_sell alias) and cmd_trade
+    (Sprint 1.2 Phase C dispatcher). Body extracted verbatim.
+    """
+    assert update.message is not None
+
+    # 1. Update position (writes positions + position_events)
+    r = positions_mod.add_sell(ticker, qty, price, reasoning)
+    dtype = "full_exit" if r["closed"] else "partial_exit"
+
+    # 2. Phase B5 journal context + auto log_decision
+    from shared import storage as storage_mod
+
+    _px_ctx, regime, credit, thesis_id, thesis_dir, mat_top = _portfolio_journal_ctx(ticker)
+    decision_id = None
+    try:
+        decision_id = storage_mod.log_decision(
+            ticker=ticker,
+            decision_type=dtype,
+            confidence=3,
+            reasoning=reasoning,
+            direction=(thesis_dir or "long"),
+            thesis_id=thesis_id,
+            price_at_decision=price,
+            regime=regime,
+            credit_regime=credit,
+            materiality_top=mat_top,
+        )
+    except Exception as e:
+        await update.message.reply_text(f"Position updated but journal failed: {e}")
+
+    # 3. Auto-tag biases
+    bias_tags = []
+    if decision_id:
+        try:
+            from intelligence import bias_tagger
+
+            decision_full = storage_mod.get_decision(decision_id) or {}
+            position_now = storage_mod.get_position_by_ticker(ticker)
+            bias_tags = bias_tagger.auto_tag_biases(
+                decision_full, position=position_now, regime_str=regime, top_signals=mat_top
+            )
+            if bias_tags:
+                storage_mod.update_decision_bias_tags(decision_id, bias_tags)
+        except Exception as bias_err:
+            logging.getLogger("bot.position_buy").warning(
+                f"bias_tagger failed for decision_id={decision_id} ticker={ticker}: "
+                f"{type(bias_err).__name__}: {bias_err}"
+            )
+
+    # 4. Compose response
+    msg_lines = [
+        f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ {format_finance(r['sold_price'], decimals=2)} [{dtype}]"
+    ]
+    msg_lines.append(f"  Avg cost was: {format_finance(r['avg_cost'], decimals=2)}")
+    msg_lines.append(f"  Realized PnL (event): {format_finance(r['realized_pnl_event'], decimals=2, signed=True)}")
+    msg_lines.append(f"  Realized PnL (total): {format_finance(r['realized_pnl_total'], decimals=2, signed=True)}")
+    msg_lines.append(f"  Remaining: {r['remaining_qty']:.3f}" + ("  [CLOSED]" if r["closed"] else ""))
+    if decision_id:
+        tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
+        msg_lines.append(f"  -> auto-logged decision #{decision_id} thesis={thesis_id or '-'}{tags_str}")
+    await update.message.reply_text("\n".join(msg_lines))
+
+
+async def cmd_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Sprint 1.2 Phase C dispatcher — /trade family.
+
+    Usage:
+      /trade buy TICKER QTY PRICE [reasoning]   → executes via _buy_impl
+      /trade sell TICKER QTY PRICE [reasoning]  → executes via _sell_impl
+
+    Backward-compat:
+      /position_buy [...] alias preserved 1 release cycle
+      /position_sell [...] alias preserved 1 release cycle
+
+    Preserves Day 13 Ship 5 KPI #5 chain (journal + bias tagging) by
+    calling the same _buy_impl/_sell_impl helpers as the legacy handlers.
+    """
+    assert update.message is not None
+    args = ctx.args or []
+    if not args:
+        await update.message.reply_text(
+            "Usage: /trade <action> <TICKER> <QTY> <PRICE> [reasoning]\n"
+            "\n"
+            "Actions:\n"
+            "  buy TICKER QTY PRICE [reasoning]\n"
+            "  sell TICKER QTY PRICE [reasoning]\n"
+            "\n"
+            "Examples:\n"
+            "  /trade buy NVDA 10 450 thesis_strong_compute\n"
+            "  /trade sell AMD 5 380 stop_triggered"
+        )
+        return
+    action = args[0].lower()
+    if action not in ("buy", "sell"):
+        await update.message.reply_text(
+            f"Unknown action: '{action}'\n"
+            "Valid: buy, sell\n"
+            "See /trade for usage."
+        )
+        return
+    if len(args) < 4:
+        await update.message.reply_text(
+            f"Usage: /trade {action} <TICKER> <QTY> <PRICE> [reasoning]"
+        )
+        return
+    try:
+        ticker, qty, price = args[1].upper(), float(args[2]), float(args[3])
+        reasoning = " ".join(args[4:]) if len(args) > 4 else f"{action.capitalize()} via /trade"
+        if action == "buy":
+            await _buy_impl(update, ticker, qty, price, reasoning)
+        else:
+            await _sell_impl(update, ticker, qty, price, reasoning)
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+

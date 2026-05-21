@@ -49,7 +49,7 @@ from bot.handlers.observability import (
 from bot.handlers.portfolio_views import cmd_portfolio_drift, cmd_portfolio_narratives, cmd_portfolio_sectors
 from bot.handlers.positions import _portfolio_journal_ctx, cmd_portfolio, cmd_position_buy, cmd_position_sell
 from bot.handlers.predictions import cmd_credibility, cmd_feedback, cmd_predictions, cmd_resolve_now
-from bot.handlers.regime_calendar import cmd_calendar, cmd_calendar_refresh, cmd_regime
+from bot.handlers.regime_calendar import cmd_calendar, cmd_regime
 from bot.handlers.signal_drilldown import cmd_signal_drilldown
 from bot.handlers.signals_filings import (
     cmd_eight_k_history,
