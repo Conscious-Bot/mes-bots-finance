@@ -208,19 +208,26 @@ def format_asymmetry_single(r: dict[str, Any]) -> str:
 
 
 def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
-    """Portfolio-wide display: RAW distances only, no qualitative verdicts.
+    """Portfolio-wide display canonical (TG output spec 21/05/2026).
 
-    Design rationale (post-2026-05-16 empirical review):
-    User correctly identified that STRONG_RUN/FAVORABLE/BALANCED verdicts are
-    mechanically derived from user's own framework (stop/target choices) at
-    thesis logging time. Since current ≈ entry on day-1, ratio = target%/stop%
-    which is tautological. The colored verdicts create FALSE confirmation bias,
-    confirming user's own assumptions rather than challenging them. Removed
-    icons + labels. Kept objective distances (current, entry, target, stop +
-    % from current to each).
+    Design rationale preserved from 2026-05-16 review:
+    STRONG_RUN/FAVORABLE/BALANCED verdicts removed (tautological - derived
+    from user's own target/stop choices at thesis logging time). Display
+    keeps RAW distances + external-signal flags only (STOP NEAR, TARGET NEAR).
+
+    Canonical applied 2026-05-21:
+    - Header with emoji + em-dash + count summary
+    - Section dividers ━ with count per group
+    - Currency normalized USD (fixes pre-21/05 bug: stop raw EUR labeled €
+      while current/entry/target USD-converted but also labeled €)
+    - Sort COMPUTED by ratio desc (info-only, no color verdict on ratio)
+    - Flags: 🔴 STOP NEAR (down_pct<10), 🎯 TARGET NEAR (up_pct<10)
+      — external signal (price proximity to invalidation/capture)
+    - WATCH compact horizontal list
+    - Footer suggestion only if INCOMPLETE present
     """
     if not results:
-        return "No active theses."
+        return "📊 PORTFOLIO ASYMMETRY — 0 active theses\nNo active theses."
 
     computed = []
     incomplete = []
@@ -240,39 +247,50 @@ def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
             incomplete.append(r)
 
     total = len(results)
-    lines = [f"PORTFOLIO POSITIONS ({total} active theses)"]
-    lines.append(
-        f"Computed: {len(computed)}  |  Incomplete: {len(incomplete)}  |  "
-        f"Watch: {len(watch)}  |  Errors: {len(errored)}"
-    )
+    lines = [f"📊 PORTFOLIO ASYMMETRY — {total} active theses"]
+    parts = []
+    if computed:
+        parts.append(f"Computed: {len(computed)}")
+    if incomplete:
+        parts.append(f"Incomplete: {len(incomplete)}")
+    if watch:
+        parts.append(f"Watch: {len(watch)}")
+    if errored:
+        parts.append(f"Errors: {len(errored)}")
+    if parts:
+        lines.append(" | ".join(parts))
     lines.append("")
 
-    # Section 1: COMPUTED — raw distances, no verdict
+    # Section 1: COMPUTED — raw distances sorted by ratio desc
     if computed:
-        lines.append(f"━━ COMPUTED ({len(computed)}) — raw distances ━━")
-        # Sort alphabetically (no ranking by ratio to avoid suggesting a verdict)
-        computed_sorted = sorted(computed, key=lambda x: x.get("ticker", ""))
+        lines.append(f"━ COMPUTED ({len(computed)}) — raw distances (sorted by ratio desc) ━")
+        computed_sorted = sorted(computed, key=lambda x: -(x.get("asymmetry_ratio") or 0))
+        _fx = _fx_eur_to_usd()
         for r in computed_sorted:
             ticker = r["ticker"]
-            # Convert EUR-canonical → USD at display (matches /portfolio /brief)
-            _fx = _fx_eur_to_usd()
             current = (r.get("current_price") or 0) * _fx
             entry = (r.get("entry") or 0) * _fx
             target = (r.get("target_full") or 0) * _fx
-            stop = r.get("stop", 0)
+            stop = (r.get("stop") or 0) * _fx
             up_pct = r.get("upside_pct", 0)
             down_pct = r.get("downside_pct", 0)
-            # Distance from entry (pnl since entry)
             pnl_pct = ((current - entry) / entry * 100) if entry else 0
+
+            flags = []
+            if down_pct < 10:
+                flags.append("🔴 STOP NEAR")
+            if up_pct < 10:
+                flags.append("🎯 TARGET NEAR")
+            flags_str = ("  " + "  ".join(flags)) if flags else ""
+
             lines.append(
-                f"  {ticker:10s} cur=€{current:>8.2f}  entry=€{entry:>8.2f} ({pnl_pct:+.1f}%)  "
-                f"target=€{target:>8.2f} (+{up_pct:.0f}%)  stop=€{stop:>8.2f} (-{down_pct:.0f}%)"
+                f"{ticker:10s} cur=${current:>8.2f}  entry=${entry:>8.2f} ({pnl_pct:+.1f}%)  "
+                f"target=${target:>8.2f} (+{up_pct:.0f}%)  stop=${stop:>8.2f} (-{down_pct:.0f}%){flags_str}"
             )
         lines.append("")
 
-    # Section 2: INCOMPLETE
     if incomplete:
-        lines.append(f"━━ INCOMPLETE ({len(incomplete)}) — missing target/stop ━━")
+        lines.append(f"━ INCOMPLETE ({len(incomplete)}) — missing target/stop ━")
         for r in sorted(incomplete, key=lambda x: x.get("ticker", "")):
             missing = []
             if not r.get("entry"):
@@ -282,24 +300,24 @@ def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
             if not r.get("stop"):
                 missing.append("stop")
             missing_str = ", ".join(missing) if missing else "?"
-            lines.append(f"  {r['ticker']:10s} (missing: {missing_str})")
-        lines.append("")
-        lines.append("  Fix via /thesis_set TICKER target X stop Y")
+            lines.append(f"{r['ticker']:10s} (missing: {missing_str})")
         lines.append("")
 
-    # Section 3: WATCH
     if watch:
-        lines.append(f"━━ WATCH ({len(watch)}) — direction not long ━━")
-        for r in sorted(watch, key=lambda x: x.get("ticker", "")):
-            lines.append(f"  {r['ticker']:10s}")
+        lines.append(f"━ WATCH ({len(watch)}) — direction not long ━")
+        tickers_str = "  ".join(sorted([r["ticker"] for r in watch]))
+        lines.append(tickers_str)
         lines.append("")
 
-    # Section 4: ERRORS
     if errored:
-        lines.append(f"━━ ERRORS ({len(errored)}) ━━")
+        lines.append(f"━ ERRORS ({len(errored)}) ━")
         for r in sorted(errored, key=lambda x: x.get("ticker", "")):
-            lines.append(f"  {r['ticker']:10s}: {r.get('error', '?')}")
+            lines.append(f"{r['ticker']:10s}: {r.get('error', '?')}")
+        lines.append("")
 
-    return "\n".join(lines)
+    if incomplete:
+        lines.append("Fix INCOMPLETE via `/thesis set TICKER target X stop Y`")
+
+    return "\n".join(lines).rstrip()
 
 
