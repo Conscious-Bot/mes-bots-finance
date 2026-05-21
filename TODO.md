@@ -5,6 +5,28 @@
 
 ---
 
+---
+
+## Day 15 close (21/05/2026 evening) — Phase D /thesis shipped
+
+**Done**:
+- Sprint 1.2 Phase B /portfolio + delete /position_set (commit 556a2d2, tag phase-b-portfolio-21052026)
+- Sprint 1.2 Phase D /thesis family dispatcher (commit c3d31c8, tag phase-d-thesis-21052026) — 9 sub-actions absorbed, 5 helpers extracted
+- Data fix: 21 theses (IDs 23-43) normalized from STRING -> JSON list storage (16/05 bootstrap bug)
+- L37 + L38 + L39 codified in CONVENTIONS.md
+
+**Carry-forward P2**:
+- **Display defensive code** (`try json.loads, except → wrap as single item`) — prevent future regression of 21-theses bug pattern. Touch thesis_crud display + format helpers. ~30min.
+- Phase N UX redesign per user feedback 2026-05-16 (~8-15h variable scope)
+- Audit existing crons + restart scripts for L39 pkill pattern bug
+
+**State**:
+- Bot alive PID 85463 on c3d31c8
+- All gates green: ruff 0, mypy 0 on 17 strict modules, pytest 335 passing
+- 75 handlers registered (+1 /thesis dispatcher)
+- KPI #2 timer J-19 to 10/06
+
+
 ## ✅ CLOSED — Day 2 marathon + afternoon (14 items)
 
 ### P0 sweep (6/6)

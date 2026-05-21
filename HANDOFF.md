@@ -1342,3 +1342,65 @@ Existing tags: `day14-close` (morning ship), `day14-debt` (ADR 006 Phase 2A+2B),
 5. Decision call: concentration policy (a/b/c) — NO position_buy until resolved
 6. Observation discipline: J-19 to KPI #2 batch resolution. Resist build mode.
 
+---
+
+# Day 15 close — 21/05/2026 evening (Phase D /thesis ship + data fix)
+
+## Shipped this session (15 milestones cumulative)
+
+Continuing from morning + afternoon Sprint 1.2 work (Phase A-M closed earlier today, see prior session retrospective `docs/sessions/2026-05-21.md`):
+
+**Phase B /portfolio family** (commit 556a2d2, tag phase-b-portfolio-21052026)
+- Dispatcher injected in cmd_portfolio
+- 2 helpers extracted: _position_view_impl, _position_history_impl
+- Deleted /position_set
+- 74 handlers registered
+
+**Phase D /thesis family** (commit c3d31c8, tag phase-d-thesis-21052026)
+- Largest ship of Sprint 1.2: 9 sub-actions absorbed
+- 5 helpers extracted across 4 files: _asymmetry_impl, _thesis_set_impl, _thesis_premortem_impl, _thesis_health_impl, _price_check_impl
+- ctx.args mutation pattern for 4 in-file delegations (list, add, note, revisit)
+- Lazy imports for 5 cross-file helpers
+- 75 handlers registered (+1 dispatcher)
+
+**Data fix** (no commit — DB local only):
+- 21 theses (IDs 23-43) stored key_drivers + invalidation_triggers as raw strings instead of JSON lists. Caused /thesis list to display character-by-character bullets.
+- Bug source: 16/05 batch bootstrap script. Pre-existing, unrelated to Phase D.
+- Normalized via sentence-split heuristic: 21/21 fixed, all now JSON arrays of 2-3 driver bullets + 1-3 trigger bullets.
+
+## Incidents instructive (3 codified lessons)
+
+- **L37** templates Python generating Python: no f-strings (Phase D extraction script)
+- **L38** exit 1 in zsh interactive paste kills shell session
+- **L39** pkill -f "python.*X" unreliable on macOS (capital P in framework binary)
+
+~30min recovery wasted on Phase D Telegram conflict cascade caused by L39. Two prior aborted ships (zsh quote fragmentation) before file-based heredoc approach succeeded. Lessons high-value for future sessions.
+
+## State at close
+
+- Bot alive PID 85463 on c3d31c8 (Phase D)
+- All gates green: ruff 0, mypy 0 on strict modules, pytest 335 passing
+- 75 handlers registered (was 74)
+- 33 active theses, all normalized to JSON storage
+- HEAD = c3d31c8 (tag phase-d-thesis-21052026 + day15-close pushed)
+- KPI #2 timer J-19 to 10/06 (44 predictions to auto-resolve)
+
+## Carry-forward
+
+**P2** (next session):
+- Display defensive code (`try json.loads, except → wrap as single item`) — prevents future regression of the 21-theses bug pattern. ~30min in thesis_crud + display modules.
+- Phase E /journal completion verify (done earlier today, smoke test deferred)
+- Phase N UX redesign (~8-15h variable scope) per user feedback 2026-05-16
+
+**P3**:
+- Audit existing scripts for L39 pkill pattern (uptime_monitor + restart cron specifically)
+- Continue type hints rollout (~25 modules remaining, gradual)
+
+## Reopen entry point Day 16
+
+1. `cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate`
+2. `ps auxww | grep -E "bot\.main" | grep -v grep` to confirm alive (NOT `pgrep -f "python.*bot.main"` — see L39)
+3. Read this Day 15 section + CONVENTIONS L37+L38+L39
+4. Decision call: defensive display code P2 vs Phase N UX vs observation discipline
+5. KPI #2 batch resolution due 10-11 juin (J-19 remaining)
+

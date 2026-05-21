@@ -202,3 +202,4 @@ currency tracking (Sprint 1.3 candidate) preserved as open question in ADR-003.
 2026-05-17 | Day 10 D investigation | position_buy n=2 telemetry vs 0 position_events Day 9 — NOT A BUG. args_summary révèle invocations bare ou incomplètes (/position_buy, /position_buy TSLA) qui retournent usage help. Chain intègre. Optionnel future: add args_valid column à handler_calls pour distinguer invocations valides vs help-requests.
 
 2026-05-17 | Day 10 D investigation | position_buy n=2 telemetry vs 0 position_events Day 9 = NOT A BUG. args_summary = "/position_buy" et "/position_buy TSLA" (args malformés) → cmd_position_buy retourne usage help gracefully sans raise. Chain intègre par design. Capture: telemetry compte TOUTES invocations y compris help-requests.
+2026-05-21 05:05 | test phase L

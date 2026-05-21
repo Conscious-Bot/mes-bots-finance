@@ -1471,3 +1471,42 @@ Any gate that prints without exit-1 is a useless gate. Audit all existing script
 
 Also: imports declared BEFORE the parse marker (top of function) are NOT in the body extraction. Either move them to the helper or inject them at the helper's start. Phase E _buy_cluster_impl needed 'from shared import storage as storage_mod' injected because it was BEFORE the parse line in the original cmd_insider_buy_cluster.
 
+### L37 - Templates Python generating Python code: no f-strings (21/05/2026 Phase D)
+
+**Context**: Phase D extraction needed to embed Python helper code inside a Python script that modifies files. Initial draft used f-strings, but target Python code contains `{` `}` (dict literals, f-strings inside f-strings) which collide with f-string interpolation. Result: broken escape sequences `f"\'{\\" \\".join(args[2:])}\'"` unreadable and incorrect.
+
+**Lesson**: When generating Python code from Python, use ONE of:
+- Triple-quoted plain strings (no f, no interpolation)
+- `.replace("___PLACEHOLDER___", value)` with explicit markers
+- Pre-built complete strings, no interpolation
+
+NEVER f-strings with target code containing `{` or `}`. The escape soup is unreadable and bug-prone.
+
+**Empirical**: Phase D fix used backward-compat `parts = ["", ticker, field, value]` so the original body's `parts[3]` references work unchanged — sidesteps f-string entirely.
+
+### L38 - exit 1 in zsh interactive paste kills shell session (21/05/2026 Phase D ruff gate)
+
+**Context**: Phase D ruff gate used `ruff check . && echo OK || { echo FAIL; exit 1; }` pasted into interactive zsh. On FAIL, `exit 1` terminated the SHELL SESSION itself, not just the command. Lost cd, lost venv, had to restart terminal.
+
+**Lesson**: In INTERACTIVE zsh paste, `exit 1` kills the shell session entirely. Use one of:
+- Simple `echo "[FAIL]"` without exit (let user decide)
+- Subshell: `( cmd && echo OK ) || echo FAIL`
+- `false` (sets $? non-zero without killing shell)
+
+In SCRIPTED execution (`bash script.sh`), `exit 1` is fine and expected. Distinction: interactive paste vs scripted file.
+
+**Empirical**: Phase D ruff gate killed shell session after `[FAIL]`, forced restart. Cost ~2min recovery. Use `||` chains without exit for paste-context error reporting.
+
+### L39 - pkill -f "python.*X" unreliable on macOS (21/05/2026 Phase D Telegram conflict cascade)
+
+**Context**: 4 mes-bots-finance bots (PIDs 84875, 85232, 85244, 85284) accumulated over Phase D restart attempts, all alive simultaneously, all in Telegram Conflict retry loop. Multiple `pkill -9 -f "python.*bot.main"` calls reported [clean] but processes survived. New bot couldn't poll due to Telegram session lock held by orphans.
+
+**Root cause**: macOS Python framework binary is `Python` (capital P at `/Library/Frameworks/Python.framework/.../Python`). pkill `-f` uses case-sensitive regex by default. Pattern `python.*bot.main` (lowercase p) does NOT match `Python -m bot.main` in process command line. pkill silently kills nothing, pgrep similarly reports nothing = false [clean].
+
+**Lesson**: NEVER use `python` (lowercase) in pkill/pgrep patterns on macOS:
+- USE: `pkill -f "bot.main"` (substring, case-independent because target string is literal)
+- USE: `kill -9 <PID>` (explicit PID, zero ambiguity)
+- AVOID: `pkill -f "python.*X"` — false negatives, silent no-ops
+
+**Empirical**: ~30min Phase D recovery wasted on Telegram conflict cascade. Discovered via `ps auxww` revealing capital `P` in `/Library/Frameworks/.../Python -m bot.main`. Audit ALL existing crons + scripts for this pattern (uptime_monitor, restart scripts) to prevent future repeats.
+

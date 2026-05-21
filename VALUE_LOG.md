@@ -44,3 +44,5 @@ Ready Monday.
     bias_tagger gap on no_action_flag decisions)
   Refactor: bot/main.py 3324 -> 1115 LOC (-66%), 14 handler modules,
   Sprint 1.1 9/10 chunks closed, mypy strict 29 modules, 189 tests.
+2026-05-21 05:05 | test phase L shipped
+2026-05-21 05:06 | old alias still works
