@@ -1314,3 +1314,36 @@ trivially) or based on a spec you don't actually know. Omit invariants
 whose spec you can't justify — false security worse than no test.
 
 This is Lesson 21 (grep before invoke) applied to data tests.
+
+## Lesson 32 (added 21/05/2026) — Compound script edits must be atomic
+
+When a single Python script does multiple `str_replace` edits across
+files, ALL edits must succeed or NONE land. Pattern:
+
+```python
+import sys
+edits = [(path1, old1, new1), (path2, old2, new2), ...]
+new_contents = {}
+for path, old, new in edits:
+    t = Path(path).read_text()
+    if old not in t:
+        print(f"[FAIL] anchor not found in {path}")
+        sys.exit(1)
+    new_contents[path] = t.replace(old, new, 1)
+# Only AFTER all checks pass, write
+for path, content in new_contents.items():
+    Path(path).write_text(content)
+```
+
+Without this pattern, an AssertionError mid-script leaves files in a
+half-edited state. The follow-up `git add` + commit will create a
+partial commit whose message lies about what was changed.
+
+Empirical: commit faa1ceb on 21/05 claimed 'pyproject.toml + CONVENTIONS.md
+updated' but only CONVENTIONS.md was actually modified. Fixed in commit
+following this Lesson addition.
+
+Validation gate: after a multi-file edit script, ALWAYS check
+`git diff --cached --stat` shows the expected file count before
+committing. If short, stop and re-run.
+
