@@ -11,6 +11,7 @@ from typing import Any, cast
 
 from shared import config, llm, storage
 from shared.prompts import DIGEST_SYNTHESIZER
+from shared.sql_observability import query
 
 log = logging.getLogger(__name__)
 
@@ -207,10 +208,13 @@ def run_enhanced_digest(limit: int = 20, top_n: int = 5, fallback_hours: int = 7
         from shared import macro, storage as storage_mod
 
         with storage_mod.db() as cx:
-            rows = cx.execute(
+            rows = query(
+                cx,
                 "SELECT * FROM signals WHERE timestamp > datetime('now', ?) ORDER BY timestamp DESC LIMIT 100",
                 ("-" + str(fallback_hours) + " hours",),
-            ).fetchall()
+                tag="digest.fallback_recent_signals",
+                fetch="all",
+            )
         signals = [dict(r) for r in rows]
         if not signals:
             return existing_msg
@@ -316,7 +320,8 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     # Use impact_magnitude (materiality_v2) instead of deprecated score field
     # Threshold 2.0 = materially impactful events on scale 1-5
     where_score = "AND COALESCE(s.impact_magnitude, 0) >= 2.0" if exclude_low_score else ""
-    rows = conn.execute(
+    rows = query(
+        conn,
         "SELECT s.id, s.title, s.summary, s.signal_type, s.score, "
         "s.impact_magnitude, s.reversibility, s.time_to_realization, "
         "s.materiality_boost, s.entities, src.name AS source "
@@ -324,7 +329,9 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         "WHERE s.timestamp >= ? " + where_score + " "
         "ORDER BY (COALESCE(s.score, 0) * COALESCE(s.materiality_boost, 1.0)) DESC LIMIT ?",
         (cutoff, int(max_signals)),
-    ).fetchall()
+        tag="digest.fetch_signals_for_synthesis",
+        fetch="all",
+    )
     conn.close()
     if not rows:
         return "Aucun signal pertinent sur les dernieres " + str(since_hours) + "h."
