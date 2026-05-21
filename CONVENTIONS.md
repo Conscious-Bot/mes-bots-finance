@@ -1146,3 +1146,131 @@ AST-based CI test would have caught the same patterns had they reached
 actual code (they didn't — investigation only).
 
 Chantier #1 closing criterion #6 closed via Option C (combo helpers + CI).
+
+
+### Lesson 28 — Pre-commit gates order: ruff first, pytest last
+
+CONVENTIONS for the order of verification before any `git commit`:
+ruff check . [--fix]          # cheapest, surfaces formatting + obvious bugs
+mypy --no-incremental ...     # type safety
+pytest -q                     # behavioral correctness
+git add ... && git commit ... # only after all 3 green
+
+Empirical context: 2x this session (Bash 142 and Bash 147) I pushed commits
+with `ruff` errors because I ran `pytest -q` (which passed) and skipped re-
+running `ruff` after Python script edits. Both required immediate amend
+commits.
+
+Rule: **NEVER `git commit` without re-running `ruff check .`** after any
+Python edit, even if pytest already passed. Ruff catches structural issues
+that mypy + pytest don't see: import order, unused imports, redundant code
+patterns. The 5-second ruff run is dirt cheap.
+
+
+### Lesson 29 — Code-patching scripts must assert match invariants
+
+When writing Python scripts that patch code via string substitution
+(`text.replace(old, new)` or regex), pattern-match failures MUST surface
+explicitly, not skip silently.
+
+WRONG (silent skip):
+```python
+m = re.search(pattern, text)
+if m:  # If pattern not found, skip without error
+    text = text.replace(m.group(0), new_value)
+```
+
+RIGHT (explicit fail):
+```python
+m = re.search(pattern, text)
+if not m:
+    raise RuntimeError(f"Pattern {pattern!r} not found")
+text = text.replace(m.group(0), new_value)
+```
+
+Empirical context: Bash 156 (commit 7a37803) patched scheduler job names
+using `if m:` conditional. The script silently skipped 4 jobs whose names
+didn't match the assumed pattern (e.g. `backup_job` vs actual
+`daily_backup_job`). Fix required separate forward-fix commit (Bash 157
+/ commit cef3356).
+
+Pattern related to Lesson 21 (grep before invoke) but distinct surface:
+Lesson 21 covers SQL identifiers, Lesson 29 covers in-code Python
+identifiers. Same root cause: invented names that the scripted patch
+doesn't validate.
+
+
+### Lesson 30 — Test log capture: monkeypatch over caplog when module configures logging
+
+`pytest.caplog` (and even root-logger handler attachment) becomes
+non-deterministic across test orderings when ANY other module configures
+logging at import time (`logging.basicConfig()`, `logging.disable()`,
+setLevel on root, etc.). 
+
+Empirical context: 16 tests in `tests/test_sql_observability.py` passed
+isolated but 5 failed in full suite. caplog returned empty buffer in suite
+context. Cause: `bot.main` import triggered `logging.basicConfig()`
+which interacted with caplog's root handler. Tried 3 fixture approaches:
+- caplog with logger name filter → fail
+- caplog without filter → fail
+- root logger custom handler → fail
+
+Solution: **monkeypatch the module's `_log` reference directly with a
+capturing stub**. Bypasses Python logging framework entirely. Tests verify
+the SUT calls `_log.<level>(msg)` with expected args; production routing
+to handlers is a config concern verified separately.
+
+```python
+@pytest.fixture
+def log_capture(monkeypatch):
+    from shared import sql_observability
+    captured: list[tuple[str, str]] = []
+    class Capturing:
+        def info(self, msg, *a, **kw): captured.append(("INFO", msg))
+        def error(self, msg, *a, **kw): captured.append(("ERROR", msg))
+        # ... other levels
+    monkeypatch.setattr(sql_observability, "_log", Capturing())
+    return captured
+```
+
+Test asserts on `captured` list directly. Deterministic. Independent of
+suite ordering, logging config, pytest plugin interactions.
+
+Use this pattern when a module instruments via `logging.getLogger("X")`
+and you want to unit-test the instrumentation calls.
+
+
+### Query observability migration pattern (Item 1 canonical)
+
+Use `shared.sql_observability.query()` for any **new** SQL site touching
+the DB. Migration of existing sites is opt-in (high-ROI sites first).
+
+Pattern:
+```python
+from shared.sql_observability import query
+
+# Read with fetchall:
+rows = query(cx, "SELECT ... WHERE ...", (params,),
+             tag="module.intent", fetch="all")
+
+# Read with fetchone:
+row = query(cx, "SELECT ... WHERE ...", (params,),
+            tag="module.intent", fetch="one")  # returns None if no match
+
+# Write (UPDATE/INSERT/DELETE):
+cur = query(cx, "UPDATE ... SET ...", (params,),
+            tag="module.intent")  # returns cursor for .rowcount / .lastrowid
+```
+
+Tag conventions: `{module}.{intent}` snake_case. Examples:
+- `digest.fetch_signals_for_synthesis`
+- `morning_brief.predictions_resolved_30d`
+- `positions.load_active_with_pnl`
+
+Tags become grepable filters in production: `grep "morning_brief" bot.log`
+shows every SQL touch in that module path.
+
+Migrated sites as of 21/05/2026:
+- intelligence/digest.py (2 sites)
+- intelligence/morning_brief.py (11 sites)
+- Pending: intelligence/price_monitor.py, shared/storage.py (selective)

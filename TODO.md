@@ -1316,10 +1316,20 @@ Triaged from a wishlist of 40+ items down to 2 multipliers worth shipping
 during observation window (J-19 → 10/06/2026). Strictly post-Chantier #1,
 no work before next session.
 
-### Item 1 — Query observability wrapper (~2h)
+### Item 1 — Query observability wrapper ✅ SHIPPED 21/05/2026
 
-Goal: catch + diagnose silent SQL failures (cf. _store_analysis-class bugs)
-in 10sec instead of 30min.
+DONE in 3 phases this session:
+- Phase 1: shared/sql_observability.py module + 16 unit tests (commit bec7187)
+- Phase 2a: intelligence/digest.py 2 sites migrated (commit 9b7420d)
+- Phase 2b: intelligence/morning_brief.py 11 sites migrated (commit bc8278b)
+- Phase 3: CONVENTIONS.md migration pattern + Lessons 28-30 codified
+
+Pending P3 (selective):
+- intelligence/price_monitor.py (11 sites, recently regression-fixed, defer)
+- shared/storage.py (109 sites, separate selective ship for heaviest paths)
+
+Original goal recap: catch + diagnose silent SQL failures
+(cf. _store_analysis-class bugs) in 10sec instead of 30min.
 
 Design sketch:
 - New `shared/storage.py` :: `def query(sql, params=None, *, tag=None)`
