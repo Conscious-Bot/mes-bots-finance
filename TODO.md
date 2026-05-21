@@ -1353,9 +1353,27 @@ Migration progressive (NO big-bang):
 
 Multiplier ROI: next "silent SQL fail" bug becomes self-diagnosing.
 
-### Item 2 — Invariants métier tests (~2h)
+### Item 2 — Invariants métier tests ✅ SHIPPED 21/05/2026
 
-Goal: catch silent data corruption that schema discipline can't detect.
+DONE: tests/test_invariants_metier.py with 8 invariants, all passing on
+current data. Covers:
+1. positions.qty >= 0 (no negative inventory)
+2. No duplicate open positions per ticker
+3. brier_score ∈ [0, 1] when resolved (vacuous today, fires post-J+28)
+4. decisions.return_30d_pct consistent with prices (vacuous today)
+5. decisions.return_90d_pct consistent with prices (vacuous today)
+6. theses long target_partial < target_full when both set (vacuous today)
+7. position_events.timestamp monotone per position_id
+8. theses.entry_price > 0 when status='active' (21/21 ok)
+
+Omitted from initial plan (no clear spec bounds): signals.score range.
+Observed [1, 61], unclear if spec is 0-100 or something else. Better no
+test than false-positive.
+
+Lesson 31 codified: schema audit before invariant assertions.
+
+Original goal recap: catch silent data corruption that schema discipline
+can't detect.
 
 Target file: `tests/test_invariants_metier.py`
 

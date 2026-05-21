@@ -1274,3 +1274,25 @@ Migrated sites as of 21/05/2026:
 - intelligence/digest.py (2 sites)
 - intelligence/morning_brief.py (11 sites)
 - Pending: intelligence/price_monitor.py, shared/storage.py (selective)
+
+
+### Lesson 31 — Schema audit BEFORE writing data invariants
+
+When writing tests that query DB state, audit the actual schema first.
+TODO.md assumptions may be stale or wrong.
+
+Empirical context (Bash 175): TODO.md assumed `position_events.ts` column.
+Actual schema has `timestamp`. Writing the test with `ts` would have
+caused immediate failure on first run with "no such column: ts".
+
+Run before invariant test: `sqlite3 data/bot.db "PRAGMA table_info(<table>)"`
+for every table the test references. Note exact column names + types.
+Then write the assertion.
+
+Also check observed value ranges via `MIN()` / `MAX()` / `COUNT()` before
+asserting bounds. If you'd planned `signals.score ∈ [0, 100]` but the
+observed range is [1, 61], the assertion is either too loose (passes
+trivially) or based on a spec you don't actually know. Omit invariants
+whose spec you can't justify — false security worse than no test.
+
+This is Lesson 21 (grep before invoke) applied to data tests.
