@@ -1436,3 +1436,38 @@ closes the silent-failure gap in 3-step refactor chains.
 Empirical: 21/05/2026 — commit b512223 shipped 4 F821 latent because
 ruff 'Found 4 errors' wasn't gated. Sunday cron would have crashed.
 Caught by L34 enforcement in follow-up Bash session 229.
+
+---
+
+### L35 - Handler deletion sweep + hard-fail import gates (21/05/2026 Phase G bot down)
+
+**Context** : Phase G deleted cmd_calendar_refresh from regime_calendar.py and bot/registry.py, but bot/main.py L52 still imported it. The script's import check (python3 -c 'import bot.main' printing OK on success) did not exit 1 on failure - so the script continued through pytest, restart (bot crashed silently in nohup background), and committed broken state. Bot stayed down until manually diagnosed.
+
+**Two-part lesson** :
+
+Part A - Deletion sweep must be repository-wide. When removing a handler function, grep ALL bot/ (not just registry.py + source file) :
+
+    grep -rn 'cmd_FUNCTION_NAME' bot/ | grep -v __pycache__ | grep -v '.bak'
+
+Any line returned outside the source file's docstring header is a reference that MUST be updated or removed. bot/main.py historically retains import statements from pre-refactor era.
+
+Part B - Import gates MUST exit 1, not just print.
+
+    # Wrong (silent fail):
+    python3 -c 'import bot.main; print(OK)'
+
+    # Right (hard-fail):
+    python3 -c 'import bot.main' || { echo FAIL; exit 1; }
+
+Any gate that prints without exit-1 is a useless gate. Audit all existing scripts for this pattern.
+
+### L36 - Body extraction indent depends on source context (21/05/2026 Phase E)
+
+**Context** : Phase E _cluster_impl + _buy_cluster_impl helpers extraction failed twice. First attempt dedented body by 4 spaces (assuming inside try: block like Phase C). Result: 25 ruff errors (F704 await outside function, F821 undefined names).
+
+**Lesson** : check the indent level of the source block before extracting :
+- Body inside try: block (8-space indent) -> dedent by 4 -> top-level function body (4-space)
+- Body directly in function (4-space indent) -> NO dedent -> already correct for new function (4-space)
+
+Also: imports declared BEFORE the parse marker (top of function) are NOT in the body extraction. Either move them to the helper or inject them at the helper's start. Phase E _buy_cluster_impl needed 'from shared import storage as storage_mod' injected because it was BEFORE the parse line in the original cmd_insider_buy_cluster.
+
