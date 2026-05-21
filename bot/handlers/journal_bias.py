@@ -152,48 +152,81 @@ async def cmd_history(update, ctx):  # noqa: ARG001
     await update.message.reply_text(msg)
 
 
-async def cmd_journal(update, ctx):  # noqa: ARG001
-    """Log a decision. Usage: /journal <TICKER> <type> <confidence_1_5> <reasoning>
-    Types: entry, scale_in, partial_exit, full_exit, override, no_action_flag
-    Abbrev: e, si, pe, fe, o, nf
+async def cmd_journal(update, ctx):
+    """Sprint 1.2 Phase H dispatcher - /journal family.
+
+    Usage:
+      /journal TICKER type conv reasoning     -> log decision (default action)
+      /journal review [TICKER]                -> stats + recent decisions
+      /journal unresolved                     -> awaiting J+30 / J+90 resolution
+      /journal tag <decision_id> <new_tag>    -> override mistake_tag manually
+
+    Types: entry|scale_in|partial_exit|full_exit|override|no_action_flag
+    Abbrev: e|si|pe|fe|o|nf
+
+    Backward-compat aliases preserved 1 release cycle:
+      /journal_review, /journal_unresolved, /journal_tag
+
+    NOT touched: /journal_audit (Bloc 5 K separate dimension).
     """
-    from datetime import date, timedelta
+    args = ctx.args or []
+    if args and args[0].lower() in ("review", "unresolved", "tag"):
+        action = args[0].lower()
+        if action == "review":
+            ticker_filter = args[1].upper() if len(args) > 1 else None
+            await _journal_review_impl(update, ticker_filter)
+            return
+        if action == "unresolved":
+            await _journal_unresolved_impl(update)
+            return
+        if action == "tag":
+            if len(args) < 3:
+                await update.message.reply_text("Usage: /journal tag <decision_id> <new_tag>")
+                return
+            try:
+                did = int(args[1])
+            except ValueError:
+                await update.message.reply_text(f"Invalid id: {args[1]}")
+                return
+            new_tag = " ".join(args[2:])
+            await _journal_tag_impl(update, did, new_tag)
+            return
+
+    # Default: log decision (multi-word reasoning needs text.split for full string)
+    from datetime import date, timedelta  # noqa: F401  # imported here for clarity
 
     text = update.message.text
     parts = text.split(None, 4)
     if len(parts) < 5:
         await update.message.reply_text(
-            "Usage: /journal <TICKER> <type> <confidence_1_5> <reasoning>\n"
+            "Usage:\n"
+            "  /journal <TICKER> <type> <conf_1_5> <reasoning>\n"
+            "  /journal review [TICKER]\n"
+            "  /journal unresolved\n"
+            "  /journal tag <decision_id> <new_tag>\n"
+            "\n"
             "Types: entry|scale_in|partial_exit|full_exit|override|no_action_flag\n"
-            "Abbrev: e|si|pe|fe|o|nf\n"
-            "Example: /journal NVDA nf 3 Won't add at 52w high before earnings"
+            "Abbrev: e|si|pe|fe|o|nf"
         )
         return
-
     _, ticker_raw, type_raw, conf_raw, reasoning = parts
     ticker = ticker_raw.upper()
 
     ALIASES = {
-        "e": "entry",
-        "entry": "entry",
-        "si": "scale_in",
-        "scale_in": "scale_in",
-        "scalein": "scale_in",
-        "pe": "partial_exit",
-        "partial_exit": "partial_exit",
-        "fe": "full_exit",
-        "full_exit": "full_exit",
-        "exit": "full_exit",
-        "o": "override",
-        "override": "override",
-        "nf": "no_action_flag",
-        "no_action_flag": "no_action_flag",
-        "noaction": "no_action_flag",
-        "flag": "no_action_flag",
+        "e": "entry", "entry": "entry",
+        "si": "scale_in", "scale_in": "scale_in", "scalein": "scale_in",
+        "pe": "partial_exit", "partial_exit": "partial_exit",
+        "fe": "full_exit", "full_exit": "full_exit", "exit": "full_exit",
+        "o": "override", "override": "override",
+        "nf": "no_action_flag", "no_action_flag": "no_action_flag",
+        "noaction": "no_action_flag", "flag": "no_action_flag",
     }
     dtype = ALIASES.get(type_raw.lower())
     if not dtype:
-        await update.message.reply_text(f"Unknown type: {type_raw}\nValid: {sorted(set(ALIASES.values()))}")
+        await update.message.reply_text(
+            f"Unknown type: {type_raw}\n"
+            f"Valid: {sorted(set(ALIASES.values()))}"
+        )
         return
 
     try:
@@ -204,6 +237,96 @@ async def cmd_journal(update, ctx):  # noqa: ARG001
         await update.message.reply_text(f"Confidence must be 1-5, got: {conf_raw}")
         return
 
+    await _journal_log_impl(update, ticker, dtype, confidence, reasoning)
+async def cmd_journal_review(update, ctx):  # noqa: ARG001
+    """Legacy alias for /journal review. Sprint 1.2 Phase H."""
+    parts = update.message.text.split()
+    ticker_filter = parts[1].upper() if len(parts) > 1 else None
+    await _journal_review_impl(update, ticker_filter)
+async def cmd_journal_unresolved(update, ctx):  # noqa: ARG001
+    """Legacy alias for /journal unresolved. Sprint 1.2 Phase H."""
+    await _journal_unresolved_impl(update)
+async def cmd_journal_tag(update, ctx):  # noqa: ARG001
+    """Legacy alias for /journal tag. Sprint 1.2 Phase H."""
+    parts = update.message.text.split()
+    if len(parts) < 3:
+        await update.message.reply_text(
+            "Usage: /journal_tag <decision_id> <new_tag>\nExample: /journal_tag 12 sold_too_early"
+        )
+        return
+    try:
+        did = int(parts[1])
+    except ValueError:
+        await update.message.reply_text(f"Invalid id: {parts[1]}")
+        return
+    new_tag = " ".join(parts[2:])
+    await _journal_tag_impl(update, did, new_tag)
+async def cmd_position_history(update, ctx):  # noqa: ARG001
+    """Phase B5 — Show position history. Usage: /position_history [TICKER]"""
+    from shared import storage as storage_mod
+
+    parts = update.message.text.split()
+    ticker = parts[1].upper() if len(parts) > 1 else None
+    positions = storage_mod.get_positions_history(ticker=ticker, limit=20)
+    if not positions:
+        await update.message.reply_text("No position history" + (f" for {ticker}" if ticker else "") + ".")
+        return
+    # ADR 005: avg_cost EUR canonical -> convert via cost_in for $ display.
+    from shared.positions import cost_in
+    lines = ["Position history" + (f" — {ticker}" if ticker else "")]
+    for p in positions:
+        state = "CLOSED" if (p.get("status") == "closed") else f"OPEN ({p['qty']:g})"
+        rpnl = p.get("realized_pnl") or 0
+        avg_usd = cost_in(p["avg_cost"], "USD") or 0
+        lines.append(f"  #{p['id']} {p['ticker']} {state} entry={p['qty']:g}@${avg_usd:.2f} rpnl={rpnl:+,.2f}")
+    msg = "\n".join(lines)
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
+    await update.message.reply_text(msg)
+
+
+async def cmd_bias_review(update, ctx):  # noqa: ARG001
+    """Phase B6 — Show aggregated bias frequencies. Usage: /bias_review [TICKER]"""
+    parts = update.message.text.split()
+    ticker = parts[1].upper() if len(parts) > 1 else None
+    from shared import storage as storage_mod
+
+    stats = storage_mod.get_bias_stats(ticker=ticker, since_days=180)
+    if stats["total_decisions_analyzed"] == 0:
+        await update.message.reply_text(
+            "No tagged decisions" + (f" for {ticker}" if ticker else "") + " in last 180 days."
+        )
+        return
+
+    lines = ["Bias review" + (f" — {ticker}" if ticker else "") + " (last 180d)"]
+    lines.append(f"  Decisions with bias tags: {stats['total_with_tags']}/{stats['total_decisions_analyzed']}")
+    lines.append("")
+    if stats["bias_counts"]:
+        total = sum(c for _, c in stats["bias_counts"])
+        lines.append("Bias frequencies:")
+        for tag, n in stats["bias_counts"]:
+            pct = (n / total * 100) if total else 0
+            lines.append(f"  {tag:25s} n={n:3d}  ({pct:.1f}%)")
+        lines.append("")
+    if stats["by_decision_type"]:
+        lines.append("By decision type:")
+        for dtype, biases in stats["by_decision_type"].items():
+            top = sorted(biases.items(), key=lambda x: -x[1])[:3]
+            top_str = ", ".join(f"{t}({n})" for t, n in top)
+            lines.append(f"  {dtype:20s} {top_str}")
+    msg = "\n".join(lines)
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
+    await update.message.reply_text(msg)
+
+async def _journal_log_impl(update, ticker: str, dtype: str, confidence: int, reasoning: str) -> None:
+    """Internal: log decision with full context (price, regime, credit, thesis, materiality, bias).
+
+    Used by cmd_journal (default action) and any future automation that needs
+    structured journal logging. Body extracted verbatim from prior cmd_journal,
+    no dedent (body at 4sp direct-in-function).
+    """
+    from datetime import date, timedelta
     price = None
     try:
         import yfinance as yf
@@ -315,14 +438,14 @@ async def cmd_journal(update, ctx):  # noqa: ARG001
     msg.append(f"  J+30 resolution = {resolve_30}, J+90 = {resolve_90}")
     await update.message.reply_text("\n".join(msg))
 
+async def _journal_review_impl(update, ticker_filter) -> None:
+    """Internal: journal stats + recent decisions (optionally filtered by ticker).
 
-async def cmd_journal_review(update, ctx):  # noqa: ARG001
-    """Review journal stats + recent decisions. Usage: /journal_review [TICKER]"""
+    Used by cmd_journal_review (legacy alias) and cmd_journal (Phase H dispatcher).
+    Body extracted verbatim, no dedent.
+    """
     from intelligence import journal
     from shared import storage as storage_mod
-
-    parts = update.message.text.split()
-    ticker_filter = parts[1].upper() if len(parts) > 1 else None
 
     stats = storage_mod.get_journal_stats()
     by_m = stats["by_mistake"]
@@ -363,9 +486,12 @@ async def cmd_journal_review(update, ctx):  # noqa: ARG001
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
+async def _journal_unresolved_impl(update) -> None:
+    """Internal: list decisions awaiting J+30 or J+90 resolution.
 
-async def cmd_journal_unresolved(update, ctx):  # noqa: ARG001
-    """List decisions awaiting J+30 or J+90 resolution."""
+    Used by cmd_journal_unresolved (legacy alias) and cmd_journal (Phase H dispatcher).
+    Body extracted verbatim, no dedent.
+    """
     from intelligence import journal
     from shared import storage as storage_mod
 
@@ -393,22 +519,15 @@ async def cmd_journal_unresolved(update, ctx):  # noqa: ARG001
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
+async def _journal_tag_impl(update, decision_id: int, new_tag: str) -> None:
+    """Internal: override mistake_tag for an existing decision.
 
-async def cmd_journal_tag(update, ctx):  # noqa: ARG001
-    """Manually override mistake tag. Usage: /journal_tag <id> <tag>"""
-    parts = update.message.text.split()
-    if len(parts) < 3:
-        await update.message.reply_text(
-            "Usage: /journal_tag <decision_id> <new_tag>\nExample: /journal_tag 12 sold_too_early"
-        )
-        return
-    try:
-        did = int(parts[1])
-    except ValueError:
-        await update.message.reply_text(f"Invalid id: {parts[1]}")
-        return
-    new_tag = " ".join(parts[2:])
-
+    Used by cmd_journal_tag (legacy alias) and cmd_journal (Phase H dispatcher).
+    Body extracted verbatim, no dedent. Note: parameters are `decision_id` + `new_tag`
+    so the helper body must reference them — but the original body used `did` and `new_tag`,
+    so we provide alias bindings inline.
+    """
+    did = decision_id
     from shared import storage as storage_mod
 
     d = storage_mod.get_decision(did)
@@ -421,61 +540,3 @@ async def cmd_journal_tag(update, ctx):  # noqa: ARG001
         f"OK decision #{did}: mistake_tag_manual='{new_tag}'\n  (was auto: {d.get('mistake_tag_auto') or 'pending'})"
     )
 
-
-async def cmd_position_history(update, ctx):  # noqa: ARG001
-    """Phase B5 — Show position history. Usage: /position_history [TICKER]"""
-    from shared import storage as storage_mod
-
-    parts = update.message.text.split()
-    ticker = parts[1].upper() if len(parts) > 1 else None
-    positions = storage_mod.get_positions_history(ticker=ticker, limit=20)
-    if not positions:
-        await update.message.reply_text("No position history" + (f" for {ticker}" if ticker else "") + ".")
-        return
-    # ADR 005: avg_cost EUR canonical -> convert via cost_in for $ display.
-    from shared.positions import cost_in
-    lines = ["Position history" + (f" — {ticker}" if ticker else "")]
-    for p in positions:
-        state = "CLOSED" if (p.get("status") == "closed") else f"OPEN ({p['qty']:g})"
-        rpnl = p.get("realized_pnl") or 0
-        avg_usd = cost_in(p["avg_cost"], "USD") or 0
-        lines.append(f"  #{p['id']} {p['ticker']} {state} entry={p['qty']:g}@${avg_usd:.2f} rpnl={rpnl:+,.2f}")
-    msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
-
-
-async def cmd_bias_review(update, ctx):  # noqa: ARG001
-    """Phase B6 — Show aggregated bias frequencies. Usage: /bias_review [TICKER]"""
-    parts = update.message.text.split()
-    ticker = parts[1].upper() if len(parts) > 1 else None
-    from shared import storage as storage_mod
-
-    stats = storage_mod.get_bias_stats(ticker=ticker, since_days=180)
-    if stats["total_decisions_analyzed"] == 0:
-        await update.message.reply_text(
-            "No tagged decisions" + (f" for {ticker}" if ticker else "") + " in last 180 days."
-        )
-        return
-
-    lines = ["Bias review" + (f" — {ticker}" if ticker else "") + " (last 180d)"]
-    lines.append(f"  Decisions with bias tags: {stats['total_with_tags']}/{stats['total_decisions_analyzed']}")
-    lines.append("")
-    if stats["bias_counts"]:
-        total = sum(c for _, c in stats["bias_counts"])
-        lines.append("Bias frequencies:")
-        for tag, n in stats["bias_counts"]:
-            pct = (n / total * 100) if total else 0
-            lines.append(f"  {tag:25s} n={n:3d}  ({pct:.1f}%)")
-        lines.append("")
-    if stats["by_decision_type"]:
-        lines.append("By decision type:")
-        for dtype, biases in stats["by_decision_type"].items():
-            top = sorted(biases.items(), key=lambda x: -x[1])[:3]
-            top_str = ", ".join(f"{t}({n})" for t, n in top)
-            lines.append(f"  {dtype:20s} {top_str}")
-    msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
