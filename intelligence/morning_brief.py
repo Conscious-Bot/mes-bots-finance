@@ -317,6 +317,119 @@ def _positions_top5_section():
     return top5
 
 
+def _movers_24h_section() -> list[dict] | None:
+    """Top 3 positions by absolute 24h price move magnitude.
+
+    Returns:
+        list[dict] sorted by |pct| desc, filtered to |pct| > 0.5%, max 3 items
+            keys: ticker, pct, prev_usd, now_usd, conviction
+        Empty list [] if no movers >0.5% (quiet day or weekend)
+        None if yfinance batch call fails (display "data unavailable")
+
+    Uses yfinance batch download (single API call for all positions) to
+    minimize rate-limit risk. Pct computed from native-currency close
+    (FX-invariant). USD values for display via get_current_price_in_usd
+    (canonical, matches /portfolio + /brief top5 post commit 666863f).
+    """
+    from shared import storage
+    conn = sqlite3.connect(storage._DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = query(
+            conn,
+            "SELECT p.ticker, t.conviction FROM positions p "
+            "LEFT JOIN theses t ON t.ticker = p.ticker AND t.status='active' "
+            "WHERE p.status='open'",
+            tag="morning_brief.movers_24h_positions",
+            fetch="all",
+        )
+    except Exception as e:
+        log.warning(f"movers 24h DB fetch fail: {e}")
+        conn.close()
+        return None
+    conn.close()
+
+    if not rows:
+        return []
+
+    tickers = [r["ticker"] for r in rows]
+    conviction_map = {r["ticker"]: r["conviction"] for r in rows}
+
+    try:
+        import yfinance as yf
+        hist = yf.download(tickers, period="2d", interval="1d", progress=False, group_by="ticker")
+    except Exception as e:
+        log.warning(f"movers 24h yfinance batch fail: {e}")
+        return None
+
+    try:
+        from shared.prices import get_current_price_in_usd
+    except Exception:
+        return None
+
+    movers: list[dict] = []
+    for ticker in tickers:
+        try:
+            ticker_data = hist[ticker] if len(tickers) > 1 else hist
+            closes = ticker_data["Close"].dropna()
+            if len(closes) < 2:
+                continue
+            prev_native = float(closes.iloc[-2])
+            now_native = float(closes.iloc[-1])
+            if prev_native <= 0:
+                continue
+            pct = (now_native - prev_native) / prev_native * 100
+            if abs(pct) < 0.5:
+                continue
+            now_usd = get_current_price_in_usd(ticker)
+            if not now_usd:
+                continue
+            prev_usd = now_usd / (1 + pct / 100) if pct != -100 else 0
+            movers.append({
+                "ticker": ticker,
+                "pct": pct,
+                "prev_usd": prev_usd,
+                "now_usd": now_usd,
+                "conviction": conviction_map.get(ticker),
+            })
+        except Exception as e:
+            log.warning(f"movers 24h compute fail for {ticker}: {e}")
+            continue
+
+    if not movers:
+        return []
+    movers.sort(key=lambda m: -abs(m["pct"]))
+    return movers[:3]
+
+
+def _format_movers(movers: list[dict] | None) -> list[str]:
+    """Format movers section for /brief display.
+
+    Args:
+        movers: from _movers_24h_section()
+            None → fetch failed → "MOVERS 24h: data unavailable"
+            [] → quiet day → "MOVERS 24h: calme (aucun mover >0.5%)"
+            list → header + up to 3 formatted lines
+
+    Display format mirrors POSITIONS section style.
+    """
+    if movers is None:
+        return ["MOVERS 24h: data unavailable"]
+    if not movers:
+        return ["MOVERS 24h: calme (aucun mover >0.5%)"]
+    lines = ["MOVERS 24h"]
+    for m in movers:
+        ticker = m["ticker"]
+        pct = m["pct"]
+        prev_usd = m["prev_usd"]
+        now_usd = m["now_usd"]
+        conv = m["conviction"]
+        conv_str = f"c{conv}" if conv else "c?"
+        pct_str = f"+{pct:.1f}%" if pct > 0 else f"{pct:.1f}%"
+        lines.append(f"  {ticker:9} {pct_str:>6} {conv_str:<3}  ${prev_usd:.0f} → ${now_usd:.0f}")
+    return lines
+
+
 def build_brief():
     return {
         "date": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
@@ -328,6 +441,7 @@ def build_brief():
         "stats": _stats_section(),
         "kpi_timer": _kpi_timer_section(),
         "positions_top5": _positions_top5_section(),
+        "movers": _movers_24h_section(),
     }
 
 
@@ -384,6 +498,11 @@ def format_brief(brief):
             lines.append(f"  {item}")
     else:
         lines.append("URGENT: nothing urgent.")
+    lines.append("")
+
+    # MOVERS 24h section — top 3 positions by |24h move|
+    movers = brief.get("movers")
+    lines.extend(_format_movers(movers))
     lines.append("")
 
     s = brief["stats"]
