@@ -51,7 +51,7 @@ avg_cost_usd = 1043.06 * 0.000727  # KRW→USD = $0.76
 
 The bug is obvious in hindsight. The reality is that `avg_cost` was **never** stored in native currency. The broker import script, written by someone (me) on a different week with different assumptions, stored it in EUR. The "native storage" claim in the comments was **aspirational** — a design intent that never landed in production code.
 
-So I had EUR-stored values being multiplied by native→USD rates as if they were KRW. SK hynix: $1,043 EUR became $0.76 "USD." Shin-Etsu Chemical: €38.52 became $0.21. Lasertec Corp: €208 became $1.14.
+So I had EUR-stored values being multiplied by native→USD rates as if they were KRW. SK hynix: €1,043 became $0.76 "USD." Shin-Etsu Chemical: €38.52 became $0.21. Lasertec Corp: €208 became $1.14.
 
 Six months of compounded confidence in my dashboard, undermined by a comment that lied.
 
@@ -61,7 +61,7 @@ Six months of compounded confidence in my dashboard, undermined by a comment tha
 
 Here's the part that generalizes.
 
-When I sat down to fix the bug, the obvious move was to flip a few signs in the four broken handlers. Native → EUR canonical, multiply differently, ship the patch. But I wasn't yet sure which way to flip. The comments said "native". The morning brief disagreed. The other handlers used different conventions inconsistently. Which one was the actual truth of the database?
+When I sat down to fix the bug, the obvious move was to swap a few multipliers in the four broken handlers. Native → EUR canonical, multiply differently, ship the patch. But I wasn't yet sure which way to flip. The comments said "native". The morning brief disagreed. The other handlers used different conventions inconsistently. Which one was the actual truth of the database?
 
 The textual evidence was contradictory. So I derived truth from data instead.
 
@@ -87,13 +87,13 @@ The data settled the question that comments couldn't.
 
 ## What I codified
 
-I wrote this finding up as ADR 005 (Architecture Decision Record #5) in the project. Then I added Lesson 15 to my CONVENTIONS.md, which is the file I read at the start of every session to remember what I've already learned:
+I codified the finding as ADR 005 (Architecture Decision Record #5) in the project. Then I added Lesson 15 to my CONVENTIONS.md, which is the file I read at the start of every session to remember what I've already learned:
 
 > **Lesson 15 — Empirical verification applies beyond SQL.**
 > 
 > Storage convention claims in comments are documentation of *intent at time of writing*; the actual storage IS what storage IS. When auditing a system claim, derive truth from **data**, not from **text**.
 
-The full lesson includes a tooling pattern — the cross-currency ratio audit, generalized — so the next time I read a comment that asserts a data convention before modifying logic depending on it, I have a 10-line script ready to verify rather than trust.
+The full lesson includes the tooling pattern itself — the cross-currency ratio audit, generalized. Next time I read a comment asserting a data convention, I have a 10-line script ready to verify rather than trust.
 
 ---
 
