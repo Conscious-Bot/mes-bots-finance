@@ -30,16 +30,20 @@ __all__ = [
 log = logging.getLogger("bot")
 
 
-async def cmd_thesis_premortem(update, ctx):  # noqa: ARG001
-    """Phase B7 — Display pre-mortem for a thesis. Usage: /thesis_premortem <id>"""
-    parts = update.message.text.split()
-    if len(parts) < 2:
-        await update.message.reply_text("Usage: /thesis_premortem <thesis_id>")
+async def cmd_thesis_premortem(update, ctx):
+    """Legacy alias: /thesis_premortem -> /thesis premortem."""
+    await _thesis_premortem_impl(update, ctx.args or [])
+
+
+async def _thesis_premortem_impl(update, args: list[str]) -> None:
+    """Internal: display pre-mortem. Used by /thesis_premortem and /thesis premortem."""
+    if not args:
+        await update.message.reply_text("Usage: /thesis premortem <thesis_id>")
         return
     try:
-        tid = int(parts[1])
+        tid = int(args[0])
     except ValueError:
-        await update.message.reply_text(f"Invalid id: {parts[1]}")
+        await update.message.reply_text(f"Invalid id: {args[0]}")
         return
     from shared import storage as storage_mod
 

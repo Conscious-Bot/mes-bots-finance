@@ -236,7 +236,12 @@ async def cmd_macro(update, context):
 
 
 async def cmd_price_check(update, ctx):  # noqa: ARG001
-    """Manual trigger : check all active theses for crossings right now."""
+    """Legacy alias: /price_check -> /thesis check_triggers."""
+    await _price_check_impl(update)
+
+
+async def _price_check_impl(update) -> None:
+    """Internal: trigger price check. Used by /price_check and /thesis check_triggers."""
     await update.message.reply_text("Checking active theses...")
     try:
         r = check_thesis_triggers()

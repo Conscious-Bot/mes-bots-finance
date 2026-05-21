@@ -241,19 +241,23 @@ def _format_health(data: dict) -> str:
     return "\n".join(lines)
 
 
-async def cmd_thesis_health(update, ctx):  # noqa: ARG001
-    """Show health snapshot of all active theses.
+async def cmd_thesis_health(update, ctx):
+    """Legacy alias: /thesis_health -> /thesis health."""
+    await _thesis_health_impl(update, ctx.args or [])
 
-    Usage: /thesis_health [signal_window_days] [min_impact]
+
+async def _thesis_health_impl(update, args: list[str]) -> None:
+    """Internal: thesis health snapshot. Used by /thesis_health and /thesis health.
+
+    Usage: /thesis health [signal_window_days] [min_impact]
     Defaults: 30 days, impact >= 3.0
     """
-    parts = update.message.text.split()
     try:
-        window_days = int(parts[1]) if len(parts) > 1 else 30
-        min_impact = float(parts[2]) if len(parts) > 2 else 3.0
+        window_days = int(args[0]) if args else 30
+        min_impact = float(args[1]) if len(args) > 1 else 3.0
     except (ValueError, IndexError):
         await update.message.reply_text(
-            "Usage: /thesis_health [window_days] [min_impact]\nDefaults: 30 days, impact 3.0"
+            "Usage: /thesis health [window_days] [min_impact]\nDefaults: 30 days, impact 3.0"
         )
         return
 

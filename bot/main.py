@@ -74,6 +74,7 @@ from bot.handlers.thesis_analyze import (
 from bot.handlers.thesis_crud import (
     cmd_exit,
     cmd_exit_force,
+    cmd_thesis,
     cmd_thesis_add,
     cmd_thesis_list,
     cmd_thesis_note,

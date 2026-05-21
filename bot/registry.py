@@ -100,6 +100,7 @@ from bot.handlers.thesis_analyze import (
 from bot.handlers.thesis_crud import (
     cmd_exit,
     cmd_exit_force,
+    cmd_thesis,
     cmd_thesis_add,
     cmd_thesis_list,
     cmd_thesis_note,
@@ -129,6 +130,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("cost_trajectory", cmd_cost_trajectory))
     app.add_handler(CommandHandler("ping", cmd_ping))
+    app.add_handler(CommandHandler("thesis", cmd_thesis))
     app.add_handler(CommandHandler("thesis_add", cmd_thesis_add))
     app.add_handler(CommandHandler("thesis_list", cmd_thesis_list))
     app.add_handler(CommandHandler("thesis_revisit", cmd_thesis_revisit))

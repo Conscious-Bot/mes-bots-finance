@@ -152,3 +152,61 @@ def _parse_thesis_template(text):
         if val:
             out[key] = val
     return out
+
+
+
+async def cmd_thesis(update, ctx):
+    """Family dispatcher: /thesis <sub-action> [args].
+
+    Sub-actions: add, list, set, note, revisit, health, premortem, asymmetry, check_triggers
+    """
+    args = ctx.args or []
+    if not args:
+        await update.message.reply_text(
+            "Usage: /thesis <sub-action> [args]\n\n"
+            "Sub-actions:\n"
+            "  /thesis list                            Active theses list\n"
+            "  /thesis add [template]                  Create new thesis\n"
+            "  /thesis set TICKER field value          Edit thesis field\n"
+            "  /thesis note ID text                    Add note to thesis\n"
+            "  /thesis revisit [TICKER]                Revisit thesis\n"
+            "  /thesis health [days] [min_impact]      Health snapshot\n"
+            "  /thesis premortem ID                    Show pre-mortem\n"
+            "  /thesis asymmetry [TICKER]              Asymmetry ratio\n"
+            "  /thesis check_triggers                  Manual trigger check\n"
+        )
+        return
+    sub = args[0].lower()
+    rest = args[1:]
+
+    if sub in ("list", "add", "note", "revisit"):
+        ctx.args = rest
+        if sub == "list":
+            await cmd_thesis_list(update, ctx)
+        elif sub == "add":
+            await cmd_thesis_add(update, ctx)
+        elif sub == "note":
+            await cmd_thesis_note(update, ctx)
+        elif sub == "revisit":
+            await cmd_thesis_revisit(update, ctx)
+        return
+
+    if sub == "set":
+        from bot.handlers.misc import _thesis_set_impl
+        await _thesis_set_impl(update, rest)
+    elif sub == "health":
+        from bot.handlers.thesis_health import _thesis_health_impl
+        await _thesis_health_impl(update, rest)
+    elif sub == "premortem":
+        from bot.handlers.thesis_analyze import _thesis_premortem_impl
+        await _thesis_premortem_impl(update, rest)
+    elif sub == "asymmetry":
+        from bot.handlers.misc import _asymmetry_impl
+        await _asymmetry_impl(update, rest)
+    elif sub == "check_triggers":
+        from bot.handlers.echo_crypto_macro import _price_check_impl
+        await _price_check_impl(update)
+    else:
+        await update.message.reply_text(
+            f"Unknown sub-action: {sub}\nUse /thesis (no args) for help."
+        )

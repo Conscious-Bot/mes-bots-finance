@@ -30,14 +30,18 @@ __all__ = [
 log = logging.getLogger("bot")
 
 
-async def cmd_asymmetry(update, ctx):  # noqa: ARG001
-    """Phase C13 — Show asymmetry ratio for thesis. Usage: /asymmetry [TICKER]"""
-    parts = update.message.text.split()
+async def cmd_asymmetry(update, ctx):
+    """Legacy alias: /asymmetry -> /thesis asymmetry."""
+    await _asymmetry_impl(update, ctx.args or [])
+
+
+async def _asymmetry_impl(update, args: list[str]) -> None:
+    """Internal: asymmetry computation. Used by /asymmetry and /thesis asymmetry."""
     from intelligence import asymmetry as asym_mod
     from shared import storage as storage_mod
 
-    if len(parts) >= 2:
-        ticker = parts[1].upper()
+    if args:
+        ticker = args[0].upper()
         thesis = storage_mod.get_thesis_by_ticker(ticker, status="active")
         if not thesis:
             await update.message.reply_text(f"No active thesis for {ticker}.")
@@ -85,21 +89,27 @@ async def cmd_position(update, ctx):  # noqa: ARG001
         await _position_view_impl(update, ticker)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
-async def cmd_thesis_set(update, ctx):  # noqa: ARG001
-    """Edit a field on active thesis: /thesis_set TICKER field value"""
-    parts = update.message.text.split(maxsplit=3)
-    if len(parts) < 4:
+async def cmd_thesis_set(update, ctx):
+    """Legacy alias: /thesis_set -> /thesis set."""
+    await _thesis_set_impl(update, ctx.args or [])
+
+
+async def _thesis_set_impl(update, args: list[str]) -> None:
+    """Internal: edit thesis field. Used by /thesis_set and /thesis set."""
+    if len(args) < 3:
         await update.message.reply_text(
-            "Usage: /thesis_set <TICKER> <field> <value>\n\n"
+            "Usage: /thesis set <TICKER> <field> <value>\n\n"
             "Editable numeric: target_price, target_partial, target_full, stop_price, entry_price, conviction\n"
             "Editable text:    notes, horizon, key_drivers, invalidation_triggers, triggers_profit_take, status\n\n"
             "Examples:\n"
-            "  /thesis_set NVDA target_partial 260\n"
-            "  /thesis_set NVDA stop_price 175\n"
-            "  /thesis_set NVDA notes 'Post-earnings re-eval'"
+            "  /thesis set NVDA target_partial 260\n"
+            "  /thesis set NVDA stop_price 175\n"
+            "  /thesis set NVDA notes Post-earnings re-eval"
         )
         return
-    ticker, field, value = parts[1].upper(), parts[2].lower(), parts[3]
+    ticker, field = args[0].upper(), args[1].lower()
+    value = " ".join(args[2:])
+    parts = ["", ticker, field, value]  # backward compat for body refs to parts[3]
     EDITABLE_NUM = {"target_price", "target_partial", "target_full", "stop_price", "entry_price", "conviction"}
     EDITABLE_TEXT = {
         "notes",
