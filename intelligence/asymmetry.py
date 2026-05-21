@@ -14,16 +14,17 @@ log = logging.getLogger(__name__)
 
 
 def _get_current_price(ticker: str) -> float | None:
-    """Latest close in EUR (user base currency).
+    """Latest close in USD (canonical display currency).
 
-    Delegates to shared.prices.get_current_price_in_eur which handles
-    currency conversion for tickers quoted in JPY (.T), KRW (.KS), USD,
-    etc. This ensures asymmetry math compares like-for-like with entry_price
-    (stored in EUR from broker avg_cost).
+    Aligns with /portfolio (positions.py:148) and /brief (morning_brief.py
+    top5 section post commit 666863f) which both display USD. EUR-canonical
+    storage (ADR 005) is converted to USD at display time for visual
+    consistency across handlers — same numbers shown for same ticker
+    everywhere. Ratio math is FX-invariant; only display labels change.
     """
     try:
-        from shared.prices import get_current_price_in_eur
-        return get_current_price_in_eur(ticker)
+        from shared.prices import get_current_price_in_usd
+        return get_current_price_in_usd(ticker)
     except Exception as e:
         log.warning(f"price fetch {ticker}: {e}")
         return None
@@ -36,23 +37,37 @@ def compute_thesis_asymmetry(thesis: dict[str, Any]) -> dict[str, Any] | None:
     ticker = thesis.get("ticker")
     if not ticker:
         return None
-    entry = thesis.get("entry_price")
-    target_full = thesis.get("target_full") or thesis.get("target_price")
-    target_partial = thesis.get("target_partial")
-    stop = thesis.get("stop_price")
+    # ADR 005: theses fields stored EUR-canonical
+    entry_eur = thesis.get("entry_price")
+    target_full_eur = thesis.get("target_full") or thesis.get("target_price")
+    target_partial_eur = thesis.get("target_partial")
+    stop_eur = thesis.get("stop_price")
     direction = thesis.get("direction", "long")
 
-    current = _get_current_price(ticker)
+    current = _get_current_price(ticker)  # USD (changed 21/05/2026)
     if current is None:
         return {"ticker": ticker, "error": "price fetch failed"}
+
+    # Convert EUR-canonical storage → USD for display consistency with /portfolio /brief
+    try:
+        from shared.prices import get_fx_rate
+        fx_eur_to_usd = get_fx_rate("EUR", "USD") or 1.1655
+    except Exception:
+        fx_eur_to_usd = 1.1655
+    entry = entry_eur * fx_eur_to_usd if entry_eur else None
+    target_full = target_full_eur * fx_eur_to_usd if target_full_eur else None
+    target_partial = target_partial_eur * fx_eur_to_usd if target_partial_eur else None
+    stop = stop_eur * fx_eur_to_usd if stop_eur else None
 
     # Long-direction asymmetry
     if direction != "long":
         return {"ticker": ticker, "note": f"asymmetry not computed for direction={direction}", "current_price": current}
     if not (entry and target_full and stop):
+        # Compute actually-missing fields (was hardcoded template before 21/05)
+        _missing = [n for n, v in (("entry", entry), ("target_full", target_full), ("stop", stop)) if not v]
         return {
             "ticker": ticker,
-            "note": "incomplete thesis (need entry+target_full+stop)",
+            "note": f"incomplete thesis (need {'+'.join(_missing)})",
             "current_price": current,
             "entry": entry,
             "target_full": target_full,
