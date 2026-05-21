@@ -62,6 +62,7 @@ from bot.handlers.positions import (
     cmd_portfolio,
     cmd_position_buy,
     cmd_position_sell,
+    cmd_trade,
 )
 from bot.handlers.predictions import (
     cmd_credibility,
@@ -173,6 +174,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("sources_half_life", cmd_sources_half_life))
     app.add_handler(CommandHandler("position_buy", cmd_position_buy))
     app.add_handler(CommandHandler("position_sell", cmd_position_sell))
+    app.add_handler(CommandHandler("trade", cmd_trade))  # Sprint 1.2 Phase C family
     app.add_handler(CommandHandler("portfolio", cmd_portfolio))
     app.add_handler(CommandHandler("position_history", cmd_position_history))
     app.add_handler(CommandHandler("bias_review", cmd_bias_review))
