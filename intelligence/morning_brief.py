@@ -267,7 +267,7 @@ def _positions_top5_section():
             "LEFT JOIN theses t ON t.ticker = p.ticker AND t.status='active' "
             "WHERE p.status='open' "
             "ORDER BY COALESCE(t.conviction, 0) DESC, p.ticker ASC "
-            "LIMIT 5",
+            "LIMIT 10",
             tag="morning_brief.top_positions_with_conviction",
             fetch="all",
         )
@@ -317,7 +317,7 @@ def _positions_top5_section():
     return top5
 
 
-def _movers_24h_section() -> list[dict] | None:
+def _movers_24h_section() -> dict | None:
     """Top 3 positions by absolute 24h price move magnitude.
 
     Returns:
@@ -397,36 +397,60 @@ def _movers_24h_section() -> list[dict] | None:
             continue
 
     if not movers:
-        return []
-    movers.sort(key=lambda m: -abs(m["pct"]))
-    return movers[:3]
+        return {"up": [], "down": []}
+    ups = sorted([m for m in movers if m["pct"] > 0], key=lambda m: -m["pct"])[:3]
+    downs = sorted([m for m in movers if m["pct"] < 0], key=lambda m: m["pct"])[:3]
+    return {"up": ups, "down": downs}
 
 
-def _format_movers(movers: list[dict] | None) -> list[str]:
-    """Format movers section for /brief display.
+def _format_movers(movers_data: dict | None) -> list[str]:
+    """Format movers section (UP + DOWN) for /brief display.
 
     Args:
-        movers: from _movers_24h_section()
-            None → fetch failed → "MOVERS 24h: data unavailable"
-            [] → quiet day → "MOVERS 24h: calme (aucun mover >0.5%)"
-            list → header + up to 3 formatted lines
+        movers_data: from _movers_24h_section()
+            None → fetch failed
+            {"up": [], "down": []} → quiet day
+            {"up": [...], "down": [...]} → render sections
 
-    Display format mirrors POSITIONS section style.
+    Severity emoji rules:
+        UP: >+4% green 🟢, 0 to +4% yellow 🟡
+        DOWN: -4% to 0% orange 🟠, <-4% red 🔴
     """
-    if movers is None:
-        return ["MOVERS 24h: data unavailable"]
-    if not movers:
-        return ["MOVERS 24h: calme (aucun mover >0.5%)"]
-    lines = ["MOVERS 24h"]
-    for m in movers:
-        ticker = m["ticker"]
-        pct = m["pct"]
-        prev_usd = m["prev_usd"]
-        now_usd = m["now_usd"]
-        conv = m["conviction"]
-        conv_str = f"c{conv}" if conv else "c?"
-        pct_str = f"+{pct:.1f}%" if pct > 0 else f"{pct:.1f}%"
-        lines.append(f"  {ticker:9} {pct_str:>6} {conv_str:<3}  ${prev_usd:.0f} → ${now_usd:.0f}")
+    if movers_data is None:
+        return ["━ MOVERS 24h ━", "data unavailable"]
+
+    ups = movers_data.get("up", [])
+    downs = movers_data.get("down", [])
+
+    if not ups and not downs:
+        return ["━ MOVERS 24h ━", "calme (aucun mover >0.5%)"]
+
+    lines = []
+
+    if ups:
+        lines.append(f"━ MOVERS UP 24h (top {len(ups)}) ━")
+        for m in ups:
+            pct = m["pct"]
+            emoji = "🟢" if pct > 4 else "🟡"
+            ticker = m["ticker"]
+            conv = m["conviction"]
+            conv_str = f"c{conv}" if conv else "c?"
+            pct_str = f"+{pct:.1f}%"
+            lines.append(f"{emoji} {ticker:9} {conv_str:<3}  {pct_str:>7}   ${m['prev_usd']:.0f} → ${m['now_usd']:.0f}")
+
+    if downs:
+        if ups:
+            lines.append("")
+        lines.append(f"━ MOVERS DOWN 24h (top {len(downs)}) ━")
+        for m in downs:
+            pct = m["pct"]
+            emoji = "🔴" if pct < -4 else "🟠"
+            ticker = m["ticker"]
+            conv = m["conviction"]
+            conv_str = f"c{conv}" if conv else "c?"
+            pct_str = f"{pct:.1f}%"
+            lines.append(f"{emoji} {ticker:9} {conv_str:<3}  {pct_str:>7}   ${m['prev_usd']:.0f} → ${m['now_usd']:.0f}")
+
     return lines
 
 
@@ -446,19 +470,19 @@ def build_brief():
 
 
 def format_brief(brief):
-    """Brief v3: vision instantanee, <= 20 lines."""
+    """Brief canonical (TG output spec 21/05/2026): header + sections with severity emoji."""
     lines = []
     m = brief["macro"]
-    lines.append(f"BRIEF {brief['date']}")
+    lines.append(f"☀️ MORNING BRIEF — {brief['date']}")
     lines.append(f"Regime: {m['macro_regime']}  |  Credit: {m['credit_regime']}")
     lines.append("")
 
-    top5 = brief.get("positions_top5", [])
+    top10 = brief.get("positions_top5", [])  # key preserved for backward-compat
     p = brief["portfolio"]
     n_pos = len(p.get("positions", []))
-    if top5:
-        lines.append(f"POSITIONS ({n_pos} active) - top 5 by conviction")
-        for pos in top5:
+    if top10:
+        lines.append(f"━ POSITIONS ({n_pos} active) — top {len(top10)} by conviction ━")
+        for pos in top10:
             lines.append(format_brief_position_line(
                 ticker=pos["ticker"],
                 name=pos.get("name"),
@@ -468,49 +492,52 @@ def format_brief(brief):
                 currency=Currency.USD,
             ))
     else:
-        lines.append(f"POSITIONS ({n_pos} active) - no conviction data")
+        lines.append(f"━ POSITIONS ({n_pos} active) — no conviction data ━")
     lines.append("")
 
+    # URGENT section with severity emoji by item type
     urgent_items = []
     kpi = brief.get("kpi_timer", {})
     if kpi.get("due_in_window", 0) > 0:
         days = kpi.get("days_to_cluster", 0)
         resolved = kpi.get("resolved_30d", 0)
         urgent_items.append(
-            f"KPI #2: {resolved}/5 resolved 30d  |  {kpi['due_in_window']} due in J-{days}"
+            f"🟡 KPI #2: {resolved}/5 resolved 30d  |  {kpi['due_in_window']} due in J-{days}"
         )
     d = brief["discipline"]
     n_unresolved = len(d.get("unresolved", []))
     if n_unresolved > 0:
         tickers = ", ".join(sorted({r["ticker"] for r in d["unresolved"][:5]}))
-        urgent_items.append(f"Unresolved decisions: {n_unresolved} ({tickers})")
+        urgent_items.append(f"🟡 Unresolved decisions: {n_unresolved} ({tickers})")
     fi = brief["filings_insider"]
     n_8k = len(fi.get("high_8k", []))
     if n_8k > 0:
-        urgent_items.append(f"NEW 8-K HIGH/CATASTROPHIC: {n_8k}")
+        urgent_items.append(f"🔴 NEW 8-K HIGH/CATASTROPHIC: {n_8k}")
     n_buy_clusters = len(fi.get("buy_clusters", []))
     if n_buy_clusters > 0:
-        urgent_items.append(f"NEW insider BUY clusters: {n_buy_clusters}")
+        urgent_items.append(f"🟢 NEW insider BUY clusters: {n_buy_clusters}")
 
     if urgent_items:
-        lines.append("URGENT")
+        lines.append(f"━ URGENT ({len(urgent_items)}) ━")
         for item in urgent_items:
-            lines.append(f"  {item}")
+            lines.append(item)
     else:
-        lines.append("URGENT: nothing urgent.")
+        lines.append("━ URGENT (0) ━")
+        lines.append("nothing urgent")
     lines.append("")
 
-    # MOVERS 24h section — top 3 positions by |24h move|
+    # MOVERS 24h section (UP + DOWN, severity emoji built in _format_movers)
     movers = brief.get("movers")
     lines.extend(_format_movers(movers))
     lines.append("")
 
+    # SIGNALS & COST section
     s = brief["stats"]
     sig = brief["signals"]
     n_sig = len(sig.get("top_signals", []))
     n_echo = len(sig.get("echo_clusters", []))
-    lines.append(
-        f"Signals 24h: {n_sig} top, {n_echo} echo  |  LLM 24h: {format_billing(s['llm_cost_today'])}"
-    )
+    lines.append("━ SIGNALS & COST ━")
+    lines.append(f"Signals 24h:  {n_sig} top, {n_echo} echo")
+    lines.append(f"LLM 24h:      {format_billing(s['llm_cost_today'])}")
 
     return ["\n".join(lines)]
