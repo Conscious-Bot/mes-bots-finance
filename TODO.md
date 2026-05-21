@@ -1440,3 +1440,56 @@ ALREADY SHIPPED (not re-ship):
 - Sunday auto-summaries (handler_stats + cost + kpi_status).
 - 10/06: ~44 predictions auto-resolve → first real Brier measurement.
 - Decision point Path 5/6 based on KPI #2 outcome.
+
+---
+
+## NEW PROJECT — Personal Dashboard (added 21/05/2026 afternoon)
+
+Ambition: build a unified personal dashboard combining finance + productivity
+inputs into a single visual interface. Inspired by founder dashboards seen
+in the wild (Dubai founder template), tailored to actual workflow needs.
+
+### Components to build
+
+1. **Voice notes pipeline**
+   - Telegram voice message ingestion
+   - OpenAI Whisper transcription
+   - AI categorization (priority + task type)
+   - Store transcribed tasks in Supabase
+
+2. **Backend storage**
+   - Supabase project + schema for tasks, habits, CRM, debt entries
+   - API integration for live data feeds
+
+3. **Frontend dashboard**
+   - Live financial assets (% evolution + graphs)
+   - Google Sheets API integration (data live → dashboard)
+   - Google Calendar integration
+   - Habit tracking (tick done, daily refresh)
+   - Debt status metrics (live)
+   - CRM entries → ticked items propagate to front page
+   - Sub-pages as detail views (finance widget = reduced version of full finance page)
+
+### Open scoping questions (to resolve when starting)
+
+- Hosting: local Mac vs web (Vercel/Netlify)?
+- Repo: new `mes-bots-dashboard` separate, or extend mes-bots-finance?
+- Starting brick: voice→Whisper pipeline first, or Supabase schema, or frontend layout?
+- Auth model: solo user only, or anticipated future multi-user?
+
+### Sequencing brick estimates (rough)
+
+- Voice → Whisper → task extraction : ~1 day prototype
+- Supabase setup + schema : 2-3h
+- Dashboard layout (HTML/Tailwind local) : 1-2 days
+- Google Sheets API integration : 2-4h
+- Google Calendar integration : 2-4h
+- Habit tracker UI + persistence : 4h
+- Live assets graph component : 3-5h
+
+Total scope estimate: 1-2 weeks of focused work.
+
+### Status
+
+Not started. Captured here so it's not lost. Trigger to start = explicit
+user decision on scoping questions above.
