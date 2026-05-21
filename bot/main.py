@@ -543,10 +543,16 @@ async def post_init(app):
         log.info(f"Macro events seeded ({n} upcoming)")
     except Exception as e:
         log.warning(f"seed_macro_events failed: {e}")
-    sched = AsyncIOScheduler(timezone=os.environ.get("TZ", "Europe/Paris"))
+    # job_defaults: coalesce=True ensures missed instances on laptop sleep
+    # don't catch-up storm post-wake; misfire_grace_time=3600s = run if <1h late.
+    # Critical cron jobs (backup, digest) override with larger grace below.
+    sched = AsyncIOScheduler(
+        timezone=os.environ.get("TZ", "Europe/Paris"),
+        job_defaults={"coalesce": True, "misfire_grace_time": 3600},
+    )
     sched.add_job(heartbeat, "interval", hours=1)
     sched.add_job(ingest_gmail_job, "interval", hours=1)
-    sched.add_job(daily_digest_job, "cron", hour="7,19", minute=0)
+    sched.add_job(daily_digest_job, "cron", hour="7,19", minute=0, misfire_grace_time=7200)
     sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
     sched.add_job(daily_resolve_job, "cron", hour=9, minute=0)
     sched.add_job(resolve_journal_decisions_job, "cron", hour=8, minute=0)
