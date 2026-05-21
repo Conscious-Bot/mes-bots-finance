@@ -49,7 +49,6 @@ POSITIONS (8)
 ANALYSIS (6)
   /analyze TICKER    Deep analysis (Opus, $0.20)
   /analyze_debate    Multi-round debate
-  /debate_replay     Replay debate
   /asymmetry TICKER  Anti-sell-too-early math
   /risk_check        Risk premortem (Opus reads journal+biases)
   /materiality       Materiality (no args=top5, INT=signal_id, TICKER=last 5)
@@ -67,7 +66,6 @@ JOURNAL (9)
 
 SIGNALS & SOURCES (9)
   /echo_recent       Recent echo clusters
-  /signals_by_type   Filter signals
   /credibility       Source credibility
   /sources_brier     Brier per source
   /sources_half_life Source decay rates

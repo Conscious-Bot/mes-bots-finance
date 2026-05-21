@@ -7,7 +7,6 @@ Module exports (5 handlers):
 - cmd_thesis_premortem  : /thesis_premortem ID — generate pre-mortem for thesis
 - cmd_analyze           : /analyze TICKER — deep fiche on ticker
 - cmd_analyze_debate    : /analyze_debate TICKER — multi-round debate
-- cmd_debate_replay     : /debate_replay ID — replay stored debate
 - cmd_risk_check        : /risk_check TICKER SIDE USD — Opus risk gate
 
 Other thesis handlers (cmd_thesis_add/list/revisit/note/set) intentionally
@@ -23,7 +22,6 @@ from intelligence import analyze as analyze_mod
 __all__ = [
     "cmd_analyze",
     "cmd_analyze_debate",
-    "cmd_debate_replay",
     "cmd_risk_check",
     "cmd_thesis_premortem",
 ]
@@ -94,39 +92,10 @@ async def cmd_analyze_debate(update, ctx):  # noqa: ARG001
             if len(c) > 3900:
                 c = c[:3900] + "\n[truncated]"
             await update.message.reply_text(c)
-        await update.message.reply_text(f"Debate #{debate_id} saved. Replayable via /debate_replay {debate_id}")
+        await update.message.reply_text(f"Debate #{debate_id} saved.")
     except Exception as e:
         log.warning(f"analyze_debate error: {e}")
         await update.message.reply_text(f"Error: {e}")
-
-
-async def cmd_debate_replay(update, ctx):  # noqa: ARG001
-    """Phase C11 — Replay stored debate by id. Usage: /debate_replay <id>"""
-    import json
-
-    parts = update.message.text.split()
-    if len(parts) < 2:
-        await update.message.reply_text("Usage: /debate_replay <debate_id>")
-        return
-    try:
-        did = int(parts[1])
-    except ValueError:
-        await update.message.reply_text("Invalid id.")
-        return
-    from intelligence import debate as debate_mod
-    from shared import storage as storage_mod
-
-    rows = storage_mod.get_recent_debates(limit=50)
-    target = next((r for r in rows if r["id"] == did), None)
-    if not target:
-        await update.message.reply_text(f"Debate #{did} not found.")
-        return
-    transcript = json.loads(target["transcript_json"])
-    chunks = debate_mod.format_debate_for_telegram(transcript)
-    for c in chunks:
-        if len(c) > 3900:
-            c = c[:3900] + "\n[truncated]"
-        await update.message.reply_text(c)
 
 
 async def cmd_risk_check(update, ctx):  # noqa: ARG001

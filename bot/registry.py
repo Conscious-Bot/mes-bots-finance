@@ -83,7 +83,6 @@ from bot.handlers.signals_filings import (
     cmd_insider_digest,
     cmd_insiders,
     cmd_recent_8k,
-    cmd_signals_by_type,
 )
 from bot.handlers.sources_admin import (
     cmd_promote,
@@ -100,7 +99,6 @@ from bot.handlers.system import (
 from bot.handlers.thesis_analyze import (
     cmd_analyze,
     cmd_analyze_debate,
-    cmd_debate_replay,
     cmd_risk_check,
     cmd_thesis_premortem,
 )
@@ -188,14 +186,12 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("8k", cmd_recent_8k))  # Sprint 1.2 Phase A alias
     app.add_handler(CommandHandler("eight_k_history", cmd_eight_k_history))
     app.add_handler(CommandHandler("analyze_debate", cmd_analyze_debate))
-    app.add_handler(CommandHandler("debate_replay", cmd_debate_replay))
     app.add_handler(CommandHandler("risk_check", cmd_risk_check))
     app.add_handler(CommandHandler("tiers", cmd_tiers))
     app.add_handler(CommandHandler("tiers_watch", cmd_tiers_watch))
     app.add_handler(CommandHandler("promote", cmd_promote))
     app.add_handler(CommandHandler("asymmetry", cmd_asymmetry))
     app.add_handler(CommandHandler("brief", cmd_brief))
-    app.add_handler(CommandHandler("signals_by_type", cmd_signals_by_type))
     app.add_handler(CommandHandler("price_check", cmd_price_check))
     app.add_handler(CommandHandler("override", cmd_override))
     app.add_handler(CommandHandler("crypto", cmd_crypto))

@@ -8,7 +8,6 @@ Module exports (7 handlers):
 - cmd_insider_buy_cluster_stats  : /insider_buy_cluster_stats
 - cmd_recent_8k                  : /recent_8k
 - cmd_eight_k_history            : /eight_k_history TICKER
-- cmd_signals_by_type            : /signals_by_type TYPE
 - cmd_insider_digest             : /insider_digest (manual refresh)
 - cmd_insider_cluster            : /insider_cluster TICKER
 
@@ -34,7 +33,6 @@ __all__ = [
     "cmd_insider_cluster",
     "cmd_insider_digest",
     "cmd_recent_8k",
-    "cmd_signals_by_type",
 ]
 
 
@@ -169,41 +167,6 @@ async def cmd_eight_k_history(update, ctx):  # noqa: ARG001
         await update.message.reply_text("Usage: /eight_k_history <TICKER>  (or use /8k history <TICKER>)")
         return
     await _eight_k_history_impl(update, parts[1].upper())
-
-
-async def cmd_signals_by_type(update, ctx):  # noqa: ARG001
-    """Phase Digestion 3a — Usage: /signals_by_type catalyst|data|narrative|opinion [hours]"""
-    parts = update.message.text.split()
-    if len(parts) < 2:
-        await update.message.reply_text(
-            "Usage: /signals_by_type catalyst|data|narrative|opinion [hours=72]\n"
-            "Returns signals sorted by adjusted materiality (score x corroboration boost)."
-        )
-        return
-    sig_type = parts[1].lower()
-    if sig_type not in ("catalyst", "data", "narrative", "opinion"):
-        await update.message.reply_text(f"Invalid type: {sig_type}. Use catalyst|data|narrative|opinion.")
-        return
-    hours = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 72
-    from shared import storage as storage_mod
-
-    rows = storage_mod.get_signals_by_type(sig_type, since_hours=hours, limit=20)
-    if not rows:
-        await update.message.reply_text(f"No '{sig_type}' signals in last {hours}h.")
-        return
-    lines = [f"SIGNALS [{sig_type.upper()}] — last {hours}h ({len(rows)} found)"]
-    for r in rows:
-        boost = r.get("materiality_boost") or 1.0
-        score = r.get("score") or 0
-        adj = score * boost
-        title = (r.get("title") or "?")[:100]
-        src = r.get("source_name") or "?"
-        lines.append(f"\n[adj={adj:.1f} raw={score} boost={boost:.1f}x] {src}")
-        lines.append(f"  {title}")
-    msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
 
 
 async def cmd_insider_digest(update, context):  # noqa: ARG001

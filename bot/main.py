@@ -59,7 +59,6 @@ from bot.handlers.signals_filings import (
     cmd_insider_digest,
     cmd_insiders,
     cmd_recent_8k,
-    cmd_signals_by_type,
 )
 from bot.handlers.sources_admin import (
     cmd_promote,
@@ -73,7 +72,6 @@ from bot.handlers.system import cmd_help, cmd_ping
 from bot.handlers.thesis_analyze import (
     cmd_analyze,
     cmd_analyze_debate,
-    cmd_debate_replay,
     cmd_risk_check,
     cmd_thesis_premortem,
 )
