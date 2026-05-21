@@ -24,6 +24,7 @@ import sqlite3
 from datetime import UTC, datetime
 
 from shared.display import Currency, format_billing, format_brief_position_line
+from shared.sql_observability import query
 
 log = logging.getLogger("bot")
 
@@ -56,26 +57,32 @@ def _signals_section():
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
-        rows = conn.execute(
+        rows = query(
+            conn,
             "SELECT s.id, COALESCE(src.name, 'unknown') AS source, s.title, s.impact_magnitude AS score "
             "FROM signals s "
             "LEFT JOIN sources src ON src.id = s.source_id "
             "WHERE s.timestamp >= datetime('now', '-24 hours') "
             "  AND s.impact_magnitude IS NOT NULL "
-            "ORDER BY s.impact_magnitude DESC LIMIT 5"
-        ).fetchall()
+            "ORDER BY s.impact_magnitude DESC LIMIT 5",
+            tag="morning_brief.top_signals_24h",
+            fetch="all",
+        )
         top_signals = [dict(r) for r in rows]
     except Exception as e:
         log.warning(f"top signals query failed: {e}")
     try:
         # echo_clusters derived from signals.echo_cluster_id distinct values 24h
-        rows = conn.execute(
+        rows = query(
+            conn,
             "SELECT echo_cluster_id, COUNT(*) AS n FROM signals "
             "WHERE timestamp >= datetime('now', '-24 hours') "
             "  AND echo_cluster_id IS NOT NULL "
             "GROUP BY echo_cluster_id "
-            "ORDER BY n DESC LIMIT 5"
-        ).fetchall()
+            "ORDER BY n DESC LIMIT 5",
+            tag="morning_brief.top_echo_clusters_24h",
+            fetch="all",
+        )
         echo_clusters = [{"cluster_id": r["echo_cluster_id"], "size": r["n"]} for r in rows]
     except Exception as e:
         log.warning(f"echo clusters query failed: {e}")
@@ -92,22 +99,28 @@ def _filings_insider_section():
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
-        rows = conn.execute(
+        rows = query(
+            conn,
             "SELECT ticker, filed_at, severity, items_raw FROM filings_8k_log "
             "WHERE filed_at >= datetime('now', '-7 days') "
             "  AND severity IN ('high', 'catastrophic') "
-            "ORDER BY filed_at DESC LIMIT 5"
-        ).fetchall()
+            "ORDER BY filed_at DESC LIMIT 5",
+            tag="morning_brief.high_8k_7d",
+            fetch="all",
+        )
         high_8k = [dict(r) for r in rows]
     except Exception as e:
         log.warning(f"8-K query failed: {e}")
     try:
-        rows = conn.execute(
+        rows = query(
+            conn,
             "SELECT ticker, detected_at, cluster_strength, distinct_buyers, return_30d "
             "FROM insider_buy_clusters_log "
             "WHERE detected_at >= datetime('now', '-7 days') "
-            "ORDER BY detected_at DESC LIMIT 5"
-        ).fetchall()
+            "ORDER BY detected_at DESC LIMIT 5",
+            tag="morning_brief.insider_clusters_7d",
+            fetch="all",
+        )
         buy_clusters = [dict(r) for r in rows]
     except Exception as e:
         log.warning(f"insider clusters query failed: {e}")
@@ -130,12 +143,15 @@ def _discipline_section():
     conn.row_factory = sqlite3.Row
     unresolved = []
     try:
-        rows = conn.execute(
+        rows = query(
+            conn,
             "SELECT id, ticker, decision_type, created_at "
             "FROM decisions "
             "WHERE resolved_30d_at IS NULL OR resolved_90d_at IS NULL "
-            "ORDER BY created_at ASC LIMIT 10"
-        ).fetchall()
+            "ORDER BY created_at ASC LIMIT 10",
+            tag="morning_brief.unresolved_decisions",
+            fetch="all",
+        )
         for r in rows:
             try:
                 created = datetime.strptime(r["created_at"][:10], "%Y-%m-%d").replace(tzinfo=UTC)
@@ -169,20 +185,26 @@ def _stats_section():
     conn.row_factory = sqlite3.Row
     llm_cost_today = 0.0
     try:
-        row = conn.execute(
+        row = query(
+            conn,
             "SELECT SUM(cost_usd) AS total FROM llm_calls "
-            "WHERE date(created_at) = date('now')"
-        ).fetchone()
+            "WHERE date(created_at) = date('now')",
+            tag="morning_brief.llm_cost_today",
+            fetch="one",
+        )
         llm_cost_today = float(row["total"]) if row and row["total"] else 0.0
     except Exception as e:
         log.warning(f"LLM cost query failed: {e}")
     resolved_24h = 0
     try:
-        row = conn.execute(
+        row = query(
+            conn,
             "SELECT COUNT(*) AS n FROM predictions "
             "WHERE resolved_at IS NOT NULL "
-            "AND datetime(resolved_at) >= datetime('now', '-24 hours')"
-        ).fetchone()
+            "AND datetime(resolved_at) >= datetime('now', '-24 hours')",
+            tag="morning_brief.predictions_resolved_24h",
+            fetch="one",
+        )
         resolved_24h = int(row["n"]) if row and row["n"] else 0
     except Exception as e:
         log.warning(f"resolved-24h query failed: {e}")
@@ -198,20 +220,29 @@ def _kpi_timer_section():
     conn.row_factory = sqlite3.Row
     result = {"due_in_window": 0, "resolved_30d": 0, "days_to_cluster": 0}
     try:
-        row = conn.execute(
+        row = query(
+            conn,
             "SELECT COUNT(*) AS n FROM predictions "
-            "WHERE resolved_at IS NULL AND target_date <= date('now', '+28 days')"
-        ).fetchone()
+            "WHERE resolved_at IS NULL AND target_date <= date('now', '+28 days')",
+            tag="morning_brief.predictions_due_in_window",
+            fetch="one",
+        )
         result["due_in_window"] = int(row["n"]) if row and row["n"] else 0
-        row = conn.execute(
+        row = query(
+            conn,
             "SELECT COUNT(*) AS n FROM predictions "
             "WHERE resolved_at IS NOT NULL "
-            "AND datetime(resolved_at) >= datetime('now', '-30 days')"
-        ).fetchone()
+            "AND datetime(resolved_at) >= datetime('now', '-30 days')",
+            tag="morning_brief.predictions_resolved_30d",
+            fetch="one",
+        )
         result["resolved_30d"] = int(row["n"]) if row and row["n"] else 0
-        row = conn.execute(
-            "SELECT MIN(target_date) AS earliest FROM predictions WHERE resolved_at IS NULL"
-        ).fetchone()
+        row = query(
+            conn,
+            "SELECT MIN(target_date) AS earliest FROM predictions WHERE resolved_at IS NULL",
+            tag="morning_brief.earliest_unresolved_target",
+            fetch="one",
+        )
         if row and row["earliest"]:
             earliest = datetime.strptime(row["earliest"][:10], "%Y-%m-%d").replace(tzinfo=UTC)
             result["days_to_cluster"] = (earliest - datetime.now(UTC)).days
@@ -229,15 +260,18 @@ def _positions_top5_section():
     conn.row_factory = sqlite3.Row
     top5 = []
     try:
-        rows = conn.execute(
+        rows = query(
+            conn,
             "SELECT p.ticker, p.qty, p.avg_cost, "
             "       t.conviction, t.direction, t.last_price "
             "FROM positions p "
             "LEFT JOIN theses t ON t.ticker = p.ticker AND t.status='active' "
             "WHERE p.status='open' "
             "ORDER BY COALESCE(t.conviction, 0) DESC, p.ticker ASC "
-            "LIMIT 5"
-        ).fetchall()
+            "LIMIT 5",
+            tag="morning_brief.top_positions_with_conviction",
+            fetch="all",
+        )
         for r in rows:
             ticker = r["ticker"]
             try:
