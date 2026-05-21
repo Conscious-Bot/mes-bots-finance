@@ -92,6 +92,8 @@ module = [
     "shared.config",
     "shared.math_helpers",
     "shared.edgar",
+    "shared.positions",
+    "shared.sql_observability",
     # Day 5 ship A3 additions (mypy clean empirically)
     "shared.crypto",
     "shared.echo",
@@ -117,6 +119,8 @@ module = [
     "intelligence.calendar",
     "intelligence.analyze",
     "intelligence.thesis",
+    "intelligence.insider_digest",
+    "intelligence.price_monitor",
     # Data sources
     "data_sources.gmail_",
     # Risk

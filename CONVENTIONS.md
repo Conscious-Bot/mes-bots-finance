@@ -188,11 +188,16 @@ Si une case ne coche pas -> stop, ajuste, puis commit.
 
 **Adoption**: Gradual. Modules opt-in to strict typing via `pyproject.toml` `[[tool.mypy.overrides]]`.
 
-**Currently strict-typed** (`mypy = 0 errors`, tracked in pyproject.toml override):
+**Currently strict-typed** (`mypy = 0 errors`, source of truth = `pyproject.toml` `[[tool.mypy.overrides]]`):
+
+The override list is canonical. CONVENTIONS.md is documentation only.
+When adding a module to strict mode, edit `pyproject.toml` first, then
+update this list to match.
 
 shared layer:
-- `shared/math_helpers.py` — pure math helpers
-- `shared/storage.py` — DB access layer (public signatures)
+- `shared/display.py` — Currency + format helpers
+- `shared/math_helpers.py` — pure math (clamp_credibility, brier_score)
+- `shared/storage.py` — DB access layer
 - `shared/llm.py` — LLM cascade wrapper
 - `shared/prices.py` — yfinance abstraction
 - `shared/notify.py` — Telegram notify
@@ -200,6 +205,13 @@ shared layer:
 - `shared/positions.py` — position book + journal
 - `shared/sql_observability.py` — query wrapper with telemetry
 - `shared/edgar.py` — SEC EDGAR API
+- `shared/crypto.py` — crypto price helpers
+- `shared/echo.py` — BGE embeddings echo clusters
+- `shared/embeddings.py` — BGE-small wrapper
+- `shared/macro.py` — FRED macro data
+- `shared/data_source_base.py` — common ingestion interface
+- `shared/uptime.py` — heartbeat
+- `shared/portfolio_metrics.py` — position-level metrics
 
 intelligence layer:
 - `intelligence/learning.py` — outcome resolution + credibility update
@@ -208,11 +220,26 @@ intelligence layer:
 - `intelligence/digest.py` — twice-daily synthesis
 - `intelligence/journal.py` — decision journal auto-resolve
 - `intelligence/credibility.py` — source credibility ledger
-- `intelligence/insider_digest.py` — Form 4 insider activity digest
+- `intelligence/insider_digest.py` — Form 4 insider activity
 - `intelligence/price_monitor.py` — thesis threshold trigger cron
+- `intelligence/bias_tagger.py` — auto bias tagging
+- `intelligence/signal_classify.py` — Haiku signal_type
+- `intelligence/materiality_boost.py` — promotion logic
+- `intelligence/half_life.py` — decay
+- `intelligence/regime.py` — risk_on/off classifier
+- `intelligence/calendar.py` — macro/earnings calendar
+- `intelligence/analyze.py` — /analyze deep fiche
+- `intelligence/thesis.py` — thesis tracker
+
+bot layer:
+- `bot/handlers/positions.py` — position handlers (Day 12 Step C)
 
 data_sources layer:
-- `data_sources/gmail_.py` — newsletter ingestion via Gmail API
+- `data_sources/gmail_.py` — newsletter ingestion
+
+risk layer:
+- `risk/risk_engine.py` — pre-trade validate
+- `risk/sizing.py` — Quarter Kelly + hard cap
 
 **Patterns used**:
 - Python 3.14 native: `dict[str, Any]`, `list[X]`, `T | None` (not `Optional[T]`)
