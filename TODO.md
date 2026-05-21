@@ -1294,17 +1294,17 @@ canonical names, remove redundant local imports. ~1h focused.
 ### Remaining Chantier #1 backlog J-21
 
 - [ ] P2 briefs persistence decision (2h) — unchanged
-- [ ] P3-A tz-strip anti-pattern harmonization (3-5h)
-- [ ] P3-B local re-import cleanup (1h)
-- [ ] P3 schema discipline tooling (Lesson 21 5× violations — see prior section)
+- [x] P3-A tz-strip anti-pattern harmonization — ✅ SHIPPED 20/05/2026 evening (commits 96d3e89 + ee489b5)
+- [x] P3-B local re-import cleanup — ✅ SHIPPED 20/05/2026 evening (commits 1a3fb64 + 929c519)
+- [x] P3 schema discipline tooling — ✅ SHIPPED 20/05/2026 evening (commits 3629c42 + e87a169 + b46aedf)
 
 ### Closing criteria 10/06 — progress
 1. ruff 0 / mypy 0 / pytest passing maintained ✓
 2. UTC sweep complete ✓ **(this session)**
 3. KPI #5 either functional or explicitly N/A documented ✓
-4. REFERENCE_SCHEMA.md accurate — NOT done (P1 carry-forward)
-5. Lessons 21-26 codified ✓
-6. Schema discipline tooling shipped — NOT done (P3 carry-forward)
+4. REFERENCE_SCHEMA.md accurate ✓ (commit b46aedf, regen via scripts/regen_schema_doc.py)
+5. Lessons 21-26 codified ✓ (also 27-31 added 21/05)
+6. Schema discipline tooling shipped ✓ (commits 3629c42 + e87a169)
 
 
 
