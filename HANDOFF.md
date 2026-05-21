@@ -1,3 +1,14 @@
+# Session 2026-05-21 closed — 30 commits, Phases A+B refactor + 7 lessons
+
+**Full retrospective**: `docs/sessions/2026-05-21.md`
+
+**HEAD**: 236daea  
+**State**: bot running 1 instance, 335 tests passing, ruff/mypy 0  
+**KPI #2 timer**: J-19 to 10/06/2026  
+**Carry-forward**: Sprint 1.2 Phase D-M, Personal Dashboard project, AMD/orphans review J+30
+
+---
+
 # HANDOFF — mes-bots-finance
 
 **Last refresh**: 17 May 2026 ~14:15 KST — Day 9 P3 closure complete (~10-11h cumulative session)
