@@ -1415,3 +1415,24 @@ Alternative pattern (if you must keep bot running): write via a Telegram
 handler that goes through `shared/storage.py` with proper transaction
 boundaries. Out-of-band script writes during bot uptime = avoid.
 
+## Lesson 34 (added 21/05/2026) — Gates must hard-fail before commit
+
+Multi-step Bash scripts that run gates THEN commit must explicitly
+gate on each tool's exit/output. The pattern 'run gate → glance at
+output → trust last step → commit' is unreliable.
+
+Safe bash pattern:
+```bash
+ruff_output=\$(ruff check . 2>&1)
+if echo "\$ruff_output" | grep -qE "Found [1-9]"; then
+    echo "[FAIL] aborting"
+    exit 1
+fi
+```
+
+Combined with L29 (assert hard-fail) and L32 (atomic compound edit),
+closes the silent-failure gap in 3-step refactor chains.
+
+Empirical: 21/05/2026 — commit b512223 shipped 4 F821 latent because
+ruff 'Found 4 errors' wasn't gated. Sunday cron would have crashed.
+Caught by L34 enforcement in follow-up Bash session 229.
