@@ -741,12 +741,15 @@ def main():
     app.add_handler(CommandHandler("journal_audit", cmd_journal_audit))
     app.add_handler(CommandHandler("thesis_health", cmd_thesis_health))
     app.add_handler(CommandHandler("bias_pattern", cmd_bias_pattern))
+    app.add_handler(CommandHandler("biases", cmd_bias_pattern))  # Sprint 1.2 Phase A alias
     app.add_handler(CommandHandler("signal_drilldown", cmd_signal_drilldown))
+    app.add_handler(CommandHandler("signal", cmd_signal_drilldown))  # Sprint 1.2 Phase A alias
     app.add_handler(CommandHandler("journal_unresolved", cmd_journal_unresolved))
     app.add_handler(CommandHandler("journal_tag", cmd_journal_tag))
     app.add_handler(CommandHandler("sources_brier", cmd_sources_brier))
     app.add_handler(CommandHandler("llm_costs", cmd_llm_costs))
     app.add_handler(CommandHandler("echo_recent", cmd_echo_recent))
+    app.add_handler(CommandHandler("echo", cmd_echo_recent))  # Sprint 1.2 Phase A alias
     app.add_handler(CommandHandler("sources_half_life", cmd_sources_half_life))
     app.add_handler(CommandHandler("position_buy", cmd_position_buy))
     app.add_handler(CommandHandler("position_sell", cmd_position_sell))
@@ -762,6 +765,7 @@ def main():
     app.add_handler(CommandHandler("insider_buy_cluster", cmd_insider_buy_cluster))
     app.add_handler(CommandHandler("insider_buy_cluster_stats", cmd_insider_buy_cluster_stats))
     app.add_handler(CommandHandler("recent_8k", cmd_recent_8k))
+    app.add_handler(CommandHandler("8k", cmd_recent_8k))  # Sprint 1.2 Phase A alias
     app.add_handler(CommandHandler("eight_k_history", cmd_eight_k_history))
     app.add_handler(CommandHandler("analyze_debate", cmd_analyze_debate))
     app.add_handler(CommandHandler("debate_replay", cmd_debate_replay))
