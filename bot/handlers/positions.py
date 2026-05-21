@@ -169,6 +169,44 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     enriched_sorted = sorted(enriched, key=lambda x: x["market_value"], reverse=True)
 
+    # Cluster concentration analysis (ADR 008: 35% cap per narrative_tag)
+    import re as _re
+    _CLUSTER_RE = _re.compile(r"sector_thesis_id:\s*([A-Z0-9_]+)")
+    thesis_notes_by_ticker: dict[str, str] = {}
+    try:
+        _conn = sqlite3.connect(storage_mod._DB_PATH)
+        _conn.row_factory = sqlite3.Row
+        for _r in _conn.execute("SELECT ticker, notes FROM theses WHERE status='active'").fetchall():
+            thesis_notes_by_ticker[_r["ticker"]] = _r["notes"] or ""
+        _conn.close()
+    except Exception:
+        pass
+    clusters: dict[str, float] = {}
+    for _pos in enriched:
+        _notes = thesis_notes_by_ticker.get(_pos["ticker"], "")
+        _m = _CLUSTER_RE.search(_notes)
+        _cn = _m.group(1) if _m else "UNCLUSTERED"
+        clusters[_cn] = clusters.get(_cn, 0.0) + _pos["market_value"]
+    CLUSTER_CAP_PCT = 35.0  # ADR 008
+    cluster_breach: list[tuple[str, float, float]] = []
+    cluster_lines: list[str] = []
+    if clusters and total_mv:
+        cluster_lines.append(f"CLUSTER CONCENTRATION (cap {CLUSTER_CAP_PCT:.0f}% per ADR 008)")
+        for _cn, _val in sorted(clusters.items(), key=lambda x: -x[1]):
+            _pct = _val / total_mv * 100
+            _over = _pct - CLUSTER_CAP_PCT
+            if _over > 0:
+                _status = "🔴"
+                _delta_str = f"+{_over:.1f}pp over cap"
+                cluster_breach.append((_cn, _pct, _over))
+            else:
+                _status = "✅"
+                _delta_str = f"{-_over:.1f}pp room"
+            _val_str = format_finance(_val, decimals=0, currency=Currency.USD)
+            cluster_lines.append(
+                f"  {_status} {_cn:30} {_val_str:>10}  {_pct:>5.1f}%  ({_delta_str})"
+            )
+
     # Alerts
     over_sized = []
     for pos in enriched_sorted:
@@ -191,6 +229,10 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     )
     lines.append(f"{len(positions)} positions  |  Max sizing policy: {max_pct_threshold:.0f}%")
     lines.append("")
+
+    if cluster_lines:
+        lines.extend(cluster_lines)
+        lines.append("")
 
     alerts_lines = []
     if over_sized:
