@@ -502,7 +502,7 @@ def format_brief(brief):
         days = kpi.get("days_to_cluster", 0)
         resolved = kpi.get("resolved_30d", 0)
         urgent_items.append(
-            f"🟡 KPI #2: {resolved}/5 resolved 30d  |  {kpi['due_in_window']} due in J-{days}"
+            f"🟡 KPI #2: {resolved}/5 resolved 30d  |  {kpi['due_in_window']} in 28d, next J-{days}"
         )
     d = brief["discipline"]
     n_unresolved = len(d.get("unresolved", []))
