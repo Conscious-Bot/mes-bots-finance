@@ -1374,3 +1374,44 @@ Validation gate: after a multi-file edit script, ALWAYS check
 `git diff --cached --stat` shows the expected file count before
 committing. If short, stop and re-run.
 
+## Lesson 33 (added 21/05/2026) — Bot running = SQLite write lock contention
+
+DB writes via standalone scripts FAIL when bot is alive (`OperationalError:
+database is locked`). SQLite WAL mode allows N readers + 1 writer; bot
+holds write transactions during cron/handler operations.
+
+Safe write pattern:
+```bash
+# 1. Kill bot with verification
+pgrep -f bot.main  # note PIDs
+for pid in $(pgrep -f bot.main); do kill -9 $pid; done
+sleep 3
+test "$(pgrep -f bot.main | wc -l)" = "0" || { echo "FAIL"; exit 1; }
+
+# 2. Verify DB writable
+python3 -c "import sqlite3; c=sqlite3.connect('data/bot.db',timeout=2); c.execute('BEGIN IMMEDIATE'); c.rollback()"
+
+# 3. Write your data
+# 4. Restart bot — VERIFY single instance
+nohup python -m bot.main > bot.log 2>&1 &
+sleep 10
+test "$(pgrep -f bot.main | wc -l)" = "1" || { echo "Multiple bots running"; exit 1; }
+```
+
+Critical traps:
+- `pkill -f bot.main` can FAIL SILENTLY on macOS (BSD pkill quirks).
+  ALWAYS verify with `pgrep` after, never trust pkill exit code alone.
+- `pgrep ... || echo "stopped"` is misleading — if pgrep prints PID and
+  exits 0, the echo branch never fires. The PID print itself signals failure.
+- Starting a new bot before old one is dead = TWO bots running, both
+  fighting for DB lock + Telegram polling, both broken.
+
+Empirical: 21/05/2026 orphans intent write took 3 attempts (Bash 215, 216,
+217) because pkill failed silently, then a second bot was launched while
+the first was still alive. Final Bash 217 used `kill -9 $(pgrep -f bot.main)`
+with explicit count verification — worked first try.
+
+Alternative pattern (if you must keep bot running): write via a Telegram
+handler that goes through `shared/storage.py` with proper transaction
+boundaries. Out-of-band script writes during bot uptime = avoid.
+
