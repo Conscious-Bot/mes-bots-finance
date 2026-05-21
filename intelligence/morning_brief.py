@@ -187,7 +187,7 @@ def _stats_section():
         row = query(
             conn,
             "SELECT SUM(cost_usd) AS total FROM llm_calls "
-            "WHERE date(created_at) = date('now')",
+            "WHERE created_at >= datetime('now', '-24 hours')",
             tag="morning_brief.llm_cost_today",
             fetch="one",
         )
@@ -391,7 +391,7 @@ def format_brief(brief):
     n_sig = len(sig.get("top_signals", []))
     n_echo = len(sig.get("echo_clusters", []))
     lines.append(
-        f"Signals 24h: {n_sig} top, {n_echo} echo  |  LLM today: {format_billing(s['llm_cost_today'])}"
+        f"Signals 24h: {n_sig} top, {n_echo} echo  |  LLM 24h: {format_billing(s['llm_cost_today'])}"
     )
 
     return ["\n".join(lines)]
