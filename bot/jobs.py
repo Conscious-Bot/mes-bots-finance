@@ -6,6 +6,12 @@ Logger and imports mirror those of bot/main.py to preserve behavior.
 
 import logging
 
+from bot.handlers.observability import (
+    _cost_compute_trajectory,
+    _cost_format_trajectory,
+    _format_kpi_report,
+    _kpi_compute_all,
+)
 from data_sources import gmail_
 from intelligence import (
     calendar as calendar_mod,
