@@ -9,6 +9,7 @@ from telegram.ext import Application, CommandHandler
 from bot.handlers.anti_erosion import (
     cmd_log_friction,
     cmd_log_value,
+    cmd_remarks,
 )
 from bot.handlers.bias_pattern import cmd_bias_pattern
 from bot.handlers.debt_crisis import (
@@ -125,6 +126,7 @@ def register_command_handlers(app: Application) -> None:
     """
     app.add_handler(CommandHandler("log_value", cmd_log_value))
     app.add_handler(CommandHandler("log_friction", cmd_log_friction))
+    app.add_handler(CommandHandler("remarks", cmd_remarks))  # Sprint 1.2 Phase L family
     app.add_handler(CommandHandler("find", cmd_find))
     app.add_handler(CommandHandler("portfolio_sectors", cmd_portfolio_sectors))
     app.add_handler(CommandHandler("portfolio_narratives", cmd_portfolio_narratives))
