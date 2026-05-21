@@ -5,7 +5,6 @@ Mechanical move only, zero logic change.
 
 Module exports (7 handlers):
 - cmd_insider_buy_cluster        : /insider_buy_cluster [TICKER]
-- cmd_insider_buy_cluster_stats  : /insider_buy_cluster_stats
 - cmd_recent_8k                  : /recent_8k
 - cmd_eight_k_history            : /eight_k_history TICKER
 - cmd_insider_digest             : /insider_digest (manual refresh)
@@ -29,7 +28,6 @@ from shared import edgar as edgar_mod
 __all__ = [
     "cmd_eight_k_history",
     "cmd_insider_buy_cluster",
-    "cmd_insider_buy_cluster_stats",
     "cmd_insider_cluster",
     "cmd_insider_digest",
     "cmd_recent_8k",
@@ -38,67 +36,10 @@ __all__ = [
 
 async def cmd_insider_buy_cluster(update, ctx):  # noqa: ARG001
     """Phase C7 — List BUY clusters. Usage: /insider_buy_cluster [TICKER]"""
-    from shared import storage as storage_mod
 
     parts = update.message.text.split()
     ticker = parts[1].upper() if len(parts) > 1 else None
-    if ticker:
-        rows = storage_mod.get_buy_clusters_for_ticker(ticker, limit=20)
-        if not rows:
-            await update.message.reply_text(f"No BUY clusters logged for {ticker}.")
-            return
-        lines = [f"BUY CLUSTERS — {ticker} (last 20)"]
-        for r in rows:
-            ret30 = f"{r['return_30d']:+.2%}" if r["return_30d"] is not None else "pending"
-            ret90 = f"{r['return_90d']:+.2%}" if r["return_90d"] is not None else "pending"
-            lines.append(
-                f"\n#{r['id']} {r['detected_at'][:10]} | {r['cluster_strength']:8s} | "
-                f"{r['distinct_buyers']} buyers ${r['total_buy_m']:.1f}M @ ${r['price_at_detection'] or 0:.2f}"
-            )
-            lines.append(f"   J+30: {ret30}  |  J+90: {ret90}")
-        msg = "\n".join(lines)
-    else:
-        from datetime import UTC, datetime, timedelta
-
-        cutoff = (datetime.now(UTC) - timedelta(days=90)).strftime("%Y-%m-%d")
-        import sqlite3
-
-        conn = sqlite3.connect(storage_mod._DB_PATH)
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            "SELECT * FROM insider_buy_clusters_log WHERE date(detected_at) >= ? ORDER BY detected_at DESC LIMIT 20",
-            (cutoff,),
-        ).fetchall()
-        conn.close()
-        if not rows:
-            await update.message.reply_text("No BUY clusters logged in last 90 days.")
-            return
-        lines = ["BUY CLUSTERS — last 90 days"]
-        for r in rows:
-            ret30 = f"{r['return_30d']:+.2%}" if r["return_30d"] is not None else "pending"
-            lines.append(
-                f"\n{r['ticker']:6s} {r['detected_at'][:10]} {r['cluster_strength']:8s} "
-                f"n={r['distinct_buyers']} ${r['total_buy_m']:.1f}M J+30={ret30}"
-            )
-        msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
-
-
-async def cmd_insider_buy_cluster_stats(update, ctx):  # noqa: ARG001
-    """Phase C7 — Empirical alpha summary across all logged BUY clusters."""
-    from intelligence import insider_buy_cluster as ibc
-    from shared import storage as storage_mod
-
-    stats = storage_mod.get_buy_cluster_stats(since_days=365)
-    if stats["n_total"] == 0:
-        await update.message.reply_text(
-            "No BUY clusters logged yet (last 365d).\nFirst clusters will appear after cron 6:20."
-        )
-        return
-    msg = ibc.format_stats(stats)
-    await update.message.reply_text(msg)
+    await _buy_cluster_impl(update, ticker)
 
 
 async def cmd_recent_8k(update, ctx):  # noqa: ARG001
@@ -188,6 +129,71 @@ async def cmd_insider_cluster(update, ctx):  # noqa: ARG001
         return
     ticker = parts[1].upper()
     days = int(parts[2]) if len(parts) >= 3 and parts[2].isdigit() else 14
+    await _cluster_impl(update, ticker, days)
+
+
+async def cmd_insiders(update, ctx):
+    """Sprint 1.2 Phase E dispatcher - /insiders family.
+
+    Usage:
+      /insiders TICKER                  -> form 4 insider summary 90d (default)
+      /insiders cluster TICKER [days]   -> detect cluster buying/selling
+      /insiders buy_cluster [TICKER]    -> list BUY clusters logged
+      /insiders digest                  -> manual refresh + post insider digest
+
+    Backward-compat aliases preserved 1 release cycle:
+      /insider_cluster, /insider_buy_cluster, /insider_digest
+    """
+    args = ctx.args or []
+    if not args:
+        await update.message.reply_text(
+            "Usage:\n"
+            "  /insiders TICKER                 (form 4 summary 90d)\n"
+            "  /insiders cluster TICKER [days]  (cluster detection)\n"
+            "  /insiders buy_cluster [TICKER]   (BUY clusters logged)\n"
+            "  /insiders digest                 (refresh + post digest)\n"
+            "\n"
+            "Ex: /insiders NVDA"
+        )
+        return
+
+    action = args[0].lower()
+
+    if action == "cluster":
+        if len(args) < 2:
+            await update.message.reply_text("Usage: /insiders cluster <TICKER> [days=14]")
+            return
+        ticker = args[1].upper()
+        days = int(args[2]) if len(args) >= 3 and args[2].isdigit() else 14
+        await _cluster_impl(update, ticker, days)
+        return
+
+    if action == "buy_cluster":
+        ticker = args[1].upper() if len(args) > 1 else None
+        await _buy_cluster_impl(update, ticker)
+        return
+
+    if action == "digest":
+        await cmd_insider_digest(update, ctx)
+        return
+
+    # Default: treat args[0] as ticker (preserves /insiders TICKER behavior)
+    ticker = args[0].upper()
+    await update.message.reply_text(f"Fetching Form 4 insiders {ticker} (15-30s, sleep entre fetches)...")
+    try:
+        activity = edgar_mod.get_insider_activity(ticker, days=90)
+        msg = edgar_mod.format_insider_summary(activity)
+        await update.message.reply_text(msg[:4000])
+    except Exception as e:
+        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+
+async def _cluster_impl(update, ticker: str, days: int) -> None:
+    """Internal: detect insider cluster buying/selling for ticker over N days.
+
+    Used by cmd_insider_cluster (alias) and cmd_insiders (Sprint 1.2 Phase E
+    dispatcher /insiders cluster). Body extracted verbatim, no dedent (body
+    is at 4-space indent direct-in-function, target is same).
+    """
     await update.message.reply_text("Scanning " + ticker + " insider cluster (" + str(days) + "d)...")
     try:
         cluster = edgar_mod.get_insider_cluster(ticker, days=days)
@@ -196,15 +202,57 @@ async def cmd_insider_cluster(update, ctx):  # noqa: ARG001
         await update.message.reply_text("Error: " + str(e))
 
 
-async def cmd_insiders(update, ctx):
-    if not ctx.args:
-        await update.message.reply_text("Usage: /insiders TICKER\nEx: /insiders NVDA")
-        return
-    ticker = ctx.args[0].upper()
-    await update.message.reply_text(f"Fetching Form 4 insiders {ticker} (15-30s, sleep entre fetches)...")
-    try:
-        activity = edgar_mod.get_insider_activity(ticker, days=90)
-        msg = edgar_mod.format_insider_summary(activity)
-        await update.message.reply_text(msg[:4000])
-    except Exception as e:
-        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+async def _buy_cluster_impl(update, ticker) -> None:
+    """Internal: list BUY clusters (filtered by ticker if provided).
+
+    Used by cmd_insider_buy_cluster (alias) and cmd_insiders
+    (/insiders buy_cluster). Body extracted verbatim, storage_mod import
+    injected (L36: was BEFORE parse marker in original cmd_insider_buy_cluster).
+    ticker can be None to list recent across all tickers.
+    """
+    from shared import storage as storage_mod
+
+    if ticker:
+        rows = storage_mod.get_buy_clusters_for_ticker(ticker, limit=20)
+        if not rows:
+            await update.message.reply_text(f"No BUY clusters logged for {ticker}.")
+            return
+        lines = [f"BUY CLUSTERS — {ticker} (last 20)"]
+        for r in rows:
+            ret30 = f"{r['return_30d']:+.2%}" if r["return_30d"] is not None else "pending"
+            ret90 = f"{r['return_90d']:+.2%}" if r["return_90d"] is not None else "pending"
+            lines.append(
+                f"\n#{r['id']} {r['detected_at'][:10]} | {r['cluster_strength']:8s} | "
+                f"{r['distinct_buyers']} buyers ${r['total_buy_m']:.1f}M @ ${r['price_at_detection'] or 0:.2f}"
+            )
+            lines.append(f"   J+30: {ret30}  |  J+90: {ret90}")
+        msg = "\n".join(lines)
+    else:
+        from datetime import UTC, datetime, timedelta
+
+        cutoff = (datetime.now(UTC) - timedelta(days=90)).strftime("%Y-%m-%d")
+        import sqlite3
+
+        conn = sqlite3.connect(storage_mod._DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM insider_buy_clusters_log WHERE date(detected_at) >= ? ORDER BY detected_at DESC LIMIT 20",
+            (cutoff,),
+        ).fetchall()
+        conn.close()
+        if not rows:
+            await update.message.reply_text("No BUY clusters logged in last 90 days.")
+            return
+        lines = ["BUY CLUSTERS — last 90 days"]
+        for r in rows:
+            ret30 = f"{r['return_30d']:+.2%}" if r["return_30d"] is not None else "pending"
+            lines.append(
+                f"\n{r['ticker']:6s} {r['detected_at'][:10]} {r['cluster_strength']:8s} "
+                f"n={r['distinct_buyers']} ${r['total_buy_m']:.1f}M J+30={ret30}"
+            )
+        msg = "\n".join(lines)
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
+    await update.message.reply_text(msg)
+
+

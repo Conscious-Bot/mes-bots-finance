@@ -54,7 +54,6 @@ from bot.handlers.signal_drilldown import cmd_signal_drilldown
 from bot.handlers.signals_filings import (
     cmd_eight_k_history,
     cmd_insider_buy_cluster,
-    cmd_insider_buy_cluster_stats,
     cmd_insider_cluster,
     cmd_insider_digest,
     cmd_insiders,
