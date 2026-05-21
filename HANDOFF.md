@@ -1404,3 +1404,84 @@ Continuing from morning + afternoon Sprint 1.2 work (Phase A-M closed earlier to
 4. Decision call: defensive display code P2 vs Phase N UX vs observation discipline
 5. KPI #2 batch resolution due 10-11 juin (J-19 remaining)
 
+
+
+---
+
+## Day 15 FINAL CLOSE — 2026-05-21 21:17
+
+**9 ships + 9 tags pushed**. Most productive session to date.
+
+### Ships chronological
+1. Phase B /portfolio family (commit 556a2d2)
+2. Phase D /thesis dispatcher 5-helper extraction (commit c3d31c8)
+3. 21-theses data normalization (DB only, no commit)
+4. Substack opening post 2 editorial passes (25bb3bc, c90e352)
+5. TG canonical output spec doc (2ed7a32) — `docs/conventions/telegram_output_canonical.md`
+6. /brief canonical (834bdc4)
+7. KPI #2 timer display disambiguation (816ac17)
+8. /recent_8k canonical (554f9fb)
+9. /asymmetry portfolio canonical + currency fix (4cc4083) — fixes stop EUR/USD bug
+
+### TG canonical rollout state
+3/N P0 handlers shipped: /brief, /recent_8k, /asymmetry portfolio.
+Spec doc `docs/conventions/telegram_output_canonical.md` codifies the pattern
+for future handlers. Principle refined late-session: "color = external signal
+only, no color on user-derived constructs" (Day 5 tautology lesson re-applied).
+Pending formal addition to canonical spec doc.
+
+### Empirical signals surfaced by canonical (Day 16 Tier S)
+1. **COHR 🔴 STOP NEAR** (only flag in 17 COMPUTED): current -11.6% from entry,
+   stop at -10% from current. Concrete `/risk_check COHR LONG` or `/thesis premortem`.
+2. **ALAB ratio 0.40 + 25.6% P&L** (bottom of ratio sort): anomaly visible — trim 30-50%
+   or raise stop. Format made this obvious.
+3. **NVDA 4 officer departures in 105 days** (Jan 23, Mar 6, Apr 27, May 8 2026):
+   surfaced via /recent_8k canonical grouping. Pattern invisible in old flat dump.
+   Plus 2 unresolved NVDA decisions in journal.
+4. **4 orphans c1** (AMD, GOOGL, SAF.PA, TSLA) visible INCOMPLETE: target/stop missing.
+   J+30 deadline 2026-06-16.
+5. **Cluster drift négatif top-ratio**: COHR/AVGO/TSM/KLAC/4063.T/SNPS all -2% to -12%
+   from entry. Recent buying near peaks or semis general weakness — pattern noted, not
+   actionable from this view alone.
+
+### Lessons codified (CONVENTIONS.md committed 4cc59f2)
+- **L37**: Templates Python generating Python → no f-strings (curly brace collision)
+- **L38**: `exit 1` in zsh interactive paste kills shell session → use `echo "[FAIL]"` or subshell
+- **L39**: `pkill -f "python.*X"` UNRELIABLE on macOS (framework Python = `Python` capital)
+  → use substring `pkill -f "bot.main"` or explicit `kill -9 PID`
+
+### Universe expansion noted
+Memory snapshot: 178 tickers. Current: 313 (23 core + 123 watch + 167 extended).
+Universe pruning audit on June backlog. Not blocking, not addressed Day 15.
+
+### Substack draft state
+`docs/drafts/substack_opening_post.md` 1101 words. 2 editorial passes complete.
+**Outstanding before publish**: SK hynix $1,216/share fact-check (actual market ~$200,
+discrepancy unverified — split? per-lot? ADR equivalent?). Recommended publish 10/06/2026
+with Brier batch resolution.
+
+### Bot state
+PID 2608, polling, scheduler 27 crons up, no errors.
+Tests: 335 passed (up from 281 at Day 14 close).
+ruff + mypy clean on touched files.
+
+### Day 16 entry point
+1. cd /Users/olivierlegendre/mes-bots-finance && source venv/bin/activate
+2. ps auxww | grep "bot.main" | grep -v grep (NOT pgrep -f python.*, per L39)
+3. Read HANDOFF.md Day 15 final close + Day 16 Tier S
+4. **Action priority order**:
+   - COHR 🔴 STOP NEAR resolution (/risk_check or /thesis premortem)
+   - ALAB ratio anomaly resolution (trim or raise stop)
+   - NVDA 4-officer departure investigation + 2 unresolved decisions
+   - 4 orphans J+30 (AMD/GOOGL/SAF.PA/TSLA — set target/stop or close)
+5. Observe /brief 24-48h for friction notes in friction.md
+6. Concentration policy AI_compute 67% — trim policy decision pending
+
+### Not addressed Day 15 (carry-forward)
+- Universe pruning audit (313 vs 178 baseline)
+- ADR 005 P2 audit complete (positions_events.price, realized_pnl, decisions.price_at_decision)
+- shared/display.py canonical refactor (~5-10h)
+- target_partial NULL across 33 active theses (schema debt)
+- Substack SK hynix fact-check
+- TG canonical remaining handlers (P1: /portfolio, /positions, /digest)
+- Canonical spec doc amendment: formalize "color = external signal only" principle

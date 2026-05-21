@@ -1543,3 +1543,35 @@ future "migration" attempts that would break correctness.
 
 **Audit time spent: 15 min. Migration time saved: 1h30. Regression risk avoided.**
 
+
+
+---
+
+## Day 15 closure (2026-05-21 21:17)
+
+**9 ships + 9 tags pushed**. P0 TG canonical rollout complete on 3 most-used handlers.
+
+### Closed today
+- ✅ Phase B /portfolio
+- ✅ Phase D /thesis dispatcher (5-helper, 9 sub-actions)
+- ✅ 21-theses data normalization
+- ✅ TG canonical spec doc + /brief + /recent_8k + /asymmetry portfolio
+- ✅ KPI #2 timer disambiguation
+- ✅ Substack opening post 2 editorial passes
+- ✅ L37 + L38 + L39 codified
+
+### Day 16 Tier S (empirical, from /asymmetry + /recent_8k canonical)
+- COHR 🔴 STOP NEAR — `/risk_check COHR LONG` or `/thesis premortem`
+- ALAB ratio 0.40 + 25.6% P&L — trim 30-50% or raise stop
+- NVDA 4 officer departures 105 days investigation + 2 unresolved decisions
+- 4 orphans c1 (AMD/GOOGL/SAF.PA/TSLA) — target/stop or close (J+30 2026-06-16)
+- Concentration policy AI_compute 67% trim decision
+
+### Carry-forward Tier A
+- TG canonical: /portfolio, /positions, /digest (P1 remaining)
+- shared/display.py canonical refactor (~5-10h)
+- ADR 005 P2 audit residual (positions_events, realized_pnl, decisions pre-Day-6)
+- target_partial NULL schema debt (33 active theses)
+- Universe pruning audit (313 vs 178 baseline)
+- Substack SK hynix $1,216 fact-check before publish
+- Canonical spec doc amendment: formalize "color = external signal only"
