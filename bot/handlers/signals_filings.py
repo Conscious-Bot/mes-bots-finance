@@ -104,11 +104,31 @@ async def cmd_insider_buy_cluster_stats(update, ctx):  # noqa: ARG001
 
 
 async def cmd_recent_8k(update, ctx):  # noqa: ARG001
-    """Phase C9 — List recent 8-Ks. Usage: /recent_8k [TICKER] [severity]"""
+    """Sprint 1.2 Phase F dispatcher — /8k family.
+
+    Usage:
+      /8k [TICKER] [severity]    → recent 8-K filings (default, 60d window)
+      /8k history TICKER         → full 8-K history for ticker (365d window)
+      /recent_8k [...]           → alias for /8k (1 release cycle backward-compat)
+      /eight_k_history TICKER    → alias for /8k history TICKER
+
+    Severity values: CATASTROPHIC, HIGH, MEDIUM, LOW
+    """
     parts = update.message.text.split()
+    args = parts[1:] if len(parts) > 1 else []
+
+    # Sub-action: /8k history TICKER → full history (365d)
+    if args and args[0].lower() == "history":
+        if len(args) < 2:
+            await update.message.reply_text("Usage: /8k history <TICKER>")
+            return
+        await _eight_k_history_impl(update, args[1].upper())
+        return
+
+    # Default: list recent (60d), optional TICKER and severity filters
     ticker = None
     severity = None
-    for p in parts[1:]:
+    for p in args:
         p_up = p.upper()
         if p_up in ("CATASTROPHIC", "HIGH", "MEDIUM", "LOW"):
             severity = p.lower()
@@ -124,13 +144,8 @@ async def cmd_recent_8k(update, ctx):  # noqa: ARG001
     await update.message.reply_text(msg)
 
 
-async def cmd_eight_k_history(update, ctx):  # noqa: ARG001
-    """Phase C9 — Full 8-K history for ticker. Usage: /eight_k_history TICKER"""
-    parts = update.message.text.split()
-    if len(parts) < 2:
-        await update.message.reply_text("Usage: /eight_k_history <TICKER>")
-        return
-    ticker = parts[1].upper()
+async def _eight_k_history_impl(update, ticker: str) -> None:
+    """Internal helper for /8k history TICKER — full 8-K history 365d window."""
     from intelligence import filings_8k
     from shared import storage as storage_mod
 
@@ -142,6 +157,18 @@ async def cmd_eight_k_history(update, ctx):  # noqa: ARG001
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
+
+
+async def cmd_eight_k_history(update, ctx):  # noqa: ARG001
+    """Alias handler for /eight_k_history — delegates to /8k history dispatcher.
+
+    Sprint 1.2 Phase F: kept 1 release cycle for backward-compat.
+    """
+    parts = update.message.text.split()
+    if len(parts) < 2:
+        await update.message.reply_text("Usage: /eight_k_history <TICKER>  (or use /8k history <TICKER>)")
+        return
+    await _eight_k_history_impl(update, parts[1].upper())
 
 
 async def cmd_signals_by_type(update, ctx):  # noqa: ARG001
