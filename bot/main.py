@@ -60,12 +60,9 @@ from bot.handlers.signals_filings import (
     cmd_recent_8k,
 )
 from bot.handlers.sources_admin import (
-    cmd_promote,
+    cmd_sources,
     cmd_sources_brier,
-    cmd_sources_half_life,
     cmd_sources_health,
-    cmd_tiers,
-    cmd_tiers_watch,
 )
 from bot.handlers.system import cmd_help, cmd_ping
 from bot.handlers.thesis_analyze import (

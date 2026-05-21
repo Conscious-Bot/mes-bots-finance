@@ -6,20 +6,13 @@ Mechanical move only, zero logic change.
 Module exports (6 handlers):
 - cmd_sources_health    : /sources_health overall sources signal stats
 - cmd_sources_brier     : /sources_brier Brier-based credibility ranking
-- cmd_sources_half_life : /sources_half_life decay/freshness per source
-- cmd_tiers             : /tiers tier S/A/B breakdown
-- cmd_tiers_watch       : /tiers_watch watch tier summary
-- cmd_promote           : /promote TICKER tier (universe move)
 """
 from __future__ import annotations
 
 __all__ = [
-    "cmd_promote",
+    "cmd_sources",
     "cmd_sources_brier",
-    "cmd_sources_half_life",
     "cmd_sources_health",
-    "cmd_tiers",
-    "cmd_tiers_watch",
 ]
 
 
@@ -116,95 +109,57 @@ async def cmd_sources_brier(update, ctx):  # noqa: ARG001
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
+async def cmd_sources(update, ctx):
+    """Sprint 1.2 Phase I dispatcher - /sources family.
 
-async def cmd_sources_half_life(update, ctx):  # noqa: ARG001
-    """Phase A4 — Display per-source information half-life."""
-    from shared import storage as storage_mod
+    Usage:
+      /sources health                    -> newsletter sources health check
+      /sources brier                     -> per-source Brier calibration stats
+      /sources credibility               -> top/worst credibility leaderboard
+      /sources feedback ID up|down       -> user feedback on signal #ID
 
-    rows = storage_mod.get_all_sources_with_half_life()
-    if not rows:
-        await update.message.reply_text("No sources found.")
-        return
-
-    with_hl = [r for r in rows if r.get("half_life_days") is not None]
-    without_hl = [r for r in rows if r.get("half_life_days") is None]
-
-    lines = ["Information Half-Life per source"]
-    lines.append(
-        f"  {len(with_hl)} computed, {len(without_hl)} awaiting data (need N>=3 signals with tickers + 30j forward)"
-    )
-    lines.append("")
-
-    if with_hl:
-        lines.append("Computed (ascending = signals decay fastest):")
-        for r in with_hl[:15]:
-            hl = r["half_life_days"]
-            n = r.get("half_life_n_samples") or 0
-            cr = r.get("credibility") or 0.5
-            name = r["name"][:30]
-            lines.append(f"  {name:30s} hl={hl:5.1f}d n={n:2d} cred={cr:.2f}")
-
-    if without_hl:
-        lines.append("")
-        lines.append(f"Awaiting data (top 5 of {len(without_hl)}):")
-        for r in without_hl[:5]:
-            n = r.get("half_life_n_samples") or 0
-            n_sig = r.get("n_signals") or 0
-            lines.append(f"  {r['name'][:30]:30s} n_sig={n_sig} (n_with_move={n})")
-
-    lines.append("")
-    lines.append("Refresh runs Sundays 5h Paris. Threshold ±5% within 30j forward window.")
-
-    msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
-
-
-async def cmd_tiers(update, ctx):  # noqa: ARG001
-    """Phase Tickers Tiered — display ticker tier breakdown."""
-    from shared import config as cfg_mod
-
-    bd = cfg_mod.get_tier_breakdown()
-    lines = ["TICKER UNIVERSE — Tiered Architecture"]
-    lines.append(f"Total: {bd['total']} tickers\n")
-    lines.append(f"━━━ T1 CORE ({bd['counts']['core']}) — scan complet ━━━")
-    for cat, tks in (bd["core"] or {}).items():
-        if isinstance(tks, list):
-            lines.append(f"  {cat:22s} {tks}")
-    lines.append(f"\n━━━ T2 WATCH ({bd['counts']['watch']}) — scan moyen ━━━")
-    lines.append("  (flat list, see /tiers_watch for full list)")
-    lines.append(f"\n━━━ T3 EXTENDED ({bd['counts']['extended']}) — scan minimal ━━━")
-    for cat, tks in (bd["extended"] or {}).items():
-        if isinstance(tks, list):
-            lines.append(f"  {cat:22s} {tks}")
-    msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
-
-
-async def cmd_tiers_watch(update, ctx):  # noqa: ARG001
-    """Full list of T2 watch tickers."""
-    from shared import config as cfg_mod
-
-    watch = cfg_mod.get_tickers("watch")
-    msg = f"T2 WATCH ({len(watch)} tickers):\n\n" + ", ".join(watch)
-    await update.message.reply_text(msg)
-
-
-async def cmd_promote(update, ctx):  # noqa: ARG001
-    """Phase Tickers Tiered — promote ticker between tiers.
-    Usage: /promote TICKER tier  (tier = core | watch | extended)"""
-    parts = update.message.text.split()
-    if len(parts) < 3:
+    Backward-compat aliases preserved 1 release cycle:
+      /sources_health, /sources_brier, /credibility, /feedback
+    """
+    args = ctx.args or []
+    if not args:
         await update.message.reply_text(
-            "Usage: /promote TICKER tier\n  tier = core | watch | extended\n  Example: /promote PLTR core"
+            "Usage:\n"
+            "  /sources health        (sources health check)\n"
+            "  /sources brier         (per-source Brier stats)\n"
+            "  /sources credibility   (top/worst credibility)\n"
+            "  /sources feedback ID up|down  (rate signal)"
         )
         return
-    ticker = parts[1].upper()
-    new_tier = parts[2].lower()
-    from shared import config as cfg_mod
+    action = args[0].lower()
+    if action == "health":
+        await cmd_sources_health(update, ctx)
+        return
+    if action == "brier":
+        await cmd_sources_brier(update, ctx)
+        return
+    if action == "credibility":
+        from bot.handlers.predictions import cmd_credibility
+        await cmd_credibility(update, ctx)
+        return
+    if action == "feedback":
+        if len(args) < 3:
+            await update.message.reply_text("Usage: /sources feedback <signal_id> <up|down>")
+            return
+        try:
+            signal_id = int(args[1])
+        except ValueError:
+            await update.message.reply_text(f"signal_id invalide: {args[1]}")
+            return
+        rating = args[2].lower()
+        if rating not in ("up", "down"):
+            await update.message.reply_text(f"rating doit etre up ou down, got: {rating}")
+            return
+        from bot.handlers.predictions import _feedback_impl
+        await _feedback_impl(update, signal_id, rating)
+        return
+    await update.message.reply_text(
+        f"Unknown action: '{action}'\n"
+        "Valid: health, brier, credibility, feedback"
+    )
 
-    ok, msg = cfg_mod.promote_ticker(ticker, new_tier)
-    await update.message.reply_text(("OK " if ok else "FAIL ") + msg)

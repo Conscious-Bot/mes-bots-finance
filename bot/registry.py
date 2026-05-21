@@ -84,12 +84,9 @@ from bot.handlers.signals_filings import (
     cmd_recent_8k,
 )
 from bot.handlers.sources_admin import (
-    cmd_promote,
+    cmd_sources,
     cmd_sources_brier,
-    cmd_sources_half_life,
     cmd_sources_health,
-    cmd_tiers,
-    cmd_tiers_watch,
 )
 from bot.handlers.system import (
     cmd_help,
@@ -151,6 +148,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("credit", cmd_credit))
     app.add_handler(CommandHandler("materiality", cmd_materiality))
     app.add_handler(CommandHandler("sources_health", cmd_sources_health))
+    app.add_handler(CommandHandler("sources", cmd_sources))  # Sprint 1.2 Phase I family
     app.add_handler(CommandHandler("orphan_tickers", cmd_orphan_tickers))
     app.add_handler(CommandHandler("history", cmd_history))
     app.add_handler(CommandHandler("journal", cmd_journal))
@@ -167,7 +165,6 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("llm_costs", cmd_llm_costs))
     app.add_handler(CommandHandler("echo_recent", cmd_echo_recent))
     app.add_handler(CommandHandler("echo", cmd_echo_recent))  # Sprint 1.2 Phase A alias
-    app.add_handler(CommandHandler("sources_half_life", cmd_sources_half_life))
     app.add_handler(CommandHandler("position_buy", cmd_position_buy))
     app.add_handler(CommandHandler("position_sell", cmd_position_sell))
     app.add_handler(CommandHandler("trade", cmd_trade))  # Sprint 1.2 Phase C family
@@ -185,9 +182,6 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("eight_k_history", cmd_eight_k_history))
     app.add_handler(CommandHandler("analyze_debate", cmd_analyze_debate))
     app.add_handler(CommandHandler("risk_check", cmd_risk_check))
-    app.add_handler(CommandHandler("tiers", cmd_tiers))
-    app.add_handler(CommandHandler("tiers_watch", cmd_tiers_watch))
-    app.add_handler(CommandHandler("promote", cmd_promote))
     app.add_handler(CommandHandler("asymmetry", cmd_asymmetry))
     app.add_handler(CommandHandler("brief", cmd_brief))
     app.add_handler(CommandHandler("price_check", cmd_price_check))

@@ -80,6 +80,14 @@ async def cmd_feedback(update, ctx):
     if rating not in ("up", "down"):
         await update.message.reply_text(f"rating doit etre up ou down, got: {rating}")
         return
+    await _feedback_impl(update, signal_id, rating)
+async def _feedback_impl(update, signal_id: int, rating: str) -> None:
+    """Internal: apply user feedback to signal source credibility.
+
+    Used by cmd_feedback (legacy /feedback alias) and cmd_sources
+    (Sprint 1.2 Phase I dispatcher /sources feedback ID up|down).
+    Body extracted verbatim, no dedent (body at 4sp direct-in-function).
+    """
     try:
         result = credibility_mod.apply_feedback(signal_id, rating)
         old = result.get("old_credibility") or 0.5
@@ -89,3 +97,5 @@ async def cmd_feedback(update, ctx):
         await update.message.reply_text(msg)
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
+
+
