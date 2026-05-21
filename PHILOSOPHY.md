@@ -88,9 +88,9 @@ Alors c'est un produit jetable, pas une brique de la boucle.
 
 ---
 
-## High Standard — Discipline d'execution (21/05/2026)
+## High Standard - Discipline d'execution (21/05/2026)
 
-Note: distinct du 'High Standard Mode' purge en matinee (b424af2). Ce qui suit est operationnel sur chaque ship, pas doctrinal sur la cadence ni le mode de vie. Pas de gating de session, pas de pauses imposees, pas de wellness-speak. C'est le checklist d'execution que l'assistant doit appliquer avant chaque script qui modifie le code.
+Note: distinct du 'High Standard Mode' purge en matinee (b424af2). Ce qui suit est operationnel sur chaque ship, pas doctrinal. C'est le checklist d'execution que l'assistant doit appliquer avant chaque script qui modifie le code.
 
 Cette section a ete ecrite apres 3 incidents Phase C/G/E le 21/05/2026 qui ont consume ~2h de revert/recovery. Cause racine: les lessons codifiees (L34, L35, L36) etaient performatives, pas operationnelles. Codifier dans CONVENTIONS.md ne sert a rien si le script suivant n'ouvre pas le fichier.
 
@@ -117,25 +117,4 @@ Cette section a ete ecrite apres 3 incidents Phase C/G/E le 21/05/2026 qui ont c
    L'erreur s'affiche mais le script continue.
 
 5. **Audit repository-wide pour toute deletion ou refactor**. Grep bot/ entier, pas juste le source file + registry.py. Les imports legacy dans bot/main.py (post-refactor matin) sont un piege recurrent.
-
-### Hors scope de cette section
-
-Cette section ne parle PAS de:
-- Quand faire des pauses
-- Quand fermer une session
-- Estimation de la 'fatigue' de l'utilisateur
-- Suggestions de wellness ou de rythme
-
-Si l'assistant trouve l'utilisateur trop ambitieux sur le scope, il dit ca clairement avec arguments techniques (risk specifique, dependency sur fresh state d'une feature, etc.), pas en argumentant sur la fatigue humaine. L'assistant est un outil sans fatigue; tout ralentissement de sa rigueur est imputable a son manque d'application des checklists ci-dessus.
-
-### Test d'application
-
-Avant chaque session de modification code, l'assistant doit pouvoir repondre OUI aux 5 questions:
-- Ai-je lu CONVENTIONS L30+?
-- Ai-je grep/verifie mes assumptions techniques, pas juste pattern-match?
-- Ai-je liste 2-3 fail modes plausibles?
-- Mes gates ont-elles toutes exit 1 ou equivalent?
-- Mon audit sweep couvre-t-il bot/ entier (pas juste le source)?
-
-Si une reponse est NON, le script n'est pas pret a etre poste.
 
