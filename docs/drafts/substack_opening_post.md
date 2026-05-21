@@ -99,15 +99,13 @@ The full lesson includes a tooling pattern — the cross-currency ratio audit, g
 
 ## Why I'm writing this
 
-A few reasons.
+Twenty days from now, 45 predictions I've registered in this system resolve simultaneously. On June 10, 2026, I'll publish the Brier score — the empirical measure of whether my conviction-weighted predictions matched reality. Either mechanized discipline beats my gut over 12 months, or it doesn't, and the data will tell.
 
-**One**, the discipline I'm trying to mechanize for my own investing is the same discipline I should apply to my own engineering. The bug existed because I trusted my own past comment. Comments are a form of self-deference. Self-deference compounds badly over months.
+The KPI dashboard updates every Sunday at 22:30 Paris time and posts itself to my Telegram. The track record is the thesis.
 
-**Two**, retail investing tools mostly don't earn the trust users give them. I see Bloomberg Terminal subscribers paying $24,000/year for tools that still ship with FX bugs. I see brokerage P&L reports that quietly handle currency wrong on cross-border holdings. The signal I'm trying to send to myself, and to anyone reading: when your tool tells you something improbable, audit the tool before you act. And build tools that make the audit cheap.
+There's a second reason worth naming. The discipline I'm trying to mechanize for my own investing is the same discipline I should have applied to my own engineering. The bug existed because I trusted my own past comment. Comments are a form of self-deference. Self-deference compounds badly over months.
 
-**Three**, I'm 28 days into a tracked-prediction regime. On June 10, 2026, 45 predictions resolve simultaneously. I will publish the Brier score, calibrated or not. The KPI dashboard updates every Sunday at 22:30 Paris time and posts itself to my Telegram. The track record is the thesis. Either mechanized discipline beats my gut over 12 months, or it doesn't, and I'll tell you which.
-
-If you're building your own tooling — investing or otherwise — and you want to compare notes on what survives the audit, I'd welcome it.
+If you're building your own tooling — investing or otherwise — subscribe to see the Brier number on June 10, whether it vindicates the method or kills it.
 
 ---
 
