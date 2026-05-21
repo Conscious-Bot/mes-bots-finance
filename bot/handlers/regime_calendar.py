@@ -31,12 +31,3 @@ async def cmd_calendar(update, ctx):  # noqa: ARG001
     await update.message.reply_text(msg[:4000])
 
 
-async def cmd_calendar_refresh(update, ctx):  # noqa: ARG001
-    await update.message.reply_text(f"Refresh calendar sur {len(CALENDAR_REFRESH_TICKERS)} tickers (60-90s)...")
-    try:
-        n = calendar_mod.refresh_earnings_calendar(CALENDAR_REFRESH_TICKERS)
-        events = storage.get_upcoming_events(days_ahead=60)
-        msg = f"OK {n} events upserted.\n\n" + calendar_mod.format_calendar(events, days_ahead=60)
-        await update.message.reply_text(msg[:4000])
-    except Exception as e:
-        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")

@@ -194,8 +194,40 @@ async def cmd_echo_recent(update, ctx):  # noqa: ARG001
     await update.message.reply_text(msg)
 
 
-async def cmd_macro(update, context):  # noqa: ARG001
-    """Show FOMC / NFP / CPI macro events for next 90 days."""
+async def cmd_macro(update, context):
+    """Sprint 1.2 Phase G dispatcher — /macro family.
+
+    Usage:
+      /macro              → TL;DR upcoming FOMC/NFP/CPI events (90d)
+      /macro regime       → detect macro regime (delegates cmd_regime)
+      /macro credit       → credit regime view (delegates cmd_credit)
+      /macro calendar     → earnings calendar 60d + alerts (delegates cmd_calendar)
+
+    Backward-compat aliases preserved 1 release cycle:
+      /regime, /credit, /calendar
+    """
+    args = context.args or []
+    if args:
+        action = args[0].lower()
+        if action == "regime":
+            from bot.handlers.regime_calendar import cmd_regime
+            await cmd_regime(update, context)
+            return
+        if action == "credit":
+            await cmd_credit(update, context)
+            return
+        if action == "calendar":
+            from bot.handlers.regime_calendar import cmd_calendar
+            await cmd_calendar(update, context)
+            return
+        await update.message.reply_text(
+            f"Unknown action: '{action}'\n"
+            "Valid: regime, credit, calendar\n"
+            "See /macro for default (TL;DR upcoming events)."
+        )
+        return
+
+    # Default: TL;DR upcoming macro events 90d
     try:
         msg = format_macro_calendar(90)
     except Exception as e:

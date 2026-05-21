@@ -72,7 +72,6 @@ from bot.handlers.predictions import (
 )
 from bot.handlers.regime_calendar import (
     cmd_calendar,
-    cmd_calendar_refresh,
     cmd_regime,
 )
 from bot.handlers.signal_drilldown import cmd_signal_drilldown
@@ -179,7 +178,6 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("position_history", cmd_position_history))
     app.add_handler(CommandHandler("bias_review", cmd_bias_review))
     app.add_handler(CommandHandler("calendar", cmd_calendar))
-    app.add_handler(CommandHandler("calendar_refresh", cmd_calendar_refresh))
     app.add_handler(CommandHandler("insiders", cmd_insiders))
     app.add_handler(CommandHandler("macro", cmd_macro))
     app.add_handler(CommandHandler("insider_digest", cmd_insider_digest))
