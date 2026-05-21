@@ -263,7 +263,7 @@ def _positions_top5_section():
         rows = query(
             conn,
             "SELECT p.ticker, p.qty, p.avg_cost, "
-            "       t.conviction, t.direction, t.last_price "
+            "       t.conviction, t.direction "
             "FROM positions p "
             "LEFT JOIN theses t ON t.ticker = p.ticker AND t.status='active' "
             "WHERE p.status='open' "
@@ -289,15 +289,14 @@ def _positions_top5_section():
                 fx_eur_to_usd = get_fx_rate("EUR", "USD") or 1.1655
             except Exception:
                 fx_eur_to_usd = 1.1655
-            last_price = r["last_price"]
-            if last_price is not None:
-                with contextlib.suppress(Exception):
-                    last_price = last_price * fx_eur_to_usd
-            else:
-                try:
-                    last_price = get_current_price_in_usd(ticker)
-                except Exception:
-                    last_price = None
+            # 21/05/2026: dropped t.last_price stale-cache read (caused /brief
+            # vs /portfolio divergence up to -7% on 6920.T after laptop sleep
+            # missed price_monitor cron). Now uses canonical fresh-yfinance
+            # path, same as bot/handlers/positions.py:148 in cmd_portfolio.
+            try:
+                last_price = get_current_price_in_usd(ticker)
+            except Exception:
+                last_price = None
             avg_cost_usd = r["avg_cost"] * fx_eur_to_usd if r["avg_cost"] else None
             pnl_pct = None
             if last_price and avg_cost_usd:
