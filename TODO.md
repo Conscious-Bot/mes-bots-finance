@@ -1098,9 +1098,10 @@ Code cleanliness baseline:
       - shared/positions.py (1), prices.py (1), uptime.py (1)
       - scripts/init_db.py (2)
       Total ~35 sites. Strategy: per-file commit, gates after each.
-- [ ] Decision: briefs persistence.
-      Either create briefs table + persist /brief outputs (track record artifact
-      for Path 5/6 narrative), or accept "ephemeral by design" + document.
+- [x] Decision: briefs persistence — ✅ DECIDED 21/05/2026 (ADR 007)
+      → EPHEMERAL by design. No briefs table. Underlying state is canonical.
+      See docs/adrs/007-briefs-ephemeral.md for full rationale (5-reason
+      PHILOSOPHY.md coherence + redundancy + drift hazard + Path 5/6 ROI).
 
 ### P3 Defer post-10/06
 - [ ] shared/storage.py 1962 LOC split (architecturally complex per R5 single-gateway)
@@ -1208,9 +1209,10 @@ Empirical resolution via smoke test (decision #8 entry SMOKE + #9 full_exit SMOK
   - scripts/init_db.py (2 sites)
   Strategy: per-file commit, gates after each, NO top-down sweep brute (touch=type per R14 sauf exception immaculate mandate)
 
-- [ ] **Briefs persistence decision** (2h)
-  - Currently no `briefs` table; /brief outputs ephemeral
-  - Decide: persist for Path 5/6 track record artifact, OR accept ephemeral + document
+- [x] **Briefs persistence decision** — ✅ DECIDED 21/05/2026 (ADR 007)
+  - Currently no `briefs` table; /brief outputs ephemeral → KEPT EPHEMERAL
+  - Rationale: redundancy + drift hazard + zero Path 5/6 marginal ROI
+  - See docs/adrs/007-briefs-ephemeral.md
 
 ### NEW P3 — Schema discipline tooling (issu Lesson 21 répétée 5×)
 
@@ -1293,7 +1295,7 @@ canonical names, remove redundant local imports. ~1h focused.
 
 ### Remaining Chantier #1 backlog J-21
 
-- [ ] P2 briefs persistence decision (2h) — unchanged
+- [x] P2 briefs persistence decision — ✅ DECIDED 21/05/2026 (ADR 007 — ephemeral by design)
 - [x] P3-A tz-strip anti-pattern harmonization — ✅ SHIPPED 20/05/2026 evening (commits 96d3e89 + ee489b5)
 - [x] P3-B local re-import cleanup — ✅ SHIPPED 20/05/2026 evening (commits 1a3fb64 + 929c519)
 - [x] P3 schema discipline tooling — ✅ SHIPPED 20/05/2026 evening (commits 3629c42 + e87a169 + b46aedf)
