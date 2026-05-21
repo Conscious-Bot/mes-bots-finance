@@ -13,7 +13,18 @@ async def cmd_credibility(update, ctx):  # noqa: ARG001
     await update.message.reply_text(msg)
 
 
-async def cmd_predictions(update, ctx):  # noqa: ARG001
+async def cmd_predictions(update, ctx):
+    """Sprint 1.2 Phase K dispatcher.
+
+    /predictions          → list recent 15 predictions (default)
+    /predictions resolve  → manual trigger resolve_due_predictions cron
+    """
+    args = ctx.args or []
+
+    if args and args[0].lower() == "resolve":
+        await _predictions_resolve(update, ctx)
+        return
+
     preds = storage.get_recent_predictions(limit=15)
     if not preds:
         await update.message.reply_text("Aucune prediction enregistree.")
@@ -31,6 +42,17 @@ async def cmd_predictions(update, ctx):  # noqa: ARG001
         else:
             lines.append(f"#{p['id']} {ticker} {dir_} ${baseline:.2f} target {target} [pending]")
     await update.message.reply_text("\n".join(lines))
+
+
+async def _predictions_resolve(update, ctx):  # noqa: ARG001
+    """Sub-action: trigger resolve_due_predictions cron manually."""
+    await update.message.reply_text("Resolution en cours...")
+    try:
+        results = learning_mod.resolve_due_predictions()
+        msg = learning_mod.format_resolve_report(results)
+        await update.message.reply_text(msg[:4000])
+    except Exception as e:
+        await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
 
 
 async def cmd_resolve_now(update, ctx):  # noqa: ARG001
