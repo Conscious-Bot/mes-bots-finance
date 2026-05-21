@@ -188,13 +188,31 @@ Si une case ne coche pas -> stop, ajuste, puis commit.
 
 **Adoption**: Gradual. Modules opt-in to strict typing via `pyproject.toml` `[[tool.mypy.overrides]]`.
 
-**Currently strict-typed** (`mypy = 0 errors`):
+**Currently strict-typed** (`mypy = 0 errors`, tracked in pyproject.toml override):
+
+shared layer:
 - `shared/math_helpers.py` — pure math helpers
 - `shared/storage.py` — DB access layer (public signatures)
 - `shared/llm.py` — LLM cascade wrapper
 - `shared/prices.py` — yfinance abstraction
 - `shared/notify.py` — Telegram notify
 - `shared/config.py` — config + env loader
+- `shared/positions.py` — position book + journal
+- `shared/sql_observability.py` — query wrapper with telemetry
+- `shared/edgar.py` — SEC EDGAR API
+
+intelligence layer:
+- `intelligence/learning.py` — outcome resolution + credibility update
+- `intelligence/materiality_v2.py` — composite materiality rubric
+- `intelligence/asymmetry.py` — long/short asymmetry verdict
+- `intelligence/digest.py` — twice-daily synthesis
+- `intelligence/journal.py` — decision journal auto-resolve
+- `intelligence/credibility.py` — source credibility ledger
+- `intelligence/insider_digest.py` — Form 4 insider activity digest
+- `intelligence/price_monitor.py` — thesis threshold trigger cron
+
+data_sources layer:
+- `data_sources/gmail_.py` — newsletter ingestion via Gmail API
 
 **Patterns used**:
 - Python 3.14 native: `dict[str, Any]`, `list[X]`, `T | None` (not `Optional[T]`)
