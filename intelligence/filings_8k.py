@@ -193,14 +193,59 @@ def format_8k_alert(row):
 
 
 def format_8k_list(rows):
-    """List view for /recent_8k handler."""
+    """List view canonical (TG output spec 21/05/2026): grouped by severity with emoji."""
+    import re as _re
     if not rows:
-        return "No 8-K filings matching filters."
-    lines = [f"8-K FILINGS ({len(rows)} rows)"]
+        return "🚨 8-K FILINGS — 0 rows\nNo 8-K filings matching filters."
+
+    groups: dict[str, list] = {"catastrophic": [], "high": [], "medium": [], "low": [], "unknown": []}
     for r in rows:
-        icon = {"catastrophic": "!!!", "high": "!!", "medium": "!", "low": "-"}.get(r["severity"], "?")
-        items = r.get("items_raw") or "?"
-        lines.append(f"\n{icon} {r['ticker']:6s} {r['filed_at'][:10]} | {r['severity']:13s} | {items}")
-        if r.get("severity_reason"):
-            lines.append(f"   {r['severity_reason'][:120]}")
-    return "\n".join(lines)
+        sev = r.get("severity", "unknown") or "unknown"
+        if sev not in groups:
+            sev = "unknown"
+        groups[sev].append(r)
+
+    lines = [f"🚨 8-K FILINGS — {len(rows)} rows (60d window)"]
+    summary_parts = []
+    for sev_name, label in [("catastrophic", "CATASTROPHIC"), ("high", "HIGH"),
+                             ("medium", "MEDIUM"), ("low", "LOW"), ("unknown", "UNKNOWN")]:
+        n = len(groups[sev_name])
+        if n > 0:
+            summary_parts.append(f"{n} {label}")
+    if summary_parts:
+        lines.append("Severity: " + " | ".join(summary_parts))
+    lines.append("")
+
+    sev_emoji = {
+        "catastrophic": "🔴",
+        "high": "🟠",
+        "medium": "🟡",
+        "low": "🟢",
+        "unknown": "⚪",
+    }
+
+    def _clean_desc(reason):
+        if not reason:
+            return ""
+        return _re.sub(r"^Item \d+\.\d+:\s*", "", reason).strip()
+
+    for sev in ["catastrophic", "high", "medium", "low", "unknown"]:
+        items = groups[sev]
+        if not items:
+            continue
+        emoji = sev_emoji.get(sev, "⚪")
+        lines.append(f"━ {sev.upper()} ({len(items)}) ━")
+        for r in items:
+            items_raw = r.get("items_raw") or "?"
+            ticker = r["ticker"]
+            date = r["filed_at"][:10]
+            desc = _clean_desc(r.get("severity_reason"))
+            if desc and len(desc) > 60:
+                desc = desc[:57] + "..."
+            if desc:
+                lines.append(f"{emoji} {ticker:8s} {date}  {desc}  ({items_raw})")
+            else:
+                lines.append(f"{emoji} {ticker:8s} {date}  ({items_raw})")
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
