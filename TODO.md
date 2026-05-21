@@ -1493,3 +1493,31 @@ Total scope estimate: 1-2 weeks of focused work.
 
 Not started. Captured here so it's not lost. Trigger to start = explicit
 user decision on scoping questions above.
+
+---
+
+## ✅ F1b S1 carry-forward (Day 5) — CLOSED 21/05/2026 via audit
+
+Day 5 carry-forward listed 7 modules pending canonical USD migration. Audit
+21/05 lunch revealed 0 actual migrations needed:
+
+| Module | Status | Rationale |
+|---|---|---|
+| `intelligence/price_monitor.py:185` | ✅ EUR canonical CORRECT | Comparison layer vs EUR-stored thesis thresholds (ADR 005). Migrated Day 7 commit 7aeac4a. |
+| `intelligence/learning.py:125` | ✅ Native canonical CORRECT | Ratio computation (FX-invariant). Both sides native, mathematically equivalent. |
+| `intelligence/thesis.py:149` | ✅ No price call | False positive in grep (no migration to do). |
+| `intelligence/shadow_decisions.py` | ✅ No price call | False positive in grep. |
+| `shared/positions.py:158/188` | ✅ Parametric helper CORRECT | `_enrich_with_live(d, target_cur)` lets caller decide. Migrated Day 7 commit f5a6300. |
+| `bot/handlers/positions.py:103` | ✅ USD migrated | Already canonical via L148 `get_current_price_in_usd`. |
+| `bot/handlers/portfolio_views.py:78` | ✅ USD migrated | Already canonical via L153 `get_current_price_in_usd`. |
+
+**Architectural distinction reinforced** (Lesson 32 candidate):
+- **Display layer** → USD canonical (matches user mental model, /portfolio /brief)
+- **Comparison/threshold layer** → currency must match stored threshold side (EUR canonical when comparing against EUR-stored thesis.target/stop)
+- **Ratio/return layer** → currency-invariant (native is fine, both sides cancel)
+
+Defensive comments added in price_monitor.py:185 + learning.py:125 to prevent
+future "migration" attempts that would break correctness.
+
+**Audit time spent: 15 min. Migration time saved: 1h30. Regression risk avoided.**
+

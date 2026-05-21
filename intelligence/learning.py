@@ -122,6 +122,12 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
         ticker = pred["ticker"]
         baseline_price = pred["baseline_price"]
         direction = pred["direction"]
+        # Native-currency CORRECT here (not legacy).
+        # This computes a RATIO (return_pct) which is FX-invariant — as long as
+        # current_price and baseline_price are in same currency, the ratio holds.
+        # baseline_price was set at prediction creation via same get_current_price
+        # native path, so both sides match. Migrating to USD/EUR adds FX layer for
+        # no math gain and breaks the symmetry. DO NOT migrate.
         current_price = prices.get_current_price(ticker)
         if current_price is None:
             continue

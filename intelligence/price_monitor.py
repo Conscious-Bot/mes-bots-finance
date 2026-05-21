@@ -182,6 +182,12 @@ def check_thesis_triggers() -> dict:
         for t in active:
             ticker = t["ticker"]
             try:
+                # EUR canonical CORRECT here (not legacy).
+                # Theses.target_partial/target_full/stop_price are stored EUR-canonical
+                # per ADR 005 (avg_cost EUR-canonical, consistent storage convention).
+                # This is a COMPARISON layer (p vs threshold), not a DISPLAY layer.
+                # Migrating to USD would break threshold crossings. Day 7 commit 7aeac4a
+                # deliberately set EUR canonical here. DO NOT migrate.
                 p = prices.get_current_price_in_eur(ticker)
                 if not p or p <= 0:
                     fails.append(ticker)
