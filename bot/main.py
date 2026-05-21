@@ -34,7 +34,7 @@ from bot.handlers.journal_bias import (
     cmd_journal_unresolved,
     cmd_position_history,
 )
-from bot.handlers.misc import cmd_asymmetry, cmd_brief, cmd_position, cmd_position_set, cmd_thesis_set
+from bot.handlers.misc import cmd_asymmetry, cmd_brief, cmd_position, cmd_thesis_set
 from bot.handlers.observability import (
     _cost_compute_trajectory,
     _cost_format_trajectory,

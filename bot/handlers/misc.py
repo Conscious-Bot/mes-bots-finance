@@ -6,13 +6,12 @@ Final PLAIN (update, ctx) handler extraction. Mechanical move only.
 Module exports (5 handlers):
 - cmd_asymmetry    : /asymmetry TICKER — counter sell-too-early bias math
 - cmd_brief        : /brief — morning ritual 6 sections
-- cmd_position_set : /position_set TICKER QTY AVG_COST — direct override
 - cmd_position    : /position TICKER — show single position detail
 - cmd_thesis_set   : /thesis_set ID FIELD VALUE — direct thesis field edit
 
 DEPS migrated (top-level):
 - import logging + log instance (used by 1 handler)
-- from shared import positions as positions_mod (used by cmd_position, cmd_position_set)
+- from shared import positions as positions_mod (used by cmd_position)
 """
 
 from __future__ import annotations
@@ -25,7 +24,6 @@ __all__ = [
     "cmd_asymmetry",
     "cmd_brief",
     "cmd_position",
-    "cmd_position_set",
     "cmd_thesis_set",
 ]
 
@@ -76,39 +74,17 @@ async def cmd_brief(update, ctx):  # noqa: ARG001
         await update.message.reply_text(f"Brief failed: {e}")
 
 
-async def cmd_position_set(update, ctx):  # noqa: ARG001
-    """Bootstrap position: /position_set TICKER QTY AVG_COST [notes]"""
-    parts = update.message.text.split(maxsplit=4)
-    if len(parts) < 4:
-        await update.message.reply_text("Usage: /position_set <TICKER> <QTY> <AVG_COST> [notes]")
-        return
-    try:
-        ticker, qty, avg = parts[1].upper(), float(parts[2]), float(parts[3])
-        notes = parts[4] if len(parts) > 4 else None
-        positions_mod.set_position(ticker, qty, avg, notes)
-        await update.message.reply_text(f"✓ Position set: {ticker} qty={qty:.3f} @ ${avg:.2f}")
-    except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
-
-
 async def cmd_position(update, ctx):  # noqa: ARG001
-    """Detail: /position TICKER"""
+    """Detail: /position TICKER (alias also available as /portfolio TICKER)"""
     parts = update.message.text.split()
     if len(parts) < 2:
         await update.message.reply_text("Usage: /position <TICKER>")
         return
     try:
         ticker = parts[1].upper()
-        p = positions_mod.get_position(ticker)
-        if not p:
-            await update.message.reply_text(f"No open position for {ticker}")
-            return
-        hist = positions_mod.get_history(ticker)
-        await update.message.reply_text(positions_mod.format_position_detail(p, hist))
+        await _position_view_impl(update, ticker)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
-
-
 async def cmd_thesis_set(update, ctx):  # noqa: ARG001
     """Edit a field on active thesis: /thesis_set TICKER field value"""
     parts = update.message.text.split(maxsplit=3)
@@ -157,3 +133,18 @@ async def cmd_thesis_set(update, ctx):  # noqa: ARG001
         cx.execute(f"UPDATE theses SET {field}=?, last_reviewed=CURRENT_TIMESTAMP WHERE id=?", (value, r["id"]))
         cx.commit()
     await update.message.reply_text(f"✓ {ticker} {field}: {old_val} → {value}")
+
+async def _position_view_impl(update, ticker: str) -> None:
+    """Internal: show position detail (qty, avg, P&L, history).
+
+    Used by cmd_position (legacy /position alias) and cmd_portfolio
+    (Sprint 1.2 Phase B /portfolio TICKER dispatch). Body extracted
+    verbatim, dedented by 4 (was inside try block in original cmd_position).
+    """
+    p = positions_mod.get_position(ticker)
+    if not p:
+        await update.message.reply_text(f"No open position for {ticker}")
+        return
+    hist = positions_mod.get_history(ticker)
+    await update.message.reply_text(positions_mod.format_position_detail(p, hist))
+

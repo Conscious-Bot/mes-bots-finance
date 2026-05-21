@@ -262,29 +262,11 @@ async def cmd_journal_tag(update, ctx):  # noqa: ARG001
     new_tag = " ".join(parts[2:])
     await _journal_tag_impl(update, did, new_tag)
 async def cmd_position_history(update, ctx):  # noqa: ARG001
-    """Phase B5 — Show position history. Usage: /position_history [TICKER]"""
-    from shared import storage as storage_mod
-
+    """Phase B5 - Show position history. Usage: /position_history [TICKER]
+    Alias also available as /portfolio history [TICKER]."""
     parts = update.message.text.split()
     ticker = parts[1].upper() if len(parts) > 1 else None
-    positions = storage_mod.get_positions_history(ticker=ticker, limit=20)
-    if not positions:
-        await update.message.reply_text("No position history" + (f" for {ticker}" if ticker else "") + ".")
-        return
-    # ADR 005: avg_cost EUR canonical -> convert via cost_in for $ display.
-    from shared.positions import cost_in
-    lines = ["Position history" + (f" — {ticker}" if ticker else "")]
-    for p in positions:
-        state = "CLOSED" if (p.get("status") == "closed") else f"OPEN ({p['qty']:g})"
-        rpnl = p.get("realized_pnl") or 0
-        avg_usd = cost_in(p["avg_cost"], "USD") or 0
-        lines.append(f"  #{p['id']} {p['ticker']} {state} entry={p['qty']:g}@${avg_usd:.2f} rpnl={rpnl:+,.2f}")
-    msg = "\n".join(lines)
-    if len(msg) > 3900:
-        msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
-
-
+    await _position_history_impl(update, ticker)
 async def cmd_bias_review(update, ctx):  # noqa: ARG001
     """Phase B6 — Show aggregated bias frequencies. Usage: /bias_review [TICKER]"""
     parts = update.message.text.split()
@@ -539,4 +521,31 @@ async def _journal_tag_impl(update, decision_id: int, new_tag: str) -> None:
     await update.message.reply_text(
         f"OK decision #{did}: mistake_tag_manual='{new_tag}'\n  (was auto: {d.get('mistake_tag_auto') or 'pending'})"
     )
+
+async def _position_history_impl(update, ticker) -> None:
+    """Internal: list position history (open + closed).
+
+    Used by cmd_position_history (legacy alias) and cmd_portfolio
+    (Sprint 1.2 Phase B /portfolio history dispatch). Body extracted
+    verbatim, no dedent (body at 4sp direct-in-function). storage_mod
+    import injected (was BEFORE parse marker in original).
+    """
+    from shared import storage as storage_mod
+
+    positions = storage_mod.get_positions_history(ticker=ticker, limit=20)
+    if not positions:
+        await update.message.reply_text("No position history" + (f" for {ticker}" if ticker else "") + ".")
+        return
+    # ADR 005: avg_cost EUR canonical -> convert via cost_in for $ display.
+    from shared.positions import cost_in
+    lines = ["Position history" + (f" — {ticker}" if ticker else "")]
+    for p in positions:
+        state = "CLOSED" if (p.get("status") == "closed") else f"OPEN ({p['qty']:g})"
+        rpnl = p.get("realized_pnl") or 0
+        avg_usd = cost_in(p["avg_cost"], "USD") or 0
+        lines.append(f"  #{p['id']} {p['ticker']} {state} entry={p['qty']:g}@${avg_usd:.2f} rpnl={rpnl:+,.2f}")
+    msg = "\n".join(lines)
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
+    await update.message.reply_text(msg)
 

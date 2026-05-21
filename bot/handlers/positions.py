@@ -100,9 +100,39 @@ def _portfolio_journal_ctx(ticker: str) -> tuple[Any | None, Any | None, str | N
     return price, regime_str, credit_str, thesis_id, direction, materiality_top
 
 
-async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
+async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Portfolio v2: alerts top, conviction, PnL%, drill-down footer."""
     assert update.message is not None  # type narrowing — command handlers always receive message
+
+    # Sprint 1.2 Phase B dispatcher: /portfolio family sub-actions
+    # Routes: sectors|narratives|drift|history|TICKER -> dedicated handlers/helpers
+    # Default (no args): existing rich body below (cluster + alerts + positions)
+    args = ctx.args or []
+    if args:
+        action = args[0].lower()
+        if action == "sectors":
+            from bot.handlers.portfolio_views import cmd_portfolio_sectors
+            await cmd_portfolio_sectors(update, ctx)
+            return
+        if action == "narratives":
+            from bot.handlers.portfolio_views import cmd_portfolio_narratives
+            await cmd_portfolio_narratives(update, ctx)
+            return
+        if action == "drift":
+            from bot.handlers.portfolio_views import cmd_portfolio_drift
+            await cmd_portfolio_drift(update, ctx)
+            return
+        if action == "history":
+            from bot.handlers.journal_bias import _position_history_impl
+            ticker = args[1].upper() if len(args) > 1 else None
+            await _position_history_impl(update, ticker)
+            return
+        # Else: treat args[0] as TICKER (single-ticker view, alias for /position)
+        from bot.handlers.misc import _position_view_impl
+        ticker = args[0].upper()
+        await _position_view_impl(update, ticker)
+        return
+
     import sqlite3
     from datetime import datetime as _dt
 

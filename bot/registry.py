@@ -43,7 +43,6 @@ from bot.handlers.misc import (
     cmd_asymmetry,
     cmd_brief,
     cmd_position,
-    cmd_position_set,
     cmd_thesis_set,
 )
 from bot.handlers.observability import (
@@ -187,7 +186,6 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("price_check", cmd_price_check))
     app.add_handler(CommandHandler("override", cmd_override))
     app.add_handler(CommandHandler("crypto", cmd_crypto))
-    app.add_handler(CommandHandler("position_set", cmd_position_set))
     app.add_handler(CommandHandler("position", cmd_position))
     app.add_handler(CommandHandler("analyze", cmd_analyze))
     app.add_handler(CommandHandler("debt_status", cmd_debt_status))

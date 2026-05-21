@@ -41,7 +41,6 @@ POSITIONS (8)
   /position TICKER   Drill-down
   /position_buy      Record buy + journal
   /position_sell     Record sell + journal
-  /position_set      Set position manually
   /position_history  Event log
   /orphan_tickers    Holdings w/o thesis
   /override          Manual override
