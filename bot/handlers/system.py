@@ -93,7 +93,6 @@ INSIDERS (7)
   /eight_k_history   Historical 8-K
 
 OPS & MONITORING (5)
-  /kpi_status        KPI dashboard
   /cost_trajectory   LLM cost + budget
   /llm_costs         Operational LLM costs
   /handler_stats     Handler usage telemetry

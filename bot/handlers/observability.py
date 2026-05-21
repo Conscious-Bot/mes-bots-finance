@@ -6,7 +6,6 @@ Mechanical move only, zero logic change.
 Includes 5 handlers + 4 helpers:
 - cmd_health           : /health system check
 - cmd_handler_stats    : /handler_stats Pareto curve
-- cmd_kpi_status       : /kpi_status Path 5/6 KPI dashboard
 - cmd_cost_trajectory  : /cost_trajectory budget tracking
 - cmd_llm_costs        : /llm_costs token usage
 
@@ -31,10 +30,10 @@ __all__ = [
     "_cost_format_trajectory",
     "_format_kpi_report",
     "_kpi_compute_all",
+    "cmd_bot_data",
     "cmd_cost_trajectory",
     "cmd_handler_stats",
     "cmd_health",
-    "cmd_kpi_status",
     "cmd_llm_costs",
 ]
 
@@ -428,17 +427,6 @@ def _format_kpi_report(kpis):
     return "\n".join(lines)
 
 
-async def cmd_kpi_status(update, ctx):  # noqa: ARG001
-    """Phase Solidification P2 — Show KPI status with breach detection."""
-    try:
-        kpis = _kpi_compute_all()
-        msg = _format_kpi_report(kpis)
-        await update.message.reply_text(msg, parse_mode="Markdown")
-    except Exception as e:
-        log.error(f"cmd_kpi_status error: {e}")
-        await update.message.reply_text(f"KPI status error: {e}")
-
-
 def _cost_compute_trajectory():
     """Compute cost trajectory data: today, MTD, projection, breakdowns."""
     import calendar as _cal
@@ -581,6 +569,14 @@ async def cmd_llm_costs(update, ctx):  # noqa: ARG001
     except ValueError:
         hours = 24
 
+    await _llm_costs_impl(update, hours)
+
+async def _llm_costs_impl(update, hours: int) -> None:
+    """Internal: display LLM call costs + token usage by tier.
+
+    Used by cmd_llm_costs (legacy alias) and cmd_bot_data (Sprint 1.2
+    Phase J /bot_data llm_costs). Body extracted verbatim, no dedent.
+    """
     from shared import llm
 
     try:
@@ -617,3 +613,46 @@ async def cmd_llm_costs(update, ctx):  # noqa: ARG001
         )
     msg = "\n".join(lines)
     await update.message.reply_text(msg)
+
+async def cmd_bot_data(update, ctx):
+    """Sprint 1.2 Phase J dispatcher - /bot_data family.
+
+    Usage:
+      /bot_data                       -> usage
+      /bot_data health                -> bot health (process, DB, LLM, freshness)
+      /bot_data costs                 -> strategic cost dashboard (MTD + projection)
+      /bot_data llm_costs [hours]     -> LLM cost breakdown by tier (default 24h)
+
+    Backward-compat aliases preserved 1 release cycle:
+      /health, /cost_trajectory, /llm_costs
+
+    Deleted: /kpi_status (Bloc 9 - cron Sunday 22:30 already posts weekly).
+    """
+    args = ctx.args or []
+    if not args:
+        await update.message.reply_text(
+            "Usage:\n"
+            "  /bot_data health                 (process/DB/LLM/freshness)\n"
+            "  /bot_data costs                  (MTD + projection vs budget)\n"
+            "  /bot_data llm_costs [hours]      (LLM tier breakdown, default 24h)"
+        )
+        return
+    action = args[0].lower()
+    if action == "health":
+        await cmd_health(update, ctx)
+        return
+    if action == "costs" or action == "cost_trajectory":
+        await cmd_cost_trajectory(update, ctx)
+        return
+    if action == "llm_costs" or action == "llm":
+        try:
+            hours = int(args[1]) if len(args) > 1 else 24
+        except (ValueError, IndexError):
+            hours = 24
+        await _llm_costs_impl(update, hours)
+        return
+    await update.message.reply_text(
+        f"Unknown action: '{action}'\n"
+        "Valid: health, costs, llm_costs"
+    )
+

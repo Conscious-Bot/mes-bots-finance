@@ -40,10 +40,10 @@ from bot.handlers.observability import (
     _cost_format_trajectory,
     _format_kpi_report,
     _kpi_compute_all,
+    cmd_bot_data,
     cmd_cost_trajectory,
     cmd_handler_stats,
     cmd_health,
-    cmd_kpi_status,
     cmd_llm_costs,
 )
 from bot.handlers.portfolio_views import cmd_portfolio_drift, cmd_portfolio_narratives, cmd_portfolio_sectors

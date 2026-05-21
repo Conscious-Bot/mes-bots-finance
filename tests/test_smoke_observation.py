@@ -64,7 +64,7 @@ def test_critical_handlers_callable():
         # Position handlers (Phase B5 integration verified)
         "cmd_position_buy", "cmd_position_sell", "cmd_portfolio",
         # Monitoring handlers (Path 5/6 dimension 2)
-        "cmd_kpi_status", "cmd_cost_trajectory", "cmd_handler_stats",
+        "cmd_bot_data", "cmd_cost_trajectory", "cmd_handler_stats",
         # Asymmetry + risk (anti-bias core)
         "cmd_asymmetry", "cmd_risk_check",
         # Ritual matinal
