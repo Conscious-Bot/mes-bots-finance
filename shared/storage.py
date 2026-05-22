@@ -394,7 +394,13 @@ def close_thesis(thesis_id, status, exit_price=None, reason=None):
 
 
 def get_theses_due_for_revisit(days_threshold=30):
-    """Return active theses where last_revisit_at older than threshold."""
+    """Return active theses due for revisit.
+
+    Due = revisited longer ago than threshold, OR never revisited AND opened
+    longer ago than threshold. Bug-fix 2026-05-22: previously treated NULL
+    last_revisit_at as immediately due regardless of opened_at age, flagging
+    fresh (5-day-old) theses for monthly revisit (blast radius = whole book).
+    """
     cutoff = (datetime.now(UTC) - timedelta(days=days_threshold)).isoformat()
     conn = _sqlite3.connect(_DB_PATH)
     conn.row_factory = _sqlite3.Row
@@ -402,9 +408,12 @@ def get_theses_due_for_revisit(days_threshold=30):
         rows = conn.execute(
             """SELECT * FROM theses
                WHERE status = 'active'
-                 AND (last_revisit_at IS NULL OR last_revisit_at < ?)
+                 AND (
+                      (last_revisit_at IS NOT NULL AND last_revisit_at < ?)
+                   OR (last_revisit_at IS NULL AND opened_at < ?)
+                 )
                ORDER BY opened_at""",
-            (cutoff,),
+            (cutoff, cutoff),
         ).fetchall()
         return [_parse_thesis_row(r) for r in rows]
     finally:

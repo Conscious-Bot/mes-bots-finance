@@ -83,16 +83,34 @@ async def cmd_thesis_list(update, ctx):  # noqa: ARG001
         await update.message.reply_text(c)
 
 
-async def cmd_thesis_revisit(update, ctx):  # noqa: ARG001
+async def cmd_thesis_revisit(update, ctx):
+    """Revisit a thesis. With ID/ticker arg: revisit ONLY that one (scoped mark).
+
+    Bug-fix 2026-05-22: previously ignored ctx.args and looped over the entire
+    due-list, marking ALL theses revisited on display (one /thesis revisit 34
+    mass-marked all 33 active theses reviewed). Now respects the argument and
+    only marks the explicitly-requested thesis.
+    """
+    args = ctx.args or []
+    if args:
+        ident = args[0].strip()
+        t = storage.get_thesis(int(ident)) if ident.isdigit() else storage.get_thesis_by_ticker(ident.upper())
+        if not t:
+            await update.message.reply_text(f"These introuvable : {ident}")
+            return
+        questions = thesis_mod.build_revisit_questions(t)
+        await update.message.reply_text(questions)
+        storage.update_thesis_revisit(t["id"])
+        return
     due = thesis_mod.get_revisit_due()
     if not due:
         await update.message.reply_text("Aucune these en attente de revisit mensuel.")
         return
-    await update.message.reply_text(f"{len(due)} these(s) en attente de revisit :")
-    for t in due:
-        questions = thesis_mod.build_revisit_questions(t)
-        await update.message.reply_text(questions)
-        storage.update_thesis_revisit(t["id"])
+    tickers = "  ".join(f"{t['ticker']}(#{t['id']})" for t in due)
+    await update.message.reply_text(
+        f"{len(due)} these(s) en attente de revisit :\n{tickers}\n\n"
+        f"Revisit une par une : /thesis revisit <ID ou TICKER>"
+    )
 
 
 async def cmd_thesis_note(update, ctx):
