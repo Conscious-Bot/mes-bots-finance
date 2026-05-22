@@ -97,3 +97,6 @@ bot.log*
 # Bot log rotations + temp files (Day 12 cleanup)
 bot.log.*
 token.json.dead_*
+
+# generated dashboard output
+dashboard/*.html

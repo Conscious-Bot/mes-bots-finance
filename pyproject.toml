@@ -59,6 +59,7 @@ ignore = [
 "scripts/*" = ["ARG", "PTH"]
 "bot/main.py" = ["E402", "F401", "ARG001"]  # ARG: python-telegram-bot signature exige (update, ctx)
 "data_sources/*" = ["PTH"]
+"dashboard/*" = ["C408"]  # plotly dict() idiom
 
 [tool.ruff.lint.isort]
 known-first-party = ["shared", "intelligence", "bot", "data_sources"]
