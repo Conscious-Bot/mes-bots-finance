@@ -1510,3 +1510,40 @@ In SCRIPTED execution (`bash script.sh`), `exit 1` is fine and expected. Distinc
 
 **Empirical**: ~30min Phase D recovery wasted on Telegram conflict cascade. Discovered via `ps auxww` revealing capital `P` in `/Library/Frameworks/.../Python -m bot.main`. Audit ALL existing crons + scripts for this pattern (uptime_monitor, restart scripts) to prevent future repeats.
 
+
+## L40 — Read/display handlers must not have write side-effects (2026-05-22)
+
+Incident: /thesis revisit affichait les questions de revisit ET appelait
+storage.update_thesis_revisit() dans la même boucle. Afficher le prompt =
+marquer reviewed. Combiné avec l'ignorance de ctx.args (full-scan systématique
+de la due-list), un seul /thesis revisit 34 a mass-marqué les 33 theses actives
+comme reviewed sans aucune review réelle. Corruption silencieuse de la discipline.
+
+Regles:
+1. Un handler qui prend un arg filtre optionnel (ID/ticker) DOIT l'honorer.
+   Full-scan silencieux quand un arg est passé = bug. Résoudre l'arg, agir
+   uniquement sur la cible.
+2. Le marquage-as-done appartient à l'action de REPONSE de l'utilisateur, pas
+   à l'affichage du prompt. Display = read-only; le side-effect (mark reviewed,
+   increment) va sur la commande de suivi explicite.
+3. Side-effects dans une boucle sur un set fetché, déclenchés par une seule
+   action user, ont blast radius = taille du set. Toujours demander "si ce
+   handler fire une fois, combien de rows mute-t-il?" Si >1 depuis une intention
+   unique, redesign.
+
+## L41 — Column-level restore from pre-corruption backup (2026-05-22)
+
+Quand une colonne est corrompue sur N rows (pas un désastre full-DB), restore
+juste cette colonne depuis un backup pré-corruption vérifié via ATTACH:
+
+  ATTACH '/path/backup/bot.db' AS bk;
+  UPDATE theses SET col = (SELECT bk.col FROM bk.theses bk WHERE bk.id = theses.id)
+   WHERE id IN (SELECT id FROM bk.theses);
+  DETACH bk;
+
+Vérifier que le backup est pré-corruption (mtime UTC vs timestamp corruption UTC
+— attention local-vs-UTC: mtime affiché en TZ locale, corruption stockée UTC).
+
+Cross-db ATTACH UPDATE prend un write lock exclusif — FAIL "database is locked (5)"
+même en WAL si le bot tient une connexion. STOP le writer (kill -9 PID) +
+PRAGMA wal_checkpoint(TRUNCATE) avant le restore.

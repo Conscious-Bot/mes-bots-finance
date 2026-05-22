@@ -1485,3 +1485,50 @@ ruff + mypy clean on touched files.
 - Substack SK hynix fact-check
 - TG canonical remaining handlers (P1: /portfolio, /positions, /digest)
 - Canonical spec doc amendment: formalize "color = external signal only" principle
+
+---
+
+## Day 16 partial — 2026-05-22 (incident revisit + décisions)
+
+### Incident MAJEUR clos: /thesis revisit mass-corruption
+- Bug 3-parts (args ignorés + mark-on-display + NULL-due-no-age-gate) → un seul
+  /thesis revisit 34 a marqué les 33 theses actives reviewed (corruption silencieuse
+  discipline mensuelle).
+- Diagnostic empirique (Lesson 13/15), recovery column-level ATTACH depuis backup
+  pré-corruption 04:00 (NVDA deleted 11/05 préservée, 32 actives → NULL).
+- Fix commit e246211 + tag revisit-bugfix-22052026. 335 tests, smoke 2/2.
+- L40 (read-path no side-effect) + L41 (column-restore method) codifiées.
+- Audit bug-class: CLEAN, isolé à revisit. debt_crisis update_state = toggle légitime.
+
+### Décisions portfolio journalisées (notes appended)
+- COHR (#31): risk_check #5 reco trim 25% OVERRIDE par 2-week observation policy
+  (livre ouvert 16/05). Hold to stop $324.37. Review 30/05.
+- ALAB (#34): stop raised 147.32 → 196.42 EUR (= entry breakeven). Dollar risk
+  restauré $58/share (était $117, doublé). Asymmetry 0.40 → 0.96. Thèse intacte.
+
+### Policy nouvelle (à encoder)
+- 2-week observation post-opening: pas d'action portfolio avant 30/05. Tension non
+  résolue: s'applique à toute modif ou seulement offensive (trim/add/exit)? ALAB
+  stop raise = defensive, jugé OK. À écrire dans PHILOSOPHY.md.
+- Le bot ne connait PAS cette policy → /risk_check re-recommandera trim. Guardrail
+  Day 16-18: if thesis_age < 14d prepend "WITHIN_OBSERVATION_WINDOW".
+
+### Friction map (9 items, sprint Day 16-18 décision-time UX)
+1. /risk_check semantic (add vs eval position existante)
+2. /thesis premortem no ticker→ID resolution
+3. premortem non-retroactif ~21/33 theses
+4. /thesis revisit spam (FIXED today)
+5. /thesis set currency ambiguity (EUR storage vs USD display)
+6. schema 3 target columns (target_price legacy + partial + full)
+7. single-thesis /asymmetry verdict tautology (Day 5 lesson non-appliquée single view)
+8. /thesis set no auto-journal decisions (KPI #5 gap)
+9. bot n'encode pas 2-week observation policy
+
+### Schema debts notés
+- 3 colonnes target (target_price legacy probable dead)
+- last_reviewed vs last_revisit_at (doublon, un mort)
+- opened_at format (space, no offset) vs last_revisit_at (T+microsec+offset) incohérent
+- target_partial NULL sur 33/33 (déjà backlog)
+
+### Bot state
+PID 7879 alive (restart post-fix), 27 crons, 335 tests, ruff+mypy clean.
