@@ -269,17 +269,18 @@ def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
     return "".join(rows), near, heat, watch
 
 
+def _mover_blk(rows) -> str:
+    return "".join(
+        f'<div class="line"><span class="mono">{tk}</span>'
+        f'<span class="mono {"pos" if p >= 0 else "neg"}">{"+" if p >= 0 else ""}{p:.1f}%</span></div>'
+        for tk, p in rows
+    ) or '<div class="empty" style="padding:14px 0">&mdash;</div>'
+
+
 def _movers(pnl: dict) -> tuple[str, str]:
     items = sorted(pnl.items(), key=lambda x: -x[1])
 
-    def blk(rows):
-        return "".join(
-            f'<div class="line"><span class="mono">{tk}</span>'
-            f'<span class="mono {"pos" if p >= 0 else "neg"}">{"+" if p >= 0 else ""}{p:.1f}%</span></div>'
-            for tk, p in rows
-        ) or '<div class="empty" style="padding:14px 0">&mdash;</div>'
-
-    return blk(items[:5]), blk(items[-5:][::-1] if len(items) > 5 else [])
+    return _mover_blk(items[:5]), _mover_blk(items[-5:][::-1] if len(items) > 5 else [])
 
 
 def _day_movers(daily: dict) -> tuple[str, str]:
@@ -287,14 +288,7 @@ def _day_movers(daily: dict) -> tuple[str, str]:
     ups = sorted((x for x in vals if x[1] >= 0), key=lambda x: -x[1])[:5]
     dns = sorted((x for x in vals if x[1] < 0), key=lambda x: x[1])[:5]
 
-    def blk(rows: list) -> str:
-        return "".join(
-            f'<div class="line"><span class="mono">{tk}</span>'
-            f'<span class="mono {"pos" if p >= 0 else "neg"}">{"+" if p >= 0 else ""}{p:.1f}%</span></div>'
-            for tk, p in rows
-        ) or '<div class="empty" style="padding:14px 0">&mdash;</div>'
-
-    return blk(ups), blk(dns)
+    return _mover_blk(ups), _mover_blk(dns)
 
 
 def _concentration(positions: list[dict], sectors: dict, names: dict) -> str:
