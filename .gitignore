@@ -100,3 +100,31 @@ token.json.dead_*
 
 # generated dashboard output
 dashboard/*.html
+
+# secrets (NE JAMAIS committer)
+.env
+.env.*
+token.json
+token.json.*
+credentials.json
+
+# data / state
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# python
+__pycache__/
+*.pyc
+.coverage
+htmlcov/
+
+# backups / logs
+*.bak
+*.bak.*
+*.bak_*
+*.backup_avant_*
+*.log
+*.log.*
+.backups/
