@@ -188,7 +188,7 @@ def _planned(held: set) -> list[dict]:
     for tk, teur, tpct, bucket in rows:
         if tk in held:
             continue
-        label = (bucket or "").replace("_", " ").title().replace("Ai", "AI") or "&mdash;"
+        label = _clean_sector(bucket) if bucket else "&mdash;"
         out.append({"ticker": tk, "weight": float(teur or 0), "pct": float(tpct or 0), "sector": label, "planned": True})
     return out
 
@@ -755,7 +755,7 @@ _TIER_LABEL = {
 }
 
 
-def _theses(names: dict) -> str:
+def _theses(names: dict, sectors: dict) -> str:
     "Page Theses : asymetrie cible/stop par conviction + gap cible partielle."
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
@@ -767,7 +767,6 @@ def _theses(names: dict) -> str:
             '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
             '<div class="sub">aucune th&egrave;se active</div></div></section>'
         )
-    sectors = _sectors()
     ths = []
     dist = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     n_missing = n_fav = n_near = n_profit = 0
@@ -1453,7 +1452,7 @@ def render() -> Path:
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
         f'{_NAV}<div class="foot"><span class="dot"></span>EN VEILLE &middot; maj {stamp}</div></aside>'
         f'<div class="wrap">{_system_state(near, heat)}{tape}<main class="main">'
-        + vigie + positions_pg + _theses(names) + _concentration(positions, sectors, names) + _secteurs(positions, planned, sectors, pnl, names, daily)
+        + vigie + positions_pg + _theses(names, sectors) + _concentration(positions, sectors, names) + _secteurs(positions, planned, sectors, pnl, names, daily)
         + geo_sec + _signaux() + _urgence(watch, heat, near)
         + "</main></div>" + _LOUPE_HTML
     )
