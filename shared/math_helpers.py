@@ -81,3 +81,13 @@ def brier_for(prob: float | None, outcome: str) -> float | None:
     if prob is None or outcome == "neutral":
         return None
     return (prob - (1.0 if outcome == "correct" else 0.0)) ** 2
+
+
+def credibility_from_hitrate(n_correct: int, n_incorrect: int, alpha: float = 2.0) -> float:
+    """Source credibility = hit-rate directionnel, shrinkage Beta(alpha,alpha) vers 0.5.
+
+    (n_correct + alpha) / (n_correct + n_incorrect + 2*alpha), clampe [0,1].
+    Coin-flip (correct==incorrect) -> 0.5 ; le shrinkage borne le perfect sous 1.0.
+    """
+    total = n_correct + n_incorrect + 2.0 * alpha
+    return max(0.0, min(1.0, (n_correct + alpha) / total))

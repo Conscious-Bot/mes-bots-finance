@@ -37,3 +37,23 @@ def test_clamp_linear_mid_range(current, delta):
 
 def test_clamp_none_returns_none():
     assert clamp_credibility(None, 0.5) is None
+
+
+from hypothesis import given, strategies as st
+
+from shared.math_helpers import credibility_from_hitrate
+
+
+@given(c=st.integers(0, 1000), i=st.integers(0, 1000))
+def test_cred_hitrate_in_unit(c, i):
+    assert 0.0 <= credibility_from_hitrate(c, i) <= 1.0
+
+
+@given(n=st.integers(0, 1000))
+def test_cred_hitrate_balanced_half(n):
+    assert credibility_from_hitrate(n, n) == 0.5
+
+
+@given(c=st.integers(1, 1000))
+def test_cred_hitrate_perfect_below_one(c):
+    assert credibility_from_hitrate(c, 0) < 1.0

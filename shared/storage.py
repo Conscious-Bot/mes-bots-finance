@@ -1027,7 +1027,7 @@ def get_journal_stats():
         conn.close()
 
 
-def recalibrate_source_credibility_from_brier(min_n=10):
+def recalibrate_source_credibility_from_hitrate(min_n=10):
     """Phase A1 — Cron mensuel: sources.credibility = hit-rate correct/(correct+incorrect) + shrinkage Beta(2,2) vers 0.5 (ex 1-mean(brier), recalibre 2026-05-23)
     for sources with N>=min_n resolved predictions.
     Returns dict of updates applied {source_name: (old_cred, new_cred, n)}.
@@ -1049,9 +1049,10 @@ def recalibrate_source_credibility_from_brier(min_n=10):
         """,
             (min_n,),
         ).fetchall()
+        from shared import math_helpers
         updates = {}
         for r in rows:
-            new_cred = max(0.0, min(1.0, (r["n_correct"] + 2.0) / (r["n_correct"] + r["n_incorrect"] + 4.0)))
+            new_cred = math_helpers.credibility_from_hitrate(r["n_correct"], r["n_incorrect"])
             conn.execute("UPDATE sources SET credibility = ? WHERE id = ?", (new_cred, r["source_id"]))
             updates[r["source_name"]] = (r["old_cred"], new_cred, r["n"])
         conn.commit()

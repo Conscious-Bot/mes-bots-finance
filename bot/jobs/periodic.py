@@ -90,7 +90,7 @@ async def recalibrate_credibility_brier_job():
     try:
         from shared import storage as storage_mod
 
-        updates = storage_mod.recalibrate_source_credibility_from_brier(min_n=10)
+        updates = storage_mod.recalibrate_source_credibility_from_hitrate(min_n=10)
         if updates:
             lines = [f"Brier recalibration: {len(updates)} sources updated"]
             for name, (old, new, n) in sorted(updates.items(), key=lambda x: x[1][1], reverse=True):
