@@ -197,6 +197,9 @@ async def post_init(app):
     sched.add_job(scheduled_resolve_buy_cluster_returns_job, "cron", hour=8, minute=15)
     sched.add_job(scheduled_8k_scan_job, "cron", hour=6, minute=30)
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
+    from intelligence.snapshot import daily_snapshot_job
+
+    sched.add_job(daily_snapshot_job, "cron", hour=23, minute=0, misfire_grace_time=14400)
     sched.add_job(weekly_handler_stats_job, "cron", day_of_week="sun", hour=23, minute=0, misfire_grace_time=86400)
     sched.add_job(weekly_kpi_status_job, "cron", day_of_week="sun", hour=22, minute=30, misfire_grace_time=86400)
     sched.add_job(weekly_cost_summary_job, "cron", day_of_week="sun", hour=22, minute=0, misfire_grace_time=86400)
@@ -208,7 +211,7 @@ async def post_init(app):
     sched.add_job(scheduled_materiality_v2_job, "interval", hours=1)
     sched.start()
     log.info(
-        "Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, cost Sun 22:00, kpi_status Sun 22:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h, debt_tier1 6:00, debt_tier2 Mon 6:30, debt_tier3 1st 7:00"
+        "Scheduler started: heartbeat 1h, gmail 1h, calendar 5h, insider 6h, digest 7h+19h, journal_resolve 8h, resolve 9h, brier_recal 1st 6h, echo_clusters 1h, score_pending 1h, half_life Sun 5h, price_monitor 15min mkt hours, crypto 10h, buy_cluster_scan 6:20, resolve_buy_cluster 8:15, 8k_scan 6:30, backup 4:00, handler_stats Sun 23:00, cost Sun 22:00, kpi_status Sun 22:30, signal_classify 30min, materiality_boost 1h, materiality_v2 1h, debt_tier1 6:00, debt_tier2 Mon 6:30, debt_tier3 1st 7:00, snapshot 23:00"
     )
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 

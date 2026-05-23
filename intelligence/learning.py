@@ -129,7 +129,7 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
         # native path, so both sides match. Migrating to USD/EUR adds FX layer for
         # no math gain and breaks the symmetry. DO NOT migrate.
         current_price = prices.get_current_price(ticker)
-        if current_price is None:
+        if current_price is None or current_price != current_price:  # None ou NaN (NaN != NaN)
             continue
         return_pct = (current_price - baseline_price) / baseline_price
         if direction == "bullish":

@@ -25,9 +25,10 @@ def get_current_price(ticker: str) -> float | None:
     try:
         t = yf.Ticker(ticker)
         hist = t.history(period="5d", interval="1d")
-        if hist.empty:
+        closes = hist["Close"].dropna()
+        if closes.empty:
             return None
-        return float(hist["Close"].iloc[-1])
+        return float(closes.iloc[-1])
     except Exception as e:
         print(f"price fetch error for {ticker}: {e}")
         return None

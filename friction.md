@@ -203,3 +203,11 @@ currency tracking (Sprint 1.3 candidate) preserved as open question in ADR-003.
 
 2026-05-17 | Day 10 D investigation | position_buy n=2 telemetry vs 0 position_events Day 9 = NOT A BUG. args_summary = "/position_buy" et "/position_buy TSLA" (args malformés) → cmd_position_buy retourne usage help gracefully sans raise. Chain intègre par design. Capture: telemetry compte TOUTES invocations y compris help-requests.
 2026-05-21 05:05 | test phase L
+
+2026-05-21 | /risk_check COHR | USD_AMOUNT required field semantically pour "ajout capital", pas pour "évaluation position existante sous stress" — friction quand l'usage est défensif (trim/exit) pas offensif
+2026-05-21 | /thesis premortem ALAB | "Invalid id: ALAB" — handler accepte numeric ID seulement, pas de resolution ticker→active_thesis_id. Force /thesis list lookup intermédiaire
+2026-05-21 | /thesis premortem 34 (ALAB) | feature gap : premortem ajouté Phase B7 (12/05), non-retroactif → indisponible sur ~21/33 theses anciennes. Backfill manuel ou exclusion explicite à documenter dans /thesis premortem help.
+2026-05-21 | /thesis revisit 34 (ALAB) | spam Telegram multi-messages (likely thèse + signaux + prédictions + ?). Handler pré-canonical, dump-style. Besoin: review focusé (4 numbers + 1 question), pas dump exhaustif. → P1 rollout candidate.
+2026-05-21 | /thesis set <field> <value> | help message ne précise pas la devise attendue. DB EUR-canonique, mais display USD partout. User doit convertir mentalement pour chaque set. → fix: aide explicite "valeur en EUR (storage canonique)" OU accepter "$230 USD" et auto-convertir.
+2026-05-21 | schema theses | 3 colonnes target distinctes (target_price legacy, target_partial, target_full) toutes visibles dans help /thesis set → user choisit laquelle? Schema debt: legacy target_price probablement dead column. Audit needed.
+2026-05-21 | env hygiene | cd vers tennis-bot + venv désactivé en cours de session. Récurrent. → candidat: alias shell `mbf` = cd mes-bots-finance && source venv/bin/activate, OU prompt qui affiche repo actif clairement.

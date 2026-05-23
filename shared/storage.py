@@ -159,6 +159,69 @@ def seed_narratives(narratives_config: list[dict[str, Any]]) -> None:
 import sqlite3 as _sqlite3
 from pathlib import Path as _Path
 
+
+def get_open_positions() -> list[dict]:
+    "Positions detenues (qty > 0). avg_cost en EUR (ADR 005)."
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT ticker, qty, avg_cost FROM positions WHERE qty > 0 ORDER BY ticker"
+        ).fetchall()
+    return [{"ticker": r[0], "qty": float(r[1] or 0), "avg_cost": float(r[2] or 0)} for r in rows]
+
+
+_SNAPSHOT_DDL = (
+    "CREATE TABLE IF NOT EXISTS portfolio_snapshots ("
+    "snapshot_date TEXT PRIMARY KEY, captured_at TEXT NOT NULL, "
+    "total_value_eur REAL NOT NULL, total_cost_eur REAL NOT NULL, "
+    "pnl_eur REAL NOT NULL, pnl_pct REAL NOT NULL, "
+    "n_positions INTEGER NOT NULL, n_priced INTEGER NOT NULL, "
+    "hwm_value_eur REAL, drawdown_pct REAL, detail_json TEXT)"
+)
+
+
+def _ensure_snapshot_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_SNAPSHOT_DDL)
+
+
+def upsert_portfolio_snapshot(snap: dict) -> None:
+    "Ecrit/met a jour le snapshot du jour (idempotent sur snapshot_date)."
+    import json
+
+    cols = ("snapshot_date", "captured_at", "total_value_eur", "total_cost_eur", "pnl_eur",
+            "pnl_pct", "n_positions", "n_priced", "hwm_value_eur", "drawdown_pct", "detail_json")
+    vals = [snap[c] if c != "detail_json" else json.dumps(snap.get("detail_json") or {}, sort_keys=True) for c in cols]
+    sets = ", ".join(f"{c}=excluded.{c}" for c in cols if c != "snapshot_date")
+    sql = (
+        "INSERT INTO portfolio_snapshots (" + ", ".join(cols) + ") "
+        "VALUES (" + ", ".join("?" for _ in cols) + ") "
+        "ON CONFLICT(snapshot_date) DO UPDATE SET " + sets
+    )
+    with db() as conn:
+        _ensure_snapshot_table(conn)
+        conn.execute(sql, vals)
+        conn.commit()
+
+
+def latest_snapshot_hwm() -> float | None:
+    with db() as conn:
+        _ensure_snapshot_table(conn)
+        row = conn.execute("SELECT MAX(hwm_value_eur) FROM portfolio_snapshots").fetchone()
+    return float(row[0]) if row and row[0] is not None else None
+
+
+def get_portfolio_snapshots(limit: int = 400) -> list[dict]:
+    with db() as conn:
+        _ensure_snapshot_table(conn)
+        rows = conn.execute(
+            "SELECT snapshot_date, total_value_eur, total_cost_eur, pnl_pct, "
+            "n_positions, n_priced, hwm_value_eur, drawdown_pct "
+            "FROM portfolio_snapshots ORDER BY snapshot_date DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    keys = ("date", "value", "cost", "pnl_pct", "n_positions", "n_priced", "hwm", "drawdown_pct")
+    return [dict(zip(keys, r)) for r in rows]
+
+
 _DB_PATH = _Path("data/bot.db")
 
 
@@ -612,12 +675,14 @@ def insert_prediction(signal_id, ticker, direction, horizon_days, baseline_price
     try:
         prob = None
         try:
+            from shared.math_helpers import estimate_probability
             row = conn.execute(
-                "SELECT s.credibility FROM signals sig JOIN sources s ON sig.source_id = s.id WHERE sig.id = ?",
+                "SELECT s.credibility, sig.score, sig.signal_type, sig.impact_magnitude "
+                "FROM signals sig JOIN sources s ON sig.source_id = s.id WHERE sig.id = ?",
                 (signal_id,),
             ).fetchone()
             if row:
-                prob = row[0]
+                prob = estimate_probability(row[1], row[0], row[2], row[3])
         except Exception as _e:
             import logging as _logging
 

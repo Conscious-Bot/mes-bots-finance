@@ -46,3 +46,29 @@ def compute_brier_score(prob, outcome):
         return None
     outcome_binary = _BRIER_OUTCOME_MAP.get(outcome, 0.5)
     return (float(prob) - outcome_binary) ** 2
+
+
+def estimate_probability(score, credibility, signal_type=None, impact_magnitude=None):
+    """Differentiated P(directional call correct) at prediction creation.
+
+    LEARNABLE PRIOR, not calibrated. Makes the Brier informative and iterable
+    (vs the old constant = source credibility). Real calibration comes from the
+    resolve -> reliability -> adjust loop.
+
+    Invariants:
+    - Output in [0.50, 0.72]
+    - Non-decreasing in score
+    - catalyst >= narrative for identical other inputs
+    - 0.50 floor when all inputs weak/None
+    """
+    p = 0.50
+    p += min(max((score if score is not None else 6) - 6, 0), 4) * 0.02
+    if credibility is not None:
+        p += (credibility - 0.5) * 0.4
+    if signal_type == "catalyst":
+        p += 0.03
+    elif signal_type == "narrative":
+        p -= 0.02
+    if impact_magnitude is not None and impact_magnitude >= 4:
+        p += 0.03
+    return round(min(0.72, max(0.50, p)), 4)

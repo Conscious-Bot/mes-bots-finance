@@ -1,114 +1,1475 @@
-"""dashboard/render.py — high-level dashboard (light Atrium, gamified-discipline).
+"""Heimdall — Sentinel dashboard. Static-gen, READ-ONLY, REAL data.
+Weights from positions.eur_invested (EUR cost basis). Sectors from theses.sector_thesis_id.
+Perf as ratio % (currency-invariant). DB read-only; per-panel try/except. Leaflet geo."""
 
-Mix: Atrium classe + clair (Enki) + dopamine gamifie CABLE SUR LE PROCESS:
-paliers = progres vers target PRE-COMMITE (hitting = trim signal, fights
-hold-too-long), gold milestones, prismatic apex. Green/red % coupled with the
-bot's flags. READ-ONLY. Reads via canonical gateways (CONVENTIONS rule 5).
-"""
-
+import json
+import re
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+import yaml
+
 from intelligence import asymmetry as asym_mod
 
+
+def _cfg() -> dict:
+    try:
+        return yaml.safe_load(Path("config.yaml").read_text())
+    except Exception:
+        return {}
+
+
+_CFG = _cfg()
+POS_CAP = float(_CFG.get("style", {}).get("position_max_pct", 0.05)) * 100
+CLUSTER_CAP = float(_CFG.get("style", {}).get("narrative_max_pct", 0.30)) * 100
+DD_REDUCE = float(_CFG.get("risk", {}).get("drawdown_reduce_pct", 0.08)) * 100
+DD_STOP = float(_CFG.get("risk", {}).get("drawdown_stop_pct", 0.20)) * 100
+FX_USD = 0.858
+REVIEWS = [
+    ("2026-05-30", "R&eacute;solution Brier (KPI#2)"),
+    ("2026-05-30", "Revue COHR"),
+    ("2026-06-16", "Revue orphelins c1 (J+30)"),
+]
+
 OUTPUT = Path("dashboard/dashboard.html")
+DB = "file:data/bot.db?mode=ro"
+PAL = ["#37E0A0", "#F59E0B", "#818CF8", "#EF4444", "#22D3EE", "#EC4899", "#A3E635", "#FB923C", "#8B5CF6", "#14B8A6", "#FACC15", "#94A3B8"]
+
+HQ = {
+    "NVDA": (37.37, -121.96), "AVGO": (37.33, -121.93), "TSM": (24.77, 121.00), "MU": (43.61, -116.20),
+    "ASML": (51.41, 5.45), "ASML.AS": (51.41, 5.45), "AMD": (37.40, -121.95), "ARM": (52.20, 0.10),
+    "000660.KS": (37.45, 127.13), "MRVL": (37.39, -121.96), "KLAC": (37.42, -121.91), "LRCX": (37.55, -121.99),
+    "AMAT": (37.37, -121.97), "QCOM": (32.90, -117.20), "NXPI": (51.41, 5.45), "TXN": (32.75, -96.75),
+    "COHR": (40.75, -79.80), "BESI.AS": (51.95, 6.02), "STMPA.PA": (46.20, 6.14), "STM": (46.20, 6.14),
+    "HO.PA": (48.87, 2.30), "SAF.PA": (48.87, 2.30), "SU.PA": (48.87, 2.30), "TSLA": (30.22, -97.62),
+    "GOOGL": (37.42, -122.08), "META": (37.48, -122.15), "MSFT": (47.64, -122.13), "AAPL": (37.33, -122.03),
+    "AMZN": (47.62, -122.34), "VRT": (40.13, -82.93), "CRWV": (40.79, -74.31), "CEG": (39.29, -76.61),
+    "VST": (32.81, -96.94), "GEV": (42.36, -71.06), "BWXT": (37.27, -79.94), "LLY": (39.77, -86.16),
+    "NVO": (55.73, 12.49), "BABA": (30.28, 120.15), "OKLO": (37.77, -122.42), "CCJ": (52.13, -106.66),
+    "6920.T": (35.68, 139.76), "4063.T": (35.68, 139.76), "7011.T": (35.68, 139.76), "IFNNY": (48.21, 11.62),
+    "TSEM": (32.79, 35.20), "MP": (35.54, -115.53), "BE": (37.45, -121.95), "ALAB": (37.41, -121.93),
+    "EQIX": (37.49, -122.23), "DLR": (37.78, -122.39), "TER": (42.62, -71.37), "SNPS": (37.40, -121.96),
+}
+
+COUNTRY = {
+    "TSM": "Ta&iuml;wan", "TSEM": "Isra&euml;l", "ASML": "Pays-Bas", "NVO": "Danemark", "ARM": "Royaume-Uni",
+    "IFNNY": "Allemagne", "BABA": "Chine", "TCEHY": "Chine", "PDD": "Chine", "STM": "France",
+}
+SUFFIX = {
+    ".KS": "Cor&eacute;e", ".T": "Japon", ".TW": "Ta&iuml;wan", ".PA": "France", ".AS": "Pays-Bas",
+    ".L": "Royaume-Uni", ".HK": "Chine", ".DE": "Allemagne", ".MI": "Italie", ".ST": "Su&egrave;de",
+    ".AX": "Australie", ".TO": "Canada", ".SS": "Chine", ".SZ": "Chine", ".SW": "Suisse",
+}
 
 
-def build_paliers() -> tuple[str, int, int]:
-    """Progress bars vers target pre-commit. Hit = trim signal (discipline reward)."""
-    results = asym_mod.compute_portfolio_asymmetry()
-    computed = [r for r in results if "asymmetry_ratio" in r]
-    rows = []
-    hit_count = 0
-    for r in computed:
-        entry = r.get("entry") or 0
-        target = r.get("target_full") or 0
-        cur = r.get("current_price") or 0
-        if not entry or not target or target == entry:
+_PX_CACHE: dict[str, tuple[float, float]] = {}
+_PX_TTL = 840.0  # 14 min: throttle les fetchs yfinance a la cadence du bot
+
+
+def _cached_price_eur(ticker: str) -> float | None:
+    """Source de prix du dashboard: throttle les fetchs live a un burst par TTL.
+
+    Monkeypatche sur asymmetry._get_current_price dans render() pour que le process
+    dashboard ne matraque pas yfinance (un ban toucherait aussi le price_monitor du
+    bot, meme IP / meme lib). Le process du bot n'est pas affecte.
+    """
+    import time as _t
+
+    now = _t.monotonic()
+    hit = _PX_CACHE.get(ticker)
+    if hit is not None and now - hit[1] < _PX_TTL:
+        return hit[0]
+    try:
+        from shared.prices import get_current_price_in_eur
+
+        px = get_current_price_in_eur(ticker)
+    except Exception:
+        px = None
+    if px is not None:
+        _PX_CACHE[ticker] = (float(px), now)
+        return float(px)
+    return hit[0] if hit is not None else None
+
+
+_DP_CACHE: dict[str, tuple[float | None, float]] = {}
+_DP_TTL = 840.0
+
+
+def _dp_pct(ticker: str) -> float | None:
+    # Variation % du jour (cloture veille -> dernier close). Invariant en devise: aucune conversion FX.
+    import time as _t
+
+    now = _t.monotonic()
+    hit = _DP_CACHE.get(ticker)
+    if hit is not None and now - hit[1] < _DP_TTL:
+        return hit[0]
+    v: float | None = hit[0] if hit is not None else None
+    try:
+        import yfinance as yf
+
+        closes = yf.Ticker(ticker).history(period="5d", interval="1d")["Close"].dropna()
+        if len(closes) >= 2:
+            v = round((float(closes.iloc[-1]) / float(closes.iloc[-2]) - 1.0) * 100.0, 1)
+    except Exception:
+        pass
+    _DP_CACHE[ticker] = (v, now)
+    return v
+
+
+def _country(tk: str) -> str:
+    if tk in COUNTRY:
+        return COUNTRY[tk]
+    for suf, c in SUFFIX.items():
+        if tk.endswith(suf):
+            return c
+    return "&Eacute;tats-Unis"
+
+
+def _q(sql: str) -> list:
+    con = sqlite3.connect(DB, uri=True)
+    try:
+        return con.execute(sql).fetchall()
+    finally:
+        con.close()
+
+
+def _err(e: Exception) -> str:
+    return f'<div class="empty"><b>Requ&ecirc;te &agrave; ajuster</b><span class="mono" style="font-size:11px">{type(e).__name__}: {str(e)[:130]}</span></div>'
+
+
+def _clean_sector(sid: str | None) -> str:
+    if not sid:
+        return "Sans th&egrave;se"
+    s = re.sub(r"_20\d\d$", "", sid).replace("_", " ").title()
+    return s.replace(" Ai", " AI").replace("Ai ", "AI ").replace("Hpq", "HPQ").replace("Eu ", "EU ").replace("Mag7", "MAG 7")
+
+
+def _positions() -> list[dict]:
+    try:
+        rows = _q("SELECT ticker, qty, avg_cost, notes FROM positions WHERE status NOT IN ('closed', 'sold')")
+    except Exception:
+        return []
+    out = []
+    for tk, qty, ac, notes in rows:
+        m = re.search(r"eur_invested=([0-9.]+)", notes or "")
+        w = float(m.group(1)) if m else float(qty or 0) * float(ac or 0)
+        out.append({"ticker": tk, "weight": w})
+    return out
+
+
+def _sectors() -> dict:
+    try:
+        rows = _q("SELECT ticker, notes FROM theses WHERE status='active'")
+    except Exception:
+        return {}
+    out = {}
+    for tk, notes in rows:
+        m = re.search(r"sector_thesis_id:\s*([A-Za-z0-9_]+)", notes or "")
+        out[tk] = _clean_sector(m.group(1) if m else None)
+    return out
+
+
+def _names() -> dict:
+    for col in ("short_name", "name"):
+        try:
+            return {tk: nm for tk, nm in _q(f"SELECT ticker, {col} FROM ticker_names") if nm}
+        except Exception:
             continue
-        pnl = (cur - entry) / entry * 100
-        prog = (cur - entry) / (target - entry) * 100
-        prog_clamped = max(0.0, min(100.0, prog))
+    return {}
+
+
+def _planned(held: set) -> list[dict]:
+    out: list[dict] = []
+    try:
+        rows = _q("SELECT ticker, target_eur, target_weight_pct, bucket FROM portfolio_targets")
+    except Exception:
+        return out
+    for tk, teur, tpct, bucket in rows:
+        if tk in held:
+            continue
+        label = (bucket or "").replace("_", " ").title().replace("Ai", "AI") or "&mdash;"
+        out.append({"ticker": tk, "weight": float(teur or 0), "pct": float(tpct or 0), "sector": label, "planned": True})
+    return out
+
+
+def _pnl_map(computed: list[dict]) -> dict:
+    out = {}
+    for r in computed:
+        e, c = r.get("entry") or 0, r.get("current_price") or 0
+        if e:
+            out[r["ticker"]] = (c - e) / e * 100
+    return out
+
+
+def _donut(segs: list[tuple[str, float]], unit: str = "") -> tuple[str, str]:
+    total = sum(c for _, c in segs) or 1
+    stops, acc, legend = [], 0.0, []
+    for i, (label, c) in enumerate(segs):
+        col = PAL[i % len(PAL)]
+        a0 = acc / total * 360
+        acc += c
+        a1 = acc / total * 360
+        stops.append(f"{col} {a0:.1f}deg {a1:.1f}deg")
+        val = f"{c / total * 100:.0f}%" + (f" &middot; {c:.0f}{unit}" if unit else "")
+        legend.append(
+            f'<div class="lg"><span class="sw" style="background:{col}"></span>'
+            f'<span class="lgn">{label}</span><span class="lgc">{val}</span></div>'
+        )
+    return f'<div class="donut" style="background:conic-gradient({",".join(stops)})"></div>', "".join(legend)
+
+
+def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
+    data = []
+    for r in computed:
+        e, t, c = r.get("entry") or 0, r.get("target_full") or 0, r.get("current_price") or 0
+        if e and t and t != e:
+            data.append(((c - e) / (t - e) * 100, (c - e) / e * 100, r["ticker"]))
+    data.sort(key=lambda x: -x[0])
+    top = f"{data[0][2]} {data[0][0]:.0f}%" if data else "&mdash;"
+    rows, hits = [], 0
+    for i, (prog, pnl, tk) in enumerate(data):
+        pc = max(0.0, min(100.0, prog))
         hit = prog >= 100
-        if hit:
-            hit_count += 1
-        pnl_cls = "up" if pnl >= 0 else "down"
-        pnl_sign = "+" if pnl >= 0 else ""
-        bar_cls = "prismatic" if hit else "gold"
-        flag = " 🎯" if hit else ""
-        rows.append((prog, f'''
-      <div class="palier">
-        <div class="palier-top">
-          <span class="tk">{r['ticker']}{flag}</span>
-          <span class="pnl {pnl_cls}">{pnl_sign}{pnl:.1f}%</span>
-        </div>
-        <div class="track"><div class="fill {bar_cls}" style="width:{prog_clamped:.0f}%"></div></div>
-        <div class="palier-sub"><span>vers target</span><span class="prog">{prog:.0f}%</span></div>
-      </div>'''))
-    rows.sort(key=lambda x: -x[0])
-    return "".join(h for _, h in rows), len(rows), hit_count
+        hits += 1 if hit else 0
+        cls, sign = ("up", "+") if pnl >= 0 else ("down", "")
+        bar = "prismatic" if hit else ("up" if pnl >= 0 else "danger")
+        flag = " &#127919;" if hit else ""
+        d = i * 0.035
+        rows.append(
+            f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
+            f'<span class="tk">{tk}{flag}</span><span class="tag {cls}">{sign}{pnl:.1f}%</span></div>'
+            f'<div class="track"><div class="fill {bar}" style="--w:{pc:.0f}%;animation-delay:{d + 0.08:.2f}s"></div></div>'
+            f'<div class="rs"><span>vers la cible</span><span class="mono">{prog:.0f}%</span></div></div>'
+        )
+    return "".join(rows), hits, top
 
 
-_SHELL = """<!doctype html>
-<html lang="fr"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Heimdall</title>
+def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
+    data = sorted(((r.get("downside_pct", 0), r["ticker"]) for r in computed), key=lambda x: x[0])
+    tensions = [max(0.0, min(1.0, (20 - d) / 20)) for d, _ in data]
+    heat = (sum(tensions) / len(tensions) * 100) if tensions else 0.0
+    rows, near, near_rows = [], 0, []
+    for i, (down, tk) in enumerate(data):
+        buf = max(0.0, min(100.0, down / 30 * 100))
+        is_near = down < 10
+        near += 1 if is_near else 0
+        cls = "danger" if is_near else ("warn" if down < 20 else "calm")
+        flag = " &#128308;" if is_near else ""
+        d = i * 0.035
+        rows.append(
+            f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
+            f'<span class="tk">{tk}{flag}</span><span class="tag {cls}">{down:.0f}%</span></div>'
+            f'<div class="track"><div class="fill {cls}" style="--w:{buf:.0f}%;animation-delay:{d + 0.08:.2f}s"></div></div>'
+            f'<div class="rs"><span>marge avant le stop</span></div></div>'
+        )
+        if is_near:
+            near_rows.append(f'<div class="line"><span>{tk}</span><span class="mono">{down:.0f}% de marge</span></div>')
+    watch = "".join(near_rows) or '<div class="empty" style="padding:18px 0">aucune position sous 10% &mdash; au calme</div>'
+    return "".join(rows), near, heat, watch
+
+
+def _movers(pnl: dict) -> tuple[str, str]:
+    items = sorted(pnl.items(), key=lambda x: -x[1])
+
+    def blk(rows):
+        return "".join(
+            f'<div class="line"><span class="mono">{tk}</span>'
+            f'<span class="mono {"pos" if p >= 0 else "neg"}">{"+" if p >= 0 else ""}{p:.1f}%</span></div>'
+            for tk, p in rows
+        ) or '<div class="empty" style="padding:14px 0">&mdash;</div>'
+
+    return blk(items[:5]), blk(items[-5:][::-1] if len(items) > 5 else [])
+
+
+def _day_movers(daily: dict) -> tuple[str, str]:
+    vals = [(tk, v) for tk, v in daily.items() if v is not None]
+    ups = sorted((x for x in vals if x[1] >= 0), key=lambda x: -x[1])[:5]
+    dns = sorted((x for x in vals if x[1] < 0), key=lambda x: x[1])[:5]
+
+    def blk(rows: list) -> str:
+        return "".join(
+            f'<div class="line"><span class="mono">{tk}</span>'
+            f'<span class="mono {"pos" if p >= 0 else "neg"}">{"+" if p >= 0 else ""}{p:.1f}%</span></div>'
+            for tk, p in rows
+        ) or '<div class="empty" style="padding:14px 0">&mdash;</div>'
+
+    return blk(ups), blk(dns)
+
+
+def _concentration(positions: list[dict], sectors: dict, names: dict) -> str:
+    total = sum(p["weight"] for p in positions) or 1
+    ps = sorted(positions, key=lambda p: -p["weight"])
+    top = ps[0] if ps else None
+    top_tk = top["ticker"] if top else "&mdash;"
+    top_nm = names.get(top_tk, top_tk) if top else "&mdash;"
+    top_pct = (top["weight"] / total * 100) if top else 0.0
+    sw: dict[str, float] = {}
+    for p in positions:
+        key = sectors.get(p["ticker"], "Sans th&egrave;se")
+        sw[key] = sw.get(key, 0.0) + p["weight"]
+    dom_sec = max(sw, key=lambda k: sw[k]) if sw else "&mdash;"
+    aic = (max(sw.values()) / total * 100) if sw else 0.0
+    over_cap_tk = [p["ticker"] for p in ps if p["weight"] / total * 100 >= POS_CAP]
+    over_cap = len(over_cap_tk)
+    over_nm = " &middot; ".join(names.get(t, t) for t in over_cap_tk[:3]) + ("&hellip;" if over_cap > 3 else "")
+    if aic >= 45 or top_pct >= 2 * POS_CAP:
+        verdict, vcls = "EXCESSIVE", "danger"
+    elif aic >= CLUSTER_CAP or over_cap:
+        verdict, vcls = "&Eacute;LEV&Eacute;E", "warn"
+    else:
+        verdict, vcls = "MESUR&Eacute;E", "calm"
+    cbits = []
+    if aic >= CLUSTER_CAP:
+        cbits.append("secteur au-dessus du plafond")
+    if over_cap:
+        cbits.append(f"{over_cap} ligne(s) hors plafond")
+    cause = " &middot; ".join(cbits) or "tout sous tes plafonds"
+    top_cls = "negc" if top_pct >= POS_CAP else "acc"
+    sec_cls = "negc" if aic >= CLUSTER_CAP else "acc"
+    line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du plafond' if top_pct >= POS_CAP else 'sous le plafond'} {POS_CAP:.0f}%"
+    sec_msg = f"{dom_sec} &middot; {'&#9888; all&eacute;ger' if aic >= CLUSTER_CAP else 'sous le plafond'} {CLUSTER_CAP:.0f}%"
+    cap = f"{total:,.0f}".replace(",", "&#8239;")
+    verdict_card = (
+        '<div class="plan"><div class="plan-h">Verdict concentration</div>'
+        '<div class="plan-row" style="grid-template-columns:minmax(160px,1fr) 2fr">'
+        + f'<div class="pi {vcls}"><span class="pn">{verdict}</span><span class="pl">posture concentration</span><span class="pt">{cause}</span></div>'
+        + f'<div class="pi"><span class="pl">{over_cap} ligne(s) au-dessus du plafond {POS_CAP:.0f}%</span>'
+        + f'<span class="pt" style="font-size:12.5px;color:var(--ink);margin-top:4px;line-height:1.5">{over_nm or "aucune"}</span></div>'
+        + '</div></div>'
+    )
+    return (
+        f'<section data-page="concentration"><div class="phead"><h2>Concentration</h2>'
+        f'<div class="sub">Poids par ligne et par secteur &mdash; o&ugrave; le capital se concentre</div></div>'
+        f'{verdict_card}'
+        f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
+        f'<div class="kpi"><span class="kl">Plus grosse ligne</span><span class="kv {top_cls}">{top_pct:.0f}%</span><span class="kd">{line_msg}</span></div>'
+        f'<div class="kpi"><span class="kl">Secteur dominant</span><span class="kv {sec_cls}">{aic:.0f}%</span><span class="kd">{sec_msg}</span></div>'
+        f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
+        f'<div class="card pad"><div class="sbwrap"><svg id="sb-svg" viewBox="0 0 320 320" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div></section>'
+    )
+
+
+def _secteurs(positions: list[dict], planned: list[dict], sectors: dict, pnl: dict, names: dict, daily: dict) -> str:
+    real_t = sum(p["weight"] for p in positions)
+    plan_t = sum(p["weight"] for p in planned)
+    total = (real_t + plan_t) or 1
+    fx = FX_USD
+    body = ""
+    reals = sorted(positions, key=lambda x: (sectors.get(x["ticker"], "zzz"), -x["weight"]))
+    plans = sorted(planned, key=lambda x: (x["sector"], -x["weight"]))
+    for p in [*reals, *plans]:
+        tk = p["ticker"]
+        prev = p.get("planned", False)
+        sec = p["sector"] if prev else sectors.get(tk, "Sans th&egrave;se")
+        w = p["weight"]
+        usd = w / fx
+        pct = w / total * 100
+        pl = None if prev else pnl.get(tk)
+        if pl is None:
+            plstr, plcls, plkey = ("&mdash;", "", -999.0)
+        else:
+            sign = "+" if pl >= 0 else ""
+            plstr, plcls, plkey = (f"{sign}{pl:.1f}%", ("pos" if pl >= 0 else "neg"), pl)
+        badge = '<span class="bdg">pr&eacute;vu</span>' if prev else ""
+        nm = names.get(tk, "")
+        nmspan = f'<span class="nm">{nm}</span>' if nm else ""
+        rcls = ' class="prev"' if prev else ""
+        dv = None if prev else daily.get(tk)
+        if dv is None:
+            dstr, dcls, dkey = ("&mdash;", "", -999.0)
+        else:
+            dstr, dcls, dkey = (f"{'+' if dv >= 0 else ''}{dv:.1f}%", ("pos" if dv >= 0 else "neg"), dv)
+        body += (
+            f'<tr{rcls} data-tk="{tk}" data-sec="{sec}" data-eur="{w:.0f}" data-usd="{usd:.0f}" data-pct="{pct:.1f}" data-pnl="{plkey}" data-day="{dkey}">'
+            f'<td class="tk">{tk}{badge}{nmspan}</td><td>{sec}</td>'
+            f'<td class="num">{w:.0f}&euro;</td><td class="num">${usd:.0f}</td>'
+            f'<td class="num">{pct:.1f}%</td><td class="num {dcls}">{dstr}</td><td class="num {plcls}">{plstr}</td></tr>'
+        )
+    sub = (
+        f'D&eacute;tenu {real_t:.0f}&euro; &middot; pr&eacute;vu {plan_t:.0f}&euro; &middot; '
+        f'total {total:.0f}&euro; (${total / fx:.0f}) &middot; clique un en-t&ecirc;te pour trier'
+    )
+    return (
+        f'<section data-page="secteurs"><div class="phead"><h2>Secteurs</h2>'
+        f'<div class="sub">{sub}</div></div>'
+        f'<div class="card pad"><table class="dt"><thead><tr>'
+        f'<th data-k="tk">Ticker</th><th data-k="sec">Secteur</th>'
+        f'<th data-k="eur" class="num">&euro;</th><th data-k="usd" class="num">$</th>'
+        f'<th data-k="pct" class="num">%</th><th data-k="day" class="num">Jour</th><th data-k="pnl" class="num">P&amp;L</th>'
+        f'</tr></thead><tbody>{body}</tbody></table></div></section>'
+    )
+
+
+def _geo(positions: list[dict], sectors: dict, pnl: dict) -> tuple[str, list]:
+    total = sum(p["weight"] for p in positions) or 1
+    cw: dict[str, float] = {}
+    for p in positions:
+        c = _country(p["ticker"])
+        cw[c] = cw.get(c, 0.0) + p["weight"]
+    ranked = sorted(cw.items(), key=lambda x: -x[1])
+    bars = ""
+    for country, w in ranked:
+        pct = w / total * 100
+        bars += (
+            f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
+            f'<span class="tag acc2">{pct:.0f}%</span></div>'
+            f'<div class="track"><div class="fill acc2" style="--w:{max(2.0, min(100.0, pct)):.0f}%"></div></div>'
+            f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
+        )
+    kpis = "".join(
+        f'<div class="kpi"><span class="kl">{c}</span><span class="kv">{w / total * 100:.0f}%</span><span class="kd">{w:.0f}&euro;</span></div>'
+        for c, w in ranked[:3]
+    )
+    markers, mapped = [], 0
+    for p in positions:
+        tk = p["ticker"]
+        if tk in HQ:
+            lat, lng = HQ[tk]
+            markers.append({"t": tk, "lat": lat, "lng": lng, "pnl": round(pnl.get(tk, 0), 1),
+                            "sec": sectors.get(tk, "&mdash;"), "w": round(p["weight"] / total * 100, 1)})
+            mapped += 1
+    sec = (
+        f'<section data-page="geo"><div class="phead"><h2>G&eacute;ographie</h2>'
+        f'<div class="sub">Exposition par pays &mdash; o&ugrave; se concentre le risque g&eacute;opolitique</div></div>'
+        f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">{kpis}</div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Exposition par pays</span></div>'
+        f'<div class="card">{bars}</div></div>'
+        f'<div class="col"><div class="colhead"><span class="t">Si&egrave;ges sociaux</span><span class="a">{mapped}/{len(positions)} situ&eacute;s</span></div>'
+        f'<div class="card" style="padding:0;overflow:hidden"><div id="hqmap"></div></div></div></div></section>'
+    )
+    return sec, markers
+
+
+def _signaux() -> str:
+    try:
+        s24 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-1 day')")[0][0]
+        s30 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-30 day')")[0][0]
+        n8k = _q("SELECT COUNT(*) FROM filings_8k_log WHERE filed_at > datetime('now','-60 day')")[0][0]
+    except Exception as e:
+        return f'<section data-page="signaux"><div class="phead"><h2>Signaux</h2></div>{_err(e)}</section>'
+
+    sevcls = {"HIGH": "danger", "MEDIUM": "warn", "MED": "warn", "LOW": "calm"}
+    sev_order = ("CASE UPPER(COALESCE(severity,'')) WHEN 'HIGH' THEN 0 "
+                 "WHEN 'MEDIUM' THEN 1 WHEN 'MED' THEN 1 WHEN 'LOW' THEN 2 ELSE 3 END")
+    try:
+        tally = {"HIGH": 0, "MEDIUM": 0, "LOW": 0, "INCONNU": 0}
+        for sev, cnt in _q(
+            "SELECT UPPER(COALESCE(severity,'')), COUNT(*) FROM filings_8k_log "
+            "WHERE filed_at > datetime('now','-60 day') GROUP BY UPPER(COALESCE(severity,''))"
+        ):
+            key = sev if sev in ("HIGH", "MEDIUM", "LOW") else ("MEDIUM" if sev == "MED" else "INCONNU")
+            tally[key] += int(cnt)
+        tally_str = " &middot; ".join(f"{c} {k}" for k, c in tally.items() if c) or "&mdash;"
+        rows8k = ""
+        for tk, sev, codes, reason, filed in _q(
+            "SELECT ticker, COALESCE(severity,''), COALESCE(item_codes,''), COALESCE(severity_reason,''), filed_at "
+            "FROM filings_8k_log WHERE filed_at > datetime('now','-60 day') "
+            "ORDER BY " + sev_order + ", filed_at DESC LIMIT 12"
+        ):
+            su = str(sev).upper()
+            cls = sevcls.get(su, "calm")
+            disp = su if su in ("HIGH", "MEDIUM", "LOW") else ("MEDIUM" if su == "MED" else "INCONNU")
+            raw = (str(reason) or str(codes)) or "&mdash;"
+            label = raw if len(raw) <= 52 else raw[:52].rsplit(" ", 1)[0] + "&hellip;"
+            rows8k += (
+                f'<div class="row"><div class="rt"><span class="tk tkc" data-tk="{tk}">{tk}</span>'
+                f'<span class="tag {cls}">{disp}</span></div>'
+                f'<div class="rs"><span>{label}</span><span class="mono">{str(filed)[:10]}</span></div></div>'
+            )
+        eightk = rows8k or '<div class="empty" style="padding:18px 0">aucun 8-K sur 60j</div>'
+    except Exception as e:
+        eightk, tally_str = _err(e), "&mdash;"
+
+    try:
+        rowsib = ""
+        for tk, det, buyers, buym, strength in _q(
+            "SELECT ticker, detected_at, COALESCE(distinct_buyers,0), COALESCE(total_buy_m,0), COALESCE(cluster_strength,'') "
+            "FROM insider_buy_clusters_log ORDER BY detected_at DESC LIMIT 8"
+        ):
+            rowsib += (
+                f'<div class="row"><div class="rt"><span class="tk tkc" data-tk="{tk}">{tk}</span>'
+                f'<span class="tag acc2">{strength or "&mdash;"}</span></div>'
+                f'<div class="rs"><span>{int(buyers)} acheteurs &middot; {float(buym):.1f}M$</span>'
+                f'<span class="mono">{str(det)[:10]}</span></div></div>'
+            )
+        insiders = rowsib or '<div class="empty" style="padding:18px 0">aucun cluster d\'achats group&eacute;s d&eacute;tect&eacute;</div>'
+    except Exception as e:
+        insiders = _err(e)
+
+    try:
+        nsrc = _q("SELECT COUNT(*) FROM sources")[0][0]
+        src_rows = ""
+        for name, cred, n in _q(
+            "SELECT name, credibility, COALESCE(n_signals,0) FROM sources ORDER BY credibility DESC, n_signals DESC LIMIT 10"
+        ):
+            cv = float(cred or 0)
+            col = "acc2" if cv >= 0.65 else ("warn" if cv >= 0.45 else "calm")
+            src_rows += (
+                f'<div class="row"><div class="rt"><span class="tk">{str(name)[:24]}</span>'
+                f'<span class="tag {col}">{cv:.2f}</span></div>'
+                f'<div class="track"><div class="fill {col}" style="--w:{max(2.0, min(100.0, cv * 100)):.0f}%"></div></div>'
+                f'<div class="rs"><span>cr&eacute;dibilit&eacute;</span><span class="mono">{int(n)} signaux</span></div></div>'
+            )
+    except Exception as e:
+        src_rows, nsrc = _err(e), 0
+
+    kpis = (
+        f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
+        f'<div class="kpi"><span class="kl">Signaux 24h</span><span class="kv">{s24}</span><span class="kd">Gmail + EDGAR</span></div>'
+        f'<div class="kpi"><span class="kl">Signaux 30j</span><span class="kv">{s30}</span><span class="kd">fen&ecirc;tre roulante</span></div>'
+        f'<div class="kpi"><span class="kl">8-K 60j</span><span class="kv">{n8k}</span><span class="kd">d&eacute;p&ocirc;ts EDGAR</span></div></div>'
+    )
+    cols = (
+        f'<div class="cols">'
+        f'<div class="col"><div class="colhead"><span class="t">8-K r&eacute;cents</span><span class="a">{tally_str}</span></div><div class="card">{eightk}</div></div>'
+        f'<div class="col"><div class="colhead"><span class="t">Cr&eacute;dibilit&eacute; des sources</span><span class="a">{nsrc} sources &middot; recal 1er du mois</span></div><div class="card">{src_rows}</div></div>'
+        f'</div>'
+    )
+    insider_strip = (
+        f'<div class="colhead" style="margin-top:24px"><span class="t">Achats d\'initi&eacute;s group&eacute;s</span><span class="a">60j &middot; Form 4 EDGAR</span></div>'
+        f'<div class="card pad">{insiders}</div>'
+    )
+    return (
+        f'<section data-page="signaux"><div class="phead"><h2>Signaux</h2>'
+        f'<div class="sub">D&eacute;p&ocirc;ts 8-K par s&eacute;v&eacute;rit&eacute; &middot; cr&eacute;dibilit&eacute; des sources &middot; achats d\'initi&eacute;s</div></div>'
+        f'{kpis}{cols}{insider_strip}</section>'
+    )
+
+
+_MACRO_BANDS = {
+    "VIX": (22.0, 30.0, True),
+    "HY_OAS": (350.0, 500.0, True),
+    "MOVE": (100.0, 130.0, True),
+    "USDJPY": (152.0, 160.0, True),
+    "TYX": (4.5, 5.0, True),
+    "DXY": (104.0, 108.0, True),
+    "CoreCPI": (3.0, 4.0, True),
+    "CPI": (3.0, 4.0, True),
+    "T10Y2Y": (0.2, 0.0, False),
+    "MfgIP": (0.0, -2.0, False),
+}
+
+
+def _macro_dot(ind: str, v: float) -> str:
+    "Couleur du point macro selon le niveau reel (decouplee de la phase). Inconnu -> mute."
+    band = _MACRO_BANDS.get(ind)
+    if band is None:
+        return "mute"
+    warn, danger, hi_bad = band
+    if hi_bad:
+        return "danger" if v >= danger else ("warn" if v >= warn else "calm")
+    return "danger" if v <= danger else ("warn" if v <= warn else "calm")
+
+
+def _urgence(watch: str, heat: float, near: int) -> str:
+    debt_map = {
+        "TYX": (1, "Taux US 30 ans (%)", 4, False),
+        "Gold": (1, "Or ($/oz)", 0, True),
+        "USDJPY": (1, "USD/JPY", 2, False),
+        "VIX": (1, "VIX", 2, False),
+        "HY_OAS": (1, "Spread HY (bp)", 2, False),
+        "DXY": (1, "Dollar (DXY)", 2, False),
+        "BTC": (1, "Bitcoin ($)", 0, True),
+        "MOVE": (2, "Vol. obligataire (MOVE)", 2, False),
+        "KRE": (2, "Banques r&eacute;gionales ($)", 2, False),
+        "T10Y2Y": (2, "Pente 10a-2a (%)", 4, False),
+        "BankReserves": (2, "R&eacute;serves bancaires Fed ($M)", 0, True),
+        "CopperGold": (2, "Ratio cuivre/or", 4, False),
+        "CoreCPI": (3, "Inflation core (%)", 4, False),
+        "CPI": (3, "Inflation core (%)", 4, False),
+        "FedBalanceSheet": (3, "Bilan Fed ($M)", 0, True),
+        "FedBS": (3, "Bilan Fed ($M)", 0, True),
+        "MfgIP": (3, "Production industrielle (%)", 4, False),
+    }
+    tnames = {1: "March&eacute; & liquidit&eacute;", 2: "Stress bancaire", 3: "Macro lente", 9: "Autres"}
+    try:
+        sig = _q("SELECT indicator_name, value, phase, timestamp FROM debt_signals WHERE id IN (SELECT MAX(id) FROM debt_signals GROUP BY indicator_name) ORDER BY timestamp DESC")
+    except Exception:
+        sig = []
+    fresh_day = max((ts for _, _, _, ts in sig), default="")[:10]
+    tiers: dict[int, str] = {}
+    for ind, val, phase, ts in sig:
+        tier, label, dec, thou = debt_map.get(ind, (9, ind, 2, False))
+        v = float(val or 0)
+        num = f"{v:,.{dec}f}" if thou else f"{v:.{dec}f}"
+        ph = int(phase or 1)
+        dot = _macro_dot(ind, v)
+        stale = '<span class="stale">p&eacute;rim&eacute;</span>' if ts[:10] < fresh_day else ""
+        tiers[tier] = tiers.get(tier, "") + (
+            f'<div class="drow"><span class="ddot {dot}"></span><span class="dname">{label}</span>'
+            f'<span class="dval">{num}</span><span class="dp">P{ph}</span>{stale}</div>'
+        )
+    blocks = "".join(f'<div class="dtier">{tnames[t]}</div>{tiers[t]}' for t in (1, 2, 3, 9) if tiers.get(t))
+    try:
+        comp = _q("SELECT score, phase FROM debt_composite ORDER BY timestamp DESC LIMIT 1")
+    except Exception:
+        comp = []
+    score, cphase = (float(comp[0][0] or 0), int(comp[0][1] or 1)) if comp else (0.0, 1)
+    clabel = {1: "STABLE", 2: "STRESS", 3: "ALERTE", 4: "CRISE"}.get(cphase, "CRISE")
+    pos_lvl = 1 if near == 0 and heat < 33 else (2 if near <= 1 and heat < 60 else 3)
+    state_lvl = max(cphase, pos_lvl)
+    flabel, fcls = {1: ("CALME", "calm"), 2: ("VIGILANCE", "warn"), 3: ("D&Eacute;FENSIF", "danger"), 4: ("CRISE", "danger")}.get(state_lvl, ("CRISE", "danger"))
+    stress_cls = "danger" if cphase >= 3 else ("warn" if cphase == 2 else "calm")
+    if cphase > pos_lvl:
+        cause = f"d&eacute;clench&eacute;e par la macro &middot; {near} position(s) sous le stop"
+    elif pos_lvl > cphase:
+        cause = f"d&eacute;clench&eacute;e par tes positions &middot; macro {clabel}"
+    else:
+        cause = (f"macro {clabel} &middot; {near} sous le stop") if state_lvl > 1 else "rien &agrave; signaler"
+    hband = "calme" if heat < 33 else ("tension" if heat < 60 else "surchauffe")
+    feu = (
+        '<div class="plan"><div class="plan-h">&Eacute;tat actuel</div><div class="plan-row">'
+        + f'<div class="pi {fcls}"><span class="pn">{flabel}</span><span class="pl">posture globale</span><span class="pt">{cause}</span></div>'
+        + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">position(s) &lt; 10% du stop</span><span class="pt">surchauffe {heat:.0f}/100 &middot; {hband}</span></div>'
+        + f'<div class="pi {stress_cls}"><span class="pn">{score:.1f}</span><span class="pl">stress macro</span><span class="pt">phase {cphase} &middot; {clabel}</span></div>'
+        + '</div></div>'
+    )
+    gauge = (
+        '<div class="gauge"><div class="ghead">'
+        '<span class="gl">Surchauffe portefeuille &middot; tension moyenne aux stops</span>'
+        + f'<span class="gv">{heat:.0f}<span style="font-size:12px;color:var(--steel);font-weight:500">/100 &middot; {hband}</span></span></div>'
+        + f'<div class="gtrack"><div class="gmark" style="left:{max(0.0, min(100.0, heat)):.0f}%"></div></div>'
+        '<div class="glab"><span>calme</span><span>tension</span><span>surchauffe</span></div></div>'
+    )
+    return (
+        f'<section data-page="urgence"><div class="phead"><h2>Urgence</h2>'
+        f'<div class="sub">Positions proches du stop &middot; surchauffe &middot; moniteur de stress macro (/debt_status, en direct)</div></div>'
+        f'{feu}{gauge}'
+        f'<div class="cols">'
+        f'<div><div class="ph3">&#128308; Positions proches du stop</div><div class="card pad">{watch}</div></div>'
+        f'<div><div class="ph3">&#128163; Moniteur de stress macro &mdash; {clabel}</div>'
+        f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div></section>'
+    )
+
+
+def _system_state(near: int, heat: float) -> str:
+    try:
+        row = _q("SELECT score, phase FROM debt_composite ORDER BY rowid DESC LIMIT 1")
+        score, phase = row[0] if row else (None, None)
+    except Exception:
+        score, phase = None, None
+    if near == 0 and heat < 33:
+        posture, tone = "CALME", "calm"
+    elif heat < 60 and near <= 1:
+        posture, tone = "VIGILANCE", "warn"
+    else:
+        posture, tone = "D&Eacute;FENSIF", "alert"
+    macro = ""
+    if score is not None:
+        dlabel, dcol = {1: ("STABLE", "#37E0A0"), 2: ("STRESS", "#FFB020"), 3: ("ALERTE", "#FB923C"), 4: ("CRISE", "#FF6B6B")}.get(int(phase or 1), ("CRISE", "#FF6B6B"))
+        macro = f'<span class="cm"><b>MACRO</b> <span style="color:{dcol}">{dlabel}</span> &middot; {score:.1f}</span>'
+    return (
+        f'<div class="cmdbar"><div class="cmdleft"><span class="statedot {tone}"></span>'
+        f'<span class="cmdstate">PORTEFEUILLE &middot; {posture}</span></div>'
+        f'<div class="cmdmetrics">{macro}'
+        f'<span class="cm"><b>SURCHAUFFE</b> {heat:.0f}&deg;</span>'
+        f'<span class="cm"><b>PROCHES DU STOP</b> {near}</span></div></div>'
+    )
+
+
+def _pi(n: int, tks: list, lab: str, cls: str) -> str:
+    nm = " &middot; ".join(tks[:3]) + ("&hellip;" if len(tks) > 3 else "")
+    return f'<div class="pi {cls}"><span class="pn">{n}</span><span class="pl">{lab}</span><span class="pt">{nm or "&mdash;"}</span></div>'
+
+
+def _journal() -> str:
+    try:
+        rows = _q("SELECT created_at, ticker, decision_type, reasoning FROM decisions ORDER BY created_at DESC LIMIT 6")
+    except Exception:
+        return ""
+    if not rows:
+        return ""
+    tmap = {"entry": "Entr&eacute;e", "scale_in": "Renforcement", "partial_exit": "All&egrave;gement", "full_exit": "Sortie", "override": "Override", "no_action_flag": "Non-action"}
+    out = ""
+    for created, tk, dtype, reason in rows:
+        lab = tmap.get(dtype, str(dtype))
+        parts = str(created)[:10].split("-")
+        d = f"{parts[2]}.{parts[1]}" if len(parts) == 3 else str(created)[:10]
+        rs = str(reason or "")[:80].replace("&", "&amp;").replace("<", "&lt;")
+        out += (
+            f'<div class="line"><span><span class="mono">{tk}</span> &middot; {lab}'
+            f'<span class="nm">{rs}</span></span><span class="mono">{d}</span></div>'
+        )
+    return out
+
+
+_LOGO = (
+    '<svg width="46" height="36" viewBox="0 0 56 44" fill="none" xmlns="http://www.w3.org/2000/svg">'
+    '<defs><linearGradient id="hlg" x1="0" y1="44" x2="56" y2="0">'
+    '<stop offset="0" stop-color="#9A7B2E"/><stop offset=".45" stop-color="#D4AF37"/><stop offset="1" stop-color="#F6DD9A"/>'
+    '</linearGradient></defs>'
+    '<g stroke="url(#hlg)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none">'
+    '<ellipse cx="8" cy="31" rx="3" ry="4.4"/>'
+    '<path d="M8.5 26.8 C13 19 21.5 17 28 19.2"/>'
+    '<path d="M11 35 C16 38 23 37 28.5 31.5"/>'
+    '<path d="M19 30 V25 M23 31 V20 M27 31 V15 M31 30 V18"/>'
+    '<path d="M37 10 V34 M37 10 l5.5 4.5 -5.5 4.5"/>'
+    '</g></svg>'
+)
+
+_TH_CSS = """
 <style>
-  :root { --atrium:#F9FAF6; --card:#FFFFFF; --ink:#0E1726; --steel:#6B7689; --line:#E8E9E4;
-          --bull:#0E9F45; --bear:#D33A2C; --gold:#D9AC2E; --tide:#2D8A8B; }
+  .th-gap { margin-bottom:18px; }
+  .th-hist { display:flex; flex-direction:column; gap:6px; padding:2px 0; }
+  .th-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:11.5px; }
+  .th-hlab { width:24px; color:var(--steel); }
+  .th-htrack { flex:1; height:13px; background:rgba(255,255,255,.04); border-radius:7px; overflow:hidden; }
+  .th-hfill { height:100%; border-radius:7px; background:linear-gradient(90deg,var(--acc),var(--acc2)); }
+  .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
+  .th-grp { font-family:var(--fm); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:22px 2px 9px; display:flex; align-items:center; gap:10px; }
+  .th-grp::after { content:""; flex:1; height:1px; background:var(--line); }
+  .th-row { display:grid; grid-template-columns:210px 1fr; gap:20px; align-items:center; padding:13px 16px; border:1px solid var(--line); border-radius:13px; margin-bottom:9px; background:rgba(255,255,255,.012); cursor:pointer; transition:.15s; }
+  .th-row:hover { border-color:var(--line2); background:rgba(255,255,255,.035); }
+  .th-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .th-conv { font-family:var(--fm); font-weight:700; font-size:11px; padding:2px 7px; border-radius:6px; }
+  .th-conv.c5 { color:#0E1622; background:var(--gold); }
+  .th-conv.c4 { color:#0E1622; background:var(--acc); }
+  .th-conv.c3 { color:#0E1622; background:var(--acc2); }
+  .th-conv.c2 { color:var(--steel); border:1px solid var(--line2); }
+  .th-conv.c1 { color:var(--steel); border:1px solid var(--line); opacity:.65; }
+  .th-tk { font-weight:600; font-size:14px; }
+  .th-dir { font-family:var(--fm); font-size:9.5px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
+  .th-bar { display:flex; flex-direction:column; gap:6px; }
+  .th-track { position:relative; height:9px; border-radius:5px; background:linear-gradient(90deg,rgba(255,107,107,.32),rgba(255,176,32,.16) 45%,rgba(55,224,160,.32)); }
+  .th-entry { position:absolute; top:-3px; width:2px; height:15px; background:var(--steel); opacity:.65; transform:translateX(-1px); }
+  .th-cur { position:absolute; top:-4px; width:10px; height:17px; border-radius:4px; transform:translateX(-5px); box-shadow:0 0 10px -1px currentColor; }
+  .th-cur.pos { background:var(--acc); color:var(--acc); }
+  .th-cur.neg { background:var(--bear); color:var(--bear); }
+  .th-ends { display:flex; justify-content:space-between; font-family:var(--fm); font-size:10.5px; }
+  .th-stop { color:var(--bear); }
+  .th-tgt { color:var(--acc); }
+  .th-ratio { color:var(--steel); font-weight:600; }
+  .th-ratio.fav { color:var(--gold); }
+  .th-na { font-family:var(--fm); font-size:11px; color:var(--steel); }
+  .th-cat { font-family:var(--fm); font-size:10px; letter-spacing:.03em; color:var(--steel); background:rgba(124,137,166,.10); border:1px solid var(--line); border-radius:6px; padding:2px 8px; margin-left:2px; white-space:nowrap; }
+</style>
+"""
+
+_TIER_LABEL = {
+    5: "Conviction 5 &middot; la plus forte",
+    4: "Conviction 4",
+    3: "Conviction 3 &middot; m&eacute;diane",
+    2: "Conviction 2",
+    1: "Conviction 1 &middot; faibles",
+}
+
+
+def _theses(names: dict) -> str:
+    "Page Theses : asymetrie cible/stop par conviction + gap cible partielle."
+    rows = _q(
+        "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
+        "target_partial, last_price FROM theses WHERE status='active' "
+        "ORDER BY conviction DESC, ticker"
+    )
+    if not rows:
+        return (
+            '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
+            '<div class="sub">aucune th&egrave;se active</div></div></section>'
+        )
+    sectors = _sectors()
+    ths = []
+    dist = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    n_missing = n_fav = n_near = n_profit = 0
+    for r in rows:
+        tk, conv, direction, entry, stop, tgt, tpart, last = r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7]
+        conv = int(conv or 0)
+        if conv in dist:
+            dist[conv] += 1
+        if not tpart:
+            n_missing += 1
+        current = last or entry
+        d_stop = d_tgt = ratio = frac = entry_frac = pnl_e = None
+        has_bar = bool(current and stop and tgt and tgt != stop)
+        if has_bar:
+            d_stop = abs(stop - current) / current * 100
+            d_tgt = abs(tgt - current) / current * 100
+            ratio = d_tgt / d_stop if d_stop else None
+            frac = max(0.0, min(100.0, (current - stop) / (tgt - stop) * 100))
+            if entry:
+                entry_frac = max(0.0, min(100.0, (entry - stop) / (tgt - stop) * 100))
+                pnl_e = (current - entry) / entry * 100
+            if ratio is not None and ratio >= 2:
+                n_fav += 1
+            if d_stop < 10:
+                n_near += 1
+            if pnl_e is not None and pnl_e >= 0:
+                n_profit += 1
+        ths.append({
+            "tk": tk, "conv": conv, "dir": (direction or "long"), "nm": names.get(tk, tk),
+            "d_stop": d_stop, "d_tgt": d_tgt, "ratio": ratio, "frac": frac,
+            "entry_frac": entry_frac, "pnl_e": pnl_e, "has_bar": has_bar,
+            "cat": sectors.get(tk, ""),
+        })
+    n = len(ths)
+    med = sorted(t["conv"] for t in ths)[n // 2]
+    c5_pct = dist[5] / n * 100
+    infl = c5_pct > 20
+    maxc = max(dist.values()) or 1
+
+    hist = '<div class="th-hist">'
+    for c in (5, 4, 3, 2, 1):
+        hist += (
+            f'<div class="th-hbar"><span class="th-hlab">c{c}</span>'
+            f'<div class="th-htrack"><div class="th-hfill" style="width:{dist[c] / maxc * 100:.0f}%"></div></div>'
+            f'<span class="th-hn">{dist[c]}</span></div>'
+        )
+    hist += '</div>'
+    infl_msg = (
+        f'&#9888; inflation de conviction : c5 = {c5_pct:.0f}% (seuil 20%)' if infl
+        else f'c5 = {c5_pct:.0f}% &middot; pas d&rsquo;inflation (seuil 20%)'
+    )
+
+    hero = (
+        '<div class="hero"><div><div class="hl">Th&egrave;ses actives</div>'
+        f'<div class="big" style="color:var(--gold)">{n}</div>'
+        f'<div class="hsub">m&eacute;diane c{med} &middot; {n_fav} &agrave; asym&eacute;trie favorable &middot; {n_near} proche(s) du stop</div></div>'
+        '<div style="flex:1;min-width:250px"><div class="hl">Distribution conviction</div>'
+        f'{hist}<div class="hsub" style="margin-top:7px">{infl_msg}</div></div></div>'
+    )
+
+    pcls = "acc" if n_profit * 2 >= n else "negc"
+    ncls = "negc" if n_near else "acc"
+    kpis = (
+        '<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
+        f'<div class="kpi"><span class="kl">Asym&eacute;trie favorable</span><span class="kv acc">{n_fav}</span><span class="kd">ratio cible:stop &ge; 2</span></div>'
+        f'<div class="kpi"><span class="kl">En profit</span><span class="kv {pcls}">{n_profit}/{n}</span><span class="kd">prix au-dessus de l&rsquo;entr&eacute;e</span></div>'
+        f'<div class="kpi"><span class="kl">Proches du stop</span><span class="kv {ncls}">{n_near}</span><span class="kd">moins de 10% de marge</span></div></div>'
+    )
+
+    gap = (
+        '<div class="plan th-gap"><div class="plan-h">Discipline bidirectionnelle &mdash; cibles partielles</div>'
+        '<div class="plan-row" style="grid-template-columns:minmax(150px,1fr) 2fr">'
+        f'<div class="pi warn"><span class="pn">{n_missing}/{n}</span><span class="pl">sans cible partielle</span>'
+        '<span class="pt">prise de profit non pr&eacute;-engag&eacute;e</span></div>'
+        '<div class="pi"><span class="pl">Pourquoi &ccedil;a compte</span>'
+        '<span class="pt" style="font-size:12.5px;color:var(--ink);margin-top:4px;line-height:1.5">'
+        'Sans palier de prise partielle d&eacute;cid&eacute; &agrave; froid, la sortie se joue &agrave; chaud &mdash; '
+        'le m&eacute;canisme exact du biais &laquo;&nbsp;vendre ses winners trop t&ocirc;t&nbsp;&raquo;.</span></div></div></div>'
+    )
+
+    groups = ""
+    for c in (5, 4, 3, 2, 1):
+        grp = [t for t in ths if t["conv"] == c]
+        if not grp:
+            continue
+        groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}</div>'
+        for t in grp:
+            if t["has_bar"]:
+                curcls = "pos" if (t["pnl_e"] is not None and t["pnl_e"] >= 0) else "neg"
+                entry_tick = f'<div class="th-entry" style="left:{t["entry_frac"]:.1f}%"></div>' if t["entry_frac"] is not None else ""
+                rtxt = f'{t["ratio"]:.1f}:1' if t["ratio"] is not None else "&mdash;"
+                favcls = " fav" if (t["ratio"] is not None and t["ratio"] >= 2) else ""
+                bar = (
+                    '<div class="th-bar"><div class="th-track">'
+                    f'{entry_tick}<div class="th-cur {curcls}" style="left:{t["frac"]:.1f}%"></div></div>'
+                    '<div class="th-ends">'
+                    f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
+                    f'<span class="th-ratio{favcls}">{rtxt}</span>'
+                    f'<span class="th-tgt">cible +{t["d_tgt"]:.0f}%</span></div></div>'
+                )
+            else:
+                bar = '<div class="th-na">donn&eacute;es de prix incompl&egrave;tes</div>'
+            cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
+            groups += (
+                f'<div class="th-row" data-tk="{t["tk"]}"><div class="th-id">'
+                f'<span class="th-conv c{t["conv"]}">c{t["conv"]}</span>{cat_html}'
+                f'<span class="th-tk">{t["nm"]}</span><span class="th-dir">{t["dir"]}</span></div>{bar}</div>'
+            )
+
+    return (
+        '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
+        '<div class="sub">Asym&eacute;trie cible / stop par conviction &mdash; la discipline rendue visible</div></div>'
+        f'{_TH_CSS}{hero}{kpis}{gap}{groups}</section>'
+    )
+
+
+_NAV = (
+    '<nav class="nav">'
+    '<div class="ngrp"><span class="rune">&#5887;</span>Observation</div>'
+    '<div class="nitem on" data-nav="vigie"><span class="n">01</span> Vue d\'ensemble</div>'
+    '<div class="nitem" data-nav="positions"><span class="n">02</span> Positions</div>'
+    '<div class="ngrp"><span class="rune">&#5815;</span>Analyse</div>'
+    '<div class="nitem" data-nav="theses"><span class="n">03</span> Th&egrave;ses</div>'
+    '<div class="nitem" data-nav="concentration"><span class="n">04</span> Concentration</div>'
+    '<div class="nitem" data-nav="secteurs"><span class="n">05</span> Secteurs</div>'
+    '<div class="ngrp"><span class="rune">&#5809;</span>Renseignement</div>'
+    '<div class="nitem" data-nav="geo"><span class="n">06</span> G&eacute;ographie</div>'
+    '<div class="nitem" data-nav="signaux"><span class="n">07</span> Signaux</div>'
+    '<div class="ngrp"><span class="rune">&#5828;</span>Alerte</div>'
+    '<div class="nitem" data-nav="urgence"><span class="n">08</span> Urgence</div></nav>'
+)
+
+_CSS = """
+  :root { --bg:#0E1622; --panel:#141E2D; --line:#243349; --line2:#30425E; --ink:#E6F1EC; --steel:#7C89A6;
+    --acc:#37E0A0; --acc2:#00E0FF; --gold:#D4AF37; --bear:#FF6B6B; --warn:#FFB020;
+    --fd:"Bricolage Grotesque",sans-serif; --fb:"Inter Tight",sans-serif; --fm:"IBM Plex Mono",monospace; --fo:"Orbitron",sans-serif; --fr:"Noto Sans Runic",serif; }
   * { box-sizing:border-box; }
-  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
-         background:var(--atrium); color:var(--ink); margin:0; padding:28px 32px;
-         -webkit-font-smoothing:antialiased; }
-  .head { display:flex; align-items:center; justify-content:space-between; margin-bottom:26px; }
-  .brand { display:flex; align-items:center; gap:14px; }
-  .logo { width:42px; height:42px; border-radius:11px; background:var(--ink); color:var(--atrium);
-          display:flex; align-items:center; justify-content:center; font-weight:700; font-size:20px; }
-  .brand h1 { font-size:22px; font-weight:600; margin:0; letter-spacing:-0.01em; }
-  .status { display:flex; align-items:center; gap:8px; color:var(--steel); font-size:13px; }
-  .dot { width:8px; height:8px; border-radius:50%; background:var(--bull); }
-  .labrow { display:flex; align-items:baseline; justify-content:space-between; margin:0 0 12px; }
-  .label { text-transform:uppercase; letter-spacing:0.16em; font-size:11px; font-weight:600;
-           color:var(--steel); margin:0; }
-  .label b { color:var(--tide); }
-  .summary { font-size:13px; color:var(--steel); }
-  .summary b { color:var(--gold); font-weight:700; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:16px;
-          padding:20px 22px; margin-bottom:22px; box-shadow:0 1px 3px rgba(15,23,38,.04); }
-  .palier { padding:13px 0; border-bottom:1px solid var(--line); }
-  .palier:last-child { border-bottom:none; }
-  .palier-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-  .tk { font-weight:600; font-size:15px; }
-  .pnl { font-weight:700; font-size:14px; padding:2px 9px; border-radius:7px; }
-  .pnl.up { color:var(--bull); background:rgba(14,159,69,.10); }
-  .pnl.down { color:var(--bear); background:rgba(211,58,44,.10); }
-  .track { height:10px; background:#EDEEE9; border-radius:6px; overflow:hidden; }
-  .fill { height:100%; border-radius:6px; }
-  .fill.gold { background:linear-gradient(90deg,#E9B949,#D9AC2E); }
-  .fill.prismatic { background:linear-gradient(100deg,#FFD24A,#FF5E9C,#8A6CFF,#36C6C6);
-                    box-shadow:0 0 12px rgba(255,94,156,.55); }
-  .palier-sub { display:flex; justify-content:space-between; margin-top:6px;
-                font-size:12px; color:var(--steel); }
-  .prog { font-weight:600; color:var(--ink); }
-</style></head><body>
-  <div class="head">
-    <div class="brand"><div class="logo">H</div><h1>Heimdall</h1></div>
-    <div class="status"><span class="dot"></span>en veille · ___STAMP___</div>
-  </div>
-  <div class="labrow">
-    <p class="label"><b>01</b> // Paliers — progression vers tes targets pre-commits</p>
-    <span class="summary"><b>___HITS___</b> atteints · ___ACTIVE___ en cours</span>
-  </div>
-  <div class="card">___PANEL_PALIERS___</div>
-</body></html>
+  body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:radial-gradient(75% 65% at 10% 6%,rgba(46,86,120,.20),transparent 58%),radial-gradient(65% 60% at 90% 96%,rgba(42,128,96,.14),transparent 58%),#0E1622; background-attachment:fixed; -webkit-font-smoothing:antialiased; }
+  body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.5; transition:background .3s ease-out;
+    background:radial-gradient(48% 42% at var(--mx,75%) var(--my,10%),rgba(55,224,160,.13),transparent 60%),radial-gradient(55% 45% at 82% -2%,rgba(0,224,255,.10),transparent 60%),radial-gradient(50% 45% at 60% 112%,rgba(138,108,255,.07),transparent 60%); }
+  body::after { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:1;
+    background-image:radial-gradient(1.4px 1.4px at 22% 24%,rgba(255,255,255,.9),transparent),radial-gradient(1.6px 1.6px at 68% 58%,rgba(200,225,255,.8),transparent),radial-gradient(1.3px 1.3px at 46% 82%,rgba(255,255,255,.7),transparent),radial-gradient(1.5px 1.5px at 86% 28%,rgba(255,255,255,.8),transparent),radial-gradient(1.3px 1.3px at 12% 70%,rgba(210,230,255,.7),transparent),radial-gradient(1.2px 1.2px at 34% 44%,rgba(255,255,255,.6),transparent),radial-gradient(1.4px 1.4px at 78% 80%,rgba(255,255,255,.65),transparent),radial-gradient(1.2px 1.2px at 58% 16%,rgba(220,235,255,.6),transparent);
+    background-size:300px 300px,360px 360px,240px 240px,320px 320px,400px 400px,280px 280px,420px 420px,340px 340px; }
+  .sidebar { width:240px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:30px 16px; display:flex; flex-direction:column; }
+  .logo { display:flex; align-items:center; gap:11px; margin-bottom:30px; padding:0 6px; }
+  .logo svg { width:44px; height:auto; filter:drop-shadow(0 0 8px rgba(212,175,55,.4)); }
+  .logo .wm { font-family:var(--fo); font-weight:700; font-size:16px; letter-spacing:.08em; line-height:1; }
+  .logo .wm small { display:block; font-family:var(--fm); font-weight:500; font-size:8.5px; letter-spacing:.3em; text-transform:uppercase; color:var(--steel); margin-top:6px; }
+  .nav { display:flex; flex-direction:column; gap:2px; }
+  .ngrp { font-family:var(--fm); font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--steel); margin:16px 8px 6px; display:flex; align-items:center; gap:8px; }
+  .ngrp:first-child { margin-top:0; } .rune { font-family:var(--fr); font-size:14px; color:var(--steel); opacity:.5; }
+  .nitem { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:10px; cursor:pointer; color:var(--steel); font-weight:500; font-size:13.5px; border-left:2px solid transparent; transition:.15s; }
+  .nitem:hover { background:rgba(255,255,255,.03); color:var(--ink); }
+  .nitem.on { background:rgba(55,224,160,.10); color:var(--ink); border-left-color:var(--acc); box-shadow:inset 0 0 22px -10px rgba(55,224,160,.6); font-weight:600; }
+  .nitem .n { font-family:var(--fm); font-size:11px; color:var(--steel); font-weight:600; } .nitem.on .n { color:var(--acc); }
+  .foot { margin-top:auto; padding:15px 8px 0; border-top:1px solid var(--line); display:flex; align-items:center; gap:8px; font-family:var(--fm); font-size:10.5px; color:var(--steel); letter-spacing:.05em; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--acc); box-shadow:0 0 9px var(--acc); }
+  .wrap { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .tape { background:rgba(8,13,26,.55); border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; padding:9px 0; }
+  .tape .track2 { display:inline-block; animation:scroll 50s linear infinite; }
+  .tape .ti { font-family:var(--fm); font-size:12px; margin:0 22px; } .tape .ti b { color:var(--ink); } .tape .ti .pos { color:var(--acc); } .tape .ti .neg { color:var(--bear); }
+  @keyframes scroll { from{transform:translateX(0);} to{transform:translateX(-50%);} }
+  .cmdbar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 24px; background:rgba(8,13,26,.55); border-bottom:1px solid var(--line); backdrop-filter:blur(10px); }
+  .cmdleft { display:flex; align-items:center; gap:10px; } .cmdstate { font-family:var(--fm); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); }
+  .statedot { width:8px; height:8px; border-radius:50%; animation:pulse 2.6s ease-in-out infinite; }
+  .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
+  .cmdmetrics { display:flex; gap:22px; flex-wrap:wrap; } .cm { font-family:var(--fm); font-size:10.5px; color:var(--steel); } .cm b { color:var(--ink); font-weight:600; margin-right:5px; }
+  .main { padding:24px 40px 44px; max-width:1180px; }
+  .phead { margin-bottom:18px; } .phead h2 { font-family:var(--fd); font-weight:800; font-size:26px; margin:0 0 4px; letter-spacing:-.03em; } .phead .sub { font-size:12px; color:var(--steel); }
+  [data-page] { display:none; } [data-page].active { display:block; animation:fadein .42s ease; } @keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+  .hero { background:linear-gradient(135deg,rgba(55,224,160,.08),rgba(0,224,255,.04)); border:1px solid var(--line2); border-radius:18px; padding:20px 24px; margin-bottom:18px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; backdrop-filter:blur(9px); }
+  .hero .big { font-family:var(--fd); font-weight:800; font-size:46px; line-height:.95; letter-spacing:-.04em; animation:glowpulse 4.6s ease-in-out infinite; }
+  .hero .big.pos { color:var(--acc); text-shadow:0 0 34px rgba(55,224,160,.5); } .hero .big.neg { color:var(--bear); text-shadow:0 0 34px rgba(255,107,107,.45); }
+  @keyframes glowpulse { 0%,100% { opacity:.93; } 50% { opacity:1; } }
+  .hero .hl { font-family:var(--fm); font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
+  .hero .hsub { font-size:12.5px; color:var(--steel); margin-top:6px; }
+  .distbar { flex:1; min-width:240px; } .distline { display:flex; height:14px; border-radius:7px; overflow:hidden; }
+  .distline .g { background:linear-gradient(90deg,#7CF0C4,var(--acc)); } .distline .r { background:linear-gradient(90deg,var(--bear),#FF9A9A); }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+  .kpi { background:rgba(22,32,52,.5); border:1px solid var(--line); border-radius:14px; padding:13px 16px; box-shadow:0 12px 36px -22px #000; backdrop-filter:blur(9px); }
+  .kl { display:block; font-family:var(--fm); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:7px; }
+  .kv { font-family:var(--fd); font-weight:800; font-size:26px; letter-spacing:-.035em; line-height:1; }
+  .kv.acc { color:var(--acc); } .kv.negc { color:var(--bear); } .kv.warn { color:var(--warn); } .kv.hot { color:#FB923C; } .kv.danger { color:var(--bear); } .kv.calm { color:var(--acc); }
+  .kd { display:block; font-size:10px; color:var(--steel); margin-top:6px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+  .colhead { display:flex; align-items:baseline; gap:9px; margin-bottom:12px; padding-left:2px; } .colhead .t { font-family:var(--fd); font-weight:700; font-size:15px; } .colhead .a { font-family:var(--fm); font-size:11.5px; color:var(--steel); }
+  .card { background:rgba(22,32,52,.5); border:1px solid var(--line); border-radius:14px; padding:2px 22px; box-shadow:0 12px 36px -24px #000; backdrop-filter:blur(9px); } .card.pad { padding:14px 18px; }
+  .line { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; } .line:last-child { border-bottom:none; }
+  .mono { font-family:var(--fm); font-weight:600; color:var(--ink); } .mono.pos { color:var(--acc); } .mono.neg { color:var(--bear); }
+  .gauge { background:rgba(22,32,52,.5); border:1px solid var(--line); border-radius:14px; padding:16px 20px; margin-bottom:15px; backdrop-filter:blur(9px); }
+  .ghead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:11px; } .ghead .gl { font-family:var(--fm); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); } .ghead .gv { font-family:var(--fd); font-weight:800; font-size:20px; }
+  .gtrack { position:relative; height:9px; border-radius:5px; background:linear-gradient(90deg,#37E0A0,#FFB020 55%,#FF6B6B); }
+  .gmark { position:absolute; top:-4px; width:3px; height:17px; border-radius:2px; background:#fff; box-shadow:0 0 8px rgba(255,255,255,.6); transform:translateX(-50%); }
+  .glab { margin-top:9px; font-size:10px; color:var(--steel); display:flex; justify-content:space-between; font-family:var(--fm); letter-spacing:.08em; }
+  .row { padding:9px 0; border-bottom:1px solid var(--line); opacity:0; animation:fade .45s ease forwards; } .row:last-child { border-bottom:none; }
+  .row[data-tk] { cursor:pointer; } .row[data-tk]:hover { background:rgba(255,255,255,.03); }
+  .rt { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; } .tk { font-family:var(--fm); font-weight:600; font-size:13px; }
+  .tag { font-family:var(--fm); font-weight:600; font-size:11px; padding:3px 9px; border-radius:6px; }
+  .tag.up { color:var(--acc); background:rgba(55,224,160,.12); } .tag.acc2 { color:var(--acc2); background:rgba(0,224,255,.12); }
+  .tag.down,.tag.danger { color:var(--bear); background:rgba(255,107,107,.13); } .tag.warn { color:var(--warn); background:rgba(255,176,32,.14); } .tag.calm { color:var(--steel); background:rgba(124,137,166,.12); }
+  .track { height:10px; background:#13203A; border-radius:5px; overflow:hidden; }
+  .fill { height:100%; border-radius:4px; width:0; animation:grow .8s cubic-bezier(.2,.8,.2,1) forwards; }
+  .fill.up { background:linear-gradient(90deg,#7CF0C4,var(--acc)); box-shadow:0 0 10px rgba(55,224,160,.35); }
+  .fill.prismatic { background:linear-gradient(100deg,#FFE24A,#37E0A0,#00E0FF,#8A6CFF); box-shadow:0 0 12px rgba(55,224,160,.5); }
+  .fill.danger { background:linear-gradient(90deg,#FF9A9A,var(--bear)); } .fill.warn { background:linear-gradient(90deg,#FFD27A,var(--warn)); } .fill.calm { background:#2A4439; } .fill.acc2 { background:linear-gradient(90deg,#8FF0FF,var(--acc2)); }
+  .rs { display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--steel); }
+  .dwrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+  .donut { width:152px; height:152px; border-radius:50%; flex-shrink:0; position:relative; box-shadow:0 0 50px -12px #000; }
+  .donut::after { content:""; position:absolute; inset:26px; border-radius:50%; background:var(--panel); }
+  .legend { display:flex; flex-direction:column; gap:8px; flex:1; min-width:200px; }
+  .lg { display:flex; align-items:center; gap:9px; font-size:12.5px; } .lg .sw { width:11px; height:11px; border-radius:3px; flex-shrink:0; } .lg .lgn { flex:1; } .lg .lgc { font-family:var(--fm); font-size:11px; color:var(--steel); }
+  .empty { padding:30px 0; text-align:center; color:var(--steel); } .empty b { display:block; font-family:var(--fd); font-size:15px; color:var(--ink); margin-bottom:8px; }
+  #hqmap { height:460px; width:100%; background:#0A1020; } .leaflet-tooltip { background:#0D1426; border:1px solid var(--acc); color:var(--ink); font-family:var(--fm); font-size:11px; }
+  .dt { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .dt th { text-align:left; font-family:var(--fm); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); padding:8px 10px; border-bottom:1px solid var(--line2); cursor:pointer; user-select:none; }
+  .dt th.num { text-align:right; } .dt th:hover { color:var(--ink); }
+  .dt td { padding:8px 10px; border-bottom:1px solid var(--line); } .dt td.num { text-align:right; font-family:var(--fm); }
+  .dt td.tk { font-family:var(--fm); font-weight:600; } .dt tr:hover td { background:rgba(255,255,255,.025); }
+  .dt td.pos { color:var(--acc); } .dt td.neg { color:var(--bear); }
+  .bdg { display:inline-block; margin-left:7px; font-family:var(--fm); font-size:8px; letter-spacing:.1em; text-transform:uppercase; color:#D4AF37; border:1px solid rgba(212,175,55,.4); border-radius:3px; padding:1px 5px; vertical-align:middle; }
+  .dt tr.prev td { opacity:.72; } .dt tr.prev td.tk { color:#D4AF37; }
+  .nm { display:block; font-size:10px; font-weight:400; color:var(--steel); margin-top:2px; }
+  .ph3 { font-family:var(--fm); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin:0 0 12px; }
+  .dtier { font-family:var(--fm); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin:16px 0 6px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  .dlist > .dtier:first-child { margin-top:0; }
+  .drow { display:grid; grid-template-columns:14px 1fr auto auto auto; align-items:center; gap:10px; padding:7px 0; font-size:13px; }
+  .ddot { width:8px; height:8px; border-radius:50%; }
+  .ddot.calm { background:#37E0A0; box-shadow:0 0 7px rgba(55,224,160,.6); } .ddot.warn { background:#FACC15; box-shadow:0 0 7px rgba(250,204,21,.6); }
+  .ddot.hot { background:#FB923C; box-shadow:0 0 7px rgba(251,146,60,.6); } .ddot.danger { background:#EF4444; box-shadow:0 0 7px rgba(239,68,68,.6); }
+  .dname { color:var(--ink); } .dval { font-family:var(--fm); text-align:right; color:#fff; } .dp { font-family:var(--fm); font-size:10px; color:var(--steel); }
+  .stale { font-family:var(--fm); font-size:9px; color:var(--steel); opacity:.7; text-transform:uppercase; letter-spacing:.08em; }
+  @keyframes grow { to { width:var(--w); } } @keyframes fade { to { opacity:1; } }
+  .noanim [data-page].active, .noanim .row, .noanim .fill { animation:none !important; }
+  .noanim .row { opacity:1 !important; } .noanim .fill { width:var(--w) !important; }
+  @keyframes pulse { 0%,100% { opacity:1; box-shadow:0 0 10px currentColor; } 50% { opacity:.4; box-shadow:0 0 3px currentColor; } }
+  .plan { background:rgba(13,20,38,.6); border:1px solid var(--line); border-radius:14px; padding:15px 20px; margin-bottom:18px; backdrop-filter:blur(9px); }
+  .plan-h { font-family:var(--fm); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:13px; }
+  .plan-row { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .pi { display:flex; flex-direction:column; gap:4px; padding-left:13px; border-left:2px solid var(--line2); border-radius:0; }
+  .pi.danger { border-left-color:var(--bear); } .pi.warn { border-left-color:var(--warn); } .pi.calm { border-left-color:var(--acc); }
+  .pn { font-family:var(--fd); font-weight:800; font-size:23px; line-height:1; }
+  .pi.danger .pn { color:var(--bear); } .pi.warn .pn { color:var(--warn); } .pi.calm .pn { color:var(--acc); }
+  .pl { font-size:11.5px; color:var(--ink); } .pt { font-family:var(--fm); font-size:10.5px; color:var(--steel); }
+  .dt tbody tr:not(.prev) { cursor:pointer; }
+  .loupe { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:34px; }
+  .loupe.open { display:flex; }
+  .loupe-card { position:relative; width:min(560px,100%); max-height:86vh; overflow:auto; background:var(--panel); border:1px solid var(--line2); border-radius:18px; padding:28px 30px; box-shadow:0 30px 90px -20px #000; }
+  .loupe-x { position:absolute; top:14px; right:18px; background:none; border:none; color:var(--steel); font-size:26px; line-height:1; cursor:pointer; }
+  .loupe-x:hover { color:var(--ink); }
+  .lp-h { display:flex; align-items:baseline; gap:11px; }
+  .lp-tk { font-family:var(--fo); font-weight:700; font-size:24px; letter-spacing:.04em; color:var(--gold); }
+  .lp-nm { font-size:13px; color:var(--steel); }
+  .lp-meta { font-family:var(--fm); font-size:11px; color:var(--steel); margin:6px 0 18px; }
+  .lp-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .lp-mom { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .lp-stat { background:rgba(13,20,38,.6); border:1px solid var(--line); border-radius:10px; padding:11px 13px; }
+  .lp-sl { font-family:var(--fm); font-size:8.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
+  .lp-sv { font-family:var(--fd); font-weight:800; font-size:18px; margin-top:5px; }
+  .lp-sec { font-family:var(--fm); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:20px 0 10px; border-top:1px solid var(--line); padding-top:14px; }
+  .lp-score { display:flex; align-items:center; gap:10px; margin:8px 0; font-size:12px; }
+  .lp-score .ln { width:92px; color:var(--steel); }
+  .lp-score .bar { flex:1; height:6px; background:#13203A; border-radius:3px; overflow:hidden; }
+  .lp-score .bf { display:block; height:100%; background:linear-gradient(90deg,#00E0FF,#37E0A0); }
+  .lp-score .vv { font-family:var(--fm); width:32px; text-align:right; }
+  .lp-ex { font-size:12.5px; color:var(--ink); line-height:1.6; opacity:.82; }
+  .lp-empty { font-size:12px; color:var(--steel); padding:6px 0; }
+  .tkc { cursor:pointer; transition:color .12s; } .tkc:hover { color:var(--gold); }
+  .lp-badge { display:inline-block; font-family:var(--fm); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:6px; border:1px solid currentColor; }
+  .lp-badge.held { color:var(--acc); } .lp-badge.watch { color:var(--warn); } .lp-badge.univ { color:var(--acc2); } .lp-badge.out { color:var(--steel); }
+  .sbwrap { display:flex; gap:20px; flex-wrap:wrap; align-items:center; }
+  #sb-svg { width:320px; height:320px; flex:0 0 auto; }
+  #sb-svg path { cursor:pointer; transition:opacity .15s; } #sb-svg path:hover { opacity:.85; }
+  #sb-panel { flex:1; min-width:230px; font-size:13px; }
+  .sbrow { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:.5px solid var(--line); cursor:pointer; } .sbrow:last-child { border-bottom:none; } .sbrow:hover { background:rgba(255,255,255,.025); }
+  .qs { position:fixed; inset:0; z-index:70; display:none; align-items:flex-start; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:12vh 20px 20px; }
+  .qs.open { display:flex; }
+  .qs-card { width:min(560px,100%); background:var(--panel); border:1px solid var(--line2); border-radius:16px; box-shadow:0 30px 90px -20px #000; overflow:hidden; }
+  #qs-input { width:100%; box-sizing:border-box; background:transparent; border:none; outline:none; color:var(--ink); font-family:var(--fb); font-size:17px; padding:18px 20px; border-bottom:1px solid var(--line); }
+  #qs-input::placeholder { color:var(--steel); }
+  #qs-res { max-height:50vh; overflow:auto; }
+  .qs-row { display:flex; align-items:center; gap:12px; padding:11px 20px; cursor:pointer; border-bottom:.5px solid var(--line); }
+  .qs-row:last-child { border-bottom:none; } .qs-row.on, .qs-row:hover { background:rgba(55,224,160,.10); }
+  .qs-tk { font-family:var(--fm); font-weight:600; font-size:13px; width:78px; }
+  .qs-nm { flex:1; font-size:13px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .qs-st { font-family:var(--fm); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--steel); }
+  .qs-st.held { color:var(--acc); } .qs-st.watch { color:var(--warn); } .qs-st.core, .qs-st.extended { color:var(--acc2); }
+  .qs-empty { padding:22px 20px; color:var(--steel); font-size:13px; text-align:center; }
+"""
+
+_APP_JS = """
+  const items=document.querySelectorAll('[data-nav]'),pages=document.querySelectorAll('[data-page]');
+  document.querySelectorAll('table.dt th').forEach(function(th){
+    th.addEventListener('click',function(){
+      var tb=th.closest('table').querySelector('tbody'), rows=[].slice.call(tb.children);
+      var k=th.dataset.k, num=th.classList.contains('num');
+      var dir=th.dataset.dir==='asc'?-1:1; th.dataset.dir=dir===1?'asc':'desc';
+      rows.sort(function(a,b){var x=a.dataset[k],y=b.dataset[k]; if(num){x=parseFloat(x);y=parseFloat(y);} return x<y?-dir:(x>y?dir:0);});
+      rows.forEach(function(r){tb.appendChild(r);});
+    });
+  });
+  let _map=null;
+  function initMap(){
+    if(_map||!window.L)return;
+    _map=L.map('hqmap',{attributionControl:false,scrollWheelZoom:false}).setView([28,15],2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:8,subdomains:'abcd'}).addTo(_map);
+    (window.HQ||[]).forEach(function(h){
+      var col=h.pnl>=0?'#37E0A0':'#FF6B6B';
+      L.circleMarker([h.lat,h.lng],{radius:5+Math.min(14,h.w*0.9),color:col,weight:2,fillColor:col,fillOpacity:.45})
+        .addTo(_map).bindTooltip('<b>'+h.t+'</b> '+(h.pnl>=0?'+':'')+h.pnl+'%<br>'+h.sec+' · '+h.w+'% du portefeuille');
+    });
+  }
+  function show(id){
+    pages.forEach(p=>p.classList.toggle('active',p.dataset.page===id));
+    items.forEach(n=>n.classList.toggle('on',n.dataset.nav===id));
+    if(id==='geo'){initMap();setTimeout(function(){if(_map)_map.invalidateSize();},140);}
+    if(history.replaceState){history.replaceState(null,'','#'+id);}
+  }
+  items.forEach(n=>n.addEventListener('click',()=>show(n.dataset.nav)));
+  var _h=(location.hash||'').replace('#','');if(_h&&/^[a-z]+$/.test(_h))show(_h);
+  let _raf=null;
+  document.addEventListener('mousemove',function(e){
+    if(_raf)return;
+    _raf=requestAnimationFrame(function(){ _raf=null;
+      document.body.style.setProperty('--mx',(e.clientX/window.innerWidth*100).toFixed(1)+'%');
+      document.body.style.setProperty('--my',(e.clientY/window.innerHeight*100).toFixed(1)+'%');
+    });
+  });
+  function _pct(v,sg){ return v==null?'&mdash;':((sg&&v>=0?'+':'')+v+'%'); }
+  function mom(l,v){var c=v==null?'var(--steel)':(v>=0?'var(--acc)':'var(--bear)');return '<div class="lp-stat"><div class="lp-sl">'+l+'</div><div class="lp-sv" style="color:'+c+';font-size:16px">'+(v==null?'&mdash;':((v>=0?'+':'')+v+'%'))+'</div></div>';}
+  function openLoupe(tk){
+    var d=(window.TK||{})[tk]||{};
+    var st=d.status||'out';
+    var stm={held:['d&eacute;tenu','held'],watch:['watchlist','watch'],core:['univers core','univ'],extended:['univers &eacute;tendu','univ'],out:['hors-univers','out']};
+    var sb=stm[st]||stm.out;
+    var badge='<span class="lp-badge '+sb[1]+'">'+sb[0]+(st==='held'&&d.weight_pct!=null?' &middot; '+d.weight_pct+'%':'')+'</span>';
+    var a=d.analysis, sc='';
+    if(a&&a.scores){
+      var nm={quality:'Qualit&eacute;',growth:'Croissance',profitability:'Rentabilit&eacute;',valuation:'Valorisation',risk:'Risque',momentum:'Momentum',macro_alignment:'Macro'};
+      for(var k in nm){ if(a.scores[k]!=null){ var v=Math.round(a.scores[k]); sc+='<div class="lp-score"><span class="ln">'+nm[k]+'</span><span class="bar"><span class="bf" style="width:'+v+'%"></span></span><span class="vv">'+v+'</span></div>'; } }
+    }
+    var ana = a ? ('<div class="lp-sec">Derni&egrave;re analyse &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">R&eacute;gime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'&hellip;</div>':'')) : '<div class="lp-sec">Analyse</div><div class="lp-empty">Aucune analyse stock&eacute;e pour ce titre.</div>';
+    document.getElementById('loupe-body').innerHTML =
+      '<div class="lp-h"><span class="lp-tk">'+tk+'</span><span class="lp-nm">'+(d.name||'')+'</span></div>'
+      +'<div class="lp-meta">'+badge+' &middot; '+(d.sector||'&mdash;')+' &middot; '+(d.country||'&mdash;')+'</div>'
+      +((st==='held')?('<div class="lp-grid">'
+      +'<div class="lp-stat"><div class="lp-sl">Poids</div><div class="lp-sv">'+d.weight_pct+'%</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">Investi</div><div class="lp-sv">'+d.weight_eur+'&euro;</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">P&amp;L</div><div class="lp-sv">'+_pct(d.pnl,true)+'</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">Marge stop</div><div class="lp-sv">'+_pct(d.down)+'</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">Vers cible</div><div class="lp-sv">'+_pct(d.up)+'</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">Asym&eacute;trie</div><div class="lp-sv">'+(d.ratio==null?'&mdash;':d.ratio+'x')+'</div></div>'
+      +'</div>'+(d.perf?('<div class="lp-sec" style="margin-top:16px">Momentum r&eacute;cent</div><div class="lp-mom">'+mom('Jour',d.perf.d)+mom('Semaine',d.perf.w)+mom('Mois',d.perf.m)+'</div>'):'')):'<div class="lp-empty" style="padding:10px 0 2px">Pas de position ouverte sur ce titre.</div>')+ana;
+    document.getElementById('loupe').classList.add('open');
+  }
+  function closeLoupe(){ var el=document.getElementById('loupe'); if(el)el.classList.remove('open'); }
+  (function(){
+    var SVG=document.getElementById('sb-svg'),PANEL=document.getElementById('sb-panel');
+    if(!SVG||!PANEL||!window.SB_DATA)return;
+    var DATA=window.SB_DATA,CX=160,CY=160,RI1=56,RO1=94,RI2=100,RO2=142,PAD=0.018,NS='http://www.w3.org/2000/svg';
+    var total=0;DATA.forEach(function(s){s.tw=s.t.reduce(function(a,x){return a+(x.w||0);},0);total+=s.tw;});
+    if(total<=0)return;
+    function hx(h){h=h.replace('#','');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)];}
+    function mix(a,b,t){var A=hx(a),B=hx(b);return 'rgb('+Math.round(A[0]+(B[0]-A[0])*t)+','+Math.round(A[1]+(B[1]-A[1])*t)+','+Math.round(A[2]+(B[2]-A[2])*t)+')';}
+    function heat(p){if(p==null)return '#2A4439';var t=Math.min(1,Math.abs(p)/35);return p>=0?mix('#1C4A3A','#37E0A0',t):mix('#4A2222','#FF6B6B',t);}
+    function pol(r,a){return [CX+r*Math.cos(a),CY+r*Math.sin(a)];}
+    function arc(ri,ro,a0,a1){var lg=(a1-a0)>Math.PI?1:0,A=pol(ri,a0),B=pol(ro,a0),C=pol(ro,a1),D=pol(ri,a1);return 'M'+A[0]+' '+A[1]+'L'+B[0]+' '+B[1]+'A'+ro+' '+ro+' 0 '+lg+' 1 '+C[0]+' '+C[1]+'L'+D[0]+' '+D[1]+'A'+ri+' '+ri+' 0 '+lg+' 0 '+A[0]+' '+A[1]+'Z';}
+    function mkp(tag,at){var e=document.createElementNS(NS,tag);for(var k in at)e.setAttribute(k,at[k]);return e;}
+    var groups={},cur=-Math.PI/2;
+    DATA.forEach(function(s){
+      var ang=s.tw/total*2*Math.PI,a0=cur+PAD/2,a1=cur+ang-PAD/2,mid=(a0+a1)/2;
+      var g=mkp('g',{'data-sec':s.name});g.style.cursor='pointer';g.style.transition='transform .18s ease,opacity .18s ease';
+      g.dataset.mx=Math.cos(mid);g.dataset.my=Math.sin(mid);
+      g.appendChild(mkp('path',{d:arc(RI1,RO1,a0,a1),fill:s.col,'fill-opacity':'0.85',stroke:'#0E1622','stroke-width':'1.5','data-sec':s.name}));
+      var sub=cur;
+      s.t.forEach(function(x){var ta=x.w/total*2*Math.PI,b0=sub+PAD/2,b1=sub+ta-PAD/2;if(b1<=b0){b0=sub;b1=sub+ta;}g.appendChild(mkp('path',{d:arc(RI2,RO2,b0,b1),fill:heat(x.pnl),stroke:'#0E1622','stroke-width':'1.5','data-tk':x.tk,'data-sec':s.name}));sub+=ta;});
+      groups[s.name]=g;SVG.appendChild(g);cur+=ang;
+    });
+    var ct=mkp('text',{x:CX,y:CY-3,'text-anchor':'middle',fill:'#E6F1EC','font-size':'19','font-weight':'600'});ct.textContent=Math.round(total/1000)+'k'+String.fromCharCode(8364);SVG.appendChild(ct);
+    var c2=mkp('text',{x:CX,y:CY+15,'text-anchor':'middle',fill:'#7C89A6','font-size':'11','font-family':'monospace'});c2.textContent=DATA.length+' secteurs';SVG.appendChild(c2);
+    function pv(p){return p==null?'&mdash;':((p>=0?'+':'')+p+'%');}
+    function rw(l,v,c){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:.5px solid var(--line)"><span style="color:var(--steel)">'+l+'</span><span class="mono" style="color:'+(c||'var(--ink)')+'">'+v+'</span></div>';}
+    function overview(){
+      for(var k in groups){groups[k].style.transform='';groups[k].style.opacity='1';}
+      var top=DATA.slice().sort(function(a,b){return b.tw-a.tw;})[0],tp=Math.round(top.tw/total*100),ov=tp>=30;
+      PANEL.innerHTML='<div style="font-family:var(--fm);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin-bottom:10px">Vue d&rsquo;ensemble</div>'
+        +rw('Plus gros secteur',top.name+' &middot; '+tp+'%',ov?'var(--bear)':'var(--acc)')
+        +rw('Secteurs',DATA.length+'')+rw('Lignes',DATA.reduce(function(a,s){return a+s.t.length;},0)+'')
+        +'<div style="margin-top:12px;font-size:12px;color:'+(ov?'var(--warn)':'var(--steel)')+'">'+(ov?('&#9888; '+top.name+' au-dessus du plafond 30%'):'sous le plafond 30%')+'</div>'
+        +'<div style="margin-top:14px;font-size:11px;color:var(--steel)">clique un secteur pour le morceler</div>';
+    }
+    function showSector(name){
+      var s=null;DATA.forEach(function(d){if(d.name===name)s=d;});if(!s)return;
+      for(var k in groups){var g=groups[k];if(k===name){g.style.transform='translate('+(g.dataset.mx*12)+'px,'+(g.dataset.my*12)+'px)';g.style.opacity='1';}else{g.style.transform='';g.style.opacity='0.22';}}
+      var rows=s.t.slice().sort(function(a,b){return b.w-a.w;}).map(function(x){var pc=x.pnl==null?'var(--steel)':(x.pnl>=0?'var(--acc)':'var(--bear)');return '<div class="sbrow" data-tk="'+x.tk+'"><span class="mono">'+x.tk+'</span><span style="display:flex;gap:12px;align-items:center"><span class="mono" style="width:48px;text-align:right;color:'+pc+'">'+pv(x.pnl)+'</span><span class="mono" style="color:var(--steel);font-size:11px">stop '+(x.down==null?'&mdash;':x.down+'%')+'</span></span></div>';}).join('');
+      PANEL.innerHTML='<div class="sb-back" style="cursor:pointer;color:var(--steel);font-size:11px;margin-bottom:8px">&larr; vue d&rsquo;ensemble</div><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="width:10px;height:10px;border-radius:2px;background:'+s.col+'"></span><span style="font-family:var(--fd);font-weight:700;font-size:14px">'+s.name+'</span><span class="mono" style="color:var(--steel);font-size:12px">'+Math.round(s.tw/total*100)+'% &middot; '+s.t.length+' lignes</span></div>'+rows+'<div style="margin-top:10px;font-size:11px;color:var(--steel)">clique un titre pour sa fiche</div>';
+    }
+    SVG.addEventListener('click',function(e){var t=e.target;if(t.dataset&&t.dataset.tk)return;if(t.dataset&&t.dataset.sec)showSector(t.dataset.sec);});
+    PANEL.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('.sb-back'))overview();});
+    overview();
+  })();
+  document.addEventListener('click',function(ev){
+    var r=ev.target.closest&&ev.target.closest('[data-tk]'); if(r&&r.dataset.tk){ openLoupe(r.dataset.tk); }
+    if(ev.target.id==='loupe'){ closeLoupe(); }
+  });
+  document.addEventListener('keydown',function(ev){ if(ev.key==='Escape')closeLoupe(); });
+  (function(){
+    var box=document.createElement('div');box.id='qsearch';box.className='qs';
+    box.innerHTML='<div class="qs-card"><input id="qs-input" type="text" placeholder="Rechercher un titre ou un nom..." autocomplete="off"><div id="qs-res"></div></div>';
+    document.body.appendChild(box);
+    var inp=box.querySelector('#qs-input'),res=box.querySelector('#qs-res'),sel=0,cur=[];
+    var rk={held:0,watch:1,core:2,extended:3,out:4};
+    function lab(st){return {held:'d&eacute;tenu',watch:'watch',core:'core',extended:'&eacute;tendu'}[st]||'hors-univers';}
+    function openQS(){box.classList.add('open');inp.value='';qrender('');setTimeout(function(){inp.focus();},30);}
+    function closeQS(){box.classList.remove('open');}
+    function qrender(q){
+      var TK=window.TK||{},ql=q.trim().toLowerCase(),out=[];
+      for(var tk in TK){var d=TK[tk],nm=(d.name||'').toLowerCase();
+        if(!ql||tk.toLowerCase().indexOf(ql)>=0||nm.indexOf(ql)>=0){out.push([tk,d]);}}
+      out.sort(function(a,b){return (rk[a[1].status]||9)-(rk[b[1].status]||9);});
+      cur=out.slice(0,8);sel=0;
+      res.innerHTML=cur.length?cur.map(function(e,i){var d=e[1];
+        return '<div class="qs-row'+(i===0?' on':'')+'" data-qtk="'+e[0]+'"><span class="qs-tk">'+e[0]+'</span><span class="qs-nm">'+(d.name||'')+'</span><span class="qs-st '+(d.status||'out')+'">'+lab(d.status||'out')+'</span></div>';
+      }).join(''):'<div class="qs-empty">aucun titre</div>';
+    }
+    function pick(tk){if(!tk)return;closeQS();openLoupe(tk);}
+    function hi(){var rows=res.querySelectorAll('.qs-row');for(var i=0;i<rows.length;i++){rows[i].classList.toggle('on',i===sel);}}
+    inp.addEventListener('input',function(){qrender(inp.value);});
+    res.addEventListener('click',function(e){var r=e.target.closest('.qs-row');if(r)pick(r.dataset.qtk);});
+    box.addEventListener('click',function(e){if(e.target===box)closeQS();});
+    document.addEventListener('keydown',function(e){
+      if((e.metaKey||e.ctrlKey)&&(e.key==='k'||e.key==='K')){e.preventDefault();box.classList.contains('open')?closeQS():openQS();return;}
+      if(!box.classList.contains('open'))return;
+      if(e.key==='Escape'){closeQS();}
+      else if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(cur.length-1,sel+1);hi();}
+      else if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(0,sel-1);hi();}
+      else if(e.key==='Enter'){e.preventDefault();if(cur[sel])pick(cur[sel][0]);}
+    });
+  })();
+  (function(){
+    try{var sy=sessionStorage.getItem('h_scroll');if(sy)window.scrollTo(0,parseFloat(sy)||0);}catch(e){}
+    var lastAct=Date.now();
+    ['mousemove','keydown','touchstart','wheel'].forEach(function(ev){document.addEventListener(ev,function(){lastAct=Date.now();},{passive:true});});
+    setInterval(function(){
+      var lp=document.getElementById('loupe');
+      if(lp&&lp.classList.contains('open'))return;
+      if(document.hidden)return;
+      if(Date.now()-lastAct<6000)return;
+      try{sessionStorage.setItem('h_scroll',String(window.scrollY||window.pageYOffset||0));}catch(e){}
+      void 0;  /* auto-reload navigateur retire -- rafraichir avec Cmd+R */
+    },75000);
+  })();
 """
 
 
+_PERF_CACHE: dict = {}
+_PERF_TTL = 840
+
+
+def _perf_dwm(ticker: str) -> dict:
+    # % jour / semaine / mois depuis closes journaliers (1 appel yfinance, cache TTL).
+    import time
+
+    now = time.monotonic()
+    hit = _PERF_CACHE.get(ticker)
+    if hit and now - hit[0] < _PERF_TTL:
+        return hit[1]
+    out: dict = {"d": None, "w": None, "m": None}
+    try:
+        import yfinance as yf
+
+        c = yf.Ticker(ticker).history(period="1mo", interval="1d")["Close"].dropna()
+        if len(c) >= 2:
+            last = float(c.iloc[-1])
+            out["d"] = round((last / float(c.iloc[-2]) - 1) * 100, 1)
+            out["m"] = round((last / float(c.iloc[0]) - 1) * 100, 1)
+            if len(c) >= 6:
+                out["w"] = round((last / float(c.iloc[-6]) - 1) * 100, 1)
+    except Exception:
+        pass
+    _PERF_CACHE[ticker] = (now, out)
+    return out
+
+
+def _universe_status() -> dict:
+    # Statut de chaque ticker depuis config.yaml: watch / core / extended (held gere ailleurs).
+    out: dict = {}
+    try:
+        import yaml
+
+        cfg = yaml.safe_load(Path("config.yaml").read_text())
+        uni = (cfg or {}).get("universe", {}) or {}
+        for grp in (uni.get("core", {}) or {}).values():
+            for tk in grp or []:
+                out[tk] = "core"
+        for grp in (uni.get("extended", {}) or {}).values():
+            for tk in grp or []:
+                out[tk] = "extended"
+        for tk in uni.get("watch", []) or []:
+            out[tk] = "watch"
+    except Exception:
+        pass
+    return out
+
+
+def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, computed: list[dict], perf: dict) -> dict:
+    by = {r["ticker"]: r for r in computed}
+    ana: dict = {}
+    try:
+        for tk, typ, ts, content, meta in _q(
+            "SELECT ticker, COALESCE(type,''), timestamp, COALESCE(content,''), COALESCE(metadata,'') "
+            "FROM analyses WHERE id IN (SELECT MAX(id) FROM analyses GROUP BY ticker)"
+        ):
+            scores, regime, narr = {}, "", []
+            try:
+                md = json.loads(meta) if meta else {}
+                scores = md.get("scores", {}) or {}
+                regime = md.get("regime_at_time", "") or ""
+                narr = md.get("narratives_active", []) or []
+            except Exception:
+                pass
+            exc = str(content)[:280].strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            ana[tk] = {"date": str(ts)[:10], "type": str(typ), "excerpt": exc,
+                       "scores": scores, "regime": str(regime), "narr": narr}
+    except Exception:
+        ana = {}
+    total = sum(p["weight"] for p in positions) or 1
+    held = {p["ticker"] for p in positions}
+    ustat = _universe_status()
+    out: dict = {}
+    for p in positions:
+        tk = p["ticker"]
+        r = by.get(tk, {})
+        dn, up, rt = r.get("downside_pct"), r.get("upside_pct"), r.get("asymmetry_ratio")
+        out[tk] = {
+            "name": names.get(tk, ""),
+            "sector": sectors.get(tk, "Sans th&egrave;se"),
+            "country": _country(tk),
+            "status": "held",
+            "weight_eur": round(p["weight"]),
+            "weight_pct": round(p["weight"] / total * 100, 1),
+            "pnl": round(pnl[tk], 1) if tk in pnl else None,
+            "down": round(dn, 1) if dn is not None else None,
+            "up": round(up, 1) if up is not None else None,
+            "ratio": round(rt, 2) if rt is not None else None,
+            "perf": perf.get(tk),
+            "analysis": ana.get(tk),
+        }
+    for tk, status in ustat.items():
+        if tk in held:
+            continue
+        out[tk] = {
+            "name": names.get(tk, ""),
+            "sector": sectors.get(tk, "Sans th&egrave;se"),
+            "country": _country(tk),
+            "status": status,
+            "weight_eur": None, "weight_pct": None, "pnl": None,
+            "down": None, "up": None, "ratio": None,
+            "analysis": ana.get(tk),
+        }
+    return out
+
+
+_LOUPE_HTML = (
+    '<div id="loupe" class="loupe"><div class="loupe-card">'
+    '<button class="loupe-x" onclick="closeLoupe()" aria-label="Fermer">&times;</button>'
+    '<div id="loupe-body"></div></div></div>'
+)
+
+
 def render() -> Path:
-    paliers_html, active, hits = build_paliers()
-    html = _SHELL.replace("___PANEL_PALIERS___", paliers_html)
-    html = html.replace("___HITS___", str(hits)).replace("___ACTIVE___", str(active))
-    html = html.replace("___STAMP___", datetime.now().strftime("%d.%m.%Y · %H:%M"))
+    asym_mod._get_current_price = _cached_price_eur
+    full = asym_mod.compute_portfolio_asymmetry()
+    computed = [r for r in full if "asymmetry_ratio" in r]
+    positions = _positions()
+    sectors = _sectors()
+    held = {p["ticker"] for p in positions}
+    planned = _planned(held)
+    names = _names()
+    pnl = _pnl_map(computed)
+    perf = {p["ticker"]: _perf_dwm(p["ticker"]) for p in positions}
+    daily = {tk: v.get("d") for tk, v in perf.items()}
+    total = sum(p["weight"] for p in positions) or 1
+    loupe_data = _loupe_data(positions, sectors, names, pnl, computed, perf)
+    sb_pal = ["#00E0FF", "#37E0A0", "#D4AF37", "#8A6CFF", "#FFB020", "#5E8B9E", "#7CF0C4", "#FF6B6B"]
+    sb_down = {r["ticker"]: r.get("downside_pct") for r in computed}
+    sb_secs: dict = {}
+    for p in positions:
+        sb_secs.setdefault(sectors.get(p["ticker"], "Sans th&egrave;se"), []).append({
+            "tk": p["ticker"], "w": round(p["weight"]),
+            "pnl": round(pnl[p["ticker"]], 1) if p["ticker"] in pnl else None,
+            "down": round(sb_down[p["ticker"]], 1) if sb_down.get(p["ticker"]) is not None else None,
+        })
+    sb_ordered = sorted(sb_secs.items(), key=lambda kv: -sum(x["w"] for x in kv[1]))
+    sb_data = [{"name": nm, "col": sb_pal[i % len(sb_pal)], "t": rows} for i, (nm, rows) in enumerate(sb_ordered)]
+
+    pal, _hits, _top = _rows_paliers(computed)
+    ris, near, heat, watch = _rows_risque(computed)
+    gain, lose = _movers(pnl)
+    day_up, day_dn = _day_movers(daily)
+    geo_sec, markers = _geo(positions, sectors, pnl)
+    hp = f"{heat:.0f}"
+    lvl = "CHAUD" if heat >= 66 else ("TI&Egrave;DE" if heat >= 33 else "CALME")
+    stamp = datetime.now().strftime("%d.%m.%Y &middot; %H:%M")
+    today = datetime.now().strftime("%Y-%m-%d")
+    erows = ""
+    for rdate, rlab in sorted(REVIEWS):
+        rpast = rdate < today
+        rdd = f"{rdate[8:10]}.{rdate[5:7]}"
+        rop = ' style="opacity:.45"' if rpast else ""
+        rtag = " &middot; pass&eacute;e" if rpast else ""
+        erows += f'<div class="line"{rop}><span>{rlab}{rtag}</span><span class="mono">{rdd}</span></div>'
+    erows = erows or '<div class="empty" style="padding:14px 0">aucune &eacute;ch&eacute;ance</div>'
+
+    wbase = sum(p["weight"] for p in positions if p["ticker"] in pnl) or 1
+    port_pnl = sum(p["weight"] * pnl[p["ticker"]] for p in positions if p["ticker"] in pnl) / wbase
+    gain_eur = sum(p["weight"] for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
+    n_gain = sum(1 for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
+    n_pnl = sum(1 for p in positions if p["ticker"] in pnl) or 1
+    gpct = gain_eur / wbase * 100
+    pcls = "pos" if port_pnl >= 0 else "neg"
+    near_stop_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0)) if r.get("downside_pct") is not None and r["downside_pct"] < 10]
+    near_tgt_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("upside_pct", 999.0)) if r.get("upside_pct") is not None and r["upside_pct"] < 12]
+
+    plan_html = (
+        '<div class="plan"><div class="plan-h">Plan du jour &mdash; m&eacute;canique, non prescriptif</div><div class="plan-row">'
+        + _pi(len(near_stop_tk), near_stop_tk, "proche(s) du stop", "danger" if near_stop_tk else "calm")
+        + _pi(len(near_tgt_tk), near_tgt_tk, "candidate(s) prise de profit", "warn" if near_tgt_tk else "calm")
+        + f'<div class="pi"><span class="pn">{heat:.0f}&deg;</span><span class="pl">surchauffe portefeuille</span><span class="pt">{lvl}</span></div>'
+        + '</div></div>'
+    )
+
+    tape_items = ""
+    for tk, p in sorted(pnl.items(), key=lambda x: -x[1]):
+        cls = "pos" if p >= 0 else "neg"
+        tape_items += f'<span class="ti"><b>{tk}</b> <span class="{cls}">{"+" if p >= 0 else ""}{p:.1f}%</span></span>'
+    tape = f'<div class="tape"><div class="track2">{tape_items}{tape_items}</div></div>'
+
+    journal_html = _journal()
+    journal_block = (
+        '<div class="colhead" style="margin-top:22px"><span class="t">Derni&egrave;res d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
+        f'<div class="card pad">{journal_html}</div>'
+    ) if journal_html else ""
+    vigie = (
+        f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
+        f'<div class="sub">Performance pond&eacute;r&eacute;e par le capital investi</div></div>'
+        f'<div class="hero"><div><div class="hl">Performance pond&eacute;r&eacute;e vs prix d\'entr&eacute;e</div>'
+        f'<div class="big {pcls}">{"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%</div>'
+        f'<div class="hsub">{n_gain}/{n_pnl} lignes en gain &middot; {total:.0f}&euro; investis</div></div>'
+        f'<div class="distbar"><div class="hl">R&eacute;partition gain / perte (pond&eacute;r&eacute;e &euro;)</div>'
+        f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
+        f'<div class="hsub">{gpct:.0f}% du capital en gain</div></div></div>'
+        f'{plan_html}'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
+        f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
+        f'<div class="card pad">{day_dn}</div></div></div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Meilleures lignes</span><span class="a">depuis l&rsquo;entr&eacute;e</span></div>'
+        f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Pires lignes</span><span class="a">depuis l&rsquo;entr&eacute;e</span></div>'
+        f'<div class="card pad">{lose}</div></div></div>'
+        f'<div class="colhead" style="margin-top:22px"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
+        f'<div class="card pad">{erows}</div>'
+        f'{journal_block}</section>'
+    )
+    watch_zone_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0)) if r.get("downside_pct") is not None and 10 <= r["downside_pct"] < 20]
+    pos_plan = (
+        '<div class="plan"><div class="plan-h">Aujourd&rsquo;hui sur les positions</div><div class="plan-row">'
+        + _pi(len(near_stop_tk), near_stop_tk, "au stop (&lt;10%)", "danger" if near_stop_tk else "calm")
+        + _pi(len(watch_zone_tk), watch_zone_tk, "sous surveillance (10-20%)", "warn" if watch_zone_tk else "calm")
+        + _pi(len(near_tgt_tk), near_tgt_tk, "proche d&rsquo;un palier", "warn" if near_tgt_tk else "calm")
+        + '</div></div>'
+    )
+    positions_pg = (
+        f'<section data-page="positions"><div class="phead"><h2>Positions</h2>'
+        f'<div class="sub">Marge &agrave; la hausse vers la cible &middot; &agrave; la baisse vers le stop</div></div>'
+        f'{pos_plan}'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Paliers</span><span class="a">vers la cible</span></div>'
+        f'<div class="card">{pal}</div></div><div class="col"><div class="colhead"><span class="t">Risque</span><span class="a">marge avant le stop</span></div>'
+        f'<div class="gauge"><div class="ghead"><span class="gl">Surchauffe du portefeuille</span><span class="gv">{hp}&deg;</span></div>'
+        f'<div class="gtrack"><div class="gmark" style="left:{hp}%"></div></div><div class="glab"><span>calme</span><span>{lvl}</span><span>chaud</span></div></div>'
+        f'<div class="card">{ris}</div></div></div></section>'
+    )
+
+    body = (
+        f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
+        f'{_NAV}<div class="foot"><span class="dot"></span>EN VEILLE &middot; maj {stamp}</div></aside>'
+        f'<div class="wrap">{_system_state(near, heat)}{tape}<main class="main">'
+        + vigie + positions_pg + _theses(names) + _concentration(positions, sectors, names) + _secteurs(positions, planned, sectors, pnl, names, daily)
+        + geo_sec + _signaux() + _urgence(watch, heat, near)
+        + "</main></div>" + _LOUPE_HTML
+    )
+
+    html = (
+        '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1"><script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>Heimdall</title>'
+        '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">'
+        '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+        '<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter+Tight:wght@400;500;600&family=Orbitron:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Runic&display=swap" rel="stylesheet">'
+        "<style>" + _CSS + "</style></head><body>"
+        + body
+        + "<script>window.HQ=" + json.dumps(markers) + ";window.TK=" + json.dumps(loupe_data) + ";window.SB_DATA=" + json.dumps(sb_data) + ";</script>"
+        + '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>'
+        + "<script>" + _APP_JS + "</script></body></html>"
+    )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(html)
     return OUTPUT
@@ -116,4 +1477,4 @@ def render() -> Path:
 
 if __name__ == "__main__":
     p = render()
-    print(f"[OK] dashboard: {p} ({p.stat().st_size} bytes)")
+    print(f"[OK] {p} ({p.stat().st_size} bytes)")
