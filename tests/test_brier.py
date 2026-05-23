@@ -59,3 +59,24 @@ def test_brier_monotone_distance(prob1, prob2):
         b2 = compute_brier_score(prob2, outcome)
         if d1 <= d2:
             assert b1 <= b2 + 1e-12
+
+
+from hypothesis import given, strategies as st
+
+from shared.math_helpers import brier_for
+
+
+@given(prob=st.floats(0.0, 1.0))
+def test_brier_neutral_always_none(prob):
+    assert brier_for(prob, "neutral") is None
+
+
+@given(outcome=st.sampled_from(["correct", "incorrect", "neutral"]))
+def test_brier_none_prob_none(outcome):
+    assert brier_for(None, outcome) is None
+
+
+@given(prob=st.floats(0.0, 1.0))
+def test_brier_binary_formula(prob):
+    assert brier_for(prob, "correct") == (prob - 1.0) ** 2
+    assert brier_for(prob, "incorrect") == prob ** 2

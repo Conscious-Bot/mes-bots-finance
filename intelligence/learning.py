@@ -11,7 +11,7 @@ Asymetrique: down feedback (outcome incorrect) pese 2x plus que correct.
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
-from shared import prices, storage
+from shared import math_helpers, prices, storage
 
 HORIZON_DAYS = 30
 OUTCOME_THRESHOLD = 0.05
@@ -152,10 +152,7 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
         if sig and delta != 0:
             new_cred = storage.update_source_credibility(sig["source_id"], delta)
         prob = pred.get("probability_at_creation")
-        brier_score = None
-        if prob is not None:
-            outcome_binary = {"correct": 1.0, "incorrect": 0.0, "neutral": 0.5}.get(outcome, 0.5)
-            brier_score = (prob - outcome_binary) ** 2
+        brier_score = math_helpers.brier_for(prob, outcome)
         storage.resolve_prediction_row(
             prediction_id=pred["id"],
             final_price=current_price,

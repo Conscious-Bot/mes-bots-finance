@@ -72,3 +72,12 @@ def estimate_probability(score, credibility, signal_type=None, impact_magnitude=
     if impact_magnitude is not None and impact_magnitude >= 4:
         p += 0.03
     return round(min(0.72, max(0.50, p)), 4)
+
+
+def brier_for(prob: float | None, outcome: str) -> float | None:
+    """Brier d'une resolution binaire. None si non-scoreable : prob absente,
+    ou outcome 'neutral' (non-resolution — credibility l'exclut deja, delta==0).
+    Audit 2026-05-23."""
+    if prob is None or outcome == "neutral":
+        return None
+    return (prob - (1.0 if outcome == "correct" else 0.0)) ** 2
