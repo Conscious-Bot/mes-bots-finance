@@ -1028,7 +1028,7 @@ def get_journal_stats():
 
 
 def recalibrate_source_credibility_from_brier(min_n=10):
-    """Phase A1 — Cron mensuel: update sources.credibility = 1 - mean(brier_score)
+    """Phase A1 — Cron mensuel: sources.credibility = hit-rate correct/(correct+incorrect) + shrinkage Beta(2,2) vers 0.5 (ex 1-mean(brier), recalibre 2026-05-23)
     for sources with N>=min_n resolved predictions.
     Returns dict of updates applied {source_name: (old_cred, new_cred, n)}.
     """
@@ -1038,7 +1038,7 @@ def recalibrate_source_credibility_from_brier(min_n=10):
         rows = conn.execute(
             """
             SELECT s.id AS source_id, s.name AS source_name, s.credibility AS old_cred,
-                   AVG(p.brier_score) AS mean_brier,
+                   SUM(CASE WHEN p.outcome='correct' THEN 1 ELSE 0 END) AS n_correct, SUM(CASE WHEN p.outcome='incorrect' THEN 1 ELSE 0 END) AS n_incorrect,
                    COUNT(p.id) AS n
             FROM sources s
             JOIN signals sig ON sig.source_id = s.id
@@ -1051,7 +1051,7 @@ def recalibrate_source_credibility_from_brier(min_n=10):
         ).fetchall()
         updates = {}
         for r in rows:
-            new_cred = max(0.0, min(1.0, 1.0 - r["mean_brier"]))
+            new_cred = max(0.0, min(1.0, (r["n_correct"] + 2.0) / (r["n_correct"] + r["n_incorrect"] + 4.0)))
             conn.execute("UPDATE sources SET credibility = ? WHERE id = ?", (new_cred, r["source_id"]))
             updates[r["source_name"]] = (r["old_cred"], new_cred, r["n"])
         conn.commit()
