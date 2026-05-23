@@ -1,97 +1,95 @@
-# mes-bots-finance — Fiche Technique (Lean)
+# HEIMDALL Sentinelle (mes-bots-finance) — Fiche Technique (Lean)
 
-**Version**: 13 mai 2026 (post Day 2 marathon + afternoon extension)
+**Version**: 23 mai 2026 (Day 17 — post Brier root-fix + dashboard)
 **Auteur**: Olivier Legendre
-**État**: High Standard Mode active, 14 items shippés en une session, 49 tests passing
+**État**: High Standard / Observation jusqu'au 10/06/2026 (KPI #2 batch resolution)
+**Bot**: Telegram @Hawk_Dove_bot
 
 ---
 
 ## Mission
 
-Système d'intelligence finance personnelle en boucle fermée self-learning. **Mécanise la discipline** pour compenser deux biais asymétriques :
-1. Vend winners trop tôt (locking-in + mean-reversion) — historique PLTR/NVDA
-2. Ne vend pas crypto aux indicators tops (FOMO/greed)
+Système d'intelligence finance perso en boucle fermée self-learning (Telegram + Claude). **Mécanise la discipline** pour compenser deux biais asymétriques :
+1. Vend les winners trop tôt (locking-in + mean-reversion) — historique PLTR @9, NVDA @130
+2. Ne vend pas la crypto aux tops d'indicateurs (FOMO/greed)
 
-Le bot **ne trade pas**. Il force la réflexion structurée pré-commit via thesis tracker bidirectionnel, calibration Brier, multi-round debate, risk_check Opus, journal auto-résolu.
+Le bot **ne trade pas**. Il force la réflexion structurée pré-commit via thesis tracker bidirectionnel, calibration Brier, multi-round debate, /risk_check Opus, journal auto-résolu. Boucle : ingestion → process LLM → décision → prédiction (horizon mesurable) → outcome → rétrospection → enrichissement contexte → loop.
 
 ---
 
 ## Stack contraintes
 
-- Python 3.14, SQLite **WAL mode**, APScheduler, BGE-small-en-v1.5 local embeddings
-- **PAS** FastAPI / Postgres / Redis / LangGraph
-- Run local MacBook Pro, pas de cloud
-- Anthropic Claude API (Haiku / Sonnet / Opus cascade)
-- Coût observé: **$0.50/jour, projected $15/mo** (vs budget $50)
+- Python 3.14, SQLite **WAL mode**, APScheduler, embeddings BGE-small-en-v1.5 locaux
+- Cascade Anthropic : Haiku (volume) / Sonnet (enrich) / Opus (raisonnement)
+- Dashboard read-only : `dashboard/render.py` (static-gen → dashboard.html) + `dashboard/serve.py` (stdlib, 127.0.0.1:8000)
+- **PAS** FastAPI / Postgres / Redis / LangGraph. Local MacBook Pro, pas de cloud.
+- Coût observé : **~$15-20/mo** (budget $50)
 
 ---
 
-## État empirique (13 mai 2026 après-midi)
+## État empirique (23 mai 2026)
 
 | Métrique | Valeur |
 |---|---|
-| Signaux ingérés 30d | 66 (100% materiality_v2 coverage) |
-| Sources actives | 27 (post-dedup, post-backfill) |
-| Tier S empirical | 5 (Adam Tooze, Chamath, Wall Street Rollup, Coin Metrics, SemiAnalysis) |
-| Predictions ouvertes | 45 (cluster J+28 = 10 juin) |
-| Predictions résolues 28d | 1 |
-| Tests Hypothesis | 49/49 passing |
-| Coverage math_helpers | 100% |
-| Crons actifs | 22 |
-| Handlers Telegram | 49+ (telemetry actif) |
+| Tests | 345 (Hypothesis property-based + smoke) |
+| Théses actives | 33 |
+| Prédictions | 157 total (156 ouvertes, 1 résolue), max_id 157 |
+| Cluster résolution | ~40-44 dues le 10 juin |
+| Signaux | 208 cumulés (~66/30j) |
+| Sources actives | ~52 (majorité à 0.5 crédibilité défaut, pré-10/06) |
+| Univers | 313 tickers (23 core / 123 watch / 167 extended) |
+| Handlers Telegram | 75 (telemetry actif) |
+| Crons | 27 |
+| ruff / mypy | 0 erreur (strict sur modules cœur, clean sur l'ensemble) |
 
 ---
 
-## Architecture (7-stage conceptual)
+## Architecture (couches)
 
-1. **SUBSTRATE** — DB schema (15 tables), configs, secrets
-2. **INGESTION** — Gmail (max_results=50), EDGAR, FRED, yfinance, CoinGecko
-3. **ENTONNOIR** — signal_type Haiku + materiality_v2 Sonnet chained + echo BGE
-4. **SIGNAUX** — insider clusters, 8-K cat, crypto zones
-5. **SYNTHESIS** — multi-round debate, /analyze deep fiche, risk_check Opus
+1. **SUBSTRATE** — schéma DB (33 tables), config.yaml, secrets
+2. **INGESTION** — Gmail (max_results 50), EDGAR, FRED, yfinance, CoinGecko
+3. **ENTONNOIR** — signal_type Haiku + materiality_v2 Sonnet chaîné + echo BGE
+4. **SIGNAUX** — insider clusters, 8-K cat, crypto zones, debt-crisis monitor (15 indicateurs)
+5. **SYNTHESIS** — multi-round debate, /analyze deep, /risk_check Opus (avec injection signaux newsletters)
 6. **APPROPRIATION** — position book, journal auto-resolve, bias_tagger
-7. **RESTITUTION** — /brief 6 sections, /digest 2x/jour, /kpi_status, /cost_trajectory
+7. **RESTITUTION** — /brief, /digest 2x/j, /kpi_status, /cost_trajectory
+8. **OBSERVE (dashboard)** — HEIMDALL Sentinelle, lecture seule ; toute décision reste sur Telegram
+
+**Passerelles uniques** : DB → shared/storage.py, LLM → shared/llm.py, Telegram → shared/notify.py, config → shared/config.py, prix → shared/prices.py (HARDCODED_FX_TO_EUR), display → shared/display.py.
+
+**Avertissement schéma** : CONVENTIONS.md et KPI_DASHBOARD.md décrivent des colonnes périmées (claim_json, outcome_evaluated_at n'existent pas). Vérité = `sqlite3 data/bot.db ".schema <table>"`. predictions porte : resolved_at, final_price, return_pct, outcome, probability_at_creation, brier_score. theses → narratif via `notes` (`sector_thesis_id: <ID>`).
 
 ---
 
-## Quality artifacts (audit-grade)
+## Brier / track record — état honnête
 
-- **Tests**: 49 Hypothesis property-based (math_helpers 100%, learning horizon 100%, materiality 17%, asymmetry 41%)
-- **Backup**: daily 04:00 + integrity_check + 14d rotation + Makefile restore test
-- **Concurrency**: SQLite WAL mode (N readers + 1 writer)
-- **CI**: .github/workflows/ci.yml ready (Python 3.14 matrix + pytest + coverage XML artifact)
-- **Telemetry**: middleware logue tous /commands → /handler_stats Pareto curve
-- **Cost dashboard**: /cost_trajectory MTD + projection + budget alert
-- **KPI runtime**: /kpi_status avec enforcement triggers
+probability_at_creation était un snapshot de crédibilité source (~0.5 sur 157/157) = Brier vide. Réparé le 23/05 (`estimate_probability` câblé dans insert_prediction), **effet sur id ≥ 158 uniquement** — aucune créée à ce jour. Les 157 prédictions legacy (dont le cluster du 10 juin) restent à 0.5 → résolveront en Brier vide-mais-vert. **NE PAS publier comme track record.** Vraie courbe à partir des id ≥ 158, exploitable ~fin juin.
 
 ---
 
-## Path 5/6 strategic target
+## KPIs runtime
 
-**Path 5** (acquihire $200K-$1M, 18-24mo) ET/OU **Path 6** (Substack + prosumer subscription $100K-500K/an, 24-36mo).
-
-### Dimensions roadmap
-
-| Dim | État | Notes |
+| KPI | Cible | État 23/05 |
 |---|---|---|
-| 1. Technique solidification | ✅ DONE (this marathon) | 14 items, 49 tests, audit-grade |
-| 2. Track record mesure | ✅ ACTIVATED | /kpi_status + weekly auto-post, timer J+28 = 10 juin |
-| 3. Dépersonnalisation | ⏳ Month 6+ | Templated prompts + profile config |
-| 4. Positionnement public | ⏳ Month 12+ | Substack + LinkedIn post-J+90 |
+| #1 uptime 30d | >95% | 99.9% ✅ |
+| **#2 NON-NEG** ≥5 résolues/28d | ≥5 | 1 résolu, ~40-44 dues 10/06, J-18 ⏳ ON TRACK |
+| #3 Brier <0.20 rolling 90d | <0.20 | N=1 🔍 insufficient (vrai mesure post id≥158) |
+| #4 0 panic sell core | 0 | 0 ✅ |
+| #5 décisions journalisées | 100% | forward-only depuis 21/05 (baseline reset) |
+| #6 Pf vs SPY/QQQ/SMH | >-5pp | 🔍 INSUFFICIENT (need 365d) |
 
 ---
 
-## KPIs enforcement runtime
+## Concentration
 
-| KPI | Target | Action si breach |
-|---|---|---|
-| **#2 NON-NEG** ≥5 predictions résolues 28d | ≥5 | Stop 5j build + force-use |
-| #3 Brier <0.20 rolling 90d | <0.20 | Alert + revue méthodo si >0.25 |
-| #4 0 panic sell core | 0 | Pause + bias analysis si ≥1 |
-| #5 100% decisions matérielles journalisées | 100% | No new thesis si <90% |
-| #6 TWR vs SPY/QQQ 12M | >-5pp | Revue strat trim. si <-5pp |
+EXCESSIVE : cluster AI Compute ~80% du book (cap narratif advisory 30-35%, 6 lignes > 5%). Le bot signale en OVERWEIGHT advisory (ADR 008) ; trim/hold = décision opérateur (Olivier), pas une règle config.
 
-`/kpi_status` à tout moment + cron Sunday 22:30 Paris auto-post.
+---
+
+## Path 5/6
+
+**Path 5** (acquihire $200K-$1M, 18-24mo) ET/OU **Path 6** (Substack + prosumer subscription, 24-36mo).
+Dim 1 solidification : avancée. Dim 2 track record : activée (KPI runtime + timer 10/06). Dim 3 dépersonnalisation : month 6+. Dim 4 public : Substack post-Brier mesurable (~fin juin+).
 
 ---
 
@@ -99,53 +97,39 @@ Le bot **ne trade pas**. Il force la réflexion structurée pré-commit via thes
 
 | Fichier | Rôle |
 |---|---|
-| `SESSION_STATE.md` | Handoff sessions (canonical entry point reopen) |
-| `TODO.md` | Backlog + Path 5/6 roadmap + dette closed |
-| `PHILOSOPHY.md` | High Standard Mode principles |
-| `CONVENTIONS.md` | Naming + structure code |
-| `docs/SOURCES.md` v2 | Tiers S/A/B empirical composite_avg |
-| `docs/failure_modes.md` | Top 5 failure scenarios + runbooks |
-| `tests/` | 49 Hypothesis property-based tests |
-| `scripts/backup.sh` + `Makefile` | Automation |
-| `.github/workflows/ci.yml` | CI (pending repo push) |
+| `docs/AGENT_HANDOFF.md` | Manuel de reprise pour agent IA (contrat de travail, structure, conventions) |
+| `HANDOFF.md` | Log de session chronologique (lire le tail) |
+| `SESSION_STATE.md` | Handoff session courte |
+| `TODO.md` | Backlog actionnel courant |
+| `PHILOSOPHY.md` | High Standard Mode + boucle |
+| `CONVENTIONS.md` | Naming + structure + Lessons 1-41 |
+| `docs/adrs/` | ADR 001-008 (registry décisions archi) |
+| `docs/failure_modes.md` | FM-1 à FM-12 + runbooks |
+| `dashboard/render.py` + `serve.py` | Couche OBSERVE |
 
 ---
 
-## Principes directeurs (rappel)
+## Principes directeurs
 
-1. Le bot ne trade pas, il force discipline pré-commit
+1. Le bot ne trade pas, il force la discipline pré-commit
 2. Précision dans la mesure > surface monitorée
-3. Cascade LLM: Haiku volume, Opus raisonnement structuré
-4. Bidirectionnel: anti-vend-trop-tôt ET anti-tient-trop-long
+3. Cascade LLM : Haiku volume, Opus raisonnement
+4. Bidirectionnel : anti-vend-trop-tôt ET anti-tient-trop-long
 5. Matière empirique > construction (KPI #2 NON-NEG)
-6. High Standard: tests + cost modeled + observability avant feature
-7. Pas de scope creep: stack contraint jusqu'à break explicite
-8. Hygiene = feature
+6. High Standard : tests + coût modélisé + observabilité avant feature
+7. Pas de scope creep : stack contraint jusqu'à break explicite
+8. Less surface > more discipline
 9. Backup + versioning obligatoire
-10. Track record > features (Path 5/6 narrative)
+10. Track record > features
 
 ---
 
-## Appropriation roadmap (defined 14 May 2026 Day 3 close)
+## Appropriation roadmap (cadre 14/05, échelle de mois)
 
-Le bot n'est pas un simulator. Sa philosophie repose sur instrumentation de DECISIONS reelles. Sans positions reelles, les boucles bidirectionnelles asymetriques (anti-sell-trop-tot, anti-hold-trop-long) n'ont rien a instrumenter.
+Le bot instrumente des DÉCISIONS réelles ; sans positions réelles, les boucles bidirectionnelles n'ont rien à instrumenter. Staging psychologique, pas un toggle :
+- **Phase 1** (~fin mai) : pré-conditions sécurité (FileVault, bot.db hors iCloud, restore test, risk.validate wired, paper_only vérifié)
+- **Phase 2** (~mi-juin, post-10/06) : 2-3 quality compounders neutres (pas PLTR/NVDA/crypto)
+- **Phase 3** (~juillet, post-30j Phase 2) : positions chargées, PLTR-equivalent en dernier
+- **Phase 4** (~août-sept) : full portfolio + execute_real si retenu
 
-Appropriation = condition de validite du projet, staged sur 3-4 mois pour gerer le risque psychologique. La rencontre du bot avec tes biais sur tes vraies positions est un evenement emotionnel, pas seulement technique.
-
-### Phase 1 (post Sprint 1.1, ~26 mai 2026): safety pre-conditions
-- FileVault active sur Mac
-- bot.db PAS dans iCloud sync
-- Backup restore test end-to-end sur vraies donnees
-- risk_engine wired sur /position_buy /position_sell
-- Mode paper_only toggle verifie actif
-
-### Phase 2 (post-J+28, ~12-15 juin 2026): premieres positions neutres
-2-3 quality compounders sans charge emotionnelle (V, BLK, mega-cap stable). Apprivoiser /brief, /asymmetry, alerts. PAS PLTR / NVDA / crypto en premiere.
-
-### Phase 3 (~juillet 2026, apres 30j Phase 2): positions chargees
-Ajouter graduellement les positions a fort biais. PLTR-equivalent en dernier. Confiance se gagne par exposition incrementale.
-
-### Phase 4 (~aout-septembre 2026): full portfolio + decisions execute_real si retenu
-
-### Principe sous-jacent
-Echelle de mois, pas de jours. Stage l'appropriation comme un evenement psychologique, pas un toggle on/off.
+Policy 2-week observation post-opening (Day 16) : pas d'action portfolio offensive avant J+14 d'une thèse. À encoder dans PHILOSOPHY.md + guardrail bot.
