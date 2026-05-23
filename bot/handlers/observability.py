@@ -290,7 +290,7 @@ def _kpi_compute_all():
     # KPI #3: Brier rolling 90d (target <0.20)
     r3 = conn.execute(
         "SELECT AVG(brier_score) AS brier_avg, COUNT(*) AS n FROM predictions "
-        "WHERE brier_score IS NOT NULL AND resolved_at >= datetime('now', '-90 days')"
+        "WHERE brier_score IS NOT NULL AND probability_at_creation != 0.5 AND resolved_at >= datetime('now', '-90 days')"
     ).fetchone()
     brier = r3["brier_avg"]
     n3 = r3["n"]
