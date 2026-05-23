@@ -95,17 +95,17 @@ Le Brier vient d'etre repare a la racine (voir section 8). Dashboard live avec s
 
 Jusqu'au 22/05, probability_at_creation = simple snapshot de la credibilite source (~0.5 sur 143/152 predictions) = erreur de categorie (confiance source != P(cet appel correct)) -> Brier vide mais VERT (artefact de la bande neutre +/-5%). Repare le 23/05 par shared/math_helpers.estimate_probability(...) cable dans insert_prediction, MAIS l'effet ne porte que sur les predictions FUTURES (id >= 158).
 
-CONSEQUENCE: les 151 predictions legacy (dont le cluster de 40 qui resout le 10 juin) gardent prob=0.5 et resolveront en Brier vide-mais-vert. NE PUBLIE JAMAIS ce Brier-la comme track record. Le VRAI track record commence aux id >= 158 (prob differenciee), exploitable ~fin juin. estimate_probability est un PRIOR APPRENABLE, pas une verite calibree: son job est de rendre le Brier informatif/iterable, la vraie calibration viendra de la boucle resolve -> reliability diagram -> ajustement.
+CONSEQUENCE: les 151 predictions legacy (dont le cluster de 40 qui resout le 10 juin) gardent prob=0.5 et resolveront en Brier vide-mais-vert. NE PUBLIE JAMAIS ce Brier-la comme track record. Le VRAI track record commence aux id >= 158 (prob differenciee), exploitable ~fin juin. ATTENTION recence != qualite: id >= 158 est selectionne par RECENCE, donc domine par les sources Asie Day14+ non-prouvees (cred 0.5). Lire son Brier maturite-source en tete; "commence" n'est pas "valide". Track record > nouveaute. estimate_probability est un PRIOR APPRENABLE, pas une verite calibree: son job est de rendre le Brier informatif/iterable, la vraie calibration viendra de la boucle resolve -> reliability diagram -> ajustement.
 
 ## 9. Ce qui vient
 
-- Verifier le fix prob en prod: predictions id >= 158 avec probability_at_creation != 0.5 = integration confirmee.
+- Verifier le fix prob en prod: predictions id >= 158 = integration confirmee. NE PAS conjoindre != 0.5: une prediction post-fix peut calculer 0.50 legitimement (donc ratee par ce filtre), et != 0.5 attrape 8 legacy a 0.53. id 158 = prochaine cree sous le code corrige (max_id etait 157 au restart). Au 23/05: post_fix=0, pas encore tire.
 - ~27 mai: 1eres resolutions — verifier final_price sains (pas de nan; garde `px != px` posee dans resolve_due_predictions).
 - VUE CALIBRATION (LA surface produit Path 6, le vrai "ameliorer le site"): a batir quand >= 10 predictions a prob differenciee sont resolues (~fin juin). Contenu: reliability diagram (bucket de prob predite vs taux realise) + Brier-over-time + ledger des resolues. Decision a trancher la-bas: neutral exclu du Brier vs binaire-0.5.
 - Politique de concentration (EXCESSIVE 80%): decision strategique d'Olivier.
 - Logo: parke sur candidat A (heaume-onde), a integrer dans render.py .logo svg + favicon.
 - Classifieur 8-K: marque TOUT Item 5.02 = HIGH (bruit qui pollue signal->prediction). Gele pendant l'observation, a recalibrer post-batch.
-- Deferred: refactor shared/display.py (symboles devise canoniques), ADR 005 P2 (audit EUR-canonical restant), refactor bot/main.py en handlers/*, push GitHub + CI — VERIFIER que credentials.json/token.json sont gitignores AVANT push (secrets reels: client_secret Google + refresh_token), prune univers mi-juin.
+- Deferred: refactor shared/display.py (symboles devise canoniques), ADR 005 P2 (audit EUR-canonical restant), refactor bot/main.py en handlers/*, push GitHub + CI — VERIFIER que credentials.json/token.json sont gitignores: FAIT le 23/05 (push effectue, secrets client_secret Google + refresh_token verifies hors historique git), prune univers mi-juin.
 
 ## 10. Lecons cardinales
 

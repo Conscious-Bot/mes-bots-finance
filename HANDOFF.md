@@ -1,3 +1,16 @@
+# Session 2026-05-23 closed — Brier root-cause fix + audit dashboard clean
+
+**Manuel agent**: `docs/AGENT_HANDOFF.md` (contrat + structure + schemas reels). Ce fichier = log chrono, lire le tail.
+**HEAD**: b65ebf3 = origin/main  
+**Tags**: day15-brier-dashboard, dashboard-audit-clean-23052026  
+**State**: bot 1 instance, 345 tests, ruff/mypy 0  
+**Brier**: repare a la racine (estimate_probability dans insert_prediction); effet id >= 158 uniquement; post_fix=0 (pas encore tire). NE PAS publier le Brier legacy (148@0.5 + 8@0.53 = vacant). Cohorte calibration = id >= 158, lue maturite-source en tete (recence != qualite).  
+**Dashboard**: audit code clean (5 findings; F3/F4/F5 fixes; F1/F2 false alarms debunkes); 0 defaut restant.  
+**KPI #2 timer**: J-18 vers 10/06/2026 (batch resolution legacy).  
+**Carry-forward**: vue calibration fin juin (scoper id>=158), concentration AI Compute ~80% (decision operateur), COHR review 30/05, orphans AMD/GOOGL/SAF.PA/TSLA J+30=16/06.
+
+---
+
 # Session 2026-05-21 closed — 30 commits, Phases A+B refactor + 7 lessons
 
 **Full retrospective**: `docs/sessions/2026-05-21.md`
