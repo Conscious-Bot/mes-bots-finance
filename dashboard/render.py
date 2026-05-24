@@ -619,9 +619,10 @@ def _urgence(watch: str, heat: float, near: int) -> str:
         ph = int(phase or 1)
         dot = _macro_dot(ind, v)
         stale = '<span class="stale">p&eacute;rim&eacute;</span>' if ts[:10] < fresh_day else ""
+        vcls = "mute" if stale else dot
         tiers[tier] = tiers.get(tier, "") + (
             f'<div class="drow"><span class="ddot {dot}"></span><span class="dname">{label}</span>'
-            f'<span class="dval">{num}</span><span class="dp">P{ph}</span>{stale}</div>'
+            f'<span class="dval {vcls}">{num}</span><span class="dp">P{ph}</span>{stale}</div>'
         )
     blocks = "".join(f'<div class="dtier">{tnames[t]}</div>{tiers[t]}' for t in (1, 2, 3, 9) if tiers.get(t))
     try:
@@ -961,7 +962,7 @@ _CSS = """
     --acc:#0E9F6E; --acc2:#0D9488; --id:#3D8BFF; --bear:#E5484D; --warn:#C2750A;
     --bg2:#FFFFFF; --panel2:#F1F3F6; --ink2:#3A3F4A; --steel2:#9AA1AD;
     --elev:0 14px 36px -24px rgba(30,55,105,.22);
-    --glass:rgba(255,255,255,.92); --glass2:rgba(241,243,246,.7); --tape:rgba(246,247,249,.85); --barbg:#E7EAEF; --glow:0 0 30px -4px color-mix(in srgb,var(--id) 85%,transparent); --glow2:0 0 38px -10px color-mix(in srgb,var(--id) 70%,transparent); }
+    --glass:rgba(255,255,255,.92); --glass2:rgba(241,243,246,.7); --tape:rgba(246,247,249,.85); --barbg:#E7EAEF; --glow:0 0 30px -9px color-mix(in srgb,var(--id) 85%,transparent); --glow2:0 0 38px -15px color-mix(in srgb,var(--id) 70%,transparent); }
   body.frost::after { display:none; }
   * { box-sizing:border-box; }
   body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:radial-gradient(1100px 680px at 82% -10%,rgba(61,139,255,.05),transparent 60%),radial-gradient(820px 560px at 6% 112%,rgba(61,139,255,.028),transparent 56%),var(--bg); background-attachment:fixed; -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
@@ -1019,7 +1020,7 @@ _CSS = """
   .sec-cols .num { text-align:right; }
   .sec-grp { margin-bottom:22px; }
   .sec-h { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 4px 9px; }
-  .sec-name { font-family:var(--fd); font-weight:700; font-size:16px; color:var(--ink); display:flex; align-items:center; gap:9px; }
+  .sec-name { font-family:var(--fd); font-weight:700; font-size:17.5px; color:var(--ink); display:flex; align-items:center; gap:9px; }
   .sec-name::before { content:""; width:6px; height:6px; border-radius:2px; background:var(--id); box-shadow:var(--glow2); }
   .sec-meta { font-family:var(--fm); font-size:11.5px; color:var(--steel); white-space:nowrap; }
   .sec-pl.pos { color:var(--acc); } .sec-pl.neg { color:var(--bear); }
@@ -1037,6 +1038,10 @@ _CSS = """
   /*METAL2*/
   .card, .kpi, .hero, .pfcard { border-top:1px solid color-mix(in srgb,var(--ink) 16%,var(--line)); }
   .th-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; margin-bottom:6px; }
+  /*THEME-ICO*/
+  .modetgl .ico-moon { display:none; } body.frost .modetgl .ico-sun { display:none; } body.frost .modetgl .ico-moon { display:inline-block; }
+  /*DVAL-STATE*/
+  .dval.calm { color:var(--acc); } .dval.warn { color:#E0A33A; } .dval.danger { color:#EF4444; } .dval.mute { color:var(--steel); }
   .card { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:7px 24px; box-shadow:0 12px 36px -24px #000, inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 0 1px color-mix(in srgb,var(--id) 5%,transparent); backdrop-filter:blur(9px); } .card.pad { padding:14px 18px; }
   .line { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; } .line:last-child { border-bottom:none; }
   .mono { font-family:var(--fm); font-weight:600; color:var(--ink); } .mono.pos { color:var(--acc); } .mono.neg { color:var(--bear); }
@@ -1566,7 +1571,7 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
     return head + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors) + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors)
 
 
-_MODE_BTN = """<button class="modetgl" title="Mode clair / sombre" onclick="document.body.classList.toggle('frost');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('frost')?'frost':'carbon')}catch(e){}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>"""
+_MODE_BTN = """<button class="modetgl" title="Mode clair / sombre" onclick="document.body.classList.toggle('frost');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('frost')?'frost':'carbon')}catch(e){}"><svg class="ico-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>"""
 _THEME_INIT = "<script>try{var t=localStorage.getItem('hmdl-theme');if(t==='frost')document.body.classList.add('frost');}catch(e){}</script>"
 
 
