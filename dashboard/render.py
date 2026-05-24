@@ -307,7 +307,7 @@ def _day_movers(daily: dict) -> tuple[str, str]:
     return _mover_blk(ups), _mover_blk(dns)
 
 
-def _concentration(positions: list[dict], sectors: dict, names: dict, pnl: dict) -> str:
+def _concentration(positions: list[dict], planned: list[dict], sectors: dict, names: dict, pnl: dict, daily: dict) -> str:
     def _v(p: dict) -> float:
         return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
     cost_total = sum(p["weight"] for p in positions) or 1
@@ -354,17 +354,20 @@ def _concentration(positions: list[dict], sectors: dict, names: dict, pnl: dict)
     )
     return (
         f'<section data-page="concentration"><div class="phead"><h2>Concentration</h2>'
-        f'<div class="sub">Poids par ligne et par secteur &mdash; o&ugrave; la valeur se concentre</div></div>'
+        f'<div class="sub">Trois axes de concentration &mdash; par ligne, par secteur, par g&eacute;ographie</div></div>'
         f'{verdict_card}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
         f'<div class="kpi"><span class="kl">Plus grosse ligne</span><span class="kv {top_cls}">{top_pct:.0f}%</span><span class="kd">{line_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Secteur dominant</span><span class="kv {sec_cls}">{aic:.0f}%</span><span class="kd">{sec_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
-        f'<div class="card pad"><div class="sbwrap"><svg id="sb-svg" viewBox="0 0 320 320" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div></section>'
+        f'<div class="card pad"><div class="sbwrap"><svg id="sb-svg" viewBox="0 0 320 320" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div>'
+        f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
+        f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la supply-chain r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
+        f'</section>'
     )
 
 
-def _secteurs(positions: list[dict], planned: list[dict], sectors: dict, pnl: dict, names: dict, daily: dict) -> str:
+def _sector_blocks(positions: list[dict], planned: list[dict], sectors: dict, pnl: dict, names: dict, daily: dict) -> str:
     real_t = sum(p["weight"] for p in positions)
     plan_t = sum(p["weight"] for p in planned)
     total = (real_t + plan_t) or 1
@@ -415,12 +418,29 @@ def _secteurs(positions: list[dict], planned: list[dict], sectors: dict, pnl: di
         f'total {total:.0f}&euro; (${total / fx:.0f}) &middot; {len(order)} secteurs'
     )
     return (
-        f'<section data-page="secteurs"><div class="phead"><h2>Secteurs</h2>'
-        f'<div class="sub">{sub}</div></div>'
+        f'<div class="sub" style="margin-bottom:10px">{sub}</div>'
         f'<div class="sec-cols"><span></span><span class="num">&euro;</span><span class="num">$</span>'
         f'<span class="num">%</span><span class="num">Jour</span><span class="num">P&amp;L</span></div>'
-        f'{blocks}</section>'
+        f'{blocks}'
     )
+
+
+def _geo_bars(positions: list[dict]) -> str:
+    total = sum(p["weight"] for p in positions) or 1
+    cw: dict[str, float] = {}
+    for p in positions:
+        c = _country(p["ticker"])
+        cw[c] = cw.get(c, 0.0) + p["weight"]
+    bars = ""
+    for country, w in sorted(cw.items(), key=lambda x: -x[1]):
+        pct = w / total * 100
+        bars += (
+            f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
+            f'<span class="tag acc2">{pct:.0f}%</span></div>'
+            f'<div class="track"><div class="fill acc2" style="--w:{max(2.0, min(100.0, pct)):.0f}%"></div></div>'
+            f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
+        )
+    return bars
 
 
 def _geo(positions: list[dict], sectors: dict, pnl: dict) -> tuple[str, list]:
@@ -610,7 +630,9 @@ def _urgence(watch: str, heat: float, near: int) -> str:
         sig = _q("SELECT indicator_name, value, phase, timestamp FROM debt_signals WHERE id IN (SELECT MAX(id) FROM debt_signals GROUP BY indicator_name) ORDER BY timestamp DESC")
     except Exception:
         sig = []
-    fresh_day = max((ts for _, _, _, ts in sig), default="")[:10]
+    import datetime as _dt
+    _today = _dt.date.today()
+    _STALE = {1: 3, 2: 10, 3: 40, 9: 10}  # tolerance jours: daily / hebdo / mensuel
     tiers: dict[int, str] = {}
     for ind, val, phase, ts in sig:
         tier, label, dec, thou = debt_map.get(ind, (9, ind, 2, False))
@@ -618,7 +640,11 @@ def _urgence(watch: str, heat: float, near: int) -> str:
         num = f"{v:,.{dec}f}" if thou else f"{v:.{dec}f}"
         ph = int(phase or 1)
         dot = _macro_dot(ind, v)
-        stale = '<span class="stale">p&eacute;rim&eacute;</span>' if ts[:10] < fresh_day else ""
+        try:
+            _age = (_today - _dt.date.fromisoformat(str(ts)[:10])).days
+        except Exception:
+            _age = 0
+        stale = '<span class="stale">p&eacute;rim&eacute;</span>' if _age > _STALE.get(tier, 10) else ""
         vcls = "mute" if stale else dot
         tiers[tier] = tiers.get(tier, "") + (
             f'<div class="drow"><span class="ddot {dot}"></span><span class="dname">{label}</span>'
@@ -630,6 +656,14 @@ def _urgence(watch: str, heat: float, near: int) -> str:
     except Exception:
         comp = []
     score, cphase = (float(comp[0][0] or 0), int(comp[0][1] or 1)) if comp else (0.0, 1)
+    _rk = _cfg().get("risk", {})
+    _vthr = _rk.get("vol_scaling_threshold_vix", 25)
+    _vsf = _rk.get("vol_scaling_factor", 0.7)
+    _vix = next((float(v or 0) for i, v, p, t in sig if i == "VIX"), None)
+    _reduced = _vix is not None and _vix >= _vthr
+    _sfac = _vsf if _reduced else 1.0
+    size_cls = "warn" if _reduced else "calm"
+    size_txt = f"VIX {_vix:.1f} {'&ge;' if _reduced else '&lt;'} {_vthr}" if _vix is not None else "VIX indisponible"
     clabel = {1: "STABLE", 2: "STRESS", 3: "ALERTE", 4: "CRISE"}.get(cphase, "CRISE")
     pos_lvl = 1 if near == 0 and heat < 33 else (2 if near <= 1 and heat < 60 else 3)
     state_lvl = max(cphase, pos_lvl)
@@ -647,6 +681,7 @@ def _urgence(watch: str, heat: float, near: int) -> str:
         + f'<div class="pi {fcls}"><span class="pn">{flabel}</span><span class="pl">posture globale</span><span class="pt">{cause}</span></div>'
         + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">position(s) &lt; 10% du stop</span><span class="pt">surchauffe {heat:.0f}/100 &middot; {hband}</span></div>'
         + f'<div class="pi {stress_cls}"><span class="pn">{score:.1f}</span><span class="pl">stress macro</span><span class="pt">phase {cphase} &middot; {clabel}</span></div>'
+        + f'<div class="pi {size_cls}"><span class="pn">&times;{_sfac:.1f}</span><span class="pl">sizing recommand&eacute;</span><span class="pt">{size_txt}</span></div>'
         + '</div></div>'
     )
     gauge = (
@@ -812,6 +847,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
             '<div class="sub">aucune th&egrave;se active</div></div></section>'
         )
+    _u = _cfg().get("universe", {})
+    crypto_tk = set(_u.get("core", {}).get("crypto_core", [])) | set(_u.get("extended", {}).get("crypto_etfs", []))
     ths = []
     dist = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     n_missing = n_fav = n_near = n_profit = 0
@@ -843,7 +880,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             "tk": tk, "conv": conv, "dir": (direction or "long"), "nm": names.get(tk, tk),
             "d_stop": d_stop, "d_tgt": d_tgt, "ratio": ratio, "frac": frac,
             "entry_frac": entry_frac, "pnl_e": pnl_e, "has_bar": has_bar,
-            "cat": sectors.get(tk, ""),
+            "cat": sectors.get(tk, ""), "tpart": tpart,
         })
     n = len(ths)
     med = sorted(t["conv"] for t in ths)[n // 2]
@@ -920,6 +957,21 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 )
             else:
                 bar = '<div class="th-na">donn&eacute;es de prix incompl&egrave;tes</div>'
+            anchor = ""
+            if t["has_bar"] and t["pnl_e"] is not None:
+                _near = (t["d_tgt"] is not None and t["d_tgt"] <= 12) or (t["frac"] is not None and t["frac"] >= 75)
+                _crypto = t["tk"] in crypto_tk
+                if _near and t["pnl_e"] >= 0:
+                    _acls = "warn"
+                    if t["tpart"] is not None:
+                        _amsg = "Cible bient&ocirc;t atteinte. Ex&eacute;cute ta prise partielle pr&eacute;-engag&eacute;e" + (" &mdash; ne laisse pas le FOMO d&eacute;passer." if _crypto else ", ne tiens pas par gourmandise.")
+                    else:
+                        _amsg = "Cible bient&ocirc;t atteinte, aucun palier fix&eacute;. D&eacute;cide ta prise partielle &agrave; froid maintenant" + (" &mdash; le greed ne doit pas trancher." if _crypto else ".")
+                    anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
+                elif t["pnl_e"] >= 12 and not _crypto:
+                    _acls = "acc"
+                    _amsg = "Winner en profit, upside restant. Ton biais te pousse &agrave; s&eacute;curiser trop t&ocirc;t (PLTR@9, NVDA@130) &mdash; laisse courir vers ta cible."
+                    anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
             wv = vmap.get(t["tk"], 0.0)
             wtxt = f'{wv:.1f}%' if wv > 0 else "&mdash;"
@@ -927,7 +979,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 f'<div class="th-row" data-tk="{t["tk"]}">'
                 f'<div class="th-id"><span class="th-conv c{t["conv"]}">c{t["conv"]}</span>'
                 f'<span class="th-tk">{t["nm"]}</span>{cat_html}</div>'
-                f'<div class="th-w">{wtxt}</div>{bar}</div>'
+                f'<div class="th-w">{wtxt}</div>{bar}{anchor}</div>'
             )
         groups += '</div>'
 
@@ -944,8 +996,6 @@ _NAV = (
     '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
     '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
     '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
-    '<div class="nitem" data-nav="secteurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></svg><span class="nlab">Secteurs</span></div>'
-    '<div class="nitem" data-nav="geo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c3 3 3 13 0 16c-3-3-3-13 0-16z"/></svg><span class="nlab">G&eacute;ographie</span></div>'
     '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux</span></div>'
     '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div></nav>'
 )
@@ -1038,6 +1088,9 @@ _CSS = """
   /*METAL2*/
   .card, .kpi, .hero, .pfcard { border-top:1px solid color-mix(in srgb,var(--ink) 16%,var(--line)); }
   .th-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; margin-bottom:6px; }
+  .th-anchor { grid-column:1/-1; margin-top:8px; padding:8px 11px; border-radius:8px; font-family:var(--fb); font-size:11.5px; line-height:1.5; color:var(--ink); border-left:2px solid var(--id); }
+  .th-anchor.acc { border-left-color:var(--acc); background:color-mix(in srgb,var(--acc) 7%,transparent); }
+  .th-anchor.warn { border-left-color:var(--warn); background:color-mix(in srgb,var(--warn) 9%,transparent); }
   /*THEME-ICO*/
   .modetgl .ico-moon { display:none; } body.frost .modetgl .ico-sun { display:none; } body.frost .modetgl .ico-moon { display:inline-block; }
   /*DVAL-STATE*/
@@ -1232,7 +1285,7 @@ _APP_JS = """
   function show(id){
     pages.forEach(p=>p.classList.toggle('active',p.dataset.page===id));
     items.forEach(n=>n.classList.toggle('on',n.dataset.nav===id));
-    if(id==='geo'){initMap();setTimeout(function(){if(_map)_map.invalidateSize();},140);}
+
     if(history.replaceState){history.replaceState(null,'','#'+id);}
   }
   items.forEach(n=>n.addEventListener('click',()=>show(n.dataset.nav)));
@@ -1603,7 +1656,7 @@ def render() -> Path:
     ris, near, heat, watch = _rows_risque(computed)
     gain, lose = _movers(pnl)
     day_up, day_dn = _day_movers(daily)
-    geo_sec, markers = _geo(positions, sectors, pnl)
+    markers: list = []
     hp = f"{heat:.0f}"
     lvl = "CHAUD" if heat >= 66 else ("TI&Egrave;DE" if heat >= 33 else "CALME")
     stamp = datetime.now().strftime("%d.%m.%Y &middot; %H:%M")
@@ -1696,22 +1749,22 @@ def render() -> Path:
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
         f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">'
-        + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, sectors, names, pnl) + _secteurs(positions, planned, sectors, pnl, names, daily)
-        + geo_sec + _signaux() + _urgence(watch, heat, near)
+        + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
+        + _signaux() + _urgence(watch, heat, near)
         + "</main></div>" + _LOUPE_HTML
     )
 
     html = (
         '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1"><script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>Heimdall</title>'
-        '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">'
+        ''
         '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
         '<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Runic&display=swap" rel="stylesheet">'
         '<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">'
         "<style>" + _CSS + "</style></head><body>"
         + body
         + "<script>window.HQ=" + json.dumps(markers) + ";window.TK=" + json.dumps(loupe_data) + ";window.SB_DATA=" + json.dumps(sb_data) + ";window.SECTOR_COLORS=" + json.dumps(SECTOR_COLORS) + ";</script>"
-        + '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>'
+        + ''
         + "<script>" + _APP_JS + "</script></body></html>"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
