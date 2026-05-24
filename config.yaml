@@ -611,3 +611,16 @@ sectors_taxonomy:
       - COIN         # Coinbase
     Crypto ETF:
       - IBIT         # iShares Bitcoin Trust
+
+sectors:
+  "Foundry & logique": ["TSM", "AMD", "STMPA.PA"]
+  "Mémoire": ["000660.KS", "MU"]
+  "Équipement semi": ["ASML.AS", "KLAC", "BESI.AS", "TER", "6857.T", "6920.T"]
+  "Matériaux semi": ["4063.T", "ENTG"]
+  "EDA": ["SNPS"]
+  "Connectivité & optique": ["AVGO", "ALAB", "COHR"]
+  "Hyperscalers": ["AMZN", "GOOGL"]
+  "Power & électrification": ["SU.PA", "VRT"]
+  "Défense": ["HO.PA", "SAF.PA", "7011.T"]
+  "Énergie & matières premières": ["CCJ", "LNG", "MP"]
+  "Auto / robotique": ["TSLA"]

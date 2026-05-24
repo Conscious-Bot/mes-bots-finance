@@ -138,15 +138,17 @@ def _err(e: Exception) -> str:
 
 
 SECTOR_COLORS = {
-    "AI Compute": "#2F86E8",
-    "MAG 7": "#845EF7",
-    "Robotique": "#E64980",
-    "Data Center": "#F76707",
-    "Énergie": "#E6A817",
-    "Electrification": "#0CA678",
-    "Matériaux rares": "#96622E",
-    "Defense": "#E03131",
-    "Sans thèse": "#6B7686",
+    "Foundry & logique": "#4C8DFF",
+    "Équipement semi": "#22C9D6",
+    "Mémoire": "#6E7BF2",
+    "Matériaux semi": "#2DD4A0",
+    "EDA": "#4ADE80",
+    "Connectivité & optique": "#C084FC",
+    "Hyperscalers": "#38BDF8",
+    "Power & électrification": "#F5B544",
+    "Défense": "#F0654B",
+    "Énergie & matières premières": "#E0894B",
+    "Auto / robotique": "#EC6A9C",
 }
 TICKER_SECTOR = {
     "AMZN": "MAG 7", "ENTG": "AI Compute", "MP": "Matériaux rares",
@@ -177,16 +179,11 @@ def _positions() -> list[dict]:
 
 
 def _sectors() -> dict:
-    try:
-        rows = _q("SELECT ticker, notes FROM theses WHERE status='active'")
-    except Exception:
-        rows = []
+    sect_map = _cfg().get("sectors", {})
     out: dict = {}
-    for tk, notes in rows:
-        m = re.search(r"sector_thesis_id:\s*([A-Za-z0-9_]+)", notes or "")
-        lab = _clean_sector(m.group(1) if m else None)
-        out[tk] = SECTOR_ALIAS.get(lab, lab)
-    out.update(TICKER_SECTOR)
+    for sector, tickers in sect_map.items():
+        for tk in tickers:
+            out[tk] = sector
     return out
 
 
@@ -372,49 +369,57 @@ def _secteurs(positions: list[dict], planned: list[dict], sectors: dict, pnl: di
     plan_t = sum(p["weight"] for p in planned)
     total = (real_t + plan_t) or 1
     fx = FX_USD
-    body = ""
-    reals = sorted(positions, key=lambda x: (sectors.get(x["ticker"], "zzz"), -x["weight"]))
-    plans = sorted(planned, key=lambda x: (x["sector"], -x["weight"]))
-    for p in [*reals, *plans]:
-        tk = p["ticker"]
-        prev = p.get("planned", False)
-        sec = p["sector"] if prev else sectors.get(tk, "Sans th&egrave;se")
-        w = p["weight"]
-        usd = w / fx
-        pct = w / total * 100
-        pl = None if prev else pnl.get(tk)
-        if pl is None:
-            plstr, plcls, plkey = ("&mdash;", "", -999.0)
-        else:
-            sign = "+" if pl >= 0 else ""
-            plstr, plcls, plkey = (f"{sign}{pl:.1f}%", ("pos" if pl >= 0 else "neg"), pl)
-        badge = '<span class="bdg">pr&eacute;vu</span>' if prev else ""
-        nm = names.get(tk, "")
-        nmspan = f'<span class="nm">{nm}</span>' if nm else ""
-        rcls = ' class="prev"' if prev else ""
-        dv = None if prev else daily.get(tk)
-        if dv is None:
-            dstr, dcls, dkey = ("&mdash;", "", -999.0)
-        else:
-            dstr, dcls, dkey = (f"{'+' if dv >= 0 else ''}{dv:.1f}%", ("pos" if dv >= 0 else "neg"), dv)
-        body += (
-            f'<tr{rcls} data-tk="{tk}" data-sec="{sec}" data-eur="{w:.0f}" data-usd="{usd:.0f}" data-pct="{pct:.1f}" data-pnl="{plkey}" data-day="{dkey}">'
-            f'<td class="tk">{tk}{badge}{nmspan}</td><td>{sec}</td>'
-            f'<td class="num">{w:.0f}&euro;</td><td class="num">${usd:.0f}</td>'
-            f'<td class="num">{pct:.1f}%</td><td class="num {dcls}">{dstr}</td><td class="num {plcls}">{plstr}</td></tr>'
+    buckets: dict = {}
+    for p in positions:
+        buckets.setdefault(sectors.get(p["ticker"], "Autre"), []).append({"tk": p["ticker"], "w": p["weight"], "prev": False})
+    for p in planned:
+        buckets.setdefault(p.get("sector") or "Autre", []).append({"tk": p["ticker"], "w": p["weight"], "prev": True})
+    order = sorted(buckets, key=lambda sx: -sum(r["w"] for r in buckets[sx]))
+    blocks = ""
+    for sec in order:
+        rows = sorted(buckets[sec], key=lambda r: -r["w"])
+        sw = sum(r["w"] for r in rows)
+        spct = sw / total * 100
+        wbase = sum(r["w"] for r in rows if not r["prev"] and pnl.get(r["tk"]) is not None)
+        wpl = sum(r["w"] * pnl[r["tk"]] for r in rows if not r["prev"] and pnl.get(r["tk"]) is not None)
+        spl = (wpl / wbase) if wbase else None
+        plmeta = ""
+        if spl is not None:
+            plmeta = f' &middot; <span class="sec-pl {"pos" if spl >= 0 else "neg"}">{"+" if spl >= 0 else ""}{spl:.1f}%</span>'
+        lines = ""
+        for r in rows:
+            tk = r["tk"]
+            w = r["w"]
+            usd = w / fx
+            pct = w / total * 100
+            badge = '<span class="bdg">pr&eacute;vu</span>' if r["prev"] else ""
+            nm = names.get(tk, "")
+            nmspan = f'<span class="sec-nm">{nm}</span>' if nm else ""
+            pl = None if r["prev"] else pnl.get(tk)
+            dv = None if r["prev"] else daily.get(tk)
+            plc = '<span class="num">&mdash;</span>' if pl is None else f'<span class="num {"pos" if pl >= 0 else "neg"}">{"+" if pl >= 0 else ""}{pl:.1f}%</span>'
+            dvc = '<span class="num">&mdash;</span>' if dv is None else f'<span class="num {"pos" if dv >= 0 else "neg"}">{"+" if dv >= 0 else ""}{dv:.1f}%</span>'
+            lines += (
+                f'<div class="sec-row" data-tk="{tk}">'
+                f'<span class="sec-tk">{tk}{badge}{nmspan}</span>'
+                f'<span class="num">{w:.0f}&euro;</span><span class="num">${usd:.0f}</span>'
+                f'<span class="num">{pct:.1f}%</span>{dvc}{plc}</div>'
+            )
+        blocks += (
+            f'<div class="sec-grp"><div class="sec-h"><span class="sec-name">{sec}</span>'
+            f'<span class="sec-meta">{len(rows)} &middot; {sw:.0f}&euro; &middot; {spct:.1f}%{plmeta}</span></div>'
+            f'<div class="sec-rows">{lines}</div></div>'
         )
     sub = (
         f'D&eacute;tenu {real_t:.0f}&euro; &middot; pr&eacute;vu {plan_t:.0f}&euro; &middot; '
-        f'total {total:.0f}&euro; (${total / fx:.0f}) &middot; clique un en-t&ecirc;te pour trier'
+        f'total {total:.0f}&euro; (${total / fx:.0f}) &middot; {len(order)} secteurs'
     )
     return (
         f'<section data-page="secteurs"><div class="phead"><h2>Secteurs</h2>'
         f'<div class="sub">{sub}</div></div>'
-        f'<div class="card pad"><table class="dt"><thead><tr>'
-        f'<th data-k="tk">Ticker</th><th data-k="sec">Secteur</th>'
-        f'<th data-k="eur" class="num">&euro;</th><th data-k="usd" class="num">$</th>'
-        f'<th data-k="pct" class="num">%</th><th data-k="day" class="num">Jour</th><th data-k="pnl" class="num">P&amp;L</th>'
-        f'</tr></thead><tbody>{body}</tbody></table></div></section>'
+        f'<div class="sec-cols"><span></span><span class="num">&euro;</span><span class="num">$</span>'
+        f'<span class="num">%</span><span class="num">Jour</span><span class="num">P&amp;L</span></div>'
+        f'{blocks}</section>'
     )
 
 
@@ -757,7 +762,7 @@ _TH_CSS = """
   .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
   .th-grp { font-family:var(--fb); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:34px 2px 13px; display:flex; align-items:center; gap:10px; }
   .th-grp::after { content:""; flex:1; height:1px; background:var(--line); }
-  .th-row { display:grid; grid-template-columns:200px 52px 1fr; gap:16px; align-items:center; padding:16px 18px; border:1px solid var(--line); border-radius:13px; margin-bottom:13px; background:color-mix(in srgb,var(--ink) 1.2%,transparent); cursor:pointer; transition:.15s; }
+  .th-row { display:grid; grid-template-columns:160px 46px 1fr; gap:12px; align-items:center; padding:13px 15px; border:1px solid var(--line); border-radius:12px; margin-bottom:0; background:color-mix(in srgb,var(--ink) 1.2%,transparent); cursor:pointer; transition:.15s; }
   .th-row:hover { border-color:var(--line2); background:color-mix(in srgb,var(--ink) 3.5%,transparent); }
   .th-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
   .th-conv { font-family:var(--fm); font-weight:700; font-size:11px; padding:2px 7px; border-radius:6px; }
@@ -890,10 +895,14 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     vmap = {p["ticker"]: p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) / vtot * 100 for p in positions}
     groups = ""
     for c in (5, 4, 3, 2, 1):
-        grp = sorted((t for t in ths if t["conv"] == c), key=lambda t: -vmap.get(t["tk"], 0.0))
+        tier = [t for t in ths if t["conv"] == c]
+        secw = {}
+        for _t in tier:
+            secw[_t["cat"]] = secw.get(_t["cat"], 0.0) + vmap.get(_t["tk"], 0.0)
+        grp = sorted(tier, key=lambda t: (-secw.get(t["cat"], 0.0), t["cat"] or "~~~", -vmap.get(t["tk"], 0.0)))
         if not grp:
             continue
-        groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}</div>'
+        groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
                 curcls = "pos" if (t["pnl_e"] is not None and t["pnl_e"] >= 0) else "neg"
@@ -919,6 +928,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 f'<span class="th-tk">{t["nm"]}</span>{cat_html}</div>'
                 f'<div class="th-w">{wtxt}</div>{bar}</div>'
             )
+        groups += '</div>'
 
     return (
         '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
@@ -929,43 +939,40 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
 
 _NAV = (
     '<nav class="nav">'
-    '<div class="ngrp" title="Observation"><span class="rune">&#5855;</span></div>'
     '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
     '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
-    '<div class="ngrp" title="Analyse"><span class="rune">&#5833;</span></div>'
     '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
     '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
     '<div class="nitem" data-nav="secteurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></svg><span class="nlab">Secteurs</span></div>'
-    '<div class="ngrp" title="Renseignement"><span class="rune">&#5818;</span></div>'
     '<div class="nitem" data-nav="geo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c3 3 3 13 0 16c-3-3-3-13 0-16z"/></svg><span class="nlab">G&eacute;ographie</span></div>'
     '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux</span></div>'
-    '<div class="ngrp" title="Alerte"><span class="rune">&#5798;</span></div>'
     '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div></nav>'
 )
 
 _CSS = """
-  :root { --bg:#141416; --panel:#1C1C20; --line:#2A2A30; --line2:#383840; --ink:#FAFAFA; --steel:#838383;
-    --acc:#34D9A0; --acc2:#2DD4BF; --id:#2DD4BF; --bear:#FF6B6B; --warn:#F5B544;
+  :root { --bg:#0A0E16; --panel:#121826; --line:#1E2738; --line2:#2C3550; --ink:#E8ECF4; --steel:#8A93A8;
+    --acc:#34D9A0; --acc2:#2DD4BF; --id:#3D8BFF; --bear:#FF6B6B; --warn:#F5B544; --gold:#C9A86A;
     --fd:"Satoshi","Inter Tight",sans-serif; --fb:"Satoshi","Inter Tight",sans-serif; --fm:"IBM Plex Mono",monospace; --fo:"Satoshi",sans-serif; --fr:"Noto Sans Runic",serif;
-    --bg2:#0E0E10; --panel2:#232328; --ink2:#C9C9C9; --steel2:#565656;
+    --bg2:#070A11; --panel2:#1A2234; --ink2:#C2C9D6; --steel2:#5C6678;
     --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --r1:8px; --r2:12px; --r3:16px; --elev:0 18px 48px -28px rgba(0,0,0,.85);
     --glass:rgba(28,28,33,.5); --glass2:rgba(20,20,24,.6); --tape:rgba(14,14,17,.6); --barbg:#26262C;
     --glow:0 0 26px -7px color-mix(in srgb,var(--id) 66%,transparent); --glow2:0 0 36px -18px color-mix(in srgb,var(--id) 52%,transparent); }
-  body.frost { --bg:#F6F7F9; --panel:#FFFFFF; --line:#E7EAEF; --line2:#D6DAE1; --ink:#15171E; --steel:#6B7280;
-    --acc:#0E9F6E; --acc2:#0D9488; --id:#0D9488; --bear:#E5484D; --warn:#C2750A;
+  body.frost { --bg:#FAFCFF; --panel:#FFFFFF; --line:#D2DBE8; --line2:#C2CDDD; --ink:#15171E; --steel:#647088;
+    --acc:#0E9F6E; --acc2:#0D9488; --id:#3D8BFF; --bear:#E5484D; --warn:#C2750A;
     --bg2:#FFFFFF; --panel2:#F1F3F6; --ink2:#3A3F4A; --steel2:#9AA1AD;
-    --elev:0 18px 44px -30px rgba(20,30,60,.16);
-    --glass:rgba(255,255,255,.66); --glass2:rgba(241,243,246,.7); --tape:rgba(246,247,249,.85); --barbg:#E7EAEF; --glow:0 0 0 0 transparent; --glow2:0 0 0 0 transparent; }
+    --elev:0 14px 36px -24px rgba(30,55,105,.22);
+    --glass:rgba(255,255,255,.92); --glass2:rgba(241,243,246,.7); --tape:rgba(246,247,249,.85); --barbg:#E7EAEF; --glow:0 0 30px -4px color-mix(in srgb,var(--id) 85%,transparent); --glow2:0 0 38px -10px color-mix(in srgb,var(--id) 70%,transparent); }
+  body.frost::after { display:none; }
   * { box-sizing:border-box; }
-  body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:radial-gradient(1100px 680px at 82% -10%,rgba(45,212,191,.05),transparent 60%),radial-gradient(820px 560px at 6% 112%,rgba(45,212,191,.028),transparent 56%),var(--bg); background-attachment:fixed; -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
+  body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:radial-gradient(1100px 680px at 82% -10%,rgba(61,139,255,.05),transparent 60%),radial-gradient(820px 560px at 6% 112%,rgba(61,139,255,.028),transparent 56%),var(--bg); background-attachment:fixed; -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
   body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.85; transition:background .3s ease-out;
-    background:radial-gradient(46% 40% at var(--mx,78%) var(--my,8%),rgba(45,212,191,.13),transparent 58%); }
+    background:radial-gradient(46% 40% at var(--mx,78%) var(--my,8%),rgba(61,139,255,.13),transparent 58%); }
   body::after { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:1;
     background-image:radial-gradient(1.4px 1.4px at 22% 24%,rgba(255,255,255,.9),transparent),radial-gradient(1.6px 1.6px at 68% 58%,rgba(200,225,255,.8),transparent),radial-gradient(1.3px 1.3px at 46% 82%,rgba(255,255,255,.7),transparent),radial-gradient(1.5px 1.5px at 86% 28%,rgba(255,255,255,.8),transparent),radial-gradient(1.3px 1.3px at 12% 70%,rgba(210,230,255,.7),transparent),radial-gradient(1.2px 1.2px at 34% 44%,rgba(255,255,255,.6),transparent),radial-gradient(1.4px 1.4px at 78% 80%,rgba(255,255,255,.65),transparent),radial-gradient(1.2px 1.2px at 58% 16%,rgba(220,235,255,.6),transparent);
     background-size:300px 300px,360px 360px,240px 240px,320px 320px,400px 400px,280px 280px,420px 420px,340px 340px; }
   .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; }
   .logo { display:flex; align-items:center; justify-content:center; margin-bottom:22px; padding:0; }
-  .logo svg { width:38px; height:auto; filter:drop-shadow(0 0 8px rgba(45,212,191,.4)); }
+  .logo svg { width:38px; height:auto; filter:drop-shadow(0 0 8px rgba(61,139,255,.4)); }
   .logo .wm { display:none; }
   .nav { display:flex; flex-direction:column; gap:4px; align-items:center; width:100%; }
   .ngrp { display:flex; justify-content:center; margin:8px 0 4px; }
@@ -982,17 +989,17 @@ _CSS = """
   .rfmacro { width:8px; height:8px; border-radius:2px; }
   .dot { width:7px; height:7px; border-radius:50%; background:var(--acc); box-shadow:0 0 9px var(--acc); }
   .wrap { flex:1; display:flex; flex-direction:column; min-width:0; }
-  .tape { background:var(--tape); border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; padding:9px 0; }
+  .tape { overflow:hidden; white-space:nowrap; padding:11px 0; }
   .tape .track2 { display:inline-block; animation:scroll 50s linear infinite; }
-  .tape .ti { font-family:var(--fm); font-size:12px; margin:0 22px; } .tape .ti b { color:var(--ink); } .tape .ti .pos { color:var(--acc); } .tape .ti .neg { color:var(--bear); }
+  .tape .ti { font-family:var(--fm); font-size:11.5px; margin:0 30px; letter-spacing:.02em; } .tape .ti b { color:var(--ink); } .tape .ti .pos { color:var(--acc); } .tape .ti .neg { color:var(--bear); }
   @keyframes scroll { from{transform:translateX(0);} to{transform:translateX(-50%);} }
   .tape8k { background:var(--tape); padding:7px 0; } .tape8k .ti .warn { color:var(--warn); } .tape8k .track2 { animation-duration:64s; }
   .statedot { width:8px; height:8px; border-radius:50%; animation:pulse 2.6s ease-in-out infinite; }
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
-  .main { padding:24px 40px 44px; max-width:1340px; }
+  .main { padding:30px 52px 54px; max-width:1340px; }
   .phead { margin-bottom:18px; } .phead h2 { font-family:var(--fd); font-weight:800; font-size:26px; margin:0 0 4px; letter-spacing:-.03em; } .phead .sub { font-size:12px; color:var(--steel); }
   [data-page] { display:none; } [data-page].active { display:block; animation:fadein .42s ease; } @keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
-  .hero { background:linear-gradient(135deg,rgba(45,212,191,.05),transparent 62%),var(--panel); border:1px solid var(--line2); border-radius:18px; padding:20px 24px; margin-bottom:18px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; backdrop-filter:blur(9px); }
+  .hero { background:linear-gradient(135deg,rgba(61,139,255,.05),transparent 62%),var(--panel); border:1px solid var(--line2); border-radius:18px; padding:28px 34px; margin-bottom:26px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; backdrop-filter:blur(9px); }
   .hero .big { font-family:var(--fd); font-weight:800; font-size:46px; line-height:.95; letter-spacing:-.04em; animation:glowpulse 4.6s ease-in-out infinite; }
   .hero .big.pos { color:var(--acc); text-shadow:0 0 34px rgba(55,224,160,.5); } .hero .big.neg { color:var(--bear); text-shadow:0 0 34px rgba(255,107,107,.45); }
   @keyframes glowpulse { 0%,100% { opacity:.93; } 50% { opacity:1; } }
@@ -1000,15 +1007,37 @@ _CSS = """
   .hero .hsub { font-size:12.5px; color:var(--steel); margin-top:6px; }
   .distbar { flex:1; min-width:240px; } .distline { display:flex; height:14px; border-radius:7px; overflow:hidden; }
   .distline .g { background:linear-gradient(90deg,#7CF0C4,var(--acc)); } .distline .r { background:linear-gradient(90deg,var(--bear),#FF9A9A); }
-  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
-  .kpi { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:13px 16px; box-shadow:0 12px 36px -22px #000; backdrop-filter:blur(9px); }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:26px; }
+  .kpi { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:13px 16px; box-shadow:0 12px 36px -22px #000, inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 0 1px color-mix(in srgb,var(--id) 5%,transparent); backdrop-filter:blur(9px); }
   .kl { display:block; font-family:var(--fb); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:7px; }
   .kv { font-family:var(--fd); font-weight:800; font-size:26px; letter-spacing:-.035em; line-height:1; }
   .kv.acc { color:var(--acc); } .kv.negc { color:var(--bear); } .kv.warn { color:var(--warn); } .kv.hot { color:#FB923C; } .kv.danger { color:var(--bear); } .kv.calm { color:var(--acc); }
   .kd { display:block; font-size:10px; color:var(--steel); margin-top:6px; }
-  .cols { display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:start; }
   .colhead { display:flex; align-items:baseline; gap:9px; margin-bottom:12px; padding-left:2px; } .colhead .t { font-family:var(--fd); font-weight:700; font-size:15px; } .colhead .a { font-family:var(--fm); font-size:11.5px; color:var(--steel); }
-  .card { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:2px 22px; box-shadow:0 12px 36px -24px #000; backdrop-filter:blur(9px); } .card.pad { padding:14px 18px; }
+  .sec-cols { display:grid; grid-template-columns:1fr 92px 96px 58px 72px 78px; gap:10px; padding:2px 16px 9px; font-family:var(--fb); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); border-bottom:1px solid var(--line); margin-bottom:12px; }
+  .sec-cols .num { text-align:right; }
+  .sec-grp { margin-bottom:22px; }
+  .sec-h { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 4px 9px; }
+  .sec-name { font-family:var(--fd); font-weight:700; font-size:16px; color:var(--ink); display:flex; align-items:center; gap:9px; }
+  .sec-name::before { content:""; width:6px; height:6px; border-radius:2px; background:var(--id); box-shadow:var(--glow2); }
+  .sec-meta { font-family:var(--fm); font-size:11.5px; color:var(--steel); white-space:nowrap; }
+  .sec-pl.pos { color:var(--acc); } .sec-pl.neg { color:var(--bear); }
+  .sec-rows { display:flex; flex-direction:column; gap:1px; }
+  .sec-row { display:grid; grid-template-columns:1fr 92px 96px 58px 72px 78px; gap:10px; align-items:center; padding:7px 16px; border-radius:9px; font-family:var(--fm); font-size:12.5px; cursor:pointer; transition:background .12s; }
+  .sec-row:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); }
+  .sec-row .num { text-align:right; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .sec-row .num.pos, .sec-pl.pos { color:var(--acc); } .sec-row .num.neg { color:var(--bear); }
+  .sec-tk { font-weight:600; color:var(--ink); }
+  .sec-nm { color:var(--steel); font-family:var(--fb); font-size:11px; margin-left:9px; font-weight:400; }
+  /*CHER*/
+  .card, .kpi { transition:transform .16s ease, box-shadow .16s ease; }
+  .card:hover, .kpi:hover { transform:translateY(-2px); box-shadow:0 18px 44px -22px #000, var(--glow2), inset 0 1px 0 rgba(255,255,255,.09); }
+  .tape .ti::after { content:"·"; margin-left:30px; color:var(--steel); opacity:.4; }
+  /*METAL2*/
+  .card, .kpi, .hero, .pfcard { border-top:1px solid color-mix(in srgb,var(--ink) 16%,var(--line)); }
+  .th-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; margin-bottom:6px; }
+  .card { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:7px 24px; box-shadow:0 12px 36px -24px #000, inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 0 1px color-mix(in srgb,var(--id) 5%,transparent); backdrop-filter:blur(9px); } .card.pad { padding:14px 18px; }
   .line { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; } .line:last-child { border-bottom:none; }
   .mono { font-family:var(--fm); font-weight:600; color:var(--ink); } .mono.pos { color:var(--acc); } .mono.neg { color:var(--bear); }
   .gauge { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:16px 20px; margin-bottom:15px; backdrop-filter:blur(9px); }
@@ -1020,7 +1049,7 @@ _CSS = """
   .row[data-tk] { cursor:pointer; } .row[data-tk]:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
   .rt { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; } .tk { font-family:var(--fm); font-weight:600; font-size:13px; }
   .tag { font-family:var(--fm); font-weight:600; font-size:11px; padding:3px 9px; border-radius:6px; }
-  .tag.up { color:var(--acc); background:rgba(55,224,160,.12); } .tag.acc2 { color:var(--acc2); background:rgba(45,212,191,.12); }
+  .tag.up { color:var(--acc); background:rgba(55,224,160,.12); } .tag.acc2 { color:var(--acc2); background:rgba(61,139,255,.12); }
   .tag.down,.tag.danger { color:var(--bear); background:rgba(255,107,107,.13); } .tag.warn { color:var(--warn); background:rgba(255,176,32,.14); } .tag.calm { color:var(--steel); background:rgba(124,137,166,.12); }
   .track { height:10px; background:var(--barbg); border-radius:5px; overflow:hidden; }
   .fill { height:100%; border-radius:4px; width:0; animation:grow .8s cubic-bezier(.2,.8,.2,1) forwards; }
@@ -1038,7 +1067,7 @@ _CSS = """
   .dt td { padding:8px 10px; border-bottom:1px solid var(--line); } .dt td.num { text-align:right; font-family:var(--fm); }
   .dt td.tk { font-family:var(--fm); font-weight:600; } .dt tr:hover td { background:color-mix(in srgb,var(--ink) 2.5%,transparent); }
   .dt td.pos { color:var(--acc); } .dt td.neg { color:var(--bear); }
-  .bdg { display:inline-block; margin-left:7px; font-family:var(--fb); font-size:8px; letter-spacing:.1em; text-transform:uppercase; color:var(--id); border:1px solid rgba(45,212,191,.4); border-radius:3px; padding:1px 5px; vertical-align:middle; }
+  .bdg { display:inline-block; margin-left:7px; font-family:var(--fb); font-size:8px; letter-spacing:.1em; text-transform:uppercase; color:var(--id); border:1px solid rgba(61,139,255,.4); border-radius:3px; padding:1px 5px; vertical-align:middle; }
   .dt tr.prev td { opacity:.72; } .dt tr.prev td.tk { color:var(--id); }
   .nm { display:block; font-size:10px; font-weight:400; color:var(--steel); margin-top:2px; }
   .ph3 { font-family:var(--fb); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin:0 0 12px; }
@@ -1112,7 +1141,7 @@ _CSS = """
   .hero.posture .pn { font-size:29px; }
   .hrow { display:grid; grid-template-columns:1.3fr 1fr; gap:18px; margin-bottom:20px; align-items:stretch; }
   .hrow .hero.posture { margin-bottom:0; height:100%; }
-  .pfcard { background:linear-gradient(135deg,rgba(45,212,191,.04),transparent 60%),var(--panel); border:1px solid var(--line2); border-radius:18px; padding:20px 24px; backdrop-filter:blur(9px); display:flex; flex-direction:column; }
+  .pfcard { background:linear-gradient(135deg,rgba(61,139,255,.04),transparent 60%),var(--panel); border:1px solid var(--line2); border-radius:18px; padding:20px 24px; backdrop-filter:blur(9px); display:flex; flex-direction:column; }
   .pfcard .v { font-family:var(--fd); font-weight:800; font-size:30px; letter-spacing:-.03em; line-height:1; margin:8px 0 5px; color:var(--ink); }
   .pfcard .d { font-family:var(--fm); font-size:14px; font-weight:600; } .pfcard .d.pos { color:var(--acc); } .pfcard .d.neg { color:var(--bear); }
   .pfcard .distline { margin:15px 0 0; }
@@ -1121,14 +1150,13 @@ _CSS = """
   .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; margin:16px 0 4px; }
   .modetgl svg { width:20px; height:20px; }
   .modetgl:hover { color:var(--id); border-color:var(--id); }
-  body.frost::after { display:none; }
   body.frost::before { opacity:.4; }
   .hero, .pfcard { box-shadow:var(--elev),var(--glow); }
   .card, .kpi, .gauge, .plan { box-shadow:var(--elev),var(--glow2); }
   .loupe-card { box-shadow:0 30px 90px -20px #000,var(--glow); }
   .nitem.on { box-shadow:inset 0 0 20px -10px color-mix(in srgb,var(--id) 55%,transparent),var(--glow); }
   .nitem.on svg { filter:drop-shadow(0 0 6px color-mix(in srgb,var(--id) 70%,transparent)); }
-  .tape { box-shadow:0 1px 0 color-mix(in srgb,var(--id) 22%,transparent),0 7px 20px -12px color-mix(in srgb,var(--id) 34%,transparent); }
+  .tape { box-shadow:none; }
   .row[data-tk]:hover, .dt tbody tr:hover td, .th-row:hover, .sbrow:hover { box-shadow:var(--glow2); }
   .brk { margin-bottom:18px; }
   .brk-h { display:flex; justify-content:space-between; align-items:baseline; margin:0 2px 10px; flex-wrap:wrap; gap:8px; }
@@ -1167,10 +1195,10 @@ _APP_JS = """
     if(mode==='cat'){
       var seen={}; (window.HQ||[]).forEach(function(x){seen[x.sec]=1;});
       Object.keys(seen).forEach(function(s){h+=_hqRow(HQCAT[s]||'#6B7686',s);});
-      h+='<div style="margin-top:6px;color:#5b6675;font-size:11px">anneau = P&amp;L (vert/rouge)</div>';
+      h+='<div style="margin-top:6px;color:var(--steel);font-size:11px">anneau = P&amp;L (vert/rouge)</div>';
     }else{
       h+=_hqRow('#2F9E44','gain')+_hqRow('#E03131','perte');
-      h+='<div style="margin-top:6px;color:#5b6675;font-size:11px">taille = valeur</div>';
+      h+='<div style="margin-top:6px;color:var(--steel);font-size:11px">taille = valeur</div>';
     }
     el.innerHTML=h;
   }
@@ -1623,12 +1651,12 @@ def render() -> Path:
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; ce sur quoi agir aujourd&rsquo;hui</div></div>'
-        f'<div class="hrow">{disc_hero}'
+        f'<div class="hrow">'
         f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'
         f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
         f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
-        f'<div class="sub2"><b>{n_gain}/{n_pnl}</b> en gain &middot; {gpct:.0f}% du capital &middot; {pf_cost_str}&euro; investi</div></div></div>'
+        f'<div class="sub2"><b>{n_gain}/{n_pnl}</b> en gain &middot; {gpct:.0f}% du capital &middot; {pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Meilleures lignes</span><span class="a">depuis l&rsquo;entr&eacute;e</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Pires lignes</span><span class="a">depuis l&rsquo;entr&eacute;e</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
