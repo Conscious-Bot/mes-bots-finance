@@ -92,3 +92,39 @@ Règles : PAS de nouvelle feature / ticker / source / handler. Daily /brief. Aut
 | #4 panic sells | Mensuel | 0 GREEN | Pause + bias analysis |
 | #5 décisions | Mensuel | forward-only depuis 21/05 | No new thesis si <90% |
 | #6 vs benchmarks | Mensuel | INSUFFICIENT (365d) | Revue trim. |
+
+<!-- BRAINSTORM-2026-05-24 -->
+
+---
+
+## 🧭 Brainstorm stratégique (24/05/2026) — add / cut / fix / red-team
+
+Cadre = PHILOSOPHY ("enrichit la boucle ou feature isolée ?") + High Standard ("moins de surface > plus de discipline").
+
+### 🔀 Décision en attente (bloque le reste)
+- [ ] **Trancher le reframe** : le dashboard est-il un outil d'ops perso (→ une table suffirait, on sur-investit l'esthétique) OU l'artefact public Path 6 (→ design = marketing, screenshot-first, 1 hero-view qui raconte la discipline) ? Décide toute la suite.
+
+### ➕ ADD (uniquement si ça ferme la boucle)
+- [ ] **Panneau "biais sous surveillance"** : tracker les 2 biais nommés (vendre winners trop tôt / pas vendre crypto au top), montrer decision→outcome — pas des positions statiques. C'est le produit, loop-enriching.
+- [ ] **Home calibration plot (money-shot Path 6)** : câbler maintenant, remplir au 10 juin quand les 45 predictions résolvent ("convictions 70 % → 70 % réel ?").
+
+### ✂️ CUT (inversion temporelle : solidifier OU supprimer)
+- [ ] Avancer l'**audit de pruning univers** (178 tickers, ~22 thésés ; couper ce qui ne produit aucune matière décisionnelle 90j).
+- [ ] Supprimer **dead code frais** : `_system_state` + `.cmdbar` (orphelins depuis le rail foot).
+- [ ] Évaluer **redondance onglets** : "Secteurs" vs "Concentration" ; "Signaux" (déclenche une action ou log brut ?). Un onglet qui ne déclenche rien dilue.
+
+### 🔧 FIX (narratif audit-grade / defensible — Path 5)
+- [ ] **SÉCURITÉ URGENT** : retirer `credentials.json` + `token.json` (client_secret en clair) du Project Claude + régénérer côté Google Cloud Console. Red flag acquéreur.
+- [ ] **Saisir vraies thèses** (conviction/cible/stop/invalidation) sur les 8 orphelins — le thesis tracker (cœur du bot) est vide sur 8/28 positions. Plus haut levier.
+- [ ] Revoir les **4 c1** (AMD/GOOGL/SAF.PA/TSLA) → J+30 ~16 juin.
+- [ ] Dette §5 : **unifier les deux writers** (`shared/positions.py` + `storage.py` = une seule passerelle).
+- [ ] **Unifier display EUR** (`portfolio_views.py` + sites multiples : $ → €).
+- [ ] **Unifier les 3 définitions de "open"**.
+- [ ] **Filtre held** sur MRVL (thèse active mais position fermée) dans paliers Positions.
+
+### 🎯 RED-TEAM (risques de queue Path 5/6)
+- Le track record ne s'accumule jamais assez : la boucle dépend de l'**usage quotidien** jusqu'au 10 juin, pas du code. Mantra : "discipline dans l'usage > dans le code".
+- Érosion solo : `VALUE_LOG` = **1 entrée** à ~J+14 ; le doc dit "vide à J+30 = signal". La beauté du dashboard peut masquer ce signal.
+
+### 🥇 Pari semaine (PAS du code)
+Thèses sur les 28 positions + revue 4 c1, puis **usage quotidien jusqu'au 10 juin**. Le dashboard est prêt à le refléter ; c'est l'usage qui crée l'asset.
