@@ -61,13 +61,18 @@ Jamais Buy ou Sell. Toujours :
 
 ## 5. Acces aux ressources externes
 
-Une seule passerelle par ressource :
-- DB SQLite -> toujours via shared/storage.py
+Passerelles dediees :
 - LLM Anthropic -> toujours via shared/llm.py
 - Telegram -> toujours via shared/notify.py
 - Config + env -> toujours via shared/config.py
 
-Si on voit import sqlite3 ailleurs que dans storage.py, c'est un bug architectural.
+DB SQLite : architecture par OWNERSHIP, pas passerelle unique.
+- Tables coeur (theses, predictions, signals, sources, calibration, patterns) : INSERT via shared/storage.py ; certaines MAJ (UPDATE) par les modules-domaine ci-dessous.
+- Modules-domaine possedant les writes de LEUR table : shared/positions.py (positions/position_events), shared/ticker_names.py (cache), shared/llm.py (llm_calls), intelligence/{price_monitor,materiality_v2,debt_monitor,insider_digest,analyze}.py (leur output), bot/main.py (handler_calls), bot/handlers/misc.py (edition champs these).
+- Acces via le helper instrumente query() (sql_observability) avec tag, pour l'observabilite.
+- Surface GELEE et testee : tests/test_db_write_discipline.py echoue si un nouveau module ecrit en DB hors allowlist. Ajouter un writer = acte conscient (route via storage.py, ou etend l'allowlist avec justification).
+
+Propriete auditable : "qui peut muter la DB" est explicite et verifie, pas une promesse de single-gateway que le code dement.
 
 ## 6. Erreurs explicites, jamais silencieuses
 
