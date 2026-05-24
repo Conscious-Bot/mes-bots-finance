@@ -53,7 +53,6 @@ universe:
   - ALB
   - AMAT
   - AMZN
-  - ANSS
   - APLD
   - ASM.AS
   - ASTS
@@ -305,7 +304,6 @@ universe:
     - 6920.T
     - 6857.T
     - 4062.T
-    - 6628.T
     - 3110.T
     - 005930.KS
     european_pea:
