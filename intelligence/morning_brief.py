@@ -350,7 +350,7 @@ def _movers_24h_section() -> dict | None:
     conn.close()
 
     if not rows:
-        return []
+        return {"up": [], "down": []}
 
     tickers = [r["ticker"] for r in rows]
     conviction_map = {r["ticker"]: r["conviction"] for r in rows}

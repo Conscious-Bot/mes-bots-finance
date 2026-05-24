@@ -65,42 +65,6 @@ def active_signals(min_score: int = 5, since_hours: int = 24) -> list[dict]:
         return [dict(r) for r in rows]
 
 
-def add_thesis(
-    ticker: str,
-    conviction: str,
-    direction: str,
-    horizon: str,
-    drivers: str,
-    invalidation: str,
-    entry_price: float | None = None,
-    target: float | None = None,
-    stop: float | None = None,
-) -> int:
-    with db() as conn:
-        conn.execute(
-            """
-            INSERT INTO theses(ticker, opened_at, conviction, direction, horizon,
-                              key_drivers, invalidation_triggers,
-                              entry_price, target_price, stop_price)
-            VALUES(?,?,?,?,?,?,?,?,?,?)
-        """,
-            (
-                ticker,
-                datetime.now(UTC).isoformat(),
-                conviction,
-                direction,
-                horizon,
-                drivers,
-                invalidation,
-                entry_price,
-                target,
-                stop,
-            ),
-        )
-        from typing import cast as _cast
-        return _cast(int, conn.execute("SELECT last_insert_rowid()").fetchone()[0])
-
-
 def active_theses() -> list[dict]:
     with db() as conn:
         return [
@@ -164,7 +128,7 @@ def get_open_positions() -> list[dict]:
     "Positions detenues (qty > 0). avg_cost en EUR (ADR 005)."
     with db() as conn:
         rows = conn.execute(
-            "SELECT ticker, qty, avg_cost FROM positions WHERE qty > 0 ORDER BY ticker"
+            "SELECT ticker, qty, avg_cost FROM positions WHERE qty > 0 AND status = 'open' ORDER BY ticker"
         ).fetchall()
     return [{"ticker": r[0], "qty": float(r[1] or 0), "avg_cost": float(r[2] or 0)} for r in rows]
 
@@ -223,7 +187,6 @@ def get_portfolio_snapshots(limit: int = 400) -> list[dict]:
 
 
 _DB_PATH = _Path("data/bot.db")
-
 
 
 def _naive_utc_iso() -> str:
@@ -301,7 +264,6 @@ def insert_raw_signal(source_id: int, gmail_id: str, timestamp: str, subject: st
 
 
 # === Phase 2 : Thesis tracker helpers ===
-
 
 
 def _parse_thesis_row(row):
@@ -1825,7 +1787,6 @@ def bootstrap_schema(db_path: str | None = None, alembic_ini: str | None = None)
         conn.close()
 
 
-
 def compute_drift_report() -> dict:
     """Compute drift between portfolio_targets (active) and positions (open) per account.
 
@@ -1914,7 +1875,6 @@ def compute_drift_report() -> dict:
             "pct_deployed": pct_deployed,
         },
     }
-
 
 
 def get_signals_for_ticker(ticker, days=30, limit=8):

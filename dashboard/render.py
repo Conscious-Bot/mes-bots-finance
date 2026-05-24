@@ -34,7 +34,6 @@ REVIEWS = [
 
 OUTPUT = Path("dashboard/dashboard.html")
 DB = "file:data/bot.db?mode=ro"
-PAL = ["#37E0A0", "#F59E0B", "#818CF8", "#EF4444", "#22D3EE", "#EC4899", "#A3E635", "#FB923C", "#8B5CF6", "#14B8A6", "#FACC15", "#94A3B8"]
 
 HQ = {
     "NVDA": (37.37, -121.96), "AVGO": (37.33, -121.93), "TSM": (24.77, 121.00), "MU": (43.61, -116.20),
@@ -138,6 +137,25 @@ def _err(e: Exception) -> str:
     return f'<div class="empty"><b>Requ&ecirc;te &agrave; ajuster</b><span class="mono" style="font-size:11px">{type(e).__name__}: {str(e)[:130]}</span></div>'
 
 
+SECTOR_COLORS = {
+    "AI Compute": "#2F86E8",
+    "MAG 7": "#845EF7",
+    "Robotique": "#E64980",
+    "Data Center": "#F76707",
+    "Énergie": "#E6A817",
+    "Electrification": "#0CA678",
+    "Matériaux rares": "#96622E",
+    "Defense": "#E03131",
+    "Sans thèse": "#6B7686",
+}
+TICKER_SECTOR = {
+    "AMZN": "MAG 7", "ENTG": "AI Compute", "MP": "Matériaux rares",
+    "MU": "AI Compute", "6857.T": "AI Compute", "VRT": "Data Center",
+    "CCJ": "Énergie", "LNG": "Énergie", "TSLA": "Robotique",
+}
+SECTOR_ALIAS = {"EU Defense": "Defense"}
+
+
 def _clean_sector(sid: str | None) -> str:
     if not sid:
         return "Sans th&egrave;se"
@@ -154,7 +172,7 @@ def _positions() -> list[dict]:
     for tk, qty, ac, notes in rows:
         m = re.search(r"eur_invested=([0-9.]+)", notes or "")
         w = float(m.group(1)) if m else float(qty or 0) * float(ac or 0)
-        out.append({"ticker": tk, "weight": w})
+        out.append({"ticker": tk, "weight": w, "avg_cost": float(ac or 0)})
     return out
 
 
@@ -162,11 +180,13 @@ def _sectors() -> dict:
     try:
         rows = _q("SELECT ticker, notes FROM theses WHERE status='active'")
     except Exception:
-        return {}
-    out = {}
+        rows = []
+    out: dict = {}
     for tk, notes in rows:
         m = re.search(r"sector_thesis_id:\s*([A-Za-z0-9_]+)", notes or "")
-        out[tk] = _clean_sector(m.group(1) if m else None)
+        lab = _clean_sector(m.group(1) if m else None)
+        out[tk] = SECTOR_ALIAS.get(lab, lab)
+    out.update(TICKER_SECTOR)
     return out
 
 
@@ -202,21 +222,20 @@ def _pnl_map(computed: list[dict]) -> dict:
     return out
 
 
-def _donut(segs: list[tuple[str, float]], unit: str = "") -> tuple[str, str]:
-    total = sum(c for _, c in segs) or 1
-    stops, acc, legend = [], 0.0, []
-    for i, (label, c) in enumerate(segs):
-        col = PAL[i % len(PAL)]
-        a0 = acc / total * 360
-        acc += c
-        a1 = acc / total * 360
-        stops.append(f"{col} {a0:.1f}deg {a1:.1f}deg")
-        val = f"{c / total * 100:.0f}%" + (f" &middot; {c:.0f}{unit}" if unit else "")
-        legend.append(
-            f'<div class="lg"><span class="sw" style="background:{col}"></span>'
-            f'<span class="lgn">{label}</span><span class="lgc">{val}</span></div>'
-        )
-    return f'<div class="donut" style="background:conic-gradient({",".join(stops)})"></div>', "".join(legend)
+def _pnl_cost_map(positions: list[dict]) -> dict:
+    from shared.prices import get_current_price_in_eur
+    out: dict = {}
+    for p in positions:
+        ac = p.get("avg_cost") or 0
+        if ac <= 0:
+            continue
+        try:
+            c = get_current_price_in_eur(p["ticker"])
+        except Exception:
+            c = None
+        if c:
+            out[p["ticker"]] = (c - ac) / ac * 100
+    return out
 
 
 def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
@@ -291,20 +310,24 @@ def _day_movers(daily: dict) -> tuple[str, str]:
     return _mover_blk(ups), _mover_blk(dns)
 
 
-def _concentration(positions: list[dict], sectors: dict, names: dict) -> str:
-    total = sum(p["weight"] for p in positions) or 1
-    ps = sorted(positions, key=lambda p: -p["weight"])
+def _concentration(positions: list[dict], sectors: dict, names: dict, pnl: dict) -> str:
+    def _v(p: dict) -> float:
+        return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
+    cost_total = sum(p["weight"] for p in positions) or 1
+    total = sum(_v(p) for p in positions) or 1
+    ps = sorted(positions, key=lambda p: -_v(p))
     top = ps[0] if ps else None
     top_tk = top["ticker"] if top else "&mdash;"
     top_nm = names.get(top_tk, top_tk) if top else "&mdash;"
-    top_pct = (top["weight"] / total * 100) if top else 0.0
+    top_pct = (_v(top) / total * 100) if top else 0.0
     sw: dict[str, float] = {}
     for p in positions:
         key = sectors.get(p["ticker"], "Sans th&egrave;se")
-        sw[key] = sw.get(key, 0.0) + p["weight"]
-    dom_sec = max(sw, key=lambda k: sw[k]) if sw else "&mdash;"
-    aic = (max(sw.values()) / total * 100) if sw else 0.0
-    over_cap_tk = [p["ticker"] for p in ps if p["weight"] / total * 100 >= POS_CAP]
+        sw[key] = sw.get(key, 0.0) + _v(p)
+    sw_real = {k: v for k, v in sw.items() if k != "Sans th&egrave;se"}
+    dom_sec = max(sw_real, key=lambda k: sw_real[k]) if sw_real else "&mdash;"
+    aic = (max(sw_real.values()) / total * 100) if sw_real else 0.0
+    over_cap_tk = [p["ticker"] for p in ps if _v(p) / total * 100 >= POS_CAP]
     over_cap = len(over_cap_tk)
     over_nm = " &middot; ".join(names.get(t, t) for t in over_cap_tk[:3]) + ("&hellip;" if over_cap > 3 else "")
     if aic >= 45 or top_pct >= 2 * POS_CAP:
@@ -323,7 +346,7 @@ def _concentration(positions: list[dict], sectors: dict, names: dict) -> str:
     sec_cls = "negc" if aic >= CLUSTER_CAP else "acc"
     line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du plafond' if top_pct >= POS_CAP else 'sous le plafond'} {POS_CAP:.0f}%"
     sec_msg = f"{dom_sec} &middot; {'&#9888; all&eacute;ger' if aic >= CLUSTER_CAP else 'sous le plafond'} {CLUSTER_CAP:.0f}%"
-    cap = f"{total:,.0f}".replace(",", "&#8239;")
+    cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
     verdict_card = (
         '<div class="plan"><div class="plan-h">Verdict concentration</div>'
         '<div class="plan-row" style="grid-template-columns:minmax(160px,1fr) 2fr">'
@@ -334,7 +357,7 @@ def _concentration(positions: list[dict], sectors: dict, names: dict) -> str:
     )
     return (
         f'<section data-page="concentration"><div class="phead"><h2>Concentration</h2>'
-        f'<div class="sub">Poids par ligne et par secteur &mdash; o&ugrave; le capital se concentre</div></div>'
+        f'<div class="sub">Poids par ligne et par secteur &mdash; o&ugrave; la valeur se concentre</div></div>'
         f'{verdict_card}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
         f'<div class="kpi"><span class="kl">Plus grosse ligne</span><span class="kv {top_cls}">{top_pct:.0f}%</span><span class="kd">{line_msg}</span></div>'
@@ -411,26 +434,27 @@ def _geo(positions: list[dict], sectors: dict, pnl: dict) -> tuple[str, list]:
             f'<div class="track"><div class="fill acc2" style="--w:{max(2.0, min(100.0, pct)):.0f}%"></div></div>'
             f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
         )
-    kpis = "".join(
-        f'<div class="kpi"><span class="kl">{c}</span><span class="kv">{w / total * 100:.0f}%</span><span class="kd">{w:.0f}&euro;</span></div>'
-        for c, w in ranked[:3]
-    )
+    vtotal = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions) or 1
     markers, mapped = [], 0
     for p in positions:
         tk = p["ticker"]
         if tk in HQ:
             lat, lng = HQ[tk]
+            val = p["weight"] * (1 + pnl.get(tk, 0) / 100.0)
             markers.append({"t": tk, "lat": lat, "lng": lng, "pnl": round(pnl.get(tk, 0), 1),
-                            "sec": sectors.get(tk, "&mdash;"), "w": round(p["weight"] / total * 100, 1)})
+                            "sec": sectors.get(tk, "&mdash;"), "w": round(val / vtotal * 100, 1)})
             mapped += 1
     sec = (
         f'<section data-page="geo"><div class="phead"><h2>G&eacute;ographie</h2>'
         f'<div class="sub">Exposition par pays &mdash; o&ugrave; se concentre le risque g&eacute;opolitique</div></div>'
-        f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">{kpis}</div>'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Exposition par pays</span></div>'
+        f'<div class="cols" style="grid-template-columns:300px 1fr"><div class="col"><div class="colhead"><span class="t">Exposition par pays</span></div>'
         f'<div class="card">{bars}</div></div>'
         f'<div class="col"><div class="colhead"><span class="t">Si&egrave;ges sociaux</span><span class="a">{mapped}/{len(positions)} situ&eacute;s</span></div>'
-        f'<div class="card" style="padding:0;overflow:hidden"><div id="hqmap"></div></div></div></div></section>'
+        f'<style>#hqmap{{background:#dfe4ea}}.mk-hq{{filter:drop-shadow(0 1px 1.5px rgba(20,30,50,.35))}}.mk-hqtop{{animation:hqpulse 2.4s ease-in-out infinite}}@keyframes hqpulse{{0%,100%{{opacity:1}}50%{{opacity:.55}}}}.hq-ov{{position:absolute;z-index:500;background:rgba(255,255,255,.86);backdrop-filter:blur(8px);border:1px solid rgba(20,30,50,.1);border-radius:12px;color:#1a2230;font-size:12px;line-height:1.7}}.hq-sw button{{background:rgba(20,30,50,.04);border:1px solid rgba(20,30,50,.14);color:#33404f;font-size:12px;padding:4px 10px;border-radius:8px;cursor:pointer;margin:0 2px}}.hq-sw button.on{{background:rgba(28,126,214,.14);border-color:rgba(28,126,214,.5);color:#0b4a86}}</style>'
+        f'<div class="card" style="padding:0;overflow:hidden;position:relative"><div id="hqmap"></div>'
+        f'<div class="hq-ov hq-sw" style="top:10px;right:10px;padding:5px"><button data-m="cat" class="on">Cat&eacute;gorie</button><button data-m="pnl">P&amp;L</button></div>'
+        f'<div class="hq-ov" id="hq-leg" style="bottom:12px;left:12px;padding:11px 13px"></div>'
+        f'</div></div></div></section>'
     )
     return sec, markers
 
@@ -637,7 +661,27 @@ def _urgence(watch: str, heat: float, near: int) -> str:
     )
 
 
-def _system_state(near: int, heat: float) -> str:
+def _tape_8k() -> str:
+    sevcls = {"HIGH": "neg", "MEDIUM": "warn", "MED": "warn", "LOW": "pos"}
+    try:
+        rows = _q(
+            "SELECT ticker, COALESCE(severity,''), COALESCE(severity_reason,''), COALESCE(item_codes,''), filed_at "
+            "FROM filings_8k_log WHERE filed_at > datetime('now','-60 day') ORDER BY filed_at DESC LIMIT 18"
+        )
+    except Exception:
+        return ""
+    if not rows:
+        return ""
+    items = ""
+    for tk, sev, reason, codes, _filed in rows:
+        cls = sevcls.get(str(sev).upper(), "")
+        raw = (str(reason) or str(codes)) or ""
+        lab = raw if len(raw) <= 40 else raw[:40].rsplit(" ", 1)[0] + "&hellip;"
+        items += f'<span class="ti"><b>{tk}</b> <span class="{cls}">8-K</span> {lab}</span>'
+    return f'<div class="tape tape8k"><div class="track2">{items}{items}</div></div>'
+
+
+def _rail_foot(near: int, heat: float) -> str:
     try:
         row = _q("SELECT score, phase FROM debt_composite ORDER BY rowid DESC LIMIT 1")
         score, phase = row[0] if row else (None, None)
@@ -651,14 +695,14 @@ def _system_state(near: int, heat: float) -> str:
         posture, tone = "D&Eacute;FENSIF", "alert"
     macro = ""
     if score is not None:
-        dlabel, dcol = {1: ("STABLE", "#37E0A0"), 2: ("STRESS", "#FFB020"), 3: ("ALERTE", "#FB923C"), 4: ("CRISE", "#FF6B6B")}.get(int(phase or 1), ("CRISE", "#FF6B6B"))
-        macro = f'<span class="cm"><b>MACRO</b> <span style="color:{dcol}">{dlabel}</span> &middot; {score:.1f}</span>'
+        dcol = {1: "#37E0A0", 2: "#FFB020", 3: "#FB923C", 4: "#FF6B6B"}.get(int(phase or 1), "#FF6B6B")
+        macro = f'<span class="rfmacro" style="background:{dcol}" title="Macro phase {int(phase or 1)}"></span>'
     return (
-        f'<div class="cmdbar"><div class="cmdleft"><span class="statedot {tone}"></span>'
-        f'<span class="cmdstate">PORTEFEUILLE &middot; {posture}</span></div>'
-        f'<div class="cmdmetrics">{macro}'
-        f'<span class="cm"><b>SURCHAUFFE</b> {heat:.0f}&deg;</span>'
-        f'<span class="cm"><b>PROCHES DU STOP</b> {near}</span></div></div>'
+        f'<div class="rfoot" title="Portefeuille {posture} &middot; surchauffe {heat:.0f}&deg; &middot; {near} proche(s) du stop">'
+        f'<span class="statedot {tone}"></span>'
+        f'<span class="rfm">{heat:.0f}&deg;</span>'
+        f'<span class="rfm">{near}&#9888;</span>'
+        f'{macro}</div>'
     )
 
 
@@ -691,7 +735,7 @@ def _journal() -> str:
 _LOGO = (
     '<svg width="46" height="36" viewBox="0 0 56 44" fill="none" xmlns="http://www.w3.org/2000/svg">'
     '<defs><linearGradient id="hlg" x1="0" y1="44" x2="56" y2="0">'
-    '<stop offset="0" stop-color="#9A7B2E"/><stop offset=".45" stop-color="#D4AF37"/><stop offset="1" stop-color="#F6DD9A"/>'
+    '<stop offset="0" stop-color="#9A7B2E"/><stop offset=".45" stop-color="var(--id)"/><stop offset="1" stop-color="#F6DD9A"/>'
     '</linearGradient></defs>'
     '<g stroke="url(#hlg)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none">'
     '<ellipse cx="8" cy="31" rx="3" ry="4.4"/>'
@@ -708,22 +752,23 @@ _TH_CSS = """
   .th-hist { display:flex; flex-direction:column; gap:6px; padding:2px 0; }
   .th-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:11.5px; }
   .th-hlab { width:24px; color:var(--steel); }
-  .th-htrack { flex:1; height:13px; background:rgba(255,255,255,.04); border-radius:7px; overflow:hidden; }
+  .th-htrack { flex:1; height:13px; background:color-mix(in srgb,var(--ink) 4%,transparent); border-radius:7px; overflow:hidden; }
   .th-hfill { height:100%; border-radius:7px; background:linear-gradient(90deg,var(--acc),var(--acc2)); }
   .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
-  .th-grp { font-family:var(--fm); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:22px 2px 9px; display:flex; align-items:center; gap:10px; }
+  .th-grp { font-family:var(--fb); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:34px 2px 13px; display:flex; align-items:center; gap:10px; }
   .th-grp::after { content:""; flex:1; height:1px; background:var(--line); }
-  .th-row { display:grid; grid-template-columns:210px 1fr; gap:20px; align-items:center; padding:13px 16px; border:1px solid var(--line); border-radius:13px; margin-bottom:9px; background:rgba(255,255,255,.012); cursor:pointer; transition:.15s; }
-  .th-row:hover { border-color:var(--line2); background:rgba(255,255,255,.035); }
+  .th-row { display:grid; grid-template-columns:200px 52px 1fr; gap:16px; align-items:center; padding:16px 18px; border:1px solid var(--line); border-radius:13px; margin-bottom:13px; background:color-mix(in srgb,var(--ink) 1.2%,transparent); cursor:pointer; transition:.15s; }
+  .th-row:hover { border-color:var(--line2); background:color-mix(in srgb,var(--ink) 3.5%,transparent); }
   .th-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
   .th-conv { font-family:var(--fm); font-weight:700; font-size:11px; padding:2px 7px; border-radius:6px; }
-  .th-conv.c5 { color:#0E1622; background:var(--gold); }
+  .th-conv.c5 { color:#0E1622; background:var(--id); }
   .th-conv.c4 { color:#0E1622; background:var(--acc); }
   .th-conv.c3 { color:#0E1622; background:var(--acc2); }
   .th-conv.c2 { color:var(--steel); border:1px solid var(--line2); }
   .th-conv.c1 { color:var(--steel); border:1px solid var(--line); opacity:.65; }
   .th-tk { font-weight:600; font-size:14px; }
-  .th-dir { font-family:var(--fm); font-size:9.5px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
+  .th-w { font-family:var(--fm); font-size:12px; font-weight:600; color:var(--ink); text-align:right; align-self:center; }
+  .th-dir { font-family:var(--fb); font-size:9.5px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
   .th-bar { display:flex; flex-direction:column; gap:6px; }
   .th-track { position:relative; height:9px; border-radius:5px; background:linear-gradient(90deg,rgba(255,107,107,.32),rgba(255,176,32,.16) 45%,rgba(55,224,160,.32)); }
   .th-entry { position:absolute; top:-3px; width:2px; height:15px; background:var(--steel); opacity:.65; transform:translateX(-1px); }
@@ -734,7 +779,7 @@ _TH_CSS = """
   .th-stop { color:var(--bear); }
   .th-tgt { color:var(--acc); }
   .th-ratio { color:var(--steel); font-weight:600; }
-  .th-ratio.fav { color:var(--gold); }
+  .th-ratio.fav { color:var(--id); }
   .th-na { font-family:var(--fm); font-size:11px; color:var(--steel); }
   .th-cat { font-family:var(--fm); font-size:10px; letter-spacing:.03em; color:var(--steel); background:rgba(124,137,166,.10); border:1px solid var(--line); border-radius:6px; padding:2px 8px; margin-left:2px; white-space:nowrap; }
 </style>
@@ -749,7 +794,7 @@ _TIER_LABEL = {
 }
 
 
-def _theses(names: dict, sectors: dict) -> str:
+def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     "Page Theses : asymetrie cible/stop par conviction + gap cible partielle."
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
@@ -815,7 +860,7 @@ def _theses(names: dict, sectors: dict) -> str:
 
     hero = (
         '<div class="hero"><div><div class="hl">Th&egrave;ses actives</div>'
-        f'<div class="big" style="color:var(--gold)">{n}</div>'
+        f'<div class="big" style="color:var(--id)">{n}</div>'
         f'<div class="hsub">m&eacute;diane c{med} &middot; {n_fav} &agrave; asym&eacute;trie favorable &middot; {n_near} proche(s) du stop</div></div>'
         '<div style="flex:1;min-width:250px"><div class="hl">Distribution conviction</div>'
         f'{hist}<div class="hsub" style="margin-top:7px">{infl_msg}</div></div></div>'
@@ -841,9 +886,11 @@ def _theses(names: dict, sectors: dict) -> str:
         'le m&eacute;canisme exact du biais &laquo;&nbsp;vendre ses winners trop t&ocirc;t&nbsp;&raquo;.</span></div></div></div>'
     )
 
+    vtot = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions) or 1
+    vmap = {p["ticker"]: p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) / vtot * 100 for p in positions}
     groups = ""
     for c in (5, 4, 3, 2, 1):
-        grp = [t for t in ths if t["conv"] == c]
+        grp = sorted((t for t in ths if t["conv"] == c), key=lambda t: -vmap.get(t["tk"], 0.0))
         if not grp:
             continue
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}</div>'
@@ -864,10 +911,13 @@ def _theses(names: dict, sectors: dict) -> str:
             else:
                 bar = '<div class="th-na">donn&eacute;es de prix incompl&egrave;tes</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
+            wv = vmap.get(t["tk"], 0.0)
+            wtxt = f'{wv:.1f}%' if wv > 0 else "&mdash;"
             groups += (
-                f'<div class="th-row" data-tk="{t["tk"]}"><div class="th-id">'
-                f'<span class="th-conv c{t["conv"]}">c{t["conv"]}</span>{cat_html}'
-                f'<span class="th-tk">{t["nm"]}</span><span class="th-dir">{t["dir"]}</span></div>{bar}</div>'
+                f'<div class="th-row" data-tk="{t["tk"]}">'
+                f'<div class="th-id"><span class="th-conv c{t["conv"]}">c{t["conv"]}</span>'
+                f'<span class="th-tk">{t["nm"]}</span>{cat_html}</div>'
+                f'<div class="th-w">{wtxt}</div>{bar}</div>'
             )
 
     return (
@@ -879,125 +929,133 @@ def _theses(names: dict, sectors: dict) -> str:
 
 _NAV = (
     '<nav class="nav">'
-    '<div class="ngrp"><span class="rune">&#5887;</span>Observation</div>'
-    '<div class="nitem on" data-nav="vigie"><span class="n">01</span> Vue d\'ensemble</div>'
-    '<div class="nitem" data-nav="positions"><span class="n">02</span> Positions</div>'
-    '<div class="ngrp"><span class="rune">&#5815;</span>Analyse</div>'
-    '<div class="nitem" data-nav="theses"><span class="n">03</span> Th&egrave;ses</div>'
-    '<div class="nitem" data-nav="concentration"><span class="n">04</span> Concentration</div>'
-    '<div class="nitem" data-nav="secteurs"><span class="n">05</span> Secteurs</div>'
-    '<div class="ngrp"><span class="rune">&#5809;</span>Renseignement</div>'
-    '<div class="nitem" data-nav="geo"><span class="n">06</span> G&eacute;ographie</div>'
-    '<div class="nitem" data-nav="signaux"><span class="n">07</span> Signaux</div>'
-    '<div class="ngrp"><span class="rune">&#5828;</span>Alerte</div>'
-    '<div class="nitem" data-nav="urgence"><span class="n">08</span> Urgence</div></nav>'
+    '<div class="ngrp" title="Observation"><span class="rune">&#5855;</span></div>'
+    '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
+    '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
+    '<div class="ngrp" title="Analyse"><span class="rune">&#5833;</span></div>'
+    '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
+    '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
+    '<div class="nitem" data-nav="secteurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></svg><span class="nlab">Secteurs</span></div>'
+    '<div class="ngrp" title="Renseignement"><span class="rune">&#5818;</span></div>'
+    '<div class="nitem" data-nav="geo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c3 3 3 13 0 16c-3-3-3-13 0-16z"/></svg><span class="nlab">G&eacute;ographie</span></div>'
+    '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux</span></div>'
+    '<div class="ngrp" title="Alerte"><span class="rune">&#5798;</span></div>'
+    '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div></nav>'
 )
 
 _CSS = """
-  :root { --bg:#0E1622; --panel:#141E2D; --line:#243349; --line2:#30425E; --ink:#E6F1EC; --steel:#7C89A6;
-    --acc:#37E0A0; --acc2:#00E0FF; --gold:#D4AF37; --bear:#FF6B6B; --warn:#FFB020;
-    --fd:"Bricolage Grotesque",sans-serif; --fb:"Inter Tight",sans-serif; --fm:"IBM Plex Mono",monospace; --fo:"Orbitron",sans-serif; --fr:"Noto Sans Runic",serif; }
+  :root { --bg:#141416; --panel:#1C1C20; --line:#2A2A30; --line2:#383840; --ink:#FAFAFA; --steel:#838383;
+    --acc:#34D9A0; --acc2:#2DD4BF; --id:#2DD4BF; --bear:#FF6B6B; --warn:#F5B544;
+    --fd:"Satoshi","Inter Tight",sans-serif; --fb:"Satoshi","Inter Tight",sans-serif; --fm:"IBM Plex Mono",monospace; --fo:"Satoshi",sans-serif; --fr:"Noto Sans Runic",serif;
+    --bg2:#0E0E10; --panel2:#232328; --ink2:#C9C9C9; --steel2:#565656;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --r1:8px; --r2:12px; --r3:16px; --elev:0 18px 48px -28px rgba(0,0,0,.85);
+    --glass:rgba(28,28,33,.5); --glass2:rgba(20,20,24,.6); --tape:rgba(14,14,17,.6); --barbg:#26262C;
+    --glow:0 0 26px -7px color-mix(in srgb,var(--id) 66%,transparent); --glow2:0 0 36px -18px color-mix(in srgb,var(--id) 52%,transparent); }
+  body.frost { --bg:#F6F7F9; --panel:#FFFFFF; --line:#E7EAEF; --line2:#D6DAE1; --ink:#15171E; --steel:#6B7280;
+    --acc:#0E9F6E; --acc2:#0D9488; --id:#0D9488; --bear:#E5484D; --warn:#C2750A;
+    --bg2:#FFFFFF; --panel2:#F1F3F6; --ink2:#3A3F4A; --steel2:#9AA1AD;
+    --elev:0 18px 44px -30px rgba(20,30,60,.16);
+    --glass:rgba(255,255,255,.66); --glass2:rgba(241,243,246,.7); --tape:rgba(246,247,249,.85); --barbg:#E7EAEF; --glow:0 0 0 0 transparent; --glow2:0 0 0 0 transparent; }
   * { box-sizing:border-box; }
-  body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:radial-gradient(75% 65% at 10% 6%,rgba(46,86,120,.20),transparent 58%),radial-gradient(65% 60% at 90% 96%,rgba(42,128,96,.14),transparent 58%),#0E1622; background-attachment:fixed; -webkit-font-smoothing:antialiased; }
-  body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.5; transition:background .3s ease-out;
-    background:radial-gradient(48% 42% at var(--mx,75%) var(--my,10%),rgba(55,224,160,.13),transparent 60%),radial-gradient(55% 45% at 82% -2%,rgba(0,224,255,.10),transparent 60%),radial-gradient(50% 45% at 60% 112%,rgba(138,108,255,.07),transparent 60%); }
+  body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:radial-gradient(1100px 680px at 82% -10%,rgba(45,212,191,.05),transparent 60%),radial-gradient(820px 560px at 6% 112%,rgba(45,212,191,.028),transparent 56%),var(--bg); background-attachment:fixed; -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
+  body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.85; transition:background .3s ease-out;
+    background:radial-gradient(46% 40% at var(--mx,78%) var(--my,8%),rgba(45,212,191,.13),transparent 58%); }
   body::after { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:1;
     background-image:radial-gradient(1.4px 1.4px at 22% 24%,rgba(255,255,255,.9),transparent),radial-gradient(1.6px 1.6px at 68% 58%,rgba(200,225,255,.8),transparent),radial-gradient(1.3px 1.3px at 46% 82%,rgba(255,255,255,.7),transparent),radial-gradient(1.5px 1.5px at 86% 28%,rgba(255,255,255,.8),transparent),radial-gradient(1.3px 1.3px at 12% 70%,rgba(210,230,255,.7),transparent),radial-gradient(1.2px 1.2px at 34% 44%,rgba(255,255,255,.6),transparent),radial-gradient(1.4px 1.4px at 78% 80%,rgba(255,255,255,.65),transparent),radial-gradient(1.2px 1.2px at 58% 16%,rgba(220,235,255,.6),transparent);
     background-size:300px 300px,360px 360px,240px 240px,320px 320px,400px 400px,280px 280px,420px 420px,340px 340px; }
-  .sidebar { width:240px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:30px 16px; display:flex; flex-direction:column; }
-  .logo { display:flex; align-items:center; gap:11px; margin-bottom:30px; padding:0 6px; }
-  .logo svg { width:44px; height:auto; filter:drop-shadow(0 0 8px rgba(212,175,55,.4)); }
-  .logo .wm { font-family:var(--fo); font-weight:700; font-size:16px; letter-spacing:.08em; line-height:1; }
-  .logo .wm small { display:block; font-family:var(--fm); font-weight:500; font-size:8.5px; letter-spacing:.3em; text-transform:uppercase; color:var(--steel); margin-top:6px; }
-  .nav { display:flex; flex-direction:column; gap:2px; }
-  .ngrp { font-family:var(--fm); font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--steel); margin:16px 8px 6px; display:flex; align-items:center; gap:8px; }
-  .ngrp:first-child { margin-top:0; } .rune { font-family:var(--fr); font-size:14px; color:var(--steel); opacity:.5; }
-  .nitem { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:10px; cursor:pointer; color:var(--steel); font-weight:500; font-size:13.5px; border-left:2px solid transparent; transition:.15s; }
-  .nitem:hover { background:rgba(255,255,255,.03); color:var(--ink); }
-  .nitem.on { background:rgba(55,224,160,.10); color:var(--ink); border-left-color:var(--acc); box-shadow:inset 0 0 22px -10px rgba(55,224,160,.6); font-weight:600; }
-  .nitem .n { font-family:var(--fm); font-size:11px; color:var(--steel); font-weight:600; } .nitem.on .n { color:var(--acc); }
-  .foot { margin-top:auto; padding:15px 8px 0; border-top:1px solid var(--line); display:flex; align-items:center; gap:8px; font-family:var(--fm); font-size:10.5px; color:var(--steel); letter-spacing:.05em; }
+  .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; }
+  .logo { display:flex; align-items:center; justify-content:center; margin-bottom:22px; padding:0; }
+  .logo svg { width:38px; height:auto; filter:drop-shadow(0 0 8px rgba(45,212,191,.4)); }
+  .logo .wm { display:none; }
+  .nav { display:flex; flex-direction:column; gap:4px; align-items:center; width:100%; }
+  .ngrp { display:flex; justify-content:center; margin:8px 0 4px; }
+  .ngrp:first-child { margin-top:0; } .rune { font-family:var(--fr); font-size:16px; color:var(--steel); opacity:.45; }
+  .nitem { position:relative; display:flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; cursor:pointer; color:var(--steel); border-left:2px solid transparent; transition:.15s; }
+  .nitem svg { width:26px; height:26px; }
+  .nitem:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); color:var(--ink); }
+  .nitem.on { background:color-mix(in srgb,var(--id) 13%,transparent); color:var(--ink); border-left-color:var(--id); box-shadow:inset 0 0 22px -10px color-mix(in srgb,var(--id) 55%,transparent); }
+  .nlab { position:absolute; left:56px; top:50%; transform:translateY(-50%); white-space:nowrap; background:var(--panel); border:1px solid var(--line2); border-radius:9px; padding:7px 12px; font-family:var(--fb); font-size:12.5px; font-weight:500; color:var(--ink); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:80; box-shadow:0 10px 26px -12px #000; }
+  .nitem:hover .nlab { opacity:1; }
+  .foot { margin-top:auto; padding:12px 0 2px; display:flex; flex-direction:column; align-items:center; gap:7px; }
+  .rfoot { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .rfm { font-family:var(--fm); font-size:10.5px; color:var(--steel); }
+  .rfmacro { width:8px; height:8px; border-radius:2px; }
   .dot { width:7px; height:7px; border-radius:50%; background:var(--acc); box-shadow:0 0 9px var(--acc); }
   .wrap { flex:1; display:flex; flex-direction:column; min-width:0; }
-  .tape { background:rgba(8,13,26,.55); border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; padding:9px 0; }
+  .tape { background:var(--tape); border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; padding:9px 0; }
   .tape .track2 { display:inline-block; animation:scroll 50s linear infinite; }
   .tape .ti { font-family:var(--fm); font-size:12px; margin:0 22px; } .tape .ti b { color:var(--ink); } .tape .ti .pos { color:var(--acc); } .tape .ti .neg { color:var(--bear); }
   @keyframes scroll { from{transform:translateX(0);} to{transform:translateX(-50%);} }
-  .cmdbar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 24px; background:rgba(8,13,26,.55); border-bottom:1px solid var(--line); backdrop-filter:blur(10px); }
-  .cmdleft { display:flex; align-items:center; gap:10px; } .cmdstate { font-family:var(--fm); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); }
+  .tape8k { background:var(--tape); padding:7px 0; } .tape8k .ti .warn { color:var(--warn); } .tape8k .track2 { animation-duration:64s; }
   .statedot { width:8px; height:8px; border-radius:50%; animation:pulse 2.6s ease-in-out infinite; }
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
-  .cmdmetrics { display:flex; gap:22px; flex-wrap:wrap; } .cm { font-family:var(--fm); font-size:10.5px; color:var(--steel); } .cm b { color:var(--ink); font-weight:600; margin-right:5px; }
-  .main { padding:24px 40px 44px; max-width:1180px; }
+  .main { padding:24px 40px 44px; max-width:1340px; }
   .phead { margin-bottom:18px; } .phead h2 { font-family:var(--fd); font-weight:800; font-size:26px; margin:0 0 4px; letter-spacing:-.03em; } .phead .sub { font-size:12px; color:var(--steel); }
   [data-page] { display:none; } [data-page].active { display:block; animation:fadein .42s ease; } @keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
-  .hero { background:linear-gradient(135deg,rgba(55,224,160,.08),rgba(0,224,255,.04)); border:1px solid var(--line2); border-radius:18px; padding:20px 24px; margin-bottom:18px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; backdrop-filter:blur(9px); }
+  .hero { background:linear-gradient(135deg,rgba(45,212,191,.05),transparent 62%),var(--panel); border:1px solid var(--line2); border-radius:18px; padding:20px 24px; margin-bottom:18px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; backdrop-filter:blur(9px); }
   .hero .big { font-family:var(--fd); font-weight:800; font-size:46px; line-height:.95; letter-spacing:-.04em; animation:glowpulse 4.6s ease-in-out infinite; }
   .hero .big.pos { color:var(--acc); text-shadow:0 0 34px rgba(55,224,160,.5); } .hero .big.neg { color:var(--bear); text-shadow:0 0 34px rgba(255,107,107,.45); }
   @keyframes glowpulse { 0%,100% { opacity:.93; } 50% { opacity:1; } }
-  .hero .hl { font-family:var(--fm); font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
+  .hero .hl { font-family:var(--fb); font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
   .hero .hsub { font-size:12.5px; color:var(--steel); margin-top:6px; }
   .distbar { flex:1; min-width:240px; } .distline { display:flex; height:14px; border-radius:7px; overflow:hidden; }
   .distline .g { background:linear-gradient(90deg,#7CF0C4,var(--acc)); } .distline .r { background:linear-gradient(90deg,var(--bear),#FF9A9A); }
   .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
-  .kpi { background:rgba(22,32,52,.5); border:1px solid var(--line); border-radius:14px; padding:13px 16px; box-shadow:0 12px 36px -22px #000; backdrop-filter:blur(9px); }
-  .kl { display:block; font-family:var(--fm); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:7px; }
+  .kpi { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:13px 16px; box-shadow:0 12px 36px -22px #000; backdrop-filter:blur(9px); }
+  .kl { display:block; font-family:var(--fb); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:7px; }
   .kv { font-family:var(--fd); font-weight:800; font-size:26px; letter-spacing:-.035em; line-height:1; }
   .kv.acc { color:var(--acc); } .kv.negc { color:var(--bear); } .kv.warn { color:var(--warn); } .kv.hot { color:#FB923C; } .kv.danger { color:var(--bear); } .kv.calm { color:var(--acc); }
   .kd { display:block; font-size:10px; color:var(--steel); margin-top:6px; }
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
   .colhead { display:flex; align-items:baseline; gap:9px; margin-bottom:12px; padding-left:2px; } .colhead .t { font-family:var(--fd); font-weight:700; font-size:15px; } .colhead .a { font-family:var(--fm); font-size:11.5px; color:var(--steel); }
-  .card { background:rgba(22,32,52,.5); border:1px solid var(--line); border-radius:14px; padding:2px 22px; box-shadow:0 12px 36px -24px #000; backdrop-filter:blur(9px); } .card.pad { padding:14px 18px; }
+  .card { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:2px 22px; box-shadow:0 12px 36px -24px #000; backdrop-filter:blur(9px); } .card.pad { padding:14px 18px; }
   .line { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; } .line:last-child { border-bottom:none; }
   .mono { font-family:var(--fm); font-weight:600; color:var(--ink); } .mono.pos { color:var(--acc); } .mono.neg { color:var(--bear); }
-  .gauge { background:rgba(22,32,52,.5); border:1px solid var(--line); border-radius:14px; padding:16px 20px; margin-bottom:15px; backdrop-filter:blur(9px); }
-  .ghead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:11px; } .ghead .gl { font-family:var(--fm); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); } .ghead .gv { font-family:var(--fd); font-weight:800; font-size:20px; }
+  .gauge { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:16px 20px; margin-bottom:15px; backdrop-filter:blur(9px); }
+  .ghead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:11px; } .ghead .gl { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); } .ghead .gv { font-family:var(--fd); font-weight:800; font-size:20px; }
   .gtrack { position:relative; height:9px; border-radius:5px; background:linear-gradient(90deg,#37E0A0,#FFB020 55%,#FF6B6B); }
-  .gmark { position:absolute; top:-4px; width:3px; height:17px; border-radius:2px; background:#fff; box-shadow:0 0 8px rgba(255,255,255,.6); transform:translateX(-50%); }
+  .gmark { position:absolute; top:-4px; width:3px; height:17px; border-radius:2px; background:var(--ink); box-shadow:0 0 8px rgba(255,255,255,.6); transform:translateX(-50%); }
   .glab { margin-top:9px; font-size:10px; color:var(--steel); display:flex; justify-content:space-between; font-family:var(--fm); letter-spacing:.08em; }
   .row { padding:9px 0; border-bottom:1px solid var(--line); opacity:0; animation:fade .45s ease forwards; } .row:last-child { border-bottom:none; }
-  .row[data-tk] { cursor:pointer; } .row[data-tk]:hover { background:rgba(255,255,255,.03); }
+  .row[data-tk] { cursor:pointer; } .row[data-tk]:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
   .rt { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; } .tk { font-family:var(--fm); font-weight:600; font-size:13px; }
   .tag { font-family:var(--fm); font-weight:600; font-size:11px; padding:3px 9px; border-radius:6px; }
-  .tag.up { color:var(--acc); background:rgba(55,224,160,.12); } .tag.acc2 { color:var(--acc2); background:rgba(0,224,255,.12); }
+  .tag.up { color:var(--acc); background:rgba(55,224,160,.12); } .tag.acc2 { color:var(--acc2); background:rgba(45,212,191,.12); }
   .tag.down,.tag.danger { color:var(--bear); background:rgba(255,107,107,.13); } .tag.warn { color:var(--warn); background:rgba(255,176,32,.14); } .tag.calm { color:var(--steel); background:rgba(124,137,166,.12); }
-  .track { height:10px; background:#13203A; border-radius:5px; overflow:hidden; }
+  .track { height:10px; background:var(--barbg); border-radius:5px; overflow:hidden; }
   .fill { height:100%; border-radius:4px; width:0; animation:grow .8s cubic-bezier(.2,.8,.2,1) forwards; }
   .fill.up { background:linear-gradient(90deg,#7CF0C4,var(--acc)); box-shadow:0 0 10px rgba(55,224,160,.35); }
   .fill.prismatic { background:linear-gradient(100deg,#FFE24A,#37E0A0,#00E0FF,#8A6CFF); box-shadow:0 0 12px rgba(55,224,160,.5); }
   .fill.danger { background:linear-gradient(90deg,#FF9A9A,var(--bear)); } .fill.warn { background:linear-gradient(90deg,#FFD27A,var(--warn)); } .fill.calm { background:#2A4439; } .fill.acc2 { background:linear-gradient(90deg,#8FF0FF,var(--acc2)); }
   .rs { display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--steel); }
   .dwrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
-  .donut { width:152px; height:152px; border-radius:50%; flex-shrink:0; position:relative; box-shadow:0 0 50px -12px #000; }
-  .donut::after { content:""; position:absolute; inset:26px; border-radius:50%; background:var(--panel); }
   .legend { display:flex; flex-direction:column; gap:8px; flex:1; min-width:200px; }
-  .lg { display:flex; align-items:center; gap:9px; font-size:12.5px; } .lg .sw { width:11px; height:11px; border-radius:3px; flex-shrink:0; } .lg .lgn { flex:1; } .lg .lgc { font-family:var(--fm); font-size:11px; color:var(--steel); }
   .empty { padding:30px 0; text-align:center; color:var(--steel); } .empty b { display:block; font-family:var(--fd); font-size:15px; color:var(--ink); margin-bottom:8px; }
-  #hqmap { height:460px; width:100%; background:#0A1020; } .leaflet-tooltip { background:#0D1426; border:1px solid var(--acc); color:var(--ink); font-family:var(--fm); font-size:11px; }
+  #hqmap { height:calc(100vh - 200px); min-height:560px; width:100%; background:var(--bg2); } .leaflet-tooltip { background:var(--panel); border:1px solid var(--id); color:var(--ink); font-family:var(--fm); font-size:11px; border-radius:8px; padding:5px 9px; box-shadow:0 10px 28px -12px rgba(0,0,0,.55),var(--glow); }
   .dt { width:100%; border-collapse:collapse; font-size:12.5px; }
-  .dt th { text-align:left; font-family:var(--fm); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); padding:8px 10px; border-bottom:1px solid var(--line2); cursor:pointer; user-select:none; }
+  .dt th { text-align:left; font-family:var(--fb); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); padding:8px 10px; border-bottom:1px solid var(--line2); cursor:pointer; user-select:none; }
   .dt th.num { text-align:right; } .dt th:hover { color:var(--ink); }
   .dt td { padding:8px 10px; border-bottom:1px solid var(--line); } .dt td.num { text-align:right; font-family:var(--fm); }
-  .dt td.tk { font-family:var(--fm); font-weight:600; } .dt tr:hover td { background:rgba(255,255,255,.025); }
+  .dt td.tk { font-family:var(--fm); font-weight:600; } .dt tr:hover td { background:color-mix(in srgb,var(--ink) 2.5%,transparent); }
   .dt td.pos { color:var(--acc); } .dt td.neg { color:var(--bear); }
-  .bdg { display:inline-block; margin-left:7px; font-family:var(--fm); font-size:8px; letter-spacing:.1em; text-transform:uppercase; color:#D4AF37; border:1px solid rgba(212,175,55,.4); border-radius:3px; padding:1px 5px; vertical-align:middle; }
-  .dt tr.prev td { opacity:.72; } .dt tr.prev td.tk { color:#D4AF37; }
+  .bdg { display:inline-block; margin-left:7px; font-family:var(--fb); font-size:8px; letter-spacing:.1em; text-transform:uppercase; color:var(--id); border:1px solid rgba(45,212,191,.4); border-radius:3px; padding:1px 5px; vertical-align:middle; }
+  .dt tr.prev td { opacity:.72; } .dt tr.prev td.tk { color:var(--id); }
   .nm { display:block; font-size:10px; font-weight:400; color:var(--steel); margin-top:2px; }
-  .ph3 { font-family:var(--fm); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin:0 0 12px; }
-  .dtier { font-family:var(--fm); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin:16px 0 6px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  .ph3 { font-family:var(--fb); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin:0 0 12px; }
+  .dtier { font-family:var(--fb); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin:16px 0 6px; padding-bottom:6px; border-bottom:1px solid var(--line); }
   .dlist > .dtier:first-child { margin-top:0; }
   .drow { display:grid; grid-template-columns:14px 1fr auto auto auto; align-items:center; gap:10px; padding:7px 0; font-size:13px; }
   .ddot { width:8px; height:8px; border-radius:50%; }
   .ddot.calm { background:#37E0A0; box-shadow:0 0 7px rgba(55,224,160,.6); } .ddot.warn { background:#FACC15; box-shadow:0 0 7px rgba(250,204,21,.6); }
   .ddot.hot { background:#FB923C; box-shadow:0 0 7px rgba(251,146,60,.6); } .ddot.danger { background:#EF4444; box-shadow:0 0 7px rgba(239,68,68,.6); }
-  .dname { color:var(--ink); } .dval { font-family:var(--fm); text-align:right; color:#fff; } .dp { font-family:var(--fm); font-size:10px; color:var(--steel); }
-  .stale { font-family:var(--fm); font-size:9px; color:var(--steel); opacity:.7; text-transform:uppercase; letter-spacing:.08em; }
+  .dname { color:var(--ink); } .dval { font-family:var(--fm); text-align:right; color:var(--ink); } .dp { font-family:var(--fm); font-size:10px; color:var(--steel); }
+  .stale { font-family:var(--fb); font-size:9px; color:var(--steel); opacity:.7; text-transform:uppercase; letter-spacing:.08em; }
   @keyframes grow { to { width:var(--w); } } @keyframes fade { to { opacity:1; } }
   .noanim [data-page].active, .noanim .row, .noanim .fill { animation:none !important; }
   .noanim .row { opacity:1 !important; } .noanim .fill { width:var(--w) !important; }
   @keyframes pulse { 0%,100% { opacity:1; box-shadow:0 0 10px currentColor; } 50% { opacity:.4; box-shadow:0 0 3px currentColor; } }
-  .plan { background:rgba(13,20,38,.6); border:1px solid var(--line); border-radius:14px; padding:15px 20px; margin-bottom:18px; backdrop-filter:blur(9px); }
-  .plan-h { font-family:var(--fm); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:13px; }
+  .plan { background:var(--glass2); border:1px solid var(--line); border-radius:14px; padding:15px 20px; margin-bottom:18px; backdrop-filter:blur(9px); }
+  .plan-h { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:13px; }
   .plan-row { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
   .pi { display:flex; flex-direction:column; gap:4px; padding-left:13px; border-left:2px solid var(--line2); border-radius:0; }
   .pi.danger { border-left-color:var(--bear); } .pi.warn { border-left-color:var(--warn); } .pi.calm { border-left-color:var(--acc); }
@@ -1011,30 +1069,31 @@ _CSS = """
   .loupe-x { position:absolute; top:14px; right:18px; background:none; border:none; color:var(--steel); font-size:26px; line-height:1; cursor:pointer; }
   .loupe-x:hover { color:var(--ink); }
   .lp-h { display:flex; align-items:baseline; gap:11px; }
-  .lp-tk { font-family:var(--fo); font-weight:700; font-size:24px; letter-spacing:.04em; color:var(--gold); }
+  .lp-tk { font-family:var(--fo); font-weight:700; font-size:24px; letter-spacing:.04em; color:var(--id); }
   .lp-nm { font-size:13px; color:var(--steel); }
   .lp-meta { font-family:var(--fm); font-size:11px; color:var(--steel); margin:6px 0 18px; }
   .lp-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
   .lp-mom { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-  .lp-stat { background:rgba(13,20,38,.6); border:1px solid var(--line); border-radius:10px; padding:11px 13px; }
-  .lp-sl { font-family:var(--fm); font-size:8.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
+  .lp-stat { background:var(--glass2); border:1px solid var(--line); border-radius:10px; padding:11px 13px; }
+  .lp-sl { font-family:var(--fb); font-size:8.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
   .lp-sv { font-family:var(--fd); font-weight:800; font-size:18px; margin-top:5px; }
-  .lp-sec { font-family:var(--fm); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:20px 0 10px; border-top:1px solid var(--line); padding-top:14px; }
+  .lp-sec { font-family:var(--fb); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:20px 0 10px; border-top:1px solid var(--line); padding-top:14px; }
   .lp-score { display:flex; align-items:center; gap:10px; margin:8px 0; font-size:12px; }
   .lp-score .ln { width:92px; color:var(--steel); }
-  .lp-score .bar { flex:1; height:6px; background:#13203A; border-radius:3px; overflow:hidden; }
+  .lp-score .bar { flex:1; height:6px; background:var(--barbg); border-radius:3px; overflow:hidden; }
   .lp-score .bf { display:block; height:100%; background:linear-gradient(90deg,#00E0FF,#37E0A0); }
   .lp-score .vv { font-family:var(--fm); width:32px; text-align:right; }
   .lp-ex { font-size:12.5px; color:var(--ink); line-height:1.6; opacity:.82; }
   .lp-empty { font-size:12px; color:var(--steel); padding:6px 0; }
-  .tkc { cursor:pointer; transition:color .12s; } .tkc:hover { color:var(--gold); }
-  .lp-badge { display:inline-block; font-family:var(--fm); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:6px; border:1px solid currentColor; }
+  .tkc { cursor:pointer; transition:color .12s; } .tkc:hover { color:var(--id); }
+  .lp-badge { display:inline-block; font-family:var(--fb); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:6px; border:1px solid currentColor; }
   .lp-badge.held { color:var(--acc); } .lp-badge.watch { color:var(--warn); } .lp-badge.univ { color:var(--acc2); } .lp-badge.out { color:var(--steel); }
   .sbwrap { display:flex; gap:20px; flex-wrap:wrap; align-items:center; }
   #sb-svg { width:320px; height:320px; flex:0 0 auto; }
-  #sb-svg path { cursor:pointer; transition:opacity .15s; } #sb-svg path:hover { opacity:.85; }
+  #sb-svg path { cursor:pointer; transition:opacity .15s; stroke:var(--panel); } #sb-svg path:hover { opacity:.85; }
+  #sb-svg .sb-ct { fill:var(--ink); } #sb-svg .sb-c2 { fill:var(--steel); }
   #sb-panel { flex:1; min-width:230px; font-size:13px; }
-  .sbrow { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:.5px solid var(--line); cursor:pointer; } .sbrow:last-child { border-bottom:none; } .sbrow:hover { background:rgba(255,255,255,.025); }
+  .sbrow { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:.5px solid var(--line); cursor:pointer; } .sbrow:last-child { border-bottom:none; } .sbrow:hover { background:color-mix(in srgb,var(--ink) 2.5%,transparent); }
   .qs { position:fixed; inset:0; z-index:70; display:none; align-items:flex-start; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:12vh 20px 20px; }
   .qs.open { display:flex; }
   .qs-card { width:min(560px,100%); background:var(--panel); border:1px solid var(--line2); border-radius:16px; box-shadow:0 30px 90px -20px #000; overflow:hidden; }
@@ -1045,9 +1104,47 @@ _CSS = """
   .qs-row:last-child { border-bottom:none; } .qs-row.on, .qs-row:hover { background:rgba(55,224,160,.10); }
   .qs-tk { font-family:var(--fm); font-weight:600; font-size:13px; width:78px; }
   .qs-nm { flex:1; font-size:13px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .qs-st { font-family:var(--fm); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--steel); }
+  .qs-st { font-family:var(--fb); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--steel); }
   .qs-st.held { color:var(--acc); } .qs-st.watch { color:var(--warn); } .qs-st.core, .qs-st.extended { color:var(--acc2); }
   .qs-empty { padding:22px 20px; color:var(--steel); font-size:13px; text-align:center; }
+  .hero.posture { display:block; }
+  .hero.posture .plan-row { margin-top:14px; gap:24px; }
+  .hero.posture .pn { font-size:29px; }
+  .hrow { display:grid; grid-template-columns:1.3fr 1fr; gap:18px; margin-bottom:20px; align-items:stretch; }
+  .hrow .hero.posture { margin-bottom:0; height:100%; }
+  .pfcard { background:linear-gradient(135deg,rgba(45,212,191,.04),transparent 60%),var(--panel); border:1px solid var(--line2); border-radius:18px; padding:20px 24px; backdrop-filter:blur(9px); display:flex; flex-direction:column; }
+  .pfcard .v { font-family:var(--fd); font-weight:800; font-size:30px; letter-spacing:-.03em; line-height:1; margin:8px 0 5px; color:var(--ink); }
+  .pfcard .d { font-family:var(--fm); font-size:14px; font-weight:600; } .pfcard .d.pos { color:var(--acc); } .pfcard .d.neg { color:var(--bear); }
+  .pfcard .distline { margin:15px 0 0; }
+  .pfcard .sub2 { font-size:11.5px; color:var(--steel); margin-top:auto; padding-top:13px; } .pfcard .sub2 b { color:var(--ink); font-weight:600; }
+  @media (max-width:980px) { .hrow { grid-template-columns:1fr; } }
+  .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; margin:16px 0 4px; }
+  .modetgl svg { width:20px; height:20px; }
+  .modetgl:hover { color:var(--id); border-color:var(--id); }
+  body.frost::after { display:none; }
+  body.frost::before { opacity:.4; }
+  .hero, .pfcard { box-shadow:var(--elev),var(--glow); }
+  .card, .kpi, .gauge, .plan { box-shadow:var(--elev),var(--glow2); }
+  .loupe-card { box-shadow:0 30px 90px -20px #000,var(--glow); }
+  .nitem.on { box-shadow:inset 0 0 20px -10px color-mix(in srgb,var(--id) 55%,transparent),var(--glow); }
+  .nitem.on svg { filter:drop-shadow(0 0 6px color-mix(in srgb,var(--id) 70%,transparent)); }
+  .tape { box-shadow:0 1px 0 color-mix(in srgb,var(--id) 22%,transparent),0 7px 20px -12px color-mix(in srgb,var(--id) 34%,transparent); }
+  .row[data-tk]:hover, .dt tbody tr:hover td, .th-row:hover, .sbrow:hover { box-shadow:var(--glow2); }
+  .brk { margin-bottom:18px; }
+  .brk-h { display:flex; justify-content:space-between; align-items:baseline; margin:0 2px 10px; flex-wrap:wrap; gap:8px; }
+  .brk-n { font-family:var(--fd); font-weight:700; font-size:16px; }
+  .brk-note { font-family:var(--fm); font-size:11px; color:var(--steel); margin-left:8px; }
+  .brk-tot { font-family:var(--fm); font-size:13px; color:var(--ink); } .brk-tot span { color:var(--steel); font-size:11.5px; }
+  .brk-body { display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap; }
+  .brk-viz { flex:0 0 172px; }
+  .brk-tbl { flex:1; min-width:340px; }
+  .brk-donut { position:relative; width:148px; height:148px; border-radius:50%; margin:2px auto 0; box-shadow:var(--glow2); }
+  .brk-hole { position:absolute; inset:28px; border-radius:50%; background:var(--panel); }
+  .brk-leg { margin-top:14px; display:flex; flex-direction:column; gap:6px; }
+  .brk-lg { display:flex; align-items:center; gap:8px; font-size:11.5px; line-height:1.35; }
+  .brk-sw { width:9px; height:9px; border-radius:2px; flex:0 0 auto; }
+  .brk-ln { flex:1; color:var(--ink); }
+  .brk-lp { font-family:var(--fm); color:var(--steel); }
 """
 
 _APP_JS = """
@@ -1062,15 +1159,42 @@ _APP_JS = """
     });
   });
   let _map=null;
+  let _hqGrp=null; var HQMODE='cat';
+  var HQCAT=window.SECTOR_COLORS||{};
+  function _hqRow(c,t){return '<div style="display:flex;align-items:center;gap:7px;margin:2px 0"><span style="width:10px;height:10px;border-radius:50%;background:'+c+'"></span>'+t+'</div>';}
+  function _hqLeg(mode){
+    var el=document.getElementById('hq-leg'); if(!el)return; var h='';
+    if(mode==='cat'){
+      var seen={}; (window.HQ||[]).forEach(function(x){seen[x.sec]=1;});
+      Object.keys(seen).forEach(function(s){h+=_hqRow(HQCAT[s]||'#6B7686',s);});
+      h+='<div style="margin-top:6px;color:#5b6675;font-size:11px">anneau = P&amp;L (vert/rouge)</div>';
+    }else{
+      h+=_hqRow('#2F9E44','gain')+_hqRow('#E03131','perte');
+      h+='<div style="margin-top:6px;color:#5b6675;font-size:11px">taille = valeur</div>';
+    }
+    el.innerHTML=h;
+  }
+  function _drawHQ(mode){
+    if(!_hqGrp)return; _hqGrp.clearLayers();
+    var mx=0; (window.HQ||[]).forEach(function(h){if(h.w>mx)mx=h.w;});
+    (window.HQ||[]).forEach(function(h){
+      var up=h.pnl>=0, r=5+Math.min(15,Math.sqrt(Math.max(0,h.w))*4), fill, ring, rw;
+      if(mode==='cat'){ fill=HQCAT[h.sec]||'#6B7686'; ring=up?'#2F9E44':'#E03131'; rw=2.2; }
+      else { fill=up?'#2F9E44':'#E03131'; ring='rgba(255,255,255,.9)'; rw=1.3; }
+      L.circleMarker([h.lat,h.lng],{radius:r,color:ring,weight:rw,fillColor:fill,fillOpacity:.85,className:'mk-hq'+(h.w===mx?' mk-hqtop':'')})
+        .addTo(_hqGrp).bindTooltip('<b>'+h.t+'</b> '+(up?'+':'')+h.pnl+'%<br>'+h.sec+' · '+h.w+'% du portefeuille');
+    });
+    _hqLeg(mode);
+  }
+  function _setHQMode(m){ HQMODE=m; _drawHQ(m);
+    var bs=document.querySelectorAll('.hq-sw button'); for(var i=0;i<bs.length;i++){ bs[i].className=(bs[i].getAttribute('data-m')===m?'on':''); }
+  }
+  document.querySelectorAll('.hq-sw button').forEach(function(b){ b.addEventListener('click',function(){ _setHQMode(b.getAttribute('data-m')); }); });
   function initMap(){
     if(_map||!window.L)return;
-    _map=L.map('hqmap',{attributionControl:false,scrollWheelZoom:false}).setView([28,15],2);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:8,subdomains:'abcd'}).addTo(_map);
-    (window.HQ||[]).forEach(function(h){
-      var col=h.pnl>=0?'#37E0A0':'#FF6B6B';
-      L.circleMarker([h.lat,h.lng],{radius:5+Math.min(14,h.w*0.9),color:col,weight:2,fillColor:col,fillOpacity:.45})
-        .addTo(_map).bindTooltip('<b>'+h.t+'</b> '+(h.pnl>=0?'+':'')+h.pnl+'%<br>'+h.sec+' · '+h.w+'% du portefeuille');
-    });
+    _map=L.map('hqmap',{attributionControl:false,scrollWheelZoom:false}).setView([20,0],2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:8,subdomains:'abcd'}).addTo(_map);
+    _hqGrp=L.layerGroup().addTo(_map); _drawHQ(HQMODE);
   }
   function show(id){
     pages.forEach(p=>p.classList.toggle('active',p.dataset.page===id));
@@ -1135,17 +1259,17 @@ _APP_JS = """
       g.dataset.mx=Math.cos(mid);g.dataset.my=Math.sin(mid);
       g.appendChild(mkp('path',{d:arc(RI1,RO1,a0,a1),fill:s.col,'fill-opacity':'0.85',stroke:'#0E1622','stroke-width':'1.5','data-sec':s.name}));
       var sub=cur;
-      s.t.forEach(function(x){var ta=x.w/total*2*Math.PI,b0=sub+PAD/2,b1=sub+ta-PAD/2;if(b1<=b0){b0=sub;b1=sub+ta;}g.appendChild(mkp('path',{d:arc(RI2,RO2,b0,b1),fill:heat(x.pnl),stroke:'#0E1622','stroke-width':'1.5','data-tk':x.tk,'data-sec':s.name}));sub+=ta;});
+      s.t.forEach(function(x){var ta=x.w/total*2*Math.PI,b0=sub+PAD/2,b1=sub+ta-PAD/2;if(b1<=b0){b0=sub;b1=sub+ta;}g.appendChild(mkp('path',{d:arc(RI2,RO2,b0,b1),fill:s.col,'fill-opacity':'0.5',stroke:'#0E1622','stroke-width':'1.5','data-tk':x.tk,'data-sec':s.name}));sub+=ta;});
       groups[s.name]=g;SVG.appendChild(g);cur+=ang;
     });
-    var ct=mkp('text',{x:CX,y:CY-3,'text-anchor':'middle',fill:'#E6F1EC','font-size':'19','font-weight':'600'});ct.textContent=Math.round(total/1000)+'k'+String.fromCharCode(8364);SVG.appendChild(ct);
-    var c2=mkp('text',{x:CX,y:CY+15,'text-anchor':'middle',fill:'#7C89A6','font-size':'11','font-family':'monospace'});c2.textContent=DATA.length+' secteurs';SVG.appendChild(c2);
+    var ct=mkp('text',{x:CX,y:CY-3,'text-anchor':'middle','class':'sb-ct','font-size':'19','font-weight':'600'});ct.textContent=Math.round(total/1000)+'k'+String.fromCharCode(8364);SVG.appendChild(ct);
+    var c2=mkp('text',{x:CX,y:CY+15,'text-anchor':'middle','class':'sb-c2','font-size':'11','font-family':'monospace'});c2.textContent=DATA.length+' secteurs';SVG.appendChild(c2);
     function pv(p){return p==null?'&mdash;':((p>=0?'+':'')+p+'%');}
     function rw(l,v,c){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:.5px solid var(--line)"><span style="color:var(--steel)">'+l+'</span><span class="mono" style="color:'+(c||'var(--ink)')+'">'+v+'</span></div>';}
     function overview(){
       for(var k in groups){groups[k].style.transform='';groups[k].style.opacity='1';}
       var top=DATA.slice().sort(function(a,b){return b.tw-a.tw;})[0],tp=Math.round(top.tw/total*100),ov=tp>=30;
-      PANEL.innerHTML='<div style="font-family:var(--fm);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin-bottom:10px">Vue d&rsquo;ensemble</div>'
+      PANEL.innerHTML='<div style="font-family:var(--fb);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin-bottom:10px">Vue d&rsquo;ensemble</div>'
         +rw('Plus gros secteur',top.name+' &middot; '+tp+'%',ov?'var(--bear)':'var(--acc)')
         +rw('Secteurs',DATA.length+'')+rw('Lignes',DATA.reduce(function(a,s){return a+s.t.length;},0)+'')
         +'<div style="margin-top:12px;font-size:12px;color:'+(ov?'var(--warn)':'var(--steel)')+'">'+(ov?('&#9888; '+top.name+' au-dessus du plafond 30%'):'sous le plafond 30%')+'</div>'
@@ -1330,6 +1454,94 @@ _LOUPE_HTML = (
 )
 
 
+_EU_SUFFIX = (".PA", ".AS", ".DE", ".MI", ".ST", ".BR", ".MC", ".SW", ".VI", ".HE", ".CO", ".OL", ".LS", ".L", ".F", ".PL", ".WA", ".AT")
+
+
+def _broker(tk: str) -> str:
+    return "bourso" if tk.endswith(_EU_SUFFIX) else "tr"
+
+
+def _broker_value(p: dict, pnl: dict) -> float:
+    return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
+
+
+def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
+    agg: dict[str, float] = {}
+    for p in ps:
+        sec = sectors.get(p["ticker"], "Sans th&egrave;se")
+        agg[sec] = agg.get(sec, 0.0) + _broker_value(p, pnl)
+    return sorted(agg.items(), key=lambda kv: -kv[1])
+
+
+def _sector_donut(segs: list) -> str:
+    total = sum(v for _, v in segs) or 1
+    stops = []
+    leg = []
+    acc = 0.0
+    for label, v in segs:
+        col = SECTOR_COLORS.get(label, "#6B7686")
+        a0 = acc / total * 360
+        acc += v
+        a1 = acc / total * 360
+        stops.append(f"{col} {a0:.1f}deg {a1:.1f}deg")
+        leg.append(
+            f'<div class="brk-lg"><span class="brk-sw" style="background:{col}"></span>'
+            f'<span class="brk-ln">{label}</span><span class="brk-lp">{v / total * 100:.0f}%</span></div>'
+        )
+    return (
+        f'<div class="brk-viz"><div class="brk-donut" style="background:conic-gradient({",".join(stops)})">'
+        f'<div class="brk-hole"></div></div><div class="brk-leg">{"".join(leg)}</div></div>'
+    )
+
+
+def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict) -> str:
+    ps = sorted(ps, key=lambda p: -_broker_value(p, pnl))
+    tot = sum(_broker_value(p, pnl) for p in ps)
+    share = tot / grand * 100
+    rows = ""
+    for p in ps:
+        tk = p["ticker"]
+        v = _broker_value(p, pnl)
+        w = v / grand * 100
+        pc = pnl.get(tk)
+        pcls = "pos" if (pc or 0) >= 0 else "neg"
+        pstr = "&mdash;" if pc is None else f'{"+" if pc >= 0 else ""}{pc:.1f}%'
+        nm = names.get(tk, tk)
+        vstr = f"{v:,.0f}".replace(",", "&#8239;")
+        rows += (
+            f'<tr data-tk="{tk}"><td class="tk">{tk}<span class="nm">{nm}</span></td>'
+            f'<td class="num mono">{vstr}&nbsp;&euro;</td><td class="num">{w:.1f}%</td>'
+            f'<td class="num {pcls}">{pstr}</td></tr>'
+        )
+    if not ps:
+        rows = '<tr><td class="empty" colspan="4" style="padding:18px 0">aucune ligne</td></tr>'
+    tot_str = f"{tot:,.0f}".replace(",", "&#8239;")
+    donut = _sector_donut(_sector_mix(ps, pnl, sectors)) if ps else ""
+    return (
+        f'<div class="brk"><div class="brk-h"><div><span class="brk-n">{label}</span>'
+        f'<span class="brk-note">{note}</span></div>'
+        f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} lignes &middot; {share:.0f}% du total</span></div></div>'
+        f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:4px 18px"><table class="dt"><thead><tr><th>Ligne</th>'
+        f'<th class="num">Valeur</th><th class="num">Poids</th><th class="num">P&amp;L</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table></div></div></div></div>'
+    )
+
+
+def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict) -> str:
+    grand = sum(_broker_value(p, pnl) for p in positions) or 1
+    tr = [p for p in positions if _broker(p["ticker"]) == "tr"]
+    eu = [p for p in positions if _broker(p["ticker"]) == "bourso"]
+    head = (
+        '<div class="colhead" style="margin-top:6px"><span class="t">Comptes</span>'
+        '<span class="a">par courtier &middot; tri&eacute; par valeur</span></div>'
+    )
+    return head + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors) + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors)
+
+
+_MODE_BTN = """<button class="modetgl" title="Mode clair / sombre" onclick="document.body.classList.toggle('frost');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('frost')?'frost':'carbon')}catch(e){}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>"""
+_THEME_INIT = "<script>try{var t=localStorage.getItem('hmdl-theme');if(t==='frost')document.body.classList.add('frost');}catch(e){}</script>"
+
+
 def render() -> Path:
     asym_mod._get_current_price = _cached_price_eur
     full = asym_mod.compute_portfolio_asymmetry()
@@ -1339,22 +1551,20 @@ def render() -> Path:
     held = {p["ticker"] for p in positions}
     planned = _planned(held)
     names = _names()
-    pnl = _pnl_map(computed)
+    pnl = _pnl_cost_map(positions)
     perf = {p["ticker"]: _perf_dwm(p["ticker"]) for p in positions}
     daily = {tk: v.get("d") for tk, v in perf.items()}
-    total = sum(p["weight"] for p in positions) or 1
     loupe_data = _loupe_data(positions, sectors, names, pnl, computed, perf)
-    sb_pal = ["#00E0FF", "#37E0A0", "#D4AF37", "#8A6CFF", "#FFB020", "#5E8B9E", "#7CF0C4", "#FF6B6B"]
     sb_down = {r["ticker"]: r.get("downside_pct") for r in computed}
     sb_secs: dict = {}
     for p in positions:
         sb_secs.setdefault(sectors.get(p["ticker"], "Sans th&egrave;se"), []).append({
-            "tk": p["ticker"], "w": round(p["weight"]),
+            "tk": p["ticker"], "w": round(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)),
             "pnl": round(pnl[p["ticker"]], 1) if p["ticker"] in pnl else None,
             "down": round(sb_down[p["ticker"]], 1) if sb_down.get(p["ticker"]) is not None else None,
         })
-    sb_ordered = sorted(sb_secs.items(), key=lambda kv: -sum(x["w"] for x in kv[1]))
-    sb_data = [{"name": nm, "col": sb_pal[i % len(sb_pal)], "t": rows} for i, (nm, rows) in enumerate(sb_ordered)]
+    sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans th&egrave;se", -sum(x["w"] for x in kv[1])))
+    sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
     pal, _hits, _top = _rows_paliers(computed)
     ris, near, heat, watch = _rows_risque(computed)
@@ -1380,15 +1590,21 @@ def render() -> Path:
     n_gain = sum(1 for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
     n_pnl = sum(1 for p in positions if p["ticker"] in pnl) or 1
     gpct = gain_eur / wbase * 100
-    pcls = "pos" if port_pnl >= 0 else "neg"
+    _pfcost = sum(p["weight"] for p in positions)
+    pf_value = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions)
+    pf_pnl_eur = pf_value - _pfcost
+    vcls = "pos" if pf_pnl_eur >= 0 else "neg"
+    pf_val_str = f"{pf_value:,.0f}".replace(",", "&#8239;")
+    pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")
+    pf_pe = f"{pf_pnl_eur:+,.0f}".replace(",", "&#8239;")
     near_stop_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0)) if r.get("downside_pct") is not None and r["downside_pct"] < 10]
     near_tgt_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("upside_pct", 999.0)) if r.get("upside_pct") is not None and r["upside_pct"] < 12]
 
-    plan_html = (
-        '<div class="plan"><div class="plan-h">Plan du jour &mdash; m&eacute;canique, non prescriptif</div><div class="plan-row">'
+    disc_hero = (
+        '<div class="hero posture"><div class="hl">&Agrave; surveiller &mdash; m&eacute;canique, non prescriptif</div><div class="plan-row">'
+        + _pi(len(near_tgt_tk), near_tgt_tk, "candidat(s) prise de profit", "warn" if near_tgt_tk else "calm")
         + _pi(len(near_stop_tk), near_stop_tk, "proche(s) du stop", "danger" if near_stop_tk else "calm")
-        + _pi(len(near_tgt_tk), near_tgt_tk, "candidate(s) prise de profit", "warn" if near_tgt_tk else "calm")
-        + f'<div class="pi"><span class="pn">{heat:.0f}&deg;</span><span class="pl">surchauffe portefeuille</span><span class="pt">{lvl}</span></div>'
+        + f'<div class="pi {"warn" if heat >= 66 else "calm"}"><span class="pn">{heat:.0f}&deg;</span><span class="pl">surchauffe portefeuille</span><span class="pt">{lvl}</span></div>'
         + '</div></div>'
     )
 
@@ -1397,6 +1613,7 @@ def render() -> Path:
         cls = "pos" if p >= 0 else "neg"
         tape_items += f'<span class="ti"><b>{tk}</b> <span class="{cls}">{"+" if p >= 0 else ""}{p:.1f}%</span></span>'
     tape = f'<div class="tape"><div class="track2">{tape_items}{tape_items}</div></div>'
+    tape8k = _tape_8k()
 
     journal_html = _journal()
     journal_block = (
@@ -1405,20 +1622,19 @@ def render() -> Path:
     ) if journal_html else ""
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
-        f'<div class="sub">Performance pond&eacute;r&eacute;e par le capital investi</div></div>'
-        f'<div class="hero"><div><div class="hl">Performance pond&eacute;r&eacute;e vs prix d\'entr&eacute;e</div>'
-        f'<div class="big {pcls}">{"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%</div>'
-        f'<div class="hsub">{n_gain}/{n_pnl} lignes en gain &middot; {total:.0f}&euro; investis</div></div>'
-        f'<div class="distbar"><div class="hl">R&eacute;partition gain / perte (pond&eacute;r&eacute;e &euro;)</div>'
+        f'<div class="sub">Posture de discipline &middot; ce sur quoi agir aujourd&rsquo;hui</div></div>'
+        f'<div class="hrow">{disc_hero}'
+        f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'
+        f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
+        f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
-        f'<div class="hsub">{gpct:.0f}% du capital en gain</div></div></div>'
-        f'{plan_html}'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
-        f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
-        f'<div class="card pad">{day_dn}</div></div></div>'
+        f'<div class="sub2"><b>{n_gain}/{n_pnl}</b> en gain &middot; {gpct:.0f}% du capital &middot; {pf_cost_str}&euro; investi</div></div></div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Meilleures lignes</span><span class="a">depuis l&rsquo;entr&eacute;e</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Pires lignes</span><span class="a">depuis l&rsquo;entr&eacute;e</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
+        f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
+        f'<div class="card pad">{day_dn}</div></div></div>'
         f'<div class="colhead" style="margin-top:22px"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
         f'<div class="card pad">{erows}</div>'
         f'{journal_block}</section>'
@@ -1431,10 +1647,11 @@ def render() -> Path:
         + _pi(len(near_tgt_tk), near_tgt_tk, "proche d&rsquo;un palier", "warn" if near_tgt_tk else "calm")
         + '</div></div>'
     )
+    broker_html = _broker_tables(positions, names, pnl, sectors)
     positions_pg = (
         f'<section data-page="positions"><div class="phead"><h2>Positions</h2>'
         f'<div class="sub">Marge &agrave; la hausse vers la cible &middot; &agrave; la baisse vers le stop</div></div>'
-        f'{pos_plan}'
+        f'{pos_plan}{broker_html}'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Paliers</span><span class="a">vers la cible</span></div>'
         f'<div class="card">{pal}</div></div><div class="col"><div class="colhead"><span class="t">Risque</span><span class="a">marge avant le stop</span></div>'
         f'<div class="gauge"><div class="ghead"><span class="gl">Surchauffe du portefeuille</span><span class="gv">{hp}&deg;</span></div>'
@@ -1444,9 +1661,9 @@ def render() -> Path:
 
     body = (
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
-        f'{_NAV}<div class="foot"><span class="dot"></span>EN VEILLE &middot; maj {stamp}</div></aside>'
-        f'<div class="wrap">{_system_state(near, heat)}{tape}<main class="main">'
-        + vigie + positions_pg + _theses(names, sectors) + _concentration(positions, sectors, names) + _secteurs(positions, planned, sectors, pnl, names, daily)
+        f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}'
+        f'<div class="wrap">{tape}{tape8k}<main class="main">'
+        + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, sectors, names, pnl) + _secteurs(positions, planned, sectors, pnl, names, daily)
         + geo_sec + _signaux() + _urgence(watch, heat, near)
         + "</main></div>" + _LOUPE_HTML
     )
@@ -1456,10 +1673,11 @@ def render() -> Path:
         '<meta name="viewport" content="width=device-width, initial-scale=1"><script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>Heimdall</title>'
         '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">'
         '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-        '<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter+Tight:wght@400;500;600&family=Orbitron:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Runic&display=swap" rel="stylesheet">'
+        '<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Runic&display=swap" rel="stylesheet">'
+        '<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">'
         "<style>" + _CSS + "</style></head><body>"
         + body
-        + "<script>window.HQ=" + json.dumps(markers) + ";window.TK=" + json.dumps(loupe_data) + ";window.SB_DATA=" + json.dumps(sb_data) + ";</script>"
+        + "<script>window.HQ=" + json.dumps(markers) + ";window.TK=" + json.dumps(loupe_data) + ";window.SB_DATA=" + json.dumps(sb_data) + ";window.SECTOR_COLORS=" + json.dumps(SECTOR_COLORS) + ";</script>"
         + '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>'
         + "<script>" + _APP_JS + "</script></body></html>"
     )
