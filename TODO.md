@@ -128,3 +128,25 @@ Cadre = PHILOSOPHY ("enrichit la boucle ou feature isolée ?") + High Standard (
 
 ### 🥇 Pari semaine (PAS du code)
 Thèses sur les 28 positions + revue 4 c1, puis **usage quotidien jusqu'au 10 juin**. Le dashboard est prêt à le refléter ; c'est l'usage qui crée l'asset.
+
+<!-- SECURITY-OAUTH-ROTATION -->
+
+---
+
+## 🔒 SÉCURITÉ (DIFFÉRÉ 24/05/2026) — Rotation OAuth Google [HAUTE PRIORITÉ]
+
+**Différé volontairement** le 24/05 (risque accepté, pas risque absent). Exposition déjà réelle : `client_secret` (GOCSPX-…) + `refresh_token` (scope gmail.readonly) en clair dans `credentials.json` / `token.json`, présents dans les fichiers du Project Claude. Access token périmé (13/05) mais le refresh_token reste actif → rotation requise, l'expiration ne suffit pas.
+
+**Déclencheurs — à faire AVANT :**
+- tout push du repo vers un remote public ou partagé
+- toute exposition due-diligence / acquéreur (Path 5)
+- tout partage du Project Claude
+- toute suspicion de compromission
+
+**Runbook (ordre impératif, aucun secret ne transite par un chat) :**
+1. Cloud Console → apis/credentials?project=mes-bots-finance → client OAuth `711001773276-…` → Reset secret (ou delete + recreate "Desktop app") → télécharger nouveau credentials.json, remplacer le local.
+2. myaccount.google.com/permissions → app mes-bots-finance → Retirer l'accès (tue le refresh_token actuel).
+3. Local : `rm -f token.json` puis `python -c "from data_sources.gmail_ import get_service; get_service()"` → consentement navigateur → token.json propre.
+4. Project Claude → réglages fichiers → retirer credentials.json + token.json (restent locaux + gitignorés).
+
+Ordre : 1 avant 3 (sinon re-auth avec l'ancien client). Vérif : le print du re-auth affiche l'email du profil Gmail.
