@@ -247,7 +247,7 @@ def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
 def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
     data = sorted(((r.get("downside_pct", 0), r["ticker"]) for r in computed), key=lambda x: x[0])
     tensions = [max(0.0, min(1.0, (20 - d) / 20)) for d, _ in data]
-    heat = (sum(tensions) / len(tensions) * 100) if tensions else 0.0
+    heat = (max(tensions) * 100) if tensions else 0.0
     rows, near, near_rows = [], 0, []
     for i, (down, tk) in enumerate(data):
         buf = max(0.0, min(100.0, down / 30 * 100))
@@ -709,7 +709,7 @@ def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dic
     )
     gauge = (
         '<div class="gauge"><div class="ghead">'
-        '<span class="gl">Surchauffe portefeuille &middot; tension moyenne aux stops</span>'
+        '<span class="gl">Surchauffe portefeuille &middot; ligne la plus expos&eacute;e au stop</span>'
         + f'<span class="gv">{heat:.0f}<span style="font-size:12px;color:var(--steel);font-weight:500">/100 &middot; {hband}</span></span></div>'
         + f'<div class="gtrack"><div class="gmark" style="left:{max(0.0, min(100.0, heat)):.0f}%"></div></div>'
         '<div class="glab"><span>calme</span><span>tension</span><span>surchauffe</span></div></div>'
