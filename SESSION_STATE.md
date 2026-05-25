@@ -171,3 +171,10 @@ TG canonical rollout active. NO new features.
 - **Rider hygiène (~15min)**: storage.insert_prediction docstring menteuse + except silencieux (CONVENTIONS rule 6). OUTCOME_DELTA doc "2x" vs réel 1.67x. KPI_DASHBOARD.md cassé (colonne morte outcome_evaluated_at; règle coupe sur "signaux" pas résolues).
 - **Pruning sources — revue 3 mois = DÉBIT pas précision**: Stratechery $15 non-Tier-S = candidat coût-vs-matière. Précision-pruning = 6-9 mois (N≥~25 résolues/source).
 - Note: bande neutre ±5% → ~½ des résolutions ne bougent pas la crédibilité → feedback effectif ~½ nominal.
+
+### Day 15 — suite (25 mai, après-midi)
+- **ADR 007 shippé** : doc fa1b58e + impl 27cc018. Crédibilité = Brier-mono-autorité ; application incrémentale catégorielle retirée (delta toujours stocké pour audit).
+- **target_partial — cleanup visible fait** : 28 valeurs actives nullées (backup data/bot.db.backup_avant_null_target_partial_*). Disparaît de tous les affichages (lecteurs gardent sur None). price_monitor vérifié : règle rejetée MORTE (89/123/134 = formatter inatteignable, aucun trigger "partial" ne survit). ADR-006 correctness confirmée.
+  - À FROID (dead-code, sans effet visible, PAS urgent) : retirer branches mortes formatter price_monitor + debrancher lecteurs (asymmetry ×3 contrat, journal, pre_mortem [wart "$None"], risk_manager, affichage thesis, query dashboard) + FERMER le vecteur de réintro (EDITABLE_NUM misc.py + param thesis_crud). D'ici là : NE PAS set target_partial à la main.
+- **Shadow — spec VERROUILLÉ, build à froid** : main=cible-only / conservative=trim-tôt (biais #1) / aggressive=hold-past-cible (biais #2). Test empirique « discipline vs mes 2 biais ». Output time-gated. Patch compute_exit_variants à écrire.
+- Restart fait pour rendre estimate_probability + ADR-007 live avant les résolutions du 27 mai.
