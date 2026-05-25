@@ -34,3 +34,13 @@ def test_catalyst_ge_narrative(score, cred, imp):
 
 def test_floor_when_all_none():
     assert estimate_probability(None, None) == 0.50
+
+def test_dynamic_range_over_support():
+    # Efficacy, not form: a strong signal must be meaningfully more confident than a
+    # weak one across the empirical score support (~3..8). A near-constant estimator
+    # passes bounds/monotonic/order/floor but fails here -- this is the regression guard.
+    weak = estimate_probability(2, 0.5, "opinion", 0)
+    strong = estimate_probability(8, 0.5, "catalyst", 5)
+    assert strong - weak >= 0.15
+    # score alone must move the prior by >= 0.12 over the support, credibility held flat
+    assert estimate_probability(8, 0.5) - estimate_probability(3, 0.5) >= 0.12

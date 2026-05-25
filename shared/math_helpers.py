@@ -62,7 +62,7 @@ def estimate_probability(score, credibility, signal_type=None, impact_magnitude=
     - 0.50 floor when all inputs weak/None
     """
     p = 0.50
-    p += min(max((score if score is not None else 6) - 6, 0), 4) * 0.02
+    p += min(max((score if score is not None else 3) - 3, 0), 5) * 0.032
     if credibility is not None:
         p += (credibility - 0.5) * 0.4
     if signal_type == "catalyst":
