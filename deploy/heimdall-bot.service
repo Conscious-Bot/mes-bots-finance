@@ -1,0 +1,14 @@
+[Unit]
+Description=Heimdall finance bot (Telegram + Claude, boucle fermee)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/mes-bots-finance
+ExecStart=%h/mes-bots-finance/venv/bin/python -m bot.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
