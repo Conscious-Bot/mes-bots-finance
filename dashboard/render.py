@@ -620,7 +620,7 @@ def _macro_dot(ind: str, v: float) -> str:
     return "danger" if v <= danger else ("warn" if v <= warn else "calm")
 
 
-def _urgence(watch: str, heat: float, near: int) -> str:
+def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dict) -> str:
     debt_map = {
         "TYX": (1, "Taux US 30 ans (%)", 4, False),
         "Gold": (1, "Or ($/oz)", 0, True),
@@ -691,9 +691,17 @@ def _urgence(watch: str, heat: float, near: int) -> str:
     else:
         cause = (f"macro {clabel} &middot; {near} sous le stop") if state_lvl > 1 else "rien &agrave; signaler"
     hband = "calme" if heat < 33 else ("tension" if heat < 60 else "surchauffe")
+    _conc = []
+    for _c in _cluster_health(positions, pnl):
+        if _c["breached"]:
+            _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
+            _conc.append(f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;")
+    _dev_cls, _dev_lab = ("danger", "&Agrave; TRAITER") if _conc else ("calm", "AU CALME")
+    _dev_txt = " &nbsp;&middot;&nbsp; ".join(_conc) if _conc else "concentration sous tes plafonds"
     feu = (
         '<div class="plan"><div class="plan-h">&Eacute;tat actuel</div><div class="plan-row">'
-        + f'<div class="pi {fcls}"><span class="pn">{flabel}</span><span class="pl">posture globale</span><span class="pt">{cause}</span></div>'
+        + f'<div class="pi {_dev_cls}"><span class="pn">{_dev_lab}</span><span class="pl">&eacute;cart de discipline</span><span class="pt">{_dev_txt}</span></div>'
+        + f'<div class="pi {fcls}"><span class="pn">{flabel}</span><span class="pl">posture de d&eacute;fense</span><span class="pt">{cause}</span></div>'
         + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">position(s) &lt; 10% du stop</span><span class="pt">surchauffe {heat:.0f}/100 &middot; {hband}</span></div>'
         + f'<div class="pi {stress_cls}"><span class="pn">{score:.1f}</span><span class="pl">stress macro</span><span class="pt">phase {cphase} &middot; {clabel}</span></div>'
         + f'<div class="pi {size_cls}"><span class="pn">&times;{_sfac:.1f}</span><span class="pl">sizing recommand&eacute;</span><span class="pt">{size_txt}</span></div>'
@@ -1776,7 +1784,7 @@ def render() -> Path:
         f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
-        + _signaux() + _urgence(watch, heat, near)
+        + _signaux() + _urgence(watch, heat, near, positions, pnl)
         + "</main></div>" + _LOUPE_HTML
     )
 
