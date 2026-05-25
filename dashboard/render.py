@@ -1637,7 +1637,7 @@ def render() -> Path:
     sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans th&egrave;se", -sum(x["w"] for x in kv[1])))
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
-    pal, _hits, _top = _rows_paliers(computed)
+    pal, hits, _top = _rows_paliers(computed)
     ris, near, heat, watch = _rows_risque(computed)
     gain, lose = _movers(pnl)
     day_up, day_dn = _day_movers(daily)
@@ -1718,11 +1718,12 @@ def render() -> Path:
         + '</div></div>'
     )
     broker_html = _broker_tables(positions, names, pnl, sectors)
+    froth = f'<div class="th-anchor warn">{hits} position(s) au-del&agrave; de la cible &mdash; trim ou justifie de tenir</div>' if hits else ""
     positions_pg = (
         f'<section data-page="positions"><div class="phead"><h2>Positions</h2>'
         f'<div class="sub">Marge &agrave; la hausse vers la cible &middot; &agrave; la baisse vers le stop</div></div>'
         f'{pos_plan}{broker_html}'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Paliers</span><span class="a">vers la cible</span></div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Paliers</span><span class="a">vers la cible</span></div>{froth}'
         f'<div class="card">{pal}</div></div><div class="col"><div class="colhead"><span class="t">Risque</span><span class="a">marge avant le stop</span></div>'
         f'<div class="gauge"><div class="ghead"><span class="gl">Surchauffe du portefeuille</span><span class="gv">{hp}&deg;</span></div>'
         f'<div class="gtrack"><div class="gmark" style="left:{hp}%"></div></div><div class="glab"><span>calme</span><span>{lvl}</span><span>chaud</span></div></div>'
