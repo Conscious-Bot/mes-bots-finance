@@ -178,3 +178,25 @@ TG canonical rollout active. NO new features.
   - À FROID (dead-code, sans effet visible, PAS urgent) : retirer branches mortes formatter price_monitor + debrancher lecteurs (asymmetry ×3 contrat, journal, pre_mortem [wart "$None"], risk_manager, affichage thesis, query dashboard) + FERMER le vecteur de réintro (EDITABLE_NUM misc.py + param thesis_crud). D'ici là : NE PAS set target_partial à la main.
 - **Shadow — spec VERROUILLÉ, build à froid** : main=cible-only / conservative=trim-tôt (biais #1) / aggressive=hold-past-cible (biais #2). Test empirique « discipline vs mes 2 biais ». Output time-gated. Patch compute_exit_variants à écrire.
 - Restart fait pour rendre estimate_probability + ADR-007 live avant les résolutions du 27 mai.
+
+
+## Day 15 suite-2 — Concentration policy + frein (2026-05-25)
+
+**Commits** : a6e51c0 (plan canaris) · 975b30c (ADR 008) · b2d8d83 (ADR 008 amend mécanique frein).
+
+### Décidé & gravé
+- **ADR 008 — concentration** (`docs/adrs/008-concentration-policy.md`, Accepted) : 67% AI_compute = pari concentré **assumé** (pas dérive). Cap position = **entrée/cost-basis, pas MV** (anti biais #1 — un cap MV vend les gagnants). Plat **non-tiéré** jusqu'à validation Brier. Plafond narratif **30% → 75%** (config.yaml, max dur, garde-fou biais #2). Queue acceptée yeux ouverts : winter sévère ≈ -€13-14K / **-33% portfolio** (corrélation intra-cluster → 1). Invalidation niveau-portefeuille : capex hyperscalers ↓ 2T / roll HBM / air-pocket sovereign-AI.
+- **Mécanique frein (corrigée, vérifiée)** : gates drawdown portfolio (`reduce 0.08`, `stop 0.20`) = gardes **à l'entrée**, ne vendent rien, **inertes** (validate() non câblé). Aucun trigger de sortie auto. Sortie réelle = stops par thèse (alerte price_monitor) → manuel.
+
+### Conclusion frein (parké, post-observation, behavior-affecting)
+Le frein manquant n'est **pas** un trim-auto-sur-drawdown — ce serait mécaniser le biais #1 au niveau portfolio (vendre le bas de la volatilité cyclique semis, whipsaw). Drawdown = bruit ; rupture de thèse = signal. Bon frein en couches : (a) stops par nom [existe, alerte] + (b) **moniteur d'invalidation thèse AI_compute** keyé sur observables ADR 008 §7, sur ingestion existante [à construire]. = l'item brake réel.
+
+### À froid (rien d'urgent — contrainte liante = temps→résolutions du 27 mai)
+- Moniteur d'invalidation AI_compute (frein réel ci-dessus).
+- risk.validate() câblage : poids **cost-basis**, enforce 5% entrée + 75% narratif + drawdown gates. Plus bloqué par la policy (ADR 008 la fixe).
+- Triage des 6 over-cap : entry-oversized (trim) vs appreciation (garde+stop), via /positions + /tiers, apply manuel — à classer ensemble.
+- Canaris (`docs/plans/loop_health.md`) : Step 0 (C2) buildable maintenant, C1 dort jusqu'à N≥20, C4 ~été, C5 jamais. Chaque canari ship avec son test broken-trips.
+- Hygiène (inchangé) : target_partial dead-code removal + fermer vecteur ré-intro ; insert_prediction docstring + silent-except rule-6.
+
+### Discipline
+Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas laisser les plans devenir un prétexte à coder de l'observabilité au lieu d'attendre la data.
