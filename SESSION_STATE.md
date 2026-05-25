@@ -75,3 +75,36 @@ TG canonical rollout active. NO new features.
 - Concentration EXCESSIVE 80% AI Compute (> 30% cap, 6 lignes > 5%): decision politique en attente.
 - Logo: parke candidat A (heaume-onde), a integrer dans render.py .logo svg quand choisi.
 - Classifieur 8-K met tout Item 5.02 = HIGH (bruit signal->prediction): gele observation.
+
+---
+
+## 2026-05-25 — Dashboard hardening + migration VPS (Phase 0). Reprise ~28/05.
+
+### Shippe (dashboard/render.py, tout pousse, HEAD d5c9fcf)
+- Ancres anti-biais theses, fusion Concentration 3-axes, sizing->VIX, gap bidirectionnel (tenues only).
+- Purge ~95 LOC dead-code (leaflet/geo/runes).
+- Source de prix UNIQUE via _cached_price_eur (theses + pnl): le dashboard ne lit plus le cache mort theses.last_price; fetch frais throttle (TTL 840s).
+- Boucle close: render n'ecrit que si contenu change + poller Last-Modified (reload client sur vrai changement, etat nav preserve par le hash). serve.py deja autonome (regen 60s, hot-reload, fault-isole).
+
+### DB (non versionne)
+- target_partial backfill: 28 theses tenues (formule entry + 0.625*(full-entry)).
+- TSLA enregistree c4: entry 380.84 / stop 285.63 / cible 609.34 (+60%) / palier 523.65. Drivers = robotaxi/FSD + supply-chain (SpaceX/Grok/X exclus: pas des actifs TSLA). Backups data/bot.db.bak_*.
+
+### Findings
+- SK Hynix EUR1147 = CORRECT (000660.KS @ 1.94M KRW, near ATH, x10 supercycle HBM). PAS un bug. Plus grosse ligne c5 -> surveiller biais FOMO/ancrage.
+- 2 bugs monitoring (deferred): uptime.log fait confiance au heartbeat <1h (aveugle aux morts recentes); pgrep "python" minuscule rate le binaire "Python" majuscule -> faux DOWN + pkill inoperant.
+- price_monitor = job d'ALERTE (hour=14-22 mon-fri Paris), pas source de prix; ne couvre jamais l'Asie en seance.
+
+### MIGRATION VPS — Phase 0 FAITE, Phase 1 dans 3j
+- Repo deploy-ready, pousse. deploy/ versionne: env.example, heimdall-bot.service, heimdall-serve.service (systemd user, linger, Restart=always), PROVISION.md.
+- Exposition: SEUL l'OAuth Google (credentials.json+token.json) etait dans le Projet -> rotater au cutover. .env jamais partage. Secrets jamais committes (git clean).
+- REPRISE: provisionner Hetzner CAX11/CX22 Ubuntu 24.04 + PAT GitHub -> suivre deploy/PROVISION.md.
+  - GATE = etape 4 (test yfinance depuis la box). Attendu EUR: NVDA~185, 4063.T~39, 000660.KS~1147. Si 429/None -> proxy residentiel ou source alt AVANT de continuer.
+  - Cutover: tuer bot Mac (pkill -fi "Python -m bot.main") AVANT bot box (Conflict getUpdates). serve reste 127.0.0.1, dashboard via ssh -L 8000:localhost:8000.
+
+### Residus (post-migration)
+- 8 positions tenues sans alerte stop/cible (check_thesis_triggers ne les itere pas) — trou discipline ~1h.
+- Fixes monitoring (heartbeat-age, pgrep casse).
+- Dette schema: 2 colonnes cible (target_price vs target_full).
+- composite stress non cable au sizing (VIX seul).
+- VRAI goulot: VALUE_LOG quasi vide -> USAGE quotidien jusqu'au 10/06 (KPI#2 batch ~45 predictions).
