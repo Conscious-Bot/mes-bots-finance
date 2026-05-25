@@ -918,16 +918,30 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         f'<div class="kpi"><span class="kl">Proches du stop</span><span class="kv {ncls}">{n_near}</span><span class="kd">moins de 10% de marge</span></div></div>'
     )
 
-    gap = (
-        '<div class="plan th-gap"><div class="plan-h">Discipline bidirectionnelle &mdash; cibles partielles</div>'
-        '<div class="plan-row" style="grid-template-columns:minmax(150px,1fr) 2fr">'
-        f'<div class="pi warn"><span class="pn">{n_missing}/{n}</span><span class="pl">sans cible partielle</span>'
-        '<span class="pt">prise de profit non pr&eacute;-engag&eacute;e</span></div>'
-        '<div class="pi"><span class="pl">Pourquoi &ccedil;a compte</span>'
-        '<span class="pt" style="font-size:12.5px;color:var(--ink);margin-top:4px;line-height:1.5">'
-        'Sans palier de prise partielle d&eacute;cid&eacute; &agrave; froid, la sortie se joue &agrave; chaud &mdash; '
-        'le m&eacute;canisme exact du biais &laquo;&nbsp;vendre ses winners trop t&ocirc;t&nbsp;&raquo;.</span></div></div></div>'
-    )
+    _held = [t for t in ths if t["dir"] != "watch"]
+    n_held = len(_held) or 1
+    n_missing = sum(1 for t in _held if not t["tpart"])
+    if n_missing:
+        gap = (
+            '<div class="plan th-gap"><div class="plan-h">Discipline bidirectionnelle &mdash; cibles partielles</div>'
+            '<div class="plan-row" style="grid-template-columns:minmax(150px,1fr) 2fr">'
+            f'<div class="pi warn"><span class="pn">{n_missing}/{n_held}</span><span class="pl">positions tenues sans cible partielle</span>'
+            '<span class="pt">prise de profit non pr&eacute;-engag&eacute;e</span></div>'
+            '<div class="pi"><span class="pl">Pourquoi &ccedil;a compte</span>'
+            '<span class="pt" style="font-size:12.5px;color:var(--ink);margin-top:4px;line-height:1.5">'
+            'Sans palier de prise partielle d&eacute;cid&eacute; &agrave; froid, la sortie se joue &agrave; chaud &mdash; '
+            'le m&eacute;canisme exact du biais &laquo;&nbsp;vendre ses winners trop t&ocirc;t&nbsp;&raquo;.</span></div></div></div>'
+        )
+    else:
+        gap = (
+            '<div class="plan th-gap"><div class="plan-h">Discipline bidirectionnelle &mdash; cibles partielles</div>'
+            '<div class="plan-row" style="grid-template-columns:minmax(150px,1fr) 2fr">'
+            f'<div class="pi calm"><span class="pn">{n_held}/{n_held}</span><span class="pl">positions tenues avec palier</span>'
+            '<span class="pt">prise de profit pr&eacute;-engag&eacute;e &agrave; froid</span></div>'
+            '<div class="pi"><span class="pl">&Eacute;tat</span>'
+            '<span class="pt" style="font-size:12.5px;color:var(--ink);margin-top:4px;line-height:1.5">'
+            'Chaque position tenue a un palier partiel d&eacute;fini &mdash; le biais &laquo;&nbsp;vendre trop t&ocirc;t&nbsp;&raquo; est m&eacute;canis&eacute;, plus laiss&eacute; au feeling.</span></div></div></div>'
+        )
 
     vtot = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions) or 1
     vmap = {p["ticker"]: p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) / vtot * 100 for p in positions}
