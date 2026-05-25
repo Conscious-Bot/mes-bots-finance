@@ -2,10 +2,12 @@
 
 Registration: signaux score>=6 + sentiment clair + tickers -> 1 prediction par ticker.
 Resolution: apres target_date, fetch current_price, compare a baseline.
-- bullish + ticker >=+5% : correct (cred +0.03)
-- bullish + ticker <=-5% : incorrect (cred -0.05)
-- sinon : neutral (cred +0)
-Asymetrique: down feedback (outcome incorrect) pese 2x plus que correct.
+- bullish + ticker >=+5% : correct
+- bullish + ticker <=-5% : incorrect
+- sinon : neutral
+credibility_delta (OUTCOME_DELTA) est calcule + stocke sur la ligne pour audit,
+mais PLUS applique a sources.credibility (ADR 007: credibilite = autorite unique
+Brier via recal mensuel). Voir docs/adrs/007.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -148,9 +150,9 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
                 outcome = "neutral"
         delta = OUTCOME_DELTA[outcome]
         sig = storage.get_signal(pred["signal_id"]) if pred.get("signal_id") else None
+        # ADR 007: credibilite = autorite unique Brier (recal mensuel). On n'applique
+        # plus le delta categoriel incremental; delta reste calcule + stocke (audit).
         new_cred = None
-        if sig and delta != 0:
-            new_cred = storage.update_source_credibility(sig["source_id"], delta)
         prob = pred.get("probability_at_creation")
         brier_score = math_helpers.brier_for(prob, outcome)
         storage.resolve_prediction_row(
