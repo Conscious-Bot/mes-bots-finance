@@ -327,6 +327,23 @@ def _concentration(positions: list[dict], planned: list[dict], sectors: dict, na
     line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du plafond' if top_pct >= POS_CAP else 'sous le plafond'} {POS_CAP:.0f}%"
     sec_msg = f"{dom_sec} &middot; {'&#9888; all&eacute;ger' if aic >= CLUSTER_CAP else 'sous le plafond'} {CLUSTER_CAP:.0f}%"
     cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
+    # --- Cluster correle (gouverneur de concentration, policy 25/05) ---
+    _conc = yaml.safe_load(Path("config.yaml").read_text()).get("concentration", {})
+    _ccap = float(_conc.get("cluster_max_pct", 0)) * 100
+    _crows = []
+    for _cn, _mem in (_conc.get("clusters") or {}).items():
+        _ms = set(_mem)
+        _cv = sum(_v(p) for p in positions if p["ticker"] in _ms)
+        _cp = _cv / total * 100
+        _over = _cv - _ccap / 100 * total
+        _ccls = "danger" if _cp >= _ccap else "calm"
+        _otxt = (f"d&eacute;passement +{_over:,.0f}&#8239;&euro; &rarr; trimmer" if _over > 0 else "sous le plafond").replace(",", "&#8239;")
+        _crows.append(
+            f'<div class="pi {_ccls}"><span class="pn">{_cp:.0f}%</span>'
+            f'<span class="pl">{_cn} &middot; plafond {_ccap:.0f}%</span>'
+            f'<span class="pt">{_otxt}</span></div>'
+        )
+    cluster_card = ('<div class="plan"><div class="plan-h">Cluster corr&eacute;l&eacute; (gouverneur)</div><div class="plan-row">' + "".join(_crows) + "</div></div>") if _crows else ""
     verdict_card = (
         '<div class="plan"><div class="plan-h">Verdict concentration</div>'
         '<div class="plan-row" style="grid-template-columns:minmax(160px,1fr) 2fr">'
@@ -339,6 +356,7 @@ def _concentration(positions: list[dict], planned: list[dict], sectors: dict, na
         f'<section data-page="concentration"><div class="phead"><h2>Concentration</h2>'
         f'<div class="sub">Trois axes de concentration &mdash; par ligne, par secteur, par g&eacute;ographie</div></div>'
         f'{verdict_card}'
+        f'{cluster_card}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
         f'<div class="kpi"><span class="kl">Plus grosse ligne</span><span class="kv {top_cls}">{top_pct:.0f}%</span><span class="kd">{line_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Secteur dominant</span><span class="kv {sec_cls}">{aic:.0f}%</span><span class="kd">{sec_msg}</span></div>'
