@@ -150,3 +150,11 @@ Thèses sur les 28 positions + revue 4 c1, puis **usage quotidien jusqu'au 10 ju
 4. Project Claude → réglages fichiers → retirer credentials.json + token.json (restent locaux + gitignorés).
 
 Ordre : 1 avant 3 (sinon re-auth avec l'ancien client). Vérif : le print du re-auth affiche l'email du profil Gmail.
+
+## Findings session 25/05/2026 (post ADR-006)
+
+### Feature candidate — page Géo
+Vue concentration géographique (US / EU / Asie). render_smoke l'anticipait (nav `geo` + `window.HQ=` données pays/siège), jamais bâtie. Valeur réelle vu le spread Asie (000660.KS, 6857.T, 4063.T) + EU (.PA/.AS) + US. = nav + window.HQ + bucketing pays.
+
+### risk/ wiring (post-10/06) — cap tiéré
+`risk/sizing.position_size()` n'applique que le cap PLAT (`style.position_max_pct` = 0.08, plafond c5), aveugle à `line_cap_by_conviction`. Au câblage de `risk.validate()`, enforcer le cap par conviction LÀ (validate connaît la conviction, sizing non) — sinon une ligne c2 peut être sizée à 8 %.
