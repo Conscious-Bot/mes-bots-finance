@@ -939,30 +939,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         f'<div class="kpi"><span class="kl">Proches du stop</span><span class="kv {ncls}">{n_near}</span><span class="kd">moins de 10% de marge</span></div></div>'
     )
 
-    _held = [t for t in ths if t["dir"] != "watch"]
-    n_held = len(_held) or 1
-    n_missing = sum(1 for t in _held if not t["tpart"])
-    if n_missing:
-        gap = (
-            '<div class="plan th-gap"><div class="plan-h">Discipline bidirectionnelle &mdash; cibles partielles</div>'
-            '<div class="plan-row" style="grid-template-columns:minmax(150px,1fr) 2fr">'
-            f'<div class="pi warn"><span class="pn">{n_missing}/{n_held}</span><span class="pl">positions tenues sans cible partielle</span>'
-            '<span class="pt">prise de profit non pr&eacute;-engag&eacute;e</span></div>'
-            '<div class="pi"><span class="pl">Pourquoi &ccedil;a compte</span>'
-            '<span class="pt" style="font-size:12.5px;color:var(--ink);margin-top:4px;line-height:1.5">'
-            'Sans palier de prise partielle d&eacute;cid&eacute; &agrave; froid, la sortie se joue &agrave; chaud &mdash; '
-            'le m&eacute;canisme exact du biais &laquo;&nbsp;vendre ses winners trop t&ocirc;t&nbsp;&raquo;.</span></div></div></div>'
-        )
-    else:
-        gap = (
-            '<div class="plan th-gap"><div class="plan-h">Discipline bidirectionnelle &mdash; cibles partielles</div>'
-            '<div class="plan-row" style="grid-template-columns:minmax(150px,1fr) 2fr">'
-            f'<div class="pi calm"><span class="pn">{n_held}/{n_held}</span><span class="pl">positions tenues avec palier</span>'
-            '<span class="pt">prise de profit pr&eacute;-engag&eacute;e &agrave; froid</span></div>'
-            '<div class="pi"><span class="pl">&Eacute;tat</span>'
-            '<span class="pt" style="font-size:12.5px;color:var(--ink);margin-top:4px;line-height:1.5">'
-            'Chaque position tenue a un palier partiel d&eacute;fini &mdash; le biais &laquo;&nbsp;vendre trop t&ocirc;t&nbsp;&raquo; est m&eacute;canis&eacute;, plus laiss&eacute; au feeling.</span></div></div></div>'
-        )
+    gap = ""
 
     vtot = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions) or 1
     vmap = {p["ticker"]: p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) / vtot * 100 for p in positions}
@@ -998,16 +975,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 bar = '<div class="th-na">donn&eacute;es de prix incompl&egrave;tes</div>'
             anchor = ""
             if t["has_bar"] and t["pnl_e"] is not None:
-                _near = (t["d_tgt"] is not None and t["d_tgt"] <= 12) or (t["frac"] is not None and t["frac"] >= 75)
                 _crypto = t["tk"] in crypto_tk
-                if _near and t["pnl_e"] >= 0:
-                    _acls = "warn"
-                    if t["tpart"] is not None:
-                        _amsg = "Cible bient&ocirc;t atteinte. Ex&eacute;cute ta prise partielle pr&eacute;-engag&eacute;e" + (" &mdash; ne laisse pas le FOMO d&eacute;passer." if _crypto else ", ne tiens pas par gourmandise.")
-                    else:
-                        _amsg = "Cible bient&ocirc;t atteinte, aucun palier fix&eacute;. D&eacute;cide ta prise partielle &agrave; froid maintenant" + (" &mdash; le greed ne doit pas trancher." if _crypto else ".")
-                    anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
-                elif t["pnl_e"] >= 12 and not _crypto:
+                if t["pnl_e"] >= 12 and not _crypto:
                     _acls = "acc"
                     _amsg = "Winner en profit, upside restant. Ton biais te pousse &agrave; s&eacute;curiser trop t&ocirc;t (PLTR@9, NVDA@130) &mdash; laisse courir vers ta cible."
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
