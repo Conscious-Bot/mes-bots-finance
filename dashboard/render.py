@@ -290,6 +290,11 @@ def _day_movers(daily: dict) -> tuple[str, str]:
     return _mover_blk(ups), _mover_blk(dns)
 
 
+def _compute_ai_set() -> set[str]:
+    """Membres du cluster correle = supergroupe 'Compute AI' (source unique = concentration.clusters)."""
+    return set(_cfg().get("concentration", {}).get("clusters", {}).get("compute_ai", []))
+
+
 def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:
     """Source unique des breaches de cluster correle (gouverneur de concentration).
     Consomme par la page Concentration (detail) ET le bandeau d'ecart (resume, haut de page).
@@ -305,7 +310,7 @@ def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:
         ms = set(mem)
         cv = sum(_v(p) for p in positions if p["ticker"] in ms)
         cp = cv / total * 100
-        out.append({"name": cn, "pct": cp, "cap": ccap, "over_eur": cv - ccap / 100 * total, "breached": cp >= ccap})
+        out.append({"name": _clean_sector(cn), "pct": cp, "cap": ccap, "over_eur": cv - ccap / 100 * total, "breached": cp >= ccap})
     return out
 
 
@@ -382,55 +387,91 @@ def _concentration(positions: list[dict], planned: list[dict], sectors: dict, na
     )
 
 
+def _render_bucket(name: str, rows: list, total: float, pnl: dict, names: dict, daily: dict, fx: float, sub: bool = False) -> tuple[str, float]:
+    rows = sorted(rows, key=lambda r: -r["w"])
+    sw = sum(r["w"] for r in rows)
+    spct = sw / total * 100
+    wbase = sum(r["w"] for r in rows if not r["prev"] and pnl.get(r["tk"]) is not None)
+    wpl = sum(r["w"] * pnl[r["tk"]] for r in rows if not r["prev"] and pnl.get(r["tk"]) is not None)
+    spl = (wpl / wbase) if wbase else None
+    plmeta = ""
+    if spl is not None:
+        plmeta = f' &middot; <span class="sec-pl {"pos" if spl >= 0 else "neg"}">{"+" if spl >= 0 else ""}{spl:.1f}%</span>'
+    lines = ""
+    for r in rows:
+        tk = r["tk"]
+        w = r["w"]
+        usd = w / fx
+        pct = w / total * 100
+        badge = '<span class="bdg">pr&eacute;vu</span>' if r["prev"] else ""
+        nm = names.get(tk, "")
+        nmspan = f'<span class="sec-nm">{nm}</span>' if nm else ""
+        pl = None if r["prev"] else pnl.get(tk)
+        dv = None if r["prev"] else daily.get(tk)
+        plc = '<span class="num">&mdash;</span>' if pl is None else f'<span class="num {"pos" if pl >= 0 else "neg"}">{"+" if pl >= 0 else ""}{pl:.1f}%</span>'
+        dvc = '<span class="num">&mdash;</span>' if dv is None else f'<span class="num {"pos" if dv >= 0 else "neg"}">{"+" if dv >= 0 else ""}{dv:.1f}%</span>'
+        lines += (
+            f'<div class="sec-row" data-tk="{tk}">'
+            f'<span class="sec-tk">{tk}{badge}{nmspan}</span>'
+            f'<span class="num">{w:.0f}&euro;</span><span class="num">${usd:.0f}</span>'
+            f'<span class="num">{pct:.1f}%</span>{dvc}{plc}</div>'
+        )
+    cls = "sec-grp sub" if sub else "sec-grp"
+    return (
+        f'<div class="{cls}"><div class="sec-h"><span class="sec-name">{name}</span>'
+        f'<span class="sec-meta">{len(rows)} &middot; {sw:.0f}&euro; &middot; {spct:.1f}%{plmeta}</span></div>'
+        f'<div class="sec-rows">{lines}</div></div>'
+    ), sw
+
+
 def _sector_blocks(positions: list[dict], planned: list[dict], sectors: dict, pnl: dict, names: dict, daily: dict) -> str:
     real_t = sum(p["weight"] for p in positions)
     plan_t = sum(p["weight"] for p in planned)
     total = (real_t + plan_t) or 1
     fx = FX_USD
-    buckets: dict = {}
+    _cl = _compute_ai_set()
+    fine: dict = {}
     for p in positions:
-        buckets.setdefault(sectors.get(p["ticker"], "Autre"), []).append({"tk": p["ticker"], "w": p["weight"], "prev": False})
+        fine.setdefault(sectors.get(p["ticker"], "Autre"), []).append({"tk": p["ticker"], "w": p["weight"], "prev": False})
     for p in planned:
-        buckets.setdefault(p.get("sector") or "Autre", []).append({"tk": p["ticker"], "w": p["weight"], "prev": True})
-    order = sorted(buckets, key=lambda sx: -sum(r["w"] for r in buckets[sx]))
+        fine.setdefault(p.get("sector") or "Autre", []).append({"tk": p["ticker"], "w": p["weight"], "prev": True})
+    # Compute AI (L1) = membres DETENUS du cluster, niches sous leur bucket fin (L2). Reste top-level.
+    compute_sub: dict = {}
+    standalone: dict = {}
+    for fb, rws in fine.items():
+        mem = [r for r in rws if r["tk"] in _cl]
+        rest = [r for r in rws if r["tk"] not in _cl]
+        if mem:
+            compute_sub[fb] = mem
+        if rest:
+            standalone[fb] = rest
     blocks = ""
-    for sec in order:
-        rows = sorted(buckets[sec], key=lambda r: -r["w"])
-        sw = sum(r["w"] for r in rows)
-        spct = sw / total * 100
-        wbase = sum(r["w"] for r in rows if not r["prev"] and pnl.get(r["tk"]) is not None)
-        wpl = sum(r["w"] * pnl[r["tk"]] for r in rows if not r["prev"] and pnl.get(r["tk"]) is not None)
-        spl = (wpl / wbase) if wbase else None
-        plmeta = ""
-        if spl is not None:
-            plmeta = f' &middot; <span class="sec-pl {"pos" if spl >= 0 else "neg"}">{"+" if spl >= 0 else ""}{spl:.1f}%</span>'
-        lines = ""
-        for r in rows:
-            tk = r["tk"]
-            w = r["w"]
-            usd = w / fx
-            pct = w / total * 100
-            badge = '<span class="bdg">pr&eacute;vu</span>' if r["prev"] else ""
-            nm = names.get(tk, "")
-            nmspan = f'<span class="sec-nm">{nm}</span>' if nm else ""
-            pl = None if r["prev"] else pnl.get(tk)
-            dv = None if r["prev"] else daily.get(tk)
-            plc = '<span class="num">&mdash;</span>' if pl is None else f'<span class="num {"pos" if pl >= 0 else "neg"}">{"+" if pl >= 0 else ""}{pl:.1f}%</span>'
-            dvc = '<span class="num">&mdash;</span>' if dv is None else f'<span class="num {"pos" if dv >= 0 else "neg"}">{"+" if dv >= 0 else ""}{dv:.1f}%</span>'
-            lines += (
-                f'<div class="sec-row" data-tk="{tk}">'
-                f'<span class="sec-tk">{tk}{badge}{nmspan}</span>'
-                f'<span class="num">{w:.0f}&euro;</span><span class="num">${usd:.0f}</span>'
-                f'<span class="num">{pct:.1f}%</span>{dvc}{plc}</div>'
-            )
+    if compute_sub:
+        sub_order = sorted(compute_sub, key=lambda fb: -sum(r["w"] for r in compute_sub[fb]))
+        subhtml = ""
+        c_rows: list = []
+        for fb in sub_order:
+            h, _sw = _render_bucket(fb, compute_sub[fb], total, pnl, names, daily, fx, sub=True)
+            subhtml += h
+            c_rows += compute_sub[fb]
+        c_sw = sum(r["w"] for r in c_rows)
+        c_pct = c_sw / total * 100
+        c_wb = sum(r["w"] for r in c_rows if not r["prev"] and pnl.get(r["tk"]) is not None)
+        c_wp = sum(r["w"] * pnl[r["tk"]] for r in c_rows if not r["prev"] and pnl.get(r["tk"]) is not None)
+        c_spl = (c_wp / c_wb) if c_wb else None
+        c_pm = "" if c_spl is None else f' &middot; <span class="sec-pl {"pos" if c_spl >= 0 else "neg"}">{"+" if c_spl >= 0 else ""}{c_spl:.1f}%</span>'
         blocks += (
-            f'<div class="sec-grp"><div class="sec-h"><span class="sec-name">{sec}</span>'
-            f'<span class="sec-meta">{len(rows)} &middot; {sw:.0f}&euro; &middot; {spct:.1f}%{plmeta}</span></div>'
-            f'<div class="sec-rows">{lines}</div></div>'
+            f'<div class="sec-super"><div class="sec-superh"><span class="sec-supername">Compute AI</span>'
+            f'<span class="sec-meta">{len(c_rows)} &middot; {c_sw:.0f}&euro; &middot; {c_pct:.1f}%{c_pm}</span></div>'
+            f'<div class="sec-subwrap">{subhtml}</div></div>'
         )
+    order = sorted(standalone, key=lambda fb: -sum(r["w"] for r in standalone[fb]))
+    for fb in order:
+        h, _sw = _render_bucket(fb, standalone[fb], total, pnl, names, daily, fx)
+        blocks += h
     sub = (
         f'D&eacute;tenu {real_t:.0f}&euro; &middot; pr&eacute;vu {plan_t:.0f}&euro; &middot; '
-        f'total {total:.0f}&euro; (${total / fx:.0f}) &middot; {len(order)} secteurs'
+        f'total {total:.0f}&euro; (${total / fx:.0f}) &middot; {len(order) + (1 if compute_sub else 0)} groupes'
     )
     return (
         f'<div class="sub" style="margin-bottom:10px">{sub}</div>'
@@ -1017,6 +1058,12 @@ _CSS = """
   .dband .dn { font-family:var(--fm); font-size:12px; color:var(--ink); font-weight:600; flex:none; }
   .dband .dc { font-size:18px; line-height:1; color:var(--steel); flex:none; transition:transform .15s,color .15s; }
   .dband:hover .dc { color:var(--ink); transform:translateX(3px); }
+  .sec-super { border:1px solid var(--line2); border-radius:14px; padding:4px 8px 8px; margin-bottom:16px; background:color-mix(in srgb,var(--ink) 2%,transparent); }
+  .sec-superh { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:13px 12px 10px; flex-wrap:wrap; }
+  .sec-supername { font-family:var(--fd); font-weight:800; font-size:20px; letter-spacing:-.02em; color:var(--ink); }
+  .sec-subwrap { display:flex; flex-direction:column; gap:4px; }
+  .sec-super .sec-grp.sub { margin:0; border-left:2px solid var(--line); border-radius:0 10px 10px 0; }
+  .sec-super .sec-grp.sub .sec-name { font-family:var(--fd); font-weight:600; font-size:13.5px; color:var(--steel); letter-spacing:0; }
   body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:radial-gradient(1100px 680px at 82% -10%,rgba(61,139,255,.05),transparent 60%),radial-gradient(820px 560px at 6% 112%,rgba(61,139,255,.028),transparent 56%),var(--bg); background-attachment:fixed; -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
   body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.85; transition:background .3s ease-out;
     background:radial-gradient(46% 40% at var(--mx,78%) var(--my,8%),rgba(61,139,255,.13),transparent 58%); }

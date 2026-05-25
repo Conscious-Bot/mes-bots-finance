@@ -391,7 +391,7 @@ concentration:
     # semis_ai = correles sur le capex AI / cycle semi (foundry, litho, EDA, memoire,
     # equipement, materiaux, connectivite). Hyperscalers (AMZN/GOOGL) et power-for-AI
     # (VRT/CCJ/CEG/VST/GEV) sont AI-adjacents, suivis hors cap (drivers distincts).
-    semis_ai:
+    compute_ai:
       - NVDA
       - AVGO
       - TSM
@@ -420,6 +420,11 @@ concentration:
       - 000660.KS
       - CRWV
       - NBIS
+      - 8035.T
+      - ASM.AS
+      - ACMR
+      - 6890.T
+      - 1347.HK
 
 models:
   signal_scoring: claude-haiku-4-5-20251001
