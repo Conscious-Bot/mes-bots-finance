@@ -311,10 +311,9 @@ async def _journal_log_impl(update, ticker: str, dtype: str, confidence: int, re
     from datetime import date, timedelta
     price = None
     try:
-        import yfinance as yf
+        from shared.prices import get_current_price
 
-        info = yf.Ticker(ticker).info or {}
-        price = info.get("regularMarketPrice") or info.get("currentPrice")
+        price = get_current_price(ticker)
     except Exception:
         pass
 
