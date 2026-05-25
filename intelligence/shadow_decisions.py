@@ -16,12 +16,11 @@ from shared import storage
 
 def compute_exit_variants(thesis, current_price):
     entry = thesis.get("entry_price") or 0
-    target_partial = thesis.get("target_partial") or float("inf")
     target_full = thesis.get("target_full") or float("inf")
     gain_pct = (current_price - entry) / entry if entry > 0 else 0
 
-    if current_price >= target_partial:
-        main = {"decision": "allow", "rationale": f"target_partial atteint ({current_price} >= {target_partial})"}
+    if current_price >= target_full:
+        main = {"decision": "allow", "rationale": f"cible atteinte ({current_price} >= {target_full})"}
     elif gain_pct < 0.10:
         main = {"decision": "reject", "rationale": f"gain {gain_pct:.0%} < 10% min"}
     else:

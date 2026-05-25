@@ -112,21 +112,6 @@ def test_decisions_return_90d_consistent_with_prices(conn):
     assert not violations, f"return_90d_pct inconsistent: {violations}"
 
 
-def test_theses_long_targets_ordered(conn):
-    """For active long theses with both targets set: partial < full.
-
-    If direction='long', target_partial is intermediate take-profit < final target.
-    If partial >= full, it's a data entry error or directional confusion.
-    """
-    rows = conn.execute(
-        "SELECT id, ticker, target_partial, target_full FROM theses "
-        "WHERE status='active' AND direction='long' "
-        "AND target_partial IS NOT NULL AND target_full IS NOT NULL "
-        "AND target_partial >= target_full"
-    ).fetchall()
-    assert not rows, f"Long thesis partial >= full: {[dict(r) for r in rows]}"
-
-
 def test_position_events_timestamp_monotone_per_position(conn):
     """Within each position_id series, timestamps must be non-decreasing.
 

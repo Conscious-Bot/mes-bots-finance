@@ -160,11 +160,8 @@ def check_exit_request(ticker, current_price=None):
         }
 
     triggers_met = []
-    if current_price is not None:
-        if thesis.get("target_partial") and current_price >= thesis["target_partial"]:
-            triggers_met.append(f"target partiel atteint (${thesis['target_partial']})")
-        if thesis.get("target_full") and current_price >= thesis["target_full"]:
-            triggers_met.append(f"target plein atteint (${thesis['target_full']})")
+    if current_price is not None and thesis.get("target_full") and current_price >= thesis["target_full"]:
+        triggers_met.append(f"target plein atteint (${thesis['target_full']})")
 
     if triggers_met:
         return {
