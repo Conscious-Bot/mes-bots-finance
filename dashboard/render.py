@@ -1679,9 +1679,16 @@ def render() -> Path:
         + body
         + "<script>window.TK=" + json.dumps(loupe_data) + ";window.SB_DATA=" + json.dumps(sb_data) + ";</script>"
         + ''
-        + "<script>" + _APP_JS + "</script></body></html>"
+        + "<script>" + _APP_JS + "</script>"
+        + "<script>(function(){var b=null;function c(){fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,60000);})();</script>"
+        + "</body></html>"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if OUTPUT.exists() and OUTPUT.read_text() == html:
+            return OUTPUT
+    except OSError:
+        pass
     OUTPUT.write_text(html)
     return OUTPUT
 
