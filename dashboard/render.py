@@ -35,22 +35,6 @@ REVIEWS = [
 OUTPUT = Path("dashboard/dashboard.html")
 DB = "file:data/bot.db?mode=ro"
 
-HQ = {
-    "NVDA": (37.37, -121.96), "AVGO": (37.33, -121.93), "TSM": (24.77, 121.00), "MU": (43.61, -116.20),
-    "ASML": (51.41, 5.45), "ASML.AS": (51.41, 5.45), "AMD": (37.40, -121.95), "ARM": (52.20, 0.10),
-    "000660.KS": (37.45, 127.13), "MRVL": (37.39, -121.96), "KLAC": (37.42, -121.91), "LRCX": (37.55, -121.99),
-    "AMAT": (37.37, -121.97), "QCOM": (32.90, -117.20), "NXPI": (51.41, 5.45), "TXN": (32.75, -96.75),
-    "COHR": (40.75, -79.80), "BESI.AS": (51.95, 6.02), "STMPA.PA": (46.20, 6.14), "STM": (46.20, 6.14),
-    "HO.PA": (48.87, 2.30), "SAF.PA": (48.87, 2.30), "SU.PA": (48.87, 2.30), "TSLA": (30.22, -97.62),
-    "GOOGL": (37.42, -122.08), "META": (37.48, -122.15), "MSFT": (47.64, -122.13), "AAPL": (37.33, -122.03),
-    "AMZN": (47.62, -122.34), "VRT": (40.13, -82.93), "CRWV": (40.79, -74.31), "CEG": (39.29, -76.61),
-    "VST": (32.81, -96.94), "GEV": (42.36, -71.06), "BWXT": (37.27, -79.94), "LLY": (39.77, -86.16),
-    "NVO": (55.73, 12.49), "BABA": (30.28, 120.15), "OKLO": (37.77, -122.42), "CCJ": (52.13, -106.66),
-    "6920.T": (35.68, 139.76), "4063.T": (35.68, 139.76), "7011.T": (35.68, 139.76), "IFNNY": (48.21, 11.62),
-    "TSEM": (32.79, 35.20), "MP": (35.54, -115.53), "BE": (37.45, -121.95), "ALAB": (37.41, -121.93),
-    "EQIX": (37.49, -122.23), "DLR": (37.78, -122.39), "TER": (42.62, -71.37), "SNPS": (37.40, -121.96),
-}
-
 COUNTRY = {
     "TSM": "Ta&iuml;wan", "TSEM": "Isra&euml;l", "ASML": "Pays-Bas", "NVO": "Danemark", "ARM": "Royaume-Uni",
     "IFNNY": "Allemagne", "BABA": "Chine", "TCEHY": "Chine", "PDD": "Chine", "STM": "France",
@@ -441,47 +425,6 @@ def _geo_bars(positions: list[dict]) -> str:
             f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
         )
     return bars
-
-
-def _geo(positions: list[dict], sectors: dict, pnl: dict) -> tuple[str, list]:
-    total = sum(p["weight"] for p in positions) or 1
-    cw: dict[str, float] = {}
-    for p in positions:
-        c = _country(p["ticker"])
-        cw[c] = cw.get(c, 0.0) + p["weight"]
-    ranked = sorted(cw.items(), key=lambda x: -x[1])
-    bars = ""
-    for country, w in ranked:
-        pct = w / total * 100
-        bars += (
-            f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
-            f'<span class="tag acc2">{pct:.0f}%</span></div>'
-            f'<div class="track"><div class="fill acc2" style="--w:{max(2.0, min(100.0, pct)):.0f}%"></div></div>'
-            f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
-        )
-    vtotal = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions) or 1
-    markers, mapped = [], 0
-    for p in positions:
-        tk = p["ticker"]
-        if tk in HQ:
-            lat, lng = HQ[tk]
-            val = p["weight"] * (1 + pnl.get(tk, 0) / 100.0)
-            markers.append({"t": tk, "lat": lat, "lng": lng, "pnl": round(pnl.get(tk, 0), 1),
-                            "sec": sectors.get(tk, "&mdash;"), "w": round(val / vtotal * 100, 1)})
-            mapped += 1
-    sec = (
-        f'<section data-page="geo"><div class="phead"><h2>G&eacute;ographie</h2>'
-        f'<div class="sub">Exposition par pays &mdash; o&ugrave; se concentre le risque g&eacute;opolitique</div></div>'
-        f'<div class="cols" style="grid-template-columns:300px 1fr"><div class="col"><div class="colhead"><span class="t">Exposition par pays</span></div>'
-        f'<div class="card">{bars}</div></div>'
-        f'<div class="col"><div class="colhead"><span class="t">Si&egrave;ges sociaux</span><span class="a">{mapped}/{len(positions)} situ&eacute;s</span></div>'
-        f'<style>#hqmap{{background:#dfe4ea}}.mk-hq{{filter:drop-shadow(0 1px 1.5px rgba(20,30,50,.35))}}.mk-hqtop{{animation:hqpulse 2.4s ease-in-out infinite}}@keyframes hqpulse{{0%,100%{{opacity:1}}50%{{opacity:.55}}}}.hq-ov{{position:absolute;z-index:500;background:rgba(255,255,255,.86);backdrop-filter:blur(8px);border:1px solid rgba(20,30,50,.1);border-radius:12px;color:#1a2230;font-size:12px;line-height:1.7}}.hq-sw button{{background:rgba(20,30,50,.04);border:1px solid rgba(20,30,50,.14);color:#33404f;font-size:12px;padding:4px 10px;border-radius:8px;cursor:pointer;margin:0 2px}}.hq-sw button.on{{background:rgba(28,126,214,.14);border-color:rgba(28,126,214,.5);color:#0b4a86}}</style>'
-        f'<div class="card" style="padding:0;overflow:hidden;position:relative"><div id="hqmap"></div>'
-        f'<div class="hq-ov hq-sw" style="top:10px;right:10px;padding:5px"><button data-m="cat" class="on">Cat&eacute;gorie</button><button data-m="pnl">P&amp;L</button></div>'
-        f'<div class="hq-ov" id="hq-leg" style="bottom:12px;left:12px;padding:11px 13px"></div>'
-        f'</div></div></div></section>'
-    )
-    return sec, markers
 
 
 def _signaux() -> str:
@@ -1017,7 +960,7 @@ _NAV = (
 _CSS = """
   :root { --bg:#0A0E16; --panel:#121826; --line:#1E2738; --line2:#2C3550; --ink:#E8ECF4; --steel:#8A93A8;
     --acc:#34D9A0; --acc2:#2DD4BF; --id:#3D8BFF; --bear:#FF6B6B; --warn:#F5B544; --gold:#C9A86A;
-    --fd:"Satoshi","Inter Tight",sans-serif; --fb:"Satoshi","Inter Tight",sans-serif; --fm:"IBM Plex Mono",monospace; --fo:"Satoshi",sans-serif; --fr:"Noto Sans Runic",serif;
+    --fd:"Satoshi","Inter Tight",sans-serif; --fb:"Satoshi","Inter Tight",sans-serif; --fm:"IBM Plex Mono",monospace; --fo:"Satoshi",sans-serif;
     --bg2:#070A11; --panel2:#1A2234; --ink2:#C2C9D6; --steel2:#5C6678;
     --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --r1:8px; --r2:12px; --r3:16px; --elev:0 18px 48px -28px rgba(0,0,0,.85);
     --glass:rgba(28,28,33,.5); --glass2:rgba(20,20,24,.6); --tape:rgba(14,14,17,.6); --barbg:#26262C;
@@ -1040,8 +983,6 @@ _CSS = """
   .logo svg { width:38px; height:auto; filter:drop-shadow(0 0 8px rgba(61,139,255,.4)); }
   .logo .wm { display:none; }
   .nav { display:flex; flex-direction:column; gap:4px; align-items:center; width:100%; }
-  .ngrp { display:flex; justify-content:center; margin:8px 0 4px; }
-  .ngrp:first-child { margin-top:0; } .rune { font-family:var(--fr); font-size:16px; color:var(--steel); opacity:.45; }
   .nitem { position:relative; display:flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; cursor:pointer; color:var(--steel); border-left:2px solid transparent; transition:.15s; }
   .nitem svg { width:26px; height:26px; }
   .nitem:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); color:var(--ink); }
@@ -1132,7 +1073,6 @@ _CSS = """
   .dwrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
   .legend { display:flex; flex-direction:column; gap:8px; flex:1; min-width:200px; }
   .empty { padding:30px 0; text-align:center; color:var(--steel); } .empty b { display:block; font-family:var(--fd); font-size:15px; color:var(--ink); margin-bottom:8px; }
-  #hqmap { height:calc(100vh - 200px); min-height:560px; width:100%; background:var(--bg2); } .leaflet-tooltip { background:var(--panel); border:1px solid var(--id); color:var(--ink); font-family:var(--fm); font-size:11px; border-radius:8px; padding:5px 9px; box-shadow:0 10px 28px -12px rgba(0,0,0,.55),var(--glow); }
   .dt { width:100%; border-collapse:collapse; font-size:12.5px; }
   .dt th { text-align:left; font-family:var(--fb); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); padding:8px 10px; border-bottom:1px solid var(--line2); cursor:pointer; user-select:none; }
   .dt th.num { text-align:right; } .dt th:hover { color:var(--ink); }
@@ -1258,44 +1198,6 @@ _APP_JS = """
       rows.forEach(function(r){tb.appendChild(r);});
     });
   });
-  let _map=null;
-  let _hqGrp=null; var HQMODE='cat';
-  var HQCAT=window.SECTOR_COLORS||{};
-  function _hqRow(c,t){return '<div style="display:flex;align-items:center;gap:7px;margin:2px 0"><span style="width:10px;height:10px;border-radius:50%;background:'+c+'"></span>'+t+'</div>';}
-  function _hqLeg(mode){
-    var el=document.getElementById('hq-leg'); if(!el)return; var h='';
-    if(mode==='cat'){
-      var seen={}; (window.HQ||[]).forEach(function(x){seen[x.sec]=1;});
-      Object.keys(seen).forEach(function(s){h+=_hqRow(HQCAT[s]||'#6B7686',s);});
-      h+='<div style="margin-top:6px;color:var(--steel);font-size:11px">anneau = P&amp;L (vert/rouge)</div>';
-    }else{
-      h+=_hqRow('#2F9E44','gain')+_hqRow('#E03131','perte');
-      h+='<div style="margin-top:6px;color:var(--steel);font-size:11px">taille = valeur</div>';
-    }
-    el.innerHTML=h;
-  }
-  function _drawHQ(mode){
-    if(!_hqGrp)return; _hqGrp.clearLayers();
-    var mx=0; (window.HQ||[]).forEach(function(h){if(h.w>mx)mx=h.w;});
-    (window.HQ||[]).forEach(function(h){
-      var up=h.pnl>=0, r=5+Math.min(15,Math.sqrt(Math.max(0,h.w))*4), fill, ring, rw;
-      if(mode==='cat'){ fill=HQCAT[h.sec]||'#6B7686'; ring=up?'#2F9E44':'#E03131'; rw=2.2; }
-      else { fill=up?'#2F9E44':'#E03131'; ring='rgba(255,255,255,.9)'; rw=1.3; }
-      L.circleMarker([h.lat,h.lng],{radius:r,color:ring,weight:rw,fillColor:fill,fillOpacity:.85,className:'mk-hq'+(h.w===mx?' mk-hqtop':'')})
-        .addTo(_hqGrp).bindTooltip('<b>'+h.t+'</b> '+(up?'+':'')+h.pnl+'%<br>'+h.sec+' · '+h.w+'% du portefeuille');
-    });
-    _hqLeg(mode);
-  }
-  function _setHQMode(m){ HQMODE=m; _drawHQ(m);
-    var bs=document.querySelectorAll('.hq-sw button'); for(var i=0;i<bs.length;i++){ bs[i].className=(bs[i].getAttribute('data-m')===m?'on':''); }
-  }
-  document.querySelectorAll('.hq-sw button').forEach(function(b){ b.addEventListener('click',function(){ _setHQMode(b.getAttribute('data-m')); }); });
-  function initMap(){
-    if(_map||!window.L)return;
-    _map=L.map('hqmap',{attributionControl:false,scrollWheelZoom:false}).setView([20,0],2);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:8,subdomains:'abcd'}).addTo(_map);
-    _hqGrp=L.layerGroup().addTo(_map); _drawHQ(HQMODE);
-  }
   function show(id){
     pages.forEach(p=>p.classList.toggle('active',p.dataset.page===id));
     items.forEach(n=>n.classList.toggle('on',n.dataset.nav===id));
@@ -1670,7 +1572,6 @@ def render() -> Path:
     ris, near, heat, watch = _rows_risque(computed)
     gain, lose = _movers(pnl)
     day_up, day_dn = _day_movers(daily)
-    markers: list = []
     hp = f"{heat:.0f}"
     lvl = "CHAUD" if heat >= 66 else ("TI&Egrave;DE" if heat >= 33 else "CALME")
     stamp = datetime.now().strftime("%d.%m.%Y &middot; %H:%M")
@@ -1777,7 +1678,7 @@ def render() -> Path:
         '<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">'
         "<style>" + _CSS + "</style></head><body>"
         + body
-        + "<script>window.HQ=" + json.dumps(markers) + ";window.TK=" + json.dumps(loupe_data) + ";window.SB_DATA=" + json.dumps(sb_data) + ";window.SECTOR_COLORS=" + json.dumps(SECTOR_COLORS) + ";</script>"
+        + "<script>window.TK=" + json.dumps(loupe_data) + ";window.SB_DATA=" + json.dumps(sb_data) + ";</script>"
         + ''
         + "<script>" + _APP_JS + "</script></body></html>"
     )
