@@ -1005,6 +1005,18 @@ _CSS = """
     --glass:rgba(255,255,255,.92); --glass2:rgba(241,243,246,.7); --tape:rgba(246,247,249,.85); --barbg:#E7EAEF; --glow:0 0 30px -9px color-mix(in srgb,var(--id) 85%,transparent); --glow2:0 0 38px -15px color-mix(in srgb,var(--id) 70%,transparent); }
   body.frost::after { display:none; }
   * { box-sizing:border-box; }
+  .dband { position:sticky; top:10px; z-index:45; display:flex; align-items:center; gap:13px; padding:11px 17px; margin:0 0 22px; border:1px solid var(--line2); border-radius:13px; background:color-mix(in srgb,var(--panel) 85%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); cursor:pointer; transition:border-color .15s,background .15s; }
+  .dband:hover { background:color-mix(in srgb,var(--panel) 95%,transparent); }
+  .dband .dd { width:9px; height:9px; border-radius:50%; flex:none; }
+  .dband.bear .dd { background:var(--bear); box-shadow:0 0 10px var(--bear); }
+  .dband.acc .dd { background:var(--acc); box-shadow:0 0 9px var(--acc); }
+  .dband .dv { font-family:var(--fd); font-weight:800; font-size:12.5px; letter-spacing:.05em; flex:none; }
+  .dband.bear .dv { color:var(--bear); }
+  .dband.acc .dv { color:var(--acc); }
+  .dband .dx { font-family:var(--fm); font-size:12px; color:var(--steel); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dband .dn { font-family:var(--fm); font-size:12px; color:var(--ink); font-weight:600; flex:none; }
+  .dband .dc { font-size:18px; line-height:1; color:var(--steel); flex:none; transition:transform .15s,color .15s; }
+  .dband:hover .dc { color:var(--ink); transform:translateX(3px); }
   body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:radial-gradient(1100px 680px at 82% -10%,rgba(61,139,255,.05),transparent 60%),radial-gradient(820px 560px at 6% 112%,rgba(61,139,255,.028),transparent 56%),var(--bg); background-attachment:fixed; -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
   body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.85; transition:background .3s ease-out;
     background:radial-gradient(46% 40% at var(--mx,78%) var(--my,8%),rgba(61,139,255,.13),transparent 58%); }
@@ -1693,10 +1705,29 @@ def render() -> Path:
         f'<div class="card">{ris}</div></div></div></section>'
     )
 
+    # --- Bandeau d'ecart de discipline (sticky, haut de page) ---
+    # v1: axe concentration (cluster hors plafond, source unique _cluster_health) + axe stop (near).
+    # axe prise-profit -> ajoute apres ADR target_partial.
+    _dev = []
+    for _c in _cluster_health(positions, pnl):
+        if _c["breached"]:
+            _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
+            _dev.append(f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;")
+    if near:
+        _dev.append(f"{near} ligne(s) &lt; 10% du stop")
+    _dn = len(_dev)
+    _dcls, _dverdict = ("bear", "&Agrave; TRAITER") if _dn else ("acc", "AU CALME")
+    _ddetail = " &nbsp;&middot;&nbsp; ".join(_dev) if _dev else "tout sous tes r&egrave;gles"
+    _dband = (
+        f'<div class="dband {_dcls}" onclick="document.querySelector(&#39;[data-nav=concentration]&#39;).click()">'
+        f'<span class="dd"></span><span class="dv">{_dverdict}</span>'
+        f'<span class="dx">{_ddetail}</span>'
+        f'<span class="dn">{_dn} &agrave; traiter</span><span class="dc">&rsaquo;</span></div>'
+    )
     body = (
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
         f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}'
-        f'<div class="wrap">{tape}{tape8k}<main class="main">'
+        f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
         + _signaux() + _urgence(watch, heat, near)
         + "</main></div>" + _LOUPE_HTML
