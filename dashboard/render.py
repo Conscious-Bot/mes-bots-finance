@@ -204,14 +204,13 @@ def _pnl_map(computed: list[dict]) -> dict:
 
 
 def _pnl_cost_map(positions: list[dict]) -> dict:
-    from shared.prices import get_current_price_in_eur
     out: dict = {}
     for p in positions:
         ac = p.get("avg_cost") or 0
         if ac <= 0:
             continue
         try:
-            c = get_current_price_in_eur(p["ticker"])
+            c = _cached_price_eur(p["ticker"])
         except Exception:
             c = None
         if c:
@@ -802,7 +801,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             dist[conv] += 1
         if not tpart:
             n_missing += 1
-        current = last or entry
+        current = _cached_price_eur(tk) or last or entry
         d_stop = d_tgt = ratio = frac = entry_frac = pnl_e = None
         has_bar = bool(current and stop and tgt and tgt != stop)
         if has_bar:
