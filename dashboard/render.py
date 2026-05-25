@@ -290,6 +290,25 @@ def _day_movers(daily: dict) -> tuple[str, str]:
     return _mover_blk(ups), _mover_blk(dns)
 
 
+def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:
+    """Source unique des breaches de cluster correle (gouverneur de concentration).
+    Consomme par la page Concentration (detail) ET le bandeau d'ecart (resume, haut de page).
+    Une seule definition de la valeur EUR par ligne -> page et bandeau ne peuvent plus
+    se contredire (cf. ancienne jauge 0 calme vs verdict ELEVEE)."""
+    def _v(p: dict) -> float:
+        return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
+    total = sum(_v(p) for p in positions) or 1
+    _conc = yaml.safe_load(Path("config.yaml").read_text()).get("concentration", {})
+    ccap = float(_conc.get("cluster_max_pct", 0)) * 100
+    out: list[dict] = []
+    for cn, mem in (_conc.get("clusters") or {}).items():
+        ms = set(mem)
+        cv = sum(_v(p) for p in positions if p["ticker"] in ms)
+        cp = cv / total * 100
+        out.append({"name": cn, "pct": cp, "cap": ccap, "over_eur": cv - ccap / 100 * total, "breached": cp >= ccap})
+    return out
+
+
 def _concentration(positions: list[dict], planned: list[dict], sectors: dict, names: dict, pnl: dict, daily: dict) -> str:
     def _v(p: dict) -> float:
         return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
@@ -328,19 +347,14 @@ def _concentration(positions: list[dict], planned: list[dict], sectors: dict, na
     sec_msg = f"{dom_sec} &middot; {'&#9888; all&eacute;ger' if aic >= CLUSTER_CAP else 'sous le plafond'} {CLUSTER_CAP:.0f}%"
     cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
     # --- Cluster correle (gouverneur de concentration, policy 25/05) ---
-    _conc = yaml.safe_load(Path("config.yaml").read_text()).get("concentration", {})
-    _ccap = float(_conc.get("cluster_max_pct", 0)) * 100
+    # source unique partagee avec le bandeau d'ecart (cf. _cluster_health)
     _crows = []
-    for _cn, _mem in (_conc.get("clusters") or {}).items():
-        _ms = set(_mem)
-        _cv = sum(_v(p) for p in positions if p["ticker"] in _ms)
-        _cp = _cv / total * 100
-        _over = _cv - _ccap / 100 * total
-        _ccls = "danger" if _cp >= _ccap else "calm"
-        _otxt = (f"d&eacute;passement +{_over:,.0f}&#8239;&euro; &rarr; trimmer" if _over > 0 else "sous le plafond").replace(",", "&#8239;")
+    for _c in _cluster_health(positions, pnl):
+        _ccls = "danger" if _c["breached"] else "calm"
+        _otxt = (f"d&eacute;passement +{_c['over_eur']:,.0f}&#8239;&euro; &rarr; trimmer" if _c["over_eur"] > 0 else "sous le plafond").replace(",", "&#8239;")
         _crows.append(
-            f'<div class="pi {_ccls}"><span class="pn">{_cp:.0f}%</span>'
-            f'<span class="pl">{_cn} &middot; plafond {_ccap:.0f}%</span>'
+            f'<div class="pi {_ccls}"><span class="pn">{_c["pct"]:.0f}%</span>'
+            f'<span class="pl">{_c["name"]} &middot; plafond {_c["cap"]:.0f}%</span>'
             f'<span class="pt">{_otxt}</span></div>'
         )
     cluster_card = ('<div class="plan"><div class="plan-h">Cluster corr&eacute;l&eacute; (gouverneur)</div><div class="plan-row">' + "".join(_crows) + "</div></div>") if _crows else ""
