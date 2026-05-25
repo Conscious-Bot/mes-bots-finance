@@ -361,7 +361,7 @@ universe:
 style:
   default_horizon: 6m
   conviction_min: 3
-  position_max_pct: 0.05
+  position_max_pct: 0.08  # plafond absolu (= cap c5); cap fin -> concentration.line_cap_by_conviction
   sector_max_pct: 0.2
   narrative_max_pct: 0.3
 risk:
@@ -371,6 +371,56 @@ risk:
   vol_scaling_threshold_vix: 25
   vol_scaling_factor: 0.7
   validate_enabled: false
+
+concentration:
+  # Policy de concentration -- ratifiee 25/05/2026 (option a).
+  # Gouverneur = cap de CLUSTER correle, pas le cap par ligne.
+  # Derivation depuis risk.drawdown_stop_pct (0.20):
+  #   cluster_max_pct * assumed_cluster_shock <= drawdown_stop_pct
+  #   0.57 * 0.35 = 0.1995 < 0.20  -> cale juste sous le stop, pas de breach sur un choc.
+  # Enforcement: manuel (dashboard) jusqu'au 10/06 ; wiring risk_engine.validate() post-KPI#2.
+  assumed_cluster_shock: 0.35
+  cluster_max_pct: 0.57
+  line_cap_by_conviction:   # taille max par ligne = f(conviction); remplace style.position_max_pct
+    5: 0.08
+    4: 0.06
+    3: 0.045
+    2: 0.03
+    1: 0.02
+  clusters:
+    # semis_ai = correles sur le capex AI / cycle semi (foundry, litho, EDA, memoire,
+    # equipement, materiaux, connectivite). Hyperscalers (AMZN/GOOGL) et power-for-AI
+    # (VRT/CCJ/CEG/VST/GEV) sont AI-adjacents, suivis hors cap (drivers distincts).
+    semis_ai:
+      - NVDA
+      - AVGO
+      - TSM
+      - MU
+      - ASML
+      - ASML.AS
+      - AMD
+      - ARM
+      - SNPS
+      - KLAC
+      - LRCX
+      - AMAT
+      - TER
+      - ENTG
+      - COHR
+      - ALAB
+      - MRVL
+      - QCOM
+      - NXPI
+      - STM
+      - STMPA.PA
+      - BESI.AS
+      - 4063.T
+      - 6920.T
+      - 6857.T
+      - 000660.KS
+      - CRWV
+      - NBIS
+
 models:
   signal_scoring: claude-haiku-4-5-20251001
   synthesis: claude-sonnet-4-6

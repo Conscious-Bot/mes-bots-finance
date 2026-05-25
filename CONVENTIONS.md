@@ -1552,3 +1552,26 @@ Vérifier que le backup est pré-corruption (mtime UTC vs timestamp corruption U
 Cross-db ATTACH UPDATE prend un write lock exclusif — FAIL "database is locked (5)"
 même en WAL si le bot tient une connexion. STOP le writer (kill -9 PID) +
 PRAGMA wal_checkpoint(TRUNCATE) avant le restore.
+
+
+---
+
+## 16. Concentration policy (ratifiee 25 mai 2026)
+
+Gouverneur du risque = **cap de cluster correle**, pas le cap par ligne. Un book de N lignes exposees au meme driver n'est pas N paris, c'est 1 pari size N fois.
+
+**Parametres** (source de verite: `config.yaml > concentration`):
+- `cluster_max_pct: 0.57` -- plafond d'un cluster correle.
+- `assumed_cluster_shock: 0.35` -- choc de reference (bear semi 2022-style).
+- Derivation: `0.57 * 0.35 = 0.1995 < drawdown_stop_pct (0.20)`. Plafond cale juste sous le stop pour qu'un choc cluster ne le perce pas sur un seul evenement.
+- `line_cap_by_conviction` -- taille max par ligne f(conviction): c5 8% / c4 6% / c3 4.5% / c2 3% / c1 2%. Remplace le flat `style.position_max_pct`.
+
+**Cluster `semis_ai`**: noms correles sur le capex AI / cycle semi (liste dans config). Hyperscalers et power-for-AI = AI-adjacents, suivis hors cap.
+
+**Reconciliation biais**: raboter l'overflow (8.5% -> 8%) n'est PAS le biais #1 (vendre trop tot) -- on garde le coeur qui court, on coupe ce qui depasse le budget. La sur-concentration est le biais #2 (greed / ne pas trimmer au top) applique aux actions, pas que la crypto.
+
+**Enforcement**:
+- Jusqu'au 10/06: manuel -- lecture du % cluster sur le dashboard (page Concentration), trim via /risk_check + /position_sell.
+- Post-KPI#2: basculer `risk.validate_enabled: true` + wiring dans `risk_engine.validate()` -- check `line_cap_by_conviction[conv]` + somme ponderee du cluster vs `cluster_max_pct`, en WARN (pas hard block) sur buy/sell.
+
+**Etat 25/05/2026**: cluster semis_ai ~73% (cible 57%); 4 lignes c5 >5% (4063.T 8.5 / ASML.AS 8.2 / TSM 7.7 / SNPS 7.0). Rebalance ~8K EUR vers drivers decorreles (healthcare/financials/defense/crypto -- deja dans l'univers, non tenus).
