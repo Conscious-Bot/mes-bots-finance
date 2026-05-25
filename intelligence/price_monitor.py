@@ -196,15 +196,11 @@ def check_thesis_triggers() -> dict:
                 direction = (t["direction"] or "long").lower()
                 crossings = []
                 if direction == "long":
-                    if t["target_partial"] and p >= t["target_partial"] and not t["triggered_partial_at"]:
-                        crossings.append("partial")
                     if t["target_full"] and p >= t["target_full"] and not t["triggered_full_at"]:
                         crossings.append("full")
                     if t["stop_price"] and p <= t["stop_price"] and not t["triggered_stop_at"]:
                         crossings.append("stop")
                 else:  # short
-                    if t["target_partial"] and p <= t["target_partial"] and not t["triggered_partial_at"]:
-                        crossings.append("partial")
                     if t["target_full"] and p <= t["target_full"] and not t["triggered_full_at"]:
                         crossings.append("full")
                     if t["stop_price"] and p >= t["stop_price"] and not t["triggered_stop_at"]:
