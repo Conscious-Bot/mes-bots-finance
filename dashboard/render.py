@@ -771,16 +771,14 @@ _TH_CSS = """
   .th-w { font-family:var(--fm); font-size:12px; font-weight:600; color:var(--ink); text-align:right; align-self:center; }
   .th-dir { font-family:var(--fb); font-size:9.5px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
   .th-bar { display:flex; flex-direction:column; gap:6px; }
-  .th-track { position:relative; height:9px; border-radius:5px; background:linear-gradient(90deg,rgba(255,107,107,.32),rgba(255,176,32,.16) 45%,rgba(55,224,160,.32)); }
-  .th-entry { position:absolute; top:-3px; width:2px; height:15px; background:var(--steel); opacity:.65; transform:translateX(-1px); }
-  .th-cur { position:absolute; top:-4px; width:10px; height:17px; border-radius:4px; transform:translateX(-5px); box-shadow:0 0 10px -1px currentColor; }
-  .th-cur.pos { background:var(--acc); color:var(--acc); }
-  .th-cur.neg { background:var(--bear); color:var(--bear); }
-  .th-ends { display:flex; justify-content:space-between; font-family:var(--fm); font-size:10.5px; }
+  .th-track { position:relative; height:18px; border-radius:5px; overflow:hidden; border:0.5px solid rgba(128,128,128,.2); }
+  .th-zone-loss { position:absolute; left:0; top:0; bottom:0; background:rgba(255,107,107,.13); }
+  .th-zone-profit { position:absolute; right:0; top:0; bottom:0; background:rgba(55,224,160,.13); }
+  .th-entry { position:absolute; top:0; bottom:0; border-left:1px dashed var(--steel); opacity:.7; transform:translateX(-1px); }
+  .th-cur { position:absolute; top:0; bottom:0; width:3px; background:var(--ink); transform:translateX(-1.5px); }
+  .th-ends { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--fm); font-size:10.5px; }
   .th-stop { color:var(--bear); }
-  .th-tgt { color:var(--acc); }
-  .th-ratio { color:var(--steel); font-weight:600; }
-  .th-ratio.fav { color:var(--id); }
+  .th-tgt { color:var(--acc); font-weight:600; }
   .th-na { font-family:var(--fm); font-size:11px; color:var(--steel); }
   .th-cat { font-family:var(--fm); font-size:10px; letter-spacing:.03em; color:var(--steel); background:rgba(124,137,166,.10); border:1px solid var(--line); border-radius:6px; padding:2px 8px; margin-left:2px; white-space:nowrap; }
 </style>
@@ -917,16 +915,20 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                curcls = "pos" if (t["pnl_e"] is not None and t["pnl_e"] >= 0) else "neg"
-                entry_tick = f'<div class="th-entry" style="left:{t["entry_frac"]:.1f}%"></div>' if t["entry_frac"] is not None else ""
-                rtxt = f'{t["ratio"]:.1f}:1' if t["ratio"] is not None else "&mdash;"
-                favcls = " fav" if (t["ratio"] is not None and t["ratio"] >= 2) else ""
+                if t["entry_frac"] is not None:
+                    ef = t["entry_frac"]
+                    zones = (
+                        f'<div class="th-zone-loss" style="width:{ef:.1f}%"></div>'
+                        f'<div class="th-zone-profit" style="left:{ef:.1f}%"></div>'
+                        f'<div class="th-entry" style="left:{ef:.1f}%"></div>'
+                    )
+                else:
+                    zones = ""
                 bar = (
                     '<div class="th-bar"><div class="th-track">'
-                    f'{entry_tick}<div class="th-cur {curcls}" style="left:{t["frac"]:.1f}%"></div></div>'
+                    f'{zones}<div class="th-cur" style="left:{t["frac"]:.1f}%"></div></div>'
                     '<div class="th-ends">'
                     f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
-                    f'<span class="th-ratio{favcls}">{rtxt}</span>'
                     f'<span class="th-tgt">cible +{t["d_tgt"]:.0f}%</span></div></div>'
                 )
             else:
