@@ -833,11 +833,16 @@ _TH_CSS = """
   .th-tk { font-weight:600; font-size:14px; }
   .th-w { font-family:var(--fm); font-size:12px; font-weight:600; color:var(--ink); text-align:right; align-self:center; }
   .th-dir { font-family:var(--fb); font-size:9.5px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
-  .th-bar { display:flex; flex-direction:column; gap:6px; }
-  .th-track { position:relative; height:8px; border-radius:4px; background:rgba(128,128,128,.10); }
-  .th-sz { position:relative; grid-column:1/-1; height:6px; border-radius:3px; background:rgba(128,128,128,.14); margin-top:8px; }
+  .th-bar { display:flex; flex-direction:column; gap:6px; grid-column:1/-1; margin-top:8px; }
+  .th-track { position:relative; height:10px; border-radius:5px; background:rgba(128,128,128,.10); }
+  .th-sz { position:relative; height:5px; border-radius:3px; background:rgba(128,128,128,.14); }
   .th-szf { position:absolute; left:0; top:0; bottom:0; border-radius:3px; }
   .th-szc { position:absolute; top:-2px; bottom:-2px; left:76.9%; width:1.5px; border-radius:1px; background:rgba(128,128,128,.5); }
+  .th-adj { font-family:var(--fm); font-size:10.5px; letter-spacing:.02em; line-height:1.3; }
+  .th-adj.trim { color:var(--warn); }
+  .th-adj.add { color:var(--acc2); }
+  .th-adj.ok { color:var(--steel); }
+  .th-szcol { display:flex; flex-direction:column; gap:5px; }
   .th-zone-loss { position:absolute; left:0; top:0; bottom:0; background:rgba(255,107,107,.13); }
   .th-zone-profit { position:absolute; right:0; top:0; bottom:0; background:rgba(55,224,160,.13); }
   .th-entry { position:absolute; top:0; bottom:0; border-left:1px dashed var(--steel); opacity:.7; transform:translateX(-1px); }
@@ -947,6 +952,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
 
     vtot = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions) or 1
     vmap = {p["ticker"]: p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) / vtot * 100 for p in positions}
+    _caps = _CFG.get("concentration", {}).get("line_cap_by_conviction", {})
+    _sumcaps = sum(_caps.get(t["conv"], 0.0) for t in ths if vmap.get(t["tk"], 0.0) > 0) or 1.0
     groups = ""
     for c in (5, 4, 3, 2, 1):
         tier = [t for t in ths if t["conv"] == c]
@@ -989,25 +996,36 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
             wv = vmap.get(t["tk"], 0.0)
-            _caps = _CFG.get("concentration", {}).get("line_cap_by_conviction", {})
             _cap = _caps.get(t["conv"])
             sizebar = ""
+            adj = ""
             if wv <= 0:
                 wtxt = "&mdash;"
             elif _cap:
-                _heat = max(0.0, min((wv / (_cap * 100) - 0.5) / 0.5, 1.0))
+                _tgt = _cap / _sumcaps * 100
+                _cappct = _cap * 100
+                _heat = max(0.0, min((wv - _tgt) / (_cappct - _tgt), 1.0)) if _cappct > _tgt else 0.0
                 _hue = 150 - 125 * _heat
                 _lt = 0.60 + 0.20 * (_hue / 150)
                 wtxt = f'<span style="color:oklch({_lt:.2f} 0.22 {_hue:.0f})">{wv:.1f}%</span>'
-                _fill = min(wv / (_cap * 100 * 1.3) * 100, 100)
+                _fill = min(wv / (_cappct * 1.3) * 100, 100)
                 sizebar = f'<div class="th-sz"><div class="th-szf" style="width:{_fill:.0f}%;background:oklch({_lt:.2f} 0.22 {_hue:.0f})"></div><div class="th-szc"></div></div>'
+                _d = wv - _tgt
+                _de = f"{abs(_d) / 100 * vtot:,.0f}".replace(",", "&#8239;")
+                if _d > 0.4:
+                    _tail = f" &middot; &gt; cap {_cappct:.0f}%" if wv > _cappct else ""
+                    adj = f'<div class="th-adj trim">all&eacute;ger &minus;{_de}&nbsp;&euro; &rarr; cible taille {_tgt:.1f}%{_tail}</div>'
+                elif _d < -0.4:
+                    adj = f'<div class="th-adj add">renforcer +{_de}&nbsp;&euro; &rarr; cible taille {_tgt:.1f}%</div>'
+                else:
+                    adj = f'<div class="th-adj ok">&check; cible taille {_tgt:.1f}%</div>'
             else:
                 wtxt = f'{wv:.1f}%'
             groups += (
                 f'<div class="th-row" data-tk="{t["tk"]}">'
                 f'<div class="th-id"><span class="th-conv c{t["conv"]}">c{t["conv"]}</span>'
                 f'<span class="th-tk">{t["nm"]}</span>{cat_html}</div>'
-                f'<div class="th-w">{wtxt}</div>{bar}{sizebar}{anchor}</div>'
+                f'<div class="th-w">{wtxt}</div><div class="th-szcol">{sizebar}{adj}</div>{bar}{anchor}</div>'
             )
         groups += '</div>'
 
