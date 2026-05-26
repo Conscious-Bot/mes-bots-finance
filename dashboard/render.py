@@ -1267,8 +1267,16 @@ _CSS = """
   .brk-body { display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap; }
   .brk-viz { flex:0 0 172px; }
   .brk-tbl { flex:1; min-width:340px; }
-  .brk-donut { position:relative; width:148px; height:148px; border-radius:50%; margin:2px auto 0; box-shadow:var(--glow2); }
-  .brk-hole { position:absolute; inset:28px; border-radius:50%; background:var(--panel); }
+  .brk-dwrap { position:relative; width:148px; height:148px; margin:2px auto 0; }
+  .brk-donut { display:block; width:148px; height:148px; }
+  .brk-seg { transition:opacity .15s; }
+  .brk-donut:hover .brk-seg { opacity:.32; }
+  .brk-donut .brk-seg:hover { opacity:1; }
+  .brk-tip { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; gap:2px; }
+  .brk-tip.on { display:flex; }
+  .brk-tl { font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--steel); }
+  .brk-tv { font-family:var(--fm); font-size:15px; color:var(--ink); }
+  .brk-tp { font-family:var(--fm); font-size:11.5px; color:var(--steel); }
   .brk-leg { margin-top:14px; display:flex; flex-direction:column; gap:6px; }
   .brk-lg { display:flex; align-items:center; gap:8px; font-size:11.5px; line-height:1.35; }
   .brk-sw { width:9px; height:9px; border-radius:2px; flex:0 0 auto; }
@@ -1566,22 +1574,25 @@ def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
 
 def _sector_donut(segs: list) -> str:
     total = sum(v for _, v in segs) or 1
-    stops = []
+    circ = 376.99
+    arcs = []
     leg = []
     acc = 0.0
     for label, v in segs:
         col = SECTOR_COLORS.get(label, "#6B7686")
-        a0 = acc / total * 360
+        pct = v / total * 100
+        seg = v / total * circ
+        off = acc / total * circ
         acc += v
-        a1 = acc / total * 360
-        stops.append(f"{col} {a0:.1f}deg {a1:.1f}deg")
+        vstr = f'{v:,.0f}'.replace(',', '&#8239;')
+        arcs.append(
+            f'<circle class="brk-seg" cx="74" cy="74" r="60" fill="none" stroke="{col}" stroke-width="28" stroke-dasharray="{seg:.2f} {circ - seg:.2f}" stroke-dashoffset="{-off:.2f}" transform="rotate(-90 74 74)" data-label="{label}" data-val="{vstr}&nbsp;&euro;" data-pct="{pct:.0f}%"></circle>'
+        )
         leg.append(
-            f'<div class="brk-lg"><span class="brk-sw" style="background:{col}"></span>'
-            f'<span class="brk-ln">{label}</span><span class="brk-lp">{v / total * 100:.0f}%</span></div>'
+            f'<div class="brk-lg"><span class="brk-sw" style="background:{col}"></span><span class="brk-ln">{label}</span><span class="brk-lp">{pct:.0f}%</span></div>'
         )
     return (
-        f'<div class="brk-viz"><div class="brk-donut" style="background:conic-gradient({",".join(stops)})">'
-        f'<div class="brk-hole"></div></div><div class="brk-leg">{"".join(leg)}</div></div>'
+        f'<div class="brk-viz"><div class="brk-dwrap"><svg class="brk-donut" viewBox="0 0 148 148">{"".join(arcs)}</svg><div class="brk-tip"></div></div><div class="brk-leg">{"".join(leg)}</div></div>'
     )
 
 
@@ -1656,6 +1667,23 @@ document.querySelectorAll('table.dt').forEach(function(t){
 });
 });</script>"""
 
+
+_DONUT_JS = """<script>
+document.addEventListener('DOMContentLoaded',function(){
+  document.querySelectorAll('.brk-viz').forEach(function(viz){
+    var tip=viz.querySelector('.brk-tip'); if(!tip)return;
+    viz.querySelectorAll('.brk-seg').forEach(function(s){
+      s.addEventListener('mouseenter',function(){
+        tip.innerHTML='<span class="brk-tl">'+s.dataset.label
+          +'</span><span class="brk-tv">'+s.dataset.val
+          +'</span><span class="brk-tp">'+s.dataset.pct+'</span>';
+        tip.classList.add('on');
+      });
+      s.addEventListener('mouseleave',function(){tip.classList.remove('on');});
+    });
+  });
+});
+</script>"""
 
 _CSORT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
 document.querySelectorAll('.sec-cols').forEach(function(hdr){
@@ -1804,7 +1832,7 @@ def render() -> Path:
     )
     body = (
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
-        f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}'
+        f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
         + _signaux() + _urgence(watch, heat, near, positions, pnl)
