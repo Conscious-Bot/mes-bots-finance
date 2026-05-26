@@ -1717,7 +1717,6 @@ def render() -> Path:
         '<div class="hero posture"><div class="hl">&Agrave; surveiller &mdash; m&eacute;canique, non prescriptif</div><div class="plan-row">'
         + _pi(len(near_tgt_tk), near_tgt_tk, "candidat(s) prise de profit", "warn" if near_tgt_tk else "calm")
         + _pi(len(near_stop_tk), near_stop_tk, "proche(s) du stop", "danger" if near_stop_tk else "calm")
-        + f'<div class="pi {"warn" if heat >= 66 else "calm"}"><span class="pn">{heat:.0f}&deg;</span><span class="pl">surchauffe portefeuille</span><span class="pt">{lvl}</span></div>'
         + '</div></div>'
     )
 
