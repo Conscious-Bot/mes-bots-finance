@@ -215,6 +215,19 @@ async def post_init(app):
     )
     notify.send_text("Bot starting - Phase 2 actif (gmail + thesis + digest)")
 
+
+async def error_handler(update, ctx):
+    """Catche toute exception handler/Telegram (sinon swallow silencieux): loggue + notifie."""
+    log.error("Telegram handler error", exc_info=ctx.error)
+    try:
+        chat = getattr(getattr(update, "effective_chat", None), "id", None)
+        if chat is not None:
+            msg = f"[BOT ERREUR] {type(ctx.error).__name__}: {ctx.error}"
+            await ctx.bot.send_message(chat, msg[:3500])
+    except Exception:
+        log.error("error_handler: echec notification user", exc_info=True)
+
+
 def main():
     storage.log_event("startup", {"phase": "2"})
     config.load()
@@ -223,6 +236,7 @@ def main():
     )
 
     app = Application.builder().token(config.telegram_token()).post_init(post_init).build()
+    app.add_error_handler(error_handler)
     # Phase Solidification P0 #3 — handler usage telemetry (middleware in group=-1)
     from telegram.ext import MessageHandler, filters
 
