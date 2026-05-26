@@ -1580,7 +1580,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         nm = names.get(tk, tk)
         vstr = f"{v:,.0f}".replace(",", "&#8239;")
         rows += (
-            f'<tr data-tk="{tk}"><td class="tk">{tk}<span class="nm">{nm}</span></td>'
+            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{tk}<span class="nm">{nm}</span></td>'
             f'<td class="num mono">{vstr}&nbsp;&euro;</td><td class="num">{w:.1f}%</td>'
             f'<td class="num {pcls}">{pstr}</td></tr>'
         )
@@ -1611,6 +1611,30 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
 
 _MODE_BTN = """<button class="modetgl" title="Mode clair / sombre" onclick="document.body.classList.toggle('frost');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('frost')?'frost':'carbon')}catch(e){}"><svg class="ico-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>"""
 _THEME_INIT = "<script>try{var t=localStorage.getItem('hmdl-theme');if(t==='frost')document.body.classList.add('frost');}catch(e){}</script>"
+
+
+_SORT_JS = """<script>
+document.querySelectorAll('table.dt').forEach(function(t){
+  var tb=t.tBodies[0]; if(!tb) return;
+  var dir={};
+  t.querySelectorAll('thead th').forEach(function(th,ci){
+    var key={0:'tk',1:'v',2:'w',3:'p'}[ci]; if(!key) return;
+    th.style.cursor='pointer';
+    th.addEventListener('click',function(){
+      var num=key!=='tk', d=dir[ci]=-(dir[ci]||1);
+      var rows=[].slice.call(tb.rows).filter(function(r){return r.hasAttribute('data-'+key);});
+      rows.sort(function(a,b){
+        var x=a.getAttribute('data-'+key), y=b.getAttribute('data-'+key);
+        if(num){return (parseFloat(x)-parseFloat(y))*d;}
+        return x<y?-d:(x>y?d:0);
+      });
+      rows.forEach(function(r){tb.appendChild(r);});
+      t.querySelectorAll('thead th').forEach(function(h){h.removeAttribute('aria-sort');});
+      th.setAttribute('aria-sort',d<0?'descending':'ascending');
+    });
+  });
+});
+</script>"""
 
 
 def render() -> Path:
@@ -1751,7 +1775,7 @@ def render() -> Path:
     )
     body = (
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
-        f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}'
+        f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
         + _signaux() + _urgence(watch, heat, near, positions, pnl)
