@@ -239,7 +239,7 @@ Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas la
 - `positions.py CLUSTER_CAP_PCT = 35.0` (cluster, parsé `theses.notes sector_thesis_id:`). Position cap soft. ADR 009 = alertes soft tiérées par-dessus (non liant).
 - Aucun enforcement auto (`validate()` non câblé) → manuel/visuel jusqu'au wiring.
 
-### ⚠️ Contradiction NON résolue (PRÉEXISTANTE, découverte ici — à trancher à froid, AVANT tout wiring risk.validate())
+### ✅ Contradiction RÉSOLUE par ADR 010 (2026-05-26) — cap cluster = 35% risk-adjusted, config aligné (0.57→0.35). Contexte préexistant ci-dessous conservé.
 - config `cluster_max_pct: 0.57` — ratifié **Day 14** (`df89dc8`, « option a, source de vérité ») par dérivation risk-budget (0,57×0,35 ≈ 0,20 stop).
 - ADR `008-cluster-cap-grandfather` + code `positions.py` = **35%** (comportemental).
 - `/portfolio` affiche « max sizing 8% » vs ADR « 5% soft ».
