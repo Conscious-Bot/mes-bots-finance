@@ -206,7 +206,7 @@ Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas la
 
 **Commit** : e02bd56 (ADR 008 amend. 1).
 
-### Décidé & gravé — ADR 008 Amendement 1 (cap tiéré conviction + cadence)
+### ⚠️ SUPERSEDED par suite-4 (bas du fichier) — Décidé & gravé — ADR 008 Amendement 1 (cap tiéré conviction + cadence)
 - Book **conçu délibérément** (15–23 mai, 28 lignes, sizing conviction + chokepoint) — pas de la dérive. Corrige le cadrage « surtaille = erreur ». Cap plat (point 3) incohérent avec un book intentionnellement tiéré → superseded.
 - **Cap tiéré cost-basis à l'entrée** : c5=8 / c4=6 / c3=5 / c2=4 / c1=3. **Gate de nombre ≤20% en c5** (KPI inflation → cap dur ; conviction ordinale). Sous le narratif 75%. Caveat corrélation documenté (chokepoints = même chaîne semi → top 8% yeux ouverts). Tiers validés par Brier à N≥30.
 - **Cadence** : caps bindent le capital *neuf* maintenant (pas d'ajout sur over-cap sans override loggé) ; book grandfathered ; **1ère découpe structurelle J+30 = ~22 juin** (dernière ligne 23 mai), consolidée avec orphan-c1 (~16 juin) + pruning. Exception permanente : sorties risque (invalidation thèse + stops) jamais gelées.
@@ -222,3 +222,33 @@ Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas la
 
 ### Bot
 - Instance unique PID 37118 (après kill de 2 zombies). Crons OK, boucle de fond intacte. Seul le readout Telegram est KO.
+
+
+## Day 15 suite-4 — Réconciliation concentration + correction bugs ops (2026-05-26)
+
+**⚠️ Supersede les sections concentration de suite-2 et suite-3** (faites à l'aveugle, readout `/portfolio` cassé, contredisaient la policy enforced).
+
+**Commits** : 837aefb (retrait doublon ADR 008 + revert config + ADR 009).
+
+### Ce qui a été défait
+- `008-concentration-policy.md` (mon doublon) **retiré** : il faisait du cap position tiéré l'invariant liant, alors que `008-cluster-cap-grandfather.md` (Accepted) avait rétrogradé le cap position en soft et fait du **cluster** l'invariant. Mauvais axe, construit aveugle.
+- config `narrative_max_pct 0.75 → 0.30` **revert** : le bot n'enforce pas ce knob.
+- Salvage → `009-conviction-soft-tiers-and-brake.md` : tiers conviction recadrés en **alertes soft subordonnées** au cap cluster + clarification frein. Cadence J+30 abandonnée (revue gouvernée par le trigger J+28 d'ADR 008).
+
+### Ce que le CODE applique aujourd'hui
+- `positions.py CLUSTER_CAP_PCT = 35.0` (cluster, parsé `theses.notes sector_thesis_id:`). Position cap soft. ADR 009 = alertes soft tiérées par-dessus (non liant).
+- Aucun enforcement auto (`validate()` non câblé) → manuel/visuel jusqu'au wiring.
+
+### ⚠️ Contradiction NON résolue (PRÉEXISTANTE, découverte ici — à trancher à froid, AVANT tout wiring risk.validate())
+- config `cluster_max_pct: 0.57` — ratifié **Day 14** (`df89dc8`, « option a, source de vérité ») par dérivation risk-budget (0,57×0,35 ≈ 0,20 stop).
+- ADR `008-cluster-cap-grandfather` + code `positions.py` = **35%** (comportemental).
+- `/portfolio` affiche « max sizing 8% » vs ADR « 5% soft ».
+→ Le code applique 35 ; SESSION_STATE Day 14 dit que 0,57 lie. Lecture plausible : code resté en arrière de la dernière décision doc (ou l'inverse). **Deux "sources de vérité" concurrentes — un seul doit rester.** Non urgent (rien n'enforce auto avant 10/06), mais bloquant pour le câblage validate().
+
+### Correction bug ops #1 de suite-3 (diagnostic FAUX)
+« Telegram cassé sur handlers longs + chunk >4096 » = **erroné**. Vraie cause :
+- 2 instances zombies → Conflict getUpdates (Telegram = 1 poller) → réponses coupées. Masqué par le pattern pgrep cassé (`Python` framework, P majuscule).
+- `/positions` et `/tiers` **ne sont pas des commandes enregistrées** (registry : `portfolio`, `position`) → ignorées en silence. Mauvais nom, pas un bug.
+- `/brief` fonctionne → pas de souci de longueur, **chunk >4096 inutile**.
+- Fait : error handler Telegram (`6bc2438`) + kill 2 zombies + instance unique.
+- À froid : corriger pattern pgrep `python.*bot.main → bot.main` dans PROCEDURE_URGENCE + QUOTIDIENNE + checker uptime (KPI #1 mesure du bruit tant que cassé).
