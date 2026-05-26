@@ -411,7 +411,7 @@ def _render_bucket(name: str, rows: list, total: float, pnl: dict, names: dict, 
         plc = '<span class="num">&mdash;</span>' if pl is None else f'<span class="num {"pos" if pl >= 0 else "neg"}">{"+" if pl >= 0 else ""}{pl:.1f}%</span>'
         dvc = '<span class="num">&mdash;</span>' if dv is None else f'<span class="num {"pos" if dv >= 0 else "neg"}">{"+" if dv >= 0 else ""}{dv:.1f}%</span>'
         lines += (
-            f'<div class="sec-row" data-tk="{tk}">'
+            f'<div class="sec-row" data-tk="{tk}" data-w="{w:.2f}" data-pct="{pct:.4f}" data-dv="{dv if dv is not None else -1e9:.2f}" data-pl="{pl if pl is not None else -1e9:.2f}">'
             f'<span class="sec-tk">{tk}{badge}{nmspan}</span>'
             f'<span class="num">{w:.0f}&euro;</span><span class="num">${usd:.0f}</span>'
             f'<span class="num">{pct:.1f}%</span>{dvc}{plc}</div>'
@@ -1613,7 +1613,7 @@ _MODE_BTN = """<button class="modetgl" title="Mode clair / sombre" onclick="docu
 _THEME_INIT = "<script>try{var t=localStorage.getItem('hmdl-theme');if(t==='frost')document.body.classList.add('frost');}catch(e){}</script>"
 
 
-_SORT_JS = """<script>
+_SORT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
 document.querySelectorAll('table.dt').forEach(function(t){
   var tb=t.tBodies[0]; if(!tb) return;
   var dir={};
@@ -1634,7 +1634,26 @@ document.querySelectorAll('table.dt').forEach(function(t){
     });
   });
 });
-</script>"""
+});</script>"""
+
+
+_CSORT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
+document.querySelectorAll('.sec-cols').forEach(function(hdr){
+  var root=hdr.parentElement, map={1:'w',2:'w',3:'pct',4:'dv',5:'pl'}, dir={};
+  hdr.querySelectorAll('span').forEach(function(sp,ci){
+    var key=map[ci]; if(!key) return;
+    sp.style.cursor='pointer';
+    sp.addEventListener('click',function(){
+      var d=dir[ci]=-(dir[ci]||1);
+      root.querySelectorAll('.sec-rows').forEach(function(box){
+        var rows=[].slice.call(box.children).filter(function(r){return r.classList.contains('sec-row');});
+        rows.sort(function(a,b){return (parseFloat(a.getAttribute('data-'+key))-parseFloat(b.getAttribute('data-'+key)))*d;});
+        rows.forEach(function(r){box.appendChild(r);});
+      });
+    });
+  });
+});
+});</script>"""
 
 
 def render() -> Path:
@@ -1775,7 +1794,7 @@ def render() -> Path:
     )
     body = (
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
-        f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}'
+        f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
         + _signaux() + _urgence(watch, heat, near, positions, pnl)
