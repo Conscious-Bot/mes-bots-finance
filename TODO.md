@@ -158,3 +158,8 @@ Vue concentration géographique (US / EU / Asie). render_smoke l'anticipait (nav
 
 ### risk/ wiring (post-10/06) — cap tiéré
 `risk/sizing.position_size()` n'applique que le cap PLAT (`style.position_max_pct` = 0.08, plafond c5), aveugle à `line_cap_by_conviction`. Au câblage de `risk.validate()`, enforcer le cap par conviction LÀ (validate connaît la conviction, sizing non) — sinon une ligne c2 peut être sizée à 8 %.
+
+## suite-7 (26/05/2026)
+- [pause] Axe crypto / biais #2 — stock-only depuis 26/05. Reactivation = routing -USD + retrait CRYPTO_DENY.
+- [done] P2 line_cap : clos (ADR 009 + fix verdict gouverneur render.py).
+- [open] Risk #1 : resolve backfill past-due (downtime 9h) — non audite.
