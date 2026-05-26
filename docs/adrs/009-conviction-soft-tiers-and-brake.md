@@ -12,13 +12,7 @@ Session 26/05 : sizing re-discuté à l'aveugle (readout `/portfolio` cassé par
 ### 1. Cap position SOFT tiéré par conviction (alerte, NON liant)
 Le cap position reste soft (ADR 008 §2). On le tiére comme seuils d'**alerte** :
 
-| tier | seuil d'alerte (cost-basis) |
-|---|---|
-| c5 | 8% |
-| c4 | 6% |
-| c3 | 5% |
-| c2 | 4% |
-| c1 | 3% |
+Les seuils vivent dans **`config.concentration.line_cap_by_conviction`** (source unique — l'ADR ne duplique pas les chiffres, leçon de cette session). Actuellement : c5=8% / c4=6% / c3=4.5% / c2=3% / c1=2%. `style.position_max_pct: 0.08` = plafond absolu (= cap c5).
 
 - Gate de nombre : ≤20% des lignes en c5 (conviction ordinale — KPI inflation).
 - **Non liant** : l'invariant qui lie reste le cap cluster 35% (ADR 008). Ceci ne fait que tiérer le signal visuel.
@@ -37,6 +31,6 @@ Le cap position reste soft (ADR 008 §2). On le tiére comme seuils d'**alerte**
 - POLICY, pas enforcement : `risk.validate()` non câblé.
 
 ## Dette de cohérence (audit à froid, préexistant — pas de cette session)
-- config `cluster_max_pct: 0.57` (dérivé risk-budget) vs ADR 008/code `35%` (comportemental) — deux caps cluster divergents.
-- `/portfolio` affiche « max sizing 8% » vs ADR 008 §2 « 5% soft ».
+- ✅ RÉSOLU (ADR 010, 26/05) : `cluster_max_pct` aligné à 0.35 (risk-adjusted) — un seul cap cluster.
+- Expliqué : `/portfolio` « 8% » = `style.position_max_pct: 0.08` (cap c5, bump 0.05→0.08) ; le « 5% » d'ADR 008 §2 est le texte d'origine, stale — pas une vraie divergence.
 - Numérotation ADR : collisions 005×2 / 006×3 / 007×3 / 008×3 — passe de renumérotation à prévoir.
