@@ -252,3 +252,8 @@ Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas la
 - `/brief` fonctionne → pas de souci de longueur, **chunk >4096 inutile**.
 - Fait : error handler Telegram (`6bc2438`) + kill 2 zombies + instance unique.
 - À froid (CORRIGÉ 26/05) : le checker live (`crons/uptime_monitor.sh` + `scripts/bot_health_check.sh`) utilise DÉJÀ `pgrep -fi` (§16) → PAS cassé, KPI #1 OK. Le « → bot.main » était une mauvaise direction (fix §16 = `-i`, pas un changement de pattern). Résidu corrigé : PROCEDURE_QUOTIDIENNE:11 (+ `-i`) + CONVENTIONS:397 (snippet mutilé). Sites runbook stale (`-f` sans `-i`) = hygiène optionnelle, non urgent.
+
+
+## Day 15 suite-5 — ADR 010 + decouverte line_cap_by_conviction (2026-05-26)
+- **ADR 010** : contradiction cap cluster 35-vs-57 RESOLUE -> 35% risk-adjusted (choc underwrite >=57%) ; config aligne (cluster_max_pct 0.57->0.35, assumed_cluster_shock 0.35->0.57) + commentaire corrige ; code deja a 35 (positions.py). Commit b785035.
+- **/!\ Decouvert, a froid** : config `concentration.line_cap_by_conviction` (c5=8/c4=6/c3=4.5/c2=3/c1=2) DIVERGE d'ADR 009 (c5=8/c4=6/c3=5/c2=4/c1=3). ADR 009 ecrit sans voir ce bloc config (meme blind-spot que le reste de la session). Commentaire config dit "remplace style.position_max_pct" -> statut soft-vs-liant ambigu vs ADR-008 ("5% soft"). A reconcilier a froid : trancher chiffres (4.5/3/2 vs 5/4/3) + statut. Basse urgence : non-wired, purement documentaire.

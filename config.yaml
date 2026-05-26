@@ -373,11 +373,11 @@ risk:
   validate_enabled: false
 
 concentration:
-  # Policy de concentration -- ratifiee 25/05/2026 (option a).
+  # Policy de concentration -- cap cluster 35% risk-adjusted (ADR 010, 26/05/2026 ; supersede option a 0.57).
   # Gouverneur = cap de CLUSTER correle, pas le cap par ligne.
   # Derivation depuis risk.drawdown_stop_pct (0.20):
   #   cluster_max_pct * assumed_cluster_shock <= drawdown_stop_pct
-  #   0.57 * 0.35 = 0.1995 < 0.20  -> cale juste sous le stop, pas de breach sur un choc.
+  #   0.35 * 0.57 = 0.1995 < 0.20  -> cap 35% survit a un choc cluster 57% sous le stop (ADR 010).
   # Enforcement: manuel (dashboard) jusqu'au 10/06 ; wiring risk_engine.validate() post-KPI#2.
   assumed_cluster_shock: 0.57
   cluster_max_pct: 0.35
