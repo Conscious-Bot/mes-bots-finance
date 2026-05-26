@@ -978,7 +978,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _crypto = t["tk"] in crypto_tk
                 if t["pnl_e"] >= 12 and not _crypto:
                     _acls = "acc"
-                    _amsg = "Winner en profit, upside restant. Ton biais te pousse &agrave; s&eacute;curiser trop t&ocirc;t (PLTR@9, NVDA@130) &mdash; laisse courir vers ta cible."
+                    _amsg = "Winner en profit, upside restant. Ton biais te pousse &agrave; s&eacute;curiser trop t&ocirc;t &mdash; laisse courir vers ta cible."
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
             wv = vmap.get(t["tk"], 0.0)
