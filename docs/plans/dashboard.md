@@ -1,4 +1,4 @@
-# Dashboard — Spec (plan, pas encore buildé)
+# Dashboard Spec [FAUX 26/05: dashboard existe deja (render.py 1616l) = MODS pas build, reframer fresh]
 
 **Date**: 2026-05-26
 **Status**: Spec figée. Build Tier A autorisé (time-boxé). Reste différé.
