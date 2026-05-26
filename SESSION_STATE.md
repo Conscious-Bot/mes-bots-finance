@@ -200,3 +200,25 @@ Le frein manquant n'est **pas** un trim-auto-sur-drawdown — ce serait mécanis
 
 ### Discipline
 Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas laisser les plans devenir un prétexte à coder de l'observabilité au lieu d'attendre la data.
+
+
+## Day 15 suite-3 — Sizing policy + bugs ops (2026-05-26)
+
+**Commit** : e02bd56 (ADR 008 amend. 1).
+
+### Décidé & gravé — ADR 008 Amendement 1 (cap tiéré conviction + cadence)
+- Book **conçu délibérément** (15–23 mai, 28 lignes, sizing conviction + chokepoint) — pas de la dérive. Corrige le cadrage « surtaille = erreur ». Cap plat (point 3) incohérent avec un book intentionnellement tiéré → superseded.
+- **Cap tiéré cost-basis à l'entrée** : c5=8 / c4=6 / c3=5 / c2=4 / c1=3. **Gate de nombre ≤20% en c5** (KPI inflation → cap dur ; conviction ordinale). Sous le narratif 75%. Caveat corrélation documenté (chokepoints = même chaîne semi → top 8% yeux ouverts). Tiers validés par Brier à N≥30.
+- **Cadence** : caps bindent le capital *neuf* maintenant (pas d'ajout sur over-cap sans override loggé) ; book grandfathered ; **1ère découpe structurelle J+30 = ~22 juin** (dernière ligne 23 mai), consolidée avec orphan-c1 (~16 juin) + pruning. Exception permanente : sorties risque (invalidation thèse + stops) jamais gelées.
+
+### État portefeuille (snapshot 2026-05-26)
+- 28 lignes, cost-basis €42 141 / MV €51 429 (+22% global — régime favorable ≠ conviction validée).
+- Seul outlier au-dessus du c5 : Shin-Etsu (4063.T) 10,7% cost-basis (8,6% MV, -1,8%) → 1er point d'agenda du 22 juin.
+- Triage **résolu** : pas de trim maintenant → 1ère découpe 22 juin.
+
+### Bugs ops découverts (à froid, PRIORITÉ readout)
+1. **Telegram output cassé sur handlers longs** (`/brief`, `/positions`, `/tiers`) : data rassemblée OK, `sendMessage` final échoue en silence (no error handler). Couche sortie → sûr à réparer hors observation. EN COURS. Fix = error handler Telegram + chunk >4096.
+2. **Pattern `pgrep "python.*bot.main"` rate le Python framework (P majuscule)** → gravé dans PROCEDURE_URGENCE + QUOTIDIENNE + probablement le checker uptime → KPI #1 suspect. Fix → `bot.main`. A causé le faux « bot down » + masqué 2 zombies (Conflict getUpdates).
+
+### Bot
+- Instance unique PID 37118 (après kill de 2 zombies). Crons OK, boucle de fond intacte. Seul le readout Telegram est KO.
