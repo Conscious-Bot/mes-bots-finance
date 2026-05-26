@@ -1759,7 +1759,7 @@ def render() -> Path:
     )
 
     html = (
-        '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
+        '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta http-equiv="refresh" content="300">'
         '<meta name="viewport" content="width=device-width, initial-scale=1"><script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>Heimdall</title>'
         ''
         '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
