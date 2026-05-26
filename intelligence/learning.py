@@ -52,6 +52,14 @@ def horizon_for_signal_type(signal_type, impact_magnitude=None):
     return base
 
 
+CRYPTO_DENY = {
+    "BTC", "ETH", "LINK", "SOL", "ADA", "XRP", "DOGE", "AVAX", "DOT", "MATIC",
+    "LTC", "BCH", "TRX", "TON", "NEAR", "ATOM", "UNI", "AAVE", "ARB", "OP",
+    "SUI", "APT", "INJ", "SEI", "FIL", "ICP", "ETC", "XLM", "ALGO", "BNB",
+    "SHIB", "PEPE", "USDT", "USDC", "DAI",
+}  # stock-only: symboles crypto bruts bloques a la creation (26/05/2026)
+
+
 def register_prediction(
     signal_id: int, ticker: str, direction: str, horizon_days: int | None = None,
     baseline_date: str | None = None, signal_type: str | None = None,
@@ -100,6 +108,9 @@ def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int =
         if sig_id is None:
             continue
         for tk in tickers[:5]:
+            if tk.upper() in CRYPTO_DENY:
+                continue
+
             pid = register_prediction(
                 signal_id=sig_id,
                 ticker=tk,
