@@ -834,11 +834,15 @@ _TH_CSS = """
   .th-w { font-family:var(--fm); font-size:12px; font-weight:600; color:var(--ink); text-align:right; align-self:center; }
   .th-dir { font-family:var(--fb); font-size:9.5px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
   .th-bar { display:flex; flex-direction:column; gap:6px; }
-  .th-track { position:relative; height:18px; border-radius:5px; overflow:hidden; border:0.5px solid rgba(128,128,128,.2); }
+  .th-track { position:relative; height:8px; border-radius:4px; background:rgba(128,128,128,.10); }
+  .th-sz { position:relative; grid-column:1/-1; height:6px; border-radius:3px; background:rgba(128,128,128,.14); margin-top:8px; }
+  .th-szf { position:absolute; left:0; top:0; bottom:0; border-radius:3px; }
+  .th-szc { position:absolute; top:-2px; bottom:-2px; left:76.9%; width:1.5px; border-radius:1px; background:rgba(128,128,128,.5); }
   .th-zone-loss { position:absolute; left:0; top:0; bottom:0; background:rgba(255,107,107,.13); }
   .th-zone-profit { position:absolute; right:0; top:0; bottom:0; background:rgba(55,224,160,.13); }
   .th-entry { position:absolute; top:0; bottom:0; border-left:1px dashed var(--steel); opacity:.7; transform:translateX(-1px); }
-  .th-cur { position:absolute; top:0; bottom:0; width:3px; background:var(--ink); transform:translateX(-1.5px); }
+  .th-cur { position:absolute; top:50%; width:10px; height:10px; border-radius:50%; background:var(--ink); transform:translate(-50%,-50%); }
+  .th-fill { position:absolute; top:0; bottom:0; border-radius:4px; }
   .th-ends { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--fm); font-size:10.5px; }
   .th-stop { color:var(--bear); }
   .th-tgt { color:var(--acc); font-weight:600; }
@@ -955,18 +959,21 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
+                curc = "var(--ink)"
                 if t["entry_frac"] is not None:
                     ef = t["entry_frac"]
+                    fc = t["frac"]
+                    _fcol = "oklch(0.72 0.16 150)" if fc >= ef else "oklch(0.62 0.18 25)"
+                    curc = "oklch(0.52 0.16 150)" if fc >= ef else "oklch(0.50 0.18 25)"
                     zones = (
-                        f'<div class="th-zone-loss" style="width:{ef:.1f}%"></div>'
-                        f'<div class="th-zone-profit" style="left:{ef:.1f}%"></div>'
-                        f'<div class="th-entry" style="left:{ef:.1f}%"></div>'
+                        f'<div class="th-fill" style="left:{min(ef, fc):.1f}%;width:{abs(fc - ef):.1f}%;background:{_fcol}"></div>'
+                        f'<div class="th-entry" style="left:{ef:.1f}%;top:-1px;bottom:-1px;width:1px;background:rgba(128,128,128,.5)"></div>'
                     )
                 else:
                     zones = ""
                 bar = (
                     '<div class="th-bar"><div class="th-track">'
-                    f'{zones}<div class="th-cur" style="left:{t["frac"]:.1f}%"></div></div>'
+                    f'{zones}<div class="th-cur" style="left:{t["frac"]:.1f}%;background:{curc}"></div></div>'
                     '<div class="th-ends">'
                     f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
                     f'<span class="th-tgt">cible +{t["d_tgt"]:.0f}%</span></div></div>'
@@ -982,12 +989,25 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
             wv = vmap.get(t["tk"], 0.0)
-            wtxt = f'{wv:.1f}%' if wv > 0 else "&mdash;"
+            _caps = _CFG.get("concentration", {}).get("line_cap_by_conviction", {})
+            _cap = _caps.get(t["conv"])
+            sizebar = ""
+            if wv <= 0:
+                wtxt = "&mdash;"
+            elif _cap:
+                _heat = max(0.0, min((wv / (_cap * 100) - 0.5) / 0.5, 1.0))
+                _hue = 150 - 125 * _heat
+                _lt = 0.60 + 0.20 * (_hue / 150)
+                wtxt = f'<span style="color:oklch({_lt:.2f} 0.22 {_hue:.0f})">{wv:.1f}%</span>'
+                _fill = min(wv / (_cap * 100 * 1.3) * 100, 100)
+                sizebar = f'<div class="th-sz"><div class="th-szf" style="width:{_fill:.0f}%;background:oklch({_lt:.2f} 0.22 {_hue:.0f})"></div><div class="th-szc"></div></div>'
+            else:
+                wtxt = f'{wv:.1f}%'
             groups += (
                 f'<div class="th-row" data-tk="{t["tk"]}">'
                 f'<div class="th-id"><span class="th-conv c{t["conv"]}">c{t["conv"]}</span>'
                 f'<span class="th-tk">{t["nm"]}</span>{cat_html}</div>'
-                f'<div class="th-w">{wtxt}</div>{bar}{anchor}</div>'
+                f'<div class="th-w">{wtxt}</div>{bar}{sizebar}{anchor}</div>'
             )
         groups += '</div>'
 
@@ -1680,12 +1700,9 @@ def render() -> Path:
     sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans th&egrave;se", -sum(x["w"] for x in kv[1])))
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
-    pal, hits, _top = _rows_paliers(computed)
-    ris, near, heat, watch = _rows_risque(computed)
+    _ris, near, heat, watch = _rows_risque(computed)
     gain, lose = _movers(pnl)
     day_up, day_dn = _day_movers(daily)
-    hp = f"{heat:.0f}"
-    lvl = "CHAUD" if heat >= 66 else ("TI&Egrave;DE" if heat >= 33 else "CALME")
     stamp = datetime.now().strftime("%d.%m.%Y &middot; %H:%M")
     today = datetime.now().strftime("%Y-%m-%d")
     erows = ""
@@ -1760,16 +1777,10 @@ def render() -> Path:
         + '</div></div>'
     )
     broker_html = _broker_tables(positions, names, pnl, sectors)
-    froth = f'<div class="th-anchor warn">{hits} position(s) au-del&agrave; de la cible &mdash; trim ou justifie de tenir</div>' if hits else ""
     positions_pg = (
         f'<section data-page="positions"><div class="phead"><h2>Positions</h2>'
         f'<div class="sub">Marge &agrave; la hausse vers la cible &middot; &agrave; la baisse vers le stop</div></div>'
-        f'{pos_plan}{broker_html}'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Paliers</span><span class="a">vers la cible</span></div>{froth}'
-        f'<div class="card">{pal}</div></div><div class="col"><div class="colhead"><span class="t">Risque</span><span class="a">marge avant le stop</span></div>'
-        f'<div class="gauge"><div class="ghead"><span class="gl">Surchauffe du portefeuille</span><span class="gv">{hp}&deg;</span></div>'
-        f'<div class="gtrack"><div class="gmark" style="left:{hp}%"></div></div><div class="glab"><span>calme</span><span>{lvl}</span><span>chaud</span></div></div>'
-        f'<div class="card">{ris}</div></div></div></section>'
+        f'{pos_plan}{broker_html}</section>'
     )
 
     # --- Bandeau d'ecart de discipline (sticky, haut de page) ---
