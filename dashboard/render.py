@@ -22,7 +22,7 @@ def _cfg() -> dict:
 
 _CFG = _cfg()
 POS_CAP = float(_CFG.get("style", {}).get("position_max_pct", 0.05)) * 100
-CLUSTER_CAP = float(_CFG.get("style", {}).get("narrative_max_pct", 0.30)) * 100
+NARRATIVE_CAP = float(_CFG.get("style", {}).get("narrative_max_pct", 0.30)) * 100
 DD_REDUCE = float(_CFG.get("risk", {}).get("drawdown_reduce_pct", 0.08)) * 100
 DD_STOP = float(_CFG.get("risk", {}).get("drawdown_stop_pct", 0.20)) * 100
 FX_USD = 0.858
@@ -329,32 +329,37 @@ def _concentration(positions: list[dict], planned: list[dict], sectors: dict, na
         key = sectors.get(p["ticker"], "Sans th&egrave;se")
         sw[key] = sw.get(key, 0.0) + _v(p)
     sw_real = {k: v for k, v in sw.items() if k != "Sans th&egrave;se"}
-    dom_sec = max(sw_real, key=lambda k: sw_real[k]) if sw_real else "&mdash;"
-    aic = (max(sw_real.values()) / total * 100) if sw_real else 0.0
+    dom_these = max(sw_real, key=lambda k: sw_real[k]) if sw_real else "&mdash;"
+    dom_these_pct = (max(sw_real.values()) / total * 100) if sw_real else 0.0
     over_cap_tk = [p["ticker"] for p in ps if _v(p) / total * 100 >= POS_CAP]
     over_cap = len(over_cap_tk)
     over_nm = " &middot; ".join(names.get(t, t) for t in over_cap_tk[:3]) + ("&hellip;" if over_cap > 3 else "")
-    if aic >= 45 or top_pct >= 2 * POS_CAP:
+    _ch = _cluster_health(positions, pnl)
+    cluster_breached = any(c["breached"] for c in _ch)
+    cluster_excessive = any(c["pct"] >= 50 for c in _ch)
+    if dom_these_pct >= 45 or top_pct >= 2 * POS_CAP or cluster_excessive:
         verdict, vcls = "EXCESSIVE", "danger"
-    elif aic >= CLUSTER_CAP or over_cap:
+    elif dom_these_pct >= NARRATIVE_CAP or over_cap or cluster_breached:
         verdict, vcls = "&Eacute;LEV&Eacute;E", "warn"
     else:
         verdict, vcls = "MESUR&Eacute;E", "calm"
     cbits = []
-    if aic >= CLUSTER_CAP:
-        cbits.append("secteur au-dessus du plafond")
+    if dom_these_pct >= NARRATIVE_CAP:
+        cbits.append("th&egrave;se au-dessus du plafond")
     if over_cap:
         cbits.append(f"{over_cap} ligne(s) hors plafond")
+    if cluster_breached:
+        cbits.append("cluster corr&eacute;l&eacute; au-dessus du plafond")
     cause = " &middot; ".join(cbits) or "tout sous tes plafonds"
     top_cls = "negc" if top_pct >= POS_CAP else "acc"
-    sec_cls = "negc" if aic >= CLUSTER_CAP else "acc"
+    these_cls = "negc" if dom_these_pct >= NARRATIVE_CAP else "acc"
     line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du plafond' if top_pct >= POS_CAP else 'sous le plafond'} {POS_CAP:.0f}%"
-    sec_msg = f"{dom_sec} &middot; {'&#9888; all&eacute;ger' if aic >= CLUSTER_CAP else 'sous le plafond'} {CLUSTER_CAP:.0f}%"
+    these_msg = f"{dom_these} &middot; {'&#9888; all&eacute;ger' if dom_these_pct >= NARRATIVE_CAP else 'sous le plafond'} {NARRATIVE_CAP:.0f}%"
     cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
     # --- Cluster correle (gouverneur de concentration, policy 25/05) ---
     # source unique partagee avec le bandeau d'ecart (cf. _cluster_health)
     _crows = []
-    for _c in _cluster_health(positions, pnl):
+    for _c in _ch:
         _ccls = "danger" if _c["breached"] else "calm"
         _otxt = (f"d&eacute;passement +{_c['over_eur']:,.0f}&#8239;&euro; &rarr; trimmer" if _c["over_eur"] > 0 else "sous le plafond").replace(",", "&#8239;")
         _crows.append(
@@ -378,7 +383,7 @@ def _concentration(positions: list[dict], planned: list[dict], sectors: dict, na
         f'{cluster_card}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
         f'<div class="kpi"><span class="kl">Plus grosse ligne</span><span class="kv {top_cls}">{top_pct:.0f}%</span><span class="kd">{line_msg}</span></div>'
-        f'<div class="kpi"><span class="kl">Secteur dominant</span><span class="kv {sec_cls}">{aic:.0f}%</span><span class="kd">{sec_msg}</span></div>'
+        f'<div class="kpi"><span class="kl">Th&egrave;se dominante</span><span class="kv {these_cls}">{dom_these_pct:.0f}%</span><span class="kd">{these_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
         f'<div class="card pad"><div class="sbwrap"><svg id="sb-svg" viewBox="0 0 320 320" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
