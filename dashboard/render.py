@@ -719,8 +719,8 @@ def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dic
         f'<div class="sub">Positions proches du stop &middot; surchauffe &middot; moniteur de stress macro (/debt_status, en direct)</div></div>'
         f'{feu}{gauge}'
         f'<div class="cols">'
-        f'<div><div class="ph3">&#128308; Positions proches du stop</div><div class="card pad">{watch}</div></div>'
-        f'<div><div class="ph3">&#128163; Moniteur de stress macro &mdash; {clabel}</div>'
+        f'<div><div class="ph3">Positions proches du stop</div><div class="card pad">{watch}</div></div>'
+        f'<div><div class="ph3">Moniteur de stress macro &mdash; {clabel}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div></section>'
     )
 
@@ -1144,8 +1144,8 @@ _CSS = """
   .mono { font-family:var(--fm); font-weight:600; color:var(--ink); } .mono.pos { color:var(--acc); } .mono.neg { color:var(--bear); }
   .gauge { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:16px 20px; margin-bottom:15px; backdrop-filter:blur(9px); }
   .ghead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:11px; } .ghead .gl { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); } .ghead .gv { font-family:var(--fd); font-weight:800; font-size:20px; }
-  .gtrack { position:relative; height:9px; border-radius:5px; background:linear-gradient(90deg,#37E0A0,#FFB020 55%,#FF6B6B); }
-  .gmark { position:absolute; top:-4px; width:3px; height:17px; border-radius:2px; background:var(--ink); box-shadow:0 0 8px rgba(255,255,255,.6); transform:translateX(-50%); }
+  .gtrack { position:relative; height:6px; border-radius:3px; background:linear-gradient(90deg in oklch,oklch(0.80 0.15 150),oklch(0.80 0.16 90) 52%,oklch(0.63 0.18 25)); }
+  .gmark { position:absolute; top:-3px; width:2px; height:12px; border-radius:1px; background:var(--ink); transform:translateX(-50%); }
   .glab { margin-top:9px; font-size:10px; color:var(--steel); display:flex; justify-content:space-between; font-family:var(--fm); letter-spacing:.08em; }
   .row { padding:9px 0; border-bottom:1px solid var(--line); opacity:0; animation:fade .45s ease forwards; } .row:last-child { border-bottom:none; }
   .row[data-tk] { cursor:pointer; } .row[data-tk]:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
