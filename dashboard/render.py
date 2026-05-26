@@ -47,7 +47,7 @@ SUFFIX = {
 
 
 _PX_CACHE: dict[str, tuple[float, float]] = {}
-_PX_TTL = 840.0  # 14 min: throttle les fetchs yfinance a la cadence du bot
+_PX_TTL = 1800.0  # 30 min: throttle yfinance (partage IP/lib avec price_monitor, evite le ban)
 
 
 def _cached_price_eur(ticker: str) -> float | None:
@@ -1100,8 +1100,8 @@ _CSS = """
   @keyframes glowpulse { 0%,100% { opacity:.93; } 50% { opacity:1; } }
   .hero .hl { font-family:var(--fb); font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
   .hero .hsub { font-size:12.5px; color:var(--steel); margin-top:6px; }
-  .distbar { flex:1; min-width:240px; } .distline { display:flex; height:14px; border-radius:7px; overflow:hidden; }
-  .distline .g { background:linear-gradient(90deg,#7CF0C4,var(--acc)); } .distline .r { background:linear-gradient(90deg,var(--bear),#FF9A9A); }
+  .distbar { flex:1; min-width:240px; } .distline { display:flex; height:8px; border-radius:4px; overflow:hidden; }
+  .distline .g { background:oklch(0.72 0.16 150); } .distline .r { background:oklch(0.62 0.18 25); }
   .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:26px; }
   .kpi { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:13px 16px; box-shadow:0 12px 36px -22px #000, inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 0 1px color-mix(in srgb,var(--id) 5%,transparent); backdrop-filter:blur(9px); }
   .kl { display:block; font-family:var(--fb); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:7px; }
