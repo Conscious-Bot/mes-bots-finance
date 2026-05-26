@@ -257,3 +257,18 @@ Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas la
 ## Day 15 suite-5 — ADR 010 + decouverte line_cap_by_conviction (2026-05-26)
 - **ADR 010** : contradiction cap cluster 35-vs-57 RESOLUE -> 35% risk-adjusted (choc underwrite >=57%) ; config aligne (cluster_max_pct 0.57->0.35, assumed_cluster_shock 0.35->0.57) + commentaire corrige ; code deja a 35 (positions.py). Commit b785035.
 - **/!\ Decouvert, a froid** : config `concentration.line_cap_by_conviction` (c5=8/c4=6/c3=4.5/c2=3/c1=2) DIVERGE d'ADR 009 (c5=8/c4=6/c3=5/c2=4/c1=3). ADR 009 ecrit sans voir ce bloc config (meme blind-spot que le reste de la session). Commentaire config dit "remplace style.position_max_pct" -> statut soft-vs-liant ambigu vs ADR-008 ("5% soft"). A reconcilier a froid : trancher chiffres (4.5/3/2 vs 5/4/3) + statut. Basse urgence : non-wired, purement documentaire.
+
+
+## Day 15 suite-6 — Dashboard modernisation + sizing cible-taille (2026-05-26)
+
+**Dashboard servi en HTTP (workflow durable).** `dashboard/serve.py` (stdlib, pas FastAPI) tourne déjà — port 8000, hot-reload render.py sur mtime, regen auto (`HEIMDALL_REFRESH`, défaut 60s), `_PX_CACHE` chaud entre cycles. **Ouvrir `http://127.0.0.1:8000/dashboard.html`, plus de `file://`** (l'auto-reload ne marche qu'en HTTP). Lancer : `python3 -m dashboard.serve`. Santé : `tail dashboard/serve.log` (`regen Xs`, pas `FAILED`). Throttle yfinance → 30 min : `_PX_TTL=1800.0` (render.py l.50) = knob anti-ban, pas l'intervalle de regen ; tous les panneaux via `_cached_price_eur`.
+
+**Visuel (commités).** Donut secteurs interactif SVG (`40415d0`) · distline OKLCH fin (`8f381dd`) · header sans emojis + jauge surchauffe fine.
+
+**Sizing cible-taille (commité `90b0456`).** Par position : `alléger −X € → cible taille Z%` / `renforcer +X € → cible taille Z%` / `✓ cible taille Z%`, sous la barre sizing ; barre prix en hero pleine largeur. Modèle = conviction normalisée `cible_i = cap(conv_i)/Σ(caps tenus)×100` (somme à 100%, recalcul live, sous les caps, auto-financé). **/!\ Dépend de `line_cap_by_conviction` (4.5/3/2)** — voir ci-dessous. **Règle d'usage : `alléger`/`renforcer` = rightsize, jamais exit** ; trimmer un winner au-dessus de sa cible-taille peut nourrir le biais #1 si lu comme une sortie ; add seulement si thèse intacte.
+
+**Axis 1 (nudge thèse bidirectionnel) — construit puis REVERTÉ (data-driven).** Branche crypto FOMO (biais #2) morte (0 crypto tenu/thèse en DB) ; gate winner `frac<75` mal-calibré (étouffe le nudge dans la zone 75-95%). Leçon : le vrai levier biais #2 est en AMONT (thèse crypto avec stop/cible le jour d'une réexposition), pas dans render.py.
+
+**Élevé par cette session (documentaire → load-bearing).** Réconcilier `line_cap_by_conviction` 4.5/3/2 (config, désormais lu par le sizing) vs ADR 009 5/4/3, + statut soft/liant. Impacte directement les € de cible-taille ; cohorte c3 (19 pos) la plus exposée à l'écart.
+
+**Vrai fond non-traité (la polish ≠ track record).** 27 mai : 1res résolutions informatives · 10 juin/J+28 : batch KPI #2 + revisite ADR-008 · mi-juin : pruning univers + orphelins c1.
