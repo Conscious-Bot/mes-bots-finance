@@ -251,4 +251,4 @@ Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas la
 - `/positions` et `/tiers` **ne sont pas des commandes enregistrées** (registry : `portfolio`, `position`) → ignorées en silence. Mauvais nom, pas un bug.
 - `/brief` fonctionne → pas de souci de longueur, **chunk >4096 inutile**.
 - Fait : error handler Telegram (`6bc2438`) + kill 2 zombies + instance unique.
-- À froid : corriger pattern pgrep `python.*bot.main → bot.main` dans PROCEDURE_URGENCE + QUOTIDIENNE + checker uptime (KPI #1 mesure du bruit tant que cassé).
+- À froid (CORRIGÉ 26/05) : le checker live (`crons/uptime_monitor.sh` + `scripts/bot_health_check.sh`) utilise DÉJÀ `pgrep -fi` (§16) → PAS cassé, KPI #1 OK. Le « → bot.main » était une mauvaise direction (fix §16 = `-i`, pas un changement de pattern). Résidu corrigé : PROCEDURE_QUOTIDIENNE:11 (+ `-i`) + CONVENTIONS:397 (snippet mutilé). Sites runbook stale (`-f` sans `-i`) = hygiène optionnelle, non urgent.

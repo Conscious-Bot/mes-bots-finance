@@ -8,7 +8,7 @@ A faire chaque jour entre 8h et 12h Paris.
 ### 1. Bot tourne ?
 
     cd ~/mes-bots-finance
-    pgrep -fl "python.*bot.main"
+    pgrep -fil "python.*bot.main"
 
 - 1+ ligne avec PID = OK
 - Vide = bot down, voir PROCEDURE_URGENCE.md Scenario 1

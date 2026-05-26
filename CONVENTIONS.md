@@ -394,7 +394,7 @@ Canonical pattern:
 pgrep -if "python.*bot.main" | xargs kill -9
 
 Or per-PID loop:
-for pid in (pgrep−if"python.∗bot.main");dokill−9"(pgrep -if "python.*bot.main"); do kill -9 "
+for pid in $(pgrep -if "python.*bot.main"); do kill -9 "$pid"; done
 (pgrep−if"python.∗bot.main");dokill−9"pid"; done
 
 **Forbidden**: `kill %1`, `kill %2`, or kill by bash job PID alone. Always verify via `pgrep -ifl` after kill to confirm interpreter is actually dead.
