@@ -261,47 +261,37 @@ def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
         else:
             incomplete.append(r)
 
-    total = len(results)
-    lines = [f"📊 PORTFOLIO ASYMMETRY — {total} active theses"]
-    parts = []
-    if computed:
-        parts.append(f"Computed: {len(computed)}")
-    if incomplete:
-        parts.append(f"Incomplete: {len(incomplete)}")
-    if watch:
-        parts.append(f"Watch: {len(watch)}")
-    if errored:
-        parts.append(f"Errors: {len(errored)}")
-    if parts:
-        lines.append(" | ".join(parts))
-    lines.append("")
+    computed_sorted = sorted(computed, key=lambda x: -(x.get("asymmetry_ratio") or 0))
+    near_t = [r["ticker"] for r in computed_sorted if r.get("upside_pct", 0) < 10]
+    near_s = [r["ticker"] for r in computed_sorted if r.get("downside_pct", 0) < 10]
 
-    # Section 1: COMPUTED — raw distances sorted by ratio desc
+    head = f"📊 ASYMMETRY · {len(computed)} calc"
+    if watch:
+        head += f" · {len(watch)} watch"
+    if incomplete:
+        head += f" · {len(incomplete)} incomplete"
+    if errored:
+        head += f" · {len(errored)} err"
+    lines = [
+        head,
+        f"🎯 cible: {' '.join(near_t) if near_t else '—'}    🔴 stop: {' '.join(near_s) if near_s else '—'}",
+        "",
+    ]
+
+    # COMPUTED — distances brutes seulement (prix complets via /asymmetry TICKER), tri ratio desc
     if computed:
-        lines.append(f"━ COMPUTED ({len(computed)}) — raw distances (sorted by ratio desc) ━")
-        computed_sorted = sorted(computed, key=lambda x: -(x.get("asymmetry_ratio") or 0))
-        _fx = _fx_eur_to_usd()
+        lines.append("ticker       ↑cible   ↓stop")
         for r in computed_sorted:
-            ticker = r["ticker"]
-            current = (r.get("current_price") or 0) * _fx
-            entry = (r.get("entry") or 0) * _fx
-            target = (r.get("target_full") or 0) * _fx
-            stop = (r.get("stop") or 0) * _fx
             up_pct = r.get("upside_pct", 0)
             down_pct = r.get("downside_pct", 0)
-            pnl_pct = ((current - entry) / entry * 100) if entry else 0
-
-            flags = []
-            if down_pct < 10:
-                flags.append("🔴 STOP NEAR")
+            flag = ""
             if up_pct < 10:
-                flags.append("🎯 TARGET NEAR")
-            flags_str = ("  " + "  ".join(flags)) if flags else ""
-
-            lines.append(
-                f"{ticker:10s} cur=${current:>8.2f}  entry=${entry:>8.2f} ({pnl_pct:+.1f}%)  "
-                f"target=${target:>8.2f} (+{up_pct:.0f}%)  stop=${stop:>8.2f} (-{down_pct:.0f}%){flags_str}"
-            )
+                flag += "  🎯"
+            if down_pct < 10:
+                flag += "  🔴"
+            up_s = f"+{up_pct:.0f}%"
+            down_s = f"-{down_pct:.0f}%"
+            lines.append(f"{r['ticker']:<11}{up_s:>6}  {down_s:>6}{flag}")
         lines.append("")
 
     if incomplete:
