@@ -700,20 +700,11 @@ def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dic
     _vix = next((float(v or 0) for i, v, p, t in sig if i == "VIX"), None)
     _reduced = _vix is not None and _vix >= _vthr
     _sfac = _vsf if _reduced else 1.0
-    size_cls = "warn" if _reduced else "calm"
     size_txt = f"VIX {_vix:.1f} {'&ge;' if _reduced else '&lt;'} {_vthr}" if _vix is not None else "VIX indisponible"
     clabel = {1: "STABLE", 2: "STRESS", 3: "ALERTE", 4: "CRISE"}.get(cphase, "CRISE")
-    pos_lvl = 1 if near == 0 and heat < 33 else (2 if near <= 1 and heat < 60 else 3)
-    state_lvl = max(cphase, pos_lvl)
-    flabel, fcls = {1: ("CALME", "calm"), 2: ("VIGILANCE", "warn"), 3: ("D&Eacute;FENSIF", "danger"), 4: ("CRISE", "danger")}.get(state_lvl, ("CRISE", "danger"))
     stress_cls = "danger" if cphase >= 3 else ("warn" if cphase == 2 else "calm")
-    if cphase > pos_lvl:
-        cause = f"d&eacute;clench&eacute;e par la macro &middot; {near} position(s) sous le stop"
-    elif pos_lvl > cphase:
-        cause = f"d&eacute;clench&eacute;e par tes positions &middot; macro {clabel}"
-    else:
-        cause = (f"macro {clabel} &middot; {near} sous le stop") if state_lvl > 1 else "rien &agrave; signaler"
-    hband = "calme" if heat < 33 else ("tension" if heat < 60 else "surchauffe")
+    _stress_col = {"danger": "bear", "warn": "warn", "calm": "acc"}.get(stress_cls, "steel")
+    hband = "calme" if heat < 33 else ("tension" if heat < 60 else "critique")
     _conc = []
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
@@ -722,21 +713,22 @@ def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dic
     _dev_cls, _dev_lab = ("danger", "&Agrave; TRAITER") if _conc else ("calm", "AU CALME")
     _dev_txt = " &nbsp;&middot;&nbsp; ".join(_conc) if _conc else "concentration sous tes plafonds"
     feu = (
-        '<div class="plan"><div class="plan-h">&Eacute;tat actuel</div><div class="plan-row">'
+        '<div class="plan"><div class="plan-h">&Agrave; arbitrer aujourd&rsquo;hui</div><div class="plan-row">'
         + f'<div class="pi {_dev_cls}"><span class="pn">{_dev_lab}</span><span class="pl">&eacute;cart de discipline</span><span class="pt">{_dev_txt}</span></div>'
-        + f'<div class="pi {fcls}"><span class="pn">{flabel}</span><span class="pl">posture de d&eacute;fense</span><span class="pt">{cause}</span></div>'
-        + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">position(s) &lt; 10% du stop</span><span class="pt">surchauffe {heat:.0f}/100 &middot; {hband}</span></div>'
-        + f'<div class="pi {stress_cls}"><span class="pn">{score:.1f}</span><span class="pl">stress macro</span><span class="pt">phase {cphase} &middot; {clabel}</span></div>'
-        + f'<div class="pi {size_cls}"><span class="pn">&times;{_sfac:.1f}</span><span class="pl">sizing recommand&eacute;</span><span class="pt">{size_txt}</span></div>'
         + f'<div class="pi calm"><span class="pn">{near_t}</span><span class="pl">winner(s) &ge;75% cible</span><span class="pt">laisse courir &middot; ex&eacute;cute ton plan</span></div>'
+        + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">ligne(s) &lt; 10% du stop</span><span class="pt">{"&agrave; surveiller" if near else "au calme"}</span></div>'
+        + '</div>'
+        + '<div style="margin-top:16px;padding-top:13px;border-top:1px solid var(--line);display:flex;gap:30px;flex-wrap:wrap;font-size:11.5px;color:var(--steel)">'
+        + f'<span>r&eacute;gime macro &middot; <b style="color:var(--{_stress_col})">{clabel}</b> &middot; phase {cphase} &middot; stress {score:.0f}</span>'
+        + f'<span>{size_txt} &middot; sizing <b style="color:var(--ink)">&times;{_sfac:.1f}</b></span>'
         + '</div></div>'
     )
     gauge = (
         '<div class="gauge"><div class="ghead">'
-        '<span class="gl">Surchauffe portefeuille &middot; ligne la plus expos&eacute;e au stop</span>'
+        '<span class="gl">Exposition au stop &middot; ligne la plus proche de son seuil</span>'
         + f'<span class="gv">{heat:.0f}<span style="font-size:12px;color:var(--steel);font-weight:500">/100 &middot; {hband}</span></span></div>'
         + f'<div class="gtrack"><div class="gmark" style="left:{max(0.0, min(100.0, heat)):.0f}%"></div></div>'
-        '<div class="glab"><span>calme</span><span>tension</span><span>surchauffe</span></div></div>'
+        '<div class="glab"><span>calme</span><span>tension</span><span>critique</span></div></div>'
     )
     return (
         f'<section data-page="urgence"><div class="phead"><h2>Urgence</h2>'
