@@ -1809,6 +1809,18 @@ def render() -> Path:
         '<div class="colhead" style="margin-top:22px"><span class="t">Derni&egrave;res d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
         f'<div class="card pad">{journal_html}</div>'
     ) if journal_html else ""
+    _up = {r["ticker"]: r.get("upside_pct") for r in computed}
+    _dn = {r["ticker"]: r.get("downside_pct") for r in computed}
+    _cibles = sorted((tk for tk in _up if _up[tk] is not None), key=lambda tk: _up[tk])[:6]
+    _stops = sorted((tk for tk in _dn if _dn[tk] is not None), key=lambda tk: _dn[tk])[:6]
+    gain = "".join(
+        f'<div class="line"><span class="mono">{tk}</span><span class="mono"><b>+{_up[tk]:.0f}%</b> &rarr; cible</span></div>'
+        for tk in _cibles
+    ) or '<div class="empty" style="padding:18px 0">aucune ligne pr&egrave;s de sa cible</div>'
+    lose = "".join(
+        f'<div class="line"><span class="mono">{tk}</span><span class="mono"><b>{_dn[tk]:.0f}%</b> de marge</span></div>'
+        for tk in _stops
+    ) or '<div class="empty" style="padding:18px 0">toutes loin de leur stop</div>'
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; ce sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -1818,8 +1830,8 @@ def render() -> Path:
         f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
         f'<div class="sub2"><b>{n_gain}/{n_pnl}</b> en gain &middot; {gpct:.0f}% du capital &middot; {pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Meilleures lignes</span><span class="a">depuis l&rsquo;entr&eacute;e</span></div>'
-        f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Pires lignes</span><span class="a">depuis l&rsquo;entr&eacute;e</span></div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">ta th&egrave;se se r&eacute;alise</span></div>'
+        f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Plus proches du stop</span><span class="a">marge avant invalidation</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
