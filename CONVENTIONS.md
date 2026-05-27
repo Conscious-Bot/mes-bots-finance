@@ -1575,3 +1575,12 @@ Gouverneur du risque = **cap de cluster correle**, pas le cap par ligne. Un book
 - Post-KPI#2: basculer `risk.validate_enabled: true` + wiring dans `risk_engine.validate()` -- check `line_cap_by_conviction[conv]` + somme ponderee du cluster vs `cluster_max_pct`, en WARN (pas hard block) sur buy/sell.
 
 **Etat 25/05/2026**: cluster semis_ai ~73% (cible 57%); 4 lignes c5 >5% (4063.T 8.5 / ASML.AS 8.2 / TSM 7.7 / SNPS 7.0). Rebalance ~8K EUR vers drivers decorreles (healthcare/financials/defense/crypto -- deja dans l'univers, non tenus).
+
+## Typographie & technique metal canonique (dashboard, 27/05/2026)
+
+Tailles police (px) : titre page .phead h2 = 46 (w800, ls -.04em) ; gros chiffre hero .big = 46 ; chiffre cle .kv = 26 ; gauge label .gvm = 20 ; sous-titre .phead .sub = 12.
+
+Technique metal texte = linear-gradient multi-stops + background-clip:text + -webkit-text-fill-color:transparent + color:transparent.
+- Chiffres/gauge (.kv/.gvm/.big) : gradient 155deg keye sur la variable --c (couleur d'etat). .kv.bear/.acc/.warn/.id posent --c ; le 40 pose --c:var(--id) inline ; defaut --c = --ink.
+- Titres (.phead h2) : chrome diagonal ~120deg, 2 speculaires, couleur DEDIEE (pas --c). Dark = silver clair brillant (#8b94a9 -> #fff -> #d8e0ec ...). Frost = graphite SANS blanc (#2b3340 -> #717d97 ...). Regle physique : un titre quasi-blanc disparait sur fond clair, le brillant vit en dark mode uniquement.
+- Barre sticky .dband : verdict en metal d'etat ; textes secondaires .dx/.dn/.dc suivent la couleur d'etat (rouge alarme / vert calme).
