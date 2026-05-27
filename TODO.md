@@ -163,3 +163,10 @@ Vue concentration géographique (US / EU / Asie). render_smoke l'anticipait (nav
 - [pause] Axe crypto / biais #2 — stock-only depuis 26/05. Reactivation = routing -USD + retrait CRYPTO_DENY.
 - [done] P2 line_cap : clos (ADR 009 + fix verdict gouverneur render.py).
 - [open] Risk #1 : resolve backfill past-due (downtime 9h) — non audite.
+
+## suite-8 (27/05/2026)
+- [done] Dashboard cockpit canonique : palette par etat + metal (--c / chrome titres) + concentration rouge "alleger sans sortir" + barre etat-coloree. Documente CONVENTIONS.md.
+- [done] Hygiene : process check (1 bot + 1 serve), backup (integrity OK), git propre.
+- [open][P3 trivial] Theses "en profit N/total" rouge -> vert (etat sain). pcls -> acc.
+- [reminder] STYLE FIGE. Prochain gain != patch CSS. Usage quotidien + VALUE_LOG -> 10/06.
+- [open] Risk #1 (resolve backfill past-due si downtime) -- toujours non audite.

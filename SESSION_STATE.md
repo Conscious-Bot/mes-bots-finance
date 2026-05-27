@@ -277,3 +277,15 @@ Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas la
 - Crypto OUT (stock-only) : preds ETH/LINK (id 87/88) + 12 signaux sources crypto supprimes ; CRYPTO_DENY guard a la creation (learning.py auto_register). Axe biais #2 (anti-hold crypto) en pause — 0 holding crypto.
 - P2 line_cap CLOS : reconciliation deja faite par ADR 009 (config 8/6/4.5/3/2 = source unique, soft, subordonne au cap cluster 35% liant). Defect cache regle : _concentration verdict folde le gouverneur cluster (>=35% -> ELEVEE, >=50% -> EXCESSIVE) ; CLUSTER_CAP->NARRATIVE_CAP ; axe dominant = these (etait mislabeled "secteur").
 - Risk #1 NON audite : resolve_due_predictions L117 / storage.get_due_predictions L664 — backfille-t-il le past-due si downtime a 9h ?
+
+## suite-8 — Dashboard cockpit canonique (27/05/2026)
+
+Pass canonique sur le cockpit (render.py), commits e34baf3 + 7a66f0c + 4c604bb.
+- **Palette par etat** (couleur = etat, pas le levier) : ROUGE breche/alarme/perte, AMBRE attention/opportunite, VERT sain, BLEU donnee neutre, INK valeur. Figee CONVENTIONS.md.
+- **Concentration -> ROUGE** (alarme) + verbe "alleger sans sortir" : le rouge alerte, le mot empeche le trim-panique (biais #1). Coherent avec la page Concentration (deja rouge EXCESSIVE).
+- **Metal** : technique --c (couleur d'etat) sur .kv/.gvm/.big ; chrome diagonal 2-speculaires sur titres (.phead h2 46px) -- silver brillant en dark, graphite SANS blanc en frost (regle physique : blanc sur fond clair = invisible). "40" en bleu metal. Barre .dband : textes secondaires suivent l'etat.
+- 3-leviers cockpit Taille / Cible / Stop rendus distincts.
+
+Hygiene : 1 bot.main (37896) + 1 serve (47182), no ghost. Backup OK (integrity OK). Git HEAD 4c604bb.
+Residuel P3 trivial : Theses "en profit 19/40" en ROUGE = etat sain mal colore -> vert (pcls -> acc).
+Vrai levier (redit) : style FIGE. Gain Path 5/6 = usage quotidien + VALUE_LOG jusqu'au batch KPI #2 du 10/06.

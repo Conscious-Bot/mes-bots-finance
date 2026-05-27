@@ -133,3 +133,7 @@ Le bot instrumente des DÉCISIONS réelles ; sans positions réelles, les boucle
 - **Phase 4** (~août-sept) : full portfolio + execute_real si retenu
 
 Policy 2-week observation post-opening (Day 16) : pas d'action portfolio offensive avant J+14 d'une thèse. À encoder dans PHILOSOPHY.md + guardrail bot.
+
+## MAJ 27/05/2026 — Dashboard cockpit (canonique)
+Cockpit HTTP (dashboard/serve.py, http://127.0.0.1:8000/dashboard.html) : identite visuelle canonique -- palette par etat (rouge breche / ambre attention / vert sain / bleu donnee / ink valeur), metal sur readouts (technique --c) et titres chrome (silver dark / graphite frost, 46px). 3-leviers Taille / Cible / Stop distincts. Reference : CONVENTIONS.md.
+Stock-only depuis 26/05 (axe crypto/biais #2 en pause). Prochain jalon : batch KPI #2 le 10/06.

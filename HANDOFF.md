@@ -1545,3 +1545,8 @@ ruff + mypy clean on touched files.
 
 ### Bot state
 PID 7879 alive (restart post-fix), 27 crons, 335 tests, ruff+mypy clean.
+
+## MAJ 27/05/2026 — dashboard cockpit canonique + hygiene
+Bot : bot.main PID 37896 + dashboard.serve PID 47182 (un seul de chaque). Backup OK. Git HEAD 4c604bb.
+Dashboard : palette par etat + metal (--c sur chiffres, chrome titres 46px silver-dark/graphite-frost) + concentration rouge "alleger sans sortir". Reference figee : CONVENTIONS.md. Servi HTTP (jamais file://), restart serve apres tout patch render.py.
+Residuel P3 : Theses "en profit" rouge -> vert. Style globalement FIGE -- prochain levier = usage, pas CSS.
