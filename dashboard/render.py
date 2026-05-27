@@ -784,6 +784,18 @@ def _rail_foot(near: int, heat: float) -> str:
     )
 
 
+def _sizing_overcap(positions: list[dict], conv_by_tk: dict, caps: dict, pnl: dict) -> list[str]:
+    """Lignes dont le poids courant depasse leur cap de conviction (signal de TAILLE, prix-agnostique)."""
+    vtot = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions) or 1
+    over = []
+    for p in positions:
+        wv = p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) / vtot * 100
+        cap = caps.get(conv_by_tk.get(p["ticker"]))
+        if cap and wv > cap * 100:
+            over.append((wv - cap * 100, p["ticker"]))
+    return [tk for _, tk in sorted(over, reverse=True)]
+
+
 def _pi(n: int, tks: list, lab: str, cls: str) -> str:
     nm = " &middot; ".join(tks[:3]) + ("&hellip;" if len(tks) > 3 else "")
     return f'<div class="pi {cls}"><span class="pn">{n}</span><span class="pl">{lab}</span><span class="pt">{nm or "&mdash;"}</span></div>'
@@ -1220,9 +1232,9 @@ _CSS = """
   .plan-h { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:13px; }
   .plan-row { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
   .pi { display:flex; flex-direction:column; gap:4px; padding-left:13px; border-left:2px solid var(--line2); border-radius:0; }
-  .pi.danger { border-left-color:var(--bear); } .pi.warn { border-left-color:var(--warn); } .pi.calm { border-left-color:var(--acc); }
+  .pi.danger { border-left-color:var(--bear); } .pi.warn { border-left-color:var(--warn); } .pi.calm { border-left-color:var(--acc); } .pi.size { border-left-color:var(--steel); }
   .pn { font-family:var(--fd); font-weight:800; font-size:23px; line-height:1; }
-  .pi.danger .pn { color:var(--bear); } .pi.warn .pn { color:var(--warn); } .pi.calm .pn { color:var(--acc); }
+  .pi.danger .pn { color:var(--bear); } .pi.warn .pn { color:var(--warn); } .pi.calm .pn { color:var(--acc); } .pi.size .pn { color:var(--steel); }
   .pl { font-size:11.5px; color:var(--ink); } .pt { font-family:var(--fm); font-size:10.5px; color:var(--steel); }
   .dt tbody tr:not(.prev) { cursor:pointer; }
   .loupe { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:34px; }
@@ -1789,9 +1801,12 @@ def render() -> Path:
     pf_pe = f"{pf_pnl_eur:+,.0f}".replace(",", "&#8239;")
     near_stop_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0)) if r.get("downside_pct") is not None and r["downside_pct"] < 10]
     near_tgt_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("upside_pct", 999.0)) if r.get("upside_pct") is not None and r["upside_pct"] < 12]
+    _conv_tk = {row[0]: row[1] for row in _q("SELECT ticker, conviction FROM theses WHERE status='active'")}
+    over_cap_tk = _sizing_overcap(positions, _conv_tk, _CFG.get("concentration", {}).get("line_cap_by_conviction", {}), pnl)
 
     disc_hero = (
         '<div class="hero posture"><div class="hl">&Agrave; surveiller &mdash; m&eacute;canique, non prescriptif</div><div class="plan-row">'
+        + _pi(len(over_cap_tk), over_cap_tk, "au-dessus du cap &middot; all&eacute;ger sans sortir", "size" if over_cap_tk else "calm")
         + _pi(len(near_tgt_tk), near_tgt_tk, "candidat(s) prise de profit", "warn" if near_tgt_tk else "calm")
         + _pi(len(near_stop_tk), near_stop_tk, "proche(s) du stop", "danger" if near_stop_tk else "calm")
         + '</div></div>'
