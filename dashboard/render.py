@@ -822,19 +822,7 @@ def _journal() -> str:
     return out
 
 
-_LOGO = (
-    '<svg width="46" height="36" viewBox="0 0 56 44" fill="none" xmlns="http://www.w3.org/2000/svg">'
-    '<defs><linearGradient id="hlg" x1="0" y1="44" x2="56" y2="0">'
-    '<stop offset="0" stop-color="#9A7B2E"/><stop offset=".45" stop-color="var(--id)"/><stop offset="1" stop-color="#F6DD9A"/>'
-    '</linearGradient></defs>'
-    '<g stroke="url(#hlg)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none">'
-    '<ellipse cx="8" cy="31" rx="3" ry="4.4"/>'
-    '<path d="M8.5 26.8 C13 19 21.5 17 28 19.2"/>'
-    '<path d="M11 35 C16 38 23 37 28.5 31.5"/>'
-    '<path d="M19 30 V25 M23 31 V20 M27 31 V15 M31 30 V18"/>'
-    '<path d="M37 10 V34 M37 10 l5.5 4.5 -5.5 4.5"/>'
-    '</g></svg>'
-)
+_LOGO = '<svg viewBox="0 0 200 352.384" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="prsgMark" x1="0.12" y1="0" x2="0.88" y2="1"><stop offset="0" stop-color="#6FB0FF"/><stop offset=".30" stop-color="var(--id)"/><stop offset=".50" stop-color="#2057B8"/><stop offset=".70" stop-color="var(--id)"/><stop offset="1" stop-color="#6FB0FF"/></linearGradient></defs><g transform="translate(-14.000000,366.500000) scale(0.100000,-0.100000)" fill="url(#prsgMark)" stroke="none"> <path d="M463 3336 l-323 -326 0 -1041 0 -1041 83 -97 c131 -151 322 -383 441 -536 60 -77 113 -144 118 -150 4 -5 8 201 8 458 l0 467 -110 146 -110 146 0 598 0 597 110 145 110 146 -2 407 -3 407 -322 -326z"/> <path d="M1491 3255 l-1 -410 82 -105 c45 -58 94 -123 110 -144 l28 -39 0 -597 0 -597 -110 -146 -110 -146 2 -465 3 -465 115 147 c137 175 379 469 467 568 l63 72 0 1039 0 1039 -324 329 -325 330 0 -410z"/> <path d="M1129 2591 l-4 -424 -30 -10 c-105 -34 -155 -146 -108 -244 17 -37 93 -93 125 -93 17 0 18 -24 20 -462 0 -284 4 -430 9 -378 4 47 7 254 8 461 l1 376 38 11 c69 21 122 92 122 164 0 53 -37 115 -84 143 -24 14 -50 25 -59 25 -16 0 -17 31 -18 353 -1 193 -5 386 -9 427 -4 45 -8 -93 -11 -349z"/> </g></svg>'
 
 _TH_CSS = """
 <style>
@@ -1114,7 +1102,7 @@ _CSS = """
     background-size:300px 300px,360px 360px,240px 240px,320px 320px,400px 400px,280px 280px,420px 420px,340px 340px; }
   .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; }
   .logo { display:flex; align-items:center; justify-content:center; margin-bottom:22px; padding:0; }
-  .logo svg { width:38px; height:auto; filter:drop-shadow(0 0 8px rgba(61,139,255,.4)); }
+  .logo svg { height:40px; width:auto; filter:drop-shadow(0 0 8px rgba(61,139,255,.4)); }
   .logo .wm { display:none; }
   .nav { display:flex; flex-direction:column; gap:4px; align-items:center; width:100%; }
   .nitem { position:relative; display:flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; cursor:pointer; color:var(--steel); border-left:2px solid transparent; transition:.15s; }
@@ -1903,7 +1891,7 @@ def render() -> Path:
     )
     elan, near_t = _elan_watch(computed)
     body = (
-        f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
+        f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
         f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
@@ -1913,7 +1901,7 @@ def render() -> Path:
 
     html = (
         '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta http-equiv="refresh" content="300">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1"><script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>Heimdall</title>'
+        '<meta name="viewport" content="width=device-width, initial-scale=1"><script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>PRESAGE</title><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230c0c0e%22/%3E%3Cg%20transform%3D%22translate%2819.5%2C10%29%20scale%280.12487%29%22%3E%3Cg%20transform%3D%22translate%28-14.000000%2C366.500000%29%20scale%280.100000%2C-0.100000%29%22%20fill%3D%22%233D8BFF%22%20stroke%3D%22none%22%3E%20%3Cpath%20d%3D%22M463%203336%20l-323%20-326%200%20-1041%200%20-1041%2083%20-97%20c131%20-151%20322%20-383%20441%20-536%2060%20-77%20113%20-144%20118%20-150%204%20-5%208%20201%208%20458%20l0%20467%20-110%20146%20-110%20146%200%20598%200%20597%20110%20145%20110%20146%20-2%20407%20-3%20407%20-322%20-326z%22/%3E%20%3Cpath%20d%3D%22M1491%203255%20l-1%20-410%2082%20-105%20c45%20-58%2094%20-123%20110%20-144%20l28%20-39%200%20-597%200%20-597%20-110%20-146%20-110%20-146%202%20-465%203%20-465%20115%20147%20c137%20175%20379%20469%20467%20568%20l63%2072%200%201039%200%201039%20-324%20329%20-325%20330%200%20-410z%22/%3E%20%3Cpath%20d%3D%22M1129%202591%20l-4%20-424%20-30%20-10%20c-105%20-34%20-155%20-146%20-108%20-244%2017%20-37%2093%20-93%20125%20-93%2017%200%2018%20-24%2020%20-462%200%20-284%204%20-430%209%20-378%204%2047%207%20254%208%20461%20l1%20376%2038%2011%20c69%2021%20122%2092%20122%20164%200%2053%20-37%20115%20-84%20143%20-24%2014%20-50%2025%20-59%2025%20-16%200%20-17%2031%20-18%20353%20-1%20193%20-5%20386%20-9%20427%20-4%2045%20-8%20-93%20-11%20-349z%22/%3E%20%3C/g%3E%3C/g%3E%3C/svg%3E">'
         ''
         '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
         '<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Runic&display=swap" rel="stylesheet">'

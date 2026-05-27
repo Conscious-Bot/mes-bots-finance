@@ -340,3 +340,10 @@ PARKE: retirer anciens creds du Project Claude (UI). Passer app OAuth en "Produc
 - Kept factual events (STOP_BREACHED/TARGET_HIT) + raw distances + proximity flags.
 - compute_thesis_asymmetry unchanged. Display-only, in-bounds (observation safe).
 - Live effect at next bot restart (not forced tonight).
+
+## suite-9f (27/05/2026) — Brand PRESAGE sur le dashboard (bleu-metal)
+- Decision marque : PRESAGE = surface publique (dashboard/favicon/title) ; HEIMDALL = nom interne (inchange).
+- _LOGO swappe : ancien horn/bifrost or -> marque PRESAGE vectorisee (trace depuis la planche), traitement bleu-metal : base var(--id) #3D8BFF (curseurs, identique light/dark) + reflets bleus fixes #6FB0FF/#2057B8. Mirroir du langage metal-liquide des .kv.
+- Choix bleu vs metal-chrome : le chrome gris echoue en light mode (reflets clairs disparaissent). Bleu-metal = lisible dual-mode + matche les curseurs.
+- .logo svg width-based -> height-based (mark portrait), glow bleu conserve.
+- Favicon SVG data-URI (mark bleu sur carre sombre) + <title>PRESAGE</title>. Display-only, observation-safe, hot-reload.
