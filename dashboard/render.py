@@ -507,19 +507,62 @@ def _sector_blocks(positions: list[dict], planned: list[dict], sectors: dict, pn
 def _geo_bars(positions: list[dict]) -> str:
     total = sum(p["weight"] for p in positions) or 1
     cw: dict[str, float] = {}
+    cstk: dict[str, list[tuple[str, float]]] = {}
     for p in positions:
         c = _country(p["ticker"])
         cw[c] = cw.get(c, 0.0) + p["weight"]
+        cstk.setdefault(c, []).append((p["ticker"], p["weight"]))
+    try:
+        from shared.ticker_names import get_short_name as _gsn
+    except Exception:
+        _gsn = None
+    css = (
+        "<style>"
+        ".geo-item{cursor:pointer}"
+        ".geo-item .row{transition:background .15s;border-radius:8px}"
+        ".geo-item:hover .row{background:color-mix(in srgb,var(--ink) 4%,transparent)}"
+        ".geo-sub{max-height:0;overflow:hidden;opacity:0;"
+        "transition:max-height .3s ease,opacity .2s ease,margin .3s ease}"
+        ".geo-item:hover .geo-sub,.geo-item.open .geo-sub{max-height:360px;opacity:1;margin:4px 0 14px}"
+        ".geo-stk{display:flex;align-items:center;gap:10px;padding:5px 6px 5px 16px;"
+        "font-size:12px;border-left:2px solid var(--line2);margin-left:3px}"
+        ".geo-stk .gnm{color:var(--ink)}"
+        ".geo-stk .gtk{color:var(--steel);font-family:var(--fm);font-size:10.5px}"
+        ".geo-stk .gpc{margin-left:auto;color:var(--steel);font-family:var(--fm);font-size:10.5px}"
+        ".geo-stk .gw{color:var(--ink);font-family:var(--fm);min-width:62px;text-align:right}"
+        "</style>"
+    )
     bars = ""
     for country, w in sorted(cw.items(), key=lambda x: -x[1]):
         pct = w / total * 100
+        sub = ""
+        for tk, sw in sorted(cstk.get(country, []), key=lambda x: -x[1]):
+            nm = ""
+            if _gsn is not None:
+                try:
+                    nm = _gsn(tk) or ""
+                except Exception:
+                    nm = ""
+            spc = (sw / w * 100) if w else 0
+            sub += (
+                f'<div class="geo-stk"><span class="gnm">{nm or tk}</span>'
+                f'<span class="gtk">{tk if nm else ""}</span>'
+                f'<span class="gpc">{spc:.0f}%</span>'
+                f'<span class="gw">{sw:.0f}&euro;</span></div>'
+            )
         bars += (
+            f'<div class="geo-item">'
             f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
             f'<span class="tag acc2">{pct:.0f}%</span></div>'
             f'<div class="track"><div class="fill acc2" style="--w:{max(2.0, min(100.0, pct)):.0f}%"></div></div>'
             f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
+            f'<div class="geo-sub">{sub}</div></div>'
         )
-    return bars
+    js = (
+        "<script>document.querySelectorAll('.geo-item').forEach(function(e){"
+        "e.addEventListener('click',function(){e.classList.toggle('open')})});</script>"
+    )
+    return css + bars + js
 
 
 def _signaux() -> str:
