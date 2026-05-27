@@ -355,3 +355,8 @@ PARKE: retirer anciens creds du Project Claude (UI). Passer app OAuth en "Produc
   dark #7FB6FF/#1E5AD0 (range clair), light #5C9CFF/#0B3A86 (range sombre) -> claque dans les 2 modes.
 - Chrome gris ecarte (echoue en light). .logo svg height-based (mark portrait), glow bleu conserve.
 - Favicon SVG data-URI + <title>PRESAGE</title>. Display-only, observation-safe, hot-reload.
+
+## suite-9g (27/05/2026) — Mark PRESAGE -> monochrome noir/blanc
+- Abandon du bleu (rejete). Mark mono theme-aware via --mkhi/--mkbase/--mklo :
+  dark #FFFFFF/#DDE2EA/#9097A1 (blanc-argent), light #4A4F58/#1C1E24/#000000 (anthracite-noir).
+- Fidele a la planche (noir/blanc strict), biseau metal conserve. Favicon refait en mono clair.
