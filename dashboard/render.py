@@ -706,8 +706,8 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
-            _conc.append(f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;")
-    _dev_cls, _dev_lab = ("danger", "&Agrave; TRAITER") if _conc else ("calm", "AU CALME")
+            _conc.append(f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;")
+    _dev_cls, _dev_lab = ("danger", "&Agrave; CALIBRER") if _conc else ("calm", "AU CALME")
     _dev_txt = " &nbsp;&middot;&nbsp; ".join(_conc) if _conc else "concentration sous tes plafonds"
     feu = (
         '<div class="plan"><div class="plan-h">&Agrave; arbitrer aujourd&rsquo;hui</div><div class="plan-row">'
@@ -723,7 +723,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     gauge = (
         '<div class="gauge"><div class="ghead">'
         '<span class="gl">Sant&eacute; macro &middot; cr&eacute;dit / or / taux 30a / inflation / VIX</span>'
-        + f'<span class="gv" style="color:var(--{_phase_col})">{clabel}<span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; phase {cphase}/4 &middot; indice {score:.0f}</span></span></div>'
+        + f'<span class="gv"><span class="gvm" style="--c:var(--{_phase_col})">{clabel}</span><span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; phase {cphase}/4 &middot; indice {score:.0f}</span></span></div>'
         + f'<div class="gtrack"><div class="gmark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
         '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
     )
@@ -959,7 +959,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
 
     hero = (
         '<div class="hero"><div><div class="hl">Th&egrave;ses actives</div>'
-        f'<div class="big" style="color:var(--id)">{n}</div>'
+        f'<div class="big" style="--c:var(--id)">{n}</div>'
         f'<div class="hsub">m&eacute;diane c{med} &middot; {n_fav} &agrave; asym&eacute;trie favorable &middot; {n_near} proche(s) du stop</div></div>'
         '<div style="flex:1;min-width:250px"><div class="hl">Distribution conviction</div>'
         f'{hist}<div class="hsub" style="margin-top:7px">{infl_msg}</div></div></div>'
@@ -1073,14 +1073,14 @@ _NAV = (
 )
 
 _CSS = """
-  :root { --bg:#0A0E16; --panel:#121826; --line:#1E2738; --line2:#2C3550; --ink:#E8ECF4; --steel:#8A93A8;
+  :root { --bg:#0A0E16; --panel:#121826; --line:#1E2738; --line2:#2C3550; --ink:#E8ECF4; --steel:#8A93A8; --metal:color-mix(in srgb,var(--id) 82%,var(--steel));
     --acc:#34D9A0; --acc2:#2DD4BF; --id:#3D8BFF; --bear:#FF6B6B; --warn:#F5B544; --gold:#C9A86A;
     --fd:"Satoshi","Inter Tight",sans-serif; --fb:"Satoshi","Inter Tight",sans-serif; --fm:"IBM Plex Mono",monospace; --fo:"Satoshi",sans-serif;
     --bg2:#070A11; --panel2:#1A2234; --ink2:#C2C9D6; --steel2:#5C6678;
     --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --r1:8px; --r2:12px; --r3:16px; --elev:0 18px 48px -28px rgba(0,0,0,.85);
     --glass:rgba(28,28,33,.5); --glass2:rgba(20,20,24,.6); --tape:rgba(14,14,17,.6); --barbg:#26262C;
     --glow:0 0 26px -7px color-mix(in srgb,var(--id) 66%,transparent); --glow2:0 0 36px -18px color-mix(in srgb,var(--id) 52%,transparent); }
-  body.frost { --bg:#FAFCFF; --panel:#FFFFFF; --line:#D2DBE8; --line2:#C2CDDD; --ink:#15171E; --steel:#647088;
+  body.frost { --bg:#FAFCFF; --panel:#FFFFFF; --line:#D2DBE8; --line2:#C2CDDD; --ink:#15171E; --steel:#647088; --metal:color-mix(in srgb,var(--id) 82%,var(--steel));
     --acc:#0E9F6E; --acc2:#0D9488; --id:#3D8BFF; --bear:#E5484D; --warn:#C2750A;
     --bg2:#FFFFFF; --panel2:#F1F3F6; --ink2:#3A3F4A; --steel2:#9AA1AD;
     --elev:0 14px 36px -24px rgba(30,55,105,.22);
@@ -1091,10 +1091,10 @@ _CSS = """
   .dband:hover { background:color-mix(in srgb,var(--panel) 95%,transparent); }
   .dband .dd { width:9px; height:9px; border-radius:50%; flex:none; }
   .dband.bear .dd { background:var(--bear); box-shadow:0 0 10px var(--bear); }
-  .dband.acc .dd { background:var(--acc); box-shadow:0 0 9px var(--acc); }
+  .dband.acc .dd { background:var(--acc); box-shadow:0 0 9px var(--acc); } .dband.size .dd { background:radial-gradient(circle at 34% 30%,color-mix(in srgb,var(--metal) 22%,#fff),var(--metal) 52%,color-mix(in srgb,var(--metal) 58%,#000)); box-shadow:inset 0 1px 1px rgba(255,255,255,.5),0 1px 2px rgba(0,0,0,.4); }
   .dband .dv { font-family:var(--fd); font-weight:800; font-size:12.5px; letter-spacing:.05em; flex:none; }
-  .dband.bear .dv { color:var(--bear); }
-  .dband.acc .dv { color:var(--acc); }
+  .dband.bear .dv { background:linear-gradient(160deg,color-mix(in srgb,var(--bear) 52%,#fff) 0%,var(--bear) 38%,color-mix(in srgb,var(--bear) 64%,#000) 50%,var(--bear) 62%,color-mix(in srgb,var(--bear) 55%,#fff) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
+  .dband.acc .dv { background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 52%,#fff) 0%,var(--acc) 38%,color-mix(in srgb,var(--acc) 64%,#000) 50%,var(--acc) 62%,color-mix(in srgb,var(--acc) 55%,#fff) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; } .dband.size .dv { background:linear-gradient(160deg,color-mix(in srgb,var(--metal) 52%,#fff) 0%,var(--metal) 38%,color-mix(in srgb,var(--metal) 64%,#000) 50%,var(--metal) 62%,color-mix(in srgb,var(--metal) 55%,#fff) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
   .dband .dx { font-family:var(--fm); font-size:12px; color:var(--steel); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .dband .dn { font-family:var(--fm); font-size:12px; color:var(--ink); font-weight:600; flex:none; }
   .dband .dc { font-size:18px; line-height:1; color:var(--steel); flex:none; transition:transform .15s,color .15s; }
@@ -1136,7 +1136,7 @@ _CSS = """
   .statedot { width:8px; height:8px; border-radius:50%; animation:pulse 2.6s ease-in-out infinite; }
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
   .main { padding:30px 52px 54px; max-width:1340px; }
-  .phead { margin-bottom:18px; } .phead h2 { font-family:var(--fd); font-weight:800; font-size:26px; margin:0 0 4px; letter-spacing:-.03em; } .phead .sub { font-size:12px; color:var(--steel); }
+  .phead { margin-bottom:18px; } .phead h2 { font-family:var(--fd); font-weight:800; font-size:46px; margin:0 0 4px; letter-spacing:-.04em; background:linear-gradient(120deg,#8b94a9 4%,#ffffff 13%,#d8e0ec 31%,#aab4c7 50%,#dfe6f1 69%,#ffffff 86%,#8b94a9 96%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; } .phead .sub { font-size:12px; color:var(--steel); }
   [data-page] { display:none; } [data-page].active { display:block; animation:fadein .42s ease; } @keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
   .hero { background:linear-gradient(135deg,rgba(61,139,255,.05),transparent 62%),var(--panel); border:1px solid var(--line2); border-radius:18px; padding:28px 34px; margin-bottom:26px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; backdrop-filter:blur(9px); }
   .hero .big { font-family:var(--fd); font-weight:800; font-size:46px; line-height:.95; letter-spacing:-.04em; animation:glowpulse 4.6s ease-in-out infinite; }
@@ -1150,6 +1150,9 @@ _CSS = """
   .kpi { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:13px 16px; box-shadow:0 12px 36px -22px #000, inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 0 1px color-mix(in srgb,var(--id) 5%,transparent); backdrop-filter:blur(9px); }
   .kl { display:block; font-family:var(--fb); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:7px; }
   .kv { font-family:var(--fd); font-weight:800; font-size:26px; letter-spacing:-.035em; line-height:1; }
+  .kv, .gvm, .big { background:linear-gradient(155deg,color-mix(in srgb,var(--c,var(--ink)) 52%,#fff) 0%,var(--c,var(--ink)) 28%,color-mix(in srgb,var(--c,var(--ink)) 70%,#000) 50%,var(--c,var(--ink)) 70%,color-mix(in srgb,var(--c,var(--ink)) 56%,#fff) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
+  .kv.bear { --c:var(--bear); } .kv.acc { --c:var(--acc); } .kv.warn { --c:var(--warn); } .kv.id { --c:var(--id); }
+  body.frost .phead h2 { background:linear-gradient(118deg,#2b3340 0%,#717d97 22%,#363e4d 47%,#7b87a1 72%,#2b3340 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
   .kv.acc { color:var(--acc); } .kv.negc { color:var(--bear); } .kv.warn { color:var(--warn); } .kv.hot { color:#FB923C; } .kv.danger { color:var(--bear); } .kv.calm { color:var(--acc); }
   .kd { display:block; font-size:10px; color:var(--steel); margin-top:6px; }
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:start; }
@@ -1234,7 +1237,7 @@ _CSS = """
   .pi { display:flex; flex-direction:column; gap:4px; padding-left:13px; border-left:2px solid var(--line2); border-radius:0; }
   .pi.danger { border-left-color:var(--bear); } .pi.warn { border-left-color:var(--warn); } .pi.calm { border-left-color:var(--acc); } .pi.size { border-left-color:var(--steel); }
   .pn { font-family:var(--fd); font-weight:800; font-size:23px; line-height:1; }
-  .pi.danger .pn { color:var(--bear); } .pi.warn .pn { color:var(--warn); } .pi.calm .pn { color:var(--acc); } .pi.size .pn { color:var(--steel); }
+  .pi.danger .pn { background:linear-gradient(160deg,color-mix(in srgb,var(--bear) 52%,#fff) 0%,var(--bear) 38%,color-mix(in srgb,var(--bear) 64%,#000) 50%,var(--bear) 62%,color-mix(in srgb,var(--bear) 55%,#fff) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; } .pi.warn .pn { background:linear-gradient(160deg,color-mix(in srgb,var(--warn) 52%,#fff) 0%,var(--warn) 38%,color-mix(in srgb,var(--warn) 64%,#000) 50%,var(--warn) 62%,color-mix(in srgb,var(--warn) 55%,#fff) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; } .pi.calm .pn { background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 52%,#fff) 0%,var(--acc) 38%,color-mix(in srgb,var(--acc) 64%,#000) 50%,var(--acc) 62%,color-mix(in srgb,var(--acc) 55%,#fff) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; } .pi.size .pn { background:linear-gradient(160deg,color-mix(in srgb,var(--metal) 52%,#fff) 0%,var(--metal) 38%,color-mix(in srgb,var(--metal) 64%,#000) 50%,var(--metal) 62%,color-mix(in srgb,var(--metal) 55%,#fff) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
   .pl { font-size:11.5px; color:var(--ink); } .pt { font-family:var(--fm); font-size:10.5px; color:var(--steel); }
   .dt tbody tr:not(.prev) { cursor:pointer; }
   .loupe { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:34px; }
@@ -1806,7 +1809,7 @@ def render() -> Path:
 
     disc_hero = (
         '<div class="hero posture"><div class="hl">&Agrave; surveiller &mdash; m&eacute;canique, non prescriptif</div><div class="plan-row">'
-        + _pi(len(over_cap_tk), over_cap_tk, "au-dessus du cap &middot; all&eacute;ger sans sortir", "size" if over_cap_tk else "calm")
+        + _pi(len(over_cap_tk), over_cap_tk, "au-dessus du cap &middot; all&eacute;ger sans sortir", "danger" if over_cap_tk else "calm")
         + _pi(len(near_tgt_tk), near_tgt_tk, "candidat(s) prise de profit", "warn" if near_tgt_tk else "calm")
         + _pi(len(near_stop_tk), near_stop_tk, "proche(s) du stop", "danger" if near_stop_tk else "calm")
         + '</div></div>'
@@ -1885,11 +1888,11 @@ def render() -> Path:
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
-            _dev.append(f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;")
+            _dev.append(f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;")
     if near:
         _dev.append(f"{near} ligne(s) &lt; 10% du stop")
     _dn = len(_dev)
-    _dcls, _dverdict = ("bear", "&Agrave; TRAITER") if _dn else ("acc", "AU CALME")
+    _dcls, _dverdict = ("bear", "&Agrave; CALIBRER") if _dn else ("acc", "AU CALME")
     _ddetail = " &nbsp;&middot;&nbsp; ".join(_dev) if _dev else "tout sous tes r&egrave;gles"
     _dband = (
         f'<div class="dband {_dcls}" onclick="document.querySelector(&#39;[data-nav=concentration]&#39;).click()">'
