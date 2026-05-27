@@ -16,5 +16,5 @@ def test_render_smoke():
         assert f'data-nav="{nav}"' in html, f"nav manquant: {nav}"
     for page in ("vigie", "positions", "theses"):
         assert f'data-page="{page}"' in html, f"section manquante: {page}"
-    assert "HEIMDALL" in html
+    assert "PRESAGE" in html
     assert "window.TK=" in html
