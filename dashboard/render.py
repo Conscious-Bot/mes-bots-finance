@@ -244,6 +244,24 @@ def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
     return "".join(rows), hits, top
 
 
+def _elan_watch(computed: list[dict]) -> tuple[str, int]:
+    """Course vers la cible : winners proches du target (axe anti-biais #1, cadrage positif)."""
+    data = []
+    for r in computed:
+        e, t, c = r.get("entry") or 0, r.get("target_full") or 0, r.get("current_price") or 0
+        if e and t and t != e:
+            prog = (c - e) / (t - e) * 100
+            if prog >= 75:
+                data.append((prog, r["ticker"]))
+    data.sort(key=lambda x: -x[0])
+    rows = "".join(
+        f'<div class="line"><span>{tk}</span><span class="mono">{prog:.0f}% vers la cible</span></div>'
+        for prog, tk in data
+    )
+    watch = rows or '<div class="empty" style="padding:18px 0">aucun winner &agrave; &ge;75% &mdash; laisse courir</div>'
+    return watch, len(data)
+
+
 def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
     data = sorted(((r.get("downside_pct", 0), r["ticker"]) for r in computed), key=lambda x: x[0])
     tensions = [max(0.0, min(1.0, (20 - d) / 20)) for d, _ in data]
@@ -625,7 +643,7 @@ def _macro_dot(ind: str, v: float) -> str:
     return "danger" if v <= danger else ("warn" if v <= warn else "calm")
 
 
-def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dict) -> str:
+def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dict, elan: str = "", near_t: int = 0) -> str:
     debt_map = {
         "TYX": (1, "Taux US 30 ans (%)", 4, False),
         "Gold": (1, "Or ($/oz)", 0, True),
@@ -710,6 +728,7 @@ def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dic
         + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">position(s) &lt; 10% du stop</span><span class="pt">surchauffe {heat:.0f}/100 &middot; {hband}</span></div>'
         + f'<div class="pi {stress_cls}"><span class="pn">{score:.1f}</span><span class="pl">stress macro</span><span class="pt">phase {cphase} &middot; {clabel}</span></div>'
         + f'<div class="pi {size_cls}"><span class="pn">&times;{_sfac:.1f}</span><span class="pl">sizing recommand&eacute;</span><span class="pt">{size_txt}</span></div>'
+        + f'<div class="pi calm"><span class="pn">{near_t}</span><span class="pl">winner(s) &ge;75% cible</span><span class="pt">laisse courir &middot; ex&eacute;cute ton plan</span></div>'
         + '</div></div>'
     )
     gauge = (
@@ -721,9 +740,10 @@ def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dic
     )
     return (
         f'<section data-page="urgence"><div class="phead"><h2>Urgence</h2>'
-        f'<div class="sub">Positions proches du stop &middot; surchauffe &middot; moniteur de stress macro (/debt_status, en direct)</div></div>'
+        f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro (/debt_status, en direct)</div></div>'
         f'{feu}{gauge}'
         f'<div class="cols">'
+        f'<div><div class="ph3">Course vers la cible</div><div class="card pad">{elan}</div></div>'
         f'<div><div class="ph3">Positions proches du stop</div><div class="card pad">{watch}</div></div>'
         f'<div><div class="ph3">Moniteur de stress macro &mdash; {clabel}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div></section>'
@@ -1853,12 +1873,13 @@ def render() -> Path:
         f'<span class="dx">{_ddetail}</span>'
         f'<span class="dn">{_dn} &agrave; traiter</span><span class="dc">&rsaquo;</span></div>'
     )
+    elan, near_t = _elan_watch(computed)
     body = (
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">HEIMDALL<small>sentinelle</small></span></div>'
         f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
-        + _signaux() + _urgence(watch, heat, near, positions, pnl)
+        + _signaux() + _urgence(watch, heat, near, positions, pnl, elan, near_t)
         + "</main></div>" + _LOUPE_HTML
     )
 
