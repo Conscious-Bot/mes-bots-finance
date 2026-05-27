@@ -643,7 +643,7 @@ def _macro_dot(ind: str, v: float) -> str:
     return "danger" if v <= danger else ("warn" if v <= warn else "calm")
 
 
-def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dict, elan: str = "", near_t: int = 0) -> str:
+def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str = "", near_t: int = 0) -> str:
     debt_map = {
         "TYX": (1, "Taux US 30 ans (%)", 4, False),
         "Gold": (1, "Or ($/oz)", 0, True),
@@ -702,9 +702,6 @@ def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dic
     _sfac = _vsf if _reduced else 1.0
     size_txt = f"VIX {_vix:.1f} {'&ge;' if _reduced else '&lt;'} {_vthr}" if _vix is not None else "VIX indisponible"
     clabel = {1: "STABLE", 2: "STRESS", 3: "ALERTE", 4: "CRISE"}.get(cphase, "CRISE")
-    stress_cls = "danger" if cphase >= 3 else ("warn" if cphase == 2 else "calm")
-    _stress_col = {"danger": "bear", "warn": "warn", "calm": "acc"}.get(stress_cls, "steel")
-    hband = "calme" if heat < 33 else ("tension" if heat < 60 else "critique")
     _conc = []
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
@@ -719,16 +716,16 @@ def _urgence(watch: str, heat: float, near: int, positions: list[dict], pnl: dic
         + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">ligne(s) &lt; 10% du stop</span><span class="pt">{"&agrave; surveiller" if near else "au calme"}</span></div>'
         + '</div>'
         + '<div style="margin-top:16px;padding-top:13px;border-top:1px solid var(--line);display:flex;gap:30px;flex-wrap:wrap;font-size:11.5px;color:var(--steel)">'
-        + f'<span>r&eacute;gime macro &middot; <b style="color:var(--{_stress_col})">{clabel}</b> &middot; phase {cphase} &middot; stress {score:.0f}</span>'
         + f'<span>{size_txt} &middot; sizing <b style="color:var(--ink)">&times;{_sfac:.1f}</b></span>'
         + '</div></div>'
     )
+    _phase_col = {1: "acc", 2: "warn", 3: "warn", 4: "bear"}.get(cphase, "bear")
     gauge = (
         '<div class="gauge"><div class="ghead">'
-        '<span class="gl">Exposition au stop &middot; ligne la plus proche de son seuil</span>'
-        + f'<span class="gv">{heat:.0f}<span style="font-size:12px;color:var(--steel);font-weight:500">/100 &middot; {hband}</span></span></div>'
-        + f'<div class="gtrack"><div class="gmark" style="left:{max(0.0, min(100.0, heat)):.0f}%"></div></div>'
-        '<div class="glab"><span>calme</span><span>tension</span><span>critique</span></div></div>'
+        '<span class="gl">Sant&eacute; macro &middot; cr&eacute;dit / or / taux 30a / inflation / VIX</span>'
+        + f'<span class="gv" style="color:var(--{_phase_col})">{clabel}<span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; phase {cphase}/4 &middot; indice {score:.0f}</span></span></div>'
+        + f'<div class="gtrack"><div class="gmark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
+        '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
     )
     return (
         f'<section data-page="urgence"><div class="phead"><h2>Urgence</h2>'
@@ -1871,7 +1868,7 @@ def render() -> Path:
         f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
-        + _signaux() + _urgence(watch, heat, near, positions, pnl, elan, near_t)
+        + _signaux() + _urgence(watch, near, positions, pnl, elan, near_t)
         + "</main></div>" + _LOUPE_HTML
     )
 
