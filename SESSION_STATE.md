@@ -360,3 +360,58 @@ PARKE: retirer anciens creds du Project Claude (UI). Passer app OAuth en "Produc
 - Abandon du bleu (rejete). Mark mono theme-aware via --mkhi/--mkbase/--mklo :
   dark #FFFFFF/#DDE2EA/#9097A1 (blanc-argent), light #4A4F58/#1C1E24/#000000 (anthracite-noir).
 - Fidele a la planche (noir/blanc strict), biseau metal conserve. Favicon refait en mono clair.
+
+---
+
+# CHECKPOINT — Session 27/05/2026 (Day 16)
+
+Mode : High Standard / OBSERVATION jusqu'au 10/06. Freeze = code prediction/behavior.
+Display-only + read-only + data-entry + docs = in-bounds.
+
+## Shippe aujourd'hui
+- Logo + favicon PRESAGE : nouveau mark interlock (SVG currentColor, theme-aware),
+  favicon recentre 64x64. render.py L825/L1105/L1904. Dead CSS vars --mkhi/--mkbase/--mklo
+  (L1064/1071) a nettoyer plus tard. Committe.
+- target_partial backfill x28 : tous les longs tenus, tiered par conviction
+  (c5:1.35 c4:1.30 c3:1.25 c2:1.20 x entry). Schema-debt "target_partial NULL partout" CLOS.
+  UPDATE SQL unique, backup .backup avant. Override via /thesis set TICKER target_partial X.
+- These Lasertec 6920.T C3 : thesis_id=52. entry 218.68 / partial 273.35 / full 328.02 /
+  stop 164.01. Drivers = chokepoint inspection actinique masques EUV, leader malgre KLA.
+  Invalidation = KLA design-in EUV mask @ foundry tier-1. Pre-mortem auto (Opus) flag
+  KLA actinic design-in @ TSMC/Samsung en failure #1 (P=22%). NOTE : stop -25% = soft
+  review-marker, PAS hard floor (gap risk). NE PAS resserrer a -15% (whipsaw -> biais #1).
+  Protection reelle = sizing ~3.7% book + invalidation binaire.
+- Geo drill-down : _geo_bars rewrite, hover=peek + click=pin, sous-liste constituents
+  par pays (short-name + ticker + % + EUR). Committe f91d05e. Hot-reload, pas de restart.
+- Bot restart : crash Telegram TimedOut (transitoire, pas notre code). Restart rituel OK.
+  FRAGILITE : un timeout tue le bot, rien ne le relance -> fix = Hetzner+systemd.
+- Cleanup NVDA : delete decisions id 2,3 (2 fixtures de test Day-1, tag test_manual_override
+  + thesis_id=1 hors book). Table decisions = 1 ligne reelle (6920.T trim id=10). Backup
+  /tmp/bot_pre_decdel.db. Ameliore integrite KPI #5.
+- TODO : Telegram channels comme source ingestion (capture post-10/06, voir TODO.md fin).
+
+## Loose ends (par valeur)
+1. Reconciliation book Lasertec (KNOWN-WRONG) : DB 6920.T qty=8.146 / MV ~1849 EUR vs
+   broker ~1579 EUR (~6.96 titres) -> book sur-estime ~270 EUR. Trim 500 EUR -> Advantest
+   PAS logge. /portfolio weights faux sur cette ligne. Fix = /position_sell 6920.T +
+   /position_buy 6857.T (journalise -> KPI #5). Verifier d'abord row Advantest 6857.T en DB.
+2. Journal decisions quasi vide (1 entree) : LE levier reel jusqu'au 10/06. Logger chaque
+   decision materielle (action ET non-action) via Telegram. Pas du code, de la discipline.
+3. OAuth Testing->Production Google Cloud Console avant ~3 juin (sinon refresh_token Gmail
+   expire ; prereq Hetzner headless). + retirer credentials.json/token.json des project files Claude.
+
+## Strategique (next sessions, flagge 27/05)
+- Hetzner : MacBook -> VPS 24/7. systemd Restart=always (subsume uptime). Dashboard JAMAIS
+  public (net worth -> localhost + SSH tunnel). Gmail OAuth headless. Ops-only -> OK pendant obs.
+- Multi-user : pivot Dim-3 Path 5/6. Multi-tenancy data-model (user_id partout, isolation).
+  Seam propre : intelligence PARTAGEE (newsletters/8-K/materiality/credibility) vs portfolio/
+  theses/biais PAR user. PAS avant 10/06. ADR-first. Sequence : Hetzner d'abord, multi-user apres.
+
+## Git
+HEAD = f91d05e. Branch ~26 commits ahead origin/main, UNPUSHED. data/bot.db untracked.
+
+## Frozen jusqu'au 10/06 (rappel)
+render_panel rollout (helper committe 1401e2a, unused) ; cleanup dead CSS vars ; rapatriement
+~44 sites sqlite bruts ; split render.py ; recalibration 8-K ; pruning univers (311 tickers) ;
+reconciliation credibility prior 0.5 + Brier de-correle AVANT outcomes juin (137 predictions
+correlees = piege pseudo-replication).

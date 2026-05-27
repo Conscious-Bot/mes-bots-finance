@@ -170,3 +170,35 @@ Vue concentration géographique (US / EU / Asie). render_smoke l'anticipait (nav
 - [open][P3 trivial] Theses "en profit N/total" rouge -> vert (etat sain). pcls -> acc.
 - [reminder] STYLE FIGE. Prochain gain != patch CSS. Usage quotidien + VALUE_LOG -> 10/06.
 - [open] Risk #1 (resolve backfill past-due si downtime) -- toujours non audite.
+
+---
+
+## 📥 POST-OBSERVATION (>10/06) — Telegram channels comme sources ingestion
+
+**Capturé 27/05/2026. Trigger build = post-10/06 (respect freeze "no new sources").**
+
+Idée : brancher des channels Telegram d'info (semis/crypto/macro/Asia) dans l'entonnoir
+existant (signal_type Haiku -> materiality_v2 Sonnet -> credibility), comme les newsletters Gmail.
+
+### Fork d'architecture (depend de public vs prive)
+- Channels PUBLICS (t.me/s/<nom> accessible web) -> LEGER :
+  - data_sources/telegram_channels.py mirror de gmail_.py (fetch HTTP + parse)
+  - reutilise tout l'entonnoir existant, zero nouvelle auth
+  - entree config sources.starter_pack_phase2 (type: telegram_channel, credibility_initial 0.5)
+  - un cron type ingest_gmail_job (1h). Effort ~2-3h.
+- Channels PRIVES (invite-link t.me/+...) -> LOURD :
+  - session utilisateur Telethon/MTProto (compte perso, PAS le bot)
+  - nouvelle dep + auth code SMS + session string secret
+  - penible headless -> monter UNE FOIS sur Hetzner, SEQUENCER avec migration. ADR requis.
+
+### Garde-fous avant build
+- COUT : materiality Sonnet x volume. Estimer posts/jour AVANT (channels = 20-50/j possible
+  -> risque budget $15/mo). Throttle/filtre pre-scoring si volume eleve.
+- BRUIT : credibility 0.5 prior, earns tier empiriquement sur outcomes (semaines).
+- FREEZE : si build avant 10/06 (deconseille), mode INGEST-ONLY (collecte+score, PAS
+  d'auto-register predictions) pour ne pas polluer le ledger pendant l'observation.
+
+### Open questions (a repondre pour scoper)
+- Quels channels precisement ? (juger qualite reelle vs sources actuelles)
+- Publics ou prives ? (determine leger vs lourd)
+- Volume approx posts/jour ? (determine cout)
