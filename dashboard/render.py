@@ -1099,6 +1099,7 @@ _CSS = """
   .dband .dn { font-family:var(--fm); font-size:12px; color:var(--ink); font-weight:600; flex:none; }
   .dband .dc { font-size:18px; line-height:1; color:var(--steel); flex:none; transition:transform .15s,color .15s; }
   .dband:hover .dc { color:var(--ink); transform:translateX(3px); }
+  .dband.bear .dx, .dband.bear .dn, .dband.bear .dc { color:var(--bear); } .dband.acc .dx, .dband.acc .dn, .dband.acc .dc { color:var(--acc); }
   .sec-super { border:1px solid var(--line2); border-radius:14px; padding:4px 8px 8px; margin-bottom:16px; background:color-mix(in srgb,var(--ink) 2%,transparent); }
   .sec-superh { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:13px 12px 10px; flex-wrap:wrap; }
   .sec-supername { font-family:var(--fd); font-weight:800; font-size:20px; letter-spacing:-.02em; color:var(--ink); }
