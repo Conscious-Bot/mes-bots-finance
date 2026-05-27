@@ -166,7 +166,14 @@ def compute_portfolio_asymmetry() -> list[dict[str, Any]]:
 
 
 def format_asymmetry_single(r: dict[str, Any]) -> str:
-    """Single-thesis asymmetry display. Converts EUR-canonical → USD at display."""
+    """Single-thesis asymmetry display. Converts EUR-canonical → USD at display.
+
+    De-tautologized 2026-05-27 (mirrors format_portfolio_asymmetry, Day-5 lesson):
+    auto-derived sentiment verdicts (STRONG_RUN/FAVORABLE/BALANCED/UNFAVORABLE/
+    FLIPPED) removed — circular, computed from the user's own target/stop choices.
+    Kept: raw distances, ratio (info-only), FACTUAL threshold events
+    (STOP_BREACHED / TARGET_HIT) + external proximity flags (STOP NEAR / TARGET NEAR).
+    """
     if not r:
         return "No data"
     if "error" in r:
@@ -180,30 +187,38 @@ def format_asymmetry_single(r: dict[str, Any]) -> str:
     if "note" in r and "asymmetry_ratio" not in r:
         return f"{r.get('ticker', '?')} @ ${r.get('current_price', 0):.2f} — {r['note']}"
 
-    verdict_icon = {
-        "STRONG_RUN": "🟢🟢",
-        "FAVORABLE": "🟢",
-        "BALANCED": "🟡",
-        "UNFAVORABLE": "🟠",
-        "FLIPPED": "🔴",
-        "STOP_BREACHED": "⛔",
-        "TARGET_HIT": "🎯",
-    }.get(r.get("verdict") or "", "?")
+    verdict = r.get("verdict") or ""
+    up_pct = r.get("upside_pct", 0)
+    down_pct = r.get("downside_pct", 0)
 
-    lines = [f"{verdict_icon} {r['ticker']} — Asymmetry"]
+    # Factual threshold events (real price crossings — NOT tautological). Kept.
+    event = ""
+    if verdict == "STOP_BREACHED":
+        event = "  ⛔ STOP BREACHED"
+    elif verdict == "TARGET_HIT":
+        event = "  🎯 TARGET HIT"
+
+    lines = [f"{r['ticker']} — Asymmetry{event}"]
     lines.append(
         f"Current: ${r['current_price']:.2f}  |  Entry: ${r['entry']:.2f}  |  Stop: ${r['stop']:.2f}  |  Target: ${r['target_full']:.2f}"
     )
-    lines.append(f"Upside to target:  +{r.get('upside_pct', 0):.1f}%")
-    lines.append(f"Downside to stop: -{r.get('downside_pct', 0):.1f}%")
+    lines.append(f"Upside to target:  +{up_pct:.1f}%")
+    lines.append(f"Downside to stop: -{down_pct:.1f}%")
+
+    # External-signal proximity flags (mirror portfolio view); skip when already an event
+    if not event:
+        flags = []
+        if down_pct < 10:
+            flags.append("🔴 STOP NEAR")
+        if up_pct < 10:
+            flags.append("🎯 TARGET NEAR")
+        if flags:
+            lines.append("  ".join(flags))
+
+    # Ratio = info-only, NO derived sentiment verdict (Day-5 anti-tautology)
     ratio = r.get("asymmetry_ratio")
-    if ratio is not None:
-        if ratio >= 999:
-            lines.append("Ratio: TARGET HIT")
-        else:
-            lines.append(f"Ratio: {ratio:.2f}  →  {r['verdict']}")
-    if r.get("note"):
-        lines.append(f"Note: {r['note']}")
+    if ratio is not None and not event:
+        lines.append(f"Ratio (up/down): {ratio:.2f}")
     return "\n".join(lines)
 
 

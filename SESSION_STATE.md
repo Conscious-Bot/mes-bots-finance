@@ -333,3 +333,10 @@ passe en chat), re-auth OK, token.json frais, bot relance propre (1 instance, 0 
 Item securite #1 = CLOS. Backups creds morts purges.
 PARKE: retirer anciens creds du Project Claude (UI). Passer app OAuth en "Production"
 (onglet Audience) sinon refresh_token expire J+7 (= TODO "Push to Production").
+
+## suite-9e (27/05/2026) — /asymmetry single-thesis de-tautologized
+- format_asymmetry_single aligned with format_portfolio_asymmetry (Day-5 lesson).
+- Stripped auto-derived sentiment verdicts + color icons (circular = confirmation bias).
+- Kept factual events (STOP_BREACHED/TARGET_HIT) + raw distances + proximity flags.
+- compute_thesis_asymmetry unchanged. Display-only, in-bounds (observation safe).
+- Live effect at next bot restart (not forced tonight).
