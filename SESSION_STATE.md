@@ -347,3 +347,11 @@ PARKE: retirer anciens creds du Project Claude (UI). Passer app OAuth en "Produc
 - Choix bleu vs metal-chrome : le chrome gris echoue en light mode (reflets clairs disparaissent). Bleu-metal = lisible dual-mode + matche les curseurs.
 - .logo svg width-based -> height-based (mark portrait), glow bleu conserve.
 - Favicon SVG data-URI (mark bleu sur carre sombre) + <title>PRESAGE</title>. Display-only, observation-safe, hot-reload.
+
+## suite-9f (27/05/2026) — Brand PRESAGE sur le dashboard (bleu-metal theme-aware)
+- PRESAGE = surface publique (dashboard/favicon/title) ; HEIMDALL = nom interne (inchange).
+- _LOGO : ancien horn/bifrost or -> marque PRESAGE vectorisee (trace planche), traitement bleu-metal biseaute (mirroir du langage .kv).
+- Couleur = var(--id) #3D8BFF (curseurs/identite). Reflets via vars theme-aware --mkhi/--mklo :
+  dark #7FB6FF/#1E5AD0 (range clair), light #5C9CFF/#0B3A86 (range sombre) -> claque dans les 2 modes.
+- Chrome gris ecarte (echoue en light). .logo svg height-based (mark portrait), glow bleu conserve.
+- Favicon SVG data-URI + <title>PRESAGE</title>. Display-only, observation-safe, hot-reload.

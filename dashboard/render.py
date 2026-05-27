@@ -822,7 +822,7 @@ def _journal() -> str:
     return out
 
 
-_LOGO = '<svg viewBox="0 0 200 352.384" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="prsgMark" x1="0.12" y1="0" x2="0.88" y2="1"><stop offset="0" stop-color="#6FB0FF"/><stop offset=".30" stop-color="var(--id)"/><stop offset=".50" stop-color="#2057B8"/><stop offset=".70" stop-color="var(--id)"/><stop offset="1" stop-color="#6FB0FF"/></linearGradient></defs><g transform="translate(-14.000000,366.500000) scale(0.100000,-0.100000)" fill="url(#prsgMark)" stroke="none"> <path d="M463 3336 l-323 -326 0 -1041 0 -1041 83 -97 c131 -151 322 -383 441 -536 60 -77 113 -144 118 -150 4 -5 8 201 8 458 l0 467 -110 146 -110 146 0 598 0 597 110 145 110 146 -2 407 -3 407 -322 -326z"/> <path d="M1491 3255 l-1 -410 82 -105 c45 -58 94 -123 110 -144 l28 -39 0 -597 0 -597 -110 -146 -110 -146 2 -465 3 -465 115 147 c137 175 379 469 467 568 l63 72 0 1039 0 1039 -324 329 -325 330 0 -410z"/> <path d="M1129 2591 l-4 -424 -30 -10 c-105 -34 -155 -146 -108 -244 17 -37 93 -93 125 -93 17 0 18 -24 20 -462 0 -284 4 -430 9 -378 4 47 7 254 8 461 l1 376 38 11 c69 21 122 92 122 164 0 53 -37 115 -84 143 -24 14 -50 25 -59 25 -16 0 -17 31 -18 353 -1 193 -5 386 -9 427 -4 45 -8 -93 -11 -349z"/> </g></svg>'
+_LOGO = '<svg viewBox="0 0 200 352.384" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="prsgMark" x1="0.12" y1="0" x2="0.88" y2="1"><stop offset="0" stop-color="var(--mkhi)"/><stop offset=".30" stop-color="var(--id)"/><stop offset=".50" stop-color="var(--mklo)"/><stop offset=".70" stop-color="var(--id)"/><stop offset="1" stop-color="var(--mkhi)"/></linearGradient></defs><g transform="translate(-14.000000,366.500000) scale(0.100000,-0.100000)" fill="url(#prsgMark)" stroke="none"> <path d="M463 3336 l-323 -326 0 -1041 0 -1041 83 -97 c131 -151 322 -383 441 -536 60 -77 113 -144 118 -150 4 -5 8 201 8 458 l0 467 -110 146 -110 146 0 598 0 597 110 145 110 146 -2 407 -3 407 -322 -326z"/> <path d="M1491 3255 l-1 -410 82 -105 c45 -58 94 -123 110 -144 l28 -39 0 -597 0 -597 -110 -146 -110 -146 2 -465 3 -465 115 147 c137 175 379 469 467 568 l63 72 0 1039 0 1039 -324 329 -325 330 0 -410z"/> <path d="M1129 2591 l-4 -424 -30 -10 c-105 -34 -155 -146 -108 -244 17 -37 93 -93 125 -93 17 0 18 -24 20 -462 0 -284 4 -430 9 -378 4 47 7 254 8 461 l1 376 38 11 c69 21 122 92 122 164 0 53 -37 115 -84 143 -24 14 -50 25 -59 25 -16 0 -17 31 -18 353 -1 193 -5 386 -9 427 -4 45 -8 -93 -11 -349z"/> </g></svg>'
 
 _TH_CSS = """
 <style>
@@ -1062,14 +1062,14 @@ _NAV = (
 
 _CSS = """
   :root { --bg:#0A0E16; --panel:#121826; --line:#1E2738; --line2:#2C3550; --ink:#E8ECF4; --steel:#8A93A8; --metal:color-mix(in srgb,var(--id) 82%,var(--steel));
-    --acc:#34D9A0; --acc2:#2DD4BF; --id:#3D8BFF; --bear:#FF6B6B; --warn:#F5B544; --gold:#C9A86A;
+    --acc:#34D9A0; --acc2:#2DD4BF; --id:#3D8BFF; --mkhi:#7FB6FF; --mklo:#1E5AD0; --bear:#FF6B6B; --warn:#F5B544; --gold:#C9A86A;
     --fd:"Satoshi","Inter Tight",sans-serif; --fb:"Satoshi","Inter Tight",sans-serif; --fm:"IBM Plex Mono",monospace; --fo:"Satoshi",sans-serif;
     --bg2:#070A11; --panel2:#1A2234; --ink2:#C2C9D6; --steel2:#5C6678;
     --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --r1:8px; --r2:12px; --r3:16px; --elev:0 18px 48px -28px rgba(0,0,0,.85);
     --glass:rgba(28,28,33,.5); --glass2:rgba(20,20,24,.6); --tape:rgba(14,14,17,.6); --barbg:#26262C;
     --glow:0 0 26px -7px color-mix(in srgb,var(--id) 66%,transparent); --glow2:0 0 36px -18px color-mix(in srgb,var(--id) 52%,transparent); }
   body.frost { --bg:#FAFCFF; --panel:#FFFFFF; --line:#D2DBE8; --line2:#C2CDDD; --ink:#15171E; --steel:#647088; --metal:color-mix(in srgb,var(--id) 82%,var(--steel));
-    --acc:#0E9F6E; --acc2:#0D9488; --id:#3D8BFF; --bear:#E5484D; --warn:#C2750A;
+    --acc:#0E9F6E; --acc2:#0D9488; --id:#3D8BFF; --mkhi:#5C9CFF; --mklo:#0B3A86; --bear:#E5484D; --warn:#C2750A;
     --bg2:#FFFFFF; --panel2:#F1F3F6; --ink2:#3A3F4A; --steel2:#9AA1AD;
     --elev:0 14px 36px -24px rgba(30,55,105,.22);
     --glass:rgba(255,255,255,.92); --glass2:rgba(241,243,246,.7); --tape:rgba(246,247,249,.85); --barbg:#E7EAEF; --glow:0 0 30px -9px color-mix(in srgb,var(--id) 85%,transparent); --glow2:0 0 38px -15px color-mix(in srgb,var(--id) 70%,transparent); }
