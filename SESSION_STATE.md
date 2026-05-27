@@ -320,3 +320,8 @@ utilise deja -fi (jamais trompe). Bot relance CLEAN: 1 instance, 0 Conflict.
 
 A FAIRE: predictions_bak_probfix garder qq jours (rollback data) puis drop.
 ADR a ecrire (narratif Path-6: "comment je sais que mon Brier est juste").
+
+## suite-9c (27/05) — COIN backfille, NVDA dummy supprime
+COIN (vrai resolu, prob stale 0.5 -> brier 0.25 decoratif) recompute depuis features
+creation (prob+brier honnetes). NVDA resolu = artefact de test (dummy, non detenu) ->
+supprime du ledger (rollback predictions_bak_probfix). Chasse orphelins/prob-NULL faite.
