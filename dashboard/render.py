@@ -1809,18 +1809,26 @@ def render() -> Path:
         '<div class="colhead" style="margin-top:22px"><span class="t">Derni&egrave;res d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
         f'<div class="card pad">{journal_html}</div>'
     ) if journal_html else ""
-    _up = {r["ticker"]: r.get("upside_pct") for r in computed}
-    _dn = {r["ticker"]: r.get("downside_pct") for r in computed}
-    _cibles = sorted((tk for tk in _up if _up[tk] is not None), key=lambda tk: _up[tk])[:6]
-    _stops = sorted((tk for tk in _dn if _dn[tk] is not None), key=lambda tk: _dn[tk])[:6]
+    _prog = {}
+    for r in computed:
+        e, t, c = r.get("entry") or 0, r.get("target_full") or 0, r.get("current_price") or 0
+        if e and t and t != e:
+            _prog[r["ticker"]] = max(0.0, min(100.0, (c - e) / (t - e) * 100))
+    _marge = {r["ticker"]: r["downside_pct"] for r in computed if r.get("downside_pct") is not None}
+    _cibles = sorted(_prog, key=lambda tk: -_prog[tk])[:6]
+    _stops = sorted(_marge, key=lambda tk: _marge[tk])[:6]
     gain = "".join(
-        f'<div class="line"><span class="mono">{tk}</span><span class="mono"><b>+{_up[tk]:.0f}%</b> &rarr; cible</span></div>'
+        f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span><span class="tag up">{_prog[tk]:.0f}%</span></div>'
+        f'<div class="track"><div class="fill up" style="--w:{_prog[tk]:.0f}%"></div></div>'
+        f'<div class="rs"><span>vers la cible</span></div></div>'
         for tk in _cibles
-    ) or '<div class="empty" style="padding:18px 0">aucune ligne pr&egrave;s de sa cible</div>'
+    ) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
     lose = "".join(
-        f'<div class="line"><span class="mono">{tk}</span><span class="mono"><b>{_dn[tk]:.0f}%</b> de marge</span></div>'
+        f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span><span class="tag warn">{_marge[tk]:.0f}%</span></div>'
+        f'<div class="track"><div class="fill warn" style="--w:{max(2.0, min(100.0, _marge[tk] / 30 * 100)):.0f}%"></div></div>'
+        f'<div class="rs"><span>marge avant le stop</span></div></div>'
         for tk in _stops
-    ) or '<div class="empty" style="padding:18px 0">toutes loin de leur stop</div>'
+    ) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; ce sur quoi agir aujourd&rsquo;hui</div></div>'
