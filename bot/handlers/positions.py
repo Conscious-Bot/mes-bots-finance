@@ -27,7 +27,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from shared import positions as positions_mod
-from shared.display import format_finance, format_pct, format_position_line
+from shared.display import format_finance, format_pct
 
 __all__ = [
     "_portfolio_journal_ctx",
@@ -288,37 +288,34 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         lines.append("ALERTS: nothing flagged.")
     lines.append("")
 
-    lines.append("POSITIONS (sorted by size)")
-    lines.append(
-        f"  {'Ticker':<10s} {'Name':<24s} {'Conv':<4s} {'Cost':>9s} {'Now':>9s} {'Value':>8s} {'%Bk':>5s} {'PnL%':>7s}"
-    )
+    lines.append(f"POSITIONS · {len(enriched_sorted)} · by size")
+    # Table compacte mobile : ticker · conv · value · %bk · pnl. Prix par action
+    # (Cost/Now) et Name droppes (dispo dans /asymmetry TICKER + dashboard).
+    # <pre> = alignement monospace + pas de wrap mobile ; send HTML plus bas.
+    # Chirurgical : format_position_line (autres callers) intact, handler non decompose.
+    _tbl = [f"{'ticker':<9}{'cnv':>4}{'value':>8}{'%bk':>6}{'pnl':>8}"]
     for pos in enriched_sorted:
         mv = pos["market_value"]
         pct_book = (mv / total_mv * 100) if total_mv else 0
-        lines.append(
-            format_position_line(
-                ticker=pos["ticker"],
-                name=pos["name_display"],
-                conviction=pos["conviction"],
-                avg_cost=pos["avg_cost"],
-                current_price=pos["current_price"],
-                market_value=mv,
-                pct_book=pct_book,
-                pnl_pct=pos["pnl_pct"],
-                currency=Currency.USD,
-            )
-        )
+        _cv = f"c{pos['conviction']}" if pos["conviction"] else "c-"
+        _val = format_finance(mv, decimals=0, currency=Currency.USD)
+        _bk = format_pct(pct_book, decimals=1)
+        _pnl = format_pct(pos["pnl_pct"], decimals=1, signed=True) if pos["pnl_pct"] is not None else "n/a"
+        _tbl.append(f"{pos['ticker']:<9}{_cv:>4}{_val:>8}{_bk:>6}{_pnl:>8}")
+    lines.append("<pre>" + "\n".join(_tbl) + "</pre>")
 
     lines.append("")
     lines.append("Drill-down:")
-    lines.append("  /find TICKER       -> cross-domain snapshot")
-    lines.append("  /thesis health     -> conviction coverage check")
-    lines.append("  /journal audit     -> silent tickers")
+    lines.append("  /find TICKER       → cross-domain snapshot")
+    lines.append("  /thesis health     → conviction coverage check")
+    lines.append("  /journal audit     → silent tickers")
 
     msg = "\n".join(lines)
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
-    await update.message.reply_text(msg)
+        if msg.count("<pre>") > msg.count("</pre>"):
+            msg += "</pre>"
+    await update.message.reply_text(msg, parse_mode="HTML")
 
 
 async def cmd_position_buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
