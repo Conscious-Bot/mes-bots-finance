@@ -631,24 +631,32 @@ def get_unresolved_shadow_decisions(limit=100):
         conn.close()
 
 
-def insert_prediction(signal_id, ticker, direction, horizon_days, baseline_price, baseline_date, target_date):
-    """Phase A1 — Brier: snapshots source.credibility as probability_at_creation."""
+def insert_prediction(signal_id, ticker, direction, horizon_days, baseline_price, baseline_date, target_date, score=None, signal_type=None, impact_magnitude=None):
+    """Phase A1 — Brier: probability_at_creation = estimate_probability(...).
+
+    score/signal_type/impact_magnitude are threaded by the caller (auto_register
+    holds them in memory, score>=6 guaranteed). Only credibility is re-queried
+    (source-owned, stable at insert). If score is None the prediction is NOT
+    registered: a floored 0.50 prior would pollute the Brier ledger (bug 27/05).
+    """
+    import logging as _logging
+
+    from shared.math_helpers import estimate_probability
+
     conn = _sqlite3.connect(_DB_PATH)
     try:
-        prob = None
-        try:
-            from shared.math_helpers import estimate_probability
-            row = conn.execute(
-                "SELECT s.credibility, sig.score, sig.signal_type, sig.impact_magnitude "
-                "FROM signals sig JOIN sources s ON sig.source_id = s.id WHERE sig.id = ?",
-                (signal_id,),
-            ).fetchone()
-            if row:
-                prob = estimate_probability(row[1], row[0], row[2], row[3])
-        except Exception as _e:
-            import logging as _logging
-
-            _logging.getLogger(__name__).warning(f"insert_prediction silent failure: {_e}")
+        if score is None:
+            _logging.getLogger(__name__).error(
+                f"insert_prediction: score=None for signal {signal_id} ({ticker}) — "
+                "prediction NOT registered (floored 0.50 would pollute Brier ledger)"
+            )
+            return None
+        row = conn.execute(
+            "SELECT s.credibility FROM signals sig JOIN sources s ON sig.source_id = s.id WHERE sig.id = ?",
+            (signal_id,),
+        ).fetchone()
+        credibility = row[0] if row else None
+        prob = estimate_probability(score, credibility, signal_type, impact_magnitude)
         cur = conn.execute(
             "INSERT INTO predictions (signal_id, ticker, direction, horizon_days, baseline_price, "
             "baseline_date, target_date, probability_at_creation) "

@@ -119,3 +119,16 @@
 - Backups nommes patches : `*/*.backup_avant_*`
 - Docs : TODO.md, PHILOSOPHY.md, CONVENTIONS.md
 - Logs : bot.log, uptime.log, data/backups/backup.log
+
+## LECON RESTART (27/05) — pattern kill/pgrep
+
+Le binaire Python du framework macOS apparait en cmdline comme "Python" (MAJUSCULE):
+  /Library/Frameworks/Python.framework/.../MacOS/Python -m bot.main
+=> pkill/pgrep -f "python.*bot.main" (minuscule, sensible casse) NE MATCHE RIEN.
+=> kills no-op, instances zombies accumulees, conflit getUpdates Telegram.
+
+PATTERN CORRECT (toujours):
+  pgrep -fl "bot.main"        # match le module, casse-safe
+  pkill -9 -f "bot.main"      # idem kill
+Apres kill: attendre ~15s (lease getUpdates serveur) avant relaunch.
+Verifier 1 SEULE instance + grep -c "Conflict" bot.log == 0.

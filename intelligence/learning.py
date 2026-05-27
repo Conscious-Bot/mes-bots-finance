@@ -63,7 +63,7 @@ CRYPTO_DENY = {
 def register_prediction(
     signal_id: int, ticker: str, direction: str, horizon_days: int | None = None,
     baseline_date: str | None = None, signal_type: str | None = None,
-    impact_magnitude: float | None = None,
+    impact_magnitude: float | None = None, score: int | None = None,
 ) -> int | None:
     if horizon_days is None:
         horizon_days = horizon_for_signal_type(signal_type, impact_magnitude)
@@ -84,6 +84,9 @@ def register_prediction(
         baseline_price=baseline_price,
         baseline_date=actual_date,
         target_date=target,
+        score=score,
+        signal_type=signal_type,
+        impact_magnitude=impact_magnitude,
     ))
 
 
@@ -119,6 +122,7 @@ def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int =
                 baseline_date=baseline_date,
                 signal_type=sig.get("signal_type"),
                 impact_magnitude=sig.get("impact_magnitude"),
+                score=score,
             )
             if pid:
                 registered.append(pid)

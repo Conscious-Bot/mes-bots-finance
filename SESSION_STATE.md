@@ -289,3 +289,34 @@ Pass canonique sur le cockpit (render.py), commits e34baf3 + 7a66f0c + 4c604bb.
 Hygiene : 1 bot.main (37896) + 1 serve (47182), no ghost. Backup OK (integrity OK). Git HEAD 4c604bb.
 Residuel P3 trivial : Theses "en profit 19/40" en ROUGE = etat sain mal colore -> vert (pcls -> acc).
 Vrai levier (redit) : style FIGE. Gain Path 5/6 = usage quotidien + VALUE_LOG jusqu'au batch KPI #2 du 10/06.
+
+## suite-9 (27/05) — Bug fondamental probability_at_creation + restart discipline
+
+DECOUVERTE (audit pipeline resolution): toutes les predictions avaient
+probability_at_creation = 0.5 (145) / 0.53 (8) / NULL (1). => Brier mecaniquement
+~0.25 constant, KPI #3 decoratif depuis l'origine, track record Path-6 invendable.
+
+ROOT CAUSE (verify-before-patch, pas de rebuild panique): insert_prediction
+(storage.py) RE-REQUETAIT signals.score a l'insert alors que la colonne n'est pas
+encore persistee (auto_register filtre sur le score en memoire; l'ecriture DB du
+score lag). estimate_probability(None,...) -> plancher 0.50. Les 0.53 = type/impact
+deja ecrits (bonus +0.03) mais score absent. La formule etait SAINE; elle recevait
+du vide. Le `except Exception -> None` silencieux (violation CONVENTIONS #6) = le NULL.
+
+RESCUE: backfill (table predictions_bak_probfix = rollback) -> 153/153 recomputees
+depuis la donnee signal presente. Ledger ressuscite, differencie.
+
+FORWARD FIX (commit): thread score/signal_type/impact_magnitude
+auto_register -> register_prediction -> insert_prediction; ne re-requete plus que
+la credibility (source-owned, stable); fail-LOUD (error + return None) si score None
+au lieu du plancher silencieux. Gates ruff/mypy/import green. Smoke end-to-end
+(DB temp, yfinance bypass): 25 predictions, toutes >0.5, spread 0.576-0.652.
+
+LESSON RESTART (couteuse): pkill/pgrep "python.*bot.main" est SENSIBLE A LA CASSE
+et le binaire framework macOS est "Python" (MAJUSCULE) -> 0 match -> kills no-op ->
+3 instances accumulees en conflit getUpdates (PTB retry-loop, ne meurt pas sur
+Conflict). PATTERN CORRECT: pgrep/pkill -f "bot.main" (ou -i). uptime_monitor.sh
+utilise deja -fi (jamais trompe). Bot relance CLEAN: 1 instance, 0 Conflict.
+
+A FAIRE: predictions_bak_probfix garder qq jours (rollback data) puis drop.
+ADR a ecrire (narratif Path-6: "comment je sais que mon Brier est juste").
