@@ -325,3 +325,11 @@ ADR a ecrire (narratif Path-6: "comment je sais que mon Brier est juste").
 COIN (vrai resolu, prob stale 0.5 -> brier 0.25 decoratif) recompute depuis features
 creation (prob+brier honnetes). NVDA resolu = artefact de test (dummy, non detenu) ->
 supprime du ledger (rollback predictions_bak_probfix). Chasse orphelins/prob-NULL faite.
+
+## suite-9d (27/05) — Rotation OAuth Gmail FAITE
+Vieux client OAuth (...92mf, secret leake) supprime en Console -> secret + refresh_token
+invalides. Nouveau client Desktop, credentials.json remplace (heredoc local, secret jamais
+passe en chat), re-auth OK, token.json frais, bot relance propre (1 instance, 0 Conflict).
+Item securite #1 = CLOS. Backups creds morts purges.
+PARKE: retirer anciens creds du Project Claude (UI). Passer app OAuth en "Production"
+(onglet Audience) sinon refresh_token expire J+7 (= TODO "Push to Production").
