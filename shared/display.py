@@ -25,6 +25,8 @@ Phase B: per-handler migration in separate bounded scopes.
 
 from __future__ import annotations
 
+import html
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
@@ -232,3 +234,99 @@ def format_aggregate_line(
         f"  {label:<{label_width}s}  {format_finance(market_value, decimals=0, width=6, currency=currency)}  "
         f"[{pct_total:>4.1f}%]  ({n_positions} pos, PnL {format_pct(pnl_pct, decimals=1, signed=True)})"
     )
+
+
+
+# --- Canonical panel grammar (render_panel) -------------------------------
+# Un seul point de verite pour le layout Telegram : header + separateurs ━ +
+# tables <pre> monospace. render_panel html-escape TOUT le contenu fourni ->
+# aucun handler ne peut casser le send HTML avec <, >, &. Envoyer en parse_mode="HTML".
+
+POSITION_COMPACT_HEADER: Final[str] = f"{'ticker':<9}{'cnv':>4}{'value':>8}{'%bk':>6}{'pnl':>8}"
+"""En-tete de colonnes pour les lignes format_position_compact (defini une fois)."""
+
+
+def format_position_compact(
+    ticker: str,
+    conviction: int | None,
+    value: float,
+    pct_book: float,
+    pnl_pct: float | None,
+    *,
+    ticker_width: int = 9,
+    currency: Currency | None = None,
+) -> str:
+    """Ligne position compacte monospace : ticker conv value %bk pnl.
+
+    Pour tables <pre> (mobile-readable /portfolio). Drop name + cost/now par
+    action (ils vivent dans les vues mono-ticker). `value` en unites `currency`
+    (ou CANONICAL_FINANCE si None). Tient en ~35 caracteres monospace.
+    """
+    conv_str = f"c{conviction}" if conviction else "c-"
+    val_str = format_finance(value, decimals=0, currency=currency)
+    bk_str = format_pct(pct_book, decimals=1, signed=False)
+    pnl_str = format_pnl_pct(pnl_pct, width=8)
+    return f"{ticker:<{ticker_width}s}{conv_str:>4s}{val_str:>8s}{bk_str:>6s}{pnl_str:>8s}"
+
+
+@dataclass
+class Section:
+    """Une section d'un panneau canonique.
+
+    rows: lignes pre-formatees (handler les construit, typiquement via
+    format_position_compact / format_pct pour la coherence des colonnes).
+    tabular=True  -> rows enveloppees dans <pre> (table monospace, no wrap).
+    tabular=False -> rows en texte HTML normal (prose / statut emoji).
+    """
+
+    name: str
+    rows: list[str]
+    count: int | None = None
+    subtitle: str | None = None
+    tabular: bool = True
+
+
+def render_panel(
+    title: str,
+    context: str | None,
+    sections: list[Section],
+    *,
+    emoji: str = "",
+) -> str:
+    """Rend un panneau Telegram canonique en string HTML pret-a-envoyer.
+
+    Envoyer avec parse_mode="HTML". TOUT le contenu fourni est html-escape ici
+    -> les handlers ne gerent jamais <, >, & eux-memes.
+
+    Grammaire:
+        {emoji} {title} — {context}
+        ━ {NAME} ({count}) — {subtitle} ━
+        <pre>{rows}</pre>   (tabular)   |   {rows}   (non-tabular)
+    Sections separees par une ligne vide.
+    """
+
+    def esc(text: str) -> str:
+        return html.escape(text, quote=False)
+
+    out: list[str] = []
+    header = f"{emoji} {esc(title)}".strip() if emoji else esc(title)
+    if context:
+        header += f" — {esc(context)}"
+    out.append(header)
+
+    for sec in sections:
+        bar = f"━ {esc(sec.name)}"
+        if sec.count is not None:
+            bar += f" ({sec.count})"
+        if sec.subtitle:
+            bar += f" — {esc(sec.subtitle)}"
+        bar += " ━"
+        body = "\n".join(esc(r) for r in sec.rows)
+        if not body:
+            out.append(bar)
+        elif sec.tabular:
+            out.append(f"{bar}\n<pre>{body}</pre>")
+        else:
+            out.append(f"{bar}\n{body}")
+
+    return "\n\n".join(out)
