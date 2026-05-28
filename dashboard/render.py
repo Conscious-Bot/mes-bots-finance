@@ -1169,7 +1169,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     crypto_tk = set(_u.get("core", {}).get("crypto_core", [])) | set(_u.get("extended", {}).get("crypto_etfs", []))
     ths = []
     dist = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-    n_missing = n_fav = n_near = n_profit = 0
+    n_missing = n_near_tgt = n_near = n_profit = 0
     for r in rows:
         tk, conv, direction, entry, stop, tgt, tpart, last = r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7]
         conv = int(conv or 0)
@@ -1188,8 +1188,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             if entry:
                 entry_frac = max(0.0, min(100.0, (entry - stop) / (tgt - stop) * 100))
                 pnl_e = (current - entry) / entry * 100
-            if ratio is not None and ratio >= 2:
-                n_fav += 1
+            if d_tgt is not None and d_tgt < 12:
+                n_near_tgt += 1
             if d_stop < 10:
                 n_near += 1
             if pnl_e is not None and pnl_e >= 0:
@@ -1222,7 +1222,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     hero = (
         '<div class="hero"><div><div class="hl">Th&egrave;ses actives</div>'
         f'<div class="big" style="--c:var(--id)">{n}</div>'
-        f'<div class="hsub">m&eacute;diane c{med} &middot; {n_fav} &agrave; asym&eacute;trie favorable &middot; {n_near} proche(s) du stop</div></div>'
+        f'<div class="hsub">m&eacute;diane c{med} &middot; {n_near} proche(s) du stop &middot; {n_near_tgt} proche(s) de la cible</div></div>'
         '<div style="flex:1;min-width:250px"><div class="hl">Distribution conviction</div>'
         f'{hist}<div class="hsub" style="margin-top:7px">{infl_msg}</div></div></div>'
     )
@@ -1231,7 +1231,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     ncls = "negc" if n_near else "acc"
     kpis = (
         '<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
-        f'<div class="kpi"><span class="kl">Asym&eacute;trie favorable</span><span class="kv acc">{n_fav}</span><span class="kd">ratio cible:stop &ge; 2</span></div>'
+        f'<div class="kpi"><span class="kl">Proches de la cible</span><span class="kv acc">{n_near_tgt}</span><span class="kd">moins de 12% de marge</span></div>'
         f'<div class="kpi"><span class="kl">En profit</span><span class="kv {pcls}">{n_profit}/{n}</span><span class="kd">prix au-dessus de l&rsquo;entr&eacute;e</span></div>'
         f'<div class="kpi"><span class="kl">Proches du stop</span><span class="kv {ncls}">{n_near}</span><span class="kd">moins de 10% de marge</span></div></div>'
     )
