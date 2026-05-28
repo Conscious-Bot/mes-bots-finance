@@ -34,10 +34,6 @@ from bot.handlers.journal_bias import (
     cmd_bias_review,
     cmd_history,
     cmd_journal,
-    cmd_journal_review,
-    cmd_journal_tag,
-    cmd_journal_unresolved,
-    cmd_position_history,
 )
 from bot.handlers.misc import (
     cmd_asymmetry,
@@ -50,6 +46,7 @@ from bot.handlers.observability import (
     cmd_cost_trajectory,
     cmd_handler_stats,
     cmd_health,
+    cmd_kpi_status,
     cmd_llm_costs,
 )
 from bot.handlers.portfolio_views import (
@@ -96,16 +93,12 @@ from bot.handlers.thesis_analyze import (
     cmd_analyze,
     cmd_analyze_debate,
     cmd_risk_check,
-    cmd_thesis_premortem,
 )
 from bot.handlers.thesis_crud import (
     cmd_exit,
     cmd_exit_force,
     cmd_thesis,
-    cmd_thesis_add,
     cmd_thesis_list,
-    cmd_thesis_note,
-    cmd_thesis_revisit,
 )
 from bot.handlers.thesis_health import cmd_thesis_health
 
@@ -120,6 +113,7 @@ def register_command_handlers(app: Application) -> None:
     /8k → cmd_recent_8k
     """
     app.add_handler(CommandHandler("log_value", cmd_log_value))
+    app.add_handler(CommandHandler("value_log", cmd_log_value))  # alias ordre-inverse (telem: 2 tentatives)
     app.add_handler(CommandHandler("log_friction", cmd_log_friction))
     app.add_handler(CommandHandler("remarks", cmd_remarks))  # Sprint 1.2 Phase L family
     app.add_handler(CommandHandler("find", cmd_find))
@@ -129,17 +123,14 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("health", cmd_health))
     app.add_handler(CommandHandler("bot_data", cmd_bot_data))  # Sprint 1.2 Phase J family
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
+    app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
     app.add_handler(CommandHandler("cost_trajectory", cmd_cost_trajectory))
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("thesis", cmd_thesis))
-    app.add_handler(CommandHandler("thesis_add", cmd_thesis_add))
     app.add_handler(CommandHandler("thesis_list", cmd_thesis_list))
-    app.add_handler(CommandHandler("thesis_revisit", cmd_thesis_revisit))
     app.add_handler(CommandHandler("thesis_set", cmd_thesis_set))
     app.add_handler(CommandHandler("exit", cmd_exit))
     app.add_handler(CommandHandler("exit_force", cmd_exit_force))
-    app.add_handler(CommandHandler("thesis_note", cmd_thesis_note))
-    app.add_handler(CommandHandler("thesis_premortem", cmd_thesis_premortem))
     app.add_handler(CommandHandler("digest", cmd_digest))
     app.add_handler(CommandHandler("feedback", cmd_feedback))
     app.add_handler(CommandHandler("credibility", cmd_credibility))
@@ -154,25 +145,20 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("orphan_tickers", cmd_orphan_tickers))
     app.add_handler(CommandHandler("history", cmd_history))
     app.add_handler(CommandHandler("journal", cmd_journal))
-    app.add_handler(CommandHandler("journal_review", cmd_journal_review))
     app.add_handler(CommandHandler("journal_audit", cmd_journal_audit))
     app.add_handler(CommandHandler("journal_decision", cmd_journal_decision))
     app.add_handler(CommandHandler("thesis_health", cmd_thesis_health))
-    app.add_handler(CommandHandler("bias_pattern", cmd_bias_pattern))
     app.add_handler(CommandHandler("biases", cmd_bias_pattern))  # Sprint 1.2 Phase A alias
     app.add_handler(CommandHandler("signal_drilldown", cmd_signal_drilldown))
     app.add_handler(CommandHandler("signal", cmd_signal_drilldown))  # Sprint 1.2 Phase A alias
-    app.add_handler(CommandHandler("journal_unresolved", cmd_journal_unresolved))
-    app.add_handler(CommandHandler("journal_tag", cmd_journal_tag))
     app.add_handler(CommandHandler("sources_brier", cmd_sources_brier))
     app.add_handler(CommandHandler("llm_costs", cmd_llm_costs))
-    app.add_handler(CommandHandler("echo_recent", cmd_echo_recent))
     app.add_handler(CommandHandler("echo", cmd_echo_recent))  # Sprint 1.2 Phase A alias
     app.add_handler(CommandHandler("position_buy", cmd_position_buy))
     app.add_handler(CommandHandler("position_sell", cmd_position_sell))
     app.add_handler(CommandHandler("trade", cmd_trade))  # Sprint 1.2 Phase C family
     app.add_handler(CommandHandler("portfolio", cmd_portfolio))
-    app.add_handler(CommandHandler("position_history", cmd_position_history))
+    app.add_handler(CommandHandler("positions", cmd_portfolio))  # alias intuitif (telem: 5 tentatives)
     app.add_handler(CommandHandler("bias_review", cmd_bias_review))
     app.add_handler(CommandHandler("calendar", cmd_calendar))
     app.add_handler(CommandHandler("insiders", cmd_insiders))

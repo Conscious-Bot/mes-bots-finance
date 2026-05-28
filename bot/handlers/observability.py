@@ -614,6 +614,13 @@ async def _llm_costs_impl(update, hours: int) -> None:
     msg = "\n".join(lines)
     await update.message.reply_text(msg)
 
+async def cmd_kpi_status(update, ctx):  # noqa: ARG001
+    """On-demand KPI status report (meme producer que le cron hebdo Sunday 22:30)."""
+    kpis = _kpi_compute_all()
+    msg = _format_kpi_report(kpis)
+    await update.message.reply_text(msg)
+
+
 async def cmd_bot_data(update, ctx):
     """Sprint 1.2 Phase J dispatcher - /bot_data family.
 
