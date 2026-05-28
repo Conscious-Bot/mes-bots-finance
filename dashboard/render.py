@@ -1381,7 +1381,9 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         grp = sorted(tier, key=lambda t: (-secw.get(t["cat"], 0.0), t["cat"] or "~~~", -vmap.get(t["tk"], 0.0)))
         if not grp:
             continue
-        groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}</div><div class="th-grid">'
+        _tgt_tier = (_caps.get(c, 0) / _sumcaps * 100) if _caps.get(c) else None
+        _tgt_lab = f" &middot; cible {_tgt_tier:.1f}%/ligne" if _tgt_tier else ""
+        groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
                 if t["d_stop"] is not None and t["d_stop"] < 10:
@@ -1446,14 +1448,15 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     )
                 sizebar = f'<div class="th-sz">{_seg}<div class="th-szc"></div></div>'
                 _d = wv - _tgt
-                _de = f"{abs(_d) / 100 * vtot:,.0f}".replace(",", "&#8239;")
+                _v = abs(_d) / 100 * vtot
+                _de = f"{_v / 1000:.1f}k" if _v >= 1000 else f"{round(_v / 50) * 50:.0f}"
                 if _d > 0.4:
                     _tail = f" &middot; &gt; cap {_cappct:.0f}%" if wv > _cappct else ""
-                    adj = f'<div class="th-adj trim">all&eacute;ger &minus;{_de}&nbsp;&euro; &rarr; cible taille {_tgt:.1f}%{_tail}</div>'
+                    adj = f'<div class="th-adj trim">all&eacute;ger &minus;{_de}&nbsp;&euro;{_tail}</div>'
                 elif _d < -0.4:
-                    adj = f'<div class="th-adj add">renforcer +{_de}&nbsp;&euro; &rarr; cible taille {_tgt:.1f}%</div>'
+                    adj = f'<div class="th-adj add">renforcer +{_de}&nbsp;&euro;</div>'
                 else:
-                    adj = f'<div class="th-adj ok">&check; cible taille {_tgt:.1f}%</div>'
+                    adj = '<div class="th-adj ok">&check; au poids</div>'
             else:
                 wtxt = f"{wv:.1f}%"
             groups += (
