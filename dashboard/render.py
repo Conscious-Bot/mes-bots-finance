@@ -275,13 +275,13 @@ def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
         hit = prog >= 100
         hits += 1 if hit else 0
         cls, sign = ("up", "+") if pnl >= 0 else ("down", "")
-        bar = "up" if pnl >= 0 else "danger"
+        mark = "pos" if pnl >= 0 else "neg"
         flag = " &#127919;" if hit else ""
         d = i * 0.035
         rows.append(
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
             f'<span class="tk">{tk}{flag}</span><span class="tag {cls}">{sign}{pnl:.1f}%</span></div>'
-            f'<div class="track"><div class="fill {bar}" style="--w:{pc:.0f}%;animation-delay:{d + 0.08:.2f}s"></div></div>'
+            f'<div class="axis"><div class="axis-mark {mark}" style="left:{pc:.1f}%"></div></div>'
             f'<div class="rs"><span>vers la cible</span><span class="mono">{prog:.0f}%</span></div></div>'
         )
     return "".join(rows), hits, top
@@ -317,12 +317,13 @@ def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
         is_near = down < 10
         near += 1 if is_near else 0
         cls = "danger" if is_near else ("warn" if down < 20 else "calm")
+        mark = "neg" if is_near else ("warn" if down < 20 else "pos")
         flag = " &#128308;" if is_near else ""
         d = i * 0.035
         rows.append(
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
             f'<span class="tk">{tk}{flag}</span><span class="tag {cls}">{down:.0f}%</span></div>'
-            f'<div class="track"><div class="fill {cls}" style="--w:{buf:.0f}%;animation-delay:{d + 0.08:.2f}s"></div></div>'
+            f'<div class="axis"><div class="axis-mark {mark}" style="left:{buf:.1f}%"></div></div>'
             f'<div class="rs"><span>marge avant le stop</span></div></div>'
         )
         if is_near:
@@ -650,7 +651,7 @@ def _geo_bars(positions: list[dict]) -> str:
             f'<div class="geo-item">'
             f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
             f'<span class="tag acc2">{pct:.0f}%</span></div>'
-            f'<div class="track"><div class="fill acc2" style="--w:{max(2.0, min(100.0, pct)):.0f}%"></div></div>'
+            f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, pct)):.1f}%"></div></div>'
             f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
             f'<div class="geo-sub">{sub}</div></div>'
         )
@@ -730,10 +731,11 @@ def _signaux() -> str:
         ):
             cv = float(cred or 0)
             col = "acc2" if cv >= 0.65 else ("warn" if cv >= 0.45 else "calm")
+            mark = "pos" if cv >= 0.65 else ("warn" if cv >= 0.45 else "mute")
             src_rows += (
                 f'<div class="row"><div class="rt"><span class="tk">{str(name)[:24]}</span>'
                 f'<span class="tag {col}">{cv:.2f}</span></div>'
-                f'<div class="track"><div class="fill {col}" style="--w:{max(2.0, min(100.0, cv * 100)):.0f}%"></div></div>'
+                f'<div class="axis"><div class="axis-mark {mark}" style="left:{max(2.0, min(100.0, cv * 100)):.1f}%"></div></div>'
                 f'<div class="rs"><span>cr&eacute;dibilit&eacute;</span><span class="mono">{int(n)} signaux</span></div></div>'
             )
     except Exception as e:
@@ -1237,13 +1239,7 @@ _TH_CSS = """
   .th-w { font-family:var(--fm); font-size:12px; font-weight:600; color:var(--ink); text-align:right; align-self:center; }
   .th-dir { font-family:var(--fb); font-size:9.5px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
   .th-bar { display:flex; flex-direction:column; gap:6px; grid-column:1/-1; margin-top:8px; }
-  .th-track { position:relative; height:10px; border-radius:5px; background:linear-gradient(90deg, rgba(216,74,74,.36), rgba(216,74,74,0) 40%, rgba(40,160,90,0) 60%, rgba(40,160,90,.40)), rgba(128,128,128,.10); }
-  .th-sz { position:relative; height:7px; border-radius:3px; background:rgba(128,128,128,.14); }
-  .th-szf { position:absolute; left:0; top:0; bottom:0; border-radius:3px; background:rgba(128,128,128,.42); }
-  .th-szc { position:absolute; top:-2px; bottom:-2px; left:76.9%; width:1.5px; border-radius:1px; background:rgba(128,128,128,.5); }
-  .th-szover { position:absolute; top:0; bottom:0; border-radius:0 3px 3px 0; background:rgba(216,74,74,.85); }
-  .th-szwarn { position:absolute; top:0; bottom:0; border-radius:0 3px 3px 0; background:rgba(230,158,42,.85); }
-  .th-szgap { position:absolute; top:0; bottom:0; border-radius:0 3px 3px 0; background:rgba(40,160,90,.32); }
+  .sizebar { margin:6px 0 4px; }
   .th-adj { font-family:var(--fm); font-size:10.5px; letter-spacing:.02em; line-height:1.3; }
   .th-adj.trim { color:var(--warn); }
   .th-adj.add { color:var(--acc2); }
@@ -1251,9 +1247,6 @@ _TH_CSS = """
   .th-szcol { display:flex; flex-direction:column; gap:5px; }
   .th-zone-loss { position:absolute; left:0; top:0; bottom:0; background:rgba(255,107,107,.13); }
   .th-zone-profit { position:absolute; right:0; top:0; bottom:0; background:rgba(55,224,160,.13); }
-  .th-entry { position:absolute; top:0; bottom:0; border-left:1px dashed var(--steel); opacity:.7; transform:translateX(-1px); }
-  .th-cur { position:absolute; top:50%; width:10px; height:10px; border-radius:50%; background:var(--ink); transform:translate(-50%,-50%); }
-  .th-fill { position:absolute; top:0; bottom:0; border-radius:4px; }
   .th-ends { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--fm); font-size:10.5px; }
   .th-stop { color:var(--bear); }
   .th-tgt { color:var(--acc); font-weight:600; }
@@ -1387,24 +1380,18 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         for t in grp:
             if t["has_bar"]:
                 if t["d_stop"] is not None and t["d_stop"] < 10:
-                    curc = "oklch(0.55 0.20 25)"
+                    cur_cls = "neg"
                 elif t["d_tgt"] is not None and t["d_tgt"] < 12:
-                    curc = "oklch(0.58 0.16 150)"
+                    cur_cls = "pos"
                 else:
-                    curc = "var(--ink)"
+                    cur_cls = ""
                 if t["entry_frac"] is not None:
-                    ef = t["entry_frac"]
-                    fc = t["frac"]
-                    _fcol = "rgba(128,128,128,.22)"
-                    zones = (
-                        f'<div class="th-fill" style="left:{min(ef, fc):.1f}%;width:{abs(fc - ef):.1f}%;background:{_fcol}"></div>'
-                        f'<div class="th-entry" style="left:{ef:.1f}%;top:-1px;bottom:-1px;width:1px;background:rgba(128,128,128,.5)"></div>'
-                    )
+                    zones = f'<div class="axis-tick dash" style="left:{t["entry_frac"]:.1f}%"></div>'
                 else:
                     zones = ""
                 bar = (
-                    '<div class="th-bar"><div class="th-track">'
-                    f'{zones}<div class="th-cur" style="left:{t["frac"]:.1f}%;background:{curc}"></div></div>'
+                    '<div class="th-bar"><div class="axis">'
+                    f'{zones}<div class="axis-mark {cur_cls}" style="left:{t["frac"]:.1f}%"></div></div>'
                     '<div class="th-ends">'
                     f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
                     f'<span class="th-tgt">cible +{t["d_tgt"]:.0f}%</span></div></div>'
@@ -1435,18 +1422,19 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _scale = _cappct * 1.3
                 _tgt_pos = min(_tgt / _scale * 100, 100.0)
                 _w_pos = min(max(wv / _scale * 100, 0.0), 100.0)
-                if wv > _tgt:
-                    _ocls = "over" if wv > _cappct else "warn"
-                    _seg = (
-                        f'<div class="th-szf" style="width:{_tgt_pos:.1f}%"></div>'
-                        f'<div class="th-sz{_ocls}" style="left:{_tgt_pos:.1f}%;width:{_w_pos - _tgt_pos:.1f}%"></div>'
-                    )
+                if wv > _cappct:
+                    _mark_cls = "neg"
+                elif wv > _tgt:
+                    _mark_cls = "warn"
                 else:
-                    _seg = (
-                        f'<div class="th-szf" style="width:{_w_pos:.1f}%"></div>'
-                        f'<div class="th-szgap" style="left:{_w_pos:.1f}%;width:{_tgt_pos - _w_pos:.1f}%"></div>'
-                    )
-                sizebar = f'<div class="th-sz">{_seg}<div class="th-szc"></div></div>'
+                    _mark_cls = ""
+                sizebar = (
+                    '<div class="axis sizebar">'
+                    f'<div class="axis-tick" style="left:{_tgt_pos:.1f}%"></div>'
+                    '<div class="axis-tick strong" style="left:76.9%"></div>'
+                    f'<div class="axis-mark {_mark_cls}" style="left:{_w_pos:.1f}%"></div>'
+                    '</div>'
+                )
                 _d = wv - _tgt
                 _v = abs(_d) / 100 * vtot
                 _de = f"{_v / 1000:.1f}k" if _v >= 1000 else f"{round(_v / 50) * 50:.0f}"
@@ -1485,11 +1473,11 @@ _NAV = (
 )
 
 _CSS = """
-  :root { --bg:#F6F2F0; --panel:#F6F2F0; --line:#E2DDD8; --line2:#CDC5BE; --ink:#1A1814; --ink2:#3A352D; --steel:#7E7770; --metal:#7E7770;
+  :root { --bg:#F9F6F3; --panel:#F9F6F3; --line:#E5E0DB; --line2:#CFC7BF; --ink:#1A1814; --ink2:#3A352D; --steel:#7E7770; --metal:#7E7770;
     --acc:#5A7548; --acc2:#5A7548; --id:#1A1814; --bear:#9B3A2E; --warn:#A87325; --gold:#B58A3C;
     --fd:"Geist",ui-sans-serif,system-ui,sans-serif; --fb:"Geist",ui-sans-serif,system-ui,sans-serif; --fm:"Geist Mono",ui-monospace,SFMono-Regular,monospace; --fo:"Geist",ui-sans-serif,sans-serif;
     --elev:none;
-    --glass:rgba(246,242,240,.92); --glass2:rgba(246,242,240,.88); --tape:rgba(246,242,240,.96); --barbg:#EBE5DF; }
+    --glass:rgba(249,246,243,.92); --glass2:rgba(249,246,243,.88); --tape:rgba(249,246,243,.96); --barbg:#EDE8E2; }
   body.midnight { --bg:#0E0D0B; --panel:#16140F; --line:#2A2520; --line2:#3D362E; --ink:#F1ECE3; --ink2:#CFC6B5; --steel:#8C8273; --metal:#8C8273;
     --acc:#88A671; --acc2:#88A671; --id:#F1ECE3; --bear:#C75B4F; --warn:#D6A058; --gold:#D4A553;
     --elev:0 12px 32px -18px rgba(0,0,0,.65);
@@ -1616,9 +1604,6 @@ _CSS = """
   .axis-tick.strong { top:-4px; height:9px; background:var(--ink); opacity:.55; }
   .axis-tick.dash { border-left:1px dashed var(--steel); background:transparent; opacity:.6; }
   .noanim .axis-mark { transition:none !important; }
-  /* Legacy .track/.fill kept lean for migration — flat color, no growth anim */
-  .track { height:1px; background:var(--line2); position:relative; margin:14px 0 6px; }
-  .fill { display:none; }
   .rs { display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--steel); }
   .dwrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
   .legend { display:flex; flex-direction:column; gap:8px; flex:1; min-width:200px; }
@@ -1644,9 +1629,9 @@ _CSS = """
   .ddot.hot { background:#FB923C; } .ddot.danger { background:#EF4444; }
   .dname { color:var(--ink); } .dval { font-family:var(--fm); text-align:right; color:var(--ink); } .dp { font-family:var(--fm); font-size:10px; color:var(--steel); }
   .stale { font-family:var(--fb); font-size:9px; color:var(--steel); opacity:.7; text-transform:uppercase; letter-spacing:.08em; }
-  @keyframes grow { to { width:var(--w); } } @keyframes fade { to { opacity:1; } }
-  .noanim [data-page].active, .noanim .row, .noanim .fill { animation:none !important; }
-  .noanim .row { opacity:1 !important; } .noanim .fill { width:var(--w) !important; }
+  @keyframes fade { to { opacity:1; } }
+  .noanim [data-page].active, .noanim .row { animation:none !important; }
+  .noanim .row { opacity:1 !important; }
   .plan { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:15px 20px; margin-bottom:18px; }
   .plan-h { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:13px; }
   .plan-row { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
@@ -2305,7 +2290,7 @@ def render() -> Path:
         a = _axis[tk]
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span></div>'
-            f'<div class="th-track"><div class="th-cur" style="left:{a["frac"]:.1f}%"></div></div>'
+            f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%"></div></div>'
             f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
             f'<span class="th-tgt">cible +{a["up"]:.0f}%</span></div></div>'
         )
