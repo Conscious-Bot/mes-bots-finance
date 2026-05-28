@@ -1595,16 +1595,16 @@ _CSS = """
   /* Signal-subtil PRESAGE : axe gradient red->neutral->green + dot noir-bezel-gold */
   .axis { position:relative; height:4px; border-radius:2px; margin:14px 0 6px;
     background:linear-gradient(90deg,
-      color-mix(in srgb,var(--bear) 32%,transparent) 0%,
-      color-mix(in srgb,var(--bear) 6%,transparent) 28%,
-      color-mix(in srgb,var(--line2) 30%,transparent) 50%,
-      color-mix(in srgb,var(--acc) 6%,transparent) 72%,
-      color-mix(in srgb,var(--acc) 32%,transparent) 100%); }
+      color-mix(in srgb,var(--bear) 70%,transparent) 0%,
+      color-mix(in srgb,var(--bear) 28%,transparent) 28%,
+      color-mix(in srgb,var(--line2) 55%,transparent) 50%,
+      color-mix(in srgb,var(--acc) 28%,transparent) 72%,
+      color-mix(in srgb,var(--acc) 70%,transparent) 100%); }
   .axis::before, .axis::after { content:""; position:absolute; top:-3px; width:1px; height:10px; background:var(--line2); }
   .axis::before { left:0; } .axis::after { right:0; }
-  .axis-mark { position:absolute; top:50%; width:22px; height:14px;
-    background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 28'><defs><radialGradient id='c' cx='50%25' cy='50%25' r='30%25'><stop offset='0%25' stop-color='%23ffffff'/><stop offset='35%25' stop-color='%23fff5db'/><stop offset='100%25' stop-color='%23B58A3C' stop-opacity='0'/></radialGradient></defs><path d='M22 6 L37 14 L22 22 L7 14 Z' fill='%230E0B07'/><ellipse cx='22' cy='14' rx='21' ry='.55' fill='%23ffffff' opacity='.95'/><ellipse cx='22' cy='14' rx='.55' ry='12' fill='%23ffffff' opacity='.8'/><circle cx='22' cy='14' r='3.2' fill='url(%23c)'/></svg>") no-repeat center / contain;
-    filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--gold) 32%,transparent));
+  .axis-mark { position:absolute; top:50%; width:32px; height:15px;
+    background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><defs><radialGradient id='c' cx='50%25' cy='50%25' r='22%25'><stop offset='0%25' stop-color='%23ffffff'/><stop offset='40%25' stop-color='%23fff5db' stop-opacity='.9'/><stop offset='100%25' stop-color='%23B58A3C' stop-opacity='0'/></radialGradient></defs><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%230E0B07'/><circle cx='30' cy='12' r='2.8' fill='url(%23c)'/></svg>") no-repeat center / contain;
+    filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--gold) 35%,transparent));
     transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
   .axis-mark.pos, .axis-mark.neg, .axis-mark.danger, .axis-mark.warn, .axis-mark.ink, .axis-mark.mute {
     background:var(--acc); filter:none; width:11px; height:7px;
