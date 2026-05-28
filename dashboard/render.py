@@ -1233,12 +1233,12 @@ def _journal() -> str:
 
 _LOGO = (
     '<svg viewBox="0 0 220 150" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-label="PRESAGE">'
-    '<path d="M55 15 L72 15 L72 43 L100 43 L100 55 L55 55 Z"/>'
-    '<path d="M148 15 L165 15 L165 55 L120 55 L120 43 L148 43 Z"/>'
-    '<path d="M55 95 L100 95 L100 107 L72 107 L72 135 L55 135 Z"/>'
-    '<path d="M120 95 L165 95 L165 135 L148 135 L148 107 L120 107 Z"/>'
-    '<path d="M5 75 L100 75 M120 75 L215 75" stroke="currentColor" stroke-width="1.2" fill="none"/>'
-    '<path d="M100 75 Q107 72 110 60 Q113 72 120 75 Q113 78 110 90 Q107 78 100 75 Z"/>'
+    '<path d="M55 18 L84 18 L100 65 L70 65 Z"/>'
+    '<path d="M165 18 L136 18 L120 65 L150 65 Z"/>'
+    '<path d="M70 85 L100 85 L84 132 L55 132 Z"/>'
+    '<path d="M150 85 L120 85 L136 132 L165 132 Z"/>'
+    '<path d="M5 75 L92 75 M128 75 L215 75" stroke="currentColor" stroke-width="1.2" fill="none"/>'
+    '<path d="M92 75 Q105 73 110 60 Q115 73 128 75 Q115 77 110 90 Q105 77 92 75 Z"/>'
     "</svg>"
 )
 
