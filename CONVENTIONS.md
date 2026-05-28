@@ -20,6 +20,7 @@ A consulter avant toute decision d'implementation pour rester coherent.
 - Status these : active | invalidated | realized | stale
 - Direction these : long | short | watch
 - Sentiment signal : bullish | bearish | neutral
+- decision_type (decisions) : entry | scale_in | partial_exit | full_exit | override | no_action_flag  (CHECK constraint en DB -- INSERT rejete sinon ; 'no_action_flag' PAS 'no_action')
 
 ## 3. JSON dans colonnes TEXT (SQLite)
 
