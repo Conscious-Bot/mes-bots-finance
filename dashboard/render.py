@@ -501,7 +501,7 @@ def _concentration(
         f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
         f'<div class="card pad"><div class="sbwrap"><svg id="sb-svg" viewBox="0 0 320 320" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
-        f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la supply-chain r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
+        f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
         f"</section>"
     )
 
@@ -869,10 +869,10 @@ def _market_rsi() -> str:
     import html as _h
 
     tickers = [
-        ("SPY", "S&P 500", "Momentum S&P 500. > 70 overbought (pullback risque), < 30 oversold (bounce probable)."),
+        ("SPY", "S&P 500", "Momentum S&P 500. > 70 sur-achete (correction probable), < 30 sur-vendu (rebond probable)."),
         ("QQQ", "Nasdaq 100", "Momentum Nasdaq 100 (tech). Plus proche du book."),
-        ("SMH", "Semis", "Momentum semis (exposition AI_compute). > 75 = zone prise profits, < 30 = zone add."),
-        ("IWM", "Russell 2000", "Momentum small-caps. Si IWM lag pendant que SMH rip, breadth fragile."),
+        ("SMH", "Semis", "Momentum semis (exposition AI_compute). > 75 = zone de prise de profit, < 30 = zone de renforcement."),
+        ("IWM", "Russell 2000", "Petites capitalisations. Si IWM decroche pendant que SMH monte, la hausse est etroite."),
     ]
     rows = ""
     for tk, name, tip in tickers:
@@ -925,11 +925,11 @@ def _breadth_rsp_spy() -> str:
         dot, tag = "warn", "&Eacute;TROIT"
     else:
         dot, tag = "calm", ""
-    tip = "Equal-weight (RSP) vs cap-weight (SPY). > MA50 = rally large (sain). < MA50 = mega-caps seuls (fragile)."
+    tip = "Equipondere (RSP) vs ponder&eacute; capitalisation (SPY). > MM50 = hausse large (saine). < MM50 = mega-caps isol&eacute;es (fragile)."
     tip_attr = f' data-tip="{_h.escape(tip, quote=True)}"'
     return (
         f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span>'
-        f'<span class="dname">RSP / SPY ratio <span style="color:var(--steel);font-size:10px">vs MA50</span></span>'
+        f'<span class="dname">RSP / SPY ratio <span style="color:var(--steel);font-size:10px">vs MM50</span></span>'
         f'<span class="dval {dot}">{delta_pct:+.2f}%</span><span class="dp">{tag}</span></div>'
     )
 
