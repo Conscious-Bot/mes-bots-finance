@@ -35,8 +35,11 @@ def aggregate(positions: list[dict], prices: dict, prev_hwm: float = 0.0) -> dic
         total_cost += cost
         n_priced += 1
         pnl = (value / cost - 1) * 100 if cost else None
-        detail[tk] = {"value": round(value, 2), "cost": round(cost, 2),
-                      "pnl": round(pnl, 1) if pnl is not None else None}
+        detail[tk] = {
+            "value": round(value, 2),
+            "cost": round(cost, 2),
+            "pnl": round(pnl, 1) if pnl is not None else None,
+        }
     if n_priced == 0:
         return None
     hwm = max(prev_hwm or 0.0, total_value)
@@ -81,8 +84,10 @@ if __name__ == "__main__":
     s = compute_snapshot()
     if s:
         storage.upsert_portfolio_snapshot(s)
-        print(f"snapshot {s['snapshot_date']}: {s['total_value_eur']:.0f} EUR "
-              f"(cost {s['total_cost_eur']:.0f}, P&L {s['pnl_pct']:+.1f}%, "
-              f"DD {s['drawdown_pct']:.1f}%, {s['n_priced']}/{s['n_positions']} prix)")
+        print(
+            f"snapshot {s['snapshot_date']}: {s['total_value_eur']:.0f} EUR "
+            f"(cost {s['total_cost_eur']:.0f}, P&L {s['pnl_pct']:+.1f}%, "
+            f"DD {s['drawdown_pct']:.1f}%, {s['n_priced']}/{s['n_positions']} prix)"
+        )
     else:
         print("snapshot: rien a ecrire (0 position ou 0 prix)")

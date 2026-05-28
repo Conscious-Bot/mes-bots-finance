@@ -40,16 +40,9 @@ def _schema_cache(db_path: str) -> dict[str, tuple[str, ...]]:
     conn = sqlite3.connect(db_path)
     try:
         tables = [
-            r[0]
-            for r in conn.execute(
-                "SELECT name FROM sqlite_master "
-                "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-            )
+            r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
         ]
-        return {
-            t: tuple(r[1] for r in conn.execute(f"PRAGMA table_info({t})"))
-            for t in tables
-        }
+        return {t: tuple(r[1] for r in conn.execute(f"PRAGMA table_info({t})")) for t in tables}
     finally:
         conn.close()
 
@@ -63,9 +56,7 @@ def list_columns(table: str, db: Path | str = _DB_DEFAULT) -> list[str]:
     """Return list of column names for `table`. Raises SchemaError if table missing."""
     schema = _schema_cache(str(db))
     if table not in schema:
-        raise SchemaError(
-            f"Table '{table}' does not exist. Available: {sorted(schema.keys())}"
-        )
+        raise SchemaError(f"Table '{table}' does not exist. Available: {sorted(schema.keys())}")
     return list(schema[table])
 
 
@@ -73,18 +64,14 @@ def assert_table_exists(table: str, db: Path | str = _DB_DEFAULT) -> None:
     """Raise SchemaError if `table` is not in the DB."""
     schema = _schema_cache(str(db))
     if table not in schema:
-        raise SchemaError(
-            f"Table '{table}' does not exist. Available: {sorted(schema.keys())}"
-        )
+        raise SchemaError(f"Table '{table}' does not exist. Available: {sorted(schema.keys())}")
 
 
 def assert_column_exists(table: str, column: str, db: Path | str = _DB_DEFAULT) -> None:
     """Raise SchemaError if `column` is not in `table` (table must also exist)."""
     cols = list_columns(table, db)
     if column not in cols:
-        raise SchemaError(
-            f"Column '{column}' not in table '{table}'. Available: {cols}"
-        )
+        raise SchemaError(f"Column '{column}' not in table '{table}'. Available: {cols}")
 
 
 def clear_cache() -> None:

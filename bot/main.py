@@ -166,6 +166,7 @@ async def log_handler_call_middleware(update, ctx):
     except Exception as e:
         log.warning(f"handler telemetry failed: {e}")
 
+
 async def post_init(app):
     """Run AFTER event loop is started."""
     try:
@@ -243,7 +244,6 @@ def main():
     app.add_handler(MessageHandler(filters.COMMAND, log_handler_call_middleware), group=-1)
     # Phase B refactor 21/05/2026: 80 command handlers extracted to bot/registry.py
     register_command_handlers(app)
-
 
     log.info("Polling Telegram...")
     storage.update_state(bot_start_ts=datetime.now(UTC).isoformat())

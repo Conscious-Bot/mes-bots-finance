@@ -6,6 +6,7 @@ TR (Trade Republic): valeur + P&L absolu "depuis l'achat" -> cost = valeur - pnl
   qty = valeur/prix_live, avg_cost = cost/qty. Cout exact, qty derive du prix live.
 Backup-first (cote caller). Re-runnable: set_position UPSERT idempotent.
 """
+
 import sqlite3
 import sys
 
@@ -15,36 +16,36 @@ from shared import positions as positions_mod, prices
 PEA = [
     ("ASML.AS", 3, 820.95),
     ("BESI.AS", 6, 262.71),
-    ("SAF.PA", 2, 213.75),     # Safran
-    ("SU.PA", 6, 219.49),      # Schneider
-    ("STMPA.PA", 42, 22.84),   # STMicro
-    ("HO.PA", 7, 81.59),       # Thales
+    ("SAF.PA", 2, 213.75),  # Safran
+    ("SU.PA", 6, 219.49),  # Schneider
+    ("STMPA.PA", 42, 22.84),  # STMicro
+    ("HO.PA", 7, 81.59),  # Thales
 ]
 
 # TR (Trade Republic): (ticker, valeur_marche_eur, pnl_absolu_eur)
 TR = [
-    ("4063.T", 4336.32, -163.68),   # Shin-Etsu
+    ("4063.T", 4336.32, -163.68),  # Shin-Etsu
     ("TSM", 3983.27, 1383.93),
-    ("SNPS", 3620.27, 131.27),      # Synopsys
-    ("7011.T", 2386.13, -113.87),   # Mitsubishi Heavy
-    ("KLAC", 2041.56, 41.56),       # KLA
+    ("SNPS", 3620.27, 131.27),  # Synopsys
+    ("7011.T", 2386.13, -113.87),  # Mitsubishi Heavy
+    ("KLAC", 2041.56, 41.56),  # KLA
     ("000660.KS", 1971.70, -28.30),  # SK Hynix
-    ("6920.T", 1906.54, -93.46),    # Lasertec
-    ("ALAB", 1855.35, 527.35),      # Astera Labs
+    ("6920.T", 1906.54, -93.46),  # Lasertec
+    ("ALAB", 1855.35, 527.35),  # Astera Labs
     ("TSLA", 1767.83, 35.59),
     ("AMD", 1657.63, 1053.07),
-    ("MU", 1528.70, 465.14),        # Micron
-    ("AMZN", 1527.22, 27.22),       # Amazon
-    ("ENTG", 1404.10, 12.10),       # Entegris
-    ("MP", 1326.13, 76.14),         # MP Materials
-    ("AVGO", 1306.76, -51.24),      # Broadcom
-    ("COHR", 1113.03, -34.97),      # Coherent
-    ("6857.T", 1064.01, 30.00),     # Advantest
-    ("TER", 1049.05, 517.74),       # Teradyne
-    ("GOOGL", 985.20, 421.97),      # Alphabet
-    ("VRT", 866.54, -112.47),       # Vertiv
-    ("LNG", 729.83, 4.52),          # Cheniere
-    ("CCJ", 722.03, -25.97),        # Cameco
+    ("MU", 1528.70, 465.14),  # Micron
+    ("AMZN", 1527.22, 27.22),  # Amazon
+    ("ENTG", 1404.10, 12.10),  # Entegris
+    ("MP", 1326.13, 76.14),  # MP Materials
+    ("AVGO", 1306.76, -51.24),  # Broadcom
+    ("COHR", 1113.03, -34.97),  # Coherent
+    ("6857.T", 1064.01, 30.00),  # Advantest
+    ("TER", 1049.05, 517.74),  # Teradyne
+    ("GOOGL", 985.20, 421.97),  # Alphabet
+    ("VRT", 866.54, -112.47),  # Vertiv
+    ("LNG", 729.83, 4.52),  # Cheniere
+    ("CCJ", 722.03, -25.97),  # Cameco
 ]
 CLOSE = ["MRVL"]
 DB = "data/bot.db"

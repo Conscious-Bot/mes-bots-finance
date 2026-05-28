@@ -17,18 +17,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 ALLOWED_FILES = {
-    "shared/storage.py",               # tables coeur (theses, predictions, signals via insert_raw_signal, sources...)
-    "shared/positions.py",             # positions + position_events
-    "shared/ticker_names.py",          # cache ticker_names
-    "shared/llm.py",                   # telemetrie llm_calls
-    "intelligence/price_monitor.py",   # MAJ prix/clv/triggers theses (cron)
+    "shared/storage.py",  # tables coeur (theses, predictions, signals via insert_raw_signal, sources...)
+    "shared/positions.py",  # positions + position_events
+    "shared/ticker_names.py",  # cache ticker_names
+    "shared/llm.py",  # telemetrie llm_calls
+    "intelligence/price_monitor.py",  # MAJ prix/clv/triggers theses (cron)
     "intelligence/materiality_v2.py",  # MAJ scores materialite signals (cron)
-    "intelligence/debt_monitor.py",    # debt_signals / debt_composite (cron)
+    "intelligence/debt_monitor.py",  # debt_signals / debt_composite (cron)
     "intelligence/insider_digest.py",  # insider_snapshots (cron)
-    "intelligence/analyze.py",         # table analyses
-    "intelligence/calendar.py",        # events (catalysts)
-    "bot/main.py",                     # telemetrie handler_calls
-    "bot/handlers/misc.py",            # edition champs these
+    "intelligence/analyze.py",  # table analyses
+    "intelligence/calendar.py",  # events (catalysts)
+    "bot/main.py",  # telemetrie handler_calls
+    "bot/handlers/misc.py",  # edition champs these
 }
 ALLOWED_PREFIXES = ("scripts/", "tests/")
 SKIP_DIRS = {"venv", ".venv", ".backups", "__pycache__", ".git", "build", "dist", "data"}

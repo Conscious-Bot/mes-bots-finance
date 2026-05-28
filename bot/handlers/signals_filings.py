@@ -187,6 +187,7 @@ async def cmd_insiders(update, ctx):
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
 
+
 async def _cluster_impl(update, ticker: str, days: int) -> None:
     """Internal: detect insider cluster buying/selling for ticker over N days.
 
@@ -254,8 +255,6 @@ async def _buy_cluster_impl(update, ticker) -> None:
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-
-
 
 
 async def cmd_signals_by_type(update, ctx):  # noqa: ARG001

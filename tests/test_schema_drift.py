@@ -41,8 +41,8 @@ _SQL_TABLE_REF_RE = re.compile(
 # SQL constructs that pass the regex but are not real table names.
 # Document each entry.
 _WHITELIST = {
-    "sqlite_master",       # SQLite system view
-    "pragma_table_info",   # SQLite pragma (rarely used in FROM but possible)
+    "sqlite_master",  # SQLite system view
+    "pragma_table_info",  # SQLite pragma (rarely used in FROM but possible)
 }
 
 
@@ -140,5 +140,6 @@ def test_helper_catches_known_drift() -> None:
     """Regression: position_events.created_at was a Lesson 21 violation in
     Bash 105 (column doesn't exist, was assumed). Verify the helper catches it."""
     from shared.schema import SchemaError, assert_column_exists
+
     with pytest.raises(SchemaError, match="not in table 'position_events'"):
         assert_column_exists("position_events", "created_at")

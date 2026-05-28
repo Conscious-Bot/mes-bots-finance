@@ -1,4 +1,5 @@
 """Tests for shared/data_source_base.py — Sprint 1.2 deliverable."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timezone
@@ -44,6 +45,7 @@ def test_rate_limiter_blocks_when_exhausted(monkeypatch):
     rl.last_refill = 0.0  # reset
     rl.tokens = 0.0
     import time as _t
+
     monkeypatch.setattr(_t, "monotonic", lambda: 0.0)  # freeze time
 
     rl.acquire(1)

@@ -19,7 +19,12 @@ BIASES = {
 }
 
 
-def auto_tag_biases(decision: dict[str, Any], position: dict[str, Any] | None = None, regime_str: str | None = None, top_signals: list[Any] | None = None) -> list[str]:
+def auto_tag_biases(
+    decision: dict[str, Any],
+    position: dict[str, Any] | None = None,
+    regime_str: str | None = None,
+    top_signals: list[Any] | None = None,
+) -> list[str]:
     """Return list of bias tags applicable to a decision. Empty if no clear bias detected."""
     from shared import llm
 
@@ -42,6 +47,7 @@ def auto_tag_biases(decision: dict[str, Any], position: dict[str, Any] | None = 
         # ADR 005: avg_cost EUR canonical -> convert to USD for prompt coherence.
         # realized_pnl currency convention not audited (out of ADR 005 scope).
         from shared.positions import cost_in
+
         avg_usd = cost_in(position.get("avg_cost"), "USD") or 0
         parts.append(
             f"Holding {position.get('qty')} @ avg ${avg_usd:.2f}, realized PnL ${position.get('realized_pnl', 0):.2f}"

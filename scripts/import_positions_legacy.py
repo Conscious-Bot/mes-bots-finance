@@ -14,6 +14,7 @@ Currency handled via yfinance ticker suffix:
 
 FX rates fetched once via yfinance pairs (EURUSD=X etc.).
 """
+
 import sys
 from pathlib import Path
 
@@ -26,28 +27,28 @@ from shared import positions as positions_mod, storage
 # (ticker, account, eur_invested)
 LEGACY_POSITIONS = [
     # PEA — 6 positions
-    ("ASML.AS",  "PEA", 3930),
+    ("ASML.AS", "PEA", 3930),
     ("STMPA.PA", "PEA", 2205),
-    ("SU.PA",    "PEA", 1581),
-    ("BESI.AS",  "PEA", 1567),
-    ("HO.PA",    "PEA", 1554),
-    ("SAF.PA",   "PEA", 547),
+    ("SU.PA", "PEA", 1581),
+    ("BESI.AS", "PEA", 1567),
+    ("HO.PA", "PEA", 1554),
+    ("SAF.PA", "PEA", 547),
     # TR executed — 15 positions
-    ("4063.T",    "TR", 4500),
-    ("TSM",       "TR", 4000),
-    ("SNPS",      "TR", 3000),
-    ("7011.T",    "TR", 2500),  # topup +1000 planned W1, will be added when executed
+    ("4063.T", "TR", 4500),
+    ("TSM", "TR", 4000),
+    ("SNPS", "TR", 3000),
+    ("7011.T", "TR", 2500),  # topup +1000 planned W1, will be added when executed
     ("000660.KS", "TR", 2000),
-    ("KLAC",      "TR", 2000),
-    ("6920.T",    "TR", 2000),
-    ("MRVL",      "TR", 2000),
-    ("AVGO",      "TR", 1500),
-    ("TER",       "TR", 1500),
-    ("ALAB",      "TR", 1500),
-    ("COHR",      "TR", 1500),
-    ("AMD",       "TR", 1500),
-    ("GOOGL",     "TR", 1500),
-    ("TSLA",      "TR", 1000),
+    ("KLAC", "TR", 2000),
+    ("6920.T", "TR", 2000),
+    ("MRVL", "TR", 2000),
+    ("AVGO", "TR", 1500),
+    ("TER", "TR", 1500),
+    ("ALAB", "TR", 1500),
+    ("COHR", "TR", 1500),
+    ("AMD", "TR", 1500),
+    ("GOOGL", "TR", 1500),
+    ("TSLA", "TR", 1000),
 ]
 
 

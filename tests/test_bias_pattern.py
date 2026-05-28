@@ -1,4 +1,5 @@
 """Tests for /bias_pattern handler."""
+
 from hypothesis import given, strategies as st
 
 from bot.handlers.bias_pattern import _compute_bias_pattern, _parse_bias_tags
@@ -41,10 +42,16 @@ class TestComputeBiasPattern:
     def test_smoke(self):
         data = _compute_bias_pattern(window_days=90)
         expected_keys = {
-            "window_days", "total_decisions", "with_bias_tags",
-            "with_mistake_auto", "with_mistake_manual",
-            "bias_counts", "mistake_auto_counts", "mistake_manual_counts",
-            "ticker_bias_map", "tagged_decisions",
+            "window_days",
+            "total_decisions",
+            "with_bias_tags",
+            "with_mistake_auto",
+            "with_mistake_manual",
+            "bias_counts",
+            "mistake_auto_counts",
+            "mistake_manual_counts",
+            "ticker_bias_map",
+            "tagged_decisions",
         }
         assert set(data.keys()) == expected_keys
 

@@ -14,6 +14,7 @@ Then top sources for this ticker + decisions count.
 
 Zero touch to measurement pipeline. Pure SQL + JSON parsing.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,7 @@ def _parse_breakdown(breakdown_json: str | None) -> dict:
     try:
         data = json.loads(breakdown_json)
         return data if isinstance(data, dict) else {}
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         return {}
 
 
@@ -49,7 +50,7 @@ def _ticker_in_entities(entities_json: str | None, ticker: str) -> bool:
         if isinstance(data, dict):
             tickers = data.get("tickers") or []
             return ticker in tickers
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         return False
     return False
 
@@ -97,19 +98,21 @@ def _compute_drilldown(ticker: str, window_days: int, min_impact: float) -> dict
             continue
         breakdown = _parse_breakdown(row["materiality_breakdown"])
         source_name = (row["source_name"] or "?").split("<")[0].strip()[:30]
-        signals.append({
-            "id": row["id"],
-            "date": row["timestamp"][:10],
-            "title": (row["title"] or "")[:80],
-            "impact": row["impact_magnitude"],
-            "reversibility": row["reversibility"],
-            "time": row["time_to_realization"],
-            "signal_type": row["signal_type"],
-            "source": source_name,
-            "source_cred": row["source_cred"],
-            "boost": row["materiality_boost"] or 1.0,
-            "reasoning": (breakdown.get("reasoning") or "")[:200],
-        })
+        signals.append(
+            {
+                "id": row["id"],
+                "date": row["timestamp"][:10],
+                "title": (row["title"] or "")[:80],
+                "impact": row["impact_magnitude"],
+                "reversibility": row["reversibility"],
+                "time": row["time_to_realization"],
+                "signal_type": row["signal_type"],
+                "source": source_name,
+                "source_cred": row["source_cred"],
+                "boost": row["materiality_boost"] or 1.0,
+                "reasoning": (breakdown.get("reasoning") or "")[:200],
+            }
+        )
         source_counts[source_name] = source_counts.get(source_name, 0) + 1
 
     return {
@@ -142,9 +145,7 @@ def _format_drilldown(data: dict) -> str:
     # Show up to 8 signals (Telegram length limit consideration)
     for s in sigs[:8]:
         cred = f"{s['source_cred']:.2f}" if s.get("source_cred") is not None else "?"
-        lines.append(
-            f"[{s['date']}] impact={s['impact']:.1f} rev={s['reversibility']:.1f} {s['signal_type'] or '?'}"
-        )
+        lines.append(f"[{s['date']}] impact={s['impact']:.1f} rev={s['reversibility']:.1f} {s['signal_type'] or '?'}")
         lines.append(f"  Source: {s['source']} (cred {cred})")
         lines.append(f"  Title : {s['title']}")
         if s["reasoning"]:
@@ -176,8 +177,7 @@ async def cmd_signal_drilldown(update, ctx):  # noqa: ARG001
     parts = update.message.text.split()
     if len(parts) < 2:
         await update.message.reply_text(
-            "Usage: /signal_drilldown TICKER [window_days] [min_impact]\n"
-            "Defaults: 30 days, impact >= 2.0"
+            "Usage: /signal_drilldown TICKER [window_days] [min_impact]\nDefaults: 30 days, impact >= 2.0"
         )
         return
 
@@ -185,7 +185,7 @@ async def cmd_signal_drilldown(update, ctx):  # noqa: ARG001
     try:
         window_days = int(parts[2]) if len(parts) > 2 else 30
         min_impact = float(parts[3]) if len(parts) > 3 else 2.0
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         await update.message.reply_text("Bad args. Usage: /signal_drilldown TICKER [days] [min_impact]")
         return
 

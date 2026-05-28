@@ -32,6 +32,7 @@ Usage pattern (subclass):
     result = MySource().ingest(since=yesterday)
     log.info(result.summary())
 """
+
 from __future__ import annotations
 
 import logging

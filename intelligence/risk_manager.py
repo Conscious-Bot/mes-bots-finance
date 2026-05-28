@@ -87,6 +87,7 @@ def _build_portfolio_state(positions):
     # ADR 005: avg_cost EUR canonical -> convert to USD for prompt currency
     # coherence (RISK_PROMPT uses proposed_usd and USD-denominated prices throughout).
     from shared.positions import cost_in
+
     rows = []
     for p in positions:
         qty = p.get("qty", 0) or 0
@@ -108,15 +109,19 @@ def _build_thesis_state(thesis):
     # confirmed ~1.0 across all 4 native currencies). Convert to USD for prompt
     # currency coherence with rest of RISK_PROMPT.
     from shared.positions import cost_in
+
     def _u(field):
         v = thesis.get(field)
         return cost_in(v, "USD") if v is not None else None
+
     entry_u = _u("entry_price")
     partial_u = _u("target_partial")
     full_u = _u("target_full")
     stop_u = _u("stop_price")
+
     def _fmt(x):
         return f"${x:.2f}" if x is not None else "n/a"
+
     parts = [
         f"Direction: {thesis.get('direction')}",
         f"Conviction: {thesis.get('conviction')}",

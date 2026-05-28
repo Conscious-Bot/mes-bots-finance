@@ -175,7 +175,6 @@ def _parse_thesis_template(text):
     return out
 
 
-
 async def cmd_thesis(update, ctx):
     """Family dispatcher: /thesis <sub-action> [args].
 
@@ -214,20 +213,23 @@ async def cmd_thesis(update, ctx):
 
     if sub == "set":
         from bot.handlers.misc import _thesis_set_impl
+
         await _thesis_set_impl(update, rest)
     elif sub == "health":
         from bot.handlers.thesis_health import _thesis_health_impl
+
         await _thesis_health_impl(update, rest)
     elif sub == "premortem":
         from bot.handlers.thesis_analyze import _thesis_premortem_impl
+
         await _thesis_premortem_impl(update, rest)
     elif sub == "asymmetry":
         from bot.handlers.misc import _asymmetry_impl
+
         await _asymmetry_impl(update, rest)
     elif sub == "check_triggers":
         from bot.handlers.echo_crypto_macro import _price_check_impl
+
         await _price_check_impl(update)
     else:
-        await update.message.reply_text(
-            f"Unknown sub-action: {sub}\nUse /thesis (no args) for help."
-        )
+        await update.message.reply_text(f"Unknown sub-action: {sub}\nUse /thesis (no args) for help.")

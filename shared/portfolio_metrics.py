@@ -110,8 +110,7 @@ def compute_portfolio_return(target_cur: str = "USD") -> dict[str, Any] | None:
             # Day 13 ADR 005: avg_cost EUR canonical, no native conversion needed.
             eur_inv = qty * avg_cost_eur
             log.warning(
-                f"kpi6: {ticker} missing eur_invested tag, fallback "
-                f"qty*avg_cost (EUR canonical) = {eur_inv:.2f}"
+                f"kpi6: {ticker} missing eur_invested tag, fallback qty*avg_cost (EUR canonical) = {eur_inv:.2f}"
             )
 
         total_entry += eur_inv * fx_eur_to_target

@@ -3,6 +3,7 @@
 Avoids duplicate top-level definitions and provides Telegram-safe
 text formatting (post lesson from /journal_audit Markdown bug 69e70c1).
 """
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -89,6 +89,8 @@ async def cmd_position(update, ctx):  # noqa: ARG001
         await _position_view_impl(update, ticker)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
+
+
 async def cmd_thesis_set(update, ctx):
     """Legacy alias: /thesis_set -> /thesis set."""
     await _thesis_set_impl(update, ctx.args or [])
@@ -144,6 +146,7 @@ async def _thesis_set_impl(update, args: list[str]) -> None:
         cx.commit()
     await update.message.reply_text(f"✓ {ticker} {field}: {old_val} → {value}")
 
+
 async def _position_view_impl(update, ticker: str) -> None:
     """Internal: show position detail (qty, avg, P&L, history).
 
@@ -157,4 +160,3 @@ async def _position_view_impl(update, ticker: str) -> None:
         return
     hist = positions_mod.get_history(ticker)
     await update.message.reply_text(positions_mod.format_position_detail(p, hist))
-

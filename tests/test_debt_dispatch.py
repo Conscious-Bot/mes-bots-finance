@@ -8,6 +8,7 @@ Covers behavior contract documented in _dispatch_alerts docstring:
 - Alerts-disabled toggle short-circuits dispatch
 - Phase-specific action text propagates correctly
 """
+
 from __future__ import annotations
 
 import pytest

@@ -13,6 +13,7 @@ Other thesis handlers (cmd_thesis_add/list/revisit/note/set) intentionally
 NOT in this chunk — they use Update/ContextTypes type hints (different
 signature pattern), reserved for future chunk.
 """
+
 from __future__ import annotations
 
 import logging

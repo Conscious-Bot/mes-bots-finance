@@ -62,13 +62,19 @@ def test_critical_handlers_callable():
 
     critical = [
         # Position handlers (Phase B5 integration verified)
-        "cmd_position_buy", "cmd_position_sell", "cmd_portfolio",
+        "cmd_position_buy",
+        "cmd_position_sell",
+        "cmd_portfolio",
         # Monitoring handlers (Path 5/6 dimension 2)
-        "cmd_bot_data", "cmd_cost_trajectory", "cmd_handler_stats",
+        "cmd_bot_data",
+        "cmd_cost_trajectory",
+        "cmd_handler_stats",
         # Asymmetry + risk (anti-bias core)
-        "cmd_asymmetry", "cmd_risk_check",
+        "cmd_asymmetry",
+        "cmd_risk_check",
         # Ritual matinal
-        "cmd_brief", "cmd_digest",
+        "cmd_brief",
+        "cmd_digest",
         # Telemetry middleware
         "log_handler_call_middleware",
     ]
@@ -82,10 +88,10 @@ def test_cron_jobs_for_observation_callable():
     from bot import main
 
     crons = [
-        "weekly_kpi_status_job",       # Sun 22:30
-        "weekly_cost_summary_job",     # Sun 22:00
-        "weekly_handler_stats_job",    # Sun 23:00
-        "daily_backup_job",            # 04:00 daily
+        "weekly_kpi_status_job",  # Sun 22:30
+        "weekly_cost_summary_job",  # Sun 22:00
+        "weekly_handler_stats_job",  # Sun 23:00
+        "daily_backup_job",  # 04:00 daily
     ]
     for c in crons:
         assert hasattr(main, c), f"Cron job {c} missing"
@@ -98,10 +104,15 @@ def test_phase_b5_journal_helpers_present():
     from shared import storage
 
     storage_helpers = [
-        "log_decision", "get_decision", "get_position_by_ticker",
-        "update_decision_bias_tags", "get_active_positions",
-        "get_positions_history", "get_bias_stats",
-        "create_or_update_position_on_buy", "record_position_sell",
+        "log_decision",
+        "get_decision",
+        "get_position_by_ticker",
+        "update_decision_bias_tags",
+        "get_active_positions",
+        "get_positions_history",
+        "get_bias_stats",
+        "create_or_update_position_on_buy",
+        "record_position_sell",
     ]
     for name in storage_helpers:
         assert hasattr(storage, name), f"storage.{name} missing"
@@ -133,22 +144,33 @@ def test_db_schema_critical_tables_exist(tmp_path):
     bootstrap_schema(db_path=str(test_db))
 
     conn = sqlite3.connect(test_db)
-    tables = {r[0] for r in conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-    ).fetchall()}
+    tables = {
+        r[0]
+        for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+    }
     conn.close()
 
     required = {
         # Core entities
-        "signals", "sources", "theses", "decisions", "predictions",
+        "signals",
+        "sources",
+        "theses",
+        "decisions",
+        "predictions",
         # Position tracking (Phase B5)
-        "positions", "position_events",
+        "positions",
+        "position_events",
         # Materiality + embeddings
-        "conviction_history", "signal_embeddings",
+        "conviction_history",
+        "signal_embeddings",
         # Observability
-        "llm_calls", "handler_calls",
+        "llm_calls",
+        "handler_calls",
         # Macro
-        "events", "filings_8k_log",
+        "events",
+        "filings_8k_log",
     }
     missing = required - tables
     assert not missing, f"Missing required tables: {missing}"
@@ -203,6 +225,7 @@ def test_backup_script_exists_and_executable():
     """Daily backup must be functional during observation."""
     import os
     from pathlib import Path
+
     p = Path("scripts/backup.sh")
     assert p.exists(), "scripts/backup.sh missing"
     assert os.access(p, os.X_OK), "scripts/backup.sh not executable"
@@ -224,10 +247,7 @@ def test_uptime_monitor_uses_case_insensitive_pgrep():
 
     content = script.read_text()
     has_case_insensitive = (
-        "pgrep -fi" in content
-        or "pgrep -if" in content
-        or "pgrep -i " in content
-        or "pgrep -i\t" in content
+        "pgrep -fi" in content or "pgrep -if" in content or "pgrep -i " in content or "pgrep -i\t" in content
     )
     assert has_case_insensitive, (
         "crons/uptime_monitor.sh does not use case-insensitive pgrep. "
@@ -285,9 +305,7 @@ def test_no_duplicate_handler_registrations():
         line_no = node.lineno
 
         if cmd_name in seen_commands:
-            duplicates.append(
-                f"/{cmd_name} registered at L{seen_commands[cmd_name]} AND L{line_no}"
-            )
+            duplicates.append(f"/{cmd_name} registered at L{seen_commands[cmd_name]} AND L{line_no}")
         else:
             seen_commands[cmd_name] = line_no
 
@@ -319,14 +337,10 @@ def test_bot_health_check_uses_case_insensitive_pgrep():
     capital P, so `pgrep -f python` misses it. Use -fi.
     """
     text = HEALTH_SCRIPT.read_text()
-    pgrep_lines = [
-        line.rstrip()
-        for line in text.splitlines()
-        if "pgrep" in line and not line.lstrip().startswith("#")
-    ]
+    pgrep_lines = [line.rstrip() for line in text.splitlines() if "pgrep" in line and not line.lstrip().startswith("#")]
     assert pgrep_lines, "no pgrep calls found — has the script been refactored?"
     for line in pgrep_lines:
-        assert ("-fi" in line) or (" -i " in line) or (" -i\"" in line), (
+        assert ("-fi" in line) or (" -i " in line) or (' -i"' in line), (
             f"pgrep without case-insensitive flag (-fi or -i): {line!r}\n"
             "macOS Python.app cmdline contains capital P. Use -fi."
         )
@@ -341,12 +355,9 @@ def test_bot_health_check_trap_preserves_exit_code():
     """
     text = HEALTH_SCRIPT.read_text()
     assert "rc=$?" in text, (
-        "EXIT trap must capture $? at entry. Without it, cleanup overrides "
-        "the script's intended exit code."
+        "EXIT trap must capture $? at entry. Without it, cleanup overrides the script's intended exit code."
     )
-    assert 'exit "$rc"' in text or "exit $rc" in text, (
-        "EXIT trap must re-exit with the preserved rc."
-    )
+    assert 'exit "$rc"' in text or "exit $rc" in text, "EXIT trap must re-exit with the preserved rc."
 
 
 def test_bot_health_check_handles_missing_files_gracefully():
@@ -358,10 +369,7 @@ def test_bot_health_check_handles_missing_files_gracefully():
     """
     text = HEALTH_SCRIPT.read_text()
     for var in ["DB_PATH", "STATE_JSON", "BOT_LOG"]:
-        has_guard = (
-            f'[ -f "${var}" ]' in text
-            or f'[ ! -f "${var}" ]' in text
-        )
+        has_guard = f'[ -f "${var}" ]' in text or f'[ ! -f "${var}" ]' in text
         assert has_guard, (
             f"${var} is used but never guarded with [ -f ... ]. "
             "Missing-file scenarios will crash the script instead of "

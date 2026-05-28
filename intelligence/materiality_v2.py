@@ -21,7 +21,13 @@ log = logging.getLogger(__name__)
 TIME_FACTORS = {"urgent": 5.0, "medium": 3.0, "slow": 1.0, "na": 2.0}
 
 
-def score_materiality_structured(title: str, summary: str | None = None, content: str | None = None, entities: list[str] | None = None, source_credibility: float | None = None) -> dict[str, Any] | None:
+def score_materiality_structured(
+    title: str,
+    summary: str | None = None,
+    content: str | None = None,
+    entities: list[str] | None = None,
+    source_credibility: float | None = None,
+) -> dict[str, Any] | None:
     """Single Sonnet call. Returns dict with rubric components or None on failure."""
     from shared import llm
 

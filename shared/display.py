@@ -236,7 +236,6 @@ def format_aggregate_line(
     )
 
 
-
 # --- Canonical panel grammar (render_panel) -------------------------------
 # Un seul point de verite pour le layout Telegram : header + separateurs ━ +
 # tables <pre> monospace. render_panel html-escape TOUT le contenu fourni ->

@@ -157,8 +157,5 @@ def query(
         ctx = _extract_error_context(exc)
         ctx_str = " ".join(f"{k}={v}" for k, v in ctx.items())
         caller = _caller_info(skip_frames=2)
-        _log.error(
-            f"[SQL ERROR] {effective_tag} {ms}ms {ctx_str} caller={caller} | "
-            f"{type(exc).__name__}: {exc}"
-        )
+        _log.error(f"[SQL ERROR] {effective_tag} {ms}ms {ctx_str} caller={caller} | {type(exc).__name__}: {exc}")
         raise

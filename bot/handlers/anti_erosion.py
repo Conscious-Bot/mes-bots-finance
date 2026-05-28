@@ -10,6 +10,7 @@ Both are anti-erosion mechanisms for solo 12-month build: if VALUE_LOG.md is
 empty at J+30 the bot has no measurable user value; if friction.md has 0
 entries the bot is not being used reflectively.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -32,8 +33,7 @@ async def cmd_log_value(update, ctx):  # noqa: ARG001
     text = update.message.text.partition(" ")[2].strip()
     if not text:
         await update.message.reply_text(
-            "Usage: /log_value <message>\n"
-            "Exemple: /log_value bot m'a alerte sur 8K NVDA avant que je le rate"
+            "Usage: /log_value <message>\nExemple: /log_value bot m'a alerte sur 8K NVDA avant que je le rate"
         )
         return
     try:
@@ -48,8 +48,7 @@ async def cmd_log_friction(update, ctx):  # noqa: ARG001
     text = update.message.text.partition(" ")[2].strip()
     if not text:
         await update.message.reply_text(
-            "Usage: /log_friction <message>\n"
-            "Exemple: /log_friction /brief lent ce matin (15s)"
+            "Usage: /log_friction <message>\nExemple: /log_friction /brief lent ce matin (15s)"
         )
         return
     try:
@@ -107,8 +106,5 @@ async def cmd_remarks(update, ctx):  # noqa: ARG001
             await update.message.reply_text(f"Error writing friction.md: {e}")
     else:
         await update.message.reply_text(
-            f"Unknown action: '{action}'\n"
-            "Valid actions: value, friction\n"
-            "See /remarks for usage."
+            f"Unknown action: '{action}'\nValid actions: value, friction\nSee /remarks for usage."
         )
-

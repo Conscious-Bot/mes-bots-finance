@@ -6,6 +6,7 @@ logger config and other tests' logging.basicConfig() calls (e.g. bot.main
 import) cause flaky behavior when the full suite runs. Custom handler is
 deterministic and independent.
 """
+
 import io
 import logging
 import sqlite3
@@ -20,9 +21,14 @@ def conn():
     """In-memory DB with a small fixture table."""
     c = sqlite3.connect(":memory:")
     c.execute("CREATE TABLE positions (id INTEGER PRIMARY KEY, ticker TEXT, qty REAL)")
-    c.executemany("INSERT INTO positions(ticker, qty) VALUES (?, ?)", [
-        ("NVDA", 100.0), ("TSM", 50.0), ("AMD", 30.0),
-    ])
+    c.executemany(
+        "INSERT INTO positions(ticker, qty) VALUES (?, ?)",
+        [
+            ("NVDA", 100.0),
+            ("TSM", 50.0),
+            ("AMD", 30.0),
+        ],
+    )
     c.commit()
     return c
 
@@ -65,41 +71,34 @@ def log_capture(monkeypatch):
 
 class TestQueryReadPaths:
     def test_fetch_all_returns_list(self, conn):
-        rows = query(conn, "SELECT * FROM positions WHERE qty > ?", (40,),
-                     tag="t.fetch_all", fetch="all")
+        rows = query(conn, "SELECT * FROM positions WHERE qty > ?", (40,), tag="t.fetch_all", fetch="all")
         assert isinstance(rows, list)
         assert len(rows) == 2
 
     def test_fetch_all_empty_returns_empty_list(self, conn):
-        rows = query(conn, "SELECT * FROM positions WHERE qty > ?", (9999,),
-                     tag="t.empty_all", fetch="all")
+        rows = query(conn, "SELECT * FROM positions WHERE qty > ?", (9999,), tag="t.empty_all", fetch="all")
         assert rows == []
 
     def test_fetch_one_returns_row(self, conn):
-        row = query(conn, "SELECT ticker FROM positions WHERE id=?", (1,),
-                    tag="t.fetch_one", fetch="one")
+        row = query(conn, "SELECT ticker FROM positions WHERE id=?", (1,), tag="t.fetch_one", fetch="one")
         assert row == ("NVDA",)
 
     def test_fetch_one_none_when_no_match(self, conn):
-        row = query(conn, "SELECT * FROM positions WHERE id=?", (999,),
-                    tag="t.no_match", fetch="one")
+        row = query(conn, "SELECT * FROM positions WHERE id=?", (999,), tag="t.no_match", fetch="one")
         assert row is None
 
 
 class TestQueryWritePaths:
     def test_update_returns_cursor_with_rowcount(self, conn):
-        cur = query(conn, "UPDATE positions SET qty=? WHERE id=?", (200.0, 1),
-                    tag="t.update")
+        cur = query(conn, "UPDATE positions SET qty=? WHERE id=?", (200.0, 1), tag="t.update")
         assert cur.rowcount == 1
 
     def test_insert_returns_cursor_with_lastrowid(self, conn):
-        cur = query(conn, "INSERT INTO positions(ticker, qty) VALUES (?, ?)",
-                    ("MSFT", 75.0), tag="t.insert")
+        cur = query(conn, "INSERT INTO positions(ticker, qty) VALUES (?, ?)", ("MSFT", 75.0), tag="t.insert")
         assert cur.lastrowid is not None
 
     def test_delete_rowcount(self, conn):
-        cur = query(conn, "DELETE FROM positions WHERE ticker=?", ("TSM",),
-                    tag="t.delete")
+        cur = query(conn, "DELETE FROM positions WHERE ticker=?", ("TSM",), tag="t.delete")
         assert cur.rowcount == 1
 
 

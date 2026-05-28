@@ -61,9 +61,9 @@ def cost_in(avg_cost_eur: float | None, target_cur: str = "USD") -> float | None
     if tc == "EUR":
         return avg_cost_eur
     from shared.prices import get_fx_rate
+
     fx = get_fx_rate("EUR", tc) or 1.0
     return avg_cost_eur * fx
-
 
 
 def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = None) -> dict:
@@ -192,7 +192,7 @@ def _enrich_with_live(d: dict, target_cur: str = "EUR") -> dict:
             d["market_value"] = p * d["qty"]
             if avg_cost_target:
                 d["unrealized_pnl"] = (p - avg_cost_target) * d["qty"]
-                d["unrealized_pct"] = ((p - avg_cost_target) / avg_cost_target)
+                d["unrealized_pct"] = (p - avg_cost_target) / avg_cost_target
     except Exception as e:
         log.warning(f"live price fetch {d['ticker']}: {e}")
     return d

@@ -18,6 +18,7 @@ DEPS (all inline lazy, zero top-level migration needed):
 - intelligence.journal, intelligence.bias_tagger, intelligence.regime
 - yfinance, sqlite3, datetime
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -213,20 +214,26 @@ async def cmd_journal(update, ctx):
     ticker = ticker_raw.upper()
 
     ALIASES = {
-        "e": "entry", "entry": "entry",
-        "si": "scale_in", "scale_in": "scale_in", "scalein": "scale_in",
-        "pe": "partial_exit", "partial_exit": "partial_exit",
-        "fe": "full_exit", "full_exit": "full_exit", "exit": "full_exit",
-        "o": "override", "override": "override",
-        "nf": "no_action_flag", "no_action_flag": "no_action_flag",
-        "noaction": "no_action_flag", "flag": "no_action_flag",
+        "e": "entry",
+        "entry": "entry",
+        "si": "scale_in",
+        "scale_in": "scale_in",
+        "scalein": "scale_in",
+        "pe": "partial_exit",
+        "partial_exit": "partial_exit",
+        "fe": "full_exit",
+        "full_exit": "full_exit",
+        "exit": "full_exit",
+        "o": "override",
+        "override": "override",
+        "nf": "no_action_flag",
+        "no_action_flag": "no_action_flag",
+        "noaction": "no_action_flag",
+        "flag": "no_action_flag",
     }
     dtype = ALIASES.get(type_raw.lower())
     if not dtype:
-        await update.message.reply_text(
-            f"Unknown type: {type_raw}\n"
-            f"Valid: {sorted(set(ALIASES.values()))}"
-        )
+        await update.message.reply_text(f"Unknown type: {type_raw}\nValid: {sorted(set(ALIASES.values()))}")
         return
 
     try:
@@ -238,14 +245,20 @@ async def cmd_journal(update, ctx):
         return
 
     await _journal_log_impl(update, ticker, dtype, confidence, reasoning)
+
+
 async def cmd_journal_review(update, ctx):  # noqa: ARG001
     """Legacy alias for /journal review. Sprint 1.2 Phase H."""
     parts = update.message.text.split()
     ticker_filter = parts[1].upper() if len(parts) > 1 else None
     await _journal_review_impl(update, ticker_filter)
+
+
 async def cmd_journal_unresolved(update, ctx):  # noqa: ARG001
     """Legacy alias for /journal unresolved. Sprint 1.2 Phase H."""
     await _journal_unresolved_impl(update)
+
+
 async def cmd_journal_tag(update, ctx):  # noqa: ARG001
     """Legacy alias for /journal tag. Sprint 1.2 Phase H."""
     parts = update.message.text.split()
@@ -261,12 +274,16 @@ async def cmd_journal_tag(update, ctx):  # noqa: ARG001
         return
     new_tag = " ".join(parts[2:])
     await _journal_tag_impl(update, did, new_tag)
+
+
 async def cmd_position_history(update, ctx):  # noqa: ARG001
     """Phase B5 - Show position history. Usage: /position_history [TICKER]
     Alias also available as /portfolio history [TICKER]."""
     parts = update.message.text.split()
     ticker = parts[1].upper() if len(parts) > 1 else None
     await _position_history_impl(update, ticker)
+
+
 async def cmd_bias_review(update, ctx):  # noqa: ARG001
     """Phase B6 — Show aggregated bias frequencies. Usage: /bias_review [TICKER]"""
     parts = update.message.text.split()
@@ -301,6 +318,7 @@ async def cmd_bias_review(update, ctx):  # noqa: ARG001
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
+
 async def _journal_log_impl(update, ticker: str, dtype: str, confidence: int, reasoning: str) -> None:
     """Internal: log decision with full context (price, regime, credit, thesis, materiality, bias).
 
@@ -309,6 +327,7 @@ async def _journal_log_impl(update, ticker: str, dtype: str, confidence: int, re
     no dedent (body at 4sp direct-in-function).
     """
     from datetime import date, timedelta
+
     price = None
     try:
         from shared.prices import get_current_price
@@ -419,6 +438,7 @@ async def _journal_log_impl(update, ticker: str, dtype: str, confidence: int, re
     msg.append(f"  J+30 resolution = {resolve_30}, J+90 = {resolve_90}")
     await update.message.reply_text("\n".join(msg))
 
+
 async def _journal_review_impl(update, ticker_filter) -> None:
     """Internal: journal stats + recent decisions (optionally filtered by ticker).
 
@@ -467,6 +487,7 @@ async def _journal_review_impl(update, ticker_filter) -> None:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
+
 async def _journal_unresolved_impl(update) -> None:
     """Internal: list decisions awaiting J+30 or J+90 resolution.
 
@@ -500,6 +521,7 @@ async def _journal_unresolved_impl(update) -> None:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
+
 async def _journal_tag_impl(update, decision_id: int, new_tag: str) -> None:
     """Internal: override mistake_tag for an existing decision.
 
@@ -521,6 +543,7 @@ async def _journal_tag_impl(update, decision_id: int, new_tag: str) -> None:
         f"OK decision #{did}: mistake_tag_manual='{new_tag}'\n  (was auto: {d.get('mistake_tag_auto') or 'pending'})"
     )
 
+
 async def _position_history_impl(update, ticker) -> None:
     """Internal: list position history (open + closed).
 
@@ -537,6 +560,7 @@ async def _position_history_impl(update, ticker) -> None:
         return
     # ADR 005: avg_cost EUR canonical -> convert via cost_in for $ display.
     from shared.positions import cost_in
+
     lines = ["Position history" + (f" — {ticker}" if ticker else "")]
     for p in positions:
         state = "CLOSED" if (p.get("status") == "closed") else f"OPEN ({p['qty']:g})"
@@ -547,4 +571,3 @@ async def _position_history_impl(update, ticker) -> None:
     if len(msg) > 3900:
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
-

@@ -72,7 +72,6 @@ def test_parse_eur_invested_total_function(text):
     assert result is None or isinstance(result, float)
 
 
-
 # === Day 9 Audit Ship IV M1 — coverage compute_portfolio_return_eur ===
 
 
@@ -87,13 +86,15 @@ class TestComputePortfolioReturnEur:
         assert compute_portfolio_return_eur() is None
 
     def test_single_position_with_tag(self, monkeypatch):
-        positions = [{
-            "ticker": "ASML.AS",
-            "qty": 3.0,
-            "avg_cost": 1309.0,
-            "notes": "legacy_import | eur_invested=3930",
-            "opened_at": "2026-05-15T11:39:19+00:00",
-        }]
+        positions = [
+            {
+                "ticker": "ASML.AS",
+                "qty": 3.0,
+                "avg_cost": 1309.0,
+                "notes": "legacy_import | eur_invested=3930",
+                "opened_at": "2026-05-15T11:39:19+00:00",
+            }
+        ]
         monkeypatch.setattr(
             "shared.portfolio_metrics.list_positions",
             lambda status="open": positions,
@@ -117,13 +118,15 @@ class TestComputePortfolioReturnEur:
         NATIVE storage that never materialized (empirical audit Day 13 confirmed
         all 21 positions stored EUR via legacy_import_2026_05_15, ratio 0.94-1.15).
         """
-        positions = [{
-            "ticker": "AMD",
-            "qty": 10.0,
-            "avg_cost": 200.0,
-            "notes": "no tag here",
-            "opened_at": "2026-05-15T11:39:19+00:00",
-        }]
+        positions = [
+            {
+                "ticker": "AMD",
+                "qty": 10.0,
+                "avg_cost": 200.0,
+                "notes": "no tag here",
+                "opened_at": "2026-05-15T11:39:19+00:00",
+            }
+        ]
         monkeypatch.setattr(
             "shared.portfolio_metrics.list_positions",
             lambda status="open": positions,
@@ -138,13 +141,15 @@ class TestComputePortfolioReturnEur:
 
     def test_fallback_eur_canonical_jpy_ticker(self, monkeypatch):
         """ADR 005 (Day 13): same EUR-canonical fallback regardless of native (JPY here)."""
-        positions = [{
-            "ticker": "4063.T",
-            "qty": 30.0,
-            "avg_cost": 4500.0,
-            "notes": "no tag",
-            "opened_at": "2026-05-15T11:39:19+00:00",
-        }]
+        positions = [
+            {
+                "ticker": "4063.T",
+                "qty": 30.0,
+                "avg_cost": 4500.0,
+                "notes": "no tag",
+                "opened_at": "2026-05-15T11:39:19+00:00",
+            }
+        ]
         monkeypatch.setattr(
             "shared.portfolio_metrics.list_positions",
             lambda status="open": positions,
@@ -160,22 +165,32 @@ class TestComputePortfolioReturnEur:
     def test_unpriced_position_skipped_both_sides(self, monkeypatch):
         """Position with None live price excluded from BOTH entry and current sums."""
         positions = [
-            {"ticker": "ASML.AS", "qty": 3.0, "avg_cost": 1309.0,
-             "notes": "eur_invested=3930",
-             "opened_at": "2026-05-15T11:39:19+00:00"},
-            {"ticker": "DEAD", "qty": 10.0, "avg_cost": 50.0,
-             "notes": "eur_invested=500",
-             "opened_at": "2026-05-15T11:39:19+00:00"},
+            {
+                "ticker": "ASML.AS",
+                "qty": 3.0,
+                "avg_cost": 1309.0,
+                "notes": "eur_invested=3930",
+                "opened_at": "2026-05-15T11:39:19+00:00",
+            },
+            {
+                "ticker": "DEAD",
+                "qty": 10.0,
+                "avg_cost": 50.0,
+                "notes": "eur_invested=500",
+                "opened_at": "2026-05-15T11:39:19+00:00",
+            },
         ]
 
         def mock_price(t, c):
             return 1350.0 if t == "ASML.AS" else None
+
         monkeypatch.setattr(
             "shared.portfolio_metrics.list_positions",
             lambda status="open": positions,
         )
         monkeypatch.setattr(
-            "shared.portfolio_metrics.get_current_price_in", mock_price,
+            "shared.portfolio_metrics.get_current_price_in",
+            mock_price,
         )
         r = compute_portfolio_return_eur()
         assert r is not None
@@ -184,11 +199,15 @@ class TestComputePortfolioReturnEur:
         assert abs(r["total_entry_eur"] - 3930.0) < 0.01
 
     def test_all_unpriced_returns_none(self, monkeypatch):
-        positions = [{
-            "ticker": "DEAD", "qty": 10, "avg_cost": 50,
-            "notes": "eur_invested=500",
-            "opened_at": "2026-05-15T11:39:19+00:00",
-        }]
+        positions = [
+            {
+                "ticker": "DEAD",
+                "qty": 10,
+                "avg_cost": 50,
+                "notes": "eur_invested=500",
+                "opened_at": "2026-05-15T11:39:19+00:00",
+            }
+        ]
         monkeypatch.setattr(
             "shared.portfolio_metrics.list_positions",
             lambda status="open": positions,
@@ -201,11 +220,15 @@ class TestComputePortfolioReturnEur:
 
     def test_l1_naive_datetime_warns_and_treats_as_utc(self, monkeypatch, caplog):
         """L1 fix: naive opened_at logs warning + treats as UTC."""
-        positions = [{
-            "ticker": "ASML.AS", "qty": 3.0, "avg_cost": 1309.0,
-            "notes": "eur_invested=3930",
-            "opened_at": "2026-05-15 11:39:19",
-        }]
+        positions = [
+            {
+                "ticker": "ASML.AS",
+                "qty": 3.0,
+                "avg_cost": 1309.0,
+                "notes": "eur_invested=3930",
+                "opened_at": "2026-05-15 11:39:19",
+            }
+        ]
         monkeypatch.setattr(
             "shared.portfolio_metrics.list_positions",
             lambda status="open": positions,
@@ -230,6 +253,7 @@ class TestFetchBenchmarkReturnEur:
     def test_returns_none_on_yfinance_exception(self, monkeypatch):
         def raise_exc(ticker):
             raise RuntimeError("yfinance API down")
+
         monkeypatch.setattr("yfinance.Ticker", raise_exc)
         assert fetch_benchmark_return_eur("SPY", 30) is None
 
@@ -248,6 +272,7 @@ class TestFetchBenchmarkReturnEur:
             m = MagicMock()
             m.history.return_value = fx_hist if t == "EURUSD=X" else spy_hist
             return m
+
         monkeypatch.setattr("yfinance.Ticker", mock_ticker)
         ret = fetch_benchmark_return_eur("SPY", 30)
         assert ret is not None
@@ -263,6 +288,7 @@ class TestFetchBenchmarkReturnEur:
             m = MagicMock()
             m.history.return_value = fx_hist if t == "EURUSD=X" else spy_hist
             return m
+
         monkeypatch.setattr("yfinance.Ticker", mock_ticker)
         ret = fetch_benchmark_return_eur("SPY", 30)
         assert ret is not None
@@ -276,6 +302,7 @@ class TestFetchBenchmarkReturnEur:
             m = MagicMock()
             m.history.return_value = fx_hist if t == "EURUSD=X" else spy_hist
             return m
+
         monkeypatch.setattr("yfinance.Ticker", mock_ticker)
         assert fetch_benchmark_return_eur("SPY", 30) is None
 
@@ -288,5 +315,6 @@ class TestFetchBenchmarkReturnEur:
             m = MagicMock()
             m.history.return_value = fx_hist if t == "EURUSD=X" else spy_hist
             return m
+
         monkeypatch.setattr("yfinance.Ticker", mock_ticker)
         assert fetch_benchmark_return_eur("SPY", 30) is None

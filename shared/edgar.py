@@ -37,6 +37,7 @@ def _edgar_get(url: str, timeout: int = 10) -> requests.Response:
         exceptions=(requests.RequestException,),
     )
 
+
 _CIK_CACHE: dict[str, str] | None = None
 _CIK_CACHE_TS: Any = None  # datetime
 CIK_CACHE_TTL_HOURS = 24

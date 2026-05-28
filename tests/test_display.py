@@ -5,6 +5,7 @@ and CANONICAL_BILLING.value rather than hardcoded symbols. Migration of
 canonical currency (e.g. flip CANONICAL_FINANCE to Currency.USD) leaves
 this test suite green.
 """
+
 from hypothesis import given, strategies as st
 
 from shared import display
@@ -48,7 +49,7 @@ def test_format_money_usd_always_starts_with_dollar(value):
 )
 def test_format_money_width_minimum_padding(value, width, currency):
     result = display.format_money(value, currency, decimals=2, width=width)
-    numeric = result[len(currency.value):]
+    numeric = result[len(currency.value) :]
     assert len(numeric) >= width
 
 
@@ -136,9 +137,14 @@ def test_format_position_line_full_render():
 
 def test_format_position_line_none_current_price():
     line = display.format_position_line(
-        ticker="NVDA", name="NVIDIA", conviction=3,
-        avg_cost=100.0, current_price=None, market_value=0,
-        pct_book=0, pnl_pct=None,
+        ticker="NVDA",
+        name="NVIDIA",
+        conviction=3,
+        avg_cost=100.0,
+        current_price=None,
+        market_value=0,
+        pct_book=0,
+        pnl_pct=None,
     )
     assert "n/a" in line
 
@@ -146,18 +152,28 @@ def test_format_position_line_none_current_price():
 def test_format_position_line_name_truncation():
     long_name = "A" * 50
     line = display.format_position_line(
-        ticker="X", name=long_name, conviction=1,
-        avg_cost=1.0, current_price=1.0, market_value=1.0,
-        pct_book=0, pnl_pct=0,
+        ticker="X",
+        name=long_name,
+        conviction=1,
+        avg_cost=1.0,
+        current_price=1.0,
+        market_value=1.0,
+        pct_book=0,
+        pnl_pct=0,
     )
     assert "A" * 50 not in line
 
 
 def test_format_position_line_none_name_fallback_ticker():
     line = display.format_position_line(
-        ticker="UNKNOWN", name=None, conviction=2,
-        avg_cost=10.0, current_price=10.0, market_value=10.0,
-        pct_book=1.0, pnl_pct=0.0,
+        ticker="UNKNOWN",
+        name=None,
+        conviction=2,
+        avg_cost=10.0,
+        current_price=10.0,
+        market_value=10.0,
+        pct_book=1.0,
+        pnl_pct=0.0,
     )
     assert "UNKNOWN" in line
 
@@ -165,8 +181,11 @@ def test_format_position_line_none_name_fallback_ticker():
 # ===== format_brief_position_line =====
 def test_format_brief_position_line_full_render():
     line = display.format_brief_position_line(
-        ticker="6920.T", name="LASERTEC CORP", conviction=5,
-        value=2017.0, pnl_pct=1.5,
+        ticker="6920.T",
+        name="LASERTEC CORP",
+        conviction=5,
+        value=2017.0,
+        pnl_pct=1.5,
     )
     assert "6920.T" in line
     assert "c5" in line
@@ -176,8 +195,11 @@ def test_format_brief_position_line_full_render():
 
 def test_format_brief_position_line_none_value_renders_n_a():
     line = display.format_brief_position_line(
-        ticker="NVDA", name="NVIDIA", conviction=3,
-        value=None, pnl_pct=None,
+        ticker="NVDA",
+        name="NVIDIA",
+        conviction=3,
+        value=None,
+        pnl_pct=None,
     )
     assert "price n/a" in line
 
@@ -185,15 +207,17 @@ def test_format_brief_position_line_none_value_renders_n_a():
 # ===== format_aggregate_line =====
 def test_format_aggregate_line_render():
     line = display.format_aggregate_line(
-        label="semis_core", market_value=12345.67, pct_total=28.9,
-        n_positions=7, pnl_pct=12.3,
+        label="semis_core",
+        market_value=12345.67,
+        pct_total=28.9,
+        n_positions=7,
+        pnl_pct=12.3,
     )
     assert "semis_core" in line
     assert CANONICAL_FINANCE.value in line
     assert "28.9%" in line
     assert "7 pos" in line
     assert "+12.3%" in line
-
 
 
 # ===== signed=True behavior (for PnL displays) =====

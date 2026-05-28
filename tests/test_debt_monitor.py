@@ -2,6 +2,7 @@
 
 ADR 006 (Day 14): classify_phase + composite_phase_from_score invariants.
 """
+
 from hypothesis import given, strategies as st
 
 from intelligence.debt_monitor import (
@@ -16,16 +17,20 @@ from intelligence.debt_monitor import (
 class TestClassifyPhase:
     """classify_phase invariants on every INDICATOR_CONFIG entry."""
 
-    @given(st.sampled_from(list(INDICATOR_CONFIG.keys())),
-           st.floats(min_value=-1e6, max_value=1e8, allow_nan=False, allow_infinity=False))
+    @given(
+        st.sampled_from(list(INDICATOR_CONFIG.keys())),
+        st.floats(min_value=-1e6, max_value=1e8, allow_nan=False, allow_infinity=False),
+    )
     def test_returns_valid_phase(self, indicator_name, value):
         """classify_phase always returns int in {1, 2, 3, 4} for any value/indicator."""
         ranges = INDICATOR_CONFIG[indicator_name]["phase_ranges"]
         phase = classify_phase(value, ranges)
         assert phase in {1, 2, 3, 4}
 
-    @given(st.sampled_from(list(INDICATOR_CONFIG.keys())),
-           st.floats(min_value=-1e6, max_value=1e8, allow_nan=False, allow_infinity=False))
+    @given(
+        st.sampled_from(list(INDICATOR_CONFIG.keys())),
+        st.floats(min_value=-1e6, max_value=1e8, allow_nan=False, allow_infinity=False),
+    )
     def test_idempotent(self, indicator_name, value):
         """Same value+ranges → same phase across calls."""
         ranges = INDICATOR_CONFIG[indicator_name]["phase_ranges"]
@@ -95,8 +100,10 @@ class TestScoreContribution:
         """Per Olivier spec: P1=1, P2=8, P3=16, P4=32."""
         assert _PHASE_WEIGHT == {1: 1, 2: 8, 3: 16, 4: 32}
 
-    @given(st.floats(min_value=0.1, max_value=2.0, allow_nan=False, allow_infinity=False),
-           st.integers(min_value=1, max_value=4))
+    @given(
+        st.floats(min_value=0.1, max_value=2.0, allow_nan=False, allow_infinity=False),
+        st.integers(min_value=1, max_value=4),
+    )
     def test_contribution_positive(self, weight, phase):
         c = _score_contribution(weight, phase)
         assert c > 0
@@ -115,9 +122,9 @@ class TestIndicatorConfig:
 
     def test_tiers_distribution(self):
         tiers = [cfg["tier"] for cfg in INDICATOR_CONFIG.values()]
-        assert tiers.count(1) == 7   # Tier 1 daily
-        assert tiers.count(2) == 5   # Tier 2 weekly
-        assert tiers.count(3) == 3   # Tier 3 monthly
+        assert tiers.count(1) == 7  # Tier 1 daily
+        assert tiers.count(2) == 5  # Tier 2 weekly
+        assert tiers.count(3) == 3  # Tier 3 monthly
 
     def test_weights_canonical_per_tier(self):
         for name, cfg in INDICATOR_CONFIG.items():

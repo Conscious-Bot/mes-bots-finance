@@ -211,6 +211,7 @@ async def cmd_macro(update, context):
         action = args[0].lower()
         if action == "regime":
             from bot.handlers.regime_calendar import cmd_regime
+
             await cmd_regime(update, context)
             return
         if action == "credit":
@@ -218,6 +219,7 @@ async def cmd_macro(update, context):
             return
         if action == "calendar":
             from bot.handlers.regime_calendar import cmd_calendar
+
             await cmd_calendar(update, context)
             return
         await update.message.reply_text(

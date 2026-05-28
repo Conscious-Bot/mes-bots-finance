@@ -1,7 +1,5 @@
 """Daily cron jobs — extracted from bot/jobs.py Phase C (21/05/2026)."""
 
-
-
 import logging
 
 from intelligence import (
@@ -27,6 +25,7 @@ async def daily_resolve_job():
     except Exception as e:
         log.error(f"Daily resolve failed: {e}")
 
+
 async def daily_calendar_refresh_job():
     log.info("Daily calendar refresh starting")
     try:
@@ -39,6 +38,7 @@ async def daily_calendar_refresh_job():
             log.info(f"Sent {len(alerts)} pre-event alerts")
     except Exception as e:
         log.error(f"Daily calendar refresh failed: {e}")
+
 
 async def daily_digest_job():
     """Auto-trigger unified digest synthesis (12h interval = 2x/jour)."""
@@ -54,6 +54,7 @@ async def daily_digest_job():
             _notify.send_text(msg)
     except Exception as e:
         log.warning(f"daily_digest_job error: {e}")
+
 
 async def daily_backup_job():
     """Phase Solidification P0 #2 — Daily backup via scripts/backup.sh.
@@ -77,6 +78,7 @@ async def daily_backup_job():
             log.error(f"daily_backup_job FAILED code={result.returncode} stderr={result.stderr[:300]}")
     except Exception as e:
         log.error(f"daily_backup_job exception: {e}")
+
 
 async def daily_crypto_zone_job():
     """Cron daily 10h Paris : check crypto zone, alert if extreme. Includes position context."""
@@ -109,6 +111,7 @@ async def daily_crypto_zone_job():
             log.info(f"crypto zone daily check: {z.get('zone', 'unknown')} — no alert")
     except Exception as e:
         log.error(f"daily_crypto_zone_job: {e}")
+
 
 async def resolve_journal_decisions_job():
     """Phase 18 Batch 3 — Daily cron: resolve J+30 and J+90 pending decisions.
@@ -190,6 +193,7 @@ async def resolve_journal_decisions_job():
     except Exception as e:
         log.exception(f"resolve_journal_decisions_job crashed: {e}")
 
+
 async def scheduled_insider_refresh_job():
     """Cron: 6h Paris daily — refresh + post if anything notable."""
     try:
@@ -199,6 +203,7 @@ async def scheduled_insider_refresh_job():
         log.info(f"scheduled_insider_refresh: {result['refreshed']} tickers, {len(result['alerts'])} alerts")
     except Exception as e:
         log.error(f"scheduled_insider_refresh failed: {e}")
+
 
 async def scheduled_buy_cluster_scan_job():
     """Daily scan: detect + log + alert on new BUY clusters (CMP 30d window, 7d dedup)."""
@@ -230,6 +235,7 @@ async def scheduled_buy_cluster_scan_job():
     else:
         log.info("Daily buy cluster scan: no new clusters logged")
 
+
 async def scheduled_resolve_buy_cluster_returns_job():
     """Daily cron: resolve return_30d and return_90d for pending BUY clusters."""
     from intelligence import insider_buy_cluster as ibc
@@ -251,6 +257,7 @@ async def scheduled_resolve_buy_cluster_returns_job():
                 notify.send_text("\n".join(lines))
     except Exception as e:
         log.warning(f"resolve buy cluster returns error: {e}")
+
 
 async def scheduled_8k_scan_job():
     """Phase C9 — Daily cron 6:30: scan watchlist for new 8-K filings, push high+catastrophic alerts."""
@@ -280,4 +287,3 @@ async def scheduled_8k_scan_job():
             msg += filings_8k.format_8k_alert(r) + "\n\n"
         notify.send_text(msg.strip())
     log.info(f"8-K scan: {len(new_logged)} new logged, {len(alerts)} alerted")
-

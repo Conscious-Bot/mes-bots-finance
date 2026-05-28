@@ -1,4 +1,5 @@
 """Tests for /thesis_health handler."""
+
 from hypothesis import given, strategies as st
 
 from bot.handlers.thesis_health import _compute_health, _extract_narrative, _ticker_in_entities
@@ -46,9 +47,14 @@ class TestComputeHealth:
     def test_smoke(self):
         data = _compute_health(30, 3.0)
         expected_keys = {
-            "window_days", "min_impact", "theses",
-            "conviction_dist", "narrative_dist",
-            "stale_count", "weak_count", "total",
+            "window_days",
+            "min_impact",
+            "theses",
+            "conviction_dist",
+            "narrative_dist",
+            "stale_count",
+            "weak_count",
+            "total",
         }
         assert set(data.keys()) == expected_keys
 

@@ -2,6 +2,7 @@
 
 Property-based: ratio invariants. Empirical: known fixture-like cases.
 """
+
 import pytest
 from hypothesis import given, strategies as st
 
@@ -46,9 +47,15 @@ class TestComputeAuditInvariants:
         """Empirical smoke: compute_audit returns expected keys."""
         data = _compute_audit(window_days=30, min_impact=3.0)
         expected_keys = {
-            "window_days", "min_impact", "total_signals", "total_decisions",
-            "ticker_signal_counts", "ticker_last_signal", "ticker_decision_counts",
-            "tickers_silent", "tickers_tracked",
+            "window_days",
+            "min_impact",
+            "total_signals",
+            "total_decisions",
+            "ticker_signal_counts",
+            "ticker_last_signal",
+            "ticker_decision_counts",
+            "tickers_silent",
+            "tickers_tracked",
         }
         assert set(data.keys()) == expected_keys
 

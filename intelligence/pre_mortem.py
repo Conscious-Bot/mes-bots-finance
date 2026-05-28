@@ -81,6 +81,7 @@ def generate_pre_mortem(thesis):
                 invalidation = [invalidation]
 
         from datetime import datetime as _dt, timedelta as _td
+
         today_str = _dt.now().strftime("%d %B %Y")
         today_iso = _dt.now().strftime("%Y-%m-%d")
         horizon_end_iso = (_dt.now() + _td(days=365)).strftime("%Y-%m-%d")

@@ -2,6 +2,7 @@
 
 Output: Markdown to stdout.
 """
+
 import sys
 from pathlib import Path
 
@@ -39,7 +40,9 @@ def main():
             lines.append(f"| {t} | €{tgt:,.0f} | €{act:,.0f} | {drift_str} | {status} | {week} | {bucket} |")
 
         lines.append("")
-        lines.append(f"**Total {account}**: target €{block['total_target']:,.0f}, actual €{block['total_actual']:,.0f}, drift €{block['total_drift']:+,.0f}")
+        lines.append(
+            f"**Total {account}**: target €{block['total_target']:,.0f}, actual €{block['total_actual']:,.0f}, drift €{block['total_drift']:+,.0f}"
+        )
         lines.append("")
 
     s = report["summary"]

@@ -571,6 +571,7 @@ async def cmd_llm_costs(update, ctx):  # noqa: ARG001
 
     await _llm_costs_impl(update, hours)
 
+
 async def _llm_costs_impl(update, hours: int) -> None:
     """Internal: display LLM call costs + token usage by tier.
 
@@ -614,6 +615,7 @@ async def _llm_costs_impl(update, hours: int) -> None:
     msg = "\n".join(lines)
     await update.message.reply_text(msg)
 
+
 async def cmd_kpi_status(update, ctx):  # noqa: ARG001
     """On-demand KPI status report (meme producer que le cron hebdo Sunday 22:30)."""
     kpis = _kpi_compute_all()
@@ -654,12 +656,8 @@ async def cmd_bot_data(update, ctx):
     if action == "llm_costs" or action == "llm":
         try:
             hours = int(args[1]) if len(args) > 1 else 24
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             hours = 24
         await _llm_costs_impl(update, hours)
         return
-    await update.message.reply_text(
-        f"Unknown action: '{action}'\n"
-        "Valid: health, costs, llm_costs"
-    )
-
+    await update.message.reply_text(f"Unknown action: '{action}'\nValid: health, costs, llm_costs")

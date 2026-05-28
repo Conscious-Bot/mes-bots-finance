@@ -133,7 +133,10 @@ def git_commit() -> str:
     try:
         r = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, cwd=REPO_ROOT, timeout=5,
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            timeout=5,
         )
         return r.stdout.strip() if r.returncode == 0 else "unknown"
     except Exception:
@@ -235,10 +238,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
             warnings_.append(f"{len(expected)} expected body change(s) acknowledged")
         if unexpected:
             print(f"  CHANGED-UNEXPECTED ({len(unexpected)}): {unexpected}")
-            failures.append(
-                f"Unexpected body changes: {unexpected} "
-                f"(use --expect-changed if intentional)"
-            )
+            failures.append(f"Unexpected body changes: {unexpected} (use --expect-changed if intentional)")
 
     print()
 
@@ -317,17 +317,17 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 
 CHUNKS_PLAN = [
-    (0, "baseline",       "absolute pre-Sprint-1.1 reference (no extraction)"),
-    (1, "anti_erosion",   "cmd_log_value, cmd_log_friction, _append_log_entry"),
-    (2, "observability",  "/health, /handler_stats, /llm_costs, /cost_trajectory, /kpi_status"),
-    (3, "admin",          "/start, /help, /mode_switch, /version, /sources etc"),
-    (4, "positions",      "/position_buy, /position_sell, /portfolio, /pnl"),
-    (5, "sources",        "/sources_brier, /promote, /tiers, source admin"),
-    (6, "signals",        "/signals_by_type, /materiality_debug, /recent_8k, /insider_buy_cluster_stats"),
-    (7, "thesis",         "/thesis, /thesis_premortem, /analyze, /analyze_debate, /risk_check"),
-    (8, "ritual",         "/brief, /digest"),
-    (9, "analytics",      "/asymmetry, remaining analytics"),
-    (10, "cleanup",       "tests + final smoke"),
+    (0, "baseline", "absolute pre-Sprint-1.1 reference (no extraction)"),
+    (1, "anti_erosion", "cmd_log_value, cmd_log_friction, _append_log_entry"),
+    (2, "observability", "/health, /handler_stats, /llm_costs, /cost_trajectory, /kpi_status"),
+    (3, "admin", "/start, /help, /mode_switch, /version, /sources etc"),
+    (4, "positions", "/position_buy, /position_sell, /portfolio, /pnl"),
+    (5, "sources", "/sources_brier, /promote, /tiers, source admin"),
+    (6, "signals", "/signals_by_type, /materiality_debug, /recent_8k, /insider_buy_cluster_stats"),
+    (7, "thesis", "/thesis, /thesis_premortem, /analyze, /analyze_debate, /risk_check"),
+    (8, "ritual", "/brief, /digest"),
+    (9, "analytics", "/asymmetry, remaining analytics"),
+    (10, "cleanup", "tests + final smoke"),
 ]
 
 
@@ -354,9 +354,9 @@ def main() -> int:
     v = sub.add_parser("verify", help="Verify post-extraction state.")
     v.add_argument("chunk", type=int)
     v.add_argument(
-        "--expect-changed", default="",
-        help="Comma-separated function names whose body change is intentional "
-             "(e.g. '_append_log_entry' in chunk 1).",
+        "--expect-changed",
+        default="",
+        help="Comma-separated function names whose body change is intentional (e.g. '_append_log_entry' in chunk 1).",
     )
 
     sub.add_parser("list-chunks", help="List planned chunks and baseline status.")

@@ -53,17 +53,53 @@ def horizon_for_signal_type(signal_type, impact_magnitude=None):
 
 
 CRYPTO_DENY = {
-    "BTC", "ETH", "LINK", "SOL", "ADA", "XRP", "DOGE", "AVAX", "DOT", "MATIC",
-    "LTC", "BCH", "TRX", "TON", "NEAR", "ATOM", "UNI", "AAVE", "ARB", "OP",
-    "SUI", "APT", "INJ", "SEI", "FIL", "ICP", "ETC", "XLM", "ALGO", "BNB",
-    "SHIB", "PEPE", "USDT", "USDC", "DAI",
+    "BTC",
+    "ETH",
+    "LINK",
+    "SOL",
+    "ADA",
+    "XRP",
+    "DOGE",
+    "AVAX",
+    "DOT",
+    "MATIC",
+    "LTC",
+    "BCH",
+    "TRX",
+    "TON",
+    "NEAR",
+    "ATOM",
+    "UNI",
+    "AAVE",
+    "ARB",
+    "OP",
+    "SUI",
+    "APT",
+    "INJ",
+    "SEI",
+    "FIL",
+    "ICP",
+    "ETC",
+    "XLM",
+    "ALGO",
+    "BNB",
+    "SHIB",
+    "PEPE",
+    "USDT",
+    "USDC",
+    "DAI",
 }  # stock-only: symboles crypto bruts bloques a la creation (26/05/2026)
 
 
 def register_prediction(
-    signal_id: int, ticker: str, direction: str, horizon_days: int | None = None,
-    baseline_date: str | None = None, signal_type: str | None = None,
-    impact_magnitude: float | None = None, score: int | None = None,
+    signal_id: int,
+    ticker: str,
+    direction: str,
+    horizon_days: int | None = None,
+    baseline_date: str | None = None,
+    signal_type: str | None = None,
+    impact_magnitude: float | None = None,
+    score: int | None = None,
 ) -> int | None:
     if horizon_days is None:
         horizon_days = horizon_for_signal_type(signal_type, impact_magnitude)
@@ -76,18 +112,21 @@ def register_prediction(
         print(f"register_prediction: no baseline price for {ticker} @ {baseline_date}")
         return None
     target = (datetime.fromisoformat(actual_date) + timedelta(days=horizon_days)).strftime("%Y-%m-%d")
-    return cast(int | None, storage.insert_prediction(
-        signal_id=signal_id,
-        ticker=ticker,
-        direction=direction,
-        horizon_days=horizon_days,
-        baseline_price=baseline_price,
-        baseline_date=actual_date,
-        target_date=target,
-        score=score,
-        signal_type=signal_type,
-        impact_magnitude=impact_magnitude,
-    ))
+    return cast(
+        int | None,
+        storage.insert_prediction(
+            signal_id=signal_id,
+            ticker=ticker,
+            direction=direction,
+            horizon_days=horizon_days,
+            baseline_price=baseline_price,
+            baseline_date=actual_date,
+            target_date=target,
+            score=score,
+            signal_type=signal_type,
+            impact_magnitude=impact_magnitude,
+        ),
+    )
 
 
 def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int = HORIZON_DAYS) -> list[int]:

@@ -3,6 +3,7 @@
 Covers: response shape handling (list, dict variants), tag filtering,
 exception fallback, prompt context inclusion.
 """
+
 from unittest.mock import patch
 
 from intelligence.bias_tagger import BIASES, auto_tag_biases
@@ -10,6 +11,7 @@ from intelligence.bias_tagger import BIASES, auto_tag_biases
 # ─────────────────────────────────────────────────────────
 # Response shape handling
 # ─────────────────────────────────────────────────────────
+
 
 def test_list_response_returns_valid_tags():
     """LLM returns a list of valid bias names."""
@@ -47,6 +49,7 @@ def test_empty_list_returns_empty():
 # Tag validation / filtering
 # ─────────────────────────────────────────────────────────
 
+
 def test_invalid_tags_filtered_out():
     """LLM hallucinates a non-existing bias name - must be filtered."""
     decision = {"ticker": "NVDA", "decision_type": "entry"}
@@ -70,6 +73,7 @@ def test_all_invalid_tags_returns_empty():
 # Failure mode handling
 # ─────────────────────────────────────────────────────────
 
+
 def test_llm_exception_returns_empty_list():
     """LLM call fails - graceful degradation to empty tags."""
     decision = {"ticker": "GOOGL", "decision_type": "entry"}
@@ -90,12 +94,14 @@ def test_unexpected_response_type_returns_empty():
 # Prompt construction context
 # ─────────────────────────────────────────────────────────
 
+
 def test_prompt_includes_position_context():
     """When position provided, prompt includes holding details."""
     decision = {"ticker": "NVDA", "decision_type": "scale_in", "reasoning": "Strong AI demand"}
     position = {"qty": 10, "avg_cost": 130.0, "realized_pnl": 0}
 
     captured_prompt = []
+
     def capture(prompt, **kwargs):
         captured_prompt.append(prompt)
         return []
@@ -113,6 +119,7 @@ def test_prompt_includes_regime_when_provided():
     decision = {"ticker": "BTC", "decision_type": "entry"}
 
     captured = []
+
     def capture(prompt, **kwargs):
         captured.append(prompt)
         return []
@@ -128,6 +135,7 @@ def test_prompt_without_optional_context_omits_those_sections():
     decision = {"ticker": "AAPL", "decision_type": "entry"}
 
     captured = []
+
     def capture(prompt, **kwargs):
         captured.append(prompt)
         return []
@@ -142,6 +150,7 @@ def test_prompt_without_optional_context_omits_those_sections():
 # ─────────────────────────────────────────────────────────
 # BIASES dict structural sanity (catches accidental key drift)
 # ─────────────────────────────────────────────────────────
+
 
 def test_biases_dict_contains_expected_categories():
     """Anti-regression guard: critical bias categories must be present."""

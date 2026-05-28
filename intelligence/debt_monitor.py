@@ -41,83 +41,135 @@ log = logging.getLogger(__name__)
 INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
     # ---- Tier 1: critical, daily ----
     "TYX": {
-        "tier": 1, "weight": 1.0, "source": "yfinance:^TYX",
+        "tier": 1,
+        "weight": 1.0,
+        "source": "yfinance:^TYX",
         "label": "30Y Treasury Yield (%)",
         "phase_ranges": [
-            (0, 5.5, 1), (5.5, 5.85, 2), (5.85, 6.5, 3), (6.5, 999, 4),
+            (0, 5.5, 1),
+            (5.5, 5.85, 2),
+            (5.85, 6.5, 3),
+            (6.5, 999, 4),
         ],
     },
     "Gold": {
-        "tier": 1, "weight": 1.0, "source": "yfinance:GC=F",
+        "tier": 1,
+        "weight": 1.0,
+        "source": "yfinance:GC=F",
         "label": "Gold Spot ($/oz)",
         "phase_ranges": [
-            (0, 3500, 1), (3500, 4000, 2), (4000, 5000, 3), (5000, 99999, 4),
+            (0, 3500, 1),
+            (3500, 4000, 2),
+            (4000, 5000, 3),
+            (5000, 99999, 4),
         ],
     },
     "USDJPY": {
-        "tier": 1, "weight": 1.0, "source": "yfinance:USDJPY=X",
+        "tier": 1,
+        "weight": 1.0,
+        "source": "yfinance:USDJPY=X",
         "label": "USD/JPY",
         "phase_ranges": [
-            (0, 170, 1), (170, 180, 2), (180, 195, 3), (195, 999, 4),
+            (0, 170, 1),
+            (170, 180, 2),
+            (180, 195, 3),
+            (195, 999, 4),
         ],
     },
     "VIX": {
-        "tier": 1, "weight": 1.0, "source": "yfinance:^VIX",
+        "tier": 1,
+        "weight": 1.0,
+        "source": "yfinance:^VIX",
         "label": "VIX",
         "phase_ranges": [
-            (0, 25, 1), (25, 35, 2), (35, 50, 3), (50, 999, 4),
+            (0, 25, 1),
+            (25, 35, 2),
+            (35, 50, 3),
+            (50, 999, 4),
         ],
     },
     "HY_OAS": {
-        "tier": 1, "weight": 1.0, "source": "macro:hy_oas",
+        "tier": 1,
+        "weight": 1.0,
+        "source": "macro:hy_oas",
         "label": "HY OAS (bp)",
         "phase_ranges": [
-            (0, 450, 1), (450, 600, 2), (600, 900, 3), (900, 9999, 4),
+            (0, 450, 1),
+            (450, 600, 2),
+            (600, 900, 3),
+            (900, 9999, 4),
         ],
     },
     "DXY": {
-        "tier": 1, "weight": 1.0, "source": "yfinance:DX-Y.NYB",
+        "tier": 1,
+        "weight": 1.0,
+        "source": "yfinance:DX-Y.NYB",
         "label": "DXY Dollar Index",
         # Asymmetric: stress either side of [95-108]; <90 = reserve status concern
         "phase_ranges": [
-            (0, 90, 4), (90, 95, 3), (95, 108, 1), (108, 115, 2), (115, 999, 3),
+            (0, 90, 4),
+            (90, 95, 3),
+            (95, 108, 1),
+            (108, 115, 2),
+            (115, 999, 3),
         ],
     },
     "BTC": {
-        "tier": 1, "weight": 1.0, "source": "yfinance:BTC-USD",
+        "tier": 1,
+        "weight": 1.0,
+        "source": "yfinance:BTC-USD",
         "label": "Bitcoin ($)",
         # Signal: extreme up = monetary debasement narrative; extreme down = risk-off
         "phase_ranges": [
-            (0, 30000, 3), (30000, 100000, 1), (100000, 150000, 2), (150000, 999999, 3),
+            (0, 30000, 3),
+            (30000, 100000, 1),
+            (100000, 150000, 2),
+            (150000, 999999, 3),
         ],
     },
-
     # ---- Tier 2: important, weekly ----
     "MOVE": {
-        "tier": 2, "weight": 0.75, "source": "yfinance:^MOVE",
+        "tier": 2,
+        "weight": 0.75,
+        "source": "yfinance:^MOVE",
         "label": "MOVE Bond Vol",
         "phase_ranges": [
-            (0, 100, 1), (100, 130, 2), (130, 180, 3), (180, 999, 4),
+            (0, 100, 1),
+            (100, 130, 2),
+            (130, 180, 3),
+            (180, 999, 4),
         ],
     },
     "KRE": {
-        "tier": 2, "weight": 0.75, "source": "yfinance:KRE",
+        "tier": 2,
+        "weight": 0.75,
+        "source": "yfinance:KRE",
         "label": "Regional Banks ETF ($)",
         # Inverse: lower = more stress
         "phase_ranges": [
-            (0, 30, 4), (30, 40, 3), (40, 45, 2), (45, 999, 1),
+            (0, 30, 4),
+            (30, 40, 3),
+            (40, 45, 2),
+            (45, 999, 1),
         ],
     },
     "T10Y2Y": {
-        "tier": 2, "weight": 0.75, "source": "macro:yield_curve",
+        "tier": 2,
+        "weight": 0.75,
+        "source": "macro:yield_curve",
         "label": "10Y-2Y spread (%)",
         # Bull steepening signal: very positive after long inversion = fiscal dominance
         "phase_ranges": [
-            (-999, 0, 1), (0, 1.0, 1), (1.0, 2.0, 2), (2.0, 999, 3),
+            (-999, 0, 1),
+            (0, 1.0, 1),
+            (1.0, 2.0, 2),
+            (2.0, 999, 3),
         ],
     },
     "BankReserves": {
-        "tier": 2, "weight": 0.75, "source": "fred:WRESBAL",
+        "tier": 2,
+        "weight": 0.75,
+        "source": "fred:WRESBAL",
         "label": "Bank Reserves at Fed ($M)",
         # Reserves of Depository Institutions, weekly. FRED returns MILLIONS USD
         # (empirical: $3.1T = 3,102,810). Phase ranges in millions:
@@ -125,43 +177,64 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         # $2-2.5T = Phase 3 scarcity, $2.5-3T = Phase 2 tight, > $3T = Phase 1 ample.
         # Replaces RepoSRF (ON RRP) which was ambiguous post-QT — see ADR 006 audit.
         "phase_ranges": [
-            (0, 2_000_000, 4), (2_000_000, 2_500_000, 3),
-            (2_500_000, 3_000_000, 2), (3_000_000, 99_999_999, 1),
+            (0, 2_000_000, 4),
+            (2_000_000, 2_500_000, 3),
+            (2_500_000, 3_000_000, 2),
+            (3_000_000, 99_999_999, 1),
         ],
     },
     "CopperGold": {
-        "tier": 2, "weight": 0.75, "source": "derived:copper_gold",
+        "tier": 2,
+        "weight": 0.75,
+        "source": "derived:copper_gold",
         "label": "Copper/Gold ratio",
         # Lower = recession pricing
         "phase_ranges": [
-            (0, 0.0006, 4), (0.0006, 0.0008, 3), (0.0008, 0.0012, 2), (0.0012, 999, 1),
+            (0, 0.0006, 4),
+            (0.0006, 0.0008, 3),
+            (0.0008, 0.0012, 2),
+            (0.0012, 999, 1),
         ],
     },
-
     # ---- Tier 3: background, monthly ----
     "CoreCPI": {
-        "tier": 3, "weight": 0.5, "source": "fred:CPILFESL_yoy",
+        "tier": 3,
+        "weight": 0.5,
+        "source": "fred:CPILFESL_yoy",
         "label": "Core CPI YoY (%)",
         "phase_ranges": [
-            (-999, 3.5, 1), (3.5, 4.5, 2), (4.5, 6.0, 3), (6.0, 999, 4),
+            (-999, 3.5, 1),
+            (3.5, 4.5, 2),
+            (4.5, 6.0, 3),
+            (6.0, 999, 4),
         ],
     },
     "FedBalance": {
-        "tier": 3, "weight": 0.5, "source": "fred:WALCL",
+        "tier": 3,
+        "weight": 0.5,
+        "source": "fred:WALCL",
         "label": "Fed Balance Sheet ($M)",
         # Static reference; trend matters more than level. Placeholder phases.
         "phase_ranges": [
-            (0, 7000000, 1), (7000000, 8000000, 2), (8000000, 9000000, 3), (9000000, 99999999, 4),
+            (0, 7000000, 1),
+            (7000000, 8000000, 2),
+            (8000000, 9000000, 3),
+            (9000000, 99999999, 4),
         ],
     },
     "MfgIP_yoy": {
-        "tier": 3, "weight": 0.5, "source": "fred:IPMAN_yoy",
+        "tier": 3,
+        "weight": 0.5,
+        "source": "fred:IPMAN_yoy",
         "label": "Mfg Industrial Production YoY (%)",
         # ISM Mfg PMI replacement: FRED dropped ISM series 2024+.
         # YoY % change of IPMAN as proxy. >2% = expansion (P1),
         # 0-2% = sluggish (P2), -2 to 0 = contraction (P3), <-2 = recession (P4).
         "phase_ranges": [
-            (-999, -2, 4), (-2, 0, 3), (0, 2, 2), (2, 999, 1),
+            (-999, -2, 4),
+            (-2, 0, 3),
+            (0, 2, 2),
+            (2, 999, 1),
         ],
     },
 }
@@ -184,10 +257,7 @@ def _ensure_tables() -> None:
                 UNIQUE(indicator_name, timestamp)
             )
         """)
-        cx.execute(
-            "CREATE INDEX IF NOT EXISTS idx_debt_signals_ind_ts "
-            "ON debt_signals(indicator_name, timestamp DESC)"
-        )
+        cx.execute("CREATE INDEX IF NOT EXISTS idx_debt_signals_ind_ts ON debt_signals(indicator_name, timestamp DESC)")
         cx.execute("""
             CREATE TABLE IF NOT EXISTS debt_composite (
                 timestamp TEXT PRIMARY KEY,
@@ -332,12 +402,12 @@ def persist_signal(name: str, value: float | None, phase: int | None) -> None:
 
 def persist_composite(score: float, phase: int, breakdown: dict) -> None:
     import json
+
     _ensure_tables()
     ts = datetime.now(UTC).isoformat()
     with db() as cx:
         cx.execute(
-            "INSERT OR REPLACE INTO debt_composite (timestamp, score, phase, tier_breakdown) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO debt_composite (timestamp, score, phase, tier_breakdown) VALUES (?, ?, ?, ?)",
             (ts, score, phase, json.dumps(breakdown, sort_keys=True)),
         )
 
@@ -355,9 +425,7 @@ def get_latest_indicator(name: str) -> dict | None:
 def get_latest_composite() -> dict | None:
     _ensure_tables()
     with db() as cx:
-        r = cx.execute(
-            "SELECT * FROM debt_composite ORDER BY timestamp DESC LIMIT 1"
-        ).fetchone()
+        r = cx.execute("SELECT * FROM debt_composite ORDER BY timestamp DESC LIMIT 1").fetchone()
     return dict(r) if r else None
 
 
@@ -396,8 +464,13 @@ def run_scan(tiers: list[int] | None = None, dispatch_alerts: bool = False) -> d
                 contribution = _score_contribution(cfg["weight"], existing["phase"])
                 total_score += contribution
                 breakdown_by_tier[cfg["tier"]].append(
-                    {"name": name, "value": existing["value"], "phase": existing["phase"],
-                     "contribution": contribution, "stale": True}
+                    {
+                        "name": name,
+                        "value": existing["value"],
+                        "phase": existing["phase"],
+                        "contribution": contribution,
+                        "stale": True,
+                    }
                 )
             continue
 
@@ -446,6 +519,7 @@ def _alerts_enabled() -> bool:
     """Check bot_state.json debt_alerts_enabled flag. Fail-open (default True)."""
     try:
         from shared import storage
+
         state = storage.load_state()
         return bool(state.get("debt_alerts_enabled", True))
     except Exception:
@@ -497,9 +571,12 @@ def _dispatch_alerts(
                     label = cfg.get("label", entry["name"])
                     val = entry.get("value")
                     val_s = (
-                        "n/a" if val is None
-                        else f"{val:,.0f}" if val >= 1000
-                        else f"{val:.2f}" if val >= 1
+                        "n/a"
+                        if val is None
+                        else f"{val:,.0f}"
+                        if val >= 1000
+                        else f"{val:.2f}"
+                        if val >= 1
                         else f"{val:.4f}"
                     )
                     p_e = _PHASE_EMOJI[entry["phase"]]
@@ -522,12 +599,7 @@ def _dispatch_alerts(
         cfg = INDICATOR_CONFIG.get(name, {})
         label = cfg.get("label", name)
         val = entry.get("value")
-        val_s = (
-            "n/a" if val is None
-            else f"{val:,.0f}" if val >= 1000
-            else f"{val:.2f}" if val >= 1
-            else f"{val:.4f}"
-        )
+        val_s = "n/a" if val is None else f"{val:,.0f}" if val >= 1000 else f"{val:.2f}" if val >= 1 else f"{val:.4f}"
         p_e = _PHASE_EMOJI[new_p]
         messages.append(
             f"{p_e} *TIER 1 ALERT — {label}*\n\n"
@@ -575,13 +647,12 @@ def _cron_run(tier: int, label: str) -> None:
     try:
         log.info(f"debt_monitor: {label} starting")
         r = run_scan(tiers=[tier], dispatch_alerts=True)
-        log.info(
-            f"debt_monitor: {label} complete, composite phase {r['phase']} score {r['score']:.1f}"
-        )
+        log.info(f"debt_monitor: {label} complete, composite phase {r['phase']} score {r['score']:.1f}")
     except Exception as e:
         log.exception(f"debt_monitor: {label} cron crashed: {e}")
         try:
             from shared import notify
+
             notify.send_text(
                 f"⚠️ *debt_monitor {label}* cron crashed\n\n"
                 f"`{type(e).__name__}: {e}`\n\n"

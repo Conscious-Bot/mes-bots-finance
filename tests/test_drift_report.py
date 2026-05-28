@@ -1,4 +1,5 @@
 """Property-based tests for storage.compute_drift_report."""
+
 from hypothesis import given, strategies as st
 
 from shared import storage
@@ -22,8 +23,9 @@ def test_drift_report_account_invariants():
             continue
         assert isinstance(block.get("rows"), list)
         computed_drift = block["total_target"] - block["total_actual"]
-        assert abs(computed_drift - block["total_drift"]) < 0.01, \
+        assert abs(computed_drift - block["total_drift"]) < 0.01, (
             f"{account}: drift mismatch {computed_drift} vs {block['total_drift']}"
+        )
 
 
 def test_drift_report_summary_consistency():

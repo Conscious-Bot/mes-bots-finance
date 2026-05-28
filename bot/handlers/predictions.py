@@ -84,6 +84,8 @@ async def cmd_feedback(update, ctx):
         await update.message.reply_text(f"rating doit etre up ou down, got: {rating}")
         return
     await _feedback_impl(update, signal_id, rating)
+
+
 async def _feedback_impl(update, signal_id: int, rating: str) -> None:
     """Internal: apply user feedback to signal source credibility.
 
@@ -100,5 +102,3 @@ async def _feedback_impl(update, signal_id: int, rating: str) -> None:
         await update.message.reply_text(msg)
     except Exception as e:
         await update.message.reply_text(f"Erreur: {type(e).__name__}: {e}")
-
-

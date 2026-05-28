@@ -16,7 +16,12 @@ from shared.sql_observability import query
 log = logging.getLogger(__name__)
 
 
-def synthesize_signal(signal_dict: dict[str, Any], watchlist: list[str], regime_context: str | None = None, insider_context: str | None = None) -> dict[str, Any]:
+def synthesize_signal(
+    signal_dict: dict[str, Any],
+    watchlist: list[str],
+    regime_context: str | None = None,
+    insider_context: str | None = None,
+) -> dict[str, Any]:
     """Call LLM to extract structured insights. Optionally with regime preamble."""
     body = (signal_dict.get("content") or "")[:10000]
     watchlist_str = ", ".join(watchlist[:30]) + (f"... ({len(watchlist)} total)" if len(watchlist) > 30 else "")
@@ -196,7 +201,14 @@ def _build_insider_context() -> str:
         return ""
 
 
-def run_enhanced_digest(limit: int = 20, top_n: int = 5, fallback_hours: int = 72, include_regime: bool = True, annotate_top: int = 3, persist: bool = True) -> str:
+def run_enhanced_digest(
+    limit: int = 20,
+    top_n: int = 5,
+    fallback_hours: int = 72,
+    include_regime: bool = True,
+    annotate_top: int = 3,
+    persist: bool = True,
+) -> str:
     import logging
 
     log = logging.getLogger(__name__)
@@ -393,7 +405,9 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         "=== SIGNAUX BRUTS ===\n" + signals_text + "\n\n"
         "=== PRODUIS UNE SYNTHESE NARRATIVE UNIFIEE ===\n\n"
         "REGLE CRITIQUE: ne JAMAIS inventer ou hardcoder une date dans ton output. La date du jour est ci-dessus. "
-        "Si tu references une date, elle doit etre soit la date du jour (" + today_str[:10] + ") soit une date explicite d'un signal cite.\n\n"
+        "Si tu references une date, elle doit etre soit la date du jour ("
+        + today_str[:10]
+        + ") soit une date explicite d'un signal cite.\n\n"
         "REGLE CATALYSTS: un CATALYST est un event marche concret avec date approximative (earnings, FOMC, FDA decision, etc). "
         "Une 'newsletter a lire' ou 'reunion regulateurs dans semaines/mois' N'EST PAS un catalyst. Si rien de concret: dis 'Aucun catalyst date concret detecte dans ce window'.\n\n"
         "Structure obligatoire:\n\n"

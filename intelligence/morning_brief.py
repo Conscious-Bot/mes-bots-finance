@@ -16,6 +16,7 @@ Added:
 - Live PnL via yfinance fallback when theses.last_price missing
 - "URGENT: nothing urgent" explicit when nothing to action
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,12 +35,14 @@ def _macro_section():
     credit_regime = "unknown"
     try:
         from intelligence import regime as regime_mod
+
         r = regime_mod.detect_regime()
         macro_regime = r.get("overall", "unknown")
     except Exception as e:
         log.warning(f"macro regime fetch failed: {e}")
     try:
         from shared import macro
+
         cr = macro.get_credit_regime()
         credit_regime = cr.get("overall", "unknown") if isinstance(cr, dict) else str(cr)
     except Exception as e:
@@ -130,6 +133,7 @@ def _filings_insider_section():
 def _portfolio_section():
     """Count active positions (for header n_pos display)."""
     from shared import storage
+
     positions = storage.get_active_positions() or []
     return {"positions": positions}
 
@@ -163,13 +167,15 @@ def _discipline_section():
                     due_status = "pending"
             except Exception:
                 due_status = "pending"
-            unresolved.append({
-                "id": r["id"],
-                "ticker": r["ticker"],
-                "decision_type": r["decision_type"],
-                "created_at": r["created_at"][:10],
-                "due_status": due_status,
-            })
+            unresolved.append(
+                {
+                    "id": r["id"],
+                    "ticker": r["ticker"],
+                    "decision_type": r["decision_type"],
+                    "created_at": r["created_at"][:10],
+                    "due_status": due_status,
+                }
+            )
     except Exception as e:
         log.warning(f"discipline section: {e}")
     conn.close()
@@ -186,8 +192,7 @@ def _stats_section():
     try:
         row = query(
             conn,
-            "SELECT SUM(cost_usd) AS total FROM llm_calls "
-            "WHERE created_at >= datetime('now', '-24 hours')",
+            "SELECT SUM(cost_usd) AS total FROM llm_calls WHERE created_at >= datetime('now', '-24 hours')",
             tag="morning_brief.llm_cost_today",
             fetch="one",
         )
@@ -275,6 +280,7 @@ def _positions_top5_section():
             ticker = r["ticker"]
             try:
                 from shared.ticker_names import get_short_name
+
                 name = get_short_name(ticker) or ticker
             except Exception:
                 name = ticker
@@ -285,6 +291,7 @@ def _positions_top5_section():
             # Fix: uniform EUR -> USD conversion for both avg_cost and last_price.
             try:
                 from shared.prices import get_current_price_in_usd, get_fx_rate
+
                 fx_eur_to_usd = get_fx_rate("EUR", "USD") or 1.1655
             except Exception:
                 fx_eur_to_usd = 1.1655
@@ -301,16 +308,18 @@ def _positions_top5_section():
             if last_price and avg_cost_usd:
                 pnl_pct = (last_price / avg_cost_usd - 1) * 100
             value = (r["qty"] * last_price) if (last_price and r["qty"]) else None
-            top5.append({
-                "ticker": ticker,
-                "name": name,
-                "qty": r["qty"],
-                "avg_cost": avg_cost_usd,
-                "last_price": last_price,
-                "conviction": r["conviction"],
-                "pnl_pct": pnl_pct,
-                "value": value,
-            })
+            top5.append(
+                {
+                    "ticker": ticker,
+                    "name": name,
+                    "qty": r["qty"],
+                    "avg_cost": avg_cost_usd,
+                    "last_price": last_price,
+                    "conviction": r["conviction"],
+                    "pnl_pct": pnl_pct,
+                    "value": value,
+                }
+            )
     except Exception as e:
         log.warning(f"positions top5 section: {e}")
     conn.close()
@@ -332,6 +341,7 @@ def _movers_24h_section() -> dict | None:
     (canonical, matches /portfolio + /brief top5 post commit 666863f).
     """
     from shared import storage
+
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -357,6 +367,7 @@ def _movers_24h_section() -> dict | None:
 
     try:
         import yfinance as yf
+
         hist = yf.download(tickers, period="2d", interval="1d", progress=False, group_by="ticker")
     except Exception as e:
         log.warning(f"movers 24h yfinance batch fail: {e}")
@@ -385,13 +396,15 @@ def _movers_24h_section() -> dict | None:
             if not now_usd:
                 continue
             prev_usd = now_usd / (1 + pct / 100) if pct != -100 else 0
-            movers.append({
-                "ticker": ticker,
-                "pct": pct,
-                "prev_usd": prev_usd,
-                "now_usd": now_usd,
-                "conviction": conviction_map.get(ticker),
-            })
+            movers.append(
+                {
+                    "ticker": ticker,
+                    "pct": pct,
+                    "prev_usd": prev_usd,
+                    "now_usd": now_usd,
+                    "conviction": conviction_map.get(ticker),
+                }
+            )
         except Exception as e:
             log.warning(f"movers 24h compute fail for {ticker}: {e}")
             continue
@@ -483,14 +496,16 @@ def format_brief(brief):
     if top10:
         lines.append(f"━ POSITIONS ({n_pos} active) — top {len(top10)} by conviction ━")
         for pos in top10:
-            lines.append(format_brief_position_line(
-                ticker=pos["ticker"],
-                name=pos.get("name"),
-                conviction=pos["conviction"],
-                value=pos.get("value"),
-                pnl_pct=pos["pnl_pct"],
-                currency=Currency.USD,
-            ))
+            lines.append(
+                format_brief_position_line(
+                    ticker=pos["ticker"],
+                    name=pos.get("name"),
+                    conviction=pos["conviction"],
+                    value=pos.get("value"),
+                    pnl_pct=pos["pnl_pct"],
+                    currency=Currency.USD,
+                )
+            )
     else:
         lines.append(f"━ POSITIONS ({n_pos} active) — no conviction data ━")
     lines.append("")
@@ -501,9 +516,7 @@ def format_brief(brief):
     if kpi.get("due_in_window", 0) > 0:
         days = kpi.get("days_to_cluster", 0)
         resolved = kpi.get("resolved_30d", 0)
-        urgent_items.append(
-            f"🟡 KPI #2: {resolved}/5 resolved 30d  |  {kpi['due_in_window']} in 28d, next J-{days}"
-        )
+        urgent_items.append(f"🟡 KPI #2: {resolved}/5 resolved 30d  |  {kpi['due_in_window']} in 28d, next J-{days}")
     d = brief["discipline"]
     n_unresolved = len(d.get("unresolved", []))
     if n_unresolved > 0:

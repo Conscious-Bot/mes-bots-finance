@@ -1,7 +1,5 @@
 """Intervals cron jobs — extracted from bot/jobs.py Phase C (21/05/2026)."""
 
-
-
 import logging
 
 from data_sources import gmail_
@@ -16,6 +14,7 @@ CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_ti
 async def heartbeat():
     storage.update_state()
     log.info("heartbeat ok")
+
 
 async def ingest_gmail_job():
     """Hourly Gmail ingestion + immediate materiality_v2 chaining.
@@ -41,6 +40,7 @@ async def ingest_gmail_job():
     except Exception as e:
         log.error(f"gmail ingest failed: {e}")
 
+
 async def update_echo_clusters_job():
     """Phase A3 — Hourly: embed pending signals + compute echo clusters in 48h window."""
     log.info("Echo clusters update starting")
@@ -63,6 +63,7 @@ async def update_echo_clusters_job():
     except Exception as e:
         log.exception(f"update_echo_clusters_job crashed: {e}")
 
+
 async def score_pending_signals_job():
     """Phase data-quality fix — Hourly: score signals with entities IS NULL.
     Drains backlog of signals that the daily digest (limit=20/day) didn't cover.
@@ -81,6 +82,7 @@ async def score_pending_signals_job():
     except Exception as e:
         log.exception(f"score_pending_signals_job crashed: {e}")
 
+
 async def scheduled_classify_signal_types_job():
     """Phase Digestion 3a — Classify signals with signal_type=NULL every 30min."""
     try:
@@ -91,6 +93,7 @@ async def scheduled_classify_signal_types_job():
             log.info(f"signal_type classifier: {n_classified} classified, distribution={types}")
     except Exception as e:
         log.warning(f"classify_signal_types_job error: {e}")
+
 
 async def scheduled_recompute_materiality_boost_job():
     """Phase Digestion 3b — Recompute corroboration multipliers after echo clusters update."""
@@ -103,6 +106,7 @@ async def scheduled_recompute_materiality_boost_job():
     except Exception as e:
         log.warning(f"recompute_boost_job error: {e}")
 
+
 async def scheduled_materiality_v2_job():
     """Phase Digestion 3c — Score signals with structured rubric every 1h."""
     try:
@@ -114,6 +118,7 @@ async def scheduled_materiality_v2_job():
     except Exception as e:
         log.warning(f"materiality_v2_job error: {e}")
 
+
 async def price_monitor_job():
     """Cron 15min mkt hours: check active theses for price crossings."""
     try:
@@ -124,4 +129,3 @@ async def price_monitor_job():
             log.warning(f"price_monitor: failed tickers: {r['fails']}")
     except Exception as e:
         log.error(f"price_monitor_job: {e}")
-

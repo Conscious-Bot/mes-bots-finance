@@ -38,7 +38,9 @@ __all__ = [
 ]
 
 
-def _portfolio_journal_ctx(ticker: str) -> tuple[Any | None, Any | None, str | None, Any | None, Any | None, list[Any] | None]:
+def _portfolio_journal_ctx(
+    ticker: str,
+) -> tuple[Any | None, Any | None, str | None, Any | None, Any | None, list[Any] | None]:
     """Phase B5 — Auto-context for journal log_decision: price, regime, credit, thesis_id, materiality_top."""
     ticker = ticker.upper()
     price = None
@@ -112,23 +114,28 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         action = args[0].lower()
         if action == "sectors":
             from bot.handlers.portfolio_views import cmd_portfolio_sectors
+
             await cmd_portfolio_sectors(update, ctx)
             return
         if action == "narratives":
             from bot.handlers.portfolio_views import cmd_portfolio_narratives
+
             await cmd_portfolio_narratives(update, ctx)
             return
         if action == "drift":
             from bot.handlers.portfolio_views import cmd_portfolio_drift
+
             await cmd_portfolio_drift(update, ctx)
             return
         if action == "history":
             from bot.handlers.journal_bias import _position_history_impl
+
             ticker = args[1].upper() if len(args) > 1 else None
             await _position_history_impl(update, ticker)
             return
         # Else: treat args[0] as TICKER (single-ticker view, alias for /position)
         from bot.handlers.misc import _position_view_impl
+
         ticker = args[0].upper()
         await _position_view_impl(update, ticker)
         return
@@ -171,6 +178,7 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     total_cost = 0.0
     total_mv = 0.0
     from shared.positions import cost_in
+
     for p in positions:
         ticker = p["ticker"]
         # Day 13 ADR 005: avg_cost EUR canonical (Day 11 Batch 4A NATIVE comment
@@ -201,6 +209,7 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Cluster concentration analysis (ADR 008: 35% cap per narrative_tag)
     import re as _re
+
     _CLUSTER_RE = _re.compile(r"sector_thesis_id:\s*([A-Z0-9_]+)")
     thesis_notes_by_ticker: dict[str, str] = {}
     try:
@@ -233,9 +242,7 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 _status = "✅"
                 _delta_str = f"{-_over:.1f}pp room"
             _val_str = format_finance(_val, decimals=0, currency=Currency.USD)
-            cluster_lines.append(
-                f"  {_status} {_cn:30} {_val_str:>10}  {_pct:>5.1f}%  ({_delta_str})"
-            )
+            cluster_lines.append(f"  {_status} {_cn:30} {_val_str:>10}  {_pct:>5.1f}%  ({_delta_str})")
 
     # Alerts
     over_sized = []
@@ -517,9 +524,7 @@ async def _sell_impl(update, ticker: str, qty: float, price: float, reasoning: s
             )
 
     # 4. Compose response
-    msg_lines = [
-        f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ {format_finance(r['sold_price'], decimals=2)} [{dtype}]"
-    ]
+    msg_lines = [f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ {format_finance(r['sold_price'], decimals=2)} [{dtype}]"]
     msg_lines.append(f"  Avg cost was: {format_finance(r['avg_cost'], decimals=2)}")
     msg_lines.append(f"  Realized PnL (event): {format_finance(r['realized_pnl_event'], decimals=2, signed=True)}")
     msg_lines.append(f"  Realized PnL (total): {format_finance(r['realized_pnl_total'], decimals=2, signed=True)}")
@@ -561,16 +566,10 @@ async def cmd_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
     action = args[0].lower()
     if action not in ("buy", "sell"):
-        await update.message.reply_text(
-            f"Unknown action: '{action}'\n"
-            "Valid: buy, sell\n"
-            "See /trade for usage."
-        )
+        await update.message.reply_text(f"Unknown action: '{action}'\nValid: buy, sell\nSee /trade for usage.")
         return
     if len(args) < 4:
-        await update.message.reply_text(
-            f"Usage: /trade {action} <TICKER> <QTY> <PRICE> [reasoning]"
-        )
+        await update.message.reply_text(f"Usage: /trade {action} <TICKER> <QTY> <PRICE> [reasoning]")
         return
     try:
         ticker, qty, price = args[1].upper(), float(args[2]), float(args[3])
@@ -581,8 +580,6 @@ async def cmd_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             await _sell_impl(update, ticker, qty, price, reasoning)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
-
-
 
 
 async def cmd_journal_decision(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
@@ -635,8 +632,6 @@ async def cmd_journal_decision(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -
 
     ok = storage.update_decision_reasoning(decision_id, text)
     if ok:
-        await update.message.reply_text(
-            f"OK reasoning enrichi pour decision #{decision_id} ({target[1]}, {target[2]})"
-        )
+        await update.message.reply_text(f"OK reasoning enrichi pour decision #{decision_id} ({target[1]}, {target[2]})")
     else:
         await update.message.reply_text(f"Echec UPDATE decision #{decision_id}.")

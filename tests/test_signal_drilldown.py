@@ -1,4 +1,5 @@
 """Tests for /signal_drilldown handler."""
+
 from hypothesis import given, strategies as st
 
 from bot.handlers.signal_drilldown import (

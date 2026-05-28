@@ -79,4 +79,4 @@ def test_brier_none_prob_none(outcome):
 @given(prob=st.floats(0.0, 1.0))
 def test_brier_binary_formula(prob):
     assert brier_for(prob, "correct") == (prob - 1.0) ** 2
-    assert brier_for(prob, "incorrect") == prob ** 2
+    assert brier_for(prob, "incorrect") == prob**2

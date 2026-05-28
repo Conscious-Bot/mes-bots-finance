@@ -7,6 +7,7 @@ Module exports (6 handlers):
 - cmd_sources_health    : /sources_health overall sources signal stats
 - cmd_sources_brier     : /sources_brier Brier-based credibility ranking
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -109,6 +110,7 @@ async def cmd_sources_brier(update, ctx):  # noqa: ARG001
         msg = msg[:3900] + "\n[truncated]"
     await update.message.reply_text(msg)
 
+
 async def cmd_sources(update, ctx):
     """Sprint 1.2 Phase I dispatcher - /sources family.
 
@@ -140,6 +142,7 @@ async def cmd_sources(update, ctx):
         return
     if action == "credibility":
         from bot.handlers.predictions import cmd_credibility
+
         await cmd_credibility(update, ctx)
         return
     if action == "feedback":
@@ -156,10 +159,7 @@ async def cmd_sources(update, ctx):
             await update.message.reply_text(f"rating doit etre up ou down, got: {rating}")
             return
         from bot.handlers.predictions import _feedback_impl
+
         await _feedback_impl(update, signal_id, rating)
         return
-    await update.message.reply_text(
-        f"Unknown action: '{action}'\n"
-        "Valid: health, brier, credibility, feedback"
-    )
-
+    await update.message.reply_text(f"Unknown action: '{action}'\nValid: health, brier, credibility, feedback")

@@ -1,4 +1,5 @@
 """Tests for bot/handlers/_common.py helpers."""
+
 from hypothesis import given, strategies as st
 
 from bot.handlers._common import config_path, db_path, telegram_safe

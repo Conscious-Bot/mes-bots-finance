@@ -41,13 +41,12 @@ async def cmd_debt_status(update, ctx):  # noqa: ARG001
     else:
         snap = status_snapshot()
         if not snap["composite"]:
-            await update.message.reply_text(
-                "No debt monitor data yet. Run `/debt_status refresh` to fetch."
-            )
+            await update.message.reply_text("No debt monitor data yet. Run `/debt_status refresh` to fetch.")
             return
         composite_score = snap["composite"]["score"]
         composite_phase = snap["composite"]["phase"]
         import json
+
         breakdown = json.loads(snap["composite"]["tier_breakdown"])
         # Convert keys back to int (JSON loses int keys)
         breakdown = {int(k): v for k, v in breakdown.items()}
@@ -79,6 +78,7 @@ async def cmd_debt_status(update, ctx):  # noqa: ARG001
     msg = "\n".join(lines)
     await update.message.reply_text(f"```\n{msg}\n```", parse_mode="Markdown")
 
+
 # ============================================================
 # Phase 2C — /debt_history INDICATOR + /debt_alerts on|off
 # ============================================================
@@ -92,9 +92,7 @@ def _sparkline(values: list[float]) -> str:
     vmin, vmax = min(values), max(values)
     if vmin == vmax:
         return blocks[4] * len(values)
-    return "".join(
-        blocks[min(7, int((v - vmin) / (vmax - vmin) * 7))] for v in values
-    )
+    return "".join(blocks[min(7, int((v - vmin) / (vmax - vmin) * 7))] for v in values)
 
 
 def _format_val_compact(val: float | None) -> str:
@@ -181,8 +179,7 @@ async def cmd_debt_history(update, ctx):  # noqa: ARG001
     ]
     if numeric_values:
         msg_lines.append(
-            f"30d range: {_format_val_compact(min(numeric_values))} — "
-            f"{_format_val_compact(max(numeric_values))}"
+            f"30d range: {_format_val_compact(min(numeric_values))} — {_format_val_compact(max(numeric_values))}"
         )
     msg_lines += [
         f"Transitions: {transitions} in {len(rows)} observations",
@@ -249,4 +246,3 @@ async def cmd_debt_alerts(update, ctx):  # noqa: ARG001
         f"Debt monitor alerts: {icon} *{'ON' if new_val else 'OFF'}*\n\n{msg}",
         parse_mode="Markdown",
     )
-

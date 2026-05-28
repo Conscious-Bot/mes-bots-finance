@@ -9,6 +9,7 @@ Usage:
     from shared.ticker_names import get_short_name
     name = get_short_name("7011.T")  # -> "MITSUBISHI HEAVY INDUSTRIES"
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,6 +46,7 @@ def get_short_name(ticker: str) -> str | None:
     long_name = None
     try:
         import yfinance as yf
+
         info = yf.Ticker(ticker).info
         short_name = info.get("shortName")
         long_name = info.get("longName")
@@ -59,8 +61,7 @@ def get_short_name(ticker: str) -> str | None:
     try:
         conn = sqlite3.connect(storage._DB_PATH)
         conn.execute(
-            "INSERT OR REPLACE INTO ticker_names (ticker, short_name, long_name) "
-            "VALUES (?, ?, ?)",
+            "INSERT OR REPLACE INTO ticker_names (ticker, short_name, long_name) VALUES (?, ?, ?)",
             (ticker, short_name, long_name),
         )
         conn.commit()

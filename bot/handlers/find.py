@@ -28,6 +28,7 @@ def _format_position(conn: sqlite3.Connection, ticker: str) -> str:
         return "\U0001f4cc POSITION\n  None\n"
     # Day 13 ADR 005: avg_cost EUR canonical via cost_in helper.
     from shared.positions import cost_in
+
     lines = ["\U0001f4cc POSITION"]
     for qty, avg_cost, account, _status, opened_at in rows:
         avg_cost_usd = cost_in(avg_cost, "USD") or 0.0

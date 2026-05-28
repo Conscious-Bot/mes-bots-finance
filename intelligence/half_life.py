@@ -33,7 +33,9 @@ def _parse_tickers(entities_json):
     return []
 
 
-def compute_signal_time_to_move(signal: dict[str, Any], threshold: float = DEFAULT_THRESHOLD, max_days: int = DEFAULT_MAX_DAYS) -> dict[str, Any] | None:
+def compute_signal_time_to_move(
+    signal: dict[str, Any], threshold: float = DEFAULT_THRESHOLD, max_days: int = DEFAULT_MAX_DAYS
+) -> dict[str, Any] | None:
     """Days-until-significant-move on signal's primary ticker.
     Returns dict {ticker, days, return_pct, ...} or None.
     """

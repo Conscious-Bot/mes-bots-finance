@@ -2,6 +2,7 @@
 
 ADR 005 (Day 13): avg_cost EUR canonical. cost_in converts EUR -> target_cur.
 """
+
 from hypothesis import given, strategies as st
 
 from shared.positions import cost_in

@@ -112,8 +112,7 @@ class BuyClusterSource(BaseDataSource):
         cluster["_price_at_detection"] = price
         self.new_found.append(cluster)
         log.info(
-            f"BUY cluster logged: {validated.ticker} id={cid} "
-            f"strength={cluster.get('cluster_strength')} price=${price}"
+            f"BUY cluster logged: {validated.ticker} id={cid} strength={cluster.get('cluster_strength')} price=${price}"
         )
         return cid
 

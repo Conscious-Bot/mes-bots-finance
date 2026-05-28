@@ -27,6 +27,7 @@ def db() -> Iterator[_sqlite3.Connection]:
 
 def load_state() -> dict[str, Any]:
     from typing import cast
+
     return cast(dict[str, Any], json.loads(STATE_PATH.read_text()))
 
 
@@ -151,8 +152,19 @@ def upsert_portfolio_snapshot(snap: dict) -> None:
     "Ecrit/met a jour le snapshot du jour (idempotent sur snapshot_date)."
     import json
 
-    cols = ("snapshot_date", "captured_at", "total_value_eur", "total_cost_eur", "pnl_eur",
-            "pnl_pct", "n_positions", "n_priced", "hwm_value_eur", "drawdown_pct", "detail_json")
+    cols = (
+        "snapshot_date",
+        "captured_at",
+        "total_value_eur",
+        "total_cost_eur",
+        "pnl_eur",
+        "pnl_pct",
+        "n_positions",
+        "n_priced",
+        "hwm_value_eur",
+        "drawdown_pct",
+        "detail_json",
+    )
     vals = [snap[c] if c != "detail_json" else json.dumps(snap.get("detail_json") or {}, sort_keys=True) for c in cols]
     sets = ", ".join(f"{c}=excluded.{c}" for c in cols if c != "snapshot_date")
     sql = (
@@ -631,7 +643,18 @@ def get_unresolved_shadow_decisions(limit=100):
         conn.close()
 
 
-def insert_prediction(signal_id, ticker, direction, horizon_days, baseline_price, baseline_date, target_date, score=None, signal_type=None, impact_magnitude=None):
+def insert_prediction(
+    signal_id,
+    ticker,
+    direction,
+    horizon_days,
+    baseline_price,
+    baseline_date,
+    target_date,
+    score=None,
+    signal_type=None,
+    impact_magnitude=None,
+):
     """Phase A1 — Brier: probability_at_creation = estimate_probability(...).
 
     score/signal_type/impact_magnitude are threaded by the caller (auto_register
@@ -1020,6 +1043,7 @@ def recalibrate_source_credibility_from_hitrate(min_n=10):
             (min_n,),
         ).fetchall()
         from shared import math_helpers
+
         updates = {}
         for r in rows:
             new_cred = math_helpers.credibility_from_hitrate(r["n_correct"], r["n_incorrect"])
@@ -1825,6 +1849,7 @@ def bootstrap_schema(db_path: str | None = None, alembic_ini: str | None = None)
 
     # Set WAL mode for concurrent reads (matches bot runtime config)
     import sqlite3 as _sqlite3
+
     target_db = db_path or config.get_main_option("sqlalchemy.url", "").replace("sqlite:///", "")
     if target_db:
         conn = _sqlite3.connect(target_db)
@@ -1872,17 +1897,19 @@ def compute_drift_report() -> dict:
             by_account[acc] = {"rows": [], "total_target": 0.0, "total_actual": 0.0, "total_drift": 0.0}
         actual = actual_by_key.get((t["ticker"], acc), 0.0) or 0.0
         drift = t["target_eur"] - actual
-        by_account[acc]["rows"].append({
-            "ticker": t["ticker"],
-            "target_eur": t["target_eur"],
-            "actual_eur": actual,
-            "drift_eur": drift,
-            "status": t["status"],
-            "priority": t["priority"],
-            "phase_week": t["phase_week"],
-            "narrative": t["narrative"],
-            "bucket": t["bucket"],
-        })
+        by_account[acc]["rows"].append(
+            {
+                "ticker": t["ticker"],
+                "target_eur": t["target_eur"],
+                "actual_eur": actual,
+                "drift_eur": drift,
+                "status": t["status"],
+                "priority": t["priority"],
+                "phase_week": t["phase_week"],
+                "narrative": t["narrative"],
+                "bucket": t["bucket"],
+            }
+        )
         by_account[acc]["total_target"] += t["target_eur"]
         by_account[acc]["total_actual"] += actual
         by_account[acc]["total_drift"] += drift
@@ -1893,17 +1920,19 @@ def compute_drift_report() -> dict:
         if (ticker, acc) not in target_keys:
             if acc not in by_account:
                 by_account[acc] = {"rows": [], "total_target": 0.0, "total_actual": 0.0, "total_drift": 0.0}
-            by_account[acc]["rows"].append({
-                "ticker": ticker,
-                "target_eur": 0.0,
-                "actual_eur": actual,
-                "drift_eur": -actual,
-                "status": "orphan_no_target",
-                "priority": None,
-                "phase_week": None,
-                "narrative": None,
-                "bucket": None,
-            })
+            by_account[acc]["rows"].append(
+                {
+                    "ticker": ticker,
+                    "target_eur": 0.0,
+                    "actual_eur": actual,
+                    "drift_eur": -actual,
+                    "status": "orphan_no_target",
+                    "priority": None,
+                    "phase_week": None,
+                    "narrative": None,
+                    "bucket": None,
+                }
+            )
             by_account[acc]["total_actual"] += actual
             by_account[acc]["total_drift"] -= actual
 
@@ -1930,6 +1959,7 @@ def get_signals_for_ticker(ticker, days=30, limit=8):
     P0 of /risk_check v2 roadmap (docs/risk_check_v2_roadmap.md).
     """
     import json
+
     ticker_up = ticker.upper()
     json_match = f'%"{ticker_up}"%'
 
@@ -1966,12 +1996,13 @@ def get_signals_for_ticker(ticker, days=30, limit=8):
                     d["materiality"] = mat
                     d["weighted_score"] = cred * mat
                     results.append(d)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             continue
         if len(results) >= limit:
             break
 
     return results
+
 
 def build_signals_context_block(ticker: str) -> str:
     """Public formatter: top-N weighted signals on ticker as text block for LLM prompts.
@@ -1981,6 +2012,7 @@ def build_signals_context_block(ticker: str) -> str:
     - analyze_stock.build_prompt (intelligence/analyze)
     """
     import logging
+
     log = logging.getLogger(__name__)
     try:
         signals = get_signals_for_ticker(ticker, days=30, limit=8) or []
@@ -2004,4 +2036,3 @@ def build_signals_context_block(ticker: str) -> str:
             f"  - [{date}] {source} (Tier {tier}, cred {cred:.2f}) {sig_type}/{sentiment} mat={mat:.2f} -> {title} [w={weighted:.2f}]"
         )
     return "\n".join(lines)
-

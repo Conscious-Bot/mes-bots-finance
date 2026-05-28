@@ -21,6 +21,7 @@ OR bias_tagger not running. Show coverage ratio explicitly.
 
 Zero touch to measurement pipeline.
 """
+
 from __future__ import annotations
 
 import json
@@ -44,7 +45,7 @@ def _parse_bias_tags(tags_json: str | None) -> list[str]:
         data = json.loads(tags_json)
         if isinstance(data, list):
             return [t for t in data if isinstance(t, str) and t in BIASES]
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         pass
     return []
 
@@ -91,13 +92,15 @@ def _compute_bias_pattern(window_days: int) -> dict:
                 if ticker not in ticker_bias_map:
                     ticker_bias_map[ticker] = Counter()
                 ticker_bias_map[ticker][tag] += 1
-            tagged_decisions.append({
-                "id": row["id"],
-                "ticker": ticker,
-                "decision_type": row["decision_type"],
-                "biases": bias_list,
-                "date": row["created_at"][:10],
-            })
+            tagged_decisions.append(
+                {
+                    "id": row["id"],
+                    "ticker": ticker,
+                    "decision_type": row["decision_type"],
+                    "biases": bias_list,
+                    "date": row["created_at"][:10],
+                }
+            )
 
         mta = row["mistake_tag_auto"]
         if mta and mta.strip():
@@ -137,9 +140,13 @@ def _format_bias_pattern(data: dict) -> str:
     lines.append(f"BIAS PATTERN — {data['window_days']}d window")
     lines.append("")
     lines.append(f"Total decisions       : {total}")
-    lines.append(f"With bias_tags        : {data['with_bias_tags']} ({100*data['with_bias_tags']/total:.0f}%)")
-    lines.append(f"With mistake_auto     : {data['with_mistake_auto']} ({100*data['with_mistake_auto']/total:.0f}%)")
-    lines.append(f"With mistake_manual   : {data['with_mistake_manual']} ({100*data['with_mistake_manual']/total:.0f}%)")
+    lines.append(f"With bias_tags        : {data['with_bias_tags']} ({100 * data['with_bias_tags'] / total:.0f}%)")
+    lines.append(
+        f"With mistake_auto     : {data['with_mistake_auto']} ({100 * data['with_mistake_auto'] / total:.0f}%)"
+    )
+    lines.append(
+        f"With mistake_manual   : {data['with_mistake_manual']} ({100 * data['with_mistake_manual'] / total:.0f}%)"
+    )
     lines.append("")
 
     # Coverage warning
@@ -200,10 +207,8 @@ async def cmd_bias_pattern(update, ctx):  # noqa: ARG001
     parts = update.message.text.split()
     try:
         window_days = int(parts[1]) if len(parts) > 1 else 90
-    except (ValueError, IndexError):
-        await update.message.reply_text(
-            "Usage: /bias_pattern [window_days]\nDefault: 90 days"
-        )
+    except ValueError, IndexError:
+        await update.message.reply_text("Usage: /bias_pattern [window_days]\nDefault: 90 days")
         return
 
     if window_days <= 0 or window_days > 730:

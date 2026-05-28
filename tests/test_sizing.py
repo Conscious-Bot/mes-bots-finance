@@ -32,6 +32,7 @@ def test_positive_edge_returns_positive_size():
 def test_hard_cap_respected():
     """Even with huge edge, size capped at position_max_pct (lu depuis config, pas hardcode)."""
     from shared import config
+
     max_pct = config.load()["style"]["position_max_pct"]
     s = position_size(10.0, 0.01, 10000, 1.0)  # Massive Kelly
     assert s <= 10000 * max_pct + 1e-6, f"Sizing {s} viole le cap {max_pct:.0%}"
@@ -43,7 +44,7 @@ def test_regime_factor_scales_linearly():
     base = position_size(0.05, 0.50, 10000, 1.0)
     half = position_size(0.05, 0.50, 10000, 0.5)
     assert base > 0 and base < 500, f"Base {base} should be below 500 cap"
-    assert abs(half - base * 0.5) < 0.01, f"Regime scaling broken: {half} vs {base/2}"
+    assert abs(half - base * 0.5) < 0.01, f"Regime scaling broken: {half} vs {base / 2}"
 
 
 def test_quarter_kelly_formula():

@@ -31,5 +31,3 @@ async def cmd_calendar(update, ctx):  # noqa: ARG001
     if alert_msg:
         msg = alert_msg + "\n\n---\n\n" + msg
     await update.message.reply_text(msg[:4000])
-
-

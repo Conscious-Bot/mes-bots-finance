@@ -13,6 +13,7 @@ This migration is meant to be applied ONCE on a fresh DB.
 For existing DBs (production), use 'alembic stamp head' to mark
 as up-to-date without re-executing schema creation.
 """
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -346,7 +347,36 @@ CREATE INDEX idx_sources_last_signal
 """
 
 
-TABLES_TO_DROP = ['handler_calls', 'risk_checks', 'debate_transcripts', 'filings_8k_log', 'insider_buy_clusters_log', 'signal_embeddings', 'llm_calls', 'decisions', 'conviction_history', 'position_events', 'positions', 'overrides', 'insider_snapshots', 'events', 'predictions', 'shadow_decisions', 'bot_events', 'feedback', 'watchlist', 'user_decisions', 'calibration', 'patterns', 'regime', 'narratives', 'theses', 'analyses', 'signals', 'sources']
+TABLES_TO_DROP = [
+    "handler_calls",
+    "risk_checks",
+    "debate_transcripts",
+    "filings_8k_log",
+    "insider_buy_clusters_log",
+    "signal_embeddings",
+    "llm_calls",
+    "decisions",
+    "conviction_history",
+    "position_events",
+    "positions",
+    "overrides",
+    "insider_snapshots",
+    "events",
+    "predictions",
+    "shadow_decisions",
+    "bot_events",
+    "feedback",
+    "watchlist",
+    "user_decisions",
+    "calibration",
+    "patterns",
+    "regime",
+    "narratives",
+    "theses",
+    "analyses",
+    "signals",
+    "sources",
+]
 
 
 def upgrade() -> None:

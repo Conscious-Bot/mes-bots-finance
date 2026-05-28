@@ -21,6 +21,7 @@ Limitations (acknowledged):
 
 This handler exposes the DATA. Interpretation is the user's job.
 """
+
 from __future__ import annotations
 
 import json
@@ -40,7 +41,7 @@ def _extract_tickers(entities_json: str | None) -> list[str]:
         return []
     try:
         data = json.loads(entities_json)
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         return []
     tickers: list[str] = []
     if isinstance(data, list):
@@ -121,10 +122,7 @@ def _compute_audit(window_days: int, min_impact: float) -> dict:
     ]
     tickers_silent.sort(key=lambda x: -x[1])
 
-    tickers_tracked = [
-        (t, ticker_signal_counts.get(t, 0), c)
-        for t, c in ticker_decision_counts.items()
-    ]
+    tickers_tracked = [(t, ticker_signal_counts.get(t, 0), c) for t, c in ticker_decision_counts.items()]
     tickers_tracked.sort(key=lambda x: -x[2])
 
     return {
@@ -146,7 +144,7 @@ def _format_audit(data: dict) -> str:
     tracked = data["tickers_tracked"]
     n_tickers = len(data["ticker_signal_counts"])
 
-    lines = ["\U0001F4CB *JOURNAL AUDIT* — KPI #5 alignment"]
+    lines = ["\U0001f4cb *JOURNAL AUDIT* — KPI #5 alignment"]
     lines.append(f"{data['window_days']}d window | impact_magnitude \u2265 {data['min_impact']:.1f}")
     lines.append("")
     lines.append(f"High-impact signals : {data['total_signals']}")
@@ -165,7 +163,7 @@ def _format_audit(data: dict) -> str:
         lines.append("")
         lines.append(f"*Silent tickers (top {min(10, len(silent))} by signal count):*")
         for ticker, sig_n, last_date in silent[:10]:
-            lines.append(f"  \u26A0\uFE0F {ticker:8s} {sig_n:>3d} sig | last {last_date}")
+            lines.append(f"  \u26a0\ufe0f {ticker:8s} {sig_n:>3d} sig | last {last_date}")
 
     lines.append("")
     lines.append("_Note: not all high-impact signals warrant decisions._")
@@ -184,7 +182,7 @@ async def cmd_journal_audit(update, ctx):  # noqa: ARG001
     try:
         window_days = int(parts[1]) if len(parts) > 1 else 30
         min_impact = float(parts[2]) if len(parts) > 2 else 3.0
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         await update.message.reply_text(
             "Usage: /journal_audit [window_days] [min_impact]\nDefaults: 30 days, impact 3.0"
         )

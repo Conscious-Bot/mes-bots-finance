@@ -25,6 +25,7 @@ def _get_current_price(ticker: str) -> float | None:
     """
     try:
         from shared.prices import get_current_price_in_eur
+
         return get_current_price_in_eur(ticker)
     except Exception as e:
         log.warning(f"price fetch {ticker}: {e}")
@@ -40,6 +41,7 @@ def _fx_eur_to_usd() -> float:
     """
     try:
         from shared.prices import get_fx_rate
+
         return get_fx_rate("EUR", "USD") or 1.1655
     except Exception:
         return 1.1655
@@ -324,5 +326,3 @@ def format_portfolio_asymmetry(results: list[dict[str, Any]]) -> str:
         lines.append("Fix INCOMPLETE via `/thesis set TICKER target X stop Y`")
 
     return "\n".join(lines).rstrip()
-
-

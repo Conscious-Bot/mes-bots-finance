@@ -13,6 +13,7 @@ Output structure:
 
 Zero touch to measurement pipeline. Pure SQL + JSON parsing.
 """
+
 from __future__ import annotations
 
 import json
@@ -62,7 +63,7 @@ def _ticker_in_entities(entities_json: str | None, ticker: str) -> bool:
             return ticker in data
         if isinstance(data, dict):
             return ticker in (data.get("tickers") or [])
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         pass
     return False
 
@@ -106,7 +107,7 @@ def _compute_health(window_days: int, min_impact: float) -> dict:
                 for t in ents.get("tickers") or []:
                     if isinstance(t, str):
                         ticker_sigs[t] = ticker_sigs.get(t, 0) + 1
-        except (json.JSONDecodeError, ValueError):
+        except json.JSONDecodeError, ValueError:
             pass
 
     now = datetime.now(UTC)
@@ -121,7 +122,7 @@ def _compute_health(window_days: int, min_impact: float) -> dict:
             if opened_dt.tzinfo is None:
                 opened_dt = opened_dt.replace(tzinfo=UTC)
             days_old = (now - opened_dt).days
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             days_old = -1
 
         last_rev = row["last_revisit_at"] or row["last_reviewed"]
@@ -131,7 +132,7 @@ def _compute_health(window_days: int, min_impact: float) -> dict:
                 if rev_dt.tzinfo is None:
                     rev_dt = rev_dt.replace(tzinfo=UTC)
                 days_since_review = (now - rev_dt).days
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 days_since_review = days_old
         else:
             days_since_review = days_old
@@ -148,18 +149,20 @@ def _compute_health(window_days: int, min_impact: float) -> dict:
         if is_weak:
             weak += 1
 
-        theses.append({
-            "id": row["id"],
-            "ticker": ticker,
-            "conviction": row["conviction"],
-            "direction": row["direction"],
-            "days_old": days_old,
-            "days_since_review": days_since_review,
-            "signal_count": signal_count,
-            "narrative": narrative,
-            "is_stale": is_stale,
-            "is_weak": is_weak,
-        })
+        theses.append(
+            {
+                "id": row["id"],
+                "ticker": ticker,
+                "conviction": row["conviction"],
+                "direction": row["direction"],
+                "days_old": days_old,
+                "days_since_review": days_since_review,
+                "signal_count": signal_count,
+                "narrative": narrative,
+                "is_stale": is_stale,
+                "is_weak": is_weak,
+            }
+        )
 
     conviction_dist = Counter(t["conviction"] for t in theses if t["conviction"] is not None)
     narrative_dist = Counter(t["narrative"] for t in theses)
@@ -192,10 +195,7 @@ def _format_health(data: dict) -> str:
     lines.append("")
 
     # Per-thesis rows (sorted by conviction DESC, then signal_count DESC)
-    sorted_theses = sorted(
-        data["theses"],
-        key=lambda t: (-(t["conviction"] or 0), -t["signal_count"])
-    )
+    sorted_theses = sorted(data["theses"], key=lambda t: (-(t["conviction"] or 0), -t["signal_count"]))
 
     lines.append("Per-thesis (sorted by conviction):")
     for t in sorted_theses[:20]:
@@ -255,7 +255,7 @@ async def _thesis_health_impl(update, args: list[str]) -> None:
     try:
         window_days = int(args[0]) if args else 30
         min_impact = float(args[1]) if len(args) > 1 else 3.0
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         await update.message.reply_text(
             "Usage: /thesis health [window_days] [min_impact]\nDefaults: 30 days, impact 3.0"
         )

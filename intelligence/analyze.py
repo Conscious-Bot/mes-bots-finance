@@ -290,6 +290,7 @@ def _credit_line(d):
 
 def build_prompt(d: dict) -> str:
     from datetime import datetime as _dt
+
     today_str = _dt.now().strftime("%d %B %Y")
     today_iso = _dt.now().strftime("%Y-%m-%d")
     current_quarter = f"Q{((_dt.now().month - 1) // 3) + 1} {_dt.now().year}"

@@ -195,6 +195,7 @@ def format_8k_alert(row):
 def format_8k_list(rows):
     """List view canonical (TG output spec 21/05/2026): grouped by severity with emoji."""
     import re as _re
+
     if not rows:
         return "🚨 8-K FILINGS — 0 rows\nNo 8-K filings matching filters."
 
@@ -207,8 +208,13 @@ def format_8k_list(rows):
 
     lines = [f"🚨 8-K FILINGS — {len(rows)} rows (60d window)"]
     summary_parts = []
-    for sev_name, label in [("catastrophic", "CATASTROPHIC"), ("high", "HIGH"),
-                             ("medium", "MEDIUM"), ("low", "LOW"), ("unknown", "UNKNOWN")]:
+    for sev_name, label in [
+        ("catastrophic", "CATASTROPHIC"),
+        ("high", "HIGH"),
+        ("medium", "MEDIUM"),
+        ("low", "LOW"),
+        ("unknown", "UNKNOWN"),
+    ]:
         n = len(groups[sev_name])
         if n > 0:
             summary_parts.append(f"{n} {label}")

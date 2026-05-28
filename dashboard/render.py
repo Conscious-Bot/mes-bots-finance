@@ -40,13 +40,33 @@ OUTPUT = Path("dashboard/dashboard.html")
 DB = "file:data/bot.db?mode=ro"
 
 COUNTRY = {
-    "TSM": "Ta&iuml;wan", "TSEM": "Isra&euml;l", "ASML": "Pays-Bas", "NVO": "Danemark", "ARM": "Royaume-Uni",
-    "IFNNY": "Allemagne", "BABA": "Chine", "TCEHY": "Chine", "PDD": "Chine", "STM": "France",
+    "TSM": "Ta&iuml;wan",
+    "TSEM": "Isra&euml;l",
+    "ASML": "Pays-Bas",
+    "NVO": "Danemark",
+    "ARM": "Royaume-Uni",
+    "IFNNY": "Allemagne",
+    "BABA": "Chine",
+    "TCEHY": "Chine",
+    "PDD": "Chine",
+    "STM": "France",
 }
 SUFFIX = {
-    ".KS": "Cor&eacute;e", ".T": "Japon", ".TW": "Ta&iuml;wan", ".PA": "France", ".AS": "Pays-Bas",
-    ".L": "Royaume-Uni", ".HK": "Chine", ".DE": "Allemagne", ".MI": "Italie", ".ST": "Su&egrave;de",
-    ".AX": "Australie", ".TO": "Canada", ".SS": "Chine", ".SZ": "Chine", ".SW": "Suisse",
+    ".KS": "Cor&eacute;e",
+    ".T": "Japon",
+    ".TW": "Ta&iuml;wan",
+    ".PA": "France",
+    ".AS": "Pays-Bas",
+    ".L": "Royaume-Uni",
+    ".HK": "Chine",
+    ".DE": "Allemagne",
+    ".MI": "Italie",
+    ".ST": "Su&egrave;de",
+    ".AX": "Australie",
+    ".TO": "Canada",
+    ".SS": "Chine",
+    ".SZ": "Chine",
+    ".SW": "Suisse",
 }
 
 
@@ -144,9 +164,15 @@ SECTOR_COLORS = {
     "Auto / robotique": "#EC6A9C",
 }
 TICKER_SECTOR = {
-    "AMZN": "MAG 7", "ENTG": "AI Compute", "MP": "Matériaux rares",
-    "MU": "AI Compute", "6857.T": "AI Compute", "VRT": "Data Center",
-    "CCJ": "Énergie", "LNG": "Énergie", "TSLA": "Robotique",
+    "AMZN": "MAG 7",
+    "ENTG": "AI Compute",
+    "MP": "Matériaux rares",
+    "MU": "AI Compute",
+    "6857.T": "AI Compute",
+    "VRT": "Data Center",
+    "CCJ": "Énergie",
+    "LNG": "Énergie",
+    "TSLA": "Robotique",
 }
 SECTOR_ALIAS = {"EU Defense": "Defense"}
 
@@ -155,7 +181,13 @@ def _clean_sector(sid: str | None) -> str:
     if not sid:
         return "Sans th&egrave;se"
     s = re.sub(r"_20\d\d$", "", sid).replace("_", " ").title()
-    return s.replace(" Ai", " AI").replace("Ai ", "AI ").replace("Hpq", "HPQ").replace("Eu ", "EU ").replace("Mag7", "MAG 7")
+    return (
+        s.replace(" Ai", " AI")
+        .replace("Ai ", "AI ")
+        .replace("Hpq", "HPQ")
+        .replace("Eu ", "EU ")
+        .replace("Mag7", "MAG 7")
+    )
 
 
 def _positions() -> list[dict]:
@@ -199,7 +231,9 @@ def _planned(held: set) -> list[dict]:
         if tk in held:
             continue
         label = _clean_sector(bucket) if bucket else "&mdash;"
-        out.append({"ticker": tk, "weight": float(teur or 0), "pct": float(tpct or 0), "sector": label, "planned": True})
+        out.append(
+            {"ticker": tk, "weight": float(teur or 0), "pct": float(tpct or 0), "sector": label, "planned": True}
+        )
     return out
 
 
@@ -267,7 +301,9 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
         f'<div class="line"><span>{tk}</span><span class="mono">{prog:.0f}% vers la cible</span></div>'
         for prog, tk in data
     )
-    watch = rows or '<div class="empty" style="padding:18px 0">aucun winner &agrave; &ge;75% &mdash; laisse courir</div>'
+    watch = (
+        rows or '<div class="empty" style="padding:18px 0">aucun winner &agrave; &ge;75% &mdash; laisse courir</div>'
+    )
     return watch, len(data)
 
 
@@ -291,16 +327,22 @@ def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
         )
         if is_near:
             near_rows.append(f'<div class="line"><span>{tk}</span><span class="mono">{down:.0f}% de marge</span></div>')
-    watch = "".join(near_rows) or '<div class="empty" style="padding:18px 0">aucune position sous 10% &mdash; au calme</div>'
+    watch = (
+        "".join(near_rows)
+        or '<div class="empty" style="padding:18px 0">aucune position sous 10% &mdash; au calme</div>'
+    )
     return "".join(rows), near, heat, watch
 
 
 def _mover_blk(rows) -> str:
-    return "".join(
-        f'<div class="line"><span class="mono">{tk}</span>'
-        f'<span class="mono {"pos" if p >= 0 else "neg"}">{"+" if p >= 0 else ""}{p:.1f}%</span></div>'
-        for tk, p in rows
-    ) or '<div class="empty" style="padding:14px 0">&mdash;</div>'
+    return (
+        "".join(
+            f'<div class="line"><span class="mono">{tk}</span>'
+            f'<span class="mono {"pos" if p >= 0 else "neg"}">{"+" if p >= 0 else ""}{p:.1f}%</span></div>'
+            for tk, p in rows
+        )
+        or '<div class="empty" style="padding:14px 0">&mdash;</div>'
+    )
 
 
 def _movers(pnl: dict) -> tuple[str, str]:
@@ -327,8 +369,10 @@ def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:
     Consomme par la page Concentration (detail) ET le bandeau d'ecart (resume, haut de page).
     Une seule definition de la valeur EUR par ligne -> page et bandeau ne peuvent plus
     se contredire (cf. ancienne jauge 0 calme vs verdict ELEVEE)."""
+
     def _v(p: dict) -> float:
         return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
+
     total = sum(_v(p) for p in positions) or 1
     _conc = yaml.safe_load(Path("config.yaml").read_text()).get("concentration", {})
     ccap = float(_conc.get("cluster_max_pct", 0)) * 100
@@ -337,13 +381,24 @@ def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:
         ms = set(mem)
         cv = sum(_v(p) for p in positions if p["ticker"] in ms)
         cp = cv / total * 100
-        out.append({"name": _clean_sector(cn), "pct": cp, "cap": ccap, "over_eur": cv - ccap / 100 * total, "breached": cp >= ccap})
+        out.append(
+            {
+                "name": _clean_sector(cn),
+                "pct": cp,
+                "cap": ccap,
+                "over_eur": cv - ccap / 100 * total,
+                "breached": cp >= ccap,
+            }
+        )
     return out
 
 
-def _concentration(positions: list[dict], planned: list[dict], sectors: dict, names: dict, pnl: dict, daily: dict) -> str:
+def _concentration(
+    positions: list[dict], planned: list[dict], sectors: dict, names: dict, pnl: dict, daily: dict
+) -> str:
     def _v(p: dict) -> float:
         return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
+
     cost_total = sum(p["weight"] for p in positions) or 1
     total = sum(_v(p) for p in positions) or 1
     ps = sorted(positions, key=lambda p: -_v(p))
@@ -388,26 +443,38 @@ def _concentration(positions: list[dict], planned: list[dict], sectors: dict, na
     _crows = []
     for _c in _ch:
         _ccls = "danger" if _c["breached"] else "calm"
-        _otxt = (f"d&eacute;passement +{_c['over_eur']:,.0f}&#8239;&euro; &rarr; trimmer" if _c["over_eur"] > 0 else "sous le plafond").replace(",", "&#8239;")
+        _otxt = (
+            f"d&eacute;passement +{_c['over_eur']:,.0f}&#8239;&euro; &rarr; trimmer"
+            if _c["over_eur"] > 0
+            else "sous le plafond"
+        ).replace(",", "&#8239;")
         _crows.append(
             f'<div class="pi {_ccls}"><span class="pn">{_c["pct"]:.0f}%</span>'
             f'<span class="pl">{_c["name"]} &middot; plafond {_c["cap"]:.0f}%</span>'
             f'<span class="pt">{_otxt}</span></div>'
         )
-    cluster_card = ('<div class="plan"><div class="plan-h">Cluster corr&eacute;l&eacute; (gouverneur)</div><div class="plan-row">' + "".join(_crows) + "</div></div>") if _crows else ""
+    cluster_card = (
+        (
+            '<div class="plan"><div class="plan-h">Cluster corr&eacute;l&eacute; (gouverneur)</div><div class="plan-row">'
+            + "".join(_crows)
+            + "</div></div>"
+        )
+        if _crows
+        else ""
+    )
     verdict_card = (
         '<div class="plan"><div class="plan-h">Verdict concentration</div>'
         '<div class="plan-row" style="grid-template-columns:minmax(160px,1fr) 2fr">'
         + f'<div class="pi {vcls}"><span class="pn">{verdict}</span><span class="pl">posture concentration</span><span class="pt">{cause}</span></div>'
         + f'<div class="pi"><span class="pl">{over_cap} ligne(s) au-dessus du plafond {POS_CAP:.0f}%</span>'
         + f'<span class="pt" style="font-size:12.5px;color:var(--ink);margin-top:4px;line-height:1.5">{over_nm or "aucune"}</span></div>'
-        + '</div></div>'
+        + "</div></div>"
     )
     return (
         f'<section data-page="concentration"><div class="phead"><h2>Concentration</h2>'
         f'<div class="sub">Trois axes de concentration &mdash; par ligne, par secteur, par g&eacute;ographie</div></div>'
-        f'{verdict_card}'
-        f'{cluster_card}'
+        f"{verdict_card}"
+        f"{cluster_card}"
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
         f'<div class="kpi"><span class="kl">Plus grosse ligne</span><span class="kv {top_cls}">{_pct(top_pct)}%</span><span class="kd">{line_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Th&egrave;se dominante</span><span class="kv {these_cls}">{dom_these_pct:.0f}%</span><span class="kd">{these_msg}</span></div>'
@@ -415,11 +482,13 @@ def _concentration(positions: list[dict], planned: list[dict], sectors: dict, na
         f'<div class="card pad"><div class="sbwrap"><svg id="sb-svg" viewBox="0 0 320 320" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la supply-chain r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
-        f'</section>'
+        f"</section>"
     )
 
 
-def _render_bucket(name: str, rows: list, total: float, pnl: dict, names: dict, daily: dict, fx: float, sub: bool = False) -> tuple[str, float]:
+def _render_bucket(
+    name: str, rows: list, total: float, pnl: dict, names: dict, daily: dict, fx: float, sub: bool = False
+) -> tuple[str, float]:
     rows = sorted(rows, key=lambda r: -r["w"])
     sw = sum(r["w"] for r in rows)
     spct = sw / total * 100
@@ -428,7 +497,9 @@ def _render_bucket(name: str, rows: list, total: float, pnl: dict, names: dict, 
     spl = (wpl / wbase) if wbase else None
     plmeta = ""
     if spl is not None:
-        plmeta = f' &middot; <span class="sec-pl {"pos" if spl >= 0 else "neg"}">{"+" if spl >= 0 else ""}{spl:.1f}%</span>'
+        plmeta = (
+            f' &middot; <span class="sec-pl {"pos" if spl >= 0 else "neg"}">{"+" if spl >= 0 else ""}{spl:.1f}%</span>'
+        )
     lines = ""
     for r in rows:
         tk = r["tk"]
@@ -440,8 +511,16 @@ def _render_bucket(name: str, rows: list, total: float, pnl: dict, names: dict, 
         nmspan = f'<span class="sec-nm">{nm}</span>' if nm else ""
         pl = None if r["prev"] else pnl.get(tk)
         dv = None if r["prev"] else daily.get(tk)
-        plc = '<span class="num">&mdash;</span>' if pl is None else f'<span class="num {"pos" if pl >= 0 else "neg"}">{"+" if pl >= 0 else ""}{pl:.1f}%</span>'
-        dvc = '<span class="num">&mdash;</span>' if dv is None else f'<span class="num {"pos" if dv >= 0 else "neg"}">{"+" if dv >= 0 else ""}{dv:.1f}%</span>'
+        plc = (
+            '<span class="num">&mdash;</span>'
+            if pl is None
+            else f'<span class="num {"pos" if pl >= 0 else "neg"}">{"+" if pl >= 0 else ""}{pl:.1f}%</span>'
+        )
+        dvc = (
+            '<span class="num">&mdash;</span>'
+            if dv is None
+            else f'<span class="num {"pos" if dv >= 0 else "neg"}">{"+" if dv >= 0 else ""}{dv:.1f}%</span>'
+        )
         lines += (
             f'<div class="sec-row" data-tk="{tk}" data-w="{w:.2f}" data-pct="{pct:.4f}" data-dv="{dv if dv is not None else -1e9:.2f}" data-pl="{pl if pl is not None else -1e9:.2f}">'
             f'<span class="sec-tk">{tk}{badge}{nmspan}</span>'
@@ -456,7 +535,9 @@ def _render_bucket(name: str, rows: list, total: float, pnl: dict, names: dict, 
     ), sw
 
 
-def _sector_blocks(positions: list[dict], planned: list[dict], sectors: dict, pnl: dict, names: dict, daily: dict) -> str:
+def _sector_blocks(
+    positions: list[dict], planned: list[dict], sectors: dict, pnl: dict, names: dict, daily: dict
+) -> str:
     real_t = sum(p["weight"] for p in positions)
     plan_t = sum(p["weight"] for p in planned)
     total = (real_t + plan_t) or 1
@@ -464,7 +545,9 @@ def _sector_blocks(positions: list[dict], planned: list[dict], sectors: dict, pn
     _cl = _compute_ai_set()
     fine: dict = {}
     for p in positions:
-        fine.setdefault(sectors.get(p["ticker"], "Autre"), []).append({"tk": p["ticker"], "w": p["weight"], "prev": False})
+        fine.setdefault(sectors.get(p["ticker"], "Autre"), []).append(
+            {"tk": p["ticker"], "w": p["weight"], "prev": False}
+        )
     for p in planned:
         fine.setdefault(p.get("sector") or "Autre", []).append({"tk": p["ticker"], "w": p["weight"], "prev": True})
     # Compute AI (L1) = membres DETENUS du cluster, niches sous leur bucket fin (L2). Reste top-level.
@@ -491,7 +574,11 @@ def _sector_blocks(positions: list[dict], planned: list[dict], sectors: dict, pn
         c_wb = sum(r["w"] for r in c_rows if not r["prev"] and pnl.get(r["tk"]) is not None)
         c_wp = sum(r["w"] * pnl[r["tk"]] for r in c_rows if not r["prev"] and pnl.get(r["tk"]) is not None)
         c_spl = (c_wp / c_wb) if c_wb else None
-        c_pm = "" if c_spl is None else f' &middot; <span class="sec-pl {"pos" if c_spl >= 0 else "neg"}">{"+" if c_spl >= 0 else ""}{c_spl:.1f}%</span>'
+        c_pm = (
+            ""
+            if c_spl is None
+            else f' &middot; <span class="sec-pl {"pos" if c_spl >= 0 else "neg"}">{"+" if c_spl >= 0 else ""}{c_spl:.1f}%</span>'
+        )
         blocks += (
             f'<div class="sec-super"><div class="sec-superh"><span class="sec-supername">Compute AI</span>'
             f'<span class="sec-meta">{len(c_rows)} &middot; {c_sw:.0f}&euro; &middot; {c_pct:.1f}%{c_pm}</span></div>'
@@ -502,14 +589,14 @@ def _sector_blocks(positions: list[dict], planned: list[dict], sectors: dict, pn
         h, _sw = _render_bucket(fb, standalone[fb], total, pnl, names, daily, fx)
         blocks += h
     sub = (
-        f'D&eacute;tenu {real_t:.0f}&euro; &middot; pr&eacute;vu {plan_t:.0f}&euro; &middot; '
-        f'total {total:.0f}&euro; (${total / fx:.0f}) &middot; {len(order) + (1 if compute_sub else 0)} groupes'
+        f"D&eacute;tenu {real_t:.0f}&euro; &middot; pr&eacute;vu {plan_t:.0f}&euro; &middot; "
+        f"total {total:.0f}&euro; (${total / fx:.0f}) &middot; {len(order) + (1 if compute_sub else 0)} groupes"
     )
     return (
         f'<div class="sub" style="margin-bottom:10px">{sub}</div>'
         f'<div class="sec-cols"><span></span><span class="num">&euro;</span><span class="num">$</span>'
         f'<span class="num">%</span><span class="num">Jour</span><span class="num">P&amp;L</span></div>'
-        f'{blocks}'
+        f"{blocks}"
     )
 
 
@@ -583,8 +670,10 @@ def _signaux() -> str:
         return f'<section data-page="signaux"><div class="phead"><h2>Signaux</h2></div>{_err(e)}</section>'
 
     sevcls = {"HIGH": "danger", "MEDIUM": "warn", "MED": "warn", "LOW": "calm"}
-    sev_order = ("CASE UPPER(COALESCE(severity,'')) WHEN 'HIGH' THEN 0 "
-                 "WHEN 'MEDIUM' THEN 1 WHEN 'MED' THEN 1 WHEN 'LOW' THEN 2 ELSE 3 END")
+    sev_order = (
+        "CASE UPPER(COALESCE(severity,'')) WHEN 'HIGH' THEN 0 "
+        "WHEN 'MEDIUM' THEN 1 WHEN 'MED' THEN 1 WHEN 'LOW' THEN 2 ELSE 3 END"
+    )
     try:
         tally = {"HIGH": 0, "MEDIUM": 0, "LOW": 0, "INCONNU": 0}
         for sev, cnt in _q(
@@ -626,7 +715,10 @@ def _signaux() -> str:
                 f'<div class="rs"><span>{int(buyers)} acheteurs &middot; {float(buym):.1f}M$</span>'
                 f'<span class="mono">{str(det)[:10]}</span></div></div>'
             )
-        insiders = rowsib or '<div class="empty" style="padding:18px 0">aucun cluster d\'achats group&eacute;s d&eacute;tect&eacute;</div>'
+        insiders = (
+            rowsib
+            or '<div class="empty" style="padding:18px 0">aucun cluster d\'achats group&eacute;s d&eacute;tect&eacute;</div>'
+        )
     except Exception as e:
         insiders = _err(e)
 
@@ -657,7 +749,7 @@ def _signaux() -> str:
         f'<div class="cols">'
         f'<div class="col"><div class="colhead"><span class="t">8-K r&eacute;cents</span><span class="a">{tally_str}</span></div><div class="card">{eightk}</div></div>'
         f'<div class="col"><div class="colhead"><span class="t">Cr&eacute;dibilit&eacute; des sources</span><span class="a">{nsrc} sources &middot; recal 1er du mois</span></div><div class="card">{src_rows}</div></div>'
-        f'</div>'
+        f"</div>"
     )
     insider_strip = (
         f'<div class="colhead" style="margin-top:24px"><span class="t">Achats d\'initi&eacute;s group&eacute;s</span><span class="a">60j &middot; Form 4 EDGAR</span></div>'
@@ -666,7 +758,7 @@ def _signaux() -> str:
     return (
         f'<section data-page="signaux"><div class="phead"><h2>Signaux</h2>'
         f'<div class="sub">D&eacute;p&ocirc;ts 8-K par s&eacute;v&eacute;rit&eacute; &middot; cr&eacute;dibilit&eacute; des sources &middot; achats d\'initi&eacute;s</div></div>'
-        f'{kpis}{cols}{insider_strip}</section>'
+        f"{kpis}{cols}{insider_strip}</section>"
     )
 
 
@@ -728,11 +820,13 @@ _RSI_TTL = 1800.0
 def _rsi_14(ticker: str) -> float | None:
     """RSI(14) daily via simple rolling mean. Cache 30min (anti-ban yfinance)."""
     import time as _t
+
     now = _t.time()
     if ticker in _RSI_CACHE and now - _RSI_CACHE_TS.get(ticker, 0) < _RSI_TTL:
         return _RSI_CACHE[ticker]
     try:
         import yfinance as yf
+
         closes = yf.Ticker(ticker).history(period="2mo", interval="1d")["Close"].dropna()
         if len(closes) < 15:
             _RSI_CACHE[ticker] = None
@@ -753,10 +847,11 @@ def _rsi_14(ticker: str) -> float | None:
 def _market_rsi() -> str:
     """4 lignes RSI : SPY, QQQ, SMH, IWM avec data-tip + couleurs OB/OS."""
     import html as _h
+
     tickers = [
-        ("SPY", "S&P 500",      "Momentum S&P 500. > 70 overbought (pullback risque), < 30 oversold (bounce probable)."),
-        ("QQQ", "Nasdaq 100",   "Momentum Nasdaq 100 (tech). Plus proche du book."),
-        ("SMH", "Semis",        "Momentum semis (exposition AI_compute). > 75 = zone prise profits, < 30 = zone add."),
+        ("SPY", "S&P 500", "Momentum S&P 500. > 70 overbought (pullback risque), < 30 oversold (bounce probable)."),
+        ("QQQ", "Nasdaq 100", "Momentum Nasdaq 100 (tech). Plus proche du book."),
+        ("SMH", "Semis", "Momentum semis (exposition AI_compute). > 75 = zone prise profits, < 30 = zone add."),
         ("IWM", "Russell 2000", "Momentum small-caps. Si IWM lag pendant que SMH rip, breadth fragile."),
     ]
     rows = ""
@@ -785,9 +880,11 @@ def _market_rsi() -> str:
 def _breadth_rsp_spy() -> str:
     """Breadth: ratio RSP/SPY vs MA50. Baisse = mega-caps portent seuls, fragile."""
     import html as _h
+
     fallback = '<div class="drow"><span class="ddot mute"></span><span class="dname">RSP / SPY ratio</span><span class="dval mute">n/a</span><span class="dp"></span></div>'
     try:
         import yfinance as yf
+
         rsp = yf.Ticker("RSP").history(period="3mo", interval="1d")["Close"].dropna()
         spy = yf.Ticker("SPY").history(period="3mo", interval="1d")["Close"].dropna()
         if len(rsp) < 50 or len(spy) < 50:
@@ -843,15 +940,24 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         "MfgIP": (3, "Production industrielle (%)", 4, False),
         "MfgIP_yoy": (3, "Production industrielle (%)", 4, False),
     }
-    tnames = {1: "March&eacute; &amp; liquidit&eacute;", 2: "Stress bancaire &amp; liquidit&eacute; Fed", 3: "Macro lente", 9: "Autres"}
+    tnames = {
+        1: "March&eacute; &amp; liquidit&eacute;",
+        2: "Stress bancaire &amp; liquidit&eacute; Fed",
+        3: "Macro lente",
+        9: "Autres",
+    }
     try:
-        sig = _q("SELECT indicator_name, value, phase, timestamp FROM debt_signals WHERE id IN (SELECT MAX(id) FROM debt_signals GROUP BY indicator_name) ORDER BY timestamp DESC")
+        sig = _q(
+            "SELECT indicator_name, value, phase, timestamp FROM debt_signals WHERE id IN (SELECT MAX(id) FROM debt_signals GROUP BY indicator_name) ORDER BY timestamp DESC"
+        )
     except Exception:
         sig = []
     import datetime as _dt
+
     _today = _dt.date.today()
     _STALE = {1: 3, 2: 10, 3: 40, 9: 10}  # tolerance jours: daily / hebdo / mensuel
     import html as _html_esc
+
     _pos = {k: i for i, k in enumerate(debt_map.keys())}
     _dot_priority = {"danger": 0, "warn": 1, "calm": 2, "mute": 3}
     tier_rows: dict[int, list[tuple]] = {}
@@ -902,10 +1008,10 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         + f'<div class="pi {_dev_cls}"><span class="pn">{_dev_lab}</span><span class="pl">&eacute;cart de discipline</span><span class="pt">{_dev_txt}</span></div>'
         + f'<div class="pi calm"><span class="pn">{near_t}</span><span class="pl">winner(s) &ge;75% cible</span><span class="pt">laisse courir &middot; ex&eacute;cute ton plan</span></div>'
         + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">ligne(s) &lt; 10% du stop</span><span class="pt">{"&agrave; surveiller" if near else "au calme"}</span></div>'
-        + '</div>'
+        + "</div>"
         + '<div style="margin-top:16px;padding-top:13px;border-top:1px solid var(--line);display:flex;gap:30px;flex-wrap:wrap;font-size:11.5px;color:var(--steel)">'
         + f'<span>{size_txt} &middot; sizing <b style="color:var(--ink)">&times;{_sfac:.1f}</b></span>'
-        + '</div></div>'
+        + "</div></div>"
     )
     _phase_col = {1: "acc", 2: "warn", 3: "warn", 4: "bear"}.get(cphase, "bear")
     gauge = (
@@ -920,7 +1026,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     return (
         f'<section data-page="urgence"><div class="phead"><h2>Urgence</h2>'
         f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro (/debt_status, en direct)</div></div>'
-        f'{feu}{gauge}'
+        f"{feu}{gauge}"
         f'<div class="cols">'
         f'<div><div class="ph3">Course vers la cible</div><div class="card pad">{elan}</div></div>'
         f'<div><div class="ph3">Positions proches du stop</div><div class="card pad">{watch}</div></div>'
@@ -931,7 +1037,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f'<div class="card pad"><div class="dlist">{rsi_html}</div></div></div>'
         f'<div><div class="ph3">Breadth &middot; participation au rally</div>'
         f'<div class="card pad"><div class="dlist">{breadth_html}</div></div></div>'
-        f'</div></section>'
+        f"</div></section>"
     )
 
 
@@ -976,7 +1082,7 @@ def _rail_foot(near: int, heat: float) -> str:
         f'<span class="statedot {tone}"></span>'
         f'<span class="rfm">{heat:.0f}&deg;</span>'
         f'<span class="rfm">{near}&#9888;</span>'
-        f'{macro}</div>'
+        f"{macro}</div>"
     )
 
 
@@ -1015,7 +1121,9 @@ def _cockpit() -> str:
     days_to_jun10 = (jun10 - date.today()).days
 
     drift_count = len(RECONCILE_FLAGS)
-    drift_sub = "; ".join(f"{f['ticker']} ~{int(f['drift_eur'])} EUR" for f in RECONCILE_FLAGS) if drift_count else "aucune"
+    drift_sub = (
+        "; ".join(f"{f['ticker']} ~{int(f['drift_eur'])} EUR" for f in RECONCILE_FLAGS) if drift_count else "aucune"
+    )
 
     INK, WARN, DANGER = "var(--ink)", "var(--warn)", "var(--bear)"
 
@@ -1060,13 +1168,15 @@ def _cockpit() -> str:
             f'<div class="ck-label">{label}</div>'
             f'<div class="ck-num" style="color:{color}">{value}</div>'
             f'<div class="ck-sub">{sub}</div>'
-            f'</div>'
+            f"</div>"
         )
 
     cells = (
         cell("D&eacute;cisions logg&eacute;es &middot; 30j", str(dec_30d), dec_sub, dec_color)
         + cell("Batch Brier", countdown, countdown_sub, cd_color)
-        + cell("R&eacute;conciliation book", f"{drift_count} ligne{'s' if drift_count > 1 else ''}", drift_sub, drift_color)
+        + cell(
+            "R&eacute;conciliation book", f"{drift_count} ligne{'s' if drift_count > 1 else ''}", drift_sub, drift_color
+        )
         + cell("Panic sells core", str(panic), panic_sub, panic_color)
     )
 
@@ -1080,7 +1190,14 @@ def _journal() -> str:
         return ""
     if not rows:
         return ""
-    tmap = {"entry": "Entr&eacute;e", "scale_in": "Renforcement", "partial_exit": "All&egrave;gement", "full_exit": "Sortie", "override": "Override", "no_action_flag": "Non-action"}
+    tmap = {
+        "entry": "Entr&eacute;e",
+        "scale_in": "Renforcement",
+        "partial_exit": "All&egrave;gement",
+        "full_exit": "Sortie",
+        "override": "Override",
+        "no_action_flag": "Non-action",
+    }
     out = ""
     for created, tk, dtype, reason in rows:
         lab = tmap.get(dtype, str(dtype))
@@ -1195,12 +1312,23 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 n_near += 1
             if pnl_e is not None and pnl_e >= 0:
                 n_profit += 1
-        ths.append({
-            "tk": tk, "conv": conv, "dir": (direction or "long"), "nm": names.get(tk, tk),
-            "d_stop": d_stop, "d_tgt": d_tgt, "ratio": ratio, "frac": frac,
-            "entry_frac": entry_frac, "pnl_e": pnl_e, "has_bar": has_bar,
-            "cat": sectors.get(tk, ""), "tpart": tpart,
-        })
+        ths.append(
+            {
+                "tk": tk,
+                "conv": conv,
+                "dir": (direction or "long"),
+                "nm": names.get(tk, tk),
+                "d_stop": d_stop,
+                "d_tgt": d_tgt,
+                "ratio": ratio,
+                "frac": frac,
+                "entry_frac": entry_frac,
+                "pnl_e": pnl_e,
+                "has_bar": has_bar,
+                "cat": sectors.get(tk, ""),
+                "tpart": tpart,
+            }
+        )
     n = len(ths)
     med = sorted(t["conv"] for t in ths)[n // 2]
     c5_pct = dist[5] / n * 100
@@ -1214,10 +1342,11 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             f'<div class="th-htrack"><div class="th-hfill" style="width:{dist[c] / maxc * 100:.0f}%"></div></div>'
             f'<span class="th-hn">{dist[c]}</span></div>'
         )
-    hist += '</div>'
+    hist += "</div>"
     infl_msg = (
-        f'&#9888; inflation de conviction : c5 = {c5_pct:.0f}% (seuil 20%)' if infl
-        else f'c5 = {c5_pct:.0f}% &middot; pas d&rsquo;inflation (seuil 20%)'
+        f"&#9888; inflation de conviction : c5 = {c5_pct:.0f}% (seuil 20%)"
+        if infl
+        else f"c5 = {c5_pct:.0f}% &middot; pas d&rsquo;inflation (seuil 20%)"
     )
 
     hero = (
@@ -1326,19 +1455,19 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 else:
                     adj = f'<div class="th-adj ok">&check; cible taille {_tgt:.1f}%</div>'
             else:
-                wtxt = f'{wv:.1f}%'
+                wtxt = f"{wv:.1f}%"
             groups += (
                 f'<div class="th-row" data-tk="{t["tk"]}">'
                 f'<div class="th-id"><span class="th-conv c{t["conv"]}">c{t["conv"]}</span>'
                 f'<span class="th-tk">{t["nm"]}</span>{cat_html}</div>'
                 f'<div class="th-w">{wtxt}</div><div class="th-szcol">{sizebar}{adj}</div>{bar}{anchor}</div>'
             )
-        groups += '</div>'
+        groups += "</div>"
 
     return (
         '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
         '<div class="sub">Asym&eacute;trie cible / stop par conviction &mdash; la discipline rendue visible</div></div>'
-        f'{_TH_CSS}{hero}{kpis}{gap}{groups}</section>'
+        f"{_TH_CSS}{hero}{kpis}{gap}{groups}</section>"
     )
 
 
@@ -1839,8 +1968,14 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
             except Exception:
                 pass
             exc = str(content)[:280].strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            ana[tk] = {"date": str(ts)[:10], "type": str(typ), "excerpt": exc,
-                       "scores": scores, "regime": str(regime), "narr": narr}
+            ana[tk] = {
+                "date": str(ts)[:10],
+                "type": str(typ),
+                "excerpt": exc,
+                "scores": scores,
+                "regime": str(regime),
+                "narr": narr,
+            }
     except Exception:
         ana = {}
     total = sum(p["weight"] for p in positions) or 1
@@ -1873,8 +2008,12 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
             "sector": sectors.get(tk, "Sans th&egrave;se"),
             "country": _country(tk),
             "status": status,
-            "weight_eur": None, "weight_pct": None, "pnl": None,
-            "down": None, "up": None, "ratio": None,
+            "weight_eur": None,
+            "weight_pct": None,
+            "pnl": None,
+            "down": None,
+            "up": None,
+            "ratio": None,
             "analysis": ana.get(tk),
         }
     return out
@@ -1887,7 +2026,26 @@ _LOUPE_HTML = (
 )
 
 
-_EU_SUFFIX = (".PA", ".AS", ".DE", ".MI", ".ST", ".BR", ".MC", ".SW", ".VI", ".HE", ".CO", ".OL", ".LS", ".L", ".F", ".PL", ".WA", ".AT")
+_EU_SUFFIX = (
+    ".PA",
+    ".AS",
+    ".DE",
+    ".MI",
+    ".ST",
+    ".BR",
+    ".MC",
+    ".SW",
+    ".VI",
+    ".HE",
+    ".CO",
+    ".OL",
+    ".LS",
+    ".L",
+    ".F",
+    ".PL",
+    ".WA",
+    ".AT",
+)
 
 
 def _broker(tk: str) -> str:
@@ -1918,16 +2076,14 @@ def _sector_donut(segs: list) -> str:
         seg = v / total * circ
         off = acc / total * circ
         acc += v
-        vstr = f'{v:,.0f}'.replace(',', '&#8239;')
+        vstr = f"{v:,.0f}".replace(",", "&#8239;")
         arcs.append(
             f'<circle class="brk-seg" cx="74" cy="74" r="60" fill="none" stroke="{col}" stroke-width="28" stroke-dasharray="{seg:.2f} {circ - seg:.2f}" stroke-dashoffset="{-off:.2f}" transform="rotate(-90 74 74)" data-label="{label}" data-val="{vstr}&nbsp;&euro;" data-pct="{pct:.0f}%"></circle>'
         )
         leg.append(
             f'<div class="brk-lg"><span class="brk-sw" style="background:{col}"></span><span class="brk-ln">{label}</span><span class="brk-lp">{pct:.0f}%</span></div>'
         )
-    return (
-        f'<div class="brk-viz"><div class="brk-dwrap"><svg class="brk-donut" viewBox="0 0 148 148">{"".join(arcs)}</svg><div class="brk-tip"></div></div><div class="brk-leg">{"".join(leg)}</div></div>'
-    )
+    return f'<div class="brk-viz"><div class="brk-dwrap"><svg class="brk-donut" viewBox="0 0 148 148">{"".join(arcs)}</svg><div class="brk-tip"></div></div><div class="brk-leg">{"".join(leg)}</div></div>'
 
 
 def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict) -> str:
@@ -1941,7 +2097,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         w = v / grand * 100
         pc = pnl.get(tk)
         pcls = "pos" if (pc or 0) >= 0 else "neg"
-        pstr = "&mdash;" if pc is None else f'{"+" if pc >= 0 else ""}{pc:.1f}%'
+        pstr = "&mdash;" if pc is None else f"{'+' if pc >= 0 else ''}{pc:.1f}%"
         nm = names.get(tk, tk)
         vstr = f"{v:,.0f}".replace(",", "&#8239;")
         rows += (
@@ -1959,7 +2115,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} lignes &middot; {share:.0f}% du total</span></div></div>'
         f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:4px 18px"><table class="dt"><thead><tr><th>Ligne</th>'
         f'<th class="num">Valeur</th><th class="num">Poids</th><th class="num">P&amp;L</th></tr></thead>'
-        f'<tbody>{rows}</tbody></table></div></div></div></div>'
+        f"<tbody>{rows}</tbody></table></div></div></div></div>"
     )
 
 
@@ -1971,7 +2127,11 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
         '<div class="colhead" style="margin-top:6px"><span class="t">Comptes</span>'
         '<span class="a">par courtier &middot; tri&eacute; par valeur</span></div>'
     )
-    return head + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors) + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors)
+    return (
+        head
+        + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors)
+        + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors)
+    )
 
 
 _MODE_BTN = """<button class="modetgl" title="Mode clair / sombre" onclick="document.body.classList.toggle('frost');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('frost')?'frost':'carbon')}catch(e){}"><svg class="ico-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>"""
@@ -2054,11 +2214,14 @@ def render() -> Path:
     sb_down = {r["ticker"]: r.get("downside_pct") for r in computed}
     sb_secs: dict = {}
     for p in positions:
-        sb_secs.setdefault(sectors.get(p["ticker"], "Sans th&egrave;se"), []).append({
-            "tk": p["ticker"], "w": round(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)),
-            "pnl": round(pnl[p["ticker"]], 1) if p["ticker"] in pnl else None,
-            "down": round(sb_down[p["ticker"]], 1) if sb_down.get(p["ticker"]) is not None else None,
-        })
+        sb_secs.setdefault(sectors.get(p["ticker"], "Sans th&egrave;se"), []).append(
+            {
+                "tk": p["ticker"],
+                "w": round(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)),
+                "pnl": round(pnl[p["ticker"]], 1) if p["ticker"] in pnl else None,
+                "down": round(sb_down[p["ticker"]], 1) if sb_down.get(p["ticker"]) is not None else None,
+            }
+        )
     sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans th&egrave;se", -sum(x["w"] for x in kv[1])))
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
@@ -2089,17 +2252,32 @@ def render() -> Path:
     pf_val_str = f"{pf_value:,.0f}".replace(",", "&#8239;")
     pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")
     pf_pe = f"{pf_pnl_eur:+,.0f}".replace(",", "&#8239;")
-    near_stop_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0)) if r.get("downside_pct") is not None and r["downside_pct"] < 10]
-    near_tgt_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("upside_pct", 999.0)) if r.get("upside_pct") is not None and r["upside_pct"] < 12]
+    near_stop_tk = [
+        r["ticker"]
+        for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
+        if r.get("downside_pct") is not None and r["downside_pct"] < 10
+    ]
+    near_tgt_tk = [
+        r["ticker"]
+        for r in sorted(computed, key=lambda r: r.get("upside_pct", 999.0))
+        if r.get("upside_pct") is not None and r["upside_pct"] < 12
+    ]
     _conv_tk = {row[0]: row[1] for row in _q("SELECT ticker, conviction FROM theses WHERE status='active'")}
-    over_cap_tk = _sizing_overcap(positions, _conv_tk, _CFG.get("concentration", {}).get("line_cap_by_conviction", {}), pnl)
+    over_cap_tk = _sizing_overcap(
+        positions, _conv_tk, _CFG.get("concentration", {}).get("line_cap_by_conviction", {}), pnl
+    )
 
     disc_hero = (
         '<div class="hero posture"><div class="hl">&Agrave; surveiller &mdash; m&eacute;canique, non prescriptif</div><div class="plan-row">'
-        + _pi(len(over_cap_tk), over_cap_tk, "au-dessus du cap &middot; all&eacute;ger sans sortir", "danger" if over_cap_tk else "calm")
+        + _pi(
+            len(over_cap_tk),
+            over_cap_tk,
+            "au-dessus du cap &middot; all&eacute;ger sans sortir",
+            "danger" if over_cap_tk else "calm",
+        )
         + _pi(len(near_tgt_tk), near_tgt_tk, "candidat(s) prise de profit", "warn" if near_tgt_tk else "calm")
         + _pi(len(near_stop_tk), near_stop_tk, "proche(s) du stop", "danger" if near_stop_tk else "calm")
-        + '</div></div>'
+        + "</div></div>"
     )
 
     tape_items = ""
@@ -2111,9 +2289,13 @@ def render() -> Path:
 
     journal_html = _journal()
     journal_block = (
-        '<div class="colhead" style="margin-top:22px"><span class="t">Derni&egrave;res d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
-        f'<div class="card pad">{journal_html}</div>'
-    ) if journal_html else ""
+        (
+            '<div class="colhead" style="margin-top:22px"><span class="t">Derni&egrave;res d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
+            f'<div class="card pad">{journal_html}</div>'
+        )
+        if journal_html
+        else ""
+    )
     _axis: dict[str, dict[str, float]] = {}
     for r in computed:
         st, tg, c = r.get("stop") or 0, r.get("target_full") or 0, r.get("current_price") or 0
@@ -2139,14 +2321,12 @@ def render() -> Path:
         '<div class="colhead">'
         '<span class="t">Cockpit discipline</span>'
         '<span class="a">vitals temps r&eacute;el &middot; rouge = &agrave; traiter</span>'
-        '</div>'
-        + _cockpit()
-        + '</div>'
+        "</div>" + _cockpit() + "</div>"
     )
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; ce sur quoi agir aujourd&rsquo;hui</div></div>'
-        f'{cockpit_html}'
+        f"{cockpit_html}"
         f'<div class="hrow">'
         f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'
         f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
@@ -2162,21 +2342,25 @@ def render() -> Path:
         f'<div class="card pad">{day_dn}</div></div></div>'
         f'<div class="colhead" style="margin-top:22px"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
         f'<div class="card pad">{erows}</div>'
-        f'{journal_block}</section>'
+        f"{journal_block}</section>"
     )
-    watch_zone_tk = [r["ticker"] for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0)) if r.get("downside_pct") is not None and 10 <= r["downside_pct"] < 20]
+    watch_zone_tk = [
+        r["ticker"]
+        for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
+        if r.get("downside_pct") is not None and 10 <= r["downside_pct"] < 20
+    ]
     pos_plan = (
         '<div class="plan"><div class="plan-h">Aujourd&rsquo;hui sur les positions</div><div class="plan-row">'
         + _pi(len(near_stop_tk), near_stop_tk, "au stop (&lt;10%)", "danger" if near_stop_tk else "calm")
         + _pi(len(watch_zone_tk), watch_zone_tk, "sous surveillance (10-20%)", "warn" if watch_zone_tk else "calm")
         + _pi(len(near_tgt_tk), near_tgt_tk, "proche d&rsquo;un palier", "warn" if near_tgt_tk else "calm")
-        + '</div></div>'
+        + "</div></div>"
     )
     broker_html = _broker_tables(positions, names, pnl, sectors)
     positions_pg = (
         f'<section data-page="positions"><div class="phead"><h2>Positions</h2>'
         f'<div class="sub">Marge &agrave; la hausse vers la cible &middot; &agrave; la baisse vers le stop</div></div>'
-        f'{pos_plan}{broker_html}</section>'
+        f"{pos_plan}{broker_html}</section>"
     )
 
     # --- Bandeau d'ecart de discipline (sticky, haut de page) ---
@@ -2203,23 +2387,36 @@ def render() -> Path:
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
         f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
-        + vigie + positions_pg + _theses(names, sectors, positions, pnl) + _concentration(positions, planned, sectors, names, pnl, daily)
-        + _signaux() + _urgence(watch, near, positions, pnl, elan, near_t)
-        + "</main></div>" + _LOUPE_HTML
+        + vigie
+        + positions_pg
+        + _theses(names, sectors, positions, pnl)
+        + _concentration(positions, planned, sectors, names, pnl, daily)
+        + _signaux()
+        + _urgence(watch, near, positions, pnl, elan, near_t)
+        + "</main></div>"
+        + _LOUPE_HTML
     )
 
     html = (
         '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta http-equiv="refresh" content="300">'
         '<meta name="viewport" content="width=device-width, initial-scale=1"><script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>PRESAGE</title><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230c0c0e%22%2F%3E%3Cg%20transform%3D%22translate%288.00%2C19.57%29%20scale%280.13079%29%22%20fill%3D%22%23ECEFF4%22%3E%3Cg%20transform%3D%22translate%280.000000%2C190.000000%29%20scale%280.100000%2C-0.100000%29%22%20%20stroke%3D%22none%22%3E%20%3Cpath%20d%3D%22M1335%201890%20c-11%20-4%20-200%20-189%20-419%20-409%20l-399%20-401%20251%200%20250%200%20254%20260%20253%20260%2071%200%2071%200%2058%20-62%20c32%20-35%20168%20-174%20301%20-309%20l242%20-246%2069%20-7%20c37%20-4%20148%20-11%20246%20-16%2098%20-4%20181%20-11%20184%20-14%204%20-3%20-45%20-6%20-108%20-6%20-63%200%20-175%20-5%20-249%20-10%20l-135%20-11%20-72%20-72%20c-40%20-39%20-73%20-76%20-73%20-82%200%20-6%2051%20-61%20114%20-124%20l113%20-113%20184%20187%20184%20186%20330%209%20c182%205%20394%209%20473%2010%20l142%200%200%2030%200%2030%20-127%201%20c-71%201%20-284%204%20-474%207%20l-346%207%20-87%2082%20c-47%2045%20-126%20129%20-175%20186%20-131%20153%20-581%20617%20-609%20628%20-29%2011%20-490%2011%20-517%20-1z%22%2F%3E%20%3Cpath%20d%3D%22M2308%201888%20c-9%20-7%20-26%20-33%20-37%20-58%20-12%20-25%20-44%20-68%20-72%20-97%20l-51%20-52%20105%20-108%20105%20-107%2064%2067%2063%2067%2072%200%2071%200%20253%20-260%20252%20-260%20244%200%20c238%200%20244%200%20231%2019%20-23%2032%20-760%20775%20-782%20788%20-30%2018%20-496%2018%20-518%201z%22%2F%3E%20%3Cpath%20d%3D%22M1693%201259%20c-54%20-61%20-109%20-127%20-123%20-145%20-14%20-19%20-51%20-54%20-83%20-78%20l-58%20-43%20-487%20-7%20c-268%20-3%20-589%20-9%20-715%20-13%20-207%20-5%20-227%20-7%20-227%20-23%200%20-16%2024%20-18%20298%20-24%20163%20-4%20488%20-11%20721%20-17%20l424%20-10%2061%20-44%20c89%20-63%20148%20-125%20236%20-250%2053%20-75%20150%20-184%20305%20-345%20125%20-129%20237%20-240%20249%20-247%2015%20-9%2095%20-12%20276%20-13%20l254%200%20411%20410%20410%20410%20-245%200%20-245%200%20-255%20-255%20-255%20-255%20-81%200%20-80%200%20-244%20253%20c-309%20320%20-340%20349%20-388%20353%20-20%201%20-91%208%20-157%2013%20-66%206%20-176%2011%20-245%2012%20-149%202%20-118%2016%2039%2018%2056%200%20169%206%20250%2012%20l146%2011%2073%2071%20c39%2040%2071%2075%2070%2079%20-5%2013%20-221%20238%20-229%20238%20-4%200%20-52%20-50%20-106%20-111z%22%2F%3E%20%3Cpath%20d%3D%22M715%20618%20c110%20-112%20290%20-295%20402%20-408%20l202%20-205%20161%20-3%20c182%20-4%20206%203%20285%2077%2052%2049%20126%2093%20193%20115%20l54%2018%20-112%20112%20-111%20111%20-58%20-62%20-57%20-63%20-81%200%20-80%200%20-176%20178%20c-96%2097%20-208%20212%20-247%20255%20l-72%2077%20-251%200%20-251%200%20199%20-202z%22%2F%3E%20%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E">'
-        ''
+        ""
         '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
         '<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Runic&display=swap" rel="stylesheet">'
         '<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">'
-        "<style>" + _CSS + "</style></head><body>"
+        "<style>"
+        + _CSS
+        + "</style></head><body>"
         + body
-        + "<script>window.TK=" + json.dumps(loupe_data) + ";window.SB_DATA=" + json.dumps(sb_data) + ";</script>"
-        + ''
-        + "<script>" + _APP_JS + "</script>"
+        + "<script>window.TK="
+        + json.dumps(loupe_data)
+        + ";window.SB_DATA="
+        + json.dumps(sb_data)
+        + ";</script>"
+        + ""
+        + "<script>"
+        + _APP_JS
+        + "</script>"
         + "<script>(function(){var b=null;function c(){fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,60000);})();</script>"
         + "</body></html>"
     )

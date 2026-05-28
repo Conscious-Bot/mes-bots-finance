@@ -242,9 +242,7 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
 
         label_pad = truncate(sector, LABEL_W).ljust(LABEL_W)
         sector_line = (
-            f"▼ {label_pad}  ${data['mv']:>8,.0f}  "
-            f"{pct:5.1f}%  {n_total:>2} pos  {pnl_pct:+5.1f}%"
-            f"{breach_suffix}"
+            f"▼ {label_pad}  ${data['mv']:>8,.0f}  {pct:5.1f}%  {n_total:>2} pos  {pnl_pct:+5.1f}%{breach_suffix}"
         )
         lines.append(sector_line)
 
@@ -257,10 +255,7 @@ async def cmd_portfolio_sectors(update, ctx):  # noqa: ARG001
             ind_pct = (ind_data["mv"] / total_mv * 100) if total_mv else 0
             n_ind = len(ind_data["tickers"])
             ind_label_pad = truncate(industry, 32).ljust(32)
-            ind_line = (
-                f"    {ind_label_pad}  ${ind_data['mv']:>8,.0f}  "
-                f"{ind_pct:5.1f}%  {n_ind:>2} pos"
-            )
+            ind_line = f"    {ind_label_pad}  ${ind_data['mv']:>8,.0f}  {ind_pct:5.1f}%  {n_ind:>2} pos"
             lines.append(ind_line)
             tickers_str = ", ".join(sorted(ind_data["tickers"]))
             lines.append(f"        {tickers_str}")
@@ -330,7 +325,9 @@ async def cmd_portfolio_narratives(update, ctx):  # noqa: ARG001
     narrative_cap_pct_frac, _ = _get_caps_from_config()
     narrative_cap_pct = narrative_cap_pct_frac * 100
 
-    lines = [f"\U0001f3af *PORTFOLIO BY NARRATIVE* — {format_finance(total_mv, decimals=0, currency=Currency.USD)} total\n"]
+    lines = [
+        f"\U0001f3af *PORTFOLIO BY NARRATIVE* — {format_finance(total_mv, decimals=0, currency=Currency.USD)} total\n"
+    ]
     for narrative, data in sorted_narratives:
         pct = (data["mv"] / total_mv * 100) if total_mv else 0
         n = len(data["tickers"])
@@ -510,7 +507,7 @@ async def cmd_tiers(update, ctx):  # noqa: ARG001
             continue
         try:
             c = int(t.get("conviction") or 0)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
         if c in caps:
             convs.append(c)

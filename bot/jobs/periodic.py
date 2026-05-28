@@ -1,7 +1,5 @@
 """Periodic cron jobs — extracted from bot/jobs.py Phase C (21/05/2026)."""
 
-
-
 import logging
 
 from bot.handlers.observability import (
@@ -43,6 +41,7 @@ async def weekly_handler_stats_job():
     except Exception as e:
         log.warning(f"weekly_handler_stats_job error: {e}")
 
+
 async def weekly_kpi_status_job():
     """Phase Solidification P2 — Weekly KPI status, Sunday 23:00 Paris."""
     try:
@@ -54,6 +53,7 @@ async def weekly_kpi_status_job():
         log.info("weekly_kpi_status_job: posted")
     except Exception as e:
         log.warning(f"weekly_kpi_status_job error: {e}")
+
 
 async def weekly_cost_summary_job():
     """Phase Solidification P2 — Weekly cost summary, Sunday 22:00 Paris."""
@@ -72,6 +72,7 @@ async def weekly_cost_summary_job():
     except Exception as e:
         log.warning(f"weekly_cost_summary_job error: {e}")
 
+
 async def refresh_source_half_lives_job():
     """Phase A4 — Weekly: refresh half-life per source from forward price windows."""
     log.info("Refresh source half-lives starting")
@@ -83,6 +84,7 @@ async def refresh_source_half_lives_job():
         log.info(f"Half-lives refreshed: {persisted}/{len(results)} sources updated")
     except Exception as e:
         log.exception(f"refresh_source_half_lives_job crashed: {e}")
+
 
 async def recalibrate_credibility_brier_job():
     """Phase A1 — Monthly cron: recalibrate sources.credibility from rolling Brier scores."""
@@ -104,4 +106,3 @@ async def recalibrate_credibility_brier_job():
         log.info(f"Brier recalibration done: {len(updates)} sources updated")
     except Exception as e:
         log.exception(f"recalibrate_credibility_brier_job crashed: {e}")
-

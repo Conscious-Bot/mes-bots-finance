@@ -21,22 +21,45 @@ OUT = Path(__file__).resolve().parent.parent / "docs" / "REFERENCE_SCHEMA.md"
 
 DOMAINS = {
     "Core entities": [
-        "sources", "signals", "theses", "decisions", "predictions",
-        "positions", "position_events",
+        "sources",
+        "signals",
+        "theses",
+        "decisions",
+        "predictions",
+        "positions",
+        "position_events",
     ],
     "Intelligence loops": [
-        "calibration", "patterns", "narratives", "regime",
-        "debt_composite", "debt_signals", "debate_transcripts",
-        "shadow_decisions", "risk_checks", "conviction_history",
-        "insider_buy_clusters_log", "insider_snapshots", "filings_8k_log",
-        "signal_embeddings", "analyses", "events",
+        "calibration",
+        "patterns",
+        "narratives",
+        "regime",
+        "debt_composite",
+        "debt_signals",
+        "debate_transcripts",
+        "shadow_decisions",
+        "risk_checks",
+        "conviction_history",
+        "insider_buy_clusters_log",
+        "insider_snapshots",
+        "filings_8k_log",
+        "signal_embeddings",
+        "analyses",
+        "events",
     ],
     "User interface": [
-        "user_decisions", "feedback", "watchlist", "portfolio_targets",
-        "overrides", "ticker_names",
+        "user_decisions",
+        "feedback",
+        "watchlist",
+        "portfolio_targets",
+        "overrides",
+        "ticker_names",
     ],
     "Operations": [
-        "llm_calls", "handler_calls", "bot_events", "alembic_version",
+        "llm_calls",
+        "handler_calls",
+        "bot_events",
+        "alembic_version",
     ],
 }
 
@@ -50,9 +73,7 @@ def main() -> int:
     conn.row_factory = sqlite3.Row
 
     tables = conn.execute(
-        "SELECT name, sql FROM sqlite_master "
-        "WHERE type='table' AND name NOT LIKE 'sqlite_%' "
-        "ORDER BY name"
+        "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
     ).fetchall()
 
     indexes_by_table: dict[str, list[str]] = {}
