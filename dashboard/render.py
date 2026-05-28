@@ -1592,19 +1592,36 @@ _CSS = """
   .tag { font-family:var(--fm); font-weight:600; font-size:11px; padding:3px 9px; border-radius:6px; }
   .tag.up { color:var(--acc); background:rgba(55,224,160,.12); } .tag.acc2 { color:var(--acc2); background:rgba(61,139,255,.12); }
   .tag.down,.tag.danger { color:var(--bear); background:rgba(255,107,107,.13); } .tag.warn { color:var(--warn); background:rgba(255,176,32,.14); } .tag.calm { color:var(--steel); background:rgba(124,137,166,.12); } .tag.mute { color:var(--steel); background:rgba(124,137,166,.12); }
-  /* Signal-subtil : la grammaire visuelle PRESAGE. Axe hairline + point central */
-  .axis { position:relative; height:1px; background:var(--line2); margin:14px 0 6px; }
-  .axis::before, .axis::after { content:""; position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
+  /* Signal-subtil PRESAGE : axe gradient red->neutral->green + dot noir-bezel-gold */
+  .axis { position:relative; height:4px; border-radius:2px; margin:14px 0 6px;
+    background:linear-gradient(90deg,
+      color-mix(in srgb,var(--bear) 32%,transparent) 0%,
+      color-mix(in srgb,var(--bear) 6%,transparent) 28%,
+      color-mix(in srgb,var(--line2) 30%,transparent) 50%,
+      color-mix(in srgb,var(--acc) 6%,transparent) 72%,
+      color-mix(in srgb,var(--acc) 32%,transparent) 100%); }
+  .axis::before, .axis::after { content:""; position:absolute; top:-3px; width:1px; height:10px; background:var(--line2); }
   .axis::before { left:0; } .axis::after { right:0; }
-  .axis-mark { position:absolute; top:50%; width:6px; height:6px; border-radius:50%;
-    background:radial-gradient(circle,#FFEFC0 0%,#E5BC52 38%,var(--gold) 72%,color-mix(in srgb,var(--gold) 25%,transparent) 100%);
-    box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 40%,transparent), 0 0 6px 0 color-mix(in srgb,var(--gold) 38%,transparent);
+  .axis-mark { position:absolute; top:50%; width:9px; height:9px; border-radius:50%;
+    background:#0E0B07;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.35), 0 0 4px 0 color-mix(in srgb,var(--gold) 32%,transparent);
     transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
-  .axis-mark.pos { background:var(--acc); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--acc) 25%,transparent); }
-  .axis-mark.neg, .axis-mark.danger { background:var(--bear); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--bear) 25%,transparent); }
-  .axis-mark.warn { background:var(--warn); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--warn) 25%,transparent); }
+  .axis-mark::before { content:""; position:absolute; inset:1.6px; border-radius:50%;
+    background:radial-gradient(circle at 32% 28%,
+      #FFF6D5 0%,
+      #F4D170 28%,
+      var(--gold) 58%,
+      #6E5320 100%); }
+  .axis-mark.pos { background:var(--acc); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--acc) 22%,transparent); }
+  .axis-mark.pos::before { display:none; }
+  .axis-mark.neg, .axis-mark.danger { background:var(--bear); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--bear) 22%,transparent); }
+  .axis-mark.neg::before, .axis-mark.danger::before { display:none; }
+  .axis-mark.warn { background:var(--warn); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--warn) 22%,transparent); }
+  .axis-mark.warn::before { display:none; }
   .axis-mark.ink { background:var(--ink); box-shadow:none; }
+  .axis-mark.ink::before { display:none; }
   .axis-mark.mute { background:var(--steel); box-shadow:none; opacity:.55; }
+  .axis-mark.mute::before { display:none; }
   .axis-tick { position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
   .axis-tick.strong { top:-4px; height:9px; background:var(--ink); opacity:.55; }
   .axis-tick.dash { border-left:1px dashed var(--steel); background:transparent; opacity:.6; }
