@@ -12,6 +12,12 @@ import yaml
 
 from intelligence import asymmetry as asym_mod
 
+# Reconciliation flags - known book/broker drifts not yet journaled.
+# Clear an entry when reconciled via /position_sell + /position_buy.
+RECONCILE_FLAGS: list[dict] = [
+    {"ticker": "6920.T", "drift_eur": 270, "note": "trim 500 EUR -> Advantest non journalise (27/05)"},
+]
+
 
 def _cfg() -> dict:
     try:
@@ -842,6 +848,82 @@ def _sizing_overcap(positions: list[dict], conv_by_tk: dict, caps: dict, pnl: di
 def _pi(n: int, tks: list, lab: str, cls: str) -> str:
     nm = " &middot; ".join(tks[:3]) + ("&hellip;" if len(tks) > 3 else "")
     return f'<div class="pi {cls}"><span class="pn">{n}</span><span class="pl">{lab}</span><span class="pt">{nm or "&mdash;"}</span></div>'
+
+
+def _cockpit() -> str:
+    """Cockpit vitals: surfaces discipline gaps at top of dashboard.
+    Read-only. Aggregates from decisions + predictions + RECONCILE_FLAGS.
+    Display-only; no behavior change."""
+    from datetime import date
+
+    dec_30d = _q("SELECT count(*) FROM decisions WHERE created_at > datetime('now','-30 days')")[0][0]
+    preds_due = _q("SELECT count(*) FROM predictions WHERE resolved_at IS NULL AND target_date < '2026-06-11'")[0][0]
+    panic = _q(
+        "SELECT count(*) FROM decisions "
+        "WHERE LOWER(COALESCE(bias_tags,'')) LIKE '%panic%' "
+        "OR LOWER(COALESCE(decision_type,'')) LIKE '%panic%'"
+    )[0][0]
+
+    jun10 = date(2026, 6, 10)
+    days_to_jun10 = (jun10 - date.today()).days
+
+    drift_count = len(RECONCILE_FLAGS)
+    drift_sub = "; ".join(f"{f['ticker']} ~{int(f['drift_eur'])} EUR" for f in RECONCILE_FLAGS) if drift_count else "aucune"
+
+    INK, WARN, DANGER = "var(--ink)", "var(--warn)", "var(--bear)"
+
+    if dec_30d < 2:
+        dec_color, dec_sub = DANGER, "journal sous-aliment&eacute;"
+    elif dec_30d < 5:
+        dec_color, dec_sub = WARN, "feed le journal"
+    else:
+        dec_color, dec_sub = INK, f"{dec_30d} d&eacute;c. / 30j"
+
+    drift_color = WARN if drift_count else INK
+    panic_color = INK if panic == 0 else DANGER
+    panic_sub = "KPI #4 tenu" if panic == 0 else f"KPI #4 cass&eacute; ({panic})"
+
+    if days_to_jun10 <= 3:
+        cd_color = DANGER
+    elif days_to_jun10 <= 7:
+        cd_color = WARN
+    else:
+        cd_color = INK
+
+    if days_to_jun10 > 0:
+        countdown, countdown_sub = f"J-{days_to_jun10}", f"10/06 &middot; {preds_due} pred. r&eacute;solvent"
+    elif days_to_jun10 == 0:
+        countdown, countdown_sub = "AUJOURD'HUI", f"{preds_due} pred. r&eacute;solvent"
+    else:
+        countdown, countdown_sub = f"J+{-days_to_jun10}", f"batch pass&eacute; &middot; {preds_due} en retard"
+
+    css = (
+        "<style>"
+        ".ck-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:8px}"
+        ".ck-cell{background:color-mix(in srgb,var(--ink) 2%,transparent);border:1px solid var(--line);border-radius:10px;padding:14px 16px}"
+        ".ck-label{font-size:12px;color:var(--steel);letter-spacing:.01em}"
+        ".ck-num{font-family:var(--fm);font-size:26px;font-weight:500;margin-top:6px;line-height:1.05;letter-spacing:-.01em}"
+        ".ck-sub{font-size:11.5px;color:var(--steel);margin-top:5px;line-height:1.4}"
+        "</style>"
+    )
+
+    def cell(label: str, value: str, sub: str, color: str) -> str:
+        return (
+            f'<div class="ck-cell">'
+            f'<div class="ck-label">{label}</div>'
+            f'<div class="ck-num" style="color:{color}">{value}</div>'
+            f'<div class="ck-sub">{sub}</div>'
+            f'</div>'
+        )
+
+    cells = (
+        cell("D&eacute;cisions logg&eacute;es &middot; 30j", str(dec_30d), dec_sub, dec_color)
+        + cell("Batch Brier", countdown, countdown_sub, cd_color)
+        + cell("R&eacute;conciliation book", f"{drift_count} ligne{'s' if drift_count > 1 else ''}", drift_sub, drift_color)
+        + cell("Panic sells core", str(panic), panic_sub, panic_color)
+    )
+
+    return css + f'<div class="ck-grid">{cells}</div>'
 
 
 def _journal() -> str:
@@ -1879,9 +1961,19 @@ def render() -> Path:
         f'<div class="rs"><span>marge avant le stop</span></div></div>'
         for tk in _stops
     ) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
+    cockpit_html = (
+        '<div class="card pad" style="margin-bottom:18px">'
+        '<div class="colhead">'
+        '<span class="t">Cockpit discipline</span>'
+        '<span class="a">vitals temps r&eacute;el &middot; rouge = &agrave; traiter</span>'
+        '</div>'
+        + _cockpit()
+        + '</div>'
+    )
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; ce sur quoi agir aujourd&rsquo;hui</div></div>'
+        f'{cockpit_html}'
         f'<div class="hrow">'
         f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'
         f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
