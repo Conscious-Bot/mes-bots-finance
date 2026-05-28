@@ -34,7 +34,7 @@ Règles : PAS de nouvelle feature / ticker / source / handler. Daily /brief. Aut
 
 ## DÉCISIONS PORTFOLIO (opérateur — Olivier)
 
-- **Concentration AI Compute ~80%** : trim direction vs bump policy. Requise avant prochain /position_buy.
+- **Concentration AI Compute ~74%** [ESCALATED Day 17] : trim direction vs bump policy. Requise avant prochain /position_buy. **Mini-ADR samedi 30/05 matin** : plan de-risk 30-60-90j, sequence 4063.T (10.7%) -> SNPS (8.3%) -> TSM (6.2%) -> ASML (5.8%), raison = mecanique cap pre-engagee. Decision id no_action logged Day 17 en attendant ADR.
 - **COHR (#31)** : hold-to-stop $324.37, review 30/05 (override risk_check trim par policy 2-week).
 - **NVDA** : 4 départs officers en 105j + 2 décisions non résolues → /risk_check NVDA candidat.
 - **Orphans c1** AMD/GOOGL/SAF.PA/TSLA : re-taggés en narratifs le 23/05 MAIS target/stop toujours NULL. J+30 = 16/06 : remplir target/stop ou clore.

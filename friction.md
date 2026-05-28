@@ -213,3 +213,15 @@ currency tracking (Sprint 1.3 candidate) preserved as open question in ADR-003.
 2026-05-21 | env hygiene | cd vers tennis-bot + venv désactivé en cours de session. Récurrent. → candidat: alias shell `mbf` = cd mes-bots-finance && source venv/bin/activate, OU prompt qui affiche repo actif clairement.
 2026-05-25 | /asymmetry carte partiel | le prompt "exécute ta prise partielle" se déclenche sur proximité cible PLEINE (d_tgt<=12 || frac>=75), jamais sur `price >= target_partial`. Wording "cible bientôt atteinte" induit un faux modèle (partiel = à la cible). Sous-prompte le partiel pour les paliers bas dans la bande → biais tenir-trop-longtemps encodé dans l'UI. Fix: gater sur target_partial franchi + dissocier le wording palier/cible. (render.py:935-941)
 2026-05-26 | paste channel | blocs avec lignes '#' plantent en zsh interactif (command not found) -> echo-only
+
+## 2026-05-28 — Audit decisions table post reconciliation Lasertec
+
+2026-05-28 11:00 | /position_sell + /position_buy 6920.T->6857.T | reasoning auto-genere generique ("Buy via /position_buy" / "Sell via /position_sell"), pas de prompt pour la raison reelle au moment du trade. KPI #5 incremente sans substance. Workaround = UPDATE SQL post-trade (fait Day 17). Fix UX post-obs : soit prompt reasoning au capture-time dans cmd_position_buy/sell, soit /journal_decision separe pour narrer apres.
+
+2026-05-28 11:05 | audit historique decisions id=10 (25/05) | reasoning riche mais thesis_id=NULL au capture (decision orphelin de these). Source pas claire (peut-etre /thesis_decision ou input manuel sans rattachement). Pattern dangereux : decisions orphelines ne comptent pas KPI #5 thesis-link coverage. Fix Day 17 via UPDATE thesis_id=52. A surveiller si recurrent dans les semaines a venir.
+
+2026-05-28 11:45 | /insider_buy_cluster_stats broken | handler ne fonctionne pas (sortie vide ou erreur). Bloquant pour quantifier signal insider sur tickers semi. Decouvert en voulant calibrer trim cluster. Fix post-observation.
+
+2026-05-28 12:00 | /digest macro signal -> trade decision gap | /digest a surface "insider selling cluster semis" mais sans drill-down ticker-specific. Lecture macro impossible a convertir directement en trade single-ticker. Soit /digest doit driller (top-N tickers cluster), soit accepter qu'il sert au framing thematique pas a l'execution.
+
+2026-05-28 12:05 | TSM no documented thesis (vu via /risk_check) | pattern recurrent : positions actives sans thesis_id linke. Audit needed : combien de positions ont thesis_id=NULL ? Si >20%, KPI #5 thesis-link coverage fictive. Candidat audit batch post-observation.
