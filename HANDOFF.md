@@ -1583,3 +1583,33 @@ Loose ends non-urgents: friction.md (logge ce jour), retirer credentials.json/to
 **Day 17 EXTENSION (cloture reelle)** : sizing overshoot FAIT (la file ci-dessus etait obsolete sur ce point) - barre `th-sz` segmentee gris/ambre/rouge, cible = frontiere de couleur, cap = tick ; queue rouge seulement si depassement de cap. `proches-du-stop` (cockpit) seuille : rouge<10 / ambre<20 / calme>=20, echelle 0-40 -> fini la fausse alarme quand le book est sain. RESTE prochaine session : declutter sizing ("cible taille X%" hisse en en-tete de tier + arrondi EUR), D (ranking actionnabilite), E (parite light/dark des fills fixes #2A4439 / oklch), F (CTA / echelle macro / responsive).
 
 **TOP D-SESSION (decide 28/05, "axe stop")** : unifier les 2 colonnes de la Vue d'ensemble ("Plus proches de la cible" / "Plus proches du stop") sur la PRIMITIVE des cartes Theses = marqueur sur l'axe stop->cible (`frac = (current-stop)/(target-stop)`). POURQUOI : les barres actuelles forcent une fausse symetrie illisible — gauche = barre de PROGRESSION (`_prog`, pleine=arrive=bien), droite = barre de RESERVOIR (`_marge`, pleine=marge=sur). Elles se remplissent dans des sens de "bien" opposes -> aucun modele mental commun. FIX : meme barre des deux cotes (position du prix entre stop et cible), "proche cible" = marqueur pres du bout cible, "proche stop" = pres du bout stop. Un seul modele, lu une fois, applique deux fois. La couleur (ardoise/seuil interim, NON validee par l'utilisateur) se resout DANS ce rework, pas avant. Code : `gain`/`lose`/`_prog`/`_marge`/`_mcls` ~L2115-2135 render.py.
+
+
+---
+
+## Day 17 close — 28/05/2026 (refonte dashboard + surface commandes)
+
+**Pushed origin/main, HEAD b6901e6.**
+
+**Phase 1 — surface commandes (alignee telemetry handler_calls):** /help introspecte le registre (fini le mensonge statique V4), 71 commandes ; 10 docstrings vides comblees ; decision_type documente CONVENTIONS §2 (entry|scale_in|partial_exit|full_exit|override|no_action_flag) ; /bot_data culle ; signals_by_type + insider_buy_cluster_stats restaures ; /tiers construit (sizing conviction price-free, lit config.concentration.line_cap_by_conviction = ADR 009 c5=8/c4=6/c3=4.5/c2=3/c1=2, cluster_max_pct=35).
+
+**Phase 2 — dashboard (render.py ~2200 l, servi HTTP 127.0.0.1:8000, regen `python3 -m dashboard.render`) :**
+- INVARIANT ETABLI : la couleur est un FAIT, jamais un jugement. Un seul modele de lecture = l'axe stop->cible (rouge=cote risque, vert=cote cible), reutilise partout.
+- Les DEUX colonnes Vue d'ensemble (proches cible / proches stop) unifiees sur cette primitive (th-track teinte + marqueur neutre + th-ends stop/cible). Fini progression-vs-reservoir.
+- Asymetrie de-tautologisee (rappel Lesson Day-5 : verdicts STRONG_RUN/FAVORABLE circulaires, derives du stop/cible user -> format_* les STRIP). KPI dashboard repasse au factuel "proches de la cible".
+- Barre sizing : cible (cap/Scaps) vs cap distincts, overshoot ambre/rouge, gap vert sous-cible.
+- Barre de valeur heros = STAR : 20px arrondie, segments --acc/--bear, caption coloree en place, sub2 dredondancie.
+- RECONCILE_FLAGS (render.py L15) : pattern de flag MANUEL de drift book/courtier. Vide ce soir (6920.T trim->Advantest journalise). Se vide a la main quand journalise ; si recidive -> migrer en table DB (pas tant que freeze).
+
+**Methode paste-channel (invariant) :** patch python garde (.bak + assert count==1 + gates py_compile/ruff), regen module-mode (PAS script-mode). Ancrer sur strings stables grepees, jamais lignes devinees.
+
+**Next session — declutter Theses + hierarchie (D/E/F) :**
+- cible-taille "X%" repetee par carte = constante par tier -> hoister en tete de tier ; arrondir € ("-1 944€"->"-1.9k").
+- liste consolidee "A faire aujourd'hui" rankee (la promesse du landing, aujourd'hui eparpillee cockpit/A-surveiller/listes).
+- legende couleur des vitals (l'ambre sur "4 decisions" non defini).
+- titre "Plus proches du stop" -> "Marges les plus faibles" (factuel ; compteur dit 0 near-stop alors que la colonne liste 6).
+- parite light/dark des fills couleur-fixe ; CTA honnete (journal, pas execution) ; retour heros ABSOLU (+25%), pas relatif bench (KPI #6 vs SPY/QQQ non implemente).
+
+**Post-10/06 (inchange) :** credentials.json/token.json a retirer post-OAuth ; shared/display.py refactor €/$/¥/₩ ; universe pruning ; orphans c1 AMD/GOOGL/SAF.PA/TSLA J+30=16/06 ; ADR 005 P2 audit residuel ; prep Hetzner ~31/05 ; Substack opening post pret (docs/drafts/substack_opening_post.md).
+
+**Jour-J = 10/06 :** ~72 predictions auto-resolve (Batch Brier J-13), premier vrai Brier, decision Path 5/6.
