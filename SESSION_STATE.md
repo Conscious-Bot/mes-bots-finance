@@ -415,3 +415,61 @@ render_panel rollout (helper committe 1401e2a, unused) ; cleanup dead CSS vars ;
 ~44 sites sqlite bruts ; split render.py ; recalibration 8-K ; pruning univers (311 tickers) ;
 reconciliation credibility prior 0.5 + Brier de-correle AVANT outcomes juin (137 predictions
 correlees = piege pseudo-replication).
+
+
+---
+
+# CHECKPOINT — Session 28/05/2026 (Day 17)
+
+Mode : High Standard / OBSERVATION jusqu'au 10/06. Freeze = code prediction/behavior.
+Display-only + read-only + data-entry + docs = in-bounds.
+
+## Shippé aujourd'hui (3 commits + 1 ops)
+
+- **Cockpit discipline panel (42db7e8)** : panneau meta-vitals en tête Vue d'ensemble — décisions/30j (rouge actionnable), J-13 countdown 10/06, drift book Lasertec (constant RECONCILE_FLAGS module-level), panic sells. Couleurs disciplinées (rouge=actionnable, blanc=neutre, dots éliminés). Read-only, display-only.
+
+- **CSS token cleanup + sticky sidebar (942243b)** : audit regex → 14 vars CSS mortes supprimées (--bg2/--gold/--ink2/--panel2/--r1-3/--s1-6/--steel2). Phantom --mx/--my conservés (mouse-tracking gradient JS-defined, blind spot regex sans match var(--mx,fallback)). Sidebar position:sticky;top:0;height:100vh;align-self:flex-start. Defined 39→25, unused 0.
+
+- **Macro reorder + tooltips + RSI/breadth + glossary (082bd6e)** :
+  - Moniteur stress macro tri par (alert_status, position_in_map) — rouge en haut (Taux 30y), ambre suit (USD/JPY), reste par ordre book-relevance
+  - Section "Autres" éliminée. RepoSRF/FedBalance/MfgIP_yoy reclassés tier 2, renommée "Stress bancaire & liquidité Fed"
+  - `data-tip` + CSS `[data-tip]:hover::after` sur toutes .drow (zéro JS, dark+frost compatibles, max-width 300px)
+  - Nouveau panneau equity internals sur Urgence : RSI(14) SPY/QQQ/SMH/IWM + Breadth RSP/SPY vs MA50 (cache TTL 30min anti-ban yfinance, helpers _rsi_14/_market_rsi/_breadth_rsp_spy module-level)
+  - `docs/MACRO_GLOSSARY.md` (99 lignes) : référence longue 17+ indicateurs avec seuils et pertinence book AI_compute
+
+- **OAuth Testing → Production (ops, sans commit code)** : GCP Console → APIs & Services → OAuth Consent Screen → Audience → PUBLISH APP (External, unverified, personal-use exception explicite dans doc Google pour scope restreint mono-user). token.json supprimé + re-auth via InstalledAppFlow → refresh_token Production-issued (plus de cap 7j). Smoke test fetch 3 messages OK. Backup `token.json.bak_20260528_104011` conservé.
+
+## Loose ends (par valeur, post Day 17)
+
+1. **Réconciliation book Lasertec (~270 EUR drift)** [INCHANGÉ depuis Day 16] : DB 6920.T qty=8.146 / MV ~1849 EUR vs broker ~6.96 titres / ~1579 EUR. Trim 500 EUR → Advantest PAS journalisé. Fix = `/position_sell 6920.T` + `/position_buy 6857.T`. 5 min, ton job, première vraie entrée KPI #5 hors fixture.
+
+2. **Journal decisions (1 entrée réelle)** [INCHANGÉ] : le seul levier KPI #5 jusqu'au 10/06. Discipline d'usage, pas du code.
+
+3. **Retirer credentials.json + token.json des project files Claude UI** : post-OAuth migration ces fichiers exposent client_secret + refresh_token Production à chaque conversation. Settings Project → Files → delete. 1 min, ton job.
+
+4. **Hetzner migration T-3 ≈ 31 mai** : ADR 002 + deploy planifié. Olivier prépare compte Hetzner + SSH key + réflexion sur VPS tier (CX22 vs CPX21) / backup destination (Storage Box vs Mac vs S3) / OAuth headless (device-flow vs token transfer) / IMAP+AppPassword coupling. Session continue ~3-4h le jour J.
+
+5. **Concentration policy ADR** : 6 positions > cap 5%, 46.5% AI_compute. Decision pending depuis Day 13. À tête fraîche, matin calme, pas fin de session technique.
+
+## Strategique
+
+- **T-3 Hetzner ADR 002** : décisions ouvertes — CX22 vs CPX21 / backup destination / OAuth device-flow ou token transfer / IMAP refactor coupling oui-non.
+- **Post-10/06** : KPI #2 batch (~40 résolutions, cluster J+28). Brier mesurable → point de décision Path 5/6. Si vert → ADR 001 PIT bitemporal implementation + concentration policy + universe pruning.
+- **Multi-user pivot** : ADR post-10/06, séquencé après Hetzner.
+
+## Lessons Day 17
+
+- **Personal-use exception Google OAuth** : pour 1 utilisateur sur scope restreint (gmail.readonly), publish unverified suffit (pas de CASA audit). Cap 100 personal accounts lifetime, on en utilise 1.
+- **Verify-before-patch tient encore** : la discovery RSI a évité de re-patcher du code déjà supposé en place — en réalité perdu/jamais committé entre sessions. Lesson 13/15 sauve les bugs auto-infligés.
+- **Méthode paste-channel mature** : 3 patches majeurs en série + 1 commit propre + 1 ops sécurité = ~1016 inserts, zéro régression. Assert s.count(old)==1 + .bak + gates compile/ruff/pytest = workflow stable.
+
+## Git
+
+HEAD = 082bd6e. ~29 commits ahead origin/main, UNPUSHED. data/bot.db untracked.
+Day 17 commits : 42db7e8 + 942243b + 082bd6e. Ops OAuth sans commit.
+Backups locaux non-tracked : `dashboard/render.py.bak2`, `token.json.bak_20260528_104011`.
+À pousser AVANT Hetzner migration.
+
+## Frozen jusqu'au 10/06 (rappel inchangé)
+
+render_panel rollout (1401e2a unused) ; rapatriement ~44 sites sqlite bruts ; split render.py 2062 LOC ; recalibration 8-K ; pruning univers ~313 tickers ; concentration policy ; reconciliation credibility prior 0.5 + Brier de-correle AVANT outcomes juin (~137 predictions correlees = piège pseudo-réplication).

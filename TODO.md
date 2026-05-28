@@ -1,6 +1,6 @@
 # TODO — HEIMDALL Sentinelle (mes-bots-finance)
 
-**Refresh**: 23 mai 2026 (Day 17)
+**Refresh**: 28 mai 2026 (Day 17, session 28/05)
 **Mode**: High Standard / Observation jusqu'au 10/06/2026
 **Archive**: backlog historique (Day 2-16) → `docs/archive/TODO_archive_20260523.md`
 
@@ -51,6 +51,7 @@ Règles : PAS de nouvelle feature / ticker / source / handler. Daily /brief. Aut
 
 ## INFRA / DETTE
 
+- **Hetzner migration ADR 002 + deploy** ≈ 31 mai (T-3) : VPS Ubuntu + systemd Restart=always + tunnel SSH + OAuth headless
 - shared/display.py canonical refactor (~5-10h)
 - ADR 005 P2 audit résiduel : position_events.price, positions.realized_pnl, decisions.price_at_decision (pattern ratio cross-source Lesson 15)
 - target_partial NULL sur 33/33 theses (schema debt)
