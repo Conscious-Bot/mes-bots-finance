@@ -14,9 +14,7 @@ from intelligence import asymmetry as asym_mod
 
 # Reconciliation flags - known book/broker drifts not yet journaled.
 # Clear an entry when reconciled via /position_sell + /position_buy.
-RECONCILE_FLAGS: list[dict] = [
-    {"ticker": "6920.T", "drift_eur": 270, "note": "trim 500 EUR -> Advantest non journalise (27/05)"},
-]
+RECONCILE_FLAGS: list[dict] = []
 
 
 def _cfg() -> dict:
@@ -1576,7 +1574,12 @@ _CSS = """
   .pfcard { background:linear-gradient(135deg,rgba(61,139,255,.04),transparent 60%),var(--panel); border:1px solid var(--line2); border-radius:18px; padding:20px 24px; backdrop-filter:blur(9px); display:flex; flex-direction:column; }
   .pfcard .v { font-family:var(--fd); font-weight:800; font-size:30px; letter-spacing:-.03em; line-height:1; margin:8px 0 5px; color:var(--ink); }
   .pfcard .d { font-family:var(--fm); font-size:14px; font-weight:600; } .pfcard .d.pos { color:var(--acc); } .pfcard .d.neg { color:var(--bear); }
-  .pfcard .distline { margin:15px 0 0; }
+  .pfcard .distline { margin:16px 0 0; height:20px; gap:3px; border-radius:0; overflow:visible; }
+  .pfcard .distline .g { background:var(--acc); border-radius:5px; }
+  .pfcard .distline .r { background:var(--bear); border-radius:5px; }
+  .pfcard .distcap { display:flex; justify-content:space-between; font-family:var(--fm); font-size:11.5px; margin-top:9px; }
+  .pfcard .distcap .cg { color:var(--acc); font-weight:600; }
+  .pfcard .distcap .cr { color:var(--bear); font-weight:600; }
   .pfcard .sub2 { font-size:11.5px; color:var(--steel); margin-top:auto; padding-top:13px; } .pfcard .sub2 b { color:var(--ink); font-weight:600; }
   @media (max-width:980px) { .hrow { grid-template-columns:1fr; } }
   .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; margin:16px 0 4px; }
@@ -2111,29 +2114,26 @@ def render() -> Path:
         '<div class="colhead" style="margin-top:22px"><span class="t">Derni&egrave;res d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
         f'<div class="card pad">{journal_html}</div>'
     ) if journal_html else ""
-    _prog = {}
+    _axis: dict[str, dict[str, float]] = {}
     for r in computed:
-        e, t, c = r.get("entry") or 0, r.get("target_full") or 0, r.get("current_price") or 0
-        if e and t and t != e:
-            _prog[r["ticker"]] = max(0.0, min(100.0, (c - e) / (t - e) * 100))
-    _marge = {r["ticker"]: r["downside_pct"] for r in computed if r.get("downside_pct") is not None}
-    _cibles = sorted(_prog, key=lambda tk: -_prog[tk])[:6]
-    _stops = sorted(_marge, key=lambda tk: _marge[tk])[:6]
-    gain = "".join(
-        f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span><span class="tag up">{_prog[tk]:.0f}%</span></div>'
-        f'<div class="track"><div class="fill up" style="--w:{_prog[tk]:.0f}%"></div></div>'
-        f'<div class="rs"><span>vers la cible</span></div></div>'
-        for tk in _cibles
-    ) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
-    def _mcls(m: float) -> str:
-        return "danger" if m < 10 else "warn" if m < 20 else "mute"
+        st, tg, c = r.get("stop") or 0, r.get("target_full") or 0, r.get("current_price") or 0
+        up, dn = r.get("upside_pct"), r.get("downside_pct")
+        if st and tg and tg != st and c and up is not None and dn is not None:
+            _axis[r["ticker"]] = {"frac": max(0.0, min(100.0, (c - st) / (tg - st) * 100)), "up": up, "dn": dn}
+    _cibles = sorted(_axis, key=lambda tk: -_axis[tk]["frac"])[:6]
+    _stops = sorted(_axis, key=lambda tk: _axis[tk]["frac"])[:6]
 
-    lose = "".join(
-        f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span><span class="tag {_mcls(_marge[tk])}">{_marge[tk]:.0f}%</span></div>'
-        f'<div class="track"><div class="fill {_mcls(_marge[tk])}" style="--w:{max(2.0, min(100.0, _marge[tk])):.0f}%"></div></div>'
-        f'<div class="rs"><span>marge avant le stop</span></div></div>'
-        for tk in _stops
-    ) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
+    def _axisrow(tk: str) -> str:
+        a = _axis[tk]
+        return (
+            f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span></div>'
+            f'<div class="th-track"><div class="th-cur" style="left:{a["frac"]:.1f}%"></div></div>'
+            f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
+            f'<span class="th-tgt">cible +{a["up"]:.0f}%</span></div></div>'
+        )
+
+    gain = "".join(_axisrow(tk) for tk in _cibles) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
+    lose = "".join(_axisrow(tk) for tk in _stops) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
     cockpit_html = (
         '<div class="card pad" style="margin-bottom:18px">'
         '<div class="colhead">'
@@ -2152,7 +2152,8 @@ def render() -> Path:
         f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
         f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
-        f'<div class="sub2"><b>{n_gain}/{n_pnl}</b> en gain &middot; {gpct:.0f}% du capital en gain &middot; {pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
+        f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
+        f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">ta th&egrave;se se r&eacute;alise</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Plus proches du stop</span><span class="a">marge avant invalidation</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
