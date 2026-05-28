@@ -681,6 +681,30 @@ _MACRO_BANDS = {
 }
 
 
+_MACRO_TIPS: dict[str, str] = {
+    "TYX": "Coût capital long. > 5% = multiples growth/tech craquent historiquement.",
+    "Gold": "Hedge taux réels / débasement / géopol. Lecture interprétative.",
+    "USDJPY": "Baromètre carry trade. > 160 = zone intervention BoJ → tail risk unwind tech US.",
+    "VIX": "Vol implicite S&P 500 30j. < 15 euphorie, > 25 stress, > 40 panique.",
+    "HY_OAS": "Prime junk bonds vs Treasury. < 300 = complacent, > 600 = panique. Signal avancé.",
+    "DXY": "USD vs 6 majeures. > 105 = vent contraire multinationales US ; > 110 = stress global.",
+    "BTC": "Baromètre risk-on et proxy de liquidité globale.",
+    "MOVE": "VIX des Treasuries. > 130 = stress obligataire, souvent avancé sur actions.",
+    "T10Y2Y": "Yield curve. Dé-inversion (passage <0 vers >0) = récession dans 3-6 mois.",
+    "BankReserves": "Cash bancaire à la Fed. < 2.5T = stress plomberie imminent.",
+    "RepoSRF": "Standing Repo Facility. > 30B = banques court de cash, alarme plomberie aiguë.",
+    "FedBalance": "Bilan Fed. Contraction (QT) = liquidité retirée, vent contraire risk assets.",
+    "FedBalanceSheet": "Bilan Fed. Contraction (QT) = liquidité retirée, vent contraire risk assets.",
+    "FedBS": "Bilan Fed. Contraction (QT) = liquidité retirée, vent contraire risk assets.",
+    "KRE": "ETF banques régionales. Décrochage brutal = signal stress type SVB.",
+    "CopperGold": "Cuivre industriel vs or refuge. Monte = cycle haussier, baisse = peur récession.",
+    "CoreCPI": "Core CPI YoY. > 2.5% = Fed bloquée en restrictif → vent contraire growth/tech.",
+    "CPI": "Core CPI YoY. > 2.5% = Fed bloquée en restrictif → vent contraire growth/tech.",
+    "MfgIP": "Production industrielle YoY. > 0 = expansion molle ou forte.",
+    "MfgIP_yoy": "Production industrielle YoY. > 0 = expansion molle ou forte.",
+}
+
+
 def _macro_dot(ind: str, v: float) -> str:
     "Couleur du point macro selon le niveau reel (decouplee de la phase). Inconnu -> mute."
     band = _MACRO_BANDS.get(ind)
@@ -692,27 +716,131 @@ def _macro_dot(ind: str, v: float) -> str:
     return "danger" if v <= danger else ("warn" if v <= warn else "calm")
 
 
+# === Equity internals: RSI(14) + Breadth (RSP/SPY) — cache TTL 30min ===
+_RSI_CACHE: dict[str, float | None] = {}
+_RSI_CACHE_TS: dict[str, float] = {}
+_RSI_TTL = 1800.0
+
+
+def _rsi_14(ticker: str) -> float | None:
+    """RSI(14) daily via simple rolling mean. Cache 30min (anti-ban yfinance)."""
+    import time as _t
+    now = _t.time()
+    if ticker in _RSI_CACHE and now - _RSI_CACHE_TS.get(ticker, 0) < _RSI_TTL:
+        return _RSI_CACHE[ticker]
+    try:
+        import yfinance as yf
+        closes = yf.Ticker(ticker).history(period="2mo", interval="1d")["Close"].dropna()
+        if len(closes) < 15:
+            _RSI_CACHE[ticker] = None
+            _RSI_CACHE_TS[ticker] = now
+            return None
+        delta = closes.diff()
+        gain = delta.where(delta > 0, 0).rolling(14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+        rs = gain / loss.replace(0, 1e-10)
+        rsi: float | None = float((100 - 100 / (1 + rs)).iloc[-1])
+    except Exception:
+        rsi = None
+    _RSI_CACHE[ticker] = rsi
+    _RSI_CACHE_TS[ticker] = now
+    return rsi
+
+
+def _market_rsi() -> str:
+    """4 lignes RSI : SPY, QQQ, SMH, IWM avec data-tip + couleurs OB/OS."""
+    import html as _h
+    tickers = [
+        ("SPY", "S&P 500",      "Momentum S&P 500. > 70 overbought (pullback risque), < 30 oversold (bounce probable)."),
+        ("QQQ", "Nasdaq 100",   "Momentum Nasdaq 100 (tech). Plus proche du book."),
+        ("SMH", "Semis",        "Momentum semis (exposition AI_compute). > 75 = zone prise profits, < 30 = zone add."),
+        ("IWM", "Russell 2000", "Momentum small-caps. Si IWM lag pendant que SMH rip, breadth fragile."),
+    ]
+    rows = ""
+    for tk, name, tip in tickers:
+        rsi = _rsi_14(tk)
+        if rsi is None:
+            num, dot, tag = "n/a", "mute", ""
+        else:
+            num = f"{rsi:.1f}"
+            if rsi >= 80 or rsi <= 20:
+                dot, tag = "danger", ("OB" if rsi >= 80 else "OS")
+            elif rsi >= 70 or rsi <= 30:
+                dot, tag = "warn", ("OB" if rsi >= 70 else "OS")
+            else:
+                dot, tag = "calm", ""
+        tip_attr = f' data-tip="{_h.escape(tip, quote=True)}"'
+        tag_html = f'<span class="dp">{tag}</span>' if tag else '<span class="dp"></span>'
+        rows += (
+            f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span>'
+            f'<span class="dname">{name} <span style="color:var(--steel);font-size:10px">({tk})</span></span>'
+            f'<span class="dval {dot}">{num}</span>{tag_html}</div>'
+        )
+    return rows
+
+
+def _breadth_rsp_spy() -> str:
+    """Breadth: ratio RSP/SPY vs MA50. Baisse = mega-caps portent seuls, fragile."""
+    import html as _h
+    fallback = '<div class="drow"><span class="ddot mute"></span><span class="dname">RSP / SPY ratio</span><span class="dval mute">n/a</span><span class="dp"></span></div>'
+    try:
+        import yfinance as yf
+        rsp = yf.Ticker("RSP").history(period="3mo", interval="1d")["Close"].dropna()
+        spy = yf.Ticker("SPY").history(period="3mo", interval="1d")["Close"].dropna()
+        if len(rsp) < 50 or len(spy) < 50:
+            return fallback
+        ratio = (rsp / spy).dropna()
+        if len(ratio) < 50:
+            return fallback
+        cur = float(ratio.iloc[-1])
+        ma50 = float(ratio.tail(50).mean())
+        delta_pct = (cur - ma50) / ma50 * 100
+    except Exception:
+        return fallback
+    if delta_pct >= 1.0:
+        dot, tag = "calm", "LARGE"
+    elif delta_pct <= -2.0:
+        dot, tag = "danger", "&Eacute;TROIT"
+    elif delta_pct <= -0.5:
+        dot, tag = "warn", "&Eacute;TROIT"
+    else:
+        dot, tag = "calm", ""
+    tip = "Equal-weight (RSP) vs cap-weight (SPY). > MA50 = rally large (sain). < MA50 = mega-caps seuls (fragile)."
+    tip_attr = f' data-tip="{_h.escape(tip, quote=True)}"'
+    return (
+        f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span>'
+        f'<span class="dname">RSP / SPY ratio <span style="color:var(--steel);font-size:10px">vs MA50</span></span>'
+        f'<span class="dval {dot}">{delta_pct:+.2f}%</span><span class="dp">{tag}</span></div>'
+    )
+
+
 def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str = "", near_t: int = 0) -> str:
     debt_map = {
+        # Tier 1: Marché & liquidité — alertes en haut, crédit/peur/FX/sentiment, hedge en bas
         "TYX": (1, "Taux US 30 ans (%)", 4, False),
-        "Gold": (1, "Or ($/oz)", 0, True),
         "USDJPY": (1, "USD/JPY", 2, False),
-        "VIX": (1, "VIX", 2, False),
         "HY_OAS": (1, "Spread HY (bp)", 2, False),
+        "VIX": (1, "VIX", 2, False),
         "DXY": (1, "Dollar (DXY)", 2, False),
         "BTC": (1, "Bitcoin ($)", 0, True),
+        "Gold": (1, "Or ($/oz)", 0, True),
+        # Tier 2: Stress bancaire & liquidité Fed — signaux avancés en haut, plomberie milieu, slow bas
         "MOVE": (2, "Vol. obligataire (MOVE)", 2, False),
-        "KRE": (2, "Banques r&eacute;gionales ($)", 2, False),
         "T10Y2Y": (2, "Pente 10a-2a (%)", 4, False),
         "BankReserves": (2, "R&eacute;serves bancaires Fed ($M)", 0, True),
+        "RepoSRF": (2, "Standing Repo Facility ($B)", 2, False),
+        "FedBalance": (2, "Bilan Fed ($M)", 0, True),
+        "FedBalanceSheet": (2, "Bilan Fed ($M)", 0, True),
+        "FedBS": (2, "Bilan Fed ($M)", 0, True),
+        "KRE": (2, "Banques r&eacute;gionales ($)", 2, False),
         "CopperGold": (2, "Ratio cuivre/or", 4, False),
+        # Tier 3: Macro lente
         "CoreCPI": (3, "Inflation core (%)", 4, False),
         "CPI": (3, "Inflation core (%)", 4, False),
-        "FedBalanceSheet": (3, "Bilan Fed ($M)", 0, True),
-        "FedBS": (3, "Bilan Fed ($M)", 0, True),
         "MfgIP": (3, "Production industrielle (%)", 4, False),
+        "MfgIP_yoy": (3, "Production industrielle (%)", 4, False),
     }
-    tnames = {1: "March&eacute; & liquidit&eacute;", 2: "Stress bancaire", 3: "Macro lente", 9: "Autres"}
+    tnames = {1: "March&eacute; &amp; liquidit&eacute;", 2: "Stress bancaire &amp; liquidit&eacute; Fed", 3: "Macro lente", 9: "Autres"}
     try:
         sig = _q("SELECT indicator_name, value, phase, timestamp FROM debt_signals WHERE id IN (SELECT MAX(id) FROM debt_signals GROUP BY indicator_name) ORDER BY timestamp DESC")
     except Exception:
@@ -720,7 +848,10 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     import datetime as _dt
     _today = _dt.date.today()
     _STALE = {1: 3, 2: 10, 3: 40, 9: 10}  # tolerance jours: daily / hebdo / mensuel
-    tiers: dict[int, str] = {}
+    import html as _html_esc
+    _pos = {k: i for i, k in enumerate(debt_map.keys())}
+    _dot_priority = {"danger": 0, "warn": 1, "calm": 2, "mute": 3}
+    tier_rows: dict[int, list[tuple]] = {}
     for ind, val, phase, ts in sig:
         tier, label, dec, thou = debt_map.get(ind, (9, ind, 2, False))
         v = float(val or 0)
@@ -733,10 +864,15 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
             _age = 0
         stale = '<span class="stale">p&eacute;rim&eacute;</span>' if _age > _STALE.get(tier, 10) else ""
         vcls = "mute" if stale else dot
-        tiers[tier] = tiers.get(tier, "") + (
-            f'<div class="drow"><span class="ddot {dot}"></span><span class="dname">{label}</span>'
+        tip = _MACRO_TIPS.get(ind, "")
+        tip_attr = f' data-tip="{_html_esc.escape(tip, quote=True)}"' if tip else ""
+        sort_key = (_dot_priority.get(dot, 9), _pos.get(ind, 999), ind)
+        row_html = (
+            f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span><span class="dname">{label}</span>'
             f'<span class="dval {vcls}">{num}</span><span class="dp">P{ph}</span>{stale}</div>'
         )
+        tier_rows.setdefault(tier, []).append((sort_key, row_html))
+    tiers: dict[int, str] = {t: "".join(h for _, h in sorted(rows)) for t, rows in tier_rows.items()}
     blocks = "".join(f'<div class="dtier">{tnames[t]}</div>{tiers[t]}' for t in (1, 2, 3, 9) if tiers.get(t))
     try:
         comp = _q("SELECT score, phase FROM debt_composite ORDER BY timestamp DESC LIMIT 1")
@@ -776,6 +912,8 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         + f'<div class="gtrack"><div class="gmark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
         '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
     )
+    rsi_html = _market_rsi()
+    breadth_html = _breadth_rsp_spy()
     return (
         f'<section data-page="urgence"><div class="phead"><h2>Urgence</h2>'
         f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro (/debt_status, en direct)</div></div>'
@@ -784,7 +922,13 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f'<div><div class="ph3">Course vers la cible</div><div class="card pad">{elan}</div></div>'
         f'<div><div class="ph3">Positions proches du stop</div><div class="card pad">{watch}</div></div>'
         f'<div><div class="ph3">Moniteur de stress macro &mdash; {clabel}</div>'
-        f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div></section>'
+        f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
+        f'<div class="cols">'
+        f'<div><div class="ph3">Momentum march&eacute; &middot; RSI(14) daily &middot; cache 30min</div>'
+        f'<div class="card pad"><div class="dlist">{rsi_html}</div></div></div>'
+        f'<div><div class="ph3">Breadth &middot; participation au rally</div>'
+        f'<div class="card pad"><div class="dlist">{breadth_html}</div></div></div>'
+        f'</div></section>'
     )
 
 
@@ -1333,6 +1477,9 @@ _CSS = """
   .ph3 { font-family:var(--fb); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin:0 0 12px; }
   .dtier { font-family:var(--fb); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin:16px 0 6px; padding-bottom:6px; border-bottom:1px solid var(--line); }
   .dlist > .dtier:first-child { margin-top:0; }
+  [data-tip]{position:relative;cursor:help}
+  [data-tip]:hover::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 4px);background:var(--panel);color:var(--ink);border:1px solid var(--line2);padding:7px 11px;border-radius:6px;font-family:var(--fb);font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;white-space:normal;max-width:300px;width:max-content;z-index:1000;box-shadow:0 6px 18px rgba(0,0,0,.5);pointer-events:none;line-height:1.4}
+  body.frost [data-tip]:hover::after{box-shadow:0 6px 18px rgba(0,0,0,.15)}
   .drow { display:grid; grid-template-columns:14px 1fr auto auto auto; align-items:center; gap:10px; padding:7px 0; font-size:13px; }
   .ddot { width:8px; height:8px; border-radius:50%; }
   .ddot.calm { background:#37E0A0; box-shadow:0 0 7px rgba(55,224,160,.6); } .ddot.warn { background:#FACC15; box-shadow:0 0 7px rgba(250,204,21,.6); }
