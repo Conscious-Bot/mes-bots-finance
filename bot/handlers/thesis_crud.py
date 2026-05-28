@@ -63,6 +63,7 @@ async def cmd_thesis_add(update, ctx):  # noqa: ARG001
 
 
 async def cmd_thesis_list(update, ctx):  # noqa: ARG001
+    """Liste les theses actives (chunked si > limite Telegram)."""
     msg = thesis_mod.list_active()
     # Telegram hard limit 4096 chars; chunk on paragraph boundaries if needed
     if len(msg) <= 3900:
@@ -128,6 +129,7 @@ async def cmd_thesis_note(update, ctx):
 
 
 async def cmd_exit(update, ctx):
+    """Verifie les triggers de sortie d'une these. Usage: /exit TICKER [price]."""
     if not ctx.args:
         await update.message.reply_text("Usage: /exit TICKER [current_price]")
         return
@@ -144,6 +146,7 @@ async def cmd_exit(update, ctx):
 
 
 async def cmd_exit_force(update, ctx):
+    """Ferme une these de force (regret-tagged). Usage: /exit_force TICKER <raison>."""
     if not ctx.args or len(ctx.args) < 2:
         await update.message.reply_text("Usage: /exit_force TICKER <raison>")
         return

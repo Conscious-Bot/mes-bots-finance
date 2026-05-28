@@ -4,6 +4,7 @@ from shared import storage
 
 
 async def cmd_ping(update, ctx):  # noqa: ARG001
+    """Liveness probe : alive + capital + drawdown."""
     state = storage.load_state()
     await update.message.reply_text(
         f"alive\n"

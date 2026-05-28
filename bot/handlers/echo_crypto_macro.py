@@ -306,6 +306,7 @@ async def cmd_crypto(update, ctx):  # noqa: ARG001
 
 
 async def cmd_credit(update, ctx):  # noqa: ARG001
+    """Regime de credit macro (HY spreads, conditions)."""
     try:
         from shared import macro
 

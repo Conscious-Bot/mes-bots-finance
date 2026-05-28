@@ -12,6 +12,7 @@ CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_ti
 
 
 async def cmd_regime(update, ctx):  # noqa: ARG001
+    """Detection du regime de marche (risk_on/off/transition/crisis)."""
     await update.message.reply_text("Detection regime en cours (5-10s)...")
     try:
         r = regime_mod.detect_regime()
@@ -22,6 +23,7 @@ async def cmd_regime(update, ctx):  # noqa: ARG001
 
 
 async def cmd_calendar(update, ctx):  # noqa: ARG001
+    """Evenements macro a venir (60j) + alertes pre-evenement par these."""
     events = storage.get_upcoming_events(days_ahead=60)
     msg = calendar_mod.format_calendar(events, days_ahead=60)
     alerts = calendar_mod.get_pre_event_thesis_alerts(days_ahead=14)

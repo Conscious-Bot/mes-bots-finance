@@ -8,6 +8,7 @@ from shared import storage
 
 
 async def cmd_credibility(update, ctx):  # noqa: ARG001
+    """Credibilite des sources : top 10 + bottom 5."""
     msg = credibility_mod.list_top_sources(n=10)
     msg += "\n\n" + credibility_mod.list_worst_sources(n=5)
     await update.message.reply_text(msg)
@@ -56,6 +57,7 @@ async def _predictions_resolve(update, ctx):  # noqa: ARG001
 
 
 async def cmd_resolve_now(update, ctx):  # noqa: ARG001
+    """Force la resolution des predictions arrivees a echeance."""
     await update.message.reply_text("Resolution en cours...")
     try:
         results = learning_mod.resolve_due_predictions()
@@ -66,6 +68,7 @@ async def cmd_resolve_now(update, ctx):  # noqa: ARG001
 
 
 async def cmd_feedback(update, ctx):
+    """Feedback up/down sur un signal. Usage: /feedback <signal_id> <up|down>."""
     if not ctx.args or len(ctx.args) < 2:
         await update.message.reply_text(
             "Usage: /feedback <signal_id> <up|down>\nEx: /feedback 42 up\n(signal_id affiches dans le digest avec prefix #)"
