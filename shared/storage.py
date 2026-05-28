@@ -1303,6 +1303,43 @@ def get_positions_history(ticker=None, limit=50):
         conn.close()
 
 
+def get_latest_decision():
+    """Return (id, ticker, decision_type, reasoning) of the most recent decision, or None."""
+    conn = _sqlite3.connect(_DB_PATH)
+    try:
+        return conn.execute(
+            "SELECT id, ticker, decision_type, reasoning FROM decisions ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def get_decision_brief(decision_id):
+    """Return (id, ticker, decision_type, reasoning) for a specific decision, or None."""
+    conn = _sqlite3.connect(_DB_PATH)
+    try:
+        return conn.execute(
+            "SELECT id, ticker, decision_type, reasoning FROM decisions WHERE id=?",
+            (decision_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def update_decision_reasoning(decision_id, reasoning):
+    """Replace the reasoning field of a decision row. Returns True if a row was affected."""
+    conn = _sqlite3.connect(_DB_PATH)
+    try:
+        cur = conn.execute(
+            "UPDATE decisions SET reasoning=? WHERE id=?",
+            (reasoning, decision_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def update_decision_bias_tags(decision_id, tags):
     """Phase B6 — Persist bias_tags JSON array on a decision."""
     import json as _json

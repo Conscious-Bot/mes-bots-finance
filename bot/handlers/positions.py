@@ -14,6 +14,7 @@ Module exports:
 - cmd_portfolio       : /portfolio active positions + concentration + unrealized PnL
 - cmd_position_buy    : /position_buy <TICKER> <QTY> <PRICE> [reasoning]
 - cmd_position_sell   : /position_sell <TICKER> <QTY> <PRICE> [reasoning]
+- cmd_journal_decision : /journal_decision [<id>] <free text> (enrichir reasoning a posteriori)
 - _portfolio_journal_ctx : helper (re-exported via bot.main for smoke test compat)
 """
 
@@ -26,7 +27,7 @@ from typing import Any
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from shared import positions as positions_mod
+from shared import positions as positions_mod, storage
 from shared.display import format_finance, format_pct
 
 __all__ = [
@@ -581,3 +582,61 @@ async def cmd_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
+
+
+
+async def cmd_journal_decision(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
+    """Enrichir le reasoning d'une decision deja loggee.
+
+    Usage: /journal_decision <free text>           (cible la derniere decision)
+       ou: /journal_decision <id> <free text>      (cible une decision specifique pour rattrapage)
+
+    Workaround design Day 17 : cmd_position_buy/sell acceptent [reasoning] en 4eme arg mais
+    si l'utilisateur ne le passe pas, le row est cree avec placeholder ("Buy via /position_buy").
+    Ce handler enrichit apres-coup, ADDITIF (zero modif de cmd_position_buy/sell),
+    observation-safe (zero impact pipeline signal->prediction->resolution).
+    """
+    assert update.message is not None and update.message.text is not None
+    parts = update.message.text.split(maxsplit=2)
+    if len(parts) < 2:
+        await update.message.reply_text(
+            "Usage : /journal_decision <free text>           (derniere decision)\n"
+            "   ou : /journal_decision <id> <free text>      (decision specifique)"
+        )
+        return
+
+    decision_id: int | None = None
+    text: str = ""
+    # Detect <id> <text> form
+    if len(parts) >= 3 and parts[1].isdigit():
+        candidate = int(parts[1])
+        if storage.get_decision_brief(candidate) is not None:
+            decision_id = candidate
+            text = parts[2]
+
+    # Default to latest decision
+    if decision_id is None:
+        latest = storage.get_latest_decision()
+        if latest is None:
+            await update.message.reply_text("Aucune decision en DB a enrichir.")
+            return
+        decision_id = latest[0]
+        text = update.message.text.split(maxsplit=1)[1]
+
+    text = text.strip()
+    if not text:
+        await update.message.reply_text("Reasoning vide, rien a faire.")
+        return
+
+    target = storage.get_decision_brief(decision_id)
+    if target is None:
+        await update.message.reply_text(f"Decision #{decision_id} introuvable.")
+        return
+
+    ok = storage.update_decision_reasoning(decision_id, text)
+    if ok:
+        await update.message.reply_text(
+            f"OK reasoning enrichi pour decision #{decision_id} ({target[1]}, {target[2]})"
+        )
+    else:
+        await update.message.reply_text(f"Echec UPDATE decision #{decision_id}.")

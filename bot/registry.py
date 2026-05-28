@@ -58,6 +58,7 @@ from bot.handlers.portfolio_views import (
     cmd_portfolio_sectors,
 )
 from bot.handlers.positions import (
+    cmd_journal_decision,
     cmd_portfolio,
     cmd_position_buy,
     cmd_position_sell,
@@ -155,6 +156,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("journal", cmd_journal))
     app.add_handler(CommandHandler("journal_review", cmd_journal_review))
     app.add_handler(CommandHandler("journal_audit", cmd_journal_audit))
+    app.add_handler(CommandHandler("journal_decision", cmd_journal_decision))
     app.add_handler(CommandHandler("thesis_health", cmd_thesis_health))
     app.add_handler(CommandHandler("bias_pattern", cmd_bias_pattern))
     app.add_handler(CommandHandler("biases", cmd_bias_pattern))  # Sprint 1.2 Phase A alias
