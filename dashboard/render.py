@@ -1122,7 +1122,7 @@ _TH_CSS = """
   .th-w { font-family:var(--fm); font-size:12px; font-weight:600; color:var(--ink); text-align:right; align-self:center; }
   .th-dir { font-family:var(--fb); font-size:9.5px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
   .th-bar { display:flex; flex-direction:column; gap:6px; grid-column:1/-1; margin-top:8px; }
-  .th-track { position:relative; height:10px; border-radius:5px; background:rgba(128,128,128,.10); }
+  .th-track { position:relative; height:10px; border-radius:5px; background:linear-gradient(90deg, rgba(216,74,74,.36), rgba(216,74,74,0) 40%, rgba(40,160,90,0) 60%, rgba(40,160,90,.40)), rgba(128,128,128,.10); }
   .th-sz { position:relative; height:5px; border-radius:3px; background:rgba(128,128,128,.14); }
   .th-szf { position:absolute; left:0; top:0; bottom:0; border-radius:3px; }
   .th-szc { position:absolute; top:-2px; bottom:-2px; left:76.9%; width:1.5px; border-radius:1px; background:rgba(128,128,128,.5); }
@@ -1254,12 +1254,16 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                curc = "var(--ink)"
+                if t["d_stop"] is not None and t["d_stop"] < 10:
+                    curc = "oklch(0.55 0.20 25)"
+                elif t["d_tgt"] is not None and t["d_tgt"] < 12:
+                    curc = "oklch(0.58 0.16 150)"
+                else:
+                    curc = "var(--ink)"
                 if t["entry_frac"] is not None:
                     ef = t["entry_frac"]
                     fc = t["frac"]
-                    _fcol = "oklch(0.72 0.16 150)" if fc >= ef else "oklch(0.62 0.18 25)"
-                    curc = "oklch(0.52 0.16 150)" if fc >= ef else "oklch(0.50 0.18 25)"
+                    _fcol = "rgba(128,128,128,.22)"
                     zones = (
                         f'<div class="th-fill" style="left:{min(ef, fc):.1f}%;width:{abs(fc - ef):.1f}%;background:{_fcol}"></div>'
                         f'<div class="th-entry" style="left:{ef:.1f}%;top:-1px;bottom:-1px;width:1px;background:rgba(128,128,128,.5)"></div>'
