@@ -1480,12 +1480,12 @@ _CSS = """
   .rt { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; } .tk { font-family:var(--fm); font-weight:600; font-size:13px; }
   .tag { font-family:var(--fm); font-weight:600; font-size:11px; padding:3px 9px; border-radius:6px; }
   .tag.up { color:var(--acc); background:rgba(55,224,160,.12); } .tag.acc2 { color:var(--acc2); background:rgba(61,139,255,.12); }
-  .tag.down,.tag.danger { color:var(--bear); background:rgba(255,107,107,.13); } .tag.warn { color:var(--warn); background:rgba(255,176,32,.14); } .tag.calm { color:var(--steel); background:rgba(124,137,166,.12); }
+  .tag.down,.tag.danger { color:var(--bear); background:rgba(255,107,107,.13); } .tag.warn { color:var(--warn); background:rgba(255,176,32,.14); } .tag.calm { color:var(--steel); background:rgba(124,137,166,.12); } .tag.mute { color:var(--steel); background:rgba(124,137,166,.12); }
   .track { height:10px; background:var(--barbg); border-radius:5px; overflow:hidden; }
   .fill { height:100%; border-radius:4px; width:0; animation:grow .8s cubic-bezier(.2,.8,.2,1) forwards; }
   .fill.up { background:linear-gradient(90deg,#7CF0C4,var(--acc)); box-shadow:0 0 10px rgba(55,224,160,.35); }
   .fill.prismatic { background:linear-gradient(100deg,#FFE24A,#37E0A0,#00E0FF,#8A6CFF); box-shadow:0 0 12px rgba(55,224,160,.5); }
-  .fill.danger { background:linear-gradient(90deg,#FF9A9A,var(--bear)); } .fill.warn { background:linear-gradient(90deg,#FFD27A,var(--warn)); } .fill.calm { background:#2A4439; } .fill.acc2 { background:linear-gradient(90deg,#8FF0FF,var(--acc2)); }
+  .fill.danger { background:linear-gradient(90deg,#FF9A9A,var(--bear)); } .fill.warn { background:linear-gradient(90deg,#FFD27A,var(--warn)); } .fill.calm { background:#2A4439; } .fill.acc2 { background:linear-gradient(90deg,#8FF0FF,var(--acc2)); } .fill.mute { background:rgba(99,123,176,.6); }
   .rs { display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--steel); }
   .dwrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
   .legend { display:flex; flex-direction:column; gap:8px; flex:1; min-width:200px; }
@@ -2126,11 +2126,11 @@ def render() -> Path:
         for tk in _cibles
     ) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
     def _mcls(m: float) -> str:
-        return "danger" if m < 10 else "warn" if m < 20 else "calm"
+        return "danger" if m < 10 else "warn" if m < 20 else "mute"
 
     lose = "".join(
         f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span><span class="tag {_mcls(_marge[tk])}">{_marge[tk]:.0f}%</span></div>'
-        f'<div class="track"><div class="fill {_mcls(_marge[tk])}" style="--w:{max(2.0, min(100.0, _marge[tk] / 40 * 100)):.0f}%"></div></div>'
+        f'<div class="track"><div class="fill {_mcls(_marge[tk])}" style="--w:{max(2.0, min(100.0, _marge[tk])):.0f}%"></div></div>'
         f'<div class="rs"><span>marge avant le stop</span></div></div>'
         for tk in _stops
     ) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
