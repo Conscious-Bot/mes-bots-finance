@@ -491,3 +491,55 @@ async def cmd_portfolio_drift(update, ctx):  # noqa: ARG001
             await update.message.reply_text(c, parse_mode="Markdown")
     else:
         await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def cmd_tiers(update, ctx):  # noqa: ARG001
+    """Conviction sizing tiers : cap soft par conviction + cible conviction-normalisee.
+    Source unique = config.concentration.line_cap_by_conviction (ADR 009). Price-free."""
+    from shared import config as _cfg_mod, storage as _storage
+
+    caps = _cfg_mod.load().get("concentration", {}).get("line_cap_by_conviction", {})
+    if not caps:
+        await update.message.reply_text("config.concentration.line_cap_by_conviction absente.")
+        return
+
+    held = {p["ticker"] for p in _storage.get_open_positions()}
+    convs = []
+    for t in _storage.active_theses():
+        if t.get("ticker") not in held:
+            continue
+        try:
+            c = int(t.get("conviction") or 0)
+        except (TypeError, ValueError):
+            continue
+        if c in caps:
+            convs.append(c)
+
+    n_held = len(convs)
+    if n_held == 0:
+        await update.message.reply_text("Aucune ligne tenue avec these active + conviction. Rien a tierer.")
+        return
+
+    sumcaps = sum(caps[c] for c in convs) or 1.0
+    rows = ["tier  cap    lns  cib/ln  cib/t"]
+    for tier in (5, 4, 3, 2, 1):
+        cap = caps.get(tier)
+        if cap is None:
+            continue
+        n_t = sum(1 for c in convs if c == tier)
+        per_line = cap / sumcaps * 100
+        rows.append(f"c{tier}   {cap * 100:4.1f}%  {n_t:3d}  {per_line:5.1f}%  {n_t * per_line:5.1f}%")
+
+    n_c5 = sum(1 for c in convs if c == 5)
+    c5_pct = n_c5 / n_held * 100
+    infl = "warn >20%" if c5_pct > 20 else "ok"
+
+    msg = (
+        "*CONVICTION TIERS* — sizing soft (source: config, ADR 009)\n\n"
+        "```\n" + "\n".join(rows) + "\n```\n"
+        f"Somme cibles tier = 100% (conviction-normalise, {n_held} lignes tenues)\n"
+        f"Inflation c5: {c5_pct:.0f}% des lignes (gate <=20%) {infl}\n\n"
+        "_cap ligne = SOFT (alerte) ; invariant LIANT = cluster 35% (ADR 008/010)_\n"
+        "_poids courant par ligne vs cap -> dashboard /portfolio_"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")

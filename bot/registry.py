@@ -53,6 +53,7 @@ from bot.handlers.portfolio_views import (
     cmd_portfolio_drift,
     cmd_portfolio_narratives,
     cmd_portfolio_sectors,
+    cmd_tiers,
 )
 from bot.handlers.positions import (
     cmd_journal_decision,
@@ -126,6 +127,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("bot_data", cmd_bot_data))  # Sprint 1.2 Phase J family
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
+    app.add_handler(CommandHandler("tiers", cmd_tiers))
     app.add_handler(CommandHandler("signals_by_type", cmd_signals_by_type))
     app.add_handler(CommandHandler("signals_by_type", cmd_signals_by_type))
     app.add_handler(CommandHandler("cost_trajectory", cmd_cost_trajectory))
