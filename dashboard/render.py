@@ -452,7 +452,7 @@ def _concentration(
         cbits.append(f"{over_cap} ligne(s) hors plafond")
     if cluster_breached:
         cbits.append("cluster corr&eacute;l&eacute; au-dessus du plafond")
-    cause = " &middot; ".join(cbits) or "tout sous tes plafonds"
+    cause = " &middot; ".join(cbits) or "tout sous les plafonds"
     top_cls = "negc" if top_pct >= POS_CAP else "acc"
     these_cls = "negc" if dom_these_pct >= NARRATIVE_CAP else "acc"
     line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du plafond' if top_pct >= POS_CAP else 'sous le plafond'} {POS_CAP:.0f}%"
@@ -464,7 +464,7 @@ def _concentration(
     for _c in _ch:
         _ccls = "danger" if _c["breached"] else "calm"
         _otxt = (
-            f"d&eacute;passement +{_c['over_eur']:,.0f}&#8239;&euro; &rarr; trimmer"
+            f"d&eacute;passement +{_c['over_eur']:,.0f}&#8239;&euro; &rarr; all&eacute;ger"
             if _c["over_eur"] > 0
             else "sous le plafond"
         ).replace(",", "&#8239;")
@@ -1022,7 +1022,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
             _conc.append(f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;")
     _dev_cls, _dev_lab = ("danger", "&Agrave; CALIBRER") if _conc else ("calm", "AU CALME")
-    _dev_txt = " &nbsp;&middot;&nbsp; ".join(_conc) if _conc else "concentration sous tes plafonds"
+    _dev_txt = " &nbsp;&middot;&nbsp; ".join(_conc) if _conc else "concentration sous les plafonds"
     feu = (
         '<div class="plan"><div class="plan-h">&Agrave; arbitrer aujourd&rsquo;hui</div><div class="plan-row">'
         + f'<div class="pi {_dev_cls}"><span class="pn">{_dev_lab}</span><span class="pl">&eacute;cart de discipline</span><span class="pt">{_dev_txt}</span></div>'
@@ -2379,7 +2379,7 @@ def render() -> Path:
         _dev.append(f"{near} ligne(s) &lt; 10% du stop")
     _dn = len(_dev)
     _dcls, _dverdict = ("bear", "&Agrave; CALIBRER") if _dn else ("acc", "AU CALME")
-    _ddetail = " &nbsp;&middot;&nbsp; ".join(_dev) if _dev else "tout sous tes r&egrave;gles"
+    _ddetail = " &nbsp;&middot;&nbsp; ".join(_dev) if _dev else "tout sous les r&egrave;gles"
     _dband = (
         f'<div class="dband {_dcls}" onclick="document.querySelector(&#39;[data-nav=concentration]&#39;).click()">'
         f'<span class="dd"></span><span class="dv">{_dverdict}</span>'
