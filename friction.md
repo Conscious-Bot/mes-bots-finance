@@ -231,3 +231,7 @@ currency tracking (Sprint 1.3 candidate) preserved as open question in ADR-003.
 2026-05-28 | /signals_by_type catalyst | bucket catalyst bruite : opinion/narrative (Matt Levine, Stoller, Aave) classes catalyst. Calibration classifier post-10/06.
 2026-05-28 | /signals_by_type | source_name = header From brut ("Name <email>") au lieu d'un nom propre. Display-polish.
 2026-05-28 | /help | ~10 cmds sans docstring -> ligne vide (calendar, credibility, credit, exit, exit_force, feedback, ping, regime, resolve_now, thesis_list). Docstring = 1 ligne, cheap.
+
+2026-05-28 | page Theses sizing bar | hierarchie inversee : le depassement de cap (seule chose actionnable) est le sliver le moins visible ; le tick cap n'est pas labellise
+2026-05-28 | page Theses | "cible taille X%" repete sur chaque carte = constante par palier, bruit
+2026-05-28 | page Theses | "-1 944 EUR" faux precis, a arrondir

@@ -1560,3 +1560,22 @@ Chantier termine + push origin (f783756, 39 commits). Surface 76->72.
 
 Reouverture: lire SESSION_STATE.md tail + TODO Path5/6 + PHILOSOPHY High Standard. Freeze observation jusqu'au 10/06 (display/UX/additif hors-gel).
 Loose ends non-urgents: friction.md (logge ce jour), retirer credentials.json/token.json des project files Claude UI, cat `trade`, Hetzner prep ~31/05 (compte+SSH+ADR 002, 4 questions ouvertes).
+
+
+## Day 17 (28/05/2026) — Dashboard A/B/C-amorce + command surface
+
+**Command surface** (7 commits, pushes faits) : aligné sur télémétrie (handler_calls), 71 cmds, /help auto-généré du registre (fini la string V4 menteuse), 10 docstrings nues remplies, decision_type enum documenté (CONVENTIONS §2), /bot_data culled.
+
+**Dashboard — fil rouge : single-source + couleur = fait, jamais jugement.** 4 commits atomiques :
+- A `_pct` : autorité unique de format des poids → plus-grosse-ligne 9% → 8.6% (réconcilie Concentration/Positions).
+- B1 : KPI "asymétrie favorable (ratio≥2)" → "proches de la cible". La tautologie Day-5 qui avait fui dans le dashboard est retirée, + le seuil local ≥2 (≠ module 1.5) tué.
+- B2+C-amorce : marqueur asymétrie coloré par PROXIMITÉ factuelle (rouge stop / vert cible / neutre sinon — fini le vert-P&L flatteur) + piste teintée rouge→vert FIXE (légende d'axe identique par carte, pas un verdict). Pose l'axe sémantique unique sur tout le dashboard.
+
+**Méta-leçon de session** : j'avais d'abord re-proposé une carte "favorable/défavorable" colorée = exactement la tautologie Day-5. Rattrapé en lisant le code (format_*_asymmetry de-tautologisé 27/05). Le dashboard avait lui-même dérivé de la leçon ; on l'a réaligné sur la couche TG.
+
+**EN ATTENTE — prochaine session "carte Thèses" (D + sizing) :**
+- *Sizing bar overshoot* : hiérarchie inversée aujourd'hui (barre = poids total, cap = tick non-labellisé à 76.9% magique, dépassement = sliver invisible). Refonte : dans-cap muet / **hors-cap rouge saturé proportionnel** / sous-cap marge verte / tick cap labellisé. Code = `th-sz`/`th-szf`/`th-szc` (L1126-1128 CSS) + bloc `_fill`/`sizebar` (~L1300). Isolable, 1 commit.
+- *Déclutter* : "cible taille X%" = constante par palier répétée sur chaque carte → hisser dans l'en-tête du tier.
+- *Faux précis* : "−1 944 €" → arrondi (−1 950 / −1.9k).
+- *D* : page Thèses rangée par ACTIONNABILITÉ d'abord (lignes demandant décision en haut), pas par conviction. Badges conviction déjà colorés (c5 bleu/c4 vert) = moitié de D déjà faite.
+- Restent E (parité light/dark des oklch fixes des barres) + F (CTA honnête decision-log, échelle macro labellisée, responsive/mobile).

@@ -46,3 +46,5 @@ Ready Monday.
   Sprint 1.1 9/10 chunks closed, mypy strict 29 modules, 189 tests.
 2026-05-21 05:05 | test phase L shipped
 2026-05-21 05:06 | old alias still works
+
+2026-05-28 19:10 | dashboard A/B | le dashboard lit enfin honnete : zero favorabilite tautologique, couleur = fait de marche. J'ai meme rattrape une tautologie que je m'appretais a reintroduire — l'outil ne me flatte plus mes propres hypotheses (coeur du recit Path 6).
