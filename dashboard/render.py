@@ -56,6 +56,11 @@ _PX_CACHE: dict[str, tuple[float, float]] = {}
 _PX_TTL = 1800.0  # 30 min: throttle yfinance (partage IP/lib avec price_monitor, evite le ban)
 
 
+def _pct(x: float) -> str:
+    """Autorite unique de format des poids de ligne (1 decimale)."""
+    return f"{x:.1f}"
+
+
 def _cached_price_eur(ticker: str) -> float | None:
     """Source de prix du dashboard: throttle les fetchs live a un burst par TTL.
 
@@ -406,7 +411,7 @@ def _concentration(positions: list[dict], planned: list[dict], sectors: dict, na
         f'{verdict_card}'
         f'{cluster_card}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
-        f'<div class="kpi"><span class="kl">Plus grosse ligne</span><span class="kv {top_cls}">{top_pct:.0f}%</span><span class="kd">{line_msg}</span></div>'
+        f'<div class="kpi"><span class="kl">Plus grosse ligne</span><span class="kv {top_cls}">{_pct(top_pct)}%</span><span class="kd">{line_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Th&egrave;se dominante</span><span class="kv {these_cls}">{dom_these_pct:.0f}%</span><span class="kd">{these_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
         f'<div class="card pad"><div class="sbwrap"><svg id="sb-svg" viewBox="0 0 320 320" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div>'
