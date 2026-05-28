@@ -275,7 +275,7 @@ def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
         hit = prog >= 100
         hits += 1 if hit else 0
         cls, sign = ("up", "+") if pnl >= 0 else ("down", "")
-        bar = "prismatic" if hit else ("up" if pnl >= 0 else "danger")
+        bar = "up" if pnl >= 0 else "danger"
         flag = " &#127919;" if hit else ""
         d = i * 0.035
         rows.append(
@@ -1058,7 +1058,7 @@ def _tape_8k() -> str:
         raw = (str(reason) or str(codes)) or ""
         lab = raw if len(raw) <= 40 else raw[:40].rsplit(" ", 1)[0] + "&hellip;"
         items += f'<span class="ti"><b>{tk}</b> <span class="{cls}">8-K</span> {lab}</span>'
-    return f'<div class="tape tape8k"><div class="track2">{items}{items}</div></div>'
+    return f'<div class="tape tape8k"><div class="track2">{items}</div></div>'
 
 
 def _rail_foot(near: int, heat: float) -> str:
@@ -1534,10 +1534,9 @@ _CSS = """
   .dot { width:7px; height:7px; border-radius:50%; background:var(--acc); }
   .wrap { flex:1; display:flex; flex-direction:column; min-width:0; }
   .tape { overflow:hidden; white-space:nowrap; padding:11px 0; }
-  .tape .track2 { display:inline-block; animation:scroll 50s linear infinite; }
+  .tape .track2 { display:inline-block; }
   .tape .ti { font-family:var(--fm); font-size:11.5px; margin:0 30px; letter-spacing:.02em; } .tape .ti b { color:var(--ink); } .tape .ti .pos { color:var(--acc); } .tape .ti .neg { color:var(--bear); }
-  @keyframes scroll { from{transform:translateX(0);} to{transform:translateX(-50%);} }
-  .tape8k { background:var(--tape); padding:7px 0; } .tape8k .ti .warn { color:var(--warn); } .tape8k .track2 { animation-duration:64s; }
+  .tape8k { background:var(--tape); padding:7px 0; } .tape8k .ti .warn { color:var(--warn); }
   .statedot { width:8px; height:8px; border-radius:50%; }
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
   .main { padding:30px 52px 54px; max-width:1340px; }
@@ -1607,7 +1606,6 @@ _CSS = """
   .track { height:10px; background:var(--barbg); border-radius:5px; overflow:hidden; }
   .fill { height:100%; border-radius:4px; width:0; animation:grow .8s cubic-bezier(.2,.8,.2,1) forwards; }
   .fill.up { background:linear-gradient(90deg,#7CF0C4,var(--acc)); }
-  .fill.prismatic { background:linear-gradient(100deg,#FFE24A,#37E0A0,#00E0FF,#8A6CFF); box-shadow:0 0 12px rgba(55,224,160,.5); }
   .fill.danger { background:linear-gradient(90deg,#FF9A9A,var(--bear)); } .fill.warn { background:linear-gradient(90deg,#FFD27A,var(--warn)); } .fill.calm { background:#2A4439; } .fill.acc2 { background:linear-gradient(90deg,#8FF0FF,var(--acc2)); } .fill.mute { background:rgba(99,123,176,.6); }
   .rs { display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--steel); }
   .dwrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
@@ -2271,7 +2269,7 @@ def render() -> Path:
     for tk, p in sorted(pnl.items(), key=lambda x: -x[1]):
         cls = "pos" if p >= 0 else "neg"
         tape_items += f'<span class="ti"><b>{tk}</b> <span class="{cls}">{"+" if p >= 0 else ""}{p:.1f}%</span></span>'
-    tape = f'<div class="tape"><div class="track2">{tape_items}{tape_items}</div></div>'
+    tape = f'<div class="tape"><div class="track2">{tape_items}</div></div>'
     tape8k = _tape_8k()
 
     journal_html = _journal()
