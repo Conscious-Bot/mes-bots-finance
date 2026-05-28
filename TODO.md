@@ -6,9 +6,17 @@
 
 ---
 
-## OBSERVATION (jusqu'au 10/06)
+## OBSERVATION (jusqu'au 10/06) — RECADRÉ Day 17
 
-Règles : PAS de nouvelle feature / ticker / source / handler. Daily /brief. Auto-summaries dimanche. Le 10/06 : ~40-44 prédictions auto-résolvent → première vraie mesure Brier → point de décision Path 5/6.
+**Frozen hard** (corrompt batch resolution du 10/06) :
+- intelligence/{learning, asymmetry, materiality_v2} (logique prediction)
+- Credibility prior 0.5 + Brier methodology
+- Classifieur 8-K recal
+- Policy 2-week observation guardrail dans /risk_check
+
+**Fair game maintenant** : display, UX, refactor pur, data-correction, doc, handler fix, schema cleanup, nouvelle feature ADDITIVE (sans modifier flow existant). Daily /brief continue. Auto-summaries dimanche maintenus.
+
+Le 10/06 : ~40-44 prédictions auto-résolvent → première vraie mesure Brier → point de décision Path 5/6.
 
 ---
 
@@ -19,7 +27,7 @@ Règles : PAS de nouvelle feature / ticker / source / handler. Daily /brief. Aut
 
 ---
 
-## DÉCISION-TIME UX (Day 16 friction map, sprint 16-18)
+## DÉCISION-TIME UX (Day 16 friction map, sprint 16-18) — items 1-7 unfrozen, #8 frozen
 
 1. /risk_check sémantique (add position vs eval position existante)
 2. /thesis premortem : pas de résolution ticker→ID
@@ -49,16 +57,30 @@ Règles : PAS de nouvelle feature / ticker / source / handler. Daily /brief. Aut
 
 ---
 
-## INFRA / DETTE
+## INFRA / DETTE — recadré Day 17
+
+### Scheduled
 
 - **Hetzner migration ADR 002 + deploy** ≈ 31 mai (T-3) : VPS Ubuntu + systemd Restart=always + tunnel SSH + OAuth headless
+
+### Unfrozen — fair game maintenant
+
 - shared/display.py canonical refactor (~5-10h)
-- ADR 005 P2 audit résiduel : position_events.price, positions.realized_pnl, decisions.price_at_decision (pattern ratio cross-source Lesson 15)
-- target_partial NULL sur 33/33 theses (schema debt)
-- Univers prune mi-juin (313 vs 178 baseline — "less surface")
+- ADR 005 P2 audit résiduel : position_events.price, positions.realized_pnl, decisions.price_at_decision
 - TG canonical restant : /portfolio, /positions, /digest
-- Classifieur 8-K : tout Item 5.02 = HIGH (bruit signal→prediction) → recal post-observation
-- Policy 2-week observation → encoder dans PHILOSOPHY.md + guardrail bot
+- Univers prune **conditionnel** : tickers à 0 signal en 30j only (pas ceux qui génèrent encore — affecterait signal flow)
+- Split render.py 2062 LOC en bot/handlers/*.py (cosmétique)
+- Rapatriement ~44 sites sqlite bruts via shared.storage (read-path refactor)
+- render_panel rollout (commit 1401e2a unused)
+
+### Frozen (pipeline-protected, attendre 10/06)
+
+- Classifieur 8-K : tout Item 5.02 = HIGH (bruit signal→prediction) → recal post-10/06
+- Policy 2-week observation → encoder dans PHILOSOPHY.md + guardrail bot → post-10/06
+
+### Closed (Day 16)
+
+- ~~target_partial NULL sur 33/33 theses~~ : backfill x28 fait Day 16, schema debt clos
 - schema debts : last_reviewed vs last_revisit_at (doublon, un mort) ; opened_at format (space, no offset) vs last_revisit_at (T+offset)
 - OAuth Cloud Console "Push to Production" (refresh token 7d → 6mo)
 
@@ -203,3 +225,15 @@ existant (signal_type Haiku -> materiality_v2 Sonnet -> credibility), comme les 
 - Quels channels precisement ? (juger qualite reelle vs sources actuelles)
 - Publics ou prives ? (determine leger vs lourd)
 - Volume approx posts/jour ? (determine cout)
+
+---
+
+## FRICTION-DERIVED (Day 17 audit) — unfrozen
+
+Items remontés du friction.md + audit decisions table. Tous unfrozen sous le nouveau critère pipeline-protection.
+
+- **/insider_buy_cluster_stats broken** : handler ne tourne plus (output vide ou erreur). Bloquant pour quantifier insider signal sur trades futurs. Fix prioritaire (handler-fix safe).
+- **/digest macro→trade gap** : /digest surface signaux macro sans drill-down ticker-specific. Soit ajouter top-N tickers par cluster signal, soit acter que /digest sert au framing thematique only (UX enhancement).
+- **Audit thesis_id NULL** dans decisions table : pattern récurrent (id=10 fixé Day 17). Batch audit + UPDATE pour rattacher les orphans + identifier les handlers qui n'auto-link pas (read + data-correction safe).
+- **/journal_decision NEW handler** (additif) : commande pour enrichir reasoning du dernier decision row après /position_buy/sell, contourne le placeholder "Buy via /position_buy" actuel. ADDITIF, ne modifie pas /position_buy/sell, donc safe-unfrozen. Réduit drastiquement la friction journalisation jusqu'au 10/06 → enrichit KPI #5.
+- **Reasoning prompt multi-turn dans cmd_position_buy/sell** : GREY ZONE (modifierait flow existant pendant obs). Préférer /journal_decision additif d'abord, le multi-turn vient post-10/06 si besoin.

@@ -470,6 +470,14 @@ Day 17 commits : 42db7e8 + 942243b + 082bd6e. Ops OAuth sans commit.
 Backups locaux non-tracked : `dashboard/render.py.bak2`, `token.json.bak_20260528_104011`.
 À pousser AVANT Hetzner migration.
 
-## Frozen jusqu'au 10/06 (rappel inchangé)
+## Frozen jusqu'au 10/06 — RECADRÉ Day 17 (mi-session)
 
-render_panel rollout (1401e2a unused) ; rapatriement ~44 sites sqlite bruts ; split render.py 2062 LOC ; recalibration 8-K ; pruning univers ~313 tickers ; concentration policy ; reconciliation credibility prior 0.5 + Brier de-correle AVANT outcomes juin (~137 predictions correlees = piège pseudo-réplication).
+Critère sharper : frozen = ce qui affecte la pipeline `signal → score → prediction → resolution`. Tout le reste = fair game.
+
+**Solidement frozen** (corrompt le batch resolution du 10/06) :
+- intelligence/{learning, asymmetry, materiality_v2} : logique génération/résolution prédiction
+- Credibility prior 0.5 + Brier de-correle methodology
+- Classifieur 8-K recal (feed materiality → signal scoring sur 13 jours restants)
+- Policy 2-week observation guardrail dans /risk_check (changerait comportement bot pendant obs)
+
+**Unfrozen** (display/UX/refactor/data-correction/doc/handler-fix/additive-feature, zéro impact pipeline) : voir TODO.md restructuré pour la queue active. ~70% du frozen list initial du 13/05 était lumped trop large par prudence — recadré pour libérer la queue.
