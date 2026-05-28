@@ -472,7 +472,7 @@ def _concentration(
         + "</div></div>"
     )
     return (
-        f'<section data-page="concentration"><div class="phead">{_PH_ORNAMENT}<h2>Concentration</h2>'
+        f'<section data-page="concentration"><div class="phead"><h2>Concentration</h2>'
         f'<div class="sub">Trois axes de concentration &mdash; par ligne, par secteur, par g&eacute;ographie</div></div>'
         f"{verdict_card}"
         f"{cluster_card}"
@@ -668,7 +668,7 @@ def _signaux() -> str:
         s30 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-30 day')")[0][0]
         n8k = _q("SELECT COUNT(*) FROM filings_8k_log WHERE filed_at > datetime('now','-60 day')")[0][0]
     except Exception as e:
-        return f'<section data-page="signaux"><div class="phead">{_PH_ORNAMENT}<h2>Signaux</h2></div>{_err(e)}</section>'
+        return f'<section data-page="signaux"><div class="phead"><h2>Signaux</h2></div>{_err(e)}</section>'
 
     sevcls = {"HIGH": "danger", "MEDIUM": "warn", "MED": "warn", "LOW": "calm"}
     sev_order = (
@@ -758,7 +758,7 @@ def _signaux() -> str:
         f'<div class="card pad">{insiders}</div>'
     )
     return (
-        f'<section data-page="signaux"><div class="phead">{_PH_ORNAMENT}<h2>Signaux</h2>'
+        f'<section data-page="signaux"><div class="phead"><h2>Signaux</h2>'
         f'<div class="sub">D&eacute;p&ocirc;ts 8-K par s&eacute;v&eacute;rit&eacute; &middot; cr&eacute;dibilit&eacute; des sources &middot; achats d\'initi&eacute;s</div></div>'
         f"{kpis}{cols}{insider_strip}</section>"
     )
@@ -1026,7 +1026,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     rsi_html = _market_rsi()
     breadth_html = _breadth_rsp_spy()
     return (
-        f'<section data-page="urgence"><div class="phead">{_PH_ORNAMENT}<h2>Urgence</h2>'
+        f'<section data-page="urgence"><div class="phead"><h2>Urgence</h2>'
         f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro (/debt_status, en direct)</div></div>'
         f"{feu}{gauge}"
         f'<div class="cols">'
@@ -1213,20 +1213,6 @@ def _journal() -> str:
     return out
 
 
-_PH_ORNAMENT = (
-    '<div class="ph-ornament"><svg viewBox="0 0 280 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
-    '<g fill="none" stroke="currentColor" stroke-width=".7" stroke-linecap="round" stroke-linejoin="round">'
-    '<line x1="2" y1="7" x2="116" y2="7"/>'
-    '<path d="M116 7 L125 1.5 L134 7 L125 12.5 Z"/>'
-    '<path d="M125 1.5 L134 7 L143 1.5 L152 7 L143 12.5 L134 7 L125 12.5 Z"/>'
-    '<path d="M143 1.5 L152 7 L143 12.5"/>'
-    '<line x1="164" y1="7" x2="278" y2="7"/>'
-    '</g>'
-    '<circle cx="140" cy="7" r="1.6" style="fill:var(--gold)"/>'
-    '<circle cx="140" cy="7" r="3.2" style="fill:var(--gold);opacity:.22"/>'
-    '</svg></div>'
-)
-
 _LOGO = '<svg viewBox="0 0 367 190" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><g transform="translate(0.000000,190.000000) scale(0.100000,-0.100000)"  stroke="none"> <path d="M1335 1890 c-11 -4 -200 -189 -419 -409 l-399 -401 251 0 250 0 254 260 253 260 71 0 71 0 58 -62 c32 -35 168 -174 301 -309 l242 -246 69 -7 c37 -4 148 -11 246 -16 98 -4 181 -11 184 -14 4 -3 -45 -6 -108 -6 -63 0 -175 -5 -249 -10 l-135 -11 -72 -72 c-40 -39 -73 -76 -73 -82 0 -6 51 -61 114 -124 l113 -113 184 187 184 186 330 9 c182 5 394 9 473 10 l142 0 0 30 0 30 -127 1 c-71 1 -284 4 -474 7 l-346 7 -87 82 c-47 45 -126 129 -175 186 -131 153 -581 617 -609 628 -29 11 -490 11 -517 -1z"/> <path d="M2308 1888 c-9 -7 -26 -33 -37 -58 -12 -25 -44 -68 -72 -97 l-51 -52 105 -108 105 -107 64 67 63 67 72 0 71 0 253 -260 252 -260 244 0 c238 0 244 0 231 19 -23 32 -760 775 -782 788 -30 18 -496 18 -518 1z"/> <path d="M1693 1259 c-54 -61 -109 -127 -123 -145 -14 -19 -51 -54 -83 -78 l-58 -43 -487 -7 c-268 -3 -589 -9 -715 -13 -207 -5 -227 -7 -227 -23 0 -16 24 -18 298 -24 163 -4 488 -11 721 -17 l424 -10 61 -44 c89 -63 148 -125 236 -250 53 -75 150 -184 305 -345 125 -129 237 -240 249 -247 15 -9 95 -12 276 -13 l254 0 411 410 410 410 -245 0 -245 0 -255 -255 -255 -255 -81 0 -80 0 -244 253 c-309 320 -340 349 -388 353 -20 1 -91 8 -157 13 -66 6 -176 11 -245 12 -149 2 -118 16 39 18 56 0 169 6 250 12 l146 11 73 71 c39 40 71 75 70 79 -5 13 -221 238 -229 238 -4 0 -52 -50 -106 -111z"/> <path d="M715 618 c110 -112 290 -295 402 -408 l202 -205 161 -3 c182 -4 206 3 285 77 52 49 126 93 193 115 l54 18 -112 112 -111 111 -58 -62 -57 -63 -81 0 -80 0 -176 178 c-96 97 -208 212 -247 255 l-72 77 -251 0 -251 0 199 -202z"/> </g></svg>'
 
 _TH_CSS = """
@@ -1287,7 +1273,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     )
     if not rows:
         return (
-            '<section data-page="theses"><div class="phead">' + _PH_ORNAMENT + '<h2>Th&egrave;ses</h2>'
+            '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
             '<div class="sub">aucune th&egrave;se active</div></div></section>'
         )
     _u = _cfg().get("universe", {})
@@ -1470,7 +1456,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += "</div>"
 
     return (
-        '<section data-page="theses"><div class="phead">' + _PH_ORNAMENT + '<h2>Th&egrave;ses</h2>'
+        '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
         '<div class="sub">Asym&eacute;trie cible / stop par conviction &mdash; la discipline rendue visible</div></div>'
         f"{_TH_CSS}{hero}{kpis}{gap}{groups}</section>"
     )
@@ -1545,8 +1531,6 @@ _CSS = """
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
   .main { padding:30px 52px 54px; max-width:1340px; }
   .phead { margin-bottom:22px; } .phead h2 { font-family:var(--fd); font-weight:300; font-size:32px; margin:0 0 6px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); } .phead .sub { font-family:var(--fb); font-weight:400; font-size:12px; letter-spacing:.04em; color:var(--steel); }
-  .ph-ornament { color:var(--steel); opacity:.62; line-height:0; margin:0 0 14px; }
-  .ph-ornament svg { display:block; height:13px; width:240px; }
   [data-page] { display:none; } [data-page].active { display:block; animation:fadein .42s ease; } @keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
   .hero { background:var(--panel); border:1px solid var(--line2); border-radius:18px; padding:28px 34px; margin-bottom:26px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; }
   .hero .big { font-family:var(--fm); font-weight:500; font-size:42px; line-height:.95; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
@@ -1612,10 +1596,13 @@ _CSS = """
   .axis { position:relative; height:1px; background:var(--line2); margin:14px 0 6px; }
   .axis::before, .axis::after { content:""; position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
   .axis::before { left:0; } .axis::after { right:0; }
-  .axis-mark { position:absolute; top:50%; width:7px; height:7px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 2.5px color-mix(in srgb,var(--gold) 22%,transparent); transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
-  .axis-mark.pos { background:var(--acc); box-shadow:0 0 0 2.5px color-mix(in srgb,var(--acc) 22%,transparent); }
-  .axis-mark.neg, .axis-mark.danger { background:var(--bear); box-shadow:0 0 0 2.5px color-mix(in srgb,var(--bear) 22%,transparent); }
-  .axis-mark.warn { background:var(--warn); box-shadow:0 0 0 2.5px color-mix(in srgb,var(--warn) 22%,transparent); }
+  .axis-mark { position:absolute; top:50%; width:6px; height:6px; border-radius:50%;
+    background:radial-gradient(circle,#FFEFC0 0%,#E5BC52 38%,var(--gold) 72%,color-mix(in srgb,var(--gold) 25%,transparent) 100%);
+    box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 40%,transparent), 0 0 6px 0 color-mix(in srgb,var(--gold) 38%,transparent);
+    transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
+  .axis-mark.pos { background:var(--acc); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--acc) 25%,transparent); }
+  .axis-mark.neg, .axis-mark.danger { background:var(--bear); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--bear) 25%,transparent); }
+  .axis-mark.warn { background:var(--warn); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--warn) 25%,transparent); }
   .axis-mark.ink { background:var(--ink); box-shadow:none; }
   .axis-mark.mute { background:var(--steel); box-shadow:none; opacity:.55; }
   .axis-tick { position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
@@ -2323,7 +2310,7 @@ def render() -> Path:
         "</div>" + _cockpit() + "</div>"
     )
     vigie = (
-        f'<section data-page="vigie" class="active"><div class="phead">{_PH_ORNAMENT}<h2>Vue d\'ensemble</h2>'
+        f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; ce sur quoi agir aujourd&rsquo;hui</div></div>'
         f"{cockpit_html}"
         f'<div class="hrow">'
@@ -2357,7 +2344,7 @@ def render() -> Path:
     )
     broker_html = _broker_tables(positions, names, pnl, sectors)
     positions_pg = (
-        f'<section data-page="positions"><div class="phead">{_PH_ORNAMENT}<h2>Positions</h2>'
+        f'<section data-page="positions"><div class="phead"><h2>Positions</h2>'
         f'<div class="sub">Marge &agrave; la hausse vers la cible &middot; &agrave; la baisse vers le stop</div></div>'
         f"{pos_plan}{broker_html}</section>"
     )
