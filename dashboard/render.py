@@ -1221,8 +1221,7 @@ _TH_CSS = """
   .th-hist { display:flex; flex-direction:column; gap:6px; padding:2px 0; }
   .th-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:11.5px; }
   .th-hlab { width:24px; color:var(--steel); }
-  .th-htrack { flex:1; height:13px; background:color-mix(in srgb,var(--ink) 4%,transparent); border-radius:7px; overflow:hidden; }
-  .th-hfill { height:100%; border-radius:7px; background:linear-gradient(90deg,var(--acc),var(--acc2)); }
+  .th-hbar .axis { flex:1; margin:0; }
   .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
   .th-grp { font-family:var(--fb); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:34px 2px 13px; display:flex; align-items:center; gap:10px; }
   .th-grp::after { content:""; flex:1; height:1px; background:var(--line); }
@@ -1332,7 +1331,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     for c in (5, 4, 3, 2, 1):
         hist += (
             f'<div class="th-hbar"><span class="th-hlab">c{c}</span>'
-            f'<div class="th-htrack"><div class="th-hfill" style="width:{dist[c] / maxc * 100:.0f}%"></div></div>'
+            f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, dist[c] / maxc * 100)):.1f}%"></div></div>'
             f'<span class="th-hn">{dist[c]}</span></div>'
         )
     hist += "</div>"
@@ -1602,19 +1601,21 @@ _CSS = """
   .axis::before, .axis::after { content:""; position:absolute; top:-3px; width:1px; height:10px; background:var(--line2); }
   .axis::before { left:0; } .axis::after { right:0; }
   .axis-mark { position:absolute; top:50%; width:32px; height:15px;
-    background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><defs><radialGradient id='c' cx='50%25' cy='50%25' r='22%25'><stop offset='0%25' stop-color='%23ffffff'/><stop offset='40%25' stop-color='%23fff5db' stop-opacity='.9'/><stop offset='100%25' stop-color='%23B58A3C' stop-opacity='0'/></radialGradient></defs><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%230E0B07'/><circle cx='30' cy='12' r='2.8' fill='url(%23c)'/></svg>") no-repeat center / contain;
-    filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--gold) 35%,transparent));
+    background-color:var(--ink);
+    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
+    mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
     transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
-  body.midnight .axis-mark { background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><defs><radialGradient id='c' cx='50%25' cy='50%25' r='22%25'><stop offset='0%25' stop-color='%23ffffff'/><stop offset='40%25' stop-color='%23fff5db' stop-opacity='.9'/><stop offset='100%25' stop-color='%23D4A553' stop-opacity='0'/></radialGradient></defs><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23F1ECE3'/><circle cx='30' cy='12' r='2.8' fill='url(%23c)'/></svg>") no-repeat center / contain;
-    filter:drop-shadow(0 0 3px color-mix(in srgb,var(--gold) 50%,transparent)); }
-  .axis-mark.pos, .axis-mark.neg, .axis-mark.danger, .axis-mark.warn, .axis-mark.ink, .axis-mark.mute {
-    background:var(--acc); filter:none; width:11px; height:7px;
-    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%); }
-  .axis-mark.pos { background:var(--acc); }
-  .axis-mark.neg, .axis-mark.danger { background:var(--bear); }
-  .axis-mark.warn { background:var(--warn); }
-  .axis-mark.ink { background:var(--ink); }
-  .axis-mark.mute { background:var(--steel); opacity:.55; }
+  .axis-mark::after { content:""; position:absolute; top:50%; left:50%; width:9px; height:9px; border-radius:50%;
+    background:radial-gradient(circle,#ffffff 0%, #fff5db 38%, var(--gold) 75%, transparent 100%);
+    transform:translate(-50%,-50%); pointer-events:none; }
+  .axis-mark.pos { background-color:var(--acc); }
+  .axis-mark.pos::after { display:none; }
+  .axis-mark.neg, .axis-mark.danger { background-color:var(--bear); }
+  .axis-mark.neg::after, .axis-mark.danger::after { display:none; }
+  .axis-mark.warn { background-color:var(--warn); }
+  .axis-mark.warn::after { display:none; }
+  .axis-mark.mute { background-color:var(--steel); opacity:.6; }
+  .axis-mark.mute::after { display:none; }
   .axis-tick { position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
   .axis-tick.strong { top:-4px; height:9px; background:var(--ink); opacity:.55; }
   .axis-tick.dash { border-left:1px dashed var(--steel); background:transparent; opacity:.6; }
