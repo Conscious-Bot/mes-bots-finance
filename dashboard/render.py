@@ -2152,7 +2152,7 @@ def render() -> Path:
         f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
         f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
-        f'<div class="sub2"><b>{n_gain}/{n_pnl}</b> en gain &middot; {gpct:.0f}% du capital &middot; {pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
+        f'<div class="sub2"><b>{n_gain}/{n_pnl}</b> en gain &middot; {gpct:.0f}% du capital en gain &middot; {pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">ta th&egrave;se se r&eacute;alise</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Plus proches du stop</span><span class="a">marge avant invalidation</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
