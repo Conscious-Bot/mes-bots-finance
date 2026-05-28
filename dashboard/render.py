@@ -1020,7 +1020,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         '<div class="gauge"><div class="ghead">'
         '<span class="gl">Sant&eacute; macro &middot; cr&eacute;dit / or / taux 30a / inflation / VIX</span>'
         + f'<span class="gv"><span class="gvm" style="--c:var(--{_phase_col})">{clabel}</span><span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; phase {cphase}/4 &middot; indice {score:.0f}</span></span></div>'
-        + f'<div class="gtrack"><div class="gmark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
+        + f'<div class="gtrack"><div class="axis-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
         '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
     )
     rsi_html = _market_rsi()
@@ -1584,7 +1584,6 @@ _CSS = """
   .gauge { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px 20px; margin-bottom:15px; }
   .ghead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:11px; } .ghead .gl { font-family:var(--fb); font-weight:600; font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); } .ghead .gv { font-family:var(--fm); font-weight:500; font-size:20px; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
   .gtrack { position:relative; height:6px; border-radius:3px; background:linear-gradient(90deg in oklch,oklch(0.80 0.15 150),oklch(0.80 0.16 90) 52%,oklch(0.63 0.18 25)); }
-  .gmark { position:absolute; top:-3px; width:2px; height:12px; border-radius:1px; background:var(--ink); transform:translateX(-50%); }
   .glab { margin-top:9px; font-size:10px; color:var(--steel); display:flex; justify-content:space-between; font-family:var(--fm); letter-spacing:.08em; }
   .row { padding:9px 0; border-bottom:1px solid var(--line); opacity:0; animation:fade .45s ease forwards; } .row:last-child { border-bottom:none; }
   .row[data-tk] { cursor:pointer; } .row[data-tk]:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
@@ -1606,6 +1605,8 @@ _CSS = """
     background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><defs><radialGradient id='c' cx='50%25' cy='50%25' r='22%25'><stop offset='0%25' stop-color='%23ffffff'/><stop offset='40%25' stop-color='%23fff5db' stop-opacity='.9'/><stop offset='100%25' stop-color='%23B58A3C' stop-opacity='0'/></radialGradient></defs><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%230E0B07'/><circle cx='30' cy='12' r='2.8' fill='url(%23c)'/></svg>") no-repeat center / contain;
     filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--gold) 35%,transparent));
     transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
+  body.midnight .axis-mark { background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><defs><radialGradient id='c' cx='50%25' cy='50%25' r='22%25'><stop offset='0%25' stop-color='%23ffffff'/><stop offset='40%25' stop-color='%23fff5db' stop-opacity='.9'/><stop offset='100%25' stop-color='%23D4A553' stop-opacity='0'/></radialGradient></defs><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23F1ECE3'/><circle cx='30' cy='12' r='2.8' fill='url(%23c)'/></svg>") no-repeat center / contain;
+    filter:drop-shadow(0 0 3px color-mix(in srgb,var(--gold) 50%,transparent)); }
   .axis-mark.pos, .axis-mark.neg, .axis-mark.danger, .axis-mark.warn, .axis-mark.ink, .axis-mark.mute {
     background:var(--acc); filter:none; width:11px; height:7px;
     clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%); }
