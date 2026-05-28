@@ -1485,11 +1485,11 @@ _NAV = (
 )
 
 _CSS = """
-  :root { --bg:#F1ECE3; --panel:#F8F4EC; --line:#D4CABA; --line2:#B5A892; --ink:#1A1814; --ink2:#3A352D; --steel:#7A7164; --metal:#7A7164;
+  :root { --bg:#F4F1EB; --panel:#F4F1EB; --line:#E0D8CA; --line2:#C9BFAD; --ink:#1A1814; --ink2:#3A352D; --steel:#7A7164; --metal:#7A7164;
     --acc:#5A7548; --acc2:#5A7548; --id:#1A1814; --bear:#9B3A2E; --warn:#A87325; --gold:#B58A3C;
     --fd:"Geist",ui-sans-serif,system-ui,sans-serif; --fb:"Geist",ui-sans-serif,system-ui,sans-serif; --fm:"Geist Mono",ui-monospace,SFMono-Regular,monospace; --fo:"Geist",ui-sans-serif,sans-serif;
-    --elev:0 8px 24px -16px rgba(60,40,20,.18);
-    --glass:rgba(248,244,236,.85); --glass2:rgba(241,236,227,.7); --tape:rgba(248,244,236,.9); --barbg:#E3DACC; }
+    --elev:none;
+    --glass:rgba(244,241,235,.9); --glass2:rgba(244,241,235,.85); --tape:rgba(244,241,235,.95); --barbg:#E8E2D5; }
   body.midnight { --bg:#0E0D0B; --panel:#16140F; --line:#2A2520; --line2:#3D362E; --ink:#F1ECE3; --ink2:#CFC6B5; --steel:#8C8273; --metal:#8C8273;
     --acc:#88A671; --acc2:#88A671; --id:#F1ECE3; --bear:#C75B4F; --warn:#D6A058; --gold:#D4A553;
     --elev:0 12px 32px -18px rgba(0,0,0,.65);
