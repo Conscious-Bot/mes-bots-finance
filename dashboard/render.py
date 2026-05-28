@@ -1495,7 +1495,6 @@ _CSS = """
     --acc:#0E9F6E; --acc2:#0D9488; --id:#3D8BFF; --bear:#E5484D; --warn:#C2750A;
     --elev:0 14px 36px -24px rgba(30,55,105,.22);
     --glass:rgba(255,255,255,.92); --glass2:rgba(241,243,246,.7); --tape:rgba(246,247,249,.85); --barbg:#E7EAEF; --glow:0 0 30px -9px color-mix(in srgb,var(--id) 85%,transparent); --glow2:0 0 38px -15px color-mix(in srgb,var(--id) 70%,transparent); }
-  body.frost::after { display:none; }
   * { box-sizing:border-box; }
   .dband { position:sticky; top:10px; z-index:45; display:flex; align-items:center; gap:13px; padding:11px 17px; margin:0 0 22px; border:1px solid var(--line2); border-radius:13px; background:color-mix(in srgb,var(--panel) 85%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); cursor:pointer; transition:border-color .15s,background .15s; }
   .dband:hover { background:color-mix(in srgb,var(--panel) 95%,transparent); }
@@ -1516,15 +1515,10 @@ _CSS = """
   .sec-subwrap { display:flex; flex-direction:column; gap:4px; }
   .sec-super .sec-grp.sub { margin:0; border-left:2px solid var(--line); border-radius:0 10px 10px 0; }
   .sec-super .sec-grp.sub .sec-name { font-family:var(--fd); font-weight:600; font-size:13.5px; color:var(--steel); letter-spacing:0; }
-  body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:radial-gradient(1100px 680px at 82% -10%,rgba(61,139,255,.05),transparent 60%),radial-gradient(820px 560px at 6% 112%,rgba(61,139,255,.028),transparent 56%),var(--bg); background-attachment:fixed; -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
-  body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.85; transition:background .3s ease-out;
-    background:radial-gradient(46% 40% at var(--mx,78%) var(--my,8%),rgba(61,139,255,.13),transparent 58%); }
-  body::after { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:1;
-    background-image:radial-gradient(1.4px 1.4px at 22% 24%,rgba(255,255,255,.9),transparent),radial-gradient(1.6px 1.6px at 68% 58%,rgba(200,225,255,.8),transparent),radial-gradient(1.3px 1.3px at 46% 82%,rgba(255,255,255,.7),transparent),radial-gradient(1.5px 1.5px at 86% 28%,rgba(255,255,255,.8),transparent),radial-gradient(1.3px 1.3px at 12% 70%,rgba(210,230,255,.7),transparent),radial-gradient(1.2px 1.2px at 34% 44%,rgba(255,255,255,.6),transparent),radial-gradient(1.4px 1.4px at 78% 80%,rgba(255,255,255,.65),transparent),radial-gradient(1.2px 1.2px at 58% 16%,rgba(220,235,255,.6),transparent);
-    background-size:300px 300px,360px 360px,240px 240px,320px 320px,400px 400px,280px 280px,420px 420px,340px 340px; }
+  body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:var(--bg); -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
   .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; position:sticky; top:0; align-self:flex-start; height:100vh; }
   .logo { display:flex; align-items:center; justify-content:center; margin-bottom:22px; padding:0; }
-  .logo svg { width:66px; height:auto; color:var(--ink); filter:drop-shadow(0 0 6px rgba(61,139,255,.28)); }
+  .logo svg { width:66px; height:auto; color:var(--ink); }
   .logo .wm { display:none; }
   .nav { display:flex; flex-direction:column; gap:4px; align-items:center; width:100%; }
   .nitem { position:relative; display:flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; cursor:pointer; color:var(--steel); border-left:2px solid transparent; transition:.15s; }
@@ -1769,14 +1763,6 @@ _APP_JS = """
   }
   items.forEach(n=>n.addEventListener('click',()=>show(n.dataset.nav)));
   var _h=(location.hash||'').replace('#','');if(_h&&/^[a-z]+$/.test(_h))show(_h);
-  let _raf=null;
-  document.addEventListener('mousemove',function(e){
-    if(_raf)return;
-    _raf=requestAnimationFrame(function(){ _raf=null;
-      document.body.style.setProperty('--mx',(e.clientX/window.innerWidth*100).toFixed(1)+'%');
-      document.body.style.setProperty('--my',(e.clientY/window.innerHeight*100).toFixed(1)+'%');
-    });
-  });
   function _pct(v,sg){ return v==null?'&mdash;':((sg&&v>=0?'+':'')+v+'%'); }
   function mom(l,v){var c=v==null?'var(--steel)':(v>=0?'var(--acc)':'var(--bear)');return '<div class="lp-stat"><div class="lp-sl">'+l+'</div><div class="lp-sv" style="color:'+c+';font-size:16px">'+(v==null?'&mdash;':((v>=0?'+':'')+v+'%'))+'</div></div>';}
   function openLoupe(tk){
