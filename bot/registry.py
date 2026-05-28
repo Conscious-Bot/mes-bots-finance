@@ -42,7 +42,6 @@ from bot.handlers.misc import (
     cmd_thesis_set,
 )
 from bot.handlers.observability import (
-    cmd_bot_data,
     cmd_cost_trajectory,
     cmd_handler_stats,
     cmd_health,
@@ -124,7 +123,6 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("portfolio_narratives", cmd_portfolio_narratives))
     app.add_handler(CommandHandler("portfolio_drift", cmd_portfolio_drift))
     app.add_handler(CommandHandler("health", cmd_health))
-    app.add_handler(CommandHandler("bot_data", cmd_bot_data))  # Sprint 1.2 Phase J family
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
     app.add_handler(CommandHandler("tiers", cmd_tiers))
