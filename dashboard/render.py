@@ -1123,9 +1123,12 @@ _TH_CSS = """
   .th-dir { font-family:var(--fb); font-size:9.5px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
   .th-bar { display:flex; flex-direction:column; gap:6px; grid-column:1/-1; margin-top:8px; }
   .th-track { position:relative; height:10px; border-radius:5px; background:linear-gradient(90deg, rgba(216,74,74,.36), rgba(216,74,74,0) 40%, rgba(40,160,90,0) 60%, rgba(40,160,90,.40)), rgba(128,128,128,.10); }
-  .th-sz { position:relative; height:5px; border-radius:3px; background:rgba(128,128,128,.14); }
-  .th-szf { position:absolute; left:0; top:0; bottom:0; border-radius:3px; }
+  .th-sz { position:relative; height:7px; border-radius:3px; background:rgba(128,128,128,.14); }
+  .th-szf { position:absolute; left:0; top:0; bottom:0; border-radius:3px; background:rgba(128,128,128,.42); }
   .th-szc { position:absolute; top:-2px; bottom:-2px; left:76.9%; width:1.5px; border-radius:1px; background:rgba(128,128,128,.5); }
+  .th-szover { position:absolute; top:0; bottom:0; border-radius:0 3px 3px 0; background:rgba(216,74,74,.85); }
+  .th-szwarn { position:absolute; top:0; bottom:0; border-radius:0 3px 3px 0; background:rgba(230,158,42,.85); }
+  .th-szgap { position:absolute; top:0; bottom:0; border-radius:0 3px 3px 0; background:rgba(40,160,90,.32); }
   .th-adj { font-family:var(--fm); font-size:10.5px; letter-spacing:.02em; line-height:1.3; }
   .th-adj.trim { color:var(--warn); }
   .th-adj.add { color:var(--acc2); }
@@ -1300,8 +1303,21 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _hue = 150 - 125 * _heat
                 _lt = 0.60 + 0.20 * (_hue / 150)
                 wtxt = f'<span style="color:oklch({_lt:.2f} 0.22 {_hue:.0f})">{wv:.1f}%</span>'
-                _fill = min(wv / (_cappct * 1.3) * 100, 100)
-                sizebar = f'<div class="th-sz"><div class="th-szf" style="width:{_fill:.0f}%;background:oklch({_lt:.2f} 0.22 {_hue:.0f})"></div><div class="th-szc"></div></div>'
+                _scale = _cappct * 1.3
+                _tgt_pos = min(_tgt / _scale * 100, 100.0)
+                _w_pos = min(max(wv / _scale * 100, 0.0), 100.0)
+                if wv > _tgt:
+                    _ocls = "over" if wv > _cappct else "warn"
+                    _seg = (
+                        f'<div class="th-szf" style="width:{_tgt_pos:.1f}%"></div>'
+                        f'<div class="th-sz{_ocls}" style="left:{_tgt_pos:.1f}%;width:{_w_pos - _tgt_pos:.1f}%"></div>'
+                    )
+                else:
+                    _seg = (
+                        f'<div class="th-szf" style="width:{_w_pos:.1f}%"></div>'
+                        f'<div class="th-szgap" style="left:{_w_pos:.1f}%;width:{_tgt_pos - _w_pos:.1f}%"></div>'
+                    )
+                sizebar = f'<div class="th-sz">{_seg}<div class="th-szc"></div></div>'
                 _d = wv - _tgt
                 _de = f"{abs(_d) / 100 * vtot:,.0f}".replace(",", "&#8239;")
                 if _d > 0.4:
@@ -2109,9 +2125,12 @@ def render() -> Path:
         f'<div class="rs"><span>vers la cible</span></div></div>'
         for tk in _cibles
     ) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
+    def _mcls(m: float) -> str:
+        return "danger" if m < 10 else "warn" if m < 20 else "calm"
+
     lose = "".join(
-        f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span><span class="tag warn">{_marge[tk]:.0f}%</span></div>'
-        f'<div class="track"><div class="fill warn" style="--w:{max(2.0, min(100.0, _marge[tk] / 30 * 100)):.0f}%"></div></div>'
+        f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span><span class="tag {_mcls(_marge[tk])}">{_marge[tk]:.0f}%</span></div>'
+        f'<div class="track"><div class="fill {_mcls(_marge[tk])}" style="--w:{max(2.0, min(100.0, _marge[tk] / 40 * 100)):.0f}%"></div></div>'
         f'<div class="rs"><span>marge avant le stop</span></div></div>'
         for tk in _stops
     ) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
