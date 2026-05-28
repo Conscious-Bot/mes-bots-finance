@@ -322,7 +322,7 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
         for prog, tk in data
     )
     watch = (
-        rows or '<div class="empty" style="padding:18px 0">aucun winner &agrave; &ge;75% &mdash; laisse courir</div>'
+        rows or '<div class="empty" style="padding:18px 0">aucune ligne &agrave; &ge;75% de la cible &mdash; laisser courir</div>'
     )
     return watch, len(data)
 
@@ -761,9 +761,9 @@ def _signaux() -> str:
 
     kpis = (
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
-        f'<div class="kpi"><span class="kl">Signaux 24h</span><span class="kv">{s24}</span><span class="kd">Gmail + EDGAR</span></div>'
-        f'<div class="kpi"><span class="kl">Signaux 30j</span><span class="kv">{s30}</span><span class="kd">fen&ecirc;tre roulante</span></div>'
-        f'<div class="kpi"><span class="kl">8-K 60j</span><span class="kv">{n8k}</span><span class="kd">d&eacute;p&ocirc;ts EDGAR</span></div></div>'
+        f'<div class="kpi"><span class="kl">Signaux 24&nbsp;h</span><span class="kv">{s24}</span><span class="kd">Gmail + EDGAR</span></div>'
+        f'<div class="kpi"><span class="kl">Signaux 30&nbsp;j</span><span class="kv">{s30}</span><span class="kd">fen&ecirc;tre roulante</span></div>'
+        f'<div class="kpi"><span class="kl">D&eacute;p&ocirc;ts 8-K &middot; 60&nbsp;j</span><span class="kv">{n8k}</span><span class="kd">source EDGAR</span></div></div>'
     )
     cols = (
         f'<div class="cols">'
@@ -772,7 +772,7 @@ def _signaux() -> str:
         f"</div>"
     )
     insider_strip = (
-        f'<div class="colhead" style="margin-top:24px"><span class="t">Achats d\'initi&eacute;s group&eacute;s</span><span class="a">60j &middot; Form 4 EDGAR</span></div>'
+        f'<div class="colhead" style="margin-top:24px"><span class="t">Achats d\'initi&eacute;s group&eacute;s</span><span class="a">60&nbsp;j &middot; Form 4 EDGAR</span></div>'
         f'<div class="card pad">{insiders}</div>'
     )
     return (
@@ -1026,8 +1026,8 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     feu = (
         '<div class="plan"><div class="plan-h">&Agrave; arbitrer aujourd&rsquo;hui</div><div class="plan-row">'
         + f'<div class="pi {_dev_cls}"><span class="pn">{_dev_lab}</span><span class="pl">&eacute;cart de discipline</span><span class="pt">{_dev_txt}</span></div>'
-        + f'<div class="pi calm"><span class="pn">{near_t}</span><span class="pl">winner(s) &ge;75% cible</span><span class="pt">laisse courir &middot; ex&eacute;cute ton plan</span></div>'
-        + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">ligne(s) &lt; 10% du stop</span><span class="pt">{"&agrave; surveiller" if near else "au calme"}</span></div>'
+        + f'<div class="pi calm"><span class="pn">{near_t}</span><span class="pl">ligne(s) &agrave; &ge;75% de la cible</span><span class="pt">laisser courir &middot; tenir le cap</span></div>'
+        + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">ligne(s) &agrave; &lt;10% du stop</span><span class="pt">{"&agrave; surveiller" if near else "calme"}</span></div>'
         + "</div>"
         + '<div style="margin-top:16px;padding-top:13px;border-top:1px solid var(--line);display:flex;gap:30px;flex-wrap:wrap;font-size:11.5px;color:var(--steel)">'
         + f'<span>{size_txt} &middot; sizing <b style="color:var(--ink)">&times;{_sfac:.1f}</b></span>'
@@ -1045,7 +1045,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     breadth_html = _breadth_rsp_spy()
     return (
         f'<section data-page="urgence"><div class="phead"><h2>Urgence</h2>'
-        f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro (/debt_status, en direct)</div></div>'
+        f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro</div></div>'
         f"{feu}{gauge}"
         f'<div class="cols">'
         f'<div><div class="ph3">Course vers la cible</div><div class="card pad">{elan}</div></div>'
@@ -1414,7 +1414,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _crypto = t["tk"] in crypto_tk
                 if t["pnl_e"] >= 12 and not _crypto:
                     _acls = "acc"
-                    _amsg = "Winner en profit, upside restant. Ton biais te pousse &agrave; s&eacute;curiser trop t&ocirc;t &mdash; laisse courir vers ta cible."
+                    _amsg = "Ligne en profit, marge de hausse restante. Le biais pousse &agrave; s&eacute;curiser trop t&ocirc;t &mdash; laisser courir vers la cible."
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
             wv = vmap.get(t["tk"], 0.0)
@@ -1462,7 +1462,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
 
     return (
         '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
-        '<div class="sub">Asym&eacute;trie cible / stop par conviction &mdash; la discipline rendue visible</div></div>'
+        '<div class="sub">Asym&eacute;trie cible / stop, par niveau de conviction</div></div>'
         f"{_TH_CSS}{hero}{kpis}{gap}{groups}</section>"
     )
 
@@ -2272,7 +2272,7 @@ def render() -> Path:
     )
 
     disc_hero = (
-        '<div class="hero posture"><div class="hl">&Agrave; surveiller &mdash; m&eacute;canique, non prescriptif</div><div class="plan-row">'
+        '<div class="hero posture"><div class="hl">Cockpit &mdash; lecture m&eacute;canique, non prescriptive</div><div class="plan-row">'
         + _pi(
             len(over_cap_tk),
             over_cap_tk,
@@ -2329,7 +2329,7 @@ def render() -> Path:
     )
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
-        f'<div class="sub">Posture de discipline &middot; ce sur quoi agir aujourd&rsquo;hui</div></div>'
+        f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
         f"{cockpit_html}"
         f'<div class="hrow">'
         f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'
@@ -2338,8 +2338,8 @@ def render() -> Path:
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">ta th&egrave;se se r&eacute;alise</span></div>'
-        f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Plus proches du stop</span><span class="a">marge avant invalidation</span></div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise</span></div>'
+        f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
