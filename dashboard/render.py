@@ -349,7 +349,7 @@ def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
             near_rows.append(f'<div class="line"><span>{tk}</span><span class="mono">{down:.0f}% de marge</span></div>')
     watch = (
         "".join(near_rows)
-        or '<div class="empty" style="padding:18px 0">aucune position sous 10% &mdash; au calme</div>'
+        or '<div class="empty" style="padding:18px 0">aucune marge faible &mdash; calme</div>'
     )
     return "".join(rows), near, heat, watch
 
@@ -496,7 +496,7 @@ def _concentration(
         f"{verdict_card}"
         f"{cluster_card}"
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
-        f'<div class="kpi"><span class="kl">Plus grosse ligne</span><span class="kv {top_cls}">{_pct(top_pct)}%</span><span class="kd">{line_msg}</span></div>'
+        f'<div class="kpi"><span class="kl">Premi&egrave;re ligne</span><span class="kv {top_cls}">{_pct(top_pct)}%</span><span class="kd">{line_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Th&egrave;se dominante</span><span class="kv {these_cls}">{dom_these_pct:.0f}%</span><span class="kd">{these_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
         f'<div class="card pad"><div class="sbwrap"><svg id="sb-svg" viewBox="0 0 320 320" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div>'
@@ -719,7 +719,7 @@ def _signaux() -> str:
                 f'<span class="tag {cls}">{disp}</span></div>'
                 f'<div class="rs"><span>{label}</span><span class="mono">{str(filed)[:10]}</span></div></div>'
             )
-        eightk = rows8k or '<div class="empty" style="padding:18px 0">aucun 8-K sur 60j</div>'
+        eightk = rows8k or '<div class="empty" style="padding:18px 0">aucun 8-K sur 60&nbsp;j</div>'
     except Exception as e:
         eightk, tally_str = _err(e), "&mdash;"
 
@@ -1049,13 +1049,13 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f"{feu}{gauge}"
         f'<div class="cols">'
         f'<div><div class="ph3">Course vers la cible</div><div class="card pad">{elan}</div></div>'
-        f'<div><div class="ph3">Positions proches du stop</div><div class="card pad">{watch}</div></div>'
+        f'<div><div class="ph3">Marges les plus faibles</div><div class="card pad">{watch}</div></div>'
         f'<div><div class="ph3">Moniteur de stress macro &mdash; {clabel}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
         f'<div class="cols">'
         f'<div><div class="ph3">Momentum march&eacute; &middot; RSI(14) daily &middot; cache 30min</div>'
         f'<div class="card pad"><div class="dlist">{rsi_html}</div></div></div>'
-        f'<div><div class="ph3">Breadth &middot; participation au rally</div>'
+        f'<div><div class="ph3">Largeur du march&eacute; &middot; participation</div>'
         f'<div class="card pad"><div class="dlist">{breadth_html}</div></div></div>'
         f"</div></section>"
     )
@@ -1098,7 +1098,7 @@ def _rail_foot(near: int, heat: float) -> str:
         dcol = {1: "#37E0A0", 2: "#FFB020", 3: "#FB923C", 4: "#FF6B6B"}.get(int(phase or 1), "#FF6B6B")
         macro = f'<span class="rfmacro" style="background:{dcol}" title="Macro phase {int(phase or 1)}"></span>'
     return (
-        f'<div class="rfoot" title="Portefeuille {posture} &middot; surchauffe {heat:.0f}&deg; &middot; {near} proche(s) du stop">'
+        f'<div class="rfoot" title="Portefeuille {posture} &middot; surchauffe {heat:.0f}&deg; &middot; {near} marge(s) faible(s)">'
         f'<span class="statedot {tone}"></span>'
         f'<span class="rfm">{heat:.0f}&deg;</span>'
         f'<span class="rfm">{near}&#9888;</span>'
@@ -1215,8 +1215,8 @@ def _journal() -> str:
         "scale_in": "Renforcement",
         "partial_exit": "All&egrave;gement",
         "full_exit": "Sortie",
-        "override": "Override",
-        "no_action_flag": "Non-action",
+        "override": "D&eacute;rogation",
+        "no_action_flag": "Non-action document&eacute;e",
     }
     out = ""
     for created, tk, dtype, reason in rows:
@@ -1362,8 +1362,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     hero = (
         '<div class="hero"><div><div class="hl">Th&egrave;ses actives</div>'
         f'<div class="big" style="--c:var(--id)">{n}</div>'
-        f'<div class="hsub">m&eacute;diane c{med} &middot; {n_near} proche(s) du stop &middot; {n_near_tgt} proche(s) de la cible</div></div>'
-        '<div style="flex:1;min-width:250px"><div class="hl">Distribution conviction</div>'
+        f'<div class="hsub">m&eacute;diane c{med} &middot; {n_near} marge(s) faible(s) &middot; {n_near_tgt} proche(s) de la cible</div></div>'
+        '<div style="flex:1;min-width:250px"><div class="hl">R&eacute;partition par conviction</div>'
         f'{hist}<div class="hsub" style="margin-top:7px">{infl_msg}</div></div></div>'
     )
 
@@ -1371,9 +1371,9 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     ncls = "negc" if n_near else "acc"
     kpis = (
         '<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
-        f'<div class="kpi"><span class="kl">Proches de la cible</span><span class="kv acc">{n_near_tgt}</span><span class="kd">moins de 12% de marge</span></div>'
-        f'<div class="kpi"><span class="kl">En profit</span><span class="kv {pcls}">{n_profit}/{n}</span><span class="kd">prix au-dessus de l&rsquo;entr&eacute;e</span></div>'
-        f'<div class="kpi"><span class="kl">Proches du stop</span><span class="kv {ncls}">{n_near}</span><span class="kd">moins de 10% de marge</span></div></div>'
+        f'<div class="kpi"><span class="kl">Proches de la cible</span><span class="kv acc">{n_near_tgt}</span><span class="kd">marge &lt; 12%</span></div>'
+        f'<div class="kpi"><span class="kl">En gain</span><span class="kv {pcls}">{n_profit}/{n}</span><span class="kd">cours &gt; co&ucirc;t d&rsquo;entr&eacute;e</span></div>'
+        f'<div class="kpi"><span class="kl">Marges faibles</span><span class="kv {ncls}">{n_near}</span><span class="kd">marge &lt; 10% du stop</span></div></div>'
     )
 
     gap = ""
@@ -1414,7 +1414,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _crypto = t["tk"] in crypto_tk
                 if t["pnl_e"] >= 12 and not _crypto:
                     _acls = "acc"
-                    _amsg = "Ligne en profit, marge de hausse restante. Le biais pousse &agrave; s&eacute;curiser trop t&ocirc;t &mdash; laisser courir vers la cible."
+                    _amsg = "Ligne en gain, marge de hausse restante. Biais : s&eacute;curiser trop t&ocirc;t. R&egrave;gle : laisser courir vers la cible."
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
             wv = vmap.get(t["tk"], 0.0)
@@ -2280,7 +2280,7 @@ def render() -> Path:
             "danger" if over_cap_tk else "calm",
         )
         + _pi(len(near_tgt_tk), near_tgt_tk, "candidat(s) prise de profit", "warn" if near_tgt_tk else "calm")
-        + _pi(len(near_stop_tk), near_stop_tk, "proche(s) du stop", "danger" if near_stop_tk else "calm")
+        + _pi(len(near_stop_tk), near_stop_tk, "marge(s) faible(s)", "danger" if near_stop_tk else "calm")
         + "</div></div>"
     )
 
@@ -2324,7 +2324,7 @@ def render() -> Path:
         '<div class="card pad" style="margin-bottom:18px">'
         '<div class="colhead">'
         '<span class="t">Cockpit discipline</span>'
-        '<span class="a">vitals temps r&eacute;el &middot; rouge = &agrave; traiter</span>'
+        '<span class="a">lecture en continu &middot; rouge = &agrave; traiter</span>'
         "</div>" + _cockpit() + "</div>"
     )
     vigie = (
