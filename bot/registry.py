@@ -129,7 +129,6 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
     app.add_handler(CommandHandler("tiers", cmd_tiers))
     app.add_handler(CommandHandler("signals_by_type", cmd_signals_by_type))
-    app.add_handler(CommandHandler("signals_by_type", cmd_signals_by_type))
     app.add_handler(CommandHandler("cost_trajectory", cmd_cost_trajectory))
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("thesis", cmd_thesis))

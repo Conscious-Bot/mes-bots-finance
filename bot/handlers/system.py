@@ -14,90 +14,30 @@ async def cmd_ping(update, ctx):  # noqa: ARG001
     )
 
 
-async def cmd_help(update, ctx):  # noqa: ARG001
-    """Show categorized list of all 65 registered commands."""
-    help_text = """mes-bots-finance — 65 commands (consolidation V4 spec'd Sprint 1.2)
+async def cmd_help(update, ctx):
+    """Liste des commandes enregistrees, generee depuis le registre (source unique)."""
+    from telegram.ext import CommandHandler as _CH
 
-DAILY RITUAL (6)
-  /brief             Morning briefing (6 sections)
-  /health            Bot health snapshot
-  /ping              Liveness probe
-  /digest            Run digest pipeline now
-  /log_value <msg>   Log a moment the bot helped
-  /log_friction <msg> Log a friction
+    seen: dict[str, str] = {}
+    for group in ctx.application.handlers.values():
+        for h in group:
+            if not isinstance(h, _CH):
+                continue
+            doc = (h.callback.__doc__ or "").strip().split("\n")[0].strip()
+            names = getattr(h, "commands", None) or getattr(h, "command", None) or []
+            for name in names:
+                seen.setdefault(str(name), doc)
 
-THESES (8)
-  /thesis_list       List active theses (chunked)
-  /thesis_add        Create new thesis
-  /thesis_set        Set thesis params
-  /thesis_note       Add note
-  /thesis_revisit    Monthly revisit
-  /thesis_premortem  Pre-mortem analysis
-  /exit TICKER       Check exit triggers
-  /exit_force        Force-close (regret-tagged)
+    items = sorted(seen.items())
+    header = f"mes-bots-finance — {len(items)} commandes (genere du registre)\n\n"
+    rows = [f"/{name}  {doc[:55]}" for name, doc in items]
 
-POSITIONS (8)
-  /portfolio         View positions w/ PnL
-  /position TICKER   Drill-down
-  /position_buy      Record buy + journal
-  /position_sell     Record sell + journal
-  /position_history  Event log
-  /orphan_tickers    Holdings w/o thesis
-  /override          Manual override
-
-ANALYSIS (6)
-  /analyze TICKER    Deep analysis (Opus, $0.20)
-  /analyze_debate    Multi-round debate
-  /asymmetry TICKER  Anti-sell-too-early math
-  /risk_check        Risk premortem (Opus reads journal+biases)
-  /materiality       Materiality (no args=top5, INT=signal_id, TICKER=last 5)
-
-JOURNAL (9)
-  /journal           View decision journal
-  /journal_review    Review unresolved
-  /journal_unresolved List unresolved
-  /journal_tag       Tag with bias
-  /bias_review       Bias patterns
-  /history TICKER    Position/thesis history
-  /predictions       Pending predictions
-  /resolve_now       Force-resolve due
-  /feedback          Submit feedback
-
-SIGNALS & SOURCES (9)
-  /echo_recent       Recent echo clusters
-  /credibility       Source credibility
-  /sources_brier     Brier per source
-  /sources_half_life Source decay rates
-  /sources_health    Source freshness
-  /tiers             Source tier ranking
-  /tiers_watch       Watch tier changes
-  /promote           Promote tier
-
-MARKET (7)
-  /macro             Macro snapshot
-  /regime            Current regime
-  /credit            Credit / HY OAS
-  /crypto            Crypto zone
-  /price_check TICK  Live price
-  /calendar          Upcoming events
-  /calendar_refresh  Force refresh
-
-INSIDERS (7)
-  /insiders          Recent activity
-  /insider_cluster   Cluster analysis
-  /insider_buy_cluster      Buy-cluster only
-  /insider_buy_cluster_stats Stats
-  /insider_digest    Daily digest
-  /recent_8k         Recent 8-K filings
-  /eight_k_history   Historical 8-K
-
-OPS & MONITORING (5)
-  /cost_trajectory   LLM cost + budget
-  /llm_costs         Operational LLM costs
-  /handler_stats     Handler usage telemetry
-  /help              This message
-
-Spec V4: 65 -> 18 handlers in Sprint 1.2 (post 2026-06-10).
-See docs/personal/handlers-consolidation-plan.md
-"""
-    await update.message.reply_text(help_text)
+    limit = 3800
+    chunk = header
+    for row in rows:
+        if len(chunk) + len(row) + 1 > limit:
+            await update.message.reply_text(chunk.rstrip())
+            chunk = ""
+        chunk += row + "\n"
+    if chunk.strip():
+        await update.message.reply_text(chunk.rstrip())
