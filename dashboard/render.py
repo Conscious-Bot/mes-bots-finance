@@ -150,6 +150,27 @@ def _err(e: Exception) -> str:
     return f'<div class="empty"><b>Requ&ecirc;te &agrave; ajuster</b><span class="mono" style="font-size:11px">{type(e).__name__}: {str(e)[:130]}</span></div>'
 
 
+def _needle_color(frac: float, *, invert: bool = False) -> str:
+    """Couleur continue du needle calee sur le gradient de l'axe.
+    frac 0->100 = bear -> steel -> acc (defaut)
+    invert=True (sizing): 0->100 = acc -> steel -> warn -> bear (la droite = danger)."""
+    f = max(0.0, min(100.0, frac))
+    if invert:
+        if f <= 50:
+            t = f / 50
+            return f"color-mix(in srgb,var(--acc) {(1 - t) * 100:.0f}%,var(--steel) {t * 100:.0f}%)"
+        if f <= 77:
+            t = (f - 50) / 27
+            return f"color-mix(in srgb,var(--steel) {(1 - t) * 100:.0f}%,var(--warn) {t * 100:.0f}%)"
+        t = (f - 77) / 23
+        return f"color-mix(in srgb,var(--warn) {(1 - t) * 100:.0f}%,var(--bear) {t * 100:.0f}%)"
+    if f <= 50:
+        t = f / 50
+        return f"color-mix(in srgb,var(--bear) {(1 - t) * 100:.0f}%,var(--steel) {t * 100:.0f}%)"
+    t = (f - 50) / 50
+    return f"color-mix(in srgb,var(--steel) {(1 - t) * 100:.0f}%,var(--acc) {t * 100:.0f}%)"
+
+
 SECTOR_COLORS = {
     "Foundry & logique": "#4C8DFF",
     "Équipement semi": "#22C9D6",
@@ -1020,7 +1041,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         '<div class="gauge"><div class="ghead">'
         '<span class="gl">Sant&eacute; macro &middot; cr&eacute;dit / or / taux 30a / inflation / VIX</span>'
         + f'<span class="gv"><span class="gvm" style="--c:var(--{_phase_col})">{clabel}</span><span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; phase {cphase}/4 &middot; indice {score:.0f}</span></span></div>'
-        + f'<div class="gtrack"><div class="axis-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
+        + f'<div class="gtrack"><div class="axis-mark" style="left:{(cphase - 0.5) * 25:.0f}%;background-color:{_needle_color((cphase - 0.5) * 25, invert=True)}"></div></div>'
         '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
     )
     rsi_html = _market_rsi()
@@ -1378,19 +1399,14 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                if t["d_stop"] is not None and t["d_stop"] < 10:
-                    cur_cls = "neg"
-                elif t["d_tgt"] is not None and t["d_tgt"] < 12:
-                    cur_cls = "pos"
-                else:
-                    cur_cls = ""
+                cur_color = _needle_color(t["frac"])
                 if t["entry_frac"] is not None:
                     zones = f'<div class="axis-tick dash" style="left:{t["entry_frac"]:.1f}%"></div>'
                 else:
                     zones = ""
                 bar = (
                     '<div class="th-bar"><div class="axis">'
-                    f'{zones}<div class="axis-mark {cur_cls}" style="left:{t["frac"]:.1f}%"></div></div>'
+                    f'{zones}<div class="axis-mark" style="left:{t["frac"]:.1f}%;background-color:{cur_color}"></div></div>'
                     '<div class="th-ends">'
                     f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
                     f'<span class="th-tgt">cible +{t["d_tgt"]:.0f}%</span></div></div>'
@@ -1421,17 +1437,12 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _scale = _cappct * 1.3
                 _tgt_pos = min(_tgt / _scale * 100, 100.0)
                 _w_pos = min(max(wv / _scale * 100, 0.0), 100.0)
-                if wv > _cappct:
-                    _mark_cls = "neg"
-                elif wv > _tgt:
-                    _mark_cls = "warn"
-                else:
-                    _mark_cls = ""
+                _sz_color = _needle_color(_w_pos, invert=True)
                 sizebar = (
                     '<div class="axis sizebar">'
                     f'<div class="axis-tick" style="left:{_tgt_pos:.1f}%"></div>'
                     '<div class="axis-tick strong" style="left:76.9%"></div>'
-                    f'<div class="axis-mark {_mark_cls}" style="left:{_w_pos:.1f}%"></div>'
+                    f'<div class="axis-mark" style="left:{_w_pos:.1f}%;background-color:{_sz_color}"></div>'
                     '</div>'
                 )
                 _d = wv - _tgt
@@ -1591,13 +1602,19 @@ _CSS = """
   .tag.up { color:var(--acc); background:rgba(55,224,160,.12); } .tag.acc2 { color:var(--acc2); background:rgba(61,139,255,.12); }
   .tag.down,.tag.danger { color:var(--bear); background:rgba(255,107,107,.13); } .tag.warn { color:var(--warn); background:rgba(255,176,32,.14); } .tag.calm { color:var(--steel); background:rgba(124,137,166,.12); } .tag.mute { color:var(--steel); background:rgba(124,137,166,.12); }
   /* Signal-subtil PRESAGE : axe gradient red->neutral->green + dot noir-bezel-gold */
-  .axis { position:relative; height:4px; border-radius:2px; margin:14px 0 6px;
+  .axis { position:relative; height:5px; border-radius:2.5px; margin:14px 0 6px;
     background:linear-gradient(90deg,
-      color-mix(in srgb,var(--bear) 70%,transparent) 0%,
-      color-mix(in srgb,var(--bear) 28%,transparent) 28%,
-      color-mix(in srgb,var(--line2) 55%,transparent) 50%,
-      color-mix(in srgb,var(--acc) 28%,transparent) 72%,
-      color-mix(in srgb,var(--acc) 70%,transparent) 100%); }
+      var(--bear) 0%,
+      color-mix(in srgb,var(--bear) 45%,transparent) 25%,
+      color-mix(in srgb,var(--steel) 35%,transparent) 50%,
+      color-mix(in srgb,var(--acc) 45%,transparent) 75%,
+      var(--acc) 100%); }
+  .axis.sizebar { background:linear-gradient(90deg,
+    color-mix(in srgb,var(--acc) 75%,transparent) 0%,
+    color-mix(in srgb,var(--acc) 30%,transparent) 35%,
+    color-mix(in srgb,var(--steel) 35%,transparent) 60%,
+    color-mix(in srgb,var(--warn) 55%,transparent) 77%,
+    var(--bear) 100%); }
   .axis::before, .axis::after { content:""; position:absolute; top:-3px; width:1px; height:10px; background:var(--line2); }
   .axis::before { left:0; } .axis::after { right:0; }
   .axis-mark { position:absolute; top:50%; width:32px; height:15px;
@@ -2299,7 +2316,7 @@ def render() -> Path:
         a = _axis[tk]
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span></div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%"></div></div>'
+            f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%;background-color:{_needle_color(a["frac"])}"></div></div>'
             f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
             f'<span class="th-tgt">cible +{a["up"]:.0f}%</span></div></div>'
         )
