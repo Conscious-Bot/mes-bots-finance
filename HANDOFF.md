@@ -1550,3 +1550,13 @@ PID 7879 alive (restart post-fix), 27 crons, 335 tests, ruff+mypy clean.
 Bot : bot.main PID 37896 + dashboard.serve PID 47182 (un seul de chaque). Backup OK. Git HEAD 4c604bb.
 Dashboard : palette par etat + metal (--c sur chiffres, chrome titres 46px silver-dark/graphite-frost) + concentration rouge "alleger sans sortir". Reference figee : CONVENTIONS.md. Servi HTTP (jamais file://), restart serve apres tout patch render.py.
 Residuel P3 : Theses "en profit" rouge -> vert. Style globalement FIGE -- prochain levier = usage, pas CSS.
+
+## Day 17 (28/05/2026) — surface command-line alignee telemetrie
+
+Chantier termine + push origin (f783756, 39 commits). Surface 76->72.
+- Cull -10 flats morts, +2 alias (/positions /value_log), restore /kpi_status /signals_by_type /insider_buy_cluster_stats, build /tiers (conviction-sizing price-free), dedup signals_by_type, /help genere du registre (zero drift).
+- Signal: /tiers sort inflation c5 = 21% > gate 20% — laisser Brier 10/06 trancher, NE PAS de-tierer a la main.
+- Detail complet: SESSION_STATE.md "Day 17 close".
+
+Reouverture: lire SESSION_STATE.md tail + TODO Path5/6 + PHILOSOPHY High Standard. Freeze observation jusqu'au 10/06 (display/UX/additif hors-gel).
+Loose ends non-urgents: friction.md (logge ce jour), retirer credentials.json/token.json des project files Claude UI, cat `trade`, Hetzner prep ~31/05 (compte+SSH+ADR 002, 4 questions ouvertes).

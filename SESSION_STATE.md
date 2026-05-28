@@ -481,3 +481,31 @@ Critère sharper : frozen = ce qui affecte la pipeline `signal → score → pre
 - Policy 2-week observation guardrail dans /risk_check (changerait comportement bot pendant obs)
 
 **Unfrozen** (display/UX/refactor/data-correction/doc/handler-fix/additive-feature, zéro impact pipeline) : voir TODO.md restructuré pour la queue active. ~70% du frozen list initial du 13/05 était lumped trop large par prudence — recadré pour libérer la queue.
+
+## Day 17 close (28/05/2026) — chantier surface command-line
+
+**Theme**: surface de commandes alignee sur telemetrie reelle (handler_calls), pas sur modele historique. "Less surface > more discipline" applique aux commandes.
+
+### Shipped (5 commits, tous pushes -> origin f783756)
+- 6e2061a /journal_decision : enrichir reasoning d'une decision a posteriori. Decouverte: decision_type CHECK enum (no_action_flag, pas no_action).
+- 8a7c923 cull -10 flats morts (thesis/journal/position_history/bias_pattern/echo_recent, 0 appels 15j) + alias /positions /value_log + restore /kpi_status on-demand.
+- b0227ec restore /signals_by_type + /insider_buy_cluster_stats (handlers supprimes au refactor, data layer intact, depuis .backups/E_batch1).
+- b14aae0 /tiers conviction-sizing price-free (lit config.concentration.line_cap_by_conviction = source unique; cible cap_i/Scaps*100).
+- f783756 dedup signals_by_type (etait 2x) + /help genere du registre (introspection, zero drift).
+
+### Surface 76 -> 72. Demande morte (telemetrie) servie. /help ne ment plus.
+
+### Decisions / pushback
+- Refuse "cull 30+": plafond defensible ~12. Les ~18 flats "redondants" = vocabulaire reel (asymmetry 21, portfolio_sectors 9). Telemetrie > intuition.
+- Caps conviction "4.5/3/2 vs 5/4/3" RESOLU: config==ADR 009 (c5=8/c4=6/c3=4.5/c2=3/c1=2). Le 4.5/3/2 memoire etait stale.
+- /tiers price-free volontaire: poids-courant-vs-cap reste au dashboard (_sizing_overcap, prix-dependant). Pas de 2e chemin prix.
+
+### Signal portfolio emergent
+- /tiers: inflation c5 = 21% > gate 20% (6/28 lignes conviction max). NE PAS de-tierer a la main — laisser Brier 10/06 trancher (ADR 009: re-tierage sur preuve N>=30).
+
+### Etat: bot PID 56894 vivant, 72 cmds, gates verts, origin synchro (39 commits pushes). Freeze observation maintenu (display/UX/additif hors-gel).
+
+### Loose ends (non-urgents -> 10/06)
+- friction.md logge ce jour. Retirer credentials.json/token.json des project files Claude UI. Fichier `trade` untracked a elucider.
+- Hetzner prep ~31/05: compte+SSH+ADR 002, 4 questions ouvertes (CX22 vs CPX21 / storage / OAuth device-flow / IMAP).
+- 10/06 jour-J: ~40 predictions resolvent, premier Brier, decision Path 5/6.

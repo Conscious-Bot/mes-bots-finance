@@ -225,3 +225,9 @@ currency tracking (Sprint 1.3 candidate) preserved as open question in ADR-003.
 2026-05-28 12:00 | /digest macro signal -> trade decision gap | /digest a surface "insider selling cluster semis" mais sans drill-down ticker-specific. Lecture macro impossible a convertir directement en trade single-ticker. Soit /digest doit driller (top-N tickers cluster), soit accepter qu'il sert au framing thematique pas a l'execution.
 
 2026-05-28 12:05 | TSM no documented thesis (vu via /risk_check) | pattern recurrent : positions actives sans thesis_id linke. Audit needed : combien de positions ont thesis_id=NULL ? Si >20%, KPI #5 thesis-link coverage fictive. Candidat audit batch post-observation.
+2026-05-28 | /journal_decision build | decision_type a un CHECK enum (entry/scale_in/partial_exit/full_exit/override/no_action_flag) documente NULLE PART -> 2x rejet INSERT sur 'no_action'. A documenter CONVENTIONS.md.
+2026-05-28 | /tiers | commande fantome : 6 invocations telemetrie, jamais enregistree. Help V4 l'annoncait "source tier ranking", intention reelle = conviction sizing. Gap help-spec vs mental model.
+2026-05-28 | naming commandes | noms intuitifs inexistants tapes (/positions, /value_log) -> 5+2 tentatives mortes. Alias sur vocabulaire naturel manquants.
+2026-05-28 | /signals_by_type catalyst | bucket catalyst bruite : opinion/narrative (Matt Levine, Stoller, Aave) classes catalyst. Calibration classifier post-10/06.
+2026-05-28 | /signals_by_type | source_name = header From brut ("Name <email>") au lieu d'un nom propre. Display-polish.
+2026-05-28 | /help | ~10 cmds sans docstring -> ligne vide (calendar, credibility, credit, exit, exit_force, feedback, ping, regime, resolve_now, thesis_list). Docstring = 1 ligne, cheap.
