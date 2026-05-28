@@ -1602,26 +1602,18 @@ _CSS = """
       color-mix(in srgb,var(--acc) 32%,transparent) 100%); }
   .axis::before, .axis::after { content:""; position:absolute; top:-3px; width:1px; height:10px; background:var(--line2); }
   .axis::before { left:0; } .axis::after { right:0; }
-  .axis-mark { position:absolute; top:50%; width:9px; height:9px; border-radius:50%;
-    background:#0E0B07;
-    box-shadow:0 0 0 .5px rgba(0,0,0,.35), 0 0 4px 0 color-mix(in srgb,var(--gold) 32%,transparent);
+  .axis-mark { position:absolute; top:50%; width:22px; height:14px;
+    background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 28'><defs><radialGradient id='c' cx='50%25' cy='50%25' r='30%25'><stop offset='0%25' stop-color='%23ffffff'/><stop offset='35%25' stop-color='%23fff5db'/><stop offset='100%25' stop-color='%23B58A3C' stop-opacity='0'/></radialGradient></defs><path d='M22 6 L37 14 L22 22 L7 14 Z' fill='%230E0B07'/><ellipse cx='22' cy='14' rx='21' ry='.55' fill='%23ffffff' opacity='.95'/><ellipse cx='22' cy='14' rx='.55' ry='12' fill='%23ffffff' opacity='.8'/><circle cx='22' cy='14' r='3.2' fill='url(%23c)'/></svg>") no-repeat center / contain;
+    filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--gold) 32%,transparent));
     transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
-  .axis-mark::before { content:""; position:absolute; inset:1.6px; border-radius:50%;
-    background:radial-gradient(circle at 32% 28%,
-      #FFF6D5 0%,
-      #F4D170 28%,
-      var(--gold) 58%,
-      #6E5320 100%); }
-  .axis-mark.pos { background:var(--acc); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--acc) 22%,transparent); }
-  .axis-mark.pos::before { display:none; }
-  .axis-mark.neg, .axis-mark.danger { background:var(--bear); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--bear) 22%,transparent); }
-  .axis-mark.neg::before, .axis-mark.danger::before { display:none; }
-  .axis-mark.warn { background:var(--warn); box-shadow:0 0 0 1.5px color-mix(in srgb,var(--warn) 22%,transparent); }
-  .axis-mark.warn::before { display:none; }
-  .axis-mark.ink { background:var(--ink); box-shadow:none; }
-  .axis-mark.ink::before { display:none; }
-  .axis-mark.mute { background:var(--steel); box-shadow:none; opacity:.55; }
-  .axis-mark.mute::before { display:none; }
+  .axis-mark.pos, .axis-mark.neg, .axis-mark.danger, .axis-mark.warn, .axis-mark.ink, .axis-mark.mute {
+    background:var(--acc); filter:none; width:11px; height:7px;
+    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%); }
+  .axis-mark.pos { background:var(--acc); }
+  .axis-mark.neg, .axis-mark.danger { background:var(--bear); }
+  .axis-mark.warn { background:var(--warn); }
+  .axis-mark.ink { background:var(--ink); }
+  .axis-mark.mute { background:var(--steel); opacity:.55; }
   .axis-tick { position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
   .axis-tick.strong { top:-4px; height:9px; background:var(--ink); opacity:.55; }
   .axis-tick.dash { border-left:1px dashed var(--steel); background:transparent; opacity:.6; }
