@@ -1605,17 +1605,10 @@ _CSS = """
     -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
     mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
     transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
-  .axis-mark::after { content:""; position:absolute; top:50%; left:50%; width:9px; height:9px; border-radius:50%;
-    background:radial-gradient(circle,#ffffff 0%, #fff5db 38%, var(--gold) 75%, transparent 100%);
-    transform:translate(-50%,-50%); pointer-events:none; }
   .axis-mark.pos { background-color:var(--acc); }
-  .axis-mark.pos::after { display:none; }
   .axis-mark.neg, .axis-mark.danger { background-color:var(--bear); }
-  .axis-mark.neg::after, .axis-mark.danger::after { display:none; }
   .axis-mark.warn { background-color:var(--warn); }
-  .axis-mark.warn::after { display:none; }
   .axis-mark.mute { background-color:var(--steel); opacity:.6; }
-  .axis-mark.mute::after { display:none; }
   .axis-tick { position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
   .axis-tick.strong { top:-4px; height:9px; background:var(--ink); opacity:.55; }
   .axis-tick.dash { border-left:1px dashed var(--steel); background:transparent; opacity:.6; }
