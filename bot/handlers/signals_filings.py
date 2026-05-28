@@ -256,3 +256,53 @@ async def _buy_cluster_impl(update, ticker) -> None:
     await update.message.reply_text(msg)
 
 
+
+
+async def cmd_signals_by_type(update, ctx):  # noqa: ARG001
+    """Phase Digestion 3a — Usage: /signals_by_type catalyst|data|narrative|opinion [hours]"""
+    parts = update.message.text.split()
+    if len(parts) < 2:
+        await update.message.reply_text(
+            "Usage: /signals_by_type catalyst|data|narrative|opinion [hours=72]\n"
+            "Returns signals sorted by adjusted materiality (score x corroboration boost)."
+        )
+        return
+    sig_type = parts[1].lower()
+    if sig_type not in ("catalyst", "data", "narrative", "opinion"):
+        await update.message.reply_text(f"Invalid type: {sig_type}. Use catalyst|data|narrative|opinion.")
+        return
+    hours = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 72
+    from shared import storage as storage_mod
+
+    rows = storage_mod.get_signals_by_type(sig_type, since_hours=hours, limit=20)
+    if not rows:
+        await update.message.reply_text(f"No '{sig_type}' signals in last {hours}h.")
+        return
+    lines = [f"SIGNALS [{sig_type.upper()}] — last {hours}h ({len(rows)} found)"]
+    for r in rows:
+        boost = r.get("materiality_boost") or 1.0
+        score = r.get("score") or 0
+        adj = score * boost
+        title = (r.get("title") or "?")[:100]
+        src = r.get("source_name") or "?"
+        lines.append(f"\n[adj={adj:.1f} raw={score} boost={boost:.1f}x] {src}")
+        lines.append(f"  {title}")
+    msg = "\n".join(lines)
+    if len(msg) > 3900:
+        msg = msg[:3900] + "\n[truncated]"
+    await update.message.reply_text(msg)
+
+
+async def cmd_insider_buy_cluster_stats(update, ctx):  # noqa: ARG001
+    """Phase C7 — Empirical alpha summary across all logged BUY clusters."""
+    from intelligence import insider_buy_cluster as ibc
+    from shared import storage as storage_mod
+
+    stats = storage_mod.get_buy_cluster_stats(since_days=365)
+    if stats["n_total"] == 0:
+        await update.message.reply_text(
+            "No BUY clusters logged yet (last 365d).\nFirst clusters will appear after cron 6:20."
+        )
+        return
+    msg = ibc.format_stats(stats)
+    await update.message.reply_text(msg)

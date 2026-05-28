@@ -75,10 +75,12 @@ from bot.handlers.signal_drilldown import cmd_signal_drilldown
 from bot.handlers.signals_filings import (
     cmd_eight_k_history,
     cmd_insider_buy_cluster,
+    cmd_insider_buy_cluster_stats,
     cmd_insider_cluster,
     cmd_insider_digest,
     cmd_insiders,
     cmd_recent_8k,
+    cmd_signals_by_type,
 )
 from bot.handlers.sources_admin import (
     cmd_sources,
@@ -124,6 +126,8 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("bot_data", cmd_bot_data))  # Sprint 1.2 Phase J family
     app.add_handler(CommandHandler("handler_stats", cmd_handler_stats))
     app.add_handler(CommandHandler("kpi_status", cmd_kpi_status))
+    app.add_handler(CommandHandler("signals_by_type", cmd_signals_by_type))
+    app.add_handler(CommandHandler("signals_by_type", cmd_signals_by_type))
     app.add_handler(CommandHandler("cost_trajectory", cmd_cost_trajectory))
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("thesis", cmd_thesis))
@@ -166,6 +170,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("insider_digest", cmd_insider_digest))
     app.add_handler(CommandHandler("insider_cluster", cmd_insider_cluster))
     app.add_handler(CommandHandler("insider_buy_cluster", cmd_insider_buy_cluster))
+    app.add_handler(CommandHandler("insider_buy_cluster_stats", cmd_insider_buy_cluster_stats))
     app.add_handler(CommandHandler("recent_8k", cmd_recent_8k))
     app.add_handler(CommandHandler("8k", cmd_recent_8k))  # Sprint 1.2 Phase A alias
     app.add_handler(CommandHandler("eight_k_history", cmd_eight_k_history))
