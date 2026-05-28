@@ -528,3 +528,5 @@ Critère sharper : frozen = ce qui affecte la pipeline `signal → score → pre
 - *Faux précis* : "−1 944 €" → arrondi (−1 950 / −1.9k).
 - *D* : page Thèses rangée par ACTIONNABILITÉ d'abord (lignes demandant décision en haut), pas par conviction. Badges conviction déjà colorés (c5 bleu/c4 vert) = moitié de D déjà faite.
 - Restent E (parité light/dark des oklch fixes des barres) + F (CTA honnête decision-log, échelle macro labellisée, responsive/mobile).
+
+**Day 17 EXTENSION (cloture reelle)** : sizing overshoot FAIT (la file ci-dessus etait obsolete sur ce point) - barre `th-sz` segmentee gris/ambre/rouge, cible = frontiere de couleur, cap = tick ; queue rouge seulement si depassement de cap. `proches-du-stop` (cockpit) seuille : rouge<10 / ambre<20 / calme>=20, echelle 0-40 -> fini la fausse alarme quand le book est sain. RESTE prochaine session : declutter sizing ("cible taille X%" hisse en en-tete de tier + arrondi EUR), D (ranking actionnabilite), E (parite light/dark des fills fixes #2A4439 / oklch), F (CTA / echelle macro / responsive).
