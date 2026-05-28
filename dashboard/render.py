@@ -1058,7 +1058,7 @@ def _tape_8k() -> str:
         raw = (str(reason) or str(codes)) or ""
         lab = raw if len(raw) <= 40 else raw[:40].rsplit(" ", 1)[0] + "&hellip;"
         items += f'<span class="ti"><b>{tk}</b> <span class="{cls}">8-K</span> {lab}</span>'
-    return f'<div class="tape tape8k"><div class="track2">{items}</div></div>'
+    return f'<div class="tape tape8k"><div class="track2">{items}{items}</div></div>'
 
 
 def _rail_foot(near: int, heat: float) -> str:
@@ -1485,11 +1485,11 @@ _NAV = (
 )
 
 _CSS = """
-  :root { --bg:#F4F1EB; --panel:#F4F1EB; --line:#E0D8CA; --line2:#C9BFAD; --ink:#1A1814; --ink2:#3A352D; --steel:#7A7164; --metal:#7A7164;
+  :root { --bg:#F6F2F0; --panel:#F6F2F0; --line:#E2DDD8; --line2:#CDC5BE; --ink:#1A1814; --ink2:#3A352D; --steel:#7E7770; --metal:#7E7770;
     --acc:#5A7548; --acc2:#5A7548; --id:#1A1814; --bear:#9B3A2E; --warn:#A87325; --gold:#B58A3C;
     --fd:"Geist",ui-sans-serif,system-ui,sans-serif; --fb:"Geist",ui-sans-serif,system-ui,sans-serif; --fm:"Geist Mono",ui-monospace,SFMono-Regular,monospace; --fo:"Geist",ui-sans-serif,sans-serif;
     --elev:none;
-    --glass:rgba(244,241,235,.9); --glass2:rgba(244,241,235,.85); --tape:rgba(244,241,235,.95); --barbg:#E8E2D5; }
+    --glass:rgba(246,242,240,.92); --glass2:rgba(246,242,240,.88); --tape:rgba(246,242,240,.96); --barbg:#EBE5DF; }
   body.midnight { --bg:#0E0D0B; --panel:#16140F; --line:#2A2520; --line2:#3D362E; --ink:#F1ECE3; --ink2:#CFC6B5; --steel:#8C8273; --metal:#8C8273;
     --acc:#88A671; --acc2:#88A671; --id:#F1ECE3; --bear:#C75B4F; --warn:#D6A058; --gold:#D4A553;
     --elev:0 12px 32px -18px rgba(0,0,0,.65);
@@ -1534,9 +1534,11 @@ _CSS = """
   .dot { width:7px; height:7px; border-radius:50%; background:var(--acc); }
   .wrap { flex:1; display:flex; flex-direction:column; min-width:0; }
   .tape { overflow:hidden; white-space:nowrap; padding:11px 0; }
-  .tape .track2 { display:inline-block; }
+  .tape .track2 { display:inline-block; animation:scroll 60s linear infinite; }
+  .tape:hover .track2 { animation-play-state:paused; }
   .tape .ti { font-family:var(--fm); font-size:11.5px; margin:0 30px; letter-spacing:.02em; } .tape .ti b { color:var(--ink); } .tape .ti .pos { color:var(--acc); } .tape .ti .neg { color:var(--bear); }
-  .tape8k { background:var(--tape); padding:7px 0; } .tape8k .ti .warn { color:var(--warn); }
+  @keyframes scroll { from{transform:translateX(0);} to{transform:translateX(-50%);} }
+  .tape8k { background:var(--tape); padding:7px 0; } .tape8k .ti .warn { color:var(--warn); } .tape8k .track2 { animation-duration:75s; }
   .statedot { width:8px; height:8px; border-radius:50%; }
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
   .main { padding:30px 52px 54px; max-width:1340px; }
@@ -1602,10 +1604,21 @@ _CSS = """
   .tag { font-family:var(--fm); font-weight:600; font-size:11px; padding:3px 9px; border-radius:6px; }
   .tag.up { color:var(--acc); background:rgba(55,224,160,.12); } .tag.acc2 { color:var(--acc2); background:rgba(61,139,255,.12); }
   .tag.down,.tag.danger { color:var(--bear); background:rgba(255,107,107,.13); } .tag.warn { color:var(--warn); background:rgba(255,176,32,.14); } .tag.calm { color:var(--steel); background:rgba(124,137,166,.12); } .tag.mute { color:var(--steel); background:rgba(124,137,166,.12); }
-  .track { height:10px; background:var(--barbg); border-radius:5px; overflow:hidden; }
-  .fill { height:100%; border-radius:4px; width:0; animation:grow .8s cubic-bezier(.2,.8,.2,1) forwards; }
-  .fill.up { background:var(--acc); }
-  .fill.danger { background:var(--bear); } .fill.warn { background:var(--warn); } .fill.calm { background:var(--barbg); } .fill.acc2 { background:var(--acc); } .fill.mute { background:color-mix(in srgb,var(--steel) 60%,transparent); }
+  /* Signal-subtil : la grammaire visuelle PRESAGE. Axe hairline + point central */
+  .axis { position:relative; height:1px; background:var(--line2); margin:14px 0 6px; }
+  .axis::before, .axis::after { content:""; position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
+  .axis::before { left:0; } .axis::after { right:0; }
+  .axis-mark { position:absolute; top:50%; width:7px; height:7px; border-radius:50%; background:var(--ink); transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
+  .axis-mark.pos { background:var(--acc); } .axis-mark.neg, .axis-mark.danger { background:var(--bear); }
+  .axis-mark.warn { background:var(--warn); } .axis-mark.gold { background:var(--gold); width:9px; height:9px; }
+  .axis-mark.mute { background:var(--steel); opacity:.55; }
+  .axis-tick { position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
+  .axis-tick.strong { top:-4px; height:9px; background:var(--ink); opacity:.55; }
+  .axis-tick.dash { border-left:1px dashed var(--steel); background:transparent; opacity:.6; }
+  .noanim .axis-mark { transition:none !important; }
+  /* Legacy .track/.fill kept lean for migration — flat color, no growth anim */
+  .track { height:1px; background:var(--line2); position:relative; margin:14px 0 6px; }
+  .fill { display:none; }
   .rs { display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--steel); }
   .dwrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
   .legend { display:flex; flex-direction:column; gap:8px; flex:1; min-width:200px; }
@@ -2267,7 +2280,7 @@ def render() -> Path:
     for tk, p in sorted(pnl.items(), key=lambda x: -x[1]):
         cls = "pos" if p >= 0 else "neg"
         tape_items += f'<span class="ti"><b>{tk}</b> <span class="{cls}">{"+" if p >= 0 else ""}{p:.1f}%</span></span>'
-    tape = f'<div class="tape"><div class="track2">{tape_items}</div></div>'
+    tape = f'<div class="tape"><div class="track2">{tape_items}{tape_items}</div></div>'
     tape8k = _tape_8k()
 
     journal_html = _journal()
