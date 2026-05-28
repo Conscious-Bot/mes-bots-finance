@@ -1041,7 +1041,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         '<div class="gauge"><div class="ghead">'
         '<span class="gl">Sant&eacute; macro &middot; cr&eacute;dit / or / taux 30a / inflation / VIX</span>'
         + f'<span class="gv"><span class="gvm" style="--c:var(--{_phase_col})">{clabel}</span><span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; phase {cphase}/4 &middot; indice {score:.0f}</span></span></div>'
-        + f'<div class="gtrack"><div class="axis-mark" style="left:{(cphase - 0.5) * 25:.0f}%;background-color:{_needle_color((cphase - 0.5) * 25, invert=True)}"></div></div>'
+        + f'<div class="gtrack"><div class="axis-mark{" neg" if cphase >= 3 else (" warn" if cphase >= 2 else "")}" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
         '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
     )
     rsi_html = _market_rsi()
@@ -1399,14 +1399,19 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                cur_color = _needle_color(t["frac"])
+                if t["d_stop"] is not None and t["d_stop"] < 10:
+                    cur_cls = "neg"
+                elif t["d_tgt"] is not None and t["d_tgt"] < 12:
+                    cur_cls = "pos"
+                else:
+                    cur_cls = ""
                 if t["entry_frac"] is not None:
                     zones = f'<div class="axis-tick dash" style="left:{t["entry_frac"]:.1f}%"></div>'
                 else:
                     zones = ""
                 bar = (
                     '<div class="th-bar"><div class="axis">'
-                    f'{zones}<div class="axis-mark" style="left:{t["frac"]:.1f}%;background-color:{cur_color}"></div></div>'
+                    f'{zones}<div class="axis-mark {cur_cls}" style="left:{t["frac"]:.1f}%"></div></div>'
                     '<div class="th-ends">'
                     f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
                     f'<span class="th-tgt">cible +{t["d_tgt"]:.0f}%</span></div></div>'
@@ -1437,12 +1442,17 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _scale = _cappct * 1.3
                 _tgt_pos = min(_tgt / _scale * 100, 100.0)
                 _w_pos = min(max(wv / _scale * 100, 0.0), 100.0)
-                _sz_color = _needle_color(_w_pos, invert=True)
+                if wv > _cappct:
+                    _mark_cls = "neg"
+                elif wv > _tgt:
+                    _mark_cls = "warn"
+                else:
+                    _mark_cls = ""
                 sizebar = (
                     '<div class="axis sizebar">'
                     f'<div class="axis-tick" style="left:{_tgt_pos:.1f}%"></div>'
                     '<div class="axis-tick strong" style="left:76.9%"></div>'
-                    f'<div class="axis-mark" style="left:{_w_pos:.1f}%;background-color:{_sz_color}"></div>'
+                    f'<div class="axis-mark {_mark_cls}" style="left:{_w_pos:.1f}%"></div>'
                     '</div>'
                 )
                 _d = wv - _tgt
@@ -2316,7 +2326,7 @@ def render() -> Path:
         a = _axis[tk]
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span></div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%;background-color:{_needle_color(a["frac"])}"></div></div>'
+            f'<div class="axis"><div class="axis-mark{" pos" if a["frac"] >= 88 else (" neg" if a["frac"] <= 12 else "")}" style="left:{a["frac"]:.1f}%"></div></div>'
             f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
             f'<span class="th-tgt">cible +{a["up"]:.0f}%</span></div></div>'
         )
