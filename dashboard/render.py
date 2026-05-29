@@ -403,26 +403,28 @@ def _grade_panel() -> str:
             good = (cur >= tgt) if kind == "min" else (cur <= tgt)
             tcls = "good" if good else "bad"
             prefix = "&ge;" if kind == "min" else "&le;"
-            tickers_html = (
-                f'<div class="gtip-h">{label} &middot; positions concern&eacute;es</div>'
-                + (
-                    '<div class="gtip-list">' + "".join(
-                        f'<span class="gtip-tk" onclick="event.stopPropagation();openLoupe(\'{t}\')">{t}</span>'
-                        for t in tickers
-                    ) + '</div>'
-                    if tickers else
-                    '<div class="gtip-empty">aucun ticker specifique cite</div>'
+            chips_html = (
+                "".join(
+                    f'<span class="gsub-tk" onclick="event.stopPropagation();openLoupe(\'{t}\')">{t}</span>'
+                    for t in tickers
                 )
-                + f'<div class="gtip-ev">{evidence.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")[:300]}</div>'
+                if tickers else
+                '<span class="gsub-empty">aucun ticker specifique cite dans l\'evidence</span>'
             )
+            ev_safe = evidence.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")[:280]
             rows.append(
-                f'<div class="grow has-tip">'
+                f'<div class="grow-wrap">'
+                f'<div class="grow has-acc">'
                 f'<div class="glab">{label}</div>'
                 f'<div class="gaxis"><div class="gfill {tcls}" style="width:{bar_pct:.1f}%"></div>'
                 f'<div class="gtgt" style="left:{tgt:.1f}%"></div></div>'
                 f'<div class="gnum"><span class="mono">{cur:.1f}%</span>'
                 f'<span class="gt">cible {prefix} {tgt:.0f}%</span></div>'
-                f'<div class="gtip">{tickers_html}</div>'
+                f'</div>'
+                f'<div class="gsub">'
+                f'<div class="gsub-chips">{chips_html}</div>'
+                f'<div class="gsub-ev">{ev_safe}</div>'
+                f'</div>'
                 f'</div>'
             )
         return "".join(rows) or '<div class="empty" style="padding:10px 0">&mdash;</div>'
@@ -3084,16 +3086,18 @@ _CSS = """
   .gradecard .gnum { display:flex; align-items:center; gap:10px; justify-content:flex-end; font-size:12px; color:var(--ink); }
   .gradecard .gnum .gt { color:var(--steel); font-size:11px; }
   @media (max-width:980px) { .gradecard .grow { grid-template-columns:1fr; gap:4px; } .gradecard .gnum { justify-content:flex-start; } }
-  /* Sprint 21 - Tooltip dim avec positions concernees */
-  .gradecard .grow.has-tip { position:relative; cursor:default; }
-  .gradecard .gtip { position:absolute; z-index:10; bottom:calc(100% + 6px); left:0; right:auto; min-width:320px; max-width:480px; background:var(--panel); border:1px solid var(--line2); border-radius:var(--r2); padding:14px 16px; box-shadow:0 20px 50px -15px #000; opacity:0; visibility:hidden; transform:translateY(4px); transition:opacity .15s, transform .15s, visibility .15s; pointer-events:none; }
-  .gradecard .grow.has-tip:hover .gtip { opacity:1; visibility:visible; transform:translateY(0); pointer-events:auto; }
-  .gradecard .gtip-h { font-family:var(--fb); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:10px; font-weight:600; }
-  .gradecard .gtip-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-  .gradecard .gtip-tk { font-family:var(--fm); font-size:11px; font-weight:600; color:var(--ink); background:color-mix(in srgb,var(--ink) 6%,transparent); padding:3px 8px; border-radius:var(--r1); cursor:pointer; transition:.12s; }
-  .gradecard .gtip-tk:hover { background:color-mix(in srgb,var(--id) 14%,transparent); color:var(--id); }
-  .gradecard .gtip-empty { font-family:var(--fm); font-size:11px; color:var(--steel); font-style:italic; margin-bottom:10px; }
-  .gradecard .gtip-ev { font-family:var(--fm); font-size:10.5px; color:var(--steel); line-height:1.5; padding-top:8px; border-top:1px solid var(--line); }
+  /* Sprint 21 - Accordion dim qui deroule INLINE en dessous (pattern geo) */
+  .gradecard .grow-wrap { cursor:pointer; }
+  .gradecard .grow.has-acc { transition:background .15s; border-radius:var(--r2); padding:2px 4px; margin:0 -4px; }
+  .gradecard .grow-wrap:hover .grow.has-acc { background:color-mix(in srgb,var(--ink) 4%,transparent); }
+  .gradecard .gsub { max-height:0; overflow:hidden; opacity:0; transition:max-height .3s ease, opacity .2s ease, margin .3s ease, padding .3s ease; padding:0 10px; margin:0; }
+  .gradecard .grow-wrap:hover .gsub, .gradecard .grow-wrap.open .gsub { max-height:260px; opacity:1; margin:6px 0 14px; padding:10px 14px; }
+  .gradecard .gsub { background:color-mix(in srgb,var(--ink) 3%,transparent); border-left:2px solid var(--line2); border-radius:0 var(--r2) var(--r2) 0; margin-left:6px; }
+  .gradecard .gsub-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .gradecard .gsub-tk { font-family:var(--fm); font-size:11px; font-weight:600; color:var(--ink); background:color-mix(in srgb,var(--ink) 8%,transparent); padding:3px 9px; border-radius:var(--r1); cursor:pointer; transition:.12s; }
+  .gradecard .gsub-tk:hover { background:color-mix(in srgb,var(--id) 16%,transparent); color:var(--id); }
+  .gradecard .gsub-empty { font-family:var(--fm); font-size:11px; color:var(--steel); font-style:italic; }
+  .gradecard .gsub-ev { font-family:var(--fm); font-size:10.5px; color:var(--steel); line-height:1.55; padding-top:6px; border-top:1px solid color-mix(in srgb,var(--ink) 6%,transparent); }
   /* Sub-notes Construction + Fragilite (glossaire canonique) */
   .gradecard .gsplit { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
   .gradecard .gsub { display:flex; flex-direction:column; gap:10px; }
