@@ -74,9 +74,9 @@ def test_active_thesis_has_complete_inputs(held_lines):
     accepte SNOW comme exception explicite, fail sur tout autre."""
     blind = [ln for ln in held_lines if ln.is_blind]
     blind_tk = sorted(ln.ticker for ln in blind)
-    # Exceptions documentees : positions dont on sait qu'elles sont vol aveugle
-    # cf target_status=open_question dans canonical_perimeter
-    accepted_blind = {"SNOW"}  # entree 29/05, inputs a remplir
+    # SNOW etoffe 2026-05-29 (P1 decision) -- plus d'exemption documente.
+    # Toute position blind future = regression a investiguer.
+    accepted_blind: set[str] = set()
     unexpected = sorted(set(blind_tk) - accepted_blind)
     assert not unexpected, (
         f"vol aveugle non documente : {unexpected}. "
