@@ -516,6 +516,13 @@ def _copilot_panel() -> str:
             "</div></div>"
         )
     lis = []
+    # Fix canal "ce que le bot a detecte -> ce qu'il met sous le nez" (29/05) :
+    # avant on truncait l'ancrage a 200 chars et on cachait brief + biases_active,
+    # exactement les champs qui contiennent la vraie detection (cf intervention_3
+    # CCJ qui avait tout capte mais que l'user n'a jamais lu).
+    def _esc(s: str) -> str:
+        return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
     for r in rows:
         ver = r.get("verdict") or "?"
         cls, label = _VERDICT_LABEL.get(ver, ("calm", ver))
@@ -525,8 +532,18 @@ def _copilot_panel() -> str:
         tk = r.get("ticker") or "?"
         dtype = r.get("decision_type") or "?"
         anc = (r.get("ancrage") or "").strip()
-        if len(anc) > 200:
-            anc = anc[:197] + "..."
+        brief = (r.get("brief") or "").strip()
+        # Biases nommes (chips visibles, le bot a deja fait le diagnostic)
+        biases_html = ""
+        try:
+            import json as _j
+
+            biases = _j.loads(r.get("biases_active_json") or "[]") or []
+        except Exception:
+            biases = []
+        if biases:
+            chips = "".join(f'<span class="cp-bias">{_esc(str(b))}</span>' for b in biases[:4])
+            biases_html = f'<div class="cp-biases">{chips}</div>'
         outc = r.get("outcome_label") or ""
         ret30 = r.get("return_30d_pct")
         outc_html = ""
@@ -535,20 +552,35 @@ def _copilot_panel() -> str:
             ocls = "ok" if good else "bad"
             ret_s = f"  ret30j {ret30:+.1f}%" if isinstance(ret30, int | float) else ""
             outc_html = f'<span class="cp-outc {ocls}">{outc}{ret_s}</span>'
+        # Elevation visuelle si PRESSURE/STRONG_OPPOSE
+        row_cls = "cp-row" + (" cp-flagged" if ver in ("PRESSURE", "STRONG_OPPOSE") else "")
+        # Brief en accordeon (le diagnostic actionnable, jamais affiche avant)
+        brief_html = ""
+        if brief:
+            brief_html = (
+                '<div class="cp-brief-wrap">'
+                '<div class="cp-brief-label">Diagnostic complet</div>'
+                f'<div class="cp-brief">{_esc(brief)}</div>'
+                '</div>'
+            )
         lis.append(
-            f'<div class="cp-row"><div class="cp-head">'
+            f'<div class="{row_cls}"><div class="cp-head">'
             f'<span class="cp-tk">{tk}</span>'
             f'<span class="cp-dtype">{dtype}</span>'
             f'<span class="cp-ver {cls}">{label}&nbsp;&middot;&nbsp;{score_s}</span>'
             f'<span class="cp-date">{date}</span></div>'
-            f'<div class="cp-anc">{anc or "(pas d\'ancrage)"}</div>'
+            f'<div class="cp-anc">{_esc(anc) or "(pas d\'ancrage)"}</div>'
+            f'{biases_html}'
+            f'{brief_html}'
             f'{outc_html}</div>'
         )
     return (
         '<div class="card pad copilotcard" style="margin-bottom:18px">'
         '<div class="colhead"><span class="t">Pressions du copilot avant tes trades</span>'
-        '<span class="a">verdict m&eacute;canique avant chaque action, r&eacute;sultat 30j apr&egrave;s</span></div>'
+        '<span class="a">survole/clique une ligne pour le diagnostic complet &middot; verdict m&eacute;canique avant chaque action</span></div>'
         + "".join(lis)
+        + "<script>document.querySelectorAll('.copilotcard .cp-row').forEach(function(e){"
+        "e.addEventListener('click',function(){e.classList.toggle('open')})});</script>"
         + "</div>"
     )
 
@@ -3294,8 +3326,16 @@ _CSS = """
   .strategiecard .us-cstr-h { font-size:11px; color:#c89b00; text-transform:uppercase; letter-spacing:.05em; font-weight:600; margin-bottom:6px; }
   .strategiecard .us-cstr-b { font-size:12.5px; color:var(--ink); line-height:1.6; }
   /* Sprint 5/6 - Copilot interventions panel */
-  .copilotcard .cp-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
+  .copilotcard .cp-row { padding:12px 14px; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); cursor:pointer; transition:background .15s; }
+  .copilotcard .cp-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); border-radius:var(--r2); }
   .copilotcard .cp-row:last-child { border-bottom:none; }
+  .copilotcard .cp-row.cp-flagged { border-left:2px solid var(--bear); padding-left:12px; background:color-mix(in srgb,var(--bear) 3%,transparent); }
+  .copilotcard .cp-biases { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .copilotcard .cp-bias { font-family:var(--fm); font-size:10.5px; padding:2px 8px; border-radius:var(--r1); background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); letter-spacing:.03em; }
+  .copilotcard .cp-brief-wrap { max-height:0; overflow:hidden; opacity:0; transition:max-height .3s ease, opacity .2s ease, margin .3s ease; }
+  .copilotcard .cp-row:hover .cp-brief-wrap, .copilotcard .cp-row.open .cp-brief-wrap { max-height:600px; opacity:1; margin-top:10px; }
+  .copilotcard .cp-brief-label { font-family:var(--fb); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:6px; }
+  .copilotcard .cp-brief { font-family:var(--fm); font-size:12.5px; color:var(--ink); line-height:1.6; padding:10px 12px; background:color-mix(in srgb,var(--ink) 4%,transparent); border-radius:var(--r2); border-left:2px solid color-mix(in srgb,var(--ink) 15%,transparent); }
   .copilotcard .cp-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
   .copilotcard .cp-tk { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); }
   .copilotcard .cp-dtype { font-family:var(--fb); font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:var(--steel); }
