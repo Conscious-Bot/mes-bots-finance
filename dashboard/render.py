@@ -336,6 +336,89 @@ def _copilot_panel() -> str:
     )
 
 
+def _preferences_panel() -> str:
+    """Layer 3 — ce qui MARCHE deterministically pour CE user.
+
+    Pas d'opinion modele, juste les chiffres bruts groupes par kind. La
+    confidence est derivee du sample size (Wilson-conservative). Pas de
+    note magique : tout est expose avec n explicit.
+    """
+    try:
+        import json as _json
+
+        from shared import storage as _stg
+
+        prefs = _stg.get_latest_preferences()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">preferences indispo: {type(e).__name__}</div></div>'
+    if not prefs:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas encore de preferences calibrees. Cron mensuel 1er du mois 04h, "
+            "trigger manuel : <code>venv/bin/python -m intelligence.bot_preferences</code>."
+            "</div></div>"
+        )
+    groups: list[str] = []
+    for p in prefs:
+        kind = p.get("kind", "?")
+        n = p.get("n_samples") or 0
+        conf = p.get("confidence") or 0
+        date = (p.get("snapshot_date") or "")[:10]
+        try:
+            metric = _json.loads(p.get("metric_json") or "{}")
+        except Exception:
+            metric = {}
+        rows = []
+        if kind == "conviction_calibration":
+            for c, v in (metric.get("buckets") or {}).items():
+                rows.append(_pref_row(c, v["n"], v["mean_return_30d_pct"], v["winrate_pct"]))
+        elif kind == "sector_outcome":
+            for sec, v in (metric.get("clusters") or {}).items():
+                rows.append(_pref_row(sec[:18], v["n"], v["mean_return_30d_pct"], v["winrate_pct"]))
+        elif kind == "bias_outcome":
+            for b, v in (metric.get("biases") or {}).items():
+                rows.append(_pref_row(b[:18], v["n"], v["mean_return_30d_pct"], v["winrate_pct"]))
+        elif kind == "sizing_outcome":
+            for s, v in (metric.get("sizing") or {}).items():
+                rows.append(_pref_row(s, v["n"], v["mean_return_30d_pct"], v["winrate_pct"]))
+        elif kind == "copilot_outcome":
+            for ver, v in (metric.get("verdicts") or {}).items():
+                rows.append(_pref_row(ver, v["n"], v["mean_return_30d_pct"], v.get("outcome_good_pct", 0)))
+        elif kind == "archetype_consistency":
+            for t in (metric.get("timeline") or [])[:6]:
+                rows.append(
+                    f'<div class="pr-row"><span class="pr-key">{t.get("at","?")}</span>'
+                    f'<span class="pr-mid">{t.get("label","?")}</span>'
+                    f'<span class="pr-num mono">{t.get("score","?")}</span></div>'
+                )
+        else:
+            rows.append('<div class="pr-row"><span class="pr-key">no formatter</span></div>')
+        rows_html = "".join(rows) or '<div class="empty" style="padding:8px 0">aucun sample</div>'
+        groups.append(
+            f'<div class="pr-group"><div class="pr-h">'
+            f'<span class="pr-kind">{kind.replace("_"," ")}</span>'
+            f'<span class="pr-meta">n={n} conf={conf} ({date})</span></div>'
+            f'{rows_html}</div>'
+        )
+    return (
+        '<div class="card pad preferencescard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Preferences calibrees (Layer 3)</span>'
+        '<span class="a">ce qui a MARCHE deterministically &middot; samples + win rate, pas d\'opinion</span></div>'
+        f'<div class="pr-grid">{"".join(groups)}</div>'
+        '</div>'
+    )
+
+
+def _pref_row(key: str, n: int, mean_ret: float, win: float) -> str:
+    rcls = "pos" if mean_ret > 0 else ("neg" if mean_ret < 0 else "neu")
+    return (
+        f'<div class="pr-row"><span class="pr-key">{key}</span>'
+        f'<span class="pr-mid">n={n}</span>'
+        f'<span class="pr-num mono {rcls}">{mean_ret:+.1f}%</span>'
+        f'<span class="pr-win mono">win {win:.0f}%</span></div>'
+    )
+
+
 def _conceptions_panel() -> str:
     """Layer 2 — vue stable du bot per ticker. Synthese hebdo (cron Sun 19h)."""
     try:
@@ -2256,6 +2339,21 @@ _CSS = """
   .conceptionscard .bc-val.neu { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
   .conceptionscard .bc-n { font-family:var(--fm); font-size:10px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
   .conceptionscard .bc-text { font-family:var(--fm); font-size:12.5px; line-height:1.55; color:var(--ink); opacity:.88; }
+  /* Layer 3 - Preferences calibrees */
+  .preferencescard .pr-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px; }
+  .preferencescard .pr-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:12px 14px; }
+  .preferencescard .pr-h { display:flex; align-items:baseline; gap:8px; margin-bottom:10px; }
+  .preferencescard .pr-kind { font-family:var(--fb); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); font-weight:600; }
+  .preferencescard .pr-meta { font-family:var(--fm); font-size:10px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
+  .preferencescard .pr-row { display:flex; align-items:baseline; gap:10px; padding:5px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
+  .preferencescard .pr-row:last-child { border-bottom:none; }
+  .preferencescard .pr-key { font-family:var(--fm); font-weight:500; color:var(--ink); min-width:60px; }
+  .preferencescard .pr-mid { font-family:var(--fm); font-size:10px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .preferencescard .pr-num { margin-left:auto; font-variant-numeric:tabular-nums; }
+  .preferencescard .pr-num.pos { color:var(--acc); }
+  .preferencescard .pr-num.neg { color:var(--bear); }
+  .preferencescard .pr-num.neu { color:var(--steel); }
+  .preferencescard .pr-win { font-family:var(--fm); font-size:10.5px; color:var(--steel); min-width:50px; text-align:right; }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -2865,6 +2963,7 @@ def render() -> Path:
     conversations_html = _conversations_panel()
     chat_signals_html = _chat_signals_panel()
     conceptions_html = _conceptions_panel()
+    preferences_html = _preferences_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -2881,6 +2980,7 @@ def render() -> Path:
         f"{conversations_html}"
         f"{chat_signals_html}"
         f"{conceptions_html}"
+        f"{preferences_html}"
         f"{copilot_html}"
         f"{cockpit_html}"
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise</span></div>'

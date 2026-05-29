@@ -184,13 +184,25 @@ def _compute_quality_T1_plus(state: dict) -> dict:
     current_pct = (t1_eur + t1_star_eur) / total * 100 if total else 0
     target_pct = 65.0
     score = min(100, current_pct / target_pct * 100) if target_pct else 0
+    # Critique fix : si AUCUNE these mature (rare au demarrage), marquer
+    # data_insufficient pour exclure du composite — un 0 reel fausse la note
+    # globale. Cf. critique : "ne jamais laisser une metrique non calculable
+    # entrer comme 0, la grise en 'donnees manquantes' et l'exclure".
+    n_c5_active = sum(1 for t in state["theses_active"] if (t.get("conviction") or 0) == 5)
+    has_matured = n_t1 > 0 or n_t1_star > 0
+    status = "data_insufficient" if (not has_matured and n_c5_active >= 1) else (
+        "at_or_above_target" if current_pct >= target_pct else "below_target"
+    )
     return {
         "current_pct": round(current_pct, 1),
         "target_pct": target_pct,
         "score": round(score, 1),
         "weight": DIMENSION_WEIGHTS["quality_T1_plus"],
-        "status": "at_or_above_target" if current_pct >= target_pct else "below_target",
-        "evidence": f"T1 n={n_t1} ({t1_eur:.0f}€) + T1★ n={n_t1_star} ({t1_star_eur:.0f}€) sur total {total:.0f}€",
+        "status": status,
+        "evidence": (
+            f"T1 n={n_t1} ({t1_eur:.0f}€) + T1★ n={n_t1_star} ({t1_star_eur:.0f}€) sur total {total:.0f}€"
+            + (f" — {n_c5_active} c5 actives mais aucune mature >=30j" if status == "data_insufficient" else "")
+        ),
     }
 
 
@@ -230,8 +242,13 @@ def _compute_T2_redundant(state: dict) -> dict:
                     redundant_eur += extra["weight"]
                 redundant_detail.append(f"{cl.get('name', 'cluster')} (n={len(cl_positions)})")
         # 2. From explicit redundant_positions list (any redundant explicitly flagged)
+        # Critique fix : integrity check — un ticker ne peut pas etre a la fois
+        # edge ET redundant (cas Safran dans la review). On prefere edge.
+        edge_tickers = {(e.get("ticker") or "").upper() for e in snap.get("edges", {}).get("edge_positions") or []}
         for rp in snap.get("edges", {}).get("redundant_positions") or []:
             tk = rp.get("ticker")
+            if not tk or tk.upper() in edge_tickers:
+                continue  # skip conflict
             p = pos_by_tk.get(tk)
             if p and not any(tk in str(d) for d in redundant_detail):
                 redundant_eur += p["weight"]
@@ -442,7 +459,10 @@ def compute_grade() -> dict:
         "cluster_cap": _compute_cluster_cap(state),
         "thesis_health": _compute_thesis_health(state),
     }
-    overall = sum(d["score"] * d["weight"] / 100 for d in dims.values())
+    # Critique fix (cf _grade_from_state) : exclude data_insufficient + renormalize.
+    valid_dims = {k: d for k, d in dims.items() if d.get("status") != "data_insufficient"}
+    valid_weight = sum(d["weight"] for d in valid_dims.values()) or 1
+    overall = sum(d["score"] * d["weight"] / valid_weight for d in valid_dims.values())
     overall_int = round(overall)
     grade = score_to_grade(overall_int)
     return {
@@ -453,7 +473,8 @@ def compute_grade() -> dict:
         "total_capital_eur": state["total_capital_eur"],
         "n_positions": len(state["positions"]),
         "n_theses_active": len(state["theses_active"]),
-        "computation_version": "sprint5_deterministic",
+        "n_dims_data_insufficient": sum(1 for d in dims.values() if d.get("status") == "data_insufficient"),
+        "computation_version": "sprint11_critique_fixed",
     }
 
 
@@ -479,7 +500,12 @@ def _grade_from_state(state: dict) -> dict:
         "cluster_cap": _compute_cluster_cap(state),
         "thesis_health": _compute_thesis_health(state),
     }
-    overall = sum(d["score"] * d["weight"] / 100 for d in dims.values())
+    # Critique fix : exclude data_insufficient dims from composite + renormalize.
+    # Pourquoi : un T1=0 par manque de theses matures fausse la note globale ;
+    # on prefere une note honnete sur les dims calculables.
+    valid_dims = {k: d for k, d in dims.items() if d.get("status") != "data_insufficient"}
+    valid_weight = sum(d["weight"] for d in valid_dims.values()) or 1
+    overall = sum(d["score"] * d["weight"] / valid_weight for d in valid_dims.values())
     overall_int = round(overall)
     return {
         "overall_score": overall_int,
@@ -488,6 +514,7 @@ def _grade_from_state(state: dict) -> dict:
         "total_capital_eur": state["total_capital_eur"],
         "n_positions": len(state["positions"]),
         "n_theses_active": len(state["theses_active"]),
+        "n_dims_data_insufficient": sum(1 for d in dims.values() if d.get("status") == "data_insufficient"),
     }
 
 

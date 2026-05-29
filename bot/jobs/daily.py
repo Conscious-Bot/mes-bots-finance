@@ -435,3 +435,23 @@ async def weekly_bot_conceptions_synthesis_job():
         log.info(f"bot_conceptions weekly : ok={out['ok']} skip={out['skip']} fail={out['fail']}")
     except Exception as e:
         log.error(f"weekly_bot_conceptions_synthesis failed: {e}")
+
+
+async def monthly_bot_preferences_synthesis_job():
+    """Layer 3 — Sprint 11 : preferences mensuelles (ce qui MARCHE pour CE user).
+
+    Calibration deterministe sur outcomes : conviction calibration, sector
+    outcome, bias outcome, sizing outcome, archetype consistency, copilot
+    verdict outcomes. Pas d'opinion modele, juste les chiffres bruts.
+    """
+    log.info("Monthly bot preferences synthesis starting")
+    try:
+        from intelligence import bot_preferences as _bp
+
+        out = _bp.synthesize_all()
+        log.info(
+            f"bot_preferences monthly : ok={out['ok']} skip={out['skip']} fail={out['fail']} "
+            f"details={out['details']}"
+        )
+    except Exception as e:
+        log.error(f"monthly_bot_preferences_synthesis failed: {e}")

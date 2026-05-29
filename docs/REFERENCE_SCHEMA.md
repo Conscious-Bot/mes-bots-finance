@@ -6,7 +6,7 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 42 | **Total indexes**: 61 | **Total rows**: 4,231
+**Total tables**: 43 | **Total indexes**: 63 | **Total rows**: 4,310
 
 
 ## Core entities
@@ -524,7 +524,7 @@ CREATE TABLE handler_calls (
 
 **Indexes**: `idx_handler_calls_name`, `idx_handler_calls_timestamp`
 
-### `llm_calls` (1,124 rows)
+### `llm_calls` (1,160 rows)
 
 ```sql
 CREATE TABLE llm_calls (
@@ -547,7 +547,7 @@ CREATE TABLE llm_calls (
 
 ## Uncategorized
 
-### `bot_conceptions` (2 rows)
+### `bot_conceptions` (38 rows)
 
 ```sql
 CREATE TABLE bot_conceptions (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), kind TEXT NOT NULL, target_key TEXT NOT NULL, conception_text TEXT NOT NULL, conviction INTEGER NOT NULL, valence REAL, sources_json TEXT, n_signals_used INTEGER, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, elapsed_ms INTEGER);
@@ -590,6 +590,14 @@ CREATE TABLE bot_copilot_interventions (
 
 **Indexes**: `idx_copilot_created`, `idx_copilot_decision`, `idx_copilot_ticker`, `idx_copilot_unresolved`
 
+### `bot_preferences` (6 rows)
+
+```sql
+CREATE TABLE bot_preferences (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), kind TEXT NOT NULL, snapshot_date TEXT NOT NULL, metric_json TEXT NOT NULL, insight_text TEXT, confidence INTEGER NOT NULL DEFAULT 0, n_samples INTEGER, provenance TEXT NOT NULL DEFAULT 'deterministic', model_used TEXT, cost_usd REAL);
+```
+
+**Indexes**: `idx_pref_date`, `idx_pref_kind`
+
 ### `chat_extracted_signals` (3 rows)
 
 ```sql
@@ -606,7 +614,7 @@ CREATE TABLE chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEX
 
 **Indexes**: `idx_chat_created`, `idx_chat_session`
 
-### `portfolio_grades` (2 rows)
+### `portfolio_grades` (3 rows)
 
 ```sql
 CREATE TABLE portfolio_grades (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_at TEXT NOT NULL DEFAULT (datetime('now')), snapshot_date TEXT NOT NULL, overall_score INTEGER NOT NULL, overall_grade TEXT NOT NULL, dimensions_json TEXT NOT NULL, total_capital_eur REAL, n_positions INTEGER, n_theses_active INTEGER, computation_version TEXT NOT NULL DEFAULT 'sprint5_deterministic', notes TEXT);

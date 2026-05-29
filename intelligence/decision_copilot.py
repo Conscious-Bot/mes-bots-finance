@@ -75,6 +75,9 @@ PROFIL UTILISATEUR (auto-derive de son historique — restraint au debut, pointu
 CONCEPTION INTERNE DU BOT SUR CE TICKER (Layer 2 — synthese stable signaux + decisions + theses + chat) :
 {bot_conception_block}
 
+CE QUI A MARCHE POUR CET USER (Layer 3 — calibre sur outcomes deterministically) :
+{bot_preferences_block}
+
 IMPACT GRADE PF (simulation deterministe avant/apres ce trade — Sprint 6) :
 {grade_simulation_block}
 
@@ -298,8 +301,20 @@ def assemble_context(intent: dict, thesis: dict, recent_signals: list, past_deci
         "bias_patterns_block": _format_bias_patterns(bias_patterns),
         "user_profile_block": _fetch_user_profile_block(),
         "bot_conception_block": _fetch_bot_conception_block(thesis.get("ticker", "?")),
+        "bot_preferences_block": _fetch_bot_preferences_block(),
         "grade_simulation_block": _format_grade_simulation(intent.get("grade_simulation")),
     }
+
+
+def _fetch_bot_preferences_block() -> str:
+    """Layer 3 — inject calibrated preferences (deterministic, no opinion)."""
+    try:
+        from intelligence import bot_preferences
+
+        return bot_preferences.format_preferences_for_copilot()
+    except Exception as e:
+        log.warning(f"_fetch_bot_preferences_block: {e}")
+        return f"  (preferences indisponibles: {type(e).__name__})"
 
 
 def _fetch_bot_conception_block(ticker: str) -> str:

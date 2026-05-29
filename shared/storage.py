@@ -2805,3 +2805,85 @@ def get_all_current_conceptions(kind: str | None = None) -> list[dict]:
     except Exception as e:
         _copilot_log.warning(f"get_all_current_conceptions failed: {e}")
         return []
+
+
+# === bot_preferences (Layer 3 — Sprint 11) ===================================
+
+_PREF_DDL = (
+    "CREATE TABLE IF NOT EXISTS bot_preferences ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "kind TEXT NOT NULL, snapshot_date TEXT NOT NULL, "
+    "metric_json TEXT NOT NULL, insight_text TEXT, "
+    "confidence INTEGER NOT NULL DEFAULT 0, n_samples INTEGER, "
+    "provenance TEXT NOT NULL DEFAULT 'deterministic', "
+    "model_used TEXT, cost_usd REAL)"
+)
+_PREF_IDX = [
+    "CREATE INDEX IF NOT EXISTS idx_pref_kind ON bot_preferences(kind)",
+    "CREATE INDEX IF NOT EXISTS idx_pref_date ON bot_preferences(snapshot_date)",
+]
+
+
+def _ensure_pref_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_PREF_DDL)
+    for ix in _PREF_IDX:
+        conn.execute(ix)
+
+
+def insert_bot_preference(
+    kind: str,
+    snapshot_date: str,
+    metric_json: str,
+    insight_text: str | None = None,
+    confidence: int = 0,
+    n_samples: int | None = None,
+    provenance: str = "deterministic",
+    llm_meta: dict | None = None,
+) -> int | None:
+    meta = llm_meta or {}
+    try:
+        with db() as cx:
+            _ensure_pref_table(cx)
+            cur = cx.execute(
+                "INSERT INTO bot_preferences "
+                "(kind, snapshot_date, metric_json, insight_text, confidence, "
+                "n_samples, provenance, model_used, cost_usd) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (
+                    kind, snapshot_date, metric_json, insight_text, confidence,
+                    n_samples, provenance,
+                    meta.get("model_used"), meta.get("cost_usd"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_bot_preference failed: {e}")
+        return None
+
+
+def get_latest_preferences(kinds: list[str] | None = None) -> list[dict]:
+    """Latest preference per kind. If `kinds` filter is None, return all kinds."""
+    try:
+        with db() as cx:
+            _ensure_pref_table(cx)
+            q = (
+                "SELECT bp.id, bp.created_at, bp.kind, bp.snapshot_date, "
+                "bp.metric_json, bp.insight_text, bp.confidence, bp.n_samples, bp.provenance "
+                "FROM bot_preferences bp "
+                "JOIN (SELECT kind, MAX(id) AS mid FROM bot_preferences GROUP BY kind) m "
+                "ON bp.id = m.mid"
+            )
+            params: list = []
+            if kinds:
+                ph = ",".join(["?"] * len(kinds))
+                q += f" WHERE bp.kind IN ({ph})"
+                params.extend(kinds)
+            q += " ORDER BY bp.kind"
+            rows = cx.execute(q, params).fetchall()
+            cols = ["id", "created_at", "kind", "snapshot_date", "metric_json",
+                    "insight_text", "confidence", "n_samples", "provenance"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_preferences failed: {e}")
+        return []

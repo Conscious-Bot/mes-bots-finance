@@ -118,6 +118,7 @@ from bot.jobs import (
     daily_resolve_job,
     heartbeat,
     ingest_gmail_job,
+    monthly_bot_preferences_synthesis_job,
     price_monitor_job,
     recalibrate_credibility_brier_job,
     refresh_source_half_lives_job,
@@ -214,6 +215,7 @@ async def post_init(app):
     sched.add_job(weekly_user_profile_refresh_job, "cron", day_of_week="sun", hour=21, minute=0, misfire_grace_time=86400)
     sched.add_job(weekly_portfolio_narrative_synthesis_job, "cron", day_of_week="sun", hour=20, minute=30, misfire_grace_time=86400)
     sched.add_job(weekly_bot_conceptions_synthesis_job, "cron", day_of_week="sun", hour=19, minute=0, misfire_grace_time=86400)
+    sched.add_job(monthly_bot_preferences_synthesis_job, "cron", day=1, hour=4, minute=0, misfire_grace_time=86400)
     sched.add_job(cron_tier1_daily, "cron", hour=6, minute=0)
     sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)
     sched.add_job(cron_tier3_monthly, "cron", day=1, hour=7, minute=0)
