@@ -6,6 +6,68 @@
 
 ---
 
+## ⚖️ VERDICT D'ENSEMBLE — racines & priorités (cadre maître)
+
+**Capturé 29/05/2026 (Day 18 close).** Lentille à travers laquelle tout le reste doit être lu. Tant qu'on n'a pas adressé les 4 racines ci-dessous, le reste est de l'optimisation au décimal sur des fondations qui dérivent.
+
+> Le système est genuinement sophistiqué et le framework sous-jacent est juste : le sizing fade-pondéré, le stress par scénario, la cartographie SPOF, la capture de doutes, le journal de décisions — ce sont de vraies briques défendables. **Mais le système a dérivé de ses propres principes** : il a grossi en surface plus vite qu'en intégrité, et plusieurs features travaillent maintenant CONTRE la discipline que le bot existe pour imposer. Le problème n'est pas un manque de features. C'est que **les fondations et la calibration ne sont pas verrouillées**.
+
+### Les 4 racines (d'où sortent presque tous les symptômes)
+
+1. **Pas de source de vérité unique sur le book.** Au moins trois jeux de positions flottent (réel ~53k, référence canonique, ancien plan 70k avec ses 13 fantômes). Presque chaque erreur identifiée remonte à ça : fantômes dans les moniteurs, artefacts de dénominateur, sizing sur book incomplet, stress sur le mauvais set. **Levier n°1.**
+
+2. **Des features combattent le but du système.** Principe #1 : « le bot ne trade pas, il force la discipline ». Or les kill-criteria réagissaient au prix (→ nourrissaient le biais « vend trop tôt »), et le sizing par tier dit de tailler les chokepoints et de renforcer SK Hynix qu'on vend. **Un bot de discipline qui pousse vers un biais documenté est pire que pas de bot.** Trahison du principe fondateur.
+
+3. **Mode maintenance permanent.** Optimisation au décimal sur un chantier non fini. Manque une machine d'état **construction → paramètres → maintenance**, et la précision devrait être suspendue quand l'amont n'est pas réglé.
+
+4. **Métriques calibrées pour le confort, pas la vérité.** 42→91 sur une tolérance 75% jamais validée ; Santé 100% ; ballast 21,8% gonflé ; « Solidité 0% » alors que la note est 91. Pour Path 5/6 — où tout le pitch est « mon Brier/track-record est défendable » — **un dashboard flatteur n'est pas neutre, c'est un poison**.
+
+### Recadrage qui compte (vient de PHILOSOPHY)
+
+L'actif n'est pas le dashboard. C'est la boucle : **prediction → outcome → calibration → Brier → biais**, sur la durée. Les propres règles le crient :
+
+- « Tout output non instrumenté est gaspillé. » → la moitié des 15 vues ne nourrissent ni la boucle ni une décision. Gaspillage par définition.
+- « Plus de précision dans la mesure > plus de surface monitorée. » → on a ajouté de la surface. La vraie optimisation = consolider et couper, pas ajouter. C'est exactement ce que High Standard Mode disait.
+
+Détail révélateur : les docs canoniques ont aussi dérivé — `SESSION_STATE` parle de Day 2 / 37 tests / observation jusqu'au 10 juin alors qu'on est à Day 17+ / 281+ tests. **La discipline de handoff a glissé.** Pour un solo, les docs sont la mémoire — c'est la version documentaire de la racine n°1.
+
+### Priorités, dans l'ordre de levier
+
+- **P0 — Le book canonique unique.** Un seul objet par ligne : position, €, wrapper, driver, conviction, fade, actuel vs cible. Toute vue le lit, rien ne le recalcule. Supprimer les sets fantômes/stale. **Tout le reste en dépend.**
+
+- **P0 — Auditer l'intégrité de la boucle avant 10/06.** Premier vrai moment de track-record (KPI #2). Si les predictions/outcomes sous-jacents sont sales (currency sur `price_at_decision`, cluster J+28, horizons hardcodés), le narratif Path 6 est sale dès le départ. **Plus important que n'importe quelle vue.**
+
+- **P1 — Réparer ce qui combat la discipline.** « at_risk » = fondamental only (jamais prix/âge/timer) ; tuer le sizing par tier, garder le fade ; fixer le bug Solidité 0%.
+
+- **P1 — Machine d'état construction/maintenance + honnêteté des métriques.** Valider la tolérance de concentration contre le vrai drawdown ; dégonfler le ballast.
+
+- **P2 — Couper la surface.** Appliquer la propre politique de deprecation (`CONVENTIONS §15`) aux vues. **Chaque vue gagne sa place ou dégage.**
+
+### À garder et muscler
+
+- Stress par scénario (colle à la réalité)
+- Capture de doutes (a attrapé la peur Tesla et le biais de saillance — la boucle de détection de biais qui marche ✓)
+- Calibrage fade
+- Affichage d'asymétrie
+- Garde-fou d'inflation de conviction
+- SPOF
+
+**Doubler sur ces 6. Couper le reste.**
+
+### Déjà adressé dans Sprint 23 (29/05) — mais à reverifier qu'on a tué la racine, pas juste un symptôme
+
+- ✅ **Kill-criteria fundamental-only** (P1) : 17 faux at_risk → 0. Prompt strict INTERDIT prix/âge/timer/sentiment. → **Racine #2 partiellement** (la feature qui combattait la discipline est désarmée, mais le sizing par tier reste à tuer).
+- ✅ **Solidité haute 0% → 60.5%** (P1) : refonte `_compute_quality_T1_plus` lit `canonical_perimeter.solidite`. → **Racine #4** (métrique cassée corrigée).
+- ✅ **Ballast strict 21.8% → 16.8%** (P1) : whitelist (Defense / Energy / Rare earths / Industrial reshoring), Tesla et HBM sortent. → **Racine #4** (dégonflage du ballast factice).
+- ✅ **Drawdown CTA "à valider"** (P1) : surface -23% AI capex de-rating. Flag `drawdown_tolerance_validated: false`. → **Racine #4** (tolérance pas validée explicitement).
+- ✅ **Phase construction badge + lens risk_watch** (P1) : machine d'état naissante (`construction_phase: true`, lecture informative pas actionnable). → **Racine #3 partiellement** (l'état construction est explicite, mais maintenance n'est pas encore un mode distinct).
+- ❌ **Racine #1 (book canonique unique)** : **NON ADRESSÉE**. Les "3 jeux" persistent : `canonical_perimeter.json` (29 lignes), positions DB (`SELECT FROM positions WHERE status='open'`), allocation cible 70k (image, pas data structurée). Aucune source unique. → **P0 ouvert.**
+- ❌ **Racine #2 sizing par tier** : `_mauboussin_sizing_panel()` pousse encore "alléger Shin-Etsu, renforcer Safran/ASML" — le narratif qui fait vendre les chokepoints. → **P1 ouvert.**
+- ❌ **Audit intégrité boucle pré-10/06** : non lancé. `price_at_decision` currency mixte ? Cluster J+28 ? Horizons hardcodés ? → **P0 ouvert.**
+- ❌ **SESSION_STATE drift** : Day 2 vs Day 17+ — non actualisé. → **P1 ouvert (docs = racine #1 documentaire).**
+
+---
+
 ## ACCORD EN VIGUEUR — Phase construction du book
 
 Book actuel : **43 009 € / 27 positions**. Cible documentée : **70 180 € / ~33 positions**.
