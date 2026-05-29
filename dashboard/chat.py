@@ -322,12 +322,12 @@ def chat(
     try:
         if len(system_with_ctx) > 4000:
             reply_text = llm.call_multiturn(
-                messages, tier="synthesize", max_tokens=1500,
+                messages, tier="synthesize", max_tokens=4000,
                 cache_invariant=system_with_ctx,
             )
         else:
             reply_text = llm.call_multiturn(
-                messages, tier="synthesize", max_tokens=1500, system=system_with_ctx,
+                messages, tier="synthesize", max_tokens=4000, system=system_with_ctx,
             )
     except Exception as e:
         err_msg = f"{type(e).__name__}: {e}"
