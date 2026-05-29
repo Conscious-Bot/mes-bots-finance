@@ -834,6 +834,48 @@ def _stress_tests_panel() -> str:
     )
 
 
+def _user_strategy_panel() -> str:
+    """Sprint 19 — affiche la strategie utilisateur declaree (cibles custom)."""
+    try:
+        from pathlib import Path
+
+        import yaml
+
+        cfg = yaml.safe_load(Path("config.yaml").read_text())
+        us = cfg.get("user_strategy") or {}
+    except Exception:
+        us = {}
+    if not us:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas de strategie utilisateur declaree. Defaults config.yaml utilises."
+            "</div></div>"
+        )
+    archetype = us.get("archetype", "?")
+    desc = us.get("description", "")
+    cap = us.get("target_cluster_cap_pct", 35)
+    dec = us.get("target_decorrelation_pct", 15)
+    bench = us.get("benchmark_ticker", "?")
+    horizon = us.get("thesis_horizon_years", "?")
+    accepted = us.get("accepted_concentrated_factors") or []
+    declared = us.get("declared_at", "?")
+    accepted_html = ", ".join(accepted) if accepted else "(aucun)"
+    return (
+        '<div class="card pad strategiecard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Ta strategie declaree</span>'
+        f'<span class="a">archetype = {archetype} &middot; depuis {declared} &middot; surcharge les defaults</span></div>'
+        '<div class="us-grid">'
+        f'<div class="us-row"><span class="us-k">Pari principal cible</span><span class="us-v mono">{cap}%</span></div>'
+        f'<div class="us-row"><span class="us-k">Autres paris cible</span><span class="us-v mono">{dec}%</span></div>'
+        f'<div class="us-row"><span class="us-k">Benchmark</span><span class="us-v mono">{bench}</span></div>'
+        f'<div class="us-row"><span class="us-k">Horizon th&egrave;ses</span><span class="us-v mono">{horizon} ans</span></div>'
+        f'<div class="us-row"><span class="us-k">Concentrations accept&eacute;es</span><span class="us-v">{accepted_html}</span></div>'
+        '</div>'
+        f'<div class="us-desc">{desc}</div>'
+        '</div>'
+    )
+
+
 def _trajectory_panel() -> str:
     """Sprint 13 — drift du grade et de chaque dim sur les 30 derniers jours."""
     try:
@@ -2911,6 +2953,12 @@ _CSS = """
   /* Page Strategie : sub-section headers */
   .strat-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:32px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); }
   .strat-sh:first-of-type { margin-top:14px; }
+  /* Sprint 19 - User strategy panel */
+  .strategiecard .us-grid { display:grid; grid-template-columns:1fr; gap:8px; margin:14px 0; padding-bottom:14px; border-bottom:1px solid var(--line); }
+  .strategiecard .us-row { display:flex; align-items:baseline; gap:14px; padding:6px 0; }
+  .strategiecard .us-k { font-family:var(--fm); font-size:12px; color:var(--steel); min-width:200px; }
+  .strategiecard .us-v { font-family:var(--fm); font-size:13px; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .strategiecard .us-desc { font-family:var(--fm); font-size:11.5px; color:var(--steel); line-height:1.55; font-style:italic; }
   /* Sprint 5/6 - Copilot interventions panel */
   .copilotcard .cp-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
   .copilotcard .cp-row:last-child { border-bottom:none; }
@@ -3846,6 +3894,8 @@ def render() -> Path:
         '<div class="sub">Lire le livre en profondeur &middot; pourquoi la note '
         'est ce qu\'elle est, et ou est la vraie fragilit&eacute;</div></div>'
         # Sub-section : Lecture du livre (trajectoire + paris macro + scenarios)
+        '<div class="strat-sh">Ta strategie de reference</div>'
+        f'{_user_strategy_panel()}'
         '<div class="strat-sh">Lecture du livre</div>'
         f'{trajectory_html}'
         f'{factor_html}'

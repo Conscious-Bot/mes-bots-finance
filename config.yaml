@@ -372,13 +372,39 @@ risk:
   vol_scaling_factor: 0.7
   validate_enabled: false
 
+# =============================================================================
+# STRATEGIE UTILISATEUR DECLAREE (Sprint 19, 29/05/2026)
+# Source : conversation chat avec le user "78% n'est pas un bug, c'est ma these
+# macro. Tu es un compounder de conviction sur un supercycle reel". Encode
+# explicitement ce que l'user accepte vs ce qu'il refuse.
+# =============================================================================
+user_strategy:
+  archetype: "concentrator_thematic"
+  description: >
+    Compounder de conviction sur un supercycle reel (capex IA). La concentration
+    sectorielle est DELIBEREE, pas une violation. Les autres paris (defense,
+    uranium, GNL, terres rares) sont des decorrelants tactiques, pas une
+    diversification large-cap.
+  # Cibles personnalisees (remplacent les defaults config.yaml.concentration)
+  target_cluster_cap_pct: 75
+  target_decorrelation_pct: 15
+  # Macro factors que l'user ACCEPTE en concentration (pas de gate sur ceux-la)
+  accepted_concentrated_factors:
+    - "AI capex"
+    - "AI inference/compute demand"
+  # Benchmark pertinent pour TON book (pas un index large-cap diversifie)
+  benchmark_ticker: "SOXX"  # iShares Semiconductor ETF (vs SPY trop large)
+  benchmark_fallback: "^SOX"
+  # Horizon thesis-driven
+  thesis_horizon_years: 7  # 5-10 ans range
+  # Quand le user a parle de ca pour la derniere fois
+  declared_at: "2026-05-29"
+
 concentration:
-  # Policy de concentration -- cap cluster 35% risk-adjusted (ADR 010, 26/05/2026 ; supersede option a 0.57).
+  # Policy de concentration -- DEFAULT 35% conservateur (ADR 010, 26/05/2026).
+  # GATE SUSPENDU pour cet user : user_strategy.target_cluster_cap_pct prend le
+  # dessus si l'user_strategy.archetype == "concentrator_thematic".
   # Gouverneur = cap de CLUSTER correle, pas le cap par ligne.
-  # Derivation depuis risk.drawdown_stop_pct (0.20):
-  #   cluster_max_pct * assumed_cluster_shock <= drawdown_stop_pct
-  #   0.35 * 0.57 = 0.1995 < 0.20  -> cap 35% survit a un choc cluster 57% sous le stop (ADR 010).
-  # Enforcement: manuel (dashboard) jusqu'au 10/06 ; wiring risk_engine.validate() post-KPI#2.
   assumed_cluster_shock: 0.57
   cluster_max_pct: 0.35
   line_cap_by_conviction:   # taille max par ligne = f(conviction); remplace style.position_max_pct

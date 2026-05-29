@@ -487,8 +487,25 @@ def _compute_sizing_conviction(state: dict) -> dict:
     }
 
 
+def _load_user_strategy() -> dict:
+    """Sprint 19 : lit user_strategy depuis config.yaml. Permet user-driven targets."""
+    try:
+        from pathlib import Path
+
+        import yaml
+
+        cfg = yaml.safe_load(Path("config.yaml").read_text())
+        return cfg.get("user_strategy") or {}
+    except Exception:
+        return {}
+
+
 def _compute_cluster_cap(state: dict) -> dict:
-    """Reuse _cluster_health from dashboard.render — meme source que dashboard."""
+    """Sprint 19 : cible cluster_cap = user_strategy.target_cluster_cap_pct
+    si declaree (default 35%). Pour un concentrator_thematic, cible 75%.
+    """
+    user_strat = _load_user_strategy()
+    target_pct = float(user_strat.get("target_cluster_cap_pct", 35))
     try:
         from dashboard.render import _cluster_health, _pnl_cost_map
 
@@ -500,22 +517,23 @@ def _compute_cluster_cap(state: dict) -> dict:
         log.warning(f"_compute_cluster_cap failed: {e}")
         return {
             "current_pct": 0.0,
-            "target_pct": 35.0,
+            "target_pct": target_pct,
             "score": 100,
             "weight": DIMENSION_WEIGHTS["cluster_cap"],
             "status": "unknown",
             "evidence": "cluster_health fetch failed",
         }
-    target_pct = 35.0
-    # Score : 100 si <= target, decreasing au-dessus
     score = 100 if max_pct <= target_pct else max(0, 100 - (max_pct - target_pct) * 5)
+    archetype = user_strat.get("archetype", "default")
+    suffix = f" (cible {target_pct:.0f}% car archetype={archetype})" if archetype != "default" else ""
     return {
         "current_pct": round(max_pct, 1),
         "target_pct": target_pct,
         "score": round(score, 1),
         "weight": DIMENSION_WEIGHTS["cluster_cap"],
         "status": "at_or_below_target" if max_pct <= target_pct else "above_target",
-        "evidence": f"Plus gros cluster : {max_name} a {max_pct:.1f}%",
+        "evidence": f"Plus gros cluster : {max_name} a {max_pct:.1f}%{suffix}",
+        "source": "sprint19_user_strategy" if user_strat else "default",
     }
 
 
@@ -639,22 +657,23 @@ def compute_grade() -> dict:
     overall = sum(d["score"] * d["weight"] / valid_weight for d in valid_dims.values())
     overall_int = round(overall)
 
-    # Sprint 18 — HARD GATES per critique #1 :
-    # "Un livre dont le pari principal est a 2x le plafond ne devrait pas
-    #  pouvoir afficher A-. Il faut un gate."
+    # Sprint 18/19 — HARD GATES, mais respect user_strategy.
+    # Un concentrator_thematic (user declare la concentration delibere) doit
+    # pouvoir afficher A- meme avec 70% Pari principal si c'est sa target.
+    # Le gate ne kicke que si cc_current >> target user.
     gates_applied = []
     cc = dims.get("cluster_cap", {})
     cc_current = cc.get("current_pct", 0)
     cc_target = cc.get("target_pct", 35)
-    if cc_current > cc_target * 2:  # >= 2x cap
-        cap = 65  # B- max
+    if cc_current > cc_target * 2:
+        cap = 65
         if overall_int > cap:
             gates_applied.append(
                 f"Pari principal {cc_current:.0f}% > 2x cible {cc_target:.0f}% -> note cap a {cap}"
             )
             overall_int = cap
     elif cc_current > cc_target * 1.5:
-        cap = 78  # B+ max
+        cap = 78
         if overall_int > cap:
             gates_applied.append(
                 f"Pari principal {cc_current:.0f}% > 1.5x cible {cc_target:.0f}% -> note cap a {cap}"
@@ -760,7 +779,7 @@ def _grade_from_state(state: dict) -> dict:
     # Memes gates que compute_grade pour que la sim soit coherente
     cc = dims.get("cluster_cap", {})
     cc_current = cc.get("current_pct", 0)
-    cc_target = cc.get("target_pct", 35)
+    cc_target = cc.get("target_pct", 35)  # user_strategy honored via _compute_cluster_cap
     if cc_current > cc_target * 2:
         overall_int = min(overall_int, 65)
     elif cc_current > cc_target * 1.5:

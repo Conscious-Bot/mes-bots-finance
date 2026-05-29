@@ -23,39 +23,58 @@ from datetime import UTC, datetime
 log = logging.getLogger(__name__)
 
 
-_BENCHMARK_TICKER = "^SOX"
+def _get_user_benchmark() -> tuple[str, str]:
+    """Sprint 19 : lit user_strategy.benchmark_ticker + fallback."""
+    try:
+        from pathlib import Path
+
+        import yaml
+
+        cfg = yaml.safe_load(Path("config.yaml").read_text())
+        us = cfg.get("user_strategy") or {}
+        return (us.get("benchmark_ticker", "SOXX"), us.get("benchmark_fallback", "^SOX"))
+    except Exception:
+        return ("SOXX", "^SOX")
 
 
 def fetch_benchmark_return(months: int = 6) -> dict | None:
-    """Fetch SOX % change over window via yfinance."""
+    """Fetch benchmark % change over window via yfinance.
+
+    Sprint 19 : utilise user_strategy.benchmark_ticker (default SOXX = iShares
+    Semiconductor ETF, plus pertinent qu'un large-cap pour un concentrator
+    semis). Fallback ^SOX si SOXX indispo.
+    """
     try:
         import yfinance as yf
     except ImportError:
         return None
-    try:
-        from datetime import timedelta
+    primary, fallback = _get_user_benchmark()
+    for ticker in (primary, fallback):
+        try:
+            from datetime import timedelta
 
-        end = datetime.now(UTC)
-        start = end - timedelta(days=months * 30)
-        t = yf.Ticker(_BENCHMARK_TICKER)
-        hist = t.history(start=start, end=end)
-        if hist is None or hist.empty:
-            return None
-        first = float(hist["Close"].iloc[0])
-        last = float(hist["Close"].iloc[-1])
-        pct = (last - first) / first * 100 if first else 0
-        return {
-            "ticker": _BENCHMARK_TICKER,
-            "months": months,
-            "start_date": str(hist.index[0])[:10],
-            "end_date": str(hist.index[-1])[:10],
-            "start_price": round(first, 2),
-            "end_price": round(last, 2),
-            "return_pct": round(pct, 1),
-        }
-    except Exception as e:
-        log.warning(f"fetch_benchmark_return failed: {e}")
-        return None
+            end = datetime.now(UTC)
+            start = end - timedelta(days=months * 30)
+            t = yf.Ticker(ticker)
+            hist = t.history(start=start, end=end)
+            if hist is None or hist.empty:
+                continue
+            first = float(hist["Close"].iloc[0])
+            last = float(hist["Close"].iloc[-1])
+            pct = (last - first) / first * 100 if first else 0
+            return {
+                "ticker": ticker,
+                "months": months,
+                "start_date": str(hist.index[0])[:10],
+                "end_date": str(hist.index[-1])[:10],
+                "start_price": round(first, 2),
+                "end_price": round(last, 2),
+                "return_pct": round(pct, 1),
+            }
+        except Exception as e:
+            log.warning(f"fetch_benchmark_return {ticker} failed: {e}")
+            continue
+    return None
 
 
 def compute_book_return_proxy() -> dict:
