@@ -323,6 +323,22 @@ def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
     else:
         positions_mod.add_sell(ticker, qty, price, reasoning + " | source=chat")
 
+    # Auto-link a la these active (29/05/2026 fix) : sans ca, les decisions
+    # chat-driven arrivaient avec thesis_id=NULL. Le pattern est deja en place
+    # dans journal_bias.py et positions.py.
+    thesis_id = None
+    try:
+        with storage.db() as _cx:
+            _row = _cx.execute(
+                "SELECT id FROM theses WHERE ticker=? AND status='active' "
+                "ORDER BY id DESC LIMIT 1",
+                (ticker.upper(),),
+            ).fetchone()
+            if _row:
+                thesis_id = _row[0]
+    except Exception as _e:
+        log.warning(f"chat_intent thesis lookup {ticker}: {_e}")
+
     decision_id = storage.log_decision(
         ticker=ticker,
         decision_type=dtype,
@@ -330,6 +346,7 @@ def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
         reasoning=reasoning,
         direction="long" if action == "buy" else "short",
         price_at_decision=price,
+        thesis_id=thesis_id,
     )
     if cop_iid and decision_id:
         try:
