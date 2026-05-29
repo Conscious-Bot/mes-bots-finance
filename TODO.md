@@ -68,6 +68,62 @@ Détail révélateur : les docs canoniques ont aussi dérivé — `SESSION_STATE
 
 ---
 
+## 🎯 NIVEAU 2 — d'un miroir à un adversaire, d'une description à une preuve
+
+**Capturé 29/05/2026 (Day 18 close).** Cadre stratégique pour ce qui sépare un bon outil perso d'un asset Path 5/6. **Caveat assumé : à construire UNE FOIS le book canonique + la boucle propres. Sinon on rebâtit sur du sable.**
+
+### Le saut en une phrase
+
+Aujourd'hui le système **décrit** le book. Le niveau au-dessus = il **conteste** les décisions et **prouve** que l'edge est du process, pas de la chance.
+
+### Fil rouge
+
+Arrêter d'ajouter des vues qui décrivent. Ajouter des **mécanismes qui contestent et qui prouvent**. La description, on en a trop (règle propre : "plus de précision > plus de surface"). Ce qui manque : **l'adversaire et la preuve**.
+
+### Les 5 moves de niveau 2
+
+**1. Passer d'un miroir à un adversaire.** Aujourd'hui le bot reflète : capte les doutes, endosse SNOW parce qu'on l'endosse, size selon le cadre. Or le risque est comportemental — un outil qui approuve ne corrige aucun biais. Le bot doit **attaquer les thèses**, pas les valider.
+- Chaque position porte un **bear case vivant** (refresh Sonnet hebdo)
+- Avant toute action → **steelman de la décision opposée** servi automatiquement
+- **Friction asymétrique sur la vente d'un gagnant** : tout sell d'un winner passe par rebuttal + la question nommée "c'est l'actif, ou l'ennui/la peur ?". Mécaniser la friction exactement où le biais #1 vit.
+
+**2. Mesurer LA discipline, pas que le marché. [LE PICK USER POUR DÉMARRER]** L'actif Path 6 n'est pas "mes thèses marchent" — c'est "**ma discipline ajoute de la valeur**".
+- Chaque décision (sell/hold/scale_in) trackée contre son **contrefactuel** à J+30/60/90/180
+- Question clef mécanisée : "tes sells ont sous-performé le hold de X% sur N trades"
+- Le biais #1 "vend trop tôt" cesse d'être un vibe → devient un chiffre mesurable
+- **C'est la raison d'être du système, rendue mesurable.** Et c'est l'artefact vendable.
+
+**3. Séparer qualité de décision de qualité d'outcome.** Un track-record défendable distingue "bonne décision, mauvaise chance" de "mauvaise décision, bonne chance". Win-rate et Brier les confondent.
+- Score chaque décision sur **le process** indépendamment du résultat : verification-first ? asymétrie favorable à l'entrée ? cadre suivi ? kill-criterion explicite ?
+- Sur la durée : on sait si le process est sain même quand les outcomes sont bruités
+- C'est précisément ce qu'un acquéreur ou une audience Substack scruteront : **chance vs edge**.
+
+**4. Pré-enregistrer, calibration comme boussole.** Pour la crédibilité publique :
+- À l'entrée : claim + horizon + kill-criteria + cible figés, horodatés, **immuables** (pas de goalpost qui bouge a posteriori)
+- Le graphe **"proba prédite vs fréquence réalisée"** sort du fond du dashboard et devient l'artefact hero — il prouve "quand je dis 70%, ça arrive 70% du temps". **Pour Substack/acquihire, ce seul graphe vaut plus que les 15 vues.**
+- Réinjecter la dérive de calibration **dans les prompts** : surconfiant → le bot escompte la conviction déclarée. **La boucle s'auto-corrige sur l'utilisateur, pas seulement sur le marché.**
+
+**5. Une seule jauge de régime pour le pari à 77%.** Les signaux par ticker = bruit autour d'UNE variable : la thèse AI-capex tient-elle ?
+- Capex hyperscaler + bookings ASML + pricing HBM **remontent dans une jauge composite** "thèse intacte / thèse qui se fissure"
+- 77% du book bouge avec cette jauge — **une jauge honnête vaut mieux que 25 alertes par position**
+- Réponse directe à la peur de surchauffe.
+
+### Ordre logique (post book canonique + boucle propre)
+
+| # | Move | Levier | Dépendances | Effort |
+|---|---|---|---|---|
+| **2** | Contrefactuel décisions | **MAX** (artefact vendable Path 6) | book canonique + price history (✓ ont) | ~2-3j |
+| 4 | Pré-registration immutable + calibration hero | MAX (crédibilité publique) | thesis history table à créer + calibration plot | ~3-4j |
+| 1 | Adversaire (bear case + sell-friction) | HAUT (attaque biais #1 directement) | bear_case table + chat_intent refacto | ~2-3j |
+| 5 | Jauge composite AI capex | MOYEN (consolide existant) | aggregation des 10 signaux risk_signal_monitor | ~1j |
+| 3 | Process score découplé outcome | MOYEN (long-tail asset) | rubric stable à définir | ~2j |
+
+### À retenir comme north star
+
+Description vs Adversariat vs Preuve. Aujourd'hui = surchargé en description, défangé en adversariat (kill_criteria fundamental-only c'est bien mais c'est défensif, pas offensif), **zéro en preuve d'edge**. La preuve d'edge est ce qui sépare un outil perso d'un actif.
+
+---
+
 ## ACCORD EN VIGUEUR — Phase construction du book
 
 Book actuel : **43 009 € / 27 positions**. Cible documentée : **70 180 € / ~33 positions**.
