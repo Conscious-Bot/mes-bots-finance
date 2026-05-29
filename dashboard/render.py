@@ -382,8 +382,8 @@ def _copilot_panel() -> str:
         )
     return (
         '<div class="card pad copilotcard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Copilot &mdash; pressure-tests recents</span>'
-        '<span class="a">verdict mecanique avant chaque trade, outcome 30j</span></div>'
+        '<div class="colhead"><span class="t">Pressions du copilot avant tes trades</span>'
+        '<span class="a">verdict m&eacute;canique avant chaque action, r&eacute;sultat 30j apr&egrave;s</span></div>'
         + "".join(lis)
         + "</div>"
     )
@@ -450,8 +450,8 @@ def _return_clustering_panel() -> str:
 
     return (
         '<div class="card pad clustercard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Doublons mesures (correlation rendements)</span>'
-        f'<span class="a">{snapshot_date} &middot; correlation >0.7 &middot; mixed = bougent ensemble malgre macro_factor different</span></div>'
+        '<div class="colhead"><span class="t">Doublons vus par les prix</span>'
+        f'<span class="a">{snapshot_date} &middot; corr&eacute;lation rendements &middot; ce qui bouge ensemble vraiment</span></div>'
         '<div class="dc-sub">'
         f'<div class="dc-sh">Paires correlees (>0.7)</div>'
         f'<div class="dc-list">{pairs_html}</div></div>'
@@ -546,8 +546,8 @@ def _fx_exposure_panel() -> str:
         )
     return (
         '<div class="card pad fxcard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Exposition FX</span>'
-        '<span class="a">book euro avec sleeves USD / JPY / KRW non-hedges</span></div>'
+        '<div class="colhead"><span class="t">Exposition par devise</span>'
+        '<span class="a">book euro mais positions cot&eacute;es ailleurs &middot; pas de hedge FX</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -577,8 +577,8 @@ def _benchmark_panel() -> str:
     )
     return (
         '<div class="card pad benchcard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Alpha vs SOX</span>'
-        f'<span class="a">{bench["bench_window"]} &middot; book vs PHLX Semiconductor</span></div>'
+        '<div class="colhead"><span class="t">Surperformance r&eacute;elle vs secteur</span>'
+        f'<span class="a">{bench["bench_window"]} &middot; book vs indice semi-conducteurs PHLX</span></div>'
         f'{warning_html}'
         '<div class="bm-grid">'
         f'<div class="bm-cell"><div class="bm-h">Book</div><div class="bm-v mono">{book_r:+.1f}%</div></div>'
@@ -637,9 +637,9 @@ def _kill_criteria_panel() -> str:
     )
     return (
         '<div class="card pad killcard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Kill-criteria (Sprint 15)</span>'
-        f'<span class="a">triggered {counts["triggered"]} &middot; at_risk {counts["at_risk"]} &middot; '
-        f'dormant {counts["dormant"]} &middot; cron 07h30</span></div>'
+        '<div class="colhead"><span class="t">Conditions d\'invalidation des th&egrave;ses</span>'
+        f'<span class="a">d&eacute;clench&eacute;es {counts["triggered"]} &middot; &agrave; risque {counts["at_risk"]} &middot; '
+        f'dormantes {counts["dormant"]} &middot; v&eacute;rifi&eacute; 07h30</span></div>'
         + items_html
         + "</div>"
     )
@@ -683,8 +683,8 @@ def _spof_panel() -> str:
         )
     return (
         '<div class="card pad spofcard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Single points of failure upstream (Sprint 14)</span>'
-        '<span class="a">concentration cachee en amont &middot; share = % revenue/capacite</span></div>'
+        '<div class="colhead"><span class="t">D&eacute;pendances cach&eacute;es en amont</span>'
+        '<span class="a">si un fournisseur en amont casse, tout ce qui en d&eacute;pend casse aussi</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -725,8 +725,8 @@ def _mauboussin_sizing_panel() -> str:
         )
     return (
         '<div class="card pad mauboussincard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Mauboussin implied sizing (Sprint 14)</span>'
-        '<span class="a">cible = base_cap conviction &times; fade_factor &middot; gap = reel - cible</span></div>'
+        '<div class="colhead"><span class="t">Calibrage rigoureux</span>'
+        '<span class="a">taille r&eacute;elle vs taille th&eacute;orique (conviction &times; vitesse d\'&eacute;rosion du moat)</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -759,8 +759,8 @@ def _valo_above_bull_panel() -> str:
         )
     return (
         '<div class="card pad valocard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Expectations > bull case (Sprint 14 reverse-DCF)</span>'
-        '<span class="a">positions ou le prix actuel exige plus que le scenario haussier raisonnable</span></div>'
+        '<div class="colhead"><span class="t">Valos d&eacute;j&agrave; au-del&agrave; du bull case</span>'
+        '<span class="a">le prix actuel exige plus que le sc&eacute;nario haussier raisonnable</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -797,8 +797,8 @@ def _factor_exposures_panel() -> str:
         )
     return (
         '<div class="card pad factorscard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Factor exposures (Sprint 13)</span>'
-        '<span class="a">decomposition par facteur macro &middot; source = Sprint 12 axes</span></div>'
+        '<div class="colhead"><span class="t">Paris du portefeuille</span>'
+        '<span class="a">sur quoi tu paries vraiment, par facteur macro &middot; un seul gros pari domine</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -830,8 +830,8 @@ def _stress_tests_panel() -> str:
         )
     return (
         '<div class="card pad stresscard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Stress tests (Sprint 13)</span>'
-        '<span class="a">scenarios deterministes &middot; drawdown estime par facteur</span></div>'
+        '<div class="colhead"><span class="t">Si tel pari rate</span>'
+        '<span class="a">drawdown estime par scenario macro &middot; transforme le 73% en chiffre concret</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -884,8 +884,8 @@ def _trajectory_panel() -> str:
         )
     return (
         '<div class="card pad trajcard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Trajectory grade (30j)</span>'
-        f'<span class="a">{len(snaps)} snapshots &middot; '
+        '<div class="colhead"><span class="t">D&eacute;rive de la note (30j)</span>'
+        f'<span class="a">{len(snaps)} photos &middot; '
         f'{score_drift.get("first_date","?")} → {score_drift.get("last_date","?")}</span></div>'
         f'<div class="tr-hero">Score : {score_drift.get("first", "?")} '
         f'<span class="tr-arr">→</span> '
@@ -944,8 +944,8 @@ def _ticker_axes_panel() -> str:
         )
     return (
         '<div class="card pad axescard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Tagging axes par ticker (Sprint 12 — refactor critique)</span>'
-        '<span class="a">redondance = driver+stage match strict &middot; decorrelation = unicite macro_factor</span></div>'
+        '<div class="colhead"><span class="t">Fiches techniques par ticker</span>'
+        '<span class="a">moteur de demande &middot; &eacute;tage chaine de valeur &middot; nature du moat &middot; facteur macro</span></div>'
         + "".join(groups_html)
         + "</div>"
     )
@@ -1017,8 +1017,8 @@ def _preferences_panel() -> str:
         )
     return (
         '<div class="card pad preferencescard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Preferences calibrees (Layer 3)</span>'
-        '<span class="a">ce qui a MARCHE deterministically &middot; samples + win rate, pas d\'opinion</span></div>'
+        '<div class="colhead"><span class="t">Ce qui a march&eacute; chez toi</span>'
+        '<span class="a">samples + winrate sur tes vraies d&eacute;cisions r&eacute;solues &middot; pas d\'opinion mod&egrave;le</span></div>'
         f'<div class="pr-grid">{"".join(groups)}</div>'
         '</div>'
     )
@@ -1076,8 +1076,8 @@ def _conceptions_panel() -> str:
         )
     return (
         '<div class="card pad conceptionscard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Conceptions du bot (Layer 2)</span>'
-        '<span class="a">vue stable per ticker &middot; synthese hebdo &middot; injectee dans le copilot pre-trade</span></div>'
+        '<div class="colhead"><span class="t">Ce que le bot pense par ticker</span>'
+        '<span class="a">synth&egrave;se stable per ticker mise &agrave; jour chaque semaine</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -1142,8 +1142,8 @@ def _chat_signals_panel() -> str:
         )
     return (
         '<div class="card pad chatsigcard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Signaux soft extraits du chat</span>'
-        '<span class="a">murmures captures en conversation lambda &middot; alimente le profil</span></div>'
+        '<div class="colhead"><span class="t">Ce que tu laisses &eacute;chapper en conversation</span>'
+        '<span class="a">concerns / doutes / vues que le bot capte chaque message &middot; nourrit ton profil</span></div>'
         f'<div class="cs-grid">{"".join(groups_html)}</div>'
         '</div>'
     )
@@ -1194,9 +1194,8 @@ def _conversations_panel() -> str:
         )
     return (
         '<div class="card pad conversationscard" style="margin-bottom:18px">'
-        '<div class="colhead"><span class="t">Conversations recentes</span>'
-        '<span class="a">consignees, sauvegardees, integrees au profil &middot; '
-        'boucle recolte &rarr; analyse &rarr; digestion &rarr; precision</span></div>'
+        '<div class="colhead"><span class="t">Historique chat</span>'
+        '<span class="a">tout est consign&eacute; et r&eacute;-int&eacute;gr&eacute; au profil au fil du temps</span></div>'
         + "".join(lis)
         + "</div>"
     )
@@ -2580,6 +2579,7 @@ _NAV = (
     '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
     '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
     '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
+    '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5c-2.2 0-4 1.8-4 4 0 0.7 0.2 1.4 0.5 2C4 11.7 3 13.2 3 15c0 2.2 1.8 4 4 4h1"/><path d="M15 5c2.2 0 4 1.8 4 4 0 0.7-0.2 1.4-0.5 2C20 11.7 21 13.2 21 15c0 2.2-1.8 4-4 4h-1"/><path d="M12 5v14"/><path d="M9 9h6"/><path d="M9 14h6"/></svg><span class="nlab">Strat&eacute;gie</span></div>'
     '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
     '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux</span></div>'
     '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div></nav>'
@@ -2902,6 +2902,9 @@ _CSS = """
   .gradecard .gsubmax { color:var(--steel); font-size:14px; margin-left:1px; font-weight:400; }
   @media (max-width:980px) { .gradecard .gsplit { grid-template-columns:1fr; gap:14px; } }
   .gradecard .ggate { font-family:var(--fm); font-size:12px; color:var(--bear); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:10px 14px; border-radius:var(--r2); margin:14px 0; border-left:3px solid var(--bear); }
+  /* Page Strategie : sub-section headers */
+  .strat-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:32px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  .strat-sh:first-of-type { margin-top:14px; }
   /* Sprint 5/6 - Copilot interventions panel */
   .copilotcard .cp-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
   .copilotcard .cp-row:last-child { border-bottom:none; }
@@ -3814,26 +3817,8 @@ def render() -> Path:
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
         f"{grade_html}"
-        # Sprint 18 : narrative_html retire — Sprint 6 LLM avait des faux
-        # flags (AMD~TSM, SAF~HO, GOOGL~AMZN). Sprint 12 axes-strict + Sprint 17
-        # correlation panels couvrent proprement le sujet.
         f"{chat_html}"
-        f"{conversations_html}"
-        f"{chat_signals_html}"
-        f"{conceptions_html}"
-        f"{preferences_html}"
         f"{kill_html}"
-        f"{trajectory_html}"
-        f"{factor_html}"
-        f"{fx_html}"
-        f"{bench_html}"
-        f"{_return_clustering_panel()}"
-        f"{wrapper_html}"
-        f"{spof_html}"
-        f"{stress_html}"
-        f"{mauboussin_html}"
-        f"{valo_html}"
-        f"{axes_html}"
         f"{copilot_html}"
         f"{cockpit_html}"
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise</span></div>'
@@ -3846,6 +3831,40 @@ def render() -> Path:
         f'<div class="card pad">{erows}</div>'
         f"{journal_block}</section>"
     )
+
+    # ─── Page Strategie : lecture analytique du book (vocabulaire canonique) ───
+    strategie_html = (
+        '<section data-page="strategie"><div class="phead"><h2>Strat&eacute;gie</h2>'
+        '<div class="sub">Lire le livre en profondeur &middot; pourquoi la note '
+        'est ce qu\'elle est, et ou est la vraie fragilit&eacute;</div></div>'
+        # Sub-section : Lecture du livre (trajectoire + paris macro + scenarios)
+        '<div class="strat-sh">Lecture du livre</div>'
+        f'{trajectory_html}'
+        f'{factor_html}'
+        f'{stress_html}'
+        f'{fx_html}'
+        f'{bench_html}'
+        # Sub-section : Concentration cachee (SPOF + sizing rigoureux + valo)
+        '<div class="strat-sh">Concentration cach&eacute;e</div>'
+        f'{spof_html}'
+        f'{mauboussin_html}'
+        f'{valo_html}'
+        # Sub-section : Doublons mesures (correlation + axes)
+        '<div class="strat-sh">Doublons mesur&eacute;s</div>'
+        f'{_return_clustering_panel()}'
+        f'{axes_html}'
+        # Sub-section : Apprentissage du bot (L2 + L3 + soft signals + conversations)
+        '<div class="strat-sh">Apprentissage du bot</div>'
+        f'{conceptions_html}'
+        f'{preferences_html}'
+        f'{chat_signals_html}'
+        f'{conversations_html}'
+        # Sub-section : Fiscal
+        '<div class="strat-sh">Placement fiscal</div>'
+        f'{wrapper_html}'
+        '</section>'
+    )
+
     watch_zone_tk = [
         r["ticker"]
         for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
@@ -3892,6 +3911,7 @@ def render() -> Path:
         + vigie
         + positions_pg
         + _theses(names, sectors, positions, pnl)
+        + strategie_html
         + _concentration(positions, planned, sectors, names, pnl, daily)
         + _signaux()
         + _urgence(watch, near, positions, pnl, elan, near_t)
