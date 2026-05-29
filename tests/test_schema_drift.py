@@ -43,6 +43,8 @@ _SQL_TABLE_REF_RE = re.compile(
 _WHITELIST = {
     "sqlite_master",  # SQLite system view
     "pragma_table_info",  # SQLite pragma (rarely used in FROM but possible)
+    "before",  # SQL keyword in CREATE TRIGGER BEFORE INSERT/UPDATE/DELETE
+    "on",  # SQL keyword in CREATE TRIGGER ... ON table_name
 }
 
 

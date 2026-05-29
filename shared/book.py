@@ -345,6 +345,69 @@ def get_held_lines() -> list[BookLine]:
     return [line for line in get_canonical_book(with_prices=True) if line.in_db]
 
 
+# ─────────────────────── Nouveau : Position canonique (FAIT/JUGEMENT/...) ──
+# Refactor round 3 sur directive user. La couche BookLine ci-dessus est
+# preservee pour backward compat. La couche Position est la "vraie" source.
+
+
+def get_canonical_positions() -> list:
+    """Construit des Position (shared.position) -- objet canonique avec
+    layers strictes FAIT / JUGEMENT / DERIVE / HISTORIQUE.
+
+    A terme remplace get_canonical_book(). Aujourd'hui les deux coexistent
+    pendant la migration des readers."""
+    from shared.position import position_from_sources
+
+    db_pos = _load_db_positions()
+    canonical = _load_canonical()
+    target = _load_target()
+    theses = _load_theses_active()
+    axes = _load_ticker_axes()
+    meta = _load_ticker_meta()
+
+    can_by_tk = {p["ticker"]: p for p in canonical.get("positions", [])}
+    tgt_by_tk = {p["ticker"]: p for p in target.get("positions", [])}
+
+    all_tickers = set(db_pos) | set(can_by_tk) | set(tgt_by_tk)
+    positions = []
+    for tk in sorted(all_tickers):
+        cur_eur = _current_price_eur(tk)
+        positions.append(position_from_sources(
+            ticker=tk,
+            db_row=db_pos.get(tk),
+            canonical_row=can_by_tk.get(tk),
+            target_row=tgt_by_tk.get(tk),
+            thesis_row=theses.get(tk),
+            axes_row=axes.get(tk),
+            meta_row=meta.get(tk),
+            current_price_eur=cur_eur,
+            current_price_native=None,  # TODO : separer le prix native du prix eur
+        ))
+    return positions
+
+
+def get_held_positions() -> list:
+    """Filtered: seulement les positions tenues (qty > 0)."""
+    return [p for p in get_canonical_positions() if p.in_db]
+
+
+def validate_all_positions() -> dict:
+    """Aggregate validate() sur toutes les positions.
+    Retourne {n_total, n_clean, violations: [(ticker, [violations...])]}."""
+    pos = get_canonical_positions()
+    violations = []
+    for p in pos:
+        v = p.validate()
+        if v:
+            violations.append((p.ticker, v))
+    return {
+        "n_total": len(pos),
+        "n_clean": len(pos) - len(violations),
+        "n_with_violations": len(violations),
+        "violations": violations,
+    }
+
+
 def book_summary() -> dict:
     """Resume du book : totaux + brackets etat. Utile pour diagnostiquer
     instantanement la coherence des 3 sources."""

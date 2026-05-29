@@ -153,3 +153,73 @@ def test_held_market_value_is_positive(held_lines):
     total = sum(ln.weight_market_eur for ln in held_lines)
     assert total > 1000, f"book total suspicieusement faible : {total}€"
     assert total < 1_000_000, f"book total suspicieusement enorme : {total}€"
+
+
+# ─────────────────────── Position canonique (FAIT/JUGEMENT/DERIVE) ─────────
+# Tests sur le nouvel objet shared.position.Position : valident la separation
+# stricte en couches qui rend les incoherences F11/F9 structurellement impossibles.
+
+
+@pytest.fixture(scope="module")
+def positions_canonical():
+    return book.get_canonical_positions()
+
+
+@pytest.fixture(scope="module")
+def held_positions():
+    return book.get_held_positions()
+
+
+def test_position_facts_are_immutable(held_positions):
+    """PositionFacts est frozen=True : impossible de modifier les faits broker."""
+    p = held_positions[0]
+    with pytest.raises(Exception):  # FrozenInstanceError / AttributeError
+        p.facts.qty = 999999  # ne doit pas marcher
+
+
+def test_position_derived_never_stored_only_computed(held_positions):
+    """weight_market_eur etc sont @property, jamais des champs stockes."""
+    p = held_positions[0]
+    # Si weight_market_eur etait un champ, ce serait dans __dict__
+    assert "weight_market_eur" not in p.__dict__
+    assert "pnl_pct" not in p.__dict__
+    assert "is_blind" not in p.__dict__
+
+
+def test_position_invariants_count_clean(positions_canonical):
+    """Aujourd'hui : 42/43 positions clean -- seul SNOW reste F7 vol aveugle.
+    Ce test fail si une autre position devient incoherente."""
+    report = book.validate_all_positions()
+    expected_violators = {"SNOW"}  # documented vol aveugle
+    actual_violators = {tk for tk, _ in report["violations"]}
+    surprises = actual_violators - expected_violators
+    assert not surprises, (
+        f"positions inattendument incoherentes : {surprises}. "
+        "Si attendu, ajouter a expected_violators avec justification."
+    )
+
+
+def test_position_lifecycle_values_valid(positions_canonical):
+    """Lifecycle est un enum strict : construction|active|exiting|sold|watch."""
+    valid = {"construction", "active", "exiting", "sold", "watch"}
+    for p in positions_canonical:
+        assert p.lifecycle in valid, \
+            f"{p.ticker}: lifecycle={p.lifecycle} hors enum"
+
+
+def test_single_driver_per_position(positions_canonical):
+    """F9 : exactement un driver canonique (pas multi-class). Si driver
+    None -> position non classifiable, doit etre listee."""
+    no_driver = [p.ticker for p in positions_canonical
+                 if p.in_db and p.judgments.driver is None]
+    # Aujourd'hui : aucune position en DB sans driver (apres migration)
+    assert not no_driver, f"positions sans driver canonique : {no_driver}"
+
+
+def test_phantom_lifecycle_consistent_with_canonical(held_positions):
+    """lifecycle='exiting' <=> canonical target_status='exit_planned'.
+    Pas de phantom surprise."""
+    phantoms = [p.ticker for p in held_positions if p.is_phantom]
+    expected = {"AMD", "TSLA"}  # GOOGL retire des exit_planned (these reecrite)
+    surprises = set(phantoms) - expected
+    assert not surprises, f"phantom surprise : {surprises}"
