@@ -244,12 +244,32 @@ def _risk_watch_panel() -> str:
             if mitigations else 0
         )
 
-        signals_html = "".join(
-            f'<div class="rw-sig"><span class="rw-sig-l">{s.get("label", "?")}</span>'
-            f'<span class="rw-sig-w">{s.get("weight", "")}</span>'
-            f'<span class="rw-sig-s">{s.get("current_status", "?")}</span></div>'
-            for s in signals[:6]
-        )
+        # Sprint 20.b : show eval reason when at_risk/triggered
+        sig_rows = []
+        for s in signals[:6]:
+            status = s.get("current_status", "?")
+            scls = "triggered" if status == "triggered" else ("atrisk" if status == "at_risk" else "monitoring")
+            reason = (s.get("last_eval_reason") or "").strip()
+            conf = s.get("last_eval_confidence")
+            evidence = s.get("last_eval_evidence_ids") or []
+            extra_html = ""
+            if status in ("at_risk", "triggered") and reason:
+                reason_safe = reason.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                ev_str = (f" · evidence : signal_{', signal_'.join(str(i) for i in evidence[:3])}"
+                          if evidence else "")
+                extra_html = (
+                    f'<div class="rw-sig-reason">{reason_safe[:200]} '
+                    f'<span class="rw-sig-conf">(conf {conf}{ev_str})</span></div>'
+                )
+            sig_rows.append(
+                f'<div class="rw-sig {scls}">'
+                f'<div class="rw-sig-head"><span class="rw-sig-l">{s.get("label", "?")}</span>'
+                f'<span class="rw-sig-w">{s.get("weight", "")}</span>'
+                f'<span class="rw-sig-s {scls}">{status}</span></div>'
+                f'{extra_html}'
+                f'</div>'
+            )
+        signals_html = "".join(sig_rows)
 
         mit_html = "".join(
             f'<div class="rw-mit"><div class="rw-mit-h">'
@@ -3055,10 +3075,18 @@ _CSS = """
   .riskwatchcard .rw-t { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-top:4px; }
   .riskwatchcard .rw-section { margin-top:14px; }
   .riskwatchcard .rw-sh { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:10px; }
-  .riskwatchcard .rw-sig { display:grid; grid-template-columns:1fr 100px 100px; gap:10px; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); font-size:11.5px; }
+  .riskwatchcard .rw-sig { padding:8px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .riskwatchcard .rw-sig.atrisk { border-left:3px solid #c89b00; padding-left:10px; margin-left:-10px; background:color-mix(in srgb,#c89b00 4%,transparent); }
+  .riskwatchcard .rw-sig.triggered { border-left:3px solid var(--bear); padding-left:10px; margin-left:-10px; background:color-mix(in srgb,var(--bear) 5%,transparent); }
+  .riskwatchcard .rw-sig-head { display:grid; grid-template-columns:1fr 100px 90px; gap:10px; font-size:11.5px; align-items:baseline; }
   .riskwatchcard .rw-sig-l { color:var(--ink); }
   .riskwatchcard .rw-sig-w { font-family:var(--fb); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); text-align:right; }
-  .riskwatchcard .rw-sig-s { font-family:var(--fm); font-size:10.5px; color:var(--steel); text-align:right; font-style:italic; }
+  .riskwatchcard .rw-sig-s { font-family:var(--fm); font-size:10.5px; text-align:right; padding:1px 6px; border-radius:var(--r1); font-weight:600; }
+  .riskwatchcard .rw-sig-s.monitoring { color:var(--steel); background:color-mix(in srgb,var(--ink) 6%,transparent); }
+  .riskwatchcard .rw-sig-s.atrisk { color:#c89b00; background:color-mix(in srgb,#c89b00 14%,transparent); }
+  .riskwatchcard .rw-sig-s.triggered { color:var(--bear); background:color-mix(in srgb,var(--bear) 16%,transparent); }
+  .riskwatchcard .rw-sig-reason { font-family:var(--fm); font-size:11px; color:var(--ink); opacity:.85; line-height:1.45; margin-top:5px; }
+  .riskwatchcard .rw-sig-conf { color:var(--steel); font-size:10px; }
   .riskwatchcard .rw-mit { padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .riskwatchcard .rw-mit:last-child { border-bottom:none; }
   .riskwatchcard .rw-mit-h { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
