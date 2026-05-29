@@ -1000,7 +1000,48 @@ def _user_strategy_panel() -> str:
     horizon = us.get("thesis_horizon_years", "?")
     accepted = us.get("accepted_concentrated_factors") or []
     declared = us.get("declared_at", "?")
+    tol_validated = bool(us.get("drawdown_tolerance_validated"))
+    tol_validated_at = us.get("drawdown_tolerance_validated_at") or "?"
     accepted_html = ", ".join(accepted) if accepted else "(aucun)"
+    # CTA "a valider" : lit le drawdown estime sur scenario AI capex -30%
+    # depuis risk_watch.json. Tant que pas valide explicitement, la cible
+    # 75% n'a pas ete confirmee par un gut-check sur le chiffre reel.
+    cta_html = ""
+    if not tol_validated:
+        try:
+            from pathlib import Path
+
+            from intelligence.portfolio_grade import _fetch_state
+
+            rw = json.loads(Path("scripts/risk_watch.json").read_text())
+            r0 = (rw.get("risks") or [{}])[0]
+            de = r0.get("drawdown_estimates") or {}
+            dd_mild = de.get("mild_derating_minus30")
+            total_eur = (_fetch_state() or {}).get("total_capital_eur") or 0
+            dd_eur = int(total_eur * (dd_mild or 0) / 100) if dd_mild else 0
+        except Exception:
+            dd_mild = None
+            dd_eur = 0
+        if dd_mild is not None:
+            cta_html = (
+                '<div class="us-cta">'
+                '<div class="us-cta-h">A valider : ta tolerance drawdown</div>'
+                f'<div class="us-cta-b">Ta cible cluster {cap}% implique '
+                f'<b class="neg mono">{dd_mild}%</b> sur scenario AI capex de-rating '
+                f'-30% (~<b class="neg mono">{dd_eur:+,}&nbsp;€</b>). '
+                "Si voir le book a ce niveau touche ta limite, baisse la cible : la "
+                "note 91 ne vaut que ce que vaut cette tolerance."
+                '</div>'
+                '<div class="us-cta-f">Pour valider : '
+                '<code>config.yaml.user_strategy.drawdown_tolerance_validated: true</code>'
+                '</div>'
+                '</div>'
+            )
+    else:
+        cta_html = (
+            f'<div class="us-cta valid"><div class="us-cta-h">'
+            f'Tolerance drawdown validee le {tol_validated_at[:10]}</div></div>'
+        )
     return (
         '<div class="card pad strategiecard" style="margin-bottom:18px">'
         '<div class="colhead"><span class="t">Ta strategie declaree</span>'
@@ -1012,6 +1053,7 @@ def _user_strategy_panel() -> str:
         f'<div class="us-row"><span class="us-k">Horizon th&egrave;ses</span><span class="us-v mono">{horizon} ans</span></div>'
         f'<div class="us-row"><span class="us-k">Concentrations accept&eacute;es</span><span class="us-v">{accepted_html}</span></div>'
         '</div>'
+        f'{cta_html}'
         f'<div class="us-desc">{desc}</div>'
         '</div>'
     )
@@ -3179,7 +3221,13 @@ _CSS = """
   .strategiecard .us-row { display:flex; align-items:baseline; gap:14px; padding:6px 0; }
   .strategiecard .us-k { font-family:var(--fm); font-size:12px; color:var(--steel); min-width:200px; }
   .strategiecard .us-v { font-family:var(--fm); font-size:13px; color:var(--ink); font-variant-numeric:tabular-nums; }
-  .strategiecard .us-desc { font-family:var(--fm); font-size:11.5px; color:var(--steel); line-height:1.55; font-style:italic; }
+  .strategiecard .us-desc { font-family:var(--fm); font-size:11.5px; color:var(--steel); line-height:1.55; font-style:italic; margin-top:14px; }
+  .strategiecard .us-cta { font-family:var(--fm); margin:8px 0 14px; padding:12px 14px; border-left:2px solid var(--accent-red, #c44); background:color-mix(in srgb, var(--accent-red, #c44) 5%, transparent); border-radius:2px; }
+  .strategiecard .us-cta.valid { border-left-color:var(--accent-green, #4a8); background:color-mix(in srgb, var(--accent-green, #4a8) 4%, transparent); }
+  .strategiecard .us-cta-h { font-size:11px; color:var(--steel); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+  .strategiecard .us-cta-b { font-size:12.5px; color:var(--ink); line-height:1.55; }
+  .strategiecard .us-cta-f { font-size:10.5px; color:var(--steel); margin-top:8px; font-family:var(--fm-mono, monospace); }
+  .strategiecard .us-cta-f code { background:color-mix(in srgb, var(--ink) 6%, transparent); padding:2px 6px; border-radius:2px; font-size:10.5px; }
   /* Sprint 5/6 - Copilot interventions panel */
   .copilotcard .cp-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
   .copilotcard .cp-row:last-child { border-bottom:none; }
