@@ -391,6 +391,41 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     if not rows:
         return f"Aucun signal canonique sur les dernieres {since_hours}h ({skipped} skippes hors-perimetre)."
 
+    # Brief 10 points #8 : RERANKING book-anchored.
+    # Le signal n'est pertinent que s'il rapproche une these de son
+    # kill-criterion ou de sa validation. On retrie par score book-anchored
+    # (kill-criterion match + validation match + margin urgency).
+    try:
+        from intelligence import book_anchored_scoring as _bas
+
+        # Convertir rows (sqlite3.Row) en dicts pour passage au scorer
+        rows_dicts = [dict(r) for r in rows]
+        ranked = _bas.rank_signals_book_anchored(rows_dicts)
+        # On garde la signature (signals iteres comme rows) en remplacant
+        # rows par le tri book-anchored. Les scores book sont attaches en
+        # annotations pour eventuelles vues downstream.
+        rows = [item["signal"] for item in ranked]
+        # Annote le top 5 pour le prompt LLM (lui dire pourquoi c'est pertinent)
+        rerank_top5 = []
+        for item in ranked[:5]:
+            bs = item["book_score"]
+            if bs["score"] > 0:
+                rerank_top5.append({
+                    "title": item["signal"].get("title", "")[:80],
+                    "book_score": bs["score"],
+                    "reasoning": bs["reasoning"],
+                })
+        rerank_meta = (
+            "\nRERANK BOOK-ANCHORED (top 5 par score book) :\n"
+            + "\n".join(
+                f"  [{m['book_score']:>2}] {m['title']} -- {m['reasoning']}"
+                for m in rerank_top5
+            )
+        ) if rerank_top5 else ""
+    except Exception as _e:
+        log.warning(f"book_anchored reranking failed: {_e}")
+        rerank_meta = ""
+
     sources_set = set()
     catalysts = narratives = opinions = data = 0
     blocks = []
@@ -448,6 +483,7 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         "vend winners trop tot, ne sort pas les doublons assez vite.\n\n"
         "PERIMETRE CANONIQUE (= positions tenues, SOURCE DE VERITE UNIQUE) :\n"
         f"  {canonical_str}\n\n"
+        f"{rerank_meta}\n\n"
         f"INTERDIT : parler de NVDA, MRVL, MSTR, IBIT, COIN, CEG, VST ou tout "
         f"ticker hors perimetre canonique ci-dessus, meme si un signal "
         f"l'evoque. Ces tickers ne sont PAS dans son book.\n\n"
