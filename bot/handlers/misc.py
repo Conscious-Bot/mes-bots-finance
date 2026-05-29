@@ -23,6 +23,7 @@ from shared import positions as positions_mod
 __all__ = [
     "cmd_asymmetry",
     "cmd_brief",
+    "cmd_chat",
     "cmd_grade",
     "cmd_position",
     "cmd_thesis_set",
@@ -271,3 +272,33 @@ async def cmd_grade(update, ctx):
     lines.append("")
     lines.append("Sim trade : /grade sim TICKER buy|sell QTY [PRICE]")
     await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_chat(update, ctx):
+    """/chat <question> — pose une question au copilot (meme RAG que dashboard).
+
+    Single-shot (pas d'historique multi-tour sur Telegram pour l'instant).
+    """
+    args = ctx.args or []
+    if not args:
+        await update.message.reply_text(
+            "Usage : /chat <question>\n"
+            "Exemple : /chat Quelle est ma plus grosse fragilite en ce moment ?"
+        )
+        return
+    message = " ".join(args).strip()
+    await update.message.reply_text("Le copilot reflechit... (8-15s)")
+    try:
+        from dashboard.chat import chat as _chat
+
+        result = _chat(message)
+    except Exception as e:
+        await update.message.reply_text(f"Erreur : {type(e).__name__}: {e}")
+        return
+    reply = result.get("reply") or "(reponse vide)"
+    if result.get("error"):
+        reply = f"⚠️ {reply}"
+    # Telegram limit 4096
+    if len(reply) > 3900:
+        reply = reply[:3900] + "\n[truncated]"
+    await update.message.reply_text(reply)

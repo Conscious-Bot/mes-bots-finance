@@ -38,6 +38,7 @@ from bot.handlers.journal_bias import (
 from bot.handlers.misc import (
     cmd_asymmetry,
     cmd_brief,
+    cmd_chat,
     cmd_grade,
     cmd_position,
     cmd_thesis_set,
@@ -179,6 +180,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("asymmetry", cmd_asymmetry))
     app.add_handler(CommandHandler("brief", cmd_brief))
     app.add_handler(CommandHandler("grade", cmd_grade))
+    app.add_handler(CommandHandler("chat", cmd_chat))
     app.add_handler(CommandHandler("price_check", cmd_price_check))
     app.add_handler(CommandHandler("override", cmd_override))
     app.add_handler(CommandHandler("crypto", cmd_crypto))
