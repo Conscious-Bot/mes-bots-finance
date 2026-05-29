@@ -213,6 +213,12 @@ def run_static_gate(conn, *, strict: bool = True) -> list[str]:
         #10 pas de fantome qty=0 status=open
     """
     violations: list[str] = []
+    # Import des checks thesis_invariants (currency + kill_criteria substance)
+    from shared.thesis_invariants import (
+        check_currency_native_consistency,
+        check_kill_criteria_substance,
+    )
+
     checks = [
         _check_one_driver_per_position,
         _check_no_active_thesis_orphan,
@@ -222,6 +228,8 @@ def run_static_gate(conn, *, strict: bool = True) -> list[str]:
         _check_no_recent_material_decision_orphan,
         _check_resolved_predictions_have_brier,
         _check_no_phantom_ghosts_in_views,
+        check_kill_criteria_substance,
+        check_currency_native_consistency,
     ]
     for check in checks:
         try:
