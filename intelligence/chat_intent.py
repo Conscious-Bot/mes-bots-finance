@@ -45,6 +45,9 @@ _INTENT_KEYWORDS = (
     "montre", "montre-moi", "donne-moi", "affiche", "show",
     "note du pf", "le grade", "le brief", "brief du matin",
     "asymetrie", "asymmetry", "position de", "ma position", "etat de",
+    # full analysis
+    "analyse", "analyze", "fiche", "analyse complete", "fiche complete",
+    "deep dive", "details sur", "dossier", "raconte",
 )
 
 
@@ -75,6 +78,8 @@ READS (informent, ne mutent rien) :
   - "show_brief"     : afficher le brief du matin
   - "show_asymmetry" : afficher l'asymetrie risk/reward
   - "show_position"  : afficher le detail d'une position
+  - "show_analysis"  : afficher l'analyse complete d'un ticker (BUSINESS QUALITY +
+                      FINANCIAL HEALTH + valo) — equivalent /analyze TICKER
 
 REGLES :
 - Conditionnel ("je devrais peut-etre vendre", "et si je vendais") = PAS ferme. Si l'user demande hypothetique sur un trade = "simulate_trade".
@@ -83,6 +88,7 @@ REGLES :
 - "stop TSM a 180" = set_field {{ticker:TSM, field:stop_price, value:180}}
 - "ferme la these CCJ car invalide" = close_thesis {{ticker:CCJ, reason:...}}
 - "ma position TSM" = show_position {{ticker:TSM}}
+- "analyse complete TSLA" / "raconte-moi 4063.T" / "fiche TSM" = show_analysis {{ticker:TSLA}}
 - "et si je vends 5 ASML a 800 ?" = simulate_trade {{action:sell, ticker:ASML, qty:5, price:800}}
 
 Sortie JSON :
@@ -161,6 +167,7 @@ def execute_intent(intent: dict, reasoning_fallback: str = "") -> dict:
         "show_brief": _exec_show_brief,
         "show_asymmetry": _exec_show_asymmetry,
         "show_position": _exec_show_position,
+        "show_analysis": _exec_show_analysis,
     }
     h = handlers.get(kind)
     if not h:
@@ -550,3 +557,46 @@ def _exec_show_position(intent: dict, _: str) -> dict:
         return {"executed": False, "summary": f"pas de position ouverte sur {ticker}", "error": "no_position"}
     hist = positions_mod.get_history(ticker)
     return {"executed": True, "summary": "📍 " + positions_mod.format_position_detail(p, hist)[:2500]}
+
+
+def _exec_show_analysis(intent: dict, _: str) -> dict:
+    """Mirror /analyze TICKER. Prefer cached analysis (<=7j), fallback fresh gen.
+
+    L'analyse complete reste le contenu integral (BUSINESS QUALITY +
+    FINANCIAL HEALTH + valo) — pas le smart_summary qui sert juste la
+    drilldown popup.
+    """
+    from shared import storage
+
+    ticker = (intent.get("ticker") or "").upper()
+    if not ticker:
+        return {"executed": False, "summary": "ticker manquant", "error": "incomplete"}
+
+    try:
+        with storage.db() as cx:
+            row = cx.execute(
+                "SELECT timestamp, content FROM analyses WHERE ticker=? "
+                "ORDER BY id DESC LIMIT 1",
+                (ticker,),
+            ).fetchone()
+    except Exception:
+        row = None
+
+    if row and row[1]:
+        ts = (row[0] or "")[:10]
+        content = str(row[1])[:3500]
+        return {
+            "executed": True,
+            "summary": f"📊 ANALYSE {ticker} (cache au {ts})\n\n{content}",
+            "source": "cached",
+        }
+    # No cache : invite to /analyze rather than blow $0.20 silently
+    return {
+        "executed": True,
+        "summary": (
+            f"Pas d'analyse en cache pour {ticker}. "
+            f"Lance /analyze {ticker} sur Telegram pour generer "
+            f"(15-30s, ~$0.20). L'analyse sera ensuite disponible dans le chat."
+        ),
+        "source": "no_cache",
+    }

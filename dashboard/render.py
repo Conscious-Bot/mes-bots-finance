@@ -2785,6 +2785,8 @@ _CSS = """
   .lp-score .vv { font-family:var(--fm); width:32px; text-align:right; }
   .lp-ex { font-size:12.5px; color:var(--ink); line-height:1.6; opacity:.82; }
   .lp-empty { font-size:12px; color:var(--steel); padding:6px 0; }
+  .lp-hint { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:14px; padding-top:12px; border-top:1px solid color-mix(in srgb,var(--ink) 5%,transparent); line-height:1.5; }
+  .lp-hint code { font-family:var(--fm); font-weight:600; color:var(--ink); background:color-mix(in srgb,var(--ink) 5%,transparent); padding:1px 5px; border-radius:3px; font-size:10.5px; }
   .tkc { cursor:pointer; transition:color .12s; } .tkc:hover { color:var(--id); }
   .lp-badge { display:inline-block; font-family:var(--fb); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:var(--r1); border:1px solid currentColor; }
   .lp-badge.held { color:var(--acc); } .lp-badge.watch { color:var(--warn); } .lp-badge.univ { color:var(--acc2); } .lp-badge.out { color:var(--steel); }
@@ -3206,7 +3208,7 @@ _APP_JS = """
       var nm={quality:'Qualit&eacute;',growth:'Croissance',profitability:'Rentabilit&eacute;',valuation:'Valorisation',risk:'Risque',momentum:'Momentum',macro_alignment:'Macro'};
       for(var k in nm){ if(a.scores[k]!=null){ var v=Math.round(a.scores[k]); sc+='<div class="lp-score"><span class="ln">'+nm[k]+'</span><span class="bar"><span class="bf" style="width:'+v+'%"></span></span><span class="vv">'+v+'</span></div>'; } }
     }
-    var ana = a ? ('<div class="lp-sec">Derni&egrave;re analyse &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">R&eacute;gime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'&hellip;</div>':'')) : '<div class="lp-sec">Analyse</div><div class="lp-empty">Aucune analyse stock&eacute;e pour ce titre.</div>';
+    var ana = a ? ('<div class="lp-sec">Derni&egrave;re analyse &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">R&eacute;gime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'</div>':'')+'<div class="lp-hint">Analyse compl&egrave;te : <code>/analyze '+tk+'</code> sur Telegram, ou demande-la dans le chat.</div>') : '<div class="lp-sec">Analyse</div><div class="lp-empty">Aucune analyse stock&eacute;e. <code>/analyze '+tk+'</code> sur Telegram pour g&eacute;n&eacute;rer.</div>';
     document.getElementById('loupe-body').innerHTML =
       '<div class="lp-h"><span class="lp-tk">'+tk+'</span><span class="lp-nm">'+(d.name||'')+'</span></div>'
       +'<div class="lp-meta">'+badge+' &middot; '+(d.sector||'&mdash;')+' &middot; '+(d.country||'&mdash;')+'</div>'
@@ -3373,6 +3375,41 @@ def _universe_status() -> dict:
     return out
 
 
+def _smart_summary(content: str, max_chars: int = 500) -> str:
+    """Extrait juste l'activite + position marche du content.
+
+    Strip le prefix "SECTION HEADER - " (BUSINESS QUALITY -, etc.), prend le
+    1er paragraphe au sentence boundary le plus proche de max_chars. Si pas
+    de boundary propre, hard-cut au dernier mot complet.
+
+    L'analyse complete reste accessible via /analyze TICKER ou chat
+    "analyse TICKER".
+    """
+    if not content:
+        return ""
+    s = content.strip()
+    # Strip leading section header pattern : "[A-Z _]+ - "
+    m = re.match(r"^[A-Z_ ]+\s*-\s+", s)
+    if m:
+        s = s[m.end():]
+    if len(s) <= max_chars:
+        return s
+    snippet = s[:max_chars]
+    # Last sentence boundary in the snippet (. ! ?)
+    last_punct = max(
+        snippet.rfind(". "),
+        snippet.rfind("! "),
+        snippet.rfind("? "),
+    )
+    if last_punct > max_chars * 0.4:
+        return s[:last_punct + 1]
+    # Otherwise cut at last word boundary
+    last_space = snippet.rfind(" ")
+    if last_space > max_chars * 0.6:
+        return s[:last_space] + "…"
+    return snippet + "…"
+
+
 def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, computed: list[dict], perf: dict) -> dict:
     by = {r["ticker"]: r for r in computed}
     ana: dict = {}
@@ -3389,10 +3426,11 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
                 narr = md.get("narratives_active", []) or []
             except Exception:
                 pass
-            # Drilldown analyse : pas de troncation stupide. La loupe-card a
-            # max-height:86vh + overflow:auto -> le texte long scrolle dans
-            # le popup, on n'ampute pas le sens.
-            exc = str(content).strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            # Drilldown : juste l'activite + position marche, pas le dump
+            # multi-paragraphe (BUSINESS QUALITY + FINANCIAL HEALTH + valo + ...).
+            # On extrait le 1er paragraphe propre, sentence-aware, ~500 chars max.
+            exc = _smart_summary(str(content), max_chars=500)
+            exc = exc.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             ana[tk] = {
                 "date": str(ts)[:10],
                 "type": str(typ),
