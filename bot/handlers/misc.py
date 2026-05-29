@@ -23,6 +23,7 @@ from shared import positions as positions_mod
 __all__ = [
     "cmd_asymmetry",
     "cmd_brief",
+    "cmd_grade",
     "cmd_position",
     "cmd_thesis_set",
 ]
@@ -160,3 +161,113 @@ async def _position_view_impl(update, ticker: str) -> None:
         return
     hist = positions_mod.get_history(ticker)
     await update.message.reply_text(positions_mod.format_position_detail(p, hist))
+
+
+async def cmd_grade(update, ctx):
+    """/grade — affiche la Note du portefeuille (6 dimensions) en Telegram.
+
+    /grade            -> grade actuel + breakdown
+    /grade sim TICKER buy QTY PRICE   -> simulation avant/apres
+    /grade sim TICKER sell QTY        -> simulation vente
+    """
+    from intelligence import portfolio_grade as _grade
+    from shared import storage as _stg
+
+    args = ctx.args or []
+
+    # --- mode simulation ---
+    if args and args[0].lower() in ("sim", "simulate"):
+        if len(args) < 4:
+            await update.message.reply_text(
+                "Usage : /grade sim TICKER buy|sell QTY [PRICE]\n"
+                "Exemple : /grade sim ASML.AS buy 5 750"
+            )
+            return
+        ticker = args[1].upper()
+        action_kind = args[2].lower()
+        try:
+            qty = float(args[3])
+        except ValueError:
+            await update.message.reply_text("qty invalide")
+            return
+        price = float(args[4]) if len(args) > 4 else 0.0
+        action_type = {"buy": "buy", "sell": "sell", "exit": "full_exit"}.get(action_kind, "buy")
+        try:
+            sim = _grade.simulate_grade(
+                {"type": action_type, "ticker": ticker, "qty": qty, "price_eur": price}
+            )
+        except Exception as e:
+            await update.message.reply_text(f"Sim echec : {type(e).__name__}: {e}")
+            return
+        before = sim["before"]
+        after = sim["after"]
+        delta = sim["delta_score"]
+        arrow = "↑" if delta > 0 else ("↓" if delta < 0 else "·")
+        diag = "\n".join(f"  · {d}" for d in (sim["diagnosis"] or ["aucune dim ne bouge >=5pts"]))
+        msg = (
+            f"📊 SIMULATION — {action_kind} {ticker} qty={qty}\n\n"
+            f"Avant : {before['overall_grade']} ({before['overall_score']}/100)\n"
+            f"Après : {after['overall_grade']} ({after['overall_score']}/100)\n"
+            f"Δ : {arrow} {delta:+d} pts\n\n"
+            f"Dimensions qui bougent :\n{diag}"
+        )
+        await update.message.reply_text(msg)
+        return
+
+    # --- mode default : grade actuel ---
+    try:
+        latest = _stg.get_latest_portfolio_grade()
+        if not latest:
+            g = _grade.compute_grade()
+            grade_letter = g["overall_grade"]
+            score = g["overall_score"]
+            dims = g["dimensions"]
+            snap_date = g["snapshot_date"]
+            cap = g["total_capital_eur"]
+            n_pos = g["n_positions"]
+        else:
+            import json as _json
+
+            grade_letter = latest["overall_grade"]
+            score = latest["overall_score"]
+            dims = _json.loads(latest["dimensions_json"] or "{}")
+            snap_date = latest["snapshot_date"]
+            cap = latest.get("total_capital_eur") or 0
+            n_pos = latest.get("n_positions") or 0
+        trend = _grade.compute_trend_7d()
+        trend_str = {"improving": "↑ 7j", "stable": "· stable 7j", "deteriorating": "↓ 7j", "no_history": "J0"}.get(
+            trend, ""
+        )
+    except Exception as e:
+        await update.message.reply_text(f"Note PF indisponible : {type(e).__name__}: {e}")
+        return
+
+    lines = [
+        f"📊 NOTE DU PORTEFEUILLE — {snap_date}",
+        "",
+        f"  {grade_letter}  ·  {score}/100  ·  {trend_str}",
+        f"  ({cap:.0f}€ · {n_pos} positions)",
+        "",
+    ]
+    dim_labels = {
+        "quality_T1_plus": "Qualité T1+T1★",
+        "T2_redondant": "T2 redondant",
+        "decorrelation_star": "Décorrélation ★",
+        "sizing_conviction": "Sizing conviction",
+        "cluster_cap": "Cluster cap",
+        "thesis_health": "Santé des thèses",
+    }
+    for dk, label in dim_labels.items():
+        d = dims.get(dk) or {}
+        cur = d.get("current_pct", 0) or 0
+        tgt = d.get("target_pct", 0) or 0
+        kind = "≤" if dk in ("T2_redondant", "cluster_cap") else "≥"
+        ok = (cur <= tgt) if kind == "≤" else (cur >= tgt)
+        flag = "✅" if ok else "⚠️"
+        ev = (d.get("evidence") or "")[:80]
+        lines.append(f"{flag} {label:18s} {cur:>5.1f}% / {kind}{tgt:.0f}%")
+        if ev:
+            lines.append(f"   {ev}")
+    lines.append("")
+    lines.append("Sim trade : /grade sim TICKER buy|sell QTY [PRICE]")
+    await update.message.reply_text("\n".join(lines))
