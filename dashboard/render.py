@@ -336,6 +336,127 @@ def _copilot_panel() -> str:
     )
 
 
+def _factor_exposures_panel() -> str:
+    """Sprint 13 — Decomposition du book en facteurs macro reels.
+
+    Per critique : 'transforme 78% compute en risque chiffre et actionnable'.
+    """
+    try:
+        from intelligence import factor_exposures as _fe
+
+        facts = _fe.compute_factor_exposures()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">factor exposures indispo: {type(e).__name__}</div></div>'
+    if not facts:
+        return '<div class="card pad"><div class="empty">aucune position classifiee</div></div>'
+    sorted_f = sorted(facts.items(), key=lambda kv: -kv[1]["pct_of_book"])
+    rows = []
+    for name, d in sorted_f:
+        pct = d["pct_of_book"]
+        wcls = "high" if pct >= 30 else ("mid" if pct >= 10 else "low")
+        tks = ", ".join(d["tickers"][:8])
+        if len(d["tickers"]) > 8:
+            tks += f" +{len(d['tickers']) - 8}"
+        rows.append(
+            f'<div class="fe-row">'
+            f'<div class="fe-head"><span class="fe-name">{name}</span>'
+            f'<span class="fe-pct {wcls} mono">{pct:.1f}%</span>'
+            f'<span class="fe-eur mono">{d["eur"]:,.0f}€</span></div>'
+            f'<div class="fe-bar"><div class="fe-fill {wcls}" style="width:{min(pct, 100):.1f}%"></div></div>'
+            f'<div class="fe-tks">{tks}  (n={d["n_positions"]})</div></div>'
+        )
+    return (
+        '<div class="card pad factorscard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Factor exposures (Sprint 13)</span>'
+        '<span class="a">decomposition par facteur macro &middot; source = Sprint 12 axes</span></div>'
+        + "".join(rows)
+        + "</div>"
+    )
+
+
+def _stress_tests_panel() -> str:
+    """Sprint 13 — scenarios deterministes appliques sur les factor exposures."""
+    try:
+        from intelligence import factor_exposures as _fe
+
+        results = _fe.run_all_stress_tests()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">stress indispo: {type(e).__name__}</div></div>'
+    rows = []
+    for s in results:
+        if "error" in s:
+            continue
+        scenario = s["scenario"]
+        dd_pct = s["total_drawdown_pct"]
+        dd_eur = s["total_drawdown_eur"]
+        n = s.get("n_positions_affected", 0)
+        dcls = "pos" if dd_pct > 0 else ("danger" if dd_pct < -5 else "warn" if dd_pct < 0 else "neu")
+        rows.append(
+            f'<div class="st-row">'
+            f'<div class="st-name">{scenario}</div>'
+            f'<div class="st-impact"><span class="st-pct {dcls} mono">{dd_pct:+.1f}%</span>'
+            f'<span class="st-eur mono">{dd_eur:+,.0f}€</span>'
+            f'<span class="st-n">n={n}</span></div></div>'
+        )
+    return (
+        '<div class="card pad stresscard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Stress tests (Sprint 13)</span>'
+        '<span class="a">scenarios deterministes &middot; drawdown estime par facteur</span></div>'
+        + "".join(rows)
+        + "</div>"
+    )
+
+
+def _trajectory_panel() -> str:
+    """Sprint 13 — drift du grade et de chaque dim sur les 30 derniers jours."""
+    try:
+        from intelligence import factor_exposures as _fe
+
+        t = _fe.format_grade_trajectory(n_days=30)
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">trajectory indispo: {type(e).__name__}</div></div>'
+    snaps = t.get("snapshots") or []
+    drift = t.get("drift") or {}
+    if len(snaps) < 2:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            f"Trajectory : {len(snaps)} snapshot(s) — il en faut >=2 pour mesurer la derive. "
+            "Les snapshots quotidiens s'accumulent via le cron 23h15."
+            "</div></div>"
+        )
+    score_drift = drift.get("score") or {}
+    delta_score = score_drift.get("delta", 0)
+    arrow = "↑" if delta_score > 0 else ("↓" if delta_score < 0 else "·")
+    cls = "pos" if delta_score > 0 else ("neg" if delta_score < 0 else "neu")
+    rows = []
+    for dk in ("quality_T1_plus", "T2_redondant", "decorrelation_star",
+               "sizing_conviction", "cluster_cap", "thesis_health"):
+        d = drift.get(dk) or {}
+        delta = d.get("delta", 0)
+        dcls = "pos" if delta > 0 else ("neg" if delta < 0 else "neu")
+        dirsym = "↑" if delta > 0 else ("↓" if delta < 0 else "·")
+        rows.append(
+            f'<div class="tr-row">'
+            f'<span class="tr-key">{dk.replace("_"," ")}</span>'
+            f'<span class="tr-from mono">{d.get("first", "?")}%</span>'
+            f'<span class="tr-arr">→</span>'
+            f'<span class="tr-to mono">{d.get("last", "?")}%</span>'
+            f'<span class="tr-delta {dcls} mono">{dirsym} {delta:+.1f}</span></div>'
+        )
+    return (
+        '<div class="card pad trajcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Trajectory grade (30j)</span>'
+        f'<span class="a">{len(snaps)} snapshots &middot; '
+        f'{score_drift.get("first_date","?")} → {score_drift.get("last_date","?")}</span></div>'
+        f'<div class="tr-hero">Score : {score_drift.get("first", "?")} '
+        f'<span class="tr-arr">→</span> '
+        f'{score_drift.get("last", "?")} '
+        f'<span class="tr-delta {cls} mono">{arrow} {delta_score:+d}</span></div>'
+        + "".join(rows)
+        + "</div>"
+    )
+
+
 def _ticker_axes_panel() -> str:
     """Sprint 12 — Tagging per ticker (driver/stage/moat/macro_factor) pour
     redefinir REDONDANCE et DECORRELATION proprement. Cf. critique review.
@@ -2420,6 +2541,43 @@ _CSS = """
   .axescard .ax-fields { display:flex; flex-direction:column; gap:3px; }
   .axescard .ax-f { font-family:var(--fm); font-size:11px; color:var(--ink); opacity:.82; line-height:1.4; }
   .axescard .ax-l { display:inline-block; font-family:var(--fb); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); width:50px; }
+  /* Sprint 13 - Factor exposures + Stress + Trajectory */
+  .factorscard .fe-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .factorscard .fe-row:last-child { border-bottom:none; }
+  .factorscard .fe-head { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
+  .factorscard .fe-name { font-family:var(--fm); font-weight:500; font-size:13px; color:var(--ink); flex:1; }
+  .factorscard .fe-pct { font-family:var(--fm); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .factorscard .fe-pct.high { color:var(--bear); }
+  .factorscard .fe-pct.mid { color:#c89b00; }
+  .factorscard .fe-pct.low { color:var(--acc); }
+  .factorscard .fe-eur { font-family:var(--fm); font-size:11px; color:var(--steel); font-variant-numeric:tabular-nums; min-width:75px; text-align:right; }
+  .factorscard .fe-bar { height:5px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:var(--r1); overflow:hidden; margin:4px 0 6px; }
+  .factorscard .fe-fill { height:100%; border-radius:var(--r1); }
+  .factorscard .fe-fill.high { background:var(--bear); }
+  .factorscard .fe-fill.mid { background:#c89b00; }
+  .factorscard .fe-fill.low { background:var(--acc); }
+  .factorscard .fe-tks { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .stresscard .st-row { display:flex; align-items:baseline; gap:14px; padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .stresscard .st-row:last-child { border-bottom:none; }
+  .stresscard .st-name { font-family:var(--fm); font-size:12px; color:var(--ink); flex:1; }
+  .stresscard .st-impact { display:flex; align-items:baseline; gap:10px; }
+  .stresscard .st-pct { font-family:var(--fm); font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; min-width:60px; text-align:right; }
+  .stresscard .st-pct.pos { color:var(--acc); }
+  .stresscard .st-pct.danger { color:var(--bear); }
+  .stresscard .st-pct.warn { color:#c89b00; }
+  .stresscard .st-pct.neu { color:var(--steel); }
+  .stresscard .st-eur { font-family:var(--fm); font-size:11px; color:var(--steel); font-variant-numeric:tabular-nums; min-width:90px; text-align:right; }
+  .stresscard .st-n { font-family:var(--fm); font-size:10px; color:var(--steel); min-width:40px; text-align:right; font-variant-numeric:tabular-nums; }
+  .trajcard .tr-hero { font-family:var(--fm); font-size:18px; font-weight:500; color:var(--ink); padding:14px 0 16px; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); margin-bottom:8px; display:flex; align-items:baseline; gap:8px; }
+  .trajcard .tr-row { display:flex; align-items:baseline; gap:10px; padding:7px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
+  .trajcard .tr-row:last-child { border-bottom:none; }
+  .trajcard .tr-key { font-family:var(--fm); color:var(--ink); flex:1; }
+  .trajcard .tr-from, .trajcard .tr-to { font-variant-numeric:tabular-nums; color:var(--ink); opacity:.85; min-width:48px; text-align:right; }
+  .trajcard .tr-arr { color:var(--steel); font-size:11px; }
+  .trajcard .tr-delta { font-variant-numeric:tabular-nums; min-width:64px; text-align:right; font-weight:500; }
+  .trajcard .tr-delta.pos { color:var(--acc); }
+  .trajcard .tr-delta.neg { color:var(--bear); }
+  .trajcard .tr-delta.neu { color:var(--steel); }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -3031,6 +3189,9 @@ def render() -> Path:
     conceptions_html = _conceptions_panel()
     preferences_html = _preferences_panel()
     axes_html = _ticker_axes_panel()
+    factor_html = _factor_exposures_panel()
+    stress_html = _stress_tests_panel()
+    trajectory_html = _trajectory_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -3048,6 +3209,9 @@ def render() -> Path:
         f"{chat_signals_html}"
         f"{conceptions_html}"
         f"{preferences_html}"
+        f"{trajectory_html}"
+        f"{factor_html}"
+        f"{stress_html}"
         f"{axes_html}"
         f"{copilot_html}"
         f"{cockpit_html}"

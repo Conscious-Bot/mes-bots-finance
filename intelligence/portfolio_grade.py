@@ -237,29 +237,32 @@ def _compute_T2_redundant(state: dict) -> dict:
     positions = state["positions"]
     pos_by_tk = {p["ticker"]: p for p in positions}
     total = state["total_capital_eur"] or 1
-    # Sprint 12 — Axes-based redundancy (strict definition)
+    # Sprint 12 — Axes-based redundancy (strict definition).
+    # Fix : on matche sur (macro_factor, value_chain_stage) — macro_factor est
+    # la version controlled-vocab du driver (sinon les wordings LLM
+    # verbatim divergent : MU "Memory cycle HBM/DRAM AI compute" vs SK
+    # Hynix "AI accelerator HBM3E ramp NVDA exclusive" ne matchent pas en
+    # raw mais sont evidently same).
     axes_map = _load_ticker_axes_map()
     if axes_map and len([p for p in positions if p["ticker"] in axes_map]) >= len(positions) * 0.7:
-        # Group by (driver, stage) — redundant if same key for >1 position
         groups: dict[tuple, list[dict]] = {}
         for p in positions:
             a = axes_map.get(p["ticker"])
             if not a:
                 continue
-            key = (a["demand_driver"], a["value_chain_stage"])
+            key = (a["macro_factor"], a["value_chain_stage"])
             groups.setdefault(key, []).append(p)
         redundant_eur = 0.0
         details = []
-        for (driver, stage), ps in groups.items():
+        for (macro, stage), ps in groups.items():
             if len(ps) < 2:
                 continue
-            # First position is anchor ; extras are redundant
             sorted_ps = sorted(ps, key=lambda p: -p["weight"])
             extras = sorted_ps[1:]
             for x in extras:
                 redundant_eur += x["weight"]
             details.append(
-                f"{driver[:30]} | {stage[:30]} → {sorted_ps[0]['ticker']} keep, "
+                f"{macro[:18]} | {stage[:35]} → {sorted_ps[0]['ticker']} keep, "
                 f"{', '.join(x['ticker'] for x in extras)} redundant"
             )
         current_pct = redundant_eur / total * 100 if total else 0
@@ -271,8 +274,8 @@ def _compute_T2_redundant(state: dict) -> dict:
             "score": round(score, 1),
             "weight": DIMENSION_WEIGHTS["T2_redondant"],
             "status": "above_target" if current_pct > target_pct else "at_or_below_target",
-            "evidence": "Axes-based (driver+stage match) : " + (" ; ".join(details[:3]) or "aucune paire stricte"),
-            "source": "sprint12_axes_strict",
+            "evidence": "Axes-based (macro+stage match) : " + (" ; ".join(details[:3]) or "aucune paire stricte"),
+            "source": "sprint12_axes_macro_stage",
         }
     snap = _load_llm_narrative_snapshot()
     if snap and snap.get("clusters"):

@@ -1,0 +1,267 @@
+"""Sprint 13 — Factor exposures + stress tests + trajectory.
+
+Per la critique : "Un vrai modele de risque, pas juste un bucket. Le 'cluster
+cap' est une version naive. La version rigoureuse : decomposer le book en
+facteurs reels — capex-IA, cycle memoire, EUR/USD, dépense défense, terres
+rares/Chine — et montrer les expositions par facteur. Puis des stress tests :
+capex-IA −30%, retournement du cycle memoire, EUR/USD +10%, restriction
+chinoise sur les terres rares → drawdown estime."
+
+Source : ticker_axes.macro_factor (Sprint 12). Pas d'opinion, juste sommer
+les poids par facteur + appliquer des scenarios deterministes.
+
+Trajectoire (1a) : on a deja portfolio_grades snapshots. Ce module ajoute :
+  - format_grade_trajectory(n_days) -> grade + drift par dim
+  - compute_price_vs_trade_drift() -> distingue derive prix vs derive trade
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from datetime import UTC, datetime, timedelta
+
+from shared import storage
+
+log = logging.getLogger(__name__)
+
+
+# ─────────────────────────── Factor exposures ────────────────────────────────
+
+
+def compute_factor_exposures() -> dict:
+    """Sum book weight per macro_factor (uses Sprint 12 ticker_axes).
+
+    Returns {factor: {eur, pct_of_book, tickers: [...], n_positions}}.
+    Falls back to 'Unclassified' for tickers without axes.
+    """
+    from dashboard.render import _positions
+
+    positions = _positions()
+    if not positions:
+        return {}
+    axes = {a["ticker"]: a for a in storage.get_all_latest_ticker_axes()}
+    total = sum(p.get("weight", 0) for p in positions) or 1
+
+    factors: dict = {}
+    for p in positions:
+        a = axes.get(p["ticker"])
+        f = a["macro_factor"] if a else "Unclassified"
+        factors.setdefault(f, {"eur": 0.0, "tickers": [], "n_positions": 0})
+        factors[f]["eur"] += p["weight"]
+        factors[f]["tickers"].append(p["ticker"])
+        factors[f]["n_positions"] += 1
+    for d in factors.values():
+        d["pct_of_book"] = round(d["eur"] / total * 100, 1)
+        d["eur"] = round(d["eur"], 0)
+    return factors
+
+
+# ─────────────────────────── Stress tests ────────────────────────────────────
+
+
+_STRESS_SCENARIOS = {
+    "AI capex -30%": {
+        "AI capex": -30.0,
+        "AI inference/compute demand": -25.0,
+        "Memory cycle": -18.0,  # spillover
+    },
+    "Memory cycle reversal -40%": {
+        "Memory cycle": -40.0,
+        "AI capex": -8.0,  # mild spillover
+    },
+    "Defense rearmament freeze -15%": {
+        "Defense rearmament": -15.0,
+    },
+    "China rare earth restriction +20% upside": {
+        "Rare earths / materials": 20.0,
+    },
+    "EUR/USD +10% (negative for unhedged USD exposure)": {
+        # All USD-denominated tickers take a -10% (proxy : applies to all
+        # non-european tickers held in euros, treated as a global haircut
+        # since we don't track currency per position)
+        "_FX_USD_PENALTY": -10.0,
+    },
+    "Energy crisis +25%": {
+        "Energy commodities": 25.0,
+    },
+    "Rates spike +200bps": {
+        "Rates / financials": 12.0,
+        "AI capex": -10.0,
+        "Healthcare innovation": -15.0,
+        "Consumer cyclical": -12.0,
+    },
+}
+
+
+def _is_usd_ticker(tk: str) -> bool:
+    """Crude proxy : EU tickers end with .AS .PA .DE .L .MI ; JP with .T ; KR with .KS."""
+    if tk.endswith((".AS", ".PA", ".DE", ".L", ".MI", ".SW")):
+        return False
+    # Asian markets (.T .HK .KS) ; otherwise default US
+    return not tk.endswith((".T", ".HK", ".KS"))
+
+
+def run_stress_test(scenario_name: str) -> dict:
+    """Apply one scenario : sum impact per position weighted by macro_factor exposure.
+
+    Returns {scenario, total_drawdown_pct, total_drawdown_eur, by_position: [...]}.
+    """
+    from dashboard.render import _positions
+
+    positions = _positions()
+    scenario = _STRESS_SCENARIOS.get(scenario_name)
+    if not scenario or not positions:
+        return {"scenario": scenario_name, "error": "unknown_scenario_or_empty_book"}
+    axes = {a["ticker"]: a for a in storage.get_all_latest_ticker_axes()}
+    total = sum(p.get("weight", 0) for p in positions) or 1
+
+    by_position: list = []
+    total_impact_eur = 0.0
+    for p in positions:
+        tk = p["ticker"]
+        w = p.get("weight", 0)
+        a = axes.get(tk)
+        impact_pct = 0.0
+        # Macro factor impact
+        if a:
+            mf = a["macro_factor"]
+            if mf in scenario:
+                impact_pct += scenario[mf]
+        # FX overlay for USD scenarios
+        if "_FX_USD_PENALTY" in scenario and _is_usd_ticker(tk):
+            impact_pct += scenario["_FX_USD_PENALTY"]
+        impact_eur = w * impact_pct / 100
+        total_impact_eur += impact_eur
+        if abs(impact_pct) > 0.5:
+            by_position.append({
+                "ticker": tk,
+                "weight_eur": round(w, 0),
+                "impact_pct": round(impact_pct, 1),
+                "impact_eur": round(impact_eur, 0),
+            })
+    by_position.sort(key=lambda x: x["impact_eur"])
+    total_drawdown_pct = total_impact_eur / total * 100
+    return {
+        "scenario": scenario_name,
+        "total_drawdown_pct": round(total_drawdown_pct, 1),
+        "total_drawdown_eur": round(total_impact_eur, 0),
+        "by_position": by_position[:10],  # top 10 most impacted
+        "n_positions_affected": len(by_position),
+    }
+
+
+def run_all_stress_tests() -> list[dict]:
+    return [run_stress_test(name) for name in _STRESS_SCENARIOS]
+
+
+# ─────────────────────────── Trajectory + drift ──────────────────────────────
+
+
+def format_grade_trajectory(n_days: int = 30) -> dict:
+    """Get all grade snapshots within window + compute drift on each dim."""
+    since = (datetime.now(UTC) - timedelta(days=n_days)).date().isoformat()
+    try:
+        with storage.db() as cx:
+            storage._ensure_grade_table(cx)
+            rows = cx.execute(
+                "SELECT id, snapshot_date, overall_score, overall_grade, dimensions_json "
+                "FROM portfolio_grades WHERE snapshot_date >= ? "
+                "ORDER BY snapshot_date ASC",
+                (since,),
+            ).fetchall()
+    except Exception as e:
+        log.warning(f"format_grade_trajectory failed: {e}")
+        return {}
+    snaps = []
+    for r in rows:
+        try:
+            dims = json.loads(r[4] or "{}")
+        except Exception:
+            dims = {}
+        snaps.append({
+            "id": r[0],
+            "date": r[1],
+            "score": r[2],
+            "grade": r[3],
+            "dims": dims,
+        })
+    drift: dict = {}
+    if len(snaps) >= 2:
+        first = snaps[0]
+        last = snaps[-1]
+        drift["score"] = {
+            "first": first["score"],
+            "last": last["score"],
+            "delta": last["score"] - first["score"],
+            "first_date": first["date"],
+            "last_date": last["date"],
+        }
+        for dk in (last["dims"].keys() if last["dims"] else []):
+            f_val = (first["dims"].get(dk) or {}).get("current_pct", 0)
+            l_val = (last["dims"].get(dk) or {}).get("current_pct", 0)
+            drift[dk] = {
+                "first": round(f_val, 1),
+                "last": round(l_val, 1),
+                "delta": round(l_val - f_val, 1),
+            }
+    return {"snapshots": snaps, "drift": drift}
+
+
+def compute_price_vs_trade_drift(n_days: int = 30) -> dict:
+    """Decompose cluster_cap drift into : price-driven vs trade-driven.
+
+    Cluster-cap may breach simply because TSMC rallied. Trade-driven drift
+    requires a position_event in the window.
+    """
+    since = (datetime.now(UTC) - timedelta(days=n_days)).isoformat()
+    try:
+        with storage.db() as cx:
+            ev_rows = cx.execute(
+                "SELECT ticker, event_type, qty_delta, price "
+                "FROM position_events WHERE created_at >= ? "
+                "ORDER BY created_at ASC",
+                (since,),
+            ).fetchall()
+    except Exception:
+        ev_rows = []
+    trades_by_tk: dict = {}
+    for tk, etype, qd, px in ev_rows:
+        trades_by_tk.setdefault(tk, []).append({
+            "type": etype, "qty_delta": qd, "price": px,
+        })
+    # Sum trade-driven delta : qty_delta * (current_price - trade_price)
+    from dashboard.render import _cached_price_eur, _positions
+
+    positions = _positions()
+    total_drift_eur = 0.0
+    price_drift_eur = 0.0
+    trade_drift_eur = 0.0
+    for p in positions:
+        tk = p["ticker"]
+        cur = _cached_price_eur(tk) or 0
+        if not cur:
+            continue
+        cost_basis = p["weight"]
+        current_value = p["qty"] * cur
+        total_drift = current_value - cost_basis
+        # Trade-driven : qty added in window * (current - avg_buy_in_window)
+        ev = trades_by_tk.get(tk) or []
+        if ev:
+            for x in ev:
+                qd = x.get("qty_delta") or 0
+                px = x.get("price") or 0
+                if qd > 0:
+                    trade_drift_eur += qd * (cur - px)
+        # Rest is price drift
+        position_price_drift = total_drift - (sum((x.get("qty_delta") or 0) * (cur - (x.get("price") or 0))
+                                              for x in ev if (x.get("qty_delta") or 0) > 0))
+        price_drift_eur += position_price_drift
+        total_drift_eur += total_drift
+    return {
+        "n_days": n_days,
+        "total_drift_eur": round(total_drift_eur, 0),
+        "price_drift_eur": round(price_drift_eur, 0),
+        "trade_drift_eur": round(trade_drift_eur, 0),
+        "n_positions_with_trades": sum(1 for v in trades_by_tk.values() if v),
+    }
