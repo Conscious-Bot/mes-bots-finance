@@ -1442,12 +1442,33 @@ def _narrative_panel() -> str:
     )
 
 
+def _chat_memory_stats() -> tuple[int, int, str]:
+    """Returns (n_messages, n_sessions, oldest_date) for chat memory depth."""
+    try:
+        from shared.storage import db
+
+        with db() as cx:
+            n_msg = cx.execute("SELECT COUNT(*) FROM chat_messages").fetchone()[0]
+            n_sess = cx.execute("SELECT COUNT(DISTINCT session_id) FROM chat_messages").fetchone()[0]
+            oldest = cx.execute("SELECT MIN(created_at) FROM chat_messages").fetchone()[0]
+        return n_msg, n_sess, (oldest or "")[:10]
+    except Exception:
+        return 0, 0, ""
+
+
 def _chat_panel() -> str:
     """Sprint 7 — Chat surface : pose une question, contexte assemble cote serveur."""
+    n_msg, n_sess, oldest = _chat_memory_stats()
+    mem_str = (
+        f"il connait ton profil, ta note PF, tes positions, tes theses, "
+        f"interventions &middot; m&eacute;moire : {n_msg} messages sur {n_sess} sessions depuis {oldest}"
+        if n_msg > 0 else
+        "il connait ton profil, ta note PF, tes positions, tes th&egrave;ses et son historique d'interventions"
+    )
     return (
         '<div class="card pad chatcard" style="margin-bottom:18px">'
         '<div class="colhead"><span class="t">Pose une question au copilot</span>'
-        '<span class="a">il connait ton profil, ta note PF, tes positions, tes theses et son historique d\'interventions</span></div>'
+        f'<span class="a">{mem_str}</span></div>'
         '<div id="chat-log" class="chat-log"></div>'
         '<form id="chat-form" class="chat-form" onsubmit="return chatSend(event)">'
         '<textarea id="chat-input" class="chat-input" placeholder="ex. Quelle est ma plus grosse fragilite en ce moment ?" rows="2"></textarea>'
