@@ -17,7 +17,13 @@
       "open_question": "conflit signal canonical vs image cible 70k -- a trancher par user",
       "exit_planned": "a sortir progressivement, pas de place dans cible 70k",
       "archived": "deja sorti (qty=0), garde pour historique",
-      "see_also": "scripts/target_allocation.json pour la cible 70k structuree"
+      "see_also": "scripts/target_allocation.json pour la cible 70k structuree",
+      "phantoms_exit_planned": [
+        "AMD",
+        "TER",
+        "TSLA",
+        "VRT"
+      ]
     }
   },
   "positions": [
@@ -329,9 +335,9 @@
       "pari": "principal",
       "etoile": false,
       "solidite": "Incontournable",
-      "statut": null,
+      "statut": "these reecrite 2026-05-29 (drivers cloud + Gemini + Search moat)",
       "surveillance": "porte le quantique ; correle capex-IA",
-      "target_status": "exit_planned"
+      "target_status": "in_target"
     },
     {
       "ticker": "000660.KS",
