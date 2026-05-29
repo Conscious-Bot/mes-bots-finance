@@ -172,17 +172,17 @@ def _needle_color(frac: float, *, invert: bool = False) -> str:
 
 
 SECTOR_COLORS = {
-    "Foundry & logique": "#1E3A5F",
-    "Équipement semi": "#3F7058",
-    "Mémoire": "#A14848",
-    "Matériaux semi": "#6B7F9E",
-    "EDA": "#4F5867",
-    "Connectivité & optique": "#7B6F9C",
-    "Hyperscalers": "#3F8077",
-    "Power & électrification": "#8A6376",
-    "Défense": "#6E7886",
-    "Énergie & matières premières": "#7F5D54",
-    "Auto / robotique": "#5C8775",
+    "Foundry & logique": "#3056D3",
+    "Équipement semi": "#10A37F",
+    "Mémoire": "#E14B62",
+    "Matériaux semi": "#7E47C9",
+    "EDA": "#0EAFC4",
+    "Connectivité & optique": "#D154AB",
+    "Hyperscalers": "#FB923C",
+    "Power & électrification": "#0D9488",
+    "Défense": "#475569",
+    "Énergie & matières premières": "#B45D31",
+    "Auto / robotique": "#7C6F84",
 }
 TICKER_SECTOR = {
     "AMZN": "MAG 7",
