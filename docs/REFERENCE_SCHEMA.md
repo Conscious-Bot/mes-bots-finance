@@ -1,17 +1,17 @@
 # Database Schema Reference
 
-**Generated**: 20 May 2026 (auto-regen via `scripts/regen_schema_doc.py`)
+**Generated**: 29 May 2026 (auto-regen via `scripts/regen_schema_doc.py`)
 **SQLite mode**: WAL (concurrent reads OK)
 **DB path**: `data/bot.db`
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 33 | **Total indexes**: 46 | **Total rows**: 1,846
+**Total tables**: 36 | **Total indexes**: 48 | **Total rows**: 4,159
 
 
 ## Core entities
 
-### `decisions` (2 rows)
+### `decisions` (4 rows)
 
 ```sql
 CREATE TABLE decisions (
@@ -44,7 +44,7 @@ CREATE TABLE decisions (
 
 **Indexes**: `idx_decisions_created`, `idx_decisions_ticker`, `idx_decisions_unresolved_30`, `idx_decisions_unresolved_90`
 
-### `position_events` (22 rows)
+### `position_events` (53 rows)
 
 ```sql
 CREATE TABLE position_events (
@@ -62,7 +62,7 @@ CREATE TABLE position_events (
 
 **Indexes**: `idx_position_events_ticker`
 
-### `positions` (21 rows)
+### `positions` (29 rows)
 
 ```sql
 CREATE TABLE positions (
@@ -80,7 +80,7 @@ CREATE TABLE positions (
 
 **Indexes**: `idx_positions_opened`, `idx_positions_ticker`, `idx_positions_ticker_status`
 
-### `predictions` (46 rows)
+### `predictions` (188 rows)
 
 ```sql
 CREATE TABLE predictions (
@@ -103,7 +103,7 @@ CREATE TABLE predictions (
 
 **Indexes**: `idx_predictions_signal`, `idx_predictions_target`
 
-### `signals` (158 rows)
+### `signals` (291 rows)
 
 ```sql
 CREATE TABLE signals (
@@ -116,7 +116,7 @@ CREATE TABLE signals (
 
 **Indexes**: `idx_signals_echo_cluster`, `idx_signals_gmail_id`, `idx_signals_score`, `idx_signals_ts`, `idx_signals_type`
 
-### `sources` (52 rows)
+### `sources` (68 rows)
 
 ```sql
 CREATE TABLE sources (
@@ -129,7 +129,7 @@ CREATE TABLE sources (
 
 **Indexes**: `idx_sources_credibility`, `idx_sources_last_signal`
 
-### `theses` (43 rows)
+### `theses` (52 rows)
 
 ```sql
 CREATE TABLE theses (
@@ -148,7 +148,7 @@ CREATE TABLE theses (
 
 ## Intelligence loops
 
-### `analyses` (11 rows)
+### `analyses` (50 rows)
 
 ```sql
 CREATE TABLE analyses (
@@ -195,7 +195,7 @@ CREATE TABLE conviction_history (
 
 **Indexes**: `idx_conviction_created`, `idx_conviction_materiality`, `idx_conviction_signal`
 
-### `debate_transcripts` (2 rows)
+### `debate_transcripts` (3 rows)
 
 ```sql
 CREATE TABLE debate_transcripts (
@@ -211,7 +211,7 @@ CREATE TABLE debate_transcripts (
 
 **Indexes**: `idx_debate_ticker`
 
-### `debt_composite` (4 rows)
+### `debt_composite` (12 rows)
 
 ```sql
 CREATE TABLE debt_composite (
@@ -222,7 +222,7 @@ CREATE TABLE debt_composite (
             );
 ```
 
-### `debt_signals` (46 rows)
+### `debt_signals` (100 rows)
 
 ```sql
 CREATE TABLE debt_signals (
@@ -254,7 +254,7 @@ CREATE TABLE events (
 
 **Indexes**: `idx_events_date`, `idx_events_ticker`
 
-### `filings_8k_log` (35 rows)
+### `filings_8k_log` (42 rows)
 
 ```sql
 CREATE TABLE filings_8k_log (
@@ -298,7 +298,7 @@ CREATE TABLE insider_buy_clusters_log (
 
 **Indexes**: `idx_ibc_status`, `idx_ibc_ticker`
 
-### `insider_snapshots` (171 rows)
+### `insider_snapshots` (332 rows)
 
 ```sql
 CREATE TABLE insider_snapshots (
@@ -351,7 +351,7 @@ CREATE TABLE regime (
 
 **Indexes**: `idx_regime_timestamp`
 
-### `risk_checks` (4 rows)
+### `risk_checks` (10 rows)
 
 ```sql
 CREATE TABLE risk_checks (
@@ -387,7 +387,7 @@ CREATE TABLE shadow_decisions (
 
 **Indexes**: `idx_shadow_decisions_resolved`, `idx_shadow_decisions_type_created`
 
-### `signal_embeddings` (47 rows)
+### `signal_embeddings` (303 rows)
 
 ```sql
 CREATE TABLE signal_embeddings (
@@ -454,7 +454,7 @@ CREATE TABLE portfolio_targets (
 
 **Indexes**: `idx_targets_account`, `idx_targets_status`, `idx_targets_ticker`
 
-### `ticker_names` (21 rows)
+### `ticker_names` (306 rows)
 
 ```sql
 CREATE TABLE ticker_names (
@@ -498,7 +498,7 @@ CREATE TABLE alembic_version (
 );
 ```
 
-### `bot_events` (253 rows)
+### `bot_events` (331 rows)
 
 ```sql
 CREATE TABLE bot_events (
@@ -509,7 +509,7 @@ CREATE TABLE bot_events (
 
 **Indexes**: `idx_bot_events_type_ts`
 
-### `handler_calls` (238 rows)
+### `handler_calls` (525 rows)
 
 ```sql
 CREATE TABLE handler_calls (
@@ -524,7 +524,7 @@ CREATE TABLE handler_calls (
 
 **Indexes**: `idx_handler_calls_name`, `idx_handler_calls_timestamp`
 
-### `llm_calls` (437 rows)
+### `llm_calls` (1,066 rows)
 
 ```sql
 CREATE TABLE llm_calls (
@@ -543,6 +543,46 @@ CREATE TABLE llm_calls (
 ```
 
 **Indexes**: `idx_llm_calls_created`, `idx_llm_calls_tier`
+
+
+## Uncategorized
+
+### `portfolio_grades` (1 rows)
+
+```sql
+CREATE TABLE portfolio_grades (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_at TEXT NOT NULL DEFAULT (datetime('now')), snapshot_date TEXT NOT NULL, overall_score INTEGER NOT NULL, overall_grade TEXT NOT NULL, dimensions_json TEXT NOT NULL, total_capital_eur REAL, n_positions INTEGER, n_theses_active INTEGER, computation_version TEXT NOT NULL DEFAULT 'sprint5_deterministic', notes TEXT);
+```
+
+**Indexes**: `idx_grade_date`, `idx_grade_snapshot_at`
+
+### `portfolio_snapshots` (5 rows)
+
+```sql
+CREATE TABLE portfolio_snapshots (snapshot_date TEXT PRIMARY KEY, captured_at TEXT NOT NULL, total_value_eur REAL NOT NULL, total_cost_eur REAL NOT NULL, pnl_eur REAL NOT NULL, pnl_pct REAL NOT NULL, n_positions INTEGER NOT NULL, n_priced INTEGER NOT NULL, hwm_value_eur REAL, drawdown_pct REAL, detail_json TEXT);
+```
+
+### `predictions_bak_probfix` (155 rows)
+
+```sql
+CREATE TABLE predictions_bak_probfix(
+  id INT,
+  signal_id INT,
+  ticker TEXT,
+  direction TEXT,
+  horizon_days INT,
+  baseline_price REAL,
+  baseline_date TEXT,
+  target_date TEXT,
+  resolved_at TEXT,
+  final_price REAL,
+  return_pct REAL,
+  outcome TEXT,
+  credibility_delta REAL,
+  created_at TEXT,
+  probability_at_creation REAL,
+  brier_score REAL
+);
+```
 
 
 ---

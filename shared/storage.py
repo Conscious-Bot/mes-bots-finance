@@ -2289,3 +2289,101 @@ def resolve_copilot_intervention(intervention_id: int, return_pct: float | None,
             )
     except Exception as e:
         _copilot_log.warning(f"resolve_copilot_intervention {intervention_id} failed: {e}")
+
+
+# === portfolio_grades (Sprint 5) =============================================
+
+_GRADE_DDL = (
+    "CREATE TABLE IF NOT EXISTS portfolio_grades ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "snapshot_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "snapshot_date TEXT NOT NULL, "
+    "overall_score INTEGER NOT NULL, overall_grade TEXT NOT NULL, "
+    "dimensions_json TEXT NOT NULL, "
+    "total_capital_eur REAL, n_positions INTEGER, n_theses_active INTEGER, "
+    "computation_version TEXT NOT NULL DEFAULT 'sprint5_deterministic', "
+    "notes TEXT)"
+)
+_GRADE_IDX = [
+    "CREATE INDEX IF NOT EXISTS idx_grade_date ON portfolio_grades(snapshot_date)",
+    "CREATE INDEX IF NOT EXISTS idx_grade_snapshot_at ON portfolio_grades(snapshot_at)",
+]
+
+
+def _ensure_grade_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_GRADE_DDL)
+    for ix in _GRADE_IDX:
+        conn.execute(ix)
+
+
+def insert_portfolio_grade(grade: dict) -> int | None:
+    """Insert a portfolio grade snapshot. Returns id."""
+    try:
+        with db() as cx:
+            _ensure_grade_table(cx)
+            cur = cx.execute(
+                "INSERT INTO portfolio_grades "
+                "(snapshot_date, overall_score, overall_grade, dimensions_json, "
+                "total_capital_eur, n_positions, n_theses_active, computation_version) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    grade.get("snapshot_date"),
+                    grade.get("overall_score"),
+                    grade.get("overall_grade"),
+                    __import__("json").dumps(grade.get("dimensions") or {}, ensure_ascii=False),
+                    grade.get("total_capital_eur"),
+                    grade.get("n_positions"),
+                    grade.get("n_theses_active"),
+                    grade.get("computation_version", "sprint5_deterministic"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_portfolio_grade failed: {e}")
+        return None
+
+
+def get_latest_portfolio_grade() -> dict | None:
+    try:
+        with db() as cx:
+            _ensure_grade_table(cx)
+            row = cx.execute(
+                "SELECT id, snapshot_date, overall_score, overall_grade, dimensions_json, "
+                "total_capital_eur, n_positions, n_theses_active "
+                "FROM portfolio_grades ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0],
+                "snapshot_date": row[1],
+                "overall_score": row[2],
+                "overall_grade": row[3],
+                "dimensions_json": row[4],
+                "total_capital_eur": row[5],
+                "n_positions": row[6],
+                "n_theses_active": row[7],
+            }
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_portfolio_grade failed: {e}")
+        return None
+
+
+def get_portfolio_grade_n_days_ago(days: int) -> dict | None:
+    """Returns the most recent grade snapshot from approximately N days ago."""
+    try:
+        with db() as cx:
+            _ensure_grade_table(cx)
+            row = cx.execute(
+                "SELECT id, snapshot_date, overall_score, overall_grade "
+                "FROM portfolio_grades "
+                "WHERE snapshot_date <= date('now', ?) "
+                "ORDER BY snapshot_date DESC LIMIT 1",
+                (f"-{days} day",),
+            ).fetchone()
+            if not row:
+                return None
+            return {"id": row[0], "snapshot_date": row[1], "overall_score": row[2], "overall_grade": row[3]}
+    except Exception as e:
+        _copilot_log.warning(f"get_portfolio_grade_n_days_ago({days}) failed: {e}")
+        return None

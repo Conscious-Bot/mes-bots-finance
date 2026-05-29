@@ -198,6 +198,81 @@ TICKER_SECTOR = {
 SECTOR_ALIAS = {"EU Defense": "Defense"}
 
 
+_DIM_LABELS = {
+    "quality_T1_plus": ("Qualit&eacute; T1+T1&#9733;", "min"),
+    "T2_redondant": ("T2 redondant", "max"),
+    "decorrelation_star": ("D&eacute;corr&eacute;lation &#9733;", "min"),
+    "sizing_conviction": ("Sizing conviction", "min"),
+    "cluster_cap": ("Cluster cap", "max"),
+    "thesis_health": ("Sant&eacute; des th&egrave;ses", "min"),
+}
+
+
+def _grade_panel() -> str:
+    """Sprint 5 — Panel "Note du portefeuille" : score letter + breakdown 6 dims.
+
+    Lecture : letter A+ -> D + barre /100, puis pour chaque dim
+    current% vs target% (min ou max). Axe vert = on est dessus, rouge = pas encore.
+    """
+    try:
+        from intelligence import portfolio_grade as _grade
+        from shared import storage as _stg
+
+        latest = _stg.get_latest_portfolio_grade()
+        if latest:
+            grade_letter = latest["overall_grade"]
+            score = latest["overall_score"]
+            dims = json.loads(latest["dimensions_json"]) if latest.get("dimensions_json") else {}
+            snapshot_date = latest.get("snapshot_date", "")
+        else:
+            g = _grade.compute_grade()
+            grade_letter = g["overall_grade"]
+            score = g["overall_score"]
+            dims = g["dimensions"]
+            snapshot_date = g["snapshot_date"]
+        trend = _grade.compute_trend_7d()
+        trend_str = {
+            "improving": "&uarr; 7j",
+            "stable": "&middot; stable 7j",
+            "deteriorating": "&darr; 7j",
+            "no_history": "snapshot J0",
+        }.get(trend, "")
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">note PF indisponible: {type(e).__name__}</div></div>'
+
+    rows_html = []
+    for dk, (label, kind) in _DIM_LABELS.items():
+        d = dims.get(dk) or {}
+        cur = d.get("current_pct", 0) or 0
+        tgt = d.get("target_pct", 0) or 0
+        bar_pct = max(0.0, min(100.0, cur))
+        # For "min" (we want >= target) good when cur>=tgt. For "max" good when cur<=tgt.
+        good = (cur >= tgt) if kind == "min" else (cur <= tgt)
+        tcls = "good" if good else "bad"
+        prefix = "&ge;" if kind == "min" else "&le;"
+        rows_html.append(
+            f'<div class="grow"><div class="glab">{label}</div>'
+            f'<div class="gaxis"><div class="gfill {tcls}" style="width:{bar_pct:.1f}%"></div>'
+            f'<div class="gtgt" style="left:{tgt:.1f}%"></div></div>'
+            f'<div class="gnum"><span class="mono">{cur:.1f}%</span>'
+            f'<span class="gt">cible {prefix} {tgt:.0f}%</span></div></div>'
+        )
+    rows = "".join(rows_html) or '<div class="empty" style="padding:14px 0">&mdash;</div>'
+    grade_cls = "good" if score >= 70 else ("warn" if score >= 50 else "bad")
+    return (
+        '<div class="card pad gradecard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Note du portefeuille</span>'
+        f'<span class="a">{snapshot_date} &middot; {trend_str}</span></div>'
+        '<div class="ghead">'
+        f'<div class="gletter {grade_cls}">{grade_letter}</div>'
+        f'<div class="gscore"><div class="gscoreval mono">{score}<span class="gscoremax">/100</span></div>'
+        '<div class="gscorebar"><div class="gscorefill ' + grade_cls + f'" style="width:{score:.0f}%"></div></div></div>'
+        "</div>"
+        f'<div class="gbody">{rows}</div>'
+        "</div>"
+    )
+
+
 def _clean_sector(sid: str | None) -> str:
     if not sid:
         return "Sans th&egrave;se"
@@ -1738,6 +1813,31 @@ _CSS = """
   .pfcard .distcap .cr { color:var(--bear); font-weight:600; }
   .pfcard .sub2 { font-size:11.5px; color:var(--steel); margin-top:auto; padding-top:13px; } .pfcard .sub2 b { color:var(--ink); font-weight:600; }
   @media (max-width:980px) { .hrow { grid-template-columns:1fr; } }
+  /* Sprint 5 - Note du portefeuille */
+  .gradecard .ghead { display:flex; align-items:center; gap:22px; margin:14px 0 18px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+  .gradecard .gletter { font-family:var(--fm); font-weight:500; font-size:56px; line-height:.9; letter-spacing:-.02em; padding:0 18px; border-radius:var(--r2); }
+  .gradecard .gletter.good { color:var(--acc); }
+  .gradecard .gletter.warn { color:#c89b00; }
+  .gradecard .gletter.bad { color:var(--bear); }
+  .gradecard .gscore { flex:1; display:flex; flex-direction:column; gap:6px; }
+  .gradecard .gscoreval { font-size:28px; font-weight:500; letter-spacing:-.01em; line-height:1; color:var(--ink); }
+  .gradecard .gscoremax { color:var(--steel); font-weight:400; font-size:16px; margin-left:2px; }
+  .gradecard .gscorebar { height:6px; background:color-mix(in srgb,var(--ink) 6%,transparent); border-radius:var(--r1); overflow:hidden; }
+  .gradecard .gscorefill { height:100%; border-radius:var(--r1); transition:width .4s ease; }
+  .gradecard .gscorefill.good { background:var(--acc); }
+  .gradecard .gscorefill.warn { background:#c89b00; }
+  .gradecard .gscorefill.bad { background:var(--bear); }
+  .gradecard .gbody { display:grid; gap:12px; }
+  .gradecard .grow { display:grid; grid-template-columns:200px 1fr 180px; align-items:center; gap:14px; }
+  .gradecard .glab { font-family:var(--fm); font-size:12.5px; color:var(--steel); font-weight:500; }
+  .gradecard .gaxis { position:relative; height:6px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:var(--r1); }
+  .gradecard .gfill { position:absolute; left:0; top:0; height:100%; border-radius:var(--r1); }
+  .gradecard .gfill.good { background:var(--acc); }
+  .gradecard .gfill.bad { background:var(--bear); opacity:.55; }
+  .gradecard .gtgt { position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--ink); opacity:.6; }
+  .gradecard .gnum { display:flex; align-items:center; gap:10px; justify-content:flex-end; font-size:12px; color:var(--ink); }
+  .gradecard .gnum .gt { color:var(--steel); font-size:11px; }
+  @media (max-width:980px) { .gradecard .grow { grid-template-columns:1fr; gap:4px; } .gradecard .gnum { justify-content:flex-start; } }
   .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--r3); border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; margin:16px 0 4px; }
   .modetgl svg { width:20px; height:20px; }
   .modetgl:hover { color:var(--id); border-color:var(--id); }
@@ -2327,9 +2427,11 @@ def render() -> Path:
         '<span class="a">lecture en continu &middot; rouge = &agrave; traiter</span>'
         "</div>" + _cockpit() + "</div>"
     )
+    grade_html = _grade_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
+        f"{grade_html}"
         f"{cockpit_html}"
         f'<div class="hrow">'
         f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'

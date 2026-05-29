@@ -375,3 +375,24 @@ async def resolve_copilot_interventions_30d_job():
         )
     except Exception as e:
         log.exception(f"resolve_copilot_interventions_30d crashed: {e}")
+
+
+async def daily_portfolio_grade_job():
+    """Sprint 5 — Snapshot quotidien de la qualite du portefeuille.
+
+    Calcul deterministe (6 dimensions) + insert en DB via shared/storage.
+    Append-only : 1 snapshot/jour. Trend 7j calcule par diff vs snapshot J-7.
+    """
+    log.info("Daily portfolio grade starting")
+    try:
+        from intelligence import portfolio_grade as _grade
+        from shared import storage as _storage
+
+        grade = _grade.compute_grade()
+        gid = _storage.insert_portfolio_grade(grade)
+        log.info(
+            f"Portfolio grade snapshot id={gid} {grade['overall_grade']} ({grade['overall_score']}/100) "
+            f"pos={grade['n_positions']} theses={grade['n_theses_active']}"
+        )
+    except Exception as e:
+        log.error(f"Daily portfolio grade failed: {e}")
