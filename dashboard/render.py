@@ -2871,7 +2871,12 @@ _CSS = """
   .gradecard .gfill { position:absolute; left:0; top:0; height:100%; border-radius:var(--r1); }
   .gradecard .gfill.good { background:var(--acc); }
   .gradecard .gfill.bad { background:var(--bear); opacity:.55; }
-  .gradecard .gtgt { position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--ink); opacity:.6; }
+  /* Needle iconic canonique (diamant SVG noir/blanc — meme forme que .axis-mark) */
+  .gradecard .gtgt { position:absolute; top:50%; width:28px; height:13px;
+    background-color:var(--ink);
+    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
+    mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
+    transform:translate(-50%,-50%); z-index:2; opacity:.85; }
   .gradecard .gnum { display:flex; align-items:center; gap:10px; justify-content:flex-end; font-size:12px; color:var(--ink); }
   .gradecard .gnum .gt { color:var(--steel); font-size:11px; }
   @media (max-width:980px) { .gradecard .grow { grid-template-columns:1fr; gap:4px; } .gradecard .gnum { justify-content:flex-start; } }
@@ -3384,7 +3389,10 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
                 narr = md.get("narratives_active", []) or []
             except Exception:
                 pass
-            exc = str(content)[:280].strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            # Drilldown analyse : pas de troncation stupide. La loupe-card a
+            # max-height:86vh + overflow:auto -> le texte long scrolle dans
+            # le popup, on n'ampute pas le sens.
+            exc = str(content).strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             ana[tk] = {
                 "date": str(ts)[:10],
                 "type": str(typ),

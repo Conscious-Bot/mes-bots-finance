@@ -13,6 +13,7 @@ import http.server
 import importlib
 import os
 import socketserver
+import sys
 import threading
 import time
 from pathlib import Path
@@ -22,24 +23,75 @@ import dashboard.render as render_mod
 PORT = int(os.environ.get("HEIMDALL_PORT", "8000"))
 INTERVAL = int(os.environ.get("HEIMDALL_REFRESH", "60"))
 
-_RENDER_PY = Path(__file__).with_name("render.py")
-try:
-    _LAST_MTIME = _RENDER_PY.stat().st_mtime
-except OSError:
-    _LAST_MTIME = 0.0
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+# Modules dont les changements doivent declencher un reload.
+# render.py est le principal mais TOUT module use par render (shared.storage,
+# intelligence.*) compte aussi — sinon les nouvelles fonctions ajoutees a
+# storage.py ne sont jamais visibles par le render cycle (cache import).
+_WATCHED_PATHS = [
+    Path(__file__).with_name("render.py"),
+    Path(__file__).with_name("chat.py"),
+    _REPO_ROOT / "shared" / "storage.py",
+    _REPO_ROOT / "intelligence" / "portfolio_grade.py",
+    _REPO_ROOT / "intelligence" / "bot_conceptions.py",
+    _REPO_ROOT / "intelligence" / "bot_preferences.py",
+    _REPO_ROOT / "intelligence" / "factor_exposures.py",
+    _REPO_ROOT / "intelligence" / "spof_and_sizing.py",
+    _REPO_ROOT / "intelligence" / "wrapper_tax.py",
+    _REPO_ROOT / "intelligence" / "benchmark.py",
+    _REPO_ROOT / "intelligence" / "return_clustering.py",
+    _REPO_ROOT / "intelligence" / "kill_criteria_monitor.py",
+    _REPO_ROOT / "intelligence" / "portfolio_grade_llm.py",
+]
+
+
+def _mtimes() -> dict:
+    out: dict = {}
+    for p in _WATCHED_PATHS:
+        try:
+            out[str(p)] = p.stat().st_mtime
+        except OSError:
+            out[str(p)] = 0.0
+    return out
+
+
+_LAST_MTIMES = _mtimes()
+
+
+def _reload_changed(prev: dict, curr: dict) -> list[str]:
+    """Reload modules whose backing file changed. Returns list of modules reloaded."""
+    reloaded = []
+    for path_str, mtime in curr.items():
+        if mtime == prev.get(path_str):
+            continue
+        # Path -> module name (dotted)
+        p = Path(path_str)
+        # find the module name relative to repo root
+        try:
+            rel = p.relative_to(_REPO_ROOT)
+        except ValueError:
+            continue
+        mod_name = ".".join(rel.with_suffix("").parts)
+        if mod_name in sys.modules:
+            try:
+                importlib.reload(sys.modules[mod_name])
+                reloaded.append(mod_name)
+            except Exception as e:
+                print(f"[serve] reload {mod_name} FAILED: {type(e).__name__}: {e}", flush=True)
+    return reloaded
 
 
 def _fresh_render():
-    """Recharge render.py s'il a change sur disque, puis rend."""
-    global _LAST_MTIME
-    try:
-        m = _RENDER_PY.stat().st_mtime
-    except OSError:
-        m = _LAST_MTIME
-    if m != _LAST_MTIME:
+    """Recharge tout module surveille qui a change sur disque, puis rend."""
+    global _LAST_MTIMES
+    curr = _mtimes()
+    reloaded = _reload_changed(_LAST_MTIMES, curr)
+    if reloaded:
+        # render.py doit etre rechargee EN DERNIER si elle change, pour binder
+        # les nouvelles versions des dependances. Force reload du render au cas ou.
         importlib.reload(render_mod)
-        _LAST_MTIME = m
-        print("[serve] render.py change -> module recharge", flush=True)
+        print(f"[serve] reload : {', '.join(reloaded)}", flush=True)
+    _LAST_MTIMES = curr
     render_mod.render()
 
 
