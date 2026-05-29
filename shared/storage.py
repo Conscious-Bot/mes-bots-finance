@@ -3167,3 +3167,34 @@ def get_all_latest_kca() -> list[dict]:
     except Exception as e:
         _copilot_log.warning(f"get_all_latest_kca failed: {e}")
         return []
+
+
+# === data_clusters_snapshots (Sprint 17) =====================================
+
+_DC_DDL = (
+    "CREATE TABLE IF NOT EXISTS data_clusters_snapshots ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "snapshot_date TEXT NOT NULL, "
+    "snapshot_json TEXT NOT NULL)"
+)
+
+
+def _ensure_dc_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_DC_DDL)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_dc_date ON data_clusters_snapshots(snapshot_date)")
+
+
+def insert_data_clusters_snapshot(snapshot_json: str) -> int | None:
+    from datetime import UTC as _UTC, datetime as _dt
+    try:
+        with db() as cx:
+            _ensure_dc_table(cx)
+            cur = cx.execute(
+                "INSERT INTO data_clusters_snapshots (snapshot_date, snapshot_json) VALUES (?,?)",
+                (_dt.now(_UTC).date().isoformat(), snapshot_json),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_data_clusters_snapshot failed: {e}")
+        return None

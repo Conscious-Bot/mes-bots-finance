@@ -475,3 +475,26 @@ async def daily_kill_criteria_check_job():
         )
     except Exception as e:
         log.error(f"daily_kill_criteria_check failed: {e}")
+
+
+async def weekly_data_clusters_synthesis_job():
+    """Sprint 17 — Data-defined clusters par correlation rendements (hebdo).
+
+    Fetch 120j daily prices via yfinance, compute correlation matrix,
+    identify high-corr pairs + clusters mixed macro_factor. Snapshot persiste.
+    """
+    log.info("Weekly data clusters synthesis starting")
+    try:
+        import json as _json
+
+        from intelligence import return_clustering as _rc
+        from shared import storage as _storage
+
+        r = _rc.run_analysis(days=120)
+        sid = _storage.insert_data_clusters_snapshot(_json.dumps(r, ensure_ascii=False))
+        log.info(
+            f"data_clusters snapshot id={sid} pairs={r.get('n_pairs', 0)} "
+            f"clusters={r.get('n_clusters', 0)} mixed={r.get('n_mixed_clusters', 0)}"
+        )
+    except Exception as e:
+        log.error(f"weekly_data_clusters_synthesis failed: {e}")

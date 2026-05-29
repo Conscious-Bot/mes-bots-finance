@@ -6,7 +6,7 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 46 | **Total indexes**: 70 | **Total rows**: 4,463
+**Total tables**: 47 | **Total indexes**: 71 | **Total rows**: 4,464
 
 
 ## Core entities
@@ -75,7 +75,7 @@ CREATE TABLE positions (
             last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
             notes TEXT,
             status TEXT DEFAULT 'open'
-        , account TEXT DEFAULT 'TR' NOT NULL);
+        , account TEXT DEFAULT 'TR' NOT NULL, wrapper TEXT DEFAULT 'CTO');
 ```
 
 **Indexes**: `idx_positions_opened`, `idx_positions_ticker`, `idx_positions_ticker_status`
@@ -613,6 +613,14 @@ CREATE TABLE chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEX
 ```
 
 **Indexes**: `idx_chat_created`, `idx_chat_session`
+
+### `data_clusters_snapshots` (1 rows)
+
+```sql
+CREATE TABLE data_clusters_snapshots (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), snapshot_date TEXT NOT NULL, snapshot_json TEXT NOT NULL);
+```
+
+**Indexes**: `idx_dc_date`
 
 ### `kill_criteria_alerts` (0 rows)
 

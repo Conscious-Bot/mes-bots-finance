@@ -380,6 +380,79 @@ def _copilot_panel() -> str:
     )
 
 
+def _return_clustering_panel() -> str:
+    """Sprint 17 — Data-defined clusters par correlation rendements reels.
+
+    Per la critique : 'Laisser les donnees definir les clusters. Plutot que
+    des etiquettes de theme posees a la main, clusteriser par correlation
+    de rendements reels.'
+    """
+    # Cache : on ne recompute pas a chaque regen serve (cout yfinance)
+    # On lit le dernier snapshot persiste, ou message + bouton trigger.
+    try:
+        from shared import storage as _stg
+
+        with _stg.db() as cx:
+            row = cx.execute(
+                "SELECT id, snapshot_date, snapshot_json FROM data_clusters_snapshots "
+                "ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+    except Exception:
+        row = None
+    if not row:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas encore de snapshot clustering rendements. Trigger : "
+            "<code>venv/bin/python -c \"from intelligence.return_clustering import run_analysis; from shared.storage import insert_data_clusters_snapshot; import json; r=run_analysis(); insert_data_clusters_snapshot(json.dumps(r))\"</code>."
+            "</div></div>"
+        )
+    import json as _json
+
+    try:
+        data = _json.loads(row[2] or "{}")
+    except Exception:
+        return '<div class="card pad"><div class="empty">snapshot corrompu</div></div>'
+    pairs = data.get("high_corr_pairs") or []
+    clusters = data.get("clusters") or []
+    n_mixed = sum(1 for c in clusters if c.get("mixed"))
+    snapshot_date = row[1]
+
+    pairs_html = "".join(
+        f'<div class="dc-row">'
+        f'<span class="dc-pair">{p["ticker_a"]} &harr; {p["ticker_b"]}</span>'
+        f'<span class="dc-corr mono">{p["correlation"]:.2f}</span></div>'
+        for p in pairs[:12]
+    ) or '<div class="empty" style="padding:8px 0">aucune paire >0.7</div>'
+
+    cluster_rows = []
+    for c in clusters:
+        if not c.get("mixed"):
+            continue
+        members = ", ".join(
+            f'{m["ticker"]}<span class="dc-mf">({m["macro_factor"][:14]})</span>'
+            for m in c["members"]
+        )
+        cluster_rows.append(
+            f'<div class="dc-mix">'
+            f'<div class="dc-mix-h">cluster #{c["cluster_id"]} (n={c["n_members"]})</div>'
+            f'<div class="dc-mix-members">{members}</div></div>'
+        )
+    mix_html = "".join(cluster_rows) or '<div class="empty" style="padding:8px 0">aucun cluster avec macro_factor melange</div>'
+
+    return (
+        '<div class="card pad clustercard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Doublons mesures (correlation rendements)</span>'
+        f'<span class="a">{snapshot_date} &middot; correlation >0.7 &middot; mixed = bougent ensemble malgre macro_factor different</span></div>'
+        '<div class="dc-sub">'
+        f'<div class="dc-sh">Paires correlees (>0.7)</div>'
+        f'<div class="dc-list">{pairs_html}</div></div>'
+        '<div class="dc-sub">'
+        f'<div class="dc-sh">Clusters mixed macro_factor (concentration cachee) — n={n_mixed}</div>'
+        f'<div class="dc-list">{mix_html}</div></div>'
+        '</div>'
+    )
+
+
 def _wrapper_panel() -> str:
     """Sprint 16 — Placement PEA / CTO + flag PEA-eligible mal places + tax-loss harvest."""
     try:
@@ -1233,14 +1306,20 @@ def _clean_sector(sid: str | None) -> str:
 
 def _positions() -> list[dict]:
     try:
-        rows = _q("SELECT ticker, qty, avg_cost, notes FROM positions WHERE status NOT IN ('closed', 'sold')")
+        rows = _q("SELECT ticker, qty, avg_cost, notes, wrapper FROM positions WHERE status NOT IN ('closed', 'sold')")
     except Exception:
-        return []
+        try:
+            # Fallback for DBs without the wrapper column (pre-Sprint 16)
+            rows = _q("SELECT ticker, qty, avg_cost, notes FROM positions WHERE status NOT IN ('closed', 'sold')")
+            rows = [(*r, None) for r in rows]
+        except Exception:
+            return []
     out = []
-    for tk, qty, ac, notes in rows:
+    for tk, qty, ac, notes, wrapper in rows:
         m = re.search(r"eur_invested=([0-9.]+)", notes or "")
         w = float(m.group(1)) if m else float(qty or 0) * float(ac or 0)
-        out.append({"ticker": tk, "weight": w, "avg_cost": float(ac or 0)})
+        out.append({"ticker": tk, "weight": w, "avg_cost": float(ac or 0),
+                    "wrapper": (wrapper or "CTO").upper()})
     return out
 
 
@@ -3035,6 +3114,18 @@ _CSS = """
   .benchcard .bm-v.neu { color:var(--steel); }
   .benchcard .bm-foot { font-family:var(--fm); font-size:12px; color:var(--steel); margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
   .benchcard .bm-warn { font-family:var(--fm); font-size:11.5px; color:#c89b00; background:color-mix(in srgb,#c89b00 8%,transparent); padding:8px 12px; border-radius:var(--r2); margin:12px 0 0; }
+  /* Sprint 17 - Data-defined clusters */
+  .clustercard .dc-sub { margin-top:14px; }
+  .clustercard .dc-sh { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
+  .clustercard .dc-row { display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); font-size:12px; }
+  .clustercard .dc-row:last-child { border-bottom:none; }
+  .clustercard .dc-pair { font-family:var(--fm); font-weight:500; color:var(--ink); flex:1; }
+  .clustercard .dc-corr { font-family:var(--fm); color:var(--bear); font-weight:600; font-variant-numeric:tabular-nums; }
+  .clustercard .dc-mix { padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .clustercard .dc-mix:last-child { border-bottom:none; }
+  .clustercard .dc-mix-h { font-family:var(--fb); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin-bottom:5px; }
+  .clustercard .dc-mix-members { font-family:var(--fm); font-size:11.5px; color:var(--ink); line-height:1.5; }
+  .clustercard .dc-mf { color:var(--steel); font-size:10.5px; margin-left:2px; }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -3678,6 +3769,7 @@ def render() -> Path:
         f"{factor_html}"
         f"{fx_html}"
         f"{bench_html}"
+        f"{_return_clustering_panel()}"
         f"{wrapper_html}"
         f"{spof_html}"
         f"{stress_html}"

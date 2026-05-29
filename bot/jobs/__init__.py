@@ -20,6 +20,7 @@ from bot.jobs.daily import (
     scheduled_insider_refresh_job,
     scheduled_resolve_buy_cluster_returns_job,
     weekly_bot_conceptions_synthesis_job,
+    weekly_data_clusters_synthesis_job,
     weekly_portfolio_narrative_synthesis_job,
     weekly_user_profile_refresh_job,
 )
@@ -68,6 +69,7 @@ __all__ = [
     "update_echo_clusters_job",
     "weekly_bot_conceptions_synthesis_job",
     "weekly_cost_summary_job",
+    "weekly_data_clusters_synthesis_job",
     "weekly_handler_stats_job",
     "weekly_kpi_status_job",
     "weekly_portfolio_narrative_synthesis_job",
