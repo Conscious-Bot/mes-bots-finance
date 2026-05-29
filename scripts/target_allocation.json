@@ -1,0 +1,62 @@
+{
+  "_meta": {
+    "description": "Allocation cible PRESAGE 70 180€ / 33 positions. Source structuree de la photo captee 29/05/2026 (precedemment image non machine-readable). Lue par dashboard pour mesurer gap actuel vs cible + identifier phantoms (en DB hors cible) vs entrees prevues (en cible hors DB).",
+    "snapshot_date": "2026-05-29",
+    "captured_from": "image utilisateur, capture d'ecran Numbers/spreadsheet",
+    "total_capital_eur": 70180,
+    "positions_count": 33,
+    "themes_count": {
+      "Compute & semis": 21,
+      "Energie-pour-IA": 5,
+      "Defense": 3,
+      "Energie actif-reel": 2,
+      "Robotique": 1
+    }
+  },
+  "positions": [
+    { "ticker": "ASML.AS",    "wrapper": "PEA", "nom": "ASML",                  "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 3930, "pct": 5.6 },
+    { "ticker": "Atlas Copco","wrapper": "PEA", "nom": "Atlas Copco",           "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 3000, "pct": 4.3 },
+    { "ticker": "Air Liquide","wrapper": "PEA", "nom": "Air Liquide",           "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 2500, "pct": 3.6 },
+    { "ticker": "STMPA.PA",   "wrapper": "PEA", "nom": "STMicroelectronics",    "theme": "Compute & semis",   "tier": "T4",  "etoile": false, "amount_eur": 2205, "pct": 3.1 },
+    { "ticker": "SU.PA",      "wrapper": "PEA", "nom": "Schneider Electric",    "theme": "Energie-pour-IA",   "tier": "T1*", "etoile": false, "amount_eur": 2581, "pct": 3.7 },
+    { "ticker": "ASMI",       "wrapper": "PEA", "nom": "ASM International",     "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 2000, "pct": 2.8 },
+    { "ticker": "Soitec",     "wrapper": "PEA", "nom": "Soitec",                "theme": "Compute & semis",   "tier": "T4",  "etoile": false, "amount_eur": 2000, "pct": 2.8 },
+    { "ticker": "BESI.AS",    "wrapper": "PEA", "nom": "BESI",                  "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 1567, "pct": 2.2 },
+    { "ticker": "HO.PA",      "wrapper": "PEA", "nom": "Thales",                "theme": "Defense",           "tier": "T1*", "etoile": true,  "amount_eur": 1554, "pct": 2.2 },
+    { "ticker": "Prysmian",   "wrapper": "PEA", "nom": "Prysmian",              "theme": "Energie-pour-IA",   "tier": "T1*", "etoile": false, "amount_eur": 1500, "pct": 2.1 },
+    { "ticker": "ams OSRAM",  "wrapper": "PEA", "nom": "ams OSRAM",             "theme": "Compute & semis",   "tier": "T3",  "etoile": false, "amount_eur": 1363, "pct": 1.9 },
+
+    { "ticker": "4063.T",     "wrapper": "CTO", "nom": "Shin-Etsu",             "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 4500, "pct": 6.4 },
+    { "ticker": "TSM",        "wrapper": "CTO", "nom": "TSMC",                  "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 4000, "pct": 5.7 },
+    { "ticker": "AMZN",       "wrapper": "CTO", "nom": "Amazon",                "theme": "Compute & semis",   "tier": "T2",  "etoile": false, "amount_eur": 3500, "pct": 5.0 },
+    { "ticker": "7011.T",     "wrapper": "CTO", "nom": "Mitsubishi Heavy",      "theme": "Defense",           "tier": "T1*", "etoile": true,  "amount_eur": 3500, "pct": 5.0 },
+    { "ticker": "SNPS",       "wrapper": "CTO", "nom": "Synopsys",              "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 2500, "pct": 3.6 },
+    { "ticker": "COHR",       "wrapper": "CTO", "nom": "Coherent",              "theme": "Compute & semis",   "tier": "T2",  "etoile": false, "amount_eur": 2500, "pct": 3.6 },
+    { "ticker": "ENTG",       "wrapper": "CTO", "nom": "Entegris",              "theme": "Compute & semis",   "tier": "T2",  "etoile": false, "amount_eur": 2500, "pct": 3.6 },
+    { "ticker": "KLAC",       "wrapper": "CTO", "nom": "KLA",                   "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 2000, "pct": 2.8 },
+    { "ticker": "6920.T",     "wrapper": "CTO", "nom": "Lasertec",              "theme": "Compute & semis",   "tier": "T4",  "etoile": false, "amount_eur": 2000, "pct": 2.8 },
+    { "ticker": "000660.KS",  "wrapper": "CTO", "nom": "SK Hynix",              "theme": "Compute & semis",   "tier": "T2",  "etoile": false, "amount_eur": 2000, "pct": 2.8 },
+    { "ticker": "MRVL",       "wrapper": "CTO", "nom": "Marvell",               "theme": "Compute & semis",   "tier": "T2",  "etoile": false, "amount_eur": 2000, "pct": 2.8 },
+    { "ticker": "Ferrotec",   "wrapper": "CTO", "nom": "Ferrotec",              "theme": "Compute & semis",   "tier": "T4",  "etoile": false, "amount_eur": 2000, "pct": 2.8 },
+    { "ticker": "GE Vernova", "wrapper": "CTO", "nom": "GE Vernova",            "theme": "Energie-pour-IA",   "tier": "T1*", "etoile": false, "amount_eur": 2000, "pct": 2.8 },
+    { "ticker": "BWXT",       "wrapper": "CTO", "nom": "BWXT",                  "theme": "Defense",           "tier": "T1*", "etoile": true,  "amount_eur": 2000, "pct": 2.8 },
+    { "ticker": "Constellation","wrapper":"CTO","nom": "Constellation Energy",  "theme": "Energie-pour-IA",   "tier": "T1*", "etoile": false, "amount_eur": 1500, "pct": 2.1 },
+    { "ticker": "AVGO",       "wrapper": "CTO", "nom": "Broadcom",              "theme": "Compute & semis",   "tier": "T2",  "etoile": false, "amount_eur": 1500, "pct": 2.1 },
+    { "ticker": "ALAB",       "wrapper": "CTO", "nom": "Astera Labs",           "theme": "Compute & semis",   "tier": "T3",  "etoile": false, "amount_eur": 1500, "pct": 2.1 },
+    { "ticker": "Harmonic Drive","wrapper":"CTO","nom":"Harmonic Drive Systems","theme": "Robotique",         "tier": "T3",  "etoile": false, "amount_eur": 1500, "pct": 2.1 },
+    { "ticker": "ASP Isotopes","wrapper": "CTO","nom": "ASP Isotopes",          "theme": "Energie-pour-IA",   "tier": "T3",  "etoile": false, "amount_eur": 460,  "pct": 0.7 },
+    { "ticker": "Advantest",  "wrapper": "CTO", "nom": "Advantest",             "theme": "Compute & semis",   "tier": "T1",  "etoile": false, "amount_eur": 1050, "pct": 1.5, "note": "existant a renforcer (6857.T dans DB)" },
+    { "ticker": "LNG",        "wrapper": "CTO", "nom": "Cheniere",              "theme": "Energie actif-reel","tier": "T1*", "etoile": true,  "amount_eur": 720,  "pct": 1.0 },
+    { "ticker": "CCJ",        "wrapper": "CTO", "nom": "Cameco",                "theme": "Energie actif-reel","tier": "T1*", "etoile": true,  "amount_eur": 750,  "pct": 1.1 }
+  ],
+  "phantoms_in_db_not_in_target": {
+    "_note": "Positions actuellement en DB qui NE figurent PAS dans la cible 70k. A reconcilier : sortir progressivement OU rajouter explicitement a la cible.",
+    "AMD": { "verdict": "exit_planned", "rationale": "orphan c1-c4, narratif sans place dans la cible" },
+    "GOOGL": { "verdict": "exit_planned", "rationale": "orphan c1-c4, narratif" },
+    "TSLA": { "verdict": "exit_planned", "rationale": "consumer cyclical, beta tech, sans place dans la cible" },
+    "MU": { "verdict": "exit_planned", "rationale": "doublon SK Hynix sur HBM" },
+    "SNOW": { "verdict": "open_question", "rationale": "entree 29/05, c3 AI inference -- conserver ou retirer ? a clarifier" },
+    "MP": { "verdict": "likely_keep_image_omission", "rationale": "c4 ballast strict (rare earths) -- omission probable de l'image cible" },
+    "SAF.PA": { "verdict": "likely_keep_image_omission", "rationale": "c4 ballast strict defense -- omission probable de l'image cible" }
+  }
+}
