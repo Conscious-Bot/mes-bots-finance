@@ -336,6 +336,71 @@ def _copilot_panel() -> str:
     )
 
 
+def _narrative_panel() -> str:
+    """Sprint 6 surface : narrative clusters LLM + edges + redundant."""
+    try:
+        import json as _json
+
+        from shared import storage as _stg
+
+        raw = _stg.get_latest_narrative_snapshot()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">narrative indisponible: {type(e).__name__}: {e}</div></div>'
+    if not raw:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas encore de synthese narrative LLM. Le cron tourne chaque dimanche 20h30, "
+            "ou trigger manuel : <code>venv/bin/python -m intelligence.portfolio_grade_llm</code>."
+            "</div></div>"
+        )
+    clusters = _json.loads(raw.get("clusters_json") or "[]")
+    edges_blob = _json.loads(raw.get("edges_json") or "{}")
+    edges = edges_blob.get("edge_positions") or []
+    redundant = edges_blob.get("redundant_positions") or []
+
+    cluster_rows = []
+    for cl in clusters:
+        name = cl.get("name", "?")
+        tks = cl.get("tickers") or []
+        overlap = cl.get("narrative_overlap_score") or 0
+        shared = (cl.get("shared_drivers") or "")[:200]
+        ocls = "high" if overlap >= 70 else ("mid" if overlap >= 40 else "low")
+        cluster_rows.append(
+            f'<div class="nv-cluster"><div class="nv-cl-head">'
+            f'<span class="nv-cl-name">{name}</span>'
+            f'<span class="nv-cl-overlap {ocls}">overlap {overlap}</span>'
+            f'<span class="nv-cl-n">n={len(tks)}</span></div>'
+            f'<div class="nv-cl-tks">{", ".join(tks[:10])}</div>'
+            f'<div class="nv-cl-driv">{shared}</div></div>'
+        )
+
+    edges_rows = "".join(
+        f'<div class="nv-line"><span class="nv-tk">{e.get("ticker","?")}</span>'
+        f'<span class="nv-why">{(e.get("reason") or "")[:200]}</span></div>'
+        for e in edges
+    ) or '<div class="empty" style="padding:10px 0">aucun edge identifie</div>'
+
+    red_rows = "".join(
+        f'<div class="nv-line"><span class="nv-tk">{r.get("ticker","?")}</span>'
+        f'<span class="nv-with">redondant avec {r.get("redundant_with","?")}</span>'
+        f'<span class="nv-why">{(r.get("reason") or "")[:160]}</span></div>'
+        for r in redundant
+    ) or '<div class="empty" style="padding:10px 0">aucune redondance</div>'
+
+    return (
+        '<div class="card pad narrativecard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Clusters narratifs (LLM)</span>'
+        f'<span class="a">{raw.get("snapshot_date","?")} &middot; consume par T2 + decorrelation du grade</span></div>'
+        f'<div class="nv-grid">{"".join(cluster_rows)}</div>'
+        '<div class="nv-split">'
+        '<div class="nv-col"><div class="nv-h">Edge positions (independantes)</div>'
+        f'{edges_rows}</div>'
+        '<div class="nv-col"><div class="nv-h">Redondances detectees</div>'
+        f'{red_rows}</div>'
+        '</div></div>'
+    )
+
+
 def _chat_panel() -> str:
     """Sprint 7 — Chat surface : pose une question, contexte assemble cote serveur."""
     return (
@@ -1961,6 +2026,26 @@ _CSS = """
   .copilotcard .cp-outc { display:inline-block; margin-top:5px; font-family:var(--fb); font-size:10px; letter-spacing:.12em; padding:2px 6px; border-radius:var(--r1); }
   .copilotcard .cp-outc.ok { background:color-mix(in srgb,var(--acc) 12%,transparent); color:var(--acc); }
   .copilotcard .cp-outc.bad { background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
+  /* Sprint 6 - Narrative clusters panel */
+  .narrativecard .nv-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; margin:14px 0 18px; }
+  .narrativecard .nv-cluster { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:14px 16px; }
+  .narrativecard .nv-cl-head { display:flex; align-items:baseline; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+  .narrativecard .nv-cl-name { font-family:var(--fm); font-weight:600; font-size:12.5px; color:var(--ink); flex:1; min-width:0; }
+  .narrativecard .nv-cl-overlap { font-family:var(--fb); font-size:9.5px; letter-spacing:.12em; padding:2px 6px; border-radius:var(--r1); font-weight:600; }
+  .narrativecard .nv-cl-overlap.high { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
+  .narrativecard .nv-cl-overlap.mid { background:color-mix(in srgb,#c89b00 14%,transparent); color:#c89b00; }
+  .narrativecard .nv-cl-overlap.low { background:color-mix(in srgb,var(--acc) 14%,transparent); color:var(--acc); }
+  .narrativecard .nv-cl-n { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .narrativecard .nv-cl-tks { font-family:var(--fm); font-size:11px; color:var(--ink); margin-bottom:6px; opacity:.8; font-variant-numeric:tabular-nums; }
+  .narrativecard .nv-cl-driv { font-family:var(--fm); font-size:11.5px; color:var(--steel); line-height:1.4; }
+  .narrativecard .nv-split { display:grid; grid-template-columns:1fr 1fr; gap:18px; border-top:1px solid var(--line); padding-top:14px; }
+  .narrativecard .nv-h { font-family:var(--fb); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
+  .narrativecard .nv-line { display:flex; align-items:baseline; gap:8px; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); font-size:11.5px; }
+  .narrativecard .nv-line:last-child { border-bottom:none; }
+  .narrativecard .nv-tk { font-family:var(--fm); font-weight:600; color:var(--ink); min-width:70px; }
+  .narrativecard .nv-with { font-family:var(--fm); color:var(--steel); font-size:10.5px; }
+  .narrativecard .nv-why { font-family:var(--fm); color:var(--ink); opacity:.85; line-height:1.4; flex:1; }
+  @media (max-width:980px) { .narrativecard .nv-split { grid-template-columns:1fr; } }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -2566,6 +2651,7 @@ def render() -> Path:
     grade_html = _grade_panel()
     copilot_html = _copilot_panel()
     chat_html = _chat_panel()
+    narrative_html = _narrative_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -2577,6 +2663,7 @@ def render() -> Path:
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
         f"{grade_html}"
+        f"{narrative_html}"
         f"{chat_html}"
         f"{copilot_html}"
         f"{cockpit_html}"

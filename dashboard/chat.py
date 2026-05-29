@@ -108,10 +108,18 @@ def _format_profile(profile: dict | None) -> str:
         return "  (profil vide)"
     out = []
     arch = prof.get("risk_archetype") or "?"
+    if isinstance(arch, dict):
+        arch = f"{arch.get('label','?')} (score {arch.get('score','?')})"
     thesis_archs = prof.get("thesis_archetypes") or []
+    arch_labels = []
+    for a in thesis_archs:
+        if isinstance(a, dict):
+            arch_labels.append(f"{a.get('label','?')} ({a.get('weight_pct','?')}%)")
+        elif isinstance(a, str):
+            arch_labels.append(a)
     out.append(f"  Archetype risque : {arch}")
-    if thesis_archs:
-        out.append(f"  Archetypes these : {', '.join(thesis_archs)}")
+    if arch_labels:
+        out.append(f"  Archetypes these : {', '.join(arch_labels)}")
     tone = prof.get("dialogue_tone_recommendation") or ""
     if tone:
         out.append(f"  Tone recommande : {tone[:200]}")
