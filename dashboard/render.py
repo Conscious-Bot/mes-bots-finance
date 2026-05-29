@@ -1208,7 +1208,7 @@ def _user_strategy_panel() -> str:
                 f'<b class="neg mono">{dd_mild}%</b> sur scenario AI capex de-rating '
                 f'-30% (~<b class="neg mono">{dd_eur:+,}&nbsp;€</b>). '
                 "Si voir le book a ce niveau touche ta limite, baisse la cible : la "
-                "note 91 ne vaut que ce que vaut cette tolerance."
+                "la note globale ne vaut que ce que vaut cette tolerance."
                 '</div>'
                 '<div class="us-cta-f">Pour valider : '
                 '<code>config.yaml.user_strategy.drawdown_tolerance_validated: true</code>'

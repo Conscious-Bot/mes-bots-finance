@@ -75,19 +75,60 @@ def score_to_grade(score: int) -> str:
 
 
 def _fetch_state(months_brier_window: int = 6) -> dict:
-    """Read positions + theses + cluster health + prediction history."""
+    """Read positions + theses + cluster health + prediction history.
+
+    Refonte 29/05/2026 (major finding audit nuit) : `weight` doit etre la
+    MARKET VALUE (qty * current_price_eur), pas le COST BASIS (qty * avg_cost).
+    Tous les ratios de risque (concentration, ballast, drawdown, solidite)
+    s'expriment vs la valeur exposee au marche -- c'est ca qui peut tomber.
+    Avant : weight = qty * avg_cost -> denominateur ~43k€ (cost) alors que
+    le book reel est ~53k€ (market). Ratios systematiquement faux.
+
+    Fallback : si current_price indispo (yfinance ban, weekend, ticker rare),
+    on retombe sur avg_cost pour cette ligne -- la note ne disparait pas
+    pour un fetch rate.
+    """
     from shared.storage import db
 
     state: dict = {}
+    # Pre-fetch prices via le cache existant (throttle yfinance respecte)
+    try:
+        from dashboard.render import _cached_price_eur as _px
+    except Exception:
+        _px = lambda _tk: None  # noqa: E731
+
     with db() as cx:
-        # Positions with current value (qty * avg_cost is the cost basis; for live value we'd need prices)
         pos_rows = cx.execute(
             "SELECT ticker, qty, avg_cost FROM positions WHERE qty > 0 AND status='open'"
         ).fetchall()
-        positions = [{"ticker": r[0], "qty": r[1] or 0, "avg_cost": r[2] or 0,
-                      "weight": (r[1] or 0) * (r[2] or 0)} for r in pos_rows]
+        positions = []
+        n_market = n_fallback = 0
+        for r in pos_rows:
+            tk, qty, avg = r[0], r[1] or 0, r[2] or 0
+            cur_px = _px(tk)
+            if cur_px and cur_px > 0:
+                weight = qty * cur_px
+                n_market += 1
+                weight_source = "market"
+            else:
+                weight = qty * avg
+                n_fallback += 1
+                weight_source = "cost_basis_fallback"
+            positions.append({
+                "ticker": tk,
+                "qty": qty,
+                "avg_cost": avg,
+                "current_price_eur": cur_px,
+                "weight": weight,
+                "weight_source": weight_source,
+            })
         state["positions"] = positions
         state["total_capital_eur"] = sum(p["weight"] for p in positions)
+        state["weight_basis_meta"] = {
+            "n_market": n_market,
+            "n_fallback_cost_basis": n_fallback,
+            "denominator_source": "market_value" if n_fallback == 0 else "mixed",
+        }
         # Theses (active only)
         thesis_rows = cx.execute(
             "SELECT id, ticker, conviction, opened_at, last_reviewed, last_revisit_at "
