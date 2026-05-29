@@ -70,27 +70,39 @@ Détail révélateur : les docs canoniques ont aussi dérivé — `SESSION_STATE
 
 Verdict user : "presque toutes les deux mêmes racines (pas de source de vérité unique + inputs jamais audités)". Vérification empirique :
 
-**F1 — Taxonomie paris contradit moteur scénario.** AI capex taxo = 16 lignes / 67.1% MAIS scénario "AI capex −30%" frappe n=19 / −22.1% (≈74% exposés). Découper l'IA en 3 paris (capex/memory/inference) minimise pile le risque qui inquiète. **À vérifier `_factor_exposures_panel` vs `_stress_tests_panel`.** → **Racine #1 (taxo vs scénario sur 2 sources différentes)**.
+**F1 ✅ VÉRIFIÉ + FIX** : taxo AI capex 67.1% / 16 lignes (compute_factor_exposures) vs scénario AI capex −30% frappe 19 positions (taxo + Memory cycle spillover −18% + AI inference spillover −25%). Découper la taxo minimisait pile le cluster. **Fix commit `9a12ca4`** : facteur composite "AI broad (capex + memory + inference)" exposé en tête du panel avec note explicite "agrégat de 3 facteurs co-stressés". Border-left bear + tint background. Aujourd'hui : 77.0% AI broad.
 
-**F2 — Scénario FX sous-estimé.** "Pas de hedge" sur 83% hors-EUR, MAIS un seul scénario FX modélisé (USD −5.6%, n=16). 23% JPY (Shin-Etsu, MHI, Advantest, Lasertec) sans scénario. **À ajouter scénario JPY ±10% au stress test.** → **Racine #4 (métrique calibrée pour le confort : on flag le risque sans le mesurer où il vit)**.
+**F2 ✅ VÉRIFIÉ + FIX** : 23% JPY sans scénario. **Fix commit `9a12ca4`** : ajout scénario "JPY +10% (yen rally squeeze JP tickers)" → -10% sur tickers `.T`. Helper `_is_jpy_ticker()`. Symétrique au scénario USD.
 
 **F3 ✅ VÉRIFIÉ — Échelle conviction gonflée aux 2 bouts.** Distribution active : c3=9, c4=12, c5=6, **c1=c2=0**. Le "1-5" est en réalité un "3-5". Pire : c5 SK Hynix (canonical `gardien memoire`, contexte HBM cycle ≠ Incontournable), c4 Tesla (canonical `Incertain` + `hors-these`), c4 AMD (canonical `Solide` + `valo ~92x`). **Le calibrage fade est pollué par ces inputs non audités.** → **Racine #1 (conviction = input source unique pour sizing, sans audit)**.
 
 **F4 ✅ VÉRIFIÉ — Thèse GOOGL est littéralement une thèse AMZN.** thesis_41 GOOGL key_drivers : *"ORPHAN: position held but Thèse #5 names AMZN not GOOGL. Inherited from prior framework."* Notes : *"sector_thesis_id: MAG7_2026, narrative=MAG7, re-tagged=2026-05-23_from_orphan"*. **Le bot lui-même le dit** mais la position vit avec cette thèse. → **Racine #1 (thèse pas verrouillée à la source)**.
 
-**F5 — Lasertec contradictions cross-panels.** "fragile / valo > bull / déjà trimmé / rotation sortante" dans une vue, mais "✓ au poids, aucune action" dans la vue sizing. **À vérifier _valo_above_bull_panel vs _mauboussin_sizing_panel sur 6920.T.** → **Racine #1 (vues qui ne se parlent pas)**.
+**F5 ✅ VÉRIFIÉ + FIX** : Lasertec 6920.T sizing dit `above_implied +0.8pp` (sain), mais `list_above_bull_case` le flag "fragility très élevée single-customer ASML actinic mask inspection". Les deux vues ne se parlaient pas. **Fix commit `fa3c5ac`** : le panel Mauboussin sizing cross-reference list_above_bull_case et ajoute un chip rouge "valo > bull" sur les rows concernées. Lasertec maintenant clairement double-flaggé.
 
 **F6 ✅ VÉRIFIÉ + ADRESSÉ CE SOIR — Cameco intervention_3.** Le bot a TOUT capté : currency mismatch (stop EUR sur ticker USD), bearish signal_295 non digéré, conviction inflation (c5 mais bot_conviction 28/100, n_signals=1), trigger "à étoffer", scénario adverse Pm_failure_2 matché, biais nommés (confirmation_bias + anchoring). Verdict PRESSURE 55. **Détecté tout seul, enterré dans une fiche jamais lue.** → Fix canal "détecte → met sous le nez" : panneau copilot refondu (brief en accordion + biais chips + élévation visuelle PRESSURE/STRONG_OPPOSE). Commit `95d83cc`. → **Racine #1 documentaire (le canal de remontée des findings)**.
 
-**F7 — Snowflake en vol aveugle.** "Données de prix incomplètes" → ni stop, ni cible, ni kill-criteria calculables → position affichée ✓. **À vérifier theses.SNOW + price availability.** → **Racine #1 (position vit sans inputs verrouillés)**.
+**F7 ✅ VÉRIFIÉ + FIX** : audit révèle SNOW thesis_53 a TOUT à NULL (entry, target_full, stop_price, invalidation_triggers). 1 / 27 thèses en vol aveugle. **Fix commit `9a12ca4`** : panel `_blind_positions_panel()` sur Vue d'ensemble. Self-disable quand zéro position aveugle. Border-left bear. Anti-pattern combattu : le bot affichait SNOW sain dans les autres panels malgré l'absence totale d'inputs.
 
-**F8 — Ballast cluster #11 = Cameco + MP corrélés (>0.7).** Deux des cinq ballasts stricts bougent ensemble → coussin a moins de diversification interne qu'affiché. **À vérifier `return_clustering` cluster #11.** → **Racine #1 (le ballast strict 16.8% surestime la décorrélation interne)**.
+**F8 ✅ VÉRIFIÉ + FIX** : data_clusters_snapshot cluster #11 = {CCJ, MP} mixed (Energy commodities + Rare earths empiriquement corrélés >0.7 sur 120j). **Fix commit `fa3c5ac`** : haircut -1/3 sur la somme des poids de toute paire de ballast tickers dans le même cluster. CCJ+MP haircut -999€. Ballast 16.8% → 14.5% (below_target 15% maintenant). Plus de faux réconfort.
 
 ### Insight encourageant à graver
 
 > La machine de détection MARCHE (cf F6 Cameco). C'est la REMONTÉE qui ne marche pas — elle enterre ses meilleures trouvailles dans des fiches jamais lues. Réparer le canal "ce que le bot a détecté → ce qu'il met sous le nez" est rapide, et c'est le meilleur ratio valeur/effort.
 
 Cette boucle est maintenant ouverte (cf commit `95d83cc` panneau copilot refondu). À étendre : applique le même principe au kill_criteria_alerts, aux journaux de décision, aux signaux high-materiality. **Anti-pattern à fuir : tout output qui finit dans une table jamais lue.**
+
+### 🎯 MAJOR FINDING fermé ce soir — portfolio_grade en market value
+
+L'audit a révélé que `portfolio_grade._fetch_state()` calculait `weight = qty * avg_cost` (cost basis 43k€) alors que la réalité du book = `qty * current_price_eur` (market value 53k€). Tous les ratios de risque (concentration, ballast, drawdown, solidité) étaient sur le mauvais dénominateur.
+
+**Fix commit `45eaacb`** : refonte `_fetch_state` pour utiliser market value avec fallback cost basis si current_price indispo. `weight_basis_meta` documente n_market vs n_fallback.
+
+**Note 91 → 88 honnête.** Solidité 60.5% → 58.9%. Cluster cap 70.3% → 72.5% (winners AI pèsent plus en market). Cycle/valo expo 30.3% → 33.6% (above_target plus prononcé). CTA drawdown -9 892€ → -12 316€ (recalculé mécaniquement sur 53k).
+
+**Le 91 te flattait. 88 dit la vérité.** Exactement le diagnostic du verdict.
+
+
 
 
 
