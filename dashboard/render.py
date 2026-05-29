@@ -172,17 +172,17 @@ def _needle_color(frac: float, *, invert: bool = False) -> str:
 
 
 SECTOR_COLORS = {
-    "Foundry & logique": "#4C8DFF",
-    "Équipement semi": "#22C9D6",
-    "Mémoire": "#6E7BF2",
-    "Matériaux semi": "#2DD4A0",
-    "EDA": "#4ADE80",
-    "Connectivité & optique": "#C084FC",
-    "Hyperscalers": "#38BDF8",
-    "Power & électrification": "#F5B544",
-    "Défense": "#F0654B",
-    "Énergie & matières premières": "#E0894B",
-    "Auto / robotique": "#EC6A9C",
+    "Foundry & logique": "#1A1814",
+    "Équipement semi": "#5A7548",
+    "Mémoire": "#9B3A2E",
+    "Matériaux semi": "#A87325",
+    "EDA": "#3C4A5C",
+    "Connectivité & optique": "#5C4860",
+    "Hyperscalers": "#B58A3C",
+    "Power & électrification": "#4A5C5E",
+    "Défense": "#6B5840",
+    "Énergie & matières premières": "#7E5638",
+    "Auto / robotique": "#3D5A55",
 }
 TICKER_SECTOR = {
     "AMZN": "MAG 7",
@@ -1809,7 +1809,7 @@ _APP_JS = """
   (function(){
     var SVG=document.getElementById('sb-svg'),PANEL=document.getElementById('sb-panel');
     if(!SVG||!PANEL||!window.SB_DATA)return;
-    var DATA=window.SB_DATA,CX=160,CY=160,RI1=56,RO1=94,RI2=100,RO2=142,PAD=0.018,NS='http://www.w3.org/2000/svg';
+    var DATA=window.SB_DATA,CX=160,CY=160,RI1=56,RO1=94,RI2=100,RO2=142,PAD=0.014,NS='http://www.w3.org/2000/svg';
     var total=0;DATA.forEach(function(s){s.tw=s.t.reduce(function(a,x){return a+(x.w||0);},0);total+=s.tw;});
     if(total<=0)return;
     function hx(h){h=h.replace('#','');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)];}
@@ -1823,13 +1823,13 @@ _APP_JS = """
       var ang=s.tw/total*2*Math.PI,a0=cur+PAD/2,a1=cur+ang-PAD/2,mid=(a0+a1)/2;
       var g=mkp('g',{'data-sec':s.name});g.style.cursor='pointer';g.style.transition='transform .18s ease,opacity .18s ease';
       g.dataset.mx=Math.cos(mid);g.dataset.my=Math.sin(mid);
-      g.appendChild(mkp('path',{d:arc(RI1,RO1,a0,a1),fill:s.col,'fill-opacity':'0.85',stroke:getComputedStyle(document.body).getPropertyValue('--bg').trim()||'#F1ECE3','stroke-width':'1.5','data-sec':s.name}));
+      g.appendChild(mkp('path',{d:arc(RI1,RO1,a0,a1),fill:s.col,'fill-opacity':'0.95',stroke:getComputedStyle(document.body).getPropertyValue('--bg').trim()||'#F9F6F3','stroke-width':'0.6','data-sec':s.name}));
       var sub=cur;
-      s.t.forEach(function(x){var ta=x.w/total*2*Math.PI,b0=sub+PAD/2,b1=sub+ta-PAD/2;if(b1<=b0){b0=sub;b1=sub+ta;}g.appendChild(mkp('path',{d:arc(RI2,RO2,b0,b1),fill:s.col,'fill-opacity':'0.5',stroke:getComputedStyle(document.body).getPropertyValue('--bg').trim()||'#F1ECE3','stroke-width':'1.5','data-tk':x.tk,'data-sec':s.name}));sub+=ta;});
+      s.t.forEach(function(x){var ta=x.w/total*2*Math.PI,b0=sub+PAD/2,b1=sub+ta-PAD/2;if(b1<=b0){b0=sub;b1=sub+ta;}g.appendChild(mkp('path',{d:arc(RI2,RO2,b0,b1),fill:s.col,'fill-opacity':'0.72',stroke:getComputedStyle(document.body).getPropertyValue('--bg').trim()||'#F9F6F3','stroke-width':'0.6','data-tk':x.tk,'data-sec':s.name}));sub+=ta;});
       groups[s.name]=g;SVG.appendChild(g);cur+=ang;
     });
-    var ct=mkp('text',{x:CX,y:CY-3,'text-anchor':'middle','class':'sb-ct','font-size':'19','font-weight':'600'});ct.textContent=Math.round(total/1000)+'k'+String.fromCharCode(8364);SVG.appendChild(ct);
-    var c2=mkp('text',{x:CX,y:CY+15,'text-anchor':'middle','class':'sb-c2','font-size':'11','font-family':'monospace'});c2.textContent=DATA.length+' secteurs';SVG.appendChild(c2);
+    var ct=mkp('text',{x:CX,y:CY-1,'text-anchor':'middle','class':'sb-ct','font-size':'26','font-weight':'500','font-family':'Geist Mono,monospace','letter-spacing':'-0.5'});ct.textContent=Math.round(total/1000)+'k'+String.fromCharCode(8364);SVG.appendChild(ct);
+    var c2=mkp('text',{x:CX,y:CY+19,'text-anchor':'middle','class':'sb-c2','font-size':'9.5','font-weight':'600','font-family':'Geist,sans-serif','letter-spacing':'2'});c2.textContent=(DATA.length+' SECTEURS').toUpperCase();SVG.appendChild(c2);
     function pv(p){return p==null?'&mdash;':((p>=0?'+':'')+p+'%');}
     function rw(l,v,c){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:.5px solid var(--line)"><span style="color:var(--steel)">'+l+'</span><span class="mono" style="color:'+(c||'var(--ink)')+'">'+v+'</span></div>';}
     function overview(){
