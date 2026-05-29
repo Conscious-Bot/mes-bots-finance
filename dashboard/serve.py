@@ -51,6 +51,39 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def do_POST(self):
+        """Sprint 7 — /chat endpoint : RAG sur DB + Opus."""
+        if self.path != "/chat":
+            self.send_error(404)
+            return
+        import json as _json
+
+        length = int(self.headers.get("Content-Length", 0))
+        try:
+            body = self.rfile.read(length).decode("utf-8") if length else ""
+            payload = _json.loads(body) if body else {}
+            message = (payload.get("message") or "").strip()
+        except Exception as e:
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(_json.dumps({"error": f"bad_json: {e}"}).encode("utf-8"))
+            return
+        try:
+            from dashboard.chat import chat as _chat
+
+            result = _chat(message)
+        except Exception as e:
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(_json.dumps({"error": f"{type(e).__name__}: {e}"}).encode("utf-8"))
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(_json.dumps(result, ensure_ascii=False).encode("utf-8"))
+
 
 def _regen_loop():
     while True:

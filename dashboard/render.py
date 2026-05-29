@@ -336,6 +336,36 @@ def _copilot_panel() -> str:
     )
 
 
+def _chat_panel() -> str:
+    """Sprint 7 — Chat surface : pose une question, contexte assemble cote serveur."""
+    return (
+        '<div class="card pad chatcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Pose une question au copilot</span>'
+        '<span class="a">il connait ton profil, ta note PF, tes positions, tes theses et son historique d\'interventions</span></div>'
+        '<div id="chat-log" class="chat-log"></div>'
+        '<form id="chat-form" class="chat-form" onsubmit="return chatSend(event)">'
+        '<textarea id="chat-input" class="chat-input" placeholder="ex. Quelle est ma plus grosse fragilite en ce moment ?" rows="2"></textarea>'
+        '<button type="submit" class="chat-send">Envoyer</button>'
+        '</form>'
+        '<div class="chat-foot">Le contexte (profil + grade + positions + interventions) est rejoue a chaque message.</div>'
+        '</div>'
+        '<script>'
+        'function chatEsc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}'
+        'function chatAppend(role,text){const log=document.getElementById("chat-log");const div=document.createElement("div");div.className="chat-msg chat-"+role;div.innerHTML=chatEsc(text).replace(/\\n/g,"<br>");log.appendChild(div);log.scrollTop=log.scrollHeight;}'
+        'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
+        'chatAppend("user",msg);ta.value="";'
+        'const btn=document.querySelector(".chat-send");btn.disabled=true;btn.textContent="...";'
+        'chatAppend("assistant","(reflexion en cours, l\'appel Opus prend 8-15s)");'
+        'try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:msg})});'
+        'const d=await r.json();'
+        'const last=document.querySelector(".chat-log .chat-msg:last-child");last.remove();'
+        'if(d.error){chatAppend("assistant","ERREUR : "+d.error);}else{chatAppend("assistant",d.reply||"(reponse vide)");}'
+        '}catch(err){const last=document.querySelector(".chat-log .chat-msg:last-child");if(last)last.remove();chatAppend("assistant","ERREUR reseau : "+err);}'
+        'btn.disabled=false;btn.textContent="Envoyer";return false;}'
+        '</script>'
+    )
+
+
 def _clean_sector(sid: str | None) -> str:
     if not sid:
         return "Sans th&egrave;se"
@@ -1916,6 +1946,19 @@ _CSS = """
   .copilotcard .cp-outc { display:inline-block; margin-top:5px; font-family:var(--fb); font-size:10px; letter-spacing:.12em; padding:2px 6px; border-radius:var(--r1); }
   .copilotcard .cp-outc.ok { background:color-mix(in srgb,var(--acc) 12%,transparent); color:var(--acc); }
   .copilotcard .cp-outc.bad { background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
+  /* Sprint 7 - Chat surface */
+  .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
+  .chatcard .chat-log:empty { display:none; }
+  .chatcard .chat-msg { font-family:var(--fm); font-size:13px; line-height:1.5; padding:10px 14px; border-radius:var(--r2); max-width:88%; }
+  .chatcard .chat-user { align-self:flex-end; background:color-mix(in srgb,var(--id) 14%,transparent); color:var(--ink); }
+  .chatcard .chat-assistant { align-self:flex-start; background:color-mix(in srgb,var(--ink) 5%,transparent); color:var(--ink); }
+  .chatcard .chat-form { display:flex; gap:10px; align-items:flex-start; }
+  .chatcard .chat-input { flex:1; font-family:var(--fm); font-size:13px; padding:10px 12px; border:1px solid var(--line2); background:var(--panel); color:var(--ink); border-radius:var(--r2); resize:vertical; min-height:54px; }
+  .chatcard .chat-input:focus { outline:none; border-color:var(--id); }
+  .chatcard .chat-send { font-family:var(--fb); font-size:11.5px; letter-spacing:.15em; text-transform:uppercase; padding:0 22px; height:54px; border-radius:var(--r2); border:1px solid var(--id); background:var(--id); color:var(--bg); cursor:pointer; transition:.15s; }
+  .chatcard .chat-send:hover:not(:disabled) { opacity:.85; }
+  .chatcard .chat-send:disabled { opacity:.5; cursor:default; }
+  .chatcard .chat-foot { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-top:10px; }
   .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--r3); border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; margin:16px 0 4px; }
   .modetgl svg { width:20px; height:20px; }
   .modetgl:hover { color:var(--id); border-color:var(--id); }
@@ -2507,10 +2550,12 @@ def render() -> Path:
     )
     grade_html = _grade_panel()
     copilot_html = _copilot_panel()
+    chat_html = _chat_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
         f"{grade_html}"
+        f"{chat_html}"
         f"{copilot_html}"
         f"{cockpit_html}"
         f'<div class="hrow">'
