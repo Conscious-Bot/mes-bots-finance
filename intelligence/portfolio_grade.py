@@ -49,12 +49,13 @@ CONVICTION_CAPS_PCT = {5: 8.0, 4: 6.0, 3: 4.5, 2: 3.0, 1: 2.0}
 
 # Dimension weights (sum = 100)
 DIMENSION_WEIGHTS = {
-    "quality_T1_plus": 30,
-    "T2_redondant": 20,
-    "decorrelation_star": 15,
-    "sizing_conviction": 15,
-    "cluster_cap": 10,
+    "quality_T1_plus": 25,      # was 30
+    "T2_redondant": 15,         # was 20
+    "decorrelation_star": 12,   # was 15
+    "sizing_conviction": 13,    # was 15
+    "cluster_cap": 15,          # was 10 — concentration matters more
     "thesis_health": 10,
+    "cycle_valo_exposure": 10,  # Sprint 18 — nouvelle dim Fragilite reelle
 }
 
 # Letter grade bands
@@ -519,6 +520,51 @@ def _compute_cluster_cap(state: dict) -> dict:
     }
 
 
+def _compute_cycle_valo_exposure(state: dict) -> dict:
+    """Sprint 18 — Vraie Fragilite forward (per critique #2).
+
+    Sante fondamentaux est une chose, exposition cycle/valo en est une autre.
+    Un nom peut etre 'sain' (marges OK, no debt) ET 'au pic de cycle'
+    (Micron/SK Hynix 72-74% margins = peak) OU 'valo > bull case' (AMD 92x).
+    Source : ticker_meta.fade_rate_score (cycle position) + valo_above_bull_case.
+
+    fragile_eur = sum positions ou (fade >= 60 OR valo_above_bull_case).
+    Target: <=20% du book.
+    """
+    from shared import storage
+
+    positions = state["positions"]
+    total = state["total_capital_eur"] or 1
+    meta = {m["ticker"]: m for m in storage.get_all_latest_ticker_meta()}
+    fragile_eur = 0.0
+    flagged = []
+    for p in positions:
+        m = meta.get(p["ticker"])
+        if not m:
+            continue
+        fade = m.get("fade_rate_score") or 0
+        valo_tight = m.get("valo_above_bull_case") or False
+        if fade >= 60 or valo_tight:
+            fragile_eur += p["weight"]
+            tag = "fade" if fade >= 60 else ""
+            if valo_tight:
+                tag = (tag + "+valo>bull") if tag else "valo>bull"
+            flagged.append(f"{p['ticker']}({tag})")
+    current_pct = fragile_eur / total * 100 if total else 0
+    target_pct = 20.0
+    # inverse score : moins = mieux
+    score = min(100, target_pct / max(current_pct, 0.1) * 100) if current_pct > target_pct else 100
+    return {
+        "current_pct": round(current_pct, 1),
+        "target_pct": target_pct,
+        "score": round(score, 1),
+        "weight": 20,  # poids dans Fragilite (avec sante 30%)
+        "status": "above_target" if current_pct > target_pct else "at_or_below_target",
+        "evidence": f"Cycle/valo expose : {', '.join(flagged[:6]) or 'aucun'}",
+        "source": "sprint18_ticker_meta",
+    }
+
+
 def _compute_thesis_health(state: dict) -> dict:
     """Proxy deterministe Sprint 5 : % theses actives reviewed within 30j.
     Sprint 6 LLM-augmented : derive du Layer 2 conceptions."""
@@ -564,12 +610,43 @@ def compute_grade() -> dict:
         "sizing_conviction": _compute_sizing_conviction(state),
         "cluster_cap": _compute_cluster_cap(state),
         "thesis_health": _compute_thesis_health(state),
+        "cycle_valo_exposure": _compute_cycle_valo_exposure(state),
     }
-    # Critique fix (cf _grade_from_state) : exclude data_insufficient + renormalize.
     valid_dims = {k: d for k, d in dims.items() if d.get("status") != "data_insufficient"}
     valid_weight = sum(d["weight"] for d in valid_dims.values()) or 1
     overall = sum(d["score"] * d["weight"] / valid_weight for d in valid_dims.values())
     overall_int = round(overall)
+
+    # Sprint 18 — HARD GATES per critique #1 :
+    # "Un livre dont le pari principal est a 2x le plafond ne devrait pas
+    #  pouvoir afficher A-. Il faut un gate."
+    gates_applied = []
+    cc = dims.get("cluster_cap", {})
+    cc_current = cc.get("current_pct", 0)
+    cc_target = cc.get("target_pct", 35)
+    if cc_current > cc_target * 2:  # >= 2x cap
+        cap = 65  # B- max
+        if overall_int > cap:
+            gates_applied.append(
+                f"Pari principal {cc_current:.0f}% > 2x cible {cc_target:.0f}% -> note cap a {cap}"
+            )
+            overall_int = cap
+    elif cc_current > cc_target * 1.5:
+        cap = 78  # B+ max
+        if overall_int > cap:
+            gates_applied.append(
+                f"Pari principal {cc_current:.0f}% > 1.5x cible {cc_target:.0f}% -> note cap a {cap}"
+            )
+            overall_int = cap
+
+    # Gate Calibrage : si sizing_conviction nettement sous-cible, plafonne aussi
+    sc = dims.get("sizing_conviction", {})
+    if sc.get("score", 100) < 70:
+        cap = 75
+        if overall_int > cap:
+            gates_applied.append(f"Calibrage sous-cible (score {sc['score']:.0f}) -> note cap a {cap}")
+            overall_int = cap
+
     grade = score_to_grade(overall_int)
     return {
         "snapshot_date": datetime.now(UTC).date().isoformat(),
@@ -580,7 +657,8 @@ def compute_grade() -> dict:
         "n_positions": len(state["positions"]),
         "n_theses_active": len(state["theses_active"]),
         "n_dims_data_insufficient": sum(1 for d in dims.values() if d.get("status") == "data_insufficient"),
-        "computation_version": "sprint11_critique_fixed",
+        "gates_applied": gates_applied,
+        "computation_version": "sprint18_gates_fragility",
     }
 
 
@@ -597,7 +675,7 @@ def format_grade_for_dashboard(grade: dict) -> dict:
 
 
 def _grade_from_state(state: dict) -> dict:
-    """Reusable : recompute the 6 dims + score from any state dict (live or simulated)."""
+    """Reusable : same 7 dims + gates as compute_grade (utilise par simulate_grade)."""
     dims = {
         "quality_T1_plus": _compute_quality_T1_plus(state),
         "T2_redondant": _compute_T2_redundant(state),
@@ -605,14 +683,22 @@ def _grade_from_state(state: dict) -> dict:
         "sizing_conviction": _compute_sizing_conviction(state),
         "cluster_cap": _compute_cluster_cap(state),
         "thesis_health": _compute_thesis_health(state),
+        "cycle_valo_exposure": _compute_cycle_valo_exposure(state),
     }
-    # Critique fix : exclude data_insufficient dims from composite + renormalize.
-    # Pourquoi : un T1=0 par manque de theses matures fausse la note globale ;
-    # on prefere une note honnete sur les dims calculables.
     valid_dims = {k: d for k, d in dims.items() if d.get("status") != "data_insufficient"}
     valid_weight = sum(d["weight"] for d in valid_dims.values()) or 1
     overall = sum(d["score"] * d["weight"] / valid_weight for d in valid_dims.values())
     overall_int = round(overall)
+    # Memes gates que compute_grade pour que la sim soit coherente
+    cc = dims.get("cluster_cap", {})
+    cc_current = cc.get("current_pct", 0)
+    cc_target = cc.get("target_pct", 35)
+    if cc_current > cc_target * 2:
+        overall_int = min(overall_int, 65)
+    elif cc_current > cc_target * 1.5:
+        overall_int = min(overall_int, 78)
+    if dims.get("sizing_conviction", {}).get("score", 100) < 70:
+        overall_int = min(overall_int, 75)
     return {
         "overall_score": overall_int,
         "overall_grade": score_to_grade(overall_int),

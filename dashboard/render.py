@@ -208,6 +208,7 @@ _DIM_LABELS = {
     "sizing_conviction": ("Calibrage", "min", "construction"),
     "cluster_cap": ("Pari principal", "max", "construction"),
     "thesis_health": ("Sant&eacute;", "min", "fragilite"),
+    "cycle_valo_exposure": ("Cycle / valo", "max", "fragilite"),
 }
 
 
@@ -228,12 +229,14 @@ def _grade_panel() -> str:
             score = latest["overall_score"]
             dims = json.loads(latest["dimensions_json"]) if latest.get("dimensions_json") else {}
             snapshot_date = latest.get("snapshot_date", "")
+            gates = []  # not persisted in snapshot, can compute fresh if needed
         else:
             g = _grade.compute_grade()
             grade_letter = g["overall_grade"]
             score = g["overall_score"]
             dims = g["dimensions"]
             snapshot_date = g["snapshot_date"]
+            gates = g.get("gates_applied") or []
         trend = _grade.compute_trend_7d()
         trend_str = {
             "improving": "&uarr; 7j",
@@ -291,10 +294,16 @@ def _grade_panel() -> str:
     grade_cls = _cls(score)
     c_cls = _cls(construction_score)
     f_cls = _cls(fragilite_score)
+    gates_html = ""
+    if gates:
+        gates_html = (
+            '<div class="ggate">⚠ ' + " · ".join(g for g in gates) + '</div>'
+        )
     return (
         '<div class="card pad gradecard" style="margin-bottom:18px">'
         '<div class="colhead"><span class="t">Note du portefeuille</span>'
         f'<span class="a">{snapshot_date} &middot; {trend_str}</span></div>'
+        f'{gates_html}'
         '<div class="ghead">'
         f'<div class="gletter {grade_cls}">{grade_letter}</div>'
         f'<div class="gscore"><div class="gscoreval mono">{score}<span class="gscoremax">/100</span></div>'
@@ -2892,6 +2901,7 @@ _CSS = """
   .gradecard .gsubscore.bad { color:var(--bear); }
   .gradecard .gsubmax { color:var(--steel); font-size:14px; margin-left:1px; font-weight:400; }
   @media (max-width:980px) { .gradecard .gsplit { grid-template-columns:1fr; gap:14px; } }
+  .gradecard .ggate { font-family:var(--fm); font-size:12px; color:var(--bear); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:10px 14px; border-radius:var(--r2); margin:14px 0; border-left:3px solid var(--bear); }
   /* Sprint 5/6 - Copilot interventions panel */
   .copilotcard .cp-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
   .copilotcard .cp-row:last-child { border-bottom:none; }
@@ -3777,7 +3787,7 @@ def render() -> Path:
     grade_html = _grade_panel()
     copilot_html = _copilot_panel()
     chat_html = _chat_panel()
-    narrative_html = _narrative_panel()
+    # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
     conversations_html = _conversations_panel()
     chat_signals_html = _chat_signals_panel()
     conceptions_html = _conceptions_panel()
@@ -3804,7 +3814,9 @@ def render() -> Path:
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
         f"{grade_html}"
-        f"{narrative_html}"
+        # Sprint 18 : narrative_html retire — Sprint 6 LLM avait des faux
+        # flags (AMD~TSM, SAF~HO, GOOGL~AMZN). Sprint 12 axes-strict + Sprint 17
+        # correlation panels couvrent proprement le sujet.
         f"{chat_html}"
         f"{conversations_html}"
         f"{chat_signals_html}"
