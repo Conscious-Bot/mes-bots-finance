@@ -208,40 +208,39 @@ async def post_init(app):
         timezone=os.environ.get("TZ", "Europe/Paris"),
         job_defaults={"coalesce": True, "misfire_grace_time": 3600},
     )
+    # === JOBS AUTONOMES (intervals + cron sans dependance fonctionnelle) ===
     sched.add_job(heartbeat, "interval", hours=1)
     sched.add_job(ingest_gmail_job, "interval", hours=1)
-    sched.add_job(daily_digest_job, "cron", hour="7,19", minute=0, misfire_grace_time=7200)
-    sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
-    sched.add_job(daily_resolve_job, "cron", hour=9, minute=0)
-    sched.add_job(resolve_journal_decisions_job, "cron", hour=8, minute=0)
-    sched.add_job(resolve_copilot_interventions_30d_job, "cron", hour=9, minute=15)
-    sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=0)
-    sched.add_job(update_echo_clusters_job, "interval", hours=1)
-    sched.add_job(score_pending_signals_job, "interval", hours=1)
-    sched.add_job(refresh_source_half_lives_job, "cron", day_of_week="sun", hour=5, minute=0)
-    sched.add_job(scheduled_insider_refresh_job, "cron", hour=6, minute=0)
     sched.add_job(price_monitor_job, "cron", hour="14-22", minute="*/15", day_of_week="mon-fri")
-    sched.add_job(daily_crypto_zone_job, "cron", hour=10, minute=0)
-    sched.add_job(scheduled_buy_cluster_scan_job, "cron", hour=6, minute=20)
-    sched.add_job(scheduled_resolve_buy_cluster_returns_job, "cron", hour=8, minute=15)
-    sched.add_job(scheduled_8k_scan_job, "cron", hour=6, minute=30)
+    sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
-    from intelligence.snapshot import daily_snapshot_job
-
-    sched.add_job(daily_snapshot_job, "cron", hour=23, minute=0, misfire_grace_time=14400)
-    sched.add_job(daily_portfolio_grade_job, "cron", hour=23, minute=15, misfire_grace_time=14400)
-    sched.add_job(daily_kill_criteria_check_job, "cron", hour=7, minute=30, misfire_grace_time=14400)
-    sched.add_job(daily_risk_signal_monitor_job, "cron", hour=8, minute=0, misfire_grace_time=14400)
-    sched.add_job(daily_decision_anniversary_job, "cron", hour=8, minute=30, misfire_grace_time=14400)
-    sched.add_job(daily_counterfactual_resolve_job, "cron", hour=23, minute=15, misfire_grace_time=14400)
-    sched.add_job(weekly_handler_stats_job, "cron", day_of_week="sun", hour=23, minute=0, misfire_grace_time=86400)
-    sched.add_job(weekly_kpi_status_job, "cron", day_of_week="sun", hour=22, minute=30, misfire_grace_time=86400)
-    sched.add_job(weekly_cost_summary_job, "cron", day_of_week="sun", hour=22, minute=0, misfire_grace_time=86400)
-    sched.add_job(weekly_user_profile_refresh_job, "cron", day_of_week="sun", hour=21, minute=0, misfire_grace_time=86400)
-    sched.add_job(weekly_portfolio_narrative_synthesis_job, "cron", day_of_week="sun", hour=20, minute=30, misfire_grace_time=86400)
-    sched.add_job(weekly_bot_conceptions_synthesis_job, "cron", day_of_week="sun", hour=19, minute=0, misfire_grace_time=86400)
-    sched.add_job(weekly_data_clusters_synthesis_job, "cron", day_of_week="sat", hour=18, minute=0, misfire_grace_time=86400)
+    sched.add_job(daily_crypto_zone_job, "cron", hour=10, minute=0)
+    sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=0)
     sched.add_job(monthly_bot_preferences_synthesis_job, "cron", day=1, hour=4, minute=0, misfire_grace_time=86400)
+    sched.add_job(cron_tier1_daily, "cron", hour=6, minute=0)
+    sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)
+    sched.add_job(cron_tier3_monthly, "cron", day=1, hour=7, minute=0)
+    sched.add_job(daily_digest_job, "cron", hour=19, minute=0, misfire_grace_time=7200)  # digest soir reste isole
+
+    # === CHAINES SEQUENCEES (soudure ④ brief) ===
+    # Avant : 22+ jobs independants par heure -> race conditions
+    # Maintenant : 3 chaines orchestrent en sequence avec dependances explicites
+    from bot.jobs.sequences import (
+        evening_chain,
+        morning_chain,
+        weekly_chain_saturday,
+        weekly_chain_sunday,
+    )
+
+    # Morning chain (6h-9h) : insiders -> filings -> score -> digest -> monitors -> resolves
+    sched.add_job(morning_chain, "cron", hour=6, minute=0, misfire_grace_time=14400)
+    # Evening chain (23h) : snapshot -> grade -> counterfactual_resolve
+    sched.add_job(evening_chain, "cron", hour=23, minute=0, misfire_grace_time=14400)
+    # Weekly chains
+    sched.add_job(weekly_chain_saturday, "cron", day_of_week="sat", hour=18, minute=0,
+                  misfire_grace_time=86400)
+    sched.add_job(weekly_chain_sunday, "cron", day_of_week="sun", hour=19, minute=0,
+                  misfire_grace_time=86400)
     sched.add_job(cron_tier1_daily, "cron", hour=6, minute=0)
     sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)
     sched.add_job(cron_tier3_monthly, "cron", day=1, hour=7, minute=0)
