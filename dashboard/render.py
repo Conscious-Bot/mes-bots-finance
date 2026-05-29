@@ -273,6 +273,69 @@ def _grade_panel() -> str:
     )
 
 
+_VERDICT_LABEL = {
+    "PROCEED": ("ok", "PROCEED"),
+    "PRESSURE": ("warn", "PRESSURE"),
+    "STRONG_OPPOSE": ("bad", "STRONG OPPOSE"),
+}
+
+
+def _copilot_panel() -> str:
+    """Sprint 5/6 surface : derniere prises de position du copilot adversarial.
+
+    Lecture froide : verdict + pressure_score + ancrage. Outcome 30j si resolu.
+    """
+    try:
+        from shared import storage as _stg
+
+        rows = _stg.get_recent_copilot_interventions(limit=8)
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">copilot indisponible: {type(e).__name__}: {e}</div></div>'
+    if not rows:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Aucune intervention du copilot pour le moment. Les pressure-tests "
+            "apparaitront ici a chaque /position_buy /position_sell /override."
+            "</div></div>"
+        )
+    lis = []
+    for r in rows:
+        ver = r.get("verdict") or "?"
+        cls, label = _VERDICT_LABEL.get(ver, ("calm", ver))
+        score = r.get("pressure_score")
+        score_s = f"{score:.0f}" if isinstance(score, int | float) else "?"
+        date = (r.get("created_at") or "")[:10]
+        tk = r.get("ticker") or "?"
+        dtype = r.get("decision_type") or "?"
+        anc = (r.get("ancrage") or "").strip()
+        if len(anc) > 200:
+            anc = anc[:197] + "..."
+        outc = r.get("outcome_label") or ""
+        ret30 = r.get("return_30d_pct")
+        outc_html = ""
+        if outc:
+            good = "outcome_good" in outc
+            ocls = "ok" if good else "bad"
+            ret_s = f"  ret30j {ret30:+.1f}%" if isinstance(ret30, int | float) else ""
+            outc_html = f'<span class="cp-outc {ocls}">{outc}{ret_s}</span>'
+        lis.append(
+            f'<div class="cp-row"><div class="cp-head">'
+            f'<span class="cp-tk">{tk}</span>'
+            f'<span class="cp-dtype">{dtype}</span>'
+            f'<span class="cp-ver {cls}">{label}&nbsp;&middot;&nbsp;{score_s}</span>'
+            f'<span class="cp-date">{date}</span></div>'
+            f'<div class="cp-anc">{anc or "(pas d\'ancrage)"}</div>'
+            f'{outc_html}</div>'
+        )
+    return (
+        '<div class="card pad copilotcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Copilot &mdash; pressure-tests recents</span>'
+        '<span class="a">verdict mecanique avant chaque trade, outcome 30j</span></div>'
+        + "".join(lis)
+        + "</div>"
+    )
+
+
 def _clean_sector(sid: str | None) -> str:
     if not sid:
         return "Sans th&egrave;se"
@@ -1838,6 +1901,21 @@ _CSS = """
   .gradecard .gnum { display:flex; align-items:center; gap:10px; justify-content:flex-end; font-size:12px; color:var(--ink); }
   .gradecard .gnum .gt { color:var(--steel); font-size:11px; }
   @media (max-width:980px) { .gradecard .grow { grid-template-columns:1fr; gap:4px; } .gradecard .gnum { justify-content:flex-start; } }
+  /* Sprint 5/6 - Copilot interventions panel */
+  .copilotcard .cp-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
+  .copilotcard .cp-row:last-child { border-bottom:none; }
+  .copilotcard .cp-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .copilotcard .cp-tk { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); }
+  .copilotcard .cp-dtype { font-family:var(--fb); font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:var(--steel); }
+  .copilotcard .cp-ver { font-family:var(--fb); font-size:10px; letter-spacing:.15em; font-weight:600; padding:2px 6px; border-radius:var(--r1); }
+  .copilotcard .cp-ver.ok { background:color-mix(in srgb,var(--acc) 14%,transparent); color:var(--acc); }
+  .copilotcard .cp-ver.warn { background:color-mix(in srgb,#c89b00 14%,transparent); color:#c89b00; }
+  .copilotcard .cp-ver.bad { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
+  .copilotcard .cp-date { font-family:var(--fm); font-size:11px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
+  .copilotcard .cp-anc { font-family:var(--fm); font-size:12px; color:var(--ink); line-height:1.45; opacity:.85; }
+  .copilotcard .cp-outc { display:inline-block; margin-top:5px; font-family:var(--fb); font-size:10px; letter-spacing:.12em; padding:2px 6px; border-radius:var(--r1); }
+  .copilotcard .cp-outc.ok { background:color-mix(in srgb,var(--acc) 12%,transparent); color:var(--acc); }
+  .copilotcard .cp-outc.bad { background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
   .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--r3); border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; margin:16px 0 4px; }
   .modetgl svg { width:20px; height:20px; }
   .modetgl:hover { color:var(--id); border-color:var(--id); }
@@ -2428,10 +2506,12 @@ def render() -> Path:
         "</div>" + _cockpit() + "</div>"
     )
     grade_html = _grade_panel()
+    copilot_html = _copilot_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
         f"{grade_html}"
+        f"{copilot_html}"
         f"{cockpit_html}"
         f'<div class="hrow">'
         f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'

@@ -2141,6 +2141,27 @@ def link_copilot_intervention_decision(intervention_id: int, decision_id: int) -
         _copilot_log.warning(f"link_copilot_intervention_decision failed id={intervention_id}: {e}")
 
 
+def get_recent_copilot_interventions(limit: int = 20) -> list[dict]:
+    """All-ticker recent interventions feed (for dashboard surface)."""
+    try:
+        with db() as conn:
+            _ensure_copilot_table(conn)
+            rows = conn.execute(
+                "SELECT id, created_at, ticker, decision_type, verdict, pressure_score, "
+                "ancrage, brief, return_30d_pct, outcome_label "
+                "FROM bot_copilot_interventions ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            cols = [
+                "id", "created_at", "ticker", "decision_type", "verdict",
+                "pressure_score", "ancrage", "brief", "return_30d_pct", "outcome_label",
+            ]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_recent_copilot_interventions failed: {e}")
+        return []
+
+
 def get_recent_copilot_interventions_for_ticker(ticker: str, limit: int = 5) -> list[dict]:
     """For chat surface RAG : the bot's recent stances on this ticker."""
     try:
