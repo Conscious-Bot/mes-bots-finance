@@ -83,6 +83,54 @@ def brier_for(prob: float | None, outcome: str) -> float | None:
     return (prob - (1.0 if outcome == "correct" else 0.0)) ** 2
 
 
+def aggregate_brier_dedup(predictions: list[dict]) -> dict:
+    """Agregat Brier dedupplique par cluster.
+
+    Probleme decouvert 29/05 dry-run resolution 10/06 : 49 predictions due,
+    dont NVDA x 7, AMD x 7, AVGO x 7, MU x 6 -- meme cluster signal genere
+    7 predictions identiques baseline+target -> 1 vrai outcome compte 7x
+    dans le Brier moyen. Un sceptique audit Path 6 verrait juste ca.
+
+    Le fix : on regroupe par cluster (signal_id, ticker, direction) et on
+    publie 1 outcome par cluster, brier moyen par cluster.
+
+    Args:
+        predictions: list de dicts avec au moins keys: signal_id, ticker,
+                     direction, brier_score (None = neutral, exclu).
+
+    Returns:
+        {
+            "n_unique_clusters": int (= nb d'outcomes uniques effectifs),
+            "n_raw_predictions": int (= nb predictions brutes),
+            "dedup_ratio": float (1.0 = pas de doublons, >1 = doublons),
+            "avg_brier": float | None,
+            "n_neutral_excluded": int,
+        }
+    """
+    if not predictions:
+        return {"n_unique_clusters": 0, "n_raw_predictions": 0,
+                "dedup_ratio": 1.0, "avg_brier": None, "n_neutral_excluded": 0}
+    n_neutral = sum(1 for p in predictions if p.get("brier_score") is None)
+    by_cluster: dict[tuple, list[float]] = {}
+    for p in predictions:
+        b = p.get("brier_score")
+        if b is None:
+            continue
+        key = (p.get("signal_id"), p.get("ticker"), p.get("direction"))
+        by_cluster.setdefault(key, []).append(b)
+    n_unique = len(by_cluster)
+    n_raw = sum(len(v) for v in by_cluster.values())
+    cluster_briers = [sum(v) / len(v) for v in by_cluster.values()]
+    avg = sum(cluster_briers) / len(cluster_briers) if cluster_briers else None
+    return {
+        "n_unique_clusters": n_unique,
+        "n_raw_predictions": n_raw,
+        "dedup_ratio": n_raw / max(n_unique, 1),
+        "avg_brier": avg,
+        "n_neutral_excluded": n_neutral,
+    }
+
+
 def credibility_from_hitrate(n_correct: int, n_incorrect: int, alpha: float = 2.0) -> float:
     """Source credibility = hit-rate directionnel, shrinkage Beta(alpha,alpha) vers 0.5.
 
