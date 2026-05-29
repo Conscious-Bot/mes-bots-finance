@@ -54,7 +54,70 @@ _KEYWORDS_BY_SIGNAL = {
         "tickers": ["4063", "Shin-Etsu", "Sumco"],
         "keywords": ["wafer pricing", "silicon", "300mm", "ASP", "wafer demand"],
     },
+    # Sprint 20.c — leading indicators corporate
+    "insider_selling_cluster": {
+        "tickers": [],  # special-cased : query insider_snapshots directly
+        "keywords": ["insider sell", "insider selling", "Form 4", "10b5-1", "executive sale"],
+    },
+    "order_intake_softening": {
+        "tickers": ["TSM", "ASML", "AMD", "AVGO", "MU", "ALAB", "COHR"],
+        "keywords": [
+            "order intake", "bookings decline", "lead time", "soft demand",
+            "order book", "backlog decline", "demand softening",
+        ],
+    },
+    "inventory_buildup": {
+        "tickers": [],
+        "keywords": [
+            "inventory buildup", "DIO", "days inventory", "channel stuffing",
+            "destocking", "channel inventory", "inventory correction",
+        ],
+    },
+    "earnings_revisions": {
+        "tickers": ["TSM", "ASML", "AMD", "AVGO", "MU", "ALAB"],
+        "keywords": [
+            "estimates revised", "estimates cut", "downward revision",
+            "consensus cut", "analyst downgrade", "guidance lowered",
+        ],
+    },
 }
+
+
+def _fetch_insider_snapshots_for_surveillance() -> list[dict]:
+    """Sprint 20.c — query insider_snapshots directement (pas via signals).
+
+    Returns recent net insider activity sur tickers strategiques. Si net_m < -50
+    sur un ticker, c'est un signal cluster smart money out.
+    """
+    try:
+        tickers = (
+            "'TSM','ASML','AMD','AVGO','MU','ALAB','COHR','ENTG','KLAC',"
+            "'SNOW','GOOGL','AMZN','TSLA','TSMC'"
+        )
+        with storage.db() as cx:
+            rows = cx.execute(
+                "SELECT ticker, snapshot_date, net_m, n_sells, n_buys, "
+                "total_sells_m, total_buys_m "
+                "FROM insider_snapshots "
+                "WHERE snapshot_date >= date('now', '-30 day') "
+                f"AND ticker IN ({tickers}) "
+                "ORDER BY snapshot_date DESC, net_m ASC"
+            ).fetchall()
+        cols = ["ticker", "snapshot_date", "net_m", "n_sells", "n_buys",
+                "total_sells_m", "total_buys_m"]
+        # Take most recent per ticker
+        seen = set()
+        out = []
+        for r in rows:
+            d = dict(zip(cols, r, strict=False))
+            if d["ticker"] in seen:
+                continue
+            seen.add(d["ticker"])
+            out.append(d)
+        return out
+    except Exception as e:
+        log.warning(f"insider_snapshots fetch failed: {e}")
+        return []
 
 
 def _fetch_signals_for_surveillance(surveillance_id: str, lookback_days: int = 14) -> list[dict]:
@@ -115,9 +178,68 @@ Sois STRICT : "triggered" requiert evidence concrete dans les signaux.
 """
 
 
+def _evaluate_insider_cluster() -> dict:
+    """Special case : evalue insider_selling_cluster via table insider_snapshots."""
+    insiders = _fetch_insider_snapshots_for_surveillance()
+    if not insiders:
+        return {
+            "status": "monitoring",
+            "confidence": 50,
+            "reason": "aucune donnee insider recente",
+            "evidence_signal_ids": [],
+        }
+    # Heuristic : count tickers avec net_m < -50 (insider net selling > $50M sur 30j)
+    big_sellers = [d for d in insiders if (d.get("net_m") or 0) < -50]
+    moderate_sellers = [d for d in insiders if -50 <= (d.get("net_m") or 0) < -10]
+    if len(big_sellers) >= 2:
+        names = [f"{d['ticker']} ({d['net_m']:.0f}M$)" for d in big_sellers[:5]]
+        return {
+            "status": "triggered",
+            "confidence": 85,
+            "reason": (
+                f"Cluster insider selling > 50M$/30j sur {len(big_sellers)} tickers "
+                f"strategiques : {', '.join(names)}. Smart money out concret."
+            ),
+            "evidence_signal_ids": [],
+        }
+    if len(big_sellers) == 1:
+        d = big_sellers[0]
+        return {
+            "status": "at_risk",
+            "confidence": 72,
+            "reason": (
+                f"{d['ticker']} : net insider sells {d['net_m']:.0f}M$/30j "
+                f"({d['n_sells']} sellers, {d['n_buys']} buyers). Solo mais materiel."
+            ),
+            "evidence_signal_ids": [],
+        }
+    if len(moderate_sellers) >= 3:
+        names = [f"{d['ticker']} ({d['net_m']:.0f}M$)" for d in moderate_sellers[:5]]
+        return {
+            "status": "at_risk",
+            "confidence": 60,
+            "reason": f"Multi-ticker insider net selling -10/-50M$ : {', '.join(names)}",
+            "evidence_signal_ids": [],
+        }
+    return {
+        "status": "monitoring",
+        "confidence": 70,
+        "reason": "Activite insider normale, pas de cluster de selling significatif",
+        "evidence_signal_ids": [],
+    }
+
+
 def evaluate_one_signal(surveillance_signal: dict) -> dict:
-    """LLM Haiku evaluate one surveillance signal vs recent signals corpus."""
+    """LLM Haiku evaluate one surveillance signal vs recent signals corpus.
+
+    Sprint 20.c : insider_selling_cluster utilise une eval deterministe sur
+    insider_snapshots table (pas via signals + LLM).
+    """
     sig_id = surveillance_signal.get("id")
+    # Special case : insider cluster = eval deterministe (pas LLM)
+    if sig_id == "insider_selling_cluster":
+        return _evaluate_insider_cluster()
+
     signals = _fetch_signals_for_surveillance(sig_id, lookback_days=14)
     if not signals:
         return {
