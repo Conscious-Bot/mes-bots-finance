@@ -2887,3 +2887,102 @@ def get_latest_preferences(kinds: list[str] | None = None) -> list[dict]:
     except Exception as e:
         _copilot_log.warning(f"get_latest_preferences failed: {e}")
         return []
+
+
+# === ticker_axes (Sprint 12 — refactor critique) =============================
+
+_AXES_DDL = (
+    "CREATE TABLE IF NOT EXISTS ticker_axes ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "ticker TEXT NOT NULL, "
+    "demand_driver TEXT NOT NULL, value_chain_stage TEXT NOT NULL, "
+    "moat_source TEXT NOT NULL, macro_factor TEXT NOT NULL, "
+    "alt_drivers_json TEXT, confidence INTEGER, rationale TEXT, "
+    "model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL)"
+)
+_AXES_IDX = [
+    "CREATE INDEX IF NOT EXISTS idx_axes_ticker ON ticker_axes(ticker)",
+    "CREATE INDEX IF NOT EXISTS idx_axes_macro ON ticker_axes(macro_factor)",
+]
+
+
+def _ensure_axes_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_AXES_DDL)
+    for ix in _AXES_IDX:
+        conn.execute(ix)
+
+
+def insert_ticker_axes(
+    ticker: str,
+    demand_driver: str,
+    value_chain_stage: str,
+    moat_source: str,
+    macro_factor: str,
+    alt_drivers_json: str | None = None,
+    confidence: int | None = None,
+    rationale: str | None = None,
+    llm_meta: dict | None = None,
+) -> int | None:
+    meta = llm_meta or {}
+    try:
+        with db() as cx:
+            _ensure_axes_table(cx)
+            cur = cx.execute(
+                "INSERT INTO ticker_axes "
+                "(ticker, demand_driver, value_chain_stage, moat_source, macro_factor, "
+                "alt_drivers_json, confidence, rationale, model_used, input_tokens, "
+                "output_tokens, cost_usd) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    ticker.upper(), demand_driver, value_chain_stage, moat_source,
+                    macro_factor, alt_drivers_json, confidence, rationale,
+                    meta.get("model_used"), meta.get("input_tokens"),
+                    meta.get("output_tokens"), meta.get("cost_usd"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_ticker_axes failed: {e}")
+        return None
+
+
+def get_latest_ticker_axes(ticker: str) -> dict | None:
+    try:
+        with db() as cx:
+            _ensure_axes_table(cx)
+            row = cx.execute(
+                "SELECT ticker, demand_driver, value_chain_stage, moat_source, "
+                "macro_factor, alt_drivers_json, confidence, rationale, created_at "
+                "FROM ticker_axes WHERE ticker=? ORDER BY id DESC LIMIT 1",
+                (ticker.upper(),),
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["ticker", "demand_driver", "value_chain_stage", "moat_source",
+                    "macro_factor", "alt_drivers_json", "confidence", "rationale",
+                    "created_at"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_ticker_axes failed: {e}")
+        return None
+
+
+def get_all_latest_ticker_axes() -> list[dict]:
+    """One row per ticker — latest. Used by axes-aware redundancy / decorrelation."""
+    try:
+        with db() as cx:
+            _ensure_axes_table(cx)
+            rows = cx.execute(
+                "SELECT ta.ticker, ta.demand_driver, ta.value_chain_stage, ta.moat_source, "
+                "ta.macro_factor, ta.alt_drivers_json, ta.confidence, ta.created_at "
+                "FROM ticker_axes ta "
+                "JOIN (SELECT ticker, MAX(id) AS mid FROM ticker_axes GROUP BY ticker) m "
+                "ON ta.id = m.mid"
+            ).fetchall()
+            cols = ["ticker", "demand_driver", "value_chain_stage", "moat_source",
+                    "macro_factor", "alt_drivers_json", "confidence", "created_at"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_all_latest_ticker_axes failed: {e}")
+        return []

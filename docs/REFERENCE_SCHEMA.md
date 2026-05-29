@@ -6,7 +6,7 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 43 | **Total indexes**: 63 | **Total rows**: 4,310
+**Total tables**: 44 | **Total indexes**: 65 | **Total rows**: 4,342
 
 
 ## Core entities
@@ -524,7 +524,7 @@ CREATE TABLE handler_calls (
 
 **Indexes**: `idx_handler_calls_name`, `idx_handler_calls_timestamp`
 
-### `llm_calls` (1,160 rows)
+### `llm_calls` (1,176 rows)
 
 ```sql
 CREATE TABLE llm_calls (
@@ -547,7 +547,7 @@ CREATE TABLE llm_calls (
 
 ## Uncategorized
 
-### `bot_conceptions` (38 rows)
+### `bot_conceptions` (42 rows)
 
 ```sql
 CREATE TABLE bot_conceptions (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), kind TEXT NOT NULL, target_key TEXT NOT NULL, conception_text TEXT NOT NULL, conviction INTEGER NOT NULL, valence REAL, sources_json TEXT, n_signals_used INTEGER, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, elapsed_ms INTEGER);
@@ -658,6 +658,14 @@ CREATE TABLE predictions_bak_probfix(
   brier_score REAL
 );
 ```
+
+### `ticker_axes` (12 rows)
+
+```sql
+CREATE TABLE ticker_axes (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), ticker TEXT NOT NULL, demand_driver TEXT NOT NULL, value_chain_stage TEXT NOT NULL, moat_source TEXT NOT NULL, macro_factor TEXT NOT NULL, alt_drivers_json TEXT, confidence INTEGER, rationale TEXT, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL);
+```
+
+**Indexes**: `idx_axes_macro`, `idx_axes_ticker`
 
 ### `user_profile` (1 rows)
 

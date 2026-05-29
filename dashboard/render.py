@@ -336,6 +336,61 @@ def _copilot_panel() -> str:
     )
 
 
+def _ticker_axes_panel() -> str:
+    """Sprint 12 — Tagging per ticker (driver/stage/moat/macro_factor) pour
+    redefinir REDONDANCE et DECORRELATION proprement. Cf. critique review.
+    """
+    try:
+        from shared import storage as _stg
+
+        rows = _stg.get_all_latest_ticker_axes()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">axes indispo: {type(e).__name__}</div></div>'
+    if not rows:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas encore de tagging axes. Trigger : "
+            "<code>venv/bin/python -c \"from intelligence import ticker_classifier; ticker_classifier.classify_all_held_tickers()\"</code>."
+            "</div></div>"
+        )
+    # Group by macro_factor (dominant macro view)
+    by_macro: dict = {}
+    for r in rows:
+        by_macro.setdefault(r.get("macro_factor", "Other"), []).append(r)
+    # Sort macros by count desc
+    macros = sorted(by_macro.items(), key=lambda kv: -len(kv[1]))
+    groups_html = []
+    for macro, members in macros:
+        lis = []
+        for r in members:
+            tk = r["ticker"]
+            driver = (r.get("demand_driver") or "")[:70]
+            stage = (r.get("value_chain_stage") or "")[:70]
+            moat = (r.get("moat_source") or "")[:70]
+            lis.append(
+                f'<div class="ax-row">'
+                f'<div class="ax-tk">{tk}</div>'
+                f'<div class="ax-fields">'
+                f'<div class="ax-f"><span class="ax-l">driver</span> {driver}</div>'
+                f'<div class="ax-f"><span class="ax-l">stage</span> {stage}</div>'
+                f'<div class="ax-f"><span class="ax-l">moat</span> {moat}</div>'
+                f'</div></div>'
+            )
+        groups_html.append(
+            f'<div class="ax-group"><div class="ax-h">'
+            f'<span class="ax-macro">{macro}</span>'
+            f'<span class="ax-n">n={len(members)}</span></div>'
+            + "".join(lis) + "</div>"
+        )
+    return (
+        '<div class="card pad axescard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Tagging axes par ticker (Sprint 12 — refactor critique)</span>'
+        '<span class="a">redondance = driver+stage match strict &middot; decorrelation = unicite macro_factor</span></div>'
+        + "".join(groups_html)
+        + "</div>"
+    )
+
+
 def _preferences_panel() -> str:
     """Layer 3 — ce qui MARCHE deterministically pour CE user.
 
@@ -2354,6 +2409,17 @@ _CSS = """
   .preferencescard .pr-num.neg { color:var(--bear); }
   .preferencescard .pr-num.neu { color:var(--steel); }
   .preferencescard .pr-win { font-family:var(--fm); font-size:10.5px; color:var(--steel); min-width:50px; text-align:right; }
+  /* Sprint 12 - Ticker axes */
+  .axescard .ax-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:14px 16px; margin-top:14px; }
+  .axescard .ax-h { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
+  .axescard .ax-macro { font-family:var(--fm); font-weight:600; font-size:12.5px; color:var(--ink); }
+  .axescard .ax-n { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
+  .axescard .ax-row { display:grid; grid-template-columns:78px 1fr; gap:14px; padding:8px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .axescard .ax-row:last-child { border-bottom:none; }
+  .axescard .ax-tk { font-family:var(--fm); font-weight:600; font-size:12px; color:var(--ink); }
+  .axescard .ax-fields { display:flex; flex-direction:column; gap:3px; }
+  .axescard .ax-f { font-family:var(--fm); font-size:11px; color:var(--ink); opacity:.82; line-height:1.4; }
+  .axescard .ax-l { display:inline-block; font-family:var(--fb); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); width:50px; }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -2964,6 +3030,7 @@ def render() -> Path:
     chat_signals_html = _chat_signals_panel()
     conceptions_html = _conceptions_panel()
     preferences_html = _preferences_panel()
+    axes_html = _ticker_axes_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -2981,6 +3048,7 @@ def render() -> Path:
         f"{chat_signals_html}"
         f"{conceptions_html}"
         f"{preferences_html}"
+        f"{axes_html}"
         f"{copilot_html}"
         f"{cockpit_html}"
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise</span></div>'

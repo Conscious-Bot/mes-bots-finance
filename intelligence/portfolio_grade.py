@@ -216,15 +216,64 @@ def _load_llm_narrative_snapshot() -> dict | None:
         return None
 
 
-def _compute_T2_redundant(state: dict) -> dict:
-    """T2 = positions narrativement redondantes (3eme+ d'un meme groupe).
+def _load_ticker_axes_map() -> dict[str, dict]:
+    """Sprint 12 : load ticker -> axes map (driver/stage/moat/macro)."""
+    try:
+        from shared import storage
 
-    Sprint 6 : si snapshot LLM dispo, on l'utilise (narrative clusters >3 et
-    redundant_positions liste). Sinon fallback Sprint 5 (proxy sector-based).
+        axes = storage.get_all_latest_ticker_axes()
+        return {a["ticker"]: a for a in axes}
+    except Exception:
+        return {}
+
+
+def _compute_T2_redundant(state: dict) -> dict:
+    """T2 = positions redondantes au sens STRICT (driver + stage coincident).
+
+    Sprint 12 (refactor critique) : si ticker_axes dispo, redondance ⟺
+    paire (demand_driver, value_chain_stage) identique. Sinon Sprint 6 LLM
+    narrative snapshot. Sinon Sprint 5 proxy sectors.
     """
     positions = state["positions"]
     pos_by_tk = {p["ticker"]: p for p in positions}
     total = state["total_capital_eur"] or 1
+    # Sprint 12 — Axes-based redundancy (strict definition)
+    axes_map = _load_ticker_axes_map()
+    if axes_map and len([p for p in positions if p["ticker"] in axes_map]) >= len(positions) * 0.7:
+        # Group by (driver, stage) — redundant if same key for >1 position
+        groups: dict[tuple, list[dict]] = {}
+        for p in positions:
+            a = axes_map.get(p["ticker"])
+            if not a:
+                continue
+            key = (a["demand_driver"], a["value_chain_stage"])
+            groups.setdefault(key, []).append(p)
+        redundant_eur = 0.0
+        details = []
+        for (driver, stage), ps in groups.items():
+            if len(ps) < 2:
+                continue
+            # First position is anchor ; extras are redundant
+            sorted_ps = sorted(ps, key=lambda p: -p["weight"])
+            extras = sorted_ps[1:]
+            for x in extras:
+                redundant_eur += x["weight"]
+            details.append(
+                f"{driver[:30]} | {stage[:30]} → {sorted_ps[0]['ticker']} keep, "
+                f"{', '.join(x['ticker'] for x in extras)} redundant"
+            )
+        current_pct = redundant_eur / total * 100 if total else 0
+        target_pct = 20.0
+        score = min(100, target_pct / max(current_pct, 0.1) * 100) if current_pct > target_pct else 100
+        return {
+            "current_pct": round(current_pct, 1),
+            "target_pct": target_pct,
+            "score": round(score, 1),
+            "weight": DIMENSION_WEIGHTS["T2_redondant"],
+            "status": "above_target" if current_pct > target_pct else "at_or_below_target",
+            "evidence": "Axes-based (driver+stage match) : " + (" ; ".join(details[:3]) or "aucune paire stricte"),
+            "source": "sprint12_axes_strict",
+        }
     snap = _load_llm_narrative_snapshot()
     if snap and snap.get("clusters"):
         # LLM mode
@@ -293,11 +342,65 @@ def _compute_T2_redundant(state: dict) -> dict:
 
 
 def _compute_decorrelation_star(state: dict) -> dict:
-    """Sprint 6 : LLM edge_positions liste si dispo. Sinon proxy lone-wolf Sprint 5."""
+    """Sprint 12 (refactor critique) : DECORRELATION = diversite de macro_factor
+    parmi les c>=4 positions. La 'lone-wolf' Sprint 5 etait flattee : ASML
+    et SNPS sont 'lone-wolf' au sens secteur mais TOUS DEUX exposes a 'AI
+    capex' au sens macro -> pas decorrelants.
+
+    Definition stricte : une position est ★ si son macro_factor n'est joue
+    par AUCUNE autre c>=4 position du book. C'est la VRAIE decorrelation.
+    """
     positions = state["positions"]
     pos_by_tk = {p["ticker"]: p for p in positions}
     theses_by_ticker = {t["ticker"]: t for t in state["theses_active"]}
     total = state["total_capital_eur"] or 1
+    axes_map = _load_ticker_axes_map()
+    if axes_map and len([p for p in positions if p["ticker"] in axes_map]) >= len(positions) * 0.7:
+        # Count c>=4 positions per macro_factor
+        macro_count: dict[str, int] = {}
+        macro_owners: dict[str, list[str]] = {}
+        for p in positions:
+            t = theses_by_ticker.get(p["ticker"])
+            conv = (t or {}).get("conviction") or 0
+            if conv < 4:
+                continue
+            a = axes_map.get(p["ticker"])
+            if not a:
+                continue
+            mf = a["macro_factor"]
+            macro_count[mf] = macro_count.get(mf, 0) + 1
+            macro_owners.setdefault(mf, []).append(p["ticker"])
+        # Star = c>=4 position playing a macro_factor unique to the book
+        star_eur = 0.0
+        names = []
+        for p in positions:
+            t = theses_by_ticker.get(p["ticker"])
+            conv = (t or {}).get("conviction") or 0
+            if conv < 4:
+                continue
+            a = axes_map.get(p["ticker"])
+            if not a:
+                continue
+            mf = a["macro_factor"]
+            if macro_count.get(mf, 0) == 1:
+                star_eur += p["weight"]
+                names.append(f"{p['ticker']}({mf[:18]})")
+        current_pct = star_eur / total * 100 if total else 0
+        target_pct = 15.0
+        score = min(100, current_pct / target_pct * 100) if target_pct else 0
+        dominant = max(macro_count.items(), key=lambda kv: kv[1]) if macro_count else ("?", 0)
+        return {
+            "current_pct": round(current_pct, 1),
+            "target_pct": target_pct,
+            "score": round(score, 1),
+            "weight": DIMENSION_WEIGHTS["decorrelation_star"],
+            "status": "at_or_above_target" if current_pct >= target_pct else "below_target",
+            "evidence": (
+                f"Macro-factor unique c>=4 : {', '.join(names[:5]) or 'aucun'} "
+                f"({star_eur:.0f}€). Dominant: {dominant[0]} (n={dominant[1]})"
+            ),
+            "source": "sprint12_axes_macro_factor",
+        }
     snap = _load_llm_narrative_snapshot()
     if snap and snap.get("edges"):
         edges = snap["edges"].get("edge_positions") or []
