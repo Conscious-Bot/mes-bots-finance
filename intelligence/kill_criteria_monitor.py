@@ -210,8 +210,10 @@ def check_one_thesis(thesis: dict) -> tuple[dict | None, int | None]:
         evidence_quote=(result.get("evidence_quote") or "")[:300],
         confidence=int(result.get("confidence") or 50),
     )
-    # Notify on transition X -> triggered
-    if new_status == "triggered" and (not prev or prev.get("status") != "triggered"):
+    # Notify on transition X -> triggered (urgent)
+    # Sprint 19 : aussi notify sur transition dormant -> at_risk (pre-alert)
+    prev_status = prev.get("status") if prev else None
+    if new_status == "triggered" and prev_status != "triggered":
         try:
             msg = (
                 f"⚠️ KILL-CRITERION DECLENCHE — {ticker}\n"
@@ -224,6 +226,19 @@ def check_one_thesis(thesis: dict) -> tuple[dict | None, int | None]:
             log.info(f"kca {ticker} : transition -> triggered, notified")
         except Exception as e:
             log.warning(f"kca notify failed: {e}")
+    elif new_status == "at_risk" and prev_status == "dormant":
+        # Pre-alert : these passe de dormant a at_risk (signal precoce)
+        try:
+            msg = (
+                f"⚡ A RISQUE — {ticker}\n"
+                f"{result.get('dominant_reason', '')}\n\n"
+                f"Confidence : {result.get('confidence', '?')}/100 (pas declenche, signal precoce)\n\n"
+                f"Action : surveiller, /thesis_revisit {ticker} si signal se renforce"
+            )
+            notify.send_text(msg)
+            log.info(f"kca {ticker} : transition dormant -> at_risk, pre-alert notified")
+        except Exception as e:
+            log.warning(f"kca pre-alert failed: {e}")
     return result, aid
 
 
