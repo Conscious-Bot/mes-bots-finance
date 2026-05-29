@@ -639,12 +639,58 @@ def compute_grade() -> dict:
             )
             overall_int = cap
 
-    # Gate Calibrage : si sizing_conviction nettement sous-cible, plafonne aussi
+    # Gate Calibrage (sizing_conviction) — plafond + plancher
+    # Per le co-analyste : "on reprend les planchers Autres paris / Calibrage
+    # pour finir la spec des gates". Le plafond cluster_cap > 2x cible est en
+    # place, on ajoute les planchers cote dims minimum.
     sc = dims.get("sizing_conviction", {})
-    if sc.get("score", 100) < 70:
+    sc_score = sc.get("score", 100)
+    if sc_score < 50:
+        cap = 60  # C+ max si Calibrage tres mauvais
+        if overall_int > cap:
+            gates_applied.append(f"Calibrage tres bas (score {sc_score:.0f}) -> note cap a {cap}")
+            overall_int = cap
+    elif sc_score < 70:
         cap = 75
         if overall_int > cap:
-            gates_applied.append(f"Calibrage sous-cible (score {sc['score']:.0f}) -> note cap a {cap}")
+            gates_applied.append(f"Calibrage sous-cible (score {sc_score:.0f}) -> note cap a {cap}")
+            overall_int = cap
+
+    # Plancher Autres paris (decorrelation_star) : si <50% de la cible, le book
+    # est tellement monolithique qu'aucune diversification n'amortit.
+    de = dims.get("decorrelation_star", {})
+    de_current = de.get("current_pct", 0)
+    de_target = de.get("target_pct", 15)
+    if de_current < de_target * 0.3:  # <4.5%, quasi rien de decorrele
+        cap = 60
+        if overall_int > cap:
+            gates_applied.append(f"Autres paris quasi-nuls ({de_current:.1f}% < 0.3x cible) -> note cap a {cap}")
+            overall_int = cap
+    elif de_current < de_target * 0.6:  # <9%, decorrelation faible
+        cap = 72
+        if overall_int > cap:
+            gates_applied.append(f"Autres paris faibles ({de_current:.1f}% < 0.6x cible) -> note cap a {cap}")
+            overall_int = cap
+
+    # Plancher Solidite haute : si <50% de la cible (et data disponible)
+    qp = dims.get("quality_T1_plus", {})
+    if qp.get("status") != "data_insufficient":
+        qp_current = qp.get("current_pct", 0)
+        qp_target = qp.get("target_pct", 65)
+        if qp_current < qp_target * 0.4:  # <26% du book en Incontournable/Solide
+            cap = 65
+            if overall_int > cap:
+                gates_applied.append(f"Solidite haute basse ({qp_current:.0f}% < 0.4x cible) -> note cap a {cap}")
+                overall_int = cap
+
+    # Plancher Cycle/valo : si tres expose, l'avenir est fragile peu importe la sante actuelle
+    cv = dims.get("cycle_valo_exposure", {})
+    cv_current = cv.get("current_pct", 0)
+    cv_target = cv.get("target_pct", 20)
+    if cv_current > cv_target * 2.5:  # >50% du book a fade>=60 ou valo>bull
+        cap = 65
+        if overall_int > cap:
+            gates_applied.append(f"Cycle/valo expose extreme ({cv_current:.0f}% > 2.5x cible) -> note cap a {cap}")
             overall_int = cap
 
     grade = score_to_grade(overall_int)
@@ -697,8 +743,24 @@ def _grade_from_state(state: dict) -> dict:
         overall_int = min(overall_int, 65)
     elif cc_current > cc_target * 1.5:
         overall_int = min(overall_int, 78)
-    if dims.get("sizing_conviction", {}).get("score", 100) < 70:
+    sc_score = dims.get("sizing_conviction", {}).get("score", 100)
+    if sc_score < 50:
+        overall_int = min(overall_int, 60)
+    elif sc_score < 70:
         overall_int = min(overall_int, 75)
+    de = dims.get("decorrelation_star", {})
+    de_current = de.get("current_pct", 0)
+    de_target = de.get("target_pct", 15)
+    if de_current < de_target * 0.3:
+        overall_int = min(overall_int, 60)
+    elif de_current < de_target * 0.6:
+        overall_int = min(overall_int, 72)
+    qp = dims.get("quality_T1_plus", {})
+    if qp.get("status") != "data_insufficient" and qp.get("current_pct", 0) < qp.get("target_pct", 65) * 0.4:
+        overall_int = min(overall_int, 65)
+    cv = dims.get("cycle_valo_exposure", {})
+    if cv.get("current_pct", 0) > cv.get("target_pct", 20) * 2.5:
+        overall_int = min(overall_int, 65)
     return {
         "overall_score": overall_int,
         "overall_grade": score_to_grade(overall_int),

@@ -3159,7 +3159,9 @@ _CSS = """
   .chatcard .chat-send:hover:not(:disabled) { opacity:.85; }
   .chatcard .chat-send:disabled { opacity:.5; cursor:default; }
   .chatcard .chat-foot { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-top:10px; }
-  .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--r3); border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; margin:16px 0 4px; }
+  .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--r3); border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; }
+  .foot .modetgl { margin-top:18px; padding-top:0; }
+  .foot::before { content:""; display:block; width:30px; height:1px; background:var(--line); margin:14px auto 4px; }
   .modetgl svg { width:20px; height:20px; }
   .modetgl:hover { color:var(--id); border-color:var(--id); }
   .hero, .pfcard { box-shadow:var(--elev); }
@@ -3906,7 +3908,7 @@ def render() -> Path:
     elan, near_t = _elan_watch(computed)
     body = (
         f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
-        f'{_NAV}{_MODE_BTN}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span></div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
+        f'{_NAV}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span>{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
         + positions_pg
