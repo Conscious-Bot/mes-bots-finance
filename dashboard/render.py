@@ -1290,10 +1290,13 @@ def _chat_panel() -> str:
         'const btn=document.querySelector(".chat-send");btn.disabled=true;btn.textContent="...";'
         'chatAppend("assistant","(reflexion en cours, l\'appel Opus prend 8-15s)");'
         'try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:msg,history:histSend,session_id:window._chatSessionId})});'
-        'const d=await r.json();'
+        # Surface real HTTP code + body snippet (content-type check before JSON.parse)
+        'const ct=r.headers.get("content-type")||"";'
         'const last=document.querySelector(".chat-log .chat-msg:last-child");last.remove();'
-        'if(d.error){chatAppend("assistant","ERREUR : "+d.error);}else{const reply=d.reply||"(reponse vide)";chatAppend("assistant",reply);window._chatHistory.push({role:"user",content:msg});window._chatHistory.push({role:"assistant",content:reply});}'
-        '}catch(err){const last=document.querySelector(".chat-log .chat-msg:last-child");if(last)last.remove();chatAppend("assistant","ERREUR reseau : "+err);}'
+        'if(!ct.includes("application/json")){const txt=(await r.text()).slice(0,200);chatAppend("assistant","ERREUR HTTP "+r.status+" "+r.statusText+" (server returned "+ct+", not JSON). Body : "+txt);}'
+        'else{const d=await r.json();'
+        'if(d.error){chatAppend("assistant","ERREUR serveur : "+d.error);}else{const reply=d.reply||"(reponse vide)";chatAppend("assistant",reply);window._chatHistory.push({role:"user",content:msg});window._chatHistory.push({role:"assistant",content:reply});}'
+        '}}catch(err){const last=document.querySelector(".chat-log .chat-msg:last-child");if(last)last.remove();chatAppend("assistant","ERREUR client/reseau : "+err.name+" : "+err.message);}'
         'btn.disabled=false;btn.textContent="Envoyer";return false;}'
         '</script>'
     )

@@ -208,13 +208,12 @@ def _compute_quality_T1_plus(state: dict) -> dict:
 
 
 def _load_llm_narrative_snapshot() -> dict | None:
-    """Sprint 6 : try to load latest LLM narrative cluster snapshot."""
-    try:
-        from intelligence import portfolio_grade_llm as _lln
-
-        return _lln.get_latest_narrative_snapshot()
-    except Exception:
-        return None
+    """DEPRECATED Sprint 19 — la critique a montre que le narrative LLM
+    creait des faux flags (AMD~TSM, SAF~HO, GOOGL~AMZN, STMPA dans AI silicon).
+    Source unique = ticker_axes. Cette fonction retourne None pour forcer
+    le path axes-strict + interdire le retour aux faux flags.
+    """
+    return None
 
 
 def _load_ticker_axes_map() -> dict[str, dict]:
@@ -566,8 +565,20 @@ def _compute_cycle_valo_exposure(state: dict) -> dict:
 
 
 def _compute_thesis_health(state: dict) -> dict:
-    """Proxy deterministe Sprint 5 : % theses actives reviewed within 30j.
-    Sprint 6 LLM-augmented : derive du Layer 2 conceptions."""
+    """Sante = fondamentaux verifies, pas juste 'reviewee recemment'.
+
+    Per critique #3 review : 'STM et Lasertec ont des fondamentaux faibles/en
+    erosion — ils devraient etre « sous surveillance », pas « sains ».'
+
+    Nouvelle definition Sprint 19 : une these est "saine" si :
+      - reviewee dans les 30j (current)
+      - ET aucun signal d'erosion fondamentaux (fade<70 si ticker_meta dispo)
+      - ET pas flag valo > bull case
+
+    Retourne % "sain". "Sous surveillance" = (fade>=70 OR valo>bull) regardless review.
+    """
+    from shared import storage
+
     theses = state["theses_active"]
     if not theses:
         return {
@@ -578,25 +589,36 @@ def _compute_thesis_health(state: dict) -> dict:
             "status": "no_data",
             "evidence": "aucune these active",
         }
+    meta = {m["ticker"]: m for m in storage.get_all_latest_ticker_meta()}
     now = datetime.now(UTC)
     cutoff = now - timedelta(days=30)
-    n_recent = 0
+    n_sain = 0
+    sous_surveillance: list[str] = []
     for t in theses:
         last_rev = t.get("last_reviewed") or t.get("last_revisit_at") or t.get("opened_at") or ""
         last_rev_dt = _parse_dt_aware(last_rev)
-        if last_rev_dt and last_rev_dt >= cutoff:
-            n_recent += 1
-    current_pct = n_recent / len(theses) * 100
+        reviewed_recent = last_rev_dt and last_rev_dt >= cutoff
+        m = meta.get(t["ticker"])
+        eroding = m and (m.get("fade_rate_score", 0) >= 70 or m.get("valo_above_bull_case", False))
+        if reviewed_recent and not eroding:
+            n_sain += 1
+        elif eroding:
+            tag = "fade" if m.get("fade_rate_score", 0) >= 70 else ""
+            if m.get("valo_above_bull_case"):
+                tag = (tag + "+valo>bull") if tag else "valo>bull"
+            sous_surveillance.append(f"{t['ticker']}({tag})")
+    current_pct = n_sain / len(theses) * 100
     target_pct = 80.0
     score = min(100, current_pct / target_pct * 100) if target_pct else 0
+    surveillance_str = f" ; sous surveillance : {', '.join(sous_surveillance[:5])}" if sous_surveillance else ""
     return {
         "current_pct": round(current_pct, 1),
         "target_pct": target_pct,
         "score": round(score, 1),
         "weight": DIMENSION_WEIGHTS["thesis_health"],
         "status": "at_or_above_target" if current_pct >= target_pct else "below_target",
-        "evidence": f"{n_recent}/{len(theses)} theses reviewees < 30j",
-        "note_for_sprint6": "Sprint 5 = proxy review-age ; Sprint 6 = Layer 2 conceptions signal flow",
+        "evidence": f"{n_sain}/{len(theses)} sains{surveillance_str}",
+        "source": "sprint19_fundamentals_verified",
     }
 
 
