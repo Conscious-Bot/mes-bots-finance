@@ -411,8 +411,7 @@ def _return_clustering_panel() -> str:
     if not row:
         return (
             '<div class="card pad"><div class="empty" style="padding:14px 0">'
-            "Pas encore de snapshot clustering rendements. Trigger : "
-            "<code>venv/bin/python -c \"from intelligence.return_clustering import run_analysis; from shared.storage import insert_data_clusters_snapshot; import json; r=run_analysis(); insert_data_clusters_snapshot(json.dumps(r))\"</code>."
+            "Premiere mesure des doublons par correlation prevue samedi 18h. Une fois disponible, les paires qui bougent ensemble apparaitront ici."
             "</div></div>"
         )
     import json as _json
@@ -601,8 +600,7 @@ def _kill_criteria_panel() -> str:
     if not rows:
         return (
             '<div class="card pad"><div class="empty" style="padding:14px 0">'
-            "Pas encore de check kill-criteria. Cron quotidien 07h30 ou trigger : "
-            "<code>venv/bin/python -c \"from intelligence import kill_criteria_monitor; kill_criteria_monitor.check_all_active_theses()\"</code>."
+            "Premiere verification quotidienne prevue demain 07h30. Les theses dont les conditions d'invalidation se declenchent apparaitront ici."
             "</div></div>"
         )
     counts = {"triggered": 0, "at_risk": 0, "dormant": 0}
@@ -661,8 +659,7 @@ def _spof_panel() -> str:
     if not spofs:
         return (
             '<div class="card pad"><div class="empty" style="padding:14px 0">'
-            "Pas de meta classifies (Sprint 14). Trigger : "
-            "<code>venv/bin/python -c \"from intelligence import ticker_meta_classifier; ticker_meta_classifier.classify_all_held_tickers()\"</code>."
+            "Classification des tickers en cours. Les fiches techniques apparaitront ici une fois la passe terminee."
             "</div></div>"
         )
     rows = []
@@ -909,8 +906,7 @@ def _ticker_axes_panel() -> str:
     if not rows:
         return (
             '<div class="card pad"><div class="empty" style="padding:14px 0">'
-            "Pas encore de tagging axes. Trigger : "
-            "<code>venv/bin/python -c \"from intelligence import ticker_classifier; ticker_classifier.classify_all_held_tickers()\"</code>."
+            "Tagging axes (driver/stage/moat/macro) en attente. Les fiches techniques apparaitront ici une fois classifies."
             "</div></div>"
         )
     # Group by macro_factor (dominant macro view)
@@ -969,8 +965,7 @@ def _preferences_panel() -> str:
     if not prefs:
         return (
             '<div class="card pad"><div class="empty" style="padding:14px 0">'
-            "Pas encore de preferences calibrees. Cron mensuel 1er du mois 04h, "
-            "trigger manuel : <code>venv/bin/python -m intelligence.bot_preferences</code>."
+            "Calibration mensuelle prevue le 1er du mois. Les preferences (ce qui a marche chez toi) apparaitront ici une fois les decisions accumulees."
             "</div></div>"
         )
     groups: list[str] = []
@@ -1045,8 +1040,7 @@ def _conceptions_panel() -> str:
     if not concs:
         return (
             '<div class="card pad"><div class="empty" style="padding:14px 0">'
-            "Pas encore de conceptions synthetisees. Cron hebdo dimanche 19h, "
-            "ou trigger manuel : <code>venv/bin/python -m intelligence.bot_conceptions</code>."
+            "Synthese hebdomadaire prevue dimanche 19h. Une fois generees, les vues stables du bot par ticker apparaitront ici."
             "</div></div>"
         )
     rows = []
@@ -1214,8 +1208,7 @@ def _narrative_panel() -> str:
     if not raw:
         return (
             '<div class="card pad"><div class="empty" style="padding:14px 0">'
-            "Pas encore de synthese narrative LLM. Le cron tourne chaque dimanche 20h30, "
-            "ou trigger manuel : <code>venv/bin/python -m intelligence.portfolio_grade_llm</code>."
+            "Synthese narrative hebdomadaire prevue dimanche 20h30. Les clusters narratifs apparaitront ici une fois generes."
             "</div></div>"
         )
     clusters = _json.loads(raw.get("clusters_json") or "[]")
