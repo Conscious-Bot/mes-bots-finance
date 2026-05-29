@@ -172,17 +172,17 @@ def _needle_color(frac: float, *, invert: bool = False) -> str:
 
 
 SECTOR_COLORS = {
-    "Foundry & logique": "#1A1814",
-    "Équipement semi": "#5A7548",
-    "Mémoire": "#9B3A2E",
-    "Matériaux semi": "#A87325",
-    "EDA": "#3C4A5C",
-    "Connectivité & optique": "#5C4860",
-    "Hyperscalers": "#B58A3C",
-    "Power & électrification": "#4A5C5E",
-    "Défense": "#6B5840",
-    "Énergie & matières premières": "#7E5638",
-    "Auto / robotique": "#3D5A55",
+    "Foundry & logique": "#1E3A5F",
+    "Équipement semi": "#3F7058",
+    "Mémoire": "#A14848",
+    "Matériaux semi": "#6B7F9E",
+    "EDA": "#4F5867",
+    "Connectivité & optique": "#7B6F9C",
+    "Hyperscalers": "#3F8077",
+    "Power & électrification": "#8A6376",
+    "Défense": "#6E7886",
+    "Énergie & matières premières": "#7F5D54",
+    "Auto / robotique": "#5C8775",
 }
 TICKER_SECTOR = {
     "AMZN": "MAG 7",
@@ -1479,14 +1479,14 @@ _NAV = (
 
 _CSS = """
   :root { --bg:#F9F6F3; --panel:#F9F6F3; --line:#E5E0DB; --line2:#CFC7BF; --ink:#1A1814; --ink2:#3A352D; --steel:#7E7770; --metal:#7E7770;
-    --acc:#5A7548; --acc2:#5A7548; --id:#1A1814; --bear:#9B3A2E; --warn:#A87325; --gold:#B58A3C;
+    --acc:#5A7548; --acc2:#5A7548; --id:#1A1814; --bear:#9B3A2E; --warn:#A87325;
     --fd:"Geist",ui-sans-serif,system-ui,sans-serif; --fb:"Geist",ui-sans-serif,system-ui,sans-serif; --fm:"Geist Mono",ui-monospace,SFMono-Regular,monospace; --fo:"Geist",ui-sans-serif,sans-serif;
     --elev:none;
     --glass:rgba(249,246,243,.92); --glass2:rgba(249,246,243,.88); --tape:rgba(249,246,243,.96); --barbg:#EDE8E2;
     --r1:4px; --r2:8px; --r3:12px;
     --s1:4px; --s2:8px; --s3:12px; --s4:20px; --s5:32px; --s6:52px; }
   body.midnight { --bg:#0E0D0B; --panel:#16140F; --line:#2A2520; --line2:#3D362E; --ink:#F1ECE3; --ink2:#CFC6B5; --steel:#8C8273; --metal:#8C8273;
-    --acc:#88A671; --acc2:#88A671; --id:#F1ECE3; --bear:#C75B4F; --warn:#D6A058; --gold:#D4A553;
+    --acc:#88A671; --acc2:#88A671; --id:#F1ECE3; --bear:#C75B4F; --warn:#D6A058;
     --elev:0 12px 32px -18px rgba(0,0,0,.65);
     --glass:rgba(22,20,15,.85); --glass2:rgba(14,13,11,.7); --tape:rgba(14,13,11,.9); --barbg:#1F1C18; }
   * { box-sizing:border-box; }
