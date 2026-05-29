@@ -63,6 +63,9 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             body = self.rfile.read(length).decode("utf-8") if length else ""
             payload = _json.loads(body) if body else {}
             message = (payload.get("message") or "").strip()
+            history = payload.get("history") or []
+            if not isinstance(history, list):
+                history = []
         except Exception as e:
             self.send_response(400)
             self.send_header("Content-Type", "application/json")
@@ -72,7 +75,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         try:
             from dashboard.chat import chat as _chat
 
-            result = _chat(message)
+            result = _chat(message, history=history)
         except Exception as e:
             self.send_response(500)
             self.send_header("Content-Type", "application/json")

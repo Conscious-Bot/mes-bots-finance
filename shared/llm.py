@@ -135,6 +135,62 @@ def call(
         _log_call(resolved_tier, model, task, in_tok, out_tok, cached_tok, cost, elapsed_ms, error)
 
 
+def call_multiturn(
+    messages: list[dict],
+    task: str | None = None,
+    tier: str | None = None,
+    max_tokens: int = 1500,
+    system: str | None = None,
+    cache_invariant: str | None = None,
+) -> str:
+    """Multi-turn variant of call() — used by dashboard chat surface (Sprint 7+).
+
+    messages : [{role: 'user'|'assistant', content: str}, ...] — alternating turns.
+    cache_invariant : marked cache_control:ephemeral on system block (5min TTL).
+    Returns text response (stripped).
+    """
+    model, resolved_tier = _resolve_model(tier=tier, task=task)
+    if cache_invariant:
+        system_blocks = [{"type": "text", "text": cache_invariant, "cache_control": {"type": "ephemeral"}}]
+        if system:
+            system_blocks.append({"type": "text", "text": system})
+        kwargs = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system_blocks,
+            "messages": messages,
+        }
+    else:
+        kwargs = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": messages,
+        }
+        if system:
+            kwargs["system"] = system
+
+    t0 = time.time()
+    error = None
+    text = ""
+    in_tok = out_tok = cached_tok = 0
+    try:
+        msg = client().messages.create(**kwargs)
+        text = cast(str, msg.content[0].text.strip())
+        usage = getattr(msg, "usage", None)
+        if usage:
+            in_tok = getattr(usage, "input_tokens", 0) or 0
+            out_tok = getattr(usage, "output_tokens", 0) or 0
+            cached_tok = getattr(usage, "cache_read_input_tokens", 0) or 0
+        return text
+    except Exception as e:
+        error = f"{type(e).__name__}: {str(e)[:200]}"
+        raise
+    finally:
+        elapsed_ms = int((time.time() - t0) * 1000)
+        cost = _compute_cost(model, in_tok, out_tok, cached_tok)
+        _log_call(resolved_tier, model, task, in_tok, out_tok, cached_tok, cost, elapsed_ms, error)
+
+
 def call_json(
     prompt: str,
     task: str | None = None,

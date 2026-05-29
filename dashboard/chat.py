@@ -191,11 +191,13 @@ def assemble_context() -> str:
     )
 
 
-def chat(user_message: str) -> dict:
-    """Send a message; return {reply, latency_ms, error}.
+def chat(user_message: str, history: list[dict] | None = None) -> dict:
+    """Send a message ; return {reply, latency_ms, error}.
 
-    Single-shot for now (no multi-turn history). Context (positions/grade/etc)
-    is refreshed every call. Multi-turn will need llm.call extension.
+    history (optional) : [{role: 'user'|'assistant', content: str}, ...] — turns
+    PRIOR to the current user_message. We append the new message and call llm.
+    Context (positions/grade/etc) is refreshed every call and pushed in system
+    so it doesn't bloat the conversation history.
     """
     from time import time as _now
 
@@ -205,22 +207,31 @@ def chat(user_message: str) -> dict:
         return {"reply": "(message vide)", "error": "empty"}
 
     context = assemble_context()
-    prefix = f"Contexte DB :\n\n{context}\n\n"
-    full_prompt = prefix + f"Question : {user_message.strip()}"
+    # Build messages list : prior history + new user turn
+    messages = []
+    for turn in history or []:
+        role = turn.get("role")
+        content = turn.get("content", "")
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content[:6000]})
+    messages.append({"role": "user", "content": user_message.strip()})
+
+    # System combines the static persona + the rolling DB context.
+    system_with_ctx = f"{SYSTEM_PROMPT}\n\n=== CONTEXTE DB (rafraichi a chaque tour) ===\n{context}"
 
     t0 = _now()
     try:
-        # Multi-turn : we don't pass history through llm.call (single-shot)
-        # because shared/llm.py is single-message ; multi-turn would need extension.
-        # For now : single-shot with full context each time. Caching the context
-        # block via cache_invariant when long enough.
-        reply = llm.call(
-            full_prompt,
-            tier="synthesize",
-            max_tokens=1500,
-            system=SYSTEM_PROMPT,
-            cache_invariant=context if len(context) > 4000 else None,
-        )
+        # Cache only if big enough to be worth the cache_control overhead (>=1024 tok).
+        # Below that, push as normal system message.
+        if len(system_with_ctx) > 4000:  # ~1k tokens
+            reply = llm.call_multiturn(
+                messages, tier="synthesize", max_tokens=1500,
+                cache_invariant=system_with_ctx,
+            )
+        else:
+            reply = llm.call_multiturn(
+                messages, tier="synthesize", max_tokens=1500, system=system_with_ctx,
+            )
         return {
             "reply": reply,
             "latency_ms": int((_now() - t0) * 1000),
