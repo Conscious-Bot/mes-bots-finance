@@ -1908,6 +1908,19 @@ _CSS = """
   .pfcard .distcap .cr { color:var(--bear); font-weight:600; }
   .pfcard .sub2 { font-size:11.5px; color:var(--steel); margin-top:auto; padding-top:13px; } .pfcard .sub2 b { color:var(--ink); font-weight:600; }
   @media (max-width:980px) { .hrow { grid-template-columns:1fr; } }
+  /* Star treatment - hero row au top de Vue d'ensemble */
+  .hrow.star { gap:22px; margin-bottom:28px; }
+  .hrow.star .pfcard { padding:30px 36px; }
+  .hrow.star .pfcard .hl { font-size:10.5px; letter-spacing:.22em; }
+  .hrow.star .pfcard .v { font-size:46px; margin:14px 0 9px; line-height:.95; }
+  .hrow.star .pfcard .d { font-size:17px; }
+  .hrow.star .pfcard .distline { margin-top:22px; height:24px; }
+  .hrow.star .pfcard .distcap { font-size:12.5px; margin-top:12px; }
+  .hrow.star .pfcard .sub2 { font-size:12.5px; padding-top:18px; }
+  .hrow.star .hero.posture { padding:30px 36px; }
+  .hrow.star .hero.posture .hl { font-size:10.5px; letter-spacing:.22em; }
+  .hrow.star .hero.posture .pn { font-size:42px; line-height:.95; }
+  .hrow.star .hero.posture .plan-row { margin-top:18px; gap:30px; }
   /* Sprint 5 - Note du portefeuille */
   .gradecard .ghead { display:flex; align-items:center; gap:22px; margin:14px 0 18px; padding-bottom:18px; border-bottom:1px solid var(--line); }
   .gradecard .gletter { font-family:var(--fm); font-weight:500; font-size:56px; line-height:.9; letter-spacing:-.02em; padding:0 18px; border-radius:var(--r2); }
@@ -2556,17 +2569,17 @@ def render() -> Path:
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
-        f"{grade_html}"
-        f"{chat_html}"
-        f"{copilot_html}"
-        f"{cockpit_html}"
-        f'<div class="hrow">'
+        f'<div class="hrow star">'
         f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'
         f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
         f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
+        f"{grade_html}"
+        f"{chat_html}"
+        f"{copilot_html}"
+        f"{cockpit_html}"
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
