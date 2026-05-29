@@ -122,6 +122,34 @@ Arrêter d'ajouter des vues qui décrivent. Ajouter des **mécanismes qui contes
 
 Description vs Adversariat vs Preuve. Aujourd'hui = surchargé en description, défangé en adversariat (kill_criteria fundamental-only c'est bien mais c'est défensif, pas offensif), **zéro en preuve d'edge**. La preuve d'edge est ce qui sépare un outil perso d'un actif.
 
+### Analyse / contre-points (29/05/2026)
+
+Le cadre est juste. Trois nuances à graver dans le marbre avant qu'on construise :
+
+**Sur Move #2 (contrefactuel — le pick user)** :
+- *Piège psychologique* : si sur les 24 premiers sells de winners, 18 ont sous-performé le hold, il faudra vivre avec ce chiffre quotidiennement. **Designer la surface pour qu'elle soit utile (calibre le prochain sell), pas écrasante (paralyse).**
+- *Piège méthodologique* : le contrefactuel naïf "qu'aurait fait le hold" ignore le coût d'opportunité. Si on a vendu Shin-Etsu pour acheter Safran, le contrefactuel correct n'est pas "Shin-Etsu seul" mais "Shin-Etsu vs Safran". **À traiter à l'entrée, sinon la métrique est trompeuse.**
+
+**Sur Move #4 et #2 — ils sont jumeaux, pas séquentiels.** La pré-registration immutable est ce qui *rend valide* le contrefactuel. Sans elle, on peut toujours raconter ex-post "j'ai vendu Shin-Etsu pour financer Safran" même si c'était par peur. La pré-reg verrouille l'intention au moment du trade ; le contrefactuel mesure si l'intention a tenu. **Construire #2 sans #4 = chiffre intéressant mais pas défendable.** Penser le champ `intent` immutable au moment de coder #2.
+
+**Sur Move #1 (sell-friction) — piège ergonomique majeur.** Friction sur tout sell-winner → route around (broker direct) dans 2 semaines. La friction doit être **informative, pas bloquante** : "voici le bear case, le steelman, et ce que dit ta calibration sur tes sells passés — exécute si tu maintiens". Pas un confirm dialog avec compte à rebours. **La friction ergonomique tue la friction épistémique** : trop friction visuelle = user filtre tout, y compris le signal qu'il devrait écouter.
+
+### Re-priorisation (vs ordre original)
+
+- **Move #5 (jauge composite)** est plus haut leverage que noté. C'est le SEUL move qui **consolide la surface** au lieu d'en ajouter — exactement le fil rouge "stop adding views". Effort 1j. **À faire avant #1, en parallèle de #2.**
+- **Move #3 (process score)** est le plus fragile philosophiquement. La rubric process définie par soi-même → goalpost moving inconscient ("ma décision était bonne parce que MON cadre est par construction bon"). Pour être défendable Path 5/6, la rubric devrait être pré-écrite et signée avant d'avoir vu les outcomes — très difficile en solo. **À faire en dernier ou pas du tout.**
+
+### Ce qui manque dans la liste — résistance au backtest narratif
+
+Quand Path 6 publie, lecteurs/acquéreurs vont demander "et avant le 10/06 ?". Cold-start mur. **Engagement explicite à graver** : *"aucune prédiction antérieure au 10/06/2026 n'entre dans mon Brier publié, parce qu'elles ne sont pas pré-registrées avec la même discipline"*. Cette honnêteté affichée vaut plus, paradoxalement, qu'un Brier rétroactif sur n=157 à 0.5 qui sentirait le faux track-record.
+
+### Ordre opérationnel finalisé (après book canonique + audit boucle)
+
+1. **#5 jauge composite AI capex** (consolide, ~1j)
+2. **#4 + #2 jumeaux** (pré-registration immutable + contrefactuel intent-aware, l'asset central, ~5-7j combinés)
+3. **#1 adversaire** (bear case + sell-friction informative pas bloquante, ~3j)
+4. **#3 process score** (optionnel long-tail, ne pas le construire sans rubric pré-signée)
+
 ---
 
 ## ACCORD EN VIGUEUR — Phase construction du book
