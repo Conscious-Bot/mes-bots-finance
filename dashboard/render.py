@@ -1279,9 +1279,11 @@ def _conceptions_panel() -> str:
             "pos" if (isinstance(val, int | float) and val > 0.1) else "neu"
         )
         text = (c.get("conception_text") or "").strip()
-        if len(text) > 380:
-            text = text[:377] + "..."
         text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        # 1200+ chars = summarize via LLM upstream a posteriori. Aujourd'hui
+        # max obs = 791, donc accordeon suffit. Cap hard a 1500 par securite.
+        if len(text) > 1500:
+            text = text[:1497] + "..."
         n = c.get("n_signals_used") or 0
         ccls = "high" if conv >= 60 else ("mid" if conv >= 35 else "low")
         rows.append(
@@ -1296,8 +1298,11 @@ def _conceptions_panel() -> str:
     return (
         '<div class="card pad conceptionscard" style="margin-bottom:18px">'
         '<div class="colhead"><span class="t">Ce que le bot pense par ticker</span>'
-        '<span class="a">synth&egrave;se stable per ticker mise &agrave; jour chaque semaine</span></div>'
+        '<span class="a">synth&egrave;se stable per ticker mise &agrave; jour chaque semaine '
+        '&middot; survole ou clique pour d&eacute;rouler</span></div>'
         + "".join(rows)
+        + "<script>document.querySelectorAll('.conceptionscard .bc-row').forEach(function(e){"
+        "e.addEventListener('click',function(){e.classList.toggle('open')})});</script>"
         + "</div>"
     )
 
@@ -3290,8 +3295,9 @@ _CSS = """
   .chatsigcard .cs-quote { font-family:var(--fm); font-size:11.5px; font-style:italic; color:var(--ink); opacity:.85; line-height:1.4; margin-bottom:3px; }
   .chatsigcard .cs-note { font-family:var(--fm); font-size:10.5px; color:var(--steel); line-height:1.4; }
   /* Layer 2 - Conceptions du bot */
-  .conceptionscard .bc-row { padding:14px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
+  .conceptionscard .bc-row { padding:14px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); cursor:pointer; }
   .conceptionscard .bc-row:last-child { border-bottom:none; }
+  .conceptionscard .bc-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); border-radius:var(--r2); }
   .conceptionscard .bc-head { display:flex; align-items:baseline; gap:10px; margin-bottom:7px; flex-wrap:wrap; }
   .conceptionscard .bc-target { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); }
   .conceptionscard .bc-kind { font-family:var(--fb); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); }
@@ -3304,7 +3310,10 @@ _CSS = """
   .conceptionscard .bc-val.pos { background:color-mix(in srgb,var(--acc) 14%,transparent); color:var(--acc); }
   .conceptionscard .bc-val.neu { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
   .conceptionscard .bc-n { font-family:var(--fm); font-size:10px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
-  .conceptionscard .bc-text { font-family:var(--fm); font-size:12.5px; line-height:1.55; color:var(--ink); opacity:.88; }
+  .conceptionscard .bc-text { font-family:var(--fm); font-size:12.5px; line-height:1.55; color:var(--ink); opacity:.88; max-height:62px; overflow:hidden; position:relative; transition:max-height .3s ease; }
+  .conceptionscard .bc-text::after { content:""; position:absolute; bottom:0; left:0; right:0; height:24px; background:linear-gradient(to bottom, transparent, var(--paper, #f5efe3)); pointer-events:none; transition:opacity .2s ease; }
+  .conceptionscard .bc-row:hover .bc-text, .conceptionscard .bc-row.open .bc-text { max-height:600px; }
+  .conceptionscard .bc-row:hover .bc-text::after, .conceptionscard .bc-row.open .bc-text::after { opacity:0; }
   /* Layer 3 - Preferences calibrees */
   .preferencescard .pr-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px; }
   .preferencescard .pr-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:12px 14px; }
