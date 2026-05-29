@@ -39,15 +39,15 @@ Cadre persisté : `config.yaml.user_strategy.construction_phase: true` + badge d
 
 ### Court terme (cette semaine)
 
-- [ ] **Insider buy clusters table vide** : `insider_buy_clusters_log` à 0 row. Handler `/insider_buy_cluster_stats` fonctionne (pas broken), mais le cron `scheduled_buy_cluster_scan_job` ne produit aucun cluster. À investiguer : seuil de détection trop strict OU snapshots insiders insuffisants. NB : `insider_snapshots` table populée (voir risk_signal_monitor).
-- [ ] **Décisions table NULL audit** : pattern récurrent de `thesis_id NULL` (id=10 fixé Day 17). Batch read + UPDATE rattach orphans + identifier handlers qui n'auto-link pas (read+data, safe).
-- [ ] **Risk_watch panel** : construction-lens ajouté ce soir (badge ambre "lecture informative"). Vérifier que je ne crie pas "critical" sur la page Vue d'ensemble pendant la construction.
+- ✅ **Insider buy clusters table vide** : investigué 29/05. Pas un bug — la watchlist AI-heavy montre des insiders massivement VENDEURS (NVDA -38, AVGO -95, MU -61, AMD -46). TSM seul a 26 buys mais $254k total << seuil $1M moderate. Miroir exact du signal `insider_selling_cluster` TRIGGERED capturé par risk_signal_monitor. Aucune action code requise.
+- ✅ **Décisions table NULL audit** : 7/10 NULL, 6 backfillés à la main (id 13-18), id 19 reste NULL légitimement (*PORTFOLIO*). Source du bug identifiée et patchée : `intelligence/chat_intent.py:326` appelait `log_decision` sans `thesis_id`. Fix en place — auto-link via lookup ticker → thèse active.
+- ✅ **Risk_watch panel construction-lens** : déployé ce soir.
 
 ### Moyen terme (~1 semaine)
 
-- [ ] **`shared/display.py` canonical refactor** (331 LOC, 0 import détecté = code mort ou jamais câblé). Décider : câbler partout OU supprimer.
-- [ ] **TG canonical /portfolio /positions /digest** : audit imports + format devise hardcodé. Probable que ces handlers n'utilisent pas `shared.display`.
-- [ ] **`render.py` 4328 LOC** (croissance +2266 vs TODO précédent). Cosmétique, mais le split en sous-modules réduirait charge mentale de patch. Post-10/06.
+- ✅ **`shared/display.py`** : audit confirme qu'il EST déjà câblé (4 imports : `morning_brief.py`, `positions.py`, `observability.py`, `portfolio_views.py`). Le TODO précédent disait "0 imports" — faux. Pas de refactor à faire.
+- [ ] **TG canonical /portfolio /positions /digest** : `portfolio_views.py` et `positions.py` utilisent déjà `shared.display`. Reste à vérifier que `/digest` n'a pas de format devise hardcodé (probablement non critique).
+- [ ] **`render.py` 4328 LOC** : cosmétique, split en sous-modules post-10/06.
 
 ### Path 6 (post-10/06, ouverture publique)
 
