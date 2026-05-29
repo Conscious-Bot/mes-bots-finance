@@ -380,6 +380,134 @@ def _copilot_panel() -> str:
     )
 
 
+def _wrapper_panel() -> str:
+    """Sprint 16 — Placement PEA / CTO + flag PEA-eligible mal places + tax-loss harvest."""
+    try:
+        from intelligence import wrapper_tax as _wt
+
+        alloc = _wt.compute_wrapper_allocation()
+        losses = _wt.compute_tax_loss_harvest_candidates(min_loss_pct=-5)
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">wrapper indispo: {type(e).__name__}</div></div>'
+    rows_alloc = []
+    for k in ("PEA", "CTO", "unknown"):
+        pct = alloc["allocation_pct"][k]
+        eur = alloc["allocation_eur"][k]
+        if eur == 0:
+            continue
+        rows_alloc.append(
+            f'<div class="wr-row"><span class="wr-key">{k}</span>'
+            f'<span class="wr-pct mono">{pct:.1f}%</span>'
+            f'<span class="wr-eur mono">{eur:,.0f}€</span></div>'
+        )
+    misalloc_html = ""
+    if alloc["n_pea_misallocated"]:
+        items = "".join(
+            f'<div class="wr-mis"><span class="wr-mis-tk">{m["ticker"]}</span>'
+            f'<span class="wr-mis-pct mono">{m["weight_pct"]:.1f}%</span>'
+            f'<span class="wr-mis-eur mono">{m["weight_eur"]:,.0f}€</span></div>'
+            for m in alloc["pea_misallocated_in_cto"]
+        )
+        misalloc_html = (
+            '<div class="wr-section">'
+            f'<div class="wr-sh">PEA-eligibles loges au CTO (n={alloc["n_pea_misallocated"]})</div>'
+            + items + '</div>'
+        )
+    loss_html = ""
+    if losses:
+        items = "".join(
+            f'<div class="wr-mis"><span class="wr-mis-tk">{loss["ticker"]}</span>'
+            f'<span class="wr-mis-pct mono neg">{loss["pnl_pct"]:+.1f}%</span>'
+            f'<span class="wr-mis-eur mono">{loss["moins_value_eur"]:+,.0f}€</span></div>'
+            for loss in losses
+        )
+        loss_html = (
+            '<div class="wr-section">'
+            f'<div class="wr-sh">Recolte moins-values CTO (seuil -5%, n={len(losses)})</div>'
+            + items + '</div>'
+        )
+    return (
+        '<div class="card pad wrappercard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Placement fiscal (PEA / CTO)</span>'
+        '<span class="a">tax-loss harvest + flag PEA-eligibles mal places</span></div>'
+        f'<div class="wr-alloc">{"".join(rows_alloc)}</div>'
+        f'{misalloc_html}{loss_html}'
+        '</div>'
+    )
+
+
+def _fx_exposure_panel() -> str:
+    """Sprint 16 — exposition par devise (book euro avec sleeve USD/JPY/KRW)."""
+    try:
+        from intelligence import wrapper_tax as _wt
+
+        fx = _wt.compute_fx_exposure()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">FX indispo: {type(e).__name__}</div></div>'
+    if not fx:
+        return ""
+    rows = []
+    for cur, d in fx.items():
+        pct = d["pct"]
+        wcls = "high" if pct >= 40 else ("mid" if pct >= 15 else "low")
+        tks = ", ".join(d["tickers"][:8])
+        if len(d["tickers"]) > 8:
+            tks += f" +{len(d['tickers']) - 8}"
+        rows.append(
+            f'<div class="fx-row">'
+            f'<div class="fx-head"><span class="fx-cur">{cur}</span>'
+            f'<span class="fx-pct {wcls} mono">{pct:.1f}%</span>'
+            f'<span class="fx-eur mono">{d["eur"]:,.0f}€</span>'
+            f'<span class="fx-n">n={d["n_positions"]}</span></div>'
+            f'<div class="fx-bar"><div class="fx-fill {wcls}" style="width:{min(pct, 100):.1f}%"></div></div>'
+            f'<div class="fx-tks">{tks}</div></div>'
+        )
+    return (
+        '<div class="card pad fxcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Exposition FX</span>'
+        '<span class="a">book euro avec sleeves USD / JPY / KRW non-hedges</span></div>'
+        + "".join(rows)
+        + "</div>"
+    )
+
+
+def _benchmark_panel() -> str:
+    """Sprint 16 — alpha vs SOX (book return vs benchmark sector)."""
+    try:
+        from intelligence import benchmark as _bm
+
+        bench = _bm.compute_alpha_vs_sox(months=6)
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">benchmark indispo: {type(e).__name__}</div></div>'
+    if "error" in bench:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Benchmark indispo (yfinance non installe ou SOX fetch failed)."
+            "</div></div>"
+        )
+    alpha = bench["alpha_pct"]
+    book_r = bench["book_return_pct"]
+    bench_r = bench["bench_return_pct"]
+    acls = "pos" if alpha > 0 else ("neg" if alpha < 0 else "neu")
+    warning = bench.get("warning")
+    warning_html = (
+        f'<div class="bm-warn">⚠️ {warning}</div>' if warning else ""
+    )
+    return (
+        '<div class="card pad benchcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Alpha vs SOX</span>'
+        f'<span class="a">{bench["bench_window"]} &middot; book vs PHLX Semiconductor</span></div>'
+        f'{warning_html}'
+        '<div class="bm-grid">'
+        f'<div class="bm-cell"><div class="bm-h">Book</div><div class="bm-v mono">{book_r:+.1f}%</div></div>'
+        f'<div class="bm-cell"><div class="bm-h">SOX</div><div class="bm-v mono">{bench_r:+.1f}%</div></div>'
+        f'<div class="bm-cell"><div class="bm-h">Alpha</div><div class="bm-v mono {acls}">{alpha:+.1f}%</div></div>'
+        '</div>'
+        f'<div class="bm-foot">{bench["interpretation"]}</div>'
+        '</div>'
+    )
+
+
 def _kill_criteria_panel() -> str:
     """Sprint 15 — kill-criteria status per these. Triggered/at_risk en haut."""
     try:
@@ -2868,6 +2996,45 @@ _CSS = """
   .killcard .kc-conf { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
   .killcard .kc-reason { font-family:var(--fm); font-size:12px; color:var(--ink); opacity:.88; line-height:1.5; margin-bottom:4px; }
   .killcard .kc-ev { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  /* Sprint 16 - Wrapper PEA/CTO + FX + Benchmark */
+  .wrappercard .wr-alloc { display:flex; gap:18px; margin:14px 0 18px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+  .wrappercard .wr-row { flex:1; padding:12px 14px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); display:flex; flex-direction:column; gap:4px; }
+  .wrappercard .wr-key { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; }
+  .wrappercard .wr-pct { font-family:var(--fm); font-size:22px; font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .wrappercard .wr-eur { font-family:var(--fm); font-size:11px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .wrappercard .wr-section { margin-top:14px; }
+  .wrappercard .wr-sh { font-family:var(--fb); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
+  .wrappercard .wr-mis { display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
+  .wrappercard .wr-mis:last-child { border-bottom:none; }
+  .wrappercard .wr-mis-tk { font-family:var(--fm); font-weight:600; color:var(--ink); min-width:80px; }
+  .wrappercard .wr-mis-pct { font-family:var(--fm); color:var(--ink); margin-left:auto; font-variant-numeric:tabular-nums; min-width:55px; text-align:right; }
+  .wrappercard .wr-mis-pct.neg { color:var(--bear); }
+  .wrappercard .wr-mis-eur { font-family:var(--fm); color:var(--steel); font-variant-numeric:tabular-nums; min-width:80px; text-align:right; }
+  .fxcard .fx-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .fxcard .fx-row:last-child { border-bottom:none; }
+  .fxcard .fx-head { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
+  .fxcard .fx-cur { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); }
+  .fxcard .fx-pct { font-family:var(--fm); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .fxcard .fx-pct.high { color:var(--bear); }
+  .fxcard .fx-pct.mid { color:#c89b00; }
+  .fxcard .fx-pct.low { color:var(--acc); }
+  .fxcard .fx-eur { font-family:var(--fm); font-size:11px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
+  .fxcard .fx-n { font-family:var(--fm); font-size:10px; color:var(--steel); min-width:32px; text-align:right; font-variant-numeric:tabular-nums; }
+  .fxcard .fx-bar { height:5px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:var(--r1); overflow:hidden; margin:4px 0 6px; }
+  .fxcard .fx-fill { height:100%; border-radius:var(--r1); }
+  .fxcard .fx-fill.high { background:var(--bear); }
+  .fxcard .fx-fill.mid { background:#c89b00; }
+  .fxcard .fx-fill.low { background:var(--acc); }
+  .fxcard .fx-tks { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .benchcard .bm-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; margin:14px 0; }
+  .benchcard .bm-cell { padding:14px 18px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
+  .benchcard .bm-h { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; margin-bottom:6px; }
+  .benchcard .bm-v { font-family:var(--fm); font-size:24px; font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .benchcard .bm-v.pos { color:var(--acc); }
+  .benchcard .bm-v.neg { color:var(--bear); }
+  .benchcard .bm-v.neu { color:var(--steel); }
+  .benchcard .bm-foot { font-family:var(--fm); font-size:12px; color:var(--steel); margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
+  .benchcard .bm-warn { font-family:var(--fm); font-size:11.5px; color:#c89b00; background:color-mix(in srgb,#c89b00 8%,transparent); padding:8px 12px; border-radius:var(--r2); margin:12px 0 0; }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -3486,6 +3653,9 @@ def render() -> Path:
     mauboussin_html = _mauboussin_sizing_panel()
     valo_html = _valo_above_bull_panel()
     kill_html = _kill_criteria_panel()
+    wrapper_html = _wrapper_panel()
+    fx_html = _fx_exposure_panel()
+    bench_html = _benchmark_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -3506,6 +3676,9 @@ def render() -> Path:
         f"{kill_html}"
         f"{trajectory_html}"
         f"{factor_html}"
+        f"{fx_html}"
+        f"{bench_html}"
+        f"{wrapper_html}"
         f"{spof_html}"
         f"{stress_html}"
         f"{mauboussin_html}"

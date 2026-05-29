@@ -6,7 +6,7 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 46 | **Total indexes**: 70 | **Total rows**: 4,421
+**Total tables**: 46 | **Total indexes**: 70 | **Total rows**: 4,463
 
 
 ## Core entities
@@ -524,7 +524,7 @@ CREATE TABLE handler_calls (
 
 **Indexes**: `idx_handler_calls_name`, `idx_handler_calls_timestamp`
 
-### `llm_calls` (1,199 rows)
+### `llm_calls` (1,220 rows)
 
 ```sql
 CREATE TABLE llm_calls (
@@ -675,7 +675,7 @@ CREATE TABLE ticker_axes (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT 
 
 **Indexes**: `idx_axes_macro`, `idx_axes_ticker`
 
-### `ticker_meta` (7 rows)
+### `ticker_meta` (28 rows)
 
 ```sql
 CREATE TABLE ticker_meta (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), ticker TEXT NOT NULL, fade_rate_score INTEGER NOT NULL, moat_durability_years INTEGER, upstream_critical_deps_json TEXT, valo_what_priced_in TEXT, valo_pe_or_proxy REAL, valo_above_bull_case BOOLEAN, rationale TEXT, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL);
