@@ -310,10 +310,33 @@ def _risk_watch_panel() -> str:
             '</div>'
             '</div>'
         )
+    # Phase construction : cadre la lecture du risk_watch. La severity reste
+    # "critical" (la menace marche est reelle), mais l'exposure 78% va se
+    # diluer mecaniquement quand les decorrelants arrivent. Lecture : watch,
+    # pas act-now sur le ratio.
+    construction_lens = ""
+    try:
+        from pathlib import Path as _Path
+
+        import yaml as _yaml
+
+        _cfg = _yaml.safe_load(_Path("config.yaml").read_text())
+        if (_cfg.get("user_strategy") or {}).get("construction_phase"):
+            construction_lens = (
+                '<div class="rw-lens">'
+                'Phase construction active &middot; '
+                "l'expo actuelle se diluera mecaniquement vers la cible "
+                "quand les decorrelants (Energie-pour-IA, Defense, Robotique) entreront. "
+                '<b>Lecture : surveiller, pas corriger.</b>'
+                '</div>'
+            )
+    except Exception:
+        pass
     return (
         '<div class="card pad riskwatchcard" style="margin-bottom:18px">'
         '<div class="colhead"><span class="t">Top Risques surveillance</span>'
         f'<span class="a">{len(risks_list)} risque(s) declare(s) &middot; thesis-level reflection</span></div>'
+        f'{construction_lens}'
         + "".join(out)
         + "</div>"
     )
@@ -3211,6 +3234,7 @@ _CSS = """
   @media (max-width:980px) { .gradecard .gsplit { grid-template-columns:1fr; gap:14px; } }
   .gradecard .ggate { font-family:var(--fm); font-size:12px; color:var(--bear); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:10px 14px; border-radius:var(--r2); margin:14px 0; border-left:3px solid var(--bear); }
   /* Top Risques surveillance */
+  .riskwatchcard .rw-lens { font-family:var(--fm); margin:10px 0 4px; padding:9px 12px; background:color-mix(in srgb, #c89b00 5%, transparent); border-left:2px solid #c89b00; border-radius:2px; font-size:11.5px; color:var(--ink); line-height:1.55; }
   .riskwatchcard .rw-card { padding:16px 0; border-bottom:1px solid var(--line); }
   .riskwatchcard .rw-card:last-child { border-bottom:none; }
   .riskwatchcard .rw-head { display:flex; align-items:baseline; gap:12px; margin-bottom:8px; }

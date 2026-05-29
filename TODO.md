@@ -1,239 +1,152 @@
-# TODO — HEIMDALL Sentinelle (mes-bots-finance)
+# TODO — HEIMDALL (mes-bots-finance)
 
-**Refresh**: 28 mai 2026 (Day 17, session 28/05)
-**Mode**: High Standard / Observation jusqu'au 10/06/2026
-**Archive**: backlog historique (Day 2-16) → `docs/archive/TODO_archive_20260523.md`
-
----
-
-## OBSERVATION (jusqu'au 10/06) — RECADRÉ Day 17
-
-**Frozen hard** (corrompt batch resolution du 10/06) :
-- intelligence/{learning, asymmetry, materiality_v2} (logique prediction)
-- Credibility prior 0.5 + Brier methodology
-- Classifieur 8-K recal
-- Policy 2-week observation guardrail dans /risk_check
-
-**Fair game maintenant** : display, UX, refactor pur, data-correction, doc, handler fix, schema cleanup, nouvelle feature ADDITIVE (sans modifier flow existant). Daily /brief continue. Auto-summaries dimanche maintenus.
-
-Le 10/06 : ~40-44 prédictions auto-résolvent → première vraie mesure Brier → point de décision Path 5/6.
+**Refresh**: 29 mai 2026 (Day 18 close, après audit anti-stale)
+**Mode**: Phase construction du book + Observation Brier jusqu'au 10/06
+**Archives**: `TODO.md.backup_*` + `docs/archive/TODO_archive_20260523.md`
 
 ---
 
-## VÉRIFIER (empirique, court terme)
+## ACCORD EN VIGUEUR — Phase construction du book
 
-- **Prob fix en prod** : `max_id` actuel = 157, toutes à 0.5. La prochaine prédiction créée (id 158) doit porter une prob != 0.5 → intégration confirmée. Pas encore observable.
-- **~27 mai** : premières résolutions — vérifier `final_price` sains (garde `px != px` posée).
+Book actuel : **43 009 € / 27 positions**. Cible documentée : **70 180 € / ~33 positions**.
 
----
+Le gap (~27 k€) va massivement aux décorrélants : Énergie-pour-IA (Schneider, Prysmian, GE Vernova, Constellation, ASP Isotopes), Défense (BWXT + renforcement Thales/Mitsubishi), Robotique (Harmonic Drive), Compute & semis (Atlas Copco, Air Liquide, ASMI, Soitec, ams OSRAM, Advantest, Astera Labs, Marvell).
 
-## DÉCISION-TIME UX (Day 16 friction map, sprint 16-18) — items 1-7 unfrozen, #8 frozen
+**Conséquence opérationnelle** : ne PAS pousser trims sur cluster_cap / ballast_strict / expo AI capex actuels — ils convergent vers la cible. Lecture informative, pas actionnable. Bascule `construction_phase: false` quand book ~65 k€.
 
-1. /risk_check sémantique (add position vs eval position existante)
-2. /thesis premortem : pas de résolution ticker→ID
-3. premortem non-rétroactif sur ~21/33 theses
-4. /thesis set : ambiguïté devise (EUR storage vs USD display)
-5. schéma 3 colonnes target (target_price legacy probablement mort + partial + full)
-6. /asymmetry single-thesis : verdict tautologique (leçon Day 5 non-appliquée à la vue single)
-7. /thesis set : pas d'auto-journal décisions (gap KPI #5)
-8. Bot n'encode pas la policy 2-week observation → /risk_check re-recommande trim. Guardrail : `thesis_age < 14d` → prepend "WITHIN_OBSERVATION_WINDOW"
+Cadre persisté : `config.yaml.user_strategy.construction_phase: true` + badge dashboard panneau Stratégie + memoire `portfolio_construction_phase.md`.
 
 ---
 
-## DÉCISIONS PORTFOLIO (opérateur — Olivier)
+## CALENDRIER
 
-- **Concentration AI Compute ~74%** [ESCALATED Day 17] : trim direction vs bump policy. Requise avant prochain /position_buy. **Mini-ADR samedi 30/05 matin** : plan de-risk 30-60-90j, sequence 4063.T (10.7%) -> SNPS (8.3%) -> TSM (6.2%) -> ASML (5.8%), raison = mecanique cap pre-engagee. Decision id no_action logged Day 17 en attendant ADR.
-- **COHR (#31)** : hold-to-stop $324.37, review 30/05 (override risk_check trim par policy 2-week).
-- **NVDA** : 4 départs officers en 105j + 2 décisions non résolues → /risk_check NVDA candidat.
-- **Orphans c1** AMD/GOOGL/SAF.PA/TSLA : re-taggés en narratifs le 23/05 MAIS target/stop toujours NULL. J+30 = 16/06 : remplir target/stop ou clore.
-
----
-
-## PRODUIT Path 6
-
-- **Vue calibration** (LA surface produit) : à bâtir quand ≥10 prédictions prob-différenciée résolues (~fin juin). Reliability diagram + Brier-over-time + ledger résolues. Trancher : neutral exclu vs binaire-0.5. **NE PAS publier le Brier des 157 legacy (à 0.5).**
-- **Substack** : fact-check SK hynix $1,216 avant publish ; viser 10/06 (batch resolution).
-- **Logo** : intégrer candidat A (heaume-onde) dans render.py `.logo svg` + favicon.
+| Date | Item | État |
+|---|---|---|
+| **30/05** demain | Mini-ADR concentration AI Compute | **CLOS** — décision id=19 `no_action_flag` loggée 29/05 07:22, raison phase construction + 6 signaux surveillance |
+| **31/05** T-2 | Hetzner migration (ADR ≠ 002, ADR 002 est `universe-scaling`) | **À ADRifier** — pas de script deploy/systemd encore. Créer ADR 002b ou 011. |
+| **10/06** D+12 | Vague résolutions ~40-44 prédictions → 1ère mesure Brier | ON TRACK |
 
 ---
 
-## INFRA / DETTE — recadré Day 17
+## VALIDATIONS USER ATTENDUES
 
-### Scheduled
-
-- **Hetzner migration ADR 002 + deploy** ≈ 31 mai (T-3) : VPS Ubuntu + systemd Restart=always + tunnel SSH + OAuth headless
-
-### Unfrozen — fair game maintenant
-
-- shared/display.py canonical refactor (~5-10h)
-- ADR 005 P2 audit résiduel : position_events.price, positions.realized_pnl, decisions.price_at_decision
-- TG canonical restant : /portfolio, /positions, /digest
-- Univers prune **conditionnel** : tickers à 0 signal en 30j only (pas ceux qui génèrent encore — affecterait signal flow)
-- Split render.py 2062 LOC en bot/handlers/*.py (cosmétique)
-- Rapatriement ~44 sites sqlite bruts via shared.storage (read-path refactor)
-- render_panel rollout (commit 1401e2a unused)
-
-### Frozen (pipeline-protected, attendre 10/06)
-
-- Classifieur 8-K : tout Item 5.02 = HIGH (bruit signal→prediction) → recal post-10/06
-- Policy 2-week observation → encoder dans PHILOSOPHY.md + guardrail bot → post-10/06
-
-### Closed (Day 16)
-
-- ~~target_partial NULL sur 33/33 theses~~ : backfill x28 fait Day 16, schema debt clos
-- schema debts : last_reviewed vs last_revisit_at (doublon, un mort) ; opened_at format (space, no offset) vs last_revisit_at (T+offset)
-- OAuth Cloud Console "Push to Production" (refresh token 7d → 6mo)
+- [ ] **Drawdown tolerance 75%** → CTA active dans panneau Stratégie : -23% AI capex de-rating = -9 892 €. À valider contre allocation **finale** 70 k€, pas photo du jour.
+- [ ] **Orphelins c1** : data déjà saine (AMD 618/289, GOOGL 551/258, SAF.PA target/stop remplis, TSLA idem). **Item retiré** du TODO — bug du TODO précédent.
 
 ---
 
-## GIT
+## DOABLE MAINTENANT (fair game, additif, n'impacte pas pipeline résolution)
 
-- `origin/main` 2 commits derrière (push quand prêt — secrets confirmés hors historique)
-- Tag `day15-brier-dashboard` cosmétiquement mal nommé (calendrier = Day 17)
+### Court terme (cette semaine)
+
+- [ ] **Insider buy clusters table vide** : `insider_buy_clusters_log` à 0 row. Handler `/insider_buy_cluster_stats` fonctionne (pas broken), mais le cron `scheduled_buy_cluster_scan_job` ne produit aucun cluster. À investiguer : seuil de détection trop strict OU snapshots insiders insuffisants. NB : `insider_snapshots` table populée (voir risk_signal_monitor).
+- [ ] **Décisions table NULL audit** : pattern récurrent de `thesis_id NULL` (id=10 fixé Day 17). Batch read + UPDATE rattach orphans + identifier handlers qui n'auto-link pas (read+data, safe).
+- [ ] **Risk_watch panel** : construction-lens ajouté ce soir (badge ambre "lecture informative"). Vérifier que je ne crie pas "critical" sur la page Vue d'ensemble pendant la construction.
+
+### Moyen terme (~1 semaine)
+
+- [ ] **`shared/display.py` canonical refactor** (331 LOC, 0 import détecté = code mort ou jamais câblé). Décider : câbler partout OU supprimer.
+- [ ] **TG canonical /portfolio /positions /digest** : audit imports + format devise hardcodé. Probable que ces handlers n'utilisent pas `shared.display`.
+- [ ] **`render.py` 4328 LOC** (croissance +2266 vs TODO précédent). Cosmétique, mais le split en sous-modules réduirait charge mentale de patch. Post-10/06.
+
+### Path 6 (post-10/06, ouverture publique)
+
+- [ ] **Calibration plot home** : aucun `calibration|reliability|brier` plot dans `render.py`. C'est le money-shot Path 6 — bâtir quand ≥10 prédictions prob-différenciée résolues.
+- [ ] **Substack** : fact-check SK Hynix $1,216 avant publish. Viser 10/06 (batch resolution).
+- [ ] **Telegram channels ingest** : `data_sources/telegram_channels.py` à créer. Architecture LEGER (channels publics, mirror gmail_.py). ADR si privés (Telethon/MTProto session).
+- [ ] **Panneau biais sous surveillance** : tracker les 2 biais nommés (vendre winners trop tôt / pas vendre crypto au top) avec décision→outcome. Loop-enriching.
 
 ---
 
-## PROJETS PARKÉS (séparés, non démarrés)
+## SÉCURITÉ (DIFFÉRÉ — déclencheurs définis)
 
-- **Personal Dashboard** (voice→Whisper→Supabase→frontend) — repo séparé probable, distinct de mes-bots-finance. Scoping ouvert.
-- **VPS migration** (Hetzner CX22 ~€6/mo) — post-10/06, trigger = KPI #2 GREEN + demande validée.
+- [ ] **Rotation OAuth Google** : `credentials.json` + `token.json` PAS dans git (gitignored, vérifié), MAIS encore présents dans Project Claude exposé. Runbook complet conservé dans `TODO.md.backup_pre_refresh_*` (4 étapes : Reset secret → Retirer accès → rm token → re-auth). Déclencheurs : push remote public, due-diligence Path 5, partage Project Claude, suspicion compromission.
 
 ---
 
 ## ADRs
 
-001 PIT credibility (Proposed) · 002 universe scaling · 003 targets · 004 USD canonical · 005 EUR-canonical positions · 006 debt-crisis monitor · 007 briefs ephemeral · 008 cluster-cap grandfather. Voir `docs/adrs/`.
+001 PIT credibility (Proposed) · **002 universe scaling** · 003 targets · 004 USD canonical · 005 EUR-canonical positions · 006 debt-crisis monitor · 007 briefs ephemeral · 008 cluster-cap grandfather · **009 line-cap by conviction** · **010 concentration policy** (35% défault, suspendu pour cet user) · 011 sizing modèle conviction-normalisée (à formaliser, mentionné CLAUDE.md §2).
+
+ADR Hetzner à créer (était mal référencé comme ADR 002).
 
 ---
 
-## KPI timers
+## KPI timers (état réel 29/05)
 
 | KPI | Cadence | État | Action si breach |
 |---|---|---|---|
-| **#2 NON-NEG** | Hebdo | 1 résolu, ~40-44 dues 10/06, J-18 ON TRACK | Stop 5j build |
+| **#2 NON-NEG** | Hebdo | 1 résolu, ~40-44 dues 10/06, **J-12 ON TRACK** | Stop 5j build |
 | #3 Brier | Hebdo | N=1 insufficient (vrai post id≥158) | Alert si >0.25 |
 | #4 panic sells | Mensuel | 0 GREEN | Pause + bias analysis |
-| #5 décisions | Mensuel | forward-only depuis 21/05 | No new thesis si <90% |
+| #5 décisions | Mensuel | 10 décisions ce mois, forward-only depuis 21/05 | No new thesis si <90% |
 | #6 vs benchmarks | Mensuel | INSUFFICIENT (365d) | Revue trim. |
 
-<!-- BRAINSTORM-2026-05-24 -->
+---
+
+## DONE depuis le dernier refresh TODO (28/05 → 29/05)
+
+### Sprint 19 — Cry-wolf elimination + lecture stricte
+
+- ✅ `kill_criteria_monitor` refonte prompt strict fundamental-only (interdit prix/timer/sentiment, 17 faux at_risk → 0)
+- ✅ Memoire `feedback-monitor-defaults` persistée (tout futur moniteur doit défaut à dormant)
+
+### Sprint 20 — Risk_watch first-class
+
+- ✅ `risk_watch.json` créé (Surchauffe tech / AI capex, 1 risk, 10 signaux)
+- ✅ `risk_signal_monitor.py` (cron daily 08h00, eval Haiku per signal + transition notify TG)
+- ✅ Détection live : `insider_selling_cluster` TRIGGERED (AVGO -$356M, AMD -$117M, MU -$54M, AMZN -$52M)
+- ✅ Panneau `_risk_watch_panel()` Vue d'ensemble
+
+### Sprint 21 — UX chat + dim
+
+- ✅ Hover tooltips dim PF → accordion expand inline (pattern `.geo-item`)
+- ✅ Auto-clear chat display 7-min idle (DB préservée)
+- ✅ Stat profondeur memoire dans subtitle chat
+
+### Sprint 22 — Boucle d'auto-amélioration
+
+- ✅ `decision_anniversary.py` (J+30/60/90/180/365 push TG + persist chat_extracted_signal)
+- ✅ `topical_recurrence.py` (aggregate chat_extracted_signals + inject dans `chat.assemble_context`)
+- ✅ `user_profile.py` enrichi (6 personality dimensions + topical_obsessions + coherence_check)
+- ✅ `chat.py` max_tokens 1500 → 4000 (fix truncation)
+
+### Sprint 23 (29/05 PM) — Audit lucide post-Stratégie
+
+- ✅ **Solidité haute 0% → 60.5%** : refonte `_compute_quality_T1_plus` lit `canonical_perimeter.solidite` (14 Incontournables). Plus le bug zombie J1.
+- ✅ **Autres paris 21.8% → 16.8%** : whitelist stricte ballast (Defense / Energy / Rare earths / Industrial reshoring). Tesla et HBM ne comptent plus comme décorrélants.
+- ✅ **Drawdown tolerance CTA** : panneau Stratégie surface -23% AI capex de-rating. Flag `config.yaml.user_strategy.drawdown_tolerance_validated: false`.
+- ✅ **FX exposure** déplacé sous Par pays dans Concentration (devise = axe concentration, pas analyse stratégique).
+- ✅ **"Ce que le bot pense" accordion** : preview 3 lignes + hover/click pour dérouler (au lieu de troncature 380 chars).
+- ✅ **Phase construction badge** : panneau Stratégie + memoire durable + lens propagé risk_watch.
+
+### Closed avant refresh
+
+- ✅ `/journal_decision` handler existe (`bot/handlers/positions.py:654`)
+- ✅ `_system_state` + `.cmdbar` supprimés (orphelins Day 17)
+- ✅ MRVL filtré (qty=0, status=out_of_scope, plus de problème d'affichage)
+- ✅ target_partial backfill x28 + schema debt (Day 16)
+- ✅ OAuth Cloud Console refresh token 7d → 6mo
 
 ---
 
-## 🧭 Brainstorm stratégique (24/05/2026) — add / cut / fix / red-team
+## MEMOIRES PERSISTÉES (auto-memory, persistent across sessions)
 
-Cadre = PHILOSOPHY ("enrichit la boucle ou feature isolée ?") + High Standard ("moins de surface > plus de discipline").
+`/Users/olivierlegendre/.claude/projects/-Users-olivierlegendre-mes-bots-finance/memory/MEMORY.md` :
 
-### 🔀 Décision en attente (bloque le reste)
-- [ ] **Trancher le reframe** : le dashboard est-il un outil d'ops perso (→ une table suffirait, on sur-investit l'esthétique) OU l'artefact public Path 6 (→ design = marketing, screenshot-first, 1 hero-view qui raconte la discipline) ? Décide toute la suite.
-
-### ➕ ADD (uniquement si ça ferme la boucle)
-- [ ] **Panneau "biais sous surveillance"** : tracker les 2 biais nommés (vendre winners trop tôt / pas vendre crypto au top), montrer decision→outcome — pas des positions statiques. C'est le produit, loop-enriching.
-- [ ] **Home calibration plot (money-shot Path 6)** : câbler maintenant, remplir au 10 juin quand les 45 predictions résolvent ("convictions 70 % → 70 % réel ?").
-
-### ✂️ CUT (inversion temporelle : solidifier OU supprimer)
-- [ ] Avancer l'**audit de pruning univers** (178 tickers, ~22 thésés ; couper ce qui ne produit aucune matière décisionnelle 90j).
-- [ ] Supprimer **dead code frais** : `_system_state` + `.cmdbar` (orphelins depuis le rail foot).
-- [ ] Évaluer **redondance onglets** : "Secteurs" vs "Concentration" ; "Signaux" (déclenche une action ou log brut ?). Un onglet qui ne déclenche rien dilue.
-
-### 🔧 FIX (narratif audit-grade / defensible — Path 5)
-- [ ] **SÉCURITÉ URGENT** : retirer `credentials.json` + `token.json` (client_secret en clair) du Project Claude + régénérer côté Google Cloud Console. Red flag acquéreur.
-- [ ] **Saisir vraies thèses** (conviction/cible/stop/invalidation) sur les 8 orphelins — le thesis tracker (cœur du bot) est vide sur 8/28 positions. Plus haut levier.
-- [ ] Revoir les **4 c1** (AMD/GOOGL/SAF.PA/TSLA) → J+30 ~16 juin.
-- [ ] Dette §5 : **unifier les deux writers** (`shared/positions.py` + `storage.py` = une seule passerelle).
-- [ ] **Unifier display EUR** (`portfolio_views.py` + sites multiples : $ → €).
-- [ ] **Unifier les 3 définitions de "open"**.
-- [ ] **Filtre held** sur MRVL (thèse active mais position fermée) dans paliers Positions.
-
-### 🎯 RED-TEAM (risques de queue Path 5/6)
-- Le track record ne s'accumule jamais assez : la boucle dépend de l'**usage quotidien** jusqu'au 10 juin, pas du code. Mantra : "discipline dans l'usage > dans le code".
-- Érosion solo : `VALUE_LOG` = **1 entrée** à ~J+14 ; le doc dit "vide à J+30 = signal". La beauté du dashboard peut masquer ce signal.
-
-### 🥇 Pari semaine (PAS du code)
-Thèses sur les 28 positions + revue 4 c1, puis **usage quotidien jusqu'au 10 juin**. Le dashboard est prêt à le refléter ; c'est l'usage qui crée l'asset.
-
-<!-- SECURITY-OAUTH-ROTATION -->
+- `presage-brand` · `needle-canonical` · `viz-horizontal-bars` · `next-session-agenda` · `feedback-plug-and-animate` · `glossaire-canonique` · `tax-loss-harvest-pending` · `feedback-monitor-defaults` · **`portfolio-construction-phase`** (29/05)
 
 ---
 
-## 🔒 SÉCURITÉ (DIFFÉRÉ 24/05/2026) — Rotation OAuth Google [HAUTE PRIORITÉ]
+## RED-TEAM (rappels)
 
-**Différé volontairement** le 24/05 (risque accepté, pas risque absent). Exposition déjà réelle : `client_secret` (GOCSPX-…) + `refresh_token` (scope gmail.readonly) en clair dans `credentials.json` / `token.json`, présents dans les fichiers du Project Claude. Access token périmé (13/05) mais le refresh_token reste actif → rotation requise, l'expiration ne suffit pas.
-
-**Déclencheurs — à faire AVANT :**
-- tout push du repo vers un remote public ou partagé
-- toute exposition due-diligence / acquéreur (Path 5)
-- tout partage du Project Claude
-- toute suspicion de compromission
-
-**Runbook (ordre impératif, aucun secret ne transite par un chat) :**
-1. Cloud Console → apis/credentials?project=mes-bots-finance → client OAuth `711001773276-…` → Reset secret (ou delete + recreate "Desktop app") → télécharger nouveau credentials.json, remplacer le local.
-2. myaccount.google.com/permissions → app mes-bots-finance → Retirer l'accès (tue le refresh_token actuel).
-3. Local : `rm -f token.json` puis `python -c "from data_sources.gmail_ import get_service; get_service()"` → consentement navigateur → token.json propre.
-4. Project Claude → réglages fichiers → retirer credentials.json + token.json (restent locaux + gitignorés).
-
-Ordre : 1 avant 3 (sinon re-auth avec l'ancien client). Vérif : le print du re-auth affiche l'email du profil Gmail.
-
-## Findings session 25/05/2026 (post ADR-006)
-
-### Feature candidate — page Géo
-Vue concentration géographique (US / EU / Asie). render_smoke l'anticipait (nav `geo` + `window.HQ=` données pays/siège), jamais bâtie. Valeur réelle vu le spread Asie (000660.KS, 6857.T, 4063.T) + EU (.PA/.AS) + US. = nav + window.HQ + bucketing pays.
-
-### risk/ wiring (post-10/06) — cap tiéré
-`risk/sizing.position_size()` n'applique que le cap PLAT (`style.position_max_pct` = 0.08, plafond c5), aveugle à `line_cap_by_conviction`. Au câblage de `risk.validate()`, enforcer le cap par conviction LÀ (validate connaît la conviction, sizing non) — sinon une ligne c2 peut être sizée à 8 %.
-
-## suite-7 (26/05/2026)
-- [pause] Axe crypto / biais #2 — stock-only depuis 26/05. Reactivation = routing -USD + retrait CRYPTO_DENY.
-- [done] P2 line_cap : clos (ADR 009 + fix verdict gouverneur render.py).
-- [open] Risk #1 : resolve backfill past-due (downtime 9h) — non audite.
-
-## suite-8 (27/05/2026)
-- [done] Dashboard cockpit canonique : palette par etat + metal (--c / chrome titres) + concentration rouge "alleger sans sortir" + barre etat-coloree. Documente CONVENTIONS.md.
-- [done] Hygiene : process check (1 bot + 1 serve), backup (integrity OK), git propre.
-- [open][P3 trivial] Theses "en profit N/total" rouge -> vert (etat sain). pcls -> acc.
-- [reminder] STYLE FIGE. Prochain gain != patch CSS. Usage quotidien + VALUE_LOG -> 10/06.
-- [open] Risk #1 (resolve backfill past-due si downtime) -- toujours non audite.
+- Discipline dans l'usage > dans le code. La boucle dépend de l'**usage quotidien** jusqu'au 10/06.
+- `VALUE_LOG` = 1 entrée à J+14. Doc dit "vide à J+30 = signal". La beauté du dashboard peut masquer ce signal.
+- Phase construction : tentation = trim "pour assainir les ratios" avant que les nouveaux noms entrent. Refuser. L'accord est documenté.
 
 ---
 
-## 📥 POST-OBSERVATION (>10/06) — Telegram channels comme sources ingestion
+## GIT
 
-**Capturé 27/05/2026. Trigger build = post-10/06 (respect freeze "no new sources").**
-
-Idée : brancher des channels Telegram d'info (semis/crypto/macro/Asia) dans l'entonnoir
-existant (signal_type Haiku -> materiality_v2 Sonnet -> credibility), comme les newsletters Gmail.
-
-### Fork d'architecture (depend de public vs prive)
-- Channels PUBLICS (t.me/s/<nom> accessible web) -> LEGER :
-  - data_sources/telegram_channels.py mirror de gmail_.py (fetch HTTP + parse)
-  - reutilise tout l'entonnoir existant, zero nouvelle auth
-  - entree config sources.starter_pack_phase2 (type: telegram_channel, credibility_initial 0.5)
-  - un cron type ingest_gmail_job (1h). Effort ~2-3h.
-- Channels PRIVES (invite-link t.me/+...) -> LOURD :
-  - session utilisateur Telethon/MTProto (compte perso, PAS le bot)
-  - nouvelle dep + auth code SMS + session string secret
-  - penible headless -> monter UNE FOIS sur Hetzner, SEQUENCER avec migration. ADR requis.
-
-### Garde-fous avant build
-- COUT : materiality Sonnet x volume. Estimer posts/jour AVANT (channels = 20-50/j possible
-  -> risque budget $15/mo). Throttle/filtre pre-scoring si volume eleve.
-- BRUIT : credibility 0.5 prior, earns tier empiriquement sur outcomes (semaines).
-- FREEZE : si build avant 10/06 (deconseille), mode INGEST-ONLY (collecte+score, PAS
-  d'auto-register predictions) pour ne pas polluer le ledger pendant l'observation.
-
-### Open questions (a repondre pour scoper)
-- Quels channels precisement ? (juger qualite reelle vs sources actuelles)
-- Publics ou prives ? (determine leger vs lourd)
-- Volume approx posts/jour ? (determine cout)
-
----
-
-## FRICTION-DERIVED (Day 17 audit) — unfrozen
-
-Items remontés du friction.md + audit decisions table. Tous unfrozen sous le nouveau critère pipeline-protection.
-
-- **/insider_buy_cluster_stats broken** : handler ne tourne plus (output vide ou erreur). Bloquant pour quantifier insider signal sur trades futurs. Fix prioritaire (handler-fix safe).
-- **/digest macro→trade gap** : /digest surface signaux macro sans drill-down ticker-specific. Soit ajouter top-N tickers par cluster signal, soit acter que /digest sert au framing thematique only (UX enhancement).
-- **Audit thesis_id NULL** dans decisions table : pattern récurrent (id=10 fixé Day 17). Batch audit + UPDATE pour rattacher les orphans + identifier les handlers qui n'auto-link pas (read + data-correction safe).
-- **/journal_decision NEW handler** (additif) : commande pour enrichir reasoning du dernier decision row après /position_buy/sell, contourne le placeholder "Buy via /position_buy" actuel. ADDITIF, ne modifie pas /position_buy/sell, donc safe-unfrozen. Réduit drastiquement la friction journalisation jusqu'au 10/06 → enrichit KPI #5.
-- **Reasoning prompt multi-turn dans cmd_position_buy/sell** : GREY ZONE (modifierait flow existant pendant obs). Préférer /journal_decision additif d'abord, le multi-turn vient post-10/06 si besoin.
+- Branch `main` propre, ~5 commits depuis dernier push.
+- Tag `day15-brier-dashboard` cosmétiquement mal nommé (calendrier = Day 17 quand posé).
