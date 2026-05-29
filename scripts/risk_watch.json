@@ -21,7 +21,12 @@
         "thesis_break_minus50": -39
       },
       "ballast_strict_pct": 14,
-      "ballast_strict_tickers": ["MP", "SAF.PA", "HO.PA", "CCJ"],
+      "ballast_strict_tickers": [
+        "MP",
+        "SAF.PA",
+        "HO.PA",
+        "CCJ"
+      ],
       "scenarios": [
         "De-rating multiple sans cassure fondamentale (style ete 2024): -25 a -35% noms premium, fondamentaux intacts",
         "Pause capex hyperscaler (META/MSFT/GOOGL/AMZN ralentissement 2026-2027): toute chaine pass-through (ASML/TSM/4063/BESI/KLAC/6857/7011/SU/AVGO/ALAB) se re-price ensemble, -35 a -45% facteur",
@@ -31,10 +36,19 @@
         {
           "id": "capex_hyperscaler",
           "label": "Capex guidance hyperscalers (next earnings)",
-          "tickers_to_watch": ["MSFT", "META", "GOOGL", "AMZN"],
+          "tickers_to_watch": [
+            "MSFT",
+            "META",
+            "GOOGL",
+            "AMZN"
+          ],
           "trigger": "Revision baissiere du capex 2026 / commentary prudent",
           "current_status": "monitoring",
-          "weight": "major"
+          "weight": "major",
+          "last_evaluated_at": "2026-05-29T08:45:04.127126+00:00",
+          "last_eval_reason": "Signaux récents montrent une activité de recherche élevée sur les hyperscalers et l'IA (signal_287 sur AWS margins, signal_233 sur Retatrutide), mais aucune révision baissière de capex 2026 ou commentary prudent explicitement documentée dans les sources identifiées.",
+          "last_eval_confidence": 45,
+          "last_eval_evidence_ids": []
         },
         {
           "id": "asml_bookings",
@@ -42,36 +56,64 @@
           "threshold": ">=50B EUR annual",
           "trigger": "Miss sur 2 quarters consecutifs",
           "current_status": "monitoring",
-          "weight": "major"
+          "weight": "major",
+          "last_evaluated_at": "2026-05-29T08:45:05.691322+00:00",
+          "last_eval_reason": "Les signaux récents traitent de mouvements d'investisseurs, perspectives macro et thèmes IA généraux, sans mention explicite de miss de bookings ASML ou révisions capex baissières requises pour déclencher l'alerte.",
+          "last_eval_confidence": 85,
+          "last_eval_evidence_ids": []
         },
         {
           "id": "tsm_monthly_rev",
           "label": "TSM monthly revenue + utilization N3/N2",
           "trigger": "Decline 2 mois consecutifs ou guidance prudent",
           "current_status": "monitoring",
-          "weight": "leading"
+          "weight": "leading",
+          "last_evaluated_at": "2026-05-29T08:45:07.686162+00:00",
+          "last_eval_reason": "Signaux récents montrent sentiment macro négatif général (dette, valorisations élevées, FOMO de la Fed) mais aucune evidence concrète de déclin consécutif des revenus TSM ou guidance prudente spécifique à TSM.",
+          "last_eval_confidence": 65,
+          "last_eval_evidence_ids": []
         },
         {
           "id": "hbm_pricing",
           "label": "HBM pricing (SK Hynix / Micron commentary)",
           "trigger": "Pricing power craque malgre ramp Blackwell soutien",
-          "current_status": "monitoring",
-          "weight": "major"
+          "current_status": "at_risk",
+          "weight": "major",
+          "last_evaluated_at": "2026-05-29T08:45:09.589100+00:00",
+          "last_eval_reason": "Signal_158 et signal_248 indiquent une valorisation élevée malgré les fondamentaux (Priced for Perfection, 800VDC Revolution), tandis que signal_272 montre Micron au trillion dollar club, suggérant un début de pattern de crack de pricing power malgré le soutien Blackwell.",
+          "last_eval_confidence": 72,
+          "last_eval_evidence_ids": [
+            158,
+            248,
+            272
+          ]
         },
         {
           "id": "vix_credit",
           "label": "VIX + IG spreads (risk-off macro)",
           "threshold": "VIX >25 sustained, IG spreads widening",
           "trigger": "Amplificateur risk-off sur duration longue tech",
-          "current_status": "monitoring",
-          "weight": "amplifier"
+          "current_status": "at_risk",
+          "weight": "amplifier",
+          "last_evaluated_at": "2026-05-29T08:45:12.398835+00:00",
+          "last_eval_reason": "Accumulation de signaux risk-off macro (signal_292, signal_114) avec scores élevés suggérant une tension croissante sur duration longue, sans confirmation explicite du déclenchement du pattern VIX+spreads",
+          "last_eval_confidence": 65,
+          "last_eval_evidence_ids": [
+            292,
+            114,
+            289
+          ]
         },
         {
           "id": "wafer_pricing",
           "label": "Wafer pricing (4063.T Shin-Etsu commentary)",
           "trigger": "Pricing softening alors que demande devrait soutenir = signal precoce chaine pass-through brise par le bas",
           "current_status": "monitoring",
-          "weight": "leading"
+          "weight": "leading",
+          "last_evaluated_at": "2026-05-29T08:45:16.491204+00:00",
+          "last_eval_reason": "Signal signal_287 sur AWS margins positives ne valide pas directement le trigger de softening tarifaire wafer; absence de données récentes spécifiques sur pricing Shin-Etsu ou demande wafer.",
+          "last_eval_confidence": 45,
+          "last_eval_evidence_ids": []
         }
       ],
       "mitigation_plan": [

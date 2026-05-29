@@ -498,3 +498,24 @@ async def weekly_data_clusters_synthesis_job():
         )
     except Exception as e:
         log.error(f"weekly_data_clusters_synthesis failed: {e}")
+
+
+async def daily_risk_signal_monitor_job():
+    """Sprint 20.b — Daily check des surveillance_signals dans risk_watch.json.
+
+    Scan signals table pour pattern matching (capex_hyperscaler, asml_bookings,
+    tsm_monthly_rev, hbm_pricing, vix_credit, wafer_pricing) + Haiku evaluate
+    status (monitoring/at_risk/triggered). Notify Telegram sur transition.
+    Tourne 08h00 avant ouverture marche.
+    """
+    log.info("Daily risk signal monitor starting")
+    try:
+        from intelligence import risk_signal_monitor as _rsm
+
+        out = _rsm.check_all_risks()
+        log.info(
+            f"risk_signal_monitor : {out.get('n_signals_evaluated', 0)} evalues, "
+            f"{len(out.get('transitions', []))} transitions"
+        )
+    except Exception as e:
+        log.error(f"daily_risk_signal_monitor failed: {e}")

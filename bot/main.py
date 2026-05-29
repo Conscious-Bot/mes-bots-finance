@@ -117,6 +117,7 @@ from bot.jobs import (
     daily_kill_criteria_check_job,
     daily_portfolio_grade_job,
     daily_resolve_job,
+    daily_risk_signal_monitor_job,
     heartbeat,
     ingest_gmail_job,
     monthly_bot_preferences_synthesis_job,
@@ -212,6 +213,7 @@ async def post_init(app):
     sched.add_job(daily_snapshot_job, "cron", hour=23, minute=0, misfire_grace_time=14400)
     sched.add_job(daily_portfolio_grade_job, "cron", hour=23, minute=15, misfire_grace_time=14400)
     sched.add_job(daily_kill_criteria_check_job, "cron", hour=7, minute=30, misfire_grace_time=14400)
+    sched.add_job(daily_risk_signal_monitor_job, "cron", hour=8, minute=0, misfire_grace_time=14400)
     sched.add_job(weekly_handler_stats_job, "cron", day_of_week="sun", hour=23, minute=0, misfire_grace_time=86400)
     sched.add_job(weekly_kpi_status_job, "cron", day_of_week="sun", hour=22, minute=30, misfire_grace_time=86400)
     sched.add_job(weekly_cost_summary_job, "cron", day_of_week="sun", hour=22, minute=0, misfire_grace_time=86400)
