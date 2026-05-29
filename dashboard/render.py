@@ -198,21 +198,25 @@ TICKER_SECTOR = {
 SECTOR_ALIAS = {"EU Defense": "Defense"}
 
 
+# Glossaire canonique (FR). Mapping dim internal name -> (label affiche, sens cible,
+# bucket Construction/Fragilite). Construction = ce qui structure le book.
+# Fragilite = ce qui peut le briser maintenant.
 _DIM_LABELS = {
-    "quality_T1_plus": ("Qualit&eacute; T1+T1&#9733;", "min"),
-    "T2_redondant": ("T2 redondant", "max"),
-    "decorrelation_star": ("D&eacute;corr&eacute;lation &#9733;", "min"),
-    "sizing_conviction": ("Sizing conviction", "min"),
-    "cluster_cap": ("Cluster cap", "max"),
-    "thesis_health": ("Sant&eacute; des th&egrave;ses", "min"),
+    "quality_T1_plus": ("Solidit&eacute; haute", "min", "construction"),
+    "T2_redondant": ("Doublons", "max", "construction"),
+    "decorrelation_star": ("Autres paris", "min", "construction"),
+    "sizing_conviction": ("Calibrage", "min", "construction"),
+    "cluster_cap": ("Pari principal", "max", "construction"),
+    "thesis_health": ("Sant&eacute;", "min", "fragilite"),
 }
 
 
 def _grade_panel() -> str:
-    """Sprint 5 — Panel "Note du portefeuille" : score letter + breakdown 6 dims.
+    """Glossaire canonique : DEUX notes (Construction + Fragilite), chacune
+    decomposee par axe. Vocabulaire FR clair, plus de jargon T1/T1★/cluster.
 
-    Lecture : letter A+ -> D + barre /100, puis pour chaque dim
-    current% vs target% (min ou max). Axe vert = on est dessus, rouge = pas encore.
+    - Construction = Solidite + Pari + Doublons + Calibrage (ce qui structure)
+    - Fragilite = Sante + cycle/valo (ce qui peut briser maintenant)
     """
     try:
         from intelligence import portfolio_grade as _grade
@@ -240,25 +244,53 @@ def _grade_panel() -> str:
     except Exception as e:
         return f'<div class="card pad"><div class="empty">note PF indisponible: {type(e).__name__}</div></div>'
 
-    rows_html = []
-    for dk, (label, kind) in _DIM_LABELS.items():
+    # Decompose Construction vs Fragilite : sub-score = weighted dims dans le bucket
+    construction_dims, fragilite_dims = [], []
+    cw_total = fw_total = 0
+    c_score_sum = f_score_sum = 0
+    for dk, (_label, _kind, bucket) in _DIM_LABELS.items():
         d = dims.get(dk) or {}
-        cur = d.get("current_pct", 0) or 0
-        tgt = d.get("target_pct", 0) or 0
-        bar_pct = max(0.0, min(100.0, cur))
-        # For "min" (we want >= target) good when cur>=tgt. For "max" good when cur<=tgt.
-        good = (cur >= tgt) if kind == "min" else (cur <= tgt)
-        tcls = "good" if good else "bad"
-        prefix = "&ge;" if kind == "min" else "&le;"
-        rows_html.append(
-            f'<div class="grow"><div class="glab">{label}</div>'
-            f'<div class="gaxis"><div class="gfill {tcls}" style="width:{bar_pct:.1f}%"></div>'
-            f'<div class="gtgt" style="left:{tgt:.1f}%"></div></div>'
-            f'<div class="gnum"><span class="mono">{cur:.1f}%</span>'
-            f'<span class="gt">cible {prefix} {tgt:.0f}%</span></div></div>'
-        )
-    rows = "".join(rows_html) or '<div class="empty" style="padding:14px 0">&mdash;</div>'
-    grade_cls = "good" if score >= 70 else ("warn" if score >= 50 else "bad")
+        if d.get("status") == "data_insufficient":
+            continue
+        wt = d.get("weight", 0)
+        sc = d.get("score", 0)
+        if bucket == "construction":
+            construction_dims.append(dk)
+            cw_total += wt
+            c_score_sum += sc * wt / 100
+        else:
+            fragilite_dims.append(dk)
+            fw_total += wt
+            f_score_sum += sc * wt / 100
+    construction_score = round(c_score_sum * 100 / cw_total) if cw_total else 0
+    fragilite_score = round(f_score_sum * 100 / fw_total) if fw_total else 0
+
+    def _build_rows(keys: list[str]) -> str:
+        rows = []
+        for dk in keys:
+            label, kind, _ = _DIM_LABELS[dk]
+            d = dims.get(dk) or {}
+            cur = d.get("current_pct", 0) or 0
+            tgt = d.get("target_pct", 0) or 0
+            bar_pct = max(0.0, min(100.0, cur))
+            good = (cur >= tgt) if kind == "min" else (cur <= tgt)
+            tcls = "good" if good else "bad"
+            prefix = "&ge;" if kind == "min" else "&le;"
+            rows.append(
+                f'<div class="grow"><div class="glab">{label}</div>'
+                f'<div class="gaxis"><div class="gfill {tcls}" style="width:{bar_pct:.1f}%"></div>'
+                f'<div class="gtgt" style="left:{tgt:.1f}%"></div></div>'
+                f'<div class="gnum"><span class="mono">{cur:.1f}%</span>'
+                f'<span class="gt">cible {prefix} {tgt:.0f}%</span></div></div>'
+            )
+        return "".join(rows) or '<div class="empty" style="padding:10px 0">&mdash;</div>'
+
+    def _cls(s: int) -> str:
+        return "good" if s >= 70 else ("warn" if s >= 50 else "bad")
+
+    grade_cls = _cls(score)
+    c_cls = _cls(construction_score)
+    f_cls = _cls(fragilite_score)
     return (
         '<div class="card pad gradecard" style="margin-bottom:18px">'
         '<div class="colhead"><span class="t">Note du portefeuille</span>'
@@ -266,9 +298,21 @@ def _grade_panel() -> str:
         '<div class="ghead">'
         f'<div class="gletter {grade_cls}">{grade_letter}</div>'
         f'<div class="gscore"><div class="gscoreval mono">{score}<span class="gscoremax">/100</span></div>'
-        '<div class="gscorebar"><div class="gscorefill ' + grade_cls + f'" style="width:{score:.0f}%"></div></div></div>'
+        f'<div class="gscorebar"><div class="gscorefill {grade_cls}" style="width:{score:.0f}%"></div></div></div>'
         "</div>"
-        f'<div class="gbody">{rows}</div>'
+        # Sub-notes split
+        '<div class="gsplit">'
+        '<div class="gsub">'
+        f'<div class="gsubh">Construction</div>'
+        f'<div class="gsubscore mono {c_cls}">{construction_score}<span class="gsubmax">/100</span></div>'
+        f'<div class="gbody">{_build_rows(construction_dims)}</div>'
+        '</div>'
+        '<div class="gsub">'
+        f'<div class="gsubh">Fragilit&eacute;</div>'
+        f'<div class="gsubscore mono {f_cls}">{fragilite_score}<span class="gsubmax">/100</span></div>'
+        f'<div class="gbody">{_build_rows(fragilite_dims)}</div>'
+        '</div>'
+        '</div>'
         "</div>"
     )
 
@@ -604,6 +648,15 @@ def _trajectory_panel() -> str:
     delta_score = score_drift.get("delta", 0)
     arrow = "↑" if delta_score > 0 else ("↓" if delta_score < 0 else "·")
     cls = "pos" if delta_score > 0 else ("neg" if delta_score < 0 else "neu")
+    # Use canonical glossary labels
+    canon_labels = {
+        "quality_T1_plus": "Solidit&eacute; haute",
+        "T2_redondant": "Doublons",
+        "decorrelation_star": "Autres paris",
+        "sizing_conviction": "Calibrage",
+        "cluster_cap": "Pari principal",
+        "thesis_health": "Sant&eacute;",
+    }
     rows = []
     for dk in ("quality_T1_plus", "T2_redondant", "decorrelation_star",
                "sizing_conviction", "cluster_cap", "thesis_health"):
@@ -613,7 +666,7 @@ def _trajectory_panel() -> str:
         dirsym = "↑" if delta > 0 else ("↓" if delta < 0 else "·")
         rows.append(
             f'<div class="tr-row">'
-            f'<span class="tr-key">{dk.replace("_"," ")}</span>'
+            f'<span class="tr-key">{canon_labels.get(dk, dk)}</span>'
             f'<span class="tr-from mono">{d.get("first", "?")}%</span>'
             f'<span class="tr-arr">→</span>'
             f'<span class="tr-to mono">{d.get("last", "?")}%</span>'
@@ -2615,6 +2668,16 @@ _CSS = """
   .gradecard .gnum { display:flex; align-items:center; gap:10px; justify-content:flex-end; font-size:12px; color:var(--ink); }
   .gradecard .gnum .gt { color:var(--steel); font-size:11px; }
   @media (max-width:980px) { .gradecard .grow { grid-template-columns:1fr; gap:4px; } .gradecard .gnum { justify-content:flex-start; } }
+  /* Sub-notes Construction + Fragilite (glossaire canonique) */
+  .gradecard .gsplit { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
+  .gradecard .gsub { display:flex; flex-direction:column; gap:10px; }
+  .gradecard .gsubh { font-family:var(--fb); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; }
+  .gradecard .gsubscore { font-size:32px; font-weight:500; line-height:1; letter-spacing:-.02em; }
+  .gradecard .gsubscore.good { color:var(--acc); }
+  .gradecard .gsubscore.warn { color:#c89b00; }
+  .gradecard .gsubscore.bad { color:var(--bear); }
+  .gradecard .gsubmax { color:var(--steel); font-size:14px; margin-left:1px; font-weight:400; }
+  @media (max-width:980px) { .gradecard .gsplit { grid-template-columns:1fr; gap:14px; } }
   /* Sprint 5/6 - Copilot interventions panel */
   .copilotcard .cp-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
   .copilotcard .cp-row:last-child { border-bottom:none; }

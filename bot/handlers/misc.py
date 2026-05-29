@@ -221,13 +221,14 @@ async def cmd_grade(update, ctx):
         f"  ({cap:.0f}€ · {n_pos} positions)",
         "",
     ]
+    # Glossaire canonique
     dim_labels = {
-        "quality_T1_plus": "Qualité T1+T1★",
-        "T2_redondant": "T2 redondant",
-        "decorrelation_star": "Décorrélation ★",
-        "sizing_conviction": "Sizing conviction",
-        "cluster_cap": "Cluster cap",
-        "thesis_health": "Santé des thèses",
+        "quality_T1_plus": "Solidité haute",
+        "T2_redondant": "Doublons",
+        "decorrelation_star": "Autres paris",
+        "sizing_conviction": "Calibrage",
+        "cluster_cap": "Pari principal",
+        "thesis_health": "Santé",
     }
     for dk, label in dim_labels.items():
         d = dims.get(dk) or {}
