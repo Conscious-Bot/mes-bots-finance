@@ -113,40 +113,11 @@ async def _thesis_set_impl(update, args: list[str]) -> None:
         return
     ticker, field = args[0].upper(), args[1].lower()
     value = " ".join(args[2:])
-    parts = ["", ticker, field, value]  # backward compat for body refs to parts[3]
-    EDITABLE_NUM = {"target_price", "target_partial", "target_full", "stop_price", "entry_price", "conviction"}
-    EDITABLE_TEXT = {
-        "notes",
-        "horizon",
-        "key_drivers",
-        "invalidation_triggers",
-        "triggers_profit_take",
-        "status",
-        "direction",
-    }
-    if field not in EDITABLE_NUM | EDITABLE_TEXT:
-        await update.message.reply_text(
-            f"Field '{field}' not editable.\nAllowed: {sorted(EDITABLE_NUM | EDITABLE_TEXT)}"
-        )
-        return
-    if field in EDITABLE_NUM:
-        try:
-            value = float(value) if field != "conviction" else int(value)
-        except ValueError:
-            await update.message.reply_text(f"'{parts[3]}' is not a valid number for {field}")
-            return
-    from shared.storage import db
+    from shared import storage
 
-    with db() as cx:
-        r = cx.execute("SELECT id FROM theses WHERE ticker=? AND status='active'", (ticker,)).fetchone()
-        if not r:
-            await update.message.reply_text(f"No active thesis for {ticker}")
-            return
-        old = cx.execute(f"SELECT {field} FROM theses WHERE id=?", (r["id"],)).fetchone()
-        old_val = old[0] if old else None
-        cx.execute(f"UPDATE theses SET {field}=?, last_reviewed=CURRENT_TIMESTAMP WHERE id=?", (value, r["id"]))
-        cx.commit()
-    await update.message.reply_text(f"✓ {ticker} {field}: {old_val} → {value}")
+    ok, msg, _ = storage.update_thesis_field(ticker, field, value)
+    prefix = "✓" if ok else "✗"
+    await update.message.reply_text(f"{prefix} {msg}")
 
 
 async def _position_view_impl(update, ticker: str) -> None:

@@ -2569,3 +2569,40 @@ def get_chat_session_history(session_id: str, limit: int = 20) -> list[dict]:
     except Exception as e:
         _copilot_log.warning(f"get_chat_session_history failed: {e}")
         return []
+
+
+# === thesis_set chat-driven (Sprint 9.c) =====================================
+
+_THESIS_FIELD_NUM = {"target_price", "target_partial", "target_full", "stop_price", "entry_price", "conviction"}
+_THESIS_FIELD_TEXT = {"notes", "horizon", "key_drivers", "invalidation_triggers", "triggers_profit_take", "status", "direction"}
+
+
+def update_thesis_field(ticker: str, field: str, value) -> tuple[bool, str, object]:
+    """Update one editable field on the active thesis for ticker.
+
+    Returns (success, message, old_value). Used by /thesis_set Telegram handler
+    AND chat-driven set_field intent — single write surface (CONVENTIONS §5).
+    """
+    field_lc = (field or "").lower()
+    if field_lc not in _THESIS_FIELD_NUM | _THESIS_FIELD_TEXT:
+        return False, f"field '{field}' non editable", None
+    if field_lc in _THESIS_FIELD_NUM:
+        try:
+            value = float(value) if field_lc != "conviction" else int(value)
+        except (TypeError, ValueError):
+            return False, f"valeur '{value}' invalide pour {field}", None
+    with db() as cx:
+        r = cx.execute(
+            "SELECT id FROM theses WHERE ticker=? AND status='active'",
+            (ticker.upper(),),
+        ).fetchone()
+        if not r:
+            return False, f"pas de these active sur {ticker}", None
+        old = cx.execute(f"SELECT {field_lc} FROM theses WHERE id=?", (r["id"],)).fetchone()
+        old_val = old[0] if old else None
+        cx.execute(
+            f"UPDATE theses SET {field_lc}=?, last_reviewed=CURRENT_TIMESTAMP WHERE id=?",
+            (value, r["id"]),
+        )
+        cx.commit()
+    return True, f"{ticker} {field_lc} : {old_val} → {value}", old_val

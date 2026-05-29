@@ -1,11 +1,23 @@
-"""Sprint 9.b — Chat-driven trade intent extraction + execution.
+"""Sprint 9.b/9.c — Chat-driven intent extraction + execution dispatcher.
 
-Quand le user dit dans le chat "je vais vendre 10 TSM a 195 car cluster trop
-concentre", le bot extrait l'intent + execute le meme chemin que /position_sell
-sur Telegram (positions_mod.add_sell + decision log + copilot pre-trade).
+Le user ecrit en langue naturelle dans le chat. On extrait l'intent (Haiku
+tier=extract, cheap) puis on EXECUTE via les MEMES primitives que les slash
+commands Telegram. Pas de duplication de logique.
 
-Pas d'auto-execution si l'intent est ambigu : confidence < 0.7 -> on demande
-clarification. Si confidence >= 0.7 -> on execute et on annote la reponse.
+Kinds supportes :
+  Mutations (ecrivent la DB, declenchent copilot quand pertinent) :
+    - buy            -> positions_mod.add_buy + log_decision + copilot
+    - sell           -> positions_mod.add_sell + log_decision + copilot
+    - set_field      -> storage UPDATE theses SET <field>=<value>
+    - close_thesis   -> storage.close_thesis + check_exit_request
+    - revisit_thesis -> storage.update_thesis_revisit + build_revisit_questions
+    - override       -> record_override + copilot (partial/full/stop)
+  Reads (ne mutent rien, retournent un block injecte dans la reponse) :
+    - simulate_trade -> portfolio_grade.simulate_grade (avant/apres)
+    - show_grade     -> portfolio_grade.compute_grade (ou latest snapshot)
+    - show_brief     -> morning_brief.build_brief
+    - show_asymmetry -> asymmetry.compute_thesis_asymmetry / portfolio
+    - show_position  -> positions_mod.get_position + format_position_detail
 """
 
 from __future__ import annotations
@@ -16,110 +28,171 @@ from shared import llm
 
 log = logging.getLogger(__name__)
 
-# Words/patterns that strongly suggest a trade intent (cheap pre-filter to
-# avoid LLM call on every "quelle est ma fragilite ?" message).
+# Cheap keyword pre-filter (skip LLM call on pure conversation).
 _INTENT_KEYWORDS = (
-    "je vais", "je vends", "vendre", "vente", "trim", "lighten", "alleger", "allege",
-    "j'achete", "achete", "acheter", "renforce", "renforcer", "scale in", "scale-in",
-    "je sors", "exit", "close", "je clos",
-    "je rentre", "ouvrir", "entrer en", "buy", "sell",
+    # buy/sell
+    "vendre", "vends", "vente", "trim", "alleger", "allege", "lighten",
+    "acheter", "achete", "renforce", "renforcer", "scale in", "scale-in",
+    "exit", "close", "clos", "ouvrir", "entrer en", "buy", "sell",
+    # mutations
+    "passe la conviction", "conviction", "stop a", "stop_price",
+    "target", "cible a", "cible_partial", "cible_full", "objectif",
+    "ferme la these", "close la these", "force exit", "exit force",
+    "revisit", "revue la these",
+    "override", "override partial", "override full", "override stop",
+    # reads
+    "simul", "simule", "sim", "what-if", "que se passe",
+    "montre", "montre-moi", "donne-moi", "affiche", "show",
+    "note du pf", "le grade", "le brief", "brief du matin",
+    "asymetrie", "asymmetry", "position de", "ma position", "etat de",
 )
 
 
-def _looks_like_trade_intent(message: str) -> bool:
+def _looks_like_intent(message: str) -> bool:
     m = message.lower()
     return any(kw in m for kw in _INTENT_KEYWORDS)
 
 
-_INTENT_PROMPT = """Tu es un parseur d'intentions de trading. Le user vient d'ecrire ce message dans son chat :
+_INTENT_PROMPT = """Tu es un parseur d'intentions pour un investisseur. Le message :
 
 \"\"\"
 {message}
 \"\"\"
 
-Determine s'il EXPRIME UNE INTENTION DE TRADE (achat ou vente d'une position). Si OUI, extrait :
-- action : "buy" | "sell"
-- ticker : symbole exact (TSM, ASML.AS, 4063.T, etc.)
-- qty : quantite si mentionnee (float, sinon null)
-- price : prix d'execution si mentionne (float, sinon null — null = market)
-- reasoning : la RAISON donnee par l'user, reformulee en 1 phrase claire
+Detecte si l'user EXPRIME UNE INTENTION ACTIONNABLE. Si oui, choisis le `kind` parmi :
 
-IMPORTANT :
-- Si le message est juste une question ("quel est mon ticker le plus expose ?"), pas une intention -> intent=null.
-- Si l'intention est trop vague ("je vais alleger un peu") sans ticker ou sans qty -> set intent mais low confidence.
-- Si le user dit "je devrais peut-etre vendre" (conditionnel/hypothetique) -> ce n'est PAS une intention ferme, intent=null.
-- Sois STRICT : intent ferme = "je vends", "je viens de vendre", "je vais vendre TICKER", pas "envisager".
+MUTATIONS (ecrivent la DB) :
+  - "buy"            : intention ferme d'achat (qty+ticker minimum)
+  - "sell"           : intention ferme de vente (qty+ticker minimum)
+  - "set_field"      : modifier un champ d'une these (conviction/stop/target/notes)
+  - "close_thesis"   : fermer une these (regret_driven ou trigger_met)
+  - "revisit_thesis" : revue / questionnement mensuel d'une these
+  - "override"       : override de la sortie definie (partial/full/stop)
 
-Confidence (0-1) :
-- 1.0 = ticker + qty + price + reasoning tous explicites
-- 0.7 = ticker + qty explicites (prix manquant OK, on prendra le prix marche)
-- 0.4 = ticker ou qty manquant
-- 0.0 = pas un trade intent
+READS (informent, ne mutent rien) :
+  - "simulate_trade" : simuler l'impact d'un trade hypothetique
+  - "show_grade"     : afficher la note du PF
+  - "show_brief"     : afficher le brief du matin
+  - "show_asymmetry" : afficher l'asymetrie risk/reward
+  - "show_position"  : afficher le detail d'une position
 
-Reponds UNIQUEMENT en JSON :
+REGLES :
+- Conditionnel ("je devrais peut-etre vendre", "et si je vendais") = PAS ferme. Si l'user demande hypothetique sur un trade = "simulate_trade".
+- Une question pure ("quelle est ma fragilite ?") = pas d'intent (intent=null).
+- "passe la conviction de TSM a 4" = set_field {{ticker:TSM, field:conviction, value:4}}
+- "stop TSM a 180" = set_field {{ticker:TSM, field:stop_price, value:180}}
+- "ferme la these CCJ car invalide" = close_thesis {{ticker:CCJ, reason:...}}
+- "ma position TSM" = show_position {{ticker:TSM}}
+- "et si je vends 5 ASML a 800 ?" = simulate_trade {{action:sell, ticker:ASML, qty:5, price:800}}
+
+Sortie JSON :
 {{
   "intent": {{
-    "action": "buy" | "sell",
-    "ticker": "...",
-    "qty": <float | null>,
-    "price": <float | null>,
-    "reasoning": "..."
+    "kind": "<one of above>",
+    "ticker": "...",       // si applicable
+    "qty": <float|null>,   // pour buy/sell/simulate_trade/close
+    "price": <float|null>, // pour buy/sell/simulate_trade
+    "field": "conviction|stop_price|target_partial|target_full|entry_price|notes|horizon|status",  // pour set_field
+    "value": "...",        // pour set_field
+    "level": "partial|full|stop",  // pour override
+    "reason": "...",       // pour close_thesis/override
+    "action": "buy|sell",  // pour simulate_trade
+    "reasoning": "..."     // raison narrative du user, pour buy/sell
   }} | null,
   "confidence": <0-1>,
   "clarification_needed": "..." | null
 }}
 
+Confidence :
+- 1.0  = tous params explicites
+- 0.7  = action+ticker explicites, params secondaires inferables
+- 0.4  = ambigu, manque qty/ticker/field
+- 0.0  = pas une intention actionnable
+
 Si intent=null, confidence=0 et clarification_needed=null.
-Si intent fixe mais qty/price manque, clarification_needed = "Combien d'actions ?" ou "A quel prix ?".
 """
 
 
-def extract_trade_intent(message: str) -> dict | None:
-    """Parse a chat message ; return intent dict or None.
-
-    Returns :
-        None  -> not a trade intent (or pre-filter rejected)
-        dict  -> {intent: {...} | None, confidence: float, clarification_needed: str | None}
-    """
-    if not _looks_like_trade_intent(message):
+def extract_intent(message: str) -> dict | None:
+    """Parse a chat message ; return {intent, confidence, clarification_needed} or None."""
+    if not _looks_like_intent(message):
         return None
     try:
-        # tier=extract = Haiku, cheap (~$0.001/call)
-        result = llm.call_json(_INTENT_PROMPT.format(message=message), tier="extract", max_tokens=400)
+        result = llm.call_json(_INTENT_PROMPT.format(message=message), tier="extract", max_tokens=500)
         if isinstance(result, dict):
             return result
     except Exception as e:
-        log.warning(f"extract_trade_intent failed: {e}")
+        log.warning(f"extract_intent failed: {e}")
     return None
 
 
-def execute_intent(intent: dict, reasoning_fallback: str = "") -> dict:
-    """Execute a parsed intent via the same primitives as /position_buy / /position_sell.
+# Backwards-compat alias (Sprint 9.b used extract_trade_intent for buy/sell only).
+def extract_trade_intent(message: str) -> dict | None:
+    parsed = extract_intent(message)
+    if not parsed:
+        return None
+    intent = parsed.get("intent") or {}
+    if intent.get("kind") in ("buy", "sell"):
+        # Reshape for legacy callers : intent.action = kind
+        intent["action"] = intent["kind"]
+        return parsed
+    return None
 
-    Returns a dict :
-        {
-            "executed" : bool,
-            "summary"  : str,  # human-readable summary for the chat reply
-            "decision_id" : int | None,
-            "copilot"  : dict | None,  # copilot brief if triggered
-            "error"    : str | None,
-        }
-    """
+
+# =============================================================================
+# DISPATCHERS — execute_intent switches on intent.kind
+# =============================================================================
+
+
+def execute_intent(intent: dict, reasoning_fallback: str = "") -> dict:
+    """Dispatch by intent.kind. Returns {executed, summary, error, ...}."""
+    kind = (intent or {}).get("kind") or intent.get("action")  # legacy buy/sell shape
+    if not kind:
+        return {"executed": False, "summary": "intent inconnu (kind absent)", "error": "no_kind"}
+    handlers = {
+        "buy": _exec_buy_sell,
+        "sell": _exec_buy_sell,
+        "set_field": _exec_set_field,
+        "close_thesis": _exec_close_thesis,
+        "revisit_thesis": _exec_revisit_thesis,
+        "override": _exec_override,
+        "simulate_trade": _exec_simulate_trade,
+        "show_grade": _exec_show_grade,
+        "show_brief": _exec_show_brief,
+        "show_asymmetry": _exec_show_asymmetry,
+        "show_position": _exec_show_position,
+    }
+    h = handlers.get(kind)
+    if not h:
+        return {"executed": False, "summary": f"kind={kind} non supporte", "error": "unsupported_kind"}
+    try:
+        return h(intent, reasoning_fallback)
+    except Exception as e:
+        log.exception(f"execute_intent {kind} crashed: {e}")
+        return {"executed": False, "summary": f"crash dispatcher {kind}: {e}", "error": str(e)}
+
+
+# -----------------------------------------------------------------------------
+# Mutations
+# -----------------------------------------------------------------------------
+
+
+def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
+    """Mirror /position_buy /position_sell handlers."""
     from intelligence import decision_copilot
     from shared import positions as positions_mod, storage
 
-    action = intent.get("action")
+    action = intent.get("action") or intent.get("kind")
     ticker = (intent.get("ticker") or "").upper()
     qty = intent.get("qty")
     price = intent.get("price")
     reasoning = (intent.get("reasoning") or reasoning_fallback or "").strip()
 
     if action not in ("buy", "sell"):
-        return {"executed": False, "summary": "intent inconnu", "error": "bad_action"}
+        return {"executed": False, "summary": "action inconnue", "error": "bad_action"}
     if not ticker or not qty:
         return {"executed": False, "summary": "ticker ou qty manquant", "error": "incomplete"}
 
-    # If price missing, try to use last_price from thesis or current market.
     if not price:
         try:
             from dashboard.render import _cached_price_eur
@@ -133,83 +206,255 @@ def execute_intent(intent: dict, reasoning_fallback: str = "") -> dict:
     qty = float(qty)
     price = float(price)
 
-    # Detect dtype for copilot (entry / scale_in / partial_exit / full_exit)
-    existing = None
-    try:
-        existing = positions_mod.get_position(ticker)
-    except Exception as e:
-        log.warning(f"get_position {ticker} failed: {e}")
-
+    existing = positions_mod.get_position(ticker)
     if action == "buy":
         dtype = "scale_in" if (existing and existing.get("qty", 0) > 0) else "entry"
     else:
-        if existing and qty >= (existing.get("qty") or 0):
-            dtype = "full_exit"
-        else:
-            dtype = "partial_exit"
+        dtype = "full_exit" if (existing and qty >= (existing.get("qty") or 0)) else "partial_exit"
 
-    # 1. Copilot pre-trade (advisory)
     cop_resp, cop_iid = None, None
-    if dtype != "entry":  # entry pre-mortem is handled at thesis creation
+    if dtype != "entry":
         try:
             cop_resp, cop_iid = decision_copilot.run_pre_trade_copilot(
                 ticker=ticker, decision_type=dtype, reasoning=reasoning, price=price
             )
         except Exception as e:
-            log.warning(f"copilot pre-trade failed for {ticker}: {e}")
+            log.warning(f"copilot pre-trade {ticker}: {e}")
 
-    # 2. Execute trade via positions_mod (same as Telegram handlers)
-    try:
-        if action == "buy":
-            positions_mod.add_buy(ticker, qty, price, reasoning + " | source=chat")
-        else:
-            positions_mod.add_sell(ticker, qty, price, reasoning + " | source=chat")
-    except Exception as e:
-        log.error(f"execute_intent trade failed: {e}")
-        return {"executed": False, "summary": f"trade echoue: {e}", "error": str(e)}
+    if action == "buy":
+        positions_mod.add_buy(ticker, qty, price, reasoning + " | source=chat")
+    else:
+        positions_mod.add_sell(ticker, qty, price, reasoning + " | source=chat")
 
-    # 3. Log decision (same as Telegram)
-    decision_id = None
-    try:
-        decision_id = storage.log_decision(
-            ticker=ticker,
-            decision_type=dtype,
-            confidence=3,
-            reasoning=reasoning,
-            direction="long" if action == "buy" else "short",
-            price_at_decision=price,
-        )
-    except Exception as e:
-        log.warning(f"log_decision failed: {e}")
-
-    # 4. Link copilot to decision
+    decision_id = storage.log_decision(
+        ticker=ticker,
+        decision_type=dtype,
+        confidence=3,
+        reasoning=reasoning,
+        direction="long" if action == "buy" else "short",
+        price_at_decision=price,
+    )
     if cop_iid and decision_id:
         try:
             storage.link_copilot_intervention_decision(cop_iid, decision_id)
         except Exception as e:
-            log.warning(f"link_copilot_intervention_decision failed: {e}")
+            log.warning(f"link copilot/decision: {e}")
 
     eur_total = qty * price
-    action_label = "ACHAT" if action == "buy" else "VENTE"
+    label = "ACHAT" if action == "buy" else "VENTE"
     cop_line = ""
     if cop_resp:
-        verdict = cop_resp.get("verdict") or "?"
-        score = cop_resp.get("pressure_score") or 0
-        cop_line = f"\n→ Copilot pre-trade : **{verdict}** (pressure {score}). "
-        if cop_resp.get("ancrage"):
-            cop_line += cop_resp["ancrage"][:200]
-
-    summary = (
-        f"✅ {action_label} EXECUTE — {ticker} qty={qty:g} @ {price:.2f}€  "
-        f"(total {eur_total:.0f}€, type={dtype}, decision_id={decision_id})"
-        f"{cop_line}"
-    )
+        ver = cop_resp.get("verdict") or "?"
+        ps = cop_resp.get("pressure_score") or 0
+        cop_line = f"\n→ Copilot : **{ver}** (pressure {ps}). {(cop_resp.get('ancrage') or '')[:200]}"
 
     return {
         "executed": True,
-        "summary": summary,
+        "summary": (
+            f"✅ {label} EXECUTE — {ticker} qty={qty:g} @ {price:.2f}€ "
+            f"(total {eur_total:.0f}€, type={dtype}, decision_id={decision_id}){cop_line}"
+        ),
         "decision_id": decision_id,
         "copilot": cop_resp,
-        "intent": intent,
-        "error": None,
     }
+
+
+def _exec_set_field(intent: dict, _: str) -> dict:
+    """Mirror /thesis_set TICKER FIELD VALUE via shared/storage helper."""
+    from shared import storage
+
+    ticker = intent.get("ticker") or ""
+    field = intent.get("field") or ""
+    value = intent.get("value")
+    if not ticker or not field or value is None:
+        return {"executed": False, "summary": "ticker/field/value manquant", "error": "incomplete"}
+    ok, msg, old_val = storage.update_thesis_field(ticker, field, value)
+    if not ok:
+        return {"executed": False, "summary": msg, "error": "rejected"}
+    return {"executed": True, "summary": f"✅ {msg}", "field": field, "old": old_val, "new": value}
+
+
+def _exec_close_thesis(intent: dict, _: str) -> dict:
+    """Mirror /exit_force TICKER reason (regret-tagged)."""
+    from intelligence import thesis as thesis_mod
+    from shared import storage
+
+    ticker = (intent.get("ticker") or "").upper()
+    reason = (intent.get("reason") or "").strip()
+    if not ticker or not reason:
+        return {"executed": False, "summary": "ticker ou raison manquant", "error": "incomplete"}
+    t = storage.get_thesis_by_ticker(ticker, status="active")
+    if not t:
+        return {"executed": False, "summary": f"pas de these active sur {ticker}", "error": "no_thesis"}
+    try:
+        check = thesis_mod.check_exit_request(ticker)
+        note_suffix = "[regret_driven]" if check.get("status") == "no_trigger" else "[trigger_met]"
+    except Exception:
+        note_suffix = "[regret_driven]"
+    storage.close_thesis(t["id"], status="realized", reason=f"{note_suffix} {reason}")
+    return {
+        "executed": True,
+        "summary": f"✅ These {ticker} fermee 'realized' {note_suffix}. Raison : {reason}",
+        "thesis_id": t["id"],
+    }
+
+
+def _exec_revisit_thesis(intent: dict, _: str) -> dict:
+    """Mirror /thesis_revisit TICKER."""
+    from intelligence import thesis as thesis_mod
+    from shared import storage
+
+    ticker = (intent.get("ticker") or "").upper()
+    if not ticker:
+        return {"executed": False, "summary": "ticker manquant", "error": "incomplete"}
+    t = storage.get_thesis_by_ticker(ticker)
+    if not t:
+        return {"executed": False, "summary": f"these introuvable : {ticker}", "error": "no_thesis"}
+    questions = thesis_mod.build_revisit_questions(t)
+    storage.update_thesis_revisit(t["id"])
+    return {
+        "executed": True,
+        "summary": f"✅ Revisit marque sur {ticker} (#{t['id']})\n\n{questions}",
+        "thesis_id": t["id"],
+    }
+
+
+def _exec_override(intent: dict, _: str) -> dict:
+    """Mirror /override TICKER level reason."""
+    from intelligence import decision_copilot
+    from intelligence.price_monitor import record_override
+    from shared import storage
+
+    ticker = (intent.get("ticker") or "").upper()
+    level = (intent.get("level") or "").lower()
+    reason = (intent.get("reason") or "").strip()
+    if not ticker or level not in ("partial", "full", "stop") or not reason:
+        return {"executed": False, "summary": "ticker/level/reason manquant ou level != partial|full|stop", "error": "incomplete"}
+    dtype = {"partial": "partial_exit", "full": "full_exit", "stop": "override"}.get(level, "override")
+    cop_resp = None
+    try:
+        t = storage.get_thesis_by_ticker(ticker, status="active") or {}
+        cp_price = t.get("last_price") or t.get("entry_price") or 0
+        cop_resp, _ = decision_copilot.run_pre_trade_copilot(
+            ticker=ticker, decision_type=dtype, reasoning=reason, price=cp_price
+        )
+    except Exception as e:
+        log.warning(f"copilot pre-trade override {ticker}: {e}")
+    try:
+        record_override(ticker, level, reason)
+    except Exception as e:
+        return {"executed": False, "summary": f"record_override echoue: {e}", "error": str(e)}
+    cop_line = ""
+    if cop_resp:
+        ver = cop_resp.get("verdict") or "?"
+        ps = cop_resp.get("pressure_score") or 0
+        cop_line = f"\n→ Copilot : **{ver}** (pressure {ps}). {(cop_resp.get('ancrage') or '')[:200]}"
+    return {
+        "executed": True,
+        "summary": f"✅ Override {level} enregistre sur {ticker}. Raison : {reason}{cop_line}",
+        "copilot": cop_resp,
+    }
+
+
+# -----------------------------------------------------------------------------
+# Reads
+# -----------------------------------------------------------------------------
+
+
+def _exec_simulate_trade(intent: dict, _: str) -> dict:
+    """Mirror /grade sim TICKER buy|sell QTY [PRICE]."""
+    from intelligence import portfolio_grade as _grade
+
+    ticker = (intent.get("ticker") or "").upper()
+    action = (intent.get("action") or "").lower()
+    qty = intent.get("qty")
+    price = intent.get("price") or 0
+    if not ticker or action not in ("buy", "sell") or not qty:
+        return {"executed": False, "summary": "ticker/action/qty manquant", "error": "incomplete"}
+    if not price:
+        try:
+            from dashboard.render import _cached_price_eur
+
+            price = _cached_price_eur(ticker) or 0
+        except Exception:
+            price = 0
+    sim = _grade.simulate_grade(
+        {"type": "full_exit" if (action == "sell" and intent.get("full_exit")) else action,
+         "ticker": ticker, "qty": float(qty), "price_eur": float(price)}
+    )
+    delta = sim["delta_score"]
+    arrow = "↑" if delta > 0 else ("↓" if delta < 0 else "·")
+    diag = "\n".join(f"  · {d}" for d in (sim["diagnosis"] or ["aucune dim ne bouge >=5pts"]))
+    return {
+        "executed": True,
+        "summary": (
+            f"📊 SIM {action} {ticker} qty={qty} @ {price:.2f}€\n"
+            f"Avant : {sim['before']['overall_grade']} ({sim['before']['overall_score']}/100)\n"
+            f"Après : {sim['after']['overall_grade']} ({sim['after']['overall_score']}/100)\n"
+            f"Δ {arrow} {delta:+d} pts\n\nDimensions qui bougent :\n{diag}"
+        ),
+        "simulation": sim,
+    }
+
+
+def _exec_show_grade(_: dict, __: str) -> dict:
+    from intelligence import portfolio_grade as _grade
+    from shared import storage as _stg
+
+    latest = _stg.get_latest_portfolio_grade()
+    if not latest:
+        g = _grade.compute_grade()
+        return {
+            "executed": True,
+            "summary": f"📊 Note PF actuelle : {g['overall_grade']} ({g['overall_score']}/100) — snapshot J0",
+        }
+    return {
+        "executed": True,
+        "summary": (
+            f"📊 Note PF : {latest['overall_grade']} ({latest['overall_score']}/100) "
+            f"au {latest.get('snapshot_date','?')}"
+        ),
+    }
+
+
+def _exec_show_brief(_: dict, __: str) -> dict:
+    """Wraps morning_brief.build_brief — peut etre lent."""
+    try:
+        from intelligence import morning_brief as mb
+
+        brief = mb.build_brief()
+        chunks = mb.format_brief(brief) or []
+        text = "\n\n".join(chunks)[:2500]
+    except Exception as e:
+        return {"executed": False, "summary": f"brief failed: {e}", "error": str(e)}
+    return {"executed": True, "summary": f"☀️ Brief du matin :\n\n{text}"}
+
+
+def _exec_show_asymmetry(intent: dict, _: str) -> dict:
+    from intelligence import asymmetry as asym_mod
+    from shared import storage
+
+    ticker = (intent.get("ticker") or "").upper()
+    if ticker:
+        t = storage.get_thesis_by_ticker(ticker, status="active")
+        if not t:
+            return {"executed": False, "summary": f"pas de these active sur {ticker}", "error": "no_thesis"}
+        r = asym_mod.compute_thesis_asymmetry(t)
+        if not r:
+            return {"executed": False, "summary": f"asymetrie indispo pour {ticker}", "error": "no_data"}
+        return {"executed": True, "summary": "⚖️ " + asym_mod.format_asymmetry_single(r)[:2500]}
+    results = asym_mod.compute_portfolio_asymmetry()
+    return {"executed": True, "summary": "⚖️ " + asym_mod.format_portfolio_asymmetry(results)[:2500]}
+
+
+def _exec_show_position(intent: dict, _: str) -> dict:
+    from shared import positions as positions_mod
+
+    ticker = (intent.get("ticker") or "").upper()
+    if not ticker:
+        return {"executed": False, "summary": "ticker manquant", "error": "incomplete"}
+    p = positions_mod.get_position(ticker)
+    if not p:
+        return {"executed": False, "summary": f"pas de position ouverte sur {ticker}", "error": "no_position"}
+    hist = positions_mod.get_history(ticker)
+    return {"executed": True, "summary": "📍 " + positions_mod.format_position_detail(p, hist)[:2500]}

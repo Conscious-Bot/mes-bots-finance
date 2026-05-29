@@ -233,25 +233,29 @@ def chat(
         session_id=session_id,
     )
 
-    # Sprint 9.b — Trade intent detection : translate "je vais vendre 10 TSM"
-    # into the same execution path as /position_sell. Cheap pre-filter avoids
-    # LLM call on every message.
+    # Sprint 9.b/9.c — Intent detection : route NL messages vers les memes
+    # primitives que les slash commands Telegram. Mutations + reads + sim.
     trade_summary = None
     try:
         from intelligence import chat_intent as _intent_mod
 
-        parsed = _intent_mod.extract_trade_intent(user_message)
+        parsed = _intent_mod.extract_intent(user_message)
         if parsed:
             confidence = parsed.get("confidence") or 0
             intent = parsed.get("intent")
-            if intent and confidence >= 0.7:
+            kind = (intent or {}).get("kind")
+            # Mutations : seuil 0.7 (gating prudent — ecrit la DB)
+            # Reads : seuil 0.5 (juste injection d'info)
+            mutation_kinds = {"buy", "sell", "set_field", "close_thesis", "revisit_thesis", "override"}
+            threshold = 0.7 if kind in mutation_kinds else 0.5
+            if intent and confidence >= threshold:
                 exec_res = _intent_mod.execute_intent(intent, reasoning_fallback=user_message)
                 trade_summary = exec_res.get("summary")
-                log.info(f"chat-driven trade executed: {trade_summary}")
+                log.info(f"chat-driven {kind} executed: {trade_summary[:100] if trade_summary else 'no summary'}")
             elif intent and confidence >= 0.4 and parsed.get("clarification_needed"):
                 trade_summary = (
                     "⚠️ Intent detecte mais incomplet : "
-                    f"{parsed.get('clarification_needed')} (Reformule avec ticker + qty pour exec.)"
+                    f"{parsed.get('clarification_needed')}"
                 )
     except Exception as e:
         log.warning(f"intent extraction failed: {e}")
