@@ -194,11 +194,61 @@ def _compute_quality_T1_plus(state: dict) -> dict:
     }
 
 
+def _load_llm_narrative_snapshot() -> dict | None:
+    """Sprint 6 : try to load latest LLM narrative cluster snapshot."""
+    try:
+        from intelligence import portfolio_grade_llm as _lln
+
+        return _lln.get_latest_narrative_snapshot()
+    except Exception:
+        return None
+
+
 def _compute_T2_redundant(state: dict) -> dict:
-    """Proxy deterministe Sprint 5 : sectors avec >3 positions = redondance presumee.
-    Sprint 6 LLM-augmented : detection narrative-level (sera plus precise)."""
+    """T2 = positions narrativement redondantes (3eme+ d'un meme groupe).
+
+    Sprint 6 : si snapshot LLM dispo, on l'utilise (narrative clusters >3 et
+    redundant_positions liste). Sinon fallback Sprint 5 (proxy sector-based).
+    """
     positions = state["positions"]
+    pos_by_tk = {p["ticker"]: p for p in positions}
     total = state["total_capital_eur"] or 1
+    snap = _load_llm_narrative_snapshot()
+    if snap and snap.get("clusters"):
+        # LLM mode
+        redundant_eur = 0.0
+        redundant_detail = []
+        # 1. From narrative_clusters : 4th+ position in same cluster = redundant (we keep 3 anchor names)
+        for cl in snap["clusters"]:
+            tks = cl.get("tickers") or []
+            cl_positions = sorted(
+                [pos_by_tk[t] for t in tks if t in pos_by_tk],
+                key=lambda p: -p["weight"],
+            )
+            if len(cl_positions) > 3:
+                for extra in cl_positions[3:]:
+                    redundant_eur += extra["weight"]
+                redundant_detail.append(f"{cl.get('name', 'cluster')} (n={len(cl_positions)})")
+        # 2. From explicit redundant_positions list (any redundant explicitly flagged)
+        for rp in snap.get("edges", {}).get("redundant_positions") or []:
+            tk = rp.get("ticker")
+            p = pos_by_tk.get(tk)
+            if p and not any(tk in str(d) for d in redundant_detail):
+                redundant_eur += p["weight"]
+                redundant_detail.append(f"{tk}~{rp.get('redundant_with', '?')}")
+        current_pct = redundant_eur / total * 100 if total else 0
+        target_pct = 20.0
+        score = min(100, target_pct / max(current_pct, 0.1) * 100) if current_pct > target_pct else 100
+        return {
+            "current_pct": round(current_pct, 1),
+            "target_pct": target_pct,
+            "score": round(score, 1),
+            "weight": DIMENSION_WEIGHTS["T2_redondant"],
+            "status": "above_target" if current_pct > target_pct else "at_or_below_target",
+            "evidence": "LLM narrative : " + (", ".join(redundant_detail[:4]) or "aucune redondance"),
+            "source": f"llm_snapshot_{snap.get('snapshot_date', '?')}",
+        }
+    # Fallback Sprint 5
     sec_groups: dict[str, list[dict]] = {}
     for p in positions:
         sec = _ticker_sector(p["ticker"]) or "Other"
@@ -207,14 +257,12 @@ def _compute_T2_redundant(state: dict) -> dict:
     redundant_secs = []
     for sec, ps in sec_groups.items():
         if len(ps) > 3:
-            # On compte tout au-dela de 3 (les 3 premiers sont OK, le reste = redondant)
             sorted_ps = sorted(ps, key=lambda p: -p["weight"])
             for extra in sorted_ps[3:]:
                 redundant_eur += extra["weight"]
             redundant_secs.append(f"{sec} (n={len(ps)})")
     current_pct = redundant_eur / total * 100 if total else 0
-    target_pct = 20.0  # max
-    # Inverse score : moins on a, mieux c'est
+    target_pct = 20.0
     score = min(100, target_pct / max(current_pct, 0.1) * 100) if current_pct > target_pct else 100
     return {
         "current_pct": round(current_pct, 1),
@@ -222,18 +270,43 @@ def _compute_T2_redundant(state: dict) -> dict:
         "score": round(score, 1),
         "weight": DIMENSION_WEIGHTS["T2_redondant"],
         "status": "above_target" if current_pct > target_pct else "at_or_below_target",
-        "evidence": f"Secteurs >3 positions : {', '.join(redundant_secs) or 'aucun'}",
-        "note_for_sprint6": "Sprint 5 = proxy sector-based ; Sprint 6 = LLM narrative grouping plus precis",
+        "evidence": f"Proxy secteurs >3 positions : {', '.join(redundant_secs) or 'aucun'}",
+        "source": "sprint5_proxy_sectors",
     }
 
 
 def _compute_decorrelation_star(state: dict) -> dict:
-    """Proxy deterministe Sprint 5 : positions a conviction ≥4 dans des secteurs
-    qui n'ont qu'1 position (= lone wolf). C'est la decorrelation par-defaut.
-    Sprint 6 LLM-augmented : edge identification + narrative independence."""
+    """Sprint 6 : LLM edge_positions liste si dispo. Sinon proxy lone-wolf Sprint 5."""
     positions = state["positions"]
+    pos_by_tk = {p["ticker"]: p for p in positions}
     theses_by_ticker = {t["ticker"]: t for t in state["theses_active"]}
     total = state["total_capital_eur"] or 1
+    snap = _load_llm_narrative_snapshot()
+    if snap and snap.get("edges"):
+        edges = snap["edges"].get("edge_positions") or []
+        star_eur = 0.0
+        names = []
+        for ep in edges:
+            tk = ep.get("ticker")
+            p = pos_by_tk.get(tk)
+            t = theses_by_ticker.get(tk)
+            conv = (t or {}).get("conviction") or 0
+            if p and conv >= 4:  # Edge ET conviction >=4
+                star_eur += p["weight"]
+                names.append(tk)
+        current_pct = star_eur / total * 100 if total else 0
+        target_pct = 15.0
+        score = min(100, current_pct / target_pct * 100) if target_pct else 0
+        return {
+            "current_pct": round(current_pct, 1),
+            "target_pct": target_pct,
+            "score": round(score, 1),
+            "weight": DIMENSION_WEIGHTS["decorrelation_star"],
+            "status": "at_or_above_target" if current_pct >= target_pct else "below_target",
+            "evidence": f"LLM edge c>=4 : {', '.join(names[:5]) or 'aucun'} ({star_eur:.0f}€)",
+            "source": f"llm_snapshot_{snap.get('snapshot_date', '?')}",
+        }
+    # Fallback Sprint 5
     sec_counts: dict[str, int] = {}
     for p in positions:
         sec = _ticker_sector(p["ticker"]) or "Other"
@@ -256,8 +329,8 @@ def _compute_decorrelation_star(state: dict) -> dict:
         "score": round(score, 1),
         "weight": DIMENSION_WEIGHTS["decorrelation_star"],
         "status": "at_or_above_target" if current_pct >= target_pct else "below_target",
-        "evidence": f"n_lonewolf c≥4 = {n_star} ({star_eur:.0f}€ sur {total:.0f}€)",
-        "note_for_sprint6": "Sprint 5 = proxy lone-wolf ; Sprint 6 = LLM edge identification",
+        "evidence": f"Proxy lone-wolf c>=4 : n={n_star} ({star_eur:.0f}€)",
+        "source": "sprint5_proxy_lonewolf",
     }
 
 
@@ -393,6 +466,108 @@ def format_grade_for_dashboard(grade: dict) -> dict:
         "dimensions": grade.get("dimensions", {}),
         "total_capital_eur": grade.get("total_capital_eur", 0),
         "n_positions": grade.get("n_positions", 0),
+    }
+
+
+def _grade_from_state(state: dict) -> dict:
+    """Reusable : recompute the 6 dims + score from any state dict (live or simulated)."""
+    dims = {
+        "quality_T1_plus": _compute_quality_T1_plus(state),
+        "T2_redondant": _compute_T2_redundant(state),
+        "decorrelation_star": _compute_decorrelation_star(state),
+        "sizing_conviction": _compute_sizing_conviction(state),
+        "cluster_cap": _compute_cluster_cap(state),
+        "thesis_health": _compute_thesis_health(state),
+    }
+    overall = sum(d["score"] * d["weight"] / 100 for d in dims.values())
+    overall_int = round(overall)
+    return {
+        "overall_score": overall_int,
+        "overall_grade": score_to_grade(overall_int),
+        "dimensions": dims,
+        "total_capital_eur": state["total_capital_eur"],
+        "n_positions": len(state["positions"]),
+        "n_theses_active": len(state["theses_active"]),
+    }
+
+
+def simulate_grade(action: dict) -> dict:
+    """Sprint 6 — Recompute the grade with a hypothetical action applied.
+
+    action = {
+        "type": "buy" | "sell" | "scale_in" | "scale_out",
+        "ticker": str,
+        "qty": float,
+        "price_eur": float (optional, defaults to avg_cost on sell)
+    }
+
+    Returns {
+        "before": {grade, score, dims},
+        "after":  {grade, score, dims},
+        "delta_score": int,
+        "delta_letter": "B+ -> A-",
+        "diagnosis": list[str],  # human-readable list of what shifted
+    }
+
+    Conservative simulation : we only update the 'positions' weight/qty
+    snapshot. Theses are unchanged (a new buy is assumed under the existing
+    conviction if a these exists ; otherwise conviction defaults to 3).
+    """
+    from copy import deepcopy
+
+    state_before = _fetch_state()
+    before = _grade_from_state(state_before)
+
+    state_after = deepcopy(state_before)
+    tk = action["ticker"]
+    act_type = action.get("type", "buy")
+    qty = float(action.get("qty") or 0)
+    price = float(action.get("price_eur") or 0)
+
+    pos_map = {p["ticker"]: p for p in state_after["positions"]}
+    if act_type in ("buy", "scale_in"):
+        # Find avg_cost basis
+        if tk in pos_map:
+            p = pos_map[tk]
+            old_qty = p["qty"]
+            old_w = p["weight"]
+            new_qty = old_qty + qty
+            new_w = old_w + qty * price
+            p["qty"] = new_qty
+            p["weight"] = new_w
+            p["avg_cost"] = new_w / new_qty if new_qty else 0
+        else:
+            state_after["positions"].append({
+                "ticker": tk, "qty": qty, "avg_cost": price, "weight": qty * price,
+            })
+    elif act_type in ("sell", "scale_out", "full_exit") and tk in pos_map:
+        p = pos_map[tk]
+        if act_type == "full_exit" or qty >= p["qty"]:
+            state_after["positions"] = [pp for pp in state_after["positions"] if pp["ticker"] != tk]
+        else:
+            p["qty"] = p["qty"] - qty
+            p["weight"] = p["qty"] * p["avg_cost"]
+    state_after["total_capital_eur"] = sum(p["weight"] for p in state_after["positions"])
+
+    after = _grade_from_state(state_after)
+    delta = after["overall_score"] - before["overall_score"]
+
+    # Diagnosis : which dims moved >= 5 pts
+    diag = []
+    for dk, d_after in after["dimensions"].items():
+        d_before = before["dimensions"].get(dk) or {}
+        d_diff = d_after.get("score", 0) - d_before.get("score", 0)
+        if abs(d_diff) >= 5:
+            arrow = "+" if d_diff > 0 else ""
+            diag.append(f"{dk} : {d_before.get('current_pct', 0):.1f}% -> {d_after.get('current_pct', 0):.1f}% ({arrow}{d_diff:.0f} pts)")
+
+    return {
+        "before": before,
+        "after": after,
+        "delta_score": delta,
+        "delta_letter": f"{before['overall_grade']} -> {after['overall_grade']}",
+        "diagnosis": diag,
+        "action": action,
     }
 
 

@@ -396,3 +396,25 @@ async def daily_portfolio_grade_job():
         )
     except Exception as e:
         log.error(f"Daily portfolio grade failed: {e}")
+
+
+async def weekly_portfolio_narrative_synthesis_job():
+    """Sprint 6 — Synthese LLM hebdo des clusters narratifs du portefeuille.
+
+    Une fois par semaine (dimanche 20h30, avant user_profile a 21h).
+    Snapshot append-only consomme par portfolio_grade._compute_T2_redundant et
+    _compute_decorrelation_star pour raffiner les proxies Sprint 5.
+    """
+    log.info("Weekly portfolio narrative synthesis starting")
+    try:
+        from intelligence import portfolio_grade_llm as _grade_llm
+
+        result, sid = _grade_llm.run_synthesis()
+        log.info(
+            f"Narrative synthesis snapshot id={sid} "
+            f"clusters={len(result.get('narrative_clusters') or [])} "
+            f"edges={len(result.get('edge_positions') or [])} "
+            f"redundant={len(result.get('redundant_positions') or [])}"
+        )
+    except Exception as e:
+        log.error(f"weekly_portfolio_narrative_synthesis failed: {e}")

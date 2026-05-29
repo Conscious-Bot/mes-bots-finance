@@ -2387,3 +2387,62 @@ def get_portfolio_grade_n_days_ago(days: int) -> dict | None:
     except Exception as e:
         _copilot_log.warning(f"get_portfolio_grade_n_days_ago({days}) failed: {e}")
         return None
+
+
+# === portfolio_narrative_clusters (Sprint 6) =================================
+
+_NARRATIVE_DDL = (
+    "CREATE TABLE IF NOT EXISTS portfolio_narrative_clusters ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "snapshot_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "snapshot_date TEXT NOT NULL, "
+    "clusters_json TEXT NOT NULL, "
+    "edges_json TEXT NOT NULL, "
+    "model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, "
+    "cost_usd REAL, elapsed_ms INTEGER, notes TEXT)"
+)
+
+
+def _ensure_narrative_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_NARRATIVE_DDL)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_narrative_cluster_date "
+        "ON portfolio_narrative_clusters(snapshot_date)"
+    )
+
+
+def insert_narrative_snapshot(snapshot_date: str, clusters_json: str, edges_json: str) -> int | None:
+    """Sprint 6 — store an LLM narrative cluster snapshot. Returns id."""
+    try:
+        with db() as cx:
+            _ensure_narrative_table(cx)
+            cur = cx.execute(
+                "INSERT INTO portfolio_narrative_clusters "
+                "(snapshot_date, clusters_json, edges_json) VALUES (?,?,?)",
+                (snapshot_date, clusters_json, edges_json),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_narrative_snapshot failed: {e}")
+        return None
+
+
+def get_latest_narrative_snapshot() -> dict | None:
+    try:
+        with db() as cx:
+            _ensure_narrative_table(cx)
+            row = cx.execute(
+                "SELECT id, snapshot_date, clusters_json, edges_json "
+                "FROM portfolio_narrative_clusters ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0],
+                "snapshot_date": row[1],
+                "clusters_json": row[2],
+                "edges_json": row[3],
+            }
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_narrative_snapshot failed: {e}")
+        return None

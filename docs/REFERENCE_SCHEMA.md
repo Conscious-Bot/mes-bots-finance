@@ -6,7 +6,7 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 36 | **Total indexes**: 48 | **Total rows**: 4,159
+**Total tables**: 39 | **Total indexes**: 53 | **Total rows**: 4,159
 
 
 ## Core entities
@@ -547,6 +547,41 @@ CREATE TABLE llm_calls (
 
 ## Uncategorized
 
+### `bot_copilot_interventions` (0 rows)
+
+```sql
+CREATE TABLE bot_copilot_interventions (
+	id INTEGER NOT NULL, 
+	ticker TEXT NOT NULL, 
+	decision_type TEXT NOT NULL, 
+	intent_reasoning TEXT, 
+	intent_price FLOAT, 
+	intent_qty FLOAT, 
+	thesis_id INTEGER, 
+	decision_id INTEGER, 
+	verdict TEXT, 
+	pressure_score INTEGER, 
+	ancrage TEXT, 
+	brief TEXT, 
+	biases_active_json TEXT, 
+	full_response_json TEXT, 
+	model_used TEXT, 
+	input_tokens INTEGER, 
+	output_tokens INTEGER, 
+	cost_usd FLOAT, 
+	elapsed_ms INTEGER, 
+	created_at TEXT DEFAULT (datetime('now')) NOT NULL, 
+	resolved_30d_at TEXT, 
+	return_30d_pct FLOAT, 
+	outcome_label TEXT, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(thesis_id) REFERENCES theses (id), 
+	FOREIGN KEY(decision_id) REFERENCES decisions (id)
+);
+```
+
+**Indexes**: `idx_copilot_created`, `idx_copilot_decision`, `idx_copilot_ticker`, `idx_copilot_unresolved`
+
 ### `portfolio_grades` (1 rows)
 
 ```sql
@@ -554,6 +589,12 @@ CREATE TABLE portfolio_grades (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_at
 ```
 
 **Indexes**: `idx_grade_date`, `idx_grade_snapshot_at`
+
+### `portfolio_narrative_clusters` (0 rows)
+
+```sql
+CREATE TABLE portfolio_narrative_clusters (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_at TEXT NOT NULL DEFAULT (datetime('now')), snapshot_date TEXT NOT NULL, clusters_json TEXT NOT NULL, edges_json TEXT NOT NULL, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, elapsed_ms INTEGER, notes TEXT);
+```
 
 ### `portfolio_snapshots` (5 rows)
 
@@ -583,6 +624,32 @@ CREATE TABLE predictions_bak_probfix(
   brier_score REAL
 );
 ```
+
+### `user_profile` (0 rows)
+
+```sql
+CREATE TABLE user_profile (
+	id INTEGER NOT NULL, 
+	refreshed_at TEXT DEFAULT (datetime('now')) NOT NULL, 
+	profile_json TEXT NOT NULL, 
+	confidence_score INTEGER, 
+	n_decisions_used INTEGER, 
+	n_theses_used INTEGER, 
+	n_predictions_resolved_used INTEGER, 
+	n_signals_window INTEGER, 
+	data_window_start TEXT, 
+	data_window_end TEXT, 
+	model_used TEXT, 
+	input_tokens INTEGER, 
+	output_tokens INTEGER, 
+	cost_usd FLOAT, 
+	elapsed_ms INTEGER, 
+	notes TEXT, 
+	PRIMARY KEY (id)
+);
+```
+
+**Indexes**: `idx_user_profile_refreshed`
 
 
 ---

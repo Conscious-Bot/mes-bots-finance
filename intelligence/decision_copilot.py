@@ -72,6 +72,9 @@ BIAIS HISTORIQUEMENT IDENTIFIES CHEZ L'UTILISATEUR :
 PROFIL UTILISATEUR (auto-derive de son historique — restraint au debut, pointu plus tard) :
 {user_profile_block}
 
+IMPACT GRADE PF (simulation deterministe avant/apres ce trade — Sprint 6) :
+{grade_simulation_block}
+
 ═══════════════ REGLES DE SORTIE ═══════════════
 
 INTERDIT (= platitude qui s'applique a n'importe quel titre) :
@@ -291,7 +294,22 @@ def assemble_context(intent: dict, thesis: dict, recent_signals: list, past_deci
         "past_similar_decisions_block": _format_past_decisions(past_decisions),
         "bias_patterns_block": _format_bias_patterns(bias_patterns),
         "user_profile_block": _fetch_user_profile_block(),
+        "grade_simulation_block": _format_grade_simulation(intent.get("grade_simulation")),
     }
+
+
+def _format_grade_simulation(sim: dict | None) -> str:
+    """Sprint 6 : show grade-impact of the simulated trade as anchor data."""
+    if not sim:
+        return "  (grade-impact non calcule)"
+    diag = sim.get("diagnosis") or []
+    diag_str = "\n".join(f"    - {d}" for d in diag) if diag else "    - aucun mouvement >=5 pts"
+    return (
+        f"  Note PF avant : {sim.get('before')}\n"
+        f"  Note PF apres : {sim.get('after')}\n"
+        f"  Delta : {sim.get('delta_score', 0):+d} pts\n"
+        f"  Dimensions qui bougent :\n{diag_str}"
+    )
 
 
 def run_copilot(intent: dict, thesis: dict, recent_signals: list, past_decisions: list, bias_patterns: list) -> dict | None:
@@ -341,6 +359,21 @@ def run_pre_trade_copilot(ticker: str, decision_type: str, reasoning: str, price
             "confidence_pre": thesis.get("conviction", 3),
             "current_price": price,
         }
+        # Sprint 6 : simulation grade-impact (avant/apres)
+        try:
+            from intelligence import portfolio_grade as _grade
+
+            sim_qty = 1.0  # 1 unite par defaut (le copilot lit le delta directionnel, pas exact)
+            action_type = "scale_in" if decision_type == "scale_in" else ("full_exit" if decision_type == "full_exit" else ("scale_out" if decision_type == "partial_exit" else "buy"))
+            sim = _grade.simulate_grade({"type": action_type, "ticker": ticker, "qty": sim_qty, "price_eur": price})
+            intent["grade_simulation"] = {
+                "before": f"{sim['before']['overall_grade']} ({sim['before']['overall_score']}/100)",
+                "after": f"{sim['after']['overall_grade']} ({sim['after']['overall_score']}/100)",
+                "delta_score": sim["delta_score"],
+                "diagnosis": sim["diagnosis"][:4],
+            }
+        except Exception as e:
+            log.warning(f"grade simulation failed for {ticker}: {e}")
         response = run_copilot(intent, thesis, recent_signals, past_decisions, bias_patterns)
         intervention_id = storage.log_copilot_intervention(
             ticker=ticker,
