@@ -2181,22 +2181,7 @@ document.querySelectorAll('table.dt').forEach(function(t){
 });</script>"""
 
 
-_DONUT_JS = """<script>
-document.addEventListener('DOMContentLoaded',function(){
-  document.querySelectorAll('.brk-viz').forEach(function(viz){
-    var tip=viz.querySelector('.brk-tip'); if(!tip)return;
-    viz.querySelectorAll('.brk-seg').forEach(function(s){
-      s.addEventListener('mouseenter',function(){
-        tip.innerHTML='<span class="brk-tl">'+s.dataset.label
-          +'</span><span class="brk-tv">'+s.dataset.val
-          +'</span><span class="brk-tp">'+s.dataset.pct+'</span>';
-        tip.classList.add('on');
-      });
-      s.addEventListener('mouseleave',function(){tip.classList.remove('on');});
-    });
-  });
-});
-</script>"""
+_DONUT_JS = ""  # legacy slot — tooltips no longer needed (info inline in .brk-row)
 
 _CSORT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
 document.querySelectorAll('.sec-cols').forEach(function(hdr){
