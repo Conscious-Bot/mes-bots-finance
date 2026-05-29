@@ -499,7 +499,7 @@ def _concentration(
         f'<div class="kpi"><span class="kl">Premi&egrave;re ligne</span><span class="kv {top_cls}">{_pct(top_pct)}%</span><span class="kd">{line_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Th&egrave;se dominante</span><span class="kv {these_cls}">{dom_these_pct:.0f}%</span><span class="kd">{these_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
-        f'<div class="card pad"><div class="sbwrap"><div class="sb-top"><div class="sb-kpi"><span class="sb-kl">CAPITAL D&Eacute;PLOY&Eacute;</span><span class="sb-kv">{cap}&nbsp;&euro;</span></div><div class="sb-kpi"><span class="sb-kl">SECTEURS</span><span class="sb-kv">{len(sw_real)}</span></div><div class="sb-kpi"><span class="sb-kl">PLUS GROSSE EXPOSITION</span><span class="sb-kv">{dom_these} &middot; {dom_these_pct:.0f}%</span></div></div><svg id="sb-svg" viewBox="0 0 480 480" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div>'
+        f'<div class="card pad"><div class="sbwrap"><div class="sb-top"><div class="sb-kpi"><span class="sb-kl">CAPITAL D&Eacute;PLOY&Eacute;</span><span class="sb-kv">{cap}&nbsp;&euro;</span></div><div class="sb-kpi"><span class="sb-kl">SECTEURS</span><span class="sb-kv">{len(sw_real)}</span></div><div class="sb-kpi"><span class="sb-kl">PLUS GROSSE EXPOSITION</span><span class="sb-kv">{dom_these} &middot; {dom_these_pct:.0f}%</span></div></div><div id="sb-bars" class="sb-bars"></div><div id="sb-panel"></div></div></div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
         f"</section>"
@@ -1689,15 +1689,25 @@ _CSS = """
   .tkc { cursor:pointer; transition:color .12s; } .tkc:hover { color:var(--id); }
   .lp-badge { display:inline-block; font-family:var(--fb); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:var(--r1); border:1px solid currentColor; }
   .lp-badge.held { color:var(--acc); } .lp-badge.watch { color:var(--warn); } .lp-badge.univ { color:var(--acc2); } .lp-badge.out { color:var(--steel); }
-  .sbwrap { display:flex; flex-direction:column; align-items:center; gap:24px; }
-  .sb-top { display:grid; grid-template-columns:repeat(3,1fr); gap:32px; width:100%; padding:8px 16px 16px; border-bottom:1px solid var(--line); }
+  .sbwrap { display:flex; flex-direction:column; gap:24px; }
+  .sb-top { display:grid; grid-template-columns:repeat(3,1fr); gap:32px; width:100%; padding:8px 4px 16px; border-bottom:1px solid var(--line); }
   .sb-kpi { display:flex; flex-direction:column; gap:6px; }
   .sb-kl { font-family:var(--fb); font-weight:600; font-size:9.5px; letter-spacing:.18em; color:var(--steel); }
-  .sb-kv { font-family:var(--fm); font-weight:500; font-size:18px; color:var(--ink); letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
-  #sb-svg { width:100%; max-width:480px; height:auto; aspect-ratio:1; display:block; }
-  #sb-svg path { cursor:pointer; transition:opacity .15s; stroke:var(--panel); } #sb-svg path:hover { opacity:.85; }
-  #sb-svg .sb-ct { fill:var(--ink); } #sb-svg .sb-c2 { fill:var(--steel); }
-  #sb-panel { width:100%; max-width:520px; font-size:13px; padding:0 8px; }
+  .sb-kv { font-family:var(--fm); font-weight:500; font-size:20px; color:var(--ink); letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+  .sb-bars { display:flex; flex-direction:column; gap:2px; width:100%; }
+  .sb-row { display:grid; grid-template-columns:minmax(160px,1.4fr) minmax(120px,3fr) 50px 70px; align-items:center; gap:16px; padding:10px 6px; border-radius:var(--r1); cursor:pointer; transition:background .15s,opacity .2s; }
+  .sb-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
+  .sb-row.on { background:color-mix(in srgb,var(--ink) 5%,transparent); }
+  .sb-bars:has(.sb-row.on) .sb-row.dim { opacity:.28; }
+  .sb-row-name { display:flex; align-items:center; gap:10px; min-width:0; }
+  .sb-row-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+  .sb-row-label { font-family:var(--fb); font-weight:500; font-size:13px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sb-row-bar { height:4px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:2px; overflow:hidden; }
+  .sb-row-fill { height:100%; border-radius:2px; transition:width .4s cubic-bezier(.2,.8,.2,1); }
+  .sb-row-pct { font-family:var(--fm); font-weight:500; font-size:13px; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
+  .sb-row-val { font-family:var(--fm); font-weight:400; font-size:12px; color:var(--steel); text-align:right; font-variant-numeric:tabular-nums; }
+  #sb-panel { width:100%; font-size:13px; padding:12px 0 0; }
+  #sb-panel:empty { display:none; }
   .sbrow { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:.5px solid var(--line); cursor:pointer; } .sbrow:last-child { border-bottom:none; } .sbrow:hover { background:color-mix(in srgb,var(--ink) 2.5%,transparent); }
   .qs { position:fixed; inset:0; z-index:70; display:none; align-items:flex-start; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:12vh 20px 20px; }
   .qs.open { display:flex; }
@@ -1744,18 +1754,18 @@ _CSS = """
   .brk-note { font-family:var(--fm); font-size:11px; color:var(--steel); margin-left:8px; }
   .brk-tot { font-family:var(--fm); font-size:13px; color:var(--ink); } .brk-tot span { color:var(--steel); font-size:11.5px; }
   .brk-body { display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap; }
-  .brk-viz { flex:0 0 260px; }
+  .brk-viz { flex:0 0 320px; max-width:320px; }
   .brk-tbl { flex:1; min-width:300px; }
-  .brk-dwrap { position:relative; width:260px; height:260px; margin:0 auto; }
-  .brk-donut { display:block; width:260px; height:260px; }
-  .brk-seg { transition:opacity .15s; cursor:pointer; }
-  .brk-donut:hover .brk-seg { opacity:.40; }
-  .brk-donut .brk-seg:hover { opacity:1; }
-  .brk-tip { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; gap:3px; width:108px; }
-  .brk-tip.on { display:flex; }
-  .brk-tl { font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); font-weight:600; }
-  .brk-tv { font-family:var(--fm); font-size:16px; color:var(--ink); font-variant-numeric:tabular-nums; }
-  .brk-tp { font-family:var(--fm); font-size:11px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .brk-bars { display:flex; flex-direction:column; gap:2px; }
+  .brk-row { display:grid; grid-template-columns:minmax(110px,1.3fr) minmax(60px,2.5fr) 42px 56px; align-items:center; gap:12px; padding:8px 4px; border-radius:var(--r1); transition:background .15s; }
+  .brk-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
+  .brk-row-name { display:flex; align-items:center; gap:8px; min-width:0; }
+  .brk-row-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+  .brk-row-label { font-family:var(--fb); font-weight:500; font-size:12px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .brk-row-bar { height:4px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:2px; overflow:hidden; }
+  .brk-row-fill { height:100%; border-radius:2px; transition:width .4s cubic-bezier(.2,.8,.2,1); }
+  .brk-row-pct { font-family:var(--fm); font-weight:500; font-size:12px; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
+  .brk-row-val { font-family:var(--fm); font-weight:400; font-size:11px; color:var(--steel); text-align:right; font-variant-numeric:tabular-nums; }
 """
 
 _APP_JS = """
@@ -1806,57 +1816,50 @@ _APP_JS = """
   }
   function closeLoupe(){ var el=document.getElementById('loupe'); if(el)el.classList.remove('open'); }
   (function(){
-    var SVG=document.getElementById('sb-svg'),PANEL=document.getElementById('sb-panel');
-    if(!SVG||!PANEL||!window.SB_DATA)return;
-    var DATA=window.SB_DATA,CX=240,CY=240,R_INNER=118,R_OUTER=178,R_LEAD=190,R_LABEL=212,NS='http://www.w3.org/2000/svg';
+    var BARS=document.getElementById('sb-bars'),PANEL=document.getElementById('sb-panel');
+    if(!BARS||!PANEL||!window.SB_DATA)return;
+    var DATA=window.SB_DATA;
     DATA.forEach(function(s){s.tw=s.t.reduce(function(a,x){return a+(x.w||0);},0);});
     var total=DATA.reduce(function(a,s){return a+s.tw;},0);
     if(total<=0)return;
-    function pol(r,a){return [CX+r*Math.cos(a),CY+r*Math.sin(a)];}
-    function wedge(ri,ro,a0,a1){var lg=(a1-a0)>Math.PI?1:0,A=pol(ri,a0),B=pol(ro,a0),C=pol(ro,a1),D=pol(ri,a1);return 'M'+A[0]+' '+A[1]+'L'+B[0]+' '+B[1]+'A'+ro+' '+ro+' 0 '+lg+' 1 '+C[0]+' '+C[1]+'L'+D[0]+' '+D[1]+'A'+ri+' '+ri+' 0 '+lg+' 0 '+A[0]+' '+A[1]+'Z';}
-    function mkp(tag,at){var e=document.createElementNS(NS,tag);for(var k in at)e.setAttribute(k,at[k]);return e;}
-    // Sort descending by weight to allocate angular slices (biggest first, starting top)
     var sorted=DATA.slice().sort(function(a,b){return b.tw-a.tw;});
-    var groups={},cur=-Math.PI/2;
+    var maxPct=sorted[0].tw/total*100;
+    var groups={};
+    var html='';
     sorted.forEach(function(s){
-      var ang=s.tw/total*2*Math.PI,a0=cur,a1=cur+ang,mid=(a0+a1)/2,pct=Math.round(s.tw/total*100);
-      var g=mkp('g',{'data-sec':s.name});g.style.cursor='pointer';g.style.transition='transform .2s ease,opacity .2s ease';
-      g.dataset.mx=Math.cos(mid);g.dataset.my=Math.sin(mid);
-      // Donut segment
-      g.appendChild(mkp('path',{d:wedge(R_INNER,R_OUTER,a0,a1),fill:s.col,'fill-opacity':'0.92','data-sec':s.name,stroke:getComputedStyle(document.body).getPropertyValue('--bg').trim()||'#F9F6F3','stroke-width':'1.2'}));
-      // Leader line from segment edge to label
-      var l1=pol(R_OUTER+2,mid),l2=pol(R_LEAD,mid);
-      SVG.appendChild(mkp('line',{x1:l1[0],y1:l1[1],x2:l2[0],y2:l2[1],stroke:'var(--line2)','stroke-width':'0.6',opacity:'0.75','style':'pointer-events:none'}));
-      // Label at fixed radius, anchor by angle quadrant
-      var lp=pol(R_LABEL,mid),anc='middle';
-      if(Math.cos(mid)>0.30)anc='start';else if(Math.cos(mid)<-0.30)anc='end';
-      var dn=s.name.length>17?s.name.substring(0,16)+String.fromCharCode(8230):s.name;
-      var label=mkp('text',{x:lp[0],y:lp[1],'text-anchor':anc,'dominant-baseline':'middle','font-size':'10.5','font-family':'Geist,sans-serif','font-weight':'500','fill':'var(--ink)','data-sec':s.name,'style':'pointer-events:none;letter-spacing:0.01em'});
-      label.textContent=dn+' · '+pct+'%';
-      groups[s.name]=g;SVG.appendChild(g);SVG.appendChild(label);
-      cur=a1;
+      var pct=s.tw/total*100,fillPct=pct/maxPct*100;
+      var val=Math.round(s.tw/1000)+'k'+String.fromCharCode(8364);
+      html+='<div class="sb-row" data-sec="'+s.name+'" tabindex="0">'
+        +'<div class="sb-row-name"><span class="sb-row-dot" style="background:'+s.col+'"></span><span class="sb-row-label">'+s.name+'</span></div>'
+        +'<div class="sb-row-bar"><div class="sb-row-fill" style="width:'+fillPct.toFixed(1)+'%;background:'+s.col+'"></div></div>'
+        +'<div class="sb-row-pct">'+pct.toFixed(1)+'%</div>'
+        +'<div class="sb-row-val">'+val+'</div>'
+        +'</div>';
+    });
+    BARS.innerHTML=html;
+    BARS.querySelectorAll('.sb-row').forEach(function(r){
+      groups[r.dataset.sec]=r;
+      r.addEventListener('click',function(){showSector(r.dataset.sec);});
+      r.addEventListener('keydown',function(e){if(e.key==='Enter')showSector(r.dataset.sec);});
     });
     var n=sorted.length;
-    var ct=mkp('text',{x:CX,y:CY-3,'text-anchor':'middle','class':'sb-ct','font-size':'30','font-weight':'500','font-family':'Geist Mono,monospace','letter-spacing':'-0.5'});ct.textContent=Math.round(total/1000)+'k'+String.fromCharCode(8364);SVG.appendChild(ct);
-    var c2=mkp('text',{x:CX,y:CY+18,'text-anchor':'middle','class':'sb-c2','font-size':'10','font-weight':'600','font-family':'Geist,sans-serif','letter-spacing':'2'});c2.textContent=(n+' SECTEURS').toUpperCase();SVG.appendChild(c2);
     function pv(p){return p==null?'&mdash;':((p>=0?'+':'')+p+'%');}
     function rw(l,v,c){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:.5px solid var(--line)"><span style="color:var(--steel)">'+l+'</span><span class="mono" style="color:'+(c||'var(--ink)')+'">'+v+'</span></div>';}
     function overview(){
-      for(var k in groups){groups[k].style.transform='';groups[k].style.opacity='1';}
-      var top=DATA.slice().sort(function(a,b){return b.tw-a.tw;})[0],tp=Math.round(top.tw/total*100),ov=tp>=30;
+      for(var k in groups){groups[k].classList.remove('on');groups[k].classList.remove('dim');}
+      var top=sorted[0],tp=Math.round(top.tw/total*100),ov=tp>=30;
       PANEL.innerHTML='<div style="font-family:var(--fb);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin-bottom:10px">Vue d&rsquo;ensemble</div>'
         +rw('Plus gros secteur',top.name+' &middot; '+tp+'%',ov?'var(--bear)':'var(--acc)')
-        +rw('Secteurs',DATA.length+'')+rw('Lignes',DATA.reduce(function(a,s){return a+s.t.length;},0)+'')
+        +rw('Lignes total',DATA.reduce(function(a,s){return a+s.t.length;},0)+'')
         +'<div style="margin-top:12px;font-size:12px;color:'+(ov?'var(--warn)':'var(--steel)')+'">'+(ov?('&#9888; '+top.name+' au-dessus du plafond 30%'):'sous le plafond 30%')+'</div>'
-        +'<div style="margin-top:14px;font-size:11px;color:var(--steel)">clique un secteur pour le morceler</div>';
+        +'<div style="margin-top:14px;font-size:11px;color:var(--steel)">clique un secteur pour voir ses lignes</div>';
     }
     function showSector(name){
       var s=null;DATA.forEach(function(d){if(d.name===name)s=d;});if(!s)return;
-      for(var k in groups){var g=groups[k];if(k===name){g.style.transform='translate('+(g.dataset.mx*12)+'px,'+(g.dataset.my*12)+'px)';g.style.opacity='1';}else{g.style.transform='';g.style.opacity='0.22';}}
+      for(var k in groups){if(k===name){groups[k].classList.add('on');groups[k].classList.remove('dim');}else{groups[k].classList.remove('on');groups[k].classList.add('dim');}}
       var rows=s.t.slice().sort(function(a,b){return b.w-a.w;}).map(function(x){var pc=x.pnl==null?'var(--steel)':(x.pnl>=0?'var(--acc)':'var(--bear)');return '<div class="sbrow" data-tk="'+x.tk+'"><span class="mono">'+x.tk+'</span><span style="display:flex;gap:12px;align-items:center"><span class="mono" style="width:48px;text-align:right;color:'+pc+'">'+pv(x.pnl)+'</span><span class="mono" style="color:var(--steel);font-size:11px">stop '+(x.down==null?'&mdash;':x.down+'%')+'</span></span></div>';}).join('');
       PANEL.innerHTML='<div class="sb-back" style="cursor:pointer;color:var(--steel);font-size:11px;margin-bottom:8px">&larr; vue d&rsquo;ensemble</div><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="width:10px;height:10px;border-radius:2px;background:'+s.col+'"></span><span style="font-family:var(--fd);font-weight:500;font-size:14px">'+s.name+'</span><span class="mono" style="color:var(--steel);font-size:12px">'+Math.round(s.tw/total*100)+'% &middot; '+s.t.length+' lignes</span></div>'+rows+'<div style="margin-top:10px;font-size:11px;color:var(--steel)">clique un titre pour sa fiche</div>';
     }
-    SVG.addEventListener('click',function(e){var t=e.target;if(t.dataset&&t.dataset.tk)return;if(t.dataset&&t.dataset.sec)showSector(t.dataset.sec);});
     PANEL.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('.sb-back'))overview();});
     overview();
   })();
@@ -2078,66 +2081,28 @@ def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
 
 
 def _sector_donut(segs: list) -> str:
-    import math
-
+    """Horizontal bars list — modern Linear/Vercel pattern (replaces donut+legend)."""
     total = sum(v for _, v in segs) or 1
-    cx, cy = 130.0, 130.0
-    r_inner, r_outer, r_lead, r_label = 56.0, 88.0, 99.0, 116.0
-    parts = []
-    cur = -math.pi / 2  # start at 12 o'clock, clockwise
-
-    def _wedge(ri: float, ro: float, a0: float, a1: float) -> str:
-        lg = 1 if (a1 - a0) > math.pi else 0
-        ax, ay = cx + ri * math.cos(a0), cy + ri * math.sin(a0)
-        bx, by = cx + ro * math.cos(a0), cy + ro * math.sin(a0)
-        cpx, cpy = cx + ro * math.cos(a1), cy + ro * math.sin(a1)
-        dx, dy = cx + ri * math.cos(a1), cy + ri * math.sin(a1)
-        return (
-            f"M{ax:.2f} {ay:.2f}L{bx:.2f} {by:.2f}"
-            f"A{ro:.2f} {ro:.2f} 0 {lg} 1 {cpx:.2f} {cpy:.2f}"
-            f"L{dx:.2f} {dy:.2f}A{ri:.2f} {ri:.2f} 0 {lg} 0 {ax:.2f} {ay:.2f}Z"
-        )
-
-    for label, v in segs:
+    if not segs:
+        return ""
+    sorted_segs = sorted(segs, key=lambda kv: -kv[1])
+    max_pct = sorted_segs[0][1] / total * 100
+    rows = []
+    for label, v in sorted_segs:
         col = SECTOR_COLORS.get(label, "#6B7686")
         pct = v / total * 100
-        ang = v / total * 2 * math.pi
-        a0, a1 = cur, cur + ang
-        mid = (a0 + a1) / 2
-        vstr = f"{v:,.0f}".replace(",", "&#8239;")
-        # Donut segment
-        parts.append(
-            f'<path class="brk-seg" d="{_wedge(r_inner, r_outer, a0, a1)}" fill="{col}" '
-            f'fill-opacity="0.92" stroke="var(--bg)" stroke-width="1" '
-            f'data-label="{label}" data-val="{vstr}&nbsp;&euro;" data-pct="{pct:.0f}%"></path>'
+        fill_pct = pct / max_pct * 100 if max_pct else 0
+        vstr = f"{v / 1000:.0f}k" if v >= 1000 else f"{v:.0f}"
+        rows.append(
+            f'<div class="brk-row">'
+            f'<div class="brk-row-name"><span class="brk-row-dot" style="background:{col}"></span>'
+            f'<span class="brk-row-label">{label}</span></div>'
+            f'<div class="brk-row-bar"><div class="brk-row-fill" style="width:{fill_pct:.1f}%;background:{col}"></div></div>'
+            f'<div class="brk-row-pct">{pct:.0f}%</div>'
+            f'<div class="brk-row-val">{vstr}&nbsp;&euro;</div>'
+            f"</div>"
         )
-        # Leader line
-        l1x, l1y = cx + (r_outer + 1.5) * math.cos(mid), cy + (r_outer + 1.5) * math.sin(mid)
-        l2x, l2y = cx + r_lead * math.cos(mid), cy + r_lead * math.sin(mid)
-        parts.append(
-            f'<line x1="{l1x:.2f}" y1="{l1y:.2f}" x2="{l2x:.2f}" y2="{l2y:.2f}" '
-            f'stroke="var(--line2)" stroke-width="0.5" opacity="0.7"></line>'
-        )
-        # Label
-        lx, ly = cx + r_label * math.cos(mid), cy + r_label * math.sin(mid)
-        anc = "middle"
-        if math.cos(mid) > 0.30:
-            anc = "start"
-        elif math.cos(mid) < -0.30:
-            anc = "end"
-        dn = label if len(label) <= 14 else label[:13] + "…"
-        parts.append(
-            f'<text x="{lx:.2f}" y="{ly:.2f}" text-anchor="{anc}" dominant-baseline="middle" '
-            f'font-size="8" font-family="Geist,sans-serif" font-weight="500" '
-            f'fill="var(--ink)" style="pointer-events:none;letter-spacing:0.01em">{dn} · {pct:.0f}%</text>'
-        )
-        cur = a1
-
-    return (
-        f'<div class="brk-viz"><div class="brk-dwrap">'
-        f'<svg class="brk-donut" viewBox="0 0 260 260">{"".join(parts)}</svg>'
-        f'<div class="brk-tip"></div></div></div>'
-    )
+    return f'<div class="brk-viz"><div class="brk-bars">{"".join(rows)}</div></div>'
 
 
 def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict) -> str:
