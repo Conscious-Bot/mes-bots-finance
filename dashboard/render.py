@@ -1983,14 +1983,14 @@ def _compute_ai_set() -> set[str]:
     return set(_cfg().get("concentration", {}).get("clusters", {}).get("compute_ai", []))
 
 
-def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:
+def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:  # noqa: ARG001
     """Source unique des breaches de cluster correle (gouverneur de concentration).
     Consomme par la page Concentration (detail) ET le bandeau d'ecart (resume, haut de page).
     Une seule definition de la valeur EUR par ligne -> page et bandeau ne peuvent plus
     se contredire (cf. ancienne jauge 0 calme vs verdict ELEVEE)."""
 
     def _v(p: dict) -> float:
-        return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
+        return p["weight"]
 
     total = sum(_v(p) for p in positions) or 1
     _conc = yaml.safe_load(Path("config.yaml").read_text()).get("concentration", {})
@@ -2016,9 +2016,10 @@ def _concentration(
     positions: list[dict], planned: list[dict], sectors: dict, names: dict, pnl: dict, daily: dict
 ) -> str:
     def _v(p: dict) -> float:
-        return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
+        return p["weight"]  # market value post-migration 29/05
 
-    cost_total = sum(p["weight"] for p in positions) or 1
+    # Post-migration : "cost_total" est maintenant explicitement cost basis.
+    cost_total = sum(p.get("cost_basis_eur", p["weight"]) for p in positions) or 1
     total = sum(_v(p) for p in positions) or 1
     ps = sorted(positions, key=lambda p: -_v(p))
     top = ps[0] if ps else None
@@ -2706,12 +2707,12 @@ def _rail_foot(near: int, heat: float) -> str:
     )
 
 
-def _sizing_overcap(positions: list[dict], conv_by_tk: dict, caps: dict, pnl: dict) -> list[str]:
+def _sizing_overcap(positions: list[dict], conv_by_tk: dict, caps: dict, pnl: dict) -> list[str]:  # noqa: ARG001
     """Lignes dont le poids courant depasse leur cap de conviction (signal de TAILLE, prix-agnostique)."""
-    vtot = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions) or 1
+    vtot = sum(p["weight"] for p in positions) or 1
     over = []
     for p in positions:
-        wv = p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) / vtot * 100
+        wv = p["weight"] / vtot * 100
         cap = caps.get(conv_by_tk.get(p["ticker"]))
         if cap and wv > cap * 100:
             over.append((wv - cap * 100, p["ticker"]))
@@ -2882,7 +2883,7 @@ _TIER_LABEL = {
 }
 
 
-def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
+def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:  # noqa: ARG001
     "Page Theses : asymetrie cible/stop par conviction + gap cible partielle."
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
@@ -2979,8 +2980,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
 
     gap = ""
 
-    vtot = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions) or 1
-    vmap = {p["ticker"]: p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) / vtot * 100 for p in positions}
+    vtot = sum(p["weight"] for p in positions) or 1
+    vmap = {p["ticker"]: p["weight"] / vtot * 100 for p in positions}
     _caps = _CFG.get("concentration", {}).get("line_cap_by_conviction", {})
     _sumcaps = sum(_caps.get(t["conv"], 0.0) for t in ths if vmap.get(t["tk"], 0.0) > 0) or 1.0
     groups = ""
@@ -4123,8 +4124,8 @@ def _broker(tk: str) -> str:
     return "bourso" if tk.endswith(_EU_SUFFIX) else "tr"
 
 
-def _broker_value(p: dict, pnl: dict) -> float:
-    return p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)
+def _broker_value(p: dict, pnl: dict) -> float:  # noqa: ARG001
+    return p["weight"]  # market value post-migration
 
 
 def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
@@ -4276,7 +4277,7 @@ def render() -> Path:
         sb_secs.setdefault(sectors.get(p["ticker"], "Sans th&egrave;se"), []).append(
             {
                 "tk": p["ticker"],
-                "w": round(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0)),
+                "w": round(p["weight"]),
                 "pnl": round(pnl[p["ticker"]], 1) if p["ticker"] in pnl else None,
                 "down": round(sb_down[p["ticker"]], 1) if sb_down.get(p["ticker"]) is not None else None,
             }
@@ -4304,8 +4305,11 @@ def render() -> Path:
     n_gain = sum(1 for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
     n_pnl = sum(1 for p in positions if p["ticker"] in pnl) or 1
     gpct = gain_eur / wbase * 100
-    _pfcost = sum(p["weight"] for p in positions)
-    pf_value = sum(p["weight"] * (1 + pnl.get(p["ticker"], 0) / 100.0) for p in positions)
+    # Post-migration 29/05 round 2 : p["weight"] est MARKET VALUE, cost basis
+    # est explicitement dans p["cost_basis_eur"]. Avant le sed, le hero
+    # affichait double-PnL (cost * (1+pnl) au lieu de market).
+    _pfcost = sum(p.get("cost_basis_eur", 0) for p in positions)
+    pf_value = sum(p["weight"] for p in positions)
     pf_pnl_eur = pf_value - _pfcost
     vcls = "pos" if pf_pnl_eur >= 0 else "neg"
     pf_val_str = f"{pf_value:,.0f}".replace(",", "&#8239;")
