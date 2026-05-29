@@ -336,6 +336,72 @@ def _copilot_panel() -> str:
     )
 
 
+def _chat_signals_panel() -> str:
+    """Sprint 9.d — soft signals extracted passively from chat conversations.
+
+    Mine ce que l'user laisse echapper en conversation lambda (concerns,
+    conviction shifts, sector views, blind spots). Boucle complete : recolte
+    → analyse passive → digestion (alimente user_profile) → precision.
+    """
+    try:
+        from shared import storage as _stg
+
+        rows = _stg.get_recent_chat_signals(limit=20)
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">soft signals indispo: {type(e).__name__}</div></div>'
+    if not rows:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas encore de signaux soft extraits. Continue de discuter dans le "
+            "chat — chaque conversation lambda devient une mine d'infos pour le profil."
+            "</div></div>"
+        )
+    by_kind: dict = {}
+    for r in rows:
+        by_kind.setdefault(r.get("kind", "?"), []).append(r)
+    # Order kinds : negatives first (concerns), then drifts, then positives, then views
+    order = [
+        "concern", "conviction_drift", "blind_spot",
+        "sector_view", "thematic_view", "topic_interest", "heuristic",
+        "sentiment", "conviction_endorse",
+    ]
+    groups_html = []
+    for kind in [k for k in order if k in by_kind] + [k for k in by_kind if k not in order]:
+        items = by_kind[kind][:6]
+        lis = []
+        for s in items:
+            val = s.get("valence")
+            val_s = f"{val:+.2f}" if isinstance(val, int | float) else "·"
+            vcls = "neg" if (isinstance(val, int | float) and val < -0.1) else (
+                "pos" if (isinstance(val, int | float) and val > 0.1) else "neu"
+            )
+            target = s.get("ticker") or s.get("sector") or s.get("theme") or "-"
+            quote = (s.get("evidence_quote") or "").strip()
+            if len(quote) > 200:
+                quote = quote[:197] + "..."
+            quote = quote.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            note = (s.get("note") or "").strip()[:160]
+            note = note.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            lis.append(
+                f'<div class="cs-row">'
+                f'<div class="cs-meta"><span class="cs-target">{target}</span>'
+                f'<span class="cs-val {vcls}">{val_s}</span></div>'
+                f'<div class="cs-quote">&ldquo;{quote}&rdquo;</div>'
+                f'<div class="cs-note">{note}</div></div>'
+            )
+        groups_html.append(
+            f'<div class="cs-group"><div class="cs-kind">{kind.replace("_", " ")}</div>'
+            + "".join(lis) + "</div>"
+        )
+    return (
+        '<div class="card pad chatsigcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Signaux soft extraits du chat</span>'
+        '<span class="a">murmures captures en conversation lambda &middot; alimente le profil</span></div>'
+        f'<div class="cs-grid">{"".join(groups_html)}</div>'
+        '</div>'
+    )
+
+
 def _conversations_panel() -> str:
     """Sprint 9 — surface les conversations recentes (boucle recolte/digestion).
 
@@ -2111,6 +2177,20 @@ _CSS = """
   .conversationscard .cv-date { margin-left:auto; color:var(--steel); font-variant-numeric:tabular-nums; }
   .conversationscard .cv-content { font-family:var(--fm); font-size:12px; line-height:1.45; color:var(--ink); opacity:.85; }
   .conversationscard .cv-user .cv-content { color:var(--ink); opacity:.95; }
+  /* Sprint 9.d - Soft signals panel */
+  .chatsigcard .cs-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px; }
+  .chatsigcard .cs-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:12px 14px; }
+  .chatsigcard .cs-kind { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:10px; }
+  .chatsigcard .cs-row { padding:8px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .chatsigcard .cs-row:last-child { border-bottom:none; }
+  .chatsigcard .cs-meta { display:flex; align-items:baseline; gap:8px; margin-bottom:4px; }
+  .chatsigcard .cs-target { font-family:var(--fm); font-weight:600; font-size:11.5px; color:var(--ink); }
+  .chatsigcard .cs-val { font-family:var(--fm); font-size:10.5px; font-variant-numeric:tabular-nums; padding:1px 6px; border-radius:var(--r1); margin-left:auto; }
+  .chatsigcard .cs-val.neg { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
+  .chatsigcard .cs-val.pos { background:color-mix(in srgb,var(--acc) 14%,transparent); color:var(--acc); }
+  .chatsigcard .cs-val.neu { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
+  .chatsigcard .cs-quote { font-family:var(--fm); font-size:11.5px; font-style:italic; color:var(--ink); opacity:.85; line-height:1.4; margin-bottom:3px; }
+  .chatsigcard .cs-note { font-family:var(--fm); font-size:10.5px; color:var(--steel); line-height:1.4; }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -2718,6 +2798,7 @@ def render() -> Path:
     chat_html = _chat_panel()
     narrative_html = _narrative_panel()
     conversations_html = _conversations_panel()
+    chat_signals_html = _chat_signals_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -2732,6 +2813,7 @@ def render() -> Path:
         f"{narrative_html}"
         f"{chat_html}"
         f"{conversations_html}"
+        f"{chat_signals_html}"
         f"{copilot_html}"
         f"{cockpit_html}"
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise</span></div>'

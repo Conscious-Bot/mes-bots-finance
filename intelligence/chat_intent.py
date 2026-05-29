@@ -447,6 +447,98 @@ def _exec_show_asymmetry(intent: dict, _: str) -> dict:
     return {"executed": True, "summary": "⚖️ " + asym_mod.format_portfolio_asymmetry(results)[:2500]}
 
 
+# =============================================================================
+# PASSIVE EXTRACTION (Sprint 9.d) — tout message lambda devient une mine d'info
+# =============================================================================
+
+_PASSIVE_PROMPT = """Tu extrais des SIGNAUX SOFT (PAS des actions) depuis un message chat.
+
+Un signal soft = une opinion / un doute / une preoccupation / un endorsement
+qu'un investisseur laisse echapper EN CONVERSATION, sans formaliser. Ces
+signaux nourrissent la comprehension de son thinking au fil du temps.
+
+Message :
+
+\"\"\"
+{message}
+\"\"\"
+
+KINDS possibles (extraits SEULEMENT si presents, sinon ignore) :
+  - concern              : doute / inquietude exprimee ("TSLA me fait peur")
+  - conviction_drift     : changement subtil de conviction ("plus j'y pense plus je doute de CCJ")
+  - conviction_endorse   : renforcement subtil ("je crois vraiment a la these MP")
+  - topic_interest       : interet pour un sujet ("j'ai lu sur les terres rares")
+  - sentiment            : sentiment positif/negatif general ("AI overcrowded")
+  - heuristic            : mental model exprime ("je sors si la these change pas en 30j")
+  - sector_view          : vue sur un secteur ("defense devient overcrowded")
+  - thematic_view        : vue sur un theme ("HBM cycle pas convaincant")
+  - blind_spot           : reconnaissance d'angle mort ("je connais mal pharma")
+
+REGLES :
+- N'INVENTE PAS. Si rien de saillant -> retourne {{"signals": []}}.
+- Cite TOUJOURS evidence_quote = extrait exact du message qui supporte.
+- Pas de signal sur les questions purement informationnelles ("quelle est ma fragilite ?").
+- Signaux de trade explicites (buy/sell) sont DEJA captes ailleurs, ignore-les ici.
+- Plusieurs signaux possibles dans 1 message.
+
+Sortie JSON :
+{{
+  "signals": [
+    {{
+      "kind": "concern|conviction_drift|conviction_endorse|topic_interest|sentiment|heuristic|sector_view|thematic_view|blind_spot",
+      "ticker": "TKR" | null,
+      "sector": "..." | null,
+      "theme": "..." | null,
+      "valence": <-1 a +1 ; negatif = doute/concern, positif = endorsement>,
+      "confidence": <0-1>,
+      "evidence_quote": "...",
+      "note": "interpretation 1 phrase"
+    }}
+  ]
+}}
+"""
+
+
+def extract_passive_signals(message: str, chat_message_id: int | None = None) -> list[int]:
+    """Extract soft signals from a chat message + persist them.
+
+    Skips obvious questions and very short messages. Returns list of inserted
+    signal ids. Silent failure (best-effort).
+    """
+    if not message or len(message.strip()) < 12:
+        return []
+    # Skip pure interrogatives (heuristic — questions are captured as concerns
+    # only via 'concern' kind which the prompt explicitly excludes for info-only Qs)
+    try:
+        from shared import llm, storage
+
+        result = llm.call_json(_PASSIVE_PROMPT.format(message=message), tier="extract", max_tokens=600)
+    except Exception as e:
+        log.warning(f"extract_passive_signals failed: {e}")
+        return []
+    if not isinstance(result, dict):
+        return []
+    signals = result.get("signals") or []
+    ids: list[int] = []
+    for s in signals:
+        if not isinstance(s, dict) or not s.get("kind"):
+            continue
+        sid = storage.insert_chat_signal(
+            chat_message_id=chat_message_id,
+            kind=s.get("kind"),
+            ticker=(s.get("ticker") or None),
+            sector=(s.get("sector") or None),
+            theme=(s.get("theme") or None),
+            valence=s.get("valence"),
+            confidence=s.get("confidence"),
+            evidence_quote=(s.get("evidence_quote") or "")[:500],
+            note=(s.get("note") or "")[:400],
+        )
+        if sid:
+            ids.append(sid)
+    return ids
+
+
 def _exec_show_position(intent: dict, _: str) -> dict:
     from shared import positions as positions_mod
 

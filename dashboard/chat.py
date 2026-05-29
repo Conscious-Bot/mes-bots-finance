@@ -226,7 +226,7 @@ def chat(
     if not session_id:
         session_id = uuid4().hex[:16]
 
-    storage.insert_chat_message(
+    user_msg_id = storage.insert_chat_message(
         surface=surface,
         role="user",
         content=user_message.strip(),
@@ -259,6 +259,16 @@ def chat(
                 )
     except Exception as e:
         log.warning(f"intent extraction failed: {e}")
+
+    # Sprint 9.d — Passive signal extraction : tout message lambda devient une
+    # mine d'info (concerns/doubts/conviction shifts/topic interests/...).
+    # Best-effort, non-bloquant. Tourne meme quand pas d'intent ferme.
+    try:
+        from intelligence import chat_intent as _ce
+
+        _ce.extract_passive_signals(user_message, chat_message_id=user_msg_id)
+    except Exception as e:
+        log.warning(f"passive signal extraction failed: {e}")
 
     context = assemble_context()
     messages = []

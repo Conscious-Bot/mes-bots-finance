@@ -63,6 +63,12 @@ Source unique pour comprendre les preoccupations / curiosites / angles morts
 exprimes EXPLICITEMENT par l'user. Q = question user, R = reponse bot.
 {chat_history_summary}
 
+SIGNAUX SOFT EXTRAITS DU CHAT (n={n_chat_signals}, passifs - concerns/conviction drifts/views) :
+Murmures captures en conversation lambda — pas des decisions formelles, mais
+des opinions / doutes / endorsements que l'user laisse echapper. Tres riches
+pour comprendre son thinking au fil du temps (lambda careless -> mine d'info).
+{chat_signals_summary}
+
 ═══════════════ REGLES DE SORTIE ═══════════════
 
 Tu vas produire un JSON. Pour chaque trait, tu DOIS citer le sample size
@@ -385,6 +391,28 @@ def assemble_synthesis_context(months_window: int = 6) -> tuple[dict, dict]:
             log.info(f"chat_messages not yet available: {ce}")
         counts["n_chat_messages"] = len(chats)
         counts["n_chat_user_turns"] = len([c for c in chats if c.get("role") == "user"])
+        # Sprint 9.d — Soft signals extracted passively from chat (concerns,
+        # conviction drifts, topic interests, ...). Used in synthesis prompt.
+        soft_signals: list = []
+        try:
+            sig_rows = conn.execute(
+                "SELECT kind, ticker, sector, theme, valence, confidence, "
+                "evidence_quote, note, created_at "
+                "FROM chat_extracted_signals WHERE created_at >= ? "
+                "ORDER BY created_at DESC LIMIT 80",
+                (window_start,),
+            ).fetchall()
+            soft_signals = [
+                dict(zip(
+                    ["kind", "ticker", "sector", "theme", "valence", "confidence",
+                     "evidence_quote", "note", "created_at"],
+                    r, strict=False,
+                ))
+                for r in sig_rows
+            ]
+        except Exception as ce:
+            log.info(f"chat_extracted_signals not yet available: {ce}")
+        counts["n_chat_signals"] = len(soft_signals)
 
     # Capital deploye (sum qty*avg_cost)
     capital_eur = sum((p.get("qty") or 0) * (p.get("avg_cost") or 0) for p in positions)
@@ -412,8 +440,35 @@ def assemble_synthesis_context(months_window: int = 6) -> tuple[dict, dict]:
         "n_chat_messages": counts.get("n_chat_messages", 0),
         "n_chat_user_turns": counts.get("n_chat_user_turns", 0),
         "chat_history_summary": _format_chat_history(chats),
+        "n_chat_signals": counts.get("n_chat_signals", 0),
+        "chat_signals_summary": _format_chat_signals(soft_signals),
     }
     return ctx, counts
+
+
+def _format_chat_signals(signals: list) -> str:
+    """Sprint 9.d — format passive signals extracted from chat for synthesis.
+
+    These are the 'murmures' (concerns, conviction drifts, sector views, etc.)
+    the user laisse echapper in conversation, captured passively.
+    """
+    if not signals:
+        return "  (aucun signal soft extrait — feature recente)"
+    # Group by kind for clarity
+    by_kind: dict = {}
+    for s in signals:
+        by_kind.setdefault(s.get("kind", "?"), []).append(s)
+    out = []
+    for kind, items in by_kind.items():
+        out.append(f"  [{kind}] n={len(items)}")
+        for s in items[:5]:
+            tk = s.get("ticker") or s.get("sector") or s.get("theme") or "-"
+            val = s.get("valence")
+            val_s = f"{val:+.1f}" if isinstance(val, int | float) else "?"
+            quote = (s.get("evidence_quote") or "")[:140]
+            note = (s.get("note") or "")[:140]
+            out.append(f"    - {tk:10s} val={val_s}  \"{quote}\"  -> {note}")
+    return "\n".join(out[:60])
 
 
 def _format_chat_history(chats: list) -> str:

@@ -2606,3 +2606,94 @@ def update_thesis_field(ticker: str, field: str, value) -> tuple[bool, str, obje
         )
         cx.commit()
     return True, f"{ticker} {field_lc} : {old_val} → {value}", old_val
+
+
+# === chat_extracted_signals (Sprint 9.d) =====================================
+
+_CES_DDL = (
+    "CREATE TABLE IF NOT EXISTS chat_extracted_signals ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "chat_message_id INTEGER, "
+    "kind TEXT NOT NULL, "
+    "ticker TEXT, sector TEXT, theme TEXT, "
+    "valence REAL, confidence REAL, "
+    "evidence_quote TEXT, note TEXT, "
+    "model_used TEXT, cost_usd REAL)"
+)
+_CES_IDX = [
+    "CREATE INDEX IF NOT EXISTS idx_ces_ticker ON chat_extracted_signals(ticker)",
+    "CREATE INDEX IF NOT EXISTS idx_ces_kind ON chat_extracted_signals(kind)",
+    "CREATE INDEX IF NOT EXISTS idx_ces_created ON chat_extracted_signals(created_at)",
+]
+
+
+def _ensure_ces_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_CES_DDL)
+    for ix in _CES_IDX:
+        conn.execute(ix)
+
+
+def insert_chat_signal(
+    chat_message_id: int | None,
+    kind: str,
+    ticker: str | None = None,
+    sector: str | None = None,
+    theme: str | None = None,
+    valence: float | None = None,
+    confidence: float | None = None,
+    evidence_quote: str | None = None,
+    note: str | None = None,
+    llm_meta: dict | None = None,
+) -> int | None:
+    meta = llm_meta or {}
+    try:
+        with db() as cx:
+            _ensure_ces_table(cx)
+            cur = cx.execute(
+                "INSERT INTO chat_extracted_signals "
+                "(chat_message_id, kind, ticker, sector, theme, valence, confidence, "
+                "evidence_quote, note, model_used, cost_usd) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    chat_message_id, kind, ticker, sector, theme, valence,
+                    confidence, evidence_quote, note,
+                    meta.get("model_used"), meta.get("cost_usd"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_chat_signal failed: {e}")
+        return None
+
+
+def get_recent_chat_signals(limit: int = 50, ticker: str | None = None, kind: str | None = None) -> list[dict]:
+    try:
+        with db() as cx:
+            _ensure_ces_table(cx)
+            q = (
+                "SELECT id, created_at, chat_message_id, kind, ticker, sector, theme, "
+                "valence, confidence, evidence_quote, note "
+                "FROM chat_extracted_signals"
+            )
+            conds = []
+            params: list = []
+            if ticker:
+                conds.append("ticker=?")
+                params.append(ticker)
+            if kind:
+                conds.append("kind=?")
+                params.append(kind)
+            if conds:
+                q += " WHERE " + " AND ".join(conds)
+            q += " ORDER BY id DESC LIMIT ?"
+            params.append(limit)
+            rows = cx.execute(q, params).fetchall()
+            cols = [
+                "id", "created_at", "chat_message_id", "kind", "ticker", "sector",
+                "theme", "valence", "confidence", "evidence_quote", "note",
+            ]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_recent_chat_signals failed: {e}")
+        return []
