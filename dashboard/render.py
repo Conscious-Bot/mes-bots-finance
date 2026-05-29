@@ -336,6 +336,61 @@ def _copilot_panel() -> str:
     )
 
 
+def _kill_criteria_panel() -> str:
+    """Sprint 15 — kill-criteria status per these. Triggered/at_risk en haut."""
+    try:
+        from shared import storage as _stg
+
+        rows = _stg.get_all_latest_kca()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">kill-criteria indispo: {type(e).__name__}</div></div>'
+    if not rows:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas encore de check kill-criteria. Cron quotidien 07h30 ou trigger : "
+            "<code>venv/bin/python -c \"from intelligence import kill_criteria_monitor; kill_criteria_monitor.check_all_active_theses()\"</code>."
+            "</div></div>"
+        )
+    counts = {"triggered": 0, "at_risk": 0, "dormant": 0}
+    for r in rows:
+        s = r.get("status", "dormant")
+        counts[s] = counts.get(s, 0) + 1
+    items = []
+    for r in rows:
+        if r["status"] == "dormant":
+            continue
+        tk = r.get("ticker", "?")
+        s = r.get("status", "?")
+        cls = "triggered" if s == "triggered" else "at_risk"
+        conf = r.get("confidence") or 0
+        reason = (r.get("dominant_reason") or "").strip()
+        if len(reason) > 240:
+            reason = reason[:237] + "..."
+        evidence = (r.get("evidence_quote") or "").strip()[:200]
+        reason = reason.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        evidence = evidence.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        items.append(
+            f'<div class="kc-row {cls}">'
+            f'<div class="kc-head"><span class="kc-tk">{tk}</span>'
+            f'<span class="kc-status {cls}">{s}</span>'
+            f'<span class="kc-conf mono">conf {conf}</span></div>'
+            f'<div class="kc-reason">{reason}</div>'
+            f'<div class="kc-ev">{evidence}</div></div>'
+        )
+    items_html = "".join(items) or (
+        '<div class="empty" style="padding:10px 0">aucune these triggered/at_risk &mdash; ' +
+        f'{counts["dormant"]} dormantes</div>'
+    )
+    return (
+        '<div class="card pad killcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Kill-criteria (Sprint 15)</span>'
+        f'<span class="a">triggered {counts["triggered"]} &middot; at_risk {counts["at_risk"]} &middot; '
+        f'dormant {counts["dormant"]} &middot; cron 07h30</span></div>'
+        + items_html
+        + "</div>"
+    )
+
+
 def _spof_panel() -> str:
     """Sprint 14 — Single points of failure upstream.
 
@@ -2737,6 +2792,19 @@ _CSS = """
   .valocard .vb-priced { font-family:var(--fm); font-size:12px; color:var(--ink); opacity:.9; line-height:1.45; margin-bottom:4px; font-style:italic; }
   .valocard .vb-rat { font-family:var(--fm); font-size:11px; color:var(--steel); line-height:1.4; }
   @media (max-width:980px) { .mauboussincard .ms-row { grid-template-columns:60px 40px 1fr 65px; } .mauboussincard .ms-target, .mauboussincard .ms-actual { display:none; } }
+  /* Sprint 15 - Kill-criteria */
+  .killcard .kc-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
+  .killcard .kc-row:last-child { border-bottom:none; }
+  .killcard .kc-row.triggered { border-left:3px solid var(--bear); padding-left:12px; margin-left:-12px; }
+  .killcard .kc-row.at_risk { border-left:3px solid #c89b00; padding-left:12px; margin-left:-12px; }
+  .killcard .kc-head { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
+  .killcard .kc-tk { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); }
+  .killcard .kc-status { font-family:var(--fb); font-size:9.5px; letter-spacing:.15em; text-transform:uppercase; font-weight:600; padding:2px 7px; border-radius:var(--r1); }
+  .killcard .kc-status.triggered { background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); }
+  .killcard .kc-status.at_risk { background:color-mix(in srgb,#c89b00 16%,transparent); color:#c89b00; }
+  .killcard .kc-conf { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
+  .killcard .kc-reason { font-family:var(--fm); font-size:12px; color:var(--ink); opacity:.88; line-height:1.5; margin-bottom:4px; }
+  .killcard .kc-ev { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -3354,6 +3422,7 @@ def render() -> Path:
     spof_html = _spof_panel()
     mauboussin_html = _mauboussin_sizing_panel()
     valo_html = _valo_above_bull_panel()
+    kill_html = _kill_criteria_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -3371,6 +3440,7 @@ def render() -> Path:
         f"{chat_signals_html}"
         f"{conceptions_html}"
         f"{preferences_html}"
+        f"{kill_html}"
         f"{trajectory_html}"
         f"{factor_html}"
         f"{spof_html}"

@@ -455,3 +455,23 @@ async def monthly_bot_preferences_synthesis_job():
         )
     except Exception as e:
         log.error(f"monthly_bot_preferences_synthesis failed: {e}")
+
+
+async def daily_kill_criteria_check_job():
+    """Sprint 15 — Evalue les invalidation_triggers per these active.
+
+    Status global per these : dormant | at_risk | triggered. Notify Telegram
+    sur transition X -> triggered (action requise). Tourne quotidien matin
+    pour laisser le temps a la decision dans la journee.
+    """
+    log.info("Daily kill-criteria check starting")
+    try:
+        from intelligence import kill_criteria_monitor as _kcm
+
+        out = _kcm.check_all_active_theses()
+        log.info(
+            f"kill_criteria_check : triggered={out['triggered']} at_risk={out['at_risk']} "
+            f"dormant={out['dormant']} skipped={out['skipped']} failed={out['failed']}"
+        )
+    except Exception as e:
+        log.error(f"daily_kill_criteria_check failed: {e}")

@@ -3069,3 +3069,101 @@ def get_all_latest_ticker_meta() -> list[dict]:
     except Exception as e:
         _copilot_log.warning(f"get_all_latest_ticker_meta failed: {e}")
         return []
+
+
+# === kill_criteria_alerts (Sprint 15) ========================================
+
+_KCA_DDL = (
+    "CREATE TABLE IF NOT EXISTS kill_criteria_alerts ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "thesis_id INTEGER NOT NULL, ticker TEXT NOT NULL, "
+    "status TEXT NOT NULL, "
+    "triggers_evaluated_json TEXT NOT NULL, "
+    "dominant_reason TEXT, evidence_quote TEXT, confidence INTEGER, "
+    "notified BOOLEAN NOT NULL DEFAULT 0, "
+    "model_used TEXT, cost_usd REAL)"
+)
+_KCA_IDX = [
+    "CREATE INDEX IF NOT EXISTS idx_kca_thesis ON kill_criteria_alerts(thesis_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kca_status ON kill_criteria_alerts(status)",
+    "CREATE INDEX IF NOT EXISTS idx_kca_ticker ON kill_criteria_alerts(ticker)",
+]
+
+
+def _ensure_kca_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_KCA_DDL)
+    for ix in _KCA_IDX:
+        conn.execute(ix)
+
+
+def insert_kill_criteria_alert(
+    thesis_id: int,
+    ticker: str,
+    status: str,
+    triggers_evaluated_json: str,
+    dominant_reason: str | None = None,
+    evidence_quote: str | None = None,
+    confidence: int | None = None,
+    notified: bool = False,
+    llm_meta: dict | None = None,
+) -> int | None:
+    meta = llm_meta or {}
+    try:
+        with db() as cx:
+            _ensure_kca_table(cx)
+            cur = cx.execute(
+                "INSERT INTO kill_criteria_alerts "
+                "(thesis_id, ticker, status, triggers_evaluated_json, dominant_reason, "
+                "evidence_quote, confidence, notified, model_used, cost_usd) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (
+                    thesis_id, ticker.upper(), status, triggers_evaluated_json,
+                    dominant_reason, evidence_quote, confidence, 1 if notified else 0,
+                    meta.get("model_used"), meta.get("cost_usd"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_kill_criteria_alert failed: {e}")
+        return None
+
+
+def get_latest_kca_per_thesis(thesis_id: int) -> dict | None:
+    try:
+        with db() as cx:
+            _ensure_kca_table(cx)
+            row = cx.execute(
+                "SELECT id, created_at, status, dominant_reason, evidence_quote, confidence "
+                "FROM kill_criteria_alerts WHERE thesis_id=? ORDER BY id DESC LIMIT 1",
+                (thesis_id,),
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["id", "created_at", "status", "dominant_reason", "evidence_quote", "confidence"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_kca_per_thesis failed: {e}")
+        return None
+
+
+def get_all_latest_kca() -> list[dict]:
+    """One row per thesis — latest only."""
+    try:
+        with db() as cx:
+            _ensure_kca_table(cx)
+            rows = cx.execute(
+                "SELECT kca.id, kca.created_at, kca.thesis_id, kca.ticker, kca.status, "
+                "kca.dominant_reason, kca.evidence_quote, kca.confidence "
+                "FROM kill_criteria_alerts kca "
+                "JOIN (SELECT thesis_id, MAX(id) AS mid FROM kill_criteria_alerts GROUP BY thesis_id) m "
+                "ON kca.id = m.mid "
+                "ORDER BY (CASE kca.status WHEN 'triggered' THEN 0 WHEN 'at_risk' THEN 1 ELSE 2 END), "
+                "kca.confidence DESC"
+            ).fetchall()
+            cols = ["id", "created_at", "thesis_id", "ticker", "status",
+                    "dominant_reason", "evidence_quote", "confidence"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_all_latest_kca failed: {e}")
+        return []

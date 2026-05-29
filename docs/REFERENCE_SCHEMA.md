@@ -6,7 +6,7 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 45 | **Total indexes**: 67 | **Total rows**: 4,386
+**Total tables**: 46 | **Total indexes**: 70 | **Total rows**: 4,421
 
 
 ## Core entities
@@ -298,7 +298,7 @@ CREATE TABLE insider_buy_clusters_log (
 
 **Indexes**: `idx_ibc_status`, `idx_ibc_ticker`
 
-### `insider_snapshots` (332 rows)
+### `insider_snapshots` (355 rows)
 
 ```sql
 CREATE TABLE insider_snapshots (
@@ -524,7 +524,7 @@ CREATE TABLE handler_calls (
 
 **Indexes**: `idx_handler_calls_name`, `idx_handler_calls_timestamp`
 
-### `llm_calls` (1,193 rows)
+### `llm_calls` (1,199 rows)
 
 ```sql
 CREATE TABLE llm_calls (
@@ -614,6 +614,14 @@ CREATE TABLE chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEX
 
 **Indexes**: `idx_chat_created`, `idx_chat_session`
 
+### `kill_criteria_alerts` (0 rows)
+
+```sql
+CREATE TABLE kill_criteria_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), thesis_id INTEGER NOT NULL, ticker TEXT NOT NULL, status TEXT NOT NULL, triggers_evaluated_json TEXT NOT NULL, dominant_reason TEXT, evidence_quote TEXT, confidence INTEGER, notified BOOLEAN NOT NULL DEFAULT 0, model_used TEXT, cost_usd REAL);
+```
+
+**Indexes**: `idx_kca_status`, `idx_kca_thesis`, `idx_kca_ticker`
+
 ### `portfolio_grades` (5 rows)
 
 ```sql
@@ -667,7 +675,7 @@ CREATE TABLE ticker_axes (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT 
 
 **Indexes**: `idx_axes_macro`, `idx_axes_ticker`
 
-### `ticker_meta` (1 rows)
+### `ticker_meta` (7 rows)
 
 ```sql
 CREATE TABLE ticker_meta (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), ticker TEXT NOT NULL, fade_rate_score INTEGER NOT NULL, moat_durability_years INTEGER, upstream_critical_deps_json TEXT, valo_what_priced_in TEXT, valo_pe_or_proxy REAL, valo_above_bull_case BOOLEAN, rationale TEXT, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL);
