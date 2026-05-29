@@ -408,6 +408,23 @@ async def _buy_impl(update, ticker: str, qty: float, price: float, reasoning: st
     existing_before = positions_mod.get_position(ticker)
     dtype = "scale_in" if (existing_before and existing_before.get("qty", 0) > 0) else "entry"
 
+    # 1.6 Adversarial co-pilot (advisory, non-blocking — Phase 1.5)
+    # Runs ONLY for scale_in (existing thesis to challenge). 'entry' = thesis still
+    # being formed, pre_mortem.py handles that hook separately at thesis creation.
+    _copilot_response = None
+    _copilot_intervention_id = None
+    if dtype == "scale_in":
+        try:
+            from intelligence import decision_copilot
+
+            _copilot_response, _copilot_intervention_id = decision_copilot.run_pre_trade_copilot(
+                ticker=ticker, decision_type=dtype, reasoning=reasoning, price=price,
+            )
+        except Exception as cp_err:
+            logging.getLogger("bot.position_buy").warning(
+                f"copilot pre-trade failed for {ticker}: {type(cp_err).__name__}: {cp_err}"
+            )
+
     # 1.5 Compute EUR-equivalent + enrich notes (H2 fix Day 9 audit, KPI #6 traceability)
     from shared.prices import get_currency_for_ticker as _get_cur, get_fx_rate as _get_fx
 
@@ -462,12 +479,30 @@ async def _buy_impl(update, ticker: str, qty: float, price: float, reasoning: st
                 f"{type(bias_err).__name__}: {bias_err}"
             )
 
+    # 4.5 Back-link copilot intervention to the actual decision row
+    if _copilot_intervention_id and decision_id:
+        try:
+            from shared import storage as _storage_link
+
+            _storage_link.link_copilot_intervention_decision(_copilot_intervention_id, decision_id)
+        except Exception as link_err:
+            logging.getLogger("bot.position_buy").warning(
+                f"copilot intervention link failed: {type(link_err).__name__}: {link_err}"
+            )
+
     # 5. Compose response
     msg = [f"✓ Bought {qty:.3f} {ticker} @ {format_finance(price, decimals=2)} [{dtype}]"]
     msg.append(f"  New qty: {p['qty']:.3f}, avg cost: {format_finance(p['avg_cost'], decimals=2)}")
     if decision_id:
         tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
         msg.append(f"  -> auto-logged decision #{decision_id} thesis={thesis_id or '-'}{tags_str}")
+    # Append copilot brief (advisory)
+    if _copilot_response:
+        from intelligence.decision_copilot import format_brief_for_telegram
+
+        cp_text = format_brief_for_telegram(_copilot_response)
+        if cp_text:
+            msg.append(cp_text)
     await update.message.reply_text("\n".join(msg))
 
 
@@ -478,6 +513,25 @@ async def _sell_impl(update, ticker: str, qty: float, price: float, reasoning: s
     (Sprint 1.2 Phase C dispatcher). Body extracted verbatim.
     """
     assert update.message is not None
+
+    # 0. Predict decision_type BEFORE the sell (for copilot context)
+    _existing_sell = positions_mod.get_position(ticker)
+    _existing_qty = (_existing_sell or {}).get("qty", 0) or 0
+    predicted_dtype = "full_exit" if qty >= _existing_qty else "partial_exit"
+
+    # 0.5 Adversarial co-pilot (advisory, non-blocking — Phase 1.5)
+    _copilot_response = None
+    _copilot_intervention_id = None
+    try:
+        from intelligence import decision_copilot
+
+        _copilot_response, _copilot_intervention_id = decision_copilot.run_pre_trade_copilot(
+            ticker=ticker, decision_type=predicted_dtype, reasoning=reasoning, price=price,
+        )
+    except Exception as cp_err:
+        logging.getLogger("bot.position_sell").warning(
+            f"copilot pre-trade failed for {ticker}: {type(cp_err).__name__}: {cp_err}"
+        )
 
     # 1. Update position (writes positions + position_events)
     r = positions_mod.add_sell(ticker, qty, price, reasoning)
@@ -503,6 +557,15 @@ async def _sell_impl(update, ticker: str, qty: float, price: float, reasoning: s
         )
     except Exception as e:
         await update.message.reply_text(f"Position updated but journal failed: {e}")
+
+    # 2.5 Back-link copilot intervention to actual decision row
+    if _copilot_intervention_id and decision_id:
+        try:
+            storage_mod.link_copilot_intervention_decision(_copilot_intervention_id, decision_id)
+        except Exception as link_err:
+            logging.getLogger("bot.position_sell").warning(
+                f"copilot intervention link failed: {type(link_err).__name__}: {link_err}"
+            )
 
     # 3. Auto-tag biases
     bias_tags = []
@@ -532,6 +595,12 @@ async def _sell_impl(update, ticker: str, qty: float, price: float, reasoning: s
     if decision_id:
         tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
         msg_lines.append(f"  -> auto-logged decision #{decision_id} thesis={thesis_id or '-'}{tags_str}")
+    if _copilot_response:
+        from intelligence.decision_copilot import format_brief_for_telegram
+
+        cp_text = format_brief_for_telegram(_copilot_response)
+        if cp_text:
+            msg_lines.append(cp_text)
     await update.message.reply_text("\n".join(msg_lines))
 
 

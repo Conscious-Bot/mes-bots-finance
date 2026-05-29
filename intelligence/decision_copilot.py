@@ -284,3 +284,162 @@ def run_copilot(intent: dict, thesis: dict, recent_signals: list, past_decisions
     except Exception as e:
         log.warning(f"copilot failed for {thesis.get('ticker')}: {e}")
         return None
+
+
+def run_pre_trade_copilot(ticker: str, decision_type: str, reasoning: str, price: float) -> tuple[dict | None, int | None]:
+    """High-level helper invoked from Telegram /position_buy, /position_sell, /override.
+
+    Assembles context from live DB, runs the copilot, logs the intervention.
+    Returns (copilot_response_dict, intervention_id) — both may be None if
+    copilot fails. The trade SHOULD proceed regardless (copilot is advisory).
+    """
+    from shared import storage
+
+    try:
+        thesis = storage.get_thesis_by_ticker(ticker, status="active") or {}
+        if not thesis:
+            log.info(f"copilot: no active thesis on {ticker}, skipping pressure test")
+            return None, None
+
+        recent_signals = _fetch_signals_for_ticker(ticker)
+        past_decisions = _fetch_past_decisions(ticker, decision_type)
+        bias_patterns = _fetch_bias_patterns()
+
+        intent = {
+            "decision_type": decision_type,
+            "reasoning": reasoning,
+            "confidence_pre": thesis.get("conviction", 3),
+            "current_price": price,
+        }
+        response = run_copilot(intent, thesis, recent_signals, past_decisions, bias_patterns)
+        intervention_id = storage.log_copilot_intervention(
+            ticker=ticker,
+            decision_type=decision_type,
+            intent_reasoning=reasoning,
+            intent_price=price,
+            intent_qty=None,
+            thesis_id=thesis.get("id"),
+            response=response,
+            llm_meta={},  # llm_call already telemetered via llm_calls table
+        )
+        return response, intervention_id
+    except Exception as e:
+        log.warning(f"run_pre_trade_copilot failed for {ticker} {decision_type}: {e}")
+        return None, None
+
+
+def _fetch_signals_for_ticker(ticker: str) -> list:
+    """Pull direct + adjacent (same sector) signals last 30d, materiality ≥ 4/8."""
+    from dashboard.render import TICKER_SECTOR
+    from shared.storage import db
+
+    sector = TICKER_SECTOR.get(ticker)
+    out = []
+    try:
+        with db() as conn:
+            direct = conn.execute(
+                "SELECT s.id, s.timestamp, s.title, s.summary, s.sentiment, s.score, "
+                "src.credibility AS source_credibility "
+                "FROM signals s LEFT JOIN sources src ON src.id=s.source_id "
+                "WHERE s.timestamp > datetime('now','-30 day') "
+                "AND (s.entities LIKE ? OR s.title LIKE ? OR s.content LIKE ?) "
+                "AND s.score >= 4 ORDER BY s.timestamp DESC LIMIT 12",
+                (f"%{ticker}%", f"%{ticker}%", f"%{ticker}%"),
+            ).fetchall()
+            adjacent = []
+            if sector:
+                same_sec = [tk for tk, sec in TICKER_SECTOR.items() if sec == sector and tk != ticker]
+                if same_sec:
+                    ph = " OR ".join(["s.entities LIKE ?" for _ in same_sec])
+                    params = [f"%{tk}%" for tk in same_sec]
+                    adjacent = conn.execute(
+                        "SELECT s.id, s.timestamp, s.title, s.summary, s.sentiment, s.score, "
+                        "src.credibility AS source_credibility "
+                        f"FROM signals s LEFT JOIN sources src ON src.id=s.source_id "
+                        f"WHERE s.timestamp > datetime('now','-30 day') AND ({ph}) "
+                        f"AND s.score >= 4 ORDER BY s.timestamp DESC LIMIT 8",
+                        params,
+                    ).fetchall()
+            cols = ["id", "timestamp", "title", "summary", "sentiment", "score", "source_credibility"]
+            for r in direct:
+                d = dict(zip(cols, r, strict=False))
+                d["materiality"] = d["score"]
+                d["scope"] = "direct"
+                out.append(d)
+            for r in adjacent:
+                d = dict(zip(cols, r, strict=False))
+                d["materiality"] = d["score"]
+                d["scope"] = f"adjacent (sector: {sector})"
+                out.append(d)
+    except Exception as e:
+        log.warning(f"_fetch_signals_for_ticker {ticker} failed: {e}")
+    return out[:10]
+
+
+def _fetch_past_decisions(ticker: str, decision_type: str) -> list:
+    from shared.storage import db
+
+    try:
+        with db() as conn:
+            rows = conn.execute(
+                "SELECT id, created_at, ticker, decision_type, direction, reasoning, "
+                "resolved_30d_at, return_30d_pct, bias_tags, thesis_relative_30d "
+                "FROM decisions WHERE (ticker=? OR decision_type=?) "
+                "AND resolved_30d_at IS NOT NULL ORDER BY created_at DESC LIMIT 10",
+                (ticker, decision_type),
+            ).fetchall()
+            cols = [
+                "id",
+                "created_at",
+                "ticker",
+                "decision_type",
+                "direction",
+                "reasoning",
+                "resolved_30d_at",
+                "return_30d_pct",
+                "bias_tags",
+                "thesis_relative_30d",
+            ]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        log.warning(f"_fetch_past_decisions {ticker} failed: {e}")
+        return []
+
+
+def _fetch_bias_patterns() -> list:
+    from shared.storage import db
+
+    try:
+        with db() as conn:
+            rows = conn.execute(
+                "SELECT name, description, n_samples, avg_outcome, success_rate "
+                "FROM patterns WHERE is_active=1 AND n_samples >= 3 "
+                "ORDER BY n_samples DESC LIMIT 5"
+            ).fetchall()
+            cols = ["name", "description", "n_samples", "avg_outcome", "success_rate"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        log.warning(f"_fetch_bias_patterns failed: {e}")
+        return []
+
+
+def format_brief_for_telegram(response: dict | None) -> str:
+    """Format the co-pilot response as a Telegram-friendly text block."""
+    if not response:
+        return ""
+    verdict = response.get("verdict", "PROCEED")
+    score = response.get("pressure_score", 0)
+    brief = response.get("brief", "").strip()
+    ancrage = response.get("ancrage", "").strip()
+    biases = response.get("biases_active") or []
+
+    # Verdict emoji header
+    icon = {"PROCEED": "✓", "PRESSURE": "⚠", "STRONG_OPPOSE": "✕"}.get(verdict, "?")
+    parts = [f"\n— Co-pilot {icon} {verdict} (pression {score}/100) —"]
+    if ancrage:
+        parts.append(f"⚓ {ancrage}")
+    if brief:
+        parts.append(brief)
+    if biases:
+        parts.append(f"biais flagges : {', '.join(biases)}")
+    return "\n".join(parts)

@@ -2036,3 +2036,136 @@ def build_signals_context_block(ticker: str) -> str:
             f"  - [{date}] {source} (Tier {tier}, cred {cred:.2f}) {sig_type}/{sentiment} mat={mat:.2f} -> {title} [w={weighted:.2f}]"
         )
     return "\n".join(lines)
+
+
+# === bot_copilot_interventions (Phase 1.5) ====================================
+
+import logging as _copilot_logging
+
+_copilot_log = _copilot_logging.getLogger("shared.storage.copilot")
+
+_COPILOT_DDL = (
+    "CREATE TABLE IF NOT EXISTS bot_copilot_interventions ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "ticker TEXT NOT NULL, decision_type TEXT NOT NULL, "
+    "intent_reasoning TEXT, intent_price REAL, intent_qty REAL, "
+    "thesis_id INTEGER, decision_id INTEGER, "
+    "verdict TEXT, pressure_score INTEGER, ancrage TEXT, brief TEXT, "
+    "biases_active_json TEXT, full_response_json TEXT, "
+    "model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, "
+    "cost_usd REAL, elapsed_ms INTEGER, "
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "resolved_30d_at TEXT, return_30d_pct REAL, outcome_label TEXT, "
+    "FOREIGN KEY (thesis_id) REFERENCES theses(id), "
+    "FOREIGN KEY (decision_id) REFERENCES decisions(id))"
+)
+
+_COPILOT_IDX = [
+    "CREATE INDEX IF NOT EXISTS idx_copilot_ticker ON bot_copilot_interventions(ticker)",
+    "CREATE INDEX IF NOT EXISTS idx_copilot_decision ON bot_copilot_interventions(decision_id)",
+    "CREATE INDEX IF NOT EXISTS idx_copilot_created ON bot_copilot_interventions(created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_copilot_unresolved ON bot_copilot_interventions(resolved_30d_at)",
+]
+
+
+def _ensure_copilot_table(conn: _sqlite3.Connection) -> None:
+    """Defensive : ensure bot_copilot_interventions exists (idempotent).
+    Belt-and-suspenders with alembic migration 0003."""
+    conn.execute(_COPILOT_DDL)
+    for ix in _COPILOT_IDX:
+        conn.execute(ix)
+
+
+def log_copilot_intervention(
+    ticker: str,
+    decision_type: str,
+    intent_reasoning: str | None,
+    intent_price: float | None,
+    intent_qty: float | None,
+    thesis_id: int | None,
+    response: dict | None,
+    llm_meta: dict | None = None,
+) -> int | None:
+    """Log a pre-trade co-pilot intervention. Returns intervention_id or None on failure."""
+    import json as _json
+
+    if response is None:
+        # Still log : the fact that the copilot was invoked and failed is data too
+        response = {}
+    llm_meta = llm_meta or {}
+    biases = response.get("biases_active") or []
+    try:
+        with db() as conn:
+            _ensure_copilot_table(conn)
+            cur = conn.execute(
+                "INSERT INTO bot_copilot_interventions "
+                "(ticker, decision_type, intent_reasoning, intent_price, intent_qty, thesis_id, "
+                "verdict, pressure_score, ancrage, brief, biases_active_json, full_response_json, "
+                "model_used, input_tokens, output_tokens, cost_usd, elapsed_ms) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    ticker,
+                    decision_type,
+                    intent_reasoning,
+                    intent_price,
+                    intent_qty,
+                    thesis_id,
+                    response.get("verdict"),
+                    response.get("pressure_score"),
+                    response.get("ancrage"),
+                    response.get("brief"),
+                    _json.dumps(biases, ensure_ascii=False) if biases else None,
+                    _json.dumps(response, ensure_ascii=False) if response else None,
+                    llm_meta.get("model"),
+                    llm_meta.get("input_tokens"),
+                    llm_meta.get("output_tokens"),
+                    llm_meta.get("cost_usd"),
+                    llm_meta.get("elapsed_ms"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"log_copilot_intervention failed for {ticker} {decision_type}: {e}")
+        return None
+
+
+def link_copilot_intervention_decision(intervention_id: int, decision_id: int) -> None:
+    """Back-link the intervention to the actual decision row created post-trade."""
+    try:
+        with db() as conn:
+            conn.execute(
+                "UPDATE bot_copilot_interventions SET decision_id=? WHERE id=?",
+                (decision_id, intervention_id),
+            )
+    except Exception as e:
+        _copilot_log.warning(f"link_copilot_intervention_decision failed id={intervention_id}: {e}")
+
+
+def get_recent_copilot_interventions_for_ticker(ticker: str, limit: int = 5) -> list[dict]:
+    """For chat surface RAG : the bot's recent stances on this ticker."""
+    try:
+        with db() as conn:
+            _ensure_copilot_table(conn)
+            rows = conn.execute(
+                "SELECT id, created_at, decision_type, verdict, pressure_score, ancrage, brief, "
+                "biases_active_json, return_30d_pct, outcome_label "
+                "FROM bot_copilot_interventions WHERE ticker=? "
+                "ORDER BY created_at DESC LIMIT ?",
+                (ticker, limit),
+            ).fetchall()
+            cols = [
+                "id",
+                "created_at",
+                "decision_type",
+                "verdict",
+                "pressure_score",
+                "ancrage",
+                "brief",
+                "biases_active_json",
+                "return_30d_pct",
+                "outcome_label",
+            ]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_recent_copilot_interventions failed for {ticker}: {e}")
+        return []
