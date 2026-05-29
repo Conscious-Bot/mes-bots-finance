@@ -375,6 +375,51 @@ _BALLAST_MACROS_STRICT = {
 }
 
 
+_CORR_BALLAST_CACHE: list[tuple[str, str]] | None = None
+
+
+def _load_correlated_ballast_pairs() -> list[tuple[str, str]]:
+    """F8 — Lit la derniere data_clusters_snapshot et retourne les paires
+    (ticker_a, ticker_b) qui sont DANS UN MEME CLUSTER (correle >0.7 empirique
+    sur 120j) ET pour lesquelles AU MOINS l'un est dans un macro_factor ballast.
+
+    Si la table n'existe pas / pas de snapshot : retourne liste vide
+    (haircut neutralise, comportement = avant le fix)."""
+    global _CORR_BALLAST_CACHE
+    if _CORR_BALLAST_CACHE is not None:
+        return _CORR_BALLAST_CACHE
+    import json as _json
+
+    try:
+        from shared import storage as _stg
+
+        with _stg.db() as cx:
+            r = cx.execute(
+                "SELECT snapshot_json FROM data_clusters_snapshots "
+                "ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        if not r or not r[0]:
+            _CORR_BALLAST_CACHE = []
+            return _CORR_BALLAST_CACHE
+        snap = _json.loads(r[0])
+        pairs: list[tuple[str, str]] = []
+        for cluster in snap.get("clusters") or []:
+            members = cluster.get("members") or []
+            ballast_in_cluster = [
+                m["ticker"] for m in members
+                if m.get("macro_factor") in _BALLAST_MACROS_STRICT
+            ]
+            # Toute paire dans le meme cluster compte
+            for i in range(len(ballast_in_cluster)):
+                for j in range(i + 1, len(ballast_in_cluster)):
+                    pairs.append((ballast_in_cluster[i], ballast_in_cluster[j]))
+        _CORR_BALLAST_CACHE = pairs
+        return pairs
+    except Exception:
+        _CORR_BALLAST_CACHE = []
+        return _CORR_BALLAST_CACHE
+
+
 def _compute_decorrelation_star(state: dict) -> dict:
     """Sprint 12 refactor (29/05/2026) : DECORRELATION = ballast macro STRICT.
 
@@ -400,7 +445,19 @@ def _compute_decorrelation_star(state: dict) -> dict:
     total = state["total_capital_eur"] or 1
     axes_map = _load_ticker_axes_map()
     if axes_map and len([p for p in positions if p["ticker"] in axes_map]) >= len(positions) * 0.7:
-        star_eur = 0.0
+        # F8 add 29/05 : haircut pour correlation interne empirique.
+        # data_clusters_snapshots cluster #11 = {CCJ, MP} mixed (Energy
+        # commodities + Rare earths) -- 2 ballast strict empiriquement
+        # correles >0.7 malgre macro_factor different. Sans haircut, le
+        # ballast 16.8% surestime la decorrelation interne.
+        # Approche : si 2 ballast tickers sont dans le meme cluster, on
+        # divise leur poids combine par 1.5 (= compte pour 1.5 ballast unit
+        # au lieu de 2). Heuristique simple, transparent.
+        correlated_ballast_pairs = _load_correlated_ballast_pairs()
+
+        star_eur_raw = 0.0
+        star_eur_haircut = 0.0
+        ballast_tickers: list[str] = []
         names = []
         macro_count: dict[str, int] = {}
         for p in positions:
@@ -410,12 +467,32 @@ def _compute_decorrelation_star(state: dict) -> dict:
             mf = a["macro_factor"]
             macro_count[mf] = macro_count.get(mf, 0) + 1
             if mf in _BALLAST_MACROS_STRICT:
-                star_eur += p["weight"]
+                star_eur_raw += p["weight"]
+                ballast_tickers.append(p["ticker"])
                 names.append(f"{p['ticker']}({mf[:14]})")
-        current_pct = star_eur / total * 100 if total else 0
+        # Apply haircut : pour chaque paire de ballast tickers dans le meme
+        # cluster, on retire 1/3 de la somme de leurs poids (ramene de 2.0
+        # ballast unit a 1.33).
+        haircut_eur = 0.0
+        haircut_pairs: list[tuple[str, str]] = []
+        for a_tk, b_tk in correlated_ballast_pairs:
+            if a_tk in ballast_tickers and b_tk in ballast_tickers:
+                pa = pos_by_tk.get(a_tk)
+                pb = pos_by_tk.get(b_tk)
+                if pa and pb:
+                    haircut_eur += (pa["weight"] + pb["weight"]) / 3.0
+                    haircut_pairs.append((a_tk, b_tk))
+        star_eur_haircut = star_eur_raw - haircut_eur
+        current_pct = star_eur_haircut / total * 100 if total else 0
         target_pct = 15.0
         score = min(100, current_pct / target_pct * 100) if target_pct else 0
         dominant = max(macro_count.items(), key=lambda kv: kv[1]) if macro_count else ("?", 0)
+        haircut_note = ""
+        if haircut_pairs:
+            pairs_str = ", ".join(f"{a}+{b}" for a, b in haircut_pairs)
+            haircut_note = (
+                f" Haircut correlation interne : {pairs_str} (-{haircut_eur:.0f}€)."
+            )
         return {
             "current_pct": round(current_pct, 1),
             "target_pct": target_pct,
@@ -424,10 +501,11 @@ def _compute_decorrelation_star(state: dict) -> dict:
             "status": "at_or_above_target" if current_pct >= target_pct else "below_target",
             "evidence": (
                 f"Ballast strict (defense/energie/terres rares/reshoring) : "
-                f"{', '.join(names[:6]) or 'aucun'} ({star_eur:.0f}€). "
+                f"{', '.join(names[:6]) or 'aucun'} ({star_eur_raw:.0f}€ brut, "
+                f"{star_eur_haircut:.0f}€ post-haircut).{haircut_note} "
                 f"Dominant book: {dominant[0]} (n={dominant[1]})"
             ),
-            "source": "sprint12_ballast_strict_whitelist",
+            "source": "sprint12_ballast_strict_whitelist_F8_haircut",
         }
     snap = _load_llm_narrative_snapshot()
     if snap and snap.get("edges"):

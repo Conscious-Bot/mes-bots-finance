@@ -957,6 +957,13 @@ def _mauboussin_sizing_panel() -> str:
         from intelligence import spof_and_sizing as _sp
 
         sizing = _sp.compute_mauboussin_sizing()
+        # F5 fix 29/05 : cross-reference valo_above_bull_case pour eviter
+        # qu'un ticker affiche "at_implied / above_implied" sain dans le
+        # sizing alors qu'il est flagge "fragility tres elevee" dans une
+        # autre vue. Cf Lasertec 6920.T : sizing dit +0.8pp, valo dit
+        # single-customer ASML fragility extreme. Les deux vues ne se
+        # parlent pas -> on raccroche le flag.
+        bull_tickers = {x["ticker"] for x in _sp.list_above_bull_case()}
     except Exception as e:
         return f'<div class="card pad"><div class="empty">Mauboussin sizing indispo: {type(e).__name__}</div></div>'
     if not sizing:
@@ -971,6 +978,12 @@ def _mauboussin_sizing_panel() -> str:
         gcls = "neg" if gap > 0.5 else ("pos" if gap < -0.5 else "neu")
         fade = d.get("fade_rate_score") or 0
         fcls = "high" if fade >= 60 else ("mid" if fade >= 30 else "low")
+        fragile_flag = ""
+        if tk in bull_tickers:
+            fragile_flag = (
+                '<span class="ms-frag" title="aussi flagge valo > bull case '
+                'dans une autre vue">valo &gt; bull</span>'
+            )
         rows.append(
             f'<div class="ms-row">'
             f'<span class="ms-tk">{tk}</span>'
@@ -978,7 +991,8 @@ def _mauboussin_sizing_panel() -> str:
             f'<span class="ms-fade {fcls} mono">fade {fade}</span>'
             f'<span class="ms-target mono">cible {d["target_pct"]:.1f}%</span>'
             f'<span class="ms-actual mono">reel {d["actual_pct"]:.1f}%</span>'
-            f'<span class="ms-gap {gcls} mono">{gap:+.1f}pp</span></div>'
+            f'<span class="ms-gap {gcls} mono">{gap:+.1f}pp</span>'
+            f'{fragile_flag}</div>'
         )
     return (
         '<div class="card pad mauboussincard" style="margin-bottom:18px">'
@@ -3584,7 +3598,8 @@ _CSS = """
   .spofcard .sp-fill.mid { background:#c89b00; }
   .spofcard .sp-fill.low { background:var(--acc); }
   .spofcard .sp-deps { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
-  .mauboussincard .ms-row { display:grid; grid-template-columns:70px 50px 65px 75px 75px 65px; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
+  .mauboussincard .ms-row { display:grid; grid-template-columns:70px 50px 65px 75px 75px 65px auto; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
+  .mauboussincard .ms-frag { font-family:var(--fm); font-size:10px; padding:2px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); letter-spacing:.03em; justify-self:start; }
   .mauboussincard .ms-row:last-child { border-bottom:none; }
   .mauboussincard .ms-tk { font-family:var(--fm); font-weight:600; color:var(--ink); }
   .mauboussincard .ms-conv { font-family:var(--fm); color:var(--steel); }
