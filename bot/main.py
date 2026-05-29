@@ -120,6 +120,7 @@ from bot.jobs import (
     price_monitor_job,
     recalibrate_credibility_brier_job,
     refresh_source_half_lives_job,
+    resolve_copilot_interventions_30d_job,
     resolve_journal_decisions_job,
     scheduled_8k_scan_job,
     scheduled_buy_cluster_scan_job,
@@ -188,6 +189,7 @@ async def post_init(app):
     sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
     sched.add_job(daily_resolve_job, "cron", hour=9, minute=0)
     sched.add_job(resolve_journal_decisions_job, "cron", hour=8, minute=0)
+    sched.add_job(resolve_copilot_interventions_30d_job, "cron", hour=9, minute=15)
     sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=0)
     sched.add_job(update_echo_clusters_job, "interval", hours=1)
     sched.add_job(score_pending_signals_job, "interval", hours=1)

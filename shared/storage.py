@@ -2254,3 +2254,38 @@ def get_latest_user_profile() -> dict | None:
     except Exception as e:
         _copilot_log.warning(f"get_latest_user_profile failed: {e}")
         return None
+
+
+def fetch_pending_copilot_resolutions(limit: int = 100) -> list[dict]:
+    """Sprint 4 — fetch interventions older than 30d still unresolved, joined with decisions return."""
+    try:
+        with db() as cx:
+            _ensure_copilot_table(cx)
+            rows = cx.execute(
+                "SELECT i.id, i.verdict, i.decision_type, i.decision_id, "
+                "d.return_30d_pct "
+                "FROM bot_copilot_interventions i "
+                "LEFT JOIN decisions d ON d.id = i.decision_id "
+                "WHERE i.resolved_30d_at IS NULL "
+                "AND i.created_at <= datetime('now', '-30 day') "
+                "LIMIT ?",
+                (limit,),
+            ).fetchall()
+            cols = ["id", "verdict", "decision_type", "decision_id", "return_30d_pct"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"fetch_pending_copilot_resolutions failed: {e}")
+        return []
+
+
+def resolve_copilot_intervention(intervention_id: int, return_pct: float | None, outcome_label: str) -> None:
+    """Sprint 4 — Mark an intervention as resolved with 30d outcome."""
+    try:
+        with db() as cx:
+            cx.execute(
+                "UPDATE bot_copilot_interventions SET resolved_30d_at=datetime('now'), "
+                "return_30d_pct=?, outcome_label=? WHERE id=?",
+                (return_pct, outcome_label, intervention_id),
+            )
+    except Exception as e:
+        _copilot_log.warning(f"resolve_copilot_intervention {intervention_id} failed: {e}")

@@ -311,3 +311,67 @@ async def weekly_user_profile_refresh_job():
         )
     except Exception as e:
         log.exception(f"weekly_user_profile_refresh crashed: {e}")
+
+
+async def resolve_copilot_interventions_30d_job():
+    """Sprint 4 — Resolution loop : pour chaque copilot intervention >30j sans
+    resolution, compute outcome_label depuis decisions.return_30d_pct.
+
+    Labels :
+    - copilot_proceed_outcome_good : verdict PROCEED + decision a bien marche
+    - copilot_proceed_outcome_bad : PROCEED + decision a mal marche (alerte manquee)
+    - copilot_pressure_outcome_good : PRESSURE/STRONG_OPPOSE + decision a mal marche (= copilot avait raison)
+    - copilot_pressure_outcome_bad : PRESSURE/STRONG_OPPOSE + decision a bien marche (= false positive)
+    - no_decision_linked : intervention sans decision_id (rare edge)
+
+    "Good" depend du decision_type :
+    - scale_in : return_30d > 0 = good (achat a bon niveau)
+    - partial_exit / full_exit : return_30d < 0 = good (vente a evite la baisse)
+    - override : return_30d > 0 = good (heuristique simple)
+
+    Tourne quotidiennement apres daily_resolve_job (qui fill decisions.return_30d_pct).
+    DB writes route via shared/storage.py (CONVENTIONS §5).
+    """
+    from shared import storage
+
+    try:
+        resolved = 0
+        skipped_pending = 0
+        skipped_no_decision = 0
+        pending = storage.fetch_pending_copilot_resolutions(limit=100)
+        for r in pending:
+            iid = r["id"]
+            verdict = r["verdict"]
+            dtype = r["decision_type"]
+            decision_id = r["decision_id"]
+            ret_30d = r["return_30d_pct"]
+            if decision_id is None:
+                storage.resolve_copilot_intervention(iid, None, "no_decision_linked")
+                skipped_no_decision += 1
+                continue
+            if ret_30d is None:
+                skipped_pending += 1
+                continue
+            if dtype == "scale_in":
+                outcome_good = ret_30d > 0
+            elif dtype in ("partial_exit", "full_exit"):
+                outcome_good = ret_30d < 0
+            elif dtype == "override":
+                outcome_good = ret_30d > 0
+            else:
+                storage.resolve_copilot_intervention(iid, ret_30d, "decision_type_unknown")
+                continue
+            if verdict == "PROCEED":
+                label = "copilot_proceed_outcome_good" if outcome_good else "copilot_proceed_outcome_bad"
+            elif verdict in ("PRESSURE", "STRONG_OPPOSE"):
+                label = "copilot_pressure_outcome_good" if outcome_good else "copilot_pressure_outcome_bad"
+            else:
+                label = "verdict_unknown"
+            storage.resolve_copilot_intervention(iid, ret_30d, label)
+            resolved += 1
+        log.info(
+            f"resolve_copilot_interventions_30d : resolved={resolved} "
+            f"skipped_pending={skipped_pending} skipped_no_decision={skipped_no_decision}"
+        )
+    except Exception as e:
+        log.exception(f"resolve_copilot_interventions_30d crashed: {e}")
