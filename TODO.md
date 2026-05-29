@@ -66,6 +66,34 @@ Détail révélateur : les docs canoniques ont aussi dérivé — `SESSION_STATE
 - ❌ **Audit intégrité boucle pré-10/06** : non lancé. `price_at_decision` currency mixte ? Cluster J+28 ? Horizons hardcodés ? → **P0 ouvert.**
 - ❌ **SESSION_STATE drift** : Day 2 vs Day 17+ — non actualisé. → **P1 ouvert (docs = racine #1 documentaire).**
 
+### 🔍 Audit 7 findings (29/05 nuit) — toutes racines #1 ou #1+#4
+
+Verdict user : "presque toutes les deux mêmes racines (pas de source de vérité unique + inputs jamais audités)". Vérification empirique :
+
+**F1 — Taxonomie paris contradit moteur scénario.** AI capex taxo = 16 lignes / 67.1% MAIS scénario "AI capex −30%" frappe n=19 / −22.1% (≈74% exposés). Découper l'IA en 3 paris (capex/memory/inference) minimise pile le risque qui inquiète. **À vérifier `_factor_exposures_panel` vs `_stress_tests_panel`.** → **Racine #1 (taxo vs scénario sur 2 sources différentes)**.
+
+**F2 — Scénario FX sous-estimé.** "Pas de hedge" sur 83% hors-EUR, MAIS un seul scénario FX modélisé (USD −5.6%, n=16). 23% JPY (Shin-Etsu, MHI, Advantest, Lasertec) sans scénario. **À ajouter scénario JPY ±10% au stress test.** → **Racine #4 (métrique calibrée pour le confort : on flag le risque sans le mesurer où il vit)**.
+
+**F3 ✅ VÉRIFIÉ — Échelle conviction gonflée aux 2 bouts.** Distribution active : c3=9, c4=12, c5=6, **c1=c2=0**. Le "1-5" est en réalité un "3-5". Pire : c5 SK Hynix (canonical `gardien memoire`, contexte HBM cycle ≠ Incontournable), c4 Tesla (canonical `Incertain` + `hors-these`), c4 AMD (canonical `Solide` + `valo ~92x`). **Le calibrage fade est pollué par ces inputs non audités.** → **Racine #1 (conviction = input source unique pour sizing, sans audit)**.
+
+**F4 ✅ VÉRIFIÉ — Thèse GOOGL est littéralement une thèse AMZN.** thesis_41 GOOGL key_drivers : *"ORPHAN: position held but Thèse #5 names AMZN not GOOGL. Inherited from prior framework."* Notes : *"sector_thesis_id: MAG7_2026, narrative=MAG7, re-tagged=2026-05-23_from_orphan"*. **Le bot lui-même le dit** mais la position vit avec cette thèse. → **Racine #1 (thèse pas verrouillée à la source)**.
+
+**F5 — Lasertec contradictions cross-panels.** "fragile / valo > bull / déjà trimmé / rotation sortante" dans une vue, mais "✓ au poids, aucune action" dans la vue sizing. **À vérifier _valo_above_bull_panel vs _mauboussin_sizing_panel sur 6920.T.** → **Racine #1 (vues qui ne se parlent pas)**.
+
+**F6 ✅ VÉRIFIÉ + ADRESSÉ CE SOIR — Cameco intervention_3.** Le bot a TOUT capté : currency mismatch (stop EUR sur ticker USD), bearish signal_295 non digéré, conviction inflation (c5 mais bot_conviction 28/100, n_signals=1), trigger "à étoffer", scénario adverse Pm_failure_2 matché, biais nommés (confirmation_bias + anchoring). Verdict PRESSURE 55. **Détecté tout seul, enterré dans une fiche jamais lue.** → Fix canal "détecte → met sous le nez" : panneau copilot refondu (brief en accordion + biais chips + élévation visuelle PRESSURE/STRONG_OPPOSE). Commit `95d83cc`. → **Racine #1 documentaire (le canal de remontée des findings)**.
+
+**F7 — Snowflake en vol aveugle.** "Données de prix incomplètes" → ni stop, ni cible, ni kill-criteria calculables → position affichée ✓. **À vérifier theses.SNOW + price availability.** → **Racine #1 (position vit sans inputs verrouillés)**.
+
+**F8 — Ballast cluster #11 = Cameco + MP corrélés (>0.7).** Deux des cinq ballasts stricts bougent ensemble → coussin a moins de diversification interne qu'affiché. **À vérifier `return_clustering` cluster #11.** → **Racine #1 (le ballast strict 16.8% surestime la décorrélation interne)**.
+
+### Insight encourageant à graver
+
+> La machine de détection MARCHE (cf F6 Cameco). C'est la REMONTÉE qui ne marche pas — elle enterre ses meilleures trouvailles dans des fiches jamais lues. Réparer le canal "ce que le bot a détecté → ce qu'il met sous le nez" est rapide, et c'est le meilleur ratio valeur/effort.
+
+Cette boucle est maintenant ouverte (cf commit `95d83cc` panneau copilot refondu). À étendre : applique le même principe au kill_criteria_alerts, aux journaux de décision, aux signaux high-materiality. **Anti-pattern à fuir : tout output qui finit dans une table jamais lue.**
+
+
+
 ---
 
 ## 🎯 NIVEAU 2 — d'un miroir à un adversaire, d'une description à une preuve
