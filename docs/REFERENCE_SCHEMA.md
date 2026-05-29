@@ -6,12 +6,12 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 47 | **Total indexes**: 71 | **Total rows**: 4,464
+**Total tables**: 47 | **Total indexes**: 71 | **Total rows**: 4,647
 
 
 ## Core entities
 
-### `decisions` (4 rows)
+### `decisions` (8 rows)
 
 ```sql
 CREATE TABLE decisions (
@@ -44,7 +44,7 @@ CREATE TABLE decisions (
 
 **Indexes**: `idx_decisions_created`, `idx_decisions_ticker`, `idx_decisions_unresolved_30`, `idx_decisions_unresolved_90`
 
-### `position_events` (53 rows)
+### `position_events` (57 rows)
 
 ```sql
 CREATE TABLE position_events (
@@ -62,7 +62,7 @@ CREATE TABLE position_events (
 
 **Indexes**: `idx_position_events_ticker`
 
-### `positions` (29 rows)
+### `positions` (30 rows)
 
 ```sql
 CREATE TABLE positions (
@@ -129,7 +129,7 @@ CREATE TABLE sources (
 
 **Indexes**: `idx_sources_credibility`, `idx_sources_last_signal`
 
-### `theses` (52 rows)
+### `theses` (53 rows)
 
 ```sql
 CREATE TABLE theses (
@@ -509,7 +509,7 @@ CREATE TABLE bot_events (
 
 **Indexes**: `idx_bot_events_type_ts`
 
-### `handler_calls` (525 rows)
+### `handler_calls` (526 rows)
 
 ```sql
 CREATE TABLE handler_calls (
@@ -524,7 +524,7 @@ CREATE TABLE handler_calls (
 
 **Indexes**: `idx_handler_calls_name`, `idx_handler_calls_timestamp`
 
-### `llm_calls` (1,220 rows)
+### `llm_calls` (1,299 rows)
 
 ```sql
 CREATE TABLE llm_calls (
@@ -547,7 +547,7 @@ CREATE TABLE llm_calls (
 
 ## Uncategorized
 
-### `bot_conceptions` (42 rows)
+### `bot_conceptions` (44 rows)
 
 ```sql
 CREATE TABLE bot_conceptions (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), kind TEXT NOT NULL, target_key TEXT NOT NULL, conception_text TEXT NOT NULL, conviction INTEGER NOT NULL, valence REAL, sources_json TEXT, n_signals_used INTEGER, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, elapsed_ms INTEGER);
@@ -555,7 +555,7 @@ CREATE TABLE bot_conceptions (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at T
 
 **Indexes**: `idx_conc_created`, `idx_conc_kind_target`
 
-### `bot_copilot_interventions` (0 rows)
+### `bot_copilot_interventions` (3 rows)
 
 ```sql
 CREATE TABLE bot_copilot_interventions (
@@ -598,7 +598,7 @@ CREATE TABLE bot_preferences (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at T
 
 **Indexes**: `idx_pref_date`, `idx_pref_kind`
 
-### `chat_extracted_signals` (3 rows)
+### `chat_extracted_signals` (13 rows)
 
 ```sql
 CREATE TABLE chat_extracted_signals (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), chat_message_id INTEGER, kind TEXT NOT NULL, ticker TEXT, sector TEXT, theme TEXT, valence REAL, confidence REAL, evidence_quote TEXT, note TEXT, model_used TEXT, cost_usd REAL);
@@ -606,7 +606,7 @@ CREATE TABLE chat_extracted_signals (id INTEGER PRIMARY KEY AUTOINCREMENT, creat
 
 **Indexes**: `idx_ces_created`, `idx_ces_kind`, `idx_ces_ticker`
 
-### `chat_messages` (4 rows)
+### `chat_messages` (28 rows)
 
 ```sql
 CREATE TABLE chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), session_id TEXT, surface TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, latency_ms INTEGER, error TEXT);
@@ -622,7 +622,7 @@ CREATE TABLE data_clusters_snapshots (id INTEGER PRIMARY KEY AUTOINCREMENT, crea
 
 **Indexes**: `idx_dc_date`
 
-### `kill_criteria_alerts` (0 rows)
+### `kill_criteria_alerts` (41 rows)
 
 ```sql
 CREATE TABLE kill_criteria_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), thesis_id INTEGER NOT NULL, ticker TEXT NOT NULL, status TEXT NOT NULL, triggers_evaluated_json TEXT NOT NULL, dominant_reason TEXT, evidence_quote TEXT, confidence INTEGER, notified BOOLEAN NOT NULL DEFAULT 0, model_used TEXT, cost_usd REAL);
@@ -630,7 +630,7 @@ CREATE TABLE kill_criteria_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, created
 
 **Indexes**: `idx_kca_status`, `idx_kca_thesis`, `idx_kca_ticker`
 
-### `portfolio_grades` (5 rows)
+### `portfolio_grades` (13 rows)
 
 ```sql
 CREATE TABLE portfolio_grades (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_at TEXT NOT NULL DEFAULT (datetime('now')), snapshot_date TEXT NOT NULL, overall_score INTEGER NOT NULL, overall_grade TEXT NOT NULL, dimensions_json TEXT NOT NULL, total_capital_eur REAL, n_positions INTEGER, n_theses_active INTEGER, computation_version TEXT NOT NULL DEFAULT 'sprint5_deterministic', notes TEXT);
@@ -675,7 +675,7 @@ CREATE TABLE predictions_bak_probfix(
 );
 ```
 
-### `ticker_axes` (28 rows)
+### `ticker_axes` (31 rows)
 
 ```sql
 CREATE TABLE ticker_axes (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), ticker TEXT NOT NULL, demand_driver TEXT NOT NULL, value_chain_stage TEXT NOT NULL, moat_source TEXT NOT NULL, macro_factor TEXT NOT NULL, alt_drivers_json TEXT, confidence INTEGER, rationale TEXT, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL);
@@ -683,7 +683,7 @@ CREATE TABLE ticker_axes (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT 
 
 **Indexes**: `idx_axes_macro`, `idx_axes_ticker`
 
-### `ticker_meta` (28 rows)
+### `ticker_meta` (30 rows)
 
 ```sql
 CREATE TABLE ticker_meta (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), ticker TEXT NOT NULL, fade_rate_score INTEGER NOT NULL, moat_durability_years INTEGER, upstream_critical_deps_json TEXT, valo_what_priced_in TEXT, valo_pe_or_proxy REAL, valo_above_bull_case BOOLEAN, rationale TEXT, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL);

@@ -1,9 +1,37 @@
 # HEIMDALL Sentinelle (mes-bots-finance) — Fiche Technique (Lean)
 
-**Version**: 23 mai 2026 (Day 17 — post Brier root-fix + dashboard)
+**Version**: 29 mai 2026 (Day 24 — post Sprint 19 : adversarial co-pilot + boucle vivante + user_strategy)
 **Auteur**: Olivier Legendre
 **État**: High Standard / Observation jusqu'au 10/06/2026 (KPI #2 batch resolution)
 **Bot**: Telegram @Hawk_Dove_bot
+
+## Session 29/05/2026 — 53 commits
+
+Refonte profonde du systeme d'aide a la decision :
+
+### Architecture (sprints 5-19)
+- **Sprint 5-6** : Note du portefeuille deterministe (6 dims) + Note PF panel + simulate_grade + injection copilot
+- **Sprint 7** : Chat surface dashboard (RAG profil + grade + positions + theses + interventions)
+- **Sprint 8** : /grade Telegram + backfill 41 pre_mortems
+- **Sprint 9** : Chat persiste (chat_messages) + chat-driven trade execution + Layer 2 conceptions + Layer 3 preferences
+- **Sprint 9.d** : Passive signal extraction (chat_extracted_signals)
+- **Sprint 12** : Tagger sur 4 axes (driver/stage/moat/macro_factor) pour redefinir redondance et decorrelation
+- **Sprint 13** : Trajectory grade + factor exposures + stress tests
+- **Sprint 14** : SPOF graph upstream + Mauboussin implied sizing + valo > bull case
+- **Sprint 15** : Kill-criteria monitor + alertes Telegram
+- **Sprint 16** : PEA/CTO wrapper + tax-loss + FX exposure + alpha vs SOXX
+- **Sprint 17** : Data-defined clusters par correlation rendements
+- **Sprint 18** : Gates concentration + vraie Fragilite + remove old narrative panel
+- **Sprint 19** : user_strategy declare (target 75%, benchmark SOXX, concentrator_thematic)
+                + kill-criteria pre-alert + chat compound + auto-classification
+
+### Glossaire canonique (FR clair) - 5 axes + 2 notes
+- **Solidite** : Incontournable / Solide / Incertain / Fragile (ex T1+/T2/T3/T4)
+- **Pari** : Pari principal / Autre pari (ex cluster_cap / decorrelation)
+- **Doublon** : Solo / Doublon (driver+stage strict)
+- **Sante** : Sain / Sous surveillance (verifie ticker_meta + review freshness)
+- **Calibrage** : OK / Trop gros / Trop petit (vs cap conviction)
+- Notes : **Construction** = Solidite + Pari + Calibrage / **Fragilite** = Sante + cycle/valo
 
 ---
 
@@ -27,20 +55,41 @@ Le bot **ne trade pas**. Il force la réflexion structurée pré-commit via thes
 
 ---
 
-## État empirique (23 mai 2026)
+## État empirique (29 mai 2026 — Day 24, post-session)
 
 | Métrique | Valeur |
 |---|---|
-| Tests | 345 (Hypothesis property-based + smoke) |
-| Théses actives | 33 |
-| Prédictions | 157 total (156 ouvertes, 1 résolue), max_id 157 |
-| Cluster résolution | ~40-44 dues le 10 juin |
-| Signaux | 208 cumulés (~66/30j) |
-| Sources actives | ~52 (majorité à 0.5 crédibilité défaut, pré-10/06) |
-| Univers | 313 tickers (23 core / 123 watch / 167 extended) |
-| Handlers Telegram | 75 (telemetry actif) |
-| Crons | 27 |
-| ruff / mypy | 0 erreur (strict sur modules cœur, clean sur l'ensemble) |
+| Tests | **352** (Hypothesis + smoke, 100% pass) |
+| Thèses actives | **28** (canoniques) — 13 archivees 'out_of_scope' (NVDA/MRVL/CEG/GEV/BWXT/...) |
+| Positions tenues | **27** (sans VRT/TER fermees post-trades, avec SNOW nouveau) |
+| Prédictions | 188 total, 8 décisions resolved encore 0 J+30 |
+| Signaux | 291 cumulés |
+| Univers canonique | **29 tickers** (1 source de verite via positions + scripts/canonical_perimeter.json) |
+| Handlers Telegram | **73** (telemetry actif, top : /analyze 54, /brief 43, /digest 40) |
+| Crons | **35** (incl. daily portfolio_grade 23h15, kill_criteria 07h30, weekly bot_conceptions Sun 19h, monthly bot_preferences 1er 04h) |
+| ruff | 0 erreur |
+| **Note PF** | **A+ 91/100** (post user_strategy : target cluster 75%, aucun gate actif) |
+| Tables DB | 47 (incl. 11 nouvelles cette session : chat_messages, chat_extracted_signals, bot_conceptions, bot_preferences, ticker_axes, ticker_meta, kill_criteria_alerts, data_clusters_snapshots, portfolio_grades, portfolio_narrative_clusters, user_profile) |
+| Migrations Alembic | 15 (0015 = data_clusters_snapshots) |
+| Pages dashboard | **7** (vigie / positions / theses / **strategie** / concentration / signaux / urgence) |
+| Panels dashboard | 20 distincts |
+
+### Strategie utilisateur declaree (config.yaml.user_strategy)
+- archetype : `concentrator_thematic`
+- target_cluster_cap_pct : 75 (vs default 35)
+- target_decorrelation_pct : 15
+- accepted_concentrated_factors : ["AI capex", "AI inference/compute demand"]
+- benchmark_ticker : SOXX (vs ^SOX)
+- thesis_horizon_years : 7
+
+### Book actuel (29/05/2026, post-trades VRT/TER -> CCJ/SNOW)
+- Cost basis : 43 091€
+- Market value : 53 558€ (+24.3%)
+- Wrapper : PEA 17% / CTO 83%
+- Pari principal : AI capex 66.5% (vs cible 75% — at_or_below)
+- Cycle/valo expose : 30% (>cible 20% : STMPA fade, 000660.KS fade, 6920.T fade+valo>bull, ALAB fade+valo>bull, COHR, AMD)
+- Doublons strictes : MU↔SK Hynix (Memory cycle + HBM/DRAM IDM) — 2.5% du book
+- Sante : 82.9% sains, 7 sous surveillance (fade ou valo>bull)
 
 ---
 
