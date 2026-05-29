@@ -212,6 +212,93 @@ _DIM_LABELS = {
 }
 
 
+def _risk_watch_panel() -> str:
+    """Top Risques declares - first-class surveillance sur Vue d'ensemble.
+
+    Lit scripts/risk_watch.json (declaration user) + status courant des
+    mitigations + signals surveillance. Pas une opinion bot, juste tracking
+    de ce que l'user a explicitement designe comme risque #1.
+    """
+    try:
+        from pathlib import Path
+
+        risks = json.loads(Path("scripts/risk_watch.json").read_text())
+        risks_list = risks.get("risks") or []
+    except Exception:
+        risks_list = []
+    if not risks_list:
+        return ""
+    out = []
+    for r in risks_list:
+        sev_cls = {"critical": "danger", "high": "warn", "medium": "neu", "low": "calm"}.get(
+            r.get("severity", "neu"), "neu"
+        )
+        exposure = r.get("exposure") or {}
+        target = r.get("target") or {}
+        signals = r.get("surveillance_signals") or []
+        mitigations = r.get("mitigation_plan") or []
+
+        # Mitigation progress aggregated
+        avg_progress = (
+            sum(m.get("progress_pct", 0) for m in mitigations) / len(mitigations)
+            if mitigations else 0
+        )
+
+        signals_html = "".join(
+            f'<div class="rw-sig"><span class="rw-sig-l">{s.get("label", "?")}</span>'
+            f'<span class="rw-sig-w">{s.get("weight", "")}</span>'
+            f'<span class="rw-sig-s">{s.get("current_status", "?")}</span></div>'
+            for s in signals[:6]
+        )
+
+        mit_html = "".join(
+            f'<div class="rw-mit"><div class="rw-mit-h">'
+            f'<span class="rw-mit-l">{m.get("label", "?")}</span>'
+            f'<span class="rw-mit-st {m.get("status", "?")}">'
+            f'{m.get("progress_pct", 0)}%</span></div>'
+            f'<div class="rw-mit-a">{m.get("action", "")[:200]}</div>'
+            + (f'<div class="rw-mit-n">{m.get("notes", "")[:160]}</div>' if m.get("notes") else "")
+            + '</div>'
+            for m in mitigations
+        )
+
+        out.append(
+            '<div class="rw-card">'
+            f'<div class="rw-head"><span class="rw-rank">#{r.get("rank", "?")}</span>'
+            f'<span class="rw-name">{r.get("name", "?")}</span>'
+            f'<span class="rw-sev {sev_cls}">{r.get("severity", "?")}</span></div>'
+            f'<div class="rw-expo">Exposure : {exposure.get("pct_book", "?")}% du book '
+            f'(cluster {exposure.get("cluster", "?")} &middot; facteur {exposure.get("factor", "?")})</div>'
+            '<div class="rw-grid">'
+            f'<div class="rw-cell"><div class="rw-h">Drawdown stress estime</div>'
+            f'<div class="rw-v mono neg">{target.get("current_estimated_drawdown_stress", "?")}%</div>'
+            f'<div class="rw-t">target : {target.get("target_estimated_drawdown_stress", "?")}%</div></div>'
+            f'<div class="rw-cell"><div class="rw-h">Ballast decorrele strict</div>'
+            f'<div class="rw-v mono">{target.get("current_ballast_strict_pct", "?")}%</div>'
+            f'<div class="rw-t">target : {target.get("target_ballast_strict_pct", "?")}%</div></div>'
+            f'<div class="rw-cell"><div class="rw-h">Plan mitigation</div>'
+            f'<div class="rw-v mono">{avg_progress:.0f}%</div>'
+            f'<div class="rw-t">leviers A/B/C en cours</div></div>'
+            '</div>'
+            '<div class="rw-section">'
+            '<div class="rw-sh">Surveillance signaux</div>'
+            f'<div class="rw-sigs">{signals_html}</div>'
+            '</div>'
+            '<div class="rw-section">'
+            '<div class="rw-sh">Plan mitigation</div>'
+            f'<div class="rw-mits">{mit_html}</div>'
+            '</div>'
+            '</div>'
+        )
+    return (
+        '<div class="card pad riskwatchcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Top Risques surveillance</span>'
+        f'<span class="a">{len(risks_list)} risque(s) declare(s) &middot; thesis-level reflection</span></div>'
+        + "".join(out)
+        + "</div>"
+    )
+
+
 def _grade_panel() -> str:
     """Glossaire canonique : DEUX notes (Construction + Fragilite), chacune
     decomposee par axe. Vocabulaire FR clair, plus de jargon T1/T1★/cluster.
@@ -2950,6 +3037,39 @@ _CSS = """
   .gradecard .gsubmax { color:var(--steel); font-size:14px; margin-left:1px; font-weight:400; }
   @media (max-width:980px) { .gradecard .gsplit { grid-template-columns:1fr; gap:14px; } }
   .gradecard .ggate { font-family:var(--fm); font-size:12px; color:var(--bear); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:10px 14px; border-radius:var(--r2); margin:14px 0; border-left:3px solid var(--bear); }
+  /* Top Risques surveillance */
+  .riskwatchcard .rw-card { padding:16px 0; border-bottom:1px solid var(--line); }
+  .riskwatchcard .rw-card:last-child { border-bottom:none; }
+  .riskwatchcard .rw-head { display:flex; align-items:baseline; gap:12px; margin-bottom:8px; }
+  .riskwatchcard .rw-rank { font-family:var(--fm); font-weight:700; font-size:18px; color:var(--bear); }
+  .riskwatchcard .rw-name { font-family:var(--fm); font-weight:500; font-size:15px; color:var(--ink); flex:1; }
+  .riskwatchcard .rw-sev { font-family:var(--fb); font-size:9.5px; letter-spacing:.15em; text-transform:uppercase; font-weight:600; padding:2px 7px; border-radius:var(--r1); }
+  .riskwatchcard .rw-sev.danger { background:color-mix(in srgb,var(--bear) 18%,transparent); color:var(--bear); }
+  .riskwatchcard .rw-sev.warn { background:color-mix(in srgb,#c89b00 18%,transparent); color:#c89b00; }
+  .riskwatchcard .rw-expo { font-family:var(--fm); font-size:12px; color:var(--steel); margin-bottom:14px; }
+  .riskwatchcard .rw-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; margin-bottom:18px; }
+  .riskwatchcard .rw-cell { padding:12px 14px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
+  .riskwatchcard .rw-h { font-family:var(--fb); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:5px; }
+  .riskwatchcard .rw-v { font-family:var(--fm); font-size:22px; font-weight:500; color:var(--ink); line-height:1; }
+  .riskwatchcard .rw-v.neg { color:var(--bear); }
+  .riskwatchcard .rw-t { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-top:4px; }
+  .riskwatchcard .rw-section { margin-top:14px; }
+  .riskwatchcard .rw-sh { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:10px; }
+  .riskwatchcard .rw-sig { display:grid; grid-template-columns:1fr 100px 100px; gap:10px; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); font-size:11.5px; }
+  .riskwatchcard .rw-sig-l { color:var(--ink); }
+  .riskwatchcard .rw-sig-w { font-family:var(--fb); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); text-align:right; }
+  .riskwatchcard .rw-sig-s { font-family:var(--fm); font-size:10.5px; color:var(--steel); text-align:right; font-style:italic; }
+  .riskwatchcard .rw-mit { padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .riskwatchcard .rw-mit:last-child { border-bottom:none; }
+  .riskwatchcard .rw-mit-h { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
+  .riskwatchcard .rw-mit-l { font-family:var(--fm); font-weight:500; font-size:12.5px; color:var(--ink); flex:1; }
+  .riskwatchcard .rw-mit-st { font-family:var(--fm); font-size:11px; font-variant-numeric:tabular-nums; padding:1px 6px; border-radius:var(--r1); font-weight:600; }
+  .riskwatchcard .rw-mit-st.started { background:color-mix(in srgb,#c89b00 12%,transparent); color:#c89b00; }
+  .riskwatchcard .rw-mit-st.in_progress { background:color-mix(in srgb,var(--acc) 12%,transparent); color:var(--acc); }
+  .riskwatchcard .rw-mit-st.pending { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
+  .riskwatchcard .rw-mit-a { font-family:var(--fm); font-size:11.5px; color:var(--ink); opacity:.85; line-height:1.5; margin-bottom:3px; }
+  .riskwatchcard .rw-mit-n { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-style:italic; }
+  @media (max-width:980px) { .riskwatchcard .rw-grid { grid-template-columns:1fr; } .riskwatchcard .rw-sig { grid-template-columns:1fr; } }
   /* Page Strategie : sub-section headers */
   .strat-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:32px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); }
   .strat-sh:first-of-type { margin-top:14px; }
@@ -3872,6 +3992,7 @@ def render() -> Path:
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
+        f'{_risk_watch_panel()}'
         f"{grade_html}"
         f"{chat_html}"
         f"{kill_html}"
