@@ -1744,23 +1744,18 @@ _CSS = """
   .brk-note { font-family:var(--fm); font-size:11px; color:var(--steel); margin-left:8px; }
   .brk-tot { font-family:var(--fm); font-size:13px; color:var(--ink); } .brk-tot span { color:var(--steel); font-size:11.5px; }
   .brk-body { display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap; }
-  .brk-viz { flex:0 0 172px; }
-  .brk-tbl { flex:1; min-width:340px; }
-  .brk-dwrap { position:relative; width:148px; height:148px; margin:2px auto 0; }
-  .brk-donut { display:block; width:148px; height:148px; }
-  .brk-seg { transition:opacity .15s; }
-  .brk-donut:hover .brk-seg { opacity:.32; }
+  .brk-viz { flex:0 0 260px; }
+  .brk-tbl { flex:1; min-width:300px; }
+  .brk-dwrap { position:relative; width:260px; height:260px; margin:0 auto; }
+  .brk-donut { display:block; width:260px; height:260px; }
+  .brk-seg { transition:opacity .15s; cursor:pointer; }
+  .brk-donut:hover .brk-seg { opacity:.40; }
   .brk-donut .brk-seg:hover { opacity:1; }
-  .brk-tip { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; gap:2px; }
+  .brk-tip { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; gap:3px; width:108px; }
   .brk-tip.on { display:flex; }
-  .brk-tl { font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--steel); }
-  .brk-tv { font-family:var(--fm); font-size:15px; color:var(--ink); }
-  .brk-tp { font-family:var(--fm); font-size:11.5px; color:var(--steel); }
-  .brk-leg { margin-top:14px; display:flex; flex-direction:column; gap:6px; }
-  .brk-lg { display:flex; align-items:center; gap:8px; font-size:11.5px; line-height:1.35; }
-  .brk-sw { width:9px; height:9px; border-radius:2px; flex:0 0 auto; }
-  .brk-ln { flex:1; color:var(--ink); }
-  .brk-lp { font-family:var(--fm); color:var(--steel); }
+  .brk-tl { font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); font-weight:600; }
+  .brk-tv { font-family:var(--fm); font-size:16px; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .brk-tp { font-family:var(--fm); font-size:11px; color:var(--steel); font-variant-numeric:tabular-nums; }
 """
 
 _APP_JS = """
@@ -1813,36 +1808,35 @@ _APP_JS = """
   (function(){
     var SVG=document.getElementById('sb-svg'),PANEL=document.getElementById('sb-panel');
     if(!SVG||!PANEL||!window.SB_DATA)return;
-    var DATA=window.SB_DATA,CX=240,CY=240,R_AXIS=60,R_MAX=180,R_LABEL=206,NS='http://www.w3.org/2000/svg';
+    var DATA=window.SB_DATA,CX=240,CY=240,R_INNER=118,R_OUTER=178,R_LEAD=190,R_LABEL=212,NS='http://www.w3.org/2000/svg';
     DATA.forEach(function(s){s.tw=s.t.reduce(function(a,x){return a+(x.w||0);},0);});
     var total=DATA.reduce(function(a,s){return a+s.tw;},0);
     if(total<=0)return;
     function pol(r,a){return [CX+r*Math.cos(a),CY+r*Math.sin(a)];}
     function wedge(ri,ro,a0,a1){var lg=(a1-a0)>Math.PI?1:0,A=pol(ri,a0),B=pol(ro,a0),C=pol(ro,a1),D=pol(ri,a1);return 'M'+A[0]+' '+A[1]+'L'+B[0]+' '+B[1]+'A'+ro+' '+ro+' 0 '+lg+' 1 '+C[0]+' '+C[1]+'L'+D[0]+' '+D[1]+'A'+ri+' '+ri+' 0 '+lg+' 0 '+A[0]+' '+A[1]+'Z';}
     function mkp(tag,at){var e=document.createElementNS(NS,tag);for(var k in at)e.setAttribute(k,at[k]);return e;}
-    // Sort sectors descending by weight (largest at top, going clockwise)
+    // Sort descending by weight to allocate angular slices (biggest first, starting top)
     var sorted=DATA.slice().sort(function(a,b){return b.tw-a.tw;});
-    var maxTw=sorted[0].tw,n=sorted.length,slot=2*Math.PI/n,barW=slot*0.62,start=-Math.PI/2;
-    // Inner reference circle (subtle axis ring)
-    SVG.appendChild(mkp('circle',{cx:CX,cy:CY,r:R_AXIS,fill:'none',stroke:'var(--line)','stroke-width':'0.5'}));
-    // Outer reference circle (R_MAX) — light dashed for scale reference
-    SVG.appendChild(mkp('circle',{cx:CX,cy:CY,r:R_MAX,fill:'none',stroke:'var(--line)','stroke-width':'0.4','stroke-dasharray':'2,3','opacity':'0.5'}));
-    var groups={};
-    sorted.forEach(function(s,i){
-      var cAng=start+i*slot,a0=cAng-barW/2,a1=cAng+barW/2;
-      var rOut=R_AXIS+(s.tw/maxTw)*(R_MAX-R_AXIS);
+    var groups={},cur=-Math.PI/2;
+    sorted.forEach(function(s){
+      var ang=s.tw/total*2*Math.PI,a0=cur,a1=cur+ang,mid=(a0+a1)/2,pct=Math.round(s.tw/total*100);
       var g=mkp('g',{'data-sec':s.name});g.style.cursor='pointer';g.style.transition='transform .2s ease,opacity .2s ease';
-      g.dataset.mx=Math.cos(cAng);g.dataset.my=Math.sin(cAng);
-      g.appendChild(mkp('path',{d:wedge(R_AXIS,rOut,a0,a1),fill:s.col,'fill-opacity':'0.92','data-sec':s.name}));
-      // Label outside, anchored by angle quadrant
-      var lp=pol(R_LABEL,cAng),anc='middle';
-      if(Math.cos(cAng)>0.35)anc='start';else if(Math.cos(cAng)<-0.35)anc='end';
-      var dy=Math.sin(cAng)>0.5?'8':(Math.sin(cAng)<-0.5?'-3':'3');
-      var dn=s.name.length>14?s.name.substring(0,13)+String.fromCharCode(8230):s.name;
-      var label=mkp('text',{x:lp[0],y:lp[1],'text-anchor':anc,'dominant-baseline':'middle','dy':dy,'font-size':'9','font-family':'Geist,sans-serif','font-weight':'500','fill':'var(--ink)','data-sec':s.name,'style':'pointer-events:none;letter-spacing:0.02em'});
-      label.textContent=dn;
+      g.dataset.mx=Math.cos(mid);g.dataset.my=Math.sin(mid);
+      // Donut segment
+      g.appendChild(mkp('path',{d:wedge(R_INNER,R_OUTER,a0,a1),fill:s.col,'fill-opacity':'0.92','data-sec':s.name,stroke:getComputedStyle(document.body).getPropertyValue('--bg').trim()||'#F9F6F3','stroke-width':'1.2'}));
+      // Leader line from segment edge to label
+      var l1=pol(R_OUTER+2,mid),l2=pol(R_LEAD,mid);
+      SVG.appendChild(mkp('line',{x1:l1[0],y1:l1[1],x2:l2[0],y2:l2[1],stroke:'var(--line2)','stroke-width':'0.6',opacity:'0.75','style':'pointer-events:none'}));
+      // Label at fixed radius, anchor by angle quadrant
+      var lp=pol(R_LABEL,mid),anc='middle';
+      if(Math.cos(mid)>0.30)anc='start';else if(Math.cos(mid)<-0.30)anc='end';
+      var dn=s.name.length>17?s.name.substring(0,16)+String.fromCharCode(8230):s.name;
+      var label=mkp('text',{x:lp[0],y:lp[1],'text-anchor':anc,'dominant-baseline':'middle','font-size':'10.5','font-family':'Geist,sans-serif','font-weight':'500','fill':'var(--ink)','data-sec':s.name,'style':'pointer-events:none;letter-spacing:0.01em'});
+      label.textContent=dn+' · '+pct+'%';
       groups[s.name]=g;SVG.appendChild(g);SVG.appendChild(label);
+      cur=a1;
     });
+    var n=sorted.length;
     var ct=mkp('text',{x:CX,y:CY-3,'text-anchor':'middle','class':'sb-ct','font-size':'30','font-weight':'500','font-family':'Geist Mono,monospace','letter-spacing':'-0.5'});ct.textContent=Math.round(total/1000)+'k'+String.fromCharCode(8364);SVG.appendChild(ct);
     var c2=mkp('text',{x:CX,y:CY+18,'text-anchor':'middle','class':'sb-c2','font-size':'10','font-weight':'600','font-family':'Geist,sans-serif','letter-spacing':'2'});c2.textContent=(n+' SECTEURS').toUpperCase();SVG.appendChild(c2);
     function pv(p){return p==null?'&mdash;':((p>=0?'+':'')+p+'%');}
@@ -2084,25 +2078,66 @@ def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
 
 
 def _sector_donut(segs: list) -> str:
+    import math
+
     total = sum(v for _, v in segs) or 1
-    circ = 376.99
-    arcs = []
-    leg = []
-    acc = 0.0
+    cx, cy = 130.0, 130.0
+    r_inner, r_outer, r_lead, r_label = 56.0, 88.0, 99.0, 116.0
+    parts = []
+    cur = -math.pi / 2  # start at 12 o'clock, clockwise
+
+    def _wedge(ri: float, ro: float, a0: float, a1: float) -> str:
+        lg = 1 if (a1 - a0) > math.pi else 0
+        ax, ay = cx + ri * math.cos(a0), cy + ri * math.sin(a0)
+        bx, by = cx + ro * math.cos(a0), cy + ro * math.sin(a0)
+        cpx, cpy = cx + ro * math.cos(a1), cy + ro * math.sin(a1)
+        dx, dy = cx + ri * math.cos(a1), cy + ri * math.sin(a1)
+        return (
+            f"M{ax:.2f} {ay:.2f}L{bx:.2f} {by:.2f}"
+            f"A{ro:.2f} {ro:.2f} 0 {lg} 1 {cpx:.2f} {cpy:.2f}"
+            f"L{dx:.2f} {dy:.2f}A{ri:.2f} {ri:.2f} 0 {lg} 0 {ax:.2f} {ay:.2f}Z"
+        )
+
     for label, v in segs:
         col = SECTOR_COLORS.get(label, "#6B7686")
         pct = v / total * 100
-        seg = v / total * circ
-        off = acc / total * circ
-        acc += v
+        ang = v / total * 2 * math.pi
+        a0, a1 = cur, cur + ang
+        mid = (a0 + a1) / 2
         vstr = f"{v:,.0f}".replace(",", "&#8239;")
-        arcs.append(
-            f'<circle class="brk-seg" cx="74" cy="74" r="60" fill="none" stroke="{col}" stroke-width="28" stroke-dasharray="{seg:.2f} {circ - seg:.2f}" stroke-dashoffset="{-off:.2f}" transform="rotate(-90 74 74)" data-label="{label}" data-val="{vstr}&nbsp;&euro;" data-pct="{pct:.0f}%"></circle>'
+        # Donut segment
+        parts.append(
+            f'<path class="brk-seg" d="{_wedge(r_inner, r_outer, a0, a1)}" fill="{col}" '
+            f'fill-opacity="0.92" stroke="var(--bg)" stroke-width="1" '
+            f'data-label="{label}" data-val="{vstr}&nbsp;&euro;" data-pct="{pct:.0f}%"></path>'
         )
-        leg.append(
-            f'<div class="brk-lg"><span class="brk-sw" style="background:{col}"></span><span class="brk-ln">{label}</span><span class="brk-lp">{pct:.0f}%</span></div>'
+        # Leader line
+        l1x, l1y = cx + (r_outer + 1.5) * math.cos(mid), cy + (r_outer + 1.5) * math.sin(mid)
+        l2x, l2y = cx + r_lead * math.cos(mid), cy + r_lead * math.sin(mid)
+        parts.append(
+            f'<line x1="{l1x:.2f}" y1="{l1y:.2f}" x2="{l2x:.2f}" y2="{l2y:.2f}" '
+            f'stroke="var(--line2)" stroke-width="0.5" opacity="0.7"></line>'
         )
-    return f'<div class="brk-viz"><div class="brk-dwrap"><svg class="brk-donut" viewBox="0 0 148 148">{"".join(arcs)}</svg><div class="brk-tip"></div></div><div class="brk-leg">{"".join(leg)}</div></div>'
+        # Label
+        lx, ly = cx + r_label * math.cos(mid), cy + r_label * math.sin(mid)
+        anc = "middle"
+        if math.cos(mid) > 0.30:
+            anc = "start"
+        elif math.cos(mid) < -0.30:
+            anc = "end"
+        dn = label if len(label) <= 14 else label[:13] + "…"
+        parts.append(
+            f'<text x="{lx:.2f}" y="{ly:.2f}" text-anchor="{anc}" dominant-baseline="middle" '
+            f'font-size="8" font-family="Geist,sans-serif" font-weight="500" '
+            f'fill="var(--ink)" style="pointer-events:none;letter-spacing:0.01em">{dn} · {pct:.0f}%</text>'
+        )
+        cur = a1
+
+    return (
+        f'<div class="brk-viz"><div class="brk-dwrap">'
+        f'<svg class="brk-donut" viewBox="0 0 260 260">{"".join(parts)}</svg>'
+        f'<div class="brk-tip"></div></div></div>'
+    )
 
 
 def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict) -> str:
