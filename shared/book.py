@@ -63,6 +63,7 @@ class BookLine:
     # Operational
     qty: float | None = None
     avg_cost_eur: float | None = None
+    current_price_eur: float | None = None
     current_eur: float | None = None
     # Canonical
     driver: str | None = None
@@ -75,6 +76,20 @@ class BookLine:
     target_pct: float | None = None
     theme: str | None = None
     tier: str | None = None
+    # Thesis joints (added 29/05 round 2 for migration)
+    thesis_id: int | None = None
+    conviction: int | None = None
+    entry_price: float | None = None
+    target_partial: float | None = None
+    target_full: float | None = None
+    stop_price: float | None = None
+    invalidation_triggers: str | None = None
+    # Macro factor (ticker_axes) -- THE single source of truth for "AI capex" etc
+    macro_factor: str | None = None
+    # Quality meta (ticker_meta) -- fade_rate + bull case flags
+    fade_rate_score: int | None = None
+    moat_durability_years: int | None = None
+    valo_above_bull_case: bool = False
     # Computed
     in_db: bool = False
     in_canonical: bool = False
@@ -86,6 +101,23 @@ class BookLine:
         if self.target_eur is None or self.current_eur is None:
             return None
         return self.target_eur - self.current_eur
+
+    @property
+    def pnl_pct(self) -> float | None:
+        """(current_price - avg_cost) / avg_cost * 100. None si l'un des deux manque."""
+        if not self.avg_cost_eur or not self.current_price_eur:
+            return None
+        return (self.current_price_eur - self.avg_cost_eur) / self.avg_cost_eur * 100
+
+    @property
+    def weight_market_eur(self) -> float:
+        """Poids en MARKET VALUE (= current_eur). Fallback cost basis si current
+        price indispo. C'est l'unique definition de 'poids' apres la migration."""
+        if self.current_eur is not None:
+            return self.current_eur
+        if self.qty is not None and self.avg_cost_eur is not None:
+            return self.qty * self.avg_cost_eur
+        return 0.0
 
     @property
     def is_phantom(self) -> bool:
@@ -101,6 +133,20 @@ class BookLine:
     def is_consensus_keep(self) -> bool:
         """In DB + in canonical (in_target) + in target_70k -> consensus."""
         return self.in_db and self.target_status == "in_target" and self.in_target_70k
+
+    @property
+    def is_blind(self) -> bool:
+        """Position en vol aveugle : these active sans entry, target_full,
+        stop_price OU invalidation_triggers (cf F7 audit nuit)."""
+        if not self.in_db:
+            return False
+        if self.entry_price is None:
+            return True
+        if self.target_full is None:
+            return True
+        if self.stop_price is None:
+            return True
+        return not self.invalidation_triggers or self.invalidation_triggers == "[]"
 
 
 def _load_canonical() -> dict:
@@ -148,6 +194,55 @@ def _load_db_positions() -> dict[str, dict]:
     return out
 
 
+def _load_theses_active() -> dict[str, dict]:
+    """ticker -> these active (1 par ticker = la plus recente)."""
+    from shared import storage
+
+    out: dict[str, dict] = {}
+    try:
+        with storage.db() as cx:
+            rows = cx.execute(
+                "SELECT t.id, t.ticker, t.conviction, t.entry_price, "
+                "t.target_partial, t.target_full, t.stop_price, "
+                "t.invalidation_triggers "
+                "FROM theses t WHERE t.status='active' ORDER BY t.id DESC"
+            ).fetchall()
+            for r in rows:
+                if r[1] not in out:
+                    out[r[1]] = {
+                        "thesis_id": r[0],
+                        "conviction": r[2],
+                        "entry_price": r[3],
+                        "target_partial": r[4],
+                        "target_full": r[5],
+                        "stop_price": r[6],
+                        "invalidation_triggers": r[7],
+                    }
+    except Exception:
+        pass
+    return out
+
+
+def _load_ticker_axes() -> dict[str, dict]:
+    """ticker -> {macro_factor, driver, stage, moat}."""
+    from shared import storage
+
+    try:
+        return {a["ticker"]: a for a in storage.get_all_latest_ticker_axes()}
+    except Exception:
+        return {}
+
+
+def _load_ticker_meta() -> dict[str, dict]:
+    """ticker -> {fade_rate_score, moat_durability_years, valo_above_bull_case}."""
+    from shared import storage
+
+    try:
+        return {m["ticker"]: m for m in storage.get_all_latest_ticker_meta()}
+    except Exception:
+        return {}
+
+
 def _current_price_eur(ticker: str) -> float | None:
     """Reuse le cached price de render.py pour eviter de re-fetch yfinance."""
     try:
@@ -161,18 +256,29 @@ def _current_price_eur(ticker: str) -> float | None:
 def get_canonical_book(*, with_prices: bool = True) -> list[BookLine]:
     """Source unique de verite sur le book.
 
+    Joint 5 sources :
+      - positions DB (operationnel : qty, avg_cost)
+      - canonical_perimeter.json (driver, pari, solidite, target_status)
+      - target_allocation.json (cible 70k structuree)
+      - theses (conviction, entry/target/stop/triggers)
+      - ticker_axes (macro_factor) -- the ONLY source for macro classification
+      - ticker_meta (fade_rate_score, valo_above_bull_case)
+
     Args:
-        with_prices: si True (defaut), fetch current_eur via _cached_price_eur.
-                     Si False, current_eur reste None -- utile pour les tests
-                     ou les jobs qui n'ont pas besoin du current price.
+        with_prices: si True (defaut), fetch current_price_eur + current_eur
+                     via _cached_price_eur (throttle yfinance respecte).
+                     False utile pour les tests.
 
     Returns:
         Liste de BookLine, sortee par ticker. Inclut tout ticker present
-        dans AU MOINS UNE des 3 sources (DB / canonical / target_70k).
+        dans AU MOINS UNE source.
     """
     db_pos = _load_db_positions()
     canonical = _load_canonical()
     target = _load_target()
+    theses = _load_theses_active()
+    axes = _load_ticker_axes()
+    meta = _load_ticker_meta()
 
     can_by_tk = {p["ticker"]: p for p in canonical.get("positions", [])}
     tgt_by_tk = {p["ticker"]: p for p in target.get("positions", [])}
@@ -184,6 +290,9 @@ def get_canonical_book(*, with_prices: bool = True) -> list[BookLine]:
         db_row = db_pos.get(tk)
         can_row = can_by_tk.get(tk)
         tgt_row = tgt_by_tk.get(tk)
+        th_row = theses.get(tk) or {}
+        ax_row = axes.get(tk) or {}
+        mt_row = meta.get(tk) or {}
 
         line = BookLine(
             ticker=tk,
@@ -200,6 +309,17 @@ def get_canonical_book(*, with_prices: bool = True) -> list[BookLine]:
             target_pct=(tgt_row or {}).get("pct"),
             theme=(tgt_row or {}).get("theme"),
             tier=(tgt_row or {}).get("tier"),
+            thesis_id=th_row.get("thesis_id"),
+            conviction=th_row.get("conviction"),
+            entry_price=th_row.get("entry_price"),
+            target_partial=th_row.get("target_partial"),
+            target_full=th_row.get("target_full"),
+            stop_price=th_row.get("stop_price"),
+            invalidation_triggers=th_row.get("invalidation_triggers"),
+            macro_factor=ax_row.get("macro_factor"),
+            fade_rate_score=mt_row.get("fade_rate_score"),
+            moat_durability_years=mt_row.get("moat_durability_years"),
+            valo_above_bull_case=bool(mt_row.get("valo_above_bull_case")),
             in_db=db_row is not None,
             in_canonical=can_row is not None,
             in_target_70k=tgt_row is not None,
@@ -207,9 +327,22 @@ def get_canonical_book(*, with_prices: bool = True) -> list[BookLine]:
         if with_prices and line.qty is not None:
             px = _current_price_eur(tk)
             if px is not None:
+                line.current_price_eur = px
                 line.current_eur = line.qty * px
         book.append(line)
     return book
+
+
+def get_book_index() -> dict[str, BookLine]:
+    """Index ticker -> BookLine pour lookup O(1). Utile dans les boucles
+    de panel/monitor qui ont besoin de jointer par ticker rapide."""
+    return {line.ticker: line for line in get_canonical_book(with_prices=True)}
+
+
+def get_held_lines() -> list[BookLine]:
+    """Filtered : seulement les positions ouvertes (in_db=True).
+    Substitution drop-in pour les anciens _positions() readers."""
+    return [line for line in get_canonical_book(with_prices=True) if line.in_db]
 
 
 def book_summary() -> dict:

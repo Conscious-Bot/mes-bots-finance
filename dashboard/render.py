@@ -1755,21 +1755,39 @@ def _clean_sector(sid: str | None) -> str:
 
 
 def _positions() -> list[dict]:
+    """MIGRATED 29/05 round 2 -- lit shared.book canonical (commit cf book.py).
+
+    Avant : weight = qty * avg_cost (cost basis) OU eur_invested du notes.
+    Apres : weight = MARKET VALUE (qty * current_price_eur). C'est la fix
+    de F11 racine : tous les lecteurs en aval voient le meme poids que
+    portfolio_grade -- plus de "AMD 3.4% vs 1.4% selon vue".
+
+    Shape backward-compat etendue :
+        ticker (str) -- unchange
+        weight (float, EUR) -- MARKET VALUE (avant : cost basis)
+        avg_cost (float, EUR/share) -- unchange
+        wrapper (str) -- unchange
+        # nouveaux pour les lecteurs qui veulent l'autre info :
+        qty (float)
+        current_price_eur (float | None)
+        cost_basis_eur (float, EUR) -- l'ancien sens de "weight"
+    """
     try:
-        rows = _q("SELECT ticker, qty, avg_cost, notes, wrapper FROM positions WHERE status NOT IN ('closed', 'sold')")
+        from shared import book as _bk
     except Exception:
-        try:
-            # Fallback for DBs without the wrapper column (pre-Sprint 16)
-            rows = _q("SELECT ticker, qty, avg_cost, notes FROM positions WHERE status NOT IN ('closed', 'sold')")
-            rows = [(*r, None) for r in rows]
-        except Exception:
-            return []
+        return []
     out = []
-    for tk, qty, ac, notes, wrapper in rows:
-        m = re.search(r"eur_invested=([0-9.]+)", notes or "")
-        w = float(m.group(1)) if m else float(qty or 0) * float(ac or 0)
-        out.append({"ticker": tk, "weight": w, "avg_cost": float(ac or 0),
-                    "wrapper": (wrapper or "CTO").upper()})
+    for ln in _bk.get_held_lines():
+        cost_basis = (ln.qty or 0) * (ln.avg_cost_eur or 0)
+        out.append({
+            "ticker": ln.ticker,
+            "weight": ln.weight_market_eur,  # MARKET VALUE (was cost basis)
+            "avg_cost": float(ln.avg_cost_eur or 0),
+            "wrapper": (ln.wrapper or "CTO").upper(),
+            "qty": float(ln.qty or 0),
+            "current_price_eur": ln.current_price_eur,
+            "cost_basis_eur": cost_basis,
+        })
     return out
 
 

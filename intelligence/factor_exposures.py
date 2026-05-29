@@ -283,7 +283,9 @@ def compute_price_vs_trade_drift(n_days: int = 30) -> dict:
         cur = _cached_price_eur(tk) or 0
         if not cur:
             continue
-        cost_basis = p["weight"]
+        # Post-migration 29/05 : p["weight"] est maintenant MARKET VALUE.
+        # On veut explicitement cost basis ici (drift = current - cost).
+        cost_basis = p.get("cost_basis_eur", p["weight"])  # fallback compat
         current_value = p["qty"] * cur
         total_drift = current_value - cost_basis
         # Trade-driven : qty added in window * (current - avg_buy_in_window)
