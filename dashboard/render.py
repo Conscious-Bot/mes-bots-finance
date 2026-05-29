@@ -1273,10 +1273,16 @@ def _chat_panel() -> str:
         '<div class="chat-foot">Le contexte (profil + grade + positions + interventions) est rejoue a chaque message.</div>'
         '</div>'
         '<script>'
-        'window._chatHistory=window._chatHistory||[];'
+        # Sprint 19 : persist chat-log dans localStorage pour survivre aux reloads
+        # (la page auto-reload tous les ~60s pour fresh data — sans ca le scroll log se vide).
+        'window._chatHistory=window._chatHistory||JSON.parse(localStorage.getItem("heimdall_chat_log")||"[]");'
         'window._chatSessionId=window._chatSessionId||localStorage.getItem("heimdall_chat_session")||(()=>{const s="s_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);localStorage.setItem("heimdall_chat_session",s);return s;})();'
         'function chatEsc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}'
+        'function chatPersist(){try{localStorage.setItem("heimdall_chat_log",JSON.stringify(window._chatHistory.slice(-40)));}catch(e){}}'
         'function chatAppend(role,text){const log=document.getElementById("chat-log");const div=document.createElement("div");div.className="chat-msg chat-"+role;div.innerHTML=chatEsc(text).replace(/\\n/g,"<br>");log.appendChild(div);log.scrollTop=log.scrollHeight;}'
+        # Au load : restaurer les messages depuis localStorage dans le DOM
+        'function chatRestore(){const log=document.getElementById("chat-log");if(!log)return;window._chatHistory.forEach(m=>{if(m.role&&m.content)chatAppend(m.role,m.content);});}'
+        '(function(){if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",chatRestore);}else{chatRestore();}})();'
         'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
         'chatAppend("user",msg);ta.value="";'
         'const histSend=window._chatHistory.slice(-10);'
@@ -1288,7 +1294,7 @@ def _chat_panel() -> str:
         'const last=document.querySelector(".chat-log .chat-msg:last-child");last.remove();'
         'if(!ct.includes("application/json")){const txt=(await r.text()).slice(0,200);chatAppend("assistant","ERREUR HTTP "+r.status+" "+r.statusText+" (server returned "+ct+", not JSON). Body : "+txt);}'
         'else{const d=await r.json();'
-        'if(d.error){chatAppend("assistant","ERREUR serveur : "+d.error);}else{const reply=d.reply||"(reponse vide)";chatAppend("assistant",reply);window._chatHistory.push({role:"user",content:msg});window._chatHistory.push({role:"assistant",content:reply});}'
+        'if(d.error){chatAppend("assistant","ERREUR serveur : "+d.error);}else{const reply=d.reply||"(reponse vide)";chatAppend("assistant",reply);window._chatHistory.push({role:"user",content:msg});window._chatHistory.push({role:"assistant",content:reply});chatPersist();}'
         '}}catch(err){const last=document.querySelector(".chat-log .chat-msg:last-child");if(last)last.remove();chatAppend("assistant","ERREUR client/reseau : "+err.name+" : "+err.message);}'
         'btn.disabled=false;btn.textContent="Envoyer";return false;}'
         '</script>'
