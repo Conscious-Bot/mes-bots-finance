@@ -138,16 +138,24 @@ def _ticker_sector(ticker: str) -> str | None:
 
 
 def _compute_quality_T1_plus(state: dict) -> dict:
-    """T1 = c5 active opened ≥30j ago AND last_reviewed within 30j.
-    T1★ = T1 AND avg Brier on same sector ≤ 0.4 with n_predictions ≥ 3."""
-    positions = state["positions"]
-    theses_by_ticker = {t["ticker"]: t for t in state["theses_active"]}
-    total = state["total_capital_eur"] or 1
-    now = datetime.now(UTC)
-    cutoff_open = now - timedelta(days=30)
-    cutoff_review = now - timedelta(days=30)
+    """Solidite haute = poids canonique tagge Incontournable dans
+    canonical_perimeter.json. Source unique de verite = la table de reference
+    user (29 lignes, taggee a la main).
 
-    # ★ : per-sector aggregated Brier (n>=3, avg<=0.4)
+    T1★ (bonus track-record) = Incontournable ET sector Brier moyen <=0.4
+    avec n>=3 (la qualite "intrinseque" est confirmee par les resolutions).
+
+    Refonte 29/05/2026 : avant, on exigeait c5 these mature >=30j + review
+    <=30j, ce qui renvoyait 0% sur un book jeune (J+14) PLEIN d'Incontournables
+    (ASML, TSMC, Synopsys, KLA, Advantest, BESI, Suez, Cameco, GOOGL...). Le
+    bug datait de J1 : on confondait "qualite intrinseque du ticker" et
+    "track-record empirique sur la these". Maintenant on separe : la solidite
+    est lue dans la table user, le ★ est l'overlay Brier."""
+    positions = state["positions"]
+    total = state["total_capital_eur"] or 1
+    solidite = _solidite_by_ticker()
+
+    # Sector-level Brier overlay (preserve original ★ semantics)
     sector_brier: dict[str, list[float]] = {}
     for p in state["predictions_resolved"]:
         sec = _ticker_sector(p["ticker"])
@@ -158,42 +166,28 @@ def _compute_quality_T1_plus(state: dict) -> dict:
         if len(briers) >= 3 and (sum(briers) / len(briers)) <= 0.4:
             sector_star[sec] = True
 
-    t1_eur = 0.0
-    t1_star_eur = 0.0
-    n_t1 = n_t1_star = 0
+    incontournable_eur = 0.0
+    star_eur = 0.0
+    inc_names: list[str] = []
+    star_names: list[str] = []
     for p in positions:
-        t = theses_by_ticker.get(p["ticker"])
-        if not t or t.get("conviction") != 5:
+        if solidite.get(p["ticker"]) != "Incontournable":
             continue
-        opened = t.get("opened_at") or ""
-        last_rev = t.get("last_reviewed") or t.get("last_revisit_at") or opened
-        opened_dt = _parse_dt_aware(opened)
-        last_rev_dt = _parse_dt_aware(last_rev)
-        if not opened_dt or opened_dt > cutoff_open:
-            continue
-        if not last_rev_dt or last_rev_dt < cutoff_review:
-            continue
-        # T1
-        t1_eur += p["weight"]
-        n_t1 += 1
-        # T1★ ?
+        incontournable_eur += p["weight"]
+        inc_names.append(p["ticker"])
         sec = _ticker_sector(p["ticker"])
         if sec and sector_star.get(sec):
-            t1_star_eur += p["weight"]
-            n_t1_star += 1
+            star_eur += p["weight"]
+            star_names.append(p["ticker"])
 
-    current_pct = (t1_eur + t1_star_eur) / total * 100 if total else 0
+    current_pct = incontournable_eur / total * 100 if total else 0
     target_pct = 65.0
     score = min(100, current_pct / target_pct * 100) if target_pct else 0
-    # Critique fix : si AUCUNE these mature (rare au demarrage), marquer
-    # data_insufficient pour exclure du composite — un 0 reel fausse la note
-    # globale. Cf. critique : "ne jamais laisser une metrique non calculable
-    # entrer comme 0, la grise en 'donnees manquantes' et l'exclure".
-    n_c5_active = sum(1 for t in state["theses_active"] if (t.get("conviction") or 0) == 5)
-    has_matured = n_t1 > 0 or n_t1_star > 0
-    status = "data_insufficient" if (not has_matured and n_c5_active >= 1) else (
-        "at_or_above_target" if current_pct >= target_pct else "below_target"
-    )
+    n_inc = len(inc_names)
+    n_star = len(star_names)
+    # Marker "data_insufficient" disparait : la solidite canonique est connue
+    # ex-ante (taggee a la main), donc toujours calculable.
+    status = "at_or_above_target" if current_pct >= target_pct else "below_target"
     return {
         "current_pct": round(current_pct, 1),
         "target_pct": target_pct,
@@ -201,9 +195,11 @@ def _compute_quality_T1_plus(state: dict) -> dict:
         "weight": DIMENSION_WEIGHTS["quality_T1_plus"],
         "status": status,
         "evidence": (
-            f"T1 n={n_t1} ({t1_eur:.0f}€) + T1★ n={n_t1_star} ({t1_star_eur:.0f}€) sur total {total:.0f}€"
-            + (f" — {n_c5_active} c5 actives mais aucune mature >=30j" if status == "data_insufficient" else "")
+            f"Incontournable n={n_inc} ({incontournable_eur:.0f}€) "
+            f"dont ★ track-record n={n_star} ({star_eur:.0f}€) sur total {total:.0f}€. "
+            f"Top: {', '.join(inc_names[:6])}"
         ),
+        "source": "canonical_perimeter_solidite",
     }
 
 
@@ -225,6 +221,33 @@ def _load_ticker_axes_map() -> dict[str, dict]:
         return {a["ticker"]: a for a in axes}
     except Exception:
         return {}
+
+
+_CANONICAL_PERIMETER_CACHE: dict | None = None
+
+
+def _load_canonical_perimeter() -> dict:
+    """Source unique de la solidite-tier (table de reference user).
+    canonical_perimeter.json position.solidite in {Incontournable, Solide,
+    Incertain, Fragile}. Cf. fix 29/05/2026 du bug Solidite haute=0%."""
+    global _CANONICAL_PERIMETER_CACHE
+    if _CANONICAL_PERIMETER_CACHE is not None:
+        return _CANONICAL_PERIMETER_CACHE
+    try:
+        import json
+        from pathlib import Path
+
+        path = Path(__file__).parent.parent / "scripts" / "canonical_perimeter.json"
+        with open(path) as f:
+            _CANONICAL_PERIMETER_CACHE = json.load(f)
+    except Exception:
+        _CANONICAL_PERIMETER_CACHE = {"positions": []}
+    return _CANONICAL_PERIMETER_CACHE
+
+
+def _solidite_by_ticker() -> dict[str, str]:
+    cp = _load_canonical_perimeter()
+    return {p["ticker"]: (p.get("solidite") or "") for p in cp.get("positions", [])}
 
 
 def _compute_T2_redundant(state: dict) -> dict:
@@ -344,14 +367,32 @@ def _compute_T2_redundant(state: dict) -> dict:
     }
 
 
-def _compute_decorrelation_star(state: dict) -> dict:
-    """Sprint 12 (refactor critique) : DECORRELATION = diversite de macro_factor
-    parmi les c>=4 positions. La 'lone-wolf' Sprint 5 etait flattee : ASML
-    et SNPS sont 'lone-wolf' au sens secteur mais TOUS DEUX exposes a 'AI
-    capex' au sens macro -> pas decorrelants.
+_BALLAST_MACROS_STRICT = {
+    "Defense rearmament",
+    "Energy commodities",
+    "Rare earths / materials",
+    "Industrial reshoring",
+}
 
-    Definition stricte : une position est ★ si son macro_factor n'est joue
-    par AUCUNE autre c>=4 position du book. C'est la VRAIE decorrelation.
+
+def _compute_decorrelation_star(state: dict) -> dict:
+    """Sprint 12 refactor (29/05/2026) : DECORRELATION = ballast macro STRICT.
+
+    Avant : 'macro_factor unique parmi c>=4' -> flattait TSLA (Consumer
+    cyclical) et 000660.KS (Memory cycle = HBM = AI capex adjacent) comme
+    ballast. Or Tesla est du beta tech qui tombe AVEC la tech, et HBM
+    surchauffe avec le capex IA. Faux reconfort exactement sur le risque
+    qui inquiete (surchauffe tech).
+
+    Definition stricte : ballast = positions dont le macro_factor est
+    REELLEMENT non-correle a la tech IA. Whitelist explicite :
+      - Defense rearmament
+      - Energy commodities
+      - Rare earths / materials
+      - Industrial reshoring (Mitsubishi 7011.T = defense + indus)
+
+    Pas de filtre conviction : un ballast est un ballast meme en c3 (la
+    protection ne demande pas une these de chokepoint).
     """
     positions = state["positions"]
     pos_by_tk = {p["ticker"]: p for p in positions}
@@ -359,35 +400,18 @@ def _compute_decorrelation_star(state: dict) -> dict:
     total = state["total_capital_eur"] or 1
     axes_map = _load_ticker_axes_map()
     if axes_map and len([p for p in positions if p["ticker"] in axes_map]) >= len(positions) * 0.7:
-        # Count c>=4 positions per macro_factor
+        star_eur = 0.0
+        names = []
         macro_count: dict[str, int] = {}
-        macro_owners: dict[str, list[str]] = {}
         for p in positions:
-            t = theses_by_ticker.get(p["ticker"])
-            conv = (t or {}).get("conviction") or 0
-            if conv < 4:
-                continue
             a = axes_map.get(p["ticker"])
             if not a:
                 continue
             mf = a["macro_factor"]
             macro_count[mf] = macro_count.get(mf, 0) + 1
-            macro_owners.setdefault(mf, []).append(p["ticker"])
-        # Star = c>=4 position playing a macro_factor unique to the book
-        star_eur = 0.0
-        names = []
-        for p in positions:
-            t = theses_by_ticker.get(p["ticker"])
-            conv = (t or {}).get("conviction") or 0
-            if conv < 4:
-                continue
-            a = axes_map.get(p["ticker"])
-            if not a:
-                continue
-            mf = a["macro_factor"]
-            if macro_count.get(mf, 0) == 1:
+            if mf in _BALLAST_MACROS_STRICT:
                 star_eur += p["weight"]
-                names.append(f"{p['ticker']}({mf[:18]})")
+                names.append(f"{p['ticker']}({mf[:14]})")
         current_pct = star_eur / total * 100 if total else 0
         target_pct = 15.0
         score = min(100, current_pct / target_pct * 100) if target_pct else 0
@@ -399,10 +423,11 @@ def _compute_decorrelation_star(state: dict) -> dict:
             "weight": DIMENSION_WEIGHTS["decorrelation_star"],
             "status": "at_or_above_target" if current_pct >= target_pct else "below_target",
             "evidence": (
-                f"Macro-factor unique c>=4 : {', '.join(names[:5]) or 'aucun'} "
-                f"({star_eur:.0f}€). Dominant: {dominant[0]} (n={dominant[1]})"
+                f"Ballast strict (defense/energie/terres rares/reshoring) : "
+                f"{', '.join(names[:6]) or 'aucun'} ({star_eur:.0f}€). "
+                f"Dominant book: {dominant[0]} (n={dominant[1]})"
             ),
-            "source": "sprint12_axes_macro_factor",
+            "source": "sprint12_ballast_strict_whitelist",
         }
     snap = _load_llm_narrative_snapshot()
     if snap and snap.get("edges"):
