@@ -336,6 +336,127 @@ def _copilot_panel() -> str:
     )
 
 
+def _spof_panel() -> str:
+    """Sprint 14 — Single points of failure upstream.
+
+    Critique : 'Ta vraie concentration n'est pas dans le book, elle est en
+    amont : TSMC fabrique pour AMD, Broadcom, Astera. Un incident TSMC touche
+    bien plus que la ligne TSMC. HBM = 3 fournisseurs, EUV = ASML seul.'
+    """
+    try:
+        from intelligence import spof_and_sizing as _sp
+
+        spofs = _sp.compute_spof_graph()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">SPOF indispo: {type(e).__name__}</div></div>'
+    if not spofs:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas de meta classifies (Sprint 14). Trigger : "
+            "<code>venv/bin/python -c \"from intelligence import ticker_meta_classifier; ticker_meta_classifier.classify_all_held_tickers()\"</code>."
+            "</div></div>"
+        )
+    rows = []
+    for node, d in list(spofs.items())[:10]:
+        pct = d["pct_of_book"]
+        wcls = "high" if pct >= 30 else ("mid" if pct >= 15 else "low")
+        deps = ", ".join(f"{x['ticker']}({x['share']:.0%})" for x in d["dependents"][:8])
+        if len(d["dependents"]) > 8:
+            deps += f" +{len(d['dependents']) - 8}"
+        rows.append(
+            f'<div class="sp-row">'
+            f'<div class="sp-head"><span class="sp-node">{node}</span>'
+            f'<span class="sp-pct {wcls} mono">{pct:.1f}%</span>'
+            f'<span class="sp-eur mono">{d["total_exposure_eur"]:,.0f}€</span>'
+            f'<span class="sp-n">n={d["n_dependents"]}</span></div>'
+            f'<div class="sp-bar"><div class="sp-fill {wcls}" style="width:{min(pct, 100):.1f}%"></div></div>'
+            f'<div class="sp-deps">{deps}</div></div>'
+        )
+    return (
+        '<div class="card pad spofcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Single points of failure upstream (Sprint 14)</span>'
+        '<span class="a">concentration cachee en amont &middot; share = % revenue/capacite</span></div>'
+        + "".join(rows)
+        + "</div>"
+    )
+
+
+def _mauboussin_sizing_panel() -> str:
+    """Sprint 14 — sizing implied par fade-rate vs sizing reel.
+
+    Critique : 'Le sizing conviction devient alors l'ecart entre poids
+    reel et poids-implicite-par-le-fade — rigoureux, pas un nombre magique'.
+    """
+    try:
+        from intelligence import spof_and_sizing as _sp
+
+        sizing = _sp.compute_mauboussin_sizing()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">Mauboussin sizing indispo: {type(e).__name__}</div></div>'
+    if not sizing:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas encore de meta classifies pour calculer le sizing implicite."
+            "</div></div>"
+        )
+    rows = []
+    for tk, d in sizing.items():
+        gap = d["gap_pp"]
+        gcls = "neg" if gap > 0.5 else ("pos" if gap < -0.5 else "neu")
+        fade = d.get("fade_rate_score") or 0
+        fcls = "high" if fade >= 60 else ("mid" if fade >= 30 else "low")
+        rows.append(
+            f'<div class="ms-row">'
+            f'<span class="ms-tk">{tk}</span>'
+            f'<span class="ms-conv mono">c{d["conviction"]}</span>'
+            f'<span class="ms-fade {fcls} mono">fade {fade}</span>'
+            f'<span class="ms-target mono">cible {d["target_pct"]:.1f}%</span>'
+            f'<span class="ms-actual mono">reel {d["actual_pct"]:.1f}%</span>'
+            f'<span class="ms-gap {gcls} mono">{gap:+.1f}pp</span></div>'
+        )
+    return (
+        '<div class="card pad mauboussincard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Mauboussin implied sizing (Sprint 14)</span>'
+        '<span class="a">cible = base_cap conviction &times; fade_factor &middot; gap = reel - cible</span></div>'
+        + "".join(rows)
+        + "</div>"
+    )
+
+
+def _valo_above_bull_panel() -> str:
+    """Sprint 14 — flag positions ou expectations > bull case (reverse-DCF)."""
+    try:
+        from intelligence import spof_and_sizing as _sp
+
+        flags = _sp.list_above_bull_case()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">valo indispo: {type(e).__name__}</div></div>'
+    if not flags:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Aucune position avec expectations > bull case identifiees."
+            "</div></div>"
+        )
+    rows = []
+    for f in flags:
+        pe = f.get("pe_or_proxy")
+        pe_s = f"P/E {pe:.0f}" if pe else "P/E ?"
+        rows.append(
+            f'<div class="vb-row">'
+            f'<div class="vb-head"><span class="vb-tk">{f["ticker"]}</span>'
+            f'<span class="vb-pe mono">{pe_s}</span></div>'
+            f'<div class="vb-priced">{f["what_priced_in"]}</div>'
+            f'<div class="vb-rat">{f["rationale"]}</div></div>'
+        )
+    return (
+        '<div class="card pad valocard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Expectations > bull case (Sprint 14 reverse-DCF)</span>'
+        '<span class="a">positions ou le prix actuel exige plus que le scenario haussier raisonnable</span></div>'
+        + "".join(rows)
+        + "</div>"
+    )
+
+
 def _factor_exposures_panel() -> str:
     """Sprint 13 — Decomposition du book en facteurs macro reels.
 
@@ -2578,6 +2699,44 @@ _CSS = """
   .trajcard .tr-delta.pos { color:var(--acc); }
   .trajcard .tr-delta.neg { color:var(--bear); }
   .trajcard .tr-delta.neu { color:var(--steel); }
+  /* Sprint 14 - SPOF + Mauboussin + Valo */
+  .spofcard .sp-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .spofcard .sp-row:last-child { border-bottom:none; }
+  .spofcard .sp-head { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
+  .spofcard .sp-node { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); flex:1; }
+  .spofcard .sp-pct { font-family:var(--fm); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .spofcard .sp-pct.high { color:var(--bear); }
+  .spofcard .sp-pct.mid { color:#c89b00; }
+  .spofcard .sp-pct.low { color:var(--acc); }
+  .spofcard .sp-eur { font-family:var(--fm); font-size:11px; color:var(--steel); font-variant-numeric:tabular-nums; min-width:80px; text-align:right; }
+  .spofcard .sp-n { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; min-width:38px; text-align:right; }
+  .spofcard .sp-bar { height:5px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:var(--r1); overflow:hidden; margin:4px 0 6px; }
+  .spofcard .sp-fill { height:100%; border-radius:var(--r1); }
+  .spofcard .sp-fill.high { background:var(--bear); }
+  .spofcard .sp-fill.mid { background:#c89b00; }
+  .spofcard .sp-fill.low { background:var(--acc); }
+  .spofcard .sp-deps { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .mauboussincard .ms-row { display:grid; grid-template-columns:70px 50px 65px 75px 75px 65px; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
+  .mauboussincard .ms-row:last-child { border-bottom:none; }
+  .mauboussincard .ms-tk { font-family:var(--fm); font-weight:600; color:var(--ink); }
+  .mauboussincard .ms-conv { font-family:var(--fm); color:var(--steel); }
+  .mauboussincard .ms-fade { font-family:var(--fm); padding:1px 5px; border-radius:var(--r1); font-size:10.5px; text-align:center; }
+  .mauboussincard .ms-fade.low { background:color-mix(in srgb,var(--acc) 12%,transparent); color:var(--acc); }
+  .mauboussincard .ms-fade.mid { background:color-mix(in srgb,#c89b00 12%,transparent); color:#c89b00; }
+  .mauboussincard .ms-fade.high { background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
+  .mauboussincard .ms-target, .mauboussincard .ms-actual { font-family:var(--fm); color:var(--ink); opacity:.85; text-align:right; font-variant-numeric:tabular-nums; }
+  .mauboussincard .ms-gap { font-family:var(--fm); font-weight:600; text-align:right; font-variant-numeric:tabular-nums; }
+  .mauboussincard .ms-gap.pos { color:var(--acc); }
+  .mauboussincard .ms-gap.neg { color:var(--bear); }
+  .mauboussincard .ms-gap.neu { color:var(--steel); }
+  .valocard .vb-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
+  .valocard .vb-row:last-child { border-bottom:none; }
+  .valocard .vb-head { display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
+  .valocard .vb-tk { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); }
+  .valocard .vb-pe { font-family:var(--fm); font-size:11.5px; color:var(--bear); font-variant-numeric:tabular-nums; margin-left:auto; }
+  .valocard .vb-priced { font-family:var(--fm); font-size:12px; color:var(--ink); opacity:.9; line-height:1.45; margin-bottom:4px; font-style:italic; }
+  .valocard .vb-rat { font-family:var(--fm); font-size:11px; color:var(--steel); line-height:1.4; }
+  @media (max-width:980px) { .mauboussincard .ms-row { grid-template-columns:60px 40px 1fr 65px; } .mauboussincard .ms-target, .mauboussincard .ms-actual { display:none; } }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -3192,6 +3351,9 @@ def render() -> Path:
     factor_html = _factor_exposures_panel()
     stress_html = _stress_tests_panel()
     trajectory_html = _trajectory_panel()
+    spof_html = _spof_panel()
+    mauboussin_html = _mauboussin_sizing_panel()
+    valo_html = _valo_above_bull_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -3211,7 +3373,10 @@ def render() -> Path:
         f"{preferences_html}"
         f"{trajectory_html}"
         f"{factor_html}"
+        f"{spof_html}"
         f"{stress_html}"
+        f"{mauboussin_html}"
+        f"{valo_html}"
         f"{axes_html}"
         f"{copilot_html}"
         f"{cockpit_html}"

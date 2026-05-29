@@ -6,7 +6,7 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 44 | **Total indexes**: 65 | **Total rows**: 4,342
+**Total tables**: 45 | **Total indexes**: 67 | **Total rows**: 4,386
 
 
 ## Core entities
@@ -211,7 +211,7 @@ CREATE TABLE debate_transcripts (
 
 **Indexes**: `idx_debate_ticker`
 
-### `debt_composite` (12 rows)
+### `debt_composite` (13 rows)
 
 ```sql
 CREATE TABLE debt_composite (
@@ -222,7 +222,7 @@ CREATE TABLE debt_composite (
             );
 ```
 
-### `debt_signals` (100 rows)
+### `debt_signals` (107 rows)
 
 ```sql
 CREATE TABLE debt_signals (
@@ -524,7 +524,7 @@ CREATE TABLE handler_calls (
 
 **Indexes**: `idx_handler_calls_name`, `idx_handler_calls_timestamp`
 
-### `llm_calls` (1,176 rows)
+### `llm_calls` (1,193 rows)
 
 ```sql
 CREATE TABLE llm_calls (
@@ -614,7 +614,7 @@ CREATE TABLE chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEX
 
 **Indexes**: `idx_chat_created`, `idx_chat_session`
 
-### `portfolio_grades` (3 rows)
+### `portfolio_grades` (5 rows)
 
 ```sql
 CREATE TABLE portfolio_grades (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_at TEXT NOT NULL DEFAULT (datetime('now')), snapshot_date TEXT NOT NULL, overall_score INTEGER NOT NULL, overall_grade TEXT NOT NULL, dimensions_json TEXT NOT NULL, total_capital_eur REAL, n_positions INTEGER, n_theses_active INTEGER, computation_version TEXT NOT NULL DEFAULT 'sprint5_deterministic', notes TEXT);
@@ -659,13 +659,21 @@ CREATE TABLE predictions_bak_probfix(
 );
 ```
 
-### `ticker_axes` (12 rows)
+### `ticker_axes` (28 rows)
 
 ```sql
 CREATE TABLE ticker_axes (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), ticker TEXT NOT NULL, demand_driver TEXT NOT NULL, value_chain_stage TEXT NOT NULL, moat_source TEXT NOT NULL, macro_factor TEXT NOT NULL, alt_drivers_json TEXT, confidence INTEGER, rationale TEXT, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL);
 ```
 
 **Indexes**: `idx_axes_macro`, `idx_axes_ticker`
+
+### `ticker_meta` (1 rows)
+
+```sql
+CREATE TABLE ticker_meta (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), ticker TEXT NOT NULL, fade_rate_score INTEGER NOT NULL, moat_durability_years INTEGER, upstream_critical_deps_json TEXT, valo_what_priced_in TEXT, valo_pe_or_proxy REAL, valo_above_bull_case BOOLEAN, rationale TEXT, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL);
+```
+
+**Indexes**: `idx_meta_fade`, `idx_meta_ticker`
 
 ### `user_profile` (1 rows)
 

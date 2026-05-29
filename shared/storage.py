@@ -2986,3 +2986,86 @@ def get_all_latest_ticker_axes() -> list[dict]:
     except Exception as e:
         _copilot_log.warning(f"get_all_latest_ticker_axes failed: {e}")
         return []
+
+
+# === ticker_meta (Sprint 14 — fade-rate + SPOF + valo) =======================
+
+_META_DDL = (
+    "CREATE TABLE IF NOT EXISTS ticker_meta ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "ticker TEXT NOT NULL, "
+    "fade_rate_score INTEGER NOT NULL, "
+    "moat_durability_years INTEGER, "
+    "upstream_critical_deps_json TEXT, "
+    "valo_what_priced_in TEXT, valo_pe_or_proxy REAL, valo_above_bull_case BOOLEAN, "
+    "rationale TEXT, "
+    "model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL)"
+)
+_META_IDX = [
+    "CREATE INDEX IF NOT EXISTS idx_meta_ticker ON ticker_meta(ticker)",
+    "CREATE INDEX IF NOT EXISTS idx_meta_fade ON ticker_meta(fade_rate_score)",
+]
+
+
+def _ensure_meta_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_META_DDL)
+    for ix in _META_IDX:
+        conn.execute(ix)
+
+
+def insert_ticker_meta(
+    ticker: str,
+    fade_rate_score: int,
+    moat_durability_years: int | None = None,
+    upstream_critical_deps_json: str | None = None,
+    valo_what_priced_in: str | None = None,
+    valo_pe_or_proxy: float | None = None,
+    valo_above_bull_case: bool | None = None,
+    rationale: str | None = None,
+    llm_meta: dict | None = None,
+) -> int | None:
+    meta = llm_meta or {}
+    try:
+        with db() as cx:
+            _ensure_meta_table(cx)
+            cur = cx.execute(
+                "INSERT INTO ticker_meta "
+                "(ticker, fade_rate_score, moat_durability_years, upstream_critical_deps_json, "
+                "valo_what_priced_in, valo_pe_or_proxy, valo_above_bull_case, rationale, "
+                "model_used, input_tokens, output_tokens, cost_usd) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    ticker.upper(), fade_rate_score, moat_durability_years,
+                    upstream_critical_deps_json, valo_what_priced_in, valo_pe_or_proxy,
+                    valo_above_bull_case, rationale,
+                    meta.get("model_used"), meta.get("input_tokens"),
+                    meta.get("output_tokens"), meta.get("cost_usd"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_ticker_meta failed: {e}")
+        return None
+
+
+def get_all_latest_ticker_meta() -> list[dict]:
+    """One row per ticker — latest."""
+    try:
+        with db() as cx:
+            _ensure_meta_table(cx)
+            rows = cx.execute(
+                "SELECT tm.ticker, tm.fade_rate_score, tm.moat_durability_years, "
+                "tm.upstream_critical_deps_json, tm.valo_what_priced_in, "
+                "tm.valo_pe_or_proxy, tm.valo_above_bull_case, tm.rationale, tm.created_at "
+                "FROM ticker_meta tm "
+                "JOIN (SELECT ticker, MAX(id) AS mid FROM ticker_meta GROUP BY ticker) m "
+                "ON tm.id = m.mid"
+            ).fetchall()
+            cols = ["ticker", "fade_rate_score", "moat_durability_years",
+                    "upstream_critical_deps_json", "valo_what_priced_in",
+                    "valo_pe_or_proxy", "valo_above_bull_case", "rationale", "created_at"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_all_latest_ticker_meta failed: {e}")
+        return []
