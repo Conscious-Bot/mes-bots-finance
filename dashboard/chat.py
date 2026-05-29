@@ -184,6 +184,27 @@ def assemble_context() -> str:
     except Exception:
         trend = "no_history"
 
+    # Layer 2 — Bot conceptions (1 ligne par target, conviction>=30)
+    conceptions_block = "  (pas encore de conceptions synthetisees)"
+    try:
+        from shared import storage as _stg
+
+        concs = _stg.get_all_current_conceptions()
+        lines = []
+        for c in concs[:30]:
+            if (c.get("conviction") or 0) < 30:
+                continue
+            val = c.get("valence")
+            val_s = f"{val:+.1f}" if isinstance(val, int | float) else "·"
+            lines.append(
+                f"  [{c['kind']}] {c['target_key']:14s} conv={c['conviction']:>3d} val={val_s} : "
+                f"{(c.get('conception_text') or '')[:240]}"
+            )
+        if lines:
+            conceptions_block = "\n".join(lines)
+    except Exception:
+        pass
+
     return (
         "═══ PROFIL UTILISATEUR (auto-derive) ═══\n"
         f"{_format_profile(profile)}\n\n"
@@ -195,7 +216,9 @@ def assemble_context() -> str:
         "═══ THESES ACTIVES ═══\n"
         f"{_format_theses(theses)}\n\n"
         "═══ INTERVENTIONS COPILOT RECENTES ═══\n"
-        f"{_format_interventions(interventions)}\n"
+        f"{_format_interventions(interventions)}\n\n"
+        "═══ CONCEPTIONS BOT (Layer 2 — vue stable par target) ═══\n"
+        f"{conceptions_block}\n"
     )
 
 

@@ -336,6 +336,55 @@ def _copilot_panel() -> str:
     )
 
 
+def _conceptions_panel() -> str:
+    """Layer 2 — vue stable du bot per ticker. Synthese hebdo (cron Sun 19h)."""
+    try:
+        from shared import storage as _stg
+
+        concs = _stg.get_all_current_conceptions()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">conceptions indispo: {type(e).__name__}</div></div>'
+    if not concs:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Pas encore de conceptions synthetisees. Cron hebdo dimanche 19h, "
+            "ou trigger manuel : <code>venv/bin/python -m intelligence.bot_conceptions</code>."
+            "</div></div>"
+        )
+    rows = []
+    for c in concs[:40]:
+        kind = c.get("kind", "?")
+        target = c.get("target_key", "?")
+        conv = c.get("conviction", 0) or 0
+        val = c.get("valence")
+        val_s = f"{val:+.2f}" if isinstance(val, int | float) else "·"
+        vcls = "neg" if (isinstance(val, int | float) and val < -0.1) else (
+            "pos" if (isinstance(val, int | float) and val > 0.1) else "neu"
+        )
+        text = (c.get("conception_text") or "").strip()
+        if len(text) > 380:
+            text = text[:377] + "..."
+        text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        n = c.get("n_signals_used") or 0
+        ccls = "high" if conv >= 60 else ("mid" if conv >= 35 else "low")
+        rows.append(
+            f'<div class="bc-row">'
+            f'<div class="bc-head"><span class="bc-target">{target}</span>'
+            f'<span class="bc-kind">{kind}</span>'
+            f'<span class="bc-conv {ccls}">conv {conv}</span>'
+            f'<span class="bc-val {vcls}">{val_s}</span>'
+            f'<span class="bc-n">n={n}</span></div>'
+            f'<div class="bc-text">{text}</div></div>'
+        )
+    return (
+        '<div class="card pad conceptionscard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Conceptions du bot (Layer 2)</span>'
+        '<span class="a">vue stable per ticker &middot; synthese hebdo &middot; injectee dans le copilot pre-trade</span></div>'
+        + "".join(rows)
+        + "</div>"
+    )
+
+
 def _chat_signals_panel() -> str:
     """Sprint 9.d — soft signals extracted passively from chat conversations.
 
@@ -2191,6 +2240,22 @@ _CSS = """
   .chatsigcard .cs-val.neu { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
   .chatsigcard .cs-quote { font-family:var(--fm); font-size:11.5px; font-style:italic; color:var(--ink); opacity:.85; line-height:1.4; margin-bottom:3px; }
   .chatsigcard .cs-note { font-family:var(--fm); font-size:10.5px; color:var(--steel); line-height:1.4; }
+  /* Layer 2 - Conceptions du bot */
+  .conceptionscard .bc-row { padding:14px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
+  .conceptionscard .bc-row:last-child { border-bottom:none; }
+  .conceptionscard .bc-head { display:flex; align-items:baseline; gap:10px; margin-bottom:7px; flex-wrap:wrap; }
+  .conceptionscard .bc-target { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); }
+  .conceptionscard .bc-kind { font-family:var(--fb); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); }
+  .conceptionscard .bc-conv { font-family:var(--fm); font-size:10.5px; font-variant-numeric:tabular-nums; padding:1px 6px; border-radius:var(--r1); font-weight:600; }
+  .conceptionscard .bc-conv.high { background:color-mix(in srgb,var(--acc) 14%,transparent); color:var(--acc); }
+  .conceptionscard .bc-conv.mid { background:color-mix(in srgb,#c89b00 14%,transparent); color:#c89b00; }
+  .conceptionscard .bc-conv.low { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
+  .conceptionscard .bc-val { font-family:var(--fm); font-size:10.5px; font-variant-numeric:tabular-nums; padding:1px 6px; border-radius:var(--r1); }
+  .conceptionscard .bc-val.neg { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
+  .conceptionscard .bc-val.pos { background:color-mix(in srgb,var(--acc) 14%,transparent); color:var(--acc); }
+  .conceptionscard .bc-val.neu { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
+  .conceptionscard .bc-n { font-family:var(--fm); font-size:10px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
+  .conceptionscard .bc-text { font-family:var(--fm); font-size:12.5px; line-height:1.55; color:var(--ink); opacity:.88; }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -2799,6 +2864,7 @@ def render() -> Path:
     narrative_html = _narrative_panel()
     conversations_html = _conversations_panel()
     chat_signals_html = _chat_signals_panel()
+    conceptions_html = _conceptions_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -2814,6 +2880,7 @@ def render() -> Path:
         f"{chat_html}"
         f"{conversations_html}"
         f"{chat_signals_html}"
+        f"{conceptions_html}"
         f"{copilot_html}"
         f"{cockpit_html}"
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise</span></div>'

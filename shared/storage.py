@@ -2697,3 +2697,111 @@ def get_recent_chat_signals(limit: int = 50, ticker: str | None = None, kind: st
     except Exception as e:
         _copilot_log.warning(f"get_recent_chat_signals failed: {e}")
         return []
+
+
+# === bot_conceptions (Layer 2 — Sprint 10) ===================================
+
+_CONC_DDL = (
+    "CREATE TABLE IF NOT EXISTS bot_conceptions ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "kind TEXT NOT NULL, target_key TEXT NOT NULL, "
+    "conception_text TEXT NOT NULL, "
+    "conviction INTEGER NOT NULL, valence REAL, "
+    "sources_json TEXT, n_signals_used INTEGER, "
+    "model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, "
+    "cost_usd REAL, elapsed_ms INTEGER)"
+)
+_CONC_IDX = [
+    "CREATE INDEX IF NOT EXISTS idx_conc_kind_target ON bot_conceptions(kind, target_key)",
+    "CREATE INDEX IF NOT EXISTS idx_conc_created ON bot_conceptions(created_at)",
+]
+
+
+def _ensure_conc_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_CONC_DDL)
+    for ix in _CONC_IDX:
+        conn.execute(ix)
+
+
+def insert_bot_conception(
+    kind: str,
+    target_key: str,
+    conception_text: str,
+    conviction: int,
+    valence: float | None = None,
+    sources_json: str | None = None,
+    n_signals_used: int | None = None,
+    llm_meta: dict | None = None,
+) -> int | None:
+    meta = llm_meta or {}
+    try:
+        with db() as cx:
+            _ensure_conc_table(cx)
+            cur = cx.execute(
+                "INSERT INTO bot_conceptions "
+                "(kind, target_key, conception_text, conviction, valence, sources_json, "
+                "n_signals_used, model_used, input_tokens, output_tokens, cost_usd, elapsed_ms) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    kind, target_key, conception_text, conviction, valence,
+                    sources_json, n_signals_used,
+                    meta.get("model_used"), meta.get("input_tokens"),
+                    meta.get("output_tokens"), meta.get("cost_usd"), meta.get("elapsed_ms"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_bot_conception failed: {e}")
+        return None
+
+
+def get_latest_conception(kind: str, target_key: str) -> dict | None:
+    """Return the most recent conception for (kind, target_key)."""
+    try:
+        with db() as cx:
+            _ensure_conc_table(cx)
+            row = cx.execute(
+                "SELECT id, created_at, conception_text, conviction, valence, "
+                "sources_json, n_signals_used "
+                "FROM bot_conceptions WHERE kind=? AND target_key=? "
+                "ORDER BY id DESC LIMIT 1",
+                (kind, target_key),
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["id", "created_at", "conception_text", "conviction", "valence",
+                    "sources_json", "n_signals_used"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_conception failed: {e}")
+        return None
+
+
+def get_all_current_conceptions(kind: str | None = None) -> list[dict]:
+    """Return one row per (kind, target_key) — the latest version of each.
+
+    Uses MAX(id) per group. Optionally filter by kind.
+    """
+    try:
+        with db() as cx:
+            _ensure_conc_table(cx)
+            base = (
+                "SELECT bc.id, bc.created_at, bc.kind, bc.target_key, "
+                "bc.conception_text, bc.conviction, bc.valence, bc.n_signals_used "
+                "FROM bot_conceptions bc "
+                "JOIN (SELECT kind, target_key, MAX(id) AS mid FROM bot_conceptions GROUP BY kind, target_key) m "
+                "ON bc.id = m.mid"
+            )
+            params: list = []
+            if kind:
+                base += " WHERE bc.kind=?"
+                params.append(kind)
+            base += " ORDER BY bc.conviction DESC, bc.target_key"
+            rows = cx.execute(base, params).fetchall()
+            cols = ["id", "created_at", "kind", "target_key", "conception_text",
+                    "conviction", "valence", "n_signals_used"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_all_current_conceptions failed: {e}")
+        return []

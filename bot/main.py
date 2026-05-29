@@ -132,6 +132,7 @@ from bot.jobs import (
     scheduled_resolve_buy_cluster_returns_job,
     score_pending_signals_job,
     update_echo_clusters_job,
+    weekly_bot_conceptions_synthesis_job,
     weekly_cost_summary_job,
     weekly_handler_stats_job,
     weekly_kpi_status_job,
@@ -212,6 +213,7 @@ async def post_init(app):
     sched.add_job(weekly_cost_summary_job, "cron", day_of_week="sun", hour=22, minute=0, misfire_grace_time=86400)
     sched.add_job(weekly_user_profile_refresh_job, "cron", day_of_week="sun", hour=21, minute=0, misfire_grace_time=86400)
     sched.add_job(weekly_portfolio_narrative_synthesis_job, "cron", day_of_week="sun", hour=20, minute=30, misfire_grace_time=86400)
+    sched.add_job(weekly_bot_conceptions_synthesis_job, "cron", day_of_week="sun", hour=19, minute=0, misfire_grace_time=86400)
     sched.add_job(cron_tier1_daily, "cron", hour=6, minute=0)
     sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)
     sched.add_job(cron_tier3_monthly, "cron", day=1, hour=7, minute=0)

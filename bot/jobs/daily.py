@@ -418,3 +418,20 @@ async def weekly_portfolio_narrative_synthesis_job():
         )
     except Exception as e:
         log.error(f"weekly_portfolio_narrative_synthesis failed: {e}")
+
+
+async def weekly_bot_conceptions_synthesis_job():
+    """Layer 2 — Sprint 10 : digest hebdo des conceptions bot per ticker actif.
+
+    Synthese stable a partir de signaux soft chat + decisions + theses +
+    interventions + signaux newsletter. Append-only ; query = MAX(id) per
+    (kind, target_key). Cible : 1 conception par ticker actif.
+    """
+    log.info("Weekly bot conceptions synthesis starting")
+    try:
+        from intelligence import bot_conceptions as _bc
+
+        out = _bc.synthesize_all_active_tickers(months_window=6)
+        log.info(f"bot_conceptions weekly : ok={out['ok']} skip={out['skip']} fail={out['fail']}")
+    except Exception as e:
+        log.error(f"weekly_bot_conceptions_synthesis failed: {e}")

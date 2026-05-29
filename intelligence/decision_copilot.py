@@ -72,6 +72,9 @@ BIAIS HISTORIQUEMENT IDENTIFIES CHEZ L'UTILISATEUR :
 PROFIL UTILISATEUR (auto-derive de son historique — restraint au debut, pointu plus tard) :
 {user_profile_block}
 
+CONCEPTION INTERNE DU BOT SUR CE TICKER (Layer 2 — synthese stable signaux + decisions + theses + chat) :
+{bot_conception_block}
+
 IMPACT GRADE PF (simulation deterministe avant/apres ce trade — Sprint 6) :
 {grade_simulation_block}
 
@@ -294,8 +297,20 @@ def assemble_context(intent: dict, thesis: dict, recent_signals: list, past_deci
         "past_similar_decisions_block": _format_past_decisions(past_decisions),
         "bias_patterns_block": _format_bias_patterns(bias_patterns),
         "user_profile_block": _fetch_user_profile_block(),
+        "bot_conception_block": _fetch_bot_conception_block(thesis.get("ticker", "?")),
         "grade_simulation_block": _format_grade_simulation(intent.get("grade_simulation")),
     }
+
+
+def _fetch_bot_conception_block(ticker: str) -> str:
+    """Layer 2 — inject la conception bot sur ce ticker dans le copilot prompt."""
+    try:
+        from intelligence import bot_conceptions
+
+        return bot_conceptions.format_conception_for_copilot("ticker", ticker)
+    except Exception as e:
+        log.warning(f"_fetch_bot_conception_block {ticker}: {e}")
+        return f"  (conception bot indisponible: {type(e).__name__})"
 
 
 def _format_grade_simulation(sim: dict | None) -> str:

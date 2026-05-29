@@ -6,7 +6,7 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 40 | **Total indexes**: 56 | **Total rows**: 4,215
+**Total tables**: 42 | **Total indexes**: 61 | **Total rows**: 4,231
 
 
 ## Core entities
@@ -524,7 +524,7 @@ CREATE TABLE handler_calls (
 
 **Indexes**: `idx_handler_calls_name`, `idx_handler_calls_timestamp`
 
-### `llm_calls` (1,115 rows)
+### `llm_calls` (1,124 rows)
 
 ```sql
 CREATE TABLE llm_calls (
@@ -546,6 +546,14 @@ CREATE TABLE llm_calls (
 
 
 ## Uncategorized
+
+### `bot_conceptions` (2 rows)
+
+```sql
+CREATE TABLE bot_conceptions (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), kind TEXT NOT NULL, target_key TEXT NOT NULL, conception_text TEXT NOT NULL, conviction INTEGER NOT NULL, valence REAL, sources_json TEXT, n_signals_used INTEGER, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, elapsed_ms INTEGER);
+```
+
+**Indexes**: `idx_conc_created`, `idx_conc_kind_target`
 
 ### `bot_copilot_interventions` (0 rows)
 
@@ -582,7 +590,15 @@ CREATE TABLE bot_copilot_interventions (
 
 **Indexes**: `idx_copilot_created`, `idx_copilot_decision`, `idx_copilot_ticker`, `idx_copilot_unresolved`
 
-### `chat_messages` (2 rows)
+### `chat_extracted_signals` (3 rows)
+
+```sql
+CREATE TABLE chat_extracted_signals (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), chat_message_id INTEGER, kind TEXT NOT NULL, ticker TEXT, sector TEXT, theme TEXT, valence REAL, confidence REAL, evidence_quote TEXT, note TEXT, model_used TEXT, cost_usd REAL);
+```
+
+**Indexes**: `idx_ces_created`, `idx_ces_kind`, `idx_ces_ticker`
+
+### `chat_messages` (4 rows)
 
 ```sql
 CREATE TABLE chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), session_id TEXT, surface TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, latency_ms INTEGER, error TEXT);
