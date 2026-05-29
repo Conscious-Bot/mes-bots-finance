@@ -499,7 +499,7 @@ def _concentration(
         f'<div class="kpi"><span class="kl">Premi&egrave;re ligne</span><span class="kv {top_cls}">{_pct(top_pct)}%</span><span class="kd">{line_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Th&egrave;se dominante</span><span class="kv {these_cls}">{dom_these_pct:.0f}%</span><span class="kd">{these_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
-        f'<div class="card pad"><div class="sbwrap"><svg id="sb-svg" viewBox="0 0 320 320" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div>'
+        f'<div class="card pad"><div class="sbwrap"><div class="sb-top"><div class="sb-kpi"><span class="sb-kl">CAPITAL D&Eacute;PLOY&Eacute;</span><span class="sb-kv">{cap}&nbsp;&euro;</span></div><div class="sb-kpi"><span class="sb-kl">SECTEURS</span><span class="sb-kv">{len(sw_real)}</span></div><div class="sb-kpi"><span class="sb-kl">PLUS GROSSE EXPOSITION</span><span class="sb-kv">{dom_these} &middot; {dom_these_pct:.0f}%</span></div></div><svg id="sb-svg" viewBox="0 0 480 480" aria-label="Concentration"></svg><div id="sb-panel"></div></div></div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
         f"</section>"
@@ -1689,11 +1689,15 @@ _CSS = """
   .tkc { cursor:pointer; transition:color .12s; } .tkc:hover { color:var(--id); }
   .lp-badge { display:inline-block; font-family:var(--fb); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:var(--r1); border:1px solid currentColor; }
   .lp-badge.held { color:var(--acc); } .lp-badge.watch { color:var(--warn); } .lp-badge.univ { color:var(--acc2); } .lp-badge.out { color:var(--steel); }
-  .sbwrap { display:flex; gap:20px; flex-wrap:wrap; align-items:center; }
-  #sb-svg { width:320px; height:320px; flex:0 0 auto; }
+  .sbwrap { display:flex; flex-direction:column; align-items:center; gap:24px; }
+  .sb-top { display:grid; grid-template-columns:repeat(3,1fr); gap:32px; width:100%; padding:8px 16px 16px; border-bottom:1px solid var(--line); }
+  .sb-kpi { display:flex; flex-direction:column; gap:6px; }
+  .sb-kl { font-family:var(--fb); font-weight:600; font-size:9.5px; letter-spacing:.18em; color:var(--steel); }
+  .sb-kv { font-family:var(--fm); font-weight:500; font-size:18px; color:var(--ink); letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+  #sb-svg { width:100%; max-width:480px; height:auto; aspect-ratio:1; display:block; }
   #sb-svg path { cursor:pointer; transition:opacity .15s; stroke:var(--panel); } #sb-svg path:hover { opacity:.85; }
   #sb-svg .sb-ct { fill:var(--ink); } #sb-svg .sb-c2 { fill:var(--steel); }
-  #sb-panel { flex:1; min-width:230px; font-size:13px; }
+  #sb-panel { width:100%; max-width:520px; font-size:13px; padding:0 8px; }
   .sbrow { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:.5px solid var(--line); cursor:pointer; } .sbrow:last-child { border-bottom:none; } .sbrow:hover { background:color-mix(in srgb,var(--ink) 2.5%,transparent); }
   .qs { position:fixed; inset:0; z-index:70; display:none; align-items:flex-start; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:12vh 20px 20px; }
   .qs.open { display:flex; }
@@ -1809,7 +1813,7 @@ _APP_JS = """
   (function(){
     var SVG=document.getElementById('sb-svg'),PANEL=document.getElementById('sb-panel');
     if(!SVG||!PANEL||!window.SB_DATA)return;
-    var DATA=window.SB_DATA,CX=160,CY=160,R_AXIS=42,R_MAX=126,R_LABEL=144,NS='http://www.w3.org/2000/svg';
+    var DATA=window.SB_DATA,CX=240,CY=240,R_AXIS=60,R_MAX=180,R_LABEL=206,NS='http://www.w3.org/2000/svg';
     DATA.forEach(function(s){s.tw=s.t.reduce(function(a,x){return a+(x.w||0);},0);});
     var total=DATA.reduce(function(a,s){return a+s.tw;},0);
     if(total<=0)return;
@@ -1839,8 +1843,8 @@ _APP_JS = """
       label.textContent=dn;
       groups[s.name]=g;SVG.appendChild(g);SVG.appendChild(label);
     });
-    var ct=mkp('text',{x:CX,y:CY-3,'text-anchor':'middle','class':'sb-ct','font-size':'22','font-weight':'500','font-family':'Geist Mono,monospace','letter-spacing':'-0.5'});ct.textContent=Math.round(total/1000)+'k'+String.fromCharCode(8364);SVG.appendChild(ct);
-    var c2=mkp('text',{x:CX,y:CY+13,'text-anchor':'middle','class':'sb-c2','font-size':'8','font-weight':'600','font-family':'Geist,sans-serif','letter-spacing':'1.8'});c2.textContent=(n+' SECTEURS').toUpperCase();SVG.appendChild(c2);
+    var ct=mkp('text',{x:CX,y:CY-3,'text-anchor':'middle','class':'sb-ct','font-size':'30','font-weight':'500','font-family':'Geist Mono,monospace','letter-spacing':'-0.5'});ct.textContent=Math.round(total/1000)+'k'+String.fromCharCode(8364);SVG.appendChild(ct);
+    var c2=mkp('text',{x:CX,y:CY+18,'text-anchor':'middle','class':'sb-c2','font-size':'10','font-weight':'600','font-family':'Geist,sans-serif','letter-spacing':'2'});c2.textContent=(n+' SECTEURS').toUpperCase();SVG.appendChild(c2);
     function pv(p){return p==null?'&mdash;':((p>=0?'+':'')+p+'%');}
     function rw(l,v,c){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:.5px solid var(--line)"><span style="color:var(--steel)">'+l+'</span><span class="mono" style="color:'+(c||'var(--ink)')+'">'+v+'</span></div>';}
     function overview(){
