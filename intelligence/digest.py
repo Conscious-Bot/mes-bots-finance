@@ -315,11 +315,32 @@ def run_enhanced_digest(
 # ============ Phase Digestion Output — Unified Narrative Synthesis ============
 
 
+def _get_canonical_perimeter() -> set[str]:
+    """Perimetre canonique = positions tenues. Source de verite unique.
+
+    Le digest, les clusters, les gates et le copilot lisent ICI.
+    Hors-canonique = NVDA, MRVL, MSTR, IBIT, COIN, CEG (non tenu), etc.
+    Si le user ajoute une position, elle entre automatiquement dans le
+    perimetre. S'il sort, elle en sort.
+    """
+    from shared import storage
+
+    try:
+        with storage.db() as cx:
+            rows = cx.execute(
+                "SELECT DISTINCT ticker FROM positions WHERE qty > 0 AND status='open'"
+            ).fetchall()
+        return {r[0] for r in rows}
+    except Exception:
+        return set()
+
+
 def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclude_low_score: bool = True) -> str:
     """Single narrative synthesizing all recent signals into themes + catalysts + noise + actions.
 
-    Replaces the per-email summary format with thematic synthesis.
-    Cost: ~$0.025/call (Sonnet enrich, ~6k input + 1k output).
+    Sprint 19 : perimetre filtre au canonique (positions tenues). Les signaux
+    sur des tickers hors-canonique sont skippes. Le prompt liste explicitement
+    le perimetre actif au lieu d'un univers hardcode obsolete.
     """
     import json
     import sqlite3
@@ -347,6 +368,29 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     conn.close()
     if not rows:
         return "Aucun signal pertinent sur les dernieres " + str(since_hours) + "h."
+
+    # Sprint 19 : filter signals au perimetre canonique
+    canonical = _get_canonical_perimeter()
+    filtered_rows = []
+    skipped = 0
+    for r in rows:
+        try:
+            ents = json.loads(r["entities"]) if r["entities"] else []
+            if not isinstance(ents, list):
+                ents = []
+        except Exception:
+            ents = []
+        # Keep si au moins un ticker canonique mentionne OU si pas d'entites tagged
+        # (signal macro sans ticker -> pertinent quand meme)
+        if ents and not (set(ents) & canonical):
+            skipped += 1
+            continue
+        filtered_rows.append(r)
+    rows = filtered_rows
+
+    if not rows:
+        return f"Aucun signal canonique sur les dernieres {since_hours}h ({skipped} skippes hors-perimetre)."
+
     sources_set = set()
     catalysts = narratives = opinions = data = 0
     blocks = []
@@ -396,10 +440,17 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         + " sources distinctes."
     )
     today_str = datetime.now(UTC).strftime("%d/%m/%Y %H:%M")
+    canonical_str = ", ".join(sorted(canonical)) if canonical else "(aucune position)"
     prompt = (
-        "Tu es l'analyste finance d'Olivier (profil thesis-driven slow alpha sur tech/semis/AI/crypto, "
-        "biais asymetriques: vend winners trop tot PLTR/NVDA, ne vend pas crypto aux tops, "
-        "univers core: NVDA AVGO TSM MU ASML AMD ARM MSFT GOOGL META CEG VST GEV MSTR IBIT COIN V BLK LLY NVO+74 watch+82 extended).\n\n"
+        "Tu es l'analyste finance d'un investisseur particulier serieux. "
+        "Profil thesis-driven slow alpha sur tech/semis/AI + decorrelants "
+        "(defense EU, uranium, GNL, terres rares). Biais identifies : "
+        "vend winners trop tot, ne sort pas les doublons assez vite.\n\n"
+        "PERIMETRE CANONIQUE (= positions tenues, SOURCE DE VERITE UNIQUE) :\n"
+        f"  {canonical_str}\n\n"
+        f"INTERDIT : parler de NVDA, MRVL, MSTR, IBIT, COIN, CEG, VST ou tout "
+        f"ticker hors perimetre canonique ci-dessus, meme si un signal "
+        f"l'evoque. Ces tickers ne sont PAS dans son book.\n\n"
         "Date du jour: " + today_str + ". Window analyse: derniers " + str(since_hours) + "h.\n\n"
         "Voici " + str(len(rows)) + " signaux digeres. " + stats_line + "\n\n"
         "=== SIGNAUX BRUTS ===\n" + signals_text + "\n\n"
