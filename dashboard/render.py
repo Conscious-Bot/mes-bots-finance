@@ -1867,6 +1867,7 @@ def _concentration(
         f'<div class="card pad"><div class="sbwrap"><div class="sb-top"><div class="sb-kpi"><span class="sb-kl">CAPITAL D&Eacute;PLOY&Eacute;</span><span class="sb-kv">{cap}&nbsp;&euro;</span></div><div class="sb-kpi"><span class="sb-kl">SECTEURS</span><span class="sb-kv">{len(sw_real)}</span></div><div class="sb-kpi"><span class="sb-kl">PLUS GROSSE EXPOSITION</span><span class="sb-kv">{dom_these} &middot; {dom_these_pct:.0f}%</span></div></div><div id="sb-bars" class="sb-bars"></div><div id="sb-panel"></div></div></div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
         f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
+        f'<div style="margin-top:18px">{_fx_exposure_panel()}</div>'
         f"</section>"
     )
 
@@ -4130,7 +4131,6 @@ def render() -> Path:
     valo_html = _valo_above_bull_panel()
     kill_html = _kill_criteria_panel()
     wrapper_html = _wrapper_panel()
-    fx_html = _fx_exposure_panel()
     bench_html = _benchmark_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
@@ -4171,7 +4171,6 @@ def render() -> Path:
         f'{trajectory_html}'
         f'{factor_html}'
         f'{stress_html}'
-        f'{fx_html}'
         f'{bench_html}'
         # Sub-section : Concentration cachee (SPOF + sizing rigoureux + valo)
         '<div class="strat-sh">Concentration cach&eacute;e</div>'
