@@ -386,7 +386,7 @@ user_strategy:
     uranium, GNL, terres rares) sont des decorrelants tactiques, pas une
     diversification large-cap.
   # Cibles personnalisees (remplacent les defaults config.yaml.concentration)
-  target_cluster_cap_pct: 75
+  target_cluster_cap_pct: 70
   target_decorrelation_pct: 15
   # Macro factors que l'user ACCEPTE en concentration (pas de gate sur ceux-la)
   accepted_concentrated_factors:
@@ -399,13 +399,13 @@ user_strategy:
   thesis_horizon_years: 7  # 5-10 ans range
   # Quand le user a parle de ca pour la derniere fois
   declared_at: "2026-05-29"
-  # Validation explicite de la tolerance drawdown : la cible cluster_cap=75%
-  # implique un drawdown estime sur scenario de-rating AI capex -30%. Tant
-  # que ce flag est false, le dashboard surface une CTA "a valider" : la
-  # cible n'a pas ete confirmee par un gut-check sur le chiffre reel.
-  # Voir scripts/risk_watch.json risks[0].drawdown_estimates.
-  drawdown_tolerance_validated: false
-  drawdown_tolerance_validated_at: null
+  # Validation explicite de la tolerance drawdown (2026-05-29) :
+  # User arbitrage : cluster cap 75% -> 70%, valide -21% drawdown sur
+  # scenario AI capex -30% (= ~-11k€ aujourd'hui, ~-15k€ a la cible 70k).
+  # Discipline : tolere ce drawdown avec book complet sur cible, refuse
+  # 75% qui impliquait -23%. Le dashboard CTA passe en bandeau vert.
+  drawdown_tolerance_validated: true
+  drawdown_tolerance_validated_at: '2026-05-29'
   # Phase construction : le book actuel n'est PAS l'etat final. Cible
   # documentee 70 180€ / ~33 positions. Les decorrelants (Energie-pour-IA,
   # Defense, Robotique) sont en cours d'ajout. Tant que ce flag est true,

@@ -216,7 +216,14 @@
         "current_estimated_drawdown_stress": -31,
         "target_estimated_drawdown_stress": -25,
         "note": "Pas reduire la concentration deliberee, mais maximiser ballast decorrele dans le budget accepte."
-      }
+      },
+      "user_arbitrage_history": [
+        {
+          "date": "2026-05-29",
+          "decision": "cluster_cap_target 75 -> 70 pour tolerer -21% drawdown au lieu de -23%",
+          "rationale": "validation explicite : tolere -16k€ sur cible 70k (-11k€ aujourd'hui) avec discipline"
+        }
+      ]
     }
   ]
 }
