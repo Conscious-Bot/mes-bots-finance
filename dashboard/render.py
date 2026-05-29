@@ -375,6 +375,21 @@ def _grade_panel() -> str:
     construction_score = round(c_score_sum * 100 / cw_total) if cw_total else 0
     fragilite_score = round(f_score_sum * 100 / fw_total) if fw_total else 0
 
+    def _extract_tickers(evidence: str) -> list[str]:
+        """Pull tickers from evidence text (uppercase symbols with optional .EX suffix)."""
+        if not evidence:
+            return []
+        ticks = re.findall(r"\b([0-9]{4,6}\.[A-Z]{2}|[A-Z]{1,5}\.[A-Z]{2}|[A-Z]{1,6})\b", evidence)
+        # Filter out common false positives
+        skip = {"DB", "DR", "OR", "HBM", "DRAM", "EUV", "OK", "M", "EU", "AI", "PF", "ATE", "IDM", "GICS"}
+        seen = []
+        for t in ticks:
+            if t in skip or len(t) < 2:
+                continue
+            if t not in seen:
+                seen.append(t)
+        return seen[:10]
+
     def _build_rows(keys: list[str]) -> str:
         rows = []
         for dk in keys:
@@ -382,16 +397,33 @@ def _grade_panel() -> str:
             d = dims.get(dk) or {}
             cur = d.get("current_pct", 0) or 0
             tgt = d.get("target_pct", 0) or 0
+            evidence = d.get("evidence", "")
+            tickers = _extract_tickers(evidence)
             bar_pct = max(0.0, min(100.0, cur))
             good = (cur >= tgt) if kind == "min" else (cur <= tgt)
             tcls = "good" if good else "bad"
             prefix = "&ge;" if kind == "min" else "&le;"
+            tickers_html = (
+                f'<div class="gtip-h">{label} &middot; positions concern&eacute;es</div>'
+                + (
+                    '<div class="gtip-list">' + "".join(
+                        f'<span class="gtip-tk" onclick="event.stopPropagation();openLoupe(\'{t}\')">{t}</span>'
+                        for t in tickers
+                    ) + '</div>'
+                    if tickers else
+                    '<div class="gtip-empty">aucun ticker specifique cite</div>'
+                )
+                + f'<div class="gtip-ev">{evidence.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")[:300]}</div>'
+            )
             rows.append(
-                f'<div class="grow"><div class="glab">{label}</div>'
+                f'<div class="grow has-tip">'
+                f'<div class="glab">{label}</div>'
                 f'<div class="gaxis"><div class="gfill {tcls}" style="width:{bar_pct:.1f}%"></div>'
                 f'<div class="gtgt" style="left:{tgt:.1f}%"></div></div>'
                 f'<div class="gnum"><span class="mono">{cur:.1f}%</span>'
-                f'<span class="gt">cible {prefix} {tgt:.0f}%</span></div></div>'
+                f'<span class="gt">cible {prefix} {tgt:.0f}%</span></div>'
+                f'<div class="gtip">{tickers_html}</div>'
+                f'</div>'
             )
         return "".join(rows) or '<div class="empty" style="padding:10px 0">&mdash;</div>'
 
@@ -1434,7 +1466,13 @@ def _chat_panel() -> str:
         'function chatRestore(){const log=document.getElementById("chat-log");if(log){window._chatHistory.forEach(m=>{if(m.role&&m.content)chatAppend(m.role,m.content);});}'
         'const ta=document.getElementById("chat-input");if(ta){'
         'const draft=localStorage.getItem("heimdall_chat_draft")||"";if(draft)ta.value=draft;'
-        'ta.addEventListener("input",function(){try{localStorage.setItem("heimdall_chat_draft",ta.value);}catch(e){}});}}'
+        'ta.addEventListener("input",function(){try{localStorage.setItem("heimdall_chat_draft",ta.value);}catch(e){}resetChatIdleTimer();});}'
+        # Sprint 21 : auto-clear chat-log apres 7 min d'inactivite
+        # (l'historique reste en DB + localStorage, juste le DOM est vide visuellement)
+        'startChatIdleTimer();}'
+        'function clearChatDisplay(){const log=document.getElementById("chat-log");if(!log)return;log.innerHTML="";const m=document.createElement("div");m.className="chat-msg chat-idle-clear";m.textContent="Affichage efface apres 7min d\'inactivite. Historique preserve en DB. Tape une question pour relancer.";log.appendChild(m);}'
+        'function startChatIdleTimer(){if(window._chatIdleTimer)clearTimeout(window._chatIdleTimer);window._chatIdleTimer=setTimeout(clearChatDisplay,420000);}'
+        'function resetChatIdleTimer(){startChatIdleTimer();}'
         '(function(){if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",chatRestore);}else{chatRestore();}})();'
         'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
         'chatAppend("user",msg);ta.value="";try{localStorage.removeItem("heimdall_chat_draft");}catch(e){}'
@@ -1447,7 +1485,7 @@ def _chat_panel() -> str:
         'const last=document.querySelector(".chat-log .chat-msg:last-child");last.remove();'
         'if(!ct.includes("application/json")){const txt=(await r.text()).slice(0,200);chatAppend("assistant","ERREUR HTTP "+r.status+" "+r.statusText+" (server returned "+ct+", not JSON). Body : "+txt);}'
         'else{const d=await r.json();'
-        'if(d.error){chatAppend("assistant","ERREUR serveur : "+d.error);}else{const reply=d.reply||"(reponse vide)";chatAppend("assistant",reply);window._chatHistory.push({role:"user",content:msg});window._chatHistory.push({role:"assistant",content:reply});chatPersist();}'
+        'if(d.error){chatAppend("assistant","ERREUR serveur : "+d.error);}else{const reply=d.reply||"(reponse vide)";chatAppend("assistant",reply);window._chatHistory.push({role:"user",content:msg});window._chatHistory.push({role:"assistant",content:reply});chatPersist();resetChatIdleTimer();}'
         '}}catch(err){const last=document.querySelector(".chat-log .chat-msg:last-child");if(last)last.remove();chatAppend("assistant","ERREUR client/reseau : "+err.name+" : "+err.message);}'
         'btn.disabled=false;btn.textContent="Envoyer";return false;}'
         '</script>'
@@ -3046,6 +3084,16 @@ _CSS = """
   .gradecard .gnum { display:flex; align-items:center; gap:10px; justify-content:flex-end; font-size:12px; color:var(--ink); }
   .gradecard .gnum .gt { color:var(--steel); font-size:11px; }
   @media (max-width:980px) { .gradecard .grow { grid-template-columns:1fr; gap:4px; } .gradecard .gnum { justify-content:flex-start; } }
+  /* Sprint 21 - Tooltip dim avec positions concernees */
+  .gradecard .grow.has-tip { position:relative; cursor:default; }
+  .gradecard .gtip { position:absolute; z-index:10; bottom:calc(100% + 6px); left:0; right:auto; min-width:320px; max-width:480px; background:var(--panel); border:1px solid var(--line2); border-radius:var(--r2); padding:14px 16px; box-shadow:0 20px 50px -15px #000; opacity:0; visibility:hidden; transform:translateY(4px); transition:opacity .15s, transform .15s, visibility .15s; pointer-events:none; }
+  .gradecard .grow.has-tip:hover .gtip { opacity:1; visibility:visible; transform:translateY(0); pointer-events:auto; }
+  .gradecard .gtip-h { font-family:var(--fb); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:10px; font-weight:600; }
+  .gradecard .gtip-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .gradecard .gtip-tk { font-family:var(--fm); font-size:11px; font-weight:600; color:var(--ink); background:color-mix(in srgb,var(--ink) 6%,transparent); padding:3px 8px; border-radius:var(--r1); cursor:pointer; transition:.12s; }
+  .gradecard .gtip-tk:hover { background:color-mix(in srgb,var(--id) 14%,transparent); color:var(--id); }
+  .gradecard .gtip-empty { font-family:var(--fm); font-size:11px; color:var(--steel); font-style:italic; margin-bottom:10px; }
+  .gradecard .gtip-ev { font-family:var(--fm); font-size:10.5px; color:var(--steel); line-height:1.5; padding-top:8px; border-top:1px solid var(--line); }
   /* Sub-notes Construction + Fragilite (glossaire canonique) */
   .gradecard .gsplit { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
   .gradecard .gsub { display:flex; flex-direction:column; gap:10px; }
@@ -3361,6 +3409,7 @@ _CSS = """
   .chatcard .chat-send:hover:not(:disabled) { opacity:.85; }
   .chatcard .chat-send:disabled { opacity:.5; cursor:default; }
   .chatcard .chat-foot { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-top:10px; }
+  .chatcard .chat-idle-clear { align-self:center; background:color-mix(in srgb,var(--steel) 8%,transparent); color:var(--steel); font-style:italic; font-size:11.5px; padding:8px 14px; }
   .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--r3); border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; }
   .foot .modetgl { margin-top:18px; padding-top:0; }
   .foot::before { content:""; display:block; width:30px; height:1px; background:var(--line); margin:14px auto 4px; }
