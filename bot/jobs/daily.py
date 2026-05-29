@@ -519,3 +519,23 @@ async def daily_risk_signal_monitor_job():
         )
     except Exception as e:
         log.error(f"daily_risk_signal_monitor failed: {e}")
+
+
+async def daily_decision_anniversary_job():
+    """Sprint 22 — Daily check des anniversaires de decisions (J+30/60/90/180/365).
+
+    Pour chaque decision atteignant un anniversaire, push Telegram avec
+    rationale historique + return actuel + prompt reflexion. Persiste en
+    chat_extracted_signals pour nourrir user_profile.
+    """
+    log.info("Daily decision anniversary check starting")
+    try:
+        from intelligence import decision_anniversary as _da
+
+        out = _da.check_today()
+        log.info(
+            f"decision_anniversary : {out.get('n_anniversaries', 0)} anniversaires, "
+            f"{out.get('notified', 0)} notifies"
+        )
+    except Exception as e:
+        log.error(f"daily_decision_anniversary failed: {e}")

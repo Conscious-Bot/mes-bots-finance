@@ -174,7 +174,26 @@ JSON strict, aucun markdown, aucun preambule :
     "absent_biases": ["fomo si jamais observe", ...]
   }},
   "language_patterns": "Tu ecris court / long, jargon pro / vulgarise, etc. — base sur reasonings observed. Cite n=X reasoning observed.",
-  "dialogue_tone_recommendation": "Pour les futurs co-pilot briefs adresses a cet user, le ton optimal est X (e.g. direct sec, jargon technique pro, asymetrie pas risk/reward). Base sur language_patterns + archetypes.",
+  "personality_dimensions": {{
+    "communication_style": "concis|verbeux|technique|narratif — base sur length distribution des messages chat",
+    "decision_pace": "impulsive|deliberee|differee — base sur delai entre signal et decision",
+    "doubt_tolerance": "haute|moyenne|basse — l'user revient-il sur ses theses ? frequence des revisits",
+    "echo_chamber_test": "validation_seeker|challenge_seeker|mixte — combien de fois il integre vs ignore les pushbacks copilot",
+    "recovery_pattern": "comment l'user gere une perte/erreur (cite decisions specifiques)",
+    "growth_observed": "evolutions detectees vs precedents snapshots — cite ce qui s'est specifiquement raffine"
+  }},
+  "topical_obsessions": [
+    {{
+      "topic": "ex. surchauffe tech / doublons memoire / valuation premium",
+      "n_chat_mentions": X,
+      "recurrence_frequency": "quotidien|hebdo|mensuel|sporadique",
+      "first_seen": "YYYY-MM-DD",
+      "last_seen": "YYYY-MM-DD",
+      "evolution": "le user a evolue de X a Y sur ce topic"
+    }}
+  ],
+  "personality_coherence_check": "Detection des dissonances entre dit/fait. Ex: declare risk-aware mais execute concentrator. Cite n exemples.",
+  "dialogue_tone_recommendation": "Pour les futurs co-pilot briefs adresses a cet user, le ton optimal est X (e.g. direct sec, jargon technique pro, asymetrie pas risk/reward). Base sur language_patterns + personality_dimensions + archetypes.",
   "track_record_summary": {{
     "brier_avg": <float>,
     "hit_rate_pct": <float>,

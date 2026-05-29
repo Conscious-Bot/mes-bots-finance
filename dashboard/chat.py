@@ -214,7 +214,17 @@ def assemble_context() -> str:
     except Exception:
         pass
 
+    # Topical recurrence : what the user obsesses about
+    try:
+        from intelligence import topical_recurrence as _tr
+
+        recurrence_block = _tr.format_for_chat_context()
+    except Exception:
+        recurrence_block = "  (recurrence indispo)"
+
     return (
+        "═══ OBSESSIONS RECURRENTES (60j chat) ═══\n"
+        f"{recurrence_block}\n\n"
         "═══ PROFIL UTILISATEUR (auto-derive) ═══\n"
         f"{_format_profile(profile)}\n\n"
         "═══ NOTE DU PORTEFEUILLE ═══\n"
