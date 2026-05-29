@@ -309,6 +309,34 @@ def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
     else:
         dtype = "full_exit" if (existing and qty >= (existing.get("qty") or 0) - 1e-6) else "partial_exit"
 
+    # Boucle-de-soi V0 re-injection : si sell-winner detecte ET measure_bias
+    # montre un cout cumule, on enrichit le reasoning avec le contexte de biais.
+    # Le copilot LLM voit le chiffre et peut le citer dans son verdict.
+    if dtype in ("partial_exit", "full_exit") and existing:
+        try:
+            from intelligence import self_loop as _sl
+
+            _entry = (existing.get("avg_cost") or 0)
+            _pnl_pct = ((price - _entry) / _entry * 100) if _entry > 0 else None
+            _held = None
+            _opened = existing.get("opened_at")
+            if _opened:
+                from datetime import UTC as _UTC, datetime as _dt
+                try:
+                    _od = _dt.fromisoformat(_opened.replace("Z", "+00:00"))
+                    if _od.tzinfo is None:
+                        _od = _od.replace(tzinfo=_UTC)
+                    _held = (_dt.now(_UTC) - _od).days
+                except Exception:
+                    _held = None
+            _bias_ctx = _sl.bias_context_for_prompt(
+                ticker, dtype, current_pnl_pct=_pnl_pct, held_days=_held
+            )
+            if _bias_ctx:
+                reasoning = (reasoning or "") + "\n\n" + _bias_ctx
+        except Exception as _e:
+            log.warning(f"self_loop bias_context_for_prompt failed: {_e}")
+
     cop_resp, cop_iid = None, None
     if dtype != "entry":
         try:
@@ -318,26 +346,32 @@ def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
         except Exception as e:
             log.warning(f"copilot pre-trade {ticker}: {e}")
 
+    # SNAPSHOT PRE-EXECUTION pour la boucle-de-soi (V0 ancre contrefactuelle).
+    # Capture qty AVANT le sell -- c'est l'ancre du "hold strict" contrefactuel.
+    # Doit etre fait AVANT add_sell, sinon l'ancre est faussee.
+    _anchor_qty_before = (existing.get("qty") if existing else 0) or 0
+    _anchor_conviction = None
+    _anchor_thesis_id = None
+    try:
+        with storage.db() as _cx:
+            _th = _cx.execute(
+                "SELECT id, conviction FROM theses WHERE ticker=? AND status='active' "
+                "ORDER BY id DESC LIMIT 1",
+                (ticker.upper(),),
+            ).fetchone()
+            if _th:
+                _anchor_thesis_id = _th[0]
+                _anchor_conviction = _th[1]
+    except Exception:
+        pass
+
     if action == "buy":
         positions_mod.add_buy(ticker, qty, price, reasoning + " | source=chat")
     else:
         positions_mod.add_sell(ticker, qty, price, reasoning + " | source=chat")
 
-    # Auto-link a la these active (29/05/2026 fix) : sans ca, les decisions
-    # chat-driven arrivaient avec thesis_id=NULL. Le pattern est deja en place
-    # dans journal_bias.py et positions.py.
-    thesis_id = None
-    try:
-        with storage.db() as _cx:
-            _row = _cx.execute(
-                "SELECT id FROM theses WHERE ticker=? AND status='active' "
-                "ORDER BY id DESC LIMIT 1",
-                (ticker.upper(),),
-            ).fetchone()
-            if _row:
-                thesis_id = _row[0]
-    except Exception as _e:
-        log.warning(f"chat_intent thesis lookup {ticker}: {_e}")
+    # thesis_id deja recupere pour l'ancre, reutiliser
+    thesis_id = _anchor_thesis_id
 
     decision_id = storage.log_decision(
         ticker=ticker,
@@ -348,6 +382,39 @@ def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
         price_at_decision=price,
         thesis_id=thesis_id,
     )
+
+    # Boucle-de-soi V0 : capture l'ancre contrefactuelle juste apres
+    # log_decision (besoin de decision_id). Branche = "hold" pour sells,
+    # "would_have_sold" pour buy (V1 etendra, V0 ne traque que les sells).
+    if decision_id and dtype in ("partial_exit", "full_exit", "scale_in"):
+        try:
+            from intelligence import self_loop as _sl
+            from shared import edgar as _edgar
+
+            # Bias hypothese auto-tag : winner sell = candidat biais #1
+            _bias_hyp = []
+            if dtype in ("partial_exit", "full_exit") and existing:
+                _entry = existing.get("avg_cost") or 0
+                if _entry > 0 and (price - _entry) / _entry > 0.10:
+                    _bias_hyp.append("vend_winners_trop_tot")
+
+            _currency = _edgar.get_currency_for_ticker(ticker) if hasattr(_edgar, "get_currency_for_ticker") else None
+            _sl.record_anchor(
+                decision_id=decision_id,
+                ticker=ticker,
+                decision_type=dtype,
+                qty_before=_anchor_qty_before,
+                price_at_decision=price,
+                price_at_decision_eur=price,
+                currency=_currency,
+                thesis_id=_anchor_thesis_id,
+                conviction_at_t0=_anchor_conviction,
+                bias_hypothesis=_bias_hyp,
+                reasoning=reasoning,
+                counterfactual_branch="hold" if dtype != "scale_in" else "would_have_sold",
+            )
+        except Exception as _e:
+            log.warning(f"self_loop record_anchor failed {ticker}: {_e}")
     if cop_iid and decision_id:
         try:
             storage.link_copilot_intervention_decision(cop_iid, decision_id)

@@ -112,6 +112,7 @@ CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_ti
 from bot.jobs import (
     daily_backup_job,
     daily_calendar_refresh_job,
+    daily_counterfactual_resolve_job,
     daily_crypto_zone_job,
     daily_decision_anniversary_job,
     daily_digest_job,
@@ -216,6 +217,7 @@ async def post_init(app):
     sched.add_job(daily_kill_criteria_check_job, "cron", hour=7, minute=30, misfire_grace_time=14400)
     sched.add_job(daily_risk_signal_monitor_job, "cron", hour=8, minute=0, misfire_grace_time=14400)
     sched.add_job(daily_decision_anniversary_job, "cron", hour=8, minute=30, misfire_grace_time=14400)
+    sched.add_job(daily_counterfactual_resolve_job, "cron", hour=23, minute=15, misfire_grace_time=14400)
     sched.add_job(weekly_handler_stats_job, "cron", day_of_week="sun", hour=23, minute=0, misfire_grace_time=86400)
     sched.add_job(weekly_kpi_status_job, "cron", day_of_week="sun", hour=22, minute=30, misfire_grace_time=86400)
     sched.add_job(weekly_cost_summary_job, "cron", day_of_week="sun", hour=22, minute=0, misfire_grace_time=86400)

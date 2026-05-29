@@ -7,6 +7,7 @@ Used by bot/main.py post_init() scheduler bootstrap.
 from bot.jobs.daily import (
     daily_backup_job,
     daily_calendar_refresh_job,
+    daily_counterfactual_resolve_job,
     daily_crypto_zone_job,
     daily_decision_anniversary_job,
     daily_digest_job,
@@ -47,6 +48,7 @@ from bot.jobs.periodic import (
 __all__ = [
     "daily_backup_job",
     "daily_calendar_refresh_job",
+    "daily_counterfactual_resolve_job",
     "daily_crypto_zone_job",
     "daily_decision_anniversary_job",
     "daily_digest_job",

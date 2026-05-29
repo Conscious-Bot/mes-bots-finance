@@ -27,6 +27,7 @@ ALLOWED_FILES = {
     "intelligence/insider_digest.py",  # insider_snapshots (cron)
     "intelligence/analyze.py",  # table analyses
     "intelligence/calendar.py",  # events (catalysts)
+    "intelligence/self_loop.py",  # boucle-de-soi V0 : decision_counterfactual + counterfactual_resolution (tables dediees append-only, triggers SQL bloquent UPDATE/DELETE)
     "bot/main.py",  # telemetrie handler_calls
     "bot/handlers/misc.py",  # edition champs these
 }

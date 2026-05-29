@@ -539,3 +539,27 @@ async def daily_decision_anniversary_job():
         )
     except Exception as e:
         log.error(f"daily_decision_anniversary failed: {e}")
+
+
+async def daily_counterfactual_resolve_job():
+    """Boucle-de-soi V0 — resout les ancres contrefactuelles dont J+30 est passe.
+
+    Pour chaque ancre eligible : fetch prix actuel, calcule actual vs
+    counterfactual (hold strict), insere counterfactual_resolution.
+
+    V0 = J+30 seulement. V1 ajoutera J+60/90/180 via plusieurs cycles.
+
+    Idempotent : UNIQUE index (decision_counterfactual_id, horizon_days)
+    empeche les re-insertions. Skip si prix indispo.
+    """
+    log.info("Daily counterfactual resolve starting")
+    try:
+        from intelligence import self_loop as _sl
+
+        out = _sl.resolve_due_anchors(horizon_days=30)
+        log.info(
+            f"counterfactual resolve J+30 : {out['resolved']} resolved, "
+            f"{out['skipped']} skipped, {out['errors']} errors"
+        )
+    except Exception as e:
+        log.error(f"daily_counterfactual_resolve failed: {e}")
