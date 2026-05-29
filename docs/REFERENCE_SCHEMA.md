@@ -6,7 +6,7 @@
 
 Live snapshot of all tables with current row counts and indexes. Auto-regeneratable.
 
-**Total tables**: 39 | **Total indexes**: 53 | **Total rows**: 4,159
+**Total tables**: 40 | **Total indexes**: 56 | **Total rows**: 4,215
 
 
 ## Core entities
@@ -238,7 +238,7 @@ CREATE TABLE debt_signals (
 
 **Indexes**: `idx_debt_signals_ind_ts`
 
-### `events` (62 rows)
+### `events` (64 rows)
 
 ```sql
 CREATE TABLE events (
@@ -524,7 +524,7 @@ CREATE TABLE handler_calls (
 
 **Indexes**: `idx_handler_calls_name`, `idx_handler_calls_timestamp`
 
-### `llm_calls` (1,066 rows)
+### `llm_calls` (1,115 rows)
 
 ```sql
 CREATE TABLE llm_calls (
@@ -582,7 +582,15 @@ CREATE TABLE bot_copilot_interventions (
 
 **Indexes**: `idx_copilot_created`, `idx_copilot_decision`, `idx_copilot_ticker`, `idx_copilot_unresolved`
 
-### `portfolio_grades` (1 rows)
+### `chat_messages` (2 rows)
+
+```sql
+CREATE TABLE chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')), session_id TEXT, surface TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, latency_ms INTEGER, error TEXT);
+```
+
+**Indexes**: `idx_chat_created`, `idx_chat_session`
+
+### `portfolio_grades` (2 rows)
 
 ```sql
 CREATE TABLE portfolio_grades (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_at TEXT NOT NULL DEFAULT (datetime('now')), snapshot_date TEXT NOT NULL, overall_score INTEGER NOT NULL, overall_grade TEXT NOT NULL, dimensions_json TEXT NOT NULL, total_capital_eur REAL, n_positions INTEGER, n_theses_active INTEGER, computation_version TEXT NOT NULL DEFAULT 'sprint5_deterministic', notes TEXT);
@@ -590,11 +598,13 @@ CREATE TABLE portfolio_grades (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_at
 
 **Indexes**: `idx_grade_date`, `idx_grade_snapshot_at`
 
-### `portfolio_narrative_clusters` (0 rows)
+### `portfolio_narrative_clusters` (1 rows)
 
 ```sql
 CREATE TABLE portfolio_narrative_clusters (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_at TEXT NOT NULL DEFAULT (datetime('now')), snapshot_date TEXT NOT NULL, clusters_json TEXT NOT NULL, edges_json TEXT NOT NULL, model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, elapsed_ms INTEGER, notes TEXT);
 ```
+
+**Indexes**: `idx_narrative_cluster_date`
 
 ### `portfolio_snapshots` (5 rows)
 
@@ -625,7 +635,7 @@ CREATE TABLE predictions_bak_probfix(
 );
 ```
 
-### `user_profile` (0 rows)
+### `user_profile` (1 rows)
 
 ```sql
 CREATE TABLE user_profile (

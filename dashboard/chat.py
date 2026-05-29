@@ -199,23 +199,64 @@ def assemble_context() -> str:
     )
 
 
-def chat(user_message: str, history: list[dict] | None = None) -> dict:
-    """Send a message ; return {reply, latency_ms, error}.
+def chat(
+    user_message: str,
+    history: list[dict] | None = None,
+    session_id: str | None = None,
+    surface: str = "dashboard",
+) -> dict:
+    """Send a message ; return {reply, latency_ms, error, session_id}.
 
     history (optional) : [{role: 'user'|'assistant', content: str}, ...] — turns
-    PRIOR to the current user_message. We append the new message and call llm.
-    Context (positions/grade/etc) is refreshed every call and pushed in system
-    so it doesn't bloat the conversation history.
+    PRIOR to the current user_message. Context (positions/grade/etc) is
+    refreshed every call and pushed in system so it doesn't bloat history.
+
+    Side-effect : persiste user + assistant turn dans chat_messages (Sprint 9 —
+    "tout les textes et conversation doivent etre consignees sauvegardees et
+    utilisees pour le futur"). Logged via shared/storage helper.
     """
     from time import time as _now
+    from uuid import uuid4
 
-    from shared import llm
+    from shared import llm, storage
 
     if not user_message or not user_message.strip():
         return {"reply": "(message vide)", "error": "empty"}
 
+    if not session_id:
+        session_id = uuid4().hex[:16]
+
+    storage.insert_chat_message(
+        surface=surface,
+        role="user",
+        content=user_message.strip(),
+        session_id=session_id,
+    )
+
+    # Sprint 9.b — Trade intent detection : translate "je vais vendre 10 TSM"
+    # into the same execution path as /position_sell. Cheap pre-filter avoids
+    # LLM call on every message.
+    trade_summary = None
+    try:
+        from intelligence import chat_intent as _intent_mod
+
+        parsed = _intent_mod.extract_trade_intent(user_message)
+        if parsed:
+            confidence = parsed.get("confidence") or 0
+            intent = parsed.get("intent")
+            if intent and confidence >= 0.7:
+                exec_res = _intent_mod.execute_intent(intent, reasoning_fallback=user_message)
+                trade_summary = exec_res.get("summary")
+                log.info(f"chat-driven trade executed: {trade_summary}")
+            elif intent and confidence >= 0.4 and parsed.get("clarification_needed"):
+                trade_summary = (
+                    "⚠️ Intent detecte mais incomplet : "
+                    f"{parsed.get('clarification_needed')} (Reformule avec ticker + qty pour exec.)"
+                )
+    except Exception as e:
+        log.warning(f"intent extraction failed: {e}")
+
     context = assemble_context()
-    # Build messages list : prior history + new user turn
     messages = []
     for turn in history or []:
         role = turn.get("role")
@@ -224,27 +265,45 @@ def chat(user_message: str, history: list[dict] | None = None) -> dict:
             messages.append({"role": role, "content": content[:6000]})
     messages.append({"role": "user", "content": user_message.strip()})
 
-    # System combines the static persona + the rolling DB context.
     system_with_ctx = f"{SYSTEM_PROMPT}\n\n=== CONTEXTE DB (rafraichi a chaque tour) ===\n{context}"
 
     t0 = _now()
+    reply_text = ""
+    err_msg = None
     try:
-        # Cache only if big enough to be worth the cache_control overhead (>=1024 tok).
-        # Below that, push as normal system message.
-        if len(system_with_ctx) > 4000:  # ~1k tokens
-            reply = llm.call_multiturn(
+        if len(system_with_ctx) > 4000:
+            reply_text = llm.call_multiturn(
                 messages, tier="synthesize", max_tokens=1500,
                 cache_invariant=system_with_ctx,
             )
         else:
-            reply = llm.call_multiturn(
+            reply_text = llm.call_multiturn(
                 messages, tier="synthesize", max_tokens=1500, system=system_with_ctx,
             )
-        return {
-            "reply": reply,
-            "latency_ms": int((_now() - t0) * 1000),
-            "error": None,
-        }
     except Exception as e:
-        log.error(f"chat failed: {e}")
-        return {"reply": f"Erreur : {type(e).__name__}: {e}", "error": str(e)}
+        err_msg = f"{type(e).__name__}: {e}"
+        log.error(f"chat failed: {err_msg}")
+        reply_text = f"Erreur : {err_msg}"
+    latency_ms = int((_now() - t0) * 1000)
+
+    # If a trade was executed (or attempted), prepend it to the reply so the
+    # user sees the action take effect IN the chat.
+    if trade_summary:
+        reply_text = f"{trade_summary}\n\n---\n\n{reply_text}"
+
+    # Persist assistant turn (success or error)
+    storage.insert_chat_message(
+        surface=surface,
+        role="assistant",
+        content=reply_text,
+        session_id=session_id,
+        llm_meta={"latency_ms": latency_ms, "error": err_msg},
+    )
+
+    return {
+        "reply": reply_text,
+        "latency_ms": latency_ms,
+        "session_id": session_id,
+        "trade_executed": bool(trade_summary and trade_summary.startswith("✅")),
+        "error": err_msg,
+    }

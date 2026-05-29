@@ -2467,3 +2467,105 @@ def get_latest_narrative_snapshot() -> dict | None:
     except Exception as e:
         _copilot_log.warning(f"get_latest_narrative_snapshot failed: {e}")
         return None
+
+
+# === chat_messages (Sprint 9) ================================================
+
+_CHAT_DDL = (
+    "CREATE TABLE IF NOT EXISTS chat_messages ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "session_id TEXT, "
+    "surface TEXT NOT NULL, "
+    "role TEXT NOT NULL, "
+    "content TEXT NOT NULL, "
+    "model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, "
+    "cost_usd REAL, latency_ms INTEGER, error TEXT)"
+)
+_CHAT_IDX = [
+    "CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id)",
+    "CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at)",
+]
+
+
+def _ensure_chat_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_CHAT_DDL)
+    for ix in _CHAT_IDX:
+        conn.execute(ix)
+
+
+def insert_chat_message(
+    surface: str,
+    role: str,
+    content: str,
+    session_id: str | None = None,
+    llm_meta: dict | None = None,
+) -> int | None:
+    """Persist a chat turn. surface = 'dashboard' | 'telegram'. role = 'user' | 'assistant'."""
+    meta = llm_meta or {}
+    try:
+        with db() as cx:
+            _ensure_chat_table(cx)
+            cur = cx.execute(
+                "INSERT INTO chat_messages "
+                "(session_id, surface, role, content, model_used, input_tokens, "
+                "output_tokens, cost_usd, latency_ms, error) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (
+                    session_id,
+                    surface,
+                    role,
+                    content,
+                    meta.get("model_used"),
+                    meta.get("input_tokens"),
+                    meta.get("output_tokens"),
+                    meta.get("cost_usd"),
+                    meta.get("latency_ms"),
+                    meta.get("error"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_chat_message failed: {e}")
+        return None
+
+
+def get_recent_chat_messages(limit: int = 50, session_id: str | None = None) -> list[dict]:
+    """Read recent chat turns (newest first). Filter by session if given."""
+    try:
+        with db() as cx:
+            _ensure_chat_table(cx)
+            if session_id:
+                rows = cx.execute(
+                    "SELECT id, created_at, session_id, surface, role, content "
+                    "FROM chat_messages WHERE session_id=? "
+                    "ORDER BY id DESC LIMIT ?",
+                    (session_id, limit),
+                ).fetchall()
+            else:
+                rows = cx.execute(
+                    "SELECT id, created_at, session_id, surface, role, content "
+                    "FROM chat_messages ORDER BY id DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            cols = ["id", "created_at", "session_id", "surface", "role", "content"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_recent_chat_messages failed: {e}")
+        return []
+
+
+def get_chat_session_history(session_id: str, limit: int = 20) -> list[dict]:
+    """Get a single session's turns in chronological order (for multi-turn restore)."""
+    try:
+        with db() as cx:
+            _ensure_chat_table(cx)
+            rows = cx.execute(
+                "SELECT role, content FROM chat_messages "
+                "WHERE session_id=? ORDER BY id ASC LIMIT ?",
+                (session_id, limit),
+            ).fetchall()
+            return [{"role": r[0], "content": r[1]} for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_chat_session_history failed: {e}")
+        return []

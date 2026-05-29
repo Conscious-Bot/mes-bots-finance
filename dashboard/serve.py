@@ -64,6 +64,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             payload = _json.loads(body) if body else {}
             message = (payload.get("message") or "").strip()
             history = payload.get("history") or []
+            session_id = payload.get("session_id") or None
             if not isinstance(history, list):
                 history = []
         except Exception as e:
@@ -75,7 +76,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         try:
             from dashboard.chat import chat as _chat
 
-            result = _chat(message, history=history)
+            result = _chat(message, history=history, session_id=session_id, surface="dashboard")
         except Exception as e:
             self.send_response(500)
             self.send_header("Content-Type", "application/json")

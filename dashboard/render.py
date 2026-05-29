@@ -336,6 +336,59 @@ def _copilot_panel() -> str:
     )
 
 
+def _conversations_panel() -> str:
+    """Sprint 9 — surface les conversations recentes (boucle recolte/digestion).
+
+    Liste les 12 derniers messages chronologiquement (newest first), surface
+    differenciee (dashboard / Telegram), role differencie (user / assistant).
+    """
+    try:
+        from shared import storage as _stg
+
+        rows = _stg.get_recent_chat_messages(limit=12)
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">conversations indispo: {type(e).__name__}</div></div>'
+    if not rows:
+        return (
+            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            "Aucune conversation enregistree pour le moment. Les echanges chat "
+            "(dashboard + Telegram) seront consignes ici et integres au profil utilisateur."
+            "</div></div>"
+        )
+    lis = []
+    for r in rows:
+        role = r.get("role", "?")
+        surface = r.get("surface", "?")
+        date = (r.get("created_at") or "")[:16]
+        content = (r.get("content") or "").strip()
+        if len(content) > 240:
+            content = content[:237] + "..."
+        # Escape HTML rough
+        content = (
+            content.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\n", "<br>")
+        )
+        rcls = "user" if role == "user" else "assistant"
+        scls = "tg" if surface == "telegram" else "dash"
+        lis.append(
+            f'<div class="cv-row cv-{rcls}">'
+            f'<div class="cv-meta"><span class="cv-role {rcls}">{role}</span>'
+            f'<span class="cv-surf {scls}">{surface}</span>'
+            f'<span class="cv-date">{date}</span></div>'
+            f'<div class="cv-content">{content}</div></div>'
+        )
+    return (
+        '<div class="card pad conversationscard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Conversations recentes</span>'
+        '<span class="a">consignees, sauvegardees, integrees au profil &middot; '
+        'boucle recolte &rarr; analyse &rarr; digestion &rarr; precision</span></div>'
+        + "".join(lis)
+        + "</div>"
+    )
+
+
 def _narrative_panel() -> str:
     """Sprint 6 surface : narrative clusters LLM + edges + redundant."""
     try:
@@ -416,6 +469,7 @@ def _chat_panel() -> str:
         '</div>'
         '<script>'
         'window._chatHistory=window._chatHistory||[];'
+        'window._chatSessionId=window._chatSessionId||localStorage.getItem("heimdall_chat_session")||(()=>{const s="s_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);localStorage.setItem("heimdall_chat_session",s);return s;})();'
         'function chatEsc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}'
         'function chatAppend(role,text){const log=document.getElementById("chat-log");const div=document.createElement("div");div.className="chat-msg chat-"+role;div.innerHTML=chatEsc(text).replace(/\\n/g,"<br>");log.appendChild(div);log.scrollTop=log.scrollHeight;}'
         'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
@@ -423,7 +477,7 @@ def _chat_panel() -> str:
         'const histSend=window._chatHistory.slice(-10);'
         'const btn=document.querySelector(".chat-send");btn.disabled=true;btn.textContent="...";'
         'chatAppend("assistant","(reflexion en cours, l\'appel Opus prend 8-15s)");'
-        'try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:msg,history:histSend})});'
+        'try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:msg,history:histSend,session_id:window._chatSessionId})});'
         'const d=await r.json();'
         'const last=document.querySelector(".chat-log .chat-msg:last-child");last.remove();'
         'if(d.error){chatAppend("assistant","ERREUR : "+d.error);}else{const reply=d.reply||"(reponse vide)";chatAppend("assistant",reply);window._chatHistory.push({role:"user",content:msg});window._chatHistory.push({role:"assistant",content:reply});}'
@@ -2046,6 +2100,17 @@ _CSS = """
   .narrativecard .nv-with { font-family:var(--fm); color:var(--steel); font-size:10.5px; }
   .narrativecard .nv-why { font-family:var(--fm); color:var(--ink); opacity:.85; line-height:1.4; flex:1; }
   @media (max-width:980px) { .narrativecard .nv-split { grid-template-columns:1fr; } }
+  /* Sprint 9 - Conversations recentes */
+  .conversationscard .cv-row { padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
+  .conversationscard .cv-row:last-child { border-bottom:none; }
+  .conversationscard .cv-meta { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-family:var(--fb); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; }
+  .conversationscard .cv-role { font-weight:600; padding:2px 6px; border-radius:var(--r1); }
+  .conversationscard .cv-role.user { background:color-mix(in srgb,var(--id) 14%,transparent); color:var(--id); }
+  .conversationscard .cv-role.assistant { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--ink); }
+  .conversationscard .cv-surf { color:var(--steel); }
+  .conversationscard .cv-date { margin-left:auto; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .conversationscard .cv-content { font-family:var(--fm); font-size:12px; line-height:1.45; color:var(--ink); opacity:.85; }
+  .conversationscard .cv-user .cv-content { color:var(--ink); opacity:.95; }
   /* Sprint 7 - Chat surface */
   .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
@@ -2652,6 +2717,7 @@ def render() -> Path:
     copilot_html = _copilot_panel()
     chat_html = _chat_panel()
     narrative_html = _narrative_panel()
+    conversations_html = _conversations_panel()
     vigie = (
         f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -2665,6 +2731,7 @@ def render() -> Path:
         f"{grade_html}"
         f"{narrative_html}"
         f"{chat_html}"
+        f"{conversations_html}"
         f"{copilot_html}"
         f"{cockpit_html}"
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise</span></div>'

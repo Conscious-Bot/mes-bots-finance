@@ -291,7 +291,9 @@ async def cmd_chat(update, ctx):
     try:
         from dashboard.chat import chat as _chat
 
-        result = _chat(message)
+        # Session = user id Telegram (stable cross-message)
+        sid = f"tg_{update.effective_user.id}" if update.effective_user else None
+        result = _chat(message, session_id=sid, surface="telegram")
     except Exception as e:
         await update.message.reply_text(f"Erreur : {type(e).__name__}: {e}")
         return

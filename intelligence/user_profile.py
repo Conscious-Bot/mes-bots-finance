@@ -58,6 +58,11 @@ COPILOT INTERVENTIONS RESOLVED (n={n_copilot_resolved}, outcome distribution) :
 DERNIER PORTFOLIO SNAPSHOT (concentration metrics) :
 {concentration_metrics}
 
+ECHANGES CHAT RECENTS (n={n_chat_messages} messages, dont {n_chat_user_turns} questions user) :
+Source unique pour comprendre les preoccupations / curiosites / angles morts
+exprimes EXPLICITEMENT par l'user. Q = question user, R = reponse bot.
+{chat_history_summary}
+
 ═══════════════ REGLES DE SORTIE ═══════════════
 
 Tu vas produire un JSON. Pour chaque trait, tu DOIS citer le sample size
@@ -96,6 +101,10 @@ Les inputs ont des poids differents dans ta synthese :
    Peut inclure des legacy holdings qui ne reflete plus son thinking actuel.
 5. PREDICTIONS resolved + Brier → poids correctif
    La realite du track-record corrige les declaration de surface.
+6. ECHANGES CHAT → poids fort sur les CONCERNS / blind spots / preoccupations
+   Une question repetee sur "ma plus grosse fragilite" ou "que vendre" trahit
+   une preoccupation reelle (poids = inputs directs). Une reponse bot reprise
+   sans contredire = endorsement implicite. Boucle recolte→analyse→digestion.
 
 Quand 2 signaux divergent (e.g. reasoning bullish mais Brier defavorable),
 note explicitement la dissonance dans uncertainty[].
@@ -360,6 +369,22 @@ def assemble_synthesis_context(months_window: int = 6) -> tuple[dict, dict]:
             "SELECT COUNT(*) FROM signals WHERE timestamp >= ?", (window_start,)
         ).fetchone()[0]
         counts["n_signals_window"] = sig_count
+        # Sprint 9 — Chat messages window (boucle recolte→analyse→digestion)
+        chats: list = []
+        try:
+            chat_rows = conn.execute(
+                "SELECT created_at, surface, role, content FROM chat_messages "
+                "WHERE created_at >= ? ORDER BY created_at DESC LIMIT 100",
+                (window_start,),
+            ).fetchall()
+            chats = [
+                dict(zip(["created_at", "surface", "role", "content"], r, strict=False))
+                for r in chat_rows
+            ]
+        except Exception as ce:
+            log.info(f"chat_messages not yet available: {ce}")
+        counts["n_chat_messages"] = len(chats)
+        counts["n_chat_user_turns"] = len([c for c in chats if c.get("role") == "user"])
 
     # Capital deploye (sum qty*avg_cost)
     capital_eur = sum((p.get("qty") or 0) * (p.get("avg_cost") or 0) for p in positions)
@@ -384,8 +409,34 @@ def assemble_synthesis_context(months_window: int = 6) -> tuple[dict, dict]:
         "n_copilot_resolved": counts["n_copilot_resolved"],
         "copilot_history_summary": _format_copilot_history(copilots),
         "concentration_metrics": _format_concentration(snapshot),
+        "n_chat_messages": counts.get("n_chat_messages", 0),
+        "n_chat_user_turns": counts.get("n_chat_user_turns", 0),
+        "chat_history_summary": _format_chat_history(chats),
     }
     return ctx, counts
+
+
+def _format_chat_history(chats: list) -> str:
+    """Sprint 9 — summarize recent chat turns for the synthesis prompt.
+
+    User questions reveal concerns / curiosity / blind spots ; assistant
+    answers reveal patterns the bot has surfaced repeatedly. Both are
+    'recolte' that feed user understanding (loop : recolte→analyse→digestion).
+    """
+    if not chats:
+        return "  (aucun echange chat dans la fenetre — feature deployee recemment)"
+    # Take last 30 turns max
+    out = []
+    for c in chats[:30]:
+        role = c.get("role", "?")
+        content = (c.get("content") or "")[:280]
+        surface = c.get("surface", "?")
+        date = (c.get("created_at") or "")[:10]
+        marker = "Q" if role == "user" else "R"
+        out.append(f"  [{date} {surface} {marker}] {content}")
+    # Reverse to chronological
+    out.reverse()
+    return "\n".join(out[-20:])
 
 
 def run_synthesis(months_window: int = 6) -> tuple[dict | None, int | None]:
