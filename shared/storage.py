@@ -2169,3 +2169,88 @@ def get_recent_copilot_interventions_for_ticker(ticker: str, limit: int = 5) -> 
     except Exception as e:
         _copilot_log.warning(f"get_recent_copilot_interventions failed for {ticker}: {e}")
         return []
+
+
+# === user_profile (Phase 2 Sprint 1) ==========================================
+
+_USER_PROFILE_DDL = (
+    "CREATE TABLE IF NOT EXISTS user_profile ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "refreshed_at TEXT NOT NULL DEFAULT (datetime('now')), "
+    "profile_json TEXT NOT NULL, "
+    "confidence_score INTEGER, "
+    "n_decisions_used INTEGER, n_theses_used INTEGER, "
+    "n_predictions_resolved_used INTEGER, n_signals_window INTEGER, "
+    "data_window_start TEXT, data_window_end TEXT, "
+    "model_used TEXT, input_tokens INTEGER, output_tokens INTEGER, "
+    "cost_usd REAL, elapsed_ms INTEGER, notes TEXT)"
+)
+_USER_PROFILE_IDX = ["CREATE INDEX IF NOT EXISTS idx_user_profile_refreshed ON user_profile(refreshed_at)"]
+
+
+def _ensure_user_profile_table(conn: _sqlite3.Connection) -> None:
+    conn.execute(_USER_PROFILE_DDL)
+    for ix in _USER_PROFILE_IDX:
+        conn.execute(ix)
+
+
+def insert_user_profile(profile_json: str, source_counts: dict, llm_meta: dict | None = None) -> int | None:
+    """Insert a new user_profile snapshot (append-only). Returns id."""
+    llm_meta = llm_meta or {}
+    try:
+        with db() as conn:
+            _ensure_user_profile_table(conn)
+            cur = conn.execute(
+                "INSERT INTO user_profile "
+                "(profile_json, confidence_score, n_decisions_used, n_theses_used, "
+                "n_predictions_resolved_used, n_signals_window, data_window_start, "
+                "data_window_end, model_used, input_tokens, output_tokens, cost_usd, "
+                "elapsed_ms, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    profile_json,
+                    source_counts.get("confidence_score"),
+                    source_counts.get("n_decisions"),
+                    source_counts.get("n_theses"),
+                    source_counts.get("n_predictions_resolved"),
+                    source_counts.get("n_signals_window"),
+                    source_counts.get("window_start"),
+                    source_counts.get("window_end"),
+                    llm_meta.get("model"),
+                    llm_meta.get("input_tokens"),
+                    llm_meta.get("output_tokens"),
+                    llm_meta.get("cost_usd"),
+                    llm_meta.get("elapsed_ms"),
+                    source_counts.get("notes"),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_user_profile failed: {e}")
+        return None
+
+
+def get_latest_user_profile() -> dict | None:
+    """Read the most recent user_profile snapshot. Returns dict with profile + meta."""
+    try:
+        with db() as conn:
+            _ensure_user_profile_table(conn)
+            row = conn.execute(
+                "SELECT id, refreshed_at, profile_json, confidence_score, n_decisions_used, "
+                "n_theses_used, n_predictions_resolved_used, n_signals_window "
+                "FROM user_profile ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0],
+                "refreshed_at": row[1],
+                "profile_json": row[2],
+                "confidence_score": row[3],
+                "n_decisions_used": row[4],
+                "n_theses_used": row[5],
+                "n_predictions_resolved_used": row[6],
+                "n_signals_window": row[7],
+            }
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_user_profile failed: {e}")
+        return None
