@@ -23,59 +23,73 @@ from shared import llm, notify, storage
 log = logging.getLogger(__name__)
 
 
-_PROMPT = """Tu evalues si les kill-criteria d'une these sont declenches, a risque, ou dormants.
+_PROMPT = """Tu evalues si une these subit une DEGRADATION FONDAMENTALE VERIFIEE.
+
+Pas d'opinion. Pas de prediction. Juste : est-ce que les fondamentaux du
+ticker (revenue / margins / guidance / pricing power / customer concentration
+/ reglementaire) montrent une cassure dans les signaux recents ?
 
 THESE :
   - Ticker : {ticker}
   - Conviction : c{conviction}
-  - Entry price : {entry_price}
-  - Stop price : {stop_price}
-  - Target full : {target_full}
-  - Opened : {opened_at} (age : {age_days} jours)
-  - Last reviewed : {last_reviewed} (delai : {days_since_review} jours)
   - Direction : {direction}
+  - Entry / stop / target : {entry_price} / {stop_price} / {target_full}
+  - Opened : {opened_at} ({age_days}j)
 
-ETAT ACTUEL :
-  - Current price : {current_price}
-  - P&L vs entry : {pnl_pct:+.1f}%
-  - Marge avant stop : {margin_to_stop_pct:+.1f}% (negatif = sous le stop)
-  - Marge vers target : {margin_to_target_pct:+.1f}%
+ETAT FINANCIER OBSERVABLE :
+  - Current price : {current_price} | P&L vs entry : {pnl_pct:+.1f}%
+  - Marge avant stop : {margin_to_stop_pct:+.1f}%
 
-KILL-CRITERIA (invalidation_triggers definis par l'user a la creation) :
+KILL-CRITERIA DEFINIS PAR L'USER A LA CREATION (LA seule source legitime) :
 {triggers_block}
 
 SIGNAUX RECENTS (30j, materialite ≥4/8) :
 {signals_block}
 
-══════════════════════ TACHE ══════════════════════
+══════════════════════ REGLES STRICTES (les violer = bug) ══════════════════════
 
-Pour CHAQUE kill-criterion liste, evalue :
-  - status : "triggered" (declenche concretement aujourd'hui)
-             "at_risk" (proche du declenchement OU signal d'alerte present)
-             "dormant" (pas de signe d'invalidation)
-  - reason : 1 phrase factuelle citant un nombre ou un signal_id
+INTERDIT de flag "at_risk" ou "triggered" sur :
+  1. Chute de prix recente (le prix N'EST PAS un signal fundamental)
+  2. Age these "jeune" / position recente (l'age N'EST PAS un signal)
+  3. Calendrier de revue qui approche ("re-evaluation 30j" = minuteur, pas risque)
+  4. "Aucun signal de confirmation" (absence != degradation)
+  5. P&L negatif court terme (-5% sur 4j = bruit pas signal)
+  6. Note macro non liee specifiquement au ticker
+  7. Narratif tisse / chaine speculative (X annoncerait Y donc Z perd)
+  8. Score signal 4-6 sans evidence fundamental specifique
+  9. "Marge before stop < 20%" si stop pas approche (ce n'est pas le critere)
 
-REGLES STRICTES :
-- "triggered" = soit prix concret franchi (stop touche), soit signal concret
-  (e.g. "TSMC capex miss publique"). Pas de speculation.
-- "at_risk" = prix dans les 5% du stop OU signal d'alerte score>=5 sur le
-  ticker OU age > horizon stipule sans atteindre target.
-- "dormant" = par defaut.
+REQUIS pour flag "at_risk" : signaux montrent un DEBUT DE PATTERN de
+degradation FONDAMENTALE VERIFIEE et specifique au ticker :
+  - Revenue : declin annonce ou guidance baissier explicite
+  - Margins : compression annoncee dans earnings/commentary
+  - Guidance : baisse confirmation dans communiquee officielle
+  - Pricing power : craquage observe (ex HBM pricing crack confirme)
+  - Customer concentration : depart d'un client cle annonce
+  - Reglementaire : decision adverse publique
+  - Operations : disruption majeure documentee
 
-Le STATUS GLOBAL de la these = pire des kill-criteria :
-  any triggered -> triggered
-  any at_risk -> at_risk
-  sinon -> dormant
+REQUIS pour flag "triggered" : FAIT FONDAMENTAL avere, pas projection :
+  - Guidance officiel baissier publie
+  - Earnings miss publie
+  - Customer announce departure
+  - Regulatory ruling adverse
+
+══════════════════════ DEFAUT : DORMANT ══════════════════════
+
+Un bon moniteur se declenche RAREMENT. Si tu hesites -> dormant. Mieux
+sous-flag que cry-wolf (qui pousse l'user a vendre les winners
+sur du bruit, alimentant son biais documente #1 vend-trop-tot).
 
 Reponds UNIQUEMENT en JSON :
 {{
-  "triggers_evaluated": [
-    {{"trigger": "...", "status": "dormant|at_risk|triggered", "reason": "..."}}
-  ],
   "global_status": "dormant|at_risk|triggered",
-  "dominant_reason": "1 phrase qui resume le pire kill-criterion ou pourquoi tout est dormant",
-  "evidence_quote": "1 fait concret cite (current_price=X, margin=Y%, signal_295)",
-  "confidence": <0-100>
+  "fundamental_basis": "Quelle dimension fundamental est touchee si non-dormant (revenue|margin|guidance|pricing|customer|reglementaire|operations)",
+  "evidence_quote": "Citation EXACTE du signal ou earnings/commentary specifique. Pas de paraphrase. signal_X 'TSMC bookings -15% guidance Q2'",
+  "evidence_signal_ids": [signal_ids cites] | [],
+  "rejection_reasons_applied": [liste des regles INTERDIT auxquelles tu n'as PAS cede : "price_drop_only", "age_only", "calendar_timer", "narrative_chain"...] | [],
+  "confidence": <0-100>,
+  "dominant_reason": "1 phrase. Si dormant : pourquoi clean. Si at_risk/triggered : quel pattern fondamental."
 }}
 """
 
@@ -243,11 +257,16 @@ def check_one_thesis(thesis: dict) -> tuple[dict | None, int | None]:
 
 
 def check_all_active_theses() -> dict:
+    """Check seulement les theses CANONIQUES actives (= ticker en position
+    qty>0 status open). Exclut les fantomes / sorties / hors-perimetre."""
     with storage.db() as cx:
         rows = cx.execute(
-            "SELECT id, ticker, conviction, direction, opened_at, last_reviewed, "
-            "entry_price, target_partial, target_full, stop_price, invalidation_triggers "
-            "FROM theses WHERE status='active'"
+            "SELECT t.id, t.ticker, t.conviction, t.direction, t.opened_at, "
+            "t.last_reviewed, t.entry_price, t.target_partial, t.target_full, "
+            "t.stop_price, t.invalidation_triggers "
+            "FROM theses t "
+            "INNER JOIN positions p ON p.ticker = t.ticker "
+            "WHERE t.status='active' AND p.qty > 0 AND p.status='open'"
         ).fetchall()
     cols = ["id", "ticker", "conviction", "direction", "opened_at", "last_reviewed",
             "entry_price", "target_partial", "target_full", "stop_price", "invalidation_triggers"]
