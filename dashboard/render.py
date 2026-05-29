@@ -2847,6 +2847,7 @@ _TH_CSS = """
   .th-ends { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--fm); font-size:10.5px; }
   .th-stop { color:var(--bear); }
   .th-tgt { color:var(--acc); font-weight:600; }
+  .th-pt { font-family:var(--fm); font-size:10px; padding:1px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); letter-spacing:.04em; margin-left:8px; text-transform:uppercase; }
   .th-na { font-family:var(--fm); font-size:11px; color:var(--steel); }
   .th-cat { font-family:var(--fm); font-size:10px; letter-spacing:.03em; color:var(--steel); background:rgba(124,137,166,.10); border:1px solid var(--line); border-radius:var(--r1); padding:2px 8px; margin-left:2px; white-space:nowrap; }
 </style>
@@ -4341,10 +4342,28 @@ def render() -> Path:
     _cibles = sorted(_axis, key=lambda tk: -_axis[tk]["frac"])[:6]
     _stops = sorted(_axis, key=lambda tk: _axis[tk]["frac"])[:6]
 
+    # F13 fix : "proche de la cible" n'est PAS une victoire mecanique. Si la
+    # position est aussi fragile / valo > bull / solidite faible, atteindre
+    # la cible = signal de prendre profit, pas la these qui marche. On surface
+    # ce tag explicite sur chaque row qui meriterait un trim.
+    try:
+        from shared import book as _bk
+
+        _book_idx = _bk.get_book_index()
+    except Exception:
+        _book_idx = {}
+
     def _axisrow(tk: str) -> str:
         a = _axis[tk]
+        # Profit-take flag si frac > 80% AND (valo>bull OR solidite Fragile/Incertain)
+        profit_chip = ""
+        ln = _book_idx.get(tk)
+        if ln and a["frac"] > 80:
+            risky = ln.valo_above_bull_case or ln.solidite in ("Fragile", "Incertain")
+            if risky:
+                profit_chip = '<span class="th-pt">prends ton profit</span>'
         return (
-            f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span></div>'
+            f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
             f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%"></div></div>'
             f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
             f'<span class="th-tgt">cible +{a["up"]:.0f}%</span></div></div>'
@@ -4395,7 +4414,7 @@ def render() -> Path:
         f"{kill_html}"
         f"{copilot_html}"
         f"{cockpit_html}"
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise</span></div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise &middot; mais si "valo &gt; bull" ou "fragile" appara&icirc;t = prends ton profit, pas victoire</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
