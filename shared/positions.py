@@ -99,8 +99,14 @@ def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = N
 
 
 def add_buy(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
-    """Add buy; weighted-avg cost recalc on existing position, or create new."""
+    """Add buy; weighted-avg cost recalc on existing position, or create new.
+
+    Sprint 19 : si entry sur ticker SANS ticker_axes/meta, declenche auto-
+    classification en background pour qu'il rentre dans factor_exposures,
+    Mauboussin sizing, SPOF, T2_redondant, decorrelation_star.
+    """
     ticker = ticker.upper()
+    was_new_entry = False
     with db() as cx:
         _ensure_tables(cx)
         existing = cx.execute(
@@ -120,14 +126,53 @@ def add_buy(ticker: str, qty: float, price: float, notes: str | None = None) -> 
                 "INSERT INTO positions (ticker, qty, avg_cost, notes) VALUES (?, ?, ?, ?)", (ticker, qty, price, notes)
             )
             pid = cur.lastrowid
+            was_new_entry = True
         cx.execute(
             "INSERT INTO position_events (position_id, ticker, event_type, qty, price, notes) VALUES (?, ?, 'buy', ?, ?, ?)",
             (pid, ticker, qty, price, notes),
         )
         cx.commit()
+
+    # Sprint 19 : hook auto-classification pour les nouvelles entries
+    if was_new_entry:
+        _auto_classify_new_ticker(ticker)
+
     result = get_position(ticker)
     assert result is not None, "position lookup after upsert failed"
     return result
+
+
+def _auto_classify_new_ticker(ticker: str) -> None:
+    """Best-effort auto-classification pour nouveaux tickers (axes + meta).
+
+    Verifie si deja classifie ; sinon lance les 2 classifications. Non-bloquant.
+    Cost : ~$0.025 (2 LLM calls Sonnet/Haiku, ~$0.012 + $0.012).
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        from shared.storage import get_all_latest_ticker_axes, get_all_latest_ticker_meta
+
+        axes_tks = {a["ticker"] for a in get_all_latest_ticker_axes()}
+        meta_tks = {m["ticker"] for m in get_all_latest_ticker_meta()}
+
+        if ticker not in axes_tks:
+            try:
+                from intelligence import ticker_classifier
+                ticker_classifier.classify_ticker(ticker)
+                logger.info(f"auto-classified axes for new ticker {ticker}")
+            except Exception as e:
+                logger.warning(f"auto-classify axes {ticker} failed: {e}")
+
+        if ticker not in meta_tks:
+            try:
+                from intelligence import ticker_meta_classifier
+                ticker_meta_classifier.classify_one(ticker)
+                logger.info(f"auto-classified meta for new ticker {ticker}")
+            except Exception as e:
+                logger.warning(f"auto-classify meta {ticker} failed: {e}")
+    except Exception as e:
+        logger.warning(f"_auto_classify_new_ticker {ticker} failed: {e}")
 
 
 def add_sell(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
