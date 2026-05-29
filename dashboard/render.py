@@ -497,6 +497,70 @@ _VERDICT_LABEL = {
 }
 
 
+def _blind_positions_panel() -> str:
+    """F7 add 29/05 — surface positions en VOL AVEUGLE : these active sur
+    position ouverte, mais au moins UN input critique manquant (entry,
+    target_full, stop_price, invalidation_triggers). Self-disable si zero.
+
+    Anti-pattern combattu : SNOW vivait en vol aveugle integral (tout NULL)
+    et affichait '*' sain dans les panels existants. Le bot accepte que ses
+    propres inputs soient creux.
+    """
+    try:
+        from shared import storage as _stg
+
+        with _stg.db() as cx:
+            rows = cx.execute(
+                "SELECT t.id, t.ticker, t.conviction, t.entry_price, "
+                "t.target_full, t.stop_price, t.invalidation_triggers, t.opened_at "
+                "FROM theses t INNER JOIN positions p ON p.ticker = t.ticker "
+                "WHERE t.status='active' AND p.qty > 0 AND p.status='open' "
+                "ORDER BY t.ticker"
+            ).fetchall()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">vol aveugle indispo: {type(e).__name__}</div></div>'
+
+    blind: list = []
+    for r in rows:
+        missing = []
+        if r[3] is None:
+            missing.append("entry")
+        if r[4] is None:
+            missing.append("target")
+        if r[5] is None:
+            missing.append("stop")
+        if not r[6] or r[6] == "[]":
+            missing.append("triggers")
+        if missing:
+            blind.append({
+                "id": r[0],
+                "ticker": r[1],
+                "conviction": r[2],
+                "missing": missing,
+                "opened_at": (r[7] or "")[:10],
+            })
+    if not blind:
+        return ""  # self-disable
+    items = "".join(
+        f'<div class="ba-row">'
+        f'<div class="ba-head"><span class="ba-tk">{b["ticker"]}</span>'
+        f'<span class="ba-conv">c{b["conviction"]}</span>'
+        f'<span class="ba-since">depuis {b["opened_at"]}</span></div>'
+        f'<div class="ba-missing">manque : '
+        + ", ".join(f'<b>{m}</b>' for m in b["missing"])
+        + "</div></div>"
+        for b in blind
+    )
+    return (
+        '<div class="card pad blindcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Positions en vol aveugle</span>'
+        f'<span class="a">{len(blind)} position(s) sans entry / target / stop / kill-criteria '
+        '&middot; le bot ne peut RIEN evaluer dessus tant que ces champs sont creux</span></div>'
+        + items
+        + "</div>"
+    )
+
+
 def _copilot_panel() -> str:
     """Sprint 5/6 surface : derniere prises de position du copilot adversarial.
 
@@ -972,7 +1036,8 @@ def _factor_exposures_panel() -> str:
         return f'<div class="card pad"><div class="empty">factor exposures indispo: {type(e).__name__}</div></div>'
     if not facts:
         return '<div class="card pad"><div class="empty">aucune position classifiee</div></div>'
-    sorted_f = sorted(facts.items(), key=lambda kv: -kv[1]["pct_of_book"])
+    # Tri : composites en TETE (vue agregée d'abord), puis sub-buckets par pct
+    sorted_f = sorted(facts.items(), key=lambda kv: (not kv[1].get("is_composite"), -kv[1]["pct_of_book"]))
     rows = []
     for name, d in sorted_f:
         pct = d["pct_of_book"]
@@ -980,13 +1045,26 @@ def _factor_exposures_panel() -> str:
         tks = ", ".join(d["tickers"][:8])
         if len(d["tickers"]) > 8:
             tks += f" +{len(d['tickers']) - 8}"
+        is_comp = d.get("is_composite")
+        row_extra = ""
+        if is_comp:
+            row_extra = (
+                f'<div class="fe-comp-note">'
+                f'aggregat de {len(d.get("composes") or [])} facteurs co-stresses ('
+                f'{", ".join(d.get("composes") or [])}) &middot; '
+                "le scenario AI capex -30% les frappe ensemble"
+                "</div>"
+            )
+        row_cls = "fe-row" + (" fe-composite" if is_comp else "")
         rows.append(
-            f'<div class="fe-row">'
+            f'<div class="{row_cls}">'
             f'<div class="fe-head"><span class="fe-name">{name}</span>'
             f'<span class="fe-pct {wcls} mono">{pct:.1f}%</span>'
             f'<span class="fe-eur mono">{d["eur"]:,.0f}€</span></div>'
             f'<div class="fe-bar"><div class="fe-fill {wcls}" style="width:{min(pct, 100):.1f}%"></div></div>'
-            f'<div class="fe-tks">{tks}  (n={d["n_positions"]})</div></div>'
+            f'<div class="fe-tks">{tks}  (n={d["n_positions"]})</div>'
+            f'{row_extra}'
+            "</div>"
         )
     return (
         '<div class="card pad factorscard" style="margin-bottom:18px">'
@@ -3325,6 +3403,16 @@ _CSS = """
   .strategiecard .us-construction { font-family:var(--fm); margin:8px 0 14px; padding:12px 14px; border-left:2px solid #c89b00; background:color-mix(in srgb, #c89b00 5%, transparent); border-radius:2px; }
   .strategiecard .us-cstr-h { font-size:11px; color:#c89b00; text-transform:uppercase; letter-spacing:.05em; font-weight:600; margin-bottom:6px; }
   .strategiecard .us-cstr-b { font-size:12.5px; color:var(--ink); line-height:1.6; }
+  /* F7 add 29/05 - Positions en vol aveugle (entry/target/stop/triggers manquants) */
+  .blindcard { border-left:2px solid var(--bear); padding-left:14px !important; }
+  .blindcard .ba-row { padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .blindcard .ba-row:last-child { border-bottom:none; }
+  .blindcard .ba-head { display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
+  .blindcard .ba-tk { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); }
+  .blindcard .ba-conv { font-family:var(--fm); font-size:10.5px; color:var(--steel); padding:1px 6px; background:color-mix(in srgb,var(--ink) 8%,transparent); border-radius:var(--r1); }
+  .blindcard .ba-since { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-left:auto; }
+  .blindcard .ba-missing { font-family:var(--fm); font-size:12px; color:var(--ink); opacity:.85; }
+  .blindcard .ba-missing b { color:var(--bear); font-weight:600; }
   /* Sprint 5/6 - Copilot interventions panel */
   .copilotcard .cp-row { padding:12px 14px; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); cursor:pointer; transition:background .15s; }
   .copilotcard .cp-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); border-radius:var(--r2); }
@@ -3442,6 +3530,9 @@ _CSS = """
   /* Sprint 13 - Factor exposures + Stress + Trajectory */
   .factorscard .fe-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .factorscard .fe-row:last-child { border-bottom:none; }
+  .factorscard .fe-row.fe-composite { padding:14px 14px; margin:0 -14px 8px; background:color-mix(in srgb,var(--bear) 6%,transparent); border-left:2px solid var(--bear); border-radius:2px; border-bottom:none; }
+  .factorscard .fe-row.fe-composite .fe-name { font-weight:600; }
+  .factorscard .fe-comp-note { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:6px; line-height:1.45; font-style:italic; }
   .factorscard .fe-head { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
   .factorscard .fe-name { font-family:var(--fm); font-weight:500; font-size:13px; color:var(--ink); flex:1; }
   .factorscard .fe-pct { font-family:var(--fm); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
@@ -4223,6 +4314,7 @@ def render() -> Path:
         "</div>" + _cockpit() + "</div>"
     )
     grade_html = _grade_panel()
+    blind_html = _blind_positions_panel()
     copilot_html = _copilot_panel()
     chat_html = _chat_panel()
     # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
@@ -4252,6 +4344,7 @@ def render() -> Path:
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
         f'{_risk_watch_panel()}'
         f"{grade_html}"
+        f"{blind_html}"
         f"{chat_html}"
         f"{kill_html}"
         f"{copilot_html}"

@@ -29,11 +29,22 @@ log = logging.getLogger(__name__)
 # ─────────────────────────── Factor exposures ────────────────────────────────
 
 
+# F1 add 29/05 — Les 3 facteurs IA bougent ensemble en stress (cf scenario
+# "AI capex -30%" qui spillover Memory cycle -18% + AI inference -25%). Decouper
+# en 3 paris minimise pile le risque cluster. On expose un AGREGAT composite
+# qui dit la verite "77% en pari IA elargi" en plus des 3 sous-buckets.
+_AI_BROAD_FACTORS = {"AI capex", "Memory cycle", "AI inference/compute demand"}
+
+
 def compute_factor_exposures() -> dict:
     """Sum book weight per macro_factor (uses Sprint 12 ticker_axes).
 
     Returns {factor: {eur, pct_of_book, tickers: [...], n_positions}}.
     Falls back to 'Unclassified' for tickers without axes.
+
+    Ajoute aussi un facteur composite "AI broad (capex + memory + inference)"
+    qui agrege les 3 facteurs co-stresses. Cf. F1 audit 29/05 : la taxo seule
+    decouple ce que le scenario regroupe -> incoherence dashboard.
     """
     from dashboard.render import _positions
 
@@ -51,6 +62,22 @@ def compute_factor_exposures() -> dict:
         factors[f]["eur"] += p["weight"]
         factors[f]["tickers"].append(p["ticker"])
         factors[f]["n_positions"] += 1
+    # Composite AI broad
+    ai_eur = 0.0
+    ai_tickers: list = []
+    for k in _AI_BROAD_FACTORS:
+        d = factors.get(k)
+        if d:
+            ai_eur += d["eur"]
+            ai_tickers.extend(d["tickers"])
+    if ai_tickers:
+        factors["AI broad (capex + memory + inference)"] = {
+            "eur": ai_eur,
+            "tickers": ai_tickers,
+            "n_positions": len(ai_tickers),
+            "is_composite": True,
+            "composes": sorted(_AI_BROAD_FACTORS),
+        }
     for d in factors.values():
         d["pct_of_book"] = round(d["eur"] / total * 100, 1)
         d["eur"] = round(d["eur"], 0)
@@ -82,6 +109,12 @@ _STRESS_SCENARIOS = {
         # since we don't track currency per position)
         "_FX_USD_PENALTY": -10.0,
     },
+    # F2 add 29/05 — 23% du book en JPY (Shin-Etsu, MHI, Advantest, Lasertec)
+    # n'avait aucun scenario FX. BoJ intervention zone = USDJPY > 160 => yen rally
+    # = haircut sur les .T en EUR. Symetrique au scenario USD.
+    "JPY +10% (yen rally squeeze JP tickers)": {
+        "_FX_JPY_PENALTY": -10.0,
+    },
     "Energy crisis +25%": {
         "Energy commodities": 25.0,
     },
@@ -100,6 +133,11 @@ def _is_usd_ticker(tk: str) -> bool:
         return False
     # Asian markets (.T .HK .KS) ; otherwise default US
     return not tk.endswith((".T", ".HK", ".KS"))
+
+
+def _is_jpy_ticker(tk: str) -> bool:
+    """Tickers cotes en JPY (.T = Tokyo Stock Exchange)."""
+    return tk.endswith(".T")
 
 
 def run_stress_test(scenario_name: str) -> dict:
@@ -131,6 +169,9 @@ def run_stress_test(scenario_name: str) -> dict:
         # FX overlay for USD scenarios
         if "_FX_USD_PENALTY" in scenario and _is_usd_ticker(tk):
             impact_pct += scenario["_FX_USD_PENALTY"]
+        # FX overlay for JPY scenarios (29/05 add)
+        if "_FX_JPY_PENALTY" in scenario and _is_jpy_ticker(tk):
+            impact_pct += scenario["_FX_JPY_PENALTY"]
         impact_eur = w * impact_pct / 100
         total_impact_eur += impact_eur
         if abs(impact_pct) > 0.5:
