@@ -133,6 +133,7 @@ from bot.jobs import (
     weekly_cost_summary_job,
     weekly_handler_stats_job,
     weekly_kpi_status_job,
+    weekly_user_profile_refresh_job,
 )
 
 
@@ -204,6 +205,7 @@ async def post_init(app):
     sched.add_job(weekly_handler_stats_job, "cron", day_of_week="sun", hour=23, minute=0, misfire_grace_time=86400)
     sched.add_job(weekly_kpi_status_job, "cron", day_of_week="sun", hour=22, minute=30, misfire_grace_time=86400)
     sched.add_job(weekly_cost_summary_job, "cron", day_of_week="sun", hour=22, minute=0, misfire_grace_time=86400)
+    sched.add_job(weekly_user_profile_refresh_job, "cron", day_of_week="sun", hour=21, minute=0, misfire_grace_time=86400)
     sched.add_job(cron_tier1_daily, "cron", hour=6, minute=0)
     sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)
     sched.add_job(cron_tier3_monthly, "cron", day=1, hour=7, minute=0)

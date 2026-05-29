@@ -69,6 +69,9 @@ DECISIONS PASSEES SIMILAIRES (meme type ou meme ticker, resolues) :
 BIAIS HISTORIQUEMENT IDENTIFIES CHEZ L'UTILISATEUR :
 {bias_patterns_block}
 
+PROFIL UTILISATEUR (auto-derive de son historique — restraint au debut, pointu plus tard) :
+{user_profile_block}
+
 ═══════════════ REGLES DE SORTIE ═══════════════
 
 INTERDIT (= platitude qui s'applique a n'importe quel titre) :
@@ -101,6 +104,17 @@ CALIBRATION :
 - pressure_score < 30 → verdict=PROCEED (rien de specifique a opposer)
 - 30-70 → verdict=PRESSURE (un ou deux points specifiques qui meritent reflexion)
 - > 70 → verdict=STRONG_OPPOSE (evidence specifique multi-source contre l'action)
+
+PERSONNALISATION DIALOGUE :
+Si PROFIL UTILISATEUR ci-dessus contient ">> TON A ADOPTER", calibre
+TON brief sur cette directive. Le brief doit sembler EXTENSION naturelle
+de cet utilisateur, pas un message LLM generique.
+Si archetype risky → suppose tolerance volatilite, focus retour et asymetrie.
+Si archetype safe → focus protection, asymetrie inversee, downside risque.
+Si archetype balanced → equilibre des 2.
+Si thesis_archetypes = "modern_tech_ai" dominant → jargon tech/growth OK.
+Si "classic_industrial" → jargon old-school, fundamentals, free cash flow.
+Si "dividend_income" → focus rendement, durabilite distribution.
 
 EXEMPLE DE QUALITE A ATTEINDRE (style brief) :
 ✅ "Tu veux trim TSM a 3% de progression vers cible alors que ton asymetrie reste
@@ -167,6 +181,21 @@ def _format_pre_mortem_summary(pm_json: str | None) -> str:
     if pm.get("asymmetry_warning"):
         lines.append(f"  - pm_asymmetry_warning : {pm['asymmetry_warning'][:200]}")
     return "\n".join(lines) or "  (pre-mortem empty)"
+
+
+def _fetch_user_profile_block() -> str:
+    """Fetch latest user_profile + format for copilot prompt injection."""
+    try:
+        from intelligence import user_profile as up
+        from shared import storage
+
+        latest = storage.get_latest_user_profile()
+        if not latest:
+            return "  (aucun user_profile synthese — bot ne connait pas encore l'utilisateur en profondeur)"
+        return up.format_profile_for_copilot_context(latest.get("profile_json"))
+    except Exception as e:
+        log.warning(f"_fetch_user_profile_block failed: {e}")
+        return "  (user_profile fetch failed)"
 
 
 def _format_bias_patterns(patterns: list[dict]) -> str:
@@ -261,6 +290,7 @@ def assemble_context(intent: dict, thesis: dict, recent_signals: list, past_deci
         "recent_signals_block": _format_signals(recent_signals),
         "past_similar_decisions_block": _format_past_decisions(past_decisions),
         "bias_patterns_block": _format_bias_patterns(bias_patterns),
+        "user_profile_block": _fetch_user_profile_block(),
     }
 
 

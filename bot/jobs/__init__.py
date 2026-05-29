@@ -15,6 +15,7 @@ from bot.jobs.daily import (
     scheduled_buy_cluster_scan_job,
     scheduled_insider_refresh_job,
     scheduled_resolve_buy_cluster_returns_job,
+    weekly_user_profile_refresh_job,
 )
 from bot.jobs.intervals import (
     heartbeat,
@@ -58,4 +59,5 @@ __all__ = [
     "weekly_cost_summary_job",
     "weekly_handler_stats_job",
     "weekly_kpi_status_job",
+    "weekly_user_profile_refresh_job",
 ]

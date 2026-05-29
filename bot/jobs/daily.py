@@ -287,3 +287,27 @@ async def scheduled_8k_scan_job():
             msg += filings_8k.format_8k_alert(r) + "\n\n"
         notify.send_text(msg.strip())
     log.info(f"8-K scan: {len(new_logged)} new logged, {len(alerts)} alerted")
+
+
+async def weekly_user_profile_refresh_job():
+    """Sprint 2 — Weekly Opus synthesis of the user's self-portrait.
+
+    Reads 6 months of decisions/theses/predictions/biases/copilot_interventions
+    and produces an evolving structured profile injected into every future
+    copilot pressure-test (restraint at start when n is low, sharp later).
+    """
+    try:
+        from intelligence import user_profile
+
+        result, profile_id = user_profile.run_synthesis(months_window=6)
+        if result is None:
+            log.warning("weekly_user_profile_refresh : synthesis returned None")
+            return
+        conf = result.get("confidence_score", 0)
+        archetype = (result.get("risk_archetype") or {}).get("label", "?")
+        log.info(
+            f"weekly_user_profile_refresh : profile_id={profile_id} confidence={conf}/100 "
+            f"archetype={archetype} summary='{(result.get('summary_oneliner') or '')[:120]}'"
+        )
+    except Exception as e:
+        log.exception(f"weekly_user_profile_refresh crashed: {e}")
