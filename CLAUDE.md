@@ -1,4 +1,4 @@
-# CLAUDE.md — Contexte de collaboration (mes-bots-finance / HEIMDALL)
+# CLAUDE.md — Contexte de collaboration (mes-bots-finance / PRESAGE)
 
 > À ajouter aux fichiers du projet pour injection dans chaque conv. Bootstrap d'une conv fraîche au niveau opérationnel courant. Évergreen — l'état roulant est dans `SESSION_STATE.md` (tail).
 
@@ -12,7 +12,7 @@
 
 ## 2. Le dashboard (carte mentale)
 
-- `render.py` génère `dashboard/dashboard.html` (`OUTPUT`) et retourne le Path. `serve.py` (stdlib, PAS FastAPI) sert sur `http://127.0.0.1:8000/dashboard.html`, hot-reload sur mtime, regen `HEIMDALL_REFRESH` (60s). **http, jamais `file://`** (l'auto-reload n'existe qu'en http). Lancer : `python3 -m dashboard.serve`. Santé : `tail dashboard/serve.log` (`regen Xs`, pas `FAILED`).
+- `render.py` génère `dashboard/dashboard.html` (`OUTPUT`) et retourne le Path. `serve.py` (stdlib, PAS FastAPI) sert sur `http://127.0.0.1:8000/dashboard.html`, hot-reload sur mtime, regen `PRESAGE_REFRESH` (60s). **http, jamais `file://`** (l'auto-reload n'existe qu'en http). Lancer : `python3 -m dashboard.serve`. Santé : `tail dashboard/serve.log` (`regen Xs`, pas `FAILED`).
 - **Prix** : source unique `_cached_price_eur`, throttle anti-ban yfinance via `_PX_TTL=1800` (30 min), cache `_PX_CACHE` chaud entre regens. Le knob = `_PX_TTL`, pas l'intervalle de regen.
 - **Panneaux** : Vue d'ensemble (distline OKLCH) · Positions (donut secteurs SVG interactif) · Risque (jauge surchauffe fine) · Thèses (sizing cible-taille col3 + message dessous, barre prix hero pleine largeur).
 - **Conventions visuelles** : OKLCH, thin, no glow ; symboles € $ ¥ ₩ ; `get_short_name` ; JS injecté par constantes (`_SORT_JS` / `_CSORT_JS` / `_DONUT_JS` / `_THEME_INIT`).

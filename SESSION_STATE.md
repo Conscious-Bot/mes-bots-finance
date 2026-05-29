@@ -56,7 +56,7 @@ TG canonical rollout active. NO new features.
 ### Shipped (live, gates verts, committe + tagge)
 - Resolution blindee: dropna `.T` dans shared/prices.py::get_current_price (tickers Tokyo renvoyaient nan) + garde nan sans import (px != px) dans intelligence/learning.py::resolve_due_predictions. Empeche nan final_price / faux "neutral" dans le batch. Bot redemarre propre, live sur cron resolve 9h.
 - BRIER CAUSE-RACINE: probability_at_creation n'etait qu'un snapshot de la credibilite source (143/152 = 0.5) -> erreur de categorie (confiance source != P(cet appel correct)) -> Brier vide-mais-vert. Remplace par shared/math_helpers.py::estimate_probability(score, cred, signal_type, impact_magnitude) dans [0.50, 0.72], cable dans shared/storage.py::insert_prediction (SELECT elargi a score/type/impact). 4 tests Hypothesis. Cadre honnete: PRIOR APPRENABLE, pas verite calibree -- son job est de rendre le Brier informatif/iterable. Effet sur predictions FUTURES uniquement (id >= 158).
-- Premier test du dashboard: tests/test_render_smoke.py -- render() end-to-end (couvre les 8 sections, marqueurs nav + payloads HEIMDALL). ~30 patches sans test -> filet pose.
+- Premier test du dashboard: tests/test_render_smoke.py -- render() end-to-end (couvre les 8 sections, marqueurs nav + payloads PRESAGE). ~30 patches sans test -> filet pose.
 - Re-tag narratives: AMD/ALAB/COHR -> AI_COMPUTE_2026, SAF.PA -> EU_DEFENSE_2026, GOOGL/TSLA -> MAG7_2026 (nouvelle categorie). 2 bacs admin morts. Reversible (edit notes). Effet de bord exact: AI Compute grossit -> Concentration EXCESSIVE 80%.
 
 ### Etat track record (HONNETE)
@@ -96,7 +96,7 @@ TG canonical rollout active. NO new features.
 - price_monitor = job d'ALERTE (hour=14-22 mon-fri Paris), pas source de prix; ne couvre jamais l'Asie en seance.
 
 ### MIGRATION VPS — Phase 0 FAITE, Phase 1 dans 3j
-- Repo deploy-ready, pousse. deploy/ versionne: env.example, heimdall-bot.service, heimdall-serve.service (systemd user, linger, Restart=always), PROVISION.md.
+- Repo deploy-ready, pousse. deploy/ versionne: env.example, presage-bot.service, presage-serve.service (systemd user, linger, Restart=always), PROVISION.md.
 - Exposition: SEUL l'OAuth Google (credentials.json+token.json) etait dans le Projet -> rotater au cutover. .env jamais partage. Secrets jamais committes (git clean).
 - REPRISE: provisionner Hetzner CAX11/CX22 Ubuntu 24.04 + PAT GitHub -> suivre deploy/PROVISION.md.
   - GATE = etape 4 (test yfinance depuis la box). Attendu EUR: NVDA~185, 4063.T~39, 000660.KS~1147. Si 429/None -> proxy residentiel ou source alt AVANT de continuer.
@@ -261,7 +261,7 @@ Forme gravée (3 docs). La matière n'avance qu'avec les résolutions. Ne pas la
 
 ## Day 15 suite-6 — Dashboard modernisation + sizing cible-taille (2026-05-26)
 
-**Dashboard servi en HTTP (workflow durable).** `dashboard/serve.py` (stdlib, pas FastAPI) tourne déjà — port 8000, hot-reload render.py sur mtime, regen auto (`HEIMDALL_REFRESH`, défaut 60s), `_PX_CACHE` chaud entre cycles. **Ouvrir `http://127.0.0.1:8000/dashboard.html`, plus de `file://`** (l'auto-reload ne marche qu'en HTTP). Lancer : `python3 -m dashboard.serve`. Santé : `tail dashboard/serve.log` (`regen Xs`, pas `FAILED`). Throttle yfinance → 30 min : `_PX_TTL=1800.0` (render.py l.50) = knob anti-ban, pas l'intervalle de regen ; tous les panneaux via `_cached_price_eur`.
+**Dashboard servi en HTTP (workflow durable).** `dashboard/serve.py` (stdlib, pas FastAPI) tourne déjà — port 8000, hot-reload render.py sur mtime, regen auto (`PRESAGE_REFRESH`, défaut 60s), `_PX_CACHE` chaud entre cycles. **Ouvrir `http://127.0.0.1:8000/dashboard.html`, plus de `file://`** (l'auto-reload ne marche qu'en HTTP). Lancer : `python3 -m dashboard.serve`. Santé : `tail dashboard/serve.log` (`regen Xs`, pas `FAILED`). Throttle yfinance → 30 min : `_PX_TTL=1800.0` (render.py l.50) = knob anti-ban, pas l'intervalle de regen ; tous les panneaux via `_cached_price_eur`.
 
 **Visuel (commités).** Donut secteurs interactif SVG (`40415d0`) · distline OKLCH fin (`8f381dd`) · header sans emojis + jauge surchauffe fine.
 
@@ -342,14 +342,14 @@ PARKE: retirer anciens creds du Project Claude (UI). Passer app OAuth en "Produc
 - Live effect at next bot restart (not forced tonight).
 
 ## suite-9f (27/05/2026) — Brand PRESAGE sur le dashboard (bleu-metal)
-- Decision marque : PRESAGE = surface publique (dashboard/favicon/title) ; HEIMDALL = nom interne (inchange).
+- Decision marque : PRESAGE = surface publique (dashboard/favicon/title) ; PRESAGE = nom interne (inchange).
 - _LOGO swappe : ancien horn/bifrost or -> marque PRESAGE vectorisee (trace depuis la planche), traitement bleu-metal : base var(--id) #3D8BFF (curseurs, identique light/dark) + reflets bleus fixes #6FB0FF/#2057B8. Mirroir du langage metal-liquide des .kv.
 - Choix bleu vs metal-chrome : le chrome gris echoue en light mode (reflets clairs disparaissent). Bleu-metal = lisible dual-mode + matche les curseurs.
 - .logo svg width-based -> height-based (mark portrait), glow bleu conserve.
 - Favicon SVG data-URI (mark bleu sur carre sombre) + <title>PRESAGE</title>. Display-only, observation-safe, hot-reload.
 
 ## suite-9f (27/05/2026) — Brand PRESAGE sur le dashboard (bleu-metal theme-aware)
-- PRESAGE = surface publique (dashboard/favicon/title) ; HEIMDALL = nom interne (inchange).
+- PRESAGE = surface publique (dashboard/favicon/title) ; PRESAGE = nom interne (inchange).
 - _LOGO : ancien horn/bifrost or -> marque PRESAGE vectorisee (trace planche), traitement bleu-metal biseaute (mirroir du langage .kv).
 - Couleur = var(--id) #3D8BFF (curseurs/identite). Reflets via vars theme-aware --mkhi/--mklo :
   dark #7FB6FF/#1E5AD0 (range clair), light #5C9CFF/#0B3A86 (range sombre) -> claque dans les 2 modes.

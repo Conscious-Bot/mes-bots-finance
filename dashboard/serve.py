@@ -1,4 +1,4 @@
-"""Heimdall live server: regenere le dashboard depuis la DB du bot et le sert.
+"""Presage live server: regenere le dashboard depuis la DB du bot et le sert.
 
 Read-only: lit data/bot.db (WAL) que le bot ecrit; n'ecrit jamais la DB.
 Decouple de bot.main volontairement (restart libre sans toucher au bot).
@@ -20,8 +20,8 @@ from pathlib import Path
 
 import dashboard.render as render_mod
 
-PORT = int(os.environ.get("HEIMDALL_PORT", "8000"))
-INTERVAL = int(os.environ.get("HEIMDALL_REFRESH", "60"))
+PORT = int(os.environ.get("PRESAGE_PORT", "8000"))
+INTERVAL = int(os.environ.get("PRESAGE_REFRESH", "60"))
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 # Modules dont les changements doivent declencher un reload.

@@ -1,4 +1,4 @@
-# TODO — HEIMDALL (mes-bots-finance)
+# TODO — PRESAGE (mes-bots-finance)
 
 **Refresh**: 29 mai 2026 (Day 18 close, après audit anti-stale)
 **Mode**: Phase construction du book + Observation Brier jusqu'au 10/06
@@ -70,7 +70,7 @@ Cadre persisté : `config.yaml.user_strategy.construction_phase: true` + badge d
 
 ### Verdict général : pas avant 10/06, et probablement pas avant 6 mois solo
 
-La valeur produit aujourd'hui = **le track-record empirique** d'Olivier (Brier résolu, calibration prouvée). Sans ce track-record, HEIMDALL est une coquille analytique. Ouvrir le produit AVANT que le batch resolution 10/06 valide la thèse calibration = vendre une démo. Ouvrir APRÈS si Brier <0.3 sur ≥3 secteurs = vendre un asset.
+La valeur produit aujourd'hui = **le track-record empirique** d'Olivier (Brier résolu, calibration prouvée). Sans ce track-record, PRESAGE est une coquille analytique. Ouvrir le produit AVANT que le batch resolution 10/06 valide la thèse calibration = vendre une démo. Ouvrir APRÈS si Brier <0.3 sur ≥3 secteurs = vendre un asset.
 
 ### Multi-tenant — état réel ~30%, pas 80%
 
@@ -146,7 +146,7 @@ Action : **acheter presage.fi** (~10€/an, défensif). Si à 10/06 le Brier val
 
 ### Piège à éviter
 
-Construire la plateforme pour des users imaginaires, et ne plus avoir le temps d'utiliser son propre outil. **HEIMDALL est valuable parce qu'Olivier l'utilise quotidiennement**. Sans cet usage, c'est une coquille — la beauté du dashboard masque le signal "VALUE_LOG vide".
+Construire la plateforme pour des users imaginaires, et ne plus avoir le temps d'utiliser son propre outil. **PRESAGE est valuable parce qu'Olivier l'utilise quotidiennement**. Sans cet usage, c'est une coquille — la beauté du dashboard masque le signal "VALUE_LOG vide".
 
 ---
 

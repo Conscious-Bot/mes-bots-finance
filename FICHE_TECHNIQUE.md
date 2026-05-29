@@ -1,4 +1,4 @@
-# HEIMDALL Sentinelle (mes-bots-finance) — Fiche Technique (Lean)
+# PRESAGE (mes-bots-finance) — Fiche Technique (Lean)
 
 **Version**: 29 mai 2026 (Day 24 — post Sprint 19 : adversarial co-pilot + boucle vivante + user_strategy)
 **Auteur**: Olivier Legendre
@@ -102,7 +102,7 @@ Le bot **ne trade pas**. Il force la réflexion structurée pré-commit via thes
 5. **SYNTHESIS** — multi-round debate, /analyze deep, /risk_check Opus (avec injection signaux newsletters)
 6. **APPROPRIATION** — position book, journal auto-resolve, bias_tagger
 7. **RESTITUTION** — /brief, /digest 2x/j, /kpi_status, /cost_trajectory
-8. **OBSERVE (dashboard)** — HEIMDALL Sentinelle, lecture seule ; toute décision reste sur Telegram
+8. **OBSERVE (dashboard)** — PRESAGE, lecture seule ; toute décision reste sur Telegram
 
 **Passerelles uniques** : DB → shared/storage.py, LLM → shared/llm.py, Telegram → shared/notify.py, config → shared/config.py, prix → shared/prices.py (HARDCODED_FX_TO_EUR), display → shared/display.py.
 

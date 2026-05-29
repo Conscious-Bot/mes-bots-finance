@@ -1,4 +1,4 @@
-"""Heimdall — Sentinel dashboard. Static-gen, READ-ONLY, REAL data.
+"""PRESAGE dashboard. Static-gen, READ-ONLY, REAL data.
 Weights from positions.eur_invested (EUR cost basis). Sectors from theses.sector_thesis_id.
 Perf as ratio % (currency-invariant). DB read-only; per-panel try/except. Leaflet geo."""
 
@@ -1582,16 +1582,16 @@ def _chat_panel() -> str:
         # Sprint 19 : persist chat-log + textarea draft dans localStorage pour
         # survivre aux reloads page (la page auto-reload tous les ~60s pour
         # fresh data — sans ca, DOM chat-log et textarea se vident).
-        'window._chatHistory=window._chatHistory||JSON.parse(localStorage.getItem("heimdall_chat_log")||"[]");'
-        'window._chatSessionId=window._chatSessionId||localStorage.getItem("heimdall_chat_session")||(()=>{const s="s_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);localStorage.setItem("heimdall_chat_session",s);return s;})();'
+        'window._chatHistory=window._chatHistory||JSON.parse(localStorage.getItem("presage_chat_log")||"[]");'
+        'window._chatSessionId=window._chatSessionId||localStorage.getItem("presage_chat_session")||(()=>{const s="s_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);localStorage.setItem("presage_chat_session",s);return s;})();'
         'function chatEsc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}'
-        'function chatPersist(){try{localStorage.setItem("heimdall_chat_log",JSON.stringify(window._chatHistory.slice(-40)));}catch(e){}}'
+        'function chatPersist(){try{localStorage.setItem("presage_chat_log",JSON.stringify(window._chatHistory.slice(-40)));}catch(e){}}'
         'function chatAppend(role,text){const log=document.getElementById("chat-log");const div=document.createElement("div");div.className="chat-msg chat-"+role;div.innerHTML=chatEsc(text).replace(/\\n/g,"<br>");log.appendChild(div);log.scrollTop=log.scrollHeight;}'
         # Au load : restaurer messages + draft textarea + brancher save-on-input
         'function chatRestore(){const log=document.getElementById("chat-log");if(log){window._chatHistory.forEach(m=>{if(m.role&&m.content)chatAppend(m.role,m.content);});}'
         'const ta=document.getElementById("chat-input");if(ta){'
-        'const draft=localStorage.getItem("heimdall_chat_draft")||"";if(draft)ta.value=draft;'
-        'ta.addEventListener("input",function(){try{localStorage.setItem("heimdall_chat_draft",ta.value);}catch(e){}resetChatIdleTimer();});}'
+        'const draft=localStorage.getItem("presage_chat_draft")||"";if(draft)ta.value=draft;'
+        'ta.addEventListener("input",function(){try{localStorage.setItem("presage_chat_draft",ta.value);}catch(e){}resetChatIdleTimer();});}'
         # Sprint 21 : auto-clear chat-log apres 7 min d'inactivite
         # (l'historique reste en DB + localStorage, juste le DOM est vide visuellement)
         'startChatIdleTimer();}'
@@ -1600,7 +1600,7 @@ def _chat_panel() -> str:
         'function resetChatIdleTimer(){startChatIdleTimer();}'
         '(function(){if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",chatRestore);}else{chatRestore();}})();'
         'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
-        'chatAppend("user",msg);ta.value="";try{localStorage.removeItem("heimdall_chat_draft");}catch(e){}'
+        'chatAppend("user",msg);ta.value="";try{localStorage.removeItem("presage_chat_draft");}catch(e){}'
         'const histSend=window._chatHistory.slice(-10);'
         'const btn=document.querySelector(".chat-send");btn.disabled=true;btn.textContent="...";'
         'chatAppend("assistant","(reflexion en cours, l\'appel Opus prend 8-15s)");'

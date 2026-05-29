@@ -1,4 +1,4 @@
-# DESIGN SYSTEM — HEIMDALL Sentinel (canonique)
+# DESIGN SYSTEM — PRESAGE (canonique)
 
 Source unique de l'esthétique. Toute carte/vue consomme ces tokens — **zéro style inline ad-hoc**. `render.py` applique, ne réinvente pas.
 
@@ -12,13 +12,13 @@ Trois plans de profondeur. Chaque élément appartient à UN plan.
 
 - **Fond** — grain + grille radar subtile, immobile. C'est le champ.
 - **Midground** — les cards : mates, posées, hairline. 90 % de l'UI vit ici.
-- **Foreground** — 1-2 héros seulement (Sentinel Score, alerte active). Seul plan autorisé à *briller*.
+- **Foreground** — 1-2 héros seulement (Score PRESAGE, alerte active). Seul plan autorisé à *briller*.
 
 Ce layering justifie le glassmorphism (il faut le fond à flouter) et rend la profondeur crédible.
 
 ## 2. La règle du « vivant »
 
-`--live` (bleu électrique), glow et bloom sont réservés aux éléments **vivants** : signal actif, anomalie, IA en cours, Sentinel Score. **Si tout brille, rien ne brille** — c'est le tell amateur. Tout le reste est mat.
+`--live` (bleu électrique), glow et bloom sont réservés aux éléments **vivants** : signal actif, anomalie, IA en cours, Score PRESAGE. **Si tout brille, rien ne brille** — c'est le tell amateur. Tout le reste est mat.
 
 ## 3. Tokens `:root`
 
@@ -81,7 +81,7 @@ Ce layering justifie le glassmorphism (il faut le fond à flouter) et rend la pr
 
 Règles : titres importants = +poids **et** +contraste ; secondaires = plus petits **et** atténués en couleur (pas que la taille). **Orbitron jamais hors wordmark** (largeur + faible hauteur d'x → date + illisible en titres FR). Chiffres en mono tabulaire → colonnes alignées, sensation instrument.
 
-Wordmark : `HEIMDALL` en `--font-mark`, `Sentinel` en `--font-ui` 500 lettres espacées (caps), top-left.
+Wordmark : `PRESAGE` en `--font-mark`, `Sentinel` en `--font-ui` 500 lettres espacées (caps), top-left.
 
 ## 5. Cards & effets (sous discipline §1-2)
 

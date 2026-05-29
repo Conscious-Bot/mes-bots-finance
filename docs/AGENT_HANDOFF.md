@@ -11,9 +11,9 @@
 - Langue: francais, jargon pro, droit au but. Prose > bullets sauf doc de reference.
 - Reversible > destructif. Backup avant toute edition DB ou ecrasement de fichier. Jamais de DELETE quand un UPDATE/retag suffit.
 
-## 1. Ce qu'est HEIMDALL
+## 1. Ce qu'est PRESAGE
 
-Systeme d'intelligence finance perso en boucle fermee self-learning. Telegram bot (@Hawk_Dove_bot) + Claude. Marque: HEIMDALL Sentinelle (le veilleur qui voit/entend et sonne le Gjallarhorn).
+Systeme d'intelligence finance perso en boucle fermee self-learning. Telegram bot (@Hawk_Dove_bot) + Claude. Marque: PRESAGE (le veilleur qui voit/entend et sonne le Gjallarhorn).
 
 Le bot NE TRADE PAS. Il mecanise la discipline pre-commit pour compenser deux biais asymetriques d'Olivier:
 1. vend les winners trop tot (locking-in + mean-reversion) — historique PLTR @9, NVDA @130;

@@ -1,4 +1,4 @@
-# PROVISION — Heimdall sur VPS (Hetzner)
+# PROVISION — Presage sur VPS (Hetzner)
 
 Boucle autonome decouplee du laptop. `serve` reste sur 127.0.0.1 — jamais expose.
 
@@ -38,33 +38,33 @@ Rotation OAuth d'abord (seul secret expose dans le Projet):
 - Mac: supprimer token.json, relancer l'auth (flow navigateur localhost) -> token.json neuf
 - Telegram/Anthropic/FMP/FRED: non exposes, copier tels quels.
 Puis, depuis le Mac:
-    scp .env credentials.json token.json heimdall@<IP>:~/mes-bots-finance/
+    scp .env credentials.json token.json presage@<IP>:~/mes-bots-finance/
 
 ## 6. DB (snapshot coherent depuis le Mac, bot vivant OK grace a WAL)
     sqlite3 data/bot.db ".backup /tmp/bot.db.snap"
-    scp /tmp/bot.db.snap heimdall@<IP>:~/mes-bots-finance/data/bot.db
+    scp /tmp/bot.db.snap presage@<IP>:~/mes-bots-finance/data/bot.db
 
 ## 7. systemd user (rootless, demarre au boot sans login)
     mkdir -p ~/.config/systemd/user
-    cp deploy/heimdall-bot.service deploy/heimdall-serve.service ~/.config/systemd/user/
-    loginctl enable-linger heimdall
+    cp deploy/presage-bot.service deploy/presage-serve.service ~/.config/systemd/user/
+    loginctl enable-linger presage
     systemctl --user daemon-reload
-    systemctl --user enable --now heimdall-serve
+    systemctl --user enable --now presage-serve
 
 ## 8. CUTOVER — instance unique (sinon Conflict getUpdates)
     # Mac: tuer le bot local AVANT (NB: binaire "Python" majuscule -> -i obligatoire)
     pkill -fi "Python -m bot.main"
     # Box:
-    systemctl --user enable --now heimdall-bot
-    journalctl --user -u heimdall-bot -n 30 --no-pager
+    systemctl --user enable --now presage-bot
+    journalctl --user -u presage-bot -n 30 --no-pager
 
 ## 9. Dashboard via tunnel SSH (jamais expose)
     # depuis le Mac:
-    ssh -L 8000:localhost:8000 heimdall@<IP>
+    ssh -L 8000:localhost:8000 presage@<IP>
     # navigateur Mac -> http://localhost:8000/dashboard.html
     # serve reste bind 127.0.0.1 sur la box ; rien n'ecoute en public.
 
 ## Verifs
-- journalctl --user -u heimdall-bot -f   (heartbeat, crons)
+- journalctl --user -u presage-bot -f   (heartbeat, crons)
 - Telegram /brief repond
 - Mac bot bien mort (zero double instance)
