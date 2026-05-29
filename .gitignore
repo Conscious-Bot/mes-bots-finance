@@ -128,3 +128,6 @@ htmlcov/
 *.log
 *.log.*
 .backups/
+
+# Reconcile broker exports (personal financial data)
+scripts/reconcile_exports/*.csv
