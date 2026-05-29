@@ -30,10 +30,13 @@ log = logging.getLogger(__name__)
 
 # Cheap keyword pre-filter (skip LLM call on pure conversation).
 _INTENT_KEYWORDS = (
-    # buy/sell
-    "vendre", "vends", "vente", "trim", "alleger", "allege", "lighten",
-    "acheter", "achete", "renforce", "renforcer", "scale in", "scale-in",
+    # buy/sell — toutes formes (present, passe, conditionnel proche)
+    "vendre", "vends", "vendu", "vendue", "vendrai", "vente",
+    "trim", "alleger", "allege", "lighten",
+    "acheter", "achete", "achetee", "achat",
+    "renforce", "renforcer", "bump", "scale in", "scale-in",
     "exit", "close", "clos", "ouvrir", "entrer en", "buy", "sell",
+    "nouvelle position", "create position", "ouvert", "ouverte",
     # mutations
     "passe la conviction", "conviction", "stop a", "stop_price",
     "target", "cible a", "cible_partial", "cible_full", "objectif",
@@ -62,7 +65,11 @@ _INTENT_PROMPT = """Tu es un parseur d'intentions pour un investisseur. Le messa
 {message}
 \"\"\"
 
-Detecte si l'user EXPRIME UNE INTENTION ACTIONNABLE. Si oui, choisis le `kind` parmi :
+Detecte si l'user EXPRIME UNE OU PLUSIEURS INTENTIONS ACTIONNABLES. Un seul
+message peut contenir PLUSIEURS trades (compound) — extrait-les TOUTES dans
+le tableau "intents".
+
+Pour chaque intent, choisis le `kind` parmi :
 
 MUTATIONS (ecrivent la DB) :
   - "buy"            : intention ferme d'achat (qty+ticker minimum)
@@ -91,42 +98,78 @@ REGLES :
 - "analyse complete TSLA" / "raconte-moi 4063.T" / "fiche TSM" = show_analysis {{ticker:TSLA}}
 - "et si je vends 5 ASML a 800 ?" = simulate_trade {{action:sell, ticker:ASML, qty:5, price:800}}
 
-Sortie JSON :
+EUR vs QTY :
+  - "vendu 12 actions de VRT a 70" -> qty=12, price=70
+  - "vendu 834 euros de VRT" / "vendu VRT (834)" -> eur_amount=834, qty=null
+  - "vendu l'entierete de VRT" / "tout VRT" -> full_exit=true, qty=null
+  - "achete pour 1000 euros de CCJ" / "+1000 sur CCJ" -> eur_amount=1000
+  - "nouvelle position SNOW 1450" -> kind=buy, eur_amount=1450
+Le serveur convertira eur_amount -> qty via le prix courant.
+
+Sortie JSON (tableau intents, meme si une seule action) :
 {{
-  "intent": {{
-    "kind": "<one of above>",
-    "ticker": "...",       // si applicable
-    "qty": <float|null>,   // pour buy/sell/simulate_trade/close
-    "price": <float|null>, // pour buy/sell/simulate_trade
-    "field": "conviction|stop_price|target_partial|target_full|entry_price|notes|horizon|status",  // pour set_field
-    "value": "...",        // pour set_field
-    "level": "partial|full|stop",  // pour override
-    "reason": "...",       // pour close_thesis/override
-    "action": "buy|sell",  // pour simulate_trade
-    "reasoning": "..."     // raison narrative du user, pour buy/sell
-  }} | null,
+  "intents": [
+    {{
+      "kind": "<one of above>",
+      "ticker": "...",
+      "qty": <float|null>,
+      "price": <float|null>,
+      "eur_amount": <float|null>,
+      "full_exit": <true|false>,
+      "field": "conviction|stop_price|target_partial|target_full|entry_price|notes|horizon|status",
+      "value": "...",
+      "level": "partial|full|stop",
+      "reason": "...",
+      "action": "buy|sell",
+      "reasoning": "..."
+    }}
+  ] | [],
   "confidence": <0-1>,
   "clarification_needed": "..." | null
 }}
 
-Confidence :
-- 1.0  = tous params explicites
-- 0.7  = action+ticker explicites, params secondaires inferables
-- 0.4  = ambigu, manque qty/ticker/field
-- 0.0  = pas une intention actionnable
+Confidence (sur l'ensemble) :
+- 1.0  = tous params explicites pour tous les intents
+- 0.7  = action+ticker explicites, EUR/qty inferable
+- 0.4  = ambigu, manque ticker ou montant
+- 0.0  = pas d'intention actionnable
 
-Si intent=null, confidence=0 et clarification_needed=null.
+Si rien d'actionnable, intents=[] et confidence=0.
+
+EXEMPLE (compound) :
+  "vendu tout VRT (834) et tout TER (1125), bump CCJ de +1000, nouvelle position SNOW 1450"
+  -> intents = [
+       {{kind:"sell", ticker:"VRT", full_exit:true, eur_amount:834}},
+       {{kind:"sell", ticker:"TER", full_exit:true, eur_amount:1125}},
+       {{kind:"buy", ticker:"CCJ", eur_amount:1000, reasoning:"bump"}},
+       {{kind:"buy", ticker:"SNOW", eur_amount:1450, reasoning:"nouvelle position"}}
+     ]
+     confidence: 0.85
 """
 
 
 def extract_intent(message: str) -> dict | None:
-    """Parse a chat message ; return {intent, confidence, clarification_needed} or None."""
+    """Parse a chat message ; return {intents: [...], confidence, ...} or None.
+
+    Sprint 19 : retourne maintenant une LISTE d'intents pour supporter les
+    messages compound ("vendu tout VRT et TER, bump CCJ, nouvelle SNOW").
+    Backwards-compat : si l'LLM retourne {intent: ...} singleton (ancien
+    format), on le wrap en intents: [...].
+    """
     if not _looks_like_intent(message):
         return None
     try:
-        result = llm.call_json(_INTENT_PROMPT.format(message=message), tier="extract", max_tokens=500)
-        if isinstance(result, dict):
-            return result
+        result = llm.call_json(_INTENT_PROMPT.format(message=message), tier="extract", max_tokens=900)
+        if not isinstance(result, dict):
+            return None
+        # Backwards-compat : single intent -> list
+        if "intent" in result and "intents" not in result:
+            single = result.pop("intent")
+            result["intents"] = [single] if single else []
+        # Normalize : ensure intents is a list
+        if "intents" not in result or not isinstance(result["intents"], list):
+            result["intents"] = []
+        return result
     except Exception as e:
         log.warning(f"extract_intent failed: {e}")
     return None
@@ -148,6 +191,35 @@ def extract_trade_intent(message: str) -> dict | None:
 # =============================================================================
 # DISPATCHERS — execute_intent switches on intent.kind
 # =============================================================================
+
+
+def execute_intents(intents: list[dict], reasoning_fallback: str = "") -> dict:
+    """Execute multiple intents in sequence. Returns aggregated result.
+
+    Each intent runs through execute_intent. Errors don't stop the chain :
+    we report success/failure per intent so the user sees the partial state.
+    """
+    if not intents:
+        return {"executed": False, "summary": "aucun intent", "n_executed": 0}
+    results = []
+    summaries = []
+    n_ok = n_fail = 0
+    for it in intents:
+        r = execute_intent(it, reasoning_fallback=reasoning_fallback)
+        results.append(r)
+        if r.get("executed"):
+            n_ok += 1
+        else:
+            n_fail += 1
+        summaries.append(r.get("summary", ""))
+    return {
+        "executed": n_ok > 0,
+        "n_executed": n_ok,
+        "n_failed": n_fail,
+        "n_total": len(intents),
+        "results": results,
+        "summary": "\n\n".join(summaries),
+    }
 
 
 def execute_intent(intent: dict, reasoning_fallback: str = "") -> dict:
@@ -185,7 +257,11 @@ def execute_intent(intent: dict, reasoning_fallback: str = "") -> dict:
 
 
 def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
-    """Mirror /position_buy /position_sell handlers."""
+    """Mirror /position_buy /position_sell handlers.
+
+    Sprint 19 : support eur_amount (converti en qty via prix courant) +
+    full_exit=true (vend toute la position existante).
+    """
     from intelligence import decision_copilot
     from shared import positions as positions_mod, storage
 
@@ -193,13 +269,16 @@ def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
     ticker = (intent.get("ticker") or "").upper()
     qty = intent.get("qty")
     price = intent.get("price")
+    eur_amount = intent.get("eur_amount")
+    full_exit_flag = bool(intent.get("full_exit"))
     reasoning = (intent.get("reasoning") or reasoning_fallback or "").strip()
 
     if action not in ("buy", "sell"):
         return {"executed": False, "summary": "action inconnue", "error": "bad_action"}
-    if not ticker or not qty:
-        return {"executed": False, "summary": "ticker ou qty manquant", "error": "incomplete"}
+    if not ticker:
+        return {"executed": False, "summary": "ticker manquant", "error": "incomplete"}
 
+    # Get price (live cached) if not specified
     if not price:
         try:
             from dashboard.render import _cached_price_eur
@@ -208,16 +287,27 @@ def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
         except Exception:
             price = 0
     if not price:
-        return {"executed": False, "summary": "prix indisponible", "error": "no_price"}
-
-    qty = float(qty)
+        return {"executed": False, "summary": f"prix indisponible pour {ticker}", "error": "no_price"}
     price = float(price)
 
     existing = positions_mod.get_position(ticker)
+
+    # Sprint 19 : resolve qty from full_exit OR eur_amount OR explicit qty
+    if action == "sell" and full_exit_flag:
+        if not existing or not existing.get("qty"):
+            return {"executed": False, "summary": f"full_exit demande mais pas de position sur {ticker}", "error": "no_position"}
+        qty = float(existing["qty"])
+    elif eur_amount and not qty:
+        qty = round(float(eur_amount) / price, 4)
+    elif not qty:
+        return {"executed": False, "summary": "qty / eur_amount / full_exit manquant", "error": "incomplete"}
+
+    qty = float(qty)
+
     if action == "buy":
         dtype = "scale_in" if (existing and existing.get("qty", 0) > 0) else "entry"
     else:
-        dtype = "full_exit" if (existing and qty >= (existing.get("qty") or 0)) else "partial_exit"
+        dtype = "full_exit" if (existing and qty >= (existing.get("qty") or 0) - 1e-6) else "partial_exit"
 
     cop_resp, cop_iid = None, None
     if dtype != "entry":

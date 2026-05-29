@@ -265,8 +265,9 @@ def chat(
         session_id=session_id,
     )
 
-    # Sprint 9.b/9.c — Intent detection : route NL messages vers les memes
-    # primitives que les slash commands Telegram. Mutations + reads + sim.
+    # Sprint 9-19 — Intent detection : route NL vers primitives Telegram.
+    # Sprint 19 : supporte les messages compound (plusieurs trades dans 1
+    # message) + EUR amounts (convertis via prix courant).
     trade_summary = None
     try:
         from intelligence import chat_intent as _intent_mod
@@ -274,19 +275,21 @@ def chat(
         parsed = _intent_mod.extract_intent(user_message)
         if parsed:
             confidence = parsed.get("confidence") or 0
-            intent = parsed.get("intent")
-            kind = (intent or {}).get("kind")
-            # Mutations : seuil 0.7 (gating prudent — ecrit la DB)
-            # Reads : seuil 0.5 (juste injection d'info)
+            intents = parsed.get("intents") or []
             mutation_kinds = {"buy", "sell", "set_field", "close_thesis", "revisit_thesis", "override"}
-            threshold = 0.7 if kind in mutation_kinds else 0.5
-            if intent and confidence >= threshold:
-                exec_res = _intent_mod.execute_intent(intent, reasoning_fallback=user_message)
+            # Si AU MOINS UN intent est mutation, on applique le seuil mutation
+            has_mutation = any((i or {}).get("kind") in mutation_kinds for i in intents)
+            threshold = 0.7 if has_mutation else 0.5
+            if intents and confidence >= threshold:
+                exec_res = _intent_mod.execute_intents(intents, reasoning_fallback=user_message)
                 trade_summary = exec_res.get("summary")
-                log.info(f"chat-driven {kind} executed: {trade_summary[:100] if trade_summary else 'no summary'}")
-            elif intent and confidence >= 0.4 and parsed.get("clarification_needed"):
+                log.info(
+                    f"chat-driven {len(intents)} intents : "
+                    f"ok={exec_res.get('n_executed')} fail={exec_res.get('n_failed')}"
+                )
+            elif intents and confidence >= 0.4 and parsed.get("clarification_needed"):
                 trade_summary = (
-                    "⚠️ Intent detecte mais incomplet : "
+                    "⚠️ Intent(s) detecte(s) mais incomplet : "
                     f"{parsed.get('clarification_needed')}"
                 )
     except Exception as e:
