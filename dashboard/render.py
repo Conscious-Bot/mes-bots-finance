@@ -1273,18 +1273,22 @@ def _chat_panel() -> str:
         '<div class="chat-foot">Le contexte (profil + grade + positions + interventions) est rejoue a chaque message.</div>'
         '</div>'
         '<script>'
-        # Sprint 19 : persist chat-log dans localStorage pour survivre aux reloads
-        # (la page auto-reload tous les ~60s pour fresh data — sans ca le scroll log se vide).
+        # Sprint 19 : persist chat-log + textarea draft dans localStorage pour
+        # survivre aux reloads page (la page auto-reload tous les ~60s pour
+        # fresh data — sans ca, DOM chat-log et textarea se vident).
         'window._chatHistory=window._chatHistory||JSON.parse(localStorage.getItem("heimdall_chat_log")||"[]");'
         'window._chatSessionId=window._chatSessionId||localStorage.getItem("heimdall_chat_session")||(()=>{const s="s_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);localStorage.setItem("heimdall_chat_session",s);return s;})();'
         'function chatEsc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}'
         'function chatPersist(){try{localStorage.setItem("heimdall_chat_log",JSON.stringify(window._chatHistory.slice(-40)));}catch(e){}}'
         'function chatAppend(role,text){const log=document.getElementById("chat-log");const div=document.createElement("div");div.className="chat-msg chat-"+role;div.innerHTML=chatEsc(text).replace(/\\n/g,"<br>");log.appendChild(div);log.scrollTop=log.scrollHeight;}'
-        # Au load : restaurer les messages depuis localStorage dans le DOM
-        'function chatRestore(){const log=document.getElementById("chat-log");if(!log)return;window._chatHistory.forEach(m=>{if(m.role&&m.content)chatAppend(m.role,m.content);});}'
+        # Au load : restaurer messages + draft textarea + brancher save-on-input
+        'function chatRestore(){const log=document.getElementById("chat-log");if(log){window._chatHistory.forEach(m=>{if(m.role&&m.content)chatAppend(m.role,m.content);});}'
+        'const ta=document.getElementById("chat-input");if(ta){'
+        'const draft=localStorage.getItem("heimdall_chat_draft")||"";if(draft)ta.value=draft;'
+        'ta.addEventListener("input",function(){try{localStorage.setItem("heimdall_chat_draft",ta.value);}catch(e){}});}}'
         '(function(){if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",chatRestore);}else{chatRestore();}})();'
         'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
-        'chatAppend("user",msg);ta.value="";'
+        'chatAppend("user",msg);ta.value="";try{localStorage.removeItem("heimdall_chat_draft");}catch(e){}'
         'const histSend=window._chatHistory.slice(-10);'
         'const btn=document.querySelector(".chat-send");btn.disabled=true;btn.textContent="...";'
         'chatAppend("assistant","(reflexion en cours, l\'appel Opus prend 8-15s)");'
@@ -3942,7 +3946,7 @@ def render() -> Path:
         + "<script>"
         + _APP_JS
         + "</script>"
-        + "<script>(function(){var b=null;function c(){fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,60000);})();</script>"
+        + "<script>(function(){var b=null;function isTyping(){var ta=document.getElementById('chat-input');if(ta&&ta.value.trim().length>0)return true;if(ta&&document.activeElement===ta)return true;return false;}function c(){if(isTyping())return;fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,60000);})();</script>"
         + "</body></html>"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
