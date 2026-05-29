@@ -1003,6 +1003,37 @@ def _user_strategy_panel() -> str:
     tol_validated = bool(us.get("drawdown_tolerance_validated"))
     tol_validated_at = us.get("drawdown_tolerance_validated_at") or "?"
     accepted_html = ", ".join(accepted) if accepted else "(aucun)"
+    # Phase construction : badge en tete pour cadrer la lecture du reste.
+    # Tant que le book n'a pas atteint sa cible (~70k€/~33 pos), les
+    # metriques de concentration sont en convergence, pas en derive.
+    construction_html = ""
+    if us.get("construction_phase"):
+        try:
+            from intelligence.portfolio_grade import _fetch_state
+
+            cur_eur = (_fetch_state() or {}).get("total_capital_eur") or 0
+            cur_pos = len((_fetch_state() or {}).get("positions") or [])
+        except Exception:
+            cur_eur = 0
+            cur_pos = 0
+        tgt_eur = us.get("target_capital_eur") or 0
+        tgt_pos = us.get("target_positions_count") or 0
+        progress = (cur_eur / tgt_eur * 100) if tgt_eur else 0
+        construction_html = (
+            '<div class="us-construction">'
+            '<div class="us-cstr-h">Phase construction</div>'
+            f'<div class="us-cstr-b">Le book est en cours de constitution : '
+            f'<b class="mono">{cur_eur:,.0f}&nbsp;€</b> / '
+            f'<b class="mono">{tgt_eur:,.0f}&nbsp;€</b> cible '
+            f'(<b>{progress:.0f}%</b> &middot; {cur_pos}/{tgt_pos} positions). '
+            "Les decorrelants (Energie-pour-IA, Defense, Robotique) sont en "
+            "cours d'ajout. Les ratios de concentration actuels (cluster cap, "
+            "ballast strict, expo AI capex) <b>convergeront naturellement</b> "
+            "vers la cible. Lecture informative, pas actionnable : on ne "
+            "pousse pas a trim tant que la construction n'est pas terminee."
+            '</div>'
+            '</div>'
+        )
     # CTA "a valider" : lit le drawdown estime sur scenario AI capex -30%
     # depuis risk_watch.json. Tant que pas valide explicitement, la cible
     # 75% n'a pas ete confirmee par un gut-check sur le chiffre reel.
@@ -1046,6 +1077,7 @@ def _user_strategy_panel() -> str:
         '<div class="card pad strategiecard" style="margin-bottom:18px">'
         '<div class="colhead"><span class="t">Ta strategie declaree</span>'
         f'<span class="a">archetype = {archetype} &middot; depuis {declared} &middot; surcharge les defaults</span></div>'
+        f'{construction_html}'
         '<div class="us-grid">'
         f'<div class="us-row"><span class="us-k">Pari principal cible</span><span class="us-v mono">{cap}%</span></div>'
         f'<div class="us-row"><span class="us-k">Autres paris cible</span><span class="us-v mono">{dec}%</span></div>'
@@ -3234,6 +3266,9 @@ _CSS = """
   .strategiecard .us-cta-b { font-size:12.5px; color:var(--ink); line-height:1.55; }
   .strategiecard .us-cta-f { font-size:10.5px; color:var(--steel); margin-top:8px; font-family:var(--fm-mono, monospace); }
   .strategiecard .us-cta-f code { background:color-mix(in srgb, var(--ink) 6%, transparent); padding:2px 6px; border-radius:2px; font-size:10.5px; }
+  .strategiecard .us-construction { font-family:var(--fm); margin:8px 0 14px; padding:12px 14px; border-left:2px solid #c89b00; background:color-mix(in srgb, #c89b00 5%, transparent); border-radius:2px; }
+  .strategiecard .us-cstr-h { font-size:11px; color:#c89b00; text-transform:uppercase; letter-spacing:.05em; font-weight:600; margin-bottom:6px; }
+  .strategiecard .us-cstr-b { font-size:12.5px; color:var(--ink); line-height:1.6; }
   /* Sprint 5/6 - Copilot interventions panel */
   .copilotcard .cp-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
   .copilotcard .cp-row:last-child { border-bottom:none; }

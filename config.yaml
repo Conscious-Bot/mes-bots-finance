@@ -406,6 +406,15 @@ user_strategy:
   # Voir scripts/risk_watch.json risks[0].drawdown_estimates.
   drawdown_tolerance_validated: false
   drawdown_tolerance_validated_at: null
+  # Phase construction : le book actuel n'est PAS l'etat final. Cible
+  # documentee 70 180€ / ~33 positions. Les decorrelants (Energie-pour-IA,
+  # Defense, Robotique) sont en cours d'ajout. Tant que ce flag est true,
+  # les lectures hardcore de cluster_cap / ballast_strict / risk_watch
+  # restent informatives, pas actionnables. On ne pousse pas a trim.
+  construction_phase: true
+  target_capital_eur: 70180
+  target_positions_count: 33
+  construction_completed_at: null
 
 concentration:
   # Policy de concentration -- DEFAULT 35% conservateur (ADR 010, 26/05/2026).
