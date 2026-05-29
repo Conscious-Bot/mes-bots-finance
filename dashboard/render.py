@@ -955,15 +955,19 @@ def _mauboussin_sizing_panel() -> str:
     """
     try:
         from intelligence import spof_and_sizing as _sp
+        from shared import book as _bk
 
         sizing = _sp.compute_mauboussin_sizing()
-        # F5 fix 29/05 : cross-reference valo_above_bull_case pour eviter
-        # qu'un ticker affiche "at_implied / above_implied" sain dans le
-        # sizing alors qu'il est flagge "fragility tres elevee" dans une
-        # autre vue. Cf Lasertec 6920.T : sizing dit +0.8pp, valo dit
-        # single-customer ASML fragility extreme. Les deux vues ne se
-        # parlent pas -> on raccroche le flag.
+        # F5 fix 29/05 : cross-reference valo_above_bull_case
         bull_tickers = {x["ticker"] for x in _sp.list_above_bull_case()}
+        # F10 fix 29/05 round 2 : surface stop_distance% par row pour rendre
+        # la contradiction stops decroches du fade visible. Astera fade=80
+        # mais stop -51% (large), Synopsys fade=8 mais stop -20% (idem),
+        # SK Hynix stop -43%. Pas de relation coherente -- regression du
+        # Day 5 sur l'asymetrie tautologique. Au lieu de le decrire dans
+        # le TODO, on l'affiche : 3 colonnes (conv, fade, stop_dist%)
+        # cote a cote permettent de voir l'incoherence d'un coup d'oeil.
+        book_idx = _bk.get_book_index()
     except Exception as e:
         return f'<div class="card pad"><div class="empty">Mauboussin sizing indispo: {type(e).__name__}</div></div>'
     if not sizing:
@@ -978,6 +982,21 @@ def _mauboussin_sizing_panel() -> str:
         gcls = "neg" if gap > 0.5 else ("pos" if gap < -0.5 else "neu")
         fade = d.get("fade_rate_score") or 0
         fcls = "high" if fade >= 60 else ("mid" if fade >= 30 else "low")
+        # F10 : stop_distance% = (current - stop) / current * 100
+        ln = book_idx.get(tk)
+        stop_dist_html = '<span class="ms-stopd mono">stop ?</span>'
+        if ln and ln.stop_price and ln.current_price_eur:
+            stop_dist = (ln.current_price_eur - ln.stop_price) / ln.current_price_eur * 100
+            # Outlier flag : haut fade attend stop serre (<25%), bas fade
+            # tolere stop large. Si fade>=60 ET stop_dist>40% : INCOHERENT.
+            # Si fade<=20 ET stop_dist<25% : aussi INCOHERENT (trop serre).
+            outlier = (fade >= 60 and stop_dist > 40) or (fade <= 20 and stop_dist < 25)
+            ocls = " outlier" if outlier else ""
+            stop_dist_html = (
+                f'<span class="ms-stopd mono{ocls}" '
+                f'title="distance courant -> stop ; fade-coherence">'
+                f'stop &minus;{stop_dist:.0f}%</span>'
+            )
         fragile_flag = ""
         if tk in bull_tickers:
             fragile_flag = (
@@ -989,6 +1008,7 @@ def _mauboussin_sizing_panel() -> str:
             f'<span class="ms-tk">{tk}</span>'
             f'<span class="ms-conv mono">c{d["conviction"]}</span>'
             f'<span class="ms-fade {fcls} mono">fade {fade}</span>'
+            f'{stop_dist_html}'
             f'<span class="ms-target mono">cible {d["target_pct"]:.1f}%</span>'
             f'<span class="ms-actual mono">reel {d["actual_pct"]:.1f}%</span>'
             f'<span class="ms-gap {gcls} mono">{gap:+.1f}pp</span>'
@@ -3630,8 +3650,10 @@ _CSS = """
   .spofcard .sp-fill.mid { background:#c89b00; }
   .spofcard .sp-fill.low { background:var(--acc); }
   .spofcard .sp-deps { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
-  .mauboussincard .ms-row { display:grid; grid-template-columns:70px 50px 65px 75px 75px 65px auto; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
+  .mauboussincard .ms-row { display:grid; grid-template-columns:70px 50px 65px 75px 75px 75px 65px auto; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
   .mauboussincard .ms-frag { font-family:var(--fm); font-size:10px; padding:2px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); letter-spacing:.03em; justify-self:start; }
+  .mauboussincard .ms-stopd { font-family:var(--fm); color:var(--steel); }
+  .mauboussincard .ms-stopd.outlier { color:var(--bear); font-weight:600; background:color-mix(in srgb,var(--bear) 10%,transparent); padding:1px 5px; border-radius:var(--r1); }
   .mauboussincard .ms-row:last-child { border-bottom:none; }
   .mauboussincard .ms-tk { font-family:var(--fm); font-weight:600; color:var(--ink); }
   .mauboussincard .ms-conv { font-family:var(--fm); color:var(--steel); }
