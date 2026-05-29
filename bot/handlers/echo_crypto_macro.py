@@ -288,11 +288,46 @@ async def cmd_override(update, ctx):  # noqa: ARG001
     if level not in ("partial", "full", "stop"):
         await update.message.reply_text("level must be: partial / full / stop")
         return
+
+    # Sprint 3 — Adversarial copilot pressure-test BEFORE recording override
+    # (override = strong intent to deviate from thesis defined exits, prime target)
+    _copilot_response = None
+    _copilot_intervention_id = None
+    try:
+        from intelligence import decision_copilot
+        from shared import storage as _storage_cp
+
+        # Map level → copilot decision_type for context
+        _cp_dtype = {"partial": "partial_exit", "full": "full_exit", "stop": "override"}.get(level, "override")
+
+        # Use last known price from thesis if available (override has no price arg)
+        _thesis_for_price = _storage_cp.get_thesis_by_ticker(ticker, status="active") or {}
+        _cp_price = _thesis_for_price.get("last_price") or _thesis_for_price.get("entry_price") or 0.0
+
+        _copilot_response, _copilot_intervention_id = decision_copilot.run_pre_trade_copilot(
+            ticker=ticker, decision_type=_cp_dtype, reasoning=reason, price=_cp_price,
+        )
+    except Exception as cp_err:
+        import logging as _cp_logging
+
+        _cp_logging.getLogger("bot.override").warning(
+            f"copilot pre-trade failed for /override {ticker}: {type(cp_err).__name__}: {cp_err}"
+        )
+
     try:
         oid = record_override(ticker, level, reason)
-        await update.message.reply_text(
-            f"OK Override #{oid} captured: {ticker}/{level}\n  Reason: {reason}\n  Stored for BiasDetector training."
-        )
+        msg_lines = [
+            f"OK Override #{oid} captured: {ticker}/{level}",
+            f"  Reason: {reason}",
+            "  Stored for BiasDetector training.",
+        ]
+        if _copilot_response:
+            from intelligence.decision_copilot import format_brief_for_telegram
+
+            cp_text = format_brief_for_telegram(_copilot_response)
+            if cp_text:
+                msg_lines.append(cp_text)
+        await update.message.reply_text("\n".join(msg_lines))
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
