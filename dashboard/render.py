@@ -1056,7 +1056,19 @@ def _factor_exposures_panel() -> str:
     for name, d in sorted_f:
         pct = d["pct_of_book"]
         wcls = "high" if pct >= 30 else ("mid" if pct >= 10 else "low")
-        tks = ", ".join(d["tickers"][:8])
+        # F9 fix : afficher le theme thesis user a cote de chaque ticker
+        # quand il y a divergence entre le macro_factor (vue Paris) et le
+        # theme (vue Theses). Ex MHI : macro="Industrial reshoring" mais
+        # theme="Defense" -> classification croisee enfin visible.
+        themes_overlay = d.get("themes_overlay") or {}
+        tks_html_list = []
+        for t in d["tickers"][:8]:
+            th = themes_overlay.get(t)
+            if th and th.lower() != name.lower():
+                tks_html_list.append(f'{t}<span class="fe-th">→{th}</span>')
+            else:
+                tks_html_list.append(t)
+        tks = ", ".join(tks_html_list)
         if len(d["tickers"]) > 8:
             tks += f" +{len(d['tickers']) - 8}"
         is_comp = d.get("is_composite")
@@ -3565,6 +3577,7 @@ _CSS = """
   .factorscard .fe-row.fe-composite { padding:14px 14px; margin:0 -14px 8px; background:color-mix(in srgb,var(--bear) 6%,transparent); border-left:2px solid var(--bear); border-radius:2px; border-bottom:none; }
   .factorscard .fe-row.fe-composite .fe-name { font-weight:600; }
   .factorscard .fe-comp-note { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:6px; line-height:1.45; font-style:italic; }
+  .factorscard .fe-th { font-family:var(--fm); font-size:10px; color:var(--steel); margin-left:2px; padding:0 4px; background:color-mix(in srgb,var(--ink) 6%,transparent); border-radius:var(--r1); }
   .factorscard .fe-head { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
   .factorscard .fe-name { font-family:var(--fm); font-weight:500; font-size:13px; color:var(--ink); flex:1; }
   .factorscard .fe-pct { font-family:var(--fm); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }

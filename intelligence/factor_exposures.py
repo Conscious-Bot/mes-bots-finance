@@ -37,30 +37,37 @@ _AI_BROAD_FACTORS = {"AI capex", "Memory cycle", "AI inference/compute demand"}
 
 
 def compute_factor_exposures() -> dict:
-    """Sum book weight per macro_factor (uses Sprint 12 ticker_axes).
+    """Sum book market value per macro_factor.
 
-    Returns {factor: {eur, pct_of_book, tickers: [...], n_positions}}.
-    Falls back to 'Unclassified' for tickers without axes.
+    MIGRATED 29/05 round 2 vers shared.book : on lit directement les
+    BookLine canoniques (qui ont deja le macro_factor JOINT). Plus de
+    lookup separe ticker_axes. Effet : F9 visible -- on peut afficher
+    le theme (taxonomie thesis user) a cote de chaque ticker pour rendre
+    explicite la double classification (theme vs macro_factor).
 
-    Ajoute aussi un facteur composite "AI broad (capex + memory + inference)"
-    qui agrege les 3 facteurs co-stresses. Cf. F1 audit 29/05 : la taxo seule
-    decouple ce que le scenario regroupe -> incoherence dashboard.
+    Returns {factor: {eur, pct_of_book, tickers: [...], themes_overlay: {tk: theme}, n_positions}}.
+    Composite "AI broad (capex + memory + inference)" ajoute en plus.
     """
-    from dashboard.render import _positions
+    from shared import book
 
-    positions = _positions()
-    if not positions:
+    held = book.get_held_lines()
+    if not held:
         return {}
-    axes = {a["ticker"]: a for a in storage.get_all_latest_ticker_axes()}
-    total = sum(p.get("weight", 0) for p in positions) or 1
+    total = sum(ln.weight_market_eur for ln in held) or 1
 
     factors: dict = {}
-    for p in positions:
-        a = axes.get(p["ticker"])
-        f = a["macro_factor"] if a else "Unclassified"
-        factors.setdefault(f, {"eur": 0.0, "tickers": [], "n_positions": 0})
-        factors[f]["eur"] += p["weight"]
-        factors[f]["tickers"].append(p["ticker"])
+    for ln in held:
+        f = ln.macro_factor or "Unclassified"
+        factors.setdefault(f, {
+            "eur": 0.0,
+            "tickers": [],
+            "themes_overlay": {},  # F9 fix : visible cross-class
+            "n_positions": 0,
+        })
+        factors[f]["eur"] += ln.weight_market_eur
+        factors[f]["tickers"].append(ln.ticker)
+        if ln.theme:
+            factors[f]["themes_overlay"][ln.ticker] = ln.theme
         factors[f]["n_positions"] += 1
     # Composite AI broad
     ai_eur = 0.0
