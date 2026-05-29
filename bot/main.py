@@ -180,6 +180,22 @@ async def log_handler_call_middleware(update, ctx):
 
 async def post_init(app):
     """Run AFTER event loop is started."""
+    # GATE INVARIANTS au demarrage (point #9 brief : echec fort).
+    # Si le book est incoherent on log + on continue en mode degrade,
+    # mais on ne demarre pas silencieusement sur du sable.
+    try:
+        from shared import storage as _stg
+
+        violations = _stg.assert_book_invariants(strict=False)
+        if violations:
+            log.error(f"🚨 BOOK INVARIANTS VIOLATIONS au demarrage ({len(violations)}) :")
+            for v in violations[:10]:
+                log.error(f"  ❌ {v}")
+        else:
+            log.info("🟢 Book invariants : tous verts au demarrage")
+    except Exception as e:
+        log.error(f"position_invariants gate crashed: {e}")
+
     try:
         n = seed_macro_events()
         log.info(f"Macro events seeded ({n} upcoming)")

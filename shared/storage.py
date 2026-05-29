@@ -3198,3 +3198,56 @@ def insert_data_clusters_snapshot(snapshot_json: str) -> int | None:
     except Exception as e:
         _copilot_log.warning(f"insert_data_clusters_snapshot failed: {e}")
         return None
+
+
+# ─────────────────────── PASSERELLE DERIVEE (point #3 du brief) ────────────
+# "Tout calcul de derive passe par UNE SEULE fonction storage.get_position_view"
+# Cette passerelle delegue a shared.views, le module de calcul. Mais l'API
+# stable et publique vit ici, sur storage.py -- conforme au principe
+# "passerelle unique" (CONVENTIONS §5).
+
+
+def get_position_view(ticker: str | None = None):
+    """Passerelle UNIQUE pour acceder aux derives portfolio (point #3 brief).
+
+    Args:
+        ticker: si fourni, retourne le PositionView de ce ticker (ou None).
+                Si None, retourne le BookView complet.
+
+    Returns:
+        - PositionView (frozen dataclass) si ticker fourni et present
+        - BookView (avec by_ticker, by_macro_factor, totals) si ticker=None
+        - None si ticker non trouve
+
+    REGLE : aucun calcul de poids/asymetrie/P&L hors de cette fonction.
+    Si une vue importe shared.views directement, c'est tolere (passerelle
+    interne). Si une vue calcule p["weight"] / total -> bug a souder.
+    """
+    from shared import views
+
+    if ticker is None:
+        return views.compute_book_view()
+    return views.compute_book_view().view_of(ticker)
+
+
+def get_book_view():
+    """Alias explicit pour le BookView complet. Equivalent get_position_view()
+    sans ticker. Lisibilite cote appelant."""
+    from shared import views
+
+    return views.compute_book_view()
+
+
+def assert_book_invariants(*, strict: bool = True) -> list[str]:
+    """Lance le gate statique des invariants (point #9 brief).
+
+    Appelle au demarrage de l'app et en CI. strict=True (defaut) leve
+    InvariantViolation au moindre defaut.
+
+    Returns:
+        Liste vide si tout est vert. Liste de violations sinon.
+    """
+    from shared import position_invariants as _pi
+
+    with db() as cx:
+        return _pi.run_static_gate(cx, strict=strict)
