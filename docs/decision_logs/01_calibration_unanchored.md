@@ -181,6 +181,32 @@ Le fix sémantique a marché : la cohorte n'est plus incohérente. **Mais encore
 
 Conclusion : on a bouclé sur la limite originale #2 (*« le pipeline génère majoritairement des narratives faibles »*). Le scorer est maintenant correct ; les inputs sont uniformes. **Le vrai prochain fix de diversité = sourcing**, pas le scorer.
 
+## Itération 4 — le sourcing n'est pas le problème non plus
+
+Pushback final mérité : *« avant d'acheter une seule source de plus, vérifier que tes signal_types catalyst/data atteignent seulement le scorer. Un sample 100% newsletter suggère que tes sources haute évidence sous-coulent face aux newsletters. Tu as peut-être déjà les bonnes sources ; elles n'arrivent juste pas jusqu'au scorer. »*
+
+Diagnostic 5 minutes :
+
+```
+filings_8k_log    :  43 rows   (8-K classifiés catastrophic/high/medium)
+insider_snapshots : 378 rows   (Form 4 ingérés via shared/edgar.py)
+─────────────────────────────
+Total données primaires : 421 rows présentes en DB
+sources.type unique : 'newsletter' (rien d'autre)
+```
+
+**Les sources primaires existent. Le code d'ingestion tourne. Mais aucune ne génère de rows dans `signals`.** EDGAR + 8-K coulent dans des tables parallèles. Le scorer V2 voit 100% newsletter parce que c'est tout ce qui entre dans `signals → V2 → predictions`.
+
+L'hypothèse "wire 8-K + insider dans signals débloque la diversité prédite par V2" est **plausible mais non vérifiée**. Je n'ai pas vu une vraie 8-K severity=high traverser V2 et sortir un call strong à 0.75+. Format mismatch possible (le `title`/`summary` d'une 8-K ne ressemble pas à celui d'un earnings release synthétique). Severity→evidence translation non testée.
+
+**Capture du diagnostic, pas commit de la conclusion.** Publier "wirer résout tout" avant de l'avoir vu = commettre dans le post le péché exact dont parle le post.
+
+Sous-décision masquée : backfiller les 421 lignes historiques ou forward-only ? Backfiller = 378 prédictions stale-dated = nouvel artefact temporel (cousin du cluster horizon=30 résolu au sprint précédent). Décision non triviale, à trancher délibérément en session fraîche.
+
+## L'arc, en une phrase publiable (draft)
+
+*« Audit pré-batch → mono-bucket → V2 cassé spread → cassé sémantique → cassé frontière commit → bouclé sur "sourcing" → bouclé sur "wiring sourcing" → vérification pending. À chaque étape, j'allais conclure. À chaque étape, vérifier d'abord m'a fait trouver le vrai bug une couche plus bas. »*
+
 ## Trois vigilances pour la suite
 
 1. **Watch-rate distribution dans le temps**. Si on tend vers 50%+ watch sur 4 semaines, on a re-créé une ancre par défaut côté refus. Dashboard : "predictions registered/watch/skipped per week".
