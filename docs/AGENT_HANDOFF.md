@@ -129,7 +129,9 @@ Le Telegram automatique enverra counts (correct/incorrect/neutral) mais SANS Bri
 - **Path 6 / publication** : differe jusqu'a calibration plot publishable (N V2 >= 50 ideally). Pas le 10/06.
 - **Concentration AI Compute** (~75% du book vs cible user_strategy 75%) : at_or_below, OK temporairement, mais a surveiller drift.
 - **Wire insider clusters** : code en place, hook actif, mais 0 cluster detecte recemment. Si en 30j toujours 0, debug `scheduled_buy_cluster_scan_job` ou re-tune le seuil `is_buy_cluster`.
-- **Tests `slow` marker** : 3 tests reseau-dependants dans `tests/test_edgar_exhibits.py` + 1 dans `tests/test_edgar_signal_wire.py`. Lancer pre-release : `pytest -m slow`. Skipped par defaut.
+- **Tests `slow` marker** : 3 tests reseau-dependants dans `tests/test_edgar_exhibits.py` + 1 dans `tests/test_edgar_signal_wire.py`. Lancer pre-release : `pytest -m slow`. Skipped par defaut. **VERIFIE 30/05 : 4/4 passent.**
+- **Cron weekly V2 vigilance** : `weekly_v2_vigilance_check_job` (lundi 7h) check les 3 vigilances (watch-rate, prob spread, insider clusters alive). Push Telegram UNIQUEMENT si ALERT/WARN. Si tu vois apparaitre un push "⚠️ V2 Vigilance" : ce n'est pas un bug, c'est le systeme qui te previent qu'une dynamique drift (cf `intelligence/v2_vigilance.py` seuils + decision log #01 vigilances 1-3).
+- **Bot.log rotation** : `bash scripts/rotate_bot_log.sh` (MANUEL UNIQUEMENT). Demande confirmation, kill bot, archive bot.log -> bot.log.YYYY-MM-DD_HHMMSS.gz, redemarre caffeinate. A lancer post-10/06 si bot.log > 10MB.
 
 ## 10. Lecons cardinales
 

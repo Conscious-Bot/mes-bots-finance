@@ -123,6 +123,14 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 - **MU fix** (commit 49acd34) : qty 0.119 → 1.224 (€99.5 → €1020.10). Trim fantôme du 29/05 supprimé (event #4 DELETE, decision #23 [VOIDED], cf#55 conservée append-only + filtre dans `measure_bias`).
 - **2 failures découvertes + corrigées** : asym rounding (round 2→3) + patterns table restaurée (decision_copilot la query, code dead-path mais SELECT doit pas crasher).
 
+### 30/05 vraiment fin — vigilances mecanisees + rotate manuel + README parcours
+
+Apres la grosse save (commits 0655fd3 + tag eod-30-05-full), 3 chantiers supplementaires :
+
+- **Vigilances V2 mecanisees** (`intelligence/v2_vigilance.py` + `bot/jobs/periodic.weekly_v2_vigilance_check_job`) : cron weekly lundi 7h. 3 checks (watch-rate, prob spread cohorte directionnelle, insider clusters alive). Push Telegram UNIQUEMENT si ALERT/WARN. Plus besoin de surveiller a la main. Smoke run actuel deja detecte `insider_clusters_alive: ALERT (0 cluster 30j)` -- alerte qui sera push au prochain lundi.
+- **Bot.log rotation manuelle** (`scripts/rotate_bot_log.sh`) : a lancer MANUELLEMENT post-10/06 si bot.log > 10MB. JAMAIS automatique (tronquer un fichier ouvert par le bot = subtle). Pattern : kill bot, rotate+gzip, restart caffeinate.
+- **README + ADR index refresh** : parcours de lecture (Quick 15min / Medium 1h / Deep 3h), 414 tests acte, ADR 012 ajoute a l'index (19 ADRs total). Phase A juillet item "tiers lit le repo en ~1h" -- DONE en avance.
+
 ### 30/05 fin de session — bilan total + grosse save
 
 **35 commits, 14 chantiers, 10 itérations** sur l'arc V2 calibration. Tag git `eod-30-05`. Backup `~/backups/snapshot_20260530_*.tar.gz`. 414/414 tests verts.

@@ -144,6 +144,7 @@ from bot.jobs import (
     weekly_kpi_status_job,
     weekly_portfolio_narrative_synthesis_job,
     weekly_user_profile_refresh_job,
+    weekly_v2_vigilance_check_job,
 )
 
 
@@ -184,8 +185,7 @@ async def post_init(app):
     # Si le book est incoherent on log + on continue en mode degrade,
     # mais on ne demarre pas silencieusement sur du sable.
     try:
-        from shared import notify as _notify
-        from shared import storage as _stg
+        from shared import notify as _notify, storage as _stg
 
         violations = _stg.assert_book_invariants(strict=False)
         if violations:
@@ -229,6 +229,8 @@ async def post_init(app):
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
     sched.add_job(daily_crypto_zone_job, "cron", hour=10, minute=0)
     sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=0)
+    # V2 vigilances : check hebdo lundi 7h, push Telegram UNIQUEMENT si ALERT/WARN
+    sched.add_job(weekly_v2_vigilance_check_job, "cron", day_of_week="mon", hour=7, minute=0)
     sched.add_job(monthly_bot_preferences_synthesis_job, "cron", day=1, hour=4, minute=0, misfire_grace_time=86400)
     sched.add_job(cron_tier1_daily, "cron", hour=6, minute=0)
     sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)

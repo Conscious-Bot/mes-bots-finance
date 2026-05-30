@@ -43,6 +43,7 @@ from bot.jobs.periodic import (
     weekly_cost_summary_job,
     weekly_handler_stats_job,
     weekly_kpi_status_job,
+    weekly_v2_vigilance_check_job,
 )
 
 __all__ = [
@@ -80,4 +81,5 @@ __all__ = [
     "weekly_kpi_status_job",
     "weekly_portfolio_narrative_synthesis_job",
     "weekly_user_profile_refresh_job",
+    "weekly_v2_vigilance_check_job",
 ]

@@ -1,41 +1,66 @@
-# mes-bots-finance
+# mes-bots-finance (PRESAGE)
 
-Closed-loop personal finance intelligence: Telegram bot + Claude integration. Self-learning thesis tracker with bidirectional discipline enforcement.
+Closed-loop personal finance intelligence: Telegram bot (`@Hawk_Dove_bot`) + Claude. Self-learning thesis tracker with bidirectional discipline enforcement.
 
-## CI Status
+**Le bot ne trade pas.** Il mécanise la discipline pré-commit pour compenser deux biais asymétriques empiriquement documentés : vendre les winners trop tôt + ne pas vendre crypto aux tops d'indicateurs. Boucle : ingestion → process LLM → décision → prédiction (horizon mesurable) → outcome → calibration → réinjection contexte.
 
-Private repo — CI runs on every push to main against ruff + mypy (16 strict-typed modules) + pytest (270 tests). Visible in GitHub Actions tab. Badge omitted (requires public repo OR PAT setup).
+## État (30/05/2026)
 
-Going public is a post-June-2026 decision pending Brier baseline empirical (KPI #2 batch resolution 10 June 2026, ~45 predictions cluster).
+- **414 tests verts** (+ 4 slow network-dependent, `pytest -m slow`)
+- **Bot** : Python 3.14 / SQLite WAL / APScheduler / cascade Anthropic Haiku-Sonnet-Opus
+- **Privé** : repo `Conscious-Bot/mes-bots-finance`. Going public différé post-août (cf calibration V2 wired).
+- **Mode** : High Standard / Solidification. Phase A du PLAN_ACQUIHIRE.
 
-## Stack
+## Parcours de lecture (selon profondeur)
 
-- Python 3.14
-- SQLite (WAL mode)
-- APScheduler
-- Anthropic Claude API (Haiku / Sonnet / Opus cascade)
-- python-telegram-bot
+**Quick read (~15 min)** : qu'est-ce que c'est et où on en est
+1. `docs/AGENT_HANDOFF.md` — manuel de reprise pour agent IA, contrat de travail + 5 pièges connus + leçons cardinales
+2. `FICHE_TECHNIQUE.md` — mission + stack + KPIs + résumé dernière session
+
+**Medium read (~1h)** : ajouter le pourquoi + les invariants
+3. `PHILOSOPHY.md` — High Standard Mode + boucle décision-outcome-rétrospection
+4. `CONVENTIONS.md` — naming + structure + Lessons 1-41 + règle DB_PATH (§5)
+5. `docs/adrs/README.md` — index des Architecture Decision Records (12 ADRs)
+6. `docs/decision_logs/01_calibration_unanchored.md` — arc V2 calibration 10 itérations (30/05)
+
+**Deep read (~3h)** : voir le code en action
+7. `intelligence/signal_scorer_v2.py` — élicitation probabiliste 3 étapes (canonique)
+8. `intelligence/edgar_signal_wire.py` — wire SEC primary forward-only
+9. `shared/storage.py` — passerelle DB unique (sauf modules-domaine, cf CONVENTIONS §5)
+10. `posts/post_01_calibration_unanchored.md` — narratif publishable de l'arc
+
+## Stack contraintes
+
+- Python 3.14, SQLite **WAL mode**, APScheduler, embeddings BGE-small-en-v1.5 locaux
+- Cascade Anthropic : Haiku (volume) / Sonnet (enrich) / Opus (raisonnement)
+- Dashboard read-only : `dashboard/render.py` (static-gen → dashboard.html) + `dashboard/serve.py` (stdlib, 127.0.0.1:8000)
+- **INTERDITS** : FastAPI / Postgres / Redis / LangGraph. Local MacBook Pro, pas de cloud.
 
 ## Tests
 
 ```bash
-make test         # pytest verbose
-make test-cov     # with coverage report
+venv/bin/pytest tests/ -q                # 414 tests rapides (~2 min)
+venv/bin/pytest tests/ -m slow           # 4 tests reseau-dependants
+venv/bin/ruff check .                    # lint
 ```
-
-270 tests passing — Hypothesis property-based on math-critical modules:
-- `shared/math_helpers.py` (credibility clamping, Brier scoring)
-- `intelligence/materiality_v2.py` (composite materiality rubric)
-- `intelligence/asymmetry.py` (verdict logic)
-- `intelligence/learning.py` (horizon diversification)
-
-## Architecture
-
-See `FICHE_TECHNIQUE.md` (mission + stack + KPIs) and `docs/` for:
-- `SOURCES.md` — newsletter tiers S/A/B empirical
-- `failure_modes.md` — 12 failure scenarios + runbooks (FM-1 to FM-12, codified through Day 11+12 marathon)
 
 ## Path 5/6 strategic mode
 
-This project is in **High Standard / Solidification** mode, targeting either acquihire (18-24mo) or Substack/prosumer subscription (24-36mo). See `PHILOSOPHY.md` and `TODO.md` for the 4-dimensions roadmap.
+Acquihire (18-24mo) **ou** Substack/prosumer subscription (24-36mo). Cf `PLAN_ACQUIHIRE.md` pour l'arc 6 mois (Phase A fondations / Phase B publication / Phase C distribution). Track record vérifiable = l'asset central.
 
+## Documents canoniques
+
+| Fichier | Rôle |
+|---|---|
+| `docs/AGENT_HANDOFF.md` | **Premier doc à lire**. Manuel de reprise + pièges + leçons |
+| `FICHE_TECHNIQUE.md` | Mission + stack + KPIs runtime + dernière session |
+| `PLAN_ACQUIHIRE.md` | Arc 6 mois strategic (Phase A/B/C) |
+| `PHILOSOPHY.md` | High Standard Mode + boucle |
+| `CONVENTIONS.md` | Naming + structure + Lessons 1-41 |
+| `TODO.md` | Backlog actionnel courant |
+| `SESSION_STATE.md` | Handoff de session (tail = état courant) |
+| `docs/adrs/` | 12 Architecture Decision Records |
+| `docs/decision_logs/` | Decision logs longs (`01_calibration_unanchored.md` = arc V2) |
+| `posts/` | Posts canoniques bilingues FR+EN (publication différée) |
+
+Aucun chemin caché : tout est traçable depuis `AGENT_HANDOFF.md`.

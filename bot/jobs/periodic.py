@@ -86,6 +86,36 @@ async def refresh_source_half_lives_job():
         log.exception(f"refresh_source_half_lives_job crashed: {e}")
 
 
+async def weekly_v2_vigilance_check_job():
+    """Cron weekly : check les 3 vigilances V2 (watch-rate, prob spread, insider clusters alive).
+
+    Push Telegram UNIQUEMENT si une vigilance ALERT/WARN -- pas de spam si tout sain.
+    Cf intelligence/v2_vigilance.py + decision_log/01_calibration_unanchored.md
+    sections 'Trois vigilances pour la suite'.
+    """
+    log.info("V2 vigilance check starting")
+    try:
+        from intelligence import v2_vigilance
+
+        results = v2_vigilance.run_all_vigilances()
+        msg = v2_vigilance.format_vigilance_report(results)
+
+        # Log toutes les vigilances (status detail) pour debug
+        for r in results:
+            log.info(f"vigilance {r['name']} status={r['status']} -- {r['message']}")
+
+        if msg:
+            try:
+                notify.send_text(msg)
+                log.info(f"V2 vigilance alert envoyee (length={len(msg)})")
+            except Exception as e:
+                log.warning(f"v2_vigilance: telegram send failed: {e}")
+        else:
+            log.info("V2 vigilance : tout sain, pas de push")
+    except Exception as e:
+        log.exception(f"weekly_v2_vigilance_check_job crashed: {e}")
+
+
 async def recalibrate_credibility_brier_job():
     """Phase A1 — Monthly cron: recalibrate sources.credibility from rolling Brier scores."""
     log.info("Brier credibility recalibration starting")
