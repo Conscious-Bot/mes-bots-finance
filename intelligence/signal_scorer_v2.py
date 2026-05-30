@@ -84,11 +84,19 @@ def score_directional_probability(
         f"SUMMARY: {summary_s}\n"
         f"CONTENT EXCERPT: {content_s}\n"
         f"ENTITIES MENTIONED: {entities_str}\n\n"
+        "PROBABILITY SEMANTICS (READ CAREFULLY):\n"
+        "  `probability` = P(your directional call is CORRECT), NOT P(price up).\n"
+        "  - bullish call with prob=0.70 means: 70% confident the price WILL move up >5%\n"
+        "  - bearish call with prob=0.70 means: 70% confident the price WILL move down >5%\n"
+        "  - prob MUST be in [0.50, 0.95] for any direction != watch -- if you are\n"
+        "    less than 50% sure your call is correct, the call should not be made;\n"
+        "    set direction='watch' instead. A bearish prob of 0.38 is logically\n"
+        "    incoherent (it means you think bearish is WRONG with 62% confidence,\n"
+        "    so you should be bullish 0.62 or watch).\n\n"
         "STEP 1 — BASE RATE (no signal):\n"
-        "  State the base rate of a directional move (>5%) for this ticker over\n"
-        "  this horizon, ignoring the signal entirely. For most liquid equities\n"
-        "  over 30d this is near 0.50 (slightly above if bullish drift accepted).\n"
-        "  DO NOT default to 0.6 'pour le confort'.\n\n"
+        "  State the base rate that A DIRECTIONAL CALL would be correct over this\n"
+        "  horizon WITHOUT any signal-specific evidence. This is ~0.50 by default\n"
+        "  (random guess). DO NOT default to 0.6 'pour le confort'.\n\n"
         "STEP 2 — ADJUSTMENT (evidence-driven):\n"
         "  List the specific evidence in this signal that justifies deviating\n"
         "  from base rate, and by how much. Be explicit on strength:\n"
@@ -169,6 +177,19 @@ def score_directional_probability(
             log.info(
                 f"signal_scorer_v2 [{ticker}]: ev={ev_str} -> force direction=watch "
                 f"(was {direction}, prob {prob:.3f}). Weak = non-falsifiable."
+            )
+            direction = "watch"
+
+        # Server-side enforcement #3 (audit 30/05 iteration 3) : coherence
+        # semantique. prob = P(call correct). Si prob < 0.55 pour une direction,
+        # ca veut dire "je suis < 55% sur que ce call est correct" -> on devrait
+        # etre a l'opposite OU watch. Watch est plus safe. Observe sur sample 20
+        # iter 2 : 5 bearish a [0.38-0.42] = LLM confondait P(price up) et
+        # P(call correct). Sans cet enforcement, calls incoherent passent.
+        if direction in ("bullish", "bearish") and prob < 0.55:
+            log.info(
+                f"signal_scorer_v2 [{ticker}]: direction={direction} mais prob={prob:.3f} < 0.55 "
+                f"(P(call correct) < pile-ou-face) -- snap to watch. Semantique incoherente."
             )
             direction = "watch"
 

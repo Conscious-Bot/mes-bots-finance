@@ -152,6 +152,35 @@ Relecture du sample 8 réels post-fix source : 3 evidence=weak étaient en ledge
 
 Probable (b) mais non prouvé. Sample biaisé (tirage RANDOM sur batch dominé par tech opinions). Vrai test = sample diversifié (earnings beats, macro, regulatory) — à faire dès qu'on a la matière.
 
+## Itération 3 — sémantique cassée (encore)
+
+Test diversité synthétique sur 6 cas variés (NVDA bull strong, TSLA bear strong, AMZN bear strong, REGN bull strong, MSFT bull moderate, GOOGL bear moderate) pour cracker la cohorte directionnelle [0.38-0.42] observée iter 2. Résultat : **range [0.62-0.77] sur les directional** — la cohorte PEUT spread quand l'évidence varie. Le mono-bucket [0.38-0.42] du sample précédent était du au sourcing (toutes opinions tech AI = même catégorie).
+
+**Mais** en re-lisant les outputs côte-à-côte avec le sample 20 réels :
+
+| Sample | Output type | Interpretation |
+|---|---|---|
+| Synthetic bear strong | bearish 0.75 | P(bearish call correct) = 0.75 ✅ cohérent |
+| Real sample bearish | bearish 0.38 | P(bearish call correct) = 0.38 ⚠️ incohérent |
+
+Si je suis à 38% sûr que bearish est correct, je suis à 62% sûr que bullish est correct. **Le LLM confondait P(call correct) avec P(price up).** Le prompt était ambigu sur la sémantique de `probability`.
+
+**Fix iteration 3** :
+1. Prompt clarifié explicitement : `probability = P(your directional call is CORRECT), NOT P(price up). MUST be in [0.50, 0.95] for any direction != watch.`
+2. Server-side enforcement #3 : `if direction != 'watch' and prob < 0.55: snap to watch`. Logique : on ne commit pas si on n'est pas plus sûr que pile-ou-face.
+
+Re-test 6 synthétiques iter 3 : strong → [0.72-0.75] (cohérent), weak/none → watch, edge case "moderate evidence but unclear direction" → LLM downgrade à `none` + watch (auto-correction propre).
+
+Re-test sample n=20 réels iter 3 :
+- 13 weak (forced watch), 7 moderate bearish
+- **Cohorte directionnelle : 7 bearish à [0.60-0.62]** (vs [0.38-0.42] iter 2)
+- Watch rate : 65% (légèrement bas car prompt clarifié réduit les downgrades)
+- Invariant prob ≥ 0.55 pour direction != watch : ✅ 0 violations
+
+Le fix sémantique a marché : la cohorte n'est plus incohérente. **Mais encore mono-bucket [0.60-0.62]** sur ce sample. Pourquoi : tous les real samples sont des newsletters tech opinion = evidence plafond = moderate. Les synthétiques strong sortaient 0.72-0.77. **La diversité de la cohorte directionnelle dépend de la diversité d'évidence, qui dépend du sourcing**.
+
+Conclusion : on a bouclé sur la limite originale #2 (*« le pipeline génère majoritairement des narratives faibles »*). Le scorer est maintenant correct ; les inputs sont uniformes. **Le vrai prochain fix de diversité = sourcing**, pas le scorer.
+
 ## Trois vigilances pour la suite
 
 1. **Watch-rate distribution dans le temps**. Si on tend vers 50%+ watch sur 4 semaines, on a re-créé une ancre par défaut côté refus. Dashboard : "predictions registered/watch/skipped per week".
