@@ -1,0 +1,45 @@
+{
+  "verdict": "LOW_NOISE_single_run_OK",
+  "global_mean_std": 0.0062,
+  "n_signals_tested": 2,
+  "per_signal": [
+    {
+      "signal_id": 110,
+      "n_runs": 10,
+      "mean": 0.61,
+      "std": 0.0125,
+      "range": 0.03,
+      "all_probas": [
+        0.62,
+        0.59,
+        0.6,
+        0.59,
+        0.61,
+        0.62,
+        0.62,
+        0.62,
+        0.61,
+        0.62
+      ]
+    },
+    {
+      "signal_id": 137,
+      "n_runs": 10,
+      "mean": 0.53,
+      "std": 0.0,
+      "range": 0.0,
+      "all_probas": [
+        0.53,
+        0.53,
+        0.53,
+        0.53,
+        0.53,
+        0.53,
+        0.53,
+        0.53,
+        0.53,
+        0.53
+      ]
+    }
+  ]
+}
