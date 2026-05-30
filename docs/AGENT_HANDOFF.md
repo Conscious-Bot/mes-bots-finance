@@ -15,6 +15,8 @@
 
 Systeme d'intelligence finance perso en boucle fermee self-learning. Telegram bot (@Hawk_Dove_bot) + Claude. Marque: PRESAGE (le veilleur qui voit/entend et sonne le Gjallarhorn).
 
+**Brand line (verrouillee 30/05/2026)** : *"La verite dans le bruit / Truth in the noise"*. Couvre le projet public en 4 mots bilingues. Couplee mais pas confondue avec l'asset distinctif (cf section 8 piege #1-2 + decision_log/01_calibration_unanchored.md) : "lies that pass every green check" / "the layer you haven't checked yet" -- l'auto-correction du jugement, signature de l'arc 30/05.
+
 Le bot NE TRADE PAS. Il mecanise la discipline pre-commit pour compenser deux biais asymetriques d'Olivier:
 1. vend les winners trop tot (locking-in + mean-reversion) — historique PLTR @9, NVDA @130;
 2. ne vend pas la crypto aux tops d'indicateurs (FOMO/greed sur BTC/ETH).

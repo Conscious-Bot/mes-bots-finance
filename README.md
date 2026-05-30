@@ -1,5 +1,7 @@
 # mes-bots-finance (PRESAGE)
 
+> **La vérité dans le bruit. / Truth in the noise.**
+
 Closed-loop personal finance intelligence: Telegram bot (`@Hawk_Dove_bot`) + Claude. Self-learning thesis tracker with bidirectional discipline enforcement.
 
 **Le bot ne trade pas.** Il mécanise la discipline pré-commit pour compenser deux biais asymétriques empiriquement documentés : vendre les winners trop tôt + ne pas vendre crypto aux tops d'indicateurs. Boucle : ingestion → process LLM → décision → prédiction (horizon mesurable) → outcome → calibration → réinjection contexte.
