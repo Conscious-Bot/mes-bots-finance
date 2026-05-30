@@ -3,8 +3,8 @@
 Vigilance #4 (post tennis-bot audit harvest 31/05/2026) :
 "Quand le scorer dit 70%, ca realise reellement a 70% ?"
 
-S'active automatiquement quand on a >= MIN_N_TOTAL predictions resolved non-neutral
-(cible 10/06/2026 = batch KPI #2 ~45 predictions resolved).
+S'active automatiquement quand on a >= MIN_N_TOTAL predictions resolved non-neutral.
+Trigger = DATA, pas DATE : pas de calendrier arbitraire, juste accumulation cohorte.
 
 Logique :
 - Query predictions WHERE resolved_at IS NOT NULL AND brier_score IS NOT NULL
@@ -151,7 +151,8 @@ def check_scorer_calibration(cx, days: int | None = None) -> dict[str, Any]:
             "n_total": n_total, "days": days, "buckets": [], "avg_brier": None,
             "message": (
                 f"Calibration audit : n={n_total} predictions resolved non-neutral "
-                f"(<{MIN_N_TOTAL} requis). Cibler 10/06/2026 (batch KPI #2 ~45 predictions)."
+                f"(<{MIN_N_TOTAL} requis). Trigger = accumulation, pas date. "
+                f"S'active automatiquement des que seuil atteint."
             ),
         }
 

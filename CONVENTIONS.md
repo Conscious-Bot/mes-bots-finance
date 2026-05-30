@@ -1615,10 +1615,11 @@ Origine : audit forensique tennis-bot 30-31/05 a etabli un standard de disciplin
 
 ### Quand cette discipline s'active
 
-- **10/06/2026 (KPI #2 batch)** : ~45 predictions resolved disponibles. Premier vrai test de calibration scorer V2. Appliquer regles 1-5 sur ce batch.
-- **N >= 30 thèses resolved cumul** : Brier moyen + Wilson CI sur hit-rate.
-- **N >= 100 thèses resolved cumul** : reliability diagram complet par bucket de probabilite (cf `intelligence/calibration_audit.py` a porter depuis tennis-bot patterns).
+Triggers data-driven (pas de calendrier arbitraire) :
+- **N >= 30 predictions resolved non-neutral** : Brier moyen + Wilson CI sur hit-rate, premier verdict calibration scorer V2 utile.
+- **N >= 100 predictions resolved non-neutral** : reliability diagram complet par bucket de probabilite, decomposition Brier (uncertainty - resolution + reliability).
 - **Tout nouveau finding empirique mesure dans dashboard / docs** : reporter format 7-items obligatoire.
+- `intelligence/calibration_audit.py` retourne automatiquement INSUFFICIENT_DATA tant que seuil non atteint, puis s'active des que n>=30.
 
 ### Provenance et invalidations evitees
 
