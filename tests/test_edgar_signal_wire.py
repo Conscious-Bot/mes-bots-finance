@@ -19,12 +19,11 @@ import pytest
 
 
 def _setup_isolated_db(tmp_path, monkeypatch):
-    """Cree une DB SQLite isolee + monkeypatch les DEUX paths storage.
+    """Cree une DB SQLite isolee + monkeypatch storage.DB_PATH.
 
-    Bug attrape 30/05 : storage a DEUX path globals -- DB_PATH (utilise par
-    le context manager db()) et _DB_PATH (utilise par fonctions raw connect).
-    Monkeypatch un seul = l'autre va lire la prod DB silencieusement. Critique
-    en test car les inserts polluent la prod.
+    Apres consolidation 30/05 (commit X) : storage._DB_PATH est resolu
+    dynamiquement via __getattr__ -> retourne DB_PATH courant. Donc UN seul
+    monkeypatch sur DB_PATH suffit, _DB_PATH suit automatiquement.
 
     Schema minimal : sources, signals, predictions (le module wire n'utilise pas
     les autres tables).
@@ -59,7 +58,7 @@ def _setup_isolated_db(tmp_path, monkeypatch):
 
     from shared import storage
     monkeypatch.setattr(storage, "DB_PATH", db_path)
-    monkeypatch.setattr(storage, "_DB_PATH", str(db_path))
+    # _DB_PATH n'a plus besoin d'etre patch separement (cf storage.__getattr__).
     return db_path
 
 

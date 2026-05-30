@@ -122,7 +122,6 @@ def seed_narratives(narratives_config: list[dict[str, Any]]) -> None:
 # === Phase 2 : Gmail ingestion helpers ===
 
 import sqlite3 as _sqlite3
-from pathlib import Path as _Path
 
 
 def get_open_positions() -> list[dict]:
@@ -198,7 +197,14 @@ def get_portfolio_snapshots(limit: int = 400) -> list[dict]:
     return [dict(zip(keys, r)) for r in rows]
 
 
-_DB_PATH = _Path("data/bot.db")
+# Note : _DB_PATH n'est plus un module attribute statique. Il est resolu
+# dynamiquement via __getattr__ (defini en bas du fichier) -> retourne
+# toujours la valeur COURANTE de DB_PATH. Ainsi, monkeypatch(storage,
+# "DB_PATH", x) propage automatiquement a tous les ~28 callers externes
+# qui font storage._DB_PATH. Bug pollution prod 30/05 : un test
+# monkeypatch _DB_PATH n'affectait pas DB_PATH (et vice versa), et
+# l'ancienne _DB_PATH = Path("data/bot.db") etait CWD-relative -- les
+# deux sources de bug fixees par cette consolidation.
 
 
 def _naive_utc_iso() -> str:
@@ -221,7 +227,7 @@ def _naive_utc_iso() -> str:
 
 def signal_exists_by_gmail_id(gmail_id: str) -> bool:
     """Check if a Gmail message has already been ingested."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT 1 FROM signals WHERE gmail_id = ? LIMIT 1", (gmail_id,)).fetchone()
         return row is not None
@@ -231,7 +237,7 @@ def signal_exists_by_gmail_id(gmail_id: str) -> bool:
 
 def get_or_create_source(sender: str) -> int:
     """Resolve sender string to source_id. Creates a new source if unknown."""
-    conn: _sqlite3.Connection = _sqlite3.connect(_DB_PATH)
+    conn: _sqlite3.Connection = _sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT id FROM sources WHERE name = ?", (sender,)).fetchone()
         if row:
@@ -253,7 +259,7 @@ def get_or_create_source_typed(name: str, type_: str, credibility: float) -> int
     Pour sources primaires (sec_filing, regulatory, etc.) qui ont une credibility
     de base != 0.50. Utilise par intelligence/edgar_signal_wire.py (8-K SEC).
     """
-    conn: _sqlite3.Connection = _sqlite3.connect(_DB_PATH)
+    conn: _sqlite3.Connection = _sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT id FROM sources WHERE name = ?", (name,)).fetchone()
         if row:
@@ -289,7 +295,7 @@ def insert_primary_filing_signal(
 
     Retourne signal_id si nouveau, None si deja insere (dedup silencieux).
     """
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         try:
             cur = conn.execute(
@@ -317,7 +323,7 @@ def insert_raw_signal(source_id: int, gmail_id: str, timestamp: str, subject: st
     """
     if _is_welcome_signal(subject, content):
         return None
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         try:
             cur = conn.execute(
@@ -375,7 +381,7 @@ def insert_thesis(
             return v
         return [v]
 
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
             """INSERT INTO theses
@@ -412,7 +418,7 @@ def insert_thesis(
 
 def list_theses(status="active"):
     """List theses by status. Returns list of dicts (JSON parsed)."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute("SELECT * FROM theses WHERE status = ? ORDER BY opened_at DESC", (status,)).fetchall()
@@ -423,7 +429,7 @@ def list_theses(status="active"):
 
 def get_thesis(thesis_id):
     """Get a thesis by id. Returns dict or None."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         row = conn.execute("SELECT * FROM theses WHERE id = ?", (thesis_id,)).fetchone()
@@ -434,7 +440,7 @@ def get_thesis(thesis_id):
 
 def get_thesis_by_ticker(ticker, status="active"):
     """Get the active thesis for a ticker. Returns dict or None."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         row = conn.execute(
@@ -448,7 +454,7 @@ def get_thesis_by_ticker(ticker, status="active"):
 def update_thesis_revisit(thesis_id):
     """Mark thesis as revisited now."""
     now = datetime.now(UTC).isoformat()
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE theses SET last_revisit_at = ? WHERE id = ?", (now, thesis_id))
         conn.commit()
@@ -459,7 +465,7 @@ def update_thesis_revisit(thesis_id):
 def append_thesis_note(thesis_id, note):
     """Append a timestamped note to a thesis."""
     now = datetime.now(UTC).isoformat()
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT notes FROM theses WHERE id = ?", (thesis_id,)).fetchone()
         existing = (row[0] if row and row[0] else "") or ""
@@ -481,7 +487,7 @@ def close_thesis(thesis_id, status, exit_price=None, reason=None):
     if reason:
         parts.append(f"reason={reason}")
     note_line = " ".join(parts)
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT notes FROM theses WHERE id = ?", (thesis_id,)).fetchone()
         existing = (row[0] if row and row[0] else "") or ""
@@ -501,7 +507,7 @@ def get_theses_due_for_revisit(days_threshold=30):
     fresh (5-day-old) theses for monthly revisit (blast radius = whole book).
     """
     cutoff = (datetime.now(UTC) - timedelta(days=days_threshold)).isoformat()
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -524,7 +530,7 @@ def get_theses_due_for_revisit(days_threshold=30):
 
 def get_unprocessed_signals(limit=20):
     """Get raw signals (emails) not yet scored. Returns list of dicts with source_name."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -543,7 +549,7 @@ def get_unprocessed_signals(limit=20):
 
 def update_signal_insights(signal_id, score, sentiment, tickers, narratives, summary):
     """Update a signal with LLM-extracted insights."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute(
             """UPDATE signals
@@ -570,7 +576,7 @@ def set_signal_feedback(signal_id, rating):
     """Set user feedback on a signal. rating: 'up' | 'down'."""
     if rating not in ("up", "down"):
         raise ValueError(f"rating must be 'up' or 'down', got {rating}")
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE signals SET user_feedback = ? WHERE id = ?", (rating, signal_id))
         conn.commit()
@@ -580,7 +586,7 @@ def set_signal_feedback(signal_id, rating):
 
 def get_signal(signal_id):
     """Get a signal with source info joined."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         row = conn.execute(
@@ -596,7 +602,7 @@ def get_signal(signal_id):
 
 def update_source_credibility(source_id, delta):
     """Adjust credibility by delta, clamped to [0.05, 1.0]."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT credibility FROM sources WHERE id = ?", (source_id,)).fetchone()
         if not row:
@@ -612,7 +618,7 @@ def update_source_credibility(source_id, delta):
 
 def get_top_sources(n=10, min_signals=3):
     """Get top sources by credibility."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -628,7 +634,7 @@ def get_top_sources(n=10, min_signals=3):
 
 def get_worst_sources(n=5, min_signals=5):
     """Get worst sources by credibility (candidates to drop)."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -648,7 +654,7 @@ def get_recent_processed_signals(hours=72, limit=20):
     """
     import json as _json
 
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -680,7 +686,7 @@ def get_recent_processed_signals(hours=72, limit=20):
 
 def insert_shadow_decision(decision_type, decision_id, input_data, variants):
     """Persist a shadow decision for later outcome resolution."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
             "INSERT INTO shadow_decisions (decision_type, decision_id, input_data, variants) VALUES (?, ?, ?, ?)",
@@ -694,7 +700,7 @@ def insert_shadow_decision(decision_type, decision_id, input_data, variants):
 
 def get_unresolved_shadow_decisions(limit=100):
     """Fetch shadow decisions not yet resolved."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -736,7 +742,7 @@ def insert_prediction(
 
     from shared.math_helpers import estimate_probability
 
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         if probability_override is not None:
             # V2 path : trust caller's probability
@@ -773,7 +779,7 @@ def insert_prediction(
 
 
 def get_due_predictions(limit=50):
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -787,7 +793,7 @@ def get_due_predictions(limit=50):
 
 def resolve_prediction_row(prediction_id, final_price, return_pct, outcome, credibility_delta, brier_score=None):
     """Phase A1 — Brier: stores brier_score at resolution time."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute(
             "UPDATE predictions SET resolved_at=CURRENT_TIMESTAMP, final_price=?, return_pct=?, "
@@ -800,7 +806,7 @@ def resolve_prediction_row(prediction_id, final_price, return_pct, outcome, cred
 
 
 def get_recent_predictions(limit=20):
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -814,7 +820,7 @@ def get_recent_predictions(limit=20):
 
 def insert_event(event_type, date, ticker=None, description=None):
     """Insert event, idempotent via UNIQUE constraint."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
             "INSERT OR IGNORE INTO events (event_type, ticker, date, description) VALUES (?, ?, ?, ?)",
@@ -828,7 +834,7 @@ def insert_event(event_type, date, ticker=None, description=None):
 
 def get_upcoming_events(days_ahead=14):
     """Events within next days_ahead days."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -842,7 +848,7 @@ def get_upcoming_events(days_ahead=14):
 
 def delete_old_events(keep_days=30):
     """Clean up events older than keep_days."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute("DELETE FROM events WHERE date < date('now', '-' || ? || ' days')", (keep_days,))
         conn.commit()
@@ -962,7 +968,7 @@ def log_decision(
     valid_types = {"entry", "scale_in", "partial_exit", "full_exit", "override", "no_action_flag"}
     if decision_type not in valid_types:
         raise ValueError(f"decision_type must be in {valid_types}, got {decision_type}")
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
             "INSERT INTO decisions (ticker, decision_type, direction, confidence_pre, reasoning, "
@@ -989,7 +995,7 @@ def log_decision(
 
 def get_decision(decision_id):
     """Fetch single decision by id. Returns dict or None."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         row = conn.execute("SELECT * FROM decisions WHERE id = ?", (decision_id,)).fetchone()
@@ -1003,7 +1009,7 @@ def get_unresolved_decisions(horizon_days):
     if horizon_days not in (30, 90):
         raise ValueError("horizon_days must be 30 or 90")
     col = f"resolved_{horizon_days}d_at"
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -1022,7 +1028,7 @@ def resolve_decision(decision_id, horizon_days, price, return_pct, thesis_relati
     if horizon_days not in (30, 90):
         raise ValueError("horizon_days must be 30 or 90")
     suffix = f"{horizon_days}d"
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute(
             f"UPDATE decisions SET resolved_{suffix}_at = ?, price_{suffix} = ?, "
@@ -1045,7 +1051,7 @@ def resolve_decision(decision_id, horizon_days, price, return_pct, thesis_relati
 
 def get_recent_decisions(n=20, only_resolved=False, ticker=None):
     """List recent decisions, optionally filtered."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         where = []
@@ -1065,7 +1071,7 @@ def get_recent_decisions(n=20, only_resolved=False, ticker=None):
 
 def override_mistake_tag(decision_id, manual_tag):
     """Manual override of auto-suggested mistake tag."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE decisions SET mistake_tag_manual = ? WHERE id = ?", (manual_tag, decision_id))
         conn.commit()
@@ -1075,7 +1081,7 @@ def override_mistake_tag(decision_id, manual_tag):
 
 def get_journal_stats():
     """Aggregate stats over resolved decisions."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         by_mistake = conn.execute("""
             SELECT COALESCE(mistake_tag_manual, mistake_tag_auto) AS tag,
@@ -1105,7 +1111,7 @@ def recalibrate_source_credibility_from_hitrate(min_n=10):
     for sources with N>=min_n resolved predictions.
     Returns dict of updates applied {source_name: (old_cred, new_cred, n)}.
     """
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -1137,7 +1143,7 @@ def recalibrate_source_credibility_from_hitrate(min_n=10):
 
 def get_brier_stats_by_source():
     """Phase A1 — Return per-source Brier stats for /sources_brier handler."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute("""
@@ -1160,7 +1166,7 @@ def get_brier_stats_by_source():
 
 def store_signal_embedding(signal_id, embedding_blob, model_name):
     """Phase A3 — Persist embedding for a signal. INSERT OR REPLACE."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute(
             "INSERT OR REPLACE INTO signal_embeddings (signal_id, embedding, model, embedded_at) "
@@ -1174,7 +1180,7 @@ def store_signal_embedding(signal_id, embedding_blob, model_name):
 
 def get_signal_embedding(signal_id):
     """Phase A3 — Fetch raw embedding blob for a signal."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT embedding FROM signal_embeddings WHERE signal_id=?", (signal_id,)).fetchone()
         return row[0] if row else None
@@ -1184,7 +1190,7 @@ def get_signal_embedding(signal_id):
 
 def get_unembedded_signals(limit=100, min_chars=20):
     """Phase A3 — Signals without embedding. Uses summary or fallback title."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -1209,7 +1215,7 @@ def get_unembedded_signals(limit=100, min_chars=20):
 
 def get_embedded_signals_window(hours=48):
     """Phase A3 — Recent embedded signals with metadata for clustering."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(f"""
@@ -1231,7 +1237,7 @@ def get_embedded_signals_window(hours=48):
 
 def set_echo_cluster_id(signal_id, cluster_id):
     """Phase A3 — Tag a signal with its computed echo cluster."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE signals SET echo_cluster_id=? WHERE id=?", (cluster_id, signal_id))
         conn.commit()
@@ -1241,7 +1247,7 @@ def set_echo_cluster_id(signal_id, cluster_id):
 
 def get_signals_by_source_with_tickers(source_id):
     """Phase A4 — Signals from source with non-empty entities (tickers)."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -1263,7 +1269,7 @@ def get_signals_by_source_with_tickers(source_id):
 
 def update_source_half_life(source_id, median_days, n_samples):
     """Phase A4 — Persist computed half-life on source row."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute(
             "UPDATE sources SET half_life_days=?, half_life_n_samples=?, "
@@ -1277,7 +1283,7 @@ def update_source_half_life(source_id, median_days, n_samples):
 
 def get_all_sources_with_half_life():
     """Phase A4 — All sources with half-life metadata for display."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute("""
@@ -1301,7 +1307,7 @@ def create_or_update_position_on_buy(ticker, qty, price, notes=None):
     if qty <= 0 or price <= 0:
         raise ValueError(f"qty and price must be positive, got qty={qty} price={price}")
     ticker = ticker.upper()
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         active = conn.execute(
@@ -1334,7 +1340,7 @@ def record_position_sell(ticker, qty, price):
     if qty <= 0 or price <= 0:
         raise ValueError(f"qty and price must be positive, got qty={qty} price={price}")
     ticker = ticker.upper()
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         active = conn.execute(
@@ -1368,7 +1374,7 @@ def record_position_sell(ticker, qty, price):
 
 def get_active_positions():
     """Phase B5 — Active positions (status='open')."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute("SELECT * FROM positions WHERE status='open' ORDER BY opened_at DESC").fetchall()
@@ -1379,7 +1385,7 @@ def get_active_positions():
 
 def get_position_by_ticker(ticker):
     """Phase B5 — Active position for ticker, or None."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         row = conn.execute(
@@ -1393,7 +1399,7 @@ def get_position_by_ticker(ticker):
 
 def get_positions_history(ticker=None, limit=50):
     """Phase B5 — All positions including closed."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         if ticker:
@@ -1409,7 +1415,7 @@ def get_positions_history(ticker=None, limit=50):
 
 def get_latest_decision():
     """Return (id, ticker, decision_type, reasoning) of the most recent decision, or None."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         return conn.execute(
             "SELECT id, ticker, decision_type, reasoning FROM decisions ORDER BY id DESC LIMIT 1"
@@ -1420,7 +1426,7 @@ def get_latest_decision():
 
 def get_decision_brief(decision_id):
     """Return (id, ticker, decision_type, reasoning) for a specific decision, or None."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         return conn.execute(
             "SELECT id, ticker, decision_type, reasoning FROM decisions WHERE id=?",
@@ -1432,7 +1438,7 @@ def get_decision_brief(decision_id):
 
 def update_decision_reasoning(decision_id, reasoning):
     """Replace the reasoning field of a decision row. Returns True if a row was affected."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
             "UPDATE decisions SET reasoning=? WHERE id=?",
@@ -1448,7 +1454,7 @@ def update_decision_bias_tags(decision_id, tags):
     """Phase B6 — Persist bias_tags JSON array on a decision."""
     import json as _json
 
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE decisions SET bias_tags=? WHERE id=?", (_json.dumps(tags) if tags else None, decision_id))
         conn.commit()
@@ -1460,7 +1466,7 @@ def get_bias_stats(ticker=None, since_days=180):
     """Phase B6 — Aggregate bias frequencies across resolved or unresolved decisions."""
     import json as _json
 
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         if ticker:
@@ -1503,7 +1509,7 @@ def get_bias_stats(ticker=None, since_days=180):
 
 def update_thesis_pre_mortem(thesis_id, pre_mortem_json):
     """Phase B7 — Persist pre-mortem JSON for a thesis."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE theses SET pre_mortem=? WHERE id=?", (pre_mortem_json, thesis_id))
         conn.commit()
@@ -1513,7 +1519,7 @@ def update_thesis_pre_mortem(thesis_id, pre_mortem_json):
 
 def get_thesis_pre_mortem(thesis_id):
     """Phase B7 — Fetch pre-mortem JSON string for a thesis."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT pre_mortem FROM theses WHERE id=?", (thesis_id,)).fetchone()
         return row[0] if row and row[0] else None
@@ -1523,7 +1529,7 @@ def get_thesis_pre_mortem(thesis_id):
 
 def get_thesis_full(thesis_id):
     """Phase B7 — Full thesis row for pre-mortem context."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         row = conn.execute("SELECT * FROM theses WHERE id=?", (thesis_id,)).fetchone()
@@ -1539,7 +1545,7 @@ def log_buy_cluster(ticker, detected_at, window_days, cluster_dict, price_at_det
     """Phase C7 — Persist a detected BUY cluster. Returns new id."""
     import json as _json
 
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
             "INSERT INTO insider_buy_clusters_log (ticker, detected_at, window_days, "
@@ -1564,7 +1570,7 @@ def log_buy_cluster(ticker, detected_at, window_days, cluster_dict, price_at_det
 
 def get_recent_buy_cluster_log(ticker, days=7):
     """Phase C7 — Dedup check: most recent cluster log for ticker in last N days."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         row = conn.execute(
@@ -1581,7 +1587,7 @@ def get_recent_buy_cluster_log(ticker, days=7):
 def get_unresolved_buy_clusters(checkpoint_days):
     """Phase C7 — Clusters older than checkpoint_days that haven't been resolved at that checkpoint."""
     col = "return_30d" if checkpoint_days == 30 else "return_90d"
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -1601,7 +1607,7 @@ def resolve_buy_cluster_return(cluster_id, checkpoint_days, return_pct, resolved
     """Phase C7 — Persist resolved return at J+30 or J+90."""
     col_ret = "return_30d" if checkpoint_days == 30 else "return_90d"
     col_dt = "resolved_30d_at" if checkpoint_days == 30 else "resolved_90d_at"
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute(
             f"UPDATE insider_buy_clusters_log SET {col_ret}=?, {col_dt}=? WHERE id=?",
@@ -1619,7 +1625,7 @@ def resolve_buy_cluster_return(cluster_id, checkpoint_days, return_pct, resolved
 
 
 def get_buy_clusters_for_ticker(ticker, limit=20):
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -1633,7 +1639,7 @@ def get_buy_clusters_for_ticker(ticker, limit=20):
 
 def get_buy_cluster_stats(since_days=365):
     """Phase C7 — Empirical alpha summary across all detected clusters."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -1689,7 +1695,7 @@ def log_8k_filing(ticker, cik, accession, filed_at, items_raw, item_codes, sever
     """Phase C9 — Persist 8-K filing (INSERT OR IGNORE on accession UNIQUE). Returns id or None."""
     import json as _json
 
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
             "INSERT OR IGNORE INTO filings_8k_log (ticker, cik, accession_number, "
@@ -1714,7 +1720,7 @@ def log_8k_filing(ticker, cik, accession, filed_at, items_raw, item_codes, sever
 
 
 def get_8k_filing_by_accession(accession):
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         row = conn.execute("SELECT * FROM filings_8k_log WHERE accession_number=?", (accession,)).fetchone()
@@ -1725,7 +1731,7 @@ def get_8k_filing_by_accession(accession):
 
 def get_recent_8k_filings_db(ticker=None, severity=None, days=60, limit=50):
     """Phase C9 — Query 8-K log with optional ticker/severity filters."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         q = "SELECT * FROM filings_8k_log WHERE date(filed_at) >= date('now', ?)"
@@ -1751,7 +1757,7 @@ def save_debate_transcript(ticker, transcript_dict, convergence_score, verdict, 
     """Phase C11 — Persist full debate transcript. Returns new id."""
     import json as _json
 
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
             "INSERT INTO debate_transcripts (ticker, transcript_json, convergence_score, verdict, total_cost_usd) "
@@ -1771,7 +1777,7 @@ def save_debate_transcript(ticker, transcript_dict, convergence_score, verdict, 
 
 
 def get_recent_debates(ticker=None, limit=10):
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         if ticker:
@@ -1792,7 +1798,7 @@ def save_risk_check(ticker, side, proposed_usd, verdict, risk_check_dict, portfo
     """Phase C12 — Persist risk check result."""
     import json as _json
 
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
             "INSERT INTO risk_checks (ticker, side, proposed_usd, verdict, "
@@ -1814,7 +1820,7 @@ def save_risk_check(ticker, side, proposed_usd, verdict, risk_check_dict, portfo
 
 def get_decisions_for_ticker(ticker, since_days=90, limit=10):
     """Phase C12 — Recent decisions for ticker (used by risk_manager)."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -1833,7 +1839,7 @@ def get_decisions_for_ticker(ticker, since_days=90, limit=10):
 
 def set_signal_type(signal_id, signal_type):
     """Phase Digestion — persist signal type classification."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE signals SET signal_type=? WHERE id=?", (signal_type, signal_id))
         conn.commit()
@@ -1843,7 +1849,7 @@ def set_signal_type(signal_id, signal_type):
 
 def get_unclassified_signals(limit=50):
     """Phase Digestion — fetch signals with signal_type=NULL for classifier cron."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
@@ -1857,7 +1863,7 @@ def get_unclassified_signals(limit=50):
 
 def get_signals_by_type(signal_type, since_hours=72, limit=20):
     """Phase Digestion — query signals by classification."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
         from datetime import datetime as _dt, timedelta as _td
@@ -1877,7 +1883,7 @@ def get_signals_by_type(signal_type, since_hours=72, limit=20):
 
 def update_materiality_boost(signal_id, boost):
     """Phase Digestion — persist corroboration boost factor."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE signals SET materiality_boost=? WHERE id=?", (float(boost), signal_id))
         conn.commit()
@@ -1887,7 +1893,7 @@ def update_materiality_boost(signal_id, boost):
 
 def get_signals_in_cluster_with_sources(cluster_id):
     """Phase Digestion — distinct sources count for echo cluster."""
-    conn = _sqlite3.connect(_DB_PATH)
+    conn = _sqlite3.connect(DB_PATH)
     try:
         n = conn.execute(
             "SELECT COUNT(DISTINCT source_id) FROM signals WHERE echo_cluster_id=?", (int(cluster_id),)
@@ -3331,3 +3337,23 @@ def assert_book_invariants(*, strict: bool = True) -> list[str]:
 
     with db() as cx:
         return _pi.run_static_gate(cx, strict=strict)
+
+
+def __getattr__(name: str):
+    """Module-level __getattr__ : resolve _DB_PATH dynamiquement vers DB_PATH.
+
+    Pourquoi : ~28 callers externes lisent storage._DB_PATH. Anciennement
+    un attribut statique, sa valeur etait frozen au load et un monkeypatch
+    sur storage.DB_PATH n'affectait pas storage._DB_PATH (bug pollution
+    prod 30/05). En passant par __getattr__, l'acces storage._DB_PATH lit
+    la valeur COURANTE de DB_PATH a chaque fois -> monkeypatch propage.
+
+    Python 3.7+ module __getattr__ s'applique uniquement aux attributs
+    absents du namespace module. Donc setattr(storage, "_DB_PATH", x)
+    override ce mecanisme et fixe l'attribut explicitement (toujours
+    possible si besoin special). Pour le cas usage normal, on ne fait
+    PAS setattr _DB_PATH -- on monkeypatch DB_PATH et _DB_PATH suit.
+    """
+    if name == "_DB_PATH":
+        return DB_PATH
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

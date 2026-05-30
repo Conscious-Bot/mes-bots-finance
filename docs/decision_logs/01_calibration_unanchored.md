@@ -288,9 +288,26 @@ E2E réel impossible : `insider_buy_clusters_log` à 0 rows actuellement. **DoD 
 
 **Limite assumée** : c'est synthétique. Quand un vrai cluster sera détecté par `scheduled_buy_cluster_scan_job`, le pipeline complet sera testé naturellement.
 
-## L'arc, en une phrase publiable (draft v3)
+## Itération 9 — Consolidation DB_PATH (le bug attrapé ne peut plus revenir)
 
-*« 8 itérations. À chaque "ah j'ai trouvé", vérifier d'abord m'a fait découvrir le vrai bug une couche plus bas. Formula cap → prompt → contamination source → frontière commit → sémantique → wiring → extraction exhibits → pollution prod via tests → DoD insider synthétique parce qu'il n'y a pas encore de vrai cluster. La leçon : la conclusion est toujours en avance d'un cran sur la preuve. Même un test qui PASSE peut cacher un bug — la vraie sécurité est dans la couche que tu n'as pas encore vérifiée. »*
+Le bug pollution prod attrapé iter 7 (monkeypatch `_DB_PATH` mais `storage.db()` lit `DB_PATH`) méritait anti-récurrence. Investigation :
+- `DB_PATH` (ROOT-absolu) : utilisé par 1 context manager + 1 script
+- `_DB_PATH` (`Path("data/bot.db")` = **CWD-relatif**) : utilisé par 18+ fonctions storage + 6 modules externes
+- Les deux pointaient vers des fichiers **différents** selon CWD. Le bug pouvait re-surgir à tout moment, pas juste dans les tests.
+
+**Tentative 1 (fail) : aliaser `_DB_PATH = DB_PATH`**. Test régression a immédiatement montré : l'alias est statique (référence frozen à l'assignment), monkeypatch ne propage pas. *Le fix n'est pas un fix tant que vérifié* — pattern itéré une 9ème fois, sur le fix lui-même.
+
+**Tentative 2 (passe) : `__getattr__` module-level**. Python 3.7+ permet de résoudre `_DB_PATH` dynamiquement vers la valeur courante de `DB_PATH`. Les ~28 callers externes (`storage._DB_PATH`) bénéficient automatiquement. Cleanup interne : `sed` 78 substitutions `_sqlite3.connect(_DB_PATH)` → `_sqlite3.connect(DB_PATH)`, import `_Path` retiré, lint clean.
+
+Test régression `tests/test_db_path_alias.py` :
+1. `test_db_path_and_underscore_db_path_are_identical` — vérifie alias dynamique
+2. `test_monkeypatch_single_path_propagates` — vérifie qu'un monkeypatch sur DB_PATH affecte aussi `_DB_PATH` (= le bug pollution prod ne peut plus revenir)
+
+Cleanup symbolique : `tests/test_edgar_signal_wire.py` simplifié, un seul monkeypatch suffit maintenant (vs double avant fix iter 7). 414/414 tests verts.
+
+## L'arc, en une phrase publiable (draft v4)
+
+*« 9 itérations. À chaque "ah j'ai trouvé", vérifier d'abord m'a fait découvrir le vrai bug une couche plus bas. Y compris quand le bug était dans le fix lui-même : la première version de la consolidation DB_PATH (aliaser statiquement) ne fonctionnait pas — le test régression l'a démontré immédiatement. La leçon : la conclusion est toujours en avance d'un cran sur la preuve. Même un fix au pattern "vérifier d'abord" peut cacher un sous-bug — la preuve qu'on n'arrête jamais de vérifier. »*
 
 ## Trois vigilances pour la suite
 
