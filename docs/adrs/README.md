@@ -1,6 +1,6 @@
 # ADRs — Index
 
-Catalogue chronologique des decisions d'architecture. **19 ADRs** au total, **4 numeros en collision** (005, 006, 007, 008) — heritage de plusieurs sessions ayant reutilise le meme entier. Resolution differee post-10/06 (cf. TO-RESOLVE en bas) ; en attendant, **citer par slug, pas par numero seul** pour eviter l'ambiguite.
+Catalogue chronologique des decisions d'architecture. **20 ADRs** au total, **4 numeros en collision** (005, 006, 007, 008) — heritage de plusieurs sessions ayant reutilise le meme entier. Resolution differee post-10/06 (cf. TO-RESOLVE en bas) ; en attendant, **citer par slug, pas par numero seul** pour eviter l'ambiguite.
 
 ## Convention de reference
 
@@ -34,6 +34,7 @@ Citer le slug rend les refs resistantes a un renumber futur et leve les collisio
 | 17 | 2026-05-26 | `010-cluster-cap-shock-underwriting.md` | Accepted | Cap cluster = 35% (risk-adjusted via choc underwrite), config aligne |
 | 18 | 2026-05-27 | `011-probability-at-creation-stale-read-fix.md` | Accepted | probability_at_creation: stale-read fix, fail-loud, backfill |
 | 19 | 2026-05-30 | `012-deprecate-8k-severity-classifier.md` | Accepted | 8-K severity classifier soft-deprecated comme mesure d'evidence_strength (conserve pour alerting low-latency) |
+| 20 | 2026-05-30 | `013-insider-cluster-threshold-deferred.md` | Accepted | Insider cluster moderate threshold ($1M) reporte post-10/06 -- discipline anti-tinkering proche moment de verite |
 
 ## Collisions de numero (a resoudre)
 
