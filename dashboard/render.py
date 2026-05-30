@@ -212,6 +212,180 @@ _DIM_LABELS = {
 }
 
 
+def _v2_cohort_panel() -> str:
+    """Cohorte V2 vs V1 -- visualise le pivot scoring 30/05.
+
+    V2 = signal_scorer_v2 (base-rate-first, 3 etapes), source unique post-30/05.
+    V1 = estimate_probability (formule cap [0.50, 0.72]), legacy mono-bucket.
+    Tant que zero prediction V2 n'est en ledger -> affiche message d'attente.
+    """
+    try:
+        from shared import storage as _stg
+
+        with _stg.db() as cx:
+            # V2 = predictions issues des sources SEC EDGAR (8-K + insider)
+            v2_n = cx.execute(
+                "SELECT COUNT(*) c FROM predictions p "
+                "JOIN signals sig ON p.signal_id = sig.id "
+                "JOIN sources src ON sig.source_id = src.id "
+                "WHERE src.name IN ('SEC EDGAR 8-K', 'SEC EDGAR Insider Cluster')"
+            ).fetchone()['c']
+            # V1 = tout le reste (newsletters)
+            v1_n = cx.execute(
+                "SELECT COUNT(*) c FROM predictions p "
+                "JOIN signals sig ON p.signal_id = sig.id "
+                "JOIN sources src ON sig.source_id = src.id "
+                "WHERE src.name NOT IN ('SEC EDGAR 8-K', 'SEC EDGAR Insider Cluster')"
+            ).fetchone()['c']
+            v1_range = cx.execute(
+                "SELECT MIN(probability_at_creation) lo, MAX(probability_at_creation) hi, "
+                "       COUNT(DISTINCT ROUND(probability_at_creation, 2)) buckets "
+                "FROM predictions p JOIN signals sig ON p.signal_id = sig.id "
+                "JOIN sources src ON sig.source_id = src.id "
+                "WHERE src.name NOT IN ('SEC EDGAR 8-K', 'SEC EDGAR Insider Cluster')"
+            ).fetchone()
+            v2_range = cx.execute(
+                "SELECT MIN(probability_at_creation) lo, MAX(probability_at_creation) hi, "
+                "       COUNT(DISTINCT ROUND(probability_at_creation, 2)) buckets "
+                "FROM predictions p JOIN signals sig ON p.signal_id = sig.id "
+                "JOIN sources src ON sig.source_id = src.id "
+                "WHERE src.name IN ('SEC EDGAR 8-K', 'SEC EDGAR Insider Cluster')"
+            ).fetchone()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">cohorte V2 indispo: {type(e).__name__}</div></div>'
+
+    v1_lo, v1_hi, v1_b = v1_range['lo'] or 0, v1_range['hi'] or 0, v1_range['buckets'] or 0
+    v2_lo, v2_hi, v2_b = v2_range['lo'] or 0, v2_range['hi'] or 0, v2_range['buckets'] or 0
+
+    v2_status = (
+        '<div class="v2-status v2-empty">Premi&egrave;re coh&egrave;rte V2 attendue '
+        '31/05 6:30 (cron 8-K scan + 6:20 insider clusters)</div>'
+        if v2_n == 0
+        else f'<div class="v2-stat-row">'
+             f'<span class="v2-stat-n mono">n={v2_n}</span>'
+             f'<span class="v2-stat-rg mono">[{v2_lo:.3f} - {v2_hi:.3f}]</span>'
+             f'<span class="v2-stat-bk mono">{v2_b} bucket(s)</span></div>'
+    )
+
+    v1_block = (
+        f'<div class="v2-stat-row">'
+        f'<span class="v2-stat-n mono">n={v1_n}</span>'
+        f'<span class="v2-stat-rg mono">[{v1_lo:.3f} - {v1_hi:.3f}]</span>'
+        f'<span class="v2-stat-bk mono">{v1_b} bucket(s)</span></div>'
+        if v1_n > 0
+        else '<div class="v2-status v2-empty">aucune pr&eacute;diction V1</div>'
+    )
+
+    return (
+        '<div class="card pad v2cohortcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Coh&egrave;rte V2 vs V1 (scorer pivot 30/05)</span>'
+        '<span class="a">V2 = SEC EDGAR primary content &middot; V1 = newsletter sentiment (mono-bucket)</span></div>'
+        '<div class="v2-grid">'
+        '<div class="v2-side v2-current"><div class="v2-label">V2 (canonique post-30/05)</div>'
+        f'{v2_status}</div>'
+        '<div class="v2-side v2-legacy"><div class="v2-label">V1 (legacy, baseline 10/06)</div>'
+        f'{v1_block}</div></div></div>'
+    )
+
+
+def _wire_activity_panel() -> str:
+    """Wire EDGAR activity -- timeline 8-K + insider clusters arrives dans le pipeline."""
+    try:
+        from shared import storage as _stg
+
+        with _stg.db() as cx:
+            counts = {}
+            for window, label in [(1, "24h"), (7, "7j"), (30, "30j")]:
+                n8k = cx.execute(
+                    f"SELECT COUNT(*) c FROM filings_8k_log WHERE filed_at >= date('now', '-{window} days')"
+                ).fetchone()['c']
+                ncluster = cx.execute(
+                    f"SELECT COUNT(*) c FROM insider_buy_clusters_log "
+                    f"WHERE detected_at >= datetime('now', '-{window} days')"
+                ).fetchone()['c']
+                counts[label] = (n8k, ncluster)
+            recent_8k = cx.execute(
+                "SELECT ticker, filed_at, severity, items_raw FROM filings_8k_log "
+                "ORDER BY filed_at DESC LIMIT 5"
+            ).fetchall()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">wire activity indispo: {type(e).__name__}</div></div>'
+
+    cells = "".join(
+        f'<div class="wact-cell">'
+        f'<div class="wact-label">{lbl}</div>'
+        f'<div class="wact-v"><span class="mono">{n8k}</span> 8-K &middot; '
+        f'<span class="mono">{ncluster}</span> cluster</div></div>'
+        for lbl, (n8k, ncluster) in counts.items()
+    )
+
+    last_rows = "".join(
+        f'<div class="wact-recent"><span class="wact-tk">{r["ticker"]}</span>'
+        f'<span class="wact-when mono">{r["filed_at"]}</span>'
+        f'<span class="wact-sev wact-{r["severity"]}">{r["severity"]}</span>'
+        f'<span class="wact-items mono">{r["items_raw"]}</span></div>'
+        for r in recent_8k
+    ) or '<div class="empty">aucune 8-K log&eacute;e</div>'
+
+    return (
+        '<div class="card pad wactcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Wire EDGAR activity</span>'
+        '<span class="a">8-K + insider clusters arriv&eacute;s dans le pipeline scoring V2</span></div>'
+        f'<div class="wact-grid">{cells}</div>'
+        '<div class="wact-recent-head">Derni&egrave;res 5 d&eacute;p&ocirc;ts 8-K (toutes severities)</div>'
+        f'<div class="wact-recent-list">{last_rows}</div></div>'
+    )
+
+
+def _vigilance_panel() -> str:
+    """3 vigilances V2 -- watch_rate, directional_spread, insider_clusters_alive."""
+    try:
+        from intelligence import v2_vigilance
+
+        results = v2_vigilance.run_all_vigilances()
+    except Exception as e:
+        return f'<div class="card pad"><div class="empty">vigilances indispo: {type(e).__name__}</div></div>'
+
+    status_cls = {
+        "OK": "vg-ok",
+        "INFO": "vg-info",
+        "WARN": "vg-warn",
+        "ALERT": "vg-alert",
+        "INSUFFICIENT_DATA": "vg-wait",
+    }
+    # HTML entity codes : check, info-i (U+2139), spark, siren, hourglass
+    status_emoji = {
+        "OK": "&#9989;",
+        "INFO": "&#8505;",
+        "WARN": "&#9889;",
+        "ALERT": "&#128680;",
+        "INSUFFICIENT_DATA": "&#8987;",
+    }
+
+    rows = []
+    for r in results:
+        cls = status_cls.get(r["status"], "vg-info")
+        emoji = status_emoji.get(r["status"], "?")
+        msg = (r.get("message") or "")
+        # Escape HTML
+        msg = msg.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        rows.append(
+            f'<div class="vg-row {cls}">'
+            f'<div class="vg-head"><span class="vg-emoji">{emoji}</span>'
+            f'<span class="vg-name">{r["name"]}</span>'
+            f'<span class="vg-status">{r["status"]}</span></div>'
+            f'<div class="vg-msg">{msg}</div></div>'
+        )
+
+    return (
+        '<div class="card pad vgcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Vigilances V2</span>'
+        '<span class="a">3 fitness functions auto &middot; cron weekly lundi 7h &middot; push Telegram UNIQUEMENT si ALERT/WARN</span></div>'
+        + "".join(rows) +
+        "</div>"
+    )
+
+
 def _risk_watch_panel() -> str:
     """Top Risques declares - first-class surveillance sur Vue d'ensemble.
 
@@ -3688,6 +3862,41 @@ _CSS = """
   .killcard .kc-conf { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
   .killcard .kc-reason { font-family:var(--fm); font-size:12px; color:var(--ink); opacity:.88; line-height:1.5; margin-bottom:4px; }
   .killcard .kc-ev { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  /* 30/05 nuit -- arc V2 panels (vigilance + cohorte + wire activity) */
+  .vgcard .vg-row { padding:10px 12px; border-radius:var(--r1); margin-bottom:6px; background:color-mix(in srgb,var(--ink) 2%,transparent); border-left:3px solid transparent; }
+  .vgcard .vg-row.vg-ok { border-left-color:var(--acc); }
+  .vgcard .vg-row.vg-info { border-left-color:var(--steel); opacity:.75; }
+  .vgcard .vg-row.vg-warn { border-left-color:#c89b00; background:color-mix(in srgb,#c89b00 6%,transparent); }
+  .vgcard .vg-row.vg-alert { border-left-color:var(--bear); background:color-mix(in srgb,var(--bear) 8%,transparent); }
+  .vgcard .vg-row.vg-wait { border-left-color:color-mix(in srgb,var(--steel) 40%,transparent); opacity:.6; }
+  .vgcard .vg-head { display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
+  .vgcard .vg-emoji { font-size:13px; }
+  .vgcard .vg-name { font-family:var(--fb); font-size:11px; letter-spacing:.05em; text-transform:uppercase; font-weight:600; color:var(--ink); }
+  .vgcard .vg-status { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-left:auto; }
+  .vgcard .vg-msg { font-family:var(--fm); font-size:11.5px; color:var(--ink); opacity:.85; line-height:1.5; }
+  .v2cohortcard .v2-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px; }
+  .v2cohortcard .v2-side { padding:14px; border:1px solid var(--line); border-radius:var(--r2); background:color-mix(in srgb,var(--ink) 2%,transparent); }
+  .v2cohortcard .v2-current { border-left:3px solid var(--acc); }
+  .v2cohortcard .v2-legacy { border-left:3px solid color-mix(in srgb,var(--steel) 50%,transparent); opacity:.85; }
+  .v2cohortcard .v2-label { font-family:var(--fb); font-size:10px; letter-spacing:.16em; text-transform:uppercase; font-weight:600; color:var(--steel); margin-bottom:8px; }
+  .v2cohortcard .v2-stat-row { display:flex; gap:14px; align-items:baseline; font-family:var(--fm); font-size:13px; font-variant-numeric:tabular-nums; }
+  .v2cohortcard .v2-stat-n { font-weight:600; color:var(--ink); }
+  .v2cohortcard .v2-stat-rg, .v2cohortcard .v2-stat-bk { color:var(--steel); font-size:11.5px; }
+  .v2cohortcard .v2-status.v2-empty { font-family:var(--fm); font-size:11.5px; color:var(--steel); font-style:italic; line-height:1.4; }
+  .wactcard .wact-grid { display:flex; gap:14px; margin:12px 0 16px; }
+  .wactcard .wact-cell { flex:1; padding:10px 14px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
+  .wactcard .wact-label { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; margin-bottom:4px; }
+  .wactcard .wact-v { font-family:var(--fm); font-size:13px; color:var(--ink); }
+  .wactcard .wact-recent-head { font-family:var(--fb); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); font-weight:600; margin-bottom:8px; padding-top:6px; border-top:1px solid var(--line); }
+  .wactcard .wact-recent { display:flex; gap:12px; align-items:baseline; padding:5px 0; font-family:var(--fm); font-size:11.5px; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .wactcard .wact-recent:last-child { border-bottom:none; }
+  .wactcard .wact-tk { font-family:var(--fb); font-weight:600; min-width:60px; color:var(--ink); }
+  .wactcard .wact-when { color:var(--steel); font-variant-numeric:tabular-nums; }
+  .wactcard .wact-sev { font-family:var(--fb); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; padding:1px 6px; border-radius:var(--r1); }
+  .wactcard .wact-sev.wact-catastrophic, .wactcard .wact-sev.wact-high { background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); }
+  .wactcard .wact-sev.wact-medium { background:color-mix(in srgb,#c89b00 16%,transparent); color:#c89b00; }
+  .wactcard .wact-sev.wact-low, .wactcard .wact-sev.wact-unknown { background:color-mix(in srgb,var(--steel) 12%,transparent); color:var(--steel); }
+  .wactcard .wact-items { margin-left:auto; color:var(--steel); font-variant-numeric:tabular-nums; }
   /* Sprint 16 - Wrapper PEA/CTO + FX + Benchmark */
   .wrappercard .wr-alloc { display:flex; gap:18px; margin:14px 0 18px; padding-bottom:14px; border-bottom:1px solid var(--line); }
   .wrappercard .wr-row { flex:1; padding:12px 14px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); display:flex; flex-direction:column; gap:4px; }
@@ -4408,6 +4617,10 @@ def render() -> Path:
     blind_html = _blind_positions_panel()
     copilot_html = _copilot_panel()
     chat_html = _chat_panel()
+    # V2 panels (ajoutes 30/05 nuit -- visibilite arc V2)
+    v2_cohort_html = _v2_cohort_panel()
+    wire_activity_html = _wire_activity_panel()
+    vigilance_html = _vigilance_panel()
     # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
     conversations_html = _conversations_panel()
     chat_signals_html = _chat_signals_panel()
@@ -4434,6 +4647,9 @@ def render() -> Path:
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
         f'{_risk_watch_panel()}'
+        f"{vigilance_html}"
+        f"{v2_cohort_html}"
+        f"{wire_activity_html}"
         f"{grade_html}"
         f"{blind_html}"
         f"{chat_html}"
