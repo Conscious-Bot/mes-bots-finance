@@ -15,7 +15,8 @@ from shared import position_invariants as pi, storage
 # le gate les revele. Liste exhaustive cataloguee, date butoir 10/06/2026 (KPI #2).
 # Tout NOUVELLE violation hors de cette liste = fail.
 KNOWN_DEBT_TICKERS_KILL_CRITERIA = {
-    "TSLA", "SAF.PA", "6857.T", "AMZN", "MP", "ENTG",
+    # SAF.PA fixe 30/05 (these reecrite : 5 drivers + 4 kill-crit fundamental)
+    "TSLA", "6857.T", "AMZN", "MP", "ENTG",
 }
 KNOWN_DEBT_TICKERS_CURRENCY = {
     "4063.T", "000660.KS", "7011.T", "6857.T", "6920.T",
