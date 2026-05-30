@@ -184,6 +184,7 @@ async def post_init(app):
     # Si le book est incoherent on log + on continue en mode degrade,
     # mais on ne demarre pas silencieusement sur du sable.
     try:
+        from shared import notify as _notify
         from shared import storage as _stg
 
         violations = _stg.assert_book_invariants(strict=False)
@@ -191,6 +192,18 @@ async def post_init(app):
             log.error(f"🚨 BOOK INVARIANTS VIOLATIONS au demarrage ({len(violations)}) :")
             for v in violations[:10]:
                 log.error(f"  ❌ {v}")
+            # Notif Telegram (fix audit 31/05 : silencieux avant -> log only)
+            try:
+                msg = (
+                    f"🚨 PRESAGE bot startup : {len(violations)} gate violation(s) detectee(s).\n\n"
+                    + "\n".join(f"• {v[:200]}" for v in violations[:5])
+                    + (f"\n\n... +{len(violations) - 5} violations supplementaires" if len(violations) > 5 else "")
+                    + "\n\nGate vert attendu. Investigation requise avant trade."
+                )
+                _notify.send_text(msg)
+                log.info("Telegram alert envoyee pour gate red")
+            except Exception as ne:
+                log.warning(f"Telegram alert gate red failed: {ne}")
         else:
             log.info("🟢 Book invariants : tous verts au demarrage")
     except Exception as e:

@@ -174,7 +174,9 @@ def _build_position_view(p: Position, total_market: float) -> PositionView:
             up = th.target_full - cur
             down = cur - th.stop_price
             if down > 0:
-                asym = round(up / down, 2)
+                # Precision 3 decimales : evite que 0.005 round a 0.00 et viole
+                # invariant asym > 0 quand up > 0 et down > 0 (cf ALAB pres cible).
+                asym = round(up / down, 3)
             tgt_minus_stop = th.target_full - th.stop_price
             if tgt_minus_stop > 0:
                 frac_axis = round(max(0.0, min(100.0, (cur - th.stop_price) / tgt_minus_stop * 100)), 1)
