@@ -247,6 +247,68 @@ def get_or_create_source(sender: str) -> int:
         conn.close()
 
 
+def get_or_create_source_typed(name: str, type_: str, credibility: float) -> int:
+    """Resolve name to source_id, cree avec type+credibility specifies si absente.
+
+    Pour sources primaires (sec_filing, regulatory, etc.) qui ont une credibility
+    de base != 0.50. Utilise par intelligence/edgar_signal_wire.py (8-K SEC).
+    """
+    conn: _sqlite3.Connection = _sqlite3.connect(_DB_PATH)
+    try:
+        row = conn.execute("SELECT id FROM sources WHERE name = ?", (name,)).fetchone()
+        if row:
+            return int(row[0])
+        cur = conn.execute(
+            "INSERT INTO sources (name, type, credibility, n_signals) VALUES (?, ?, ?, ?)",
+            (name, type_, credibility, 0),
+        )
+        conn.commit()
+        return cur.lastrowid or 0
+    finally:
+        conn.close()
+
+
+def insert_primary_filing_signal(
+    source_id: int,
+    dedup_key: str,
+    timestamp: str,
+    title: str,
+    summary: str,
+    content: str,
+    entities_json: str,
+    signal_type: str = "catalyst",
+    score: int = 7,
+    sentiment: str = "bullish",
+    impact_magnitude: float = 3.0,
+) -> int | None:
+    """Insert un signal issu d'un filing primaire (SEC 8-K, insider, etc.).
+
+    Sentiment='bullish' = placeholder (V2 recalcule la vraie direction au scoring).
+    score=7 = passe filter auto_register_predictions score>=6.
+    dedup_key stocke dans gmail_id (colonne UNIQUE existante).
+
+    Retourne signal_id si nouveau, None si deja insere (dedup silencieux).
+    """
+    conn = _sqlite3.connect(_DB_PATH)
+    try:
+        try:
+            cur = conn.execute(
+                "INSERT INTO signals (source_id, gmail_id, timestamp, title, content, "
+                "summary, score, sentiment, entities, signal_type, impact_magnitude) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    source_id, dedup_key, timestamp, title, content, summary,
+                    score, sentiment, entities_json, signal_type, impact_magnitude,
+                ),
+            )
+        except _sqlite3.IntegrityError:
+            return None  # dedup
+        conn.commit()
+        return cur.lastrowid or 0
+    finally:
+        conn.close()
+
+
 def insert_raw_signal(source_id: int, gmail_id: str, timestamp: str, subject: str, content: str) -> int | None:
     """Insert a raw email-derived signal. Returns new signal_id, or None on welcome/duplicate.
 

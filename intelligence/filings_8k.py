@@ -152,20 +152,43 @@ class EightKSource(BaseDataSource):
                 f"8-K logged: {validated.ticker} {validated.filed_at} "
                 f"{validated.items_raw} [{validated.severity}] id={row_id}"
             )
-            self.new_logged.append(
-                {
-                    "id": row_id,
-                    "ticker": validated.ticker,
-                    "cik": validated.cik,
-                    "accession": validated.accession,
-                    "filed_at": validated.filed_at,
-                    "items_raw": validated.items_raw,
-                    "item_codes": validated.item_codes,
-                    "url": validated.url,
-                    "severity": validated.severity,
-                    "severity_reason": validated.severity_reason,
-                }
-            )
+            filing_dict = {
+                "id": row_id,
+                "ticker": validated.ticker,
+                "cik": validated.cik,
+                "accession": validated.accession,
+                "filed_at": validated.filed_at,
+                "items_raw": validated.items_raw,
+                "item_codes": validated.item_codes,
+                "url": validated.url,
+                "severity": validated.severity,
+                "severity_reason": validated.severity_reason,
+            }
+            self.new_logged.append(filing_dict)
+
+            # Wire vers signals -> V2 -> predictions (audit 30/05 A3 iter 6+).
+            # Sync : extract content + call V2 + insert signal + register prediction
+            # ajoute ~5-10s par 8-K. Acceptable inline. Forward-only, dedupe via
+            # gmail_id='sec_8k:{accession}'. Echec non-bloquant pour le log filing.
+            try:
+                from intelligence.edgar_signal_wire import wire_and_register_8k
+
+                result = wire_and_register_8k(filing_dict)
+                if result["wired"]:
+                    log.info(
+                        f"8-K wired: {validated.ticker} accession={validated.accession} -> "
+                        f"signal_id={result['signal_id']}, preds={len(result['registered_predictions'])}"
+                    )
+                else:
+                    log.info(
+                        f"8-K skip wire: {validated.ticker} accession={validated.accession} "
+                        f"({result.get('reason_if_skipped', 'unknown')})"
+                    )
+            except Exception as wire_err:
+                log.warning(
+                    f"8-K wire failed (non-blocking) for {validated.ticker} "
+                    f"{validated.accession}: {type(wire_err).__name__}: {wire_err}"
+                )
         return row_id
 
 

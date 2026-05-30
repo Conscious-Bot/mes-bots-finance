@@ -250,9 +250,31 @@ Re-test DoD sur les 3 mêmes 8-K, contenu maintenant extrait des exhibits :
 
 Network-dependent, donc skip default. Run pré-release : `pytest -m slow`.
 
-## L'arc, en une phrase publiable (draft v2)
+## Itération 7 — Wire-up forward + pollution prod attrapée
 
-*« Audit pré-batch → mono-bucket → 6 itérations creusaient une couche plus bas à chaque "ah j'ai trouvé". Spread V1 → prompt V2 → enforcement → sémantique → wire sourcing → extraction exhibits. À l'itération 6, NVDA Q1 FY27 8-K traverse V2 et sort 0.750 bullish strong. Le système ingère enfin des données primaires verifiables. La leçon : la conclusion est toujours en avance d'un cran sur la preuve. Pour chaque "presque", chercher la couche suivante. »*
+Décisions schéma tranchées (session "j'ai tout mon temps") :
+- Source dédiée `'SEC EDGAR 8-K'` type=`'sec_filing'` credibility=0.85
+- `signal_type='catalyst'`, `score=7`, `sentiment='bullish'` (placeholder, V2 recalcule)
+- Dedup via `gmail_id = 'sec_8k:{accession}'`
+- Trigger sync dans `EightKSource.persist()` après log filing (non-bloquant)
+- Skip si extract < 500 chars (filing sans exhibits material)
+- **Forward-only strict** : pas de backfill 43 historiques
+
+Implementation `intelligence/edgar_signal_wire.py` (orchestre) + `shared/storage.py` nouvelles fonctions `get_or_create_source_typed` + `insert_primary_filing_signal` (possède les writes — convention §5).
+
+**Bug attrapé pendant les tests** : mes 3 premiers unit tests faisaient `monkeypatch.setattr(storage, "_DB_PATH", ...)` mais `storage.db()` context manager utilise `DB_PATH` (sans underscore). Les tests POLLUAIENT la prod DB en silence (1 source + 1 signal id=336 créés en prod). Le test #3 (skip on insufficient content) a fail explicitement parce qu'un appel précédent avait déjà tout setup. C'est ce qui a révélé le bug — sans le fail, j'aurais shipped avec une suite de tests qui pollue prod à chaque CI run.
+
+Fix : `monkeypatch.setattr(storage, "DB_PATH", ...)` ET `setattr(storage, "_DB_PATH", ...)`. Cleanup pollution : DELETE signal id=336, source conservée (légitime pour wires forward réels). Audit log écrit.
+
+**Pattern itéré une 7ème fois** : la conclusion (le test passe = tout va bien) était en avance sur la preuve (le test pollue prod). Le 3ème test n'a pas fail à cause de son propre setup — il a fail parce que l'état d'un test précédent existait. Sans ce signal, le code aurait shipped silent-mode.
+
+Test e2e (slow, network+LLM) : vraie NVDA Q1 FY27 8-K → wire → V2 → prediction `bullish prob>=0.65` registrée ✅. 11.9s end-to-end. DoD A3 finale atteinte : la chaîne complète tourne.
+
+410/410 tests verts (3 unit + 1 e2e + 1 discipline DB pour le wire + 405 existants).
+
+## L'arc, en une phrase publiable (draft v3)
+
+*« 7 itérations. À chaque "ah j'ai trouvé", vérifier d'abord m'a fait découvrir le vrai bug une couche plus bas. Formula cap → prompt → contamination source → frontière commit → sémantique → wiring → extraction exhibits → pollution prod via tests. La leçon : la conclusion est toujours en avance d'un cran sur la preuve. Même un test qui PASSE peut cacher un bug — la vraie sécurité est dans la couche que tu n'as pas encore vérifiée. »*
 
 ## Trois vigilances pour la suite
 
