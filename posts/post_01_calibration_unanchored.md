@@ -1,73 +1,93 @@
 # Post #01 — version bilingue
 
-*Français d'abord, English below. Sept itérations, sept couches, chaque conclusion en avance d'un cran sur la preuve.*
+*Français d'abord, English below. Mêmes choix : le fail d'iter 5 reste la scène centrale, zéro pitch, zéro position, le « je ne suis pas développeur » assumé.*
 
 ---
 ---
 
-## 🇫🇷 Comment mon scorer m'a menti, sept couches plus bas
+## 🇫🇷 Six fois j'ai cru avoir fini
 
-*Un audit qui refusait d'avoir raison trop tôt.*
-
----
-
-Onze jours avant la première vraie résolution de batch — 40 prédictions dues le 10 juin — j'ai audité les probabilités stockées. Les 40 valaient exactement **0,608, 0,626, 0,628 ou 0,658**. Quatre valeurs uniques. Toutes coincées dans une bande de 5 points. Aucune sous 0,50, aucune au-dessus de 0,72.
-
-Un forecaster dont les probabilités tiennent dans 5 points ne produit pas du jugement probabiliste. Il produit une constante déguisée. Le Brier calculé là-dessus ne teste rien.
-
-**Couche 1.** La cause : une formule `estimate_probability()` capée à [0,50 ; 0,72], plus 64 sources sur 68 bloquées à `credibility=0,50` par défaut parce que la recalibration mensuelle exigeait 10 résolutions par source et j'en avais 6 au total. Bootstrap mort. Tentation : *« la maturité des données va régler ça. Pivot du plan : publier le raisonnement, pas la calibration. »* Faux. Le temps ne casse pas un mono-bucket. Dans quatre mois j'aurais juste plus de 0,63.
-
-**Couche 2.** Réécriture par prompt. Trois étapes explicites au LLM : énoncer le base rate sans regarder le signal (proche 0,50 — *pas* de 0,6 par confort) ; lister l'évidence et la magnitude de l'écart ; justifier en une phrase pourquoi ce n'est ni 0,50 ni 0,90. Si rien ne tient, `direction="watch"` et la prédiction sort du ledger. Premier test sur 8 signaux : range [0,44 ; 0,54], watch rate 62 %. Mieux. Tentation : intégrer.
-
-**Couche 3.** Pushback : *« tu as vérifié le bas. Le haut, tu ne l'as pas vu. »* Je construis une échelle synthétique de 4 niveaux d'évidence sur NVDA. Le cas le plus fort sort `prob=0,520 watch`. Bug catastrophique apparent — sauf que je lis l'`anti_anchoring_reason` : *« la source est explicitement synthetic_test, donc… »*. J'avais injecté `source_name` dans le prompt. Le LLM downgradait sa lecture parce qu'il ne reconnaissait pas la source. C'est exactement le bug que mon architecture corrige côté credibility downstream — appliqué dans le prompt que j'avais écrit deux heures plus tôt. Je retire le champ. Re-test : `0,770 bullish strong`. Le plafond marchait. Je ne lui avais pas donné d'inputs propres.
-
-**Couche 4.** Re-test des 8 réels post-fix : watch rate tombe à 12 %. Beau chiffre. Pushback : *« 62 % était peut-être un artefact. 12 % n'est pas vérifié non plus. »* Trois signaux d'évidence faible logués comme bullish 0,54 ou bearish 0,43. La spec disait *« si rien ne soutient une direction falsifiable, watch »*. Faible ≈ narrative vague ≈ non-falsifiable. Enforcement durci : `evidence ∈ (none, weak) → watch`. Watch rate remonte à 75 %, défendable cette fois.
-
-**Couche 5.** Cohorte directionnelle restante : tous bearish à `0,38–0,42`. Techniquement passé, sémantiquement cassé. Bearish 0,38 veut dire *« je suis 38 % confiant que mon call bearish est correct »*. Ce qui veut dire que je suis 62 % confiant que bullish est correct. Pourquoi je logue bearish ? Le LLM confondait `P(call correct)` avec `P(price up)`. Le resolver scorait en mode Brier. Mon ledger allait évaluer des valeurs définitionnellement incohérentes — garbage silencieux. Fix : sémantique explicite dans le prompt, et `prob < 0,55 → watch`. On ne commit pas si on n'est pas plus sûr que pile-ou-face.
-
-**Couche 6.** Cohorte refixée : encore mono-bucket [0,60 ; 0,62]. Le scorer convergeait sur ~0,60 pour tous les signaux faibles. Conclusion tentante : *« il faut diversifier le sourcing. »* Pushback plus net : *« avant d'acheter du nouveau, vérifie que tes sources fortes atteignent le scorer. »* Cinq minutes de SQL : `filings_8k_log` 43 lignes, `insider_snapshots` 378 lignes. **421 lignes de données primaires** ingérées par du code qui tourne, dans des tables parallèles qui ne touchent jamais le pipeline de scoring. J'avais EDGAR. Je n'avais juste pas branché EDGAR.
-
-**Couche 7.** Je passe 3 vraies 8-K à V2. Toutes sortent `prob=0,500 watch ev=none`. Verbatim sur NVDA Q1 (un *earnings*) : *« boilerplate cover page only, no actual earnings data »*. L'URL stockée pointait vers la couverture du filing. Le contenu réel — earnings tables, press release — vivait dans des exhibits attachés. J'écris l'extracteur. Re-test : NVDA → **0,750 bullish strong** ✅. Je code le wire forward, j'écris trois tests unit. Le troisième fail — je découvre que mes deux premiers tests **polluaient la prod**. Mon `monkeypatch` ciblait `_DB_PATH` mais `storage.db()` utilise `DB_PATH` (sans underscore). Sans le fail du troisième test, j'aurais shippé un harnais qui crée des signaux fantômes en prod à chaque CI run.
+*Ce que m'a appris un prévisionniste qui mentait — et que rien ne signalait.*
 
 ---
 
-Sept itérations. Sept couches. À chaque *« ah, j'ai trouvé »*, vérifier d'abord a fait apparaître le vrai bug une couche plus bas. Cap formule → prompt → contamination source → seuil de commit → sémantique → wiring → extraction → tests qui polluent prod.
+J'ai construit un système qui prévoit des mouvements de marché. Un jour, j'ai regardé ses prédictions de plus près : toutes les probabilités étaient coincées entre 0,61 et 0,66.
 
-**La leçon : la conclusion est toujours en avance d'un cran sur la preuve.** Même un test qui PASSE peut cacher un bug. Le seul filet, c'est la couche que tu n'as pas encore vérifiée.
+Ça ressemblait à un prévisionniste qui fonctionne. Ça n'en était pas un. C'était une constante déguisée en prévisionniste — quoi qu'il « voie », il répondait « environ 63 % de chances ». Une prédiction à 0,63 sur tout ne prédit rien.
 
-Reste à faire : tourner le pipeline 30 jours avec V2 wiré, voir si la cohorte directionnelle diversifie quand de vraies 8-K material arrivent. Je ne suis pas développeur — je traque mon propre outil comme je traquerais une thèse fragile. C'est exactement ce que le système est censé faire.
+Et rien ne l'avait signalé. Les tests étaient verts. Aucune erreur. Le système tournait, produisait des chiffres bien formés, et ces chiffres étaient creux.
+
+Je ne suis pas développeur. L'IA a écrit la quasi-totalité de ce code. C'est précisément le sujet : construire est devenu bon marché. Quelqu'un sans bagage technique peut aujourd'hui assembler un système sérieux en quelques jours. Mais ce système vous mentira avec aplomb, d'une façon qui passe tous les contrôles au vert — et la compétence rare, celle que l'IA ne vous donne pas, c'est d'attraper le mensonge.
+
+Voici l'histoire d'un mensonge attrapé. Il m'a fallu six tentatives. À chacune, j'ai cru avoir fini.
+
+**Un.** Le 0,63 venait d'un plafond codé en dur et d'un prompt qui poussait le modèle vers le « probable mais incertain » par défaut. Je l'ai réécrit : pars du taux de base, justifie chaque écart, refuse de t'ancrer. Les probabilités se sont enfin étalées — vers le bas, jusqu'au bearish. J'ai failli conclure là.
+
+Sauf que je n'avais vérifié que la moitié basse. Le haut, je l'*assumais* : « ça devrait monter à 0,75 sur de l'évidence forte ». *Devrait.* J'ai fabriqué une échelle de signaux synthétiques pour le vérifier — et le test a fait tomber un tout autre bug : le modèle dégradait les sources qu'il ne reconnaissait pas. Autrement dit, il pénalisait systématiquement mes sources de niche, exactement celles qui font ma différence.
+
+**Deux, trois.** Le taux de signaux que le système refusait de noter semblait sain à 12 %. Sauf que ce 12 % était lui-même un artefact : le système forçait des signaux faibles dans le registre comme des quasi pile-ou-face. La cause était une confusion sémantique — entre « probabilité que mon appel soit juste » et « probabilité que le prix monte ». Corrigé, le taux s'est posé là où l'évidence le justifiait vraiment.
+
+**Quatre.** Le scoreur était maintenant correct. Mais chaque entrée était une newsletter d'opinion tech — de l'évidence modérée, par nature. J'allais conclure qu'il me fallait acheter de meilleures sources.
+
+En vérifiant d'abord, j'ai trouvé 421 lignes de l'évidence forte que je cherchais — dépôts de résultats, achats d'initiés — déjà dans ma base de données, ingérées par du code qui tournait, dans des tables qui n'étaient jamais reliées au scoreur. Je n'avais pas besoin de nouvelles sources. Je n'avais jamais branché celles que j'avais.
+
+**Cinq.** J'ai voulu le vérifier sur une vraie donnée. Le test a échoué : l'extracteur récupérait la page de garde du dépôt, pas son contenu. (C'est l'itération que je garde la plus visible. Un test qui échoue et force une vraie correction vaut plus que dix « ça a marché ».)
+
+**Six.** J'ai écrit l'extracteur. Un vrai dépôt de résultats est passé par toute la chaîne et a produit un appel directionnel à 0,750, calibré, sur évidence forte. Vu. Plus « devrait ». *Vu.*
+
+---
+
+Chacun de ces bugs était de la même espèce : silencieux, plausible, validé par tous les contrôles au vert, et en train de corrompre tranquillement la seule chose que le système existe pour produire — un historique crédible. Aucun n'a levé d'erreur. Une probabilité constante. Un seuil caché. Des données primaires qui coulent à côté du pipeline. Une URL qui pointe vers une couverture.
+
+Les défaillances dangereuses des systèmes construits avec l'IA ne sont pas des crashs bruyants. Ce sont des mensonges bien formés et confiants. Le travail n'est pas d'écrire le code — l'IA le fait. Le travail, c'est de fabriquer les contrôles falsifiables qui rendent les mensonges silencieux *bruyants*, et d'avoir la discipline de les lancer même quand on est certain d'avoir fini.
+
+Six fois j'en étais certain. Six fois je ne l'étais pas.
+
+Le système n'est toujours pas terminé. Mais il a maintenant quelque chose qu'il n'avait pas : l'habitude, instrumentée, de se méfier de lui-même.
+
+Le 0,63 avait l'air parfait. C'est là tout le danger.
 
 ---
 ---
 
-## 🇬🇧 How my forecaster lied to me, seven layers deep
+## 🇬🇧 Six Times I Thought I Was Done
 
-*An audit that wouldn't agree to be right too early.*
-
----
-
-Eleven days before my first real batch resolution — 40 predictions due June 10 — I audited the stored probabilities. All 40 had values of exactly **0.608, 0.626, 0.628, or 0.658**. Four unique values. All packed into a 5-point band. None below 0.50, none above 0.72.
-
-A forecaster whose probabilities fit inside 5 points isn't doing probabilistic forecasting. It's producing a constant in disguise. The Brier score on that measures nothing.
-
-**Layer 1.** The cause: an `estimate_probability()` formula capped at [0.50, 0.72], plus 64 of 68 sources stuck at default `credibility=0.50` because monthly recalibration required 10 resolutions per source and I had 6 in the entire database. Bootstrap deadlocked. The tempting conclusion: *"data maturity will fix this. Pivot the publication plan: publish reasoning, not calibration."* Wrong. Time doesn't break a mono-bucket. In four months I'd just have more 0.63s.
-
-**Layer 2.** Prompt rewrite. Three explicit steps for the LLM: state the base rate ignoring the signal (near 0.50 — *not* 0.6 *pour le confort*); list the evidence and the magnitude of the deviation; justify in one sentence why the probability is neither 0.50 nor 0.90. If nothing holds, `direction="watch"` and the prediction never enters the ledger. First test on 8 signals: range [0.44, 0.54], watch rate 62%. Better. Tempting to ship.
-
-**Layer 3.** Pushback: *"you verified the floor. You haven't seen the ceiling."* I build a synthetic 4-level evidence scale on NVDA. The strongest case returns `prob=0.520 watch`. Looks broken — until I read the `anti_anchoring_reason`: *"the source is explicitly synthetic_test, so…"*. I'd injected `source_name` into the prompt. The LLM was downgrading its own evidence reading because it didn't recognize the source. The exact bug my architecture was designed to fix by applying credibility downstream — committed inside the prompt I'd written two hours earlier. Strip the field. Re-run: `0.770 bullish strong`. The ceiling worked. I just hadn't fed it clean inputs.
-
-**Layer 4.** Re-test the 8 real signals post-fix: watch rate drops to 12%. Looks great. Pushback: *"62% might have been the artifact. 12% isn't verified either."* Three weak-evidence signals were logged as bullish 0.54 or bearish 0.43. The spec said *"no falsifiable evidence → watch"*. Weak ≈ vague narrative ≈ not falsifiable. Harder enforcement: `evidence ∈ (none, weak) → watch`. Watch rate climbs back to 75% — and this time I have a principled reason to call it healthy.
-
-**Layer 5.** Remaining directional cohort: all bearish at `0.38–0.42`. Technically passing, semantically broken. A bearish 0.38 means *"I'm 38% confident the bearish call is correct"* — which means I'm 62% confident bullish is correct. Why am I logging bearish? The LLM was conflating `P(call correct)` with `P(price up)`. My resolver scored Brier-style. The ledger was about to evaluate definitionally incoherent values — silent garbage, the worst kind. Fix: explicit semantics in the prompt, plus `prob < 0.55 → watch`. You don't commit if you're not more confident than a coin flip.
-
-**Layer 6.** Re-fixed cohort: still mono-bucket [0.60, 0.62]. The scorer was converging on ~0.60 for every weak signal. Tempting conclusion: *"diversify the sourcing."* Sharper pushback: *"before buying new sources, verify your strong ones reach the scorer."* Five minutes of SQL: `filings_8k_log` 43 rows, `insider_snapshots` 378 rows. **421 rows of primary data** ingested by code that runs daily, sitting in parallel tables that never touch the scoring pipeline. I had EDGAR. I just hadn't wired EDGAR.
-
-**Layer 7.** I pass 3 real 8-K through V2. All return `prob=0.500 watch ev=none`. Verbatim on an NVDA earnings filing: *"boilerplate cover page only, no actual earnings data"*. The stored URL pointed to the filing's cover. The actual content — earnings tables, press release — lived in attached exhibits. I write the extractor. Re-test: NVDA → **0.750 bullish strong** ✅. I code the forward wire, write three unit tests. The third one fails — and I discover that my first two tests had been **polluting the production database**. My `monkeypatch` targeted `_DB_PATH` but `storage.db()` uses `DB_PATH` (no underscore). Without the third test failing, I'd have shipped a test harness that silently created phantom signals in prod on every CI run.
+*What a forecaster that lied to me taught me — and that nothing flagged.*
 
 ---
 
-Seven iterations. Seven layers. Every *"ah, I found it"*, verifying first surfaced the real bug one layer deeper. Formula cap → prompt → source contamination → commit threshold → semantics → wiring → extraction → tests that pollute prod.
+I built a system that forecasts market moves. One day I looked closely at its predictions: every probability was wedged between 0.61 and 0.66.
 
-**The lesson: the conclusion is always one step ahead of the proof.** Even a test that PASSES can hide a bug. The only safety net is the layer you haven't checked yet.
+It looked like a working forecaster. It wasn't. It was a constant wearing a forecaster's costume — whatever it "saw," it answered "about 63% likely." A model that predicts 0.63 on everything predicts nothing.
 
-Still open: run the pipeline for 30 days with V2 wired, see if the directional cohort actually diversifies when real material 8-K start flowing through. I'm not a developer — I track my own tool the way I'd track a fragile thesis. Which is exactly what the system is supposed to do.
+And nothing had flagged it. Tests green. No errors. The system ran, produced well-formed numbers, and the numbers were hollow.
+
+I'm not a developer. AI wrote almost all of this code. That's exactly the point: building has become cheap. Someone with no technical background can now assemble a serious system in a few days. But that system will lie to you with total confidence, in ways that pass every green check — and the rare skill, the one AI doesn't hand you, is catching the lie.
+
+Here's the story of one lie, caught. It took six tries. Each time, I thought I was done.
+
+**One.** The 0.63 came from a hard-coded cap and a prompt that nudged the model toward "likely but uncertain" by default. I rewrote it: start from the base rate, justify every deviation, refuse to anchor. The probabilities finally spread out — downward, into bearish territory. I almost called it there.
+
+Except I'd only verified the bottom half. The top half I was *assuming*: "it should reach 0.75 on strong evidence." *Should.* I built a synthetic ladder to check instead — and the test knocked loose an entirely different bug: the model was downgrading sources it didn't recognize. Which meant it was systematically penalizing my niche sources — the exact ones that are my edge.
+
+**Two, three.** The share of signals the system refused to score looked healthy at 12%. Except that 12% was itself an artifact: the system was forcing weak signals into the ledger as near coin-flips. The cause was a semantic mix-up — between "probability my call is right" and "probability the price goes up." Fixed, the rate settled where the evidence actually warranted.
+
+**Four.** The scorer was now correct. But every input was a tech-opinion newsletter — moderate evidence, by nature. I was about to conclude I needed to buy better sources.
+
+Verifying first, I found 421 rows of the strong evidence I was looking for — earnings filings, insider buys — already sitting in my database, ingested by code that was running, in tables that were never wired to the scorer. I didn't need new sources. I'd never connected the ones I had.
+
+**Five.** I went to verify it on real data. The test failed: the extractor was pulling the filing's cover page, not its content. (This is the iteration I keep most visible. A test that fails and forces a real fix is worth more than ten "it worked.")
+
+**Six.** I wrote the extractor. A real earnings filing went through the whole chain and produced a calibrated, high-confidence directional call at 0.750, on strong evidence. Seen. Not "should." *Seen.*
+
+---
+
+Every one of those bugs was the same species: silent, plausible, signed off by every green check, and quietly corrupting the one thing the system exists to produce — a credible track record. Not one threw an error. A constant probability. A hidden threshold. Primary data flowing beside the pipeline. A URL pointing at a cover page.
+
+The dangerous failures in AI-built systems aren't loud crashes. They're confident, well-formed lies. The work isn't writing the code — AI does that. The work is manufacturing the falsifiable checks that turn the silent lies *loud*, and having the discipline to run them even when you're sure you're done.
+
+Six times I was sure. Six times I wasn't.
+
+The system still isn't finished. But it now has something it didn't: the instrumented habit of distrusting itself.
+
+0.63 looked perfect. That's the whole danger.
