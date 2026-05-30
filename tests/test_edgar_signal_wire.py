@@ -163,6 +163,81 @@ def test_wire_8k_skip_on_insufficient_content(tmp_path, monkeypatch):
     assert n == 0
 
 
+def test_wire_buy_cluster_inserts_signal_with_correct_metadata(tmp_path, monkeypatch):
+    """Unit : wire insider cluster -> signal insere avec metadata canonique
+    (source distincte du 8-K, dedup key insider_cluster:ticker:date)."""
+    _setup_isolated_db(tmp_path, monkeypatch)
+
+    from intelligence import edgar_signal_wire
+    from shared import storage
+
+    cluster = {
+        "cluster_strength": "strong",
+        "distinct_buyers": 4,
+        "total_buy_m": 8.5,
+        "_price_at_detection": 145.20,
+        "window_days": 30,
+        "top_buyers": [
+            {"name": "John Smith", "role": "CEO", "amount": 3500000, "date": "2026-05-15"},
+            {"name": "Jane Doe", "role": "CFO", "amount": 2200000, "date": "2026-05-18"},
+            {"name": "Bob Lee", "role": "Director", "amount": 1800000, "date": "2026-05-20"},
+            {"name": "Alice Wong", "role": "Director", "amount": 1000000, "date": "2026-05-22"},
+        ],
+    }
+
+    signal_id = edgar_signal_wire.wire_buy_cluster_to_signal(
+        cluster=cluster, ticker="ACME", detected_at="2026-05-30 10:00:00"
+    )
+    assert signal_id is not None
+
+    with storage.db() as cx:
+        row = cx.execute("SELECT * FROM signals WHERE id = ?", (signal_id,)).fetchone()
+        d = dict(row)
+        assert d["signal_type"] == "catalyst"
+        assert d["score"] == 7
+        assert d["gmail_id"] == "insider_cluster:ACME:2026-05-30"
+        assert "ACME" in d["title"]
+        assert "strong" in d["title"]
+        # Content doit contenir les top buyers (V2 a besoin de cette specificite)
+        assert "John Smith" in d["content"]
+        assert "CEO" in d["content"]
+        assert "$3,500,000" in d["content"]
+
+        # Source distincte du 8-K
+        src = cx.execute("SELECT * FROM sources WHERE id = ?", (d["source_id"],)).fetchone()
+        assert dict(src)["name"] == "SEC EDGAR Insider Cluster"
+        assert dict(src)["type"] == "sec_filing"
+
+
+def test_wire_buy_cluster_dedup(tmp_path, monkeypatch):
+    """2 detections meme (ticker, date) -> 1 signal en DB."""
+    _setup_isolated_db(tmp_path, monkeypatch)
+
+    from intelligence import edgar_signal_wire
+    from shared import storage
+
+    cluster = {
+        "cluster_strength": "strong",
+        "distinct_buyers": 4,
+        "total_buy_m": 12.3,
+        "_price_at_detection": 88.40,
+        "window_days": 30,
+        "top_buyers": [
+            {"name": "Sarah Chen", "role": "CEO", "amount": 4_800_000, "date": "2026-05-12"},
+            {"name": "Marcus Bell", "role": "CFO", "amount": 3_500_000, "date": "2026-05-14"},
+            {"name": "Priya Singh", "role": "COO", "amount": 2_200_000, "date": "2026-05-19"},
+            {"name": "Tom O'Brien", "role": "Director", "amount": 1_800_000, "date": "2026-05-22"},
+        ],
+    }
+    id1 = edgar_signal_wire.wire_buy_cluster_to_signal(cluster, "ACME", "2026-05-30 10:00:00")
+    id2 = edgar_signal_wire.wire_buy_cluster_to_signal(cluster, "ACME", "2026-05-30 18:00:00")  # meme jour
+    assert id1 is not None, "wire pre-condition: insert OK"
+    assert id1 == id2
+    with storage.db() as cx:
+        n = cx.execute("SELECT COUNT(*) c FROM signals WHERE gmail_id LIKE 'insider_cluster:ACME:%'").fetchone()["c"]
+    assert n == 1
+
+
 @pytest.mark.slow
 def test_e2e_wire_real_nvda_8k_produces_strong_prediction(tmp_path, monkeypatch):
     """E2E : vraie NVDA Q1 FY27 8-K -> extract reel -> V2 reel -> signal +

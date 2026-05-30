@@ -110,10 +110,37 @@ class BuyClusterSource(BaseDataSource):
         cluster = validated.cluster
         cluster["_log_id"] = cid
         cluster["_price_at_detection"] = price
+        cluster["window_days"] = self.window_days
         self.new_found.append(cluster)
         log.info(
             f"BUY cluster logged: {validated.ticker} id={cid} strength={cluster.get('cluster_strength')} price=${price}"
         )
+
+        # Wire vers signals -> V2 -> predictions (audit 30/05 A3 iter 8).
+        # Symetrique 8-K : sync, non-bloquant, dedupe via gmail_id
+        # 'insider_cluster:{ticker}:{date}'.
+        try:
+            from intelligence.edgar_signal_wire import wire_and_register_buy_cluster
+
+            result = wire_and_register_buy_cluster(
+                cluster=cluster, ticker=validated.ticker, detected_at=validated.detected_at
+            )
+            if result["wired"]:
+                log.info(
+                    f"Insider cluster wired: {validated.ticker} -> signal_id={result['signal_id']}, "
+                    f"preds={len(result['registered_predictions'])}"
+                )
+            else:
+                log.info(
+                    f"Insider cluster skip wire: {validated.ticker} "
+                    f"({result.get('reason_if_skipped', 'unknown')})"
+                )
+        except Exception as wire_err:
+            log.warning(
+                f"Insider cluster wire failed (non-blocking) for {validated.ticker}: "
+                f"{type(wire_err).__name__}: {wire_err}"
+            )
+
         return cid
 
 
