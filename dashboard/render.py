@@ -4659,64 +4659,70 @@ def render() -> Path:
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
-        # ── BLOC 1 : OPERATIONNEL -- decisions immediates sur le book ──
-        '<div class="vigie-sh">A agir sur le book</div>'
+        # ── BLOC 1 : URGENCE -- positions en danger immediat ──
+        '<div class="vigie-sh">Urgence &mdash; agir maintenant</div>'
         f'{_risk_watch_panel()}'
         f"{kill_html}"
         f"{blind_html}"
+        # ── BLOC 2 : OPPORTUNITES -- a cloturer ou consolider ──
+        '<div class="vigie-sh">Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise &middot; mais si "valo &gt; bull" ou "fragile" appara&icirc;t = prends ton profit, pas victoire</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
+        # ── BLOC 3 : MOUVEMENT -- info dynamique du jour ──
+        '<div class="vigie-sh">Mouvement du jour</div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_dn}</div></div></div>'
-        # ── BLOC 2 : SYSTEME V2 -- alarmes + track record en construction ──
-        '<div class="vigie-sh">Syst&egrave;me V2 (alarmes + track record)</div>'
+        # ── BLOC 4 : SYSTEME V2 -- alarmes auto + track record en construction ──
+        '<div class="vigie-sh">Syst&egrave;me V2 &mdash; alarmes &amp; track record</div>'
         f"{vigilance_html}"
         f"{v2_cohort_html}"
         f"{wire_activity_html}"
-        # ── BLOC 3 : CONTEXTUEL -- info, pas action directe ──
-        '<div class="vigie-sh">Contexte</div>'
+        # ── BLOC 5 : CONTEXTE -- synthese + interventions copilot ──
+        '<div class="vigie-sh">Contexte &amp; synth&egrave;se</div>'
         f"{grade_html}"
         f"{cockpit_html}"
         f"{copilot_html}"
-        f"{chat_html}"
-        f'<div class="colhead" style="margin-top:22px"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
+        # ── BLOC 6 : JOURNAL -- chat + echeances + log decisions ──
+        '<div class="vigie-sh">Journal &amp; &eacute;ch&eacute;ances</div>'
+        f'<div class="colhead" style="margin-top:6px"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
         f'<div class="card pad">{erows}</div>'
+        f"{chat_html}"
         f"{journal_block}</section>"
     )
 
     # ─── Page Strategie : lecture analytique du book (vocabulaire canonique) ───
+    # Ordre : declaration -> etat -> risques caches -> structure technique -> meta
     strategie_html = (
         '<section data-page="strategie"><div class="phead"><h2>Strat&eacute;gie</h2>'
         '<div class="sub">Lire le livre en profondeur &middot; pourquoi la note '
         'est ce qu\'elle est, et ou est la vraie fragilit&eacute;</div></div>'
-        # Sub-section : Lecture du livre (trajectoire + paris macro + scenarios)
-        '<div class="strat-sh">Ta strategie de reference</div>'
+        # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
+        '<div class="strat-sh">Strat&eacute;gie d&eacute;clar&eacute;e &mdash; r&eacute;f&eacute;rentiel</div>'
         f'{_user_strategy_panel()}'
-        '<div class="strat-sh">Lecture du livre</div>'
+        # 2. Lecture du livre -- etat actuel vs declare (trajectoire, paris macro, stress)
+        '<div class="strat-sh">Lecture du livre &mdash; &eacute;tat actuel</div>'
         f'{trajectory_html}'
         f'{factor_html}'
         f'{stress_html}'
         f'{bench_html}'
-        # Sub-section : Concentration cachee (SPOF + sizing rigoureux + valo)
-        '<div class="strat-sh">Concentration cach&eacute;e</div>'
+        # 3. Risques caches -- fusion Concentration + Doublons (= ce que la surface cache)
+        '<div class="strat-sh">Risques cach&eacute;s &mdash; concentration &amp; doublons</div>'
         f'{spof_html}'
         f'{mauboussin_html}'
         f'{valo_html}'
-        # Sub-section : Doublons mesures (correlation + axes)
-        '<div class="strat-sh">Doublons mesur&eacute;s</div>'
         f'{_return_clustering_panel()}'
         f'{axes_html}'
-        # Sub-section : Apprentissage du bot (L2 + L3 + soft signals + conversations)
-        '<div class="strat-sh">Apprentissage du bot</div>'
+        # 4. Placement fiscal -- structure technique (ferme l'analytique avant le meta)
+        '<div class="strat-sh">Placement fiscal &mdash; structure technique</div>'
+        f'{wrapper_html}'
+        # 5. Apprentissage du bot -- meta (ce que le systeme retient)
+        '<div class="strat-sh">Apprentissage du bot &mdash; ce que le syst&egrave;me retient</div>'
         f'{conceptions_html}'
         f'{preferences_html}'
         f'{chat_signals_html}'
         f'{conversations_html}'
-        # Sub-section : Fiscal
-        '<div class="strat-sh">Placement fiscal</div>'
-        f'{wrapper_html}'
         '</section>'
     )
 
