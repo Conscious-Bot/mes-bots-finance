@@ -150,8 +150,7 @@ def score_directional_probability(
         if direction not in ("bullish", "bearish", "watch"):
             direction = "watch"
 
-        # Server-side enforcement of "no evidence -> prob = base_rate".
-        # Le LLM peut tricher ; on impose la regle a la sortie.
+        # Server-side enforcement #1 : "no evidence -> prob = base_rate".
         if ev_str == "none" and abs(prob - base_rate) > 0.01:
             log.info(
                 f"signal_scorer_v2 [{ticker}]: ev=none but prob={prob:.3f} != "
@@ -159,15 +158,19 @@ def score_directional_probability(
             )
             prob = base_rate
 
-        # Server-side enforcement of the [0.55, 0.70] dead zone : si on tombe
-        # dedans SANS evidence strong, on force vers base rate. C'est la zone
-        # "ca semble probable" qui pollue la calibration.
-        if 0.55 <= prob <= 0.70 and ev_str in ("none", "weak"):
+        # Server-side enforcement #2 (audit 30/05 iteration 2) : evidence none
+        # OU weak -> direction='watch'. La spec originale dit "Si aucune
+        # evidence ne soutient une direction falsifiable => direction:'watch'".
+        # Weak = narrative vague = pas falsifiable. Sans ce gate, les weak
+        # restent en ledger a ~0.5 (mono-bucket DEMENAGE : des watches pres de
+        # 0.5 vers des calls directionnels pres de 0.5, meme maladie).
+        # Le seuil de commit est moderate+, pas weak+.
+        if ev_str in ("none", "weak") and direction in ("bullish", "bearish"):
             log.info(
-                f"signal_scorer_v2 [{ticker}]: prob={prob:.3f} in dead zone with "
-                f"ev={ev_str} -- snap to base_rate={base_rate:.3f}"
+                f"signal_scorer_v2 [{ticker}]: ev={ev_str} -> force direction=watch "
+                f"(was {direction}, prob {prob:.3f}). Weak = non-falsifiable."
             )
-            prob = base_rate
+            direction = "watch"
 
         return {
             "version": SCORER_VERSION,

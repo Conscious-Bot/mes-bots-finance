@@ -127,11 +127,38 @@ Le retournement directionnel (V1 = 100% bullish, V2 = 5/8 bearish) est éloquent
 
 ---
 
-## Deux vigilances pour la suite
+## Itération 2 — frontière watch/directionnel (le péché symétrique)
 
-1. **Watch-rate distribution dans le temps**. C'est le candidat n°1 au prochain tas dégénéré. Si en 4 semaines on tend vers 50%+ watch, on a re-créé une ancre par défaut côté refus. Surveillance via dashboard : panneau "predictions registered/watch/skipped per week".
+Après l'intégration, deuxième pushback adversaire : *« 62% watch était peut-être un bug, mais 12% n'est pas vérifié non plus. Tu as prouvé le spread, pas la frontière de commit. Le péché original était la sous-commitment ; le péché symétrique, c'est la sur-commitment. Si le sourcing n'a pas changé et que la plupart des signaux sont vraiment faibles, un watch bas veut dire que tu forces des narratives faibles dans le ledger comme calls directionnels à ~0.5. Mono-bucket déménagé, pas tué. »*
 
-2. **Sonnet bump vs config.signal_scoring=Haiku**. V2 utilise `tier="enrich"` (Sonnet 4.6) alors que `config.signal_scoring="extract"` (Haiku 4.5). **Décision délibérée** : le scoring 3-étapes exige du raisonnement structuré, Haiku ne tient pas la qualité (testé empiriquement par observation des `evidence_summary` riches en V2). Coût modélisé : 40 signals/jour × Sonnet ≈ $0.20/jour, $6/mois. OK. Si on baisse Haiku plus tard pour économiser, faire un A/B délibéré, pas de drift silencieux.
+Relecture du sample 8 réels post-fix source : 3 evidence=weak étaient en ledger comme bullish ~0.54 et bearish ~0.43. Verbatim du prompt original : *« Si aucune évidence ne soutient une direction falsifiable => direction:'watch' »*. Weak ≈ vague narrative ≈ non-falsifiable. Mon enforcement (dead zone [0.55-0.70]) ne capturait pas les weak juste en-dessous.
+
+**Fix iteration 2** (commit 0b4d0c1 + 1 patch) : `evidence_strength ∈ (none, weak) → direction='watch'` forcé server-side. Le seuil de commit est `moderate+`, pas `weak+`.
+
+**Vérification sample n=20** :
+
+| Métrique | Pré-fix iter2 (n=8) | Post-fix iter2 (n=20) |
+|---|---|---|
+| Watch rate | 12% | **75%** |
+| Directional cohort | n=7 | n=5 |
+| Invariant weak/none → watch | 3 violations | **0** ✅ |
+| Cohorte directionnelle range | [0.38-0.54] mixte | [0.38-0.42] tous bearish moderate |
+
+**Lecture** : le 75% watch est défendable — sample dominé par newsletters tech (Ben Thompson, Wall Street Rollup) = par construction des opinions sector-level AI hype = la majorité weak. C'est cohérent avec la limite #2 originale du sourcing : *« le pipeline génère majoritairement des narratives faibles »*. Watch rate sain ≠ bas — c'est égal à la vraie fraction de signaux non-informatifs.
+
+**Mais nouveau risque identifié** : la cohorte directionnelle reste mono-bucket (n=5, 3 valeurs uniques en 4pts, tous bearish ~0.40). Deux explications possibles :
+- (a) Mono-bucket déménagé une 3ème fois : le LLM converge sur ~0.40 pour ces narratives, peu importe la pièce d'évidence
+- (b) Signal réel du système : ces narratives AI sont cohéremment bearish moderate, ce qui est défendable analytiquement
+
+Probable (b) mais non prouvé. Sample biaisé (tirage RANDOM sur batch dominé par tech opinions). Vrai test = sample diversifié (earnings beats, macro, regulatory) — à faire dès qu'on a la matière.
+
+## Trois vigilances pour la suite
+
+1. **Watch-rate distribution dans le temps**. Si on tend vers 50%+ watch sur 4 semaines, on a re-créé une ancre par défaut côté refus. Dashboard : "predictions registered/watch/skipped per week".
+
+2. **Distribution prob de la cohorte DIRECTIONNELLE dans le temps** (vigilance ajoutée iter 2). Si 80% des directional sont [0.38-0.42] sur 4 mois, c'est mono-bucket déménagé une fois de plus. Healthy = voir du 0.25 et du 0.75 apparaître naturellement quand l'évidence le justifie.
+
+3. **Sonnet bump vs config.signal_scoring=Haiku**. V2 utilise `tier="enrich"` (Sonnet 4.6) alors que `config.signal_scoring="extract"` (Haiku 4.5). **Décision délibérée** : le scoring 3-étapes exige du raisonnement structuré, Haiku ne tient pas la qualité. Coût modélisé : 40 signals/jour × Sonnet ≈ $0.20/jour, $6/mois. Si on baisse Haiku plus tard pour économiser, A/B délibéré, pas de drift silencieux.
 
 ---
 
