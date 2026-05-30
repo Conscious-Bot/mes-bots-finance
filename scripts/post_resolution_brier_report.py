@@ -69,7 +69,7 @@ def main():
             f"{d['probability_at_creation']:>6.3f} {brier_str:>7}"
         )
 
-    print(f"\n=== Outcomes ===")
+    print("\n=== Outcomes ===")
     total = len(rows)
     print(f"  correct    : {n_correct} ({n_correct / total * 100:.0f}%)")
     print(f"  incorrect  : {n_incorrect} ({n_incorrect / total * 100:.0f}%)")
@@ -77,29 +77,29 @@ def main():
 
     if briers:
         avg_brier = sum(briers) / len(briers)
-        print(f"\n=== Brier (raw, sans dedup) ===")
+        print("\n=== Brier (raw, sans dedup) ===")
         print(f"  n scored : {len(briers)}")
         print(f"  avg      : {avg_brier:.3f}")
-        print(f"  baseline trivial (prior 0.5 constant) : 0.250")
+        print("  baseline trivial (prior 0.5 constant) : 0.250")
         verdict = "BEATS" if avg_brier < 0.25 else "WORSE THAN"
         print(f"  -> {verdict} baseline 0.5 prior")
 
     if clusters:
         cluster_briers = [sum(v) / len(v) for v in clusters.values()]
         avg_dedup = sum(cluster_briers) / len(cluster_briers)
-        print(f"\n=== Brier dedup par cluster (signal_id x ticker x direction) ===")
+        print("\n=== Brier dedup par cluster (signal_id x ticker x direction) ===")
         print(f"  n clusters uniques : {len(clusters)} (vs {len(briers)} predictions brier-scored)")
         print(f"  dedup ratio        : {len(briers) / len(clusters):.2f}")
         print(f"  avg brier (dedup)  : {avg_dedup:.3f}")
         print(f"  range cluster_briers : [{min(cluster_briers):.3f}, {max(cluster_briers):.3f}]")
 
-    if briers:
-        if briers and len(set(round(p, 2) for p in [r["probability_at_creation"] for r in rows])) <= 2:
-            print(f"\n=== ⚠️  WARNING ===")
-            print(f"  Toutes probabilites dans <= 2 buckets uniques.")
-            print(f"  Reliability diagram = 1 point ou ligne degeneree.")
-            print(f"  Calibration non-publiable scientifiquement sur ce batch.")
-            print(f"  Cause : V1 mono-bucket (cf decision_log/01_calibration_unanchored.md).")
+    unique_probs = {round(r["probability_at_creation"], 2) for r in rows}
+    if briers and len(unique_probs) <= 2:
+        print("\n=== ⚠️  WARNING ===")
+        print("  Toutes probabilites dans <= 2 buckets uniques.")
+        print("  Reliability diagram = 1 point ou ligne degeneree.")
+        print("  Calibration non-publiable scientifiquement sur ce batch.")
+        print("  Cause : V1 mono-bucket (cf decision_log/01_calibration_unanchored.md).")
 
     return 0
 
