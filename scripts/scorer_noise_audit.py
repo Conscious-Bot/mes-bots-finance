@@ -127,7 +127,8 @@ def main():
     print(f"=== scorer_noise_audit ===")
     print(f"  N signaux : {args.n_signals}")
     print(f"  N re-runs : {args.n_runs}")
-    print(f"  Mode : {'DRY-RUN (pas d\\'appel LLM)' if args.dry_run else 'VRAI RUN'}")
+    mode_str = "DRY-RUN (pas d'appel LLM)" if args.dry_run else "VRAI RUN"
+    print(f"  Mode : {mode_str}")
     print()
 
     signals = sample_signals(cx, args.n_signals)
