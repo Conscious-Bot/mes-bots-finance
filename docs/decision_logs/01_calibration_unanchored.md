@@ -203,9 +203,33 @@ L'hypothèse "wire 8-K + insider dans signals débloque la diversité prédite p
 
 Sous-décision masquée : backfiller les 421 lignes historiques ou forward-only ? Backfiller = 378 prédictions stale-dated = nouvel artefact temporel (cousin du cluster horizon=30 résolu au sprint précédent). Décision non triviale, à trancher délibérément en session fraîche.
 
+## Itération 5 — DoD ad-hoc, le vrai bug est encore une couche plus bas
+
+DoD ad-hoc pour vérifier si filings_8k_log → V2 produit la diversité prédite. Premier essai foiré (j'ai injecté `severity=high` dans le summary, ré-ancrant V2 sur le label classifieur — exactement le bug `source_name` iter 1 que j'avais déjà fix). Refonte : passer le contenu HTML de la 8-K, laisser V2 juger indépendamment.
+
+Test sur 3 8-K matérielles (NVDA Item 2.02 earnings, GOOGL Item 8.01, MSTR Items 7.01/8.01), severity=medium par notre classifieur. Verdict V2 sur les 3 :
+
+```
+prob=0.500  direction=watch  evidence=none
+```
+
+V2 verbatim sur NVDA : *« boilerplate Item 2.02 header/cover page only — no actual earnings data, revenue figures, guidance, or qualitative commentary is present in the excerpt »*.
+
+V2 a fait son job. Le bug n'est pas dans V2. **`filing_url` pointe vers la page d'index du filing (cover + boilerplate). Le contenu réel — earnings tables, déclarations material, annonces — vit dans des exhibits attachés (typiquement Exhibit 99.1), référencés depuis l'index.**
+
+Encore une couche plus bas. La chaîne complète révélée par les 5 itérations :
+
+```
+mono-bucket V1 → prompt V2 → enforcement → sémantique → wire sourcing → extraction exhibits
+```
+
+À chaque itération, j'allais conclure. À chaque vérification, le vrai bug était une couche plus bas. **Le pattern : la conclusion est toujours en avance d'un cran sur la preuve.**
+
+Implication A3 : avant wire-up forward, il faut un extracteur d'exhibits (suivre l'index → Exhibit 99.1 → fetch contenu). Sans ça, wirer = injecter 100% des 8-K en watch dans le ledger (0 valeur).
+
 ## L'arc, en une phrase publiable (draft)
 
-*« Audit pré-batch → mono-bucket → V2 cassé spread → cassé sémantique → cassé frontière commit → bouclé sur "sourcing" → bouclé sur "wiring sourcing" → vérification pending. À chaque étape, j'allais conclure. À chaque étape, vérifier d'abord m'a fait trouver le vrai bug une couche plus bas. »*
+*« Audit pré-batch → mono-bucket → V2 cassé spread → cassé sémantique → cassé frontière commit → bouclé sur "sourcing" → bouclé sur "wiring sourcing" → bouclé sur "extraction exhibits". 5 itérations, 5 couches. À chaque étape, j'allais conclure. À chaque étape, vérifier m'a fait trouver le vrai bug une couche plus bas. La leçon : la conclusion est toujours en avance d'un cran sur la preuve. »*
 
 ## Trois vigilances pour la suite
 
