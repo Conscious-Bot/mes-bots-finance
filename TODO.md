@@ -1,6 +1,6 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 30 mai 2026 matin (post dette KNOWN_DEBT entièrement résorbée)
+**Refresh** : 30 mai 2026 soir (post Phase 4 colmatage + MU fix)
 **Mode** : Phase construction + Observation Brier jusqu'au 10/06 (J-11)
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
@@ -9,11 +9,23 @@
 ## 🟢 ÉTAT SYSTÈME — Tout vert
 
 - **Gate `run_static_gate(conn)` : 0 violations** (dette KNOWN_DEBT vide)
-- **25/25 property tests verts strict** (sets KNOWN_DEBT vides)
-- **Bot tourne** : PID 81474, lancé 11:03, caffeinate -dimsu, détaché init (survit sleep + ferm. shell)
+- **407/407 tests verts** (incluant 7 e2e nouveaux : decision→cf, book view, passerelle, scoring, gate, audit, self_loop)
+- **Bot tourne** : caffeinate -dimsu, détaché init (survit sleep + ferm. shell)
 - **Backup quotidien** : `scripts/backup.sh` corrigé, test manuel OK (25M tarball + DB 9.9M + integrity)
-- **7 ancres contrefactuelles** en attente mesure J+30 (boucle-de-soi V0)
-- **6 commits poussés** sur `origin/main` aujourd'hui
+- **6 ancres contrefactuelles actives** en attente J+30 (cf#55 MU voidée post-fix)
+- **8 commits poussés** sur `origin/main` aujourd'hui
+
+---
+
+## ⚠️ Risque silencieux identifié (post-MU fix)
+
+Le bug MU (qty 0.119 au lieu de 1.224) est resté **24h+ sans alerte**. Tu l'as
+vu visuellement, pas le système. Causes :
+- Aucun cross-check qty DB vs broker à intervalle régulier
+- Trims fantômes (1 saisi, 0 exécuté) passent le gate (toute qty > 0 est valide)
+- Le dashboard ne marque pas une position "anormalement petite" vs cost_basis
+
+**À envisager post-10/06** : un check hebdomadaire eur_value DB vs Trade Republic (manuel ou import). Pas critique avant que les fondations Brier soient validées, mais à ne pas oublier.
 
 ---
 
@@ -99,6 +111,12 @@ Cf mémoire `niveau_2_adversary_and_proof` pour le détail.
 - **KNOWN_DEBT_TICKERS_* sets vidés** : test strict, plus de tolérance
 - **Recalcul cluster cap post re-tag CCJ** : ballast effectif 17.2% (vs 15% cible), AI cluster 74.6% (vs 70%, +4.6pp en phase construction). **Cible 70% maintenue**.
 - Bot redémarré proprement avec caffeinate
+
+### 30/05 soir — Audit pipeline Phase 4 + MU fix
+- **Cascade colmatage** (commit bf8fb18) : migration 0020 drop 4 tables fossiles, alerte Telegram gate-red au startup, asymmetry rounding 2→3 décimales, test e2e pipeline (7 tests).
+- **Cleanup 51 rows TEST_SL_*** + 10 cfr liées (pollution biaisant `measure_bias`)
+- **MU fix** (commit 49acd34) : qty 0.119 → 1.224 (€99.5 → €1020.10). Trim fantôme du 29/05 supprimé (event #4 DELETE, decision #23 [VOIDED], cf#55 conservée append-only + filtre dans `measure_bias`).
+- **2 failures découvertes + corrigées** : asym rounding (round 2→3) + patterns table restaurée (decision_copilot la query, code dead-path mais SELECT doit pas crasher).
 
 ### Trades du jour (29/05 chat-driven)
 - ALAB 616€ → LNG 616€ (profit-take winner)
