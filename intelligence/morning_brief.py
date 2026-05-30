@@ -101,6 +101,10 @@ def _filings_insider_section():
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
+        # severity = filter heuristique (ADR 012, soft-deprecated comme mesure
+        # evidence_strength). Item-codes seuls : NVDA earnings 2.02 -> medium,
+        # donc filtree ici. La vraie force d'evidence vient de V2 downstream.
+        # Pour le morning brief, on garde 'high/catastrophic' comme cutoff rapide.
         rows = query(
             conn,
             "SELECT ticker, filed_at, severity, items_raw FROM filings_8k_log "

@@ -285,6 +285,10 @@ async def scheduled_8k_scan_job():
     except Exception as e:
         log.warning(f"8-K scan error: {e}")
         return
+    # severity = filter heuristique low-latency pour push Telegram immediat (ADR 012).
+    # Pas une mesure d'evidence_strength : un Item 2.02 earnings beat est classe
+    # 'medium' ici mais V2 sur contenu peut sortir 'strong'. Pour la calibration
+    # serieuse, la verite est en aval (signals -> V2 -> predictions).
     alerts = [r for r in new_logged if r["severity"] in ("catastrophic", "high")]
     if alerts:
         msg = f"8-K ALERTS ({len(alerts)} high+catastrophic)\n\n"

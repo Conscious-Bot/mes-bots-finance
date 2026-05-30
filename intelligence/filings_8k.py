@@ -54,7 +54,16 @@ SEVERITY_ORDER = {"catastrophic": 4, "high": 3, "medium": 2, "low": 1, "unknown"
 
 
 def classify_severity(item_codes):
-    """Given list of item codes, return (severity, reason) by max severity."""
+    """Given list of item codes, return (severity, reason) by max severity.
+
+    SOFT-DEPRECATED comme mesure d'evidence_strength (ADR 012, 30/05/2026).
+    Le classifieur ne lit que le code item, pas le contenu. NVDA Q1 FY27
+    earnings 8-K (Item 2.02, $80B buyback) classe 'medium' ici alors que V2
+    sur contenu reel sort prob=0.750 bullish strong. Conserve pour filter
+    rapide des alertes Telegram tier-1 (heuristique low-latency), mais
+    NE PAS utiliser pour Brier/calibration -- source de verite =
+    signal_scorer_v2.score_directional_probability().evidence_strength.
+    """
     if not item_codes:
         return ("unknown", "No items reported")
     best_sev = "low"
