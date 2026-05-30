@@ -654,13 +654,21 @@ def insert_prediction(
     score=None,
     signal_type=None,
     impact_magnitude=None,
+    probability_override=None,
 ):
-    """Phase A1 — Brier: probability_at_creation = estimate_probability(...).
+    """Brier: probability_at_creation source determined by caller.
 
-    score/signal_type/impact_magnitude are threaded by the caller (auto_register
-    holds them in memory, score>=6 guaranteed). Only credibility is re-queried
-    (source-owned, stable at insert). If score is None the prediction is NOT
-    registered: a floored 0.50 prior would pollute the Brier ledger (bug 27/05).
+    Versioning:
+    - V2 (signal_scorer_v2) : caller passes probability_override (LLM-elicited,
+      base-rate-first, 3-step prompt). Plage [0.0, 1.0] sans cap artificiel.
+      score peut etre None (V2 ne s'en sert pas pour calculer la proba).
+    - V1 (estimate_probability) : si probability_override is None, fallback sur
+      formule deterministe. Cap [0.50, 0.72] (bug mono-bucket identifie 30/05).
+      Conserve pour rollback / A-B futur.
+
+    V1 path : score/signal_type/impact_magnitude threaded ; credibility re-queried.
+    Si score is None et probability_override is None : NOT registered (floored
+    0.50 polluerait Brier ledger, bug 27/05).
     """
     import logging as _logging
 
@@ -668,18 +676,28 @@ def insert_prediction(
 
     conn = _sqlite3.connect(_DB_PATH)
     try:
-        if score is None:
-            _logging.getLogger(__name__).error(
-                f"insert_prediction: score=None for signal {signal_id} ({ticker}) — "
-                "prediction NOT registered (floored 0.50 would pollute Brier ledger)"
-            )
-            return None
-        row = conn.execute(
-            "SELECT s.credibility FROM signals sig JOIN sources s ON sig.source_id = s.id WHERE sig.id = ?",
-            (signal_id,),
-        ).fetchone()
-        credibility = row[0] if row else None
-        prob = estimate_probability(score, credibility, signal_type, impact_magnitude)
+        if probability_override is not None:
+            # V2 path : trust caller's probability
+            if not (0.0 <= probability_override <= 1.0):
+                _logging.getLogger(__name__).error(
+                    f"insert_prediction: probability_override={probability_override} out of [0,1]"
+                )
+                return None
+            prob = round(float(probability_override), 4)
+        else:
+            # V1 path : formula
+            if score is None:
+                _logging.getLogger(__name__).error(
+                    f"insert_prediction: score=None for signal {signal_id} ({ticker}) — "
+                    "prediction NOT registered (floored 0.50 would pollute Brier ledger)"
+                )
+                return None
+            row = conn.execute(
+                "SELECT s.credibility FROM signals sig JOIN sources s ON sig.source_id = s.id WHERE sig.id = ?",
+                (signal_id,),
+            ).fetchone()
+            credibility = row[0] if row else None
+            prob = estimate_probability(score, credibility, signal_type, impact_magnitude)
         cur = conn.execute(
             "INSERT INTO predictions (signal_id, ticker, direction, horizon_days, baseline_price, "
             "baseline_date, target_date, probability_at_creation) "

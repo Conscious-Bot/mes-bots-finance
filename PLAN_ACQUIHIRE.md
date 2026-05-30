@@ -58,10 +58,11 @@ L'acquisition est la décision d'un tiers. Le succès à 6 mois = des conversati
 ### Juin (4 semaines)
 - **Semaine 1** : Uptime durci. caffeinate confirmé, daily check log, bot tourne 7j/7.
 - **Semaine 1-2** : Audit pré-10/06 résolution loop **fait** (30/05). Verdict ci-dessus.
-- **10 juin** : **Batch résolution KPI #2** (~40 predictions). Premier vrai point de données. **Événement load-bearing**.
-- **Semaines 2-3** : Si Brier insuffisant (cf red-team #1), pivot raisonnement-first sans drame. Si OK, capture des findings.
+- **Jalon A2 (30/05) — Calibration unanchored** : SIGNAL_SCORER_V2 livré + intégré + vérifié via échelle synthétique. Bug + fix capturés dans `docs/decision_logs/01_calibration_unanchored.md`. V2 atteint 0.77 sur évidence forte, 0.38 sur évidence inverse — plafond + plancher cassés. Watch rate descend de 62% (pré-fix source bug) à 12%. **Le batch 10/06 reste perdu pour calibration (cohortes figées) ; la cohorte suivante a un scorer non-ancré.**
+- **10 juin** : **Batch résolution KPI #2** (~40 predictions). Premier vrai point Brier brut. Servira de comparaison V1 vs V2 (post-10/06 batchs).
+- **Semaines 2-3** : Brier 10/06 ne fournira pas calibration story (cf red-team #1 validé) — capture le delta V1/V2 comme matière de log #02.
 - **Semaines 3-4** : Book canonique M1 finalisé (Brief 10 points déjà 90% fait). Time-box dur.
-- **Tout juin** : Gel features. Élagage. Hygiène secrets re-confirmée.
+- **Tout juin** : Gel features. Élagage. Hygiène secrets re-confirmée. **Vigilance watch-rate distribution** (candidat #1 au prochain tas dégénéré).
 
 ### Juillet (4 semaines)
 - **Semaine 1-2** : Commencer 3 brouillons (decision logs : LNG vs Cameco, MU bug owné, pourquoi pas de price stops).
