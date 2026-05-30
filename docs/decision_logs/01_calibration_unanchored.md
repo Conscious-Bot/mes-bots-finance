@@ -305,9 +305,31 @@ Test régression `tests/test_db_path_alias.py` :
 
 Cleanup symbolique : `tests/test_edgar_signal_wire.py` simplifié, un seul monkeypatch suffit maintenant (vs double avant fix iter 7). 414/414 tests verts.
 
-## L'arc, en une phrase publiable (draft v4)
+## Itération 10 — Dry-run résolution pré-10/06 (confirmation empirique)
 
-*« 9 itérations. À chaque "ah j'ai trouvé", vérifier d'abord m'a fait découvrir le vrai bug une couche plus bas. Y compris quand le bug était dans le fix lui-même : la première version de la consolidation DB_PATH (aliaser statiquement) ne fonctionnait pas — le test régression l'a démontré immédiatement. La leçon : la conclusion est toujours en avance d'un cran sur la preuve. Même un fix au pattern "vérifier d'abord" peut cacher un sous-bug — la preuve qu'on n'arrête jamais de vérifier. »*
+Le batch 40 predictions du 10/06 est figé V1 mono-bucket. Question d'iter 1 : *« le pipeline résolution lui-même tournera-t-il sans bug le 10/06 ? »* Et : *« quel Brier attendre ? »*. Dry-run sans UPDATE, prix snapshot J-11 :
+
+| Métrique | Valeur |
+|---|---|
+| Total predictions | 40 |
+| correct | 8 (20%) |
+| incorrect | 13 (32%) |
+| neutral | 19 (48%, exclu Brier) |
+| **Brier moyen** | **0.295** |
+| Baseline trivial (prior 0.5 const) | 0.25 |
+| Accuracy bull/bear (hors neutrals) | 8/21 = 38% |
+
+**Verdict empirique** : le système prédit à 0.63 mais est correct 38% du temps. **Surconfiant ET mal calibré.** Le Brier 0.295 est **pire qu'un prior 0.5 trivial**. Si publié tel quel le 10/06, c'est l'opposé d'un track record.
+
+Mais c'est la confirmation directe du diagnostic mono-bucket : V1 100% bullish via sentiment + cap [0.50-0.72] + sources cred=0.50 figées = constante déguisée. Le système a tort de manière prévisible. Iter 1 prédisait *« batch 10/06 perdu pour calibration »*. Iter 10 confirme : *« batch 10/06 NÉGATIF pour calibration. »*
+
+**Bonne nouvelle dans la mauvaise** : **le mécanisme de résolution tourne sans bug**. 40/40 prix fetched, brier compute OK, cluster dedup OK (21 clusters uniques sur 21 brier-scored = pas de doublons résiduels). Le 10/06 sur machine, le pipeline produira les chiffres correctement — c'est juste que les chiffres seront mauvais.
+
+**Boucle V1 vs V2 fermée empiriquement** : sur les 13 bearish "incorrect" du batch (V1 disait baisse à 0.63 conviction, le prix a monté), V2 sur les mêmes signaux sortait `bearish 0.60-0.62` (iter 3 sample 20). Brier sur 0.62 incorrect = 0.384, vs 0.394-0.433 pour V1 = légèrement mieux mais pas dramatique. La vraie différence est que V2 met les weak en `watch` → 75% des signaux n'entrent pas dans le ledger → moins de N mais N de meilleure qualité. C'est le pattern qu'on a parié.
+
+## L'arc, en une phrase publiable (draft v5)
+
+*« 10 itérations. À chaque "ah j'ai trouvé", vérifier d'abord m'a fait découvrir le vrai bug une couche plus bas. À l'itération 10, j'ai vérifié empiriquement la prédiction théorique de l'itération 1 : le batch 10/06 va publier un Brier 0.295, pire qu'un prior 0.5 trivial. Le diagnostic mono-bucket de mai n'était pas une intuition à confirmer plus tard — c'est un fait mesuré 11 jours avant le moment de vérité. Le pipeline résolution fonctionne ; les résultats V1 sont mauvais comme prévu ; V2 sur cohortes futures est la sortie. La leçon : la conclusion est toujours en avance d'un cran sur la preuve. Même quand la preuve confirme la conclusion. »*
 
 ## Trois vigilances pour la suite
 
