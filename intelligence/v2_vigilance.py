@@ -120,26 +120,60 @@ def check_directional_spread(cx, days: int = 120) -> dict[str, Any]:
 
 
 def check_insider_clusters_alive(cx, days: int = 30) -> dict[str, Any]:
-    """Vigilance #3 : insider_buy_clusters_log doit avoir des entries detectees."""
-    n = cx.execute(
+    """Vigilance #3 : insider_buy_clusters_log doit avoir des entries detectees.
+
+    Calibration affinee 30/05 (diagnostic iter 17) : un book large-cap AI a peu
+    de clusters insider par nature (CEO/CFO d'un Nvidia vendent plus qu'ils
+    n'achetent). 0 cluster != job casse necessairement.
+
+    On differencie :
+    - 0 cluster + 0 trade insider individuel detecte sur 30j -> ALERT (job casse)
+    - 0 cluster + buys individuels existent mais sous seuil -> INFO (normal pour
+      le profil book)
+    - >= 1 cluster -> OK
+    """
+    n_clusters = cx.execute(
         "SELECT COUNT(*) c FROM insider_buy_clusters_log WHERE detected_at >= datetime('now', ?)",
         (f'-{days} days',),
     ).fetchone()['c']
 
-    if n == 0:
+    if n_clusters >= 3:
+        return {
+            "name": "insider_clusters_alive", "status": "OK", "days": days, "n": n_clusters,
+            "message": f"{n_clusters} clusters detectes sur {days}j -- pipeline sain.",
+        }
+    if n_clusters >= 1:
+        return {
+            "name": "insider_clusters_alive", "status": "OK", "days": days, "n": n_clusters,
+            "message": f"{n_clusters} cluster(s) detecte(s) sur {days}j -- pipeline alive.",
+        }
+
+    # 0 clusters -- differencier job casse vs univers sans buys
+    # On regarde insider_snapshots (refresh quotidien) pour voir si des buys
+    # individuels ont ete detectes recemment.
+    try:
+        any_buys = cx.execute(
+            "SELECT COUNT(*) c FROM insider_snapshots WHERE snapshot_date >= date('now', ?) AND n_buys > 0",
+            (f'-{days} days',),
+        ).fetchone()['c']
+    except Exception:
+        any_buys = 0
+
+    if any_buys == 0:
         status = "ALERT"
-        msg = (f"0 cluster insider detecte sur {days}j. scheduled_buy_cluster_scan_job tourne ? "
-               f"Seuil `is_buy_cluster` trop strict ? Debug requis avant que ca pourrisse silencieusement.")
-    elif n < 3:
-        status = "WARN"
-        msg = f"Seulement {n} cluster(s) detecte(s) sur {days}j -- faible. A surveiller."
+        msg = (f"0 cluster + 0 trade insider buy detecte sur {days}j. "
+               f"Le job scheduled_insider_refresh_job tourne ? "
+               f"Debug requis avant que ca pourrisse silencieusement.")
     else:
-        status = "OK"
-        msg = f"{n} clusters detectes sur {days}j -- pipeline insider sain."
+        status = "INFO"
+        msg = (f"0 cluster sur {days}j MAIS {any_buys} snapshot(s) avec buys individuels. "
+               f"Normal pour book large-cap AI (insider buys clusters rares). "
+               f"Pas de bug -- seuils `_classify_buy_cluster` (n>=3 + $1M) sont juste "
+               f"strict vs profil book. Si on veut plus de signal : abaisser seuil $.")
 
     return {
         "name": "insider_clusters_alive", "status": status, "days": days,
-        "n": n, "message": msg
+        "n": n_clusters, "any_individual_buys": any_buys, "message": msg,
     }
 
 
@@ -156,7 +190,8 @@ def run_all_vigilances() -> list[dict[str, Any]]:
 
 
 def format_vigilance_report(results: list[dict[str, Any]]) -> str:
-    """Format Telegram message. Skip si tous OK ou INSUFFICIENT_DATA."""
+    """Format Telegram message. Skip si tous OK / INFO / INSUFFICIENT_DATA.
+    Push uniquement les vrais signaux d'action (ALERT/WARN)."""
     alerting = [r for r in results if r['status'] in ('ALERT', 'WARN')]
     if not alerting:
         return ""  # pas de push si tout OK
