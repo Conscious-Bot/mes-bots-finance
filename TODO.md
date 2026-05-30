@@ -157,5 +157,7 @@ Audit pré-10/06 a révélé que les 40 prédictions du batch sont toutes dans p
 
 - **Maintenant → 10/06** : usage > code. **MAIS** : V1 mauvais déjà mesuré (dry-run Brier 0.295). Le 10/06 n'apporte pas de validation calibration positive — sert de baseline V1 figé pour future comparaison V2. Le "moment de vérité" devient **« est-ce que je publie quand même le mauvais chiffre comme prévu, ou je me trouve une excuse »**.
 - **10/06** : batch resolution V1. À publier honnêtement (post_03 déjà drafté pour ça). Brier ~0.295 attendu, ne PAS maquiller. Le **mécanisme** tourne (vérifié dry-run), c'est V1 qui est mauvais comme prédit.
+  - **9h00** : `daily_resolve_job` tourne automatiquement. Telegram envoyé avec counts (correct/incorrect/neutral) mais SANS Brier moyen.
+  - **9h05** : lancer manuellement `python -m scripts.post_resolution_brier_report 2026-06-10` pour obtenir Brier + dedup cluster + warning mono-bucket. C'est ce chiffre qui compte pour la calibration.
 - **Post-10/06** : observer les cohortes V2 qui s'accumulent (wire 8-K + insider clusters actifs). Première comparaison V1 vs V2 nécessitera ~2-3 mois de N V2 suffisant.
 - **Path 5 / 6** : différer jusqu'à avoir N V2 suffisant pour calibration plot publishable (post-août probablement, pas 10/06).
