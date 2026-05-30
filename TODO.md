@@ -64,12 +64,17 @@ Cf mémoire `niveau_2_adversary_and_proof` pour le détail.
 
 ---
 
-## 🔒 SÉCURITÉ — différée (déclencheurs non atteints)
+## 🔒 SÉCURITÉ — auditée 30/05/2026, binairement OK
 
-- Repo GitHub **PRIVÉ** ✓
-- Credentials never in git history ✓
-- `.gitignore` couvre tous patterns ✓
-- [ ] **Rotation OAuth Google** — runbook prêt, déclencheurs inactifs
+Audit complet 30/05 (chantier #12 de la session) :
+- Repo GitHub **PRIVÉ** (`Conscious-Bot/mes-bots-finance`) ✓
+- `.gitignore` couvre : `.env*`, `*.token`, `token.json*`, `credentials.json`, `oauth_tokens/`, `client_secret*`, `service-account*` ✓
+- Tous fichiers sensibles locaux (`.env`, `credentials.json`, `token.json`, `.env.backup_*`, `.env.save`) sont **IGNORED** par git (vérifié via `git check-ignore`) ✓
+- `.env.example` tracké comme template avec placeholders (`sk-ant-xxx`, `000000:xxx`, etc.) ✓
+- Git history scan 7 patterns : `sk-ant-` (2 = placeholders template), `ghp_` (0), `xoxb-` (0), `BEGIN PRIVATE KEY` (0), `Bearer + 30+ chars` (0), `ya29.` (0), `AKIA` (0) — **aucune vraie clé exposée** ✓
+- [ ] **Rotation OAuth Google** — runbook prêt, déclencheurs inactifs (pas encore lancé)
+
+L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binairement. Re-audit si on ouvre le repo en public.
 
 ---
 
