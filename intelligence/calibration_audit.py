@@ -61,15 +61,19 @@ def _wilson_ci(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
 def _normalize_prob(prob: float | None, direction: str) -> float | None:
     """Normalize probability to conviction strength in [0.5, 1.0].
 
-    - direction='long'  -> prob directement (signal predit hausse)
-    - direction='short' -> 1-prob (signal predit baisse, fort si prob basse)
-    - direction='watch' -> None (pas une prediction directionnelle)
+    Table predictions stocke 'direction' = SENTIMENT du signal (cf CONVENTIONS section 2 :
+    "Sentiment signal : bullish | bearish | neutral"), pas direction position
+    (long/short/watch qui s'applique aux theses, pas aux predictions/signaux).
+
+    - direction='bullish' -> prob directement (signal predit hausse, fort si prob haute)
+    - direction='bearish' -> 1-prob (signal predit baisse, fort si prob basse)
+    - direction='neutral' / 'watch' / autre -> None (pas une prediction directionnelle)
     """
     if prob is None:
         return None
-    if direction == "long":
+    if direction == "bullish":
         return prob if prob >= 0.5 else None
-    if direction == "short":
+    if direction == "bearish":
         flipped = 1.0 - prob
         return flipped if flipped >= 0.5 else None
     return None
