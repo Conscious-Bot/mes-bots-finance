@@ -1,31 +1,30 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 30 mai 2026 soir (post Phase 4 colmatage + MU fix)
-**Mode** : Phase construction + Observation Brier jusqu'au 10/06 (J-11)
+**Refresh** : 30 mai 2026 nuit (post arc V2 + 42 commits + cleanup)
+**Mode** : Phase construction + Observation Brier V1 jusqu'au 10/06 (J-11)
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME — Tout vert
+## 🟢 ÉTAT SYSTÈME (30/05 nuit)
 
-- **Gate `run_static_gate(conn)` : 0 violations** (dette KNOWN_DEBT vide)
-- **407/407 tests verts** (incluant 7 e2e nouveaux : decision→cf, book view, passerelle, scoring, gate, audit, self_loop)
-- **Bot tourne** : caffeinate -dimsu, détaché init (survit sleep + ferm. shell)
-- **Backup quotidien** : `scripts/backup.sh` corrigé, test manuel OK (25M tarball + DB 9.9M + integrity)
-- **6 ancres contrefactuelles actives** en attente J+30 (cf#55 MU voidée post-fix)
-- **8 commits poussés** sur `origin/main` aujourd'hui
+- **427 fast tests verts + 4 slow e2e verts** (network-dependent, `make test-slow`)
+- **Gate `run_static_gate(conn)` : 0 violations**
+- **Bot tourne** PID 84607, caffeinate -dimsu, code wire V2 + EDGAR chargé
+- **CI configurée** : `make test` skip slow par défaut, slow réservés au pré-release local
+- **42 commits poussés** aujourd'hui sur `origin/main`, tags `eod-30-05` + `eod-30-05-full`
+- **3 backups** locaux + DB integrity OK + 4 mémoires Claude sync
 
 ---
 
-## ⚠️ Risque silencieux identifié (post-MU fix)
+## ⚠️ Risques silencieux — désormais couverts par 3 vigilances auto
 
-Le bug MU (qty 0.119 au lieu de 1.224) est resté **24h+ sans alerte**. Tu l'as
-vu visuellement, pas le système. Causes :
-- Aucun cross-check qty DB vs broker à intervalle régulier
-- Trims fantômes (1 saisi, 0 exécuté) passent le gate (toute qty > 0 est valide)
-- Le dashboard ne marque pas une position "anormalement petite" vs cost_basis
+Les 3 patterns surveillés via `intelligence/v2_vigilance.py` (cron weekly lundi 7h, push Telegram UNIQUEMENT si ALERT/WARN) :
+1. **`watch_rate`** : si > 85% sur 28j = ancrage refus / si < 20% = sur-commitment
+2. **`directional_spread`** : si < 3 buckets uniques sur 120j = mono-bucket déménagé
+3. **`insider_clusters_alive`** : si 0 cluster + 0 buy snapshot = job cassé ; si 0 cluster + buys existants = INFO normal large-cap (pas push)
 
-**À envisager post-10/06** : un check hebdomadaire eur_value DB vs Trade Republic (manuel ou import). Pas critique avant que les fondations Brier soient validées, mais à ne pas oublier.
+**Risque MU-style (DB vs broker drift)** : pas encore mécanisé. À envisager post-10/06 si un autre drift apparaît. Pour l'instant : audit manuel ad-hoc.
 
 ---
 
@@ -107,54 +106,31 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 - 2 mémoires : `adversarial-pushback-explicit` + `currency-native-invariant`
 - Backup + cleanup + push (348M snapshot + 400M libérés)
 
-### 30/05 — Dette P0 résorbée
-- Fix trigger ORPHAN trop large (faux positifs AMD/GOOGL "post-orphan rewrite")
-- SAF.PA thèse réécrite (5 drivers + 4 kill-criteria fondamentaux)
-- **Batch A** : 5 kill-criteria substance refondues (TSLA, AMZN, MP, ENTG, 6857.T) — chacune 5 drivers + 5 kill-criteria fondamentaux
-- **Batch B** : 5 currency native (4063.T, 000660.KS, 7011.T, 6857.T, 6920.T) — entry+target+stop convertis JPY/KRW
-- **Fix daily_backup_job** : cwd manquait `.parent` → cherchait `bot/scripts/backup.sh` au lieu de `scripts/backup.sh`
-- **KNOWN_DEBT_TICKERS_* sets vidés** : test strict, plus de tolérance
-- **Recalcul cluster cap post re-tag CCJ** : ballast effectif 17.2% (vs 15% cible), AI cluster 74.6% (vs 70%, +4.6pp en phase construction). **Cible 70% maintenue**.
-- Bot redémarré proprement avec caffeinate
+### 30/05 (session unique 42 commits, 20 chantiers, 10 itérations arc V2)
 
-### 30/05 soir — Audit pipeline Phase 4 + MU fix
-- **Cascade colmatage** (commit bf8fb18) : migration 0020 drop 4 tables fossiles, alerte Telegram gate-red au startup, asymmetry rounding 2→3 décimales, test e2e pipeline (7 tests).
-- **Cleanup 51 rows TEST_SL_*** + 10 cfr liées (pollution biaisant `measure_bias`)
-- **MU fix** (commit 49acd34) : qty 0.119 → 1.224 (€99.5 → €1020.10). Trim fantôme du 29/05 supprimé (event #4 DELETE, decision #23 [VOIDED], cf#55 conservée append-only + filtre dans `measure_bias`).
-- **2 failures découvertes + corrigées** : asym rounding (round 2→3) + patterns table restaurée (decision_copilot la query, code dead-path mais SELECT doit pas crasher).
+**MATIN — Dette P0 résorbée + MU fix** (commits ...→49acd34) :
+- Fix trigger ORPHAN trop large, SAF.PA thèse réécrite, Batch A (5 kill-criteria substance) + Batch B (5 currency native), fix daily_backup_job cwd, KNOWN_DEBT vidé, recalcul cluster cap CCJ.
+- Phase 4 colmatage (migration 0020 drop 4 tables fossiles, alerte Telegram gate-red startup, asym rounding 2→3, 7 tests e2e pipeline).
+- MU fix : qty 0.119 → 1.224 (€99.5 → €1020.10), trim fantôme #4 supprimé, decision #23 [VOIDED], filtre dans `measure_bias`. Bot redémarré caffeinate.
 
-### 30/05 vraiment fin — vigilances mecanisees + rotate manuel + README parcours
+**APRÈS-MIDI/NUIT — Arc V2 calibration** (commits 4f34584→0108b3a) :
+- **10 itérations sur l'élicitation/sourcing/tests** : audit pré-batch 10/06 révèle mono-bucket [0.608-0.658] → SIGNAL_SCORER_V2 prompt 3 étapes → bug source_name → enforcement weak→watch → sémantique P(call correct) → wire sourcing → extraction exhibits → pollution prod via tests → consolidation DB_PATH → dry-run J-11.
+- **Code prod déployé** : V2 scorer (`intelligence/signal_scorer_v2.py`), wire 8-K + insider clusters (`intelligence/edgar_signal_wire.py` + `shared/edgar_exhibits.py`), `storage.DB_PATH` consolidé via `__getattr__`, hook sync `EightKSource.persist()` + `BuyClusterSource.persist()`. Forward-only strict.
+- **Source unique de vérité** : V2 sur contenu réel (vs V1 estimate_probability cap [0.50, 0.72] mono-bucket). DoD e2e vérifiée : NVDA Q1 FY27 8-K → V2 prob=0.750 bullish strong. Smoke prod testé.
+- **ADR 012** soft-deprecate classifieur 8-K severity. ADR README à 19 entrées.
+- **3 vigilances mécanisées** (`intelligence/v2_vigilance.py` + cron weekly lundi 7h) : watch-rate, prob spread cohorte directionnelle, insider clusters alive. Push Telegram UNIQUEMENT si ALERT/WARN. **13 tests unit** + smoke run.
+- **Dry-run résolution J-11 (iter 10)** : Brier 0.295 attendu (pire qu'un prior 0.5 trivial), accuracy 38%, mécanisme tourne (40/40 prix fetched). V1 mauvais comme prédit. À ne PAS publier comme track record.
+- **Script `post_resolution_brier_report`** : standalone, comble le gap Telegram du 10/06 (Brier moyen + dedup cluster + WARNING mono-bucket auto). À lancer manuellement 10/06 9h05.
+- **4 posts canoniques bilingues** (`posts/post_01_*..post_04_*`) : arc V2, SK Hynix bug, dry-run J-11, méta-bug iter 9. Phase A juillet du PLAN en ~60j d'avance.
+- **Brand line verrouillée** : *"La vérité dans le bruit / Truth in the noise"*. README hero, AGENT_HANDOFF mention, mémoire `presage_brand` distinction substance/slogan.
+- **CI fix** : `pytest -m "not slow"` (les 4 slow tests ne crashent plus la CI car secrets absents).
+- **Audit security 7 patterns** : 0 vraie clé exposée. Item "hygiène secrets" validé binairement.
+- **Bot.log rotation manuelle** (`scripts/rotate_bot_log.sh`) : MANUEL uniquement, jamais automatique.
+- **TODO + SESSION_STATE + FICHE_TECHNIQUE + AGENT_HANDOFF + CONVENTIONS §5** refresh complet. 4 mémoires Claude sync.
+- **Pattern itéré 10 fois** : *« la conclusion est toujours en avance d'un cran sur la preuve »*. Y compris sur le fix lui-même (iter 9 alias statique → test régression a montré immédiatement que ce n'était pas un fix).
+- **2 tags git** : `eod-30-05` (14:00) + `eod-30-05-full` (16:20). **3 backups** locaux. **427 fast + 4 slow tests verts**. Bot PID 84607 caffeinate.
 
-Apres la grosse save (commits 0655fd3 + tag eod-30-05-full), 3 chantiers supplementaires :
-
-- **Vigilances V2 mecanisees** (`intelligence/v2_vigilance.py` + `bot/jobs/periodic.weekly_v2_vigilance_check_job`) : cron weekly lundi 7h. 3 checks (watch-rate, prob spread cohorte directionnelle, insider clusters alive). Push Telegram UNIQUEMENT si ALERT/WARN. Plus besoin de surveiller a la main. Smoke run actuel deja detecte `insider_clusters_alive: ALERT (0 cluster 30j)` -- alerte qui sera push au prochain lundi.
-- **Bot.log rotation manuelle** (`scripts/rotate_bot_log.sh`) : a lancer MANUELLEMENT post-10/06 si bot.log > 10MB. JAMAIS automatique (tronquer un fichier ouvert par le bot = subtle). Pattern : kill bot, rotate+gzip, restart caffeinate.
-- **README + ADR index refresh** : parcours de lecture (Quick 15min / Medium 1h / Deep 3h), 414 tests acte, ADR 012 ajoute a l'index (19 ADRs total). Phase A juillet item "tiers lit le repo en ~1h" -- DONE en avance.
-
-### 30/05 fin de session — bilan total + grosse save
-
-**35 commits, 14 chantiers, 10 itérations** sur l'arc V2 calibration. Tag git `eod-30-05`. Backup `~/backups/snapshot_20260530_*.tar.gz`. 414/414 tests verts.
-
-**Outputs majeurs** :
-- Code prod : V2 scorer + wire 8-K + wire insider clusters + extracteur exhibits + DB_PATH consolidé
-- Tests régression : 5 wire + 2 DB_PATH + 3 slow e2e network-dependent
-- Docs : decision_log #01 (10 itérations), ADR 012, CONVENTIONS §5 DB_PATH, FICHE_TECHNIQUE refresh, AGENT_HANDOFF refresh complet, SESSION_STATE close
-- Posts canoniques bilingues prêts : `posts/post_01_*` (arc V2) + `posts/post_02_*` (SK Hynix) + `posts/post_03_*` (dry-run J-11) — Phase A juillet du PLAN_ACQUIHIRE en ~60 jours d'avance
-- Audit security 7 patterns : 0 vraie clé exposée
-- Mémoires Claude (`~/.claude/projects/.../memory/`) : 3 nouvelles + 1 actualisée
-- Script observabilité 10/06 : `scripts/post_resolution_brier_report.py` (gap Telegram comblé sans toucher code prod)
-
-**Pour reprise** : voir `docs/AGENT_HANDOFF.md` section 7-9 (pièges + ce qui vient).
-
-### 30/05 nuit — Arc V2 calibration (10 itérations, 29 commits)
-Audit pré-10/06 a révélé que les 40 prédictions du batch sont toutes dans probabilité [0,608-0,658] (mono-bucket). Pivot complet sur l'élicitation + sourcing + tests. **Pattern itéré 10 fois : la conclusion est toujours en avance d'un cran sur la preuve.**
-- **SIGNAL_SCORER_V2** : prompt 3 étapes (base rate / ajustement / anti-ancrage), enforcement weak→watch + sémantique P(call correct), intégré dans `learning.auto_register_predictions`. Decision log `docs/decision_logs/01_calibration_unanchored.md` (10 itérations).
-- **Wire SEC EDGAR primary data** : `intelligence/edgar_signal_wire.py` + `shared/edgar_exhibits.py`. 8-K + insider buy clusters → V2 → predictions. Forward-only strict. Source dédiée `SEC EDGAR 8-K` + `SEC EDGAR Insider Cluster` (cred=0.85). DoD vérifiée e2e : NVDA Q1 FY27 8-K → V2 0.750 bullish strong. Fixture régression `tests/test_edgar_exhibits.py` (marker slow).
-- **Consolidation `storage.DB_PATH`** : bug pollution prod attrapé par test fail (monkeypatch _DB_PATH n'affectait pas DB_PATH). Fix via `__getattr__` module-level. Test régression `tests/test_db_path_alias.py`. Premier fix (alias statique) n'était pas un fix — itéré 9e fois sur le fix lui-même.
-- **ADR 012 — severity classifier soft-deprecated** : V2 sur contenu réel discrimine mieux que mapping Item-codes. Classifieur conservé pour alerting low-latency, déprécié comme mesure evidence_strength.
-- **Dry-run résolution J-11 (iter 10)** : Brier attendu 0.295, accuracy 38%, pire qu'un prior 0.5 trivial. **Le batch 10/06 NE doit PAS être publié comme track record.** Le mécanisme tourne (40/40 prix fetched, dedup OK) — V1 mauvais comme prédit.
-- **3 posts canoniques bilingues** dans `posts/` (Phase A juillet en grande avance) : post_01 calibration_unanchored, post_02 comment_that_lied (SK Hynix), post_03 dry_run_eleven_days. ~700-900 mots FR + EN chacun.
-- 414/414 tests verts. Bot tourne PID 84607 caffeinate avec nouveau code chargé.
+**Decision log complet** : `docs/decision_logs/01_calibration_unanchored.md` (10 itérations + 3 vigilances + draft v5 publishable).
 
 ### Trades du jour (29/05 chat-driven)
 - ALAB 616€ → LNG 616€ (profit-take winner)
