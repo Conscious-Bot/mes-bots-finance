@@ -1,9 +1,37 @@
 # PRESAGE (mes-bots-finance) — Fiche Technique (Lean)
 
-**Version**: 29 mai 2026 (Day 24 — post Sprint 19 : adversarial co-pilot + boucle vivante + user_strategy)
+**Version**: 30 mai 2026 soir (Day 25 — arc V2 calibration, 35 commits, wire EDGAR primary forward)
 **Auteur**: Olivier Legendre
-**État**: High Standard / Observation jusqu'au 10/06/2026 (KPI #2 batch resolution)
-**Bot**: Telegram @Hawk_Dove_bot
+**État**: High Standard / Observation jusqu'au 10/06/2026 (KPI #2 batch resolution V1 ; V2 pour cohortes futures wired en prod)
+**Bot**: Telegram @Hawk_Dove_bot (PID 84607 caffeinate, code wire chargé)
+
+## Session 30/05/2026 — 35 commits, 14 chantiers, 10 itérations arc V2
+
+Audit pré-batch 10/06 a révélé les 40 prédictions toutes dans probabilité [0,608-0,658] (mono-bucket V1). Réécriture pipeline scoring + intégration sources primaires SEC + verification empirique.
+
+### Architecture livrée
+- **SIGNAL_SCORER_V2** (`intelligence/signal_scorer_v2.py`, ~189 lignes) : prompt LLM 3 étapes (base rate / ajustement / anti-ancrage), enforcement weak→watch + sémantique P(call correct) + zone morte interdite. Intégré dans `intelligence/learning.auto_register_predictions`. Cohortes FUTURES utilisent V2 (cohortes du 10/06 restent V1 figées).
+- **Wire SEC EDGAR primary forward** (`intelligence/edgar_signal_wire.py` + `shared/edgar_exhibits.py`) : 8-K + insider buy clusters → `signals` → V2 → predictions. Forward-only strict. Source dédiée `SEC EDGAR 8-K` / `Insider Cluster` credibility=0.85. Dedup `gmail_id='sec_8k:{accession}'` / `'insider_cluster:{ticker}:{date}'`. Hook sync dans `EightKSource.persist()` et `BuyClusterSource.persist()`.
+- **Extracteur d'exhibits** : `extract_filing_content(filing_url)` résout cover→exhibit (typiquement Exhibit 99.1 = press release). Fix iter 5 du bug "URLs vers cover page".
+- **Consolidation `storage.DB_PATH`** : `_DB_PATH` devient alias dynamique via `__getattr__` module-level. Anti-régression pollution prod via tests. `tests/test_db_path_alias.py`.
+- **ADR 012** : 8-K severity classifier soft-deprecated comme mesure evidence_strength (conservé pour alerting heuristique low-latency seulement).
+
+### Vérification (10 itérations, pattern adversaire)
+- DoD e2e wire : NVDA Q1 FY27 8-K → V2 prob=0.750 bullish strong ✅
+- DoD insider synthétique 3 niveaux : weak→watch, moderate→0.62, strong→0.74 ✅
+- Dry-run résolution pré-10/06 : Brier 0.295 attendu (PIRE qu'un prior 0.5 trivial). Mécanisme tourne (40/40 prix fetched). V1 mauvais comme prédit.
+- Pattern itéré 10 fois : *"la conclusion est toujours en avance d'un cran sur la preuve"* — y compris sur le fix lui-même (iter 9 : alias statique n'était pas un fix, test régression l'a montré).
+
+### 3 posts canoniques bilingues FR+EN dans `posts/`
+- `post_01_calibration_unanchored.md` : "Six fois j'ai cru avoir fini" (arc V2)
+- `post_02_comment_that_lied.md` : SK Hynix 1600× bug (data > comments)
+- `post_03_dry_run_eleven_days.md` : J-11 dry-run honnête
+- Phase A juillet du `PLAN_ACQUIHIRE.md` : 3 brouillons faits, ~60 jours d'avance
+
+### Hygiène + sécurité
+- Audit security 7 patterns (sk-ant-, ghp_, xoxb-, BEGIN PRIVATE KEY, Bearer 30+, ya29., AKIA) : 0 vraie clé exposée. `.env.example` placeholders confirmés. Item "hygiène secrets faite une fois" validé binairement.
+- TODO + SESSION_STATE + CONVENTIONS §5 (DB_PATH) refreshés.
+- Backup tarball + tag `eod-30-05` pushé.
 
 ## Session 29/05/2026 — 53 commits
 
@@ -110,9 +138,15 @@ Le bot **ne trade pas**. Il force la réflexion structurée pré-commit via thes
 
 ---
 
-## Brier / track record — état honnête
+## Brier / track record — état honnête (MAJ 30/05/2026 soir)
 
-probability_at_creation était un snapshot de crédibilité source (~0.5 sur 157/157) = Brier vide. Réparé le 23/05 (`estimate_probability` câblé dans insert_prediction), **effet sur id ≥ 158 uniquement** — aucune créée à ce jour. Les 157 prédictions legacy (dont le cluster du 10 juin) restent à 0.5 → résolveront en Brier vide-mais-vert. **NE PAS publier comme track record.** Vraie courbe à partir des id ≥ 158, exploitable ~fin juin.
+**Trois couches successives de réparation** :
+
+1. **Pré 23/05** : `probability_at_creation` = snapshot crédibilité source ~0.5 = Brier vide (cluster 0.50 partout).
+2. **23/05 fix V1** : `estimate_probability(score, credibility, signal_type, impact_magnitude)` formule cap [0.50, 0.72]. Diversifie via score, MAIS produit **mono-bucket** sur les inputs uniformes du pipeline newsletters (toutes sources cred=0.50 default, scores 6-7 dominants → 4 valeurs uniques sur 40 predictions).
+3. **30/05 fix V2** : `signal_scorer_v2.score_directional_probability()` = LLM 3 étapes (base rate / ajustement / anti-ancrage). Plage réelle [0.0, 1.0] sans cap artificiel. Source contamination (source_name) éliminée du prompt. `weak/none → watch` enforced. `prob < 0.55 → watch` (sémantique P(call correct)). Wire EDGAR primary pour nourrir le V2 d'évidence forte. Forward-only strict.
+
+**Le batch 10/06 (40 predictions) reste sous V1 figé** — cohortes loguées pré-V2 ne se ré-écrivent pas. Dry-run J-11 confirme : Brier attendu ~0.295 (PIRE qu'un prior 0.5 trivial). **NE PAS publier comme track record positif**. À publier honnêtement comme baseline V1 fige (cf `posts/post_03_dry_run_eleven_days.md`). Vraie calibration V2 = post-août quand N V2 suffisant (script de monitoring : `scripts/post_resolution_brier_report.py`).
 
 ---
 

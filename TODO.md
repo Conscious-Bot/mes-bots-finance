@@ -123,6 +123,21 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 - **MU fix** (commit 49acd34) : qty 0.119 → 1.224 (€99.5 → €1020.10). Trim fantôme du 29/05 supprimé (event #4 DELETE, decision #23 [VOIDED], cf#55 conservée append-only + filtre dans `measure_bias`).
 - **2 failures découvertes + corrigées** : asym rounding (round 2→3) + patterns table restaurée (decision_copilot la query, code dead-path mais SELECT doit pas crasher).
 
+### 30/05 fin de session — bilan total + grosse save
+
+**35 commits, 14 chantiers, 10 itérations** sur l'arc V2 calibration. Tag git `eod-30-05`. Backup `~/backups/snapshot_20260530_*.tar.gz`. 414/414 tests verts.
+
+**Outputs majeurs** :
+- Code prod : V2 scorer + wire 8-K + wire insider clusters + extracteur exhibits + DB_PATH consolidé
+- Tests régression : 5 wire + 2 DB_PATH + 3 slow e2e network-dependent
+- Docs : decision_log #01 (10 itérations), ADR 012, CONVENTIONS §5 DB_PATH, FICHE_TECHNIQUE refresh, AGENT_HANDOFF refresh complet, SESSION_STATE close
+- Posts canoniques bilingues prêts : `posts/post_01_*` (arc V2) + `posts/post_02_*` (SK Hynix) + `posts/post_03_*` (dry-run J-11) — Phase A juillet du PLAN_ACQUIHIRE en ~60 jours d'avance
+- Audit security 7 patterns : 0 vraie clé exposée
+- Mémoires Claude (`~/.claude/projects/.../memory/`) : 3 nouvelles + 1 actualisée
+- Script observabilité 10/06 : `scripts/post_resolution_brier_report.py` (gap Telegram comblé sans toucher code prod)
+
+**Pour reprise** : voir `docs/AGENT_HANDOFF.md` section 7-9 (pièges + ce qui vient).
+
 ### 30/05 nuit — Arc V2 calibration (10 itérations, 29 commits)
 Audit pré-10/06 a révélé que les 40 prédictions du batch sont toutes dans probabilité [0,608-0,658] (mono-bucket). Pivot complet sur l'élicitation + sourcing + tests. **Pattern itéré 10 fois : la conclusion est toujours en avance d'un cran sur la preuve.**
 - **SIGNAL_SCORER_V2** : prompt 3 étapes (base rate / ajustement / anti-ancrage), enforcement weak→watch + sémantique P(call correct), intégré dans `learning.auto_register_predictions`. Decision log `docs/decision_logs/01_calibration_unanchored.md` (10 itérations).

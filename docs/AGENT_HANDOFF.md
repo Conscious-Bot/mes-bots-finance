@@ -2,7 +2,7 @@
 
 > But: permettre a un agent IA qui ouvre ce repo a froid de reprendre sans rien casser.
 > Ordre de lecture: ce fichier -> SESSION_STATE.md (tail) -> PHILOSOPHY.md -> CONVENTIONS.md.
-> Derniere maj: 2026-05-23 (day15-brier-dashboard).
+> Derniere maj: 2026-05-30 (day25-arc-v2-calibration, 35 commits, wire EDGAR primary).
 
 ## 0. Contrat de travail — LIRE EN PREMIER
 
@@ -85,34 +85,60 @@ PIEGES ZSH (le terminal d'Olivier mord souvent):
 - Type hints: adoption graduelle, strict par-module via override mypy dans pyproject.toml. "Type quand tu touches", pas de sweep top-down.
 - Backup nomme avant toute modif significative; commit imperatif present, tag de session au close.
 
-## 7. Ou on en est (2026-05-23)
+## 7. Ou on en est (2026-05-30 soir, post-arc-V2)
 
-Mode observation High Standard. Portefeuille ~21 positions, ~43k EUR. Univers ~178 tickers (core/watch/extended). ~33 theses actives. Narratifs re-taggees ce mois: AI_COMPUTE (~15), EU_DEFENSE (2), MAG7 (2, nouveau bac) + autres. Concentration EXCESSIVE: cluster AI Compute ~80% (cap narratif 30%, 6 lignes > 5%) — decision politique en attente, c'est l'appel d'Olivier.
+Mode observation High Standard. J-11 avant batch resolution 10/06. Portefeuille ~27 positions, ~53k EUR (market value). Univers ~311 tickers (core/watch/extended). Bot tourne PID 84607 + caffeinate, code wire EDGAR chargé (premier test live = cron 8-K demain 6:30).
 
-Le Brier vient d'etre repare a la racine (voir section 8). Dashboard live avec son premier test. risk/ pret mais non cable (gele observation). Crons actifs: resolve 9h, snapshot 23:00, signal_classify 30min, score_pending 1h, gmail 1h, backup 04:00, etc.
+**Etat session 30/05** : 35 commits, 10 iterations sur l'arc V2 calibration (cf section 8 + decision log #01). 3 posts canoniques bilingues prets dans `posts/`. ADR 012 acte. Tag git `eod-30-05`. 414/414 tests verts.
 
-## 8. LE PIEGE A CONNAITRE ABSOLUMENT
+## 8. LES PIEGES A CONNAITRE ABSOLUMENT (MAJ 30/05)
 
-Jusqu'au 22/05, probability_at_creation = simple snapshot de la credibilite source (~0.5 sur 143/152 predictions) = erreur de categorie (confiance source != P(cet appel correct)) -> Brier vide mais VERT (artefact de la bande neutre +/-5%). Repare le 23/05 par shared/math_helpers.estimate_probability(...) cable dans insert_prediction, MAIS l'effet ne porte que sur les predictions FUTURES (id >= 158).
+**Piege #1 — Brier batch 10/06 sera mauvais comme prevu** (acte dry-run iter 10).
 
-CONSEQUENCE: les 151 predictions legacy (dont le cluster de 40 qui resout le 10 juin) gardent prob=0.5 et resolveront en Brier vide-mais-vert. NE PUBLIE JAMAIS ce Brier-la comme track record. Le VRAI track record commence aux id >= 158 (prob differenciee), exploitable ~fin juin. ATTENTION recence != qualite: id >= 158 est selectionne par RECENCE, donc domine par les sources Asie Day14+ non-prouvees (cred 0.5). Lire son Brier maturite-source en tete; "commence" n'est pas "valide". Track record > nouveaute. estimate_probability est un PRIOR APPRENABLE, pas une verite calibree: son job est de rendre le Brier informatif/iterable, la vraie calibration viendra de la boucle resolve -> reliability diagram -> ajustement.
+Les 40 predictions du batch 10/06 ont ete loggees sous V1 (`estimate_probability` formule cap [0.50, 0.72]) en mai. Toutes dans probabilite [0.608-0.658] = mono-bucket. Dry-run J-11 confirme empiriquement : Brier attendu ~0.295 (PIRE qu'un prior 0.5 trivial = 0.25), accuracy 38%, surconfiant et mal calibre.
 
-## 9. Ce qui vient
+A FAIRE le 10/06 a 9h05 (apres le cron `daily_resolve_job` 9h) :
+```bash
+python -m scripts.post_resolution_brier_report 2026-06-10
+```
 
-- Verifier le fix prob en prod: predictions id >= 158 = integration confirmee. NE PAS conjoindre != 0.5: une prediction post-fix peut calculer 0.50 legitimement (donc ratee par ce filtre), et != 0.5 attrape 8 legacy a 0.53. id 158 = prochaine cree sous le code corrige (max_id etait 157 au restart). Au 23/05: post_fix=0, pas encore tire.
-- ~27 mai: 1eres resolutions — verifier final_price sains (pas de nan; garde `px != px` posee dans resolve_due_predictions).
-- VUE CALIBRATION (LA surface produit Path 6, le vrai "ameliorer le site"): a batir quand >= 10 predictions a prob differenciee sont resolues (~fin juin). Contenu: reliability diagram (bucket de prob predite vs taux realise) + Brier-over-time + ledger des resolues. Decision a trancher la-bas: neutral exclu du Brier vs binaire-0.5.
-- Politique de concentration (EXCESSIVE 80%): decision strategique d'Olivier.
-- Logo: parke sur candidat A (heaume-onde), a integrer dans render.py .logo svg + favicon.
-- Classifieur 8-K: marque TOUT Item 5.02 = HIGH (bruit qui pollue signal->prediction). Gele pendant l'observation, a recalibrer post-batch.
-- Deferred: refactor shared/display.py (symboles devise canoniques), ADR 005 P2 (audit EUR-canonical restant), refactor bot/main.py en handlers/*, push GitHub + CI — VERIFIER que credentials.json/token.json sont gitignores: FAIT le 23/05 (push effectue, secrets client_secret Google + refresh_token verifies hors historique git), prune univers mi-juin.
+Le Telegram automatique enverra counts (correct/incorrect/neutral) mais SANS Brier moyen -- d'ou le script standalone. Le post `posts/post_03_dry_run_eleven_days.md` est deja drafte pour publier honnetement le mauvais chiffre (pas de pivot last-minute, c'est l'asset narratif).
+
+**Piege #2 — Le scorer canonique est V2, pas V1** (acte arc 30/05).
+
+`intelligence/signal_scorer_v2.py` est la source de verite des probabilites depuis le 30/05. `shared/math_helpers.estimate_probability` (V1) reste pour rollback A/B SEULEMENT. **NE PAS** la ressusciter comme primary -- elle produit du mono-bucket. Cohortes futures (post 30/05) utilisent V2 via `intelligence.learning.auto_register_predictions` -> `insert_prediction(probability_override=...)`. Enforcement server-side critiques : `evidence in (none, weak) -> watch`, `prob < 0.55 -> watch`, pas de `source_name` dans le prompt (contamine).
+
+**Piege #3 — storage.DB_PATH est l'unique source du path DB** (fix iter 9).
+
+`storage._DB_PATH` est resolu DYNAMIQUEMENT via `__getattr__` module-level -> retourne `storage.DB_PATH` courant. **NE PAS** reintroduire `_DB_PATH = Path(...)` statique. Bug pollution prod connu (tests qui monkeypatch un seul des deux paths laissent l'autre ecrire en prod). Test regression : `tests/test_db_path_alias.py`. Cf CONVENTIONS.md §5.
+
+**Piege #4 — Wire EDGAR primary est FORWARD-ONLY strict** (decision iter 5/7).
+
+`intelligence/edgar_signal_wire.py` insere les 8-K + insider clusters dans `signals` UNIQUEMENT a leur arrivee (via `EightKSource.persist()` et `BuyClusterSource.persist()`). **NE PAS** backfill les 421 lignes historiques (43 8-K + 378 insider snapshots) -- stale-dated predictions = artefact temporel cousin du cluster horizon=30. Forward-only acte dans la memoire `edgar-primary-wired-forward`.
+
+**Piege #5 — ADR 012 : 8-K severity classifier soft-deprecated** (acte 30/05).
+
+`intelligence/filings_8k.classify_severity(item_codes)` ne lit QUE les Item codes, pas le contenu. Il a classe NVDA Q1 FY27 earnings beat en `medium` (le contenu reel sort `strong` via V2). Le classifieur est CONSERVE pour alerting low-latency (Telegram alerts + morning_brief filter rapide) mais **deprecate comme mesure de evidence_strength**. Pour calibration / Brier, source de verite = V2 sur contenu. Si tu modifies l'alerting Telegram, NE PAS te baser sur severity comme proxy de force d'evidence.
+
+## 9. Ce qui vient (a partir du 31/05)
+
+- **Demain 31/05 6:30** : observer `bot.log` apres `scheduled_8k_scan_job`. Si une nouvelle 8-K material est detectee : premier signal V2 dans le ledger reel. Sinon attendre.
+- **Demain 31/05 6:20** : observer `scheduled_buy_cluster_scan_job`. Aucun cluster en `insider_buy_clusters_log` actuellement (0 rows) -- le wire sera teste naturellement quand un cluster sera detecte.
+- **10/06 9h00** : `daily_resolve_job` cron -> Telegram counts. **9h05** : lancer manuellement `python -m scripts.post_resolution_brier_report 2026-06-10` pour Brier complet. Publier honnetement le mauvais chiffre via post_03.
+- **Post-10/06** : observer accumulation cohortes V2 via wire EDGAR. Premiere comparison V1 vs V2 possible quand N V2 suffisant (~aout probable).
+- **Path 6 / publication** : differe jusqu'a calibration plot publishable (N V2 >= 50 ideally). Pas le 10/06.
+- **Concentration AI Compute** (~75% du book vs cible user_strategy 75%) : at_or_below, OK temporairement, mais a surveiller drift.
+- **Wire insider clusters** : code en place, hook actif, mais 0 cluster detecte recemment. Si en 30j toujours 0, debug `scheduled_buy_cluster_scan_job` ou re-tune le seuil `is_buy_cluster`.
+- **Tests `slow` marker** : 3 tests reseau-dependants dans `tests/test_edgar_exhibits.py` + 1 dans `tests/test_edgar_signal_wire.py`. Lancer pre-release : `pytest -m slow`. Skipped par defaut.
 
 ## 10. Lecons cardinales
 
-- Empirical-verify-before-patch (L13/15): ne patche jamais sur hypothese; lis le code et la DB reels d'abord. La cause-racine du Brier ne s'est revelee qu'en lisant le code, pas les docs (qui mentaient sur le schema).
-- nan est insidieux: truthy, `nan != nan`, passe `is None`. Garde avec `x != x` ou math.isfinite.
-- "audit green" != audit reel; unit-test vert != integration prouvee. D'ou "verifier la prob en prod demain" et le smoke test render.
-- Velocity a depasse la solidification -> gate High Standard avant toute feature. Less surface > more discipline.
-- Source credibility != forecast probability (l'erreur exacte du Brier).
-- Un prior differencie mais non calibre > une constante 0.5: il rend la metrique testable/iterable.
-- Savoir s'arreter et banker (commit + close) EST de la discipline, pas une faiblesse.
+- **"La conclusion est toujours en avance d'un cran sur la preuve"** (pattern session 30/05, itere 10 fois) : a chaque "ah j'ai trouve", verifier d'abord revele le vrai bug une couche plus bas. Y compris quand le bug est dans le fix lui-meme (iter 9 alias statique). Le pattern adversaire vaut son cout en commits.
+- **Empirical-verify-before-patch** (L13/15) : ne patche jamais sur hypothese; lis le code et la DB reels d'abord.
+- **nan est insidieux** : truthy, `nan != nan`, passe `is None`. Garde avec `x != x` ou math.isfinite.
+- **"audit green" != audit reel** ; unit-test vert != integration prouvee. Le bug pollution prod 30/05 a ete attrape parce qu'un test FAIL a explose dans la console -- sans ce fail, le code shippait silent-mode.
+- **Source credibility != forecast probability** ET ne **PAS** mettre `source_name` dans le prompt de scoring (contamine evidence reading -- iter 3).
+- **P(call correct) != P(price up)** : un bearish prob=0.38 est logiquement incoherent (= "je suis 62% sur que bearish est faux"). Enforce `prob >= 0.55 OR direction=watch`.
+- **Forward-only strict** sur les wire primary -- backfill = artefact stale-dated qui pollue calibration.
+- **Mauvais Brier publie honnetement > maquillage** : si tu sais que le batch va etre mauvais, ecris le post AVANT le moment de verite (cf post_03 deja drafte 11j avant le batch).
+- **Savoir s'arreter et banker** (commit + tag + backup + docs refresh) EST de la discipline, pas une faiblesse.
