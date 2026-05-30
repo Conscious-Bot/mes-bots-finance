@@ -3905,6 +3905,10 @@ _CSS = """
     .wactcard .wact-grid { flex-direction:column; }
     .wactcard .wact-recent { flex-wrap:wrap; gap:6px 12px; }
     .wactcard .wact-items { margin-left:0; flex-basis:100%; font-size:10.5px; }
+    /* wrappercard PEA/CTO alloc -- seul vrai panel a casser mobile (3-4 wrappers horizontal) */
+    .wrappercard .wr-alloc { flex-direction:column; gap:10px; }
+    /* Note : autres panels (chatcard/chatsig/conversations/conceptions/preferences/axes/traj/fx)
+       utilisent deja repeat(auto-fit, minmax(280px,1fr)) = responsive natif sans media query. */
   }
   /* Sprint 16 - Wrapper PEA/CTO + FX + Benchmark */
   .wrappercard .wr-alloc { display:flex; gap:18px; margin:14px 0 18px; padding-bottom:14px; border-bottom:1px solid var(--line); }
