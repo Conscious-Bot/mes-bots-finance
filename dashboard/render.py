@@ -3628,6 +3628,9 @@ _CSS = """
   /* Page Strategie : sub-section headers */
   .strat-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:32px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); }
   .strat-sh:first-of-type { margin-top:14px; }
+  /* Section headers page vigie (refonte hierarchie 30/05 -- 3 blocs : Operationnel / Systeme V2 / Contextuel) */
+  .vigie-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:28px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  .vigie-sh:first-of-type { margin-top:18px; }
   /* Sprint 19 - User strategy panel */
   .strategiecard .us-grid { display:grid; grid-template-columns:1fr; gap:8px; margin:14px 0; padding-bottom:14px; border-bottom:1px solid var(--line); }
   .strategiecard .us-row { display:flex; align-items:baseline; gap:14px; padding:6px 0; }
@@ -3866,7 +3869,7 @@ _CSS = """
   .vgcard .vg-row { padding:10px 12px; border-radius:var(--r1); margin-bottom:6px; background:color-mix(in srgb,var(--ink) 2%,transparent); border-left:3px solid transparent; }
   .vgcard .vg-row.vg-ok { border-left-color:var(--acc); }
   .vgcard .vg-row.vg-info { border-left-color:var(--steel); opacity:.75; }
-  .vgcard .vg-row.vg-warn { border-left-color:#c89b00; background:color-mix(in srgb,#c89b00 6%,transparent); }
+  .vgcard .vg-row.vg-warn { border-left-color:var(--warn); background:color-mix(in srgb,var(--warn) 6%,transparent); }
   .vgcard .vg-row.vg-alert { border-left-color:var(--bear); background:color-mix(in srgb,var(--bear) 8%,transparent); }
   .vgcard .vg-row.vg-wait { border-left-color:color-mix(in srgb,var(--steel) 40%,transparent); opacity:.6; }
   .vgcard .vg-head { display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
@@ -3894,9 +3897,15 @@ _CSS = """
   .wactcard .wact-when { color:var(--steel); font-variant-numeric:tabular-nums; }
   .wactcard .wact-sev { font-family:var(--fb); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; padding:1px 6px; border-radius:var(--r1); }
   .wactcard .wact-sev.wact-catastrophic, .wactcard .wact-sev.wact-high { background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); }
-  .wactcard .wact-sev.wact-medium { background:color-mix(in srgb,#c89b00 16%,transparent); color:#c89b00; }
+  .wactcard .wact-sev.wact-medium { background:color-mix(in srgb,var(--warn) 16%,transparent); color:var(--warn); }
   .wactcard .wact-sev.wact-low, .wactcard .wact-sev.wact-unknown { background:color-mix(in srgb,var(--steel) 12%,transparent); color:var(--steel); }
   .wactcard .wact-items { margin-left:auto; color:var(--steel); font-variant-numeric:tabular-nums; }
+  @media (max-width:980px) {
+    .v2cohortcard .v2-grid { grid-template-columns:1fr; }
+    .wactcard .wact-grid { flex-direction:column; }
+    .wactcard .wact-recent { flex-wrap:wrap; gap:6px 12px; }
+    .wactcard .wact-items { margin-left:0; flex-basis:100%; font-size:10.5px; }
+  }
   /* Sprint 16 - Wrapper PEA/CTO + FX + Benchmark */
   .wrappercard .wr-alloc { display:flex; gap:18px; margin:14px 0 18px; padding-bottom:14px; border-bottom:1px solid var(--line); }
   .wrappercard .wr-row { flex:1; padding:12px 14px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); display:flex; flex-direction:column; gap:4px; }
@@ -4646,22 +4655,28 @@ def render() -> Path:
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
+        # ── BLOC 1 : OPERATIONNEL -- decisions immediates sur le book ──
+        '<div class="vigie-sh">A agir sur le book</div>'
         f'{_risk_watch_panel()}'
-        f"{vigilance_html}"
-        f"{v2_cohort_html}"
-        f"{wire_activity_html}"
-        f"{grade_html}"
-        f"{blind_html}"
-        f"{chat_html}"
         f"{kill_html}"
-        f"{copilot_html}"
-        f"{cockpit_html}"
+        f"{blind_html}"
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise &middot; mais si "valo &gt; bull" ou "fragile" appara&icirc;t = prends ton profit, pas victoire</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_dn}</div></div></div>'
+        # ── BLOC 2 : SYSTEME V2 -- alarmes + track record en construction ──
+        '<div class="vigie-sh">Syst&egrave;me V2 (alarmes + track record)</div>'
+        f"{vigilance_html}"
+        f"{v2_cohort_html}"
+        f"{wire_activity_html}"
+        # ── BLOC 3 : CONTEXTUEL -- info, pas action directe ──
+        '<div class="vigie-sh">Contexte</div>'
+        f"{grade_html}"
+        f"{cockpit_html}"
+        f"{copilot_html}"
+        f"{chat_html}"
         f'<div class="colhead" style="margin-top:22px"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
         f'<div class="card pad">{erows}</div>'
         f"{journal_block}</section>"
