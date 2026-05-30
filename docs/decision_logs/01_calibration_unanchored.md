@@ -272,9 +272,25 @@ Test e2e (slow, network+LLM) : vraie NVDA Q1 FY27 8-K → wire → V2 → predic
 
 410/410 tests verts (3 unit + 1 e2e + 1 discipline DB pour le wire + 405 existants).
 
+## Itération 8 — Wire insider clusters + DoD synthétique
+
+Wire symétrique 8-K codé : `intelligence/edgar_signal_wire.wire_buy_cluster_to_signal()` + hook dans `BuyClusterSource.persist()`. Source dédiée `'SEC EDGAR Insider Cluster'` (distincte du 8-K pour analyse séparée). Format content : summary + top buyers list (name/role/amount/date) + hint d'interprétation de strength. Tests unit 2/2 OK.
+
+E2E réel impossible : `insider_buy_clusters_log` à 0 rows actuellement. **DoD synthétique** sur 3 niveaux calibrés :
+
+| Cluster | base | prob | dir | evidence |
+|---|---|---|---|---|
+| FAIBLE (2 directors, $0.18M) | 0.500 | 0.530 | watch | weak ✅ |
+| MODÉRÉ (CFO+2 dirs, $1.95M) | 0.500 | 0.620 | bullish | moderate ✅ |
+| FORT (CEO+CFO+3 dirs, $16.2M) | 0.500 | 0.740 | bullish | strong ✅ |
+
+4/4 tests DoD : monotonie evidence ✅, strong prob≥0.65 ✅, weak→watch ✅, moderate dans [0.55, 0.70] ✅. Anti-ancrage sophistiqué — V2 mentionne *"possible pre-planned 10b5-1 plan participation"* sur le strong = il connaît la nuance qui peut diluer un signal insider. Le format content insider fonctionne : V2 lit les noms, rôles, montants, dates et calibre proprement.
+
+**Limite assumée** : c'est synthétique. Quand un vrai cluster sera détecté par `scheduled_buy_cluster_scan_job`, le pipeline complet sera testé naturellement.
+
 ## L'arc, en une phrase publiable (draft v3)
 
-*« 7 itérations. À chaque "ah j'ai trouvé", vérifier d'abord m'a fait découvrir le vrai bug une couche plus bas. Formula cap → prompt → contamination source → frontière commit → sémantique → wiring → extraction exhibits → pollution prod via tests. La leçon : la conclusion est toujours en avance d'un cran sur la preuve. Même un test qui PASSE peut cacher un bug — la vraie sécurité est dans la couche que tu n'as pas encore vérifiée. »*
+*« 8 itérations. À chaque "ah j'ai trouvé", vérifier d'abord m'a fait découvrir le vrai bug une couche plus bas. Formula cap → prompt → contamination source → frontière commit → sémantique → wiring → extraction exhibits → pollution prod via tests → DoD insider synthétique parce qu'il n'y a pas encore de vrai cluster. La leçon : la conclusion est toujours en avance d'un cran sur la preuve. Même un test qui PASSE peut cacher un bug — la vraie sécurité est dans la couche que tu n'as pas encore vérifiée. »*
 
 ## Trois vigilances pour la suite
 
