@@ -68,6 +68,7 @@ Passerelles dediees :
 - Config + env -> toujours via shared/config.py
 
 DB SQLite : architecture par OWNERSHIP, pas passerelle unique.
+- **Path de la DB : `storage.DB_PATH` est la SOURCE DE VERITE** (ROOT-absolu). `storage._DB_PATH` est resolu dynamiquement via `__getattr__` module-level -> retourne toujours la valeur courante de `DB_PATH`. Pour les tests : `monkeypatch.setattr(storage, "DB_PATH", x)` suffit, propage automatiquement aux ~28 callers externes qui lisent `storage._DB_PATH`. **NE PAS** reintroduire un `_DB_PATH` statique separe (cause du bug pollution prod 30/05 attrape par fail-test, fix iter 9). Test regression : `tests/test_db_path_alias.py`.
 - Tables coeur (theses, predictions, signals, sources, calibration, patterns) : INSERT via shared/storage.py ; certaines MAJ (UPDATE) par les modules-domaine ci-dessous.
 - Modules-domaine possedant les writes de LEUR table : shared/positions.py (positions/position_events), shared/ticker_names.py (cache), shared/llm.py (llm_calls), intelligence/{price_monitor,materiality_v2,debt_monitor,insider_digest,analyze}.py (leur output), bot/main.py (handler_calls), bot/handlers/misc.py (edition champs these).
 - Acces via le helper instrumente query() (sql_observability) avec tag, pour l'observabilite.
