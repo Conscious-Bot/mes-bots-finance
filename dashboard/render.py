@@ -4383,7 +4383,25 @@ def _sector_donut(segs: list) -> str:
     return f'<div class="brk-viz"><div class="brk-bars">{"".join(rows)}</div></div>'
 
 
-def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict) -> str:
+def _asym_format(ratio):
+    """Format asymmetry_ratio avec class de coloration parchemin.
+
+    Convention Taleb barbell :
+    - ratio >= 3.0  -> 'barbell' (asymetrie favorable, laisser courir) -> .acc (olive)
+    - 1.0 <= r < 3.0 -> 'modere' (neutre) -> .num (ink2)
+    - r < 1.0       -> 'inverse' (downside > upside, candidate trim) -> .neg (oxblood)
+    - None          -> '—'
+    """
+    if ratio is None:
+        return ('num', '&mdash;')
+    if ratio >= 3.0:
+        return ('num acc', f'{ratio:.1f}&times;')
+    if ratio >= 1.0:
+        return ('num', f'{ratio:.1f}&times;')
+    return ('num neg', f'{ratio:.1f}&times;')
+
+
+def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict, asym: dict) -> str:
     ps = sorted(ps, key=lambda p: -_broker_value(p, pnl))
     tot = sum(_broker_value(p, pnl) for p in ps)
     share = tot / grand * 100
@@ -4397,13 +4415,15 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         pstr = "&mdash;" if pc is None else f"{'+' if pc >= 0 else ''}{pc:.1f}%"
         nm = names.get(tk, tk)
         vstr = f"{v:,.0f}".replace(",", "&#8239;")
+        asym_cls, asym_str = _asym_format(asym.get(tk))
         rows += (
             f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{tk}<span class="nm">{nm}</span></td>'
             f'<td class="num mono">{vstr}&nbsp;&euro;</td><td class="num">{w:.1f}%</td>'
-            f'<td class="num {pcls}">{pstr}</td></tr>'
+            f'<td class="num {pcls}">{pstr}</td>'
+            f'<td class="{asym_cls}">{asym_str}</td></tr>'
         )
     if not ps:
-        rows = '<tr><td class="empty" colspan="4" style="padding:18px 0">aucune ligne</td></tr>'
+        rows = '<tr><td class="empty" colspan="5" style="padding:18px 0">aucune ligne</td></tr>'
     tot_str = f"{tot:,.0f}".replace(",", "&#8239;")
     donut = _sector_donut(_sector_mix(ps, pnl, sectors)) if ps else ""
     return (
@@ -4411,23 +4431,35 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         f'<span class="brk-note">{note}</span></div>'
         f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} lignes &middot; {share:.0f}% du total</span></div></div>'
         f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:4px 18px"><table class="dt"><thead><tr><th>Ligne</th>'
-        f'<th class="num">Valeur</th><th class="num">Poids</th><th class="num">P&amp;L</th></tr></thead>'
+        f'<th class="num">Valeur</th><th class="num">Poids</th><th class="num">P&amp;L</th>'
+        f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (laisser courir). <1 = inverse (candidate trim).">Asym&eacute;trie</th></tr></thead>'
         f"<tbody>{rows}</tbody></table></div></div></div></div>"
     )
 
 
 def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict) -> str:
     grand = sum(_broker_value(p, pnl) for p in positions) or 1
+    # Fetch asymmetry par ticker (cf intelligence/asymmetry.py compute_portfolio_asymmetry)
+    asym = {}
+    try:
+        asym_results = asym_mod.compute_portfolio_asymmetry()
+        for r in asym_results:
+            tk = r.get("ticker")
+            if tk and r.get("asymmetry_ratio") is not None:
+                asym[tk] = r["asymmetry_ratio"]
+    except Exception:
+        pass  # self-disable si calcul fail, fallback "—" affiche
     tr = [p for p in positions if _broker(p["ticker"]) == "tr"]
     eu = [p for p in positions if _broker(p["ticker"]) == "bourso"]
     head = (
         '<div class="colhead" style="margin-top:6px"><span class="t">Comptes</span>'
-        '<span class="a">par courtier &middot; tri&eacute; par valeur</span></div>'
+        '<span class="a">par courtier &middot; tri&eacute; par valeur &middot; '
+        'asym&eacute;trie = upside_to_target / downside_to_stop (Taleb barbell)</span></div>'
     )
     return (
         head
-        + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors)
-        + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors)
+        + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors, asym)
+        + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors, asym)
     )
 
 
