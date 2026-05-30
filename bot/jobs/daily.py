@@ -59,12 +59,17 @@ async def daily_digest_job():
 async def daily_backup_job():
     """Phase Solidification P0 #2 — Daily backup via scripts/backup.sh.
     Runs 04:00 Paris before any market activity. Tarball + DB snapshot + 14d rotation.
+
+    Fix 30/05/2026 : le cwd pointait sur bot/ (parent.parent depuis bot/jobs/),
+    donc subprocess cherchait bot/scripts/backup.sh (inexistant) -> FAILED chaque
+    jour. Corrige a parent.parent.parent pour pointer au repo root.
     """
     try:
         import subprocess
         from pathlib import Path as _Path
 
-        proj = str(_Path(__file__).resolve().parent.parent)
+        # bot/jobs/daily.py -> bot/jobs -> bot -> repo root
+        proj = str(_Path(__file__).resolve().parent.parent.parent)
         result = subprocess.run(
             ["bash", "scripts/backup.sh"],
             cwd=proj,

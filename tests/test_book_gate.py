@@ -10,17 +10,12 @@ import pytest
 
 from shared import position_invariants as pi, storage
 
-# Dette systemique CONNUE 29/05/2026 -- gate currency + kill_criteria substance
-# fraichement soude (commit Phase 4). Toutes ces 11 violations existent ANTERIEUREMENT,
-# le gate les revele. Liste exhaustive cataloguee, date butoir 10/06/2026 (KPI #2).
-# Tout NOUVELLE violation hors de cette liste = fail.
-KNOWN_DEBT_TICKERS_KILL_CRITERIA = {
-    # SAF.PA fixe 30/05 (these reecrite : 5 drivers + 4 kill-crit fundamental)
-    "TSLA", "6857.T", "AMZN", "MP", "ENTG",
-}
-KNOWN_DEBT_TICKERS_CURRENCY = {
-    "4063.T", "000660.KS", "7011.T", "6857.T", "6920.T",
-}
+# Dette systemique RESORBEE 30/05/2026.
+# Avant : 11 violations cataloguees (5 currency + 6 kill-criteria substance).
+# Apres batch fix : 0 violations. Sets vides = aucune exemption.
+# Toute NOUVELLE violation = fail (== le gate fonctionne strict).
+KNOWN_DEBT_TICKERS_KILL_CRITERIA: set[str] = set()
+KNOWN_DEBT_TICKERS_CURRENCY: set[str] = set()
 
 
 def test_static_gate_no_new_violations():
