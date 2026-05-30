@@ -49,9 +49,12 @@ jobs:
                intelligence/calendar.py intelligence/analyze.py intelligence/thesis.py \
                risk/risk_engine.py risk/sizing.py \
                --follow-imports=silent
-      - name: Run pytest with coverage
+      - name: Run pytest with coverage (skip slow = network + LLM-call tests)
+        # marker slow exclu : tests reseau-dependants (SEC EDGAR) + Claude API
+        # call qui exigent secrets non disponibles dans CI. A run pre-release
+        # localement via `pytest -m slow` (cf README + AGENT_HANDOFF §9).
         run: |
-          pytest tests/ -v --tb=short \
+          pytest tests/ -v --tb=short -m "not slow" \
             --cov=shared.math_helpers \
             --cov=intelligence.materiality_v2 \
             --cov=intelligence.asymmetry \

@@ -1,9 +1,10 @@
-.PHONY: test test-cov backup test-restore test-restore-db test-restore-tarball help db-bootstrap db-current db-history db-migrate db-revision
+.PHONY: test test-slow test-cov backup test-restore test-restore-db test-restore-tarball help db-bootstrap db-current db-history db-migrate db-revision
 
 help:
 	@echo "Available targets:"
-	@echo "  test          - Run all unit tests (pytest)"
-	@echo "  test-cov      - Run tests with coverage report"
+	@echo "  test          - Run fast unit tests (skip slow = network/LLM)"
+	@echo "  test-slow     - Run ONLY slow tests (network SEC + Claude API)"
+	@echo "  test-cov      - Run fast tests with coverage report"
 	@echo "  backup        - Run backup script manually"
 	@echo "  test-restore  - Validate latest backup can be restored (DB + tarball)"
 	@echo "  db-bootstrap  - Create fresh DB from migrations (CI/new install)"
@@ -14,10 +15,13 @@ help:
 	@echo "  help          - Show this help"
 
 test:
-	pytest tests/ -v
+	pytest tests/ -v -m "not slow"
+
+test-slow:
+	pytest tests/ -v -m slow
 
 test-cov:
-	pytest tests/ \
+	pytest tests/ -m "not slow" \
 		--cov=shared.math_helpers \
 		--cov=intelligence.materiality_v2 \
 		--cov=intelligence.asymmetry \
