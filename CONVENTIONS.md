@@ -1586,3 +1586,40 @@ Technique metal texte = linear-gradient multi-stops + background-clip:text + -we
 - Chiffres/gauge (.kv/.gvm/.big) : gradient 155deg keye sur la variable --c (couleur d'etat). .kv.bear/.acc/.warn/.id posent --c ; le 40 pose --c:var(--id) inline ; defaut --c = --ink.
 - Titres (.phead h2) : chrome diagonal ~120deg, 2 speculaires, couleur DEDIEE (pas --c). Dark = silver clair brillant (#8b94a9 -> #fff -> #d8e0ec ...). Frost = graphite SANS blanc (#2b3340 -> #717d97 ...). Regle physique : un titre quasi-blanc disparait sur fond clair, le brillant vit en dark mode uniquement.
 - Barre sticky .dband : verdict en metal d'etat ; textes secondaires .dx/.dn/.dc suivent la couleur d'etat (rouge alarme / vert calme).
+
+## Discipline statistique pour mesures de track-record (ajoutee 31/05/2026)
+
+Origine : audit forensique tennis-bot 30-31/05 a etabli un standard de discipline qui s'applique a PRESAGE pour mesurer le scorer V2, KPI #2 batch resolution, et toute future evaluation de track-record (Brier, hit-rate, Sharpe, calibration). Sous-ensemble selectif : on retient ce qui est pertinent pour un ledger forward, on rejette les outils de selection de backtest.
+
+### A appliquer (5 regles obligatoires)
+
+1. **Dedup avant toute statistique**. Une prediction par cluster (ticker + direction + horizon + date_cluster). Si une these est re-scoree N fois, garder la version finale uniquement, jamais compter les rescores comme N predictions independantes. Cf `aggregate_brier_dedup` deja dans `shared/math_helpers.py`.
+
+2. **Wilson CI sur tout taux**. Pour hit-rate, watch-rate, accuracy bucket — interval de confiance Wilson (95% par defaut), refuser de conclure si `n < 10` par bucket. Le standard hard est `MIN_N_FOR_VERDICT = 10` (cf `intelligence/v2_vigilance.py` patterns).
+
+3. **Bootstrap CI sur ROI / Brier / metriques continues**. 5000+ iterations resample avec replacement. Rapporter CI 95% bilateral. Si CI inclut zero, signal non-conclusif — le rapporter explicitement, pas masquer derriere une point estimate.
+
+4. **Distinguer metrique-mesure vs metrique-business**. Brier score = mesure qualite calibration modele. ROI = mesure business. Les deux ont chacun leur logique d'interpretation — ne pas confondre "mon modele est bien calibre" (Brier bas) avec "ma decision est rentable" (ROI haut). Cf incident tennis-bot ou +3.19pp edge_fair (calibration) ne se traduisait qu'en +1.87% ROI net post-vig.
+
+5. **Reporting honnete des 7 items** pour tout finding edge / track-record : (a) N exact + dedup ratio si applicable, (b) WR + Wilson CI, (c) ROI per bet + ROI annualise + base d'hypotheses stake, (d) Bootstrap CI sur ROI, (e) p-value brute, (f) p-value corrigee si multi-tests applicable, (g) caveat sample size.
+
+### A NE PAS appliquer (pieges identifies)
+
+- **PBO Bailey-Lopez de Prado / correction multi-test agressif** : outil de selection de backtest (= "tu testes N strategies, laquelle survit ?"). Le ledger PRESAGE forward ne fait PAS de selection parmi N variantes — chaque prediction est commited avant outcome. PBO non-applicable, sauf si on commence a tester N variantes de scorer V2 a un moment donne (alors oui).
+
+- **Retro-application a metriques historiques pre-21/05**. KPI #5 measurement window commence 21/05/2026 (forward-only honest tracking documente section KPI #5). N'applique PAS la discipline a backfills legacy = manipulation metrique inconsistante avec PHILOSOPHY "tout output non instrumente est gaspille".
+
+- **Kelly fractional sizing comme optimiseur**. PRESAGE a `line_cap_by_conviction` (ADR 009) comme discipline. Ne pas le sur-formaliser en Kelly mathematique — caps sont une discipline cognitive, pas un optimiseur. Et le bot ne trade pas (cf README) : sizing real-money = lignes rouges.
+
+- **Walk-forward temporel rigoureux backtests** : applicable seulement si on construit un modele predictif distinct, pas pour evaluer le ledger live. Le ledger live EST le test out-of-sample par construction.
+
+### Quand cette discipline s'active
+
+- **10/06/2026 (KPI #2 batch)** : ~45 predictions resolved disponibles. Premier vrai test de calibration scorer V2. Appliquer regles 1-5 sur ce batch.
+- **N >= 30 thèses resolved cumul** : Brier moyen + Wilson CI sur hit-rate.
+- **N >= 100 thèses resolved cumul** : reliability diagram complet par bucket de probabilite (cf `intelligence/calibration_audit.py` a porter depuis tennis-bot patterns).
+- **Tout nouveau finding empirique mesure dans dashboard / docs** : reporter format 7-items obligatoire.
+
+### Provenance et invalidations evitees
+
+Standard issu de l'audit tennis-bot 30-31/05 ou 5 findings prematures ont ete invalides par cette meme discipline appliquee retroactivement (cf `~/tennis-bot/ANALYSIS_*.md`). Couts a eviter : un patch deploye sur finding cherry-picked = jusqu'a -30% drawdown observe historiquement (Bailey-LdP PBO 2017). Discipline = anti-fragile contre soi-meme, pas contre le marche.
