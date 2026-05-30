@@ -4659,6 +4659,8 @@ def render() -> Path:
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
+        # Note du portefeuille -- juste sous la valeur (hero)
+        f"{grade_html}"
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
         '<div class="vigie-sh">Urgence &mdash; agir maintenant</div>'
         f'{_risk_watch_panel()}'
@@ -4680,8 +4682,8 @@ def render() -> Path:
         f"{v2_cohort_html}"
         f"{wire_activity_html}"
         # ── BLOC 5 : CONTEXTE -- synthese + interventions copilot ──
+        # (note PF deplacee sous hero, plus dans contexte)
         '<div class="vigie-sh">Contexte &amp; synth&egrave;se</div>'
-        f"{grade_html}"
         f"{cockpit_html}"
         f"{copilot_html}"
         # ── BLOC 6 : JOURNAL -- chat + echeances + log decisions ──
