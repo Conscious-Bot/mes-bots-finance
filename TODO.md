@@ -118,6 +118,16 @@ Cf mémoire `niveau_2_adversary_and_proof` pour le détail.
 - **MU fix** (commit 49acd34) : qty 0.119 → 1.224 (€99.5 → €1020.10). Trim fantôme du 29/05 supprimé (event #4 DELETE, decision #23 [VOIDED], cf#55 conservée append-only + filtre dans `measure_bias`).
 - **2 failures découvertes + corrigées** : asym rounding (round 2→3) + patterns table restaurée (decision_copilot la query, code dead-path mais SELECT doit pas crasher).
 
+### 30/05 nuit — Arc V2 calibration (10 itérations, 29 commits)
+Audit pré-10/06 a révélé que les 40 prédictions du batch sont toutes dans probabilité [0,608-0,658] (mono-bucket). Pivot complet sur l'élicitation + sourcing + tests. **Pattern itéré 10 fois : la conclusion est toujours en avance d'un cran sur la preuve.**
+- **SIGNAL_SCORER_V2** : prompt 3 étapes (base rate / ajustement / anti-ancrage), enforcement weak→watch + sémantique P(call correct), intégré dans `learning.auto_register_predictions`. Decision log `docs/decision_logs/01_calibration_unanchored.md` (10 itérations).
+- **Wire SEC EDGAR primary data** : `intelligence/edgar_signal_wire.py` + `shared/edgar_exhibits.py`. 8-K + insider buy clusters → V2 → predictions. Forward-only strict. Source dédiée `SEC EDGAR 8-K` + `SEC EDGAR Insider Cluster` (cred=0.85). DoD vérifiée e2e : NVDA Q1 FY27 8-K → V2 0.750 bullish strong. Fixture régression `tests/test_edgar_exhibits.py` (marker slow).
+- **Consolidation `storage.DB_PATH`** : bug pollution prod attrapé par test fail (monkeypatch _DB_PATH n'affectait pas DB_PATH). Fix via `__getattr__` module-level. Test régression `tests/test_db_path_alias.py`. Premier fix (alias statique) n'était pas un fix — itéré 9e fois sur le fix lui-même.
+- **ADR 012 — severity classifier soft-deprecated** : V2 sur contenu réel discrimine mieux que mapping Item-codes. Classifieur conservé pour alerting low-latency, déprécié comme mesure evidence_strength.
+- **Dry-run résolution J-11 (iter 10)** : Brier attendu 0.295, accuracy 38%, pire qu'un prior 0.5 trivial. **Le batch 10/06 NE doit PAS être publié comme track record.** Le mécanisme tourne (40/40 prix fetched, dedup OK) — V1 mauvais comme prédit.
+- **3 posts canoniques bilingues** dans `posts/` (Phase A juillet en grande avance) : post_01 calibration_unanchored, post_02 comment_that_lied (SK Hynix), post_03 dry_run_eleven_days. ~700-900 mots FR + EN chacun.
+- 414/414 tests verts. Bot tourne PID 84607 caffeinate avec nouveau code chargé.
+
 ### Trades du jour (29/05 chat-driven)
 - ALAB 616€ → LNG 616€ (profit-take winner)
 - MU 940€ + 920€ (trim ×2, quasi-out) → LNG 250€ + CCJ 667€ → reverse CCJ → LNG 434€ + MP 233€
@@ -138,8 +148,9 @@ Cf mémoire `niveau_2_adversary_and_proof` pour le détail.
 
 **Tout output non instrumenté est gaspillé.** Chaque output doit recevoir un outcome mesurable qui se réinjecte. La moitié des 15 vues échouent ce test. À couper progressivement post-10/06 quand on aura la mesure pour arbitrer.
 
-### Calendrier discipline
+### Calendrier discipline (REVISED 30/05 post-dry-run)
 
-- **Maintenant → 10/06** : usage > code. Brier est l'asset, pas les commits.
-- **10/06** : batch resolution. Moment de vérité.
-- **Post-10/06** : Niveau 2 si Brier valide. Path 5 (privé) avant Path 6 (public).
+- **Maintenant → 10/06** : usage > code. **MAIS** : V1 mauvais déjà mesuré (dry-run Brier 0.295). Le 10/06 n'apporte pas de validation calibration positive — sert de baseline V1 figé pour future comparaison V2. Le "moment de vérité" devient **« est-ce que je publie quand même le mauvais chiffre comme prévu, ou je me trouve une excuse »**.
+- **10/06** : batch resolution V1. À publier honnêtement (post_03 déjà drafté pour ça). Brier ~0.295 attendu, ne PAS maquiller. Le **mécanisme** tourne (vérifié dry-run), c'est V1 qui est mauvais comme prédit.
+- **Post-10/06** : observer les cohortes V2 qui s'accumulent (wire 8-K + insider clusters actifs). Première comparaison V1 vs V2 nécessitera ~2-3 mois de N V2 suffisant.
+- **Path 5 / 6** : différer jusqu'à avoir N V2 suffisant pour calibration plot publishable (post-août probablement, pas 10/06).

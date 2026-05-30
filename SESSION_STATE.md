@@ -538,3 +538,26 @@ Critère sharper : frozen = ce qui affecte la pipeline `signal → score → pre
 
 ## 28/05/2026 Day 17 close
 HEAD origin/main = b6901e6. Session = surface commandes (Phase 1, telemetry-aligned) + refonte dashboard (Phase 2). Detail complet -> HANDOFF.md section "Day 17 close". Etat stable, tout pousse, rien en suspens correctness. Invariant dashboard grave : couleur = fait jamais jugement, un seul modele de lecture (axe stop->cible) partout. Entry next session : declutter Theses (hoist cible-taille par tier, arrondir €) + liste "A faire aujourd'hui" consolidee + legende vitals + renommer "Plus proches du stop"->"Marges les plus faibles".
+
+
+## 30/05/2026 close (long session, 30+ commits, 10 iterations arc V2)
+HEAD origin/main = b4ac2e3 (post #03 dry_run_eleven_days). Stable, rien en suspens correctness, 414/414 tests verts. Bot tourne PID 84607 + caffeinate + nouveau code wire charge (premier test live = job 8-K cron 6:30 demain).
+
+**Arc principal** : audit pre-batch 10/06 a revele mono-bucket [0,608-0,658] sur 40 predictions. 10 iterations sur 8 chantiers ont remonte la chaine : formula cap -> prompt -> contamination source -> frontiere commit -> semantique P(call correct) -> wire sourcing -> extraction exhibits -> pollution prod via tests -> consolidation DB_PATH -> dry-run J-11 confirmant empiriquement le diagnostic. Decision log complet : `docs/decision_logs/01_calibration_unanchored.md` (10 iterations + 3 vigilances + draft v5 publishable).
+
+**Pattern central** : *la conclusion est toujours en avance d'un cran sur la preuve.* Verifie 10 fois, dont une sur le fix lui-meme (iter 9 : aliaser statiquement _DB_PATH = DB_PATH n'etait pas un fix, le test regression l'a montre immediatement).
+
+**Decisions stockees** :
+- SIGNAL_SCORER_V2 integre dans `intelligence/learning.auto_register_predictions` -- cohortes futures ont un scorer non-ancre (vs V1 mono-bucket).
+- Wire 8-K + insider buy clusters actifs en prod, forward-only strict, dedup gmail_id.
+- `storage.DB_PATH` consolide via `__getattr__` -- _DB_PATH alias dynamique, monkeypatch propage, anti-recurrence pollution prod.
+- ADR 012 : 8-K severity classifier soft-deprecated comme mesure evidence_strength (V2 sur contenu = source verite).
+
+**Pour le 10/06 (J-11)** : dry-run dit Brier ~0,295 (PIRE qu'un prior 0,5 trivial). Mecanisme resolution tourne sans bug (40/40 prix fetched). V1 mauvais comme predit. Le 10/06 publie le V1 mauvais honnetement (post_03 deja drafte pour ca) -- premier benchmark V1 fige, future comparaison V2 post-aout.
+
+**3 posts canoniques bilingues prets dans `posts/`** (Phase A juillet du PLAN_ACQUIHIRE en grande avance) :
+- post_01_calibration_unanchored : "Six fois j'ai cru avoir fini" -- arc V2
+- post_02_comment_that_lied : SK Hynix 1600x bug
+- post_03_dry_run_eleven_days : J-11 dry-run honnete
+
+**Entry next session** : observer si le job 8-K 6:30 a fait passer une nouvelle 8-K material via le wire (verifier `bot.log` + `signals` table). Si oui, premier signal V2 dans le ledger. Sinon attendre. Pas de pression -- usage > code jusqu'au 10/06.
