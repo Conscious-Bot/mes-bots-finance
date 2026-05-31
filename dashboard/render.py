@@ -3587,6 +3587,9 @@ _CSS = """
   .hero.posture .plan-row { margin-top:var(--s35); gap:var(--s5); }
   .hero.posture .pn { font-size:28px; }
   .hrow { display:grid; grid-template-columns:1.3fr 1fr; gap:var(--s4); margin-bottom:20px; align-items:stretch; }
+  /* hero-single : refonte vigie 31/05 -- pfcard seule sans disc_hero a droite */
+  .hero-single { display:block; margin-bottom:var(--s4); }
+  .hero-single .pfcard { max-width:none; }
   .hrow .hero.posture { margin-bottom:0; height:100%; }
   .pfcard { background:var(--panel); border:1px solid var(--line3); border-radius:var(--r3); padding:20px 24px; display:flex; flex-direction:column; }
   .pfcard .v { font-family:var(--fm); font-weight:500; font-size:32px; letter-spacing:-.01em; line-height:1; margin:var(--s2) 0 5px; color:var(--ink); font-variant-numeric:tabular-nums; }
@@ -4793,13 +4796,14 @@ def render() -> Path:
     vigie = (
         f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
-        f'<div class="hrow star">'
+        # Hero simplifie (refonte 31/05) : pfcard SEULE (disc_hero retire user feedback)
+        f'<div class="hero-single">'
         f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'
         f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
         f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
-        f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>{disc_hero}</div>'
+        f'<div class="sub2">{pf_cost_str}&euro; investi</div></div></div>'
         # Note du portefeuille -- juste sous la valeur (hero)
         f"{grade_html}"
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
@@ -4817,18 +4821,13 @@ def render() -> Path:
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_dn}</div></div></div>'
-        # ── BLOC 4 : SYSTEME V2 -- alarmes auto + track record en construction ──
-        '<div class="vigie-sh">Syst&egrave;me V2 &mdash; alarmes &amp; track record</div>'
-        f"{vigilance_html}"
-        f"{v2_cohort_html}"
-        f"{calib_progress_html}"
-        f"{wire_activity_html}"
-        # ── BLOC 5 : CONTEXTE -- synthese + interventions copilot ──
-        # (note PF deplacee sous hero, plus dans contexte)
-        '<div class="vigie-sh">Contexte &amp; synth&egrave;se</div>'
-        f"{cockpit_html}"
+        # ── BLOC 4 : SYNTHESE COPILOT (interventions adversariales) ──
+        # (Retraits 31/05 user feedback : wire_activity / vigilance_v2 / v2_cohort /
+        # calib_progress / cockpit / disc_hero -- code backend conserve, alertes Telegram
+        # via cron weekly_v2_vigilance + weekly_calibration_audit prennent le relais)
+        '<div class="vigie-sh">Synth&egrave;se copilot</div>'
         f"{copilot_html}"
-        # ── BLOC 6 : JOURNAL -- chat + echeances + log decisions ──
+        # ── BLOC 5 : JOURNAL -- chat + echeances + log decisions ──
         '<div class="vigie-sh">Journal &amp; &eacute;ch&eacute;ances</div>'
         f'<div class="colhead tight"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
         f'<div class="card pad">{erows}</div>'
