@@ -116,10 +116,11 @@ def test_insert_canonique_valide_accepte(in_memory_db: sqlite3.Connection) -> No
     assert row[0] == "open", "Default status doit etre 'open'"
 
 
-def test_resolve_due_skeleton_noop_quand_table_vide(
+def test_resolve_due_noop_quand_table_vide(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """resolve_due_bias_events sur table vide -> {resolved:0, deferred:0}."""
+    """resolve_due_bias_events sur table vide -> {resolved:0, missing:0, void:0}.
+    Mise a jour v2 : key 'deferred' supprimee depuis alignement ADR 010."""
     db_path = tmp_path / "test_bias.db"
     cx = sqlite3.connect(db_path)
     _schema_minimal(cx)
@@ -129,14 +130,18 @@ def test_resolve_due_skeleton_noop_quand_table_vide(
 
     result = bias_events.resolve_due_bias_events()
     assert result["resolved"] == 0
-    assert result["deferred"] == 0
+    assert result["missing"] == 0
+    assert result["void"] == 0
     assert result["details"] == []
 
 
-def test_resolve_due_skeleton_defere_open_dus(
+def test_resolve_due_v2_marque_void_si_counterfactual_malforme(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """1 event open avec resolve_at passe -> deferred=1, resolved=0 (v1 no-op)."""
+    """1 event open avec counterfactual_json='{}' (manque anchor_price_eur
+    + shares_taken + shares_avoided) -> ValueError -> status='void'.
+    Mise a jour v2 : avant ce test verifiait skeleton no-op (deferred=1)
+    qui n'existe plus depuis ADR 010 Accepted + alignement v2.b."""
     db_path = tmp_path / "test_bias.db"
     cx = sqlite3.connect(db_path)
     _schema_minimal(cx)
@@ -155,6 +160,6 @@ def test_resolve_due_skeleton_defere_open_dus(
 
     result = bias_events.resolve_due_bias_events()
     assert result["resolved"] == 0
-    assert result["deferred"] == 1
-    assert len(result["details"]) == 1
-    assert result["details"][0]["skipped_reason"] == "v2_contrefactuel_pending"
+    assert result["missing"] == 0
+    assert result["void"] == 1
+    assert result["details"][0]["status"] == "void"
