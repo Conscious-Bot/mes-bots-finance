@@ -43,11 +43,24 @@ def classify_net_delta(
     discipline_expected_delta: float,
     position_events_in_window: list[dict],
     initial_qty: float,
+    noise_tolerance_pct: float = 0.05,
 ) -> tuple[str, float, float, float]:
     """v2.c.1 -- classification pure de l'action user vs discipline sur un
     window [created_at, resolve_at]. Aligne ADR 010 Addendum v2.c : ancrage
     sur reco discrete + classification sur le DELTA NET. Partial/reversal
     geres par construction (pas de code special).
+
+    SEUIL NOISE (user 01/06) : la reponse disciplinee depend du type de reco
+    (inaction pour hold, cible pour rightsize, mouvement plein pour exit).
+    `resisted` = avoir matche CETTE reponse, pas juste "bouge dans le bon sens".
+    Le piege classique est hold (discipline = ne rien faire) : sans seuil
+    explicite, un trade de bruit (e.g., 1 share) basculerait a tort en
+    acted_on_bias. On pose donc : si |delta_vs_discipline| <= tolerance
+    (default 5% de initial_qty) -> resisted.
+
+    Le label part de la direction/ecart-a-la-cible. La magnitude part
+    SEPAREMENT vers delta_signed (cf resolve_one_bias_event). "Partiel" =
+    label + magnitude, pas une 3eme categorie.
 
     Args:
         bias: 'lock_in' | 'fomo_greed' | 'other'
@@ -56,6 +69,8 @@ def classify_net_delta(
         position_events_in_window: list d'events avec key 'qty_delta'
             (signed : positif=buy, negatif=sell/trim).
         initial_qty: position au created_at (= shares avant la window).
+        noise_tolerance_pct: tolerance relative pour considerer le delta
+            "match" la discipline (= resisted). 0.05 = 5% de initial_qty.
 
     Returns:
         (action, shares_taken, shares_avoided, shares_delta_net_actual)
@@ -63,26 +78,26 @@ def classify_net_delta(
         - shares_taken : qty user a resolve_at (= initial + actual_delta)
         - shares_avoided : qty discipline aurait eu (= initial + expected_delta)
         - shares_delta_net_actual : sum signe des qty_delta (audit)
-
-    Logique :
-        delta_vs_discipline = actual_delta - discipline_expected_delta
-        lock_in  : user reduit PLUS que discipline (delta_vs_discipline < 0)
-                   = acted_on_bias (vendu winner trop tot)
-        fomo_greed : user reduit MOINS que discipline (delta_vs_discipline > 0)
-                   = acted_on_bias (tient au-dela du top)
-        other    : tie (== 0) = resisted, sinon acted.
     """
     actual_delta = sum(e.get("qty_delta", 0.0) for e in position_events_in_window)
     shares_taken = initial_qty + actual_delta
     shares_avoided = initial_qty + discipline_expected_delta
     delta_vs_discipline = actual_delta - discipline_expected_delta
 
+    # Noise tolerance : si delta_vs_discipline tient dans la zone d'inertie
+    # (default 5% de initial_qty), on classe resisted = matche la discipline.
+    # Couvre le piege "hold + 1 trade bruit" + "rightsize approxime" +
+    # "exit a 95% mais pas 100%". Le label depend de l'ecart-a-la-cible.
+    threshold = abs(initial_qty) * noise_tolerance_pct
+    if abs(delta_vs_discipline) <= threshold:
+        return "resisted", shares_taken, shares_avoided, actual_delta
+
     if bias == "lock_in":
         action = "acted_on_bias" if delta_vs_discipline < 0 else "resisted"
     elif bias == "fomo_greed":
         action = "acted_on_bias" if delta_vs_discipline > 0 else "resisted"
-    else:  # 'other' : conservatif, tie = resisted
-        action = "resisted" if abs(delta_vs_discipline) < 1e-9 else "acted_on_bias"
+    else:  # 'other' : conservatif
+        action = "acted_on_bias"
 
     return action, shares_taken, shares_avoided, actual_delta
 

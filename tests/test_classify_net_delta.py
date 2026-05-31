@@ -136,7 +136,7 @@ def test_other_tie_donne_resisted() -> None:
 
 
 def test_other_non_zero_donne_acted() -> None:
-    """bias='other' : delta non-nul = acted (conservatif)."""
+    """bias='other' : delta non-nul hors tolerance = acted (conservatif)."""
     action, _, _, _ = classify_net_delta(
         bias="other",
         discipline_expected_delta=0.0,
@@ -144,3 +144,63 @@ def test_other_non_zero_donne_acted() -> None:
         initial_qty=100.0,
     )
     assert action == "acted_on_bias"
+
+
+# ─── Seuil noise (user 01/06) : piege hold + 1 trade bruit ─────────────────
+
+
+def test_lock_in_hold_avec_noise_trade_reste_resisted() -> None:
+    """Piege classique : discipline=hold (expected=0), user fait 1 trade
+    de bruit (-2 shares sur 100). |delta_vs_discipline|=2 < 5%*100=5
+    -> tolerance NOISE -> resisted. Avant le fix : aurait flippe acted
+    a tort. Aligne user spec 01/06."""
+    action, taken, avoided, actual = classify_net_delta(
+        bias="lock_in",
+        discipline_expected_delta=0.0,
+        position_events_in_window=[{"qty_delta": -2.0}],
+        initial_qty=100.0,
+    )
+    assert action == "resisted", "trade bruit -2 sur 100 doit etre resisted (dans tolerance 5%)"
+    assert actual == -2.0  # la magnitude est preservee (-> delta_signed)
+    assert taken == 98.0
+
+
+def test_lock_in_au_seuil_exact_du_threshold_reste_resisted() -> None:
+    """delta_vs_discipline exactement au seuil (5% = 5 shares sur 100)
+    -> resisted (boundary inclusive). Le label = match-ecart-zone, pas
+    cliff."""
+    action, _, _, _ = classify_net_delta(
+        bias="lock_in",
+        discipline_expected_delta=0.0,
+        position_events_in_window=[{"qty_delta": -5.0}],
+        initial_qty=100.0,
+    )
+    assert action == "resisted"
+
+
+def test_lock_in_juste_au_dessus_du_seuil_devient_acted() -> None:
+    """Juste au-dessus du seuil (5.1 sur 100) -> acted_on_bias. Pas de
+    cliff abusif : 5.1 > 5.0 strict."""
+    action, _, _, _ = classify_net_delta(
+        bias="lock_in",
+        discipline_expected_delta=0.0,
+        position_events_in_window=[{"qty_delta": -5.1}],
+        initial_qty=100.0,
+    )
+    assert action == "acted_on_bias"
+
+
+def test_fomo_greed_rightsize_approxime_reste_resisted() -> None:
+    """fomo_greed : discipline rightsize de -20 (e.g., trim 20 shares
+    pour atteindre cap). User a trim -19 (approche cible, dans tolerance).
+    delta_vs_discipline = -19 - (-20) = +1. |1| <= 5% * 100 = 5 -> resisted.
+    Le label = match-cible-zone, magnitude (-19) part vers delta_signed."""
+    action, taken, avoided, _ = classify_net_delta(
+        bias="fomo_greed",
+        discipline_expected_delta=-20.0,
+        position_events_in_window=[{"qty_delta": -19.0}],
+        initial_qty=100.0,
+    )
+    assert action == "resisted"
+    assert taken == 81.0  # initial + actual = 100 + (-19)
+    assert avoided == 80.0  # initial + expected = 100 + (-20)
