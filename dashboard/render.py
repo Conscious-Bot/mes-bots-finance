@@ -1957,8 +1957,10 @@ def _copilot() -> str:
     return (
         f'<section data-page="copilot" role="region" aria-label="Copilot">'
         f'<div class="phead"><h2>Copilot</h2>'
-        f'<div class="sub">Discussion avec le bot &middot; historique &middot; ce qu&rsquo;il pense par ticker</div></div>'
+        f'<div class="sub">Discussion &middot; synth&egrave;se interventions &middot; historique &middot; ce qu&rsquo;il pense par ticker</div></div>'
         f'{_chat_panel()}'
+        f'<div class="vigie-sh">Synth&egrave;se copilot</div>'
+        f'{_copilot_panel()}'
         f'{_conceptions_panel()}'
         f'{_conversations_panel()}'
         f'{_chat_signals_panel()}'
@@ -4882,9 +4884,10 @@ def render() -> Path:
     # _cockpit() helper toujours dispo si reactivation future
     grade_html = _grade_panel()
     blind_html = _blind_positions_panel()
-    copilot_html = _copilot_panel()
-    # chat_html + conceptions_html retires 31/05 wave 5 : migration vers
-    # section Copilot dediee (_copilot() entre Positions et Theses).
+    # chat_html + conceptions_html + copilot_html retires 31/05 wave 5 :
+    # migration vers section Copilot dediee (_copilot() entre Positions et
+    # Theses). Les helpers _chat_panel / _conceptions_panel / _copilot_panel
+    # restent appeles par _copilot() directement.
     # V2 monitoring panels retires 31/05 user feedback (code backend conserve,
     # alertes Telegram via cron weekly prennent le relais)
     # v2_cohort_html / wire_activity_html / vigilance_html / calib_progress_html
@@ -4932,8 +4935,7 @@ def render() -> Path:
         # (Retraits 31/05 user feedback : wire_activity / vigilance_v2 / v2_cohort /
         # calib_progress / cockpit / disc_hero -- code backend conserve, alertes Telegram
         # via cron weekly_v2_vigilance + weekly_calibration_audit prennent le relais)
-        '<div class="vigie-sh">Synth&egrave;se copilot</div>'
-        f"{copilot_html}"
+        # Synthese copilot retiree 31/05 wave 5bis : migre vers section Copilot dediee.
         # ── BLOC 5 : JOURNAL -- echeances + log decisions (chat remonte au BLOC 1) ──
         '<div class="vigie-sh">Journal &amp; &eacute;ch&eacute;ances</div>'
         f'<div class="colhead tight"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
