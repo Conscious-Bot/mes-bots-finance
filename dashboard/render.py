@@ -1949,6 +1949,23 @@ def _chat_memory_stats() -> tuple[int, int, str]:
         return 0, 0, ""
 
 
+def _copilot() -> str:
+    """Page dediee Copilot (user feedback 31/05) : chat + historique + ce que
+    le bot pense par ticker + signaux soft extraits du chat. Place entre
+    Positions et Theses en nav. Reactive _conversations_panel + _chat_signals_panel
+    qui etaient defines mais non-utilises depuis le retrait 27/05 (commit c4ecebc)."""
+    return (
+        f'<section data-page="copilot" role="region" aria-label="Copilot">'
+        f'<div class="phead"><h2>Copilot</h2>'
+        f'<div class="sub">Discussion avec le bot &middot; historique &middot; ce qu&rsquo;il pense par ticker</div></div>'
+        f'{_chat_panel()}'
+        f'{_conceptions_panel()}'
+        f'{_conversations_panel()}'
+        f'{_chat_signals_panel()}'
+        f'</section>'
+    )
+
+
 def _chat_panel() -> str:
     """Sprint 7 — Chat surface : pose une question, contexte assemble cote serveur."""
     n_msg, n_sess, oldest = _chat_memory_stats()
@@ -3409,6 +3426,7 @@ _NAV = (
     '<nav class="nav" role="navigation" aria-label="Navigation principale">'
     '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
     '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
+    '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
     '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
     '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie</span></div>'
     '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
@@ -4865,12 +4883,12 @@ def render() -> Path:
     grade_html = _grade_panel()
     blind_html = _blind_positions_panel()
     copilot_html = _copilot_panel()
-    chat_html = _chat_panel()
+    # chat_html + conceptions_html retires 31/05 wave 5 : migration vers
+    # section Copilot dediee (_copilot() entre Positions et Theses).
     # V2 monitoring panels retires 31/05 user feedback (code backend conserve,
     # alertes Telegram via cron weekly prennent le relais)
     # v2_cohort_html / wire_activity_html / vigilance_html / calib_progress_html
     # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
-    conceptions_html = _conceptions_panel()
     axes_html = _ticker_axes_panel()
     factor_html = _factor_exposures_panel()
     stress_html = _stress_tests_panel()
@@ -4896,10 +4914,9 @@ def render() -> Path:
         f'</div>'
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
-        # chat_html remonte ici "a la place" pour acces direct copilot en haut de page)
+        # chat_html migre vers section Copilot dediee 31/05 wave 5)
         '<div class="vigie-sh">Urgence &mdash; agir maintenant</div>'
         f'{_risk_watch_panel()}'
-        f"{chat_html}"
         f"{blind_html}"
         # ── BLOC 2 : OPPORTUNITES -- a cloturer ou consolider ──
         '<div class="vigie-sh">Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
@@ -4947,11 +4964,8 @@ def render() -> Path:
         f'{valo_html}'
         f'{_return_clustering_panel()}'
         f'{axes_html}'
-        # 4. Apprentissage du bot -- meta (ce que le systeme retient)
-        # Retraits 31/05 : chat_signals + conversations + preferences (Layer 3
-        # "ce qui MARCHE chez user" - utilite floue user feedback)
-        '<div class="strat-sh">Apprentissage du bot &mdash; ce que le syst&egrave;me retient</div>'
-        f'{conceptions_html}'
+        # 4. Apprentissage du bot retire 31/05 wave 5 : conceptions migre vers
+        # section Copilot dediee (avec chat + historique + signaux soft)
         '</section>'
     )
 
@@ -5024,6 +5038,7 @@ def render() -> Path:
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
         + positions_pg
+        + _copilot()
         + _theses(names, sectors, positions, pnl)
         + strategie_html
         + _concentration(positions, planned, sectors, names, pnl, daily)
