@@ -3495,12 +3495,21 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:  # n
             frac = max(0.0, min(100.0, (current - stop) / (tgt - stop) * 100))
             if entry:
                 entry_frac = max(0.0, min(100.0, (entry - stop) / (tgt - stop) * 100))
+                # pnl_e calcule via entry de THESE (= prix quand thèse écrite) en NATIVE.
+                # Sert au tracking "depuis rédaction de la thèse" SEULEMENT.
                 pnl_e = (current - entry) / entry * 100
             if d_tgt is not None and d_tgt < 12:
                 n_near_tgt += 1
             if d_stop < 10:
                 n_near += 1
-            if pnl_e is not None and pnl_e >= 0:
+            # Fix bug 31/05 : "EN GAIN 27/27" trompeur. La KPI doit refleter
+            # le PnL REEL de la position user (cours vs avg_cost = cost basis
+            # actuel), pas le PnL "depuis ecriture de la thèse" qui est
+            # quasi-toujours positif (l'user ecrit ses theses pres du bottom).
+            # pnl dict est calcule par compute_pnl_pct(positions) en amont :
+            # pnl[tk] = (current_eur - avg_cost_eur) / avg_cost_eur * 100
+            pnl_real = pnl.get(tk)
+            if pnl_real is not None and pnl_real >= 0:
                 n_profit += 1
         ths.append(
             {
