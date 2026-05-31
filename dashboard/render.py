@@ -298,6 +298,7 @@ def _calibration_progress_panel() -> str:
     """
     try:
         import sqlite3
+
         from intelligence import calibration_audit as _calib
         from shared import storage as _stg
 
@@ -2516,6 +2517,50 @@ def _geo_bars(positions: list[dict]) -> str:
     return css + bars + js
 
 
+def _insider_flow_strip_html() -> str:
+    """E2 wire-up A3 (31/05/2026) : surface insider_snapshots (~401 rows
+    captures quotidiennes par insider_digest cron) qui etaient ingerees mais
+    pas affichees au dashboard. Top 10 flow net agrege 7j, sort par |net_m|
+    desc, star pour tickers en portefeuille user (highlight = "tes positions
+    voient insiders dumper ?")."""
+    try:
+        owned = set()
+        try:
+            for (tk,) in _q("SELECT ticker FROM positions WHERE status='open' AND qty > 0"):
+                owned.add(str(tk).upper())
+        except Exception:
+            pass
+        rows = ""
+        for tk, net_m, buys, sells in _q(
+            "SELECT ticker, ROUND(SUM(net_m), 1) AS net_7d, "
+            "       COALESCE(SUM(n_buys),0), COALESCE(SUM(n_sells),0) "
+            "FROM insider_snapshots WHERE snapshot_date >= date('now', '-7 days') "
+            "GROUP BY ticker HAVING net_7d IS NOT NULL AND ABS(net_7d) > 0 "
+            "ORDER BY ABS(net_7d) DESC LIMIT 10"
+        ):
+            tk_u = str(tk).upper()
+            star = "&#9733; " if tk_u in owned else ""
+            net = float(net_m or 0)
+            abs_net = abs(net)
+            if net > 0:
+                tag_cls, tag_lbl = "acc", f"+${net:.1f}M"
+            elif abs_net > 500:
+                tag_cls, tag_lbl = "danger", f"-${abs_net:.0f}M"
+            elif abs_net > 100:
+                tag_cls, tag_lbl = "warn", f"-${abs_net:.0f}M"
+            else:
+                tag_cls, tag_lbl = "calm", f"-${abs_net:.1f}M"
+            rows += (
+                f'<div class="row"><div class="rt"><span class="tk tkc" data-tk="{tk_u}">{star}{tk_u}</span>'
+                f'<span class="tag {tag_cls}">{tag_lbl}</span></div>'
+                f'<div class="rs"><span>{int(buys)} achats &middot; {int(sells)} ventes</span>'
+                f'<span class="mono">7&nbsp;j</span></div></div>'
+            )
+        return rows or '<div class="empty" style="padding:var(--s4) 0">aucun flux insider sur 7&nbsp;j</div>'
+    except Exception as e:
+        return _err(e)
+
+
 def _signaux() -> str:
     try:
         s24 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-1 day')")[0][0]
@@ -2606,14 +2651,26 @@ def _signaux() -> str:
         f'<div class="col"><div class="colhead"><span class="t">Cr&eacute;dibilit&eacute; des sources</span><span class="a">{nsrc} sources &middot; recal 1er du mois</span></div><div class="card">{src_rows}</div></div>'
         f"</div>"
     )
-    insider_strip = (
-        f'<div class="colhead spaced"><span class="t">Achats d\'initi&eacute;s group&eacute;s</span><span class="a">60&nbsp;j &middot; Form 4 EDGAR</span></div>'
-        f'<div class="card pad">{insiders}</div>'
+    insider_flow = _insider_flow_strip_html()
+    insider_flow_strip = (
+        f'<div class="colhead spaced"><span class="t">Flux d\'initi&eacute;s &middot; 7&nbsp;j</span>'
+        f'<span class="a">net buy/sell agr&eacute;g&eacute; &middot; &#9733; = en portefeuille</span></div>'
+        f'<div class="card pad">{insider_flow}</div>'
     )
+    # Clusters strip : montre seulement si non-empty (insider_buy_clusters_log
+    # actuellement vide, s'affichera quand cluster detection fire).
+    empty_clusters_msg = "aucun cluster d'achats group"
+    insider_clusters_strip = ""
+    if empty_clusters_msg not in insiders:
+        insider_clusters_strip = (
+            f'<div class="colhead spaced"><span class="t">Clusters d\'achats group&eacute;s</span>'
+            f'<span class="a">60&nbsp;j &middot; Form 4 EDGAR</span></div>'
+            f'<div class="card pad">{insiders}</div>'
+        )
     return (
         f'<section data-page="signaux" role="region" aria-label="Signaux"><div class="phead"><h2>Signaux</h2>'
-        f'<div class="sub">D&eacute;p&ocirc;ts 8-K par s&eacute;v&eacute;rit&eacute; &middot; cr&eacute;dibilit&eacute; des sources &middot; achats d\'initi&eacute;s</div></div>'
-        f"{kpis}{cols}{insider_strip}</section>"
+        f'<div class="sub">D&eacute;p&ocirc;ts 8-K par s&eacute;v&eacute;rit&eacute; &middot; cr&eacute;dibilit&eacute; des sources &middot; flux d\'initi&eacute;s</div></div>'
+        f"{kpis}{cols}{insider_flow_strip}{insider_clusters_strip}</section>"
     )
 
 
