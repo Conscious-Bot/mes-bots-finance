@@ -288,6 +288,66 @@ def _v2_cohort_panel() -> str:
     )
 
 
+def _calibration_progress_panel() -> str:
+    """Calibration scorer V2 -- progress bar n/30 (INSUFFICIENT_DATA) ou verdict OK/WARN/ALERT.
+
+    Surface l'attente data-driven en signal visible quotidien. Cohorte calibration
+    s'active automatiquement quand n_total >= 30 predictions resolved non-neutral.
+
+    Pattern aligne v2_vigilance / wire_activity (cron-friendly, silent-success).
+    """
+    try:
+        import sqlite3
+        from intelligence import calibration_audit as _calib
+        from shared import storage as _stg
+
+        cx = sqlite3.connect(_stg.DB_PATH)
+        cx.row_factory = sqlite3.Row
+        result = _calib.check_scorer_calibration(cx)
+        cx.close()
+    except Exception as e:
+        return (
+            '<div class="card pad calibcard" style="margin-bottom:18px">'
+            f'<div class="empty">calibration indisponible : {type(e).__name__}</div></div>'
+        )
+
+    target = _calib.MIN_N_TOTAL  # 30
+    n_total = result.get("n_total", 0)
+
+    if result["status"] == "INSUFFICIENT_DATA":
+        pct = min(n_total / target * 100, 100) if target else 0
+        remaining = max(target - n_total, 0)
+        return (
+            '<div class="card pad calibcard" style="margin-bottom:18px">'
+            '<div class="colhead"><span class="t">Calibration scorer V2</span>'
+            f'<span class="a">accumulation cohorte &mdash; verdict s&apos;active &agrave; n&ge;{target} predictions r&eacute;solues non-neutral</span></div>'
+            '<div class="calib-progress">'
+            f'<div class="calib-bar"><div class="calib-fill" style="width:{pct:.1f}%"></div></div>'
+            '<div class="calib-meta">'
+            f'<span class="calib-n mono">{n_total}/{target}</span>'
+            f'<span class="calib-rem">{remaining} &agrave; attendre</span>'
+            '</div></div></div>'
+        )
+
+    # status = OK / WARN / ALERT
+    brier = result.get("avg_brier")
+    max_gap = result.get("max_gap_pp", 0)
+    status_cls = {"OK": "acc", "WARN": "warn", "ALERT": "neg"}.get(result["status"], "")
+    brier_str = f"{brier:.4f}" if brier is not None else "&mdash;"
+    return (
+        '<div class="card pad calibcard" style="margin-bottom:18px">'
+        '<div class="colhead"><span class="t">Calibration scorer V2</span>'
+        f'<span class="a">verdict reliability + Brier moyen sur cohorte n={n_total}</span></div>'
+        f'<div class="calib-verdict">'
+        f'<span class="calib-status {status_cls}">{result["status"]}</span>'
+        f'<span class="calib-brier">Brier <span class="mono">{brier_str}</span></span>'
+        f'<span class="calib-gap">max gap <span class="mono">{max_gap:+.1f}pp</span></span>'
+        f'</div>'
+        f'<div class="calib-msg">{result.get("message", "")}</div>'
+        '</div>'
+    )
+
+
 def _wire_activity_panel() -> str:
     """Wire EDGAR activity -- timeline 8-K + insider clusters arrives dans le pipeline."""
     try:
@@ -3625,6 +3685,21 @@ _CSS = """
   .riskwatchcard .rw-mit-a { font-family:var(--fm); font-size:11.5px; color:var(--ink); opacity:.85; line-height:1.5; margin-bottom:3px; }
   .riskwatchcard .rw-mit-n { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-style:italic; }
   @media (max-width:980px) { .riskwatchcard .rw-grid { grid-template-columns:1fr; } .riskwatchcard .rw-sig { grid-template-columns:1fr; } }
+  /* Calibration progress panel (action #3 31/05) -- s'active a n>=30 */
+  .calibcard .calib-progress { display:flex; align-items:center; gap:18px; margin-top:14px; }
+  .calibcard .calib-bar { flex:1; height:8px; background:color-mix(in srgb, var(--steel) 12%, transparent); border-radius:2px; overflow:hidden; position:relative; }
+  .calibcard .calib-fill { height:100%; background:linear-gradient(90deg, var(--acc), color-mix(in srgb, var(--acc) 70%, var(--gold))); transition:width .4s ease; }
+  .calibcard .calib-meta { display:flex; align-items:baseline; gap:14px; min-width:160px; justify-content:flex-end; }
+  .calibcard .calib-n { font-family:var(--fmono); font-size:18px; font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .calibcard .calib-rem { font-family:var(--fm); font-size:12px; color:var(--steel); }
+  .calibcard .calib-verdict { display:flex; align-items:baseline; gap:18px; margin-top:14px; flex-wrap:wrap; }
+  .calibcard .calib-status { font-family:var(--fm); font-weight:500; font-size:13px; letter-spacing:.08em; text-transform:uppercase; padding:3px 10px; border-radius:2px; background:color-mix(in srgb, var(--ink) 6%, transparent); }
+  .calibcard .calib-status.acc { color:var(--acc); background:color-mix(in srgb, var(--acc) 10%, transparent); }
+  .calibcard .calib-status.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 12%, transparent); }
+  .calibcard .calib-status.neg { color:var(--bear); background:color-mix(in srgb, var(--bear) 12%, transparent); }
+  .calibcard .calib-brier, .calibcard .calib-gap { font-family:var(--fm); font-size:13px; color:var(--steel); }
+  .calibcard .calib-brier .mono, .calibcard .calib-gap .mono { color:var(--ink); margin-left:4px; }
+  .calibcard .calib-msg { margin-top:10px; font-family:var(--fm); font-size:12.5px; color:var(--ink2); line-height:1.55; padding-top:10px; border-top:1px solid var(--line); }
   /* Page Strategie : sub-section headers */
   .strat-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:32px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); }
   .strat-sh:first-of-type { margin-top:14px; }
@@ -4666,6 +4741,7 @@ def render() -> Path:
     v2_cohort_html = _v2_cohort_panel()
     wire_activity_html = _wire_activity_panel()
     vigilance_html = _vigilance_panel()
+    calib_progress_html = _calibration_progress_panel()
     # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
     conversations_html = _conversations_panel()
     chat_signals_html = _chat_signals_panel()
@@ -4712,6 +4788,7 @@ def render() -> Path:
         '<div class="vigie-sh">Syst&egrave;me V2 &mdash; alarmes &amp; track record</div>'
         f"{vigilance_html}"
         f"{v2_cohort_html}"
+        f"{calib_progress_html}"
         f"{wire_activity_html}"
         # ── BLOC 5 : CONTEXTE -- synthese + interventions copilot ──
         # (note PF deplacee sous hero, plus dans contexte)
