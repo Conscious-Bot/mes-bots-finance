@@ -3316,14 +3316,16 @@ _NAV = (
 
 _CSS = """
   :root { --bg:#F9F6F3; --panel:#F9F6F3; --line:#E5E0DB; --line2:#CFC7BF; --line3:#B5ABA0; --ink:#1A1814; --ink2:#3A352D; --steel:#7E7770; --metal:#7E7770;
-    --acc:#5A7548; --acc2:#5A7548; --id:#1A1814; --bear:#9B3A2E; --warn:#A87325;
+    /* Accents Voie 1 polish 31/05 — saturation +20-30% vs print-grade vintage */
+    --acc:#5F9A4D; --acc2:#5F9A4D; --id:#1A1814; --bear:#C24332; --warn:#C8862F; --gold:#D4A040;
     --fd:"Geist",ui-sans-serif,system-ui,sans-serif; --fb:"Geist",ui-sans-serif,system-ui,sans-serif; --fm:"Geist Mono",ui-monospace,SFMono-Regular,monospace; --fo:"Geist",ui-sans-serif,sans-serif;
     --elev:none;
     --glass:rgba(249,246,243,.92); --glass2:rgba(249,246,243,.88); --tape:rgba(249,246,243,.96); --barbg:#EDE8E2;
     --r1:4px; --r2:8px; --r3:12px;
-    --s1:4px; --s15:6px; --s2:8px; --s3:12px; --s35:16px; --s4:20px; --s5:32px; --s6:52px; }
+    --s1:4px; --s15:6px; --s2:8px; --s25:10px; --s3:12px; --s35:16px; --s4:20px; --s5:32px; --s6:52px; }
   body.midnight { --bg:#0E0D0B; --panel:#16140F; --line:#2A2520; --line2:#3D362E; --line3:#5A5046; --ink:#F1ECE3; --ink2:#CFC6B5; --steel:#8C8273; --metal:#8C8273;
-    --acc:#88A671; --acc2:#88A671; --id:#F1ECE3; --bear:#C75B4F; --warn:#D6A058;
+    /* Dark accents Voie 1 polish : variants vifs sur fond sombre, lisibilité maintenue */
+    --acc:#9DC07F; --acc2:#9DC07F; --id:#F1ECE3; --bear:#DD6655; --warn:#E5B05D; --gold:#E0B85A;
     --elev:0 12px 32px -18px rgba(0,0,0,.65);
     --glass:rgba(22,20,15,.85); --glass2:rgba(14,13,11,.7); --tape:rgba(14,13,11,.9); --barbg:#1F1C18; }
   * { box-sizing:border-box; }
