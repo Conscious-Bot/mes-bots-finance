@@ -4442,21 +4442,22 @@ _CSS = """
   .chatcard .chat-send:disabled { opacity:.5; cursor:default; }
   .chatcard .chat-foot { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:var(--s25); }
   .chatcard .chat-idle-clear { align-self:center; background:color-mix(in srgb,var(--steel) 8%,transparent); color:var(--steel); font-style:italic; font-size:12px; padding:var(--s2) 14px; }
-  /* CANONIQUE 31/05 user feedback : "switch light/dark toujours visible
-     en bas a gauche". position:fixed garantit la visibilite quel que soit
-     le scroll, l'overflow sidebar, ou le viewport. z-index assez haut pour
-     passer devant tout sauf overlays loupe/modal. */
-  .modetgl { position:fixed; left:var(--s25); bottom:var(--s25); z-index:50;
+  /* CANONIQUE charte §15 : switch light/dark TOUJOURS visible bas-gauche.
+     SEULE position:fixed est canonique (suit la vision user au scroll).
+     L'esthetique reste soft/discrete (border 1px --line, color --steel,
+     bg --bg). z-index 90 = au-dessus du tape (80) mais sous loupe (1000). */
+  .modetgl { position:fixed !important; left:var(--s25) !important;
+             bottom:var(--s25) !important; z-index:90 !important;
              display:flex; align-items:center; justify-content:center;
              width:44px; height:44px; border-radius:var(--r3);
              border:1px solid var(--line); background:var(--bg);
-             color:var(--steel); cursor:pointer; transition:.15s;
-             box-shadow:0 2px 8px -2px color-mix(in srgb, var(--ink) 8%, transparent); }
-  .modetgl:hover { color:var(--ink); border-color:var(--line2); }
+             color:var(--steel); cursor:pointer; transition:.15s; }
   .foot .modetgl { margin-top:var(--s4); padding-top:0; }
   .foot::before { content:""; display:block; width:30px; height:1px; background:var(--line); margin:var(--s35) auto 4px; }
   .modetgl svg { width:20px; height:20px; }
-  .modetgl:hover { color:var(--id); border-color:var(--id); }
+  /* duplicate .modetgl:hover supprime 31/05 close W14b -- override la regle
+     canonique §15 (background:var(--ink) color:var(--bg)) en noir-sur-noir.
+     La regle canonique en haut du fichier est l'unique source de verite. */
   .hero, .pfcard { box-shadow:var(--elev); }
   .card, .kpi, .gauge, .plan { box-shadow:var(--elev); }
   .loupe-card { box-shadow:0 30px 90px -20px #000; }
