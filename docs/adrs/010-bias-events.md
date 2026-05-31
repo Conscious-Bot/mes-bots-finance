@@ -116,3 +116,57 @@ Divergences mineures vs ADR :
 ## Statut
 
 **Accepted** 01/06/2026 après v1 mécanique + v2.a/v2.b avec tests. Prochains items : auto-détection (v2.c) + handler `/resisted` (v2.d).
+
+---
+
+# Addendum v2.c — détection acted_on_bias / resisted
+
+**Statut** : Accepted 01/06/2026 (après nod) · complète §3
+**Vocabulaire** : conforme à [docs/GLOSSARY.md](../GLOSSARY.md)
+
+## Problème
+
+Détecter sans discrétion quand un biais est *agi* vs *résisté*. Naïvement, « resisted = a tenu un winner » sur-compte (chaque jour de hold compterait). Et les cas-limites — action partielle, action puis reversal, reco qui change en route — sont des nids à bugs.
+
+## Insight — un candidat par recommandation, classé sur le delta net
+
+Tout s'ancre sur **une recommandation discrète** de la règle (`rightsize` / `exit` / `hold`), **jamais** sur un état continu. Ça tue le sur-comptage et dissout les cas-limites :
+
+1. La règle émet une reco counter-bias → on ouvre un **candidat** : `status=open`, `discipline_said` capturé à `t` (`captured_at_event: true`), `resolve_at` = horizon de la thèse.
+2. Le candidat se résout — tôt ou à l'horizon — en classant sur le **changement net de position** sur `[created_at, resolve_at]` vs le changement recommandé :
+   - bougé dans le sens discipliné → `resisted`
+   - bougé dans le sens du biais → `acted_on_bias`
+3. `delta_signed` utilise le changement net réel → l'action partielle = magnitude plus faible (**pas un cas spécial**) ; action-puis-reversal = le net (**pas un cas spécial**).
+
+**Un seul candidat par reco** → pas de double-comptage entre la détection synchrone (au trade) et le scan à l'horizon : un trade clair contre la reco résout tôt le candidat ; sinon le scan le résout à l'horizon.
+
+## Mapping des biais (déterministe)
+
+| Biais | Condition (pull actif) | Action disciplinée | `acted_on_bias` | `resisted` |
+|---|---|---|---|---|
+| `lock_in` | position gagnante + prompt rightsize/hold | tenir / rightsize selon cap | vendre ou trimmer le winner | tenir comme recommandé |
+| `fomo_greed` | signal exit/top déclenché (reco trim/exit) | trimmer / sortir | tenir ou ajouter au-delà | sortir / trimmer comme recommandé |
+
+## Cas-limites
+
+- **Partiel, reversal** → gérés par construction (delta net). Aucun code spécial.
+- **Reco re-tire** pour le même ticker avant résolution → `void` l'ancien candidat, ouvre le nouveau. Pas de double.
+- **Aucune reco** → aucun événement. Non-discrétion stricte : on ne classe que relativement à une reco.
+- **Prix manquant** au resolve → `MissingDataError` (jamais de default silencieux).
+
+## Surface d'implémentation
+
+1. **Point d'émission de reco** (règle `rightsize`/`exit`) → ouvre le candidat.
+2. **Hook `positions.py` buy/sell** → peut résoudre tôt un candidat ouvert pour ce ticker (delta clair en sens biais).
+3. **`resolve_due_bias_events`** → scan à l'horizon, classe par delta net, calcule `delta_signed_eur` (FX-cohérent aux 2 dates).
+
+## Tests à ajouter
+
+- `acted` vs `resisted` × `{lock_in, fomo_greed}`
+- partiel (magnitude), reversal (net)
+- supersede (`void` ancien + nouveau)
+- no-reco → no-event
+- dedup : résolution-tôt vs scan-horizon ⇒ un seul événement
+- `MissingDataError` sur prix absent
+
+Complète ADR 010 §3.
