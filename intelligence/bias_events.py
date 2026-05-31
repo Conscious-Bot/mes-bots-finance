@@ -38,6 +38,55 @@ class MissingDataError(Exception):
     on crashe ou on marque explicit, jamais 0."""
 
 
+def classify_net_delta(
+    bias: str,
+    discipline_expected_delta: float,
+    position_events_in_window: list[dict],
+    initial_qty: float,
+) -> tuple[str, float, float, float]:
+    """v2.c.1 -- classification pure de l'action user vs discipline sur un
+    window [created_at, resolve_at]. Aligne ADR 010 Addendum v2.c : ancrage
+    sur reco discrete + classification sur le DELTA NET. Partial/reversal
+    geres par construction (pas de code special).
+
+    Args:
+        bias: 'lock_in' | 'fomo_greed' | 'other'
+        discipline_expected_delta: changement net shares que la discipline
+            recommandait (negatif = trim/exit, 0 = hold, positif = add).
+        position_events_in_window: list d'events avec key 'qty_delta'
+            (signed : positif=buy, negatif=sell/trim).
+        initial_qty: position au created_at (= shares avant la window).
+
+    Returns:
+        (action, shares_taken, shares_avoided, shares_delta_net_actual)
+        - action : 'acted_on_bias' OU 'resisted'
+        - shares_taken : qty user a resolve_at (= initial + actual_delta)
+        - shares_avoided : qty discipline aurait eu (= initial + expected_delta)
+        - shares_delta_net_actual : sum signe des qty_delta (audit)
+
+    Logique :
+        delta_vs_discipline = actual_delta - discipline_expected_delta
+        lock_in  : user reduit PLUS que discipline (delta_vs_discipline < 0)
+                   = acted_on_bias (vendu winner trop tot)
+        fomo_greed : user reduit MOINS que discipline (delta_vs_discipline > 0)
+                   = acted_on_bias (tient au-dela du top)
+        other    : tie (== 0) = resisted, sinon acted.
+    """
+    actual_delta = sum(e.get("qty_delta", 0.0) for e in position_events_in_window)
+    shares_taken = initial_qty + actual_delta
+    shares_avoided = initial_qty + discipline_expected_delta
+    delta_vs_discipline = actual_delta - discipline_expected_delta
+
+    if bias == "lock_in":
+        action = "acted_on_bias" if delta_vs_discipline < 0 else "resisted"
+    elif bias == "fomo_greed":
+        action = "acted_on_bias" if delta_vs_discipline > 0 else "resisted"
+    else:  # 'other' : conservatif, tie = resisted
+        action = "resisted" if abs(delta_vs_discipline) < 1e-9 else "acted_on_bias"
+
+    return action, shares_taken, shares_avoided, actual_delta
+
+
 def get_due_bias_events(limit: int = 50) -> list[dict]:
     """Open events dont resolve_at est passe. Pattern clone get_due_predictions."""
     from shared.storage import DB_PATH
