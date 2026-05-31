@@ -1,5 +1,7 @@
 # Post #01 — version bilingue
 
+**Published: 2026-05-31** · git tag `publish-post-01-20260531` · sealed après audit ground-truth session 31/05 (commits f0a9386 → 22b28b5).
+
 *Français d'abord, English below. Mêmes choix : le fail d'iter 5 reste la scène centrale, zéro pitch, zéro position, le « je ne suis pas développeur » assumé.*
 
 ---
