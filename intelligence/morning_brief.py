@@ -293,12 +293,9 @@ def _positions_top5_section():
             # to native canonical never completed -- only code was changed.
             # Empirical: SK hynix avg_cost=1043 (matches EUR per share, not KRW).
             # Fix: uniform EUR -> USD conversion for both avg_cost and last_price.
-            try:
-                from shared.prices import get_current_price_in_usd, get_fx_rate
+            from shared.prices import get_current_price_in_usd, get_fx_rate
 
-                fx_eur_to_usd = get_fx_rate("EUR", "USD") or 1.1655
-            except Exception:
-                fx_eur_to_usd = 1.1655
+            fx_eur_to_usd = get_fx_rate("EUR", "USD")
             # 21/05/2026: dropped t.last_price stale-cache read (caused /brief
             # vs /portfolio divergence up to -7% on 6920.T after laptop sleep
             # missed price_monitor cron). Now uses canonical fresh-yfinance

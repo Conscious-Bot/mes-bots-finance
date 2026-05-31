@@ -55,7 +55,7 @@ def _format_target(conn: sqlite3.Connection, ticker: str) -> str:
         return "\U0001f3af PORTFOLIO TARGET\n  None\n"
     # Day 11 ADR 004 Batch 4C: USD primary, EUR secondary. target_eur from DB
     # schema column (unchanged in observation phase). Static fx at display time.
-    fx_eur_to_usd = get_fx_rate("EUR", "USD") or 1.1655
+    fx_eur_to_usd = get_fx_rate("EUR", "USD")
     lines = ["\U0001f3af PORTFOLIO TARGET"]
     for account, target_eur, weight_pct, status, phase_week, narrative, priority, bucket in rows:
         phase_str = f"W{phase_week}" if phase_week is not None else "—"

@@ -37,14 +37,14 @@ def _fx_eur_to_usd() -> float:
     NOT by compute_thesis_asymmetry (which is pure-math in canonical EUR).
 
     Aligns /asymmetry display with /portfolio and /brief which both
-    show values in USD. Fallback 1.1655 if get_fx_rate fails.
+    show values in USD.
     """
-    try:
-        from shared.prices import get_fx_rate
+    from shared.prices import get_fx_rate
 
-        return get_fx_rate("EUR", "USD") or 1.1655
-    except Exception:
-        return 1.1655
+    rate = get_fx_rate("EUR", "USD")
+    if rate is None:
+        raise RuntimeError("FX EUR->USD indisponible (live + hardcoded both failed)")
+    return rate
 
 
 def compute_thesis_asymmetry(thesis: dict[str, Any]) -> dict[str, Any] | None:
