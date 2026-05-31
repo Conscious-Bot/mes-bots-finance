@@ -2517,6 +2517,49 @@ def _geo_bars(positions: list[dict]) -> str:
     return css + bars + js
 
 
+def _fx_status_label_html() -> str:
+    """E4 craft : badge discret FX freshness dans la foot. Resume l'etat des
+    pairs FX utilisees en pratique (USD/JPY/KRW/HKD vers EUR). Vert subtle
+    si tout live_cached, warn si une pair tombe en fallback hardcoded ou
+    stale > 24h, neutre si never_queried (= cold start dashboard).
+
+    Honnete : on dit explicitement "FX live" / "FX HARDCODED" / etc., pas
+    de fausse precision."""
+    try:
+        from shared.prices import fx_freshness, fx_is_stale, get_fx_rate
+
+        pairs = [("USD", "EUR"), ("JPY", "EUR"), ("KRW", "EUR"), ("HKD", "EUR")]
+        # Warm cache : le dashboard regen appelle deja get_fx_rate via d'autres
+        # voies (positions display, etc.), mais on s'assure pour le badge.
+        for f, t in pairs:
+            get_fx_rate(f, t)
+        statuses = [fx_freshness(f, t) for f, t in pairs]
+        n_live = sum(1 for s in statuses if s["source"] == "live_cached")
+        n_stale = sum(1 for f, t in pairs if fx_is_stale(f, t))
+        n_fallback = sum(1 for s in statuses if s["source"] in ("never_queried",))
+        if n_live == len(pairs):
+            txt, cls = "FX&nbsp;live", "calm"
+        elif n_fallback > 0:
+            txt, cls = f"FX&nbsp;{n_fallback}/{len(pairs)}&nbsp;hardcoded", "warn"
+        elif n_stale > 0:
+            txt, cls = f"FX&nbsp;{n_stale}/{len(pairs)}&nbsp;stale", "warn"
+        else:
+            txt, cls = "FX&nbsp;live", "calm"
+        # Tooltip detail : etat par pair
+        title_parts = []
+        for (f, t), s in zip(pairs, statuses, strict=False):
+            age = s.get("age_seconds")
+            title_parts.append(f"{f}/{t}: {s['source']}" + (f" ({age}s)" if age else ""))
+        title = " ; ".join(title_parts)
+        color = "var(--acc)" if cls == "calm" else "var(--warn)"
+        return (
+            f'<span class="mono" style="font-size:10px;opacity:.65;padding:0 var(--s2);color:{color}"'
+            f' title="{title}">{txt}</span>'
+        )
+    except Exception:
+        return ""
+
+
 def _insider_flow_strip_html() -> str:
     """E2 wire-up A3 (31/05/2026) : surface insider_snapshots (~401 rows
     captures quotidiennes par insider_digest cron) qui etaient ingerees mais
@@ -4946,6 +4989,7 @@ def render() -> Path:
         f'<span class="dot" title="en veille"></span>'
         f'<span class="mono" style="font-size:10px;opacity:.65;padding:0 var(--s2)" title="dashboard regen 60s ; prix cache TTL 30min ; FX cache TTL 4h"'
         f'>maj&nbsp;{stamp} &middot; prix &le;30min</span>'
+        f"{_fx_status_label_html()}"
         f'{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
