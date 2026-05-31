@@ -313,3 +313,60 @@ def test_get_fx_rate_on_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     from shared.prices import get_fx_rate_on
 
     assert get_fx_rate_on("EUR", "EUR", "2026-05-15") == 1.0
+
+
+# ─── Invariants supplementaires (verrouille code v2.b live) ────────────────
+
+
+def test_resolve_due_idempotent_pas_de_double_resolve(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Invariant idempotency : 2eme appel ne re-resout pas (filtre status='open').
+    Sans ca, recompute silencieux a chaque cron = pollution resolution_json +
+    delta_signed change si prix horizon a bouge entre les 2 calls."""
+    db_path = tmp_path / "test.db"
+    cx = sqlite3.connect(db_path)
+    _schema_minimal(cx)
+    cf = json.dumps({
+        "anchor_price_eur": 100.0,
+        "horizon_days": 30,
+        "shares_taken": 50,
+        "shares_avoided": 100,
+    }, sort_keys=True)
+    cx.execute(
+        "INSERT INTO bias_events (created_at, ticker, bias, action, decision_json, "
+        "counterfactual_json, source, horizon_days, resolve_at) "
+        "VALUES ('2026-04-01T12:00:00Z', 'NVDA', 'lock_in', 'acted_on_bias', "
+        "'{}', ?, 'auto_detected', 30, '2026-05-01T12:00:00Z')",
+        (cf,),
+    )
+    cx.commit()
+    cx.close()
+    monkeypatch.setattr("shared.storage.DB_PATH", db_path)
+    monkeypatch.setattr("shared.prices.get_close_on_in_eur", lambda tk, date: 150.0)
+
+    # 1er appel : 1 resolved
+    r1 = resolve_due_bias_events()
+    assert r1["resolved"] == 1
+    # 2eme appel : 0 resolved (status='open' filtre exclut le resolu)
+    r2 = resolve_due_bias_events()
+    assert r2["resolved"] == 0
+    assert r2["missing"] == 0
+    assert r2["void"] == 0
+
+
+def test_counterfactual_method_preserve_dans_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Invariant traçabilité ADR §5 : counterfactual_method (cash_idle v1 vs
+    redeployment v2) stocke dans resolution_json -> toute lecture sait
+    sous quelle hypothèse delta_signed a ete calcule."""
+    monkeypatch.setattr("shared.prices.get_close_on_in_eur", lambda tk, date: 180.0)
+    event = _make_event()
+    # Inject explicit counterfactual_method (override default cash_idle)
+    cf = json.loads(event["counterfactual_json"])
+    cf["counterfactual_method"] = "cash_idle"
+    event["counterfactual_json"] = json.dumps(cf, sort_keys=True)
+    result = resolve_one_bias_event(event)
+    # Le method doit apparaitre dans summary (audit trail)
+    assert "cash_idle" in result["summary"]
