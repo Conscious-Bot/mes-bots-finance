@@ -1989,6 +1989,13 @@ def _track_record_panel() -> str:
     brier_mean = sum(briers) / n_brier if briers else None
 
     MIN_CONCLUSIF = 10
+    # Panel honnete-tot : disparait une fois la cible atteinte (user feedback
+    # 31/05 wave 7bis). Sa raison d'etre = combler l'absence de verdict. Quand
+    # N>=10 sur les 2 metriques, le vrai chiffre vit ailleurs (KPI #2 +
+    # calibration_audit). Le pipeline (batch 10/06) seul ne justifie pas le
+    # panneau -- il sera affiche en footer normal de la page une fois activee.
+    if n >= MIN_CONCLUSIF and n_brier >= MIN_CONCLUSIF:
+        return ""
     rate_str = f"{n_corr}/{n} ({n_corr/n:.0%})" if n else "—"
     if n >= 2:
         lo, hi = proportion_confint(n_corr, n, alpha=0.05, method="wilson")
