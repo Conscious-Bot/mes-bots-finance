@@ -277,7 +277,7 @@ def _v2_cohort_panel() -> str:
     )
 
     return (
-        '<div class="card pad v2cohortcard" style="margin-bottom:18px">'
+        '<div class="card pad v2cohortcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Coh&egrave;rte V2 vs V1 (scorer pivot 30/05)</span>'
         '<span class="a">V2 = SEC EDGAR primary content &middot; V1 = newsletter sentiment (mono-bucket)</span></div>'
         '<div class="v2-grid">'
@@ -307,7 +307,7 @@ def _calibration_progress_panel() -> str:
         cx.close()
     except Exception as e:
         return (
-            '<div class="card pad calibcard" style="margin-bottom:18px">'
+            '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
             f'<div class="empty">calibration indisponible : {type(e).__name__}</div></div>'
         )
 
@@ -318,7 +318,7 @@ def _calibration_progress_panel() -> str:
         pct = min(n_total / target * 100, 100) if target else 0
         remaining = max(target - n_total, 0)
         return (
-            '<div class="card pad calibcard" style="margin-bottom:18px">'
+            '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
             '<div class="colhead"><span class="t">Calibration scorer V2</span>'
             f'<span class="a">accumulation cohorte &mdash; verdict s&apos;active &agrave; n&ge;{target} predictions r&eacute;solues non-neutral</span></div>'
             '<div class="calib-progress">'
@@ -335,7 +335,7 @@ def _calibration_progress_panel() -> str:
     status_cls = {"OK": "acc", "WARN": "warn", "ALERT": "neg"}.get(result["status"], "")
     brier_str = f"{brier:.4f}" if brier is not None else "&mdash;"
     return (
-        '<div class="card pad calibcard" style="margin-bottom:18px">'
+        '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Calibration scorer V2</span>'
         f'<span class="a">verdict reliability + Brier moyen sur cohorte n={n_total}</span></div>'
         f'<div class="calib-verdict">'
@@ -388,7 +388,7 @@ def _wire_activity_panel() -> str:
     ) or '<div class="empty">aucune 8-K log&eacute;e</div>'
 
     return (
-        '<div class="card pad wactcard" style="margin-bottom:18px">'
+        '<div class="card pad wactcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Wire EDGAR activity</span>'
         '<span class="a">8-K + insider clusters arriv&eacute;s dans le pipeline scoring V2</span></div>'
         f'<div class="wact-grid">{cells}</div>'
@@ -438,7 +438,7 @@ def _vigilance_panel() -> str:
         )
 
     return (
-        '<div class="card pad vgcard" style="margin-bottom:18px">'
+        '<div class="card pad vgcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Vigilances V2</span>'
         '<span class="a">3 fitness functions auto &middot; cron weekly lundi 7h &middot; push Telegram UNIQUEMENT si ALERT/WARN</span></div>'
         + "".join(rows) +
@@ -567,7 +567,7 @@ def _risk_watch_panel() -> str:
     except Exception:
         pass
     return (
-        '<div class="card pad riskwatchcard" style="margin-bottom:18px">'
+        '<div class="card pad riskwatchcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Top Risques surveillance</span>'
         f'<span class="a">{len(risks_list)} risque(s) declare(s) &middot; thesis-level reflection</span></div>'
         f'{construction_lens}'
@@ -698,7 +698,7 @@ def _grade_panel() -> str:
             '<div class="ggate">⚠ ' + " · ".join(g for g in gates) + '</div>'
         )
     return (
-        '<div class="card pad gradecard" style="margin-bottom:18px">'
+        '<div class="card pad gradecard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Note du portefeuille</span>'
         f'<span class="a">{snapshot_date} &middot; {trend_str}</span></div>'
         f'{gates_html}'
@@ -786,7 +786,7 @@ def _blind_positions_panel() -> str:
         for b in blind
     )
     return (
-        '<div class="card pad blindcard" style="margin-bottom:18px">'
+        '<div class="card pad blindcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Positions en vol aveugle</span>'
         f'<span class="a">{len(blind)} position(s) sans entry / target / stop / kill-criteria '
         '&middot; le bot ne peut RIEN evaluer dessus tant que ces champs sont creux</span></div>'
@@ -808,7 +808,7 @@ def _copilot_panel() -> str:
         return f'<div class="card pad"><div class="empty">copilot indisponible: {type(e).__name__}: {e}</div></div>'
     if not rows:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Aucune intervention du copilot pour le moment. Les pressure-tests "
             "apparaitront ici a chaque /position_buy /position_sell /override."
             "</div></div>"
@@ -873,7 +873,7 @@ def _copilot_panel() -> str:
             f'{outc_html}</div>'
         )
     return (
-        '<div class="card pad copilotcard" style="margin-bottom:18px">'
+        '<div class="card pad copilotcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Pressions du copilot avant tes trades</span>'
         '<span class="a">survole/clique une ligne pour le diagnostic complet &middot; verdict m&eacute;canique avant chaque action</span></div>'
         + "".join(lis)
@@ -904,7 +904,7 @@ def _return_clustering_panel() -> str:
         row = None
     if not row:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Premiere mesure des doublons par correlation prevue samedi 18h. Une fois disponible, les paires qui bougent ensemble apparaitront ici."
             "</div></div>"
         )
@@ -942,7 +942,7 @@ def _return_clustering_panel() -> str:
     mix_html = "".join(cluster_rows) or '<div class="empty" style="padding:8px 0">aucun cluster avec macro_factor melange</div>'
 
     return (
-        '<div class="card pad clustercard" style="margin-bottom:18px">'
+        '<div class="card pad clustercard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Doublons vus par les prix</span>'
         f'<span class="a">{snapshot_date} &middot; corr&eacute;lation rendements &middot; ce qui bouge ensemble vraiment</span></div>'
         '<div class="dc-sub">'
@@ -1002,7 +1002,7 @@ def _wrapper_panel() -> str:
             + items + '</div>'
         )
     return (
-        '<div class="card pad wrappercard" style="margin-bottom:18px">'
+        '<div class="card pad wrappercard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Placement fiscal (PEA / CTO)</span>'
         '<span class="a">tax-loss harvest + flag PEA-eligibles mal places</span></div>'
         f'<div class="wr-alloc">{"".join(rows_alloc)}</div>'
@@ -1038,7 +1038,7 @@ def _fx_exposure_panel() -> str:
             f'<div class="fx-tks">{tks}</div></div>'
         )
     return (
-        '<div class="card pad fxcard" style="margin-bottom:18px">'
+        '<div class="card pad fxcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Exposition par devise</span>'
         '<span class="a">book euro mais positions cot&eacute;es ailleurs &middot; pas de hedge FX</span></div>'
         + "".join(rows)
@@ -1056,7 +1056,7 @@ def _benchmark_panel() -> str:
         return f'<div class="card pad"><div class="empty">benchmark indispo: {type(e).__name__}</div></div>'
     if "error" in bench:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Benchmark indispo (yfinance non installe ou SOX fetch failed)."
             "</div></div>"
         )
@@ -1069,7 +1069,7 @@ def _benchmark_panel() -> str:
         f'<div class="bm-warn">⚠️ {warning}</div>' if warning else ""
     )
     return (
-        '<div class="card pad benchcard" style="margin-bottom:18px">'
+        '<div class="card pad benchcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Surperformance r&eacute;elle vs secteur</span>'
         f'<span class="a">{bench["bench_window"]} &middot; book vs indice semi-conducteurs PHLX</span></div>'
         f'{warning_html}'
@@ -1093,7 +1093,7 @@ def _kill_criteria_panel() -> str:
         return f'<div class="card pad"><div class="empty">kill-criteria indispo: {type(e).__name__}</div></div>'
     if not rows:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Premiere verification quotidienne prevue demain 07h30. Les theses dont les conditions d'invalidation se declenchent apparaitront ici."
             "</div></div>"
         )
@@ -1128,7 +1128,7 @@ def _kill_criteria_panel() -> str:
         f'{counts["dormant"]} dormantes</div>'
     )
     return (
-        '<div class="card pad killcard" style="margin-bottom:18px">'
+        '<div class="card pad killcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Conditions d\'invalidation des th&egrave;ses</span>'
         f'<span class="a">d&eacute;clench&eacute;es {counts["triggered"]} &middot; &agrave; risque {counts["at_risk"]} &middot; '
         f'dormantes {counts["dormant"]} &middot; v&eacute;rifi&eacute; 07h30</span></div>'
@@ -1152,7 +1152,7 @@ def _spof_panel() -> str:
         return f'<div class="card pad"><div class="empty">SPOF indispo: {type(e).__name__}</div></div>'
     if not spofs:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Classification des tickers en cours. Les fiches techniques apparaitront ici une fois la passe terminee."
             "</div></div>"
         )
@@ -1173,7 +1173,7 @@ def _spof_panel() -> str:
             f'<div class="sp-deps">{deps}</div></div>'
         )
     return (
-        '<div class="card pad spofcard" style="margin-bottom:18px">'
+        '<div class="card pad spofcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">D&eacute;pendances cach&eacute;es en amont</span>'
         '<span class="a">si un fournisseur en amont casse, tout ce qui en d&eacute;pend casse aussi</span></div>'
         + "".join(rows)
@@ -1206,7 +1206,7 @@ def _mauboussin_sizing_panel() -> str:
         return f'<div class="card pad"><div class="empty">Mauboussin sizing indispo: {type(e).__name__}</div></div>'
     if not sizing:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Pas encore de meta classifies pour calculer le sizing implicite."
             "</div></div>"
         )
@@ -1249,7 +1249,7 @@ def _mauboussin_sizing_panel() -> str:
             f'{fragile_flag}</div>'
         )
     return (
-        '<div class="card pad mauboussincard" style="margin-bottom:18px">'
+        '<div class="card pad mauboussincard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Calibrage rigoureux</span>'
         '<span class="a">taille r&eacute;elle vs taille th&eacute;orique (conviction &times; vitesse d\'&eacute;rosion du moat)</span></div>'
         + "".join(rows)
@@ -1267,7 +1267,7 @@ def _valo_above_bull_panel() -> str:
         return f'<div class="card pad"><div class="empty">valo indispo: {type(e).__name__}</div></div>'
     if not flags:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Aucune position avec expectations > bull case identifiees."
             "</div></div>"
         )
@@ -1283,7 +1283,7 @@ def _valo_above_bull_panel() -> str:
             f'<div class="vb-rat">{f["rationale"]}</div></div>'
         )
     return (
-        '<div class="card pad valocard" style="margin-bottom:18px">'
+        '<div class="card pad valocard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Valos d&eacute;j&agrave; au-del&agrave; du bull case</span>'
         '<span class="a">le prix actuel exige plus que le sc&eacute;nario haussier raisonnable</span></div>'
         + "".join(rows)
@@ -1347,7 +1347,7 @@ def _factor_exposures_panel() -> str:
             "</div>"
         )
     return (
-        '<div class="card pad factorscard" style="margin-bottom:18px">'
+        '<div class="card pad factorscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Paris du portefeuille</span>'
         '<span class="a">sur quoi tu paries vraiment, par facteur macro &middot; un seul gros pari domine</span></div>'
         + "".join(rows)
@@ -1380,7 +1380,7 @@ def _stress_tests_panel() -> str:
             f'<span class="st-n">n={n}</span></div></div>'
         )
     return (
-        '<div class="card pad stresscard" style="margin-bottom:18px">'
+        '<div class="card pad stresscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Si tel pari rate</span>'
         '<span class="a">drawdown estime par scenario macro &middot; transforme le 73% en chiffre concret</span></div>'
         + "".join(rows)
@@ -1401,7 +1401,7 @@ def _user_strategy_panel() -> str:
         us = {}
     if not us:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Pas de strategie utilisateur declaree. Defaults config.yaml utilises."
             "</div></div>"
         )
@@ -1487,7 +1487,7 @@ def _user_strategy_panel() -> str:
             f'Tolerance drawdown validee le {tol_validated_at[:10]}</div></div>'
         )
     return (
-        '<div class="card pad strategiecard" style="margin-bottom:18px">'
+        '<div class="card pad strategiecard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Ta strategie declaree</span>'
         f'<span class="a">archetype = {archetype} &middot; depuis {declared} &middot; surcharge les defaults</span></div>'
         f'{construction_html}'
@@ -1516,7 +1516,7 @@ def _trajectory_panel() -> str:
     drift = t.get("drift") or {}
     if len(snaps) < 2:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             f"Trajectory : {len(snaps)} snapshot(s) — il en faut >=2 pour mesurer la derive. "
             "Les snapshots quotidiens s'accumulent via le cron 23h15."
             "</div></div>"
@@ -1550,7 +1550,7 @@ def _trajectory_panel() -> str:
             f'<span class="tr-delta {dcls} mono">{dirsym} {delta:+.1f}</span></div>'
         )
     return (
-        '<div class="card pad trajcard" style="margin-bottom:18px">'
+        '<div class="card pad trajcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">D&eacute;rive de la note (30j)</span>'
         f'<span class="a">{len(snaps)} photos &middot; '
         f'{score_drift.get("first_date","?")} → {score_drift.get("last_date","?")}</span></div>'
@@ -1575,7 +1575,7 @@ def _ticker_axes_panel() -> str:
         return f'<div class="card pad"><div class="empty">axes indispo: {type(e).__name__}</div></div>'
     if not rows:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Tagging axes (driver/stage/moat/macro) en attente. Les fiches techniques apparaitront ici une fois classifies."
             "</div></div>"
         )
@@ -1609,7 +1609,7 @@ def _ticker_axes_panel() -> str:
             + "".join(lis) + "</div>"
         )
     return (
-        '<div class="card pad axescard" style="margin-bottom:18px">'
+        '<div class="card pad axescard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Fiches techniques par ticker</span>'
         '<span class="a">moteur de demande &middot; &eacute;tage chaine de valeur &middot; nature du moat &middot; facteur macro</span></div>'
         + "".join(groups_html)
@@ -1634,7 +1634,7 @@ def _preferences_panel() -> str:
         return f'<div class="card pad"><div class="empty">preferences indispo: {type(e).__name__}</div></div>'
     if not prefs:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Calibration mensuelle prevue le 1er du mois. Les preferences (ce qui a marche chez toi) apparaitront ici une fois les decisions accumulees."
             "</div></div>"
         )
@@ -1681,7 +1681,7 @@ def _preferences_panel() -> str:
             f'{rows_html}</div>'
         )
     return (
-        '<div class="card pad preferencescard" style="margin-bottom:18px">'
+        '<div class="card pad preferencescard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Ce qui a march&eacute; chez toi</span>'
         '<span class="a">samples + winrate sur tes vraies d&eacute;cisions r&eacute;solues &middot; pas d\'opinion mod&egrave;le</span></div>'
         f'<div class="pr-grid">{"".join(groups)}</div>'
@@ -1709,7 +1709,7 @@ def _conceptions_panel() -> str:
         return f'<div class="card pad"><div class="empty">conceptions indispo: {type(e).__name__}</div></div>'
     if not concs:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Synthese hebdomadaire prevue dimanche 19h. Une fois generees, les vues stables du bot par ticker apparaitront ici."
             "</div></div>"
         )
@@ -1741,7 +1741,7 @@ def _conceptions_panel() -> str:
             f'<div class="bc-text">{text}</div></div>'
         )
     return (
-        '<div class="card pad conceptionscard" style="margin-bottom:18px">'
+        '<div class="card pad conceptionscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Ce que le bot pense par ticker</span>'
         '<span class="a">synth&egrave;se stable per ticker mise &agrave; jour chaque semaine '
         '&middot; survole ou clique pour d&eacute;rouler</span></div>'
@@ -1767,7 +1767,7 @@ def _chat_signals_panel() -> str:
         return f'<div class="card pad"><div class="empty">soft signals indispo: {type(e).__name__}</div></div>'
     if not rows:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Pas encore de signaux soft extraits. Continue de discuter dans le "
             "chat — chaque conversation lambda devient une mine d'infos pour le profil."
             "</div></div>"
@@ -1810,7 +1810,7 @@ def _chat_signals_panel() -> str:
             + "".join(lis) + "</div>"
         )
     return (
-        '<div class="card pad chatsigcard" style="margin-bottom:18px">'
+        '<div class="card pad chatsigcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Ce que tu laisses &eacute;chapper en conversation</span>'
         '<span class="a">concerns / doutes / vues que le bot capte chaque message &middot; nourrit ton profil</span></div>'
         f'<div class="cs-grid">{"".join(groups_html)}</div>'
@@ -1832,7 +1832,7 @@ def _conversations_panel() -> str:
         return f'<div class="card pad"><div class="empty">conversations indispo: {type(e).__name__}</div></div>'
     if not rows:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Aucune conversation enregistree pour le moment. Les echanges chat "
             "(dashboard + Telegram) seront consignes ici et integres au profil utilisateur."
             "</div></div>"
@@ -1862,7 +1862,7 @@ def _conversations_panel() -> str:
             f'<div class="cv-content">{content}</div></div>'
         )
     return (
-        '<div class="card pad conversationscard" style="margin-bottom:18px">'
+        '<div class="card pad conversationscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Historique chat</span>'
         '<span class="a">tout est consign&eacute; et r&eacute;-int&eacute;gr&eacute; au profil au fil du temps</span></div>'
         + "".join(lis)
@@ -1882,7 +1882,7 @@ def _narrative_panel() -> str:
         return f'<div class="card pad"><div class="empty">narrative indisponible: {type(e).__name__}: {e}</div></div>'
     if not raw:
         return (
-            '<div class="card pad"><div class="empty" style="padding:14px 0">'
+            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "Synthese narrative hebdomadaire prevue dimanche 20h30. Les clusters narratifs apparaitront ici une fois generes."
             "</div></div>"
         )
@@ -1921,7 +1921,7 @@ def _narrative_panel() -> str:
     ) or '<div class="empty" style="padding:10px 0">aucune redondance</div>'
 
     return (
-        '<div class="card pad narrativecard" style="margin-bottom:18px">'
+        '<div class="card pad narrativecard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Clusters narratifs (LLM)</span>'
         f'<span class="a">{raw.get("snapshot_date","?")} &middot; consume par T2 + decorrelation du grade</span></div>'
         f'<div class="nv-grid">{"".join(cluster_rows)}</div>'
@@ -1958,7 +1958,7 @@ def _chat_panel() -> str:
         "il connait ton profil, ta note PF, tes positions, tes th&egrave;ses et son historique d'interventions"
     )
     return (
-        '<div class="card pad chatcard" style="margin-bottom:18px">'
+        '<div class="card pad chatcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Pose une question au copilot</span>'
         f'<span class="a">{mem_str}</span></div>'
         '<div id="chat-log" class="chat-log"></div>'
@@ -2155,7 +2155,7 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
         for prog, tk in data
     )
     watch = (
-        rows or '<div class="empty" style="padding:18px 0">aucune ligne &agrave; &ge;75% de la cible &mdash; laisser courir</div>'
+        rows or '<div class="empty" style="padding:var(--s4) 0">aucune ligne &agrave; &ge;75% de la cible &mdash; laisser courir</div>'
     )
     return watch, len(data)
 
@@ -2182,7 +2182,7 @@ def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
             near_rows.append(f'<div class="line"><span>{tk}</span><span class="mono">{down:.0f}% de marge</span></div>')
     watch = (
         "".join(near_rows)
-        or '<div class="empty" style="padding:18px 0">aucune marge faible &mdash; calme</div>'
+        or '<div class="empty" style="padding:var(--s4) 0">aucune marge faible &mdash; calme</div>'
     )
     return "".join(rows), near, heat, watch
 
@@ -2194,7 +2194,7 @@ def _mover_blk(rows) -> str:
             f'<span class="mono {"pos" if p >= 0 else "neg"}">{"+" if p >= 0 else ""}{p:.1f}%</span></div>'
             for tk, p in rows
         )
-        or '<div class="empty" style="padding:14px 0">&mdash;</div>'
+        or '<div class="empty" style="padding:var(--s35) 0">&mdash;</div>'
     )
 
 
@@ -2334,9 +2334,9 @@ def _concentration(
         f'<div class="kpi"><span class="kl">Th&egrave;se dominante</span><span class="kv {these_cls}">{dom_these_pct:.0f}%</span><span class="kd">{these_msg}</span></div>'
         f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
         f'<div class="card pad"><div class="sbwrap"><div class="sb-top"><div class="sb-kpi"><span class="sb-kl">CAPITAL D&Eacute;PLOY&Eacute;</span><span class="sb-kv">{cap}&nbsp;&euro;</span></div><div class="sb-kpi"><span class="sb-kl">SECTEURS</span><span class="sb-kv">{len(sw_real)}</span></div><div class="sb-kpi"><span class="sb-kl">PLUS GROSSE EXPOSITION</span><span class="sb-kv">{dom_these} &middot; {dom_these_pct:.0f}%</span></div></div><div id="sb-bars" class="sb-bars"></div><div id="sb-panel"></div></div></div>'
-        f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
-        f'<div class="card pad" style="margin-top:18px"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
-        f'<div style="margin-top:18px">{_fx_exposure_panel()}</div>'
+        f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
+        f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
+        f'<div style="margin-top:var(--s4)">{_fx_exposure_panel()}</div>'
         f"</section>"
     )
 
@@ -2554,7 +2554,7 @@ def _signaux() -> str:
                 f'<span class="tag {cls}">{disp}</span></div>'
                 f'<div class="rs"><span>{label}</span><span class="mono">{str(filed)[:10]}</span></div></div>'
             )
-        eightk = rows8k or '<div class="empty" style="padding:18px 0">aucun 8-K sur 60&nbsp;j</div>'
+        eightk = rows8k or '<div class="empty" style="padding:var(--s4) 0">aucun 8-K sur 60&nbsp;j</div>'
     except Exception as e:
         eightk, tally_str = _err(e), "&mdash;"
 
@@ -2572,7 +2572,7 @@ def _signaux() -> str:
             )
         insiders = (
             rowsib
-            or '<div class="empty" style="padding:18px 0">aucun cluster d\'achats group&eacute;s d&eacute;tect&eacute;</div>'
+            or '<div class="empty" style="padding:var(--s4) 0">aucun cluster d\'achats group&eacute;s d&eacute;tect&eacute;</div>'
         )
     except Exception as e:
         insiders = _err(e)
@@ -3010,7 +3010,7 @@ def _cockpit() -> str:
     css = (
         "<style>"
         ".ck-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:8px}"
-        ".ck-cell{background:color-mix(in srgb,var(--ink) 2%,transparent);border:1px solid var(--line);border-radius:var(--r2);padding:14px 16px}"
+        ".ck-cell{background:color-mix(in srgb,var(--ink) 2%,transparent);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s35) 16px}"
         ".ck-label{font-size:12px;color:var(--steel);letter-spacing:.01em}"
         ".ck-num{font-family:var(--fm);font-size:26px;font-weight:500;margin-top:6px;line-height:1.05;letter-spacing:-.01em}"
         ".ck-sub{font-size:11.5px;color:var(--steel);margin-top:5px;line-height:1.4}"
@@ -3070,7 +3070,7 @@ _LOGO = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='270 202 906 483' role=
 
 _TH_CSS = """
 <style>
-  .th-gap { margin-bottom:18px; }
+  .th-gap { margin-bottom:var(--s4); }
   .th-hist { display:flex; flex-direction:column; gap:6px; padding:2px 0; }
   .th-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:11.5px; }
   .th-hlab { width:24px; color:var(--steel); }
@@ -3321,7 +3321,7 @@ _CSS = """
     --elev:none;
     --glass:rgba(249,246,243,.92); --glass2:rgba(249,246,243,.88); --tape:rgba(249,246,243,.96); --barbg:#EDE8E2;
     --r1:4px; --r2:8px; --r3:12px;
-    --s1:4px; --s2:8px; --s3:12px; --s4:20px; --s5:32px; --s6:52px; }
+    --s1:4px; --s15:6px; --s2:8px; --s3:12px; --s35:16px; --s4:20px; --s5:32px; --s6:52px; }
   body.midnight { --bg:#0E0D0B; --panel:#16140F; --line:#2A2520; --line2:#3D362E; --ink:#F1ECE3; --ink2:#CFC6B5; --steel:#8C8273; --metal:#8C8273;
     --acc:#88A671; --acc2:#88A671; --id:#F1ECE3; --bear:#C75B4F; --warn:#D6A058;
     --elev:0 12px 32px -18px rgba(0,0,0,.65);
@@ -3383,7 +3383,7 @@ _CSS = """
   .hero .hsub { font-size:12.5px; color:var(--steel); margin-top:6px; }
   .distbar { flex:1; min-width:240px; } .distline { display:flex; height:8px; border-radius:var(--r1); overflow:hidden; }
   .distline .g { background:oklch(0.72 0.16 150); } .distline .r { background:oklch(0.62 0.18 25); }
-  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:26px; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s4); margin-bottom:26px; }
   .kpi { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:13px 16px; }
   .kl { display:block; font-family:var(--fb); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:7px; }
   .kv { font-family:var(--fm); font-weight:500; font-size:28px; letter-spacing:-.01em; line-height:1; font-variant-numeric:tabular-nums; }
@@ -3422,7 +3422,7 @@ _CSS = """
   .modetgl .ico-sun { display:none; } body.midnight .modetgl .ico-moon { display:none; } body.midnight .modetgl .ico-sun { display:inline-block; }
   /*DVAL-STATE*/
   .dval.calm { color:var(--acc); } .dval.warn { color:var(--warn); } .dval.danger { color:var(--bear); } .dval.mute { color:var(--steel); }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:7px 24px; } .card.pad { padding:14px 18px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:7px 24px; } .card.pad { padding:var(--s35) 18px; }
   .line { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; } .line:last-child { border-bottom:none; }
   .mono { font-family:var(--fm); font-weight:600; color:var(--ink); } .mono.pos { color:var(--acc); } .mono.neg { color:var(--bear); }
   .gauge { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:16px 20px; margin-bottom:15px; }
@@ -3492,7 +3492,7 @@ _CSS = """
   @keyframes fade { to { opacity:1; } }
   .noanim [data-page].active, .noanim .row { animation:none !important; }
   .noanim .row { opacity:1 !important; }
-  .plan { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:15px 20px; margin-bottom:18px; }
+  .plan { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:15px 20px; margin-bottom:var(--s4); }
   .plan-h { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:13px; }
   .plan-row { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
   .pi { display:flex; flex-direction:column; gap:4px; padding-left:13px; border-left:2px solid var(--line2); border-radius:0; }
@@ -3523,7 +3523,7 @@ _CSS = """
   .lp-score .vv { font-family:var(--fm); width:32px; text-align:right; }
   .lp-ex { font-size:12.5px; color:var(--ink); line-height:1.6; opacity:.82; }
   .lp-empty { font-size:12px; color:var(--steel); padding:6px 0; }
-  .lp-hint { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:14px; padding-top:12px; border-top:1px solid color-mix(in srgb,var(--ink) 5%,transparent); line-height:1.5; }
+  .lp-hint { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:var(--s35); padding-top:12px; border-top:1px solid color-mix(in srgb,var(--ink) 5%,transparent); line-height:1.5; }
   .lp-hint code { font-family:var(--fm); font-weight:600; color:var(--ink); background:color-mix(in srgb,var(--ink) 5%,transparent); padding:1px 5px; border-radius:3px; font-size:10.5px; }
   .tkc { cursor:pointer; transition:color .12s; } .tkc:hover { color:var(--id); }
   .lp-badge { display:inline-block; font-family:var(--fb); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:var(--r1); border:1px solid currentColor; }
@@ -3551,7 +3551,7 @@ _CSS = """
   .qs { position:fixed; inset:0; z-index:70; display:none; align-items:flex-start; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:12vh 20px 20px; }
   .qs.open { display:flex; }
   .qs-card { width:min(560px,100%); background:var(--panel); border:1px solid var(--line2); border-radius:var(--r3); box-shadow:0 30px 90px -20px #000; overflow:hidden; }
-  #qs-input { width:100%; box-sizing:border-box; background:transparent; border:none; outline:none; color:var(--ink); font-family:var(--fb); font-size:17px; padding:18px 20px; border-bottom:1px solid var(--line); }
+  #qs-input { width:100%; box-sizing:border-box; background:transparent; border:none; outline:none; color:var(--ink); font-family:var(--fb); font-size:17px; padding:var(--s4) 20px; border-bottom:1px solid var(--line); }
   #qs-input::placeholder { color:var(--steel); }
   #qs-res { max-height:50vh; overflow:auto; }
   .qs-row { display:flex; align-items:center; gap:12px; padding:11px 20px; cursor:pointer; border-bottom:.5px solid var(--line); }
@@ -3562,9 +3562,9 @@ _CSS = """
   .qs-st.held { color:var(--acc); } .qs-st.watch { color:var(--warn); } .qs-st.core, .qs-st.extended { color:var(--acc2); }
   .qs-empty { padding:22px 20px; color:var(--steel); font-size:13px; text-align:center; }
   .hero.posture { display:block; }
-  .hero.posture .plan-row { margin-top:14px; gap:24px; }
+  .hero.posture .plan-row { margin-top:var(--s35); gap:24px; }
   .hero.posture .pn { font-size:29px; }
-  .hrow { display:grid; grid-template-columns:1.3fr 1fr; gap:18px; margin-bottom:20px; align-items:stretch; }
+  .hrow { display:grid; grid-template-columns:1.3fr 1fr; gap:var(--s4); margin-bottom:20px; align-items:stretch; }
   .hrow .hero.posture { margin-bottom:0; height:100%; }
   .pfcard { background:var(--panel); border:1px solid var(--line2); border-radius:var(--r3); padding:20px 24px; display:flex; flex-direction:column; }
   .pfcard .v { font-family:var(--fm); font-weight:500; font-size:30px; letter-spacing:-.01em; line-height:1; margin:8px 0 5px; color:var(--ink); font-variant-numeric:tabular-nums; }
@@ -3589,7 +3589,7 @@ _CSS = """
   .hrow.star .hero.posture { padding:30px 36px; }
   .hrow.star .hero.posture .hl { font-size:10.5px; letter-spacing:.22em; }
   .hrow.star .hero.posture .pn { font-size:42px; line-height:.95; }
-  .hrow.star .hero.posture .plan-row { margin-top:18px; gap:30px; }
+  .hrow.star .hero.posture .plan-row { margin-top:var(--s4); gap:30px; }
   /* Sprint 5 - Note du portefeuille */
   .gradecard .ghead { display:flex; align-items:center; gap:22px; margin:14px 0 18px; padding-bottom:18px; border-bottom:1px solid var(--line); }
   .gradecard .gletter { font-family:var(--fm); font-weight:500; font-size:56px; line-height:.9; letter-spacing:-.02em; padding:0 18px; border-radius:var(--r2); }
@@ -3605,7 +3605,7 @@ _CSS = """
   .gradecard .gscorefill.warn { background:var(--warn); }
   .gradecard .gscorefill.bad { background:var(--bear); }
   .gradecard .gbody { display:grid; gap:12px; }
-  .gradecard .grow { display:grid; grid-template-columns:200px 1fr 180px; align-items:center; gap:14px; }
+  .gradecard .grow { display:grid; grid-template-columns:200px 1fr 180px; align-items:center; gap:var(--s35); }
   .gradecard .glab { font-family:var(--fm); font-size:12.5px; color:var(--steel); font-weight:500; }
   .gradecard .gaxis { position:relative; height:6px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:var(--r1); }
   .gradecard .gfill { position:absolute; left:0; top:0; height:100%; border-radius:var(--r1); }
@@ -3633,7 +3633,7 @@ _CSS = """
   .gradecard .gsub-empty { font-family:var(--fm); font-size:11px; color:var(--steel); font-style:italic; }
   .gradecard .gsub-ev { font-family:var(--fm); font-size:10.5px; color:var(--steel); line-height:1.55; padding-top:6px; border-top:1px solid color-mix(in srgb,var(--ink) 6%,transparent); }
   /* Sub-notes Construction + Fragilite (glossaire canonique) */
-  .gradecard .gsplit { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
+  .gradecard .gsplit { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:var(--s4); padding-top:18px; border-top:1px solid var(--line); }
   .gradecard .gsub { display:flex; flex-direction:column; gap:10px; }
   .gradecard .gsubh { font-family:var(--fb); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; }
   .gradecard .gsubscore { font-size:32px; font-weight:500; line-height:1; letter-spacing:-.02em; }
@@ -3641,7 +3641,7 @@ _CSS = """
   .gradecard .gsubscore.warn { color:var(--warn); }
   .gradecard .gsubscore.bad { color:var(--bear); }
   .gradecard .gsubmax { color:var(--steel); font-size:14px; margin-left:1px; font-weight:400; }
-  @media (max-width:980px) { .gradecard .gsplit { grid-template-columns:1fr; gap:14px; } }
+  @media (max-width:980px) { .gradecard .gsplit { grid-template-columns:1fr; gap:var(--s35); } }
   .gradecard .ggate { font-family:var(--fm); font-size:12px; color:var(--bear); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:10px 14px; border-radius:var(--r2); margin:14px 0; border-left:3px solid var(--bear); }
   /* Top Risques surveillance */
   .riskwatchcard .rw-lens { font-family:var(--fm); margin:10px 0 4px; padding:9px 12px; background:color-mix(in srgb, var(--warn) 5%, transparent); border-left:2px solid var(--warn); border-radius:2px; font-size:11.5px; color:var(--ink); line-height:1.55; }
@@ -3653,14 +3653,14 @@ _CSS = """
   .riskwatchcard .rw-sev { font-family:var(--fb); font-size:9.5px; letter-spacing:.15em; text-transform:uppercase; font-weight:600; padding:2px 7px; border-radius:var(--r1); }
   .riskwatchcard .rw-sev.danger { background:color-mix(in srgb,var(--bear) 18%,transparent); color:var(--bear); }
   .riskwatchcard .rw-sev.warn { background:color-mix(in srgb,var(--warn) 18%,transparent); color:var(--warn); }
-  .riskwatchcard .rw-expo { font-family:var(--fm); font-size:12px; color:var(--steel); margin-bottom:14px; }
-  .riskwatchcard .rw-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; margin-bottom:18px; }
-  .riskwatchcard .rw-cell { padding:12px 14px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
+  .riskwatchcard .rw-expo { font-family:var(--fm); font-size:12px; color:var(--steel); margin-bottom:var(--s35); }
+  .riskwatchcard .rw-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:var(--s35); margin-bottom:var(--s4); }
+  .riskwatchcard .rw-cell { padding:var(--s3) var(--s35); background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
   .riskwatchcard .rw-h { font-family:var(--fb); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:5px; }
   .riskwatchcard .rw-v { font-family:var(--fm); font-size:22px; font-weight:500; color:var(--ink); line-height:1; }
   .riskwatchcard .rw-v.neg { color:var(--bear); }
   .riskwatchcard .rw-t { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-top:4px; }
-  .riskwatchcard .rw-section { margin-top:14px; }
+  .riskwatchcard .rw-section { margin-top:var(--s35); }
   .riskwatchcard .rw-sh { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:10px; }
   .riskwatchcard .rw-sig { padding:8px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .riskwatchcard .rw-sig.atrisk { border-left:3px solid var(--warn); padding-left:10px; margin-left:-10px; background:color-mix(in srgb,var(--warn) 4%,transparent); }
@@ -3686,13 +3686,13 @@ _CSS = """
   .riskwatchcard .rw-mit-n { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-style:italic; }
   @media (max-width:980px) { .riskwatchcard .rw-grid { grid-template-columns:1fr; } .riskwatchcard .rw-sig { grid-template-columns:1fr; } }
   /* Calibration progress panel (action #3 31/05) -- s'active a n>=30 */
-  .calibcard .calib-progress { display:flex; align-items:center; gap:18px; margin-top:14px; }
+  .calibcard .calib-progress { display:flex; align-items:center; gap:var(--s4); margin-top:var(--s35); }
   .calibcard .calib-bar { flex:1; height:8px; background:color-mix(in srgb, var(--steel) 12%, transparent); border-radius:2px; overflow:hidden; position:relative; }
   .calibcard .calib-fill { height:100%; background:linear-gradient(90deg, var(--acc), color-mix(in srgb, var(--acc) 70%, var(--gold))); transition:width .4s ease; }
-  .calibcard .calib-meta { display:flex; align-items:baseline; gap:14px; min-width:160px; justify-content:flex-end; }
+  .calibcard .calib-meta { display:flex; align-items:baseline; gap:var(--s35); min-width:160px; justify-content:flex-end; }
   .calibcard .calib-n { font-family:var(--fmono); font-size:18px; font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
   .calibcard .calib-rem { font-family:var(--fm); font-size:12px; color:var(--steel); }
-  .calibcard .calib-verdict { display:flex; align-items:baseline; gap:18px; margin-top:14px; flex-wrap:wrap; }
+  .calibcard .calib-verdict { display:flex; align-items:baseline; gap:var(--s4); margin-top:var(--s35); flex-wrap:wrap; }
   .calibcard .calib-status { font-family:var(--fm); font-weight:500; font-size:13px; letter-spacing:.08em; text-transform:uppercase; padding:3px 10px; border-radius:2px; background:color-mix(in srgb, var(--ink) 6%, transparent); }
   .calibcard .calib-status.acc { color:var(--acc); background:color-mix(in srgb, var(--acc) 10%, transparent); }
   .calibcard .calib-status.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 12%, transparent); }
@@ -3702,23 +3702,23 @@ _CSS = """
   .calibcard .calib-msg { margin-top:10px; font-family:var(--fm); font-size:12.5px; color:var(--ink2); line-height:1.55; padding-top:10px; border-top:1px solid var(--line); }
   /* Page Strategie : sub-section headers */
   .strat-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:32px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); }
-  .strat-sh:first-of-type { margin-top:14px; }
+  .strat-sh:first-of-type { margin-top:var(--s35); }
   /* Section headers page vigie (refonte hierarchie 30/05 -- 3 blocs : Operationnel / Systeme V2 / Contextuel) */
   .vigie-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:28px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--line); }
-  .vigie-sh:first-of-type { margin-top:18px; }
+  .vigie-sh:first-of-type { margin-top:var(--s4); }
   /* Sprint 19 - User strategy panel */
   .strategiecard .us-grid { display:grid; grid-template-columns:1fr; gap:8px; margin:14px 0; padding-bottom:14px; border-bottom:1px solid var(--line); }
-  .strategiecard .us-row { display:flex; align-items:baseline; gap:14px; padding:6px 0; }
+  .strategiecard .us-row { display:flex; align-items:baseline; gap:var(--s35); padding:6px 0; }
   .strategiecard .us-k { font-family:var(--fm); font-size:12px; color:var(--steel); min-width:200px; }
   .strategiecard .us-v { font-family:var(--fm); font-size:13px; color:var(--ink); font-variant-numeric:tabular-nums; }
-  .strategiecard .us-desc { font-family:var(--fm); font-size:11.5px; color:var(--steel); line-height:1.55; font-style:italic; margin-top:14px; }
-  .strategiecard .us-cta { font-family:var(--fm); margin:8px 0 14px; padding:12px 14px; border-left:2px solid var(--accent-red, #c44); background:color-mix(in srgb, var(--accent-red, #c44) 5%, transparent); border-radius:2px; }
+  .strategiecard .us-desc { font-family:var(--fm); font-size:11.5px; color:var(--steel); line-height:1.55; font-style:italic; margin-top:var(--s35); }
+  .strategiecard .us-cta { font-family:var(--fm); margin:8px 0 14px; padding:var(--s3) var(--s35); border-left:2px solid var(--accent-red, #c44); background:color-mix(in srgb, var(--accent-red, #c44) 5%, transparent); border-radius:2px; }
   .strategiecard .us-cta.valid { border-left-color:var(--accent-green, #4a8); background:color-mix(in srgb, var(--accent-green, #4a8) 4%, transparent); }
   .strategiecard .us-cta-h { font-size:11px; color:var(--steel); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
   .strategiecard .us-cta-b { font-size:12.5px; color:var(--ink); line-height:1.55; }
   .strategiecard .us-cta-f { font-size:10.5px; color:var(--steel); margin-top:8px; font-family:var(--fm-mono, monospace); }
   .strategiecard .us-cta-f code { background:color-mix(in srgb, var(--ink) 6%, transparent); padding:2px 6px; border-radius:2px; font-size:10.5px; }
-  .strategiecard .us-construction { font-family:var(--fm); margin:8px 0 14px; padding:12px 14px; border-left:2px solid var(--warn); background:color-mix(in srgb, var(--warn) 5%, transparent); border-radius:2px; }
+  .strategiecard .us-construction { font-family:var(--fm); margin:8px 0 14px; padding:var(--s3) var(--s35); border-left:2px solid var(--warn); background:color-mix(in srgb, var(--warn) 5%, transparent); border-radius:2px; }
   .strategiecard .us-cstr-h { font-size:11px; color:var(--warn); text-transform:uppercase; letter-spacing:.05em; font-weight:600; margin-bottom:6px; }
   .strategiecard .us-cstr-b { font-size:12.5px; color:var(--ink); line-height:1.6; }
   /* F7 add 29/05 - Positions en vol aveugle (entry/target/stop/triggers manquants) */
@@ -3732,7 +3732,7 @@ _CSS = """
   .blindcard .ba-missing { font-family:var(--fm); font-size:12px; color:var(--ink); opacity:.85; }
   .blindcard .ba-missing b { color:var(--bear); font-weight:600; }
   /* Sprint 5/6 - Copilot interventions panel */
-  .copilotcard .cp-row { padding:12px 14px; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); cursor:pointer; transition:background .15s; }
+  .copilotcard .cp-row { padding:var(--s3) var(--s35); border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); cursor:pointer; transition:background .15s; }
   .copilotcard .cp-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); border-radius:var(--r2); }
   .copilotcard .cp-row:last-child { border-bottom:none; }
   .copilotcard .cp-row.cp-flagged { border-left:2px solid var(--bear); padding-left:12px; background:color-mix(in srgb,var(--bear) 3%,transparent); }
@@ -3756,7 +3756,7 @@ _CSS = """
   .copilotcard .cp-outc.bad { background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
   /* Sprint 6 - Narrative clusters panel */
   .narrativecard .nv-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; margin:14px 0 18px; }
-  .narrativecard .nv-cluster { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:14px 16px; }
+  .narrativecard .nv-cluster { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s35) 16px; }
   .narrativecard .nv-cl-head { display:flex; align-items:baseline; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
   .narrativecard .nv-cl-name { font-family:var(--fm); font-weight:600; font-size:12.5px; color:var(--ink); flex:1; min-width:0; }
   .narrativecard .nv-cl-overlap { font-family:var(--fb); font-size:9.5px; letter-spacing:.12em; padding:2px 6px; border-radius:var(--r1); font-weight:600; }
@@ -3766,7 +3766,7 @@ _CSS = """
   .narrativecard .nv-cl-n { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
   .narrativecard .nv-cl-tks { font-family:var(--fm); font-size:11px; color:var(--ink); margin-bottom:6px; opacity:.8; font-variant-numeric:tabular-nums; }
   .narrativecard .nv-cl-driv { font-family:var(--fm); font-size:11.5px; color:var(--steel); line-height:1.4; }
-  .narrativecard .nv-split { display:grid; grid-template-columns:1fr 1fr; gap:18px; border-top:1px solid var(--line); padding-top:14px; }
+  .narrativecard .nv-split { display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); border-top:1px solid var(--line); padding-top:14px; }
   .narrativecard .nv-h { font-family:var(--fb); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
   .narrativecard .nv-line { display:flex; align-items:baseline; gap:8px; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); font-size:11.5px; }
   .narrativecard .nv-line:last-child { border-bottom:none; }
@@ -3786,8 +3786,8 @@ _CSS = """
   .conversationscard .cv-content { font-family:var(--fm); font-size:12px; line-height:1.45; color:var(--ink); opacity:.85; }
   .conversationscard .cv-user .cv-content { color:var(--ink); opacity:.95; }
   /* Sprint 9.d - Soft signals panel */
-  .chatsigcard .cs-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px; }
-  .chatsigcard .cs-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:12px 14px; }
+  .chatsigcard .cs-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:var(--s35); margin-top:var(--s35); }
+  .chatsigcard .cs-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s3) var(--s35); }
   .chatsigcard .cs-kind { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:10px; }
   .chatsigcard .cs-row { padding:8px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .chatsigcard .cs-row:last-child { border-bottom:none; }
@@ -3800,7 +3800,7 @@ _CSS = """
   .chatsigcard .cs-quote { font-family:var(--fm); font-size:11.5px; font-style:italic; color:var(--ink); opacity:.85; line-height:1.4; margin-bottom:3px; }
   .chatsigcard .cs-note { font-family:var(--fm); font-size:10.5px; color:var(--steel); line-height:1.4; }
   /* Layer 2 - Conceptions du bot */
-  .conceptionscard .bc-row { padding:14px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); cursor:pointer; }
+  .conceptionscard .bc-row { padding:var(--s35) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); cursor:pointer; }
   .conceptionscard .bc-row:last-child { border-bottom:none; }
   .conceptionscard .bc-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); border-radius:var(--r2); }
   .conceptionscard .bc-head { display:flex; align-items:baseline; gap:10px; margin-bottom:7px; flex-wrap:wrap; }
@@ -3820,8 +3820,8 @@ _CSS = """
   .conceptionscard .bc-row:hover .bc-text, .conceptionscard .bc-row.open .bc-text { max-height:600px; }
   .conceptionscard .bc-row:hover .bc-text::after, .conceptionscard .bc-row.open .bc-text::after { opacity:0; }
   /* Layer 3 - Preferences calibrees */
-  .preferencescard .pr-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px; }
-  .preferencescard .pr-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:12px 14px; }
+  .preferencescard .pr-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:var(--s35); margin-top:var(--s35); }
+  .preferencescard .pr-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s3) var(--s35); }
   .preferencescard .pr-h { display:flex; align-items:baseline; gap:8px; margin-bottom:10px; }
   .preferencescard .pr-kind { font-family:var(--fb); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); font-weight:600; }
   .preferencescard .pr-meta { font-family:var(--fm); font-size:10px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
@@ -3835,11 +3835,11 @@ _CSS = """
   .preferencescard .pr-num.neu { color:var(--steel); }
   .preferencescard .pr-win { font-family:var(--fm); font-size:10.5px; color:var(--steel); min-width:50px; text-align:right; }
   /* Sprint 12 - Ticker axes */
-  .axescard .ax-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:14px 16px; margin-top:14px; }
+  .axescard .ax-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s35) 16px; margin-top:var(--s35); }
   .axescard .ax-h { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
   .axescard .ax-macro { font-family:var(--fm); font-weight:600; font-size:12.5px; color:var(--ink); }
   .axescard .ax-n { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
-  .axescard .ax-row { display:grid; grid-template-columns:78px 1fr; gap:14px; padding:8px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .axescard .ax-row { display:grid; grid-template-columns:78px 1fr; gap:var(--s35); padding:8px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .axescard .ax-row:last-child { border-bottom:none; }
   .axescard .ax-tk { font-family:var(--fm); font-weight:600; font-size:12px; color:var(--ink); }
   .axescard .ax-fields { display:flex; flex-direction:column; gap:3px; }
@@ -3848,7 +3848,7 @@ _CSS = """
   /* Sprint 13 - Factor exposures + Stress + Trajectory */
   .factorscard .fe-row { padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .factorscard .fe-row:last-child { border-bottom:none; }
-  .factorscard .fe-row.fe-composite { padding:14px 14px; margin:0 -14px 8px; background:color-mix(in srgb,var(--bear) 6%,transparent); border-left:2px solid var(--bear); border-radius:2px; border-bottom:none; }
+  .factorscard .fe-row.fe-composite { padding:var(--s35) 14px; margin:0 -14px 8px; background:color-mix(in srgb,var(--bear) 6%,transparent); border-left:2px solid var(--bear); border-radius:2px; border-bottom:none; }
   .factorscard .fe-row.fe-composite .fe-name { font-weight:600; }
   .factorscard .fe-comp-note { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:6px; line-height:1.45; font-style:italic; }
   .factorscard .fe-th { font-family:var(--fm); font-size:10px; color:var(--steel); margin-left:2px; padding:0 4px; background:color-mix(in srgb,var(--ink) 6%,transparent); border-radius:var(--r1); }
@@ -3865,7 +3865,7 @@ _CSS = """
   .factorscard .fe-fill.mid { background:var(--warn); }
   .factorscard .fe-fill.low { background:var(--acc); }
   .factorscard .fe-tks { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
-  .stresscard .st-row { display:flex; align-items:baseline; gap:14px; padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
+  .stresscard .st-row { display:flex; align-items:baseline; gap:var(--s35); padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .stresscard .st-row:last-child { border-bottom:none; }
   .stresscard .st-name { font-family:var(--fm); font-size:12px; color:var(--ink); flex:1; }
   .stresscard .st-impact { display:flex; align-items:baseline; gap:10px; }
@@ -3876,7 +3876,7 @@ _CSS = """
   .stresscard .st-pct.neu { color:var(--steel); }
   .stresscard .st-eur { font-family:var(--fm); font-size:11px; color:var(--steel); font-variant-numeric:tabular-nums; min-width:90px; text-align:right; }
   .stresscard .st-n { font-family:var(--fm); font-size:10px; color:var(--steel); min-width:40px; text-align:right; font-variant-numeric:tabular-nums; }
-  .trajcard .tr-hero { font-family:var(--fm); font-size:18px; font-weight:500; color:var(--ink); padding:14px 0 16px; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); margin-bottom:8px; display:flex; align-items:baseline; gap:8px; }
+  .trajcard .tr-hero { font-family:var(--fm); font-size:18px; font-weight:500; color:var(--ink); padding:var(--s35) 0 16px; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); margin-bottom:8px; display:flex; align-items:baseline; gap:8px; }
   .trajcard .tr-row { display:flex; align-items:baseline; gap:10px; padding:7px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
   .trajcard .tr-row:last-child { border-bottom:none; }
   .trajcard .tr-key { font-family:var(--fm); color:var(--ink); flex:1; }
@@ -3952,16 +3952,16 @@ _CSS = """
   .vgcard .vg-name { font-family:var(--fb); font-size:11px; letter-spacing:.05em; text-transform:uppercase; font-weight:600; color:var(--ink); }
   .vgcard .vg-status { font-family:var(--fb); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-left:auto; }
   .vgcard .vg-msg { font-family:var(--fm); font-size:11.5px; color:var(--ink); opacity:.85; line-height:1.5; }
-  .v2cohortcard .v2-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px; }
-  .v2cohortcard .v2-side { padding:14px; border:1px solid var(--line); border-radius:var(--r2); background:color-mix(in srgb,var(--ink) 2%,transparent); }
+  .v2cohortcard .v2-grid { display:grid; grid-template-columns:1fr 1fr; gap:var(--s35); margin-top:12px; }
+  .v2cohortcard .v2-side { padding:var(--s35); border:1px solid var(--line); border-radius:var(--r2); background:color-mix(in srgb,var(--ink) 2%,transparent); }
   .v2cohortcard .v2-current { border-left:3px solid var(--acc); }
   .v2cohortcard .v2-legacy { border-left:3px solid color-mix(in srgb,var(--steel) 50%,transparent); opacity:.85; }
   .v2cohortcard .v2-label { font-family:var(--fb); font-size:10px; letter-spacing:.16em; text-transform:uppercase; font-weight:600; color:var(--steel); margin-bottom:8px; }
-  .v2cohortcard .v2-stat-row { display:flex; gap:14px; align-items:baseline; font-family:var(--fm); font-size:13px; font-variant-numeric:tabular-nums; }
+  .v2cohortcard .v2-stat-row { display:flex; gap:var(--s35); align-items:baseline; font-family:var(--fm); font-size:13px; font-variant-numeric:tabular-nums; }
   .v2cohortcard .v2-stat-n { font-weight:600; color:var(--ink); }
   .v2cohortcard .v2-stat-rg, .v2cohortcard .v2-stat-bk { color:var(--steel); font-size:11.5px; }
   .v2cohortcard .v2-status.v2-empty { font-family:var(--fm); font-size:11.5px; color:var(--steel); font-style:italic; line-height:1.4; }
-  .wactcard .wact-grid { display:flex; gap:14px; margin:12px 0 16px; }
+  .wactcard .wact-grid { display:flex; gap:var(--s35); margin:12px 0 16px; }
   .wactcard .wact-cell { flex:1; padding:10px 14px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
   .wactcard .wact-label { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; margin-bottom:4px; }
   .wactcard .wact-v { font-family:var(--fm); font-size:13px; color:var(--ink); }
@@ -3986,12 +3986,12 @@ _CSS = """
        utilisent deja repeat(auto-fit, minmax(280px,1fr)) = responsive natif sans media query. */
   }
   /* Sprint 16 - Wrapper PEA/CTO + FX + Benchmark */
-  .wrappercard .wr-alloc { display:flex; gap:18px; margin:14px 0 18px; padding-bottom:14px; border-bottom:1px solid var(--line); }
-  .wrappercard .wr-row { flex:1; padding:12px 14px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); display:flex; flex-direction:column; gap:4px; }
+  .wrappercard .wr-alloc { display:flex; gap:var(--s4); margin:14px 0 18px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+  .wrappercard .wr-row { flex:1; padding:var(--s3) var(--s35); background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); display:flex; flex-direction:column; gap:4px; }
   .wrappercard .wr-key { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; }
   .wrappercard .wr-pct { font-family:var(--fm); font-size:22px; font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
   .wrappercard .wr-eur { font-family:var(--fm); font-size:11px; color:var(--steel); font-variant-numeric:tabular-nums; }
-  .wrappercard .wr-section { margin-top:14px; }
+  .wrappercard .wr-section { margin-top:var(--s35); }
   .wrappercard .wr-sh { font-family:var(--fb); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
   .wrappercard .wr-mis { display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:11.5px; }
   .wrappercard .wr-mis:last-child { border-bottom:none; }
@@ -4015,8 +4015,8 @@ _CSS = """
   .fxcard .fx-fill.mid { background:var(--warn); }
   .fxcard .fx-fill.low { background:var(--acc); }
   .fxcard .fx-tks { font-family:var(--fm); font-size:10.5px; color:var(--steel); font-variant-numeric:tabular-nums; }
-  .benchcard .bm-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; margin:14px 0; }
-  .benchcard .bm-cell { padding:14px 18px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
+  .benchcard .bm-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:var(--s4); margin:14px 0; }
+  .benchcard .bm-cell { padding:var(--s35) 18px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
   .benchcard .bm-h { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; margin-bottom:6px; }
   .benchcard .bm-v { font-family:var(--fm); font-size:24px; font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
   .benchcard .bm-v.pos { color:var(--acc); }
@@ -4025,7 +4025,7 @@ _CSS = """
   .benchcard .bm-foot { font-family:var(--fm); font-size:12px; color:var(--steel); margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
   .benchcard .bm-warn { font-family:var(--fm); font-size:11.5px; color:var(--warn); background:color-mix(in srgb,var(--warn) 8%,transparent); padding:8px 12px; border-radius:var(--r2); margin:12px 0 0; }
   /* Sprint 17 - Data-defined clusters */
-  .clustercard .dc-sub { margin-top:14px; }
+  .clustercard .dc-sub { margin-top:var(--s35); }
   .clustercard .dc-sh { font-family:var(--fb); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
   .clustercard .dc-row { display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); font-size:12px; }
   .clustercard .dc-row:last-child { border-bottom:none; }
@@ -4037,7 +4037,7 @@ _CSS = """
   .clustercard .dc-mix-members { font-family:var(--fm); font-size:11.5px; color:var(--ink); line-height:1.5; }
   .clustercard .dc-mf { color:var(--steel); font-size:10.5px; margin-left:2px; }
   /* Sprint 7 - Chat surface */
-  .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
+  .chatcard .chat-log { max-height:340px; overflow-y:auto; padding:12px 0; margin-bottom:var(--s35); display:flex; flex-direction:column; gap:10px; }
   .chatcard .chat-log:empty { display:none; }
   .chatcard .chat-msg { font-family:var(--fm); font-size:13px; line-height:1.5; padding:10px 14px; border-radius:var(--r2); max-width:88%; }
   .chatcard .chat-user { align-self:flex-end; background:color-mix(in srgb,var(--id) 14%,transparent); color:var(--ink); }
@@ -4051,7 +4051,7 @@ _CSS = """
   .chatcard .chat-foot { font-family:var(--fm); font-size:10.5px; color:var(--steel); margin-top:10px; }
   .chatcard .chat-idle-clear { align-self:center; background:color-mix(in srgb,var(--steel) 8%,transparent); color:var(--steel); font-style:italic; font-size:11.5px; padding:8px 14px; }
   .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--r3); border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; }
-  .foot .modetgl { margin-top:18px; padding-top:0; }
+  .foot .modetgl { margin-top:var(--s4); padding-top:0; }
   .foot::before { content:""; display:block; width:30px; height:1px; background:var(--line); margin:14px auto 4px; }
   .modetgl svg { width:20px; height:20px; }
   .modetgl:hover { color:var(--id); border-color:var(--id); }
@@ -4062,7 +4062,7 @@ _CSS = """
   .nitem.on svg { filter:drop-shadow(0 0 6px color-mix(in srgb,var(--id) 70%,transparent)); }
   .tape { box-shadow:none; }
   .row[data-tk]:hover, .dt tbody tr:hover td, .th-row:hover, .sbrow:hover { background:color-mix(in srgb,var(--ink) 3.5%,transparent); }
-  .brk { margin-bottom:18px; }
+  .brk { margin-bottom:var(--s4); }
   .brk-h { display:flex; justify-content:space-between; align-items:baseline; margin:0 2px 10px; flex-wrap:wrap; gap:8px; }
   .brk-n { font-family:var(--fm); font-weight:500; font-size:16px; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
   .brk-note { font-family:var(--fm); font-size:11px; color:var(--steel); margin-left:8px; }
@@ -4166,7 +4166,7 @@ _APP_JS = """
         +rw('Plus gros secteur',top.name+' &middot; '+tp+'%',ov?'var(--bear)':'var(--acc)')
         +rw('Lignes total',DATA.reduce(function(a,s){return a+s.t.length;},0)+'')
         +'<div style="margin-top:12px;font-size:12px;color:'+(ov?'var(--warn)':'var(--steel)')+'">'+(ov?('&#9888; '+top.name+' au-dessus du plafond 30%'):'sous le plafond 30%')+'</div>'
-        +'<div style="margin-top:14px;font-size:11px;color:var(--steel)">clique un secteur pour voir ses lignes</div>';
+        +'<div style="margin-top:var(--s35);font-size:11px;color:var(--steel)">clique un secteur pour voir ses lignes</div>';
     }
     function showSector(name){
       var s=null;DATA.forEach(function(d){if(d.name===name)s=d;});if(!s)return;
@@ -4498,7 +4498,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             f'<td class="{asym_cls}">{asym_str}</td></tr>'
         )
     if not ps:
-        rows = '<tr><td class="empty" colspan="5" style="padding:18px 0">aucune ligne</td></tr>'
+        rows = '<tr><td class="empty" colspan="5" style="padding:var(--s4) 0">aucune ligne</td></tr>'
     tot_str = f"{tot:,.0f}".replace(",", "&#8239;")
     donut = _sector_donut(_sector_mix(ps, pnl, sectors)) if ps else ""
     return (
@@ -4626,7 +4626,7 @@ def render() -> Path:
         rop = ' style="opacity:.45"' if rpast else ""
         rtag = " &middot; pass&eacute;e" if rpast else ""
         erows += f'<div class="line"{rop}><span>{rlab}{rtag}</span><span class="mono">{rdd}</span></div>'
-    erows = erows or '<div class="empty" style="padding:14px 0">aucune &eacute;ch&eacute;ance</div>'
+    erows = erows or '<div class="empty" style="padding:var(--s35) 0">aucune &eacute;ch&eacute;ance</div>'
 
     wbase = sum(p["weight"] for p in positions if p["ticker"] in pnl) or 1
     port_pnl = sum(p["weight"] * pnl[p["ticker"]] for p in positions if p["ticker"] in pnl) / wbase
@@ -4724,10 +4724,10 @@ def render() -> Path:
             f'<span class="th-tgt">cible +{a["up"]:.0f}%</span></div></div>'
         )
 
-    gain = "".join(_axisrow(tk) for tk in _cibles) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
-    lose = "".join(_axisrow(tk) for tk in _stops) or '<div class="empty" style="padding:18px 0">&mdash;</div>'
+    gain = "".join(_axisrow(tk) for tk in _cibles) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
+    lose = "".join(_axisrow(tk) for tk in _stops) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
     cockpit_html = (
-        '<div class="card pad" style="margin-bottom:18px">'
+        '<div class="card pad" style="margin-bottom:var(--s4)">'
         '<div class="colhead">'
         '<span class="t">Cockpit discipline</span>'
         '<span class="a">lecture en continu &middot; rouge = &agrave; traiter</span>'
