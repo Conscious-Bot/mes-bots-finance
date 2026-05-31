@@ -4881,7 +4881,12 @@ document.querySelectorAll('.sec-cols').forEach(function(hdr){
 
 
 def render() -> Path:
-    asym_mod._get_current_price = _cached_price_eur
+    # Bug fix 31/05 wave 9b : asymmetry compare current vs stop_price/target_full.
+    # Comme ces derniers sont stockes NATIVE (cf currency_native_invariant),
+    # current doit etre NATIVE aussi pour des ratios FX-invariants. Ancien
+    # patch vers _cached_price_eur produisait "Marges les plus faibles" avec
+    # cible +175408% (000660.KS KRW vs current EUR).
+    asym_mod._get_current_price = _cached_price_native
     full = asym_mod.compute_portfolio_asymmetry()
     computed = [r for r in full if "asymmetry_ratio" in r]
     positions = _positions()
