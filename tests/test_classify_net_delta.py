@@ -12,8 +12,6 @@ du trigger d'emission.
 
 from __future__ import annotations
 
-import pytest
-
 from intelligence.bias_events import classify_net_delta
 
 # ─── lock_in : discipline = hold (expected_delta=0), winner ────────────────
