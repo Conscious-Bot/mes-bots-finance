@@ -1963,8 +1963,8 @@ def _chat_panel() -> str:
         f'<span class="a">{mem_str}</span></div>'
         '<div id="chat-log" class="chat-log"></div>'
         '<form id="chat-form" class="chat-form" onsubmit="return chatSend(event)">'
-        '<textarea id="chat-input" class="chat-input" placeholder="ex. Quelle est ma plus grosse fragilite en ce moment ?" rows="2"></textarea>'
-        '<button type="submit" class="chat-send">Envoyer</button>'
+        '<textarea id="chat-input" class="chat-input" aria-label="Pose une question au copilot" placeholder="ex. Quelle est ma plus grosse fragilite en ce moment ?" rows="2"></textarea>'
+        '<button type="submit" class="chat-send" aria-label="Envoyer le message">Envoyer</button>'
         '</form>'
         '<div class="chat-foot">Le contexte (profil + grade + positions + interventions) est rejoue a chaque message.</div>'
         '</div>'
@@ -2325,7 +2325,7 @@ def _concentration(
         + "</div></div>"
     )
     return (
-        f'<section data-page="concentration"><div class="phead"><h2>Concentration</h2>'
+        f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h2>Concentration</h2>'
         f'<div class="sub">Trois axes de concentration &mdash; par ligne, par secteur, par g&eacute;ographie</div></div>'
         f"{verdict_card}"
         f"{cluster_card}"
@@ -2522,7 +2522,7 @@ def _signaux() -> str:
         s30 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-30 day')")[0][0]
         n8k = _q("SELECT COUNT(*) FROM filings_8k_log WHERE filed_at > datetime('now','-60 day')")[0][0]
     except Exception as e:
-        return f'<section data-page="signaux"><div class="phead"><h2>Signaux</h2></div>{_err(e)}</section>'
+        return f'<section data-page="signaux" role="region" aria-label="Signaux"><div class="phead"><h2>Signaux</h2></div>{_err(e)}</section>'
 
     sevcls = {"HIGH": "danger", "MEDIUM": "warn", "MED": "warn", "LOW": "calm"}
     sev_order = (
@@ -2611,7 +2611,7 @@ def _signaux() -> str:
         f'<div class="card pad">{insiders}</div>'
     )
     return (
-        f'<section data-page="signaux"><div class="phead"><h2>Signaux</h2>'
+        f'<section data-page="signaux" role="region" aria-label="Signaux"><div class="phead"><h2>Signaux</h2>'
         f'<div class="sub">D&eacute;p&ocirc;ts 8-K par s&eacute;v&eacute;rit&eacute; &middot; cr&eacute;dibilit&eacute; des sources &middot; achats d\'initi&eacute;s</div></div>'
         f"{kpis}{cols}{insider_strip}</section>"
     )
@@ -2879,7 +2879,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     rsi_html = _market_rsi()
     breadth_html = _breadth_rsp_spy()
     return (
-        f'<section data-page="urgence"><div class="phead"><h2>Urgence</h2>'
+        f'<section data-page="urgence" role="region" aria-label="Urgence"><div class="phead"><h2>Urgence</h2>'
         f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro</div></div>'
         f"{feu}{gauge}"
         f'<div class="cols">'
@@ -3126,7 +3126,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:  # n
     )
     if not rows:
         return (
-            '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
+            '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Th&egrave;ses</h2>'
             '<div class="sub">aucune th&egrave;se active</div></div></section>'
         )
     _u = _cfg().get("universe", {})
@@ -3297,14 +3297,14 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:  # n
         groups += "</div>"
 
     return (
-        '<section data-page="theses"><div class="phead"><h2>Th&egrave;ses</h2>'
+        '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Th&egrave;ses</h2>'
         '<div class="sub">Asym&eacute;trie cible / stop, par niveau de conviction</div></div>'
         f"{_TH_CSS}{hero}{kpis}{gap}{groups}</section>"
     )
 
 
 _NAV = (
-    '<nav class="nav">'
+    '<nav class="nav" role="navigation" aria-label="Navigation principale">'
     '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
     '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
     '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
@@ -4204,7 +4204,7 @@ _APP_JS = """
   document.addEventListener('keydown',function(ev){ if(ev.key==='Escape')closeLoupe(); });
   (function(){
     var box=document.createElement('div');box.id='qsearch';box.className='qs';
-    box.innerHTML='<div class="qs-card"><input id="qs-input" type="text" placeholder="Rechercher un titre ou un nom..." autocomplete="off"><div id="qs-res"></div></div>';
+    box.innerHTML='<div class="qs-card"><input id="qs-input" type="text" aria-label="Rechercher un titre ou un nom" placeholder="Rechercher un titre ou un nom..." autocomplete="off"><div id="qs-res"></div></div>';
     document.body.appendChild(box);
     var inp=box.querySelector('#qs-input'),res=box.querySelector('#qs-res'),sel=0,cur=[];
     var rk={held:0,watch:1,core:2,extended:3,out:4};
@@ -4558,7 +4558,7 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
     )
 
 
-_MODE_BTN = """<button class="modetgl" title="Mode jour / nuit" onclick="document.body.classList.toggle('midnight');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('midnight')?'midnight':'parchment')}catch(e){}"><svg class="ico-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>"""
+_MODE_BTN = """<button class="modetgl" title="Mode jour / nuit" aria-label="Basculer mode jour / nuit" onclick="document.body.classList.toggle('midnight');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('midnight')?'midnight':'parchment')}catch(e){}"><svg class="ico-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>"""
 _THEME_INIT = (
     "<script>"
     "try{"
@@ -4789,7 +4789,7 @@ def render() -> Path:
     wrapper_html = _wrapper_panel()
     bench_html = _benchmark_panel()
     vigie = (
-        f'<section data-page="vigie" class="active"><div class="phead"><h2>Vue d\'ensemble</h2>'
+        f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
         f'<div class="hrow star">'
         f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'
@@ -4837,7 +4837,7 @@ def render() -> Path:
     # ─── Page Strategie : lecture analytique du book (vocabulaire canonique) ───
     # Ordre : declaration -> etat -> risques caches -> structure technique -> meta
     strategie_html = (
-        '<section data-page="strategie"><div class="phead"><h2>Strat&eacute;gie</h2>'
+        '<section data-page="strategie" role="region" aria-label="Strategie"><div class="phead"><h2>Strat&eacute;gie</h2>'
         '<div class="sub">Lire le livre en profondeur &middot; pourquoi la note '
         'est ce qu\'elle est, et ou est la vraie fragilit&eacute;</div></div>'
         # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
@@ -4882,7 +4882,7 @@ def render() -> Path:
     )
     broker_html = _broker_tables(positions, names, pnl, sectors)
     positions_pg = (
-        f'<section data-page="positions"><div class="phead"><h2>Positions</h2>'
+        f'<section data-page="positions" role="region" aria-label="Positions"><div class="phead"><h2>Positions</h2>'
         f'<div class="sub">Marge &agrave; la hausse vers la cible &middot; &agrave; la baisse vers le stop</div></div>'
         f"{pos_plan}{broker_html}</section>"
     )
@@ -4908,7 +4908,7 @@ def render() -> Path:
     )
     elan, near_t = _elan_watch(computed)
     body = (
-        f'<aside class="sidebar"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
+        f'<aside class="sidebar" role="complementary" aria-label="Barre laterale"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
         f'{_NAV}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span>{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
