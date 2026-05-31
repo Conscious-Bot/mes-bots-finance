@@ -1,114 +1,235 @@
 # DESIGN SYSTEM — PRESAGE (canonique)
 
-Source unique de l'esthétique. Toute carte/vue consomme ces tokens — **zéro style inline ad-hoc**. `render.py` applique, ne réinvente pas.
+> Source unique. Toute carte/vue/composant consomme ces tokens. **Zéro style inline ad-hoc.** `render.py` applique, ne réinvente pas. Charte alignée sur le brand 28/05/2026 (palette parchemin warm + Geist), enrichie avec font-size tokens + états canoniques + ergonomie.
 
-**Direction** : minimalisme raffiné, observatoire / veille souveraine. Clair, visible, **ça respire**. Le luxe = le vide maîtrisé, pas l'accumulation d'effets.
+**Direction** : observatoire de veille souveraine. Densité honnête, signal-subtil. Le carré (Bloomberg-dense, Linear-clean) vaut plus que l'attrayant. Pour un pro : *clarté + densité = attrait*. L'amateur empile les effets ; le pro pose l'info.
+
+**Principe-roi** : *Couleur = fait. Jamais jugement.* La sémantique (danger/warn/calm) vient du **gradient sous-jacent** ou du **tag séparé**, pas du marker.
 
 ---
 
-## 1. La règle qui gouverne tout : le modèle en couches
+## 1. Tokens canoniques
 
-Trois plans de profondeur. Chaque élément appartient à UN plan.
-
-- **Fond** — grain + grille radar subtile, immobile. C'est le champ.
-- **Midground** — les cards : mates, posées, hairline. 90 % de l'UI vit ici.
-- **Foreground** — 1-2 héros seulement (Score PRESAGE, alerte active). Seul plan autorisé à *briller*.
-
-Ce layering justifie le glassmorphism (il faut le fond à flouter) et rend la profondeur crédible.
-
-## 2. La règle du « vivant »
-
-`--live` (bleu électrique), glow et bloom sont réservés aux éléments **vivants** : signal actif, anomalie, IA en cours, Score PRESAGE. **Si tout brille, rien ne brille** — c'est le tell amateur. Tout le reste est mat.
-
-## 3. Tokens `:root`
+### 1.1 Palette parchemin (default) — `:root`
 
 ```css
-:root {
-  /* — Fond (observatoire, jamais noir pur), plans de profondeur — */
-  --bg:            #0A0E16;   /* champ, le plus profond */
-  --surface:       #121826;   /* cards (midground) */
-  --surface-hi:    #1A2234;   /* héros (foreground) */
-  --border:        rgba(255,255,255,.07);   /* hairline, jamais lourd */
+--bg:    #F9F6F3;   /* fond, papier warm */
+--panel: #F9F6F3;   /* cards (flat, pas d'élévation chromatique) */
+--ink:   #1A1814;   /* encre primaire warm-black */
+--ink2:  #3A352D;   /* encre secondaire */
+--steel: #7E7770;   /* texte tertiaire (caption, mono dim) */
+--line:  #E5E0DB;   /* hairline standard */
+--line2: #CFC7BF;   /* hairline marquée (séparateurs) */
+--line3: #B5ABA0;   /* bordure marquée (focus, outline TOP) */
 
-  /* — Encre (hiérarchie texte) — */
-  --ink:      #E8ECF4;   /* primaire */
-  --ink-dim:  #99A3B8;   /* secondaire */
-  --ink-faint:#5C6678;   /* tertiaire */
-
-  /* — Accents sémantiques — */
-  --live:     #3D8BFF;   /* bleu électrique : VIVANT uniquement */
-  --gold:     #C9A86A;   /* or pâle : highlight premium statique */
-  --titanium: #B8C0CC;   /* métal neutre, discret */
-  --up:       #3FB984;   /* P&L + */
-  --down:     #E5654B;   /* P&L - */
-  --warn:     #E0A33A;   /* vigilance */
-
-  /* — Rayon (angles arrondis) — */
-  --r-sm: 8px;  --r: 12px;  --r-lg: 16px;  --r-pill: 999px;
-
-  /* — Spacing (base 8, généreux) — */
-  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
-
-  /* — Échelle typo (ratio ~1.25), canonique — */
-  --t-caption:12px; --t-body:14px; --t-base:16px;
-  --t-h3:20px; --t-h2:28px; --t-h1:40px; --t-hero:56px;
-
-  /* — Polices — */
-  --font-mark: "Orbitron", sans-serif;              /* WORDMARK uniquement */
-  --font-ui:   "Satoshi", "Inter", system-ui, sans-serif;  /* tout le reste */
-  --font-num:  "Geist Mono", "IBM Plex Mono", monospace;   /* chiffres/tickers, tabular */
-
-  /* — Effets (sous discipline §1-2) — */
-  --grain:     .035;   /* opacité grain dark ; light = .018 max */
-  --glow:      0 0 24px rgba(61,139,255,.35);   /* VIVANT only */
-  --shadow:    0 8px 30px -14px rgba(0,0,0,.55); /* doux, froid, bas */
-  --glass-blur: 14px;  /* héros only, au-dessus du grain/radar */
-  --ease: cubic-bezier(.22,.61,.36,1);   /* sortie naturelle */
-}
+/* Accents print-grade */
+--acc:   #5F9A4D;   /* vert olive (positif, bullish) */
+--acc2:  #5F9A4D;   /* alias --acc */
+--bear:  #C24332;   /* oxblood (négatif, bearish) */
+--warn:  #C8862F;   /* ochre (vigilance) */
+--gold:  #D4A040;   /* OR — réservé strict, 1 spark / viewport max */
+--id:    #1A1814;   /* identité (= ink) */
 ```
 
+### 1.2 Palette midnight (`body.midnight`)
 
-## 4. Typographie (hiérarchie canonique)
+```css
+--bg:    #0E0D0B;   /* warm noir, jamais bleu */
+--panel: #16140F;
+--ink:   #F1ECE3;   /* ivoire sur noir */
+--ink2:  #CFC6B5;
+--steel: #8C8273;
+--line:  #2A2520;   --line2: #3D362E;   --line3: #5A5046;
+/* Accents adoucis pour le contraste sur fond noir */
+--acc: #9DC07F;   --bear: #DD6655;   --warn: #E5B05D;   --gold: #E0B85A;
+```
 
-| Niveau | Token | Police | Poids |
-|---|---|---|---|
-| Wordmark | — | `--font-mark` | 600 |
-| Titre section (H1/H2) | `--t-h1` / `--t-h2` | `--font-ui` | **700** |
-| Sous-section (H3) | `--t-h3` | `--font-ui` | 600 |
-| Corps | `--t-base` / `--t-body` | `--font-ui` | 450-500 |
-| Secondaire | `--t-caption` | `--font-ui` | 450, `--ink-dim` |
-| Chiffres / tickers | — | `--font-num` | 500, `tabular-nums` |
+### 1.3 Spacing (base 4, généreux)
 
-Règles : titres importants = +poids **et** +contraste ; secondaires = plus petits **et** atténués en couleur (pas que la taille). **Orbitron jamais hors wordmark** (largeur + faible hauteur d'x → date + illisible en titres FR). Chiffres en mono tabulaire → colonnes alignées, sensation instrument.
+```css
+--s1:4px; --s15:6px; --s2:8px; --s25:10px; --s3:12px;
+--s35:16px; --s4:20px; --s5:32px; --s6:52px;
+```
 
-Wordmark : `PRESAGE` en `--font-mark`, `Sentinel` en `--font-ui` 500 lettres espacées (caps), top-left.
+Padding card standard : `--s4` ou `--s5`. Gap entre rows : `--s2` à `--s35`. Section spacing : `--s5` à `--s6`.
 
-## 5. Cards & effets (sous discipline §1-2)
+### 1.4 Typographie tokens (NOUVEAUX — à ajouter en CSS)
 
-- Rayon `--r-lg` (16px), padding `--s5`+ (généreux), bordure `--border` hairline. **Pas** de bordure marquée.
-- Profondeur : `--shadow` doux OU inner-glow léger — **jamais les deux** sur la même carte.
-- Glassmorphism (`backdrop-filter: blur(var(--glass-blur))` + surface @70 %) : **1-2 cards héros seulement**, posées sur le grain/radar.
-- Gradients : froids, dans ~8 % de variation de luminosité, sur headers / barres de progression uniquement.
-- Glow / bloom : `--glow`, **vivant uniquement**.
-- Hover : `translateY(-2px)` + bord qui s'éclaircit ; glow réservé au vivant.
+```css
+/* Échelle ratio ~1.2, base 14px */
+--t-caption: 12px;   /* labels secondaires, axe */
+--t-body:    14px;   /* corps standard (DEFAULT) */
+--t-base:    15px;   /* corps lisibilité ++ */
+--t-h3:      18px;   /* titre de block (colhead) */
+--t-h2:      24px;   /* titre de section (phead) */
+--t-h1:      32px;   /* titre de page */
+--t-hero:    44px;   /* hero number (KPI principal) */
+```
 
-## 6. Grain & light mode
+**Important** : aujourd'hui plein de `font-size: 10px / 11px / 13px` inline. À migrer progressivement vers ces tokens. **Toute nouvelle écriture utilise les tokens.**
 
-Grain : overlay SVG turbulence, `opacity: var(--grain)`. **Light mode : .018 max** + vérifier le contraste texte (le grain sur fond clair mange la lisibilité). Light tokens : `--bg:#F4F6FB; --surface:#FFFFFF; --surface-hi:#FFFFFF; --border:rgba(10,14,22,.08); --ink:#0E1422; --ink-dim:#51607A; --ink-faint:#8A94A8;` accents identiques.
+### 1.5 Rayon + ombre
 
-## 7. Motion (un seul moment orchestré)
+```css
+--r-sm: 4px;  --r: 6px;  --r-lg: 10px;  --r-pill: 999px;
+--elev: none;            /* PAS de box-shadow par défaut */
+--ease: cubic-bezier(.22,.61,.36,1);
+```
 
-- **Chargement** : reveal en cascade (`animation-delay` échelonné, `--ease`), une fois. C'est LE moment.
-- **Ambiant** : un sweep radar lent en fond (géométrie dérivée du rune ᚺ), ~8-12 s/tour, quasi-invisible.
-- Pas de pile d'animations. 60 fps, courbes `--ease`. Le micro-pulse `--live` est la seule micro-interaction (sur le vivant).
-
-## 8. Icônes & langue
-
-- Icônes : **Lucide, stroke 1.5px**, cohérentes partout. Jamais remplies.
-- Langue : **français canonique** sur toute string UI (labels, sections, tooltips, états).
+Cards = border 1px hairline `--line`. **Jamais de drop-shadow.** Élévation = contraste de bordure (`--line2` / `--line3`), pas d'effet d'ombre.
 
 ---
 
-## Identité ᚺ (le rare)
+## 2. Polices
 
-Le rune devient géométrie UX : son angle = la forme du sweep radar et du loading state. Dosé — pas « chaque séparateur est un rune ». Logo et dashboard = même système nerveux (mêmes angles, arcs, rythmes).
+| Usage | Police | Poids | Token |
+|---|---|---|---|
+| Wordmark PRESAGE | Geist | 200 (hairline) | `--font-mark` |
+| Tout texte UI | Geist | 400-500 (corps), 600 (titres) | `--font-ui` |
+| Chiffres / tickers | Geist Mono `tabular-nums` | 500 | `--font-num` |
+
+Règles :
+- **Pas d'Orbitron** (ancien doc). Geist couvre tout.
+- Chiffres = TOUJOURS `--font-num` + `tabular-nums` (colonnes qui s'alignent).
+- Titres : +poids ET +contraste (pas que la taille). Secondaires : +petits ET `--steel` (pas que la taille).
+
+---
+
+## 3. Composants canoniques
+
+### 3.1 Card
+
+```html
+<div class="card pad">…</div>
+```
+
+Padding `--s4`/`--s5`, border 1px `--line`, `border-radius: --r-lg`, `--bg`/`--panel` fond, **pas d'ombre**. Hover : aucun effet sauf si action cliquable (translateY -1px + border `--line2`).
+
+### 3.2 Axis + needle (CANONIQUE)
+
+Pattern unique pour TOUTE barre de progression / position dans une plage :
+
+```html
+<div class="axis">
+  <div class="axis-mark" style="left:42.3%"
+       title="42.3% (valeur exacte au hover)"></div>
+</div>
+```
+
+**Règles dures** :
+- `.axis-mark` = needle 4-points losange concave, **noir (light) / blanc (midnight) PARTOUT**. Pas de variante sémantique colorée par défaut.
+- L'info danger/safe passe par le **gradient sous-jacent** de `.axis` (red→neutral→green selon le sens) ou par un **tag séparé**, pas par la couleur du needle.
+- **`title="X.X%"` OBLIGATOIRE** = valeur exacte au hover. Toutes les barres doivent répondre à "quelle est la valeur exacte ?" instantanément.
+
+Cf [[needle-canonical]] memory pour l'arc d'itération.
+
+### 3.3 Horizontal bars list (proportions)
+
+Pour TOUTE viz de répartition / part / concentration : **horizontal bars list**, JAMAIS donut/camembert/radial.
+
+```
+[dot color] [label]  [───── fill proportionnel ─────]  [%.X%]  [valeur]
+```
+
+Trié desc par valeur. Bar height fine (4px), `border-radius: 2px`. Cf [[viz-horizontal-bars]] memory.
+
+### 3.4 Ticker badge
+
+```html
+<span class="tk tkc" data-tk="AAPL">AAPL</span>
+```
+
+`tabular-nums`, padding `--s1 --s15`, border `--line`, `--font-num`. Click ouvre drill ticker (data-tk).
+
+### 3.5 Tags sémantiques (couleur = fait, pas jugement)
+
+```html
+<span class="tag acc">+5.2%</span>     <!-- gain mesuré -->
+<span class="tag bear">-3.8%</span>    <!-- perte mesurée -->
+<span class="tag warn">stale 14j</span><!-- état dégradé factuel -->
+<span class="tag calm">live</span>     <!-- état sain factuel -->
+```
+
+Pas de tag rouge "AVERTISSEMENT" ou vert "BIEN". Toujours une donnée mesurée derrière.
+
+---
+
+## 4. États canoniques (zéro état cassé)
+
+Tout composant qui charge ou agrège des données DOIT designer 4 états :
+
+| État | HTML | Style | Quand |
+|---|---|---|---|
+| **Loading** | `<div class="loading">…</div>` | skeleton shimmer mat 200ms, pas spinner | requête en vol |
+| **Vide** | `<div class="empty">aucun X sur Y</div>` | `--steel`, padding `--s4`, texte précis (pas "no data") | requête OK, résultat vide |
+| **Stale** | `<span class="tag warn">stale Xh</span>` + valeur grise | tag explicite à côté de la valeur (pas écran rouge) | cache > TTL ou source dégradée |
+| **Erreur** | `<div class="empty">Requête à ajuster <span class="mono">TypeName: msg</span></div>` | mono pour le type, message court | exception caught |
+
+**Règle absolue** : jamais un état blanc / "—" / vide sans label. Toujours dire ce qu'on attendait + ce qui s'est passé.
+
+---
+
+## 5. Ergonomie (precisions partout)
+
+### 5.1 Tooltip valeur exacte au hover
+
+Toute info numérique compressée (barre, jauge, badge) DOIT exposer la valeur exacte via `title="X.XX"`. Le user qui survole sait précisément, le user qui survole pas voit la forme.
+
+### 5.2 Descriptions complètes, pas tronquées avec "..."
+
+Bannir les `text[:N] + "..."` pour les descriptions d'entreprise / signaux / theses dans les vues de DÉTAIL. La troncature reste OK pour les LISTES denses (résumé en row) — mais le détail doit être complet.
+
+### 5.3 Navigation clavier
+
+- `Tab` cycle les éléments interactifs (cards, ticker badges, boutons).
+- `Enter` active l'élément focalisé.
+- `Esc` ferme les overlays / drills.
+- `focus-visible` : outline `--line3`, jamais effet glow.
+
+### 5.4 Single reading model
+
+Une métaphore visuelle par axe, appliquée partout. Exemple : axe stop→cible avec needle à la position du prix = même grammaire pour "proche cible" et "proche stop", lue une fois, valable deux fois.
+
+---
+
+## 6. Voice / copy (français canonique)
+
+- **Français impersonnel** (no tutoiement, no anglicismes : "haut rendement" pas "junk bonds", "largeur du marché" pas "breadth").
+- **Impératif sec** ("laisser courir", "tenir le cap"), pas coach-bro ("execute ton plan").
+- **Densité par signes typographiques** : `marge < 12%` plutôt que "moins de 12% de marge".
+- **Termes canoniques** : "Première ligne" / "En gain" / "Marges faibles" / "Dérogation" / "Non-action documentée".
+
+Cf glossaire 5 axes ([[glossaire-canonique]]) pour les axes user-facing : Solidité / Pari / Doublon / Santé / Calibrage + notes Construction / Fragilité.
+
+---
+
+## 7. Règles d'or (anti-amateur, anti-AI-generic)
+
+1. **Zéro style inline ad-hoc** au-delà de positionnement strict (`left:X%` ok ; `font-size:10px` non — utiliser tokens).
+2. **Couleur = fait, jamais jugement.** Le marker reste neutre, la sémantique vient du gradient/tag.
+3. **Un seul élément vivant** par viewport (or `--gold` ou anim subtle). Si tout brille, rien ne brille.
+4. **Pas de drop-shadow.** Élévation = bordure, pas effet.
+5. **Pas de donut/camembert.** Horizontal bars list pour proportions.
+6. **Pas d'Orbitron / sans-serif déco.** Geist couvre tout.
+7. **Valeur exacte au hover** sur tout chiffre compressé.
+8. **Densité honnête > vernis.** Bloomberg-dense, Linear-clean.
+9. **Toujours en français impersonnel canonique.**
+10. **Chaque état designé.** Loading / vide / stale / erreur. Jamais un blanc anonyme.
+
+---
+
+## 8. Process
+
+- Modification d'un token → coordonner light + midnight (jamais l'un sans l'autre).
+- Nouveau composant → vérifier qu'il consomme tokens + respecte règles d'or AVANT merge.
+- Audit régulier : `grep "style=\"font-size:" dashboard/render.py` doit décroître. Idem `background:` (sauf gradients axis), `color:` (sauf `var(--…)`).
+- Refonte structurelle → tag git `pre-{topic}-{YYYYMMDD}` AVANT (rollback safety).
+
+## 9. Références
+
+- Memory [[presage-brand]] : brand identity 28/05 (parchemin + Geist + DNA signal-subtil)
+- Memory [[needle-canonical]] : axis-mark noir/blanc dur, arc 6 commits
+- Memory [[viz-horizontal-bars]] : horizontal bars > donut, arc 5+ commits
+- Memory [[glossaire-canonique]] : 5 axes user-facing
+- ADR-001 : PIT bitemporal credibility ledger
+- ADR-003 : Portfolio targets PIT multi-account
