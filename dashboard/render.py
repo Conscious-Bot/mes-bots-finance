@@ -3011,8 +3011,10 @@ def _tape_8k() -> str:
     for tk, sev, reason, codes, _filed in rows:
         cls = sevcls.get(str(sev).upper(), "")
         raw = (str(reason) or str(codes)) or ""
-        lab = raw if len(raw) <= 40 else raw[:40].rsplit(" ", 1)[0] + "&hellip;"
-        items += f'<span class="ti"><b>{tk}</b> <span class="{cls}">8-K</span> {lab}</span>'
+        # E4 craft 31/05 : retrait truncature "..." -- 1/3 des news etaient
+        # coupees, lisibilite degradee. Le ticker scrolle horizontal de toute
+        # facon, longueur libre. Title= en bonus si CSS overflow cache encore.
+        items += f'<span class="ti" title="{raw}"><b>{tk}</b> <span class="{cls}">8-K</span> {raw}</span>'
     return f'<div class="tape tape8k"><div class="track2">{items}{items}</div></div>'
 
 
@@ -5013,10 +5015,7 @@ def render() -> Path:
     elan, near_t = _elan_watch(computed)
     body = (
         f'<aside class="sidebar" role="complementary" aria-label="Barre laterale"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
-        f'{_NAV}<div class="foot">{_rail_foot(near, heat)}'
-        f'<span class="mono" style="font-size:10px;opacity:.65;padding:0 var(--s2)" title="dashboard regen 60s ; prix cache TTL 30min ; FX cache TTL 4h"'
-        f'>maj&nbsp;{stamp} &middot; prix &le;30min</span>'
-        f"{_fx_status_label_html()}"
+        f'{_NAV}<div class="foot">'
         f'{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
