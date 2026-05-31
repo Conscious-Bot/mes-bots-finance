@@ -232,7 +232,9 @@ def _kpi_timer_section():
         row = query(
             conn,
             "SELECT COUNT(*) AS n FROM predictions "
-            "WHERE resolved_at IS NULL AND target_date <= date('now', '+28 days')",
+            "WHERE resolved_at IS NULL "
+            "AND methodology_version != 'v0' "
+            "AND target_date <= date('now', '+28 days')",
             tag="morning_brief.predictions_due_in_window",
             fetch="one",
         )
@@ -249,7 +251,8 @@ def _kpi_timer_section():
         result["resolved_30d"] = int(row["n"]) if row and row["n"] else 0
         row = query(
             conn,
-            "SELECT MIN(target_date) AS earliest FROM predictions WHERE resolved_at IS NULL",
+            "SELECT MIN(target_date) AS earliest FROM predictions "
+            "WHERE resolved_at IS NULL AND methodology_version != 'v0'",
             tag="morning_brief.earliest_unresolved_target",
             fetch="one",
         )
