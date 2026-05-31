@@ -4695,18 +4695,8 @@ def render() -> Path:
         positions, _conv_tk, _CFG.get("concentration", {}).get("line_cap_by_conviction", {}), pnl
     )
 
-    disc_hero = (
-        '<div class="hero posture"><div class="hl">Cockpit &mdash; lecture m&eacute;canique, non prescriptive</div><div class="plan-row">'
-        + _pi(
-            len(over_cap_tk),
-            over_cap_tk,
-            "au-dessus du cap &middot; all&eacute;ger sans sortir",
-            "danger" if over_cap_tk else "calm",
-        )
-        + _pi(len(near_tgt_tk), near_tgt_tk, "candidat(s) prise de profit", "warn" if near_tgt_tk else "calm")
-        + _pi(len(near_stop_tk), near_stop_tk, "marge(s) faible(s)", "danger" if near_stop_tk else "calm")
-        + "</div></div>"
-    )
+    # disc_hero (Cockpit posture hero) retire 31/05 user feedback
+    # _pi() helper toujours utilise par d'autres panneaux (.plan etc.)
 
     tape_items = ""
     for tk, p in sorted(pnl.items(), key=lambda x: -x[1]):
@@ -4762,22 +4752,15 @@ def render() -> Path:
 
     gain = "".join(_axisrow(tk) for tk in _cibles) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
     lose = "".join(_axisrow(tk) for tk in _stops) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
-    cockpit_html = (
-        '<div class="card pad" style="margin-bottom:var(--s4)">'
-        '<div class="colhead">'
-        '<span class="t">Cockpit discipline</span>'
-        '<span class="a">lecture en continu &middot; rouge = &agrave; traiter</span>'
-        "</div>" + _cockpit() + "</div>"
-    )
+    # cockpit_html (Cockpit discipline panel) retire 31/05 user feedback
+    # _cockpit() helper toujours dispo si reactivation future
     grade_html = _grade_panel()
     blind_html = _blind_positions_panel()
     copilot_html = _copilot_panel()
     chat_html = _chat_panel()
-    # V2 panels (ajoutes 30/05 nuit -- visibilite arc V2)
-    v2_cohort_html = _v2_cohort_panel()
-    wire_activity_html = _wire_activity_panel()
-    vigilance_html = _vigilance_panel()
-    calib_progress_html = _calibration_progress_panel()
+    # V2 monitoring panels retires 31/05 user feedback (code backend conserve,
+    # alertes Telegram via cron weekly prennent le relais)
+    # v2_cohort_html / wire_activity_html / vigilance_html / calib_progress_html
     # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
     conversations_html = _conversations_panel()
     chat_signals_html = _chat_signals_panel()
@@ -4790,7 +4773,6 @@ def render() -> Path:
     spof_html = _spof_panel()
     mauboussin_html = _mauboussin_sizing_panel()
     valo_html = _valo_above_bull_panel()
-    kill_html = _kill_criteria_panel()
     wrapper_html = _wrapper_panel()
     bench_html = _benchmark_panel()
     vigie = (
