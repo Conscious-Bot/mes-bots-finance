@@ -255,6 +255,7 @@ def _kpi_compute_all():
     r2 = conn.execute(
         "SELECT COUNT(*) AS resolved_28d FROM predictions "
         "WHERE resolved_at IS NOT NULL AND outcome != 'neutral' "
+        "AND methodology_version != 'v0' "
         "AND resolved_at >= datetime('now', '-28 days')"
     ).fetchone()
     open_pred = conn.execute("SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL").fetchone()["n"]

@@ -103,6 +103,7 @@ def _get_resolved_predictions(cx, days: int | None = None) -> list[dict]:
             "WHERE resolved_at IS NOT NULL "
             "AND brier_score IS NOT NULL "
             "AND probability_at_creation IS NOT NULL "
+            "AND methodology_version != 'v0' "
             "AND resolved_at >= datetime('now', ?) "
             "ORDER BY resolved_at DESC"
         )
@@ -115,6 +116,7 @@ def _get_resolved_predictions(cx, days: int | None = None) -> list[dict]:
             "WHERE resolved_at IS NOT NULL "
             "AND brier_score IS NOT NULL "
             "AND probability_at_creation IS NOT NULL "
+            "AND methodology_version != 'v0' "
             "ORDER BY resolved_at DESC"
         )
         rows = cx.execute(sql).fetchall()
@@ -243,6 +245,7 @@ def check_scorer_calibration(cx, days: int | None = None) -> dict[str, Any]:
 if __name__ == "__main__":
     # Manual invocation : python3 -m intelligence.calibration_audit
     import sqlite3
+
     from shared.storage import DB_PATH
 
     cx = sqlite3.connect(DB_PATH)

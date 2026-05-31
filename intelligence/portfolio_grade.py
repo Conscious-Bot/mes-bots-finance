@@ -141,7 +141,8 @@ def _fetch_state(months_brier_window: int = 6) -> dict:
         bw_start = (datetime.now(UTC) - timedelta(days=months_brier_window * 30)).isoformat()
         pred_rows = cx.execute(
             "SELECT ticker, brier_score FROM predictions "
-            "WHERE resolved_at IS NOT NULL AND resolved_at >= ? AND brier_score IS NOT NULL",
+            "WHERE resolved_at IS NOT NULL AND resolved_at >= ? AND brier_score IS NOT NULL "
+            "AND methodology_version != 'v0'",
             (bw_start,),
         ).fetchall()
         state["predictions_resolved"] = [{"ticker": r[0], "brier": r[1]} for r in pred_rows]
