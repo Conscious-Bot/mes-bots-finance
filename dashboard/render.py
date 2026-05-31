@@ -3647,26 +3647,9 @@ _NAV = (
     '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div></nav>'
 )
 
+_TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
+
 _CSS = """
-  :root {
-    /* Tokens font-size canoniques (charte DESIGN_SYSTEM §1.4). Base 15px.
-       Ratio ~1.2. Bumpees +1-2px user feedback 31/05 ("legerement plus grand").
-       Toute nouvelle ecriture utilise ces tokens, pas font-size inline. */
-    --t-caption:13px; --t-body:15px; --t-base:16px;
-    --t-h3:20px; --t-h2:26px; --t-h1:34px; --t-hero:46px;
-    --bg:#F9F6F3; --panel:#F9F6F3; --line:#E5E0DB; --line2:#CFC7BF; --line3:#B5ABA0; --ink:#1A1814; --ink2:#3A352D; --steel:#7E7770; --metal:#7E7770;
-    /* Accents Voie 1 polish 31/05 — saturation +20-30% vs print-grade vintage */
-    --acc:#5F9A4D; --acc2:#5F9A4D; --id:#1A1814; --bear:#C24332; --warn:#C8862F; --gold:#D4A040;
-    --fd:"Geist",ui-sans-serif,system-ui,sans-serif; --fb:"Geist",ui-sans-serif,system-ui,sans-serif; --fm:"Geist Mono",ui-monospace,SFMono-Regular,monospace; --fo:"Geist",ui-sans-serif,sans-serif;
-    --elev:none;
-    --glass:rgba(249,246,243,.92); --glass2:rgba(249,246,243,.88); --tape:rgba(249,246,243,.96); --barbg:#EDE8E2;
-    --r1:4px; --r2:8px; --r3:12px;
-    --s1:4px; --s15:6px; --s2:8px; --s25:10px; --s3:12px; --s35:16px; --s4:20px; --s5:32px; --s6:52px; }
-  body.midnight { --bg:#0E0D0B; --panel:#16140F; --line:#2A2520; --line2:#3D362E; --line3:#5A5046; --ink:#F1ECE3; --ink2:#CFC6B5; --steel:#8C8273; --metal:#8C8273;
-    /* Dark accents Voie 1 polish : variants vifs sur fond sombre, lisibilité maintenue */
-    --acc:#9DC07F; --acc2:#9DC07F; --id:#F1ECE3; --bear:#DD6655; --warn:#E5B05D; --gold:#E0B85A;
-    --elev:0 12px 32px -18px rgba(0,0,0,.65);
-    --glass:rgba(22,20,15,.85); --glass2:rgba(14,13,11,.7); --tape:rgba(14,13,11,.9); --barbg:#1F1C18; }
   * { box-sizing:border-box; }
   /* Accessibility focus-visible (keyboard nav). Polish DA 31/05.
      - Suppress browser default outline-on-click (ugly, non-keyboard)
@@ -5304,6 +5287,7 @@ def render() -> Path:
         '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
         '<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100;200;300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">'
         "<style>"
+        + _TOKENS_CSS
         + _CSS
         + "</style></head><body>"
         + body

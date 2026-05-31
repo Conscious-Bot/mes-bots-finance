@@ -1,0 +1,116 @@
+/* ============================================================
+   TOKENS PRESAGE — couche unique de design system
+   ============================================================
+   Source unique des tokens consommes par dashboard/render.py _CSS.
+   Charte canonique : docs/DESIGN_SYSTEM.md (§1-3).
+
+   Decide UNE fois. Tout le reste herite. Changer le feel = changer
+   les tokens, pas reecrire les composants.
+
+   Sections :
+   1. PALETTE       light + midnight
+   2. ENCRE         3 niveaux + steel
+   3. ACCENTS       acc / bear / warn / gold (semantiques)
+   4. FILETS        line / line2 / line3
+   5. TYPOGRAPHIE   font-family + font-size scale 1.2 ratio
+   6. ESPACEMENT    s1 -> s6 base 4
+   7. RAYONS        r1 / r2 / r3
+   8. SURFACES      glass / tape / bar (rgba)
+   9. MOTION        ease canonical cubic-bezier
+   ============================================================ */
+
+:root {
+  /* --- 1. PALETTE -- parchemin warm (default light) -------------- */
+  --bg:    #F9F6F3;
+  --panel: #F9F6F3;
+
+  /* --- 2. ENCRE -- 3 niveaux + neutre dim ------------------------ */
+  --ink:   #1A1814;   /* primaire warm-black */
+  --ink2:  #3A352D;   /* secondaire */
+  --steel: #7E7770;   /* caption / mono dim / verdicts */
+  --metal: #7E7770;   /* alias --steel pour back-compat */
+  --id:    #1A1814;   /* identite (= ink), pour focus / accent neutre */
+
+  /* --- 3. ACCENTS semantiques (couleur = fait, rare, charte §7.2)
+     Voie 1 polish 31/05 -- saturation +20-30% vs print-grade vintage. */
+  --acc:   #5F9A4D;   /* vert olive : positif / bullish / OK */
+  --acc2:  #5F9A4D;   /* alias acc */
+  --bear:  #C24332;   /* oxblood : negatif / bearish / ALERT */
+  --warn:  #C8862F;   /* ochre : vigilance / WARN */
+  --gold:  #D4A040;   /* OR : reserve 1 spark / viewport (charte §7.3) */
+
+  /* --- 4. FILETS -- hairlines uniquement (charte §1.5 + §7.4) ---- */
+  --line:  #E5E0DB;   /* hairline standard cards */
+  --line2: #CFC7BF;   /* separateur marquee */
+  --line3: #B5ABA0;   /* bordure focus / outline TOP */
+
+  /* --- 5. TYPOGRAPHIE -------------------------------------------- */
+  /* Fonts : Geist universel (charte §2), Geist Mono pour TOUS chiffres */
+  --fd: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --fb: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --fm: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --fo: "Geist", ui-sans-serif, sans-serif;
+  /* Font-size scale -- base 15px, ratio ~1.2. Charte §1.4.
+     Toute nouvelle ecriture utilise ces tokens, pas font-size:Npx inline. */
+  --t-caption: 13px;
+  --t-body:    15px;
+  --t-base:    16px;
+  --t-h3:      20px;
+  --t-h2:      26px;
+  --t-h1:      34px;
+  --t-hero:    46px;
+
+  /* --- 6. ESPACEMENT -- base 4, genereux -------------------------- */
+  --s1:  4px;
+  --s15: 6px;
+  --s2:  8px;
+  --s25: 10px;
+  --s3:  12px;
+  --s35: 16px;
+  --s4:  20px;
+  --s5:  32px;
+  --s6:  52px;
+
+  /* --- 7. RAYONS -------------------------------------------------- */
+  --r1: 4px;
+  --r2: 8px;
+  --r3: 12px;
+
+  /* --- 8. SURFACES translucides (charte §5) ----------------------- */
+  --elev:  none;    /* PAS de box-shadow par defaut (charte §1.5) */
+  --glass:  rgba(249, 246, 243, .92);
+  --glass2: rgba(249, 246, 243, .88);
+  --tape:   rgba(249, 246, 243, .96);
+  --barbg:  #EDE8E2;
+
+  /* --- 9. MOTION -- ease canonique unique (charte §7) ------------ */
+  --ease: cubic-bezier(.22, .61, .36, 1);
+}
+
+/* ============================================================
+   MIDNIGHT (mode sombre) -- ivoire sur noir warm, jamais bleu
+   ============================================================ */
+body.midnight {
+  --bg:    #0E0D0B;   /* warm noir */
+  --panel: #16140F;
+  --ink:   #F1ECE3;   /* ivoire */
+  --ink2:  #CFC6B5;
+  --steel: #8C8273;
+  --metal: #8C8273;
+  --line:  #2A2520;
+  --line2: #3D362E;
+  --line3: #5A5046;
+  /* Accents adoucis pour contraste sur fond sombre (Voie 1 polish 31/05) */
+  --acc:   #9DC07F;
+  --acc2:  #9DC07F;
+  --id:    #F1ECE3;
+  --bear:  #DD6655;
+  --warn:  #E5B05D;
+  --gold:  #E0B85A;
+  /* Dark mode = elevation legere autorisee (texture profondeur) */
+  --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
+  --glass:  rgba(22, 20, 15, .85);
+  --glass2: rgba(14, 13, 11, .7);
+  --tape:   rgba(14, 13, 11, .9);
+  --barbg:  #1F1C18;
+}
