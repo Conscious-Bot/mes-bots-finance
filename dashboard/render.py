@@ -2202,25 +2202,20 @@ def _chat_panel() -> str:
         'function chatEsc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}'
         'function chatPersist(){try{localStorage.setItem("presage_chat_log",JSON.stringify(window._chatHistory.slice(-40)));}catch(e){}}'
         'function chatAppend(role,text){const log=document.getElementById("chat-log");const div=document.createElement("div");div.className="chat-msg chat-"+role;div.innerHTML=chatEsc(text).replace(/\\n/g,"<br>");log.appendChild(div);log.scrollTop=log.scrollHeight;}'
-        # Au load : restaurer messages + draft textarea + brancher save-on-input
-        'function chatRestore(){const log=document.getElementById("chat-log");if(log){window._chatHistory.forEach(m=>{if(m.role&&m.content)chatAppend(m.role,m.content);});}'
-        'const ta=document.getElementById("chat-input");if(ta){'
+        # Au load : init draft textarea + brancher save-on-input + idle timer.
+        # chatRestore() RETIRE A LA SOURCE (user feedback 31/05 wave 14 :
+        # "il faut regler ce genre de problemes a la source direct").
+        # localStorage = strictement fenetre contexte LLM (histSend slice -10),
+        # JAMAIS reaffiche au DOM. Le chat-log se rempli uniquement quand le
+        # user envoie un message.
+        'function chatInit(){const ta=document.getElementById("chat-input");if(ta){'
         'const draft=localStorage.getItem("presage_chat_draft")||"";if(draft)ta.value=draft;'
         'ta.addEventListener("input",function(){try{localStorage.setItem("presage_chat_draft",ta.value);}catch(e){}resetChatIdleTimer();});}'
-        # Sprint 21 : auto-clear chat-log apres inactivite
-        # 31/05 wave 6 : 7min -> 2min (user feedback "fenetre s'efface plus
-        # rapidement"). Historique en DB + localStorage preserve.
-        # (l'historique reste en DB + localStorage, juste le DOM est vide visuellement)
         'startChatIdleTimer();}'
-        'function clearChatDisplay(){const log=document.getElementById("chat-log");if(!log)return;log.innerHTML="";const m=document.createElement("div");m.className="chat-msg chat-idle-clear";m.textContent="Affichage efface apres 7min pour laisser le chat neuf. Historique preserve en DB. Tape une question pour relancer.";log.appendChild(m);}'
+        'function clearChatDisplay(){const log=document.getElementById("chat-log");if(!log)return;log.innerHTML="";}'
         'function startChatIdleTimer(){if(window._chatIdleTimer)clearTimeout(window._chatIdleTimer);window._chatIdleTimer=setTimeout(clearChatDisplay,420000);}'
         'function resetChatIdleTimer(){startChatIdleTimer();}'
-        # chatRestore() retire de l'auto-invocation au load (user feedback
-        # 31/05 : "le chat cest reaffiche il faut qu il se supprime de l ecran").
-        # L'historique reste en DB + localStorage (window._chatHistory pour
-        # histSend), seul le DOM chat-log reste vide au reload jusqu'a ce
-        # que user tape.
-        '(function(){})();'
+        '(function(){if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",chatInit);}else{chatInit();}})();'
         'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
         'chatAppend("user",msg);ta.value="";try{localStorage.removeItem("presage_chat_draft");}catch(e){}'
         'const histSend=window._chatHistory.slice(-10);'
