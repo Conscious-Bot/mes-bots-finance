@@ -138,6 +138,7 @@ from bot.jobs import (
     score_pending_signals_job,
     update_echo_clusters_job,
     weekly_bot_conceptions_synthesis_job,
+    weekly_calibration_audit_job,
     weekly_cost_summary_job,
     weekly_data_clusters_synthesis_job,
     weekly_handler_stats_job,
@@ -231,6 +232,8 @@ async def post_init(app):
     sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=0)
     # V2 vigilances : check hebdo lundi 7h, push Telegram UNIQUEMENT si ALERT/WARN
     sched.add_job(weekly_v2_vigilance_check_job, "cron", day_of_week="mon", hour=7, minute=0)
+    # Calibration audit scorer V2 : check hebdo dimanche 22h, push Telegram si transition status notable
+    sched.add_job(weekly_calibration_audit_job, "cron", day_of_week="sun", hour=22, minute=0)
     sched.add_job(monthly_bot_preferences_synthesis_job, "cron", day=1, hour=4, minute=0, misfire_grace_time=86400)
     sched.add_job(cron_tier1_daily, "cron", hour=6, minute=0)
     sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)

@@ -40,6 +40,7 @@ from bot.jobs.intervals import (
 from bot.jobs.periodic import (
     recalibrate_credibility_brier_job,
     refresh_source_half_lives_job,
+    weekly_calibration_audit_job,
     weekly_cost_summary_job,
     weekly_handler_stats_job,
     weekly_kpi_status_job,
@@ -75,6 +76,7 @@ __all__ = [
     "score_pending_signals_job",
     "update_echo_clusters_job",
     "weekly_bot_conceptions_synthesis_job",
+    "weekly_calibration_audit_job",
     "weekly_cost_summary_job",
     "weekly_data_clusters_synthesis_job",
     "weekly_handler_stats_job",

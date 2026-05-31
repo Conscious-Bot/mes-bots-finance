@@ -116,6 +116,84 @@ async def weekly_v2_vigilance_check_job():
         log.exception(f"weekly_v2_vigilance_check_job crashed: {e}")
 
 
+async def weekly_calibration_audit_job():
+    """Cron weekly : check calibration_audit scorer V2 (reliability + Brier moyen).
+
+    Push Telegram UNIQUEMENT si :
+    - status devient != INSUFFICIENT_DATA pour la 1ere fois (= seuil n>=30 atteint, premier verdict)
+    - status change vs precedent run (ex: OK -> WARN, INSUFFICIENT_DATA -> ALERT)
+    - status reste ALERT (rappel chaque semaine tant que pas resolu)
+
+    Etat persiste dans data/calibration_last_status.txt (= simple texte, 1 ligne).
+    Pas de spam si tout sain ou si toujours INSUFFICIENT_DATA stable.
+
+    Cf intelligence/calibration_audit.py + CONVENTIONS section "Discipline statistique".
+    Aligne pattern weekly_v2_vigilance_check_job (silent-success).
+    """
+    log.info("Calibration audit check starting")
+    try:
+        import sqlite3
+        from pathlib import Path
+        from intelligence import calibration_audit
+        from shared import storage as _stg
+
+        cx = sqlite3.connect(_stg.DB_PATH)
+        cx.row_factory = sqlite3.Row
+        result = calibration_audit.check_scorer_calibration(cx)
+        cx.close()
+
+        current_status = result["status"]
+        n_total = result.get("n_total", 0)
+        log.info(f"calibration_audit status={current_status} n={n_total}")
+
+        # Read last status (state file simple texte 1 ligne)
+        state_file = Path(__file__).resolve().parent.parent.parent / "data" / "calibration_last_status.txt"
+        last_status = state_file.read_text().strip() if state_file.exists() else None
+
+        # Decide if push Telegram (anti-spam : seulement transitions notables)
+        should_push = False
+        push_reason = ""
+        if current_status == "ALERT":
+            should_push = True
+            push_reason = "ALERT persistant ou nouvelle alerte"
+        elif current_status != last_status:
+            if last_status == "INSUFFICIENT_DATA" and current_status != "INSUFFICIENT_DATA":
+                should_push = True
+                push_reason = f"SEUIL n>=30 ATTEINT premier verdict={current_status}"
+            elif current_status in ("WARN", "ALERT"):
+                should_push = True
+                push_reason = f"status change {last_status} -> {current_status}"
+            elif last_status in ("WARN", "ALERT") and current_status == "OK":
+                should_push = True
+                push_reason = f"recovery {last_status} -> OK"
+
+        if should_push:
+            brier = result.get("avg_brier")
+            brier_str = f"{brier:.4f}" if brier is not None else "—"
+            max_gap = result.get("max_gap_pp", 0)
+            msg = (
+                f"📊 Calibration scorer V2 — {push_reason}\n"
+                f"Status: {current_status}\n"
+                f"N résolus: {n_total}\n"
+                f"Brier moyen: {brier_str}\n"
+                f"Max gap reliability: {max_gap:+.1f}pp\n\n"
+                f"{result.get('message', '')}"
+            )
+            try:
+                notify.send_text(msg)
+                log.info(f"calibration_audit telegram envoye : {push_reason}")
+            except Exception as e:
+                log.warning(f"calibration_audit: telegram send failed: {e}")
+        else:
+            log.info(f"calibration_audit : pas de push ({current_status} stable)")
+
+        # Persist current status
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        state_file.write_text(current_status)
+    except Exception as e:
+        log.exception(f"weekly_calibration_audit_job crashed: {e}")
+
+
 async def recalibrate_credibility_brier_job():
     """Phase A1 — Monthly cron: recalibrate sources.credibility from rolling Brier scores."""
     log.info("Brier credibility recalibration starting")

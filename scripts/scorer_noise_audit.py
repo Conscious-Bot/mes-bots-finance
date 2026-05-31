@@ -3,6 +3,12 @@
 
 Origine : Kahneman/Sibony/Sunstein "Noise" (2021) + audit harvest tennis-bot 31/05.
 
+Discipline applicable : voir CONVENTIONS.md section "Discipline statistique pour mesures
+de track-record" (5 regles obligatoires : dedup, Wilson CI, bootstrap CI, etc).
+
+Verdict actuel (run 31/05/2026, n=2 signaux x k=10 runs) : LOW_NOISE_single_run_OK
+(global mean std 0.0062). Pas de cron auto (verdict stable, run manuel trimestriel).
+
 3 types de noise (Noise book) :
 - level noise   : juges différents → résultats différents (= comparer Haiku vs Sonnet)
 - pattern noise : un juge → résultats différents pour cas similaires (= variance inter-cas)

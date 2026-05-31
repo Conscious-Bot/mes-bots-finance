@@ -1,5 +1,9 @@
 # Decision Log #XX — [titre court verbe-action]
 
+*Template canonique. Generer un nouveau decision_log via :*
+*`python3 scripts/new_decision_log.py "titre court"`*
+*Discipline statistique applicable : voir CONVENTIONS.md section "Discipline statistique".*
+
 **Date** : [DD mois YYYY]
 **Owner** : Olivier Legendre
 **Trigger** : [événement/contexte qui force la décision]

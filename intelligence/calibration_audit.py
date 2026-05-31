@@ -3,6 +3,15 @@
 Vigilance #4 (post tennis-bot audit harvest 31/05/2026) :
 "Quand le scorer dit 70%, ca realise reellement a 70% ?"
 
+Discipline applicable : voir CONVENTIONS.md section "Discipline statistique pour mesures
+de track-record" (5 regles obligatoires : dedup, Wilson CI, bootstrap CI, distinguer
+metrique-mesure vs business, reporting 7-items).
+
+Cron wire : bot/jobs/periodic.weekly_calibration_audit_job (dimanche 22h),
+push Telegram si transition status notable (INSUFFICIENT_DATA -> verdict, OK -> WARN, etc).
+
+Dashboard surface : dashboard/render.py _calibration_progress_panel() dans Bloc 4 vigie.
+
 S'active automatiquement quand on a >= MIN_N_TOTAL predictions resolved non-neutral.
 Trigger = DATA, pas DATE : pas de calendrier arbitraire, juste accumulation cohorte.
 
