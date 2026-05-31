@@ -3131,7 +3131,7 @@ def _tape_8k() -> str:
         # E4 craft 31/05 : retrait truncature "..." -- 1/3 des news etaient
         # coupees, lisibilite degradee. Le ticker scrolle horizontal de toute
         # facon, longueur libre. Title= en bonus si CSS overflow cache encore.
-        items += f'<span class="ti" title="{raw}"><b>{tk}</b> <span class="{cls}">8-K</span> {raw}</span>'
+        items += f'<span class="ti" title="{raw}"><span class="tk tkc" data-tk="{tk}">{tk}</span> <span class="{cls}">8-K</span> {raw}</span>'
     return f'<div class="tape tape8k"><div class="track2">{items}{items}</div></div>'
 
 
@@ -4927,7 +4927,7 @@ def render() -> Path:
     tape_items = ""
     for tk, p in sorted(pnl.items(), key=lambda x: -x[1]):
         cls = "pos" if p >= 0 else "neg"
-        tape_items += f'<span class="ti"><b>{tk}</b> <span class="{cls}">{"+" if p >= 0 else ""}{p:.1f}%</span></span>'
+        tape_items += f'<span class="ti"><span class="tk tkc" data-tk="{tk}">{tk}</span> <span class="{cls}">{"+" if p >= 0 else ""}{p:.1f}%</span></span>'
     tape = f'<div class="tape"><div class="track2">{tape_items}{tape_items}</div></div>'
     tape8k = _tape_8k()
 
@@ -5008,7 +5008,7 @@ def render() -> Path:
         f'<div class="pfcard" style="flex:1"><div class="hl">Valeur du portefeuille</div>'
         f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
         f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
-        f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
+        f'<div class="distline" title="r&eacute;partition lignes : {gpct:.0f}% en gain ({n_gain}) / {100 - gpct:.0f}% en perte ({n_pnl - n_gain})"><div class="g" style="width:{gpct:.0f}%" title="{gpct:.0f}% en gain &middot; {n_gain} lignes"></div><div class="r" style="width:{100 - gpct:.0f}%" title="{100 - gpct:.0f}% en perte &middot; {n_pnl - n_gain} lignes"></div></div>'
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>'
         f'{grade_html.replace("margin-bottom:var(--s4)", "flex:1").replace("gradecard", "gradecard").replace("class=\"card pad gradecard\"", "class=\"card pad gradecard\" style=\"flex:1\"") if "flex:1" not in grade_html else grade_html}'
