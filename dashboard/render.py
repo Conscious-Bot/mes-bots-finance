@@ -3418,10 +3418,11 @@ _NAV = (
 
 _CSS = """
   :root {
-    /* Tokens font-size canoniques (charte DESIGN_SYSTEM §1.4). Base 14px.
-       Ratio ~1.2. Toute nouvelle ecriture utilise ces tokens, pas font-size inline. */
-    --t-caption:12px; --t-body:14px; --t-base:15px;
-    --t-h3:18px; --t-h2:24px; --t-h1:32px; --t-hero:44px;
+    /* Tokens font-size canoniques (charte DESIGN_SYSTEM §1.4). Base 15px.
+       Ratio ~1.2. Bumpees +1-2px user feedback 31/05 ("legerement plus grand").
+       Toute nouvelle ecriture utilise ces tokens, pas font-size inline. */
+    --t-caption:13px; --t-body:15px; --t-base:16px;
+    --t-h3:20px; --t-h2:26px; --t-h1:34px; --t-hero:46px;
     --bg:#F9F6F3; --panel:#F9F6F3; --line:#E5E0DB; --line2:#CFC7BF; --line3:#B5ABA0; --ink:#1A1814; --ink2:#3A352D; --steel:#7E7770; --metal:#7E7770;
     /* Accents Voie 1 polish 31/05 — saturation +20-30% vs print-grade vintage */
     --acc:#5F9A4D; --acc2:#5F9A4D; --id:#1A1814; --bear:#C24332; --warn:#C8862F; --gold:#D4A040;
@@ -3474,7 +3475,7 @@ _CSS = """
   .sec-subwrap { display:flex; flex-direction:column; gap:var(--s1); }
   .sec-super .sec-grp.sub { margin:0; border-left:2px solid var(--line); border-radius:0 10px 10px 0; }
   .sec-super .sec-grp.sub .sec-name { font-family:var(--fd); font-weight:600; font-size:13px; color:var(--steel); letter-spacing:0; }
-  body { font-family:var(--fb); color:var(--ink); margin:0; display:flex; min-height:100vh; background:var(--bg); -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
+  body { font-family:var(--fb); font-size:var(--t-base); color:var(--ink); margin:0; display:flex; min-height:100vh; background:var(--bg); -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
   .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; position:sticky; top:0; align-self:flex-start; height:100vh; }
   .logo { display:flex; align-items:center; justify-content:center; margin-bottom:22px; padding:0; }
   .logo svg { width:66px; height:auto; color:var(--ink); }
@@ -4880,16 +4881,19 @@ def render() -> Path:
     vigie = (
         f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
-        # Hero simplifie (refonte 31/05) : pfcard SEULE (disc_hero retire user feedback)
-        f'<div class="hero-single">'
-        f'<div class="pfcard"><div class="hl">Valeur du portefeuille</div>'
+        # Hero refonte 31/05 : Valeur + Note du portefeuille sur MEME panneau
+        # (user feedback : "valeur du portefeuille et note du portefeuille sur
+        # meme panneaux"). Flex 2 colonnes, gap discret, alignement stretch.
+        # grade_html margin-bottom strip avant embed pour eviter double-gap.
+        f'<div class="hero-row" style="display:flex;gap:var(--s4);align-items:stretch;margin-bottom:var(--s4)">'
+        f'<div class="pfcard" style="flex:1"><div class="hl">Valeur du portefeuille</div>'
         f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
         f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         f'<div class="distline"><div class="g" style="width:{gpct:.0f}%"></div><div class="r" style="width:{100 - gpct:.0f}%"></div></div>'
         f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
-        f'<div class="sub2">{pf_cost_str}&euro; investi</div></div></div>'
-        # Note du portefeuille -- juste sous la valeur (hero)
-        f"{grade_html}"
+        f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>'
+        f'{grade_html.replace("margin-bottom:var(--s4)", "flex:1").replace("gradecard", "gradecard").replace("class=\"card pad gradecard\"", "class=\"card pad gradecard\" style=\"flex:1\"") if "flex:1" not in grade_html else grade_html}'
+        f'</div>'
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html remonte ici "a la place" pour acces direct copilot en haut de page)
