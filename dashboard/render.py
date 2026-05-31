@@ -4442,7 +4442,17 @@ _CSS = """
   .chatcard .chat-send:disabled { opacity:.5; cursor:default; }
   .chatcard .chat-foot { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:var(--s25); }
   .chatcard .chat-idle-clear { align-self:center; background:color-mix(in srgb,var(--steel) 8%,transparent); color:var(--steel); font-style:italic; font-size:12px; padding:var(--s2) 14px; }
-  .modetgl { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--r3); border:1px solid var(--line); background:transparent; color:var(--steel); cursor:pointer; transition:.15s; }
+  /* CANONIQUE 31/05 user feedback : "switch light/dark toujours visible
+     en bas a gauche". position:fixed garantit la visibilite quel que soit
+     le scroll, l'overflow sidebar, ou le viewport. z-index assez haut pour
+     passer devant tout sauf overlays loupe/modal. */
+  .modetgl { position:fixed; left:var(--s25); bottom:var(--s25); z-index:50;
+             display:flex; align-items:center; justify-content:center;
+             width:44px; height:44px; border-radius:var(--r3);
+             border:1px solid var(--line); background:var(--bg);
+             color:var(--steel); cursor:pointer; transition:.15s;
+             box-shadow:0 2px 8px -2px color-mix(in srgb, var(--ink) 8%, transparent); }
+  .modetgl:hover { color:var(--ink); border-color:var(--line2); }
   .foot .modetgl { margin-top:var(--s4); padding-top:0; }
   .foot::before { content:""; display:block; width:30px; height:1px; background:var(--line); margin:var(--s35) auto 4px; }
   .modetgl svg { width:20px; height:20px; }
