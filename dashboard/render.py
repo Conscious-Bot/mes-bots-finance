@@ -4942,7 +4942,11 @@ def render() -> Path:
     elan, near_t = _elan_watch(computed)
     body = (
         f'<aside class="sidebar" role="complementary" aria-label="Barre laterale"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
-        f'{_NAV}<div class="foot">{_rail_foot(near, heat)}<span class="dot" title="en veille &middot; maj {stamp}"></span>{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
+        f'{_NAV}<div class="foot">{_rail_foot(near, heat)}'
+        f'<span class="dot" title="en veille"></span>'
+        f'<span class="mono" style="font-size:10px;opacity:.65;padding:0 var(--s2)" title="dashboard regen 60s ; prix cache TTL 30min ; FX cache TTL 4h"'
+        f'>maj&nbsp;{stamp} &middot; prix &le;30min</span>'
+        f'{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
         + positions_pg
