@@ -2093,28 +2093,63 @@ def _track_record_panel() -> str:
     else:
         brier_cls, brier_verdict = "bear", "au-dessus du seuil"
 
+    # Axe taux correct : 0% -> 100%, marker = position actuelle
+    rate_frac = (n_corr / n * 100) if n else 0.0
+    # Axe Brier : 0 -> 0.5, marker = brier_mean, ligne ref a cible 0.20 (= 40%)
+    brier_frac = (brier_mean / 0.5 * 100) if brier_mean is not None else None
+    brier_target_x = 40.0  # 0.20 / 0.5
+    brier_marker = (
+        f'<div class="axis-mark" style="left:{min(99.0, brier_frac):.1f}%" title="Brier {brier_mean:.3f} sur 0&ndash;0,5"></div>'
+        if brier_frac is not None else ""
+    )
+    rate_pct = f"{n_corr/n:.0%}" if n else "&mdash;"
+
     return (
-        f'<div class="card pad" style="margin-bottom:var(--s4)">'
+        f'<div class="card pad tr-card" style="margin-bottom:var(--s4)">'
         f'<div class="colhead"><span class="t">Track record</span>'
-        f'<span class="a">N={n} substantiels &middot; charte: aveu si N&lt;{MIN_CONCLUSIF}</span></div>'
-        # Ligne 1 : taux correct + Wilson IC
-        f'<div class="row"><div class="rt">'
-        f'<span style="font-size:var(--t-base);font-weight:600">Taux correct</span>'
-        f'<span class="tag {rate_cls}">{rate_str}</span></div>'
-        f'<div class="rs"><span class="mono">{ci_str}</span>'
-        f'<span style="color:var(--steel);font-size:var(--t-caption)">{rate_verdict}</span></div></div>'
-        # Ligne 2 : Brier
-        f'<div class="row"><div class="rt">'
-        f'<span style="font-size:var(--t-base);font-weight:600">Brier rolling</span>'
-        f'<span class="tag {brier_cls}">{brier_str}</span></div>'
-        f'<div class="rs"><span class="mono">cible &lt;0.20</span>'
-        f'<span style="color:var(--steel);font-size:var(--t-caption)">{brier_verdict}</span></div></div>'
-        # Ligne 3 : pipeline
-        f'<div class="row"><div class="rt">'
-        f'<span style="font-size:var(--t-base);font-weight:600">Pipeline</span>'
-        f'<span class="tag calm">{open_n} ouvertes</span></div>'
-        f'<div class="rs"><span class="mono">+{v0_n} v0 quarantine</span>'
-        f'<span style="color:var(--steel);font-size:var(--t-caption)">batch 10/06 r&eacute;sout ~40 v0</span></div></div>'
+        f'<span class="a">N={n} substantiel(s) &middot; aveu honn&ecirc;te-t&ocirc;t si N&lt;{MIN_CONCLUSIF}</span></div>'
+        # Metric 1 : Taux correct (axe 0->100%)
+        f'<div class="tr-metric">'
+        f'<div class="tr-mlabel"><span class="tr-mname">Taux correct</span>'
+        f'<span class="tr-mval mono">{n_corr}<span class="tr-mvsep">/</span>{n}</span>'
+        f'<span class="tr-munit">soit {rate_pct}</span></div>'
+        f'<div class="axis">'
+        f'<div class="axis-mark" style="left:{rate_frac:.1f}%" title="{rate_pct} correct"></div>'
+        f'</div>'
+        f'<div class="tr-mfoot"><span class="mono">IC95% {ci_str.replace("IC95% ", "")}</span>'
+        f'<span class="tr-verdict">{rate_verdict}</span></div>'
+        f'</div>'
+        # Metric 2 : Brier rolling (axe 0->0.5, cible 0.20)
+        f'<div class="tr-metric">'
+        f'<div class="tr-mlabel"><span class="tr-mname">Brier rolling</span>'
+        f'<span class="tr-mval mono">{brier_str}</span>'
+        f'<span class="tr-munit">sur 0&ndash;0,5</span></div>'
+        f'<div class="axis tr-axis-brier">'
+        f'<div class="tr-axref" style="left:{brier_target_x:.0f}%" title="cible 0,20"></div>'
+        f'{brier_marker}'
+        f'</div>'
+        f'<div class="tr-mfoot"><span class="mono">cible 0,20</span>'
+        f'<span class="tr-verdict">{brier_verdict}</span></div>'
+        f'</div>'
+        # Metric 3 : Courbe de fiabilite (cadre vide + diagonale qui se trace)
+        f'<div class="tr-metric">'
+        f'<div class="tr-mlabel"><span class="tr-mname">Courbe de fiabilit&eacute;</span>'
+        f'<span class="tr-munit">attend la premi&egrave;re cohorte calibration</span></div>'
+        f'<svg class="tr-rsvg" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">'
+        f'<line x1="0" y1="60" x2="100" y2="0" class="tr-diag"/>'
+        f'<line x1="0" y1="60" x2="100" y2="60" class="tr-frame"/>'
+        f'<line x1="0" y1="0" x2="0" y2="60" class="tr-frame"/>'
+        f'</svg>'
+        f'<div class="tr-mfoot"><span class="mono">&mdash; &middot; N insuffisant</span>'
+        f'<span class="tr-verdict">trace se construit post 10/06</span></div>'
+        f'</div>'
+        # Pipeline state -- plat, honnete
+        f'<div class="tr-pipe mono">'
+        f'<span><b>{n}</b> r&eacute;solu(s)</span><span class="tr-sep">&middot;</span>'
+        f'<span><b>{open_n}</b> en attente (hors v0)</span><span class="tr-sep">&middot;</span>'
+        f'<span>+<b>{v0_n}</b> v0 quarantine</span><span class="tr-sep">&middot;</span>'
+        f'<span>prochaine cohorte <b>10/06</b></span>'
+        f'</div>'
         f'</div>'
     )
 
@@ -3790,6 +3825,30 @@ _CSS = """
   .axis-tick.strong { top:-4px; height:9px; background:var(--ink); opacity:.55; }
   .axis-tick.dash { border-left:1px dashed var(--steel); background:transparent; opacity:.6; }
   .noanim .axis-mark { transition:none !important; }
+
+  /* Track record refonte W14 (31/05) : axes = primitive, filets fins, encre,
+     courbe fiabilite SVG cadre vide + diagonale qui se trace au load. */
+  .tr-card .tr-metric { padding:var(--s35) 0; border-bottom:1px solid var(--line); }
+  .tr-card .tr-metric:last-of-type { border-bottom:none; }
+  .tr-card .tr-mlabel { display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s2); flex-wrap:wrap; }
+  .tr-card .tr-mname { font-weight:600; font-size:var(--t-base); color:var(--ink); }
+  .tr-card .tr-mval { font-size:var(--t-h3); color:var(--ink); letter-spacing:-.01em; }
+  .tr-card .tr-mvsep { color:var(--steel); padding:0 2px; }
+  .tr-card .tr-munit { font-size:var(--t-caption); color:var(--steel); }
+  .tr-card .tr-axis-brier { background:linear-gradient(to right, var(--acc) 0%, var(--acc) 40%, var(--line2) 40%, var(--bear) 100%); }
+  .tr-card .tr-axref { position:absolute; top:-3px; bottom:-3px; width:1px; background:var(--ink); opacity:.45; }
+  .tr-card .tr-axref::after { content:""; position:absolute; top:-4px; left:-3px; width:7px; height:1px; background:var(--ink); opacity:.55; }
+  .tr-card .tr-mfoot { display:flex; justify-content:space-between; margin-top:var(--s2); font-size:var(--t-caption); }
+  .tr-card .tr-mfoot .mono { color:var(--ink2); }
+  .tr-card .tr-verdict { color:var(--steel); }
+  .tr-card .tr-rsvg { display:block; width:100%; height:96px; margin:var(--s2) 0; }
+  .tr-card .tr-diag { stroke:var(--ink); stroke-width:.8; fill:none; stroke-dasharray:160; stroke-dashoffset:160; animation:trDiagDraw 1.4s cubic-bezier(.22,.61,.36,1) .15s forwards; }
+  .tr-card .tr-frame { stroke:var(--line2); stroke-width:.5; fill:none; }
+  .tr-card .tr-pipe { display:flex; flex-wrap:wrap; gap:var(--s2) var(--s3); padding-top:var(--s35); color:var(--ink2); font-size:var(--t-body); }
+  .tr-card .tr-pipe b { color:var(--ink); font-weight:600; }
+  .tr-card .tr-sep { color:var(--line3); }
+  @keyframes trDiagDraw { to { stroke-dashoffset:0; } }
+  .noanim .tr-diag { animation:none; stroke-dashoffset:0; }
   .rs { display:flex; justify-content:space-between; margin-top:var(--s15); font-size:11px; color:var(--steel); }
   .dwrap { display:flex; align-items:center; gap:var(--s5); flex-wrap:wrap; }
   .legend { display:flex; flex-direction:column; gap:var(--s2); flex:1; min-width:200px; }
