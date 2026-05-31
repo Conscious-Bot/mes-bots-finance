@@ -668,3 +668,131 @@ qu'on les active des juillet.
 des etats casses observes. Si focus publi = relire post_01 et decider
 plateforme. Si focus suite techno = lancer alembic upgrade head sur Hetzner
 (en parallele de la decision deploy).
+
+
+## 31/05/2026 close-bis — session continuation craft (19 commits +)
+
+La cloture precedente (fc2369e) etait premature : user a relance pour le
+craft dashboard. 19 commits supplementaires durant l'apres-midi/soir, focus
+UI carre + alignement sur 4 specs strategiques user successives.
+
+HEAD origin/main = b6901e6 -> 60 commits ahead non-pousses (vs 42 au close
+precedent). Bot launchd actif PID ~4900. 452+ tests verts. Migrations
+0020 -> 0022.
+
+### Specs user absorbees (4 successives)
+
+**Spec 1 — 5 piliers data-trust** (en cours du midi) : 4 closes (KPI #2,
+FX live + max-age, ground-truth resolve, quarantine v0). Couche sante
+distribution = pile manquante -> implementee wave 13.
+
+**Spec 2 — 5 regles transversales + sequencement pre/post-10/06** :
+un seul modele de lecture, couleur=fait, provenance+fraicheur, etats
+honnetes-tot, self-evident. Sequencement = architecture maintenant +
+remplissage avec donnee. Adoptee.
+
+**Spec 3 — 4 architectures (regime evidence, robustesse, ergonomie, DA)**
++ 6 points sequencement pre-10/06 (track record en lead, mode advisory,
+ergonomie, tokens DA, sante distribution, split monitored/reference).
+
+**Spec 4 — Bar craft litteral (paper-and-ink)** : couleur rare aux deux
+bouts de l'axe, axe stop->target primitive reutilisee, etats honnetes-tot
+designes (cadre vide + diagonale qui se trace), Geist Mono partout,
+filets fins zero ombre, motion epistemique.
+
+**Spec 5 — 3 piles de la suite** :
+- Pile 1 (design system, confortable) : panneau discipline/biais (2nd
+  lead), hero portefeuille mis au bar, panneau evidence A3 au craft,
+  surface Telegram canonique
+- Pile 2 (plus au coeur) : instrumenter boucle comportementale (User Bias
+  Detector mission), mode advisory (largement fait wave 10), passe
+  terminologie-rigueur (besoin du glossaire colle)
+- Pile 3 (rare, ne se builde pas) : publier #01, 10/06 1er track record
+  + activation scaffolds
+
+### 19 commits supplementaires (wave 1bis -> 14)
+
+15. f0a8da1 -> not in session, ignore (artefact)
+14. 504f836 charte DESIGN_SYSTEM reecrite canonique (parchemin + Geist +
+    font-size tokens + etats canonique + ergonomie + voice + 10 regles or)
+13. df13091 wave 2 bandeau "A AJUSTER" + smart routing + title hover +
+    tokens font-size + retrait dot decoratif
+12. 081250b wave 3 foot reduit mode switch only + tape 8-K plein texte
+    (user image friction)
+11. bf6b7c5 wave 4 hero Valeur+Note meme panneau + bump tokens font-size
+    +1-2px global
+10. 7fdbbd9 wave 5 page Copilot dediee entre Positions et Theses
+    (chat + conceptions + conversations + chat_signals reactives)
+9. fbdc129 wave 5bis synthese copilot integree page Copilot
+8. 003e0db wave 6 chat idle 7min -> 2min (puis 31cd8a8 revert 7min)
+7. e62de70 wave 7 Track record en tete + charte §11-13 +
+   bd932d8 wave 7bis disappear quand N>=10 cible atteinte
+6. 1c2c349 wave 8a tape PnL/8-K cliquable + distline title hover
+5. 1948466 wave 8b sweep font-size inline +1-2px (249 sites)
+4. 079068c wave 9 font -1 + accordion canonical click-only + bug fix
+   _theses currency-native
+3. 0730c1a wave 9b fix monkey-patch asym_mod -> NATIVE (Asia tickers
+   dereglees +175408% etc., SK Hynix Lasertec Mitsubishi Advantest Shin Etsu)
+2. 9f6bd8b wave 10 mode advisory : "agir maintenant" -> "examiner",
+   "A AJUSTER" -> "FRICTIONS", "prends ton profit" -> "cible atteinte"
+1. b183304 wave 13 sante distribution : extension scaffold ROUGE/ORANGE/
+   VERT ops -> data (3 nouveaux checks horizon/conviction/FX freshness)
+0. 7b1f330 wave 14 Track record refonte craft : axes primitive + courbe
+   fiabilite SVG cadre vide + diagonale qui se trace au load + filets
+   fins + Geist Mono labels+units + motion epistemique. Devient surface
+   de reference, le reste pourra heriter du pattern.
+-1. 7c6369b friction.md sync 31/05 (24 entries data-trust + UI/UX + archi)
+
+### Findings critiques de la continuation
+
+**Bug currency-native EUR vs NATIVE sur 2 sites** : "Marges les plus
+faibles" affichait cible +175408% pour 000660.KS (SK Hynix), +23876%
+pour 4063.T (Shin Etsu). Cause : `_cached_price_eur` compare a stop_price
++ target_full stockes NATIVE. Fix sur _theses() puis nouveau
+_cached_price_native + monkey-patch asym_mod corrige.
+
+**Horizon mono-bucket ALERT** : 75% des predictions hors v0 (173 sur 60j)
+ont meme horizon -- probable defaut historique 30j hardcode. Sante
+distribution panel surface l'alerte live. A investiguer post 10/06.
+
+**Conviction distribution OK** : c5=5/27 = 18.5%, sous le seuil 35% WARN.
+Construction phase respectee.
+
+**FX freshness 5/5 live sous 24h** : pas de fallback hardcoded actif.
+
+### Reste pour next session (priorise selon spec 5 user)
+
+**A — pile 2 substance** (user said "plus au coeur"):
+- Instrumenter boucle comportementale (User Bias Detector) : data model +
+  capture des moments "j'ai resiste ici" + cout-de-biais mesure.
+  Chantier neuf substantiel (~3-5h focalisees).
+- Passe terminologie-rigueur quand user colle son glossaire.
+
+**B — pile 1 design system** (user said "confortable, ta force") :
+- Hero Valeur+Note refonte au bar Track record (heritage pattern,
+  axes primitive + filets fins + Geist Mono labels+units)
+- Panneau discipline/biais (2nd lead, le plus singulier) -- surface du
+  User Bias Detector instrumente en pile 2
+- Panneau evidence A3 (insider+8-K) porte au craft Track record
+- Surface Telegram canonique cohesive avec voix dashboard
+
+**C — pile 3 hors-build** :
+- Publier #01 (decision plateforme + ton final)
+- 10/06 : batch resolution + activation scaffolds recalib_map/base_rates/
+  outcome_context quand N>=30
+
+### Discipline mature de la session
+
+- "Voie propre auditable professionnelle consciencieuse" actee comme
+  feedback memory durable
+- 24 frictions injectees dans friction.md (le moteur)
+- Bot a tourne sans interruption malgre 15+ restarts launchd kickstart
+- Aucune regression test detectee (full pytest 452+ verts)
+- Architecture d'info pre-10/06 posee (Track record en lead + sante
+  distribution + page Copilot dediee + mode advisory)
+
+**Entry next session** : si focus pile 2 = ouvrir la conception boucle
+comportementale (data model decision_journal + bias_capture + cout
+mesure). Si focus pile 1 = hero portefeuille au bar Track record.
+Si focus pile 3 = relire post_01 et choisir Substack vs Twitter vs
+PRESAGE site statique.
