@@ -18,3 +18,9 @@ google-auth-oauthlib==1.4.0
 alembic>=1.13
 pydantic>=2.5
 plotly>=6.7.0
+
+# Stats / calibration tooling (Wilson/bootstrap CIs, calibration curves,
+# isotonic + Platt recalibration). Used par KPI / pre-publication audits.
+scipy>=1.17.0
+scikit-learn>=1.8.0
+statsmodels>=0.14.6
