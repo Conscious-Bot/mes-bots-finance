@@ -1976,6 +1976,53 @@ def _chat_memory_stats() -> tuple[int, int, str]:
         return 0, 0, ""
 
 
+def _distribution_health_panel() -> str:
+    """W13 sante distribution : surface des 6 vigilances v2_vigilance.run_all_vigilances()
+    en panneau ROUGE/ORANGE/VERT data. Couvre watch_rate, directional_spread,
+    insider_clusters_alive, horizon_diversification, conviction_distribution,
+    fx_freshness. Cron weekly Mon 7h alimente Telegram pour ALERT/WARN ;
+    dashboard reflechit live."""
+    try:
+        from intelligence import v2_vigilance as _v
+
+        results = _v.run_all_vigilances()
+    except Exception as e:
+        return f'<div class="card pad" style="margin-bottom:var(--s4)">{_err(e)}</div>'
+
+    status_tag = {
+        "OK": "acc", "INFO": "calm", "INSUFFICIENT_DATA": "calm",
+        "WARN": "warn", "ALERT": "bear",
+    }
+    label_map = {
+        "watch_rate": "Watch-rate distribution",
+        "directional_spread": "Probas étalées",
+        "insider_clusters_alive": "Pipeline insider clusters",
+        "horizon_diversification": "Horizons diversifiés",
+        "conviction_distribution": "Conviction étalée",
+        "fx_freshness": "FX live (max-age 24h)",
+    }
+    rows = ""
+    for r in results:
+        cls = status_tag.get(r.get("status"), "calm")
+        name = label_map.get(r.get("name"), r.get("name", "?"))
+        status = r.get("status", "?")
+        msg = (r.get("message") or "").replace("<", "&lt;").replace(">", "&gt;")
+        rows += (
+            f'<div class="row" title="{msg}">'
+            f'<div class="rt"><span style="font-weight:600">{name}</span>'
+            f'<span class="tag {cls}">{status}</span></div>'
+            f'<div class="rs"><span style="color:var(--steel);font-size:12px">{msg[:120]}</span></div>'
+            f'</div>'
+        )
+    return (
+        '<div class="card pad" style="margin-bottom:var(--s4)">'
+        '<div class="colhead"><span class="t">Santé distribution</span>'
+        '<span class="a">extension scaffold ROUGE/ORANGE/VERT ops &mdash; data &middot; cron weekly Mon 7h push Telegram si !OK</span></div>'
+        + rows
+        + '</div>'
+    )
+
+
 def _track_record_panel() -> str:
     """E4 wave 7 : Track record en tete de Vue d'ensemble (user feedback 31/05).
 
@@ -5052,6 +5099,10 @@ def render() -> Path:
         # Track record en tete (user feedback 31/05 wave 7 : "track record en
         # tete + etat honnete-tot maintenant, se remplit avec data post-10/06")
         f'{_track_record_panel()}'
+        # Sante distribution (W13 31/05 : extension scaffold ROUGE/ORANGE/VERT
+        # ops -> data : watch_rate, probas etalees, horizons diversifies,
+        # conviction, FX freshness, insider pipeline)
+        f'{_distribution_health_panel()}'
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html migre vers section Copilot dediee 31/05 wave 5)

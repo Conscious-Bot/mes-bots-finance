@@ -177,8 +177,115 @@ def check_insider_clusters_alive(cx, days: int = 30) -> dict[str, Any]:
     }
 
 
+def check_horizon_diversification(cx, days: int = 60) -> dict[str, Any]:
+    """W13 sante distribution #4 : horizons doivent etre diversifies, pas
+    tous coinces sur 30j hardcode (bug v0 retro). Max-share bucket > 0.70
+    = ALERT, > 0.55 = WARN."""
+    rows = cx.execute(
+        "SELECT horizon_days FROM predictions "
+        "WHERE created_at >= datetime('now', ?) "
+        "AND methodology_version != 'v0' "
+        "AND horizon_days IS NOT NULL",
+        (f"-{days} days",),
+    ).fetchall()
+    n = len(rows)
+    if n < 10:
+        return {
+            "name": "horizon_diversification", "status": "INSUFFICIENT_DATA",
+            "days": days, "n": n,
+            "message": f"n={n} sur {days}j hors v0 -- besoin >=10 pour conclure.",
+        }
+    buckets = {"1-7": 0, "8-14": 0, "15-30": 0, "31-60": 0, "61+": 0}
+    for r in rows:
+        h = r[0] if not isinstance(r, dict) else r["horizon_days"]
+        if h <= 7:
+            buckets["1-7"] += 1
+        elif h <= 14:
+            buckets["8-14"] += 1
+        elif h <= 30:
+            buckets["15-30"] += 1
+        elif h <= 60:
+            buckets["31-60"] += 1
+        else:
+            buckets["61+"] += 1
+    max_share = max(buckets.values()) / n
+    nonempty = sum(1 for v in buckets.values() if v > 0)
+    if max_share >= 0.70:
+        status, msg = "ALERT", f"horizon mono-bucket ({max_share:.0%} dans 1 bucket /5) sur {n} preds {days}j."
+    elif max_share >= 0.55 or nonempty <= 2:
+        status, msg = "WARN", f"horizon peu diversifie ({max_share:.0%} max, {nonempty}/5 buckets) sur {n} preds {days}j."
+    else:
+        status, msg = "OK", f"horizon diversifie ({nonempty}/5 buckets, max {max_share:.0%}) sur {n} preds {days}j."
+    return {
+        "name": "horizon_diversification", "status": status, "days": days,
+        "n": n, "max_share": max_share, "buckets": buckets, "message": msg,
+    }
+
+
+def check_conviction_distribution(cx) -> dict[str, Any]:
+    """W13 sante distribution #5 : conviction theses actives doit etre
+    etalee, pas concentree sur c5 (gate config 20%). > 35% c5 = WARN,
+    > 50% = ALERT."""
+    rows = cx.execute(
+        "SELECT conviction, COUNT(*) AS n FROM theses WHERE status='active' "
+        "GROUP BY conviction"
+    ).fetchall()
+    dist = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    for r in rows:
+        c = r[0] if not isinstance(r, dict) else r["conviction"]
+        nn = r[1] if not isinstance(r, dict) else r["n"]
+        if c in dist:
+            dist[c] = int(nn)
+    total = sum(dist.values())
+    if total < 10:
+        return {
+            "name": "conviction_distribution", "status": "INSUFFICIENT_DATA",
+            "n": total, "dist": dist,
+            "message": f"n={total} theses actives -- besoin >=10 pour conclure.",
+        }
+    c5_share = dist[5] / total
+    if c5_share >= 0.50:
+        status, msg = "ALERT", f"inflation c5 : {dist[5]}/{total} ({c5_share:.0%}). Gate config = 20%."
+    elif c5_share >= 0.35:
+        status, msg = "WARN", f"accumulation c5 : {dist[5]}/{total} ({c5_share:.0%}). Gate config = 20%, attention."
+    else:
+        status, msg = "OK", f"c5={dist[5]} c4={dist[4]} c3={dist[3]} c2={dist[2]} c1={dist[1]} (n={total})"
+    return {
+        "name": "conviction_distribution", "status": status,
+        "n": total, "dist": dist, "c5_share": c5_share, "message": msg,
+    }
+
+
+def check_fx_freshness(max_age_hours: int = 24) -> dict[str, Any]:
+    """W13 sante distribution #6 : FX live frais (default 24h). Une pair en
+    fallback hardcoded > max_age = ALERT (chiffres EUR drift en silence)."""
+    from shared.prices import fx_is_stale, get_fx_rate
+
+    pairs = [("USD", "EUR"), ("JPY", "EUR"), ("KRW", "EUR"), ("HKD", "EUR"), ("GBP", "EUR")]
+    max_age_seconds = max_age_hours * 3600
+    for f, t in pairs:
+        get_fx_rate(f, t)
+    stale = [(f, t) for f, t in pairs if fx_is_stale(f, t, max_age_seconds=max_age_seconds)]
+    n_stale = len(stale)
+    if n_stale == 0:
+        return {
+            "name": "fx_freshness", "status": "OK",
+            "n_pairs": len(pairs), "n_stale": 0, "max_age_hours": max_age_hours,
+            "message": f"{len(pairs)}/{len(pairs)} pairs FX live sous {max_age_hours}h.",
+        }
+    stale_str = ", ".join(f"{f}/{t}" for f, t in stale)
+    status = "ALERT" if n_stale >= len(pairs) // 2 else "WARN"
+    return {
+        "name": "fx_freshness", "status": status,
+        "n_pairs": len(pairs), "n_stale": n_stale,
+        "stale_pairs": stale, "max_age_hours": max_age_hours,
+        "message": f"{n_stale}/{len(pairs)} pairs FX stale > {max_age_hours}h : {stale_str}.",
+    }
+
+
 def run_all_vigilances() -> list[dict[str, Any]]:
-    """Run les 3 vigilances + retourne list de results. Cron entry point."""
+    """Run les 6 vigilances + retourne list de results. Cron entry point.
+    W13 (31/05) : extension scaffold ops -> sante distribution data."""
     from shared import storage
 
     results = []
@@ -186,6 +293,9 @@ def run_all_vigilances() -> list[dict[str, Any]]:
         results.append(check_watch_rate(cx))
         results.append(check_directional_spread(cx))
         results.append(check_insider_clusters_alive(cx))
+        results.append(check_horizon_diversification(cx))
+        results.append(check_conviction_distribution(cx))
+    results.append(check_fx_freshness())
     return results
 
 
