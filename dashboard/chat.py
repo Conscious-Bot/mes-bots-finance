@@ -17,24 +17,9 @@ import logging
 log = logging.getLogger(__name__)
 
 
-SYSTEM_PROMPT = (
-    "Tu es l'assistant adversarial co-pilot d'un investisseur particulier serieux. "
-    "Tu connais son historique reel, son profil, sa note PF actuelle, ses interventions "
-    "passees et ses theses actives. Tu reponds EN FRANCAIS, ton direct et sec (pas de "
-    "politesse de remplissage). Tu cites toujours du concret de la DB (ticker exact, "
-    "score precis, ancrage). Tu ne donnes JAMAIS de generalite (\"diversifie\", "
-    "\"reste discipline\", \"reconsidere\") : si tu n'as rien de specifique, dis-le. "
-    "Tu peux pousser un point de vue (red-team), mais cite tes sources.\n\n"
-    "VOCABULAIRE CANONIQUE (utiliser EXCLUSIVEMENT ces mots) :\n"
-    "- Solidite : Incontournable / Solide / Incertain / Fragile (= ce qui protege la valeur)\n"
-    "- Pari : Pari principal / Autre pari (= moteur de la ligne)\n"
-    "- Doublon : Solo / Doublon (= meme pari + substituable)\n"
-    "- Sante : Sain / Sous surveillance (= fondamentaux verifies)\n"
-    "- Calibrage : OK / Trop gros / Trop petit (= taille vs conviction)\n"
-    "- Note Construction = Solidite + Pari + Doublons + Calibrage\n"
-    "- Note Fragilite = Sante + cycle/valo\n"
-    "INTERDIT : T1 / T1★ / cluster cap / edge / decorrelation ★ (ancien jargon)."
-)
+# SYSTEM_PROMPT extrait vers shared/copilot_persona.py (31/05/2026) pour source de
+# verite UNIQUE partagee avec futurs handlers Telegram. Voir [[copilot-persona-canonical]].
+from shared.copilot_persona import SYSTEM_PROMPT  # noqa: F401 (kept for backward compat)
 
 
 def _format_positions(positions: list[dict], pnl: dict) -> str:
@@ -222,6 +207,31 @@ def assemble_context() -> str:
     except Exception:
         recurrence_block = "  (recurrence indispo)"
 
+    # Pushes Telegram recents 24h (hook notify.py 31/05/2026)
+    # Le copilot peut referencer "le brief de ce matin disait X" sans re-coller.
+    try:
+        with _stg.db() as cx:
+            tg_rows = cx.execute(
+                "SELECT created_at, content FROM chat_messages "
+                "WHERE surface = 'telegram' "
+                "AND created_at >= datetime('now', '-24 hours') "
+                "ORDER BY created_at DESC LIMIT 20"
+            ).fetchall()
+        if tg_rows:
+            tg_lines = []
+            for r in tg_rows:
+                ts = (r["created_at"] or "")[:16]
+                content = (r["content"] or "").strip()
+                # Tronquer chaque push a 400 chars pour eviter context explosion
+                if len(content) > 400:
+                    content = content[:400] + "..."
+                tg_lines.append(f"  [{ts}] {content}")
+            telegram_pushes_block = "\n".join(tg_lines)
+        else:
+            telegram_pushes_block = "  (aucun push Telegram dans les 24h)"
+    except Exception:
+        telegram_pushes_block = "  (pushes Telegram indispo)"
+
     return (
         "═══ OBSESSIONS RECURRENTES (60j chat) ═══\n"
         f"{recurrence_block}\n\n"
@@ -236,6 +246,8 @@ def assemble_context() -> str:
         f"{_format_theses(theses)}\n\n"
         "═══ INTERVENTIONS COPILOT RECENTES ═══\n"
         f"{_format_interventions(interventions)}\n\n"
+        "═══ PUSHES TELEGRAM 24H (briefs/alerts/digests recents) ═══\n"
+        f"{telegram_pushes_block}\n\n"
         "═══ CONCEPTIONS BOT (Layer 2 — vue stable par target) ═══\n"
         f"{conceptions_block}\n"
     )
