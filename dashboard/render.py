@@ -4762,8 +4762,6 @@ def render() -> Path:
     # alertes Telegram via cron weekly prennent le relais)
     # v2_cohort_html / wire_activity_html / vigilance_html / calib_progress_html
     # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
-    conversations_html = _conversations_panel()
-    chat_signals_html = _chat_signals_panel()
     conceptions_html = _conceptions_panel()
     preferences_html = _preferences_panel()
     axes_html = _ticker_axes_panel()
@@ -4773,7 +4771,6 @@ def render() -> Path:
     spof_html = _spof_panel()
     mauboussin_html = _mauboussin_sizing_panel()
     valo_html = _valo_above_bull_panel()
-    wrapper_html = _wrapper_panel()
     bench_html = _benchmark_panel()
     vigie = (
         f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
@@ -4819,7 +4816,8 @@ def render() -> Path:
     )
 
     # ─── Page Strategie : lecture analytique du book (vocabulaire canonique) ───
-    # Ordre : declaration -> etat -> risques caches -> structure technique -> meta
+    # Refonte 31/05 user feedback : retire placement fiscal + chat_signals + conversations
+    # Ordre : declaration -> etat -> risques caches -> meta (4 sections au lieu de 5)
     strategie_html = (
         '<section data-page="strategie" role="region" aria-label="Strategie"><div class="phead"><h2>Strat&eacute;gie</h2>'
         '<div class="sub">Lire le livre en profondeur &middot; pourquoi la note '
@@ -4840,15 +4838,11 @@ def render() -> Path:
         f'{valo_html}'
         f'{_return_clustering_panel()}'
         f'{axes_html}'
-        # 4. Placement fiscal -- structure technique (ferme l'analytique avant le meta)
-        '<div class="strat-sh">Placement fiscal &mdash; structure technique</div>'
-        f'{wrapper_html}'
-        # 5. Apprentissage du bot -- meta (ce que le systeme retient)
+        # 4. Apprentissage du bot -- meta (ce que le systeme retient)
+        # Retraits 31/05 : chat_signals_html + conversations_html (utilite floue user)
         '<div class="strat-sh">Apprentissage du bot &mdash; ce que le syst&egrave;me retient</div>'
         f'{conceptions_html}'
         f'{preferences_html}'
-        f'{chat_signals_html}'
-        f'{conversations_html}'
         '</section>'
     )
 
