@@ -104,7 +104,7 @@ def main():
 
     if args.dry_run:
         print(f"[DRY-RUN] aurait cree : {out_path}")
-        print(f"[DRY-RUN] header :")
+        print("[DRY-RUN] header :")
         print(out_text.split("\n---", 1)[0])
         return
 

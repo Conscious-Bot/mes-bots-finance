@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 # SYSTEM_PROMPT extrait vers shared/copilot_persona.py (31/05/2026) pour source de
 # verite UNIQUE partagee avec futurs handlers Telegram. Voir [[copilot-persona-canonical]].
-from shared.copilot_persona import SYSTEM_PROMPT  # noqa: F401 (kept for backward compat)
+from shared.copilot_persona import SYSTEM_PROMPT
 
 
 def _format_positions(positions: list[dict], pnl: dict) -> str:

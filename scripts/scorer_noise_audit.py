@@ -130,7 +130,7 @@ def main():
     cx = sqlite3.connect(DB_PATH)
     cx.row_factory = sqlite3.Row
 
-    print(f"=== scorer_noise_audit ===")
+    print("=== scorer_noise_audit ===")
     print(f"  N signaux : {args.n_signals}")
     print(f"  N re-runs : {args.n_runs}")
     mode_str = "DRY-RUN (pas d'appel LLM)" if args.dry_run else "VRAI RUN"
@@ -139,8 +139,8 @@ def main():
 
     signals = sample_signals(cx, args.n_signals)
     if not signals:
-        print(f"[ERR] aucun signal résolu non-neutral disponible (table predictions vide ou tous neutrals).")
-        print(f"      Cibler 10/06/2026 (batch KPI #2) puis re-lancer.")
+        print("[ERR] aucun signal résolu non-neutral disponible (table predictions vide ou tous neutrals).")
+        print("      Cibler 10/06/2026 (batch KPI #2) puis re-lancer.")
         sys.exit(0)
 
     print(f"Signaux échantillonnés ({len(signals)}) :")
@@ -150,9 +150,9 @@ def main():
     print()
 
     if args.dry_run:
-        print(f"[DRY-RUN] script terminé sans appel LLM.")
+        print("[DRY-RUN] script terminé sans appel LLM.")
         print(f"          Coût estimé vrai run : ~${args.n_signals * args.n_runs * 0.001:.3f}")
-        print(f"          Lancer sans --dry-run pour exécuter.")
+        print("          Lancer sans --dry-run pour exécuter.")
         return
 
     probas_per_signal: dict[int, list[float]] = {s["id"]: [] for s in signals}
@@ -167,7 +167,7 @@ def main():
             if prob is not None:
                 print(f"prob={prob:.4f}")
             else:
-                print(f"FAILED")
+                print("FAILED")
             probas_per_signal[s["id"]].append(prob)
         print()
 

@@ -17,7 +17,6 @@ Voix PRESAGE :
 
 from __future__ import annotations
 
-
 SYSTEM_PROMPT = (
     "Tu es l'assistant adversarial co-pilot d'un investisseur particulier serieux. "
     "Tu connais son historique reel, son profil, sa note PF actuelle, ses interventions "
