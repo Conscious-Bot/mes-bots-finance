@@ -1949,6 +1949,95 @@ def _chat_memory_stats() -> tuple[int, int, str]:
         return 0, 0, ""
 
 
+def _track_record_panel() -> str:
+    """E4 wave 7 : Track record en tete de Vue d'ensemble (user feedback 31/05).
+
+    Etat honnete-tot : si N substantiels (non-neutral, non-v0) < 10, on AVOUE
+    explicitement "INSUFFISANT pour conclure" plutot que d'afficher un chiffre
+    qui pretend tenir. Se remplit auto post-batch 10/06 (40 nouvelles
+    resolutions v1 attendues).
+
+    Tokens : --t-h3 pour titres, --t-body pour valeurs principales, --t-caption
+    pour secondaires. Couleurs : --acc si OK, --warn si insufficient, --bear
+    si breach. Charte §1.4 + §4 (etats honnetes) + §3.5 (tags semantiques)."""
+    try:
+        import sqlite3 as _sql
+
+        from statsmodels.stats.proportion import proportion_confint
+
+        cx = _sql.connect(_q.__globals__["DB_PATH"]) if "DB_PATH" in _q.__globals__ else _sql.connect("data/bot.db")
+        rows = cx.execute(
+            "SELECT outcome, brier_score FROM predictions "
+            "WHERE resolved_at IS NOT NULL AND outcome IN ('correct','incorrect') "
+            "AND methodology_version != 'v0'"
+        ).fetchall()
+        open_n = cx.execute(
+            "SELECT COUNT(*) FROM predictions WHERE resolved_at IS NULL "
+            "AND methodology_version != 'v0'"
+        ).fetchone()[0]
+        v0_n = cx.execute(
+            "SELECT COUNT(*) FROM predictions WHERE methodology_version = 'v0'"
+        ).fetchone()[0]
+        cx.close()
+    except Exception as e:
+        return f'<div class="card pad" style="margin-bottom:var(--s4)">{_err(e)}</div>'
+
+    n = len(rows)
+    n_corr = sum(1 for r in rows if r[0] == "correct")
+    briers = [r[1] for r in rows if r[1] is not None]
+    n_brier = len(briers)
+    brier_mean = sum(briers) / n_brier if briers else None
+
+    MIN_CONCLUSIF = 10
+    rate_str = f"{n_corr}/{n} ({n_corr/n:.0%})" if n else "—"
+    if n >= 2:
+        lo, hi = proportion_confint(n_corr, n, alpha=0.05, method="wilson")
+        ci_str = f"IC95% [{lo:.0%}, {hi:.0%}]"
+    else:
+        ci_str = "IC indisponible"
+    if n < MIN_CONCLUSIF:
+        rate_cls, rate_verdict = "warn", f"INSUFFISANT &mdash; N&lt;{MIN_CONCLUSIF} pour conclure"
+    elif n_corr / n >= 0.55:
+        rate_cls, rate_verdict = "acc", "verdict provisoire favorable"
+    else:
+        rate_cls, rate_verdict = "bear", "verdict provisoire defavorable"
+
+    brier_str = f"{brier_mean:.3f}" if brier_mean is not None else "—"
+    if n_brier < MIN_CONCLUSIF:
+        brier_cls, brier_verdict = "warn", f"INSUFFISANT &mdash; N={n_brier}&lt;{MIN_CONCLUSIF}"
+    elif brier_mean < 0.20:
+        brier_cls, brier_verdict = "acc", "sous la cible 0.20"
+    elif brier_mean < 0.25:
+        brier_cls, brier_verdict = "warn", "approche le seuil"
+    else:
+        brier_cls, brier_verdict = "bear", "au-dessus du seuil"
+
+    return (
+        f'<div class="card pad" style="margin-bottom:var(--s4)">'
+        f'<div class="colhead"><span class="t">Track record</span>'
+        f'<span class="a">N={n} substantiels &middot; charte: aveu si N&lt;{MIN_CONCLUSIF}</span></div>'
+        # Ligne 1 : taux correct + Wilson IC
+        f'<div class="row"><div class="rt">'
+        f'<span style="font-size:var(--t-base);font-weight:600">Taux correct</span>'
+        f'<span class="tag {rate_cls}">{rate_str}</span></div>'
+        f'<div class="rs"><span class="mono">{ci_str}</span>'
+        f'<span style="color:var(--steel);font-size:var(--t-caption)">{rate_verdict}</span></div></div>'
+        # Ligne 2 : Brier
+        f'<div class="row"><div class="rt">'
+        f'<span style="font-size:var(--t-base);font-weight:600">Brier rolling</span>'
+        f'<span class="tag {brier_cls}">{brier_str}</span></div>'
+        f'<div class="rs"><span class="mono">cible &lt;0.20</span>'
+        f'<span style="color:var(--steel);font-size:var(--t-caption)">{brier_verdict}</span></div></div>'
+        # Ligne 3 : pipeline
+        f'<div class="row"><div class="rt">'
+        f'<span style="font-size:var(--t-base);font-weight:600">Pipeline</span>'
+        f'<span class="tag calm">{open_n} ouvertes</span></div>'
+        f'<div class="rs"><span class="mono">+{v0_n} v0 quarantine</span>'
+        f'<span style="color:var(--steel);font-size:var(--t-caption)">batch 10/06 r&eacute;sout ~40 v0</span></div></div>'
+        f'</div>'
+    )
+
+
 def _copilot() -> str:
     """Page dediee Copilot (user feedback 31/05) : chat + historique + ce que
     le bot pense par ticker + signaux soft extraits du chat. Place entre
@@ -4917,6 +5006,9 @@ def render() -> Path:
         f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>'
         f'{grade_html.replace("margin-bottom:var(--s4)", "flex:1").replace("gradecard", "gradecard").replace("class=\"card pad gradecard\"", "class=\"card pad gradecard\" style=\"flex:1\"") if "flex:1" not in grade_html else grade_html}'
         f'</div>'
+        # Track record en tete (user feedback 31/05 wave 7 : "track record en
+        # tete + etat honnete-tot maintenant, se remplit avec data post-10/06")
+        f'{_track_record_panel()}'
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html migre vers section Copilot dediee 31/05 wave 5)
