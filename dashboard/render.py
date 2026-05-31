@@ -175,7 +175,7 @@ SECTOR_COLORS = {
     "Foundry & logique": "#3056D3",
     "Équipement semi": "#10A37F",
     "Mémoire": "#E14B62",
-    "Matériaux semi": "var(--warn)",
+    "Matériaux semi": "#FB923C",
     "EDA": "#7E47C9",
     "Connectivité & optique": "#D154AB",
     "Hyperscalers": "#0D9488",
