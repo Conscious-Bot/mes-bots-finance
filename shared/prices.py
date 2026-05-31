@@ -81,6 +81,33 @@ HARDCODED_FX_TO_USD: dict[str, float] = {
 }
 
 
+# Live FX cache : TTL 4h (FX bouge lentement intraday vs ban-risk yfinance)
+_FX_TTL_SEC = 14400
+_FX_CACHE: dict[tuple[str, str], tuple[float, datetime]] = {}
+_log = _logging.getLogger(__name__)
+
+
+def _fetch_fx_live(from_cur: str, to_cur: str) -> float | None:
+    """Fetch FX rate live via yfinance. Tries direct pair `{from}{to}=X` then
+    inverted `{to}{from}=X` (since yfinance only quotes the major direction
+    for many pairs). Returns None on failure."""
+    if from_cur == to_cur:
+        return 1.0
+    for pair, invert in [
+        (f"{from_cur}{to_cur}=X", False),
+        (f"{to_cur}{from_cur}=X", True),
+    ]:
+        try:
+            d = yf.Ticker(pair).history(period="2d", interval="1d", auto_adjust=False)
+            closes = d["Close"].dropna()
+            if not closes.empty:
+                rate = float(closes.iloc[-1])
+                return 1.0 / rate if invert else rate
+        except Exception:
+            continue
+    return None
+
+
 def get_currency_for_ticker(ticker: str) -> str:
     """Infer quote currency from ticker suffix. Defaults to USD (US listing, no suffix)."""
     for suffix, cur in SUFFIX_TO_CURRENCY.items():
@@ -92,19 +119,34 @@ def get_currency_for_ticker(ticker: str) -> str:
 def get_fx_rate(from_cur: str, to_cur: str = "EUR") -> float | None:
     """Return fx rate from `from_cur` to `to_cur`.
 
-    Phase 1 (R3): reads HARDCODED_FX_TO_EUR.
-    Phase 2 (R1): will read from fx_rates SQLite table with hardcoded fallback.
+    Phase 2 (R1): tente live yfinance (cache _FX_TTL_SEC), fallback sur
+    HARDCODED_FX_TO_EUR si live indispo. Le fallback preserve l'ancien
+    comportement Phase 1.
     """
     if from_cur == to_cur:
         return 1.0
-    if to_cur != "EUR":
-        # Cross-pair: convert via EUR
-        from_eur = HARDCODED_FX_TO_EUR.get(from_cur)
-        to_eur = HARDCODED_FX_TO_EUR.get(to_cur)
-        if from_eur is None or to_eur is None or to_eur == 0:
-            return None
-        return from_eur / to_eur
-    return HARDCODED_FX_TO_EUR.get(from_cur)
+
+    key = (from_cur, to_cur)
+    now = datetime.now(UTC)
+    cached = _FX_CACHE.get(key)
+    if cached is not None:
+        rate, fetched_at = cached
+        if (now - fetched_at).total_seconds() < _FX_TTL_SEC:
+            return rate
+
+    live = _fetch_fx_live(from_cur, to_cur)
+    if live is not None:
+        _FX_CACHE[key] = (live, now)
+        return live
+
+    _log.warning(f"FX live fetch failed for {from_cur}->{to_cur}, fallback hardcoded")
+    if to_cur == "EUR":
+        return HARDCODED_FX_TO_EUR.get(from_cur)
+    from_eur = HARDCODED_FX_TO_EUR.get(from_cur)
+    to_eur = HARDCODED_FX_TO_EUR.get(to_cur)
+    if from_eur is None or to_eur is None or to_eur == 0:
+        return None
+    return from_eur / to_eur
 
 
 def get_current_price_in(ticker: str, target_cur: str) -> float | None:

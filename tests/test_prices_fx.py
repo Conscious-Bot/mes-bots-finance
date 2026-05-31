@@ -17,6 +17,16 @@ from shared.prices import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_fx_layer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force tests to use hardcoded fallback path (deterministic, offline).
+    Sans ca les property tests roundtrip/transitivity feraient des fetch
+    yfinance reels -> non-reproductible + lent + ban-risk."""
+    monkeypatch.setattr("shared.prices._fetch_fx_live", lambda f, t: None)
+    from shared.prices import _FX_CACHE
+    _FX_CACHE.clear()
+
+
 def test_base_currency_is_usd() -> None:
     """ADR 004: canonical changed from EUR to USD."""
     assert BASE_CURRENCY == "USD"
@@ -106,3 +116,60 @@ def test_get_current_price_returns_none_when_raw_none(
     from shared.prices import get_current_price_in_usd
 
     assert get_current_price_in_usd("INVALID") is None
+
+
+# ===== Phase 2 R1 : live FX layer with cache + fallback =====
+
+
+def test_get_fx_rate_uses_live_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Si _fetch_fx_live retourne une valeur, get_fx_rate la retourne (pas le hardcoded)."""
+    monkeypatch.setattr("shared.prices._fetch_fx_live", lambda f, t: 199.99)
+    from shared.prices import _FX_CACHE
+    _FX_CACHE.clear()
+    rate = get_fx_rate("EUR", "JPY")
+    assert rate == approx(199.99)
+    assert rate != approx(1.0 / 0.005467, rel=1e-3)  # NOT the hardcoded fallback
+
+
+def test_get_fx_rate_cache_hit_skips_refetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Apres premier fetch, les appels suivants dans le TTL ne refetchent pas."""
+    call_count = {"n": 0}
+
+    def fake_fetch(f: str, t: str) -> float:
+        call_count["n"] += 1
+        return 100.0
+
+    monkeypatch.setattr("shared.prices._fetch_fx_live", fake_fetch)
+    from shared.prices import _FX_CACHE
+    _FX_CACHE.clear()
+
+    get_fx_rate("USD", "JPY")
+    get_fx_rate("USD", "JPY")
+    get_fx_rate("USD", "JPY")
+    assert call_count["n"] == 1  # fetched once, cached the 2 suivantes
+
+
+def test_get_fx_rate_falls_back_to_hardcoded_on_live_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Si live retourne None, fallback hardcoded prend le relais."""
+    monkeypatch.setattr("shared.prices._fetch_fx_live", lambda f, t: None)
+    from shared.prices import _FX_CACHE
+    _FX_CACHE.clear()
+    rate = get_fx_rate("JPY", "EUR")
+    assert rate == approx(0.005467)  # hardcoded value
+
+
+def test_get_fx_rate_identity_short_circuits_before_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """get_fx_rate(X, X) doit retourner 1.0 sans appeler le live."""
+    call_count = {"n": 0}
+
+    def fake_fetch(f: str, t: str) -> float:
+        call_count["n"] += 1
+        return 999.0
+
+    monkeypatch.setattr("shared.prices._fetch_fx_live", fake_fetch)
+    assert get_fx_rate("EUR", "EUR") == 1.0
+    assert call_count["n"] == 0
