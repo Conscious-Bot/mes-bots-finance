@@ -1,118 +1,146 @@
-# User Bias Detector — schéma data-first
+# User Bias Detector — schéma canonique
 
-> Spec user 31/05/2026 (close-session) : "schéma d'abord. Définis l'événement-biais. Une fois ce flux d'événements posé, le panneau et le compteur coût-de-biais en tombent tout seuls."
+> Spec user 31/05/2026 (close-session). **Schéma data-first** : une fois le flux d'événements posé, le panneau (Pile 1.1) et le compteur coût-de-biais tombent tout seuls — ils ne font que lire `bias_events`.
 
-## Principe
+## Principe central : convention bidirectionnelle, **une seule somme signée**
 
-**Donnée avant surface.** Le panneau discipline/biais (Pile 1.1) est la *surface* de cette instrumentation (Pile 2.1). On ne surface pas ce qu'on n'a pas mesuré.
+`delta_signed = value_taken − value_avoided`, **toujours « positif = bonne décision »**.
 
-**Strict** : si le bot fait flic, le user l'utilise moins → moins de data comportementale → instrumentation creuse. **Alléger le policing avant ou avec la mise en route** est une *condition de qualité de la donnée*, pas un confort. Cf charter §7 / wave 10 mode advisory, à approfondir.
+- `acted_on_bias` : chemin pris = le biais. Si le biais a coûté, `delta_signed < 0` = coût matérialisé.
+- `resisted` : chemin pris = la discipline. Si elle a payé, `delta_signed > 0` = valeur bankée.
 
-## L'événement-biais (atomique)
+Compteur du panneau = `SUM(delta_signed)` sur résolus, décomposable en deux moitiés :
+1. Coût d'avoir cédé (somme des `acted_on_bias`)
+2. Dividende d'avoir résisté (somme des `resisted`)
+
+**Un seul nombre, bidirectionnel, qui dit littéralement ce que ta discipline vaut en euros.**
+
+## Table canonique
+
+Conventions respectées : UTC interne · JSON sorted keys · status lowercase_snake · erreurs explicites.
 
 ```sql
-CREATE TABLE bias_event (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- Type canonique : seuls 3 patterns mesurables en J0
-    bias_type TEXT NOT NULL CHECK(bias_type IN (
-        'vend_tot',       -- biais #1 : winners vendus trop tôt (mécanisé du bot)
-        'tient_trop',     -- biais #2 : crypto pas vendu aux tops (dormant, code conservé)
-        'resiste'         -- POSITIVE : user a résisté à un biais (donnée la plus précieuse)
-    )),
-    -- Lien à la décision concernée (NULL accepté si résisté hors décision formelle)
-    decision_id INTEGER REFERENCES decisions(id),
-    thesis_id INTEGER REFERENCES theses(id),
-    ticker TEXT,
-
-    -- Tag libre (raison-courte user-tapée, max ~80 chars)
-    tag TEXT,
-
-    -- Ancre contrefactuelle : ce qui se serait passé si le biais s'était exprimé.
-    -- Ex : "j'ai gardé AVGO malgré +18% (= biais vend_tôt résisté). Si vendu : aurait
-    --      raté +X% sur les Y jours suivants."
-    counterfactual_anchor TEXT,            -- description humaine
-    counterfactual_price REAL,              -- prix au moment de l'événement (NATIVE)
-    counterfactual_currency TEXT,           -- USD/JPY/etc (cf currency_native_invariant)
-
-    -- Résolution : quand peut-on calculer le coût-de-biais réel ?
-    resolution_date TEXT NOT NULL,          -- target_date pour comparer counterfactual_price
-    resolved_at TEXT,                       -- rempli quand prix résolu (cf resolve_due_predictions pattern)
-    final_price REAL,                       -- prix à resolution_date (NATIVE)
-    cost_pct REAL,                          -- (final - counterfactual) / counterfactual * 100
-                                            -- signe : positif = biais aurait COÛTÉ (résisté à raison)
-                                            --         négatif = biais aurait gagné (résisté à tort)
-
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    source TEXT,                            -- 'telegram_tap' | 'web_one_click' | 'cron_inferred' | 'manual'
-    methodology_version TEXT NOT NULL DEFAULT 'v1'  -- cf migration 0021 quarantine v0
+CREATE TABLE bias_events (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at          TEXT NOT NULL,        -- UTC ISO 8601
+    ticker              TEXT,                 -- UPPERCASE, NULL = niveau portefeuille
+    bias                TEXT NOT NULL,        -- lock_in | fomo_greed | other
+    action              TEXT NOT NULL,        -- acted_on_bias | resisted
+    decision_json       TEXT NOT NULL,        -- ce que la discipline disait vs ce que tu as fait
+    counterfactual_json TEXT NOT NULL,        -- les deux chemins + ancre prix/horizon
+    resolution_json     TEXT,                 -- NULL jusqu'à résolution (comme outcome_json)
+    status              TEXT NOT NULL DEFAULT 'open',  -- open | resolved | void
+    source              TEXT NOT NULL,        -- telegram_tap | auto_detected | manual
+    thesis_id           INTEGER,              -- FK theses (nullable)
+    prediction_id       INTEGER,              -- FK predictions (nullable)
+    note                TEXT,                 -- le "j'ai résisté ici", contexte libre
+    resolve_at          TEXT NOT NULL         -- UTC ISO, quand mesurer le coût
 );
-CREATE INDEX idx_bias_event_type ON bias_event(bias_type, created_at);
-CREATE INDEX idx_bias_event_resolution ON bias_event(resolution_date, resolved_at);
+CREATE INDEX idx_bias_events_open ON bias_events(status, resolve_at);
+CREATE INDEX idx_bias_events_bias ON bias_events(bias, action, created_at);
 ```
 
-## Capture : un tap (la donnée la plus précieuse)
+## Sous-schémas JSON
 
-User spec : **"logger un 'j'ai résisté ici' doit être un tap — c'est ta donnée la plus précieuse."**
+### decision_json — capture la divergence
 
-**Telegram canonique** (Pile 1.4 + le tap) :
-- `/resiste {ticker} {tag-court}` → INSERT bias_event(type='resiste', ticker, tag, counterfactual_price=current_price, resolution_date=now+30d).
-  Réponse bot : "✓ résisté noté · résolution {date} · coût-de-biais calculé alors."
-- `/vendu_tot {ticker} {tag}` → biais survenu (raté), pour faire saigner le compteur honnêtement.
-- `/tient_trop {ticker} {tag}` → idem pour biais #2.
-
-**Web one-click** : sur chaque ligne position du dashboard, un mini-bouton "✋ résisté" (icône main fermée). Click → modal léger 1 champ tag → INSERT. Pas de formulaire long.
-
-## Calcul du coût-de-biais
-
-```python
-def resolve_due_bias_events():
-    """Cron daily 9h CEST. Pour chaque bias_event WHERE resolution_date <= today
-    AND resolved_at IS NULL : fetch get_close_on(ticker, resolution_date) NATIVE,
-    compute cost_pct, UPDATE row. Pattern identique a resolve_due_predictions."""
+```json
+{
+  "conviction": 4,
+  "discipline_said": {"action": "hold", "ref": "rule:rightsize_c4", "target_size_pct": 6.0},
+  "price_at_event": 181.2,
+  "user_did": {"action": "trim", "size_pct_after": 3.0}
+}
 ```
 
-**Coût-de-biais cumulé** = `SUM(cost_pct * weight)` sur événements résolus, par type.
-- Cohorte 'resiste' : positif moyen = user résiste à raison (gain évité par discipline).
-- Cohorte 'vend_tot' : positif moyen = chaque vente précoce a coûté X% en moyenne (matérialise le biais).
+### counterfactual_json — fige les deux chemins à mesurer plus tard
 
-## Panneau discipline/biais (Pile 1.1) — surface
+```json
+{
+  "anchor_price": 181.2,
+  "horizon_days": 30,
+  "path_avoided": "discipline",
+  "path_taken": "user",
+  "shares_delta": -40
+}
+```
 
-Une fois la table peuplée, hérite du pattern Track record :
-- **Compteur coût-de-biais** : "+12.3% cumulé évité par résistance · -4.1% perdu par vente précoce" (Geist Mono, axes primitive).
-- **État honnête-tôt** : si N < 10 résolus → `INSUFFISANT — N<10` (charter §12).
-- **Top frictions récentes** : 5 dernières lignes bias_event résolues, axe stop→cible adapté (coût matérialisé sur axe).
-- **Filets fins, motion épistémique** au load.
+### resolution_json — rempli par le cron resolve
+
+```json
+{
+  "delta_signed": -890.0,
+  "measured_at": "2026-07-10T07:00:00+00:00",
+  "price_at_horizon": 203.5,
+  "summary": "trim NVDA à 181 = -890€ vs hold discipline",
+  "value_avoided": 8140.0,
+  "value_taken": 7250.0
+}
+```
+
+## Capture — un tap, sinon ça ne vit pas
+
+### Auto-détecté
+
+`intelligence/bias_tagger.auto_tag_biases` **existe déjà** (10 biais classifiés par Haiku : anchoring, recency_bias, confirmation_bias, fomo, narrative_capture, loss_aversion, regret_avoidance, overconfidence, sunk_cost, availability_heuristic).
+
+À câbler : quand `bias_tagger` détecte un pattern correspondant à `lock_in` (loss_aversion + sunk_cost) ou `fomo_greed` (fomo + narrative_capture + overconfidence) sur `/position_buy` ou `/position_sell` → INSERT `bias_events` avec `source=auto_detected`, `discipline_said` préremplie depuis la règle violée, `user_did` depuis le `position_event` correspondant.
+
+### Auto-déclaré (le plus précieux)
+
+`/resisted NVDA` → handler Telegram qui :
+1. Récupère le prix courant via `prices.get_current_price(ticker)` NATIVE
+2. Trouve la thèse ouverte liée (`thesis_id` via positions/theses join)
+3. INSERT avec `action='resisted'`, `source='telegram_tap'`, `bias` inféré du contexte ou demandé en réplique
+4. Demande une ligne de note (un tap supplémentaire OK pour la donnée la plus précieuse)
+
+## Câblage à l'existant
+
+### Cron `resolve_due_bias_events()`
+
+Calque exact de `resolve_due_predictions()` (cf commit `bce5a58` après fix wrong-day close) :
+- Filtre `WHERE status='open' AND resolve_at <= now`
+- Prix via `prices.get_close_on(ticker, resolve_at)` NATIVE (FX-invariant)
+- Écrit `resolution_json` avec `delta_signed`, `value_avoided`, `value_taken`, `price_at_horizon`
+- Passe `status='resolved'`
+
+Cron schedule : `daily 9h CEST` (même famille que resolve_predictions).
+
+### Panneau discipline (Pile 1.1)
+
+- **Hero du panneau** : compteur bidirectionnel `SUM(delta_signed)` en Geist Mono, axe primitive de gauche-coût → droite-valeur. Hérite du pattern Track record.
+- **Journal** : flux des `bias_events` résolus, langage visuel du registre / axe.
+- **État honnête-tôt** : si N résolus < 10 → `INSUFFISANT — N<10` (charter §12).
+- Filets fins, motion épistémique.
 
 ## Pré-requis avant 10/06 (pas dans la panique du jour)
 
-User spec : "vérifier avant le jour que les scaffolds s'activent bien sur les vraies résolutions (filtrées v0), pas dans la panique du jour."
-
 Checklist J-3 (07/06) :
-1. Tester `recalib_map.fit_calibration_map()` en passant un mock-cohorte n=30+ v1 → vérifier qu'une CalibrationMap est retournée (pas None).
-2. Vérifier que `_track_record_panel()` disparaît bien quand N>=10 (charter §12 + commit `bd932d8`).
-3. Tester `_distribution_health_panel()` reflète live les nouvelles résolutions.
-4. Hero portefeuille doit être au bar (Pile 1.2 héritage) — sinon le 1er vrai point tombe dans une frame vide.
+1. Test `recalib_map.fit_calibration_map()` avec mock n=30+ v1 → CalibrationMap pas None
+2. Vérif `_track_record_panel()` disparaît bien N>=10 (charter §12 + commit `bd932d8`)
+3. `_distribution_health_panel()` reflète live les nouvelles résolutions
+4. Hero portefeuille au bar (Pile 1.2) — sinon le 1er point tombe dans frame vide
 
-## Séquencement strict (user spec)
+## Séquencement strict (user spec close-session)
+
+**Profondeur, pas largeur :**
 
 ```
-Profondeur, pas largeur :
-
-1. Alléger policing (mode advisory deepening)  ──  condition qualité donnée
-2. Pile 2.1 : table bias_event + cron resolve + Telegram /resiste
-3. Pile 1.1 : panneau discipline/biais surface (hérite du pattern)
-4. Pré-requis J-3/07-06 : vérif scaffolds + hero au bar
-5. 10/06 : observation activation auto + 1er point réel
-6. Pile 1.2-1.4 : héritage du pattern sur hero / évidence / Telegram (après 1.1 stable)
-
-Tooling decoupé :
-- Live-reload + Geist auto-hosted : FIRST (30 min, accélère tout)
-- Plot/uPlot : QUAND on construit les graphes du panneau (pas avant)
-- Playwright : DERNIER (régression sur design qui bouge = gaspillage)
-- PAS de yak-shave outils qui repousse le vrai travail
+0. Mode advisory deepening      ──  condition qualité data (si bot flic, user désengage)
+1. Pile 2.1 : table bias_events + cron resolve + Telegram /resisted
+2. Pile 1.1 : panneau discipline/biais surface (hérite Track record)
+3. Pré-requis J-3/07-06       ──  vérif scaffolds + hero au bar
+4. 10/06 : observation activation auto + 1er point réel
+5. Pile 1.2-1.4 : héritage pattern (hero / évidence / Telegram) ─ après 1.1 stable
 ```
+
+**Tooling découpé** (pas de yak-shave) :
+- Live-reload + Geist auto-hosted : **FIRST** (30 min, accélère tout)
+- Plot/uPlot : **quand graphes** (pas avant)
+- Playwright : **dernier** (régression sur design qui bouge = gaspillage)
 
 ## Ce qui n'est pas dans cette spec
 
-- **Publier #01** : déjà fait 31/05 (commit `1c42026` + tag `publish-post-01-20260531`). Ne dépend d'aucun autre item.
+- **Publier #01** : déjà fait 31/05 (commit `1c42026` + tag `publish-post-01-20260531`). Ne dépend d'aucun autre item, ne re-plaide pas, juste fait.
 - **Calibration map / base rates / outcome context** : déjà scaffoldés (commit `d607085`), s'activent N>=30 auto post-10/06.
+- **bias_tagger.auto_tag_biases** : existe déjà (`intelligence/bias_tagger.py`), 10 biais classifiés par Haiku. À mapper vers le triplet canonique `lock_in / fomo_greed / other` pour cohérence.
