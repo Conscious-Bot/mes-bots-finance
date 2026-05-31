@@ -2130,8 +2130,8 @@ def _chat_panel() -> str:
         # rapidement"). Historique en DB + localStorage preserve.
         # (l'historique reste en DB + localStorage, juste le DOM est vide visuellement)
         'startChatIdleTimer();}'
-        'function clearChatDisplay(){const log=document.getElementById("chat-log");if(!log)return;log.innerHTML="";const m=document.createElement("div");m.className="chat-msg chat-idle-clear";m.textContent="Affichage efface apres 2min d\'inactivite. Historique preserve en DB. Tape une question pour relancer.";log.appendChild(m);}'
-        'function startChatIdleTimer(){if(window._chatIdleTimer)clearTimeout(window._chatIdleTimer);window._chatIdleTimer=setTimeout(clearChatDisplay,120000);}'
+        'function clearChatDisplay(){const log=document.getElementById("chat-log");if(!log)return;log.innerHTML="";const m=document.createElement("div");m.className="chat-msg chat-idle-clear";m.textContent="Affichage efface apres 7min pour laisser le chat neuf. Historique preserve en DB. Tape une question pour relancer.";log.appendChild(m);}'
+        'function startChatIdleTimer(){if(window._chatIdleTimer)clearTimeout(window._chatIdleTimer);window._chatIdleTimer=setTimeout(clearChatDisplay,420000);}'
         'function resetChatIdleTimer(){startChatIdleTimer();}'
         '(function(){if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",chatRestore);}else{chatRestore();}})();'
         'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
