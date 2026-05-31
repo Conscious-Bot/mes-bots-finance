@@ -2002,11 +2002,13 @@ def _chat_panel() -> str:
         'const ta=document.getElementById("chat-input");if(ta){'
         'const draft=localStorage.getItem("presage_chat_draft")||"";if(draft)ta.value=draft;'
         'ta.addEventListener("input",function(){try{localStorage.setItem("presage_chat_draft",ta.value);}catch(e){}resetChatIdleTimer();});}'
-        # Sprint 21 : auto-clear chat-log apres 7 min d'inactivite
+        # Sprint 21 : auto-clear chat-log apres inactivite
+        # 31/05 wave 6 : 7min -> 2min (user feedback "fenetre s'efface plus
+        # rapidement"). Historique en DB + localStorage preserve.
         # (l'historique reste en DB + localStorage, juste le DOM est vide visuellement)
         'startChatIdleTimer();}'
-        'function clearChatDisplay(){const log=document.getElementById("chat-log");if(!log)return;log.innerHTML="";const m=document.createElement("div");m.className="chat-msg chat-idle-clear";m.textContent="Affichage efface apres 7min d\'inactivite. Historique preserve en DB. Tape une question pour relancer.";log.appendChild(m);}'
-        'function startChatIdleTimer(){if(window._chatIdleTimer)clearTimeout(window._chatIdleTimer);window._chatIdleTimer=setTimeout(clearChatDisplay,420000);}'
+        'function clearChatDisplay(){const log=document.getElementById("chat-log");if(!log)return;log.innerHTML="";const m=document.createElement("div");m.className="chat-msg chat-idle-clear";m.textContent="Affichage efface apres 2min d\'inactivite. Historique preserve en DB. Tape une question pour relancer.";log.appendChild(m);}'
+        'function startChatIdleTimer(){if(window._chatIdleTimer)clearTimeout(window._chatIdleTimer);window._chatIdleTimer=setTimeout(clearChatDisplay,120000);}'
         'function resetChatIdleTimer(){startChatIdleTimer();}'
         '(function(){if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",chatRestore);}else{chatRestore();}})();'
         'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
