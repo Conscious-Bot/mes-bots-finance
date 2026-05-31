@@ -65,9 +65,10 @@ Refonte profonde du systeme d'aide a la decision :
 
 ## Mission
 
-Système d'intelligence finance perso en boucle fermée self-learning (Telegram + Claude). **Mécanise la discipline** pour compenser deux biais asymétriques :
+Système d'intelligence finance perso en boucle fermée self-learning (Telegram + Claude). **Mécanise la discipline** pour compenser **un biais asymétrique actif** :
 1. Vend les winners trop tôt (locking-in + mean-reversion) — historique PLTR @9, NVDA @130
-2. Ne vend pas la crypto aux tops d'indicateurs (FOMO/greed)
+
+*Biais #2 historique (anti-FOMO crypto) dormant depuis stock-only 26/05 — 0 crypto en book. Code backend préservé (regime CRYPTO-TOP-ZONE, risk_manager, self_loop, etc.), réactivable si re-exposition crypto. Vision projet (31/05) : outil rigoureux multi-tenant subscription investisseurs sérieux, track record performance proof-of-value.*
 
 Le bot **ne trade pas**. Il force la réflexion structurée pré-commit via thesis tracker bidirectionnel, calibration Brier, multi-round debate, /risk_check Opus, journal auto-résolu. Boucle : ingestion → process LLM → décision → prédiction (horizon mesurable) → outcome → rétrospection → enrichissement contexte → loop.
 

@@ -4763,7 +4763,6 @@ def render() -> Path:
     # v2_cohort_html / wire_activity_html / vigilance_html / calib_progress_html
     # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
     conceptions_html = _conceptions_panel()
-    preferences_html = _preferences_panel()
     axes_html = _ticker_axes_panel()
     factor_html = _factor_exposures_panel()
     stress_html = _stress_tests_panel()
@@ -4771,7 +4770,6 @@ def render() -> Path:
     spof_html = _spof_panel()
     mauboussin_html = _mauboussin_sizing_panel()
     valo_html = _valo_above_bull_panel()
-    bench_html = _benchmark_panel()
     vigie = (
         f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -4826,11 +4824,11 @@ def render() -> Path:
         '<div class="strat-sh">Strat&eacute;gie d&eacute;clar&eacute;e &mdash; r&eacute;f&eacute;rentiel</div>'
         f'{_user_strategy_panel()}'
         # 2. Lecture du livre -- etat actuel vs declare (trajectoire, paris macro, stress)
+        # Retrait 31/05 user : bench_html (Surperformance reelle vs secteur)
         '<div class="strat-sh">Lecture du livre &mdash; &eacute;tat actuel</div>'
         f'{trajectory_html}'
         f'{factor_html}'
         f'{stress_html}'
-        f'{bench_html}'
         # 3. Risques caches -- fusion Concentration + Doublons (= ce que la surface cache)
         '<div class="strat-sh">Risques cach&eacute;s &mdash; concentration &amp; doublons</div>'
         f'{spof_html}'
@@ -4839,10 +4837,10 @@ def render() -> Path:
         f'{_return_clustering_panel()}'
         f'{axes_html}'
         # 4. Apprentissage du bot -- meta (ce que le systeme retient)
-        # Retraits 31/05 : chat_signals_html + conversations_html (utilite floue user)
+        # Retraits 31/05 : chat_signals + conversations + preferences (Layer 3
+        # "ce qui MARCHE chez user" - utilite floue user feedback)
         '<div class="strat-sh">Apprentissage du bot &mdash; ce que le syst&egrave;me retient</div>'
         f'{conceptions_html}'
-        f'{preferences_html}'
         '</section>'
     )
 
