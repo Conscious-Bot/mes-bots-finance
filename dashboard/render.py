@@ -5332,7 +5332,12 @@ def render() -> Path:
         + "<script>"
         + _APP_JS
         + "</script>"
-        + "<script>(function(){var b=null;function isTyping(){var ta=document.getElementById('chat-input');if(ta&&ta.value.trim().length>0)return true;if(ta&&document.activeElement===ta)return true;return false;}function c(){if(isTyping())return;fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,600000);})();</script>"
+        # Live-reload : poll Last-Modified toutes les 1s (vs 600s ancien). User
+        # spec close-session : "Live-reload + Geist auto-hebergé = maintenant
+        # (30 min, ca accelere tout le reste)". Iteration design instantanee
+        # vs regen 60s. isTyping protege la zone chat. Charge negligeable
+        # (HEAD request, 1KB, local serve.py).
+        + "<script>(function(){var b=null;function isTyping(){var ta=document.getElementById('chat-input');if(ta&&ta.value.trim().length>0)return true;if(ta&&document.activeElement===ta)return true;return false;}function c(){if(isTyping())return;fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,1000);})();</script>"
         + "</body></html>"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
