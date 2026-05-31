@@ -1,4 +1,71 @@
 /* ============================================================
+   FONTS — Geist + Geist Mono SELF-HOSTED (charte tooling 31/05)
+   ============================================================
+   User spec : "Geist auto-hebergé = maintenant (30 min, ça accélère
+   tout le reste)". Files dans dashboard/static/fonts/ (~128KB total).
+   Servis par dashboard.serve (stdlib HTTP server, directory="dashboard").
+   Eviter le CDN Google Fonts pour : (1) zero round-trip externe au load,
+   (2) zero tracking analytics, (3) zero CORS, (4) souveraine.
+   ============================================================ */
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url("/static/fonts/geist-200.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/static/fonts/geist-300.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/geist-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/geist-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/fonts/geist-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/fonts/geist-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/geist-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/geist-mono-500.woff2") format("woff2");
+}
+
+/* ============================================================
    TOKENS PRESAGE — couche unique de design system
    ============================================================
    Source unique des tokens consommes par dashboard/render.py _CSS.
