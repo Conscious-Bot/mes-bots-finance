@@ -3327,6 +3327,13 @@ _CSS = """
     --elev:0 12px 32px -18px rgba(0,0,0,.65);
     --glass:rgba(22,20,15,.85); --glass2:rgba(14,13,11,.7); --tape:rgba(14,13,11,.9); --barbg:#1F1C18; }
   * { box-sizing:border-box; }
+  /* Accessibility focus-visible (keyboard nav). Polish DA 31/05.
+     - Suppress browser default outline-on-click (ugly, non-keyboard)
+     - Outline propre pour TAB navigation (keyboard) avec offset coherent palette
+     - Cohorent dark/light : utilise var(--ink) qui flip automatiquement */
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: var(--r1); }
+  .modetgl:focus-visible { outline-color: var(--ink); }
   .dband { position:sticky; top:10px; z-index:45; display:flex; align-items:center; gap:13px; padding:11px 17px; margin:0 0 22px; border:1px solid var(--line2); border-radius:var(--r3); background:color-mix(in srgb,var(--panel) 85%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); cursor:pointer; transition:border-color .15s,background .15s; }
   .dband:hover { background:color-mix(in srgb,var(--panel) 95%,transparent); }
   .dband .dd { width:9px; height:9px; border-radius:50%; flex:none; }
