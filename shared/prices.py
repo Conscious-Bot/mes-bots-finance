@@ -106,6 +106,9 @@ HARDCODED_FX_TO_USD: dict[str, float] = {
 # Live FX cache : TTL 4h (FX bouge lentement intraday vs ban-risk yfinance)
 _FX_TTL_SEC = 14400
 _FX_CACHE: dict[tuple[str, str], tuple[float, datetime]] = {}
+# Last successful live fetch per pair (independent from cache : survit a
+# l'expiration TTL pour permettre fx_freshness() de signaler la staleness).
+_FX_LIVE_LAST_SUCCESS: dict[tuple[str, str], datetime] = {}
 _log = _logging.getLogger(__name__)
 
 
@@ -128,6 +131,53 @@ def _fetch_fx_live(from_cur: str, to_cur: str) -> float | None:
         except Exception:
             continue
     return None
+
+
+def fx_freshness(from_cur: str, to_cur: str = "EUR") -> dict[str, Any]:
+    """Etat de fraicheur du pair FX `from_cur -> to_cur` pour affichage dashboard.
+
+    Retourne un dict avec :
+    - source : 'live_cached' (cache vivant, TTL not expired)
+             | 'live_stale_cache' (live deja fetchee mais TTL expire, le prochain
+               appel re-fetchera)
+             | 'fallback' (live n'a jamais reussi, on tape sur HARDCODED_FX)
+             | 'never_queried' (rien n'a encore appele get_fx_rate sur ce pair)
+    - last_live_at : datetime ISO du dernier live success, None si jamais
+    - age_seconds : int, secondes depuis last_live_at, None si jamais
+    - ttl_seconds : int, _FX_TTL_SEC (4h actuel)
+
+    Use case : dashboard affiche "USD/EUR live as of HH:MM" si live_cached, ou
+    "USD/EUR HARDCODED depuis 16/05 (fallback)" si fallback, ou un badge stale
+    si live_stale_cache.
+    """
+    if from_cur == to_cur:
+        return {"source": "identity", "last_live_at": None, "age_seconds": 0, "ttl_seconds": _FX_TTL_SEC}
+    key = (from_cur, to_cur)
+    last_live = _FX_LIVE_LAST_SUCCESS.get(key)
+    now = datetime.now(UTC)
+    if last_live is None:
+        return {"source": "never_queried", "last_live_at": None, "age_seconds": None, "ttl_seconds": _FX_TTL_SEC}
+    age = int((now - last_live).total_seconds())
+    cached = _FX_CACHE.get(key)
+    if cached is not None and age < _FX_TTL_SEC:
+        return {"source": "live_cached", "last_live_at": last_live.isoformat(), "age_seconds": age, "ttl_seconds": _FX_TTL_SEC}
+    return {"source": "live_stale_cache", "last_live_at": last_live.isoformat(), "age_seconds": age, "ttl_seconds": _FX_TTL_SEC}
+
+
+def fx_is_stale(from_cur: str, to_cur: str = "EUR", max_age_seconds: int = 86400) -> bool:
+    """True si le dernier live fetch de ce pair date de plus de `max_age_seconds`
+    (default 24h). Si jamais fetche live -> True (fallback en cours).
+
+    Usage : dashboard affiche un warning sur les chiffres EUR derives si
+    fx_is_stale("USD") returns True."""
+    if from_cur == to_cur:
+        return False
+    key = (from_cur, to_cur)
+    last_live = _FX_LIVE_LAST_SUCCESS.get(key)
+    if last_live is None:
+        return True
+    age = (datetime.now(UTC) - last_live).total_seconds()
+    return age > max_age_seconds
 
 
 def get_currency_for_ticker(ticker: str) -> str:
@@ -159,6 +209,7 @@ def get_fx_rate(from_cur: str, to_cur: str = "EUR") -> float | None:
     live = _fetch_fx_live(from_cur, to_cur)
     if live is not None:
         _FX_CACHE[key] = (live, now)
+        _FX_LIVE_LAST_SUCCESS[key] = now
         return live
 
     _log.warning(f"FX live fetch failed for {from_cur}->{to_cur}, fallback hardcoded")

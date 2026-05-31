@@ -236,3 +236,48 @@ def test_get_close_on_returns_none_for_invalid_date() -> None:
     from shared.prices import get_close_on
 
     assert get_close_on("AAPL", "not-a-date") is None
+
+
+# ===== fx_freshness / fx_is_stale (point #3 user 31/05 : max-age flag) =====
+
+
+def test_fx_freshness_never_queried_returns_never() -> None:
+    """Pair jamais query -> source='never_queried'."""
+    from shared.prices import _FX_LIVE_LAST_SUCCESS, fx_freshness
+
+    _FX_LIVE_LAST_SUCCESS.clear()
+    out = fx_freshness("XYZ", "ABC")
+    assert out["source"] == "never_queried"
+    assert out["age_seconds"] is None
+
+
+def test_fx_freshness_after_live_fetch_returns_live_cached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Apres un live fetch reussi, freshness = live_cached avec age petit."""
+    from shared.prices import _FX_CACHE, _FX_LIVE_LAST_SUCCESS, fx_freshness
+
+    monkeypatch.setattr("shared.prices._fetch_fx_live", lambda f, t: 100.0)
+    _FX_CACHE.clear()
+    _FX_LIVE_LAST_SUCCESS.clear()
+    get_fx_rate("USD", "JPY")
+    out = fx_freshness("USD", "JPY")
+    assert out["source"] == "live_cached"
+    assert out["age_seconds"] is not None
+    assert out["age_seconds"] < 10
+    assert out["last_live_at"] is not None
+
+
+def test_fx_is_stale_returns_true_when_never_queried() -> None:
+    """Pair jamais query live -> fx_is_stale True (fallback en cours)."""
+    from shared.prices import _FX_LIVE_LAST_SUCCESS, fx_is_stale
+
+    _FX_LIVE_LAST_SUCCESS.clear()
+    assert fx_is_stale("XYZ", "ABC") is True
+
+
+def test_fx_is_stale_identity_returns_false() -> None:
+    """fx_is_stale(X, X) = False (identite triviale, jamais stale)."""
+    from shared.prices import fx_is_stale
+
+    assert fx_is_stale("USD", "USD") is False
