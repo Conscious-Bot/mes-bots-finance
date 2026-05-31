@@ -219,6 +219,7 @@ Cf glossaire 5 axes ([[glossaire-canonique]]) pour les axes user-facing : Solidi
 12. **États honnêtes-tôt.** Quand N est trop petit pour conclure, l'AVOUER explicitement (`INSUFFISANT — N<10 pour conclure`) plutôt que d'afficher un chiffre nu qui prétend tenir. L'aveu vaut mieux qu'une fausse précision. Cf `_track_record_panel()` : Wilson IC + verdict-d'attente cohabitent, le verdict s'active quand le seuil tombe.
 13. **Self-evident : chaque élément libellé.** Pas de "100°" nu, pas de point coloré sans tooltip, pas de barre sans légende sous ou au hover. Un user qui regarde le widget pour la première fois doit comprendre ce qu'il représente sans lire un guide.
 14. **Accordéons : clic seulement, jamais hover.** Le hover dans une page dense déclenche des ouvertures intempestives quand le pointeur traverse l'UI. Le clic = intention explicite. CSS canonique : `.foo.open .bar { … }` (jamais `.foo:hover .bar`). Le click handler JS toggle la classe `.open` sur le parent.
+15. **Switch mode jour/nuit toujours visible en bas-gauche.** Le toggle clair/sombre est `position:fixed; left:var(--s25); bottom:var(--s25); z-index:50` — invariant quel que soit le scroll, l'overflow sidebar, le viewport ou les responsive breakpoints. C'est l'unique élément UI à priorité visibilité absolue (l'user doit pouvoir basculer son mode sans chercher).
 
 ---
 
