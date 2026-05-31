@@ -34,6 +34,28 @@ def get_current_price(ticker: str) -> float | None:
         return None
 
 
+def get_close_on(ticker: str, date_str: str) -> float | None:
+    """Close price on `date_str` (YYYY-MM-DD), or next trading day if
+    weekend/holiday (yfinance auto-aligne). None si rien dans 7j (delisted /
+    suspended / data gap).
+
+    Use case : resolution de predictions doit utiliser le close du target_date
+    exact, pas "current price quand le cron tourne" (bug ground-truth pre-31/05
+    qui faisait que les resolves matinaux US tombaient sur close T-1)."""
+    try:
+        start = datetime.strptime(date_str, "%Y-%m-%d")
+        end = (start + timedelta(days=7)).strftime("%Y-%m-%d")
+        d = yf.Ticker(ticker).history(
+            start=date_str, end=end, interval="1d", auto_adjust=False
+        )
+        closes = d["Close"].dropna()
+        if closes.empty:
+            return None
+        return float(closes.iloc[0])
+    except Exception:
+        return None
+
+
 # ===== FX CONVERSION LAYER (Phase 1: hardcoded constants, Phase 2: SQLite-cached) =====
 
 # Base currency = user portfolio currency (PEA/TR account)

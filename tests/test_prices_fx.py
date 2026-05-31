@@ -173,3 +173,66 @@ def test_get_fx_rate_identity_short_circuits_before_fetch(
     monkeypatch.setattr("shared.prices._fetch_fx_live", fake_fetch)
     assert get_fx_rate("EUR", "EUR") == 1.0
     assert call_count["n"] == 0
+
+
+# ===== Phase Ground-truth 31/05 : get_close_on (resolve_predictions fix) =====
+
+
+def test_get_close_on_returns_close_for_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock yfinance pour donner un close connu, get_close_on doit l'extraire."""
+    from unittest.mock import MagicMock
+
+    import pandas as pd
+
+    fake_df = pd.DataFrame(
+        {"Close": [100.0, 101.0, 102.0]},
+        index=pd.to_datetime(["2026-05-29", "2026-06-01", "2026-06-02"]),
+    )
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = fake_df
+    monkeypatch.setattr("shared.prices.yf.Ticker", lambda t: mock_ticker)
+    from shared.prices import get_close_on
+
+    assert get_close_on("AAPL", "2026-05-29") == 100.0
+
+
+def test_get_close_on_weekend_returns_next_trading_day(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """date_str = samedi -> doit retourner le close du lundi. yfinance
+    auto-aligne en n'incluant pas weekend dans son daily index."""
+    from unittest.mock import MagicMock
+
+    import pandas as pd
+
+    fake_df = pd.DataFrame({"Close": [105.0]}, index=pd.to_datetime(["2026-06-01"]))
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = fake_df
+    monkeypatch.setattr("shared.prices.yf.Ticker", lambda t: mock_ticker)
+    from shared.prices import get_close_on
+
+    assert get_close_on("AAPL", "2026-05-30") == 105.0  # 30/05 = samedi
+
+
+def test_get_close_on_returns_none_for_empty_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ticker delisted / data gap > 7j -> None."""
+    from unittest.mock import MagicMock
+
+    import pandas as pd
+
+    fake_df = pd.DataFrame({"Close": []})
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = fake_df
+    monkeypatch.setattr("shared.prices.yf.Ticker", lambda t: mock_ticker)
+    from shared.prices import get_close_on
+
+    assert get_close_on("DELISTED", "2026-05-29") is None
+
+
+def test_get_close_on_returns_none_for_invalid_date() -> None:
+    """Date format invalide -> exception attrapee -> None (pas de crash)."""
+    from shared.prices import get_close_on
+
+    assert get_close_on("AAPL", "not-a-date") is None

@@ -235,14 +235,17 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
         direction = pred["direction"]
         # Native-currency CORRECT here (not legacy).
         # This computes a RATIO (return_pct) which is FX-invariant — as long as
-        # current_price and baseline_price are in same currency, the ratio holds.
+        # target_close and baseline_price are in same currency, the ratio holds.
         # baseline_price was set at prediction creation via same get_current_price
         # native path, so both sides match. Migrating to USD/EUR adds FX layer for
         # no math gain and breaks the symmetry. DO NOT migrate.
-        current_price = prices.get_current_price(ticker)
-        if current_price is None or current_price != current_price:  # None ou NaN (NaN != NaN)
+        # Ground-truth 31/05/2026 : utiliser close du target_date exact (pas
+        # current price quand cron tourne). Avant correction : 3/6 historiques
+        # mal resolus (NVDA 50, AVGO 51, MSFT 53 -> re-resolus en DB).
+        target_close = prices.get_close_on(ticker, pred["target_date"])
+        if target_close is None or target_close != target_close:  # None ou NaN
             continue
-        return_pct = (current_price - baseline_price) / baseline_price
+        return_pct = (target_close - baseline_price) / baseline_price
         if direction == "bullish":
             if return_pct >= OUTCOME_THRESHOLD:
                 outcome = "correct"
@@ -266,7 +269,7 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
         brier_score = math_helpers.brier_for(prob, outcome)
         storage.resolve_prediction_row(
             prediction_id=pred["id"],
-            final_price=current_price,
+            final_price=target_close,
             return_pct=return_pct,
             outcome=outcome,
             credibility_delta=delta,
@@ -279,7 +282,7 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
                 "ticker": ticker,
                 "direction": direction,
                 "baseline": baseline_price,
-                "final": current_price,
+                "final": target_close,
                 "return_pct": return_pct,
                 "outcome": outcome,
                 "delta": delta,
