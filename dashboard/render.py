@@ -2377,8 +2377,20 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
             if prog >= 75:
                 data.append((prog, r["ticker"]))
     data.sort(key=lambda x: -x[0])
+    # Fix ambiguite 31/05 user : "149% vers la cible" pretait a confusion
+    # (depassement vs progression). Split en 2 verbiages directionnels :
+    # > 100% -> "+X% au-dela cible" (overshoot, prends ton profit / rightsize)
+    # < 100% -> "-X% sous cible"   (reste a parcourir, marge restante)
+    # = 100% -> "a la cible"
+    def _label(prog: float) -> str:
+        if prog >= 100.5:
+            return f"+{prog - 100:.0f}% au-del&agrave; cible"
+        if prog <= 99.5:
+            return f"&minus;{100 - prog:.0f}% sous cible"
+        return "&agrave; la cible"
+
     rows = "".join(
-        f'<div class="line"><span>{tk}</span><span class="mono">{prog:.0f}% vers la cible</span></div>'
+        f'<div class="line"><span>{tk}</span><span class="mono">{_label(prog)}</span></div>'
         for prog, tk in data
     )
     watch = (
