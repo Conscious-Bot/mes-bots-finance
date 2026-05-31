@@ -2215,10 +2215,11 @@ def _chat_panel() -> str:
         'function clearChatDisplay(){const log=document.getElementById("chat-log");if(!log)return;log.innerHTML="";const m=document.createElement("div");m.className="chat-msg chat-idle-clear";m.textContent="Affichage efface apres 7min pour laisser le chat neuf. Historique preserve en DB. Tape une question pour relancer.";log.appendChild(m);}'
         'function startChatIdleTimer(){if(window._chatIdleTimer)clearTimeout(window._chatIdleTimer);window._chatIdleTimer=setTimeout(clearChatDisplay,420000);}'
         'function resetChatIdleTimer(){startChatIdleTimer();}'
-        // chatRestore() retire de l'auto-invocation au load (user feedback 31/05 :
-        // "le chat cest reaffiche il faut qu il se supprime de l ecran").
-        // L'historique reste en DB + localStorage (window._chatHistory pour histSend),
-        // seul le DOM chat-log reste vide au reload jusqu'a ce que user tape.
+        # chatRestore() retire de l'auto-invocation au load (user feedback
+        # 31/05 : "le chat cest reaffiche il faut qu il se supprime de l ecran").
+        # L'historique reste en DB + localStorage (window._chatHistory pour
+        # histSend), seul le DOM chat-log reste vide au reload jusqu'a ce
+        # que user tape.
         '(function(){})();'
         'async function chatSend(e){e.preventDefault();const ta=document.getElementById("chat-input");const msg=ta.value.trim();if(!msg)return false;'
         'chatAppend("user",msg);ta.value="";try{localStorage.removeItem("presage_chat_draft");}catch(e){}'
