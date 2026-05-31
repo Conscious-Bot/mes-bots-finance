@@ -561,3 +561,110 @@ HEAD origin/main = b4ac2e3 (post #03 dry_run_eleven_days). Stable, rien en suspe
 - post_03_dry_run_eleven_days : J-11 dry-run honnete
 
 **Entry next session** : observer si le job 8-K 6:30 a fait passer une nouvelle 8-K material via le wire (verifier `bot.log` + `signals` table). Si oui, premier signal V2 dans le ledger. Sinon attendre. Pas de pression -- usage > code jusqu'au 10/06.
+
+
+## 31/05/2026 close — session marathon "data-trust foundation" (13 commits)
+
+HEAD origin/main = a7413fb -> 13 commits ahead non-pushes (42 total ahead).
+Bot launchd PID 4140 vivant + caffeinate sidecar. 452+ tests verts.
+Migrations 0020 -> 0022.
+
+### Cadre strategique adopte (user 31/05)
+
+User a recadre Layer 1 ("base que tu dois avoir maintenant") + Layer 2
+("features qui approfondissent l'edge") + 4-point data-trust foundation
++ "magnifier" (prendre les bonnes idees competitors + les rendre plus justes)
++ separation craft-top-website (vrai, atteignable solo) vs vernis (piege).
+
+**Les 4 piliers data-trust closes** :
+1. Contract resolution : SQL verifie pas de watch leak (direction ∈ bullish/bearish)
+2. Scorer noise : audit deja run, verdict LOW (std 0.0062, single-run OK)
+3. FX max-age : fx_freshness() + fx_is_stale() + FX badge dashboard
+4. Quarantine v0 : 40 preds 10/06 horizon=30 hardcode taggees, 4 consumers filtrent
+
+### 13 commits
+
+1. f0a9386 fiabilite launchd PRESAGE + kill orphelin bot.main
+2. c92a63d ficele KPI #2 exclut neutrals (3 SQL sites)
+3. 2f494a3 deps declarer scipy + sklearn + statsmodels
+4. ead47c3 ficele FX live yfinance + cache 4h + fallback hardcoded
+5. 541aff2 ficele retire fallback magique 'or 1.1655' (dead code)
+6. bce5a58 ground-truth resolve_due_predictions utilise close target_date +
+   re-resolve 3 historiques (NVDA 50, AVGO 51, MSFT 53)
+7. 862f80a quarantaine v0 cohort + filter consumers calibration/KPI
+8. 7329968 ficele FX freshness tracking + fx_freshness/fx_is_stale
+9. d607085 build-profond scaffold recalib_map + base_rates + outcome_context
+10. cc1cfb4 E2 wire-up A3 dashboard surface insider_snapshots (flux 7j)
+11. 1018bf2 E2 TTL label foot dashboard maj timestamp visible
+12. 41fd3a8 saved-PIT prediction_audit_log append-only + wrap +
+    backfill 31/05
+13. f0376f9 E4 craft badge FX freshness dans foot dashboard
+
+### Findings critiques
+
+**KPI #2 etait gonfle +200%** : 6 resolved 28d/30d affiches, vraie substance
+2 (4 neutrals comptes). Fix neutrals exclusion + alignement avec discipline
+deja existante (position_invariants.py:176 le faisait dans un autre check).
+
+**Ground-truth resolve bug ELIMINATOIRE** : utilisait current_price (=
+close T-1 pour US tickers via cron 9h CEST avant US open 13h30 UTC) au
+lieu de close T. 3/6 resolutions historiques FAUSSES :
+- NVDA 50 neutral -> incorrect (close reel -6.29% vs -4.91% stocke)
+- AVGO 51 neutral -> correct (+5.08% vs +0.33%)
+- MSFT 53 neutral -> correct (+6.71% vs +1.20%)
+Fix + re-resolution + backup + doc audit + PIT trail reconstruit.
+
+**Vraie performance bot post-fix** : 3 correct + 2 incorrect + 1 neutral.
+60% taux correct sur N=5, Wilson IC95% [23%, 88%] (non-conclusif a N=5
+comme attendu). Bot a ete plus performant que ses propres stats.
+
+**FX drift HARDCODED vs live** :
+- HKD : -7.3% (gros)
+- KRW : -3.8% (positions Samsung/SK Hynix)
+- JPY : -1.5% (Lasertec)
+- USD : -0.03% (essentiellement exact)
+
+**Insider flow visible** : AVGO -$2851M ★, AMD -$938M ★, MU -$432M ★,
+NVDA -$1310M (hors portef), CRWV -$5156M (hors portef). Star = position
+user. Donnees ingerees depuis insider_digest cron quotidien mais
+invisibles au dashboard avant 31/05.
+
+### Discipline "voie propre auditable" actee (feedback memory durable)
+
+User a explicite mid-session : par defaut voie propre, auditable,
+professionnelle, consciencieuse. Applique en pratique :
+- DB UPDATE destructif -> backup + doc audit + tests
+- Code change -> tests systematiques (16 nouveaux en FX, 9 en scaffolds,
+  4 en audit log)
+- Migration alembic (0021, 0022) avec downgrade testable
+- Audit log append-only avec trigger no_update
+- Backfill scripts reproductibles (pas one-shot SQL)
+
+### Restes pour next session
+
+**E4 (UI craft top-website)** -- 4 items sur 5 : vitesse/zero jank, design
+system tokens, chaque etat designe (loading/empty/stale/error), detail
+ergonomique (defaults + clavier + single reading model), densite belle
+(Bloomberg-dense Linear-clean). Multi-sessions, jugement visuel fin.
+
+**E5 publier post #01** -- bloquant KPI #2 leve, ground-truth audit OK.
+Decision plateforme (Substack ? Twitter ? site PRESAGE ?) + ton final
+necessaires.
+
+**Activation des 3 scaffolds build-profond** : recalib_map / base_rates /
+outcome_context s'allument quand N predictions resolved v1 >= 30 (cf
+seuils dans chaque module). Post-batch 10/06 ce sera proche, possible
+qu'on les active des juillet.
+
+**Loose ends mineurs** :
+- pre-existing ruff F841 unused var dashboard/render.py:4750 (over_cap_tk)
+- 42 commits ahead origin (a pousser un jour, prerequis Hetzner migration)
+- rotate_bot_log.sh ligne 67-69 doublonne avec launchd (refondre quand
+  prochaine rotation manuelle)
+- portfolio_snapshots cron rate 6/8 jours sur fenetre (25/05 + 29/05
+  missed). Pas critique mais surveiller.
+
+**Entry next session** : si focus craft = ouvrir le dashboard live, listing
+des etats casses observes. Si focus publi = relire post_01 et decider
+plateforme. Si focus suite techno = lancer alembic upgrade head sur Hetzner
+(en parallele de la decision deploy).
