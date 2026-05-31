@@ -390,14 +390,23 @@ async def _buy_impl(update, ticker: str, qty: float, price: float, reasoning: st
         }
         _result_b2 = risk_engine.validate(_decision_b2)
         if not _result_b2.ok and _result_b2.severity == "block":
-            _msg_b2 = "BLOCKED by risk.validate():\n" + "\n".join(f"  - {r}" for r in _result_b2.reasons)
-            _msg_b2 += "\n  Override: toggle risk.validate_enabled in config.yaml"
+            # W14 mode advisory deepening (31/05 close) : softening du message
+            # prescriptif. La discipline INFORME, ne refuse pas en silence.
+            # Conservative partiel : on garde le return pour le moment (pas de
+            # bias_events.write encore wired). Quand Pile 2.1 v2 sera live :
+            # supprimer le return, INSERT bias_events(action='acted_on_bias' OU
+            # 'resisted' selon outcome), laisser l'achat proceder.
+            # TODO Pile 2.1 v2 : remove early return, log to bias_events.
+            _msg_b2 = "Discipline risk : refus signale.\n" + "\n".join(
+                f"  &middot; {r}" for r in _result_b2.reasons
+            )
+            _msg_b2 += "\n  Outrepasser : toggle risk.validate_enabled dans config.yaml."
             with contextlib.suppress(Exception):
                 _storage_b2_mod.log_decision(
                     ticker=ticker,
                     decision_type="buy_blocked_by_risk",
                     confidence=_conviction_b2,
-                    reasoning=f"BLOCKED: {'; '.join(_result_b2.reasons)}",
+                    reasoning=f"discipline_risk_refus: {'; '.join(_result_b2.reasons)}",
                     direction="long",
                     price_at_decision=price,
                 )
