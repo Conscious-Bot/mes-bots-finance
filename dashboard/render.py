@@ -2607,7 +2607,7 @@ def _signaux() -> str:
         f"</div>"
     )
     insider_strip = (
-        f'<div class="colhead" style="margin-top:24px"><span class="t">Achats d\'initi&eacute;s group&eacute;s</span><span class="a">60&nbsp;j &middot; Form 4 EDGAR</span></div>'
+        f'<div class="colhead spaced"><span class="t">Achats d\'initi&eacute;s group&eacute;s</span><span class="a">60&nbsp;j &middot; Form 4 EDGAR</span></div>'
         f'<div class="card pad">{insiders}</div>'
     )
     return (
@@ -3393,6 +3393,8 @@ _CSS = """
   .kd { display:block; font-size:10px; color:var(--steel); margin-top:6px; }
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:start; }
   .colhead { display:flex; align-items:baseline; gap:9px; margin-bottom:12px; padding-left:2px; } .colhead .t { font-family:var(--fd); font-weight:500; font-size:14px; } .colhead .a { font-family:var(--fm); font-size:12px; color:var(--steel); }
+  .colhead.tight { margin-top:var(--s15); } /* 6px : aerer un peu apres un bloc voisin */
+  .colhead.spaced { margin-top:var(--s4); } /* 20px : separateur de section, sous-titre marque */
   .sec-cols { display:grid; grid-template-columns:1fr 92px 96px 58px 72px 78px; gap:10px; padding:2px 16px 9px; font-family:var(--fb); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); border-bottom:1px solid var(--line); margin-bottom:12px; }
   .sec-cols .num { text-align:right; }
   .sec-grp { margin-bottom:22px; }
@@ -4527,7 +4529,7 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
     tr = [p for p in positions if _broker(p["ticker"]) == "tr"]
     eu = [p for p in positions if _broker(p["ticker"]) == "bourso"]
     head = (
-        '<div class="colhead" style="margin-top:6px"><span class="t">Comptes</span>'
+        '<div class="colhead tight"><span class="t">Comptes</span>'
         '<span class="a">par courtier &middot; tri&eacute; par valeur &middot; '
         'asym&eacute;trie = upside_to_target / downside_to_stop (Taleb barbell)</span></div>'
     )
@@ -4539,7 +4541,18 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
 
 
 _MODE_BTN = """<button class="modetgl" title="Mode jour / nuit" onclick="document.body.classList.toggle('midnight');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('midnight')?'midnight':'parchment')}catch(e){}"><svg class="ico-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>"""
-_THEME_INIT = "<script>try{var t=localStorage.getItem('hmdl-theme');if(t==='midnight')document.body.classList.add('midnight');}catch(e){}</script>"
+_THEME_INIT = (
+    "<script>"
+    "try{"
+    "var t=localStorage.getItem('hmdl-theme');"
+    "if(t==='midnight'){document.body.classList.add('midnight');}"
+    "else if(t==='parchment'){/* explicit light, ne rien faire */}"
+    "else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches){"
+    "document.body.classList.add('midnight');"
+    "}"
+    "}catch(e){}"
+    "</script>"
+)
 
 
 _SORT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
@@ -4682,7 +4695,7 @@ def render() -> Path:
     journal_html = _journal()
     journal_block = (
         (
-            '<div class="colhead" style="margin-top:22px"><span class="t">Derni&egrave;res d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
+            '<div class="colhead spaced"><span class="t">Derni&egrave;res d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
             f'<div class="card pad">{journal_html}</div>'
         )
         if journal_html
@@ -4797,7 +4810,7 @@ def render() -> Path:
         f"{copilot_html}"
         # ── BLOC 6 : JOURNAL -- chat + echeances + log decisions ──
         '<div class="vigie-sh">Journal &amp; &eacute;ch&eacute;ances</div>'
-        f'<div class="colhead" style="margin-top:6px"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
+        f'<div class="colhead tight"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
         f'<div class="card pad">{erows}</div>'
         f"{chat_html}"
         f"{journal_block}</section>"
