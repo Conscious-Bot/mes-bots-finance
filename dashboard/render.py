@@ -4807,9 +4807,11 @@ def render() -> Path:
         # Note du portefeuille -- juste sous la valeur (hero)
         f"{grade_html}"
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
+        # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
+        # chat_html remonte ici "a la place" pour acces direct copilot en haut de page)
         '<div class="vigie-sh">Urgence &mdash; agir maintenant</div>'
         f'{_risk_watch_panel()}'
-        f"{kill_html}"
+        f"{chat_html}"
         f"{blind_html}"
         # ── BLOC 2 : OPPORTUNITES -- a cloturer ou consolider ──
         '<div class="vigie-sh">Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
@@ -4827,11 +4829,10 @@ def render() -> Path:
         # via cron weekly_v2_vigilance + weekly_calibration_audit prennent le relais)
         '<div class="vigie-sh">Synth&egrave;se copilot</div>'
         f"{copilot_html}"
-        # ── BLOC 5 : JOURNAL -- chat + echeances + log decisions ──
+        # ── BLOC 5 : JOURNAL -- echeances + log decisions (chat remonte au BLOC 1) ──
         '<div class="vigie-sh">Journal &amp; &eacute;ch&eacute;ances</div>'
         f'<div class="colhead tight"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
         f'<div class="card pad">{erows}</div>'
-        f"{chat_html}"
         f"{journal_block}</section>"
     )
 
