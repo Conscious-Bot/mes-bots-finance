@@ -2300,7 +2300,7 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
         for prog, tk in data
     )
     watch = (
-        rows or '<div class="empty" style="padding:var(--s4) 0">aucune ligne &agrave; &ge;75% de la cible &mdash; laisser courir</div>'
+        rows or '<div class="empty" style="padding:var(--s4) 0">aucune ligne &agrave; &ge;75% de la cible &mdash; marges restantes</div>'
     )
     return watch, len(data)
 
@@ -3100,12 +3100,12 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         if _c["breached"]:
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
             _conc.append(f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;")
-    _dev_cls, _dev_lab = ("danger", "&Agrave; AJUSTER") if _conc else ("calm", "AU CALME")
+    _dev_cls, _dev_lab = ("danger", "FRICTIONS") if _conc else ("calm", "ALIGN&Eacute;")
     _dev_txt = " &nbsp;&middot;&nbsp; ".join(_conc) if _conc else "concentration sous les plafonds"
     feu = (
         '<div class="plan"><div class="plan-h">&Agrave; arbitrer aujourd&rsquo;hui</div><div class="plan-row">'
         + f'<div class="pi {_dev_cls}"><span class="pn">{_dev_lab}</span><span class="pl">&eacute;cart de discipline</span><span class="pt">{_dev_txt}</span></div>'
-        + f'<div class="pi calm"><span class="pn">{near_t}</span><span class="pl">ligne(s) &agrave; &ge;75% de la cible</span><span class="pt">laisser courir &middot; tenir le cap</span></div>'
+        + f'<div class="pi calm"><span class="pn">{near_t}</span><span class="pl">ligne(s) &agrave; &ge;75% de la cible</span><span class="pt">marge restante OK</span></div>'
         + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">ligne(s) &agrave; &lt;10% du stop</span><span class="pt">{"&agrave; surveiller" if near else "calme"}</span></div>'
         + "</div>"
         + '<div style="margin-top:16px;padding-top:13px;border-top:1px solid var(--line);display:flex;gap:30px;flex-wrap:wrap;font-size:12px;color:var(--steel)">'
@@ -5004,7 +5004,7 @@ def render() -> Path:
         if ln and a["frac"] > 80:
             risky = ln.valo_above_bull_case or ln.solidite in ("Fragile", "Incertain")
             if risky:
-                profit_chip = '<span class="th-pt">prends ton profit</span>'
+                profit_chip = '<span class="th-pt">cible atteinte</span>'
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
             f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%" title="{a["frac"]:.1f}%"></div></div>'
@@ -5055,12 +5055,12 @@ def render() -> Path:
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html migre vers section Copilot dediee 31/05 wave 5)
-        '<div class="vigie-sh">Urgence &mdash; agir maintenant</div>'
+        '<div class="vigie-sh">&Eacute;tat &mdash; lignes &agrave; examiner</div>'
         f'{_risk_watch_panel()}'
         f"{blind_html}"
         # ── BLOC 2 : OPPORTUNITES -- a cloturer ou consolider ──
         '<div class="vigie-sh">Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">la th&egrave;se se r&eacute;alise &middot; mais si "valo &gt; bull" ou "fragile" appara&icirc;t = prends ton profit, pas victoire</span></div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">th&egrave;se en cours de r&eacute;alisation &middot; surveiller valo &gt; bull et fragilit&eacute;</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
         # ── BLOC 3 : MOUVEMENT -- info dynamique du jour ──
@@ -5144,7 +5144,7 @@ def render() -> Path:
     if near:
         _dev_items.append((f"{near} ligne(s) &lt; 10% du stop", "risque"))
     _dn = len(_dev_items)
-    _dcls, _dverdict = ("bear", "&Agrave; AJUSTER") if _dn else ("acc", "AU CALME")
+    _dcls, _dverdict = ("bear", "FRICTIONS") if _dn else ("acc", "ALIGN&Eacute;")
     _ddetail = (
         " &nbsp;&middot;&nbsp; ".join(item[0] for item in _dev_items)
         if _dev_items else "tout sous les r&egrave;gles"
