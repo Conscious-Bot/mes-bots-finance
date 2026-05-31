@@ -56,6 +56,61 @@ def get_close_on(ticker: str, date_str: str) -> float | None:
         return None
 
 
+def get_fx_rate_on(from_cur: str, to_cur: str, date_str: str) -> float | None:
+    """Historical FX rate `from_cur -> to_cur` ON `date_str` (YYYY-MM-DD).
+
+    Use case : resolution bias_events / track record retrospectif demande
+    FX-coherent aux 2 dates (event + horizon). Sans ca, la derive FX entre
+    les 2 dates pollue le delta_signed.
+
+    Strategie : tente pair direct `{from}{to}=X` puis inverse `{to}{from}=X`
+    (yfinance ne quote que la direction majeure). 7j window pour absorber
+    weekend/holiday. None si rien (PAS de fallback hardcoded ici : caller
+    decide -- contrairement a get_fx_rate qui sert le live courant)."""
+    if from_cur == to_cur:
+        return 1.0
+    try:
+        start = datetime.strptime(date_str, "%Y-%m-%d")
+        end = (start + timedelta(days=7)).strftime("%Y-%m-%d")
+        for pair, invert in [
+            (f"{from_cur}{to_cur}=X", False),
+            (f"{to_cur}{from_cur}=X", True),
+        ]:
+            try:
+                d = yf.Ticker(pair).history(
+                    start=date_str, end=end, interval="1d", auto_adjust=False
+                )
+                closes = d["Close"].dropna()
+                if not closes.empty:
+                    rate = float(closes.iloc[0])
+                    return 1.0 / rate if invert else rate
+            except Exception:
+                continue
+    except Exception:
+        return None
+    return None
+
+
+def get_close_on_in_eur(ticker: str, date_str: str) -> float | None:
+    """Close du ticker ON `date_str` converti en EUR via FX-coherent a la
+    MEME date (cf [[currency-native-invariant]] : prix stockes NATIVE, on
+    convertit cote consumer).
+
+    Used by bias_events resolution + track record retrospectif. None si
+    NATIVE close manque OU FX rate manque (caller leve MissingDataError --
+    JAMAIS default silencieux, cf charte invariant)."""
+    native_close = get_close_on(ticker, date_str)
+    if native_close is None:
+        return None
+    currency = get_currency_for_ticker(ticker)
+    if currency == "EUR":
+        return native_close
+    fx_rate = get_fx_rate_on(currency, "EUR", date_str)
+    if fx_rate is None:
+        return None
+    return native_close * fx_rate
+
+
 # ===== FX CONVERSION LAYER (Phase 1: hardcoded constants, Phase 2: SQLite-cached) =====
 
 # Base currency = user portfolio currency (PEA/TR account)
