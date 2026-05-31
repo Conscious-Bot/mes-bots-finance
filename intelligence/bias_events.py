@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -100,6 +100,110 @@ def classify_net_delta(
         action = "acted_on_bias"
 
     return action, shares_taken, shares_avoided, actual_delta
+
+
+def open_candidate(
+    *,  # kwargs only -- evite l'ambiguite des positionnels (ordre arguments)
+    ticker: str,
+    bias: str,
+    discipline_said: dict[str, Any],
+    horizon_days: int,
+    anchor_price_eur: float,
+    initial_qty: float,
+    discipline_expected_delta: float,
+    thesis_id: int | None = None,
+    prediction_id: int | None = None,
+    source: str = "auto_detected",
+    note: str | None = None,
+) -> int:
+    """v2.c.2 -- ouvre un candidat bias_event au moment ou la regle emet une
+    reco counter-bias. Aligne ADR 010 Addendum v2.c §"Un candidat par
+    recommandation".
+
+    SUPERSEDE RULE (user 01/06) : void TOUS les candidats open meme
+    (ticker, bias) avant INSERT -- pas en supposer exactement un. Si un bug
+    / race / retry historique a cree plusieurs opens, ils sont tous voides.
+    Apres l'appel : aucun orphelin open meme (ticker, bias) ne reste, sauf
+    le nouveau qu'on vient d'INSERT.
+
+    Action PROVISOIRE : 'acted_on_bias' a l'INSERT (l'addendum dit que
+    action est determinee a la resolution via classify_net_delta). Le
+    placeholder a un sens semantique : "le biais n'a pas encore ete
+    resiste". resolve_one_bias_event (v2.c.3) UPDATE-ra action='resisted'
+    si la classification dit que la discipline a tenu.
+
+    decision_json capture captured_at_event=true (cf invariant ADR §3
+    falsifiabilite : discipline_said capture a l'instant t, pas reconstruit
+    a la resolution).
+
+    Args:
+        ticker: UPPERCASE (e.g., 'NVDA')
+        bias: 'lock_in' | 'fomo_greed' | 'other'
+        discipline_said: dict avec au minimum 'action' ('hold' | 'rightsize'
+            | 'trim' | 'exit') et 'ref' (ID de la regle qui a emis).
+        horizon_days: figé sur la thèse (cf ADR §4), jamais ad-hoc.
+        anchor_price_eur: prix EUR au moment de l'emission (FX-coherent
+            sera utilise par resolve aussi).
+        initial_qty: shares au moment de l'emission.
+        discipline_expected_delta: changement net shares recommande
+            (negatif=trim/exit, 0=hold, positif=add).
+        thesis_id / prediction_id: liens optionnels (FK).
+        source: 'auto_detected' (default) | 'telegram_tap' | 'manual'.
+        note: texte libre optionnel.
+
+    Returns:
+        id du nouveau bias_event (lastrowid).
+    """
+    from shared.storage import DB_PATH
+
+    now_iso = datetime.now(UTC).isoformat()
+    resolve_at_iso = (datetime.now(UTC) + timedelta(days=horizon_days)).isoformat()
+    decision_json_str = json.dumps(
+        {"captured_at_event": True, "discipline_said": discipline_said},
+        sort_keys=True,
+    )
+    counterfactual_json_str = json.dumps(
+        {
+            "anchor_price_eur": anchor_price_eur,
+            "counterfactual_method": "cash_idle",
+            "discipline_expected_delta": discipline_expected_delta,
+            "horizon_days": horizon_days,
+            "initial_qty": initial_qty,
+            "path_avoided": "discipline",
+            "path_taken": "user",
+        },
+        sort_keys=True,
+    )
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        # SUPERSEDE : void TOUS les open candidats meme (ticker, bias) -- pas
+        # en supposer 1. Couvre race/bug/retry historiques qui ont accumule.
+        conn.execute(
+            "UPDATE bias_events SET status='void' "
+            "WHERE status='open' AND ticker=? AND bias=?",
+            (ticker, bias),
+        )
+        cursor = conn.execute(
+            "INSERT INTO bias_events "
+            "(created_at, ticker, bias, action, decision_json, "
+            " counterfactual_json, status, source, thesis_id, prediction_id, "
+            " note, horizon_days, resolve_at) "
+            "VALUES (?, ?, ?, 'acted_on_bias', ?, ?, 'open', ?, ?, ?, ?, ?, ?)",
+            (
+                now_iso, ticker, bias,
+                decision_json_str, counterfactual_json_str,
+                source, thesis_id, prediction_id, note,
+                horizon_days, resolve_at_iso,
+            ),
+        )
+        new_id = cursor.lastrowid
+        conn.commit()
+        if new_id is None:
+            raise RuntimeError("open_candidate : lastrowid None apres INSERT")
+        return new_id
+    finally:
+        conn.close()
 
 
 def get_due_bias_events(limit: int = 50) -> list[dict]:
