@@ -791,10 +791,54 @@ def get_due_predictions(limit=50):
         conn.close()
 
 
-def resolve_prediction_row(prediction_id, final_price, return_pct, outcome, credibility_delta, brier_score=None):
-    """Phase A1 — Brier: stores brier_score at resolution time."""
+def resolve_prediction_row(
+    prediction_id, final_price, return_pct, outcome, credibility_delta,
+    brier_score=None, source: str = "resolve_due_predictions", actor: str | None = None,
+):
+    """Phase A1 — Brier: stores brier_score at resolution time.
+
+    PIT (ADR-001 + migration 0022) : log dans prediction_audit_log avant
+    UPDATE. Premiere resolution -> 1 ligne event_type='resolve'. Re-resolution
+    -> 2 lignes ('re_resolve_pre' + 're_resolve'). Audit-grade."""
+    import json as _json
+
     conn = _sqlite3.connect(DB_PATH)
     try:
+        prev = conn.execute(
+            "SELECT resolved_at, final_price, return_pct, outcome, "
+            "       credibility_delta, brier_score "
+            "FROM predictions WHERE id=?",
+            (prediction_id,),
+        ).fetchone()
+        is_reresolve = bool(prev and prev[0] is not None)
+        if is_reresolve:
+            conn.execute(
+                "INSERT INTO prediction_audit_log "
+                "(prediction_id, event_type, payload_json, source, actor) VALUES (?, ?, ?, ?, ?)",
+                (
+                    prediction_id, "re_resolve_pre",
+                    _json.dumps({
+                        "resolved_at": prev[0], "final_price": prev[1],
+                        "return_pct": prev[2], "outcome": prev[3],
+                        "credibility_delta": prev[4], "brier_score": prev[5],
+                    }),
+                    source, actor,
+                ),
+            )
+        event_type = "re_resolve" if is_reresolve else "resolve"
+        conn.execute(
+            "INSERT INTO prediction_audit_log "
+            "(prediction_id, event_type, payload_json, source, actor) VALUES (?, ?, ?, ?, ?)",
+            (
+                prediction_id, event_type,
+                _json.dumps({
+                    "final_price": final_price, "return_pct": return_pct,
+                    "outcome": outcome, "credibility_delta": credibility_delta,
+                    "brier_score": brier_score,
+                }),
+                source, actor,
+            ),
+        )
         conn.execute(
             "UPDATE predictions SET resolved_at=CURRENT_TIMESTAMP, final_price=?, return_pct=?, "
             "outcome=?, credibility_delta=?, brier_score=? WHERE id=?",
