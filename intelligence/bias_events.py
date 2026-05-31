@@ -116,19 +116,20 @@ def resolve_one_bias_event(event: dict[str, Any]) -> dict[str, Any]:
     value_taken_eur = shares_taken * price_at_horizon_eur + cash_oisif_eur
     value_avoided_eur = shares_avoided * price_at_horizon_eur
 
+    # Aligne ADR 010 : counterfactual_method = "cash_idle" (v1) vs "redeployment" (v2 differe).
+    counterfactual_method = cf.get("counterfactual_method", "cash_idle")
     return {
         "delta_signed_eur": round(delta_signed_eur, 2),
         "value_taken_eur": round(value_taken_eur, 2),
         "value_avoided_eur": round(value_avoided_eur, 2),
         "measured_at": datetime.now(UTC).isoformat(),
         "price_at_horizon_eur": round(price_at_horizon_eur, 4),
-        "anchor_price_eur_used": round(anchor_price_eur, 4),
-        "cash_redeployment_assumption": "cash_oisif",  # v1 flag explicit
-        "shares_delta_used": shares_delta,
         "summary": (
-            f"{ticker} : {'taken>avoided' if shares_delta > 0 else 'taken<avoided'} "
-            f"({shares_taken}-{shares_avoided}={shares_delta}), price {anchor_price_eur:.2f} -> "
-            f"{price_at_horizon_eur:.2f} EUR, delta {delta_signed_eur:+.2f} EUR"
+            f"{ticker} : "
+            f"{'taken>avoided' if shares_delta > 0 else 'taken<avoided'} "
+            f"({shares_taken}-{shares_avoided}={shares_delta}), "
+            f"price {anchor_price_eur:.2f} -> {price_at_horizon_eur:.2f} EUR, "
+            f"method={counterfactual_method}, delta {delta_signed_eur:+.2f} EUR"
         ),
     }
 
