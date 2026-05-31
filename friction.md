@@ -235,3 +235,39 @@ currency tracking (Sprint 1.3 candidate) preserved as open question in ADR-003.
 2026-05-28 | page Theses sizing bar | hierarchie inversee : le depassement de cap (seule chose actionnable) est le sliver le moins visible ; le tick cap n'est pas labellise
 2026-05-28 | page Theses | "cible taille X%" repete sur chaque carte = constante par palier, bruit
 2026-05-28 | page Theses | "-1 944 EUR" faux precis, a arrondir
+
+## 2026-05-31 — Session marathon data-trust + craft (31 commits)
+
+### Data integrity (les bugs qui ne crashent pas -- les plus dangereux)
+2026-05-31 | KPI #2 fuite neutrals | 3 SQL sites (observability/morning_brief 30d+24h) comptaient outcome=neutral comme "resolved". Vraie substance 2 affichee comme 6, +200% gonfle.
+2026-05-31 | resolve_due_predictions wrong-day close | cron 9h CEST = 7h UTC, US tickers close target_date pas encore present a yfinance -> retourne T-1. 3/6 historiques mal resolus (NVDA/AVGO/MSFT neutral au lieu de incorrect/correct/correct). Sol porteur cassait toute calibration future.
+2026-05-31 | HARDCODED_FX dereglee silencieusement | JPY/KRW/USD figes depuis 16/05. Audit live : HKD -7.3% drift, KRW -3.8%, JPY -1.5%. Toute valorisation EUR sur position Asia mentait sans aveu.
+2026-05-31 | currency-native invariant viole 2 sites | _theses() + asym_mod monkey-patch utilisaient _cached_price_eur pour comparer a stop_price/target_full NATIVE -> cible +175408% sur SK Hynix, +23876% sur 4063.T.
+2026-05-31 | predictions overwrite sans audit trail | re-resolutions destructives ecrasaient l'ancien outcome sans history. recalib_map fittee plus tard aurait appris du resultat final, pas du chemin. Manque PIT bitemporal pour mutations.
+
+### UI/UX -- friction visuelle live
+2026-05-31 | "100°" nu dans foot sidebar | label muet sans unite ni contexte. "100 quoi ?". Symptome general : self-evidence pas systematisee.
+2026-05-31 | "A CALIBRER" sticky bandeau ambigu | confondu avec "calibration scorer V2" autre panneau meme page. Renommer "A AJUSTER" puis "FRICTIONS".
+2026-05-31 | "X a traiter" sticky bandeau | _dn = nombre de CATEGORIES, user lit "X items individuels". Breakdown vit dans description, pas dans le compte.
+2026-05-31 | tape PnL/8-K tickers non-cliquables | <b>{tk}</b> sans data-tk. Ticker visible mais inerte = friction au drill. Elements les plus visibles, fonctionnalite morte.
+2026-05-31 | inline font-size:Npx 270 sites | 76x 11px + 60x 12px + 57x 10px + 48x 13px resistent au bump body. Tokens existaient mais non-appliques.
+2026-05-31 | accordeons s'ouvrent au hover | 4 patterns (.geo-item, .gradecard, .copilotcard, .conceptionscard) -> ouvertures intempestives en page dense quand pointeur traverse.
+2026-05-31 | description "..." truncatures user-facing | 3+ sites detail. User attendait completude en detail, eu truncation par defaut.
+2026-05-31 | distline hero sans legende | barre rouge/vert sans legende sur ou au hover. Title= manquant.
+2026-05-31 | foot sidebar 4-5 indicators sans interet | red dot + 100° + 5⚠ + macro square + maj timestamp + FX live = trop muets/redondants. Reduit a switch mode only.
+
+### Architecture / structure
+2026-05-31 | page Copilot dispersee | chat dans Vue d'ensemble, conceptions ticker dans Strategie, conversations + chat_signals dead code, synthese copilot dans vigie. 5 places differents. Migre vers page Copilot dediee.
+2026-05-31 | "ce que le bot pense par ticker" rebarbatif | bc-text 4 lignes par ticker affichees -> bruit. Accordeon serre clic-deroulant attendu.
+2026-05-31 | Strategie 40KB vs Vue d'ensemble 17KB | scroll long. Sub-text colhead = essais didactiques au lieu de title= au hover. Densite inversee.
+2026-05-31 | mode prescriptif vs advisory | "Urgence -- agir maintenant", "PRENDS TON PROFIT", "À AJUSTER" = ordres. Le bot decrit, le user decide.
+2026-05-31 | bandeau 8-K news 1/3 tronquees "..." | scrolle horizontal de toute facon. Truncation 40 chars degrade lisibilite sans benefice.
+
+### Honnete-tot / etats designes
+2026-05-31 | Brier panel sans aveu N petit | KPI #3 affichait point seul sans IC95% ni "INSUFFISANT N<10". Track record honnete-tot manquait.
+2026-05-31 | insider_snapshots ingere mais invisible | ~401 rows quotidiennes branchees sur insider_buy_clusters_log vide -> "aucun cluster detecte" -> 401 lignes signal hidden.
+2026-05-31 | fx_freshness expose sans consumer UI | helper construit mais aucun affichage. Travail invisible = pas de friction reduite.
+
+### Cron / fiabilite
+2026-05-31 | 2 instances bot.main concurrentes 27h | orphelin samedi 11h + nouvelle 15h, 1768 Telegram Conflicts. DB intacte mais ressources gaspilles. Pas de launchd anti-recurrence avant cette session.
+2026-05-31 | rotate_bot_log.sh ligne 67-69 doublonne launchd | son caffeinate manuel apres kill -9 -> course condition avec auto-restart launchd.
