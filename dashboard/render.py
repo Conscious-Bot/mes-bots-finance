@@ -2135,7 +2135,7 @@ def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
         rows.append(
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
             f'<span class="tk">{tk}{flag}</span><span class="tag {cls}">{sign}{pnl:.1f}%</span></div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{pc:.1f}%"></div></div>'
+            f'<div class="axis"><div class="axis-mark" style="left:{pc:.1f}%" title="{pc:.1f}%"></div></div>'
             f'<div class="rs"><span>vers la cible</span><span class="mono">{prog:.0f}%</span></div></div>'
         )
     return "".join(rows), hits, top
@@ -2176,7 +2176,7 @@ def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
         rows.append(
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
             f'<span class="tk">{tk}{flag}</span><span class="tag {cls}">{down:.0f}%</span></div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{buf:.1f}%"></div></div>'
+            f'<div class="axis"><div class="axis-mark" style="left:{buf:.1f}%" title="{buf:.1f}%"></div></div>'
             f'<div class="rs"><span>marge avant le stop</span></div></div>'
         )
         if is_near:
@@ -2506,7 +2506,7 @@ def _geo_bars(positions: list[dict]) -> str:
             f'<div class="geo-item">'
             f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
             f'<span class="tag acc2">{pct:.0f}%</span></div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, pct)):.1f}%"></div></div>'
+            f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, pct)):.1f}%" title="{pct:.1f}%"></div></div>'
             f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
             f'<div class="geo-sub">{sub}</div></div>'
         )
@@ -2676,7 +2676,7 @@ def _signaux() -> str:
             src_rows += (
                 f'<div class="row"><div class="rt"><span class="tk">{str(name)[:24]}</span>'
                 f'<span class="tag {col}">{cv:.2f}</span></div>'
-                f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, cv * 100)):.1f}%"></div></div>'
+                f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, cv * 100)):.1f}%" title="cr&eacute;dibilit&eacute; {cv:.2f}"></div></div>'
                 f'<div class="rs"><span>cr&eacute;dibilit&eacute;</span><span class="mono">{int(n)} signaux</span></div></div>'
             )
     except Exception as e:
@@ -2956,7 +2956,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         if _c["breached"]:
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
             _conc.append(f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;")
-    _dev_cls, _dev_lab = ("danger", "&Agrave; CALIBRER") if _conc else ("calm", "AU CALME")
+    _dev_cls, _dev_lab = ("danger", "&Agrave; AJUSTER") if _conc else ("calm", "AU CALME")
     _dev_txt = " &nbsp;&middot;&nbsp; ".join(_conc) if _conc else "concentration sous les plafonds"
     feu = (
         '<div class="plan"><div class="plan-h">&Agrave; arbitrer aujourd&rsquo;hui</div><div class="plan-row">'
@@ -2973,7 +2973,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         '<div class="gauge"><div class="ghead">'
         '<span class="gl">Sant&eacute; macro &middot; cr&eacute;dit / or / taux 30a / inflation / VIX</span>'
         + f'<span class="gv"><span class="gvm" style="--c:var(--{_phase_col})">{clabel}</span><span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; phase {cphase}/4 &middot; indice {score:.0f}</span></span></div>'
-        + f'<div class="gtrack"><div class="axis-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
+        + f'<div class="gtrack"><div class="axis-mark" style="left:{(cphase - 0.5) * 25:.0f}%" title="phase {cphase}/4"></div></div>'
         '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
     )
     rsi_html = _market_rsi()
@@ -3285,7 +3285,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:  # n
     for c in (5, 4, 3, 2, 1):
         hist += (
             f'<div class="th-hbar"><span class="th-hlab">c{c}</span>'
-            f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, dist[c] / maxc * 100)):.1f}%"></div></div>'
+            f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, dist[c] / maxc * 100)):.1f}%" title="{dist[c]/maxc*100:.1f}%"></div></div>'
             f'<span class="th-hn">{dist[c]}</span></div>'
         )
     hist += "</div>"
@@ -3338,7 +3338,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:  # n
                     zones = ""
                 bar = (
                     '<div class="th-bar"><div class="axis">'
-                    f'{zones}<div class="axis-mark" style="left:{t["frac"]:.1f}%"></div></div>'
+                    f'{zones}<div class="axis-mark" style="left:{t["frac"]:.1f}%" title="position {t["frac"]:.1f}% entre stop et cible"></div></div>'
                     '<div class="th-ends">'
                     f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
                     f'<span class="th-tgt">cible +{t["d_tgt"]:.0f}%</span></div></div>'
@@ -3373,7 +3373,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:  # n
                     '<div class="axis sizebar">'
                     f'<div class="axis-tick" style="left:{_tgt_pos:.1f}%"></div>'
                     '<div class="axis-tick strong" style="left:76.9%"></div>'
-                    f'<div class="axis-mark" style="left:{_w_pos:.1f}%"></div>'
+                    f'<div class="axis-mark" style="left:{_w_pos:.1f}%" title="poids {_w_pos:.1f}%"></div>'
                     '</div>'
                 )
                 _d = wv - _tgt
@@ -3415,7 +3415,12 @@ _NAV = (
 )
 
 _CSS = """
-  :root { --bg:#F9F6F3; --panel:#F9F6F3; --line:#E5E0DB; --line2:#CFC7BF; --line3:#B5ABA0; --ink:#1A1814; --ink2:#3A352D; --steel:#7E7770; --metal:#7E7770;
+  :root {
+    /* Tokens font-size canoniques (charte DESIGN_SYSTEM §1.4). Base 14px.
+       Ratio ~1.2. Toute nouvelle ecriture utilise ces tokens, pas font-size inline. */
+    --t-caption:12px; --t-body:14px; --t-base:15px;
+    --t-h3:18px; --t-h2:24px; --t-h1:32px; --t-hero:44px;
+    --bg:#F9F6F3; --panel:#F9F6F3; --line:#E5E0DB; --line2:#CFC7BF; --line3:#B5ABA0; --ink:#1A1814; --ink2:#3A352D; --steel:#7E7770; --metal:#7E7770;
     /* Accents Voie 1 polish 31/05 — saturation +20-30% vs print-grade vintage */
     --acc:#5F9A4D; --acc2:#5F9A4D; --id:#1A1814; --bear:#C24332; --warn:#C8862F; --gold:#D4A040;
     --fd:"Geist",ui-sans-serif,system-ui,sans-serif; --fb:"Geist",ui-sans-serif,system-ui,sans-serif; --fm:"Geist Mono",ui-monospace,SFMono-Regular,monospace; --fo:"Geist",ui-sans-serif,sans-serif;
@@ -4845,7 +4850,7 @@ def render() -> Path:
                 profit_chip = '<span class="th-pt">prends ton profit</span>'
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%"></div></div>'
+            f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%" title="{a["frac"]:.1f}%"></div></div>'
             f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
             f'<span class="th-tgt">cible +{a["up"]:.0f}%</span></div></div>'
         )
@@ -4966,27 +4971,49 @@ def render() -> Path:
     # --- Bandeau d'ecart de discipline (sticky, haut de page) ---
     # v1: axe concentration (cluster hors plafond, source unique _cluster_health) + axe stop (near).
     # axe prise-profit -> ajoute apres ADR target_partial.
-    _dev = []
+    # E4 craft 31/05 : "A CALIBRER" -> "A AJUSTER" (eviter confusion avec
+    # calibration scorer). Smart routing : si seulement clusters -> nav
+    # concentration ; si seulement stops -> nav risque ; sinon concentration
+    # par defaut. Title= breakdown explicite.
+    _dev_items = []  # liste de (label, nav_target)
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
-            _dev.append(f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;")
+            _dev_items.append(
+                (f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;", "concentration")
+            )
     if near:
-        _dev.append(f"{near} ligne(s) &lt; 10% du stop")
-    _dn = len(_dev)
-    _dcls, _dverdict = ("bear", "&Agrave; CALIBRER") if _dn else ("acc", "AU CALME")
-    _ddetail = " &nbsp;&middot;&nbsp; ".join(_dev) if _dev else "tout sous les r&egrave;gles"
+        _dev_items.append((f"{near} ligne(s) &lt; 10% du stop", "risque"))
+    _dn = len(_dev_items)
+    _dcls, _dverdict = ("bear", "&Agrave; AJUSTER") if _dn else ("acc", "AU CALME")
+    _ddetail = (
+        " &nbsp;&middot;&nbsp; ".join(item[0] for item in _dev_items)
+        if _dev_items else "tout sous les r&egrave;gles"
+    )
+    # Nav target : si tous les items pointent au meme endroit, on y va direct.
+    # Sinon, on tombe sur concentration (la "premiere" categorie historique).
+    _nav_targets = {item[1] for item in _dev_items}
+    _nav_target = next(iter(_nav_targets)) if len(_nav_targets) == 1 else "concentration"
+    # Title= breakdown explicite pour ergonomie (cf charte E4 §5.1)
+    _dtitle = (
+        " ; ".join(item[0].replace("&middot;", "·").replace("&eacute;", "é")
+                   .replace("&Agrave;", "À").replace("&agrave;", "à")
+                   .replace("&euro;", "€").replace("&#8239;", " ")
+                   .replace("&lt;", "<").replace("&nbsp;", " ")
+                   for item in _dev_items)
+        if _dev_items else "aucune friction de discipline"
+    )
     _dband = (
-        f'<div class="dband {_dcls}" onclick="document.querySelector(&#39;[data-nav=concentration]&#39;).click()">'
+        f'<div class="dband {_dcls}" title="{_dtitle}" '
+        f'onclick="document.querySelector(&#39;[data-nav={_nav_target}]&#39;).click()">'
         f'<span class="dd"></span><span class="dv">{_dverdict}</span>'
         f'<span class="dx">{_ddetail}</span>'
-        f'<span class="dn">{_dn} &agrave; traiter</span><span class="dc">&rsaquo;</span></div>'
+        f'<span class="dn">{_dn} axe(s)</span><span class="dc">&rsaquo;</span></div>'
     )
     elan, near_t = _elan_watch(computed)
     body = (
         f'<aside class="sidebar" role="complementary" aria-label="Barre laterale"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
         f'{_NAV}<div class="foot">{_rail_foot(near, heat)}'
-        f'<span class="dot" title="en veille"></span>'
         f'<span class="mono" style="font-size:10px;opacity:.65;padding:0 var(--s2)" title="dashboard regen 60s ; prix cache TTL 30min ; FX cache TTL 4h"'
         f'>maj&nbsp;{stamp} &middot; prix &le;30min</span>'
         f"{_fx_status_label_html()}"
