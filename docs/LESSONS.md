@@ -265,6 +265,34 @@ L11 est un complément de L9 et L10 : L9 dit « pas de prod sur modèle non back
 
 ---
 
+## L12 — Devise native vs EUR : interdit mélanger dans une formule de %
+
+**Règle** : tout prix-thèse (`stop_price`, `target_full`, `target_partial`, `entry_price`) est stocké en **NATIVE currency du ticker** (cf memory `currency_native_invariant`, ADR 005). Comparer un de ces prix à un prix courant en EUR produit des `%` absurdes (multiples de 100×). Passer **par le helper canonique** `_stop_distance_pct_native(ticker, stop_price)` (ou équivalent native-vs-native), jamais inline `(current_eur - stop_native) / current_eur`.
+
+**Pourquoi** : la divergence n'éclate pas en EUR-only book (US tickers en USD ≈ EUR ordre de grandeur), elle éclate sur JPY (×150), KRW (×1400), HKD (×8.5). Le bug peut rester invisible pendant des semaines tant que le book reste US-only puis exploser à la première position asiatique.
+
+**Cas concrets de PRESAGE** :
+- `_theses()` ligne 3631 : pattern correct `current = _cached_price_native(tk) or last or entry` puis `(current - stop) / current * 100`. Commentaire de fix daté 31/05 (4063.T cible +23876%, 000660.KS cible +175408%).
+- `_mauboussin_sizing()` ligne 1257 (avant 01/06 soir) : **bug**, mélangeait `ln.current_price_eur` et `ln.stop_price`. Produisait `stop −11089%` sur 4063.T (Shin-Etsu, JPY). Fix : extraction du helper canonique `_stop_distance_pct_native()`.
+- `compute_portfolio_asymmetry()` : `asym_mod._get_current_price = _cached_price_native` au moment de l'appel render() (ligne 5891). Pattern par injection — l'asymmetry module reste agnostique du dashboard.
+
+**Helper canonique** (dashboard/render.py) :
+```python
+def _stop_distance_pct_native(ticker, stop_price) -> float | None:
+    if not stop_price or stop_price <= 0: return None
+    current = _cached_price_native(ticker)
+    if current is None or current <= 0: return None
+    return (current - stop_price) / current * 100
+```
+
+**Red flag à repérer immédiatement** :
+- Tout calcul `(X - stop_price) / X * 100` ou `(target_X - Y) / Y * 100` qui ne passe pas par un helper documenté native-only → **STOP**, utilise le helper ou ajoute-en un.
+- `current_price_eur` apparaît dans la même expression qu'un champ `_price` issu de la table `theses` → **STOP**, currency mix.
+
+**Sentinel canonique** : si `asymmetry_ratio == 999.0`, c'est `verdict = TARGET_HIT` (current ≥ target_full, upside = 0). Affichage `_asym_format()` doit rendre "cible ✓" / chèvron, **pas** "999.0×".
+
+---
+
 ## Politique d'évolution
 
 Toute nouvelle leçon (catch récurrent qu'on attrape pour la 2ème fois) **doit** être ajoutée ici avec :

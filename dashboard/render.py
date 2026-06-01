@@ -2,6 +2,9 @@
 Weights from positions.eur_invested (EUR cost basis). Sectors from theses.sector_thesis_id.
 Perf as ratio % (currency-invariant). DB read-only; per-panel try/except. Leaflet geo."""
 
+# Sprint 3 logos tickers : import + force-reload pour bypass cache sys.modules
+# tant que serve.py n'est pas restart pour activer le nouveau watch.
+import importlib
 import json
 import re
 import sqlite3
@@ -10,12 +13,9 @@ from pathlib import Path
 
 import yaml
 
+import shared.ticker_logos as _ticker_logos_mod
 from intelligence import asymmetry as asym_mod
 
-# Sprint 3 logos tickers : import + force-reload pour bypass cache sys.modules
-# tant que serve.py n'est pas restart pour activer le nouveau watch.
-import importlib  # noqa: E402
-import shared.ticker_logos as _ticker_logos_mod  # noqa: E402
 importlib.reload(_ticker_logos_mod)
 _ticker_logo = _ticker_logos_mod.logo_html
 
@@ -136,6 +136,25 @@ def _cached_price_native(ticker: str) -> float | None:
         _PX_CACHE_NATIVE[ticker] = (float(px), now)
         return float(px)
     return hit[0] if hit is not None else None
+
+
+def _stop_distance_pct_native(ticker: str, stop_price: float | None) -> float | None:
+    """Canonique : distance courant -> stop en %, calcul NATIVE vs NATIVE.
+
+    Respecte [[currency-native-invariant]] : stop_price (et target_full,
+    target_partial) sont stockes en native currency du ticker. Comparer a
+    un current_price_eur produit des % absurdes (4063.T -11089%, 000660.KS
+    cible +175408% etc.). Helper canonique pour TOUS les sites qui calculent
+    une distance pct vs un prix-these (stop/target/entry).
+
+    Returns None si stop manquant, current introuvable, ou stop <= 0.
+    """
+    if not stop_price or stop_price <= 0:
+        return None
+    current = _cached_price_native(ticker)
+    if current is None or current <= 0:
+        return None
+    return (current - stop_price) / current * 100
 
 
 _DP_CACHE: dict[str, tuple[float | None, float]] = {}
@@ -1056,27 +1075,40 @@ def _fx_exposure_panel() -> str:
         return f'<div class="card pad"><div class="empty">FX indispo: {type(e).__name__}</div></div>'
     if not fx:
         return ""
+    names = _names()
     rows = []
     for cur, d in fx.items():
         pct = d["pct"]
         wcls = "high" if pct >= 40 else ("mid" if pct >= 15 else "low")
-        tks = ", ".join(d["tickers"][:8])
-        if len(d["tickers"]) > 8:
-            tks += f" +{len(d['tickers']) - 8}"
+        # Sub : pattern accordeon comme [[geo-item]] (toggle .open au clic).
+        sub_items = []
+        for h in d.get("holdings", []):
+            tk = h["tk"]
+            nm = names.get(tk, "")
+            sub_items.append(
+                f'<div class="fx-stk"><span class="gnm">{nm or tk}</span>'
+                f'<span class="gtk">{tk if nm else ""}</span>'
+                f'<span class="gpc">{h["pct_of_cur"]:.0f}%</span>'
+                f'<span class="gw">{h["eur"]:,.0f}&euro;</span></div>'.replace(",", "&#8239;")
+            )
+        sub_html = "".join(sub_items)
         rows.append(
-            f'<div class="fx-row">'
+            f'<div class="fx-row fx-item">'
             f'<div class="fx-head"><span class="fx-cur">{cur}</span>'
             f'<span class="fx-pct {wcls} mono">{pct:.1f}%</span>'
             f'<span class="fx-eur mono">{d["eur"]:,.0f}€</span>'
-            f'<span class="fx-n">n={d["n_positions"]}</span></div>'
+            f'<span class="fx-n">n={d["n_positions"]}</span>'
+            f'<svg class="fx-chev" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></div>'
             f'<div class="fx-bar"><div class="fx-fill {wcls}" style="width:{min(pct, 100):.1f}%"></div></div>'
-            f'<div class="fx-tks">{tks}</div></div>'
+            f'<div class="fx-sub">{sub_html}</div></div>'
         )
     return (
         '<div class="card pad fxcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Exposition par devise</span>'
-        '<span class="a">book euro mais positions cot&eacute;es ailleurs &middot; pas de hedge FX</span></div>'
+        '<span class="a">cliquer une ligne pour d&eacute;rouler les positions &middot; pas de hedge FX</span></div>'
         + "".join(rows)
+        + '<script>document.querySelectorAll(".fxcard .fx-item").forEach(function(e){'
+        + 'e.addEventListener("click",function(){e.classList.toggle("open")})});</script>'
         + "</div>"
     )
 
@@ -1251,14 +1283,12 @@ def _mauboussin_sizing_panel() -> str:
         gcls = "neg" if gap > 0.5 else ("pos" if gap < -0.5 else "neu")
         fade = d.get("fade_rate_score") or 0
         fcls = "high" if fade >= 60 else ("mid" if fade >= 30 else "low")
-        # F10 : stop_distance% = (current - stop) / current * 100
+        # Canonise via [[currency-native-invariant]] : stop_price stocke en
+        # NATIVE -> doit etre compare a un current NATIVE, pas EUR.
         ln = book_idx.get(tk)
         stop_dist_html = '<span class="ms-stopd mono">stop ?</span>'
-        if ln and ln.stop_price and ln.current_price_eur:
-            stop_dist = (ln.current_price_eur - ln.stop_price) / ln.current_price_eur * 100
-            # Outlier flag : haut fade attend stop serre (<25%), bas fade
-            # tolere stop large. Si fade>=60 ET stop_dist>40% : INCOHERENT.
-            # Si fade<=20 ET stop_dist<25% : aussi INCOHERENT (trop serre).
+        stop_dist = _stop_distance_pct_native(tk, ln.stop_price) if ln and ln.stop_price else None
+        if stop_dist is not None:
             outlier = (fade >= 60 and stop_dist > 40) or (fade <= 20 and stop_dist < 25)
             ocls = " outlier" if outlier else ""
             stop_dist_html = (
@@ -2171,7 +2201,7 @@ def _copilot() -> str:
         f'<div class="phead"><h2>Copilot</h2>'
         f'<div class="sub">Discussion &middot; synth&egrave;se interventions &middot; historique &middot; ce qu&rsquo;il pense par ticker</div></div>'
         f'{_chat_panel()}'
-        f'<div class="vigie-sh">Synth&egrave;se copilot</div>'
+        f'<div class="vigie-sh" data-tip="Lecture quotidienne du copilot : ce qu\'il faut faire / surveiller / mediter aujourd\'hui."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Synth&egrave;se copilot</div>'
         f'{_copilot_panel()}'
         f'{_conceptions_panel()}'
         f'{_conversations_panel()}'
@@ -2542,7 +2572,8 @@ def _concentration(
     # Mapping verdict cls -> ps-val color class
     # vcls peut etre danger/warn/calm OU acc/warn/bear selon la source.
     # Normalise vers acc/warn/bear pour les ps-val color.
-    _to_pscls = lambda c: {"danger": "bear", "bear": "bear", "warn": "warn", "calm": "acc", "acc": "acc"}.get(c, "")
+    def _to_pscls(c: str) -> str:
+        return {"danger": "bear", "bear": "bear", "warn": "warn", "calm": "acc", "acc": "acc"}.get(c, "")
     _verdict_pcls = _to_pscls(vcls)
     _top_pcls = _to_pscls(top_cls)
     _these_pcls = _to_pscls(these_cls)
@@ -3551,15 +3582,17 @@ _TH_CSS = """
   .th-hbar .axis { flex:1; margin:0; }
   .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
   /* Section headers unifies (Polish 01/06) : meme pattern visuel pour
-     .th-grp / .strat-sh / .vigie-sh / .dba-sh. Noms preserves pour HTML. */
+     .th-grp / .strat-sh / .vigie-sh / .dba-sh. Noms preserves pour HTML.
+     Petit icon optionnel via .sh-ico (data-icon attr peut etre utilise). */
   .th-grp { font-family:var(--fm); font-weight:500; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
   .th-grp::after { content:""; flex:1; height:1px; background:var(--line); }
-  /* Sprint 2 purge borders TR-style : retire border + bg fill par thesis row.
-     Garde padding pour respiration + grid layout + hover propre. Separation
-     entre rows via whitespace + une hairline subtile via border-bottom. */
-  .th-row { display:grid; grid-template-columns:160px 46px 1fr; gap:var(--s3); align-items:center; padding:14px 4px; border-bottom:1px solid var(--line); margin-bottom:0; cursor:pointer; transition:background .15s; }
+  .sh-ico { width:14px; height:14px; flex-shrink:0; opacity:.6; }
+  /* Sprint 2 purge borders TR-style + Sprint C polish : grid 180/52/1fr,
+     hover translateX(2px), padding plus généreux, transition ease-out. */
+  .th-row { display:grid; grid-template-columns:180px 52px 1fr; gap:var(--s3); align-items:center; padding:16px 8px; border-bottom:1px solid var(--line); margin-bottom:0; cursor:pointer; transition:background .15s ease-out, transform .15s ease-out, padding-left .15s ease-out; }
   .th-row:last-child { border-bottom:none; }
-  .th-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
+  .th-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); padding-left:14px; }
+  .th-row:active { transform:scale(.997); }
   .th-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
   .th-conv { font-family:var(--fm); font-weight:600; font-size:11px; letter-spacing:.04em; padding:2px 7px; border-radius:var(--r1); }
   .th-conv.c5 { color:var(--bg); background:var(--ink); }
@@ -3814,15 +3847,15 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
 
 _NAV = (
     '<nav class="nav" role="navigation" aria-label="Navigation principale">'
-    '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble<kbd>&#8984;1</kbd></span></div>'
-    '<div class="nitem" data-nav="discipline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="nlab">Discipline &amp; Biais<kbd>&#8984;2</kbd></span></div>'
-'<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions<kbd>&#8984;3</kbd></span></div>'
-    '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot<kbd>&#8984;4</kbd></span></div>'
-'<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses<kbd>&#8984;5</kbd></span></div>'
-    '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie<kbd>&#8984;6</kbd></span></div>'
-    '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration<kbd>&#8984;7</kbd></span></div>'
-    '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux<kbd>&#8984;8</kbd></span></div>'
-'<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence<kbd>&#8984;9</kbd></span></div></nav>'
+    '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
+    '<div class="nitem" data-nav="discipline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l2 2 4-4"/><path d="M13 6h7"/><path d="M4 13l2 2 4-4"/><path d="M13 13h7"/><path d="M4 20l2 2 4-4"/><path d="M13 20h7"/></svg><span class="nlab">Discipline &amp; Biais</span></div>'
+'<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
+    '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
+'<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
+    '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie</span></div>'
+    '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
+    '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux</span></div>'
+'<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div></nav>'
 )
 
 _TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
@@ -3847,7 +3880,7 @@ _CSS = """
       scroll-behavior: auto !important;
     }
   }
-  .dband { position:sticky; top:var(--s25); z-index:45; display:flex; align-items:center; gap:13px; padding:11px 17px; margin:0 0 22px; border:1px solid var(--line3); border-radius:var(--r3); background:color-mix(in srgb,var(--panel) 85%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); cursor:pointer; transition:border-color .15s,background .15s; }
+  .dband { position:sticky; top:var(--s25); z-index:45; display:flex; align-items:center; gap:13px; padding:11px 17px; margin:0 0 var(--s35); border:1px solid var(--line3); border-radius:var(--r3); background:color-mix(in srgb,var(--panel) 85%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); cursor:pointer; transition:border-color .15s,background .15s; }
   .dband:hover { background:color-mix(in srgb,var(--panel) 95%,transparent); }
   .dband .dd { width:9px; height:9px; border-radius:50%; flex:none; }
   .dband.bear .dd { background:var(--bear); }
@@ -3868,7 +3901,7 @@ _CSS = """
   .sec-super .sec-grp.sub { margin:0; border-left:2px solid var(--line); border-radius:0 10px 10px 0; }
   .sec-super .sec-grp.sub .sec-name { font-family:var(--fd); font-weight:600; font-size:13px; color:var(--steel); letter-spacing:0; }
   body { font-family:var(--fb); font-size:var(--t-base); color:var(--ink); margin:0; display:flex; min-height:100vh; background:var(--bg); -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
-  .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; position:sticky; top:0; align-self:flex-start; height:100vh; }
+  .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; position:sticky; top:0; align-self:flex-start; height:100vh; z-index:60; }
   .logo { display:flex; align-items:center; justify-content:center; margin-bottom:22px; padding:0; }
   .logo svg { width:66px; height:auto; color:var(--ink); }
   .logo .wm { display:none; }
@@ -3877,15 +3910,17 @@ _CSS = """
   .nitem svg { width:26px; height:26px; }
   .nitem:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); color:var(--ink); }
   .nitem.on { background:color-mix(in srgb,var(--id) 13%,transparent); color:var(--ink); border-left-color:var(--id); box-shadow:inset 0 0 22px -10px color-mix(in srgb,var(--id) 55%,transparent); }
-  .nlab { position:absolute; left:56px; top:50%; transform:translateY(-50%); white-space:nowrap; background:var(--panel); border:1px solid var(--line2); border-radius:var(--r2); padding:var(--s2) 12px; font-family:var(--fb); font-size:13px; font-weight:500; color:var(--ink); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:80; box-shadow:0 10px 26px -12px #000; display:flex; align-items:center; gap:9px; }
-  .nlab kbd { font-family:var(--fm); font-size:10px; padding:1px 5px; background:color-mix(in srgb,var(--ink) 10%,transparent); border-radius:4px; color:var(--steel); border:none; opacity:.85; }
-  .nitem:hover .nlab { opacity:1; }
+  /* Emil :active feedback tactile presse sur tous les boutons interactifs */
+  .nitem:active, .cta-bar button:active, .modetgl:active, .cta-chip:active { transform:scale(.97); transition:transform .08s ease-out; }
+  .ctx-item:active { transform:scale(.98); }
+  .nlab { position:absolute; left:58px; top:50%; transform:translateY(-50%); white-space:nowrap; background:var(--ink); color:var(--bg); border-radius:var(--r2); padding:6px 11px; font-family:var(--fb); font-size:12.5px; font-weight:500; letter-spacing:-.005em; opacity:0; pointer-events:none; transition:opacity .12s ease-out, transform .12s ease-out; z-index:1000; box-shadow:0 8px 22px -8px rgba(0,0,0,.35), 0 2px 6px -2px rgba(0,0,0,.2); will-change:opacity,transform; }
+  .nitem:hover .nlab { opacity:1; transform:translateY(-50%) translateX(2px); }
   .foot { margin-top:auto; padding:var(--s3) 0 2px; display:flex; flex-direction:column; align-items:center; gap:7px; }
   .rfoot { display:flex; flex-direction:column; align-items:center; gap:var(--s15); }
   .rfm { font-family:var(--fm); font-size:11px; color:var(--steel); }
   .rfmacro { width:8px; height:8px; border-radius:2px; }
   .dot { width:7px; height:7px; border-radius:50%; background:var(--acc); }
-  .wrap { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .wrap { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; z-index:0; }
   .tape { overflow:hidden; white-space:nowrap; padding:11px 0; }
   .tape .track2 { display:inline-block; animation:scroll 60s linear infinite; }
   .tape:hover .track2 { animation-play-state:paused; }
@@ -3896,11 +3931,15 @@ _CSS = """
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
   .main { padding:30px 52px 54px; max-width:1340px; }
   /* Sticky page header (Stripe/Linear pattern) : reste en haut au scroll
-     avec backdrop subtil. Z-index 30 sous .dband (45). */
-  .phead { position:sticky; top:0; z-index:30; margin-bottom:22px; padding:14px 0 12px; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent); }
+     avec backdrop subtil. Z-index 30 sous .dband (45). Drop shadow apparaît
+     quand le header est "stuck" (detecté via .stuck class JS IntersectionObserver). */
+  .phead { position:sticky; top:0; z-index:30; margin-bottom:var(--s35); padding:14px 0 12px; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent); transition:box-shadow .2s ease-out, border-color .2s ease-out; }
+  .phead.stuck { box-shadow:0 6px 16px -10px rgba(0,0,0,.10); border-bottom-color:var(--line2); }
   .phead h2 { font-family:var(--fd); font-weight:300; font-size:32px; margin:0 0 6px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); }
   .phead .sub { font-family:var(--fb); font-weight:400; font-size:12px; letter-spacing:.04em; color:var(--steel); }
-  [data-page] { display:none; } [data-page].active { display:block; animation:fadein .42s ease; } @keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+  /* Page transitions (Emil framework) : Cmd+1..9 = action keyboard 30-50x/jour
+     -> doit feel instant. .26s cubic-bezier ease-out vs .42s ease (sluggish). */
+  [data-page] { display:none; } [data-page].active { display:block; animation:fadein .26s cubic-bezier(.22,.61,.36,1); } @keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
   /* Cascade signature Vue d'ensemble : page load orchestre, blocs en revel
      staggered 60ms. Remplace le fadein page generique sur vigie uniquement.
      Direction "instrument vivant qui se decouvre" (task #37 axe 4). */
@@ -3922,10 +3961,12 @@ _CSS = """
   .hero .big.pos { color:var(--acc); } .hero .big.neg { color:var(--bear); }
   .hero .hl { font-family:var(--fb); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
   .hero .hsub { font-size:13px; color:var(--steel); margin-top:var(--s15); }
-  .distbar { flex:1; min-width:240px; } .distline { display:flex; height:8px; border-radius:var(--r1); overflow:hidden; }
-  .distline .g { background:var(--acc); } .distline .r { background:var(--bear); }
+  .distbar { flex:1; min-width:240px; } .distline { display:flex; height:8px; border-radius:var(--r1); overflow:hidden; cursor:help; }
+  .distline .g { background:var(--acc); transition:opacity .15s ease-out; } .distline .r { background:var(--bear); transition:opacity .15s ease-out; }
+  .distline:hover .g { opacity:.7; } .distline:hover .r { opacity:.7; }
+  .distline .g:hover, .distline .r:hover { opacity:1 !important; }
   .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s4); margin-bottom:26px; }
-  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:13px 16px; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:13px 16px; transition:border-color .15s ease-out, box-shadow .15s ease-out, transform .15s ease-out; }
   .kl { display:block; font-family:var(--fb); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
   .kv { font-family:var(--fm); font-weight:500; font-size:28px; letter-spacing:-.01em; line-height:1; font-variant-numeric:tabular-nums; }
   .kv, .gvm, .big { color:var(--c, var(--ink)); }
@@ -3938,7 +3979,7 @@ _CSS = """
   .colhead.spaced { margin-top:var(--s4); } /* 20px : separateur de section, sous-titre marque */
   .sec-cols { display:grid; grid-template-columns:1fr 92px 96px 58px 72px 78px; gap:var(--s3); padding:2px 16px 9px; font-family:var(--fb); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); border-bottom:1px solid var(--line); margin-bottom:var(--s3); }
   .sec-cols .num { text-align:right; }
-  .sec-grp { margin-bottom:22px; }
+  .sec-grp { margin-bottom:var(--s35); }
   .sec-h { display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); margin:0 4px 9px; }
   .sec-name { font-family:var(--fd); font-weight:500; font-size:16px; color:var(--ink); display:flex; align-items:center; gap:9px; }
   .sec-name::before { content:""; width:6px; height:6px; border-radius:2px; background:var(--id); }
@@ -3952,8 +3993,9 @@ _CSS = """
   .sec-tk { font-weight:600; color:var(--ink); }
   .sec-nm { color:var(--steel); font-family:var(--fb); font-size:11px; margin-left:9px; font-weight:400; }
   /*CHER*/
-  .card, .kpi { transition:transform .16s ease, box-shadow .16s ease; }
-  .card:hover, .kpi:hover { border-color:var(--line2); }
+  /* Card hover elevation (Linear/Stripe premium) : subtle shadow + translateY */
+  .card, .kpi { transition:transform .18s ease-out, box-shadow .18s ease-out, border-color .15s ease-out; }
+  .card:hover, .kpi:hover { border-color:var(--line2); box-shadow:0 6px 18px -10px rgba(0,0,0,.10); transform:translateY(-1px); }
   .tape .ti::after { content:"·"; margin-left:30px; color:var(--steel); opacity:.4; }
   /*METAL2*/
   .card, .kpi, .hero, .pfcard { border-top:1px solid color-mix(in srgb,var(--ink) 16%,var(--line)); }
@@ -3965,7 +4007,7 @@ _CSS = """
   .modetgl .ico-sun { display:none; } body.midnight .modetgl .ico-moon { display:none; } body.midnight .modetgl .ico-sun { display:inline-block; }
   /*DVAL-STATE*/
   .dval.calm { color:var(--acc); } .dval.warn { color:var(--warn); } .dval.danger { color:var(--bear); } .dval.mute { color:var(--steel); }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s2) 24px; } .card.pad { padding:var(--s35) 18px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s2) 24px; transition:border-color .15s ease-out, box-shadow .15s ease-out, transform .15s ease-out; } .card.pad { padding:var(--s35) 18px; }
   .line { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; } .line:last-child { border-bottom:none; }
   .mono { font-family:var(--fm); font-weight:600; color:var(--ink); } .mono.pos { color:var(--acc); } .mono.neg { color:var(--bear); }
   .gauge { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:16px 20px; margin-bottom:15px; }
@@ -3973,7 +4015,7 @@ _CSS = """
   .gtrack { position:relative; height:6px; border-radius:3px; background:linear-gradient(90deg, var(--acc), var(--warn) 52%, var(--bear)); }
   .glab { margin-top:9px; font-size:11px; color:var(--steel); display:flex; justify-content:space-between; font-family:var(--fm); letter-spacing:.08em; }
   .row { padding:9px 0; border-bottom:1px solid var(--line); opacity:0; animation:fade .45s ease forwards; } .row:last-child { border-bottom:none; }
-  .row[data-tk] { cursor:pointer; } .row[data-tk]:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
+  .row[data-tk] { cursor:pointer; transition:background .15s ease-out, padding-left .15s ease-out; } .row[data-tk]:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); padding-left:4px; }
   .rt { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; gap:8px; } .tk { font-family:var(--fm); font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:7px; }
   /* Sprint 3 logos tickers (Clearbit + fallback initiale, cf shared/ticker_logos.py) */
   .tklogo { width:18px; height:18px; border-radius:50%; object-fit:contain; background:#fff; padding:2px; vertical-align:middle; flex-shrink:0; box-sizing:border-box; border:1px solid var(--line); margin-right:6px; }
@@ -3989,16 +4031,31 @@ _CSS = """
   /* Animation entry fade-in sur Star (Polish 01/06) : subtle premium feel
      a la TR/Linear. 280ms ease, opacity + translate-y 8px. Anti-double-fire
      via .noanim gate (cf dashboard_anim_session_gate). */
-  .page-star { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:32px 36px; margin-bottom:var(--s4); animation:starIn .28s ease-out; }
+  .page-star { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:32px 36px; margin-bottom:var(--s4); animation:starIn .28s ease-out; transition:box-shadow .2s ease-out, transform .2s ease-out; }
+  .page-star:hover { box-shadow:0 8px 24px -12px rgba(0,0,0,.12); transform:translateY(-1px); }
   .noanim .page-star { animation:none; }
   @keyframes starIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-  @media (prefers-reduced-motion: reduce) { .page-star { animation:none; } }
+  /* Staggered entry for Star strates (TR/Apple Card pattern) : 80ms delays */
+  .page-star .ps-strate { animation:strateIn .24s ease-out both; }
+  .page-star .ps-strate:nth-child(1) { animation-delay:60ms; }
+  .page-star .ps-strate:nth-child(2) { animation-delay:140ms; }
+  .page-star .ps-strate:nth-child(3) { animation-delay:220ms; }
+  @keyframes strateIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+  .noanim .page-star .ps-strate { animation:none; }
+  @media (prefers-reduced-motion: reduce) { .page-star, .page-star .ps-strate { animation:none; } }
   .page-star .ps-strate { padding:18px 0; }
   .page-star .ps-strate:first-child { padding-top:0; }
   .page-star .ps-strate:last-child { padding-bottom:0; }
   .page-star .ps-strate + .ps-strate { border-top:1px solid var(--line); }
   .page-star .ps-lbl { font-family:var(--fm); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
   .page-star .ps-val { font-family:var(--fb); font-size:24px; font-weight:500; color:var(--ink); line-height:1.1; }
+  /* Chrome touch hero valeur portefeuille : text gradient subtle silver (Apple-like).
+     Activé uniquement quand font-size > 30px (hero valeur). */
+  .page-star .ps-val[style*="font-size:34px"], .page-star .ps-val[style*="font-size: 34px"] {
+    background:linear-gradient(180deg, var(--ink) 0%, var(--ink) 40%, color-mix(in srgb,var(--ink) 88%,var(--steel)) 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent;
+  }
   .page-star .ps-val.bear { color:var(--bear); }
   .page-star .ps-val.acc { color:var(--acc); }
   .page-star .ps-val.warn { color:var(--warn); }
@@ -4020,10 +4077,12 @@ _CSS = """
   .page-star .ps-hero-row { display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start; }
   .page-star .ps-hero-left, .page-star .ps-hero-right { min-width:0; }
   .page-star .ps-grade-row { display:flex; align-items:center; gap:18px; margin-top:8px; }
-  .page-star .ps-grade-letter { font-family:var(--fb); font-size:42px; font-weight:500; line-height:1; flex-shrink:0; }
-  .page-star .ps-grade-letter.acc { color:var(--acc); }
-  .page-star .ps-grade-letter.warn { color:var(--warn); }
-  .page-star .ps-grade-letter.bear { color:var(--bear); }
+  /* Chrome touch grade letter : subtle vertical gradient pour profondeur metallique.
+     Garde la color sémantique mais ajoute brillance. */
+  .page-star .ps-grade-letter { font-family:var(--fb); font-size:42px; font-weight:500; line-height:1; flex-shrink:0; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
+  .page-star .ps-grade-letter.acc { background-image:linear-gradient(180deg, var(--acc) 0%, var(--acc) 60%, color-mix(in srgb,var(--acc) 75%,var(--ink)) 100%); }
+  .page-star .ps-grade-letter.warn { background-image:linear-gradient(180deg, var(--warn) 0%, var(--warn) 60%, color-mix(in srgb,var(--warn) 75%,var(--ink)) 100%); }
+  .page-star .ps-grade-letter.bear { background-image:linear-gradient(180deg, var(--bear) 0%, var(--bear) 60%, color-mix(in srgb,var(--bear) 75%,var(--ink)) 100%); }
   .page-star .ps-grade-score { flex:1; min-width:140px; }
   .page-star .ps-grade-num { font-family:var(--fb); font-size:22px; font-weight:500; color:var(--ink); margin-bottom:8px; }
   .page-star .ps-grade-max { font-family:var(--fm); font-size:13px; color:var(--steel); font-weight:400; }
@@ -4038,18 +4097,43 @@ _CSS = """
   .page-star .ps-sub-lien b.acc { color:var(--acc); }
   /* Sparkline hero 30j (Robinhood/TR pattern) inline avec PnL */
   .ps-spark { margin-left:14px; vertical-align:middle; opacity:.85; }
+  .ps-spark-wrap { position:relative; display:inline-block; vertical-align:middle; cursor:crosshair; }
+  .ps-spark-wrap:hover .ps-spark { opacity:1; }
+  .ps-spark-wrap:hover .spk-cross, .ps-spark-wrap:hover .spk-cur { opacity:1 !important; transition:opacity .12s ease-out; }
+  .spk-tip { position:absolute; bottom:calc(100% + 8px); transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:5px 10px; border-radius:var(--r1); font-family:var(--fm); font-size:11px; font-weight:500; white-space:nowrap; pointer-events:none; z-index:60; box-shadow:0 4px 12px rgba(0,0,0,.2); }
+  .spk-tip .tip-val { font-weight:600; }
+  .spk-tip .tip-date { opacity:.6; margin-left:6px; font-weight:400; }
   /* Sparkline macro composite 30 derniers points sous la frise stress */
   .ps-macro-spark { display:block; margin-top:8px; opacity:.7; width:100%; height:auto; }
   /* Trend delta vs J-1 (subtle inline next to PnL caption) */
   .ps-trend-delta { font-family:var(--fm); font-size:11px; font-weight:500; margin-left:10px; letter-spacing:.03em; opacity:.85; }
   .ps-trend-delta.acc { color:var(--acc); }
   .ps-trend-delta.bear { color:var(--bear); }
+  /* === Print stylesheet : export PDF propre (Stars + contenu, retirer chrome) */
+  @media print {
+    body { background:#fff !important; color:#000 !important; }
+    .sidebar, .tape, .tape8k, .cta-bar, .cta-modal, #loupe, .modetgl { display:none !important; }
+    main { margin-left:0 !important; padding:0 !important; }
+    .phead { position:static !important; background:#fff !important; backdrop-filter:none !important; box-shadow:none !important; border-bottom:1px solid #ccc !important; }
+    .page-star, .card, .kpi, .gauge, .dba-card { animation:none !important; box-shadow:none !important; page-break-inside:avoid; }
+    [data-page] { display:block !important; animation:none !important; page-break-after:auto; }
+    [data-page]:not(.active) { display:none !important; }
+    a { color:inherit !important; text-decoration:none !important; }
+    .tklogo { filter:grayscale(0); }
+    .ps-frise, .gtrack { background:#eee !important; border:1px solid #ccc !important; }
+    .ps-spark, .ps-macro-spark { opacity:1 !important; }
+  }
   /* Sprint 4 CTA flottants bas (TR/RH-inspired) : 3 pills sticky bottom */
-  /* CTA bar centree dans la zone main (compense sidebar 78px) :
-     left = 78px + (100% - 78px)/2 = calc(39px + 50%). */
-  .cta-bar { position:fixed; bottom:22px; left:calc(50% + 39px); transform:translateX(-50%); background:color-mix(in srgb,var(--panel) 95%,transparent); border:1px solid var(--line2); border-radius:32px; padding:6px; display:flex; gap:2px; z-index:50; box-shadow:0 12px 32px -10px rgba(0,0,0,.18); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
-  .cta-bar button { font-family:var(--fb); font-size:13px; font-weight:500; color:var(--ink); background:transparent; border:none; padding:10px 18px; border-radius:24px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background .15s,color .15s; }
+  /* CTA bar : pill clair distinct du body via border marquee + shadow forte.
+     Centree dans zone main (compense sidebar 78px). */
+  .cta-bar { position:fixed; bottom:22px; left:calc(50% + 39px); transform:translateX(-50%); background:var(--panel); border:1px solid var(--line2); border-radius:32px; padding:6px; display:flex; gap:2px; z-index:50; box-shadow:0 14px 40px -12px rgba(0,0,0,.20), 0 2px 6px -2px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.8); }
   .cta-bar button:hover { background:color-mix(in srgb,var(--ink) 6%,transparent); }
+  body.midnight .cta-bar { background:var(--panel); border-color:var(--line2); box-shadow:0 14px 40px -12px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06); }
+  body.midnight .cta-bar button { color:var(--ink); }
+  body.midnight .cta-bar button:hover { background:rgba(255,255,255,.06); }
+  body.midnight .cta-bar kbd { background:rgba(255,255,255,.12); color:color-mix(in srgb,var(--ink) 70%,transparent); }
+  .cta-bar button { font-family:var(--fb); font-size:13px; font-weight:500; color:var(--ink); background:transparent; border:none; padding:10px 18px; border-radius:24px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background .15s,color .15s; }
+  .cta-bar button:hover { background:color-mix(in srgb,var(--ink) 6%,transparent); transition:background .12s ease-out; }
   .cta-bar button.act { background:var(--ink); color:var(--bg); }
   .cta-bar kbd { font-family:var(--fm); font-size:10px; padding:1px 5px; background:color-mix(in srgb,var(--ink) 10%,transparent); border-radius:4px; opacity:.7; border:none; }
   .cta-bar button.act kbd { background:color-mix(in srgb,var(--bg) 25%,transparent); color:var(--bg); }
@@ -4694,7 +4778,16 @@ _CSS = """
   .fxcard .fx-fill.high { background:var(--bear); }
   .fxcard .fx-fill.mid { background:var(--warn); }
   .fxcard .fx-fill.low { background:var(--acc); }
-  .fxcard .fx-tks { font-family:var(--fm); font-size:11px; color:var(--steel); font-variant-numeric:tabular-nums; }
+  .fxcard .fx-item { cursor:pointer; }
+  .fxcard .fx-chev { color:var(--steel); margin-left:6px; transition:transform .2s ease; flex-shrink:0; }
+  .fxcard .fx-item.open .fx-chev { transform:rotate(180deg); }
+  .fxcard .fx-sub { max-height:0; overflow:hidden; opacity:0; transition:max-height .3s ease, opacity .2s ease, margin .3s ease; }
+  .fxcard .fx-item.open .fx-sub { max-height:360px; opacity:1; margin:var(--s1) 0 6px; }
+  .fxcard .fx-stk { display:flex; align-items:center; gap:var(--s3); padding:var(--s15) 6px 5px 16px; font-size:12px; border-left:2px solid var(--line2); margin-left:3px; }
+  .fxcard .fx-stk .gnm { color:var(--ink); }
+  .fxcard .fx-stk .gtk { color:var(--steel); font-family:var(--fm); font-size:11px; }
+  .fxcard .fx-stk .gpc { margin-left:auto; color:var(--steel); font-family:var(--fm); font-size:11px; font-variant-numeric:tabular-nums; }
+  .fxcard .fx-stk .gw { color:var(--ink); font-family:var(--fm); min-width:62px; text-align:right; font-variant-numeric:tabular-nums; }
   .benchcard .bm-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:var(--s4); margin:var(--s35) 0; }
   .benchcard .bm-cell { padding:var(--s35) 18px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
   .benchcard .bm-h { font-family:var(--fb); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; margin-bottom:var(--s15); }
@@ -4918,16 +5011,62 @@ _APP_JS = """
   }
   items.forEach(n=>n.addEventListener('click',()=>show(n.dataset.nav)));
   var _h=(location.hash||'').replace('#','');if(_h&&/^[a-z]+$/.test(_h))show(_h);
-  // Cmd+1..9 raccourcis nav (Linear/Notion pattern) : index dans la sidebar
-  document.addEventListener('keydown', function(e){
-    if((e.metaKey||e.ctrlKey) && /^[1-9]$/.test(e.key)){
-      var idx = parseInt(e.key, 10) - 1;
-      if(items[idx]){
-        e.preventDefault();
-        show(items[idx].dataset.nav);
-      }
-    }
-  });
+  // Cmd+1..9 retire 01/06 user feedback : pas utile, parasite plus qu'autre chose
+  // Sticky page header drop shadow on scroll (Stripe/Linear pattern) :
+  // ajoute .stuck class quand top scrolle past 1px, retire sinon.
+  (function(){
+    var headers=document.querySelectorAll('.phead');
+    if(!headers.length || !window.IntersectionObserver) return;
+    // Sentinel 1px before each header to detect stickiness
+    headers.forEach(function(h){
+      var sentinel=document.createElement('div');
+      sentinel.style.cssText='position:absolute;top:-1px;height:1px;width:100%;pointer-events:none;';
+      h.parentNode.insertBefore(sentinel, h);
+      var obs=new IntersectionObserver(function(entries){
+        h.classList.toggle('stuck', !entries[0].isIntersecting);
+      }, {threshold:[0]});
+      obs.observe(sentinel);
+    });
+  })();
+  // Sparkline interactive hover (Robinhood pattern) : crosshair + tooltip
+  // valeur sur le point survole le plus proche.
+  (function(){
+    Array.from(document.querySelectorAll('.ps-spark-wrap')).forEach(function(wrap){
+      var svg=wrap.querySelector('.ps-spark');
+      var tip=wrap.querySelector('.spk-tip');
+      var cross=wrap.querySelector('.spk-cross');
+      var cur=wrap.querySelector('.spk-cur');
+      if(!svg || !tip) return;
+      var ptsRaw=svg.getAttribute('data-pts')||'';
+      var w=parseFloat(svg.getAttribute('data-w')||'130');
+      var pts=ptsRaw.split(';').map(function(s){
+        var p=s.split('|');
+        return {x:parseFloat(p[0]),y:parseFloat(p[1]),val:p[2],date:p[3]};
+      });
+      if(!pts.length) return;
+      svg.addEventListener('mousemove', function(e){
+        var rect=svg.getBoundingClientRect();
+        var mx=(e.clientX-rect.left)/rect.width*w;
+        // find nearest point
+        var best=pts[0], bestD=Math.abs(pts[0].x-mx);
+        for(var i=1;i<pts.length;i++){
+          var d=Math.abs(pts[i].x-mx);
+          if(d<bestD){best=pts[i];bestD=d;}
+        }
+        cross.setAttribute('x1', best.x);
+        cross.setAttribute('x2', best.x);
+        cur.setAttribute('cx', best.x);
+        cur.setAttribute('cy', best.y);
+        var tipLeft=(best.x/w*rect.width);
+        tip.style.left=tipLeft+'px';
+        tip.style.display='block';
+        tip.innerHTML='<span class="tip-val">'+Number(best.val).toLocaleString('fr-FR')+'&nbsp;€</span><span class="tip-date">'+best.date+'</span>';
+      });
+      svg.addEventListener('mouseleave', function(){
+        tip.style.display='none';
+      });
+    });
+  })();
   // Right-click context menu ticker (Bloomberg/TradingView pattern) : sur
   // tout element avec data-tk, ouvre menu avec actions Analyse / Copie /
   // Yahoo Finance / Watchlist.
@@ -5355,13 +5494,16 @@ def _asym_format(ratio):
     """Format asymmetry_ratio avec class de coloration parchemin.
 
     Convention Taleb barbell :
-    - ratio >= 3.0  -> 'barbell' (asymetrie favorable, laisser courir) -> .acc (olive)
+    - ratio >= 999   -> sentinel TARGET_HIT (current >= target_full) -> 'cible' badge
+    - ratio >= 3.0   -> 'barbell' (asymetrie favorable, laisser courir) -> .acc (olive)
     - 1.0 <= r < 3.0 -> 'modere' (neutre) -> .num (ink2)
-    - r < 1.0       -> 'inverse' (downside > upside, candidate trim) -> .neg (oxblood)
-    - None          -> '—'
+    - r < 1.0        -> 'inverse' (downside > upside, candidate trim) -> .neg (oxblood)
+    - None           -> '—'
     """
     if ratio is None:
         return ('num', '&mdash;')
+    if ratio >= 999:
+        return ('num acc', 'cible &check;')
     if ratio >= 3.0:
         return ('num acc', f'{ratio:.1f}&times;')
     if ratio >= 1.0:
@@ -5497,7 +5639,8 @@ _DBA_CSS = r"""
   .dba-sh { font-family:var(--fm); font-weight:500; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
   .dba-sh::after { content:""; flex:1; height:1px; background:var(--line); }
   .dba-sh-aside { text-transform:none; letter-spacing:0; color:var(--steel); font-weight:normal; font-size:11px; margin-left:6px; }
-  .dba-card { padding: var(--s4); border:1px solid var(--line); border-radius:var(--r3); background:color-mix(in srgb,var(--ink) 1.2%, transparent); margin-bottom:var(--s3); }
+  /* DBA card harmonisee avec .page-star pattern (background panel + border line) */
+  .dba-card { padding:var(--s4); border:1px solid var(--line); border-radius:var(--r2); background:var(--panel); margin-bottom:var(--s3); }
   .dba-chrow { display:flex; justify-content:space-between; align-items:baseline; gap:var(--s4); font-family:var(--fm); }
   .dba-chrow .lab { font-weight:600; color:var(--ink); font-size:13px; }
   .dba-chrow .stat { font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:var(--r1); border:1px solid var(--line); white-space:nowrap; }
@@ -5697,7 +5840,7 @@ def _discipline_biais_panel() -> str:
         + '<div class="ps-lbl">Discipline &amp; Biais</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_kpi2_cls}">{n_resolved}/{n_cluster_total}</div>'
-        + f'<div class="ps-macro-meta">pr&eacute;dictions r&eacute;solues &middot; KPI #2 &ge;5</div>'
+        + '<div class="ps-macro-meta">pr&eacute;dictions r&eacute;solues &middot; KPI #2 &ge;5</div>'
         + '</div>'
         + f'<div class="ps-cap">{_kpi2_cap} &middot; {_jday_str}</div>'
         + '</div>'
@@ -5720,7 +5863,7 @@ def _discipline_biais_panel() -> str:
         'densit&eacute; &agrave; J+30.</div></div>'
         + star_discipline
         # ─── PREDICTIONS ─────────────────────────────────────────────────
-        + '<div class="dba-sh">Pr&eacute;dictions'
+        + '<div class="dba-sh" data-tip="Predictions resolues a J+28 : marker probabiliste (Brier score) sur la calibration des estimations."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="0.8" fill="currentColor" stroke="none"/></svg>Pr&eacute;dictions'
         '<span class="dba-sh-aside">cluster KPI #2 &mdash; J+28 batch 10/06</span></div>'
         '<div class="dba-card">'
         f'<div class="dba-chrow"><span class="lab">{n_resolved}/{n_cluster_total} '
@@ -5729,7 +5872,7 @@ def _discipline_biais_panel() -> str:
         f'{_dba_predictions_brier_html(brier_avg, brier_n)}'
         '</div>'
         # ─── BIAIS fomo_greed ────────────────────────────────────────────
-        '<div class="dba-sh">Biais &mdash; fomo_greed'
+        '<div class="dba-sh" data-tip="Biais FOMO/greed : ne pas alleger quand la discipline le commandait. Instrumente sur 2 canaux : kill_criteria + over_cap."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14c-3 0-5-2-5-5 0-2 1.5-3.5 2.5-4 0 1.5 1 2 1.5 2 0-2 1-4 3-5 .5 2 3 3 3 6 0 4-2 6-5 6z"/><path d="M7 11.5c0-1 .5-1.5 1-2 .5.5 1 1 1 2 0 .7-.5 1.2-1 1.2s-1-.5-1-1.2z"/></svg>Biais &mdash; fomo_greed'
         '<span class="dba-sh-aside">tenir au-del&agrave; du top &middot; 2 canaux instrument&eacute;s</span></div>'
         # Canal kill_criteria
         '<div class="dba-card">'
@@ -5766,7 +5909,7 @@ def _discipline_biais_panel() -> str:
         '&middot; r&eacute;solution N/A</div>'
         '</div>'
         # ─── BIAIS lock_in ──────────────────────────────────────────────
-        '<div class="dba-sh">Biais &mdash; lock_in'
+        '<div class="dba-sh" data-tip="Biais lock-in : vendre les gagnants trop tot. Biais #1 de PRESAGE selon ADR-010. Mecanise via Surface 2 (sell winner sync capture)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/><circle cx="8" cy="10.5" r=".9" fill="currentColor" stroke="none"/></svg>Biais &mdash; lock_in'
         '<span class="dba-sh-aside">vendre les gagnants trop t&ocirc;t</span></div>'
         '<div class="dba-card">'
         '<div class="dba-chrow">'
@@ -5839,8 +5982,7 @@ def render() -> Path:
     _pfcost = sum(p.get("cost_basis_eur", 0) for p in positions)
     pf_value = sum(p["weight"] for p in positions)
     pf_pnl_eur = pf_value - _pfcost
-    vcls = "pos" if pf_pnl_eur >= 0 else "neg"
-    # Star Vue d'ensemble : .ps-val attend acc/warn/bear, pas pos/neg
+    # Star Vue d'ensemble : .ps-val attend acc/warn/bear (pas pos/neg legacy)
     _pnl_star_cls = "acc" if pf_pnl_eur >= 0 else "bear"
     pf_arrow = "&#9650;" if pf_pnl_eur >= 0 else "&#9660;"
     pf_val_str = f"{pf_value:,.0f}".replace(",", "&#8239;")
@@ -5962,7 +6104,7 @@ def render() -> Path:
     # grade_html n'est plus affiche separement (integre dans Star). Conserve
     # _grade_panel() call pour side-effects DB potentiels mais on supprime
     # le rendu dupliqué.
-    _ = grade_html  # noqa: ne pas retirer l'appel
+    _ = grade_html  # ne pas retirer l'appel : side-effects DB potentiels
     # Sparkline hero 30j depuis portfolio_snapshots (Robinhood/TR pattern).
     # Aggregate par jour (MAX 1 valeur/jour, prend la plus recente) pour
     # accuracy : evite step pattern cause par snapshots multiples meme date.
@@ -5977,9 +6119,12 @@ def render() -> Path:
         _spark_by_day = {}
         for _d, _v in _spark_raw:
             _spark_by_day[_d] = _v
-        _spark_vals = [_spark_by_day[k] for k in sorted(_spark_by_day.keys())]
+        _spark_dates_sorted = sorted(_spark_by_day.keys())
+        _spark_vals = [_spark_by_day[k] for k in _spark_dates_sorted]
+        _spark_dates = _spark_dates_sorted
     except Exception:
         _spark_vals = []
+        _spark_dates = []
     # Delta valeur portefeuille vs J-1 pour trend indicator
     _val_delta_str = ""
     if len(_spark_vals) >= 2:
@@ -6023,10 +6168,16 @@ def render() -> Path:
         _spk_path = _spk_smooth_path(_spk_pts)
         # Area fill : meme courbe + ferme vers le bas (style Robinhood)
         _spk_area = _spk_path + f" L {_spk_w - _spk_pad:.1f} {_spk_h - _spk_pad:.1f} L {_spk_pad:.1f} {_spk_h - _spk_pad:.1f} Z"
-        _gradient_id = f"spk-grad-{abs(hash(_spk_color)) % 100000}"
+        _gradient_id = "spk-grad-up" if _spark_vals[-1] >= _spark_vals[0] else "spk-grad-dn"
+        # Encode points+dates pour hover interactif (data attrs : x|y|val|date)
+        _spk_pts_data = ";".join(
+            f"{_spk_pts[_i].split(',')[0]}|{_spk_pts[_i].split(',')[1]}|{_spark_vals[_i]:.0f}|{_spark_dates[_i]}"
+            for _i in range(len(_spk_pts))
+        )
         _sparkline = (
-            f'<svg class="ps-spark" viewBox="0 0 {_spk_w} {_spk_h}" width="{_spk_w}" height="{_spk_h}" '
-            f'style="overflow:visible" aria-label="Trajectoire 30j">'
+            f'<span class="ps-spark-wrap"><svg class="ps-spark" viewBox="0 0 {_spk_w} {_spk_h}" width="{_spk_w}" height="{_spk_h}" '
+            f'style="overflow:visible" aria-label="Trajectoire 30j" '
+            f'data-pts="{_spk_pts_data}" data-w="{_spk_w}" data-h="{_spk_h}" data-color="{_spk_color}">'
             f'<defs><linearGradient id="{_gradient_id}" x1="0" y1="0" x2="0" y2="1">'
             f'<stop offset="0%" stop-color="{_spk_color}" stop-opacity="0.25"/>'
             f'<stop offset="100%" stop-color="{_spk_color}" stop-opacity="0"/>'
@@ -6035,8 +6186,10 @@ def render() -> Path:
             f'<path d="{_spk_path}" fill="none" stroke="{_spk_color}" '
             f'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>'
             f'<circle cx="{_spk_last_x}" cy="{_spk_last_y}" r="2.8" fill="{_spk_color}"/>'
-            f'<circle cx="{_spk_last_x}" cy="{_spk_last_y}" r="5" fill="{_spk_color}" opacity="0.2"/>'
-            f'</svg>'
+            f'<circle cx="{_spk_last_x}" cy="{_spk_last_y}" r="5" fill="{_spk_color}" opacity="0.25"><animate attributeName="r" values="5;8;5" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.25;0.05;0.25" dur="2.4s" repeatCount="indefinite"/></circle>'
+            f'<line class="spk-cross" x1="0" y1="0" x2="0" y2="{_spk_h}" stroke="{_spk_color}" stroke-width="1" opacity="0" stroke-dasharray="2 2"/>'
+            f'<circle class="spk-cur" cx="0" cy="0" r="3" fill="{_spk_color}" opacity="0"/>'
+            f'</svg><span class="spk-tip" style="display:none"></span></span>'
         )
     else:
         _sparkline = ""
@@ -6048,52 +6201,52 @@ def render() -> Path:
     _grade_color = "acc" if _gscore_int >= 70 else ("warn" if _gscore_int >= 50 else "bear")
     # (Grade sparkline retire 01/06 user feedback : pas besoin sur Note du portefeuille)
     vigie = (
-        f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
-        f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
+        '<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
+        '<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
         # === Star Vue d'ensemble (unifie) : valeur+PnL+capital sous-jacent
         # a gauche, grade A+ + bar a droite. Strate 2 = repartition lignes
         # pleine largeur. Gradecard detail retire (vide visuel).
-        + f'<div class="page-star">'
-        + f'<div class="ps-strate">'
-        + f'<div class="ps-hero-row">'
-        + f'<div class="ps-hero-left">'
-        + f'<div class="ps-lbl">Valeur du portefeuille</div>'
-        + f'<div class="ps-macro-row" style="align-items:baseline">'
+        + '<div class="page-star">'
+        + '<div class="ps-strate">'
+        + '<div class="ps-hero-row">'
+        + '<div class="ps-hero-left">'
+        + '<div class="ps-lbl">Valeur du portefeuille</div>'
+        + '<div class="ps-macro-row" style="align-items:baseline">'
         + f'<div class="ps-val" style="font-size:34px">{pf_val_str}&nbsp;&euro;</div>'
         + f'<div class="ps-val {_pnl_star_cls}" style="font-size:18px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         + f'{_sparkline}'
-        + f'</div>'
+        + '</div>'
         + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> en gain &middot; {n_gain} lignes &middot; {n_pnl - n_gain} en perte ({100 - gpct:.0f}%) {_val_delta_str}</div>'
-        + f'</div>'
-        + f'<div class="ps-hero-right">'
-        + f'<div class="ps-lbl" data-tip="Grade global Construction + Fragilite. Construction = Solidite/Pari/Doublons/Calibrage. Fragilite = Sante/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Note du portefeuille</div>'
-        + f'<div class="ps-grade-row">'
+        + '</div>'
+        + '<div class="ps-hero-right">'
+        + '<div class="ps-lbl" data-tip="Grade global Construction + Fragilite. Construction = Solidite/Pari/Doublons/Calibrage. Fragilite = Sante/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Note du portefeuille</div>'
+        + '<div class="ps-grade-row">'
         + f'<div class="ps-grade-letter {_grade_color}">{_grade_letter}</div>'
         + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
         + f'<div class="ps-grade-bar"><div class="ps-grade-fill {_grade_color}" style="width:{_grade_score:.0f}%"></div></div></div>'
-        + f'</div></div>'
-        + f'</div></div>'
-        + f'<div class="ps-strate">'
-        + f'<div class="ps-lbl">Capital investi</div>'
+        + '</div></div>'
+        + '</div></div>'
+        + '<div class="ps-strate">'
+        + '<div class="ps-lbl">Capital investi</div>'
         + f'<div class="ps-macro-row" style="margin-top:4px"><div class="ps-val" style="font-size:22px">{pf_cost_str}&nbsp;&euro;</div>'
         + f'<div class="ps-macro-meta">{n_pnl} lignes &middot; snapshot {_grade_trend_str}</div></div>'
-        + f'</div>'
+        + '</div>'
         + f'</div>'
         # Track record + Sante distribution deplaces vers page "signaux"
         # (user feedback 01/06 : pilotage qualite des signaux groupe ensemble).
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html migre vers section Copilot dediee 31/05 wave 5)
-        '<div class="vigie-sh">&Eacute;tat &mdash; lignes &agrave; examiner</div>'
+        '<div class="vigie-sh" data-tip="Lignes du book a verifier en priorite : marges critiques (stop &lt; 10%), zones at_risk kill_criteria, vol aveugle."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>&Eacute;tat &mdash; lignes &agrave; examiner</div>'
         f'{_risk_watch_panel()}'
         f"{blind_html}"
         # ── BLOC 2 : OPPORTUNITES -- a cloturer ou consolider ──
-        '<div class="vigie-sh">Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
+        '<div class="vigie-sh" data-tip="Lignes proches de la cible (zone de prise de profit, valo &gt; bull) ou proches du stop (zone trim/exit)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">th&egrave;se en cours de r&eacute;alisation &middot; surveiller valo &gt; bull et fragilit&eacute;</span></div>'
         f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
         f'<div class="card pad">{lose}</div></div></div>'
         # ── BLOC 3 : MOUVEMENT -- info dynamique du jour ──
-        '<div class="vigie-sh">Mouvement du jour</div>'
+        '<div class="vigie-sh" data-tip="Variations intraday vs cloture veille. Permet de capter les rotations rapides sans attendre la cloture."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l4-4 3 3 5-6"/></svg>Mouvement du jour</div>'
         f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
         f'<div class="card pad">{day_dn}</div></div></div>'
@@ -6103,7 +6256,7 @@ def render() -> Path:
         # via cron weekly_v2_vigilance + weekly_calibration_audit prennent le relais)
         # Synthese copilot retiree 31/05 wave 5bis : migre vers section Copilot dediee.
         # ── BLOC 5 : JOURNAL -- echeances + log decisions (chat remonte au BLOC 1) ──
-        '<div class="vigie-sh">Journal &amp; &eacute;ch&eacute;ances</div>'
+        '<div class="vigie-sh" data-tip="Cahier de bord : decisions journees recentes + echeances de revue/resolution a venir."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Journal &amp; &eacute;ch&eacute;ances</div>'
         f'<div class="colhead tight"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
         f'<div class="card pad">{erows}</div>'
         f"{journal_block}</section>"
@@ -6157,16 +6310,16 @@ def render() -> Path:
         'est ce qu\'elle est, et ou est la vraie fragilit&eacute;</div></div>'
         f'{star_strategie}'
         # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
-        '<div class="strat-sh">Strat&eacute;gie d&eacute;clar&eacute;e &mdash; r&eacute;f&eacute;rentiel</div>'
+        '<div class="strat-sh" data-tip="Ce que tu as ecrit comme objectif (theses, horizon, conviction). Le referentiel contre lequel on lit le livre."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v12"/><path d="M3 3h7l-1.5 2.5L10 8H3"/></svg>Strat&eacute;gie d&eacute;clar&eacute;e &mdash; r&eacute;f&eacute;rentiel</div>'
         f'{_user_strategy_panel()}'
         # 2. Lecture du livre -- etat actuel vs declare (trajectoire, paris macro, stress)
         # Retrait 31/05 user : bench_html (Surperformance reelle vs secteur)
-        '<div class="strat-sh">Lecture du livre &mdash; &eacute;tat actuel</div>'
+        '<div class="strat-sh" data-tip="Etat reel du book : trajectoire vs declare, factor exposures, stress tests. Ou en est-on factuellement."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3L14 14"/></svg>Lecture du livre &mdash; &eacute;tat actuel</div>'
         f'{trajectory_html}'
         f'{factor_html}'
         f'{stress_html}'
         # 3. Risques caches -- fusion Concentration + Doublons (= ce que la surface cache)
-        '<div class="strat-sh">Risques cach&eacute;s &mdash; concentration &amp; doublons</div>'
+        '<div class="strat-sh" data-tip="Concentrations non-evidentes (these dominante, factor exposure) + doublons sectoriels qui font porter le meme pari deux fois."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L14.5 13H1.5L8 2z"/><path d="M8 6.5v3.5"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg>Risques cach&eacute;s &mdash; concentration &amp; doublons</div>'
         f'{spof_html}'
         f'{mauboussin_html}'
         f'{valo_html}'

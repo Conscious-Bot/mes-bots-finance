@@ -118,7 +118,15 @@ def _ticker_currency(tk: str) -> str:
 
 
 def compute_fx_exposure() -> dict:
-    """Group book weight by currency. Useful for euro book holding USD/JPY/KRW."""
+    """Group book weight by currency. Useful for euro book holding USD/JPY/KRW.
+
+    Retour par devise :
+      - eur (float) : exposition totale en EUR
+      - pct (float) : poids en % du book
+      - n_positions (int) : nb tickers dans la devise
+      - tickers (list[str]) : tickers (triés desc par poids EUR)
+      - holdings (list[dict]) : {tk, eur, pct_of_cur} pour accordeon UI
+    """
     from dashboard.render import _positions
 
     positions = _positions()
@@ -126,11 +134,16 @@ def compute_fx_exposure() -> dict:
     by_cur: dict = {}
     for p in positions:
         cur = _ticker_currency(p["ticker"])
-        by_cur.setdefault(cur, {"eur": 0.0, "tickers": []})
+        by_cur.setdefault(cur, {"eur": 0.0, "holdings": []})
         by_cur[cur]["eur"] += p["weight"]
-        by_cur[cur]["tickers"].append(p["ticker"])
+        by_cur[cur]["holdings"].append({"tk": p["ticker"], "eur": p["weight"]})
     for d in by_cur.values():
         d["pct"] = round(d["eur"] / total * 100, 1)
+        d["holdings"].sort(key=lambda h: -h["eur"])
+        for h in d["holdings"]:
+            h["pct_of_cur"] = round(h["eur"] / d["eur"] * 100, 1) if d["eur"] else 0.0
+            h["eur"] = round(h["eur"], 0)
+        d["tickers"] = [h["tk"] for h in d["holdings"]]
         d["eur"] = round(d["eur"], 0)
-        d["n_positions"] = len(d["tickers"])
+        d["n_positions"] = len(d["holdings"])
     return dict(sorted(by_cur.items(), key=lambda kv: -kv[1]["pct"]))
