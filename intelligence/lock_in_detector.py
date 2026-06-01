@@ -151,16 +151,29 @@ def detect_winner_sell(
         Aucune exception ne traverse vers le caller (catch interne par hook).
     """
     ticker = ticker.upper()
+    # Observability cold-start (user 01/06 #3) : log ENTERED a chaque
+    # invocation pour distinguer "silence correct" vs "hook mort".
+    # Grep bot.log "lock_in_detector ENTERED" -> compteur invocations.
+    log.info(
+        f"lock_in_detector ENTERED ticker={ticker} qty_sold={qty_sold} "
+        f"sold_price={sold_price_native} avg_cost={avg_cost}"
+    )
     if avg_cost <= 0 or sold_price_native <= 0 or qty_sold <= 0 or qty_before <= 0:
+        log.info(f"lock_in_detector SKIP invalid_args ticker={ticker}")
         return None
 
     pnl_pct = (sold_price_native / avg_cost) - 1
     # Epsilon float : (115/100 - 1) donne 0.14999999999999991, rejette 15% exact
     if pnl_pct < _GATE_PNL_PCT_MIN - 1e-9:
+        log.info(f"lock_in_detector SKIP gate_pnl ticker={ticker} pnl_pct={pnl_pct:.4f}")
         return None  # pas un winner (gate pnl)
 
     conviction, thesis_extra = _read_thesis_conviction_and_horizon(ticker)
     if conviction is None or conviction < _GATE_CONVICTION_MIN:
+        log.info(
+            f"lock_in_detector SKIP gate_conviction ticker={ticker} "
+            f"conviction={conviction}"
+        )
         return None  # these trash ou pas de these active (gate conviction)
 
     dims = _compute_dimensions(pnl_pct, conviction, thesis_extra, sold_price_native)
@@ -217,6 +230,9 @@ def detect_winner_sell(
 
     if stats.get("opened") != 1:
         # Idempotence kept ou error -- pas de nouveau lien FK a poser
+        log.info(
+            f"lock_in_detector SKIP wire_stats ticker={ticker} stats={stats}"
+        )
         return None
 
     # Recupere bias_event_id pour lier FK
@@ -234,4 +250,10 @@ def detect_winner_sell(
     if bias_event_id and position_event_id:
         _link_position_event(bias_event_id, position_event_id)
 
+    log.info(
+        f"lock_in_detector OPENED ticker={ticker} bias_event_id={bias_event_id} "
+        f"pnl_pct={pnl_pct:.4f} conv={conviction} "
+        f"pnl_pct_progress={dims.get('pnl_pct_progress')} "
+        f"time_progress={dims.get('time_progress')}"
+    )
     return {"bias_event_id": bias_event_id, "dimensions": dims}

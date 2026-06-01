@@ -45,7 +45,7 @@ def _schema_minimal(cx: sqlite3.Connection) -> None:
                                  'missing_data')),
             source TEXT NOT NULL CHECK(source IN ('auto_detected',
                                                   'telegram_tap', 'manual')),
-            thesis_id INTEGER, prediction_id INTEGER, note TEXT,
+            thesis_id INTEGER, prediction_id INTEGER, note_tags_json TEXT,
             horizon_days INTEGER NOT NULL,
             resolve_at TEXT NOT NULL,
             position_event_id INTEGER
@@ -167,10 +167,11 @@ def test_winner_pnl20_c4_sold_opens_candidate(
     # Vérifie le candidat ouvert
     assert _count_bias_events(isolated_db, "NVDA") == 1
 
-    # Inspecte les 4 dimensions
+    # Inspecte les 4 dimensions (stockees dans note_tags_json via wire_bias_trigger)
     cx = sqlite3.connect(isolated_db)
     row = cx.execute(
-        "SELECT counterfactual_json, position_event_id FROM bias_events "
+        "SELECT counterfactual_json, position_event_id, note_tags_json "
+        "FROM bias_events "
         "WHERE bias='lock_in' AND ticker='NVDA' AND status='open'"
     ).fetchone()
     cx.close()
@@ -178,15 +179,9 @@ def test_winner_pnl20_c4_sold_opens_candidate(
     assert cf["initial_qty"] == 100.0
     assert cf["discipline_expected_delta"] == 0.0  # discipline = hold
     assert cf["anchor_price_eur"] == 110.0
-    # 4 dimensions dans note JSON
-    note = json.loads(json.loads(cx.row_factory if False else "{}") if False else (cx and "{}") or "{}")
-    # Récupère note depuis le bias_event
-    cx2 = sqlite3.connect(isolated_db)
-    note_str = cx2.execute(
-        "SELECT note FROM bias_events WHERE bias='lock_in' AND ticker='NVDA'"
-    ).fetchone()[0]
-    cx2.close()
-    note = json.loads(note_str)
+
+    # 4 dimensions dans note_tags_json
+    note = json.loads(row[2])
     assert note["pnl_pct_at_sell"] == pytest.approx(0.20, abs=0.001)
     assert note["conviction_at_sell"] == 4
     assert note["pnl_pct_progress"] is not None  # target connu (200/100-1 = 1.0)
@@ -336,6 +331,54 @@ def test_idempotence_same_position_event_kept(
     assert out2 is None
     # Mais toujours 1 seul candidat open
     assert _count_bias_events(isolated_db, "NVDA") == 1
+
+
+# ─── Test 9 : conviction CONTEMPORAINE post-revisit (user 01/06 #4) ───────
+
+
+def test_conviction_at_sell_reads_current_post_revisit(
+    isolated_db: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verrou architectural : la conviction lue au moment de la vente est
+    la CONTEMPORAINE (post-revisits), pas at-creation. Path : theses.conviction
+    est UPDATE in-place (storage.py:2734), donc SELECT conviction lit
+    toujours la valeur courante.
+
+    Setup : thesis creee c2, UPDATE conviction=4 (simule revisit), vendre.
+    Verifie note.conviction_at_sell == 4 (post-revisit), pas 2 (creation)."""
+    # Cree these c2 initialement
+    _seed_thesis(isolated_db, ticker="NVDA", conviction=2,
+                 entry_price=100.0, target_full=200.0)
+    # UPDATE conviction 2 -> 4 (revisit pattern)
+    cx = sqlite3.connect(isolated_db)
+    cx.execute("UPDATE theses SET conviction=4 WHERE ticker='NVDA'")
+    cx.commit()
+    cx.close()
+
+    _seed_position_event_sell(isolated_db, ticker="NVDA", qty=50.0, price=120.0)
+    _mock_anchor_eur(monkeypatch)
+
+    from intelligence.lock_in_detector import detect_winner_sell
+    out = detect_winner_sell(
+        position_id=1, ticker="NVDA",
+        qty_sold=50.0, sold_price_native=120.0,
+        qty_before=100.0, avg_cost=100.0,
+    )
+    # Avec c4 (post-revisit), gate conviction OK -> candidat ouvert
+    assert out is not None
+
+    cx = sqlite3.connect(isolated_db)
+    note_str = cx.execute(
+        "SELECT note_tags_json FROM bias_events WHERE ticker='NVDA' AND bias='lock_in'"
+    ).fetchone()[0]
+    cx.close()
+    note = json.loads(note_str)
+    # CRITIQUE : conviction_at_sell doit etre 4 (post-revisit), PAS 2 (creation)
+    assert note["conviction_at_sell"] == 4, (
+        "conviction_at_sell doit lire la valeur CONTEMPORAINE (post-revisit), "
+        "pas la valeur at-creation. Si fail = bug architectural sur le path "
+        "de lookup conviction."
+    )
 
 
 # ─── Test 8 : fail-safe wire raise -> caller survit ───────────────────────

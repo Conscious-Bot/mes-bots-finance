@@ -188,7 +188,7 @@ def open_candidate(
             "INSERT INTO bias_events "
             "(created_at, ticker, bias, action, decision_json, "
             " counterfactual_json, status, source, thesis_id, prediction_id, "
-            " note, horizon_days, resolve_at) "
+            " note_tags_json, horizon_days, resolve_at) "
             "VALUES (?, ?, ?, 'acted_on_bias', ?, ?, 'open', ?, ?, ?, ?, ?, ?)",
             (
                 now_iso, ticker, bias,

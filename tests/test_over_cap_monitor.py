@@ -54,7 +54,7 @@ def _schema_minimal(cx: sqlite3.Connection) -> None:
                                  'missing_data')),
             source TEXT NOT NULL CHECK(source IN ('auto_detected',
                                                   'telegram_tap', 'manual')),
-            thesis_id INTEGER, prediction_id INTEGER, note TEXT,
+            thesis_id INTEGER, prediction_id INTEGER, note_tags_json TEXT,
             horizon_days INTEGER NOT NULL,
             resolve_at TEXT NOT NULL
         );
