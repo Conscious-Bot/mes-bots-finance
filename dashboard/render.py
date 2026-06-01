@@ -3740,6 +3740,22 @@ _CSS = """
   .main { padding:30px 52px 54px; max-width:1340px; }
   .phead { margin-bottom:22px; } .phead h2 { font-family:var(--fd); font-weight:300; font-size:32px; margin:0 0 6px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); } .phead .sub { font-family:var(--fb); font-weight:400; font-size:12px; letter-spacing:.04em; color:var(--steel); }
   [data-page] { display:none; } [data-page].active { display:block; animation:fadein .42s ease; } @keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+  /* Cascade signature Vue d'ensemble : page load orchestre, blocs en revel
+     staggered 60ms. Remplace le fadein page generique sur vigie uniquement.
+     Direction "instrument vivant qui se decouvre" (task #37 axe 4). */
+  [data-page="vigie"].active { animation:none; }
+  [data-page="vigie"].active > * { animation:presage-cascade .32s var(--ease) both; }
+  [data-page="vigie"].active > *:nth-child(1) { animation-delay:0ms; }
+  [data-page="vigie"].active > *:nth-child(2) { animation-delay:60ms; }
+  [data-page="vigie"].active > *:nth-child(3) { animation-delay:120ms; }
+  [data-page="vigie"].active > *:nth-child(4) { animation-delay:180ms; }
+  [data-page="vigie"].active > *:nth-child(5) { animation-delay:240ms; }
+  [data-page="vigie"].active > *:nth-child(6) { animation-delay:300ms; }
+  [data-page="vigie"].active > *:nth-child(7) { animation-delay:360ms; }
+  [data-page="vigie"].active > *:nth-child(8) { animation-delay:420ms; }
+  [data-page="vigie"].active > *:nth-child(n+9) { animation-delay:480ms; }
+  @keyframes presage-cascade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .noanim [data-page="vigie"].active > * { animation:none; opacity:1; transform:none; }
   .hero { background:var(--panel); border:1px solid var(--line3); border-radius:var(--r3); padding:28px 34px; margin-bottom:26px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; }
   .hero .big { font-family:var(--fm); font-weight:500; font-size:42px; line-height:.95; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
   .hero .big.pos { color:var(--acc); } .hero .big.neg { color:var(--bear); }
