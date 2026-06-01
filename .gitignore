@@ -131,3 +131,6 @@ htmlcov/
 
 # Reconcile broker exports (personal financial data)
 scripts/reconcile_exports/*.csv
+
+# Skill installs (perso, reinstaller via clone)
+.claude/skills/ui-ux-pro-max/

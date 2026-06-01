@@ -1,6 +1,6 @@
 # Session State — mes-bots-finance
 
-**Last updated**: Day 15 close, 2026-05-21 21:17
+**Last updated**: Close 2026-06-01 (wire B2 + Pile 1.1 + audit cleanup)
 
 ## Mode actuel
 **High Standard / Solidification** — Path 5/6 strategic target.
@@ -796,3 +796,143 @@ comportementale (data model decision_journal + bias_capture + cout
 mesure). Si focus pile 1 = hero portefeuille au bar Track record.
 Si focus pile 3 = relire post_01 et choisir Substack vs Twitter vs
 PRESAGE site statique.
+
+---
+
+## Close 2026-06-01 — wire B2 live + Pile 1.1 + audit complet
+
+### Livre
+
+**Pile 2.1 v2.c.3 → c.5 (commit 416d90c)** — User Bias Detector cable
+end-to-end, observation-only en live :
+
+- **c.3 resolve_one_bias_event refactor** : single-path, kill backward
+  compat. Lit shares depuis `position_events` (window strict
+  `[created_at, resolve_at]`). Migration tests v2.b -> shape canonique
+  `{initial_qty, discipline_expected_delta}` avec value-equivalence
+  preservee. **Linchpin user 01/06** : fenetre vide != erreur (0 trade
+  + hold -> resisted, 0 trade + exit -> acted_on_bias).
+  MissingDataError reservee au prix manquant.
+- **c.4 wire_bias_trigger(recommendations)** : interrupteur idempotent
+  sur cle (ticker, bias, action, ref). Anti-piege #1 sur-declenchement
+  (meme reco recurrente -> kept, created_at preserve). Fail-safe strict :
+  open_candidate raise ne traverse pas vers le caller. 9 tests dont
+  anti-spirale.
+- **c.5 wire B2 symetrique kca + over_cap** :
+  - kca wire post-notify dans `check_one_thesis` (instant T fidele,
+    ref `rule:kill_criteria_t{thesis_id}` stable par thesis)
+  - `intelligence/over_cap_monitor.py` neuf, miroir kca : detection
+    transition `dormant -> over` via journal **over_cap_alerts**
+    (migration 0024, append-only). Etat decouple du cycle bias_events
+    (anti-piege resolu-mais-toujours-over). Notify Telegram + wire sur
+    transition uniquement.
+  - `classify_position()` = source de verite unique anti-double-impl
+    (bloc baseline + monitor consomment la meme fonction), raise
+    MissingDataError sur qty/price manquant (§6 invariant).
+  - Job daily + integration morning_chain etape 4 monitors.
+- Tests : 75 verts (12 over_cap + 5 kca wire + 9 wire + 24 v2 + 6
+  skeleton + 12 classify + 7 open_candidate).
+- **Decision over_cap dark** : malgre 3 OVER detectes au baseline
+  (4063.T 8.9%, STMPA.PA 4.7%, TSLA 3.4%), tous repassent sous cap a
+  70k = artefacts denominateur phase construction (53k -> 70k cible).
+  Firer = mesurer une discipline qui n'a pas dit "trimme" -> over_cap
+  TENU DARK explicitement (cf [[over-cap-dark-construction-phase]]).
+  kca reste actif (zero confound de phase). Premier check live kca :
+  triggered=0 at_risk=0 dormant=27, $0.10 LLM. Compteur live actif sur
+  canal honnete.
+
+**Pile 1.1 panneau Discipline & Biais (commit 5fd488d + 44bdd8b)** :
+- Page `data-page="discipline"` autonome, 2e rang nav entre Vue
+  d'ensemble et Positions
+- 3 sections, vocabulaire conforme glossary :
+  - **Predictions** cluster KPI #2 (J+28 batch 10/06) : compte
+    resolues/total filtre `target_date <= 10/06` (pas TOUTES V1 -- user
+    01/06 critique : "5 resolues" non-cluster lit faux). Au 01/06 :
+    **5/35 resolues, KPI #2 >=5 satisfait**. Brier handler honnete
+    avec **baseline 0.25 nomme explicitement** (predicteur constante
+    0.5, le plus faible) -- "Battre 0.25 ne demontre pas un skill".
+  - **Biais `fomo_greed`** -- 2 canaux :
+    - `kill_criteria` ACTIF (27 theses surveillees, bars dormant/at_risk/
+      triggered avec couleur = severite)
+    - `over_cap` EN VEILLE (PAR DECISION) (book + raison + condition
+      de reactivation explicite)
+  - **Biais `lock_in`** NON INSTRUMENTE -- chemin Surface 2 ADR-010 §2
+- Helpers : `_dba_eur` (narrow no-break separateur FR), `_dba_bar`
+  (couleur = severite par classe d'etat), `_dba_predictions_brier_html`
+  (handler honnete N<10 / N>=10)
+
+**Glossaire (commit eebd6d2 + 8b5cb68)** :
+- Refonte v1.0 canonique committee (etait orpheline dans filesystem
+  depuis 31/05)
+- **Section "Etat de canal d'instrumentation"** ajoutee : 3 etats
+  canonique mutuellement exclusifs (`actif` / `en veille (par
+  decision)` / `non instrumente`) + regle d'affichage explicite
+- **Section "Biais documentes -- desambiguisation canonique"** :
+  - `lock_in` biais #1 raison d'etre, NON INSTRUMENTE (entree majeure
+    en evidence, pas note de bas)
+  - `fomo_greed` enum technique (acception large), mecanise sur 2
+    canaux
+  - Biais #2 historique anti-FOMO crypto-tops = distinct de l'enum,
+    dormant ortho
+  - Regle d'ecriture explicite contre fausse equivalence
+- README L7 + FICHE_TECHNIQUE L68-71 + CLAUDE.md L27 : 3 renvois
+  courts vers glossary, plus jamais reformuler. Discipline
+  source-unique.
+
+**Pre-J-3 anticipe (task #15 completed)** : scaffolds activation 100%
+OK -- 5/5 resolutions precoces ont tous champs canoniques, Brier
+recompute manual match exact (drift < 0.0001), 0 pollution sur 29
+unresolved. Brier precoce N=5 = 0.248 (pile sur baseline 0.25
+no-skill). Trou en projection 0.295 FICHE = projection 30/05 a
+re-valider J-day quand N=35.
+
+### Audit complet 7 dimensions
+
+- D1 Gates : 2 fails -> 1 fixe par session (#25 ALLOWED_FILES
+  bias_events.py = pattern price_monitor) + 1 fixe (#29 v2_vigilance
+  schema drift + assertion stale 3 -> 6). **0 P0**.
+- D2 Couverture : materiality ~17% / asymmetry ~41% encore minces.
+  Finding loggue #33.
+- D3 Docs : FICHE/README/CLAUDE frais (01/06), SESSION_STATE update
+  c'est ce close.
+- D4 Secrets : credentials.json + token.json + .env untracked +
+  gitignore propre. Aucun P0.
+- D5 Data integrity : alembic 0024 + WAL + quick_check ok. Backup
+  cron sain (~/backups/mes-bots-finance/ snapshot 01/06 04:00,
+  fausse alarme du audit qui regardait data/backups/ vestige).
+- D6 Liveness : bot vivant (PID 8110), uptime heartbeat OK 11:20,
+  LLM cost $2/day $27/7d budget OK. Mais bot.log telegram.Conflict
+  recurrent (double-instance) + register_prediction baseline price
+  manquant (SK Hynix, SAMSUNG) -- #26 et #30 backlog.
+- D7 Cruft : RECONCILE_FLAGS = 0 (clean), ui-ux-pro-max gitignored
+  (#31 fait), DEPRECATED = kill-switches volontaires documentes,
+  pas dette (#32 faux positif).
+
+### Cleanup session de l'apres-audit
+
+Completes : #25 (ALLOWED_FILES bias_events) / #28 (backup fausse
+alarme) / #29 (v2_vigilance test fixture + assertion) / #31
+(gitignore skill) / #32 (DEPRECATED faux positif). Backlog reste :
+#26 (telegram Conflict, vrai diag a faire) / #27 (ce close) / #30
+(baseline price gate decision) / #33 (8 ruff residuels prexistants
++ mypy strict gate absent).
+
+### Outils
+
+Skill `.claude/skills/ui-ux-pro-max/` installe (44K data CSV +
+scripts, gitignored). Garde-fou : skill `ui-ux` projet (anti-
+generique-IA, axe stop->cible, couleur=fait) reste autorite.
+Magic MCP (21st.dev) ecarte volontairement (genericiquement, hors
+stack HTML/CSS direct render.py). Task #24 modernisation interface
+posee avec garde-fous et declencheurs explicites.
+
+**Entry next session** :
+- J-day 10/06 (~9j) : 30 resolutions restantes du cluster doivent
+  tomber, on attend le vrai Brier final. Pre-J-3 deja verifie (#15
+  completed) -- pas d'action prevue d'ici la.
+- Si P1 #26 (telegram Conflict) cause une notif user ratee entre-
+  temps, intervention immediate.
+- Densite biais ~J+30 -> Pile 1.2-1.4 heritage hero (#11) prendra
+  sens contre vraies donnees.
+- Vision long terme : task #24 modernisation interface PRESAGE
+  contre site public presage.pro + premieres lectures honnetes.

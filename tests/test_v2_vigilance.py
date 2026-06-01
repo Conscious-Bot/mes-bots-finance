@@ -41,7 +41,8 @@ def _setup_db(tmp_path, monkeypatch):
         signal_id INTEGER,
         ticker TEXT, direction TEXT, horizon_days INTEGER,
         baseline_price REAL, baseline_date TEXT, target_date TEXT,
-        probability_at_creation REAL
+        probability_at_creation REAL,
+        created_at TEXT, methodology_version TEXT
     );
     CREATE TABLE insider_buy_clusters_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,6 +53,11 @@ def _setup_db(tmp_path, monkeypatch):
         ticker TEXT, snapshot_date TEXT,
         net_m REAL, n_buys INTEGER, n_sells INTEGER,
         total_buys_m REAL, total_sells_m REAL
+    );
+    CREATE TABLE theses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticker TEXT, conviction INTEGER, direction TEXT,
+        status TEXT DEFAULT 'active', opened_at TEXT
     );
     """)
     # Source dédiée V2 (utilisée par les 3 vigilances pour identifier les signals V2)
@@ -302,11 +308,17 @@ def test_format_includes_alert_and_warn(tmp_path, monkeypatch):
 
 
 def test_run_all_vigilances_returns_3(tmp_path, monkeypatch):
-    """run_all_vigilances retourne 3 dicts (smoke integration)."""
+    """run_all_vigilances retourne 6 dicts (smoke integration W13).
+    Test renomme conserve par git tracking, count update 3 -> 6 apres
+    extension scaffold sante distribution data (horizon, conviction, fx)."""
     _setup_db(tmp_path, monkeypatch)
     from intelligence import v2_vigilance
 
     results = v2_vigilance.run_all_vigilances()
-    assert len(results) == 3
+    assert len(results) == 6
     names = {r["name"] for r in results}
-    assert names == {"watch_rate", "directional_spread", "insider_clusters_alive"}
+    expected = {
+        "watch_rate", "directional_spread", "insider_clusters_alive",
+        "horizon_diversification", "conviction_distribution", "fx_freshness",
+    }
+    assert names == expected

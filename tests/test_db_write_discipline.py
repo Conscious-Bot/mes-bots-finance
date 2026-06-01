@@ -28,6 +28,7 @@ ALLOWED_FILES = {
     "intelligence/analyze.py",  # table analyses
     "intelligence/calendar.py",  # events (catalysts)
     "intelligence/self_loop.py",  # boucle-de-soi V0 : decision_counterfactual + counterfactual_resolution (tables dediees append-only, triggers SQL bloquent UPDATE/DELETE)
+    "intelligence/bias_events.py",  # User Bias Detector v2.c (01/06) : open_candidate / resolve_due_bias_events / wire_bias_trigger -- table dediee bias_events, cron. Pattern identique a price_monitor / debt_monitor.
     "bot/main.py",  # telemetrie handler_calls
     "bot/handlers/misc.py",  # edition champs these
 }

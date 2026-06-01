@@ -69,7 +69,7 @@ def test_fomo_greed_acted_user_a_tenu_malgre_signal_exit() -> None:
 def test_fomo_greed_resisted_user_a_sorti_comme_discipline_dit() -> None:
     """fomo_greed : signal exit (discipline=-50), user a sorti -50
     (matche). delta_vs_discipline = 0 = resisted."""
-    action, taken, avoided, actual = classify_net_delta(
+    action, taken, avoided, _actual = classify_net_delta(
         bias="fomo_greed",
         discipline_expected_delta=-50.0,
         position_events_in_window=[{"qty_delta": -50.0}],
@@ -154,7 +154,7 @@ def test_lock_in_hold_avec_noise_trade_reste_resisted() -> None:
     de bruit (-2 shares sur 100). |delta_vs_discipline|=2 < 5%*100=5
     -> tolerance NOISE -> resisted. Avant le fix : aurait flippe acted
     a tort. Aligne user spec 01/06."""
-    action, taken, avoided, actual = classify_net_delta(
+    action, taken, _avoided, actual = classify_net_delta(
         bias="lock_in",
         discipline_expected_delta=0.0,
         position_events_in_window=[{"qty_delta": -2.0}],
