@@ -136,6 +136,45 @@ Quand la version structurelle (régénération fixtures CI) sera shippée, cette
 
 ---
 
+## L9 — Aucun comportement de production sur un modèle non backtesté. Démote, ne pas wire.
+
+**Règle** : si un modèle produit une sortie qui pourrait piloter une décision opérationnelle (sizing, gating, throttling, alerting matériel), il **ne pilote rien** tant qu'il n'a pas été backtesté contre N régimes historiques connus. Si le backtest est bloqué par données manquantes, **démote le modèle à "exploratoire"** sur l'UI plutôt que de l'enrôler dans une décision.
+
+### Le piège qui force la violation : pression de cohérence visible
+
+Un modèle non-validé exposé sur l'UI crée souvent une **contradiction visible** avec une autre règle (cas v2.macro : "phase 2 stress" affiché à côté de "sizing ×1.0"). La pression psychologique à résoudre vite la contradiction pousse à wire le modèle non-validé sur la décision pour "rendre cohérent". **C'est l'erreur**. La bonne réponse est de **démote le modèle**, pas de **promouvoir la décision sur lui**.
+
+Nommer la pression = la moitié de la résistance. Sans le nom, la pression sera ressentie comme légitime ("il faut bien rendre cohérent !"). Avec le nom, elle est identifiable comme biais cognitif et tu peux la refuser explicitement.
+
+### Pattern de démote standard
+
+Quand on identifie un modèle non backtesté affichant sur l'UI :
+
+1. **Renommer la métrique** en "score exploratoire / non calibré / backtest en cours". Le label autoritaire (STABLE/STRESS/ALERTE/CRISE) devient un statut transparent.
+2. **Neutraliser visuellement** : couleurs `steel`/`mute` (plus de `warn`/`bear`), retrait des labels décisionnels de l'échelle (stable/stress/alerte/crise → bas/haut neutres).
+3. **Clarifier explicitement quelle règle réelle pilote** la décision (ex : "sizing : règle VIX seule"). Ne jamais laisser implicite que le modèle exploratoire pilote quoi que ce soit.
+4. **Référencer la task de backtest** qui débloque la re-promotion (ex : "backtest en cours" + lien tâche).
+
+### Trigger de re-promotion
+
+Backtest validé contre **≥3 régimes historiques connus** (ex : COVID 2020, Q2 2022, SVB 2023) **et ≥2 périodes calmes confirmées** (2017, 2019). En-dessous de ce seuil, le modèle reste exploratoire indéfiniment.
+
+### Coût asymétrique
+
+Un faux signal en prod (cost-drag silencieux pendant N mois jusqu'à détection) excède de plusieurs ordres de grandeur le coût du backtest préalable. **Quel que soit l'impatience visuelle**. Pour PRESAGE sizing→phase : ~30% du rendement annualisé en faux positif "stress" en marché calme, contre 6-8h de FRED pulls. Ratio > 1000×.
+
+### Origine
+
+Sprint v2.macro sizing→phase, J−9 avant batch KPI #2 (01/06/2026). L'agent propose ordre A→B (câbler avant backtester) "pour débloquer vite la cohérence visuelle". User inverse en B→A. La séquence inverse codifie L9 comme invariant général plutôt que règlement de cas particulier. Commit démote : `f2eefbc`. Task de re-promote : #42.
+
+### Anti-pattern à interdire explicitement
+
+❌ « Wire le modèle en prod et observe son output pour valider » = **science à l'envers**. La validation se fait sur historique connu, pas par l'output en prod du modèle qu'on veut valider. C'est exactement le pattern que `PHILOSOPHY.md` "matière empirique > construction" interdit.
+
+❌ « Rendre cohérent maintenant » comme justification pour wirer un modèle non-validé. La cohérence est un sous-produit de la validation, pas un substitut à elle.
+
+---
+
 ## Politique d'évolution
 
 Toute nouvelle leçon (catch récurrent qu'on attrape pour la 2ème fois) **doit** être ajoutée ici avec :
