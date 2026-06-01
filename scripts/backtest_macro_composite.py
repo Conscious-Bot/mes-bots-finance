@@ -28,7 +28,7 @@ from __future__ import annotations
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import requests
@@ -45,9 +45,9 @@ if env_path.exists():
             k, v = line.split("=", 1)
             os.environ.setdefault(k.strip(), v.strip())
 
-from intelligence.debt_monitor import (  # noqa: E402
-    INDICATOR_CONFIG,
+from intelligence.debt_monitor import (
     _PHASE_WEIGHT,
+    INDICATOR_CONFIG,
     classify_phase,
     composite_phase_from_score,
 )
@@ -89,7 +89,7 @@ def compute_yoy_change(values: dict[str, float]) -> dict[str, float]:
     return out
 
 START = "2017-01-01"
-END = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+END = datetime.now(UTC).strftime("%Y-%m-%d")
 
 # Anchors (date -> attendu phase, label evenement)
 # Note L11 : 2019-06 relabel P1 -> P2 apres sanity check (juin 2019 = pre-stress,
@@ -113,6 +113,30 @@ OOS_DATES = [
     ("2023-05-01", 2, "FRC failure tail SVB"),
     ("2021-07-19", 2, "Delta variant S&P -1.6% (singleton P3, fenetre OK P2)"),
     ("2021-06-15", 2, "Ete 2021 normal"),
+]
+
+# HOLDOUT strict (task #67 -- 02/06/2026). Dates jamais utilisees pour ni
+# V1, V2, V3 tune ni OOS_DATES initial. Choix : dates ou la mecanique
+# macro est verifiable empiriquement, n'ayant influence ni les poids ni
+# les frontieres, ni le relabel L11.
+#
+# Cf docs/LESSONS.md L9 + L11 : pas de wire prod sans backtest contre N
+# regimes verifies AVANT le tuning. Cette serie HOLDOUT scelle le verdict.
+HOLDOUT_DATES = [
+    # 2020-09-23 : Stress moderne post-COVID. S&P -3.1% sur 5j, VIX 30,
+    # USD remonte (DXY 94->94.6), Russell 2K -4%. P3 attendu (stress
+    # actif mais pas crise systemique).
+    ("2020-09-23", 3, "Stress post-COVID sept 2020"),
+    # 2022-09-26 : GBP crash + UK gilts. USDJPY 145, MOVE>150, S&P -1%
+    # singleton mais semaine -3%. Phase de fragilite mondiale. P3 attendu.
+    ("2022-09-26", 3, "UK gilts + GBP crash"),
+    # 2025-02-25 : Mi-fevrier 2025 calme avant tariff. VIX 17, courbe
+    # 10s-2s +20bps, regime risk-on stable. P1 attendu.
+    ("2025-02-25", 1, "Calme pre-tariff fev 2025"),
+    # 2017-08-10 : NorthKorea Guam threat brief stress. VIX 16, S&P
+    # singleton -1.5%, recovery rapide. Avant le repricing macro, regime
+    # globalement P1. Test si V3 ne sur-reagit pas a un bruit ponctuel.
+    ("2017-08-10", 1, "NK Guam threat sigleton (no follow-through)"),
 ]
 
 
@@ -172,14 +196,13 @@ def fetch_fred_history(series_id: str, start: str = START, end: str = END):
                     continue
                 print(f"  FRED {series_id} api_error: {err}", file=sys.stderr)
                 return {}
+            import contextlib
             out = {}
             for o in data.get("observations", []):
                 v = o.get("value")
                 if v and v != ".":
-                    try:
+                    with contextlib.suppress(ValueError):
                         out[o["date"]] = float(v)
-                    except ValueError:
-                        pass
             return out
         except Exception as e:
             last_err = str(e)
@@ -380,6 +403,71 @@ def report_anchors(results: list[dict]) -> None:
         print("   → reviewer les indicateurs decevants avant wire.")
 
 
+def _phase_at(by_date: dict, target_date: str) -> dict | None:
+    """Retourne le row composite a target_date ou le plus proche dans
+    ±5 jours ouvres (matching report_anchors)."""
+    r = by_date.get(target_date)
+    if r:
+        return r
+    sorted_dates = sorted(by_date.keys())
+    close = [d for d in sorted_dates
+             if abs((datetime.fromisoformat(d) - datetime.fromisoformat(target_date)).days) <= 5]
+    return by_date[close[0]] if close else None
+
+
+def report_oos_strict(results: list[dict]) -> None:
+    """#67 (02/06/2026) -- holdout OOS strict.
+
+    Mesure 2 ensembles disjoints des anchors :
+      A. OOS_DATES (commit 7a43189) -- mentionnees in commit message mais
+         jamais code-validees. Verifie l'affirmation 7/8.
+      B. HOLDOUT_DATES (task #67) -- vraies dates vierges, jamais utilisees
+         pour tune ni labeled apres mesure.
+
+    Verdict : HOLDOUT pass >= 3/4 + OOS >= 4/6 -> V3 wirable Phase A.
+              Sinon demote a 'exploratoire' (L9), pas de wire.
+    """
+    by_date = {r["date"]: r for r in results}
+
+    def _run(label: str, dataset: list[tuple]) -> tuple[int, int]:
+        passed = 0
+        print(f"\n=== {label} ===")
+        print(f"{'Date':12} {'Event':50} {'Expected':10} {'Score':>7} {'Got':4} {'Match':6}")
+        print("-" * 100)
+        for d, expected, evt in dataset:
+            r = _phase_at(by_date, d)
+            if not r:
+                print(f"{d:12} {evt:50} P{expected:<9} N/A     N/A  ?")
+                continue
+            ok = r["phase"] == expected
+            if ok:
+                passed += 1
+            tag = "✓" if ok else "✗"
+            print(f"{d:12} {evt:50} P{expected:<9} {r['score']:>6.1f} P{r['phase']}   {tag}")
+        total = len(dataset)
+        print(f"\nPASS {passed} / {total}")
+        return passed, total
+
+    oos_p, oos_t = _run("VERDICT OOS (commit 7a43189)", OOS_DATES)
+    h_p, h_t = _run("VERDICT HOLDOUT STRICT (task #67)", HOLDOUT_DATES)
+
+    print("\n" + "=" * 100)
+    print(f"SYNTHESE  OOS {oos_p}/{oos_t}  +  HOLDOUT {h_p}/{h_t}")
+    holdout_pass = h_p >= max(3, h_t - 1)  # >=3/4 ou tolerance N-1
+    oos_pass = oos_p >= max(4, oos_t - 2)  # >=4/6
+    if holdout_pass and oos_pass:
+        print("\n→ VERDICT OOS : V3 wirable Phase A sizing-phase.")
+        print("  Les frontieres tiennent hors de l'echantillon de tune.")
+    elif holdout_pass and not oos_pass:
+        print("\n→ VERDICT OOS MITIGE : holdout OK mais OOS publie 7a43189 fail.")
+        print("  Re-examiner les OOS_DATES qui fail avant tout wire.")
+    elif not holdout_pass:
+        print("\n→ VERDICT OOS DEMOTE : holdout strict fail.")
+        print("  V3 reste 'exploratoire' (L9). Pas de wire Phase A.")
+        print("  Sanity-check labellisation HOLDOUT (cf L11) avant de conclure que")
+        print("  la formule est cassee.")
+
+
 # ============================================================
 # Main
 # ============================================================
@@ -405,3 +493,4 @@ if __name__ == "__main__":
     save_csv(results, out_csv)
 
     report_anchors(results)
+    report_oos_strict(results)
