@@ -20,7 +20,11 @@ from pathlib import Path
 
 import pytest
 
-RENDER_PY = Path(__file__).resolve().parent.parent / "dashboard" / "render.py"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+RENDER_PY = REPO_ROOT / "dashboard" / "render.py"
+# Extension du scan au-dela de render.py : intelligence/ + shared/ peuvent
+# aussi etre tentes de mixer current_price_eur avec un champ NATIVE.
+SCAN_DIRS = ("intelligence", "shared")
 
 # Pattern banni : `current_price_eur` ou `current_eur` apparait dans la meme
 # *expression* qu'un champ prix-these (stop/target/entry). On detecte sur la
@@ -29,18 +33,13 @@ NATIVE_FIELDS = ("stop_price", "target_full", "target_partial", "entry_price")
 EUR_FIELDS = ("current_price_eur", "current_eur")
 
 
-def _scan_lines() -> list[tuple[int, str]]:
-    text = RENDER_PY.read_text(encoding="utf-8")
+def _scan_file_for_mix(path: Path) -> list[tuple[int, str]]:
+    text = path.read_text(encoding="utf-8")
     flagged: list[tuple[int, str]] = []
     for i, line in enumerate(text.splitlines(), 1):
         stripped = line.strip()
-        # Skip pure comments + docstrings (begin with # ou triple quote ou
-        # contains "Bug fix" -- les commentaires explicatifs n'executent pas).
         if stripped.startswith("#") or stripped.startswith('"""') or stripped.startswith("'"):
             continue
-        # Si une ligne ASSIGNE current_price_eur depuis un dict (ex
-        # `"current_price_eur": ln.current_price_eur`), c'est legitime --
-        # pas un mix dans une formule. On skip si pas d'operateur arithm.
         has_arith = any(op in line for op in ("-", "/", "*"))
         if not has_arith:
             continue
@@ -51,17 +50,32 @@ def _scan_lines() -> list[tuple[int, str]]:
     return flagged
 
 
+def _scan_lines() -> list[tuple[Path, int, str]]:
+    all_flagged: list[tuple[Path, int, str]] = []
+    files = [RENDER_PY]
+    for d in SCAN_DIRS:
+        files.extend((REPO_ROOT / d).rglob("*.py"))
+    for path in files:
+        try:
+            for i, ln in _scan_file_for_mix(path):
+                all_flagged.append((path.relative_to(REPO_ROOT), i, ln))
+        except (UnicodeDecodeError, OSError):
+            continue
+    return all_flagged
+
+
 def test_no_eur_native_mix_in_render():
-    """Fail si une ligne de render.py mix current_price_eur avec stop_price /
-    target_full / target_partial / entry_price dans une expression arithmetique.
+    """Fail si une ligne de render.py / intelligence/ / shared/ mix
+    current_price_eur avec stop_price/target_full/target_partial/entry_price
+    dans une expression arithmetique.
 
     Cf docs/LESSONS.md L12 + memory `currency_native_render_helper`. Passer
     par `_stop_distance_pct_native()` ou un helper jumeau, jamais inline.
     """
     flagged = _scan_lines()
     assert not flagged, (
-        "Mix EUR/native detecte dans dashboard/render.py (violation L12):\n"
-        + "\n".join(f"  line {i}: {ln}" for i, ln in flagged)
+        "Mix EUR/native detecte (violation L12) :\n"
+        + "\n".join(f"  {p}:{i}  {ln}" for p, i, ln in flagged)
         + "\n\nFix : utiliser _stop_distance_pct_native(tk, stop_price) ou "
         "extraire un helper jumeau (target_distance_pct_native, etc.)."
     )
@@ -92,6 +106,31 @@ def test_asym_sentinel_target_hit():
         "_asym_format ne gere pas le sentinel `ratio >= 999` (TARGET_HIT). "
         "Cf intelligence/asymmetry.py ligne ~105. Sans ce branchement, "
         "l'affichage rend '999.0×' qui lit faux."
+    )
+
+
+def test_render_smoke_no_currency_bug_in_html():
+    """Smoke e2e : render() ne doit JAMAIS produire un HTML contenant un
+    pattern de bug currency (`-XXXXX%` 4+ chiffres ou `+XXXXX%`). Si un nouveau
+    mix EUR/native s'introduit silencieusement, l'output HTML aura un % a
+    5+ chiffres pour les tickers JPY/KRW (4063.T cible +23876%, etc.) ;
+    ce test attrape cette signature.
+    """
+    pytest.importorskip("yaml")
+    from dashboard.render import render
+    out = render()
+    assert out.exists(), f"render() did not produce file at {out}"
+    html = out.read_text(encoding="utf-8")
+    # Pattern bug : nombre absolu >= 1000% est presque toujours un currency mix
+    # (les ratios financiers legitimes restent sous +-500%). On exclut les
+    # rares legitimes (`999.0×` sentinel asymetrie -- mais on l'a remplace par
+    # le badge "cible &check;" donc ne devrait plus exister en HTML).
+    susp = re.findall(r"[+&minus;\-]\s?[1-9]\d{3,}%", html)
+    # Filter "999×" pattern (sentinel) si encore present quelque part
+    susp = [s for s in susp if "999" not in s.replace(",", "")]
+    assert not susp, (
+        f"HTML contient des % > 1000 (probable currency mix EUR/native bug) : "
+        f"{susp[:5]}"
     )
 
 
