@@ -3902,9 +3902,10 @@ _CSS = """
   .sec-super .sec-grp.sub .sec-name { font-family:var(--fd); font-weight:600; font-size:13px; color:var(--steel); letter-spacing:0; }
   body { font-family:var(--fb); font-size:var(--t-base); color:var(--ink); margin:0; display:flex; min-height:100vh; background:var(--bg); -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
   .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; position:sticky; top:0; align-self:flex-start; height:100vh; z-index:60; }
-  .logo { display:flex; align-items:center; justify-content:center; margin-bottom:22px; padding:0; }
-  .logo svg { width:66px; height:auto; color:var(--ink); }
-  .logo .wm { display:none; }
+  .logo { display:flex; align-items:center; justify-content:center; margin-bottom:var(--s35); padding:2px 0 0; }
+  .logo svg { width:62px; height:auto; color:var(--ink); }
+  /* wordmark integre dans le SVG -- on garde la span en a11y mais visuel cache */
+  .logo .wm { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   .nav { display:flex; flex-direction:column; gap:var(--s1); align-items:center; width:100%; }
   .nitem { position:relative; display:flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:var(--r3); cursor:pointer; color:var(--steel); border-left:2px solid transparent; transition:.15s; }
   .nitem svg { width:26px; height:26px; }
