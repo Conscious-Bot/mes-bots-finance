@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 80" fill="currentColor" role="img" aria-label="PRESAGE">
+  <title>PRESAGE</title>
+  <desc>Brand mark: 4-pointed star + horizontal flare + 7 fading signal dots. Canonical, do not alter.</desc>
+  <path d="M 149 2 L 153.24 35.76 L 167 40 L 153.24 44.24 L 149 78 L 144.76 44.24 L 131 40 L 144.76 35.76 Z"/>
+  <circle cx="149" cy="40" r="3"/>
+  <polygon points="171,36 336,39.5 336,40.5 171,44"/>
+  <circle cx="354" cy="40" r="5"/>
+  <circle cx="376" cy="40" r="4.3"/>
+  <circle cx="396" cy="40" r="3.6"/>
+  <circle cx="412" cy="40" r="2.9"/>
+  <circle cx="425" cy="40" r="2.3"/>
+  <circle cx="435" cy="40" r="1.7"/>
+  <circle cx="443" cy="40" r="1.1"/>
+</svg>
