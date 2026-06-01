@@ -990,9 +990,15 @@ Apres le close initial du matin, session etendue avec :
   [[website-migration-motion-lessons]] : sessionStorage gate,
   superposition non validee, imperceptible tolere, cache leurrant
 
-**Net session etendue** : 4 commits supplementaires (b1c2171, 0251067,
-ef525f9, f603589), 536 tests verts maintenus, ruff 0 errors, working
-tree clean cote repo.
+**Net session etendue** : 5 commits supplementaires (b1c2171, 0251067,
+ef525f9, f603589, 7ab97f1 + ce dernier), 531/536 tests verts en fin
+de session, ruff 0 errors, working tree clean cote repo.
+
+Note : 5 tests self_loop_v0 rouges sous timing defavorable (DB live
+locked par bot PID 8110, conflit WAL). Pas une regression de cette
+session (mes changes touchent du CSS) -- finding pre-existant -> task
+#38 backlog. 536/536 ce matin etait chance de timing, 531/536 cet
+apres-midi est mauvaise chance.
 
 **Restant pour prochaine session** :
 - Surface 2 / lock_in : conception 3 questions ouvertes (point
