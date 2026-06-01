@@ -1,19 +1,22 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 30 mai 2026 nuit (post arc V2 + 42 commits + cleanup)
-**Mode** : Phase construction + Observation Brier V1 jusqu'au 10/06 (J-11)
+**Refresh** : 01 juin 2026 (post wire B2 v2.c.5 + Pile 1.1 + audit cleanup)
+**Mode** : Phase construction (book 53k -> 70k) + Observation Brier V1 jusqu'au 10/06 (J-9)
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (30/05 nuit)
+## 🟢 ÉTAT SYSTÈME (01/06)
 
-- **427 fast tests verts + 4 slow e2e verts** (network-dependent, `make test-slow`)
-- **Gate `run_static_gate(conn)` : 0 violations**
-- **Bot tourne** PID 84607, caffeinate -dimsu, code wire V2 + EDGAR chargé
-- **CI configurée** : `make test` skip slow par défaut, slow réservés au pré-release local
-- **42 commits poussés** aujourd'hui sur `origin/main`, tags `eod-30-05` + `eod-30-05-full`
-- **3 backups** locaux + DB integrity OK + 4 mémoires Claude sync
+- **536 tests verts** (vs 534/536 avant audit cleanup ce matin)
+- **alembic head = 0024** (over_cap_alerts journal append-only), WAL actif, quick_check ok, db 10.3 MB
+- **Bot tourne** PID 8110 + caffeinate, kca cron live (27 theses dormant baseline)
+- **Backup cron sain** : ~/backups/mes-bots-finance/ snapshot 01/06 04:00 (DB 10.8 MB + tarball 37 MB)
+- **LLM cost** : $2/day / $27 sur 7 jours = budget OK
+- **Compteur live actif** sur canal honnete : kca actif (transition triggered -> wire fomo_greed), over_cap dark par decision phase construction, lock_in non instrumente (Surface 2 ADR-010 §2 attend)
+- **Cluster KPI #2 J-day** : 5/35 resolues precocement, Brier N=5 = 0.248 (~ baseline 0.25 no-skill). 30 resolutions restantes a venir d'ici 10/06
+- **8 commits poussés aujourd'hui** : `416d90c` v2.c.3-c.5 + `8b5cb68` glossary + `5fd488d` Pile 1.1 + `44bdd8b` Brier handler + `eebd6d2` biais desambiguisation + `b1c2171` audit cleanup
+- **Backlog audit** (cf SESSION_STATE close 01/06) : P1 #26 telegram Conflict / P2 #30 baseline price gate / P3 #33 hygiene de fond
 
 ---
 

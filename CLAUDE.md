@@ -24,4 +24,10 @@ Mission/stack → `FICHE_TECHNIQUE`. Code/data → `CONVENTIONS`. Boucle + High 
 
 **Vocabulaire canonique = `docs/GLOSSARY.md` v1.0** (figé 31/05/2026) ; tout nom de champ, enum et label UI s'y conforme. Règle « type quand tu touches » : conforme le code neuf systématiquement, corrige l'ancien quand tu le touches. Pas de grand sweep.
 
+**Catches récurrents = `docs/LESSONS.md`** (source unique des règles transversales de décision : source unique de vérité, ne pas bâtir affichage avant la donnée, état honnête > contenu inventé, anti-double-instrumentation, fail-safe strict, rituel de clôture). Avant tout chantier non-trivial, relire la section pertinente. Toute nouvelle leçon (catch attrapé pour la 2e fois) y est ajoutée, pas dispersée dans 4 commentaires.
+
+**Nouveau monitor (kca / over_cap / futurs) = `docs/templates/monitor_pattern.md`** — gabarit canonique : table journal append-only + helpers storage + classify pur + check_all_transitions + 7 tests dont le test critique L4. Le 3e monitor doit être 3× plus rapide à monter que le 2e parce que le pattern est figé.
+
+**Rituel de clôture = `.claude/commands/close.md`** (L6, meilleur ratio investissement/retour). En fin de chaque session non-triviale : SESSION_STATE close + TODO update + commit. Cinq minutes économisent ~30 minutes de re-onboarding.
+
 À retenir sans chercher : biais — `lock_in` (vendre winners trop tôt) = biais #1 raison d'être, **non instrumenté** (chemin Surface 2 ADR-010 §2) ; `fomo_greed` enum technique (acception large « pas réduit/sorti quand discipline le disait ») mécanisé sur 2 canaux (`kill_criteria` actif, `over_cap` en veille phase construction) ; biais #2 historique crypto-tops dormant ortho (stock-only, distinct de l'enum). Source canonique = `docs/glossary.md` § Biais documentés, **ne pas reformuler ailleurs**. · conviction c1–c5 + caps · horloge track-record (la vraie substance, pas la polish) : 27 mai 1res résolutions, 10 juin/J+28 batch KPI #2 + ADR-008, mi-juin pruning + orphelins c1 · stack contraint (Py3.14 / SQLite WAL / APScheduler ; pas FastAPI/Postgres/Redis ; local Mac ; cascade Haiku/Sonnet/Opus).
