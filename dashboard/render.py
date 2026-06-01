@@ -3187,8 +3187,20 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     _vix = next((float(v or 0) for i, v, p, t in sig if i == "VIX"), None)
     _reduced = _vix is not None and _vix >= _vthr
     _sfac = _vsf if _reduced else 1.0
-    size_txt = f"VIX {_vix:.1f} {'&ge;' if _reduced else '&lt;'} {_vthr}" if _vix is not None else "VIX indisponible"
-    clabel = {1: "STABLE", 2: "STRESS", 3: "ALERTE", 4: "CRISE"}.get(cphase, "CRISE")
+    # Sizing est calcule sur VIX seul (regle empiriquement validee, BIS papers
+    # 30+ ans). Indique explicitement la regle pour ne pas creer de lien
+    # implicite avec le score composite affiche par la frise (qui est
+    # non-calibre, cf demote ci-dessous).
+    size_txt = (
+        f"VIX {_vix:.1f} {'&ge;' if _reduced else '&lt;'} {_vthr} (r&egrave;gle VIX seule)"
+        if _vix is not None else "VIX indisponible"
+    )
+    # Demote frise macro (user 01/06) : composite phase calcule sur 25 snapshots
+    # (12 jours), tous en phase 2 -- empiriquement non-calibre. Etiquette
+    # "non calibre" pour tuer la fausse autorite decisionnelle, en attendant
+    # le backtest 2018-2025 sur 5 anchors (cf task #42 P1). La barre gradient
+    # reste affichee comme observation, sans piloter de comportement.
+    clabel = "SCORE EXPLORATOIRE"
     _conc = []
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
@@ -3206,13 +3218,16 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         + f'<span>{size_txt} &middot; sizing <b style="color:var(--ink)">&times;{_sfac:.1f}</b></span>'
         + "</div></div>"
     )
-    _phase_col = {1: "acc", 2: "warn", 3: "warn", 4: "bear"}.get(cphase, "bear")
+    # _phase_col neutralise -- toutes phases en steel tant que non-calibre
+    _phase_col = "steel"
     gauge = (
         '<div class="gauge"><div class="ghead">'
         '<span class="gl">Sant&eacute; macro &middot; cr&eacute;dit / or / taux 30a / inflation / VIX</span>'
-        + f'<span class="gv"><span class="gvm" style="--c:var(--{_phase_col})">{clabel}</span><span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; phase {cphase}/4 &middot; indice {score:.0f}</span></span></div>'
-        + f'<div class="gtrack"><div class="axis-mark" style="left:{(cphase - 0.5) * 25:.0f}%" title="phase {cphase}/4"></div></div>'
-        '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
+        + f'<span class="gv"><span class="gvm" style="--c:var(--{_phase_col})">{clabel}</span>'
+        + f'<span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; score {score:.0f} '
+        + '&middot; <i>non calibr&eacute; &middot; backtest en cours</i></span></span></div>'
+        + f'<div class="gtrack"><div class="axis-mark mute" style="left:{(cphase - 0.5) * 25:.0f}%" title="score {score:.0f} (non calibr&eacute;)"></div></div>'
+        + '<div class="glab" style="opacity:.5"><span>bas</span><span>&middot;</span><span>&middot;</span><span>haut</span></div></div>'
     )
     rsi_html = _market_rsi()
     breadth_html = _breadth_rsp_spy()
@@ -3223,7 +3238,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f'<div class="cols">'
         f'<div><div class="ph3">Course vers la cible</div><div class="card pad">{elan}</div></div>'
         f'<div><div class="ph3">Marges les plus faibles</div><div class="card pad">{watch}</div></div>'
-        f'<div><div class="ph3">Moniteur de stress macro &mdash; {clabel}</div>'
+        f'<div><div class="ph3">Moniteur de stress macro &mdash; score {score:.0f} <i style="color:var(--steel);font-weight:normal">non calibr&eacute;</i></div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
         f'<div class="cols">'
         f'<div><div class="ph3">Momentum march&eacute; &middot; RSI(14) daily &middot; cache 30min</div>'
