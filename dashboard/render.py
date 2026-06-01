@@ -2870,7 +2870,14 @@ def _insider_flow_strip_html() -> str:
                 f'<div class="rs"><span>{int(buys)} achats &middot; {int(sells)} ventes</span>'
                 f'<span class="mono">7&nbsp;j</span></div></div>'
             )
-        return rows or '<div class="empty" style="padding:var(--s4) 0">aucun flux insider sur 7&nbsp;j</div>'
+        return rows or (
+            '<div class="empty">'
+            '<span class="empty-ico">i</span>'
+            '<b>Aucun flux d&rsquo;initi&eacute;s</b>'
+            'Pas de transactions Form 4 SEC sur la fen&ecirc;tre 7&nbsp;j.'
+            '<span class="hint">Se remplit avec les ventes/achats d&rsquo;executives &gt; $50k</span>'
+            '</div>'
+        )
     except Exception as e:
         return _err(e)
 
@@ -2913,7 +2920,14 @@ def _signaux() -> str:
                 f'<span class="tag {cls}">{disp}</span></div>'
                 f'<div class="rs"><span>{label}</span><span class="mono">{str(filed)[:10]}</span></div></div>'
             )
-        eightk = rows8k or '<div class="empty" style="padding:var(--s4) 0">aucun 8-K sur 60&nbsp;j</div>'
+        eightk = rows8k or (
+            '<div class="empty">'
+            '<span class="empty-ico">8</span>'
+            '<b>Aucun d&eacute;p&ocirc;t 8-K</b>'
+            'Pas de filings r&eacute;glementaires SEC sur 60&nbsp;j.'
+            '<span class="hint">Se remplit avec acquisitions, departures CEO, materiel events</span>'
+            '</div>'
+        )
     except Exception as e:
         eightk, tally_str = _err(e), "&mdash;"
 
@@ -3242,6 +3256,32 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     except Exception:
         comp = []
     score, cphase = (float(comp[0][0] or 0), int(comp[0][1] or 1)) if comp else (0.0, 1)
+    # Macro composite sparkline 30 derniers points
+    try:
+        _macro_hist = [r[0] for r in _q(
+            "SELECT score FROM debt_composite ORDER BY timestamp DESC LIMIT 30"
+        )]
+        _macro_hist.reverse()
+    except Exception:
+        _macro_hist = []
+    if len(_macro_hist) >= 2:
+        _mh_lo, _mh_hi = min(_macro_hist), max(_macro_hist)
+        _mh_rng = (_mh_hi - _mh_lo) or 1.0
+        _mh_w, _mh_h, _mh_pad = 240, 18, 2
+        _mh_pts = []
+        for _i, _v in enumerate(_macro_hist):
+            _mx = _mh_pad + (_i / max(1, len(_macro_hist) - 1)) * (_mh_w - 2 * _mh_pad)
+            _my = _mh_pad + (_mh_h - 2 * _mh_pad) - ((_v - _mh_lo) / _mh_rng) * (_mh_h - 2 * _mh_pad)
+            _mh_pts.append(f"{_mx:.1f},{_my:.1f}")
+        _mh_color = "var(--warn)" if _macro_hist[-1] >= _macro_hist[0] else "var(--acc)"
+        _macro_sparkline = (
+            f'<svg class="ps-macro-spark" viewBox="0 0 {_mh_w} {_mh_h}" width="{_mh_w}" height="{_mh_h}" '
+            f'style="overflow:visible">'
+            f'<polyline points="{" ".join(_mh_pts)}" fill="none" stroke="{_mh_color}" '
+            f'stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        )
+    else:
+        _macro_sparkline = ""
     _rk = _cfg().get("risk", {})
     _vthr = _rk.get("vol_scaling_threshold_vix", 25)
     _vsf = _rk.get("vol_scaling_factor", 0.7)
@@ -3278,6 +3318,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         + "</div>"
         + f'<div class="ps-frise"><div class="ps-frise-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
         + '<div class="ps-frise-labs"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div>'
+        + f'{_macro_sparkline}'
         + "</div>"
     )
     # Strate 2 : 3 cellules (frictions, cibles, stops)
@@ -3772,12 +3813,15 @@ _NAV = (
     '<nav class="nav" role="navigation" aria-label="Navigation principale">'
     '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble<kbd>&#8984;1</kbd></span></div>'
     '<div class="nitem" data-nav="discipline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="nlab">Discipline &amp; Biais<kbd>&#8984;2</kbd></span></div>'
+    '<div class="nav-sep"></div>'
     '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions<kbd>&#8984;3</kbd></span></div>'
     '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot<kbd>&#8984;4</kbd></span></div>'
+    '<div class="nav-sep"></div>'
     '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses<kbd>&#8984;5</kbd></span></div>'
     '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie<kbd>&#8984;6</kbd></span></div>'
     '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration<kbd>&#8984;7</kbd></span></div>'
     '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux<kbd>&#8984;8</kbd></span></div>'
+    '<div class="nav-sep"></div>'
     '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence<kbd>&#8984;9</kbd></span></div></nav>'
 )
 
@@ -3837,6 +3881,9 @@ _CSS = """
   .nlab kbd { font-family:var(--fm); font-size:10px; padding:1px 5px; background:color-mix(in srgb,var(--ink) 10%,transparent); border-radius:4px; color:var(--steel); border:none; opacity:.85; }
   .nitem:hover .nlab { opacity:1; }
   .foot { margin-top:auto; padding:var(--s3) 0 2px; display:flex; flex-direction:column; align-items:center; gap:7px; }
+  /* Sidebar nav group separators (Linear pattern) : 4 groupes -- pilotage /
+     trading / insights / alerte */
+  .nav-sep { width:24px; height:1px; background:color-mix(in srgb,var(--line) 70%,transparent); margin:8px 0; flex-shrink:0; }
   .rfoot { display:flex; flex-direction:column; align-items:center; gap:var(--s15); }
   .rfm { font-family:var(--fm); font-size:11px; color:var(--steel); }
   .rfmacro { width:8px; height:8px; border-radius:2px; }
@@ -3994,6 +4041,10 @@ _CSS = """
   .page-star .ps-sub-lien b.acc { color:var(--acc); }
   /* Sparkline hero 30j (Robinhood/TR pattern) inline avec PnL */
   .ps-spark { margin-left:14px; vertical-align:middle; opacity:.85; }
+  /* Sparkline grade trend 7j sous le score bar */
+  .ps-grade-spark { display:block; margin-top:8px; opacity:.75; }
+  /* Sparkline macro composite 30 derniers points sous la frise stress */
+  .ps-macro-spark { display:block; margin-top:8px; opacity:.7; width:100%; height:auto; }
   /* Sprint 4 CTA flottants bas (TR/RH-inspired) : 3 pills sticky bottom */
   .cta-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:color-mix(in srgb,var(--panel) 95%,transparent); border:1px solid var(--line2); border-radius:32px; padding:6px; display:flex; gap:2px; z-index:50; box-shadow:0 12px 32px -10px rgba(0,0,0,.18); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
   .cta-bar button { font-family:var(--fb); font-size:13px; font-weight:500; color:var(--ink); background:transparent; border:none; padding:10px 18px; border-radius:24px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background .15s,color .15s; }
@@ -4009,7 +4060,15 @@ _CSS = """
   @media (prefers-reduced-motion: reduce) { .cta-modal, .cta-modal-inner { animation:none; transition:none; } }
   .cta-modal-inner { background:var(--panel); border:1px solid var(--line2); border-radius:12px; width:min(560px,92vw); max-height:64vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 64px -16px rgba(0,0,0,.4); }
   .cta-search-input { width:100%; padding:18px 24px; font-family:var(--fb); font-size:16px; background:transparent; border:none; border-bottom:1px solid var(--line); color:var(--ink); outline:none; box-sizing:border-box; }
-  .cta-search-results { max-height:50vh; overflow-y:auto; padding:4px; }
+  .cta-search-results { max-height:46vh; overflow-y:auto; padding:4px; }
+  /* Chips secteur filter (search modal enrichi) */
+  .cta-search-chips { display:flex; gap:6px; padding:8px 16px 4px; flex-wrap:wrap; border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent); }
+  .cta-chip { font-family:var(--fb); font-size:11px; font-weight:500; padding:5px 11px; border-radius:14px; background:transparent; border:1px solid var(--line); color:var(--steel); cursor:pointer; transition:.12s; }
+  .cta-chip:hover { background:color-mix(in srgb,var(--ink) 5%,transparent); color:var(--ink); }
+  .cta-chip.act { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .cta-chip-n { opacity:.6; font-size:10px; margin-left:3px; }
+  /* Tag "recent" sur les resultats */
+  .cta-tag { margin-left:auto; font-family:var(--fm); font-size:10px; padding:2px 7px; border-radius:10px; background:color-mix(in srgb,var(--warn) 18%,transparent); color:var(--warn); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
   .cta-result { padding:10px 16px; display:flex; align-items:center; gap:10px; cursor:pointer; border-radius:8px; }
   .cta-result:hover, .cta-result.sel { background:color-mix(in srgb,var(--ink) 6%,transparent); }
   .cta-result .ctk { font-family:var(--fm); font-weight:600; color:var(--ink); }
@@ -4075,7 +4134,12 @@ _CSS = """
   .rs { display:flex; justify-content:space-between; margin-top:var(--s15); font-size:11px; color:var(--steel); }
   .dwrap { display:flex; align-items:center; gap:var(--s5); flex-wrap:wrap; }
   .legend { display:flex; flex-direction:column; gap:var(--s2); flex:1; min-width:200px; }
-  .empty { padding:30px 0; text-align:center; color:var(--steel); } .empty b { display:block; font-family:var(--fd); font-size:16px; color:var(--ink); margin-bottom:var(--s2); }
+  /* Empty states polish (Linear pattern) : padding genereux + typo douce +
+     icone hairline sobre devant le texte si present (.empty-ico). */
+  .empty { padding:36px 16px; text-align:center; color:var(--steel); font-family:var(--fb); font-size:13px; line-height:1.5; }
+  .empty b { display:block; font-family:var(--fd); font-size:15px; font-weight:500; color:var(--ink); margin-bottom:6px; letter-spacing:.04em; }
+  .empty-ico { display:inline-block; width:24px; height:24px; border-radius:50%; background:color-mix(in srgb,var(--steel) 18%,transparent); margin-bottom:10px; line-height:24px; color:var(--steel); font-family:var(--fm); font-size:13px; font-weight:600; }
+  .empty .hint { display:block; margin-top:6px; font-size:11px; color:color-mix(in srgb,var(--steel) 70%,transparent); }
   .dt { width:100%; border-collapse:collapse; font-size:13px; }
   .dt th { text-align:left; font-family:var(--fb); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); padding:var(--s2) 10px; border-bottom:1px solid var(--line2); cursor:pointer; user-select:none; }
   .dt th.num { text-align:right; } .dt th:hover { color:var(--ink); }
@@ -4720,33 +4784,89 @@ _CTA_JS = """
   var uniq={}; allTk.concat(dataKeys).forEach(function(t){uniq[t]=1;});
   var allTickers=Object.keys(uniq).sort();
   var selIdx=0;
+  var activeSector=null;
+  // Recent searches localStorage (top 5)
+  function getRecent(){
+    try { return JSON.parse(localStorage.getItem('presage_recent_tk')||'[]'); } catch(e){ return []; }
+  }
+  function pushRecent(tk){
+    try {
+      var r=getRecent().filter(function(x){return x!==tk;});
+      r.unshift(tk);
+      localStorage.setItem('presage_recent_tk', JSON.stringify(r.slice(0,5)));
+    } catch(e){}
+  }
+  // Sectors disponibles (depuis tkData)
+  var sectors={};
+  Object.keys(tkData).forEach(function(tk){
+    var s=(tkData[tk]||{}).sector;
+    if(s && s!=='Sans these') sectors[s]=(sectors[s]||0)+1;
+  });
+  var sectorList=Object.keys(sectors).sort(function(a,b){return sectors[b]-sectors[a];}).slice(0,8);
   function makeLogo(tk){
     if(typeof _tkLogoJs==='function') return _tkLogoJs(tk);
     return '<span class="tklogo tkfb">'+String(tk||'?').charAt(0).toUpperCase()+'</span>';
   }
+  function renderChips(){
+    var chips=document.getElementById('ctaSearchChips');
+    if(!chips) return;
+    var html='<button class="cta-chip'+(activeSector===null?' act':'')+'" data-sec="">Tous</button>';
+    sectorList.forEach(function(s){
+      html+='<button class="cta-chip'+(activeSector===s?' act':'')+'" data-sec="'+s.replace(/"/g,'&quot;')+'">'+s+' <span class="cta-chip-n">'+sectors[s]+'</span></button>';
+    });
+    chips.innerHTML=html;
+    Array.from(chips.querySelectorAll('.cta-chip')).forEach(function(el){
+      el.addEventListener('click',function(){
+        activeSector=el.getAttribute('data-sec')||null;
+        renderChips();
+        render(input.value);
+      });
+    });
+  }
   function render(q){
     var ql=(q||'').toLowerCase();
     var matches;
-    if(!ql){ matches=allTickers.slice(0,25); }
+    if(!ql && !activeSector){
+      // Show recent + first 25
+      var recent=getRecent().filter(function(tk){return allTickers.indexOf(tk)>=0;});
+      var rest=allTickers.filter(function(tk){return recent.indexOf(tk)<0;}).slice(0, 25 - recent.length);
+      matches=recent.concat(rest);
+    }
     else {
       matches=allTickers.filter(function(tk){
-        var nm=(tkData[tk]||{}).name||'';
-        return tk.toLowerCase().indexOf(ql)>=0 || nm.toLowerCase().indexOf(ql)>=0;
+        var d=tkData[tk]||{};
+        var nm=d.name||'';
+        var matchQ = !ql || tk.toLowerCase().indexOf(ql)>=0 || nm.toLowerCase().indexOf(ql)>=0;
+        var matchSec = !activeSector || d.sector===activeSector;
+        return matchQ && matchSec;
       }).slice(0,40);
     }
     selIdx=0;
     if(!matches.length){ results.innerHTML='<div class="cta-result" style="opacity:.5">Aucun resultat</div>'; return; }
+    var recentSet={};
+    if(!ql && !activeSector){
+      getRecent().forEach(function(tk){recentSet[tk]=1;});
+    }
     results.innerHTML=matches.map(function(tk,i){
       var nm=(tkData[tk]||{}).name||'';
-      return '<div class="cta-result '+(i===0?'sel':'')+'" data-tk="'+tk+'">'+makeLogo(tk)+'<span class="ctk">'+tk+'</span><span class="cnm">'+nm+'</span></div>';
+      var tag = recentSet[tk] ? '<span class="cta-tag">r&eacute;cent</span>' : '';
+      return '<div class="cta-result '+(i===0?'sel':'')+'" data-tk="'+tk+'">'+makeLogo(tk)+'<span class="ctk">'+tk+'</span><span class="cnm">'+nm+'</span>'+tag+'</div>';
     }).join('');
   }
-  function open(){ modal.classList.add('open'); input.value=''; render(''); setTimeout(function(){input.focus();},50); }
+  function open(){
+    modal.classList.add('open');
+    input.value='';
+    activeSector=null;
+    renderChips();
+    render('');
+    setTimeout(function(){input.focus();},50);
+  }
   function close(){ modal.classList.remove('open'); }
   function chooseSel(){
     var els=results.querySelectorAll('.cta-result[data-tk]');
     if(els[selIdx]){
       var tk=els[selIdx].getAttribute('data-tk');
+      pushRecent(tk);
       close();
       if(typeof openLoupe==='function') openLoupe(tk);
     }
@@ -4770,7 +4890,7 @@ _CTA_JS = """
   if(modal) modal.addEventListener('click',function(e){
     if(e.target===modal){ close(); return; }
     var r=e.target.closest('.cta-result[data-tk]');
-    if(r){ var tk=r.getAttribute('data-tk'); close(); if(typeof openLoupe==='function') openLoupe(tk); }
+    if(r){ var tk=r.getAttribute('data-tk'); pushRecent(tk); close(); if(typeof openLoupe==='function') openLoupe(tk); }
   });
   document.addEventListener('keydown',function(e){
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); open(); }
@@ -5876,6 +5996,33 @@ def render() -> Path:
     except Exception:
         _gscore_int = 0
     _grade_color = "acc" if _gscore_int >= 70 else ("warn" if _gscore_int >= 50 else "bear")
+    # Grade history sparkline (7 derniers snapshots)
+    try:
+        _g_hist = [r[0] for r in _q(
+            "SELECT overall_score FROM portfolio_grades "
+            "ORDER BY snapshot_at DESC LIMIT 7"
+        )]
+        _g_hist.reverse()
+    except Exception:
+        _g_hist = []
+    if len(_g_hist) >= 2:
+        _gh_lo, _gh_hi = min(_g_hist), max(_g_hist)
+        _gh_rng = (_gh_hi - _gh_lo) or 1.0
+        _gh_w, _gh_h, _gh_pad = 70, 22, 2
+        _gh_pts = []
+        for _i, _v in enumerate(_g_hist):
+            _gx = _gh_pad + (_i / max(1, len(_g_hist) - 1)) * (_gh_w - 2 * _gh_pad)
+            _gy = _gh_pad + (_gh_h - 2 * _gh_pad) - ((_v - _gh_lo) / _gh_rng) * (_gh_h - 2 * _gh_pad)
+            _gh_pts.append(f"{_gx:.1f},{_gy:.1f}")
+        _gh_color = "var(--acc)" if _g_hist[-1] >= _g_hist[0] else "var(--bear)"
+        _grade_sparkline = (
+            f'<svg class="ps-grade-spark" viewBox="0 0 {_gh_w} {_gh_h}" width="{_gh_w}" height="{_gh_h}" '
+            f'style="overflow:visible">'
+            f'<polyline points="{" ".join(_gh_pts)}" fill="none" stroke="{_gh_color}" '
+            f'stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        )
+    else:
+        _grade_sparkline = ""
     vigie = (
         f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -5899,7 +6046,7 @@ def render() -> Path:
         + f'<div class="ps-grade-row">'
         + f'<div class="ps-grade-letter {_grade_color}">{_grade_letter}</div>'
         + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
-        + f'<div class="ps-grade-bar"><div class="ps-grade-fill {_grade_color}" style="width:{_grade_score:.0f}%"></div></div></div>'
+        + f'<div class="ps-grade-bar"><div class="ps-grade-fill {_grade_color}" style="width:{_grade_score:.0f}%"></div></div>{_grade_sparkline}</div>'
         + f'</div></div>'
         + f'</div></div>'
         + f'<div class="ps-strate">'
@@ -6177,6 +6324,7 @@ def render() -> Path:
         + '<div class="cta-modal" id="ctaSearchModal" role="dialog" aria-modal="true" aria-label="Recherche ticker">'
         + '<div class="cta-modal-inner">'
         + '<input class="cta-search-input" id="ctaSearchInput" placeholder="Ticker ou nom de societe..." autocomplete="off" spellcheck="false" />'
+        + '<div class="cta-search-chips" id="ctaSearchChips"></div>'
         + '<div class="cta-search-results" id="ctaSearchResults"></div>'
         + "</div></div>"
         + "<script>"
