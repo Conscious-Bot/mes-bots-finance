@@ -3274,11 +3274,14 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
             _my = _mh_pad + (_mh_h - 2 * _mh_pad) - ((_v - _mh_lo) / _mh_rng) * (_mh_h - 2 * _mh_pad)
             _mh_pts.append(f"{_mx:.1f},{_my:.1f}")
         _mh_color = "var(--warn)" if _macro_hist[-1] >= _macro_hist[0] else "var(--acc)"
+        _mh_last_x, _mh_last_y = _mh_pts[-1].split(",")
         _macro_sparkline = (
             f'<svg class="ps-macro-spark" viewBox="0 0 {_mh_w} {_mh_h}" width="{_mh_w}" height="{_mh_h}" '
             f'style="overflow:visible">'
             f'<polyline points="{" ".join(_mh_pts)}" fill="none" stroke="{_mh_color}" '
-            f'stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            f'stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>'
+            f'<circle cx="{_mh_last_x}" cy="{_mh_last_y}" r="2" fill="{_mh_color}"/>'
+            f'</svg>'
         )
     else:
         _macro_sparkline = ""
@@ -3813,16 +3816,13 @@ _NAV = (
     '<nav class="nav" role="navigation" aria-label="Navigation principale">'
     '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble<kbd>&#8984;1</kbd></span></div>'
     '<div class="nitem" data-nav="discipline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="nlab">Discipline &amp; Biais<kbd>&#8984;2</kbd></span></div>'
-    '<div class="nav-sep"></div>'
-    '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions<kbd>&#8984;3</kbd></span></div>'
+'<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions<kbd>&#8984;3</kbd></span></div>'
     '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot<kbd>&#8984;4</kbd></span></div>'
-    '<div class="nav-sep"></div>'
-    '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses<kbd>&#8984;5</kbd></span></div>'
+'<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses<kbd>&#8984;5</kbd></span></div>'
     '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie<kbd>&#8984;6</kbd></span></div>'
     '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration<kbd>&#8984;7</kbd></span></div>'
     '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux<kbd>&#8984;8</kbd></span></div>'
-    '<div class="nav-sep"></div>'
-    '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence<kbd>&#8984;9</kbd></span></div></nav>'
+'<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence<kbd>&#8984;9</kbd></span></div></nav>'
 )
 
 _TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
@@ -3881,9 +3881,6 @@ _CSS = """
   .nlab kbd { font-family:var(--fm); font-size:10px; padding:1px 5px; background:color-mix(in srgb,var(--ink) 10%,transparent); border-radius:4px; color:var(--steel); border:none; opacity:.85; }
   .nitem:hover .nlab { opacity:1; }
   .foot { margin-top:auto; padding:var(--s3) 0 2px; display:flex; flex-direction:column; align-items:center; gap:7px; }
-  /* Sidebar nav group separators (Linear pattern) : 4 groupes -- pilotage /
-     trading / insights / alerte */
-  .nav-sep { width:24px; height:1px; background:color-mix(in srgb,var(--line) 70%,transparent); margin:8px 0; flex-shrink:0; }
   .rfoot { display:flex; flex-direction:column; align-items:center; gap:var(--s15); }
   .rfm { font-family:var(--fm); font-size:11px; color:var(--steel); }
   .rfmacro { width:8px; height:8px; border-radius:2px; }
@@ -4041,12 +4038,16 @@ _CSS = """
   .page-star .ps-sub-lien b.acc { color:var(--acc); }
   /* Sparkline hero 30j (Robinhood/TR pattern) inline avec PnL */
   .ps-spark { margin-left:14px; vertical-align:middle; opacity:.85; }
-  /* Sparkline grade trend 7j sous le score bar */
-  .ps-grade-spark { display:block; margin-top:8px; opacity:.75; }
   /* Sparkline macro composite 30 derniers points sous la frise stress */
   .ps-macro-spark { display:block; margin-top:8px; opacity:.7; width:100%; height:auto; }
+  /* Trend delta vs J-1 (subtle inline next to PnL caption) */
+  .ps-trend-delta { font-family:var(--fm); font-size:11px; font-weight:500; margin-left:10px; letter-spacing:.03em; opacity:.85; }
+  .ps-trend-delta.acc { color:var(--acc); }
+  .ps-trend-delta.bear { color:var(--bear); }
   /* Sprint 4 CTA flottants bas (TR/RH-inspired) : 3 pills sticky bottom */
-  .cta-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:color-mix(in srgb,var(--panel) 95%,transparent); border:1px solid var(--line2); border-radius:32px; padding:6px; display:flex; gap:2px; z-index:50; box-shadow:0 12px 32px -10px rgba(0,0,0,.18); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+  /* CTA bar centree dans la zone main (compense sidebar 78px) :
+     left = 78px + (100% - 78px)/2 = calc(39px + 50%). */
+  .cta-bar { position:fixed; bottom:22px; left:calc(50% + 39px); transform:translateX(-50%); background:color-mix(in srgb,var(--panel) 95%,transparent); border:1px solid var(--line2); border-radius:32px; padding:6px; display:flex; gap:2px; z-index:50; box-shadow:0 12px 32px -10px rgba(0,0,0,.18); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
   .cta-bar button { font-family:var(--fb); font-size:13px; font-weight:500; color:var(--ink); background:transparent; border:none; padding:10px 18px; border-radius:24px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background .15s,color .15s; }
   .cta-bar button:hover { background:color-mix(in srgb,var(--ink) 6%,transparent); }
   .cta-bar button.act { background:var(--ink); color:var(--bg); }
@@ -5963,14 +5964,33 @@ def render() -> Path:
     # le rendu dupliqué.
     _ = grade_html  # noqa: ne pas retirer l'appel
     # Sparkline hero 30j depuis portfolio_snapshots (Robinhood/TR pattern).
+    # Aggregate par jour (MAX 1 valeur/jour, prend la plus recente) pour
+    # accuracy : evite step pattern cause par snapshots multiples meme date.
     try:
-        _spark_vals = [r[0] for r in _q(
-            "SELECT total_value_eur FROM portfolio_snapshots "
-            "WHERE total_value_eur IS NOT NULL ORDER BY snapshot_date DESC LIMIT 30"
-        )]
-        _spark_vals.reverse()
+        _spark_raw = list(_q(
+            "SELECT snapshot_date, total_value_eur FROM portfolio_snapshots "
+            "WHERE total_value_eur IS NOT NULL "
+            "AND snapshot_date >= date('now','-31 day') "
+            "ORDER BY snapshot_date ASC, captured_at ASC"
+        ))
+        # Aggregate : 1 valeur par date (la plus recente)
+        _spark_by_day = {}
+        for _d, _v in _spark_raw:
+            _spark_by_day[_d] = _v
+        _spark_vals = [_spark_by_day[k] for k in sorted(_spark_by_day.keys())]
     except Exception:
         _spark_vals = []
+    # Delta valeur portefeuille vs J-1 pour trend indicator
+    _val_delta_str = ""
+    if len(_spark_vals) >= 2:
+        _val_d = _spark_vals[-1] - _spark_vals[-2]
+        _val_d_pct = (_val_d / _spark_vals[-2] * 100) if _spark_vals[-2] else 0
+        _val_arrow_d = "&#9650;" if _val_d >= 0 else "&#9660;"
+        _val_col_d = "acc" if _val_d >= 0 else "bear"
+        _val_delta_str = (
+            f'<span class="ps-trend-delta {_val_col_d}">{_val_arrow_d} '
+            f'{abs(_val_d):,.0f}&nbsp;&euro; ({"+" if _val_d_pct >= 0 else ""}{_val_d_pct:.2f}%) vs J-1</span>'
+        ).replace(",", "&#8239;")
     if len(_spark_vals) >= 2:
         _spk_lo, _spk_hi = min(_spark_vals), max(_spark_vals)
         _spk_rng = (_spk_hi - _spk_lo) or 1.0
@@ -5982,11 +6002,41 @@ def render() -> Path:
             _y = _spk_pad + (_spk_h - 2 * _spk_pad) - ((_v - _spk_lo) / _spk_rng) * (_spk_h - 2 * _spk_pad)
             _spk_pts.append(f"{_x:.1f},{_y:.1f}")
         _spk_color = "var(--acc)" if _spark_vals[-1] >= _spark_vals[0] else "var(--bear)"
+        _spk_last_x, _spk_last_y = _spk_pts[-1].split(",")
+        # Smoothing via Catmull-Rom -> cubic Bezier path (lisse les angles).
+        def _spk_smooth_path(pts):
+            if len(pts) < 2:
+                return ""
+            xs_ys = [(float(p.split(",")[0]), float(p.split(",")[1])) for p in pts]
+            d = f"M {xs_ys[0][0]:.1f} {xs_ys[0][1]:.1f}"
+            for i in range(1, len(xs_ys)):
+                p0 = xs_ys[i-2] if i >= 2 else xs_ys[i-1]
+                p1 = xs_ys[i-1]
+                p2 = xs_ys[i]
+                p3 = xs_ys[i+1] if i+1 < len(xs_ys) else p2
+                c1x = p1[0] + (p2[0] - p0[0]) / 6
+                c1y = p1[1] + (p2[1] - p0[1]) / 6
+                c2x = p2[0] - (p3[0] - p1[0]) / 6
+                c2y = p2[1] - (p3[1] - p1[1]) / 6
+                d += f" C {c1x:.1f} {c1y:.1f} {c2x:.1f} {c2y:.1f} {p2[0]:.1f} {p2[1]:.1f}"
+            return d
+        _spk_path = _spk_smooth_path(_spk_pts)
+        # Area fill : meme courbe + ferme vers le bas (style Robinhood)
+        _spk_area = _spk_path + f" L {_spk_w - _spk_pad:.1f} {_spk_h - _spk_pad:.1f} L {_spk_pad:.1f} {_spk_h - _spk_pad:.1f} Z"
+        _gradient_id = f"spk-grad-{abs(hash(_spk_color)) % 100000}"
         _sparkline = (
             f'<svg class="ps-spark" viewBox="0 0 {_spk_w} {_spk_h}" width="{_spk_w}" height="{_spk_h}" '
             f'style="overflow:visible" aria-label="Trajectoire 30j">'
-            f'<polyline points="{" ".join(_spk_pts)}" fill="none" stroke="{_spk_color}" '
-            f'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            f'<defs><linearGradient id="{_gradient_id}" x1="0" y1="0" x2="0" y2="1">'
+            f'<stop offset="0%" stop-color="{_spk_color}" stop-opacity="0.25"/>'
+            f'<stop offset="100%" stop-color="{_spk_color}" stop-opacity="0"/>'
+            f'</linearGradient></defs>'
+            f'<path d="{_spk_area}" fill="url(#{_gradient_id})" stroke="none"/>'
+            f'<path d="{_spk_path}" fill="none" stroke="{_spk_color}" '
+            f'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>'
+            f'<circle cx="{_spk_last_x}" cy="{_spk_last_y}" r="2.8" fill="{_spk_color}"/>'
+            f'<circle cx="{_spk_last_x}" cy="{_spk_last_y}" r="5" fill="{_spk_color}" opacity="0.2"/>'
+            f'</svg>'
         )
     else:
         _sparkline = ""
@@ -5996,33 +6046,7 @@ def render() -> Path:
     except Exception:
         _gscore_int = 0
     _grade_color = "acc" if _gscore_int >= 70 else ("warn" if _gscore_int >= 50 else "bear")
-    # Grade history sparkline (7 derniers snapshots)
-    try:
-        _g_hist = [r[0] for r in _q(
-            "SELECT overall_score FROM portfolio_grades "
-            "ORDER BY snapshot_at DESC LIMIT 7"
-        )]
-        _g_hist.reverse()
-    except Exception:
-        _g_hist = []
-    if len(_g_hist) >= 2:
-        _gh_lo, _gh_hi = min(_g_hist), max(_g_hist)
-        _gh_rng = (_gh_hi - _gh_lo) or 1.0
-        _gh_w, _gh_h, _gh_pad = 70, 22, 2
-        _gh_pts = []
-        for _i, _v in enumerate(_g_hist):
-            _gx = _gh_pad + (_i / max(1, len(_g_hist) - 1)) * (_gh_w - 2 * _gh_pad)
-            _gy = _gh_pad + (_gh_h - 2 * _gh_pad) - ((_v - _gh_lo) / _gh_rng) * (_gh_h - 2 * _gh_pad)
-            _gh_pts.append(f"{_gx:.1f},{_gy:.1f}")
-        _gh_color = "var(--acc)" if _g_hist[-1] >= _g_hist[0] else "var(--bear)"
-        _grade_sparkline = (
-            f'<svg class="ps-grade-spark" viewBox="0 0 {_gh_w} {_gh_h}" width="{_gh_w}" height="{_gh_h}" '
-            f'style="overflow:visible">'
-            f'<polyline points="{" ".join(_gh_pts)}" fill="none" stroke="{_gh_color}" '
-            f'stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-        )
-    else:
-        _grade_sparkline = ""
+    # (Grade sparkline retire 01/06 user feedback : pas besoin sur Note du portefeuille)
     vigie = (
         f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -6039,14 +6063,14 @@ def render() -> Path:
         + f'<div class="ps-val {_pnl_star_cls}" style="font-size:18px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         + f'{_sparkline}'
         + f'</div>'
-        + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> en gain &middot; {n_gain} lignes &middot; {n_pnl - n_gain} en perte ({100 - gpct:.0f}%)</div>'
+        + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> en gain &middot; {n_gain} lignes &middot; {n_pnl - n_gain} en perte ({100 - gpct:.0f}%) {_val_delta_str}</div>'
         + f'</div>'
         + f'<div class="ps-hero-right">'
         + f'<div class="ps-lbl" data-tip="Grade global Construction + Fragilite. Construction = Solidite/Pari/Doublons/Calibrage. Fragilite = Sante/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Note du portefeuille</div>'
         + f'<div class="ps-grade-row">'
         + f'<div class="ps-grade-letter {_grade_color}">{_grade_letter}</div>'
         + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
-        + f'<div class="ps-grade-bar"><div class="ps-grade-fill {_grade_color}" style="width:{_grade_score:.0f}%"></div></div>{_grade_sparkline}</div>'
+        + f'<div class="ps-grade-bar"><div class="ps-grade-fill {_grade_color}" style="width:{_grade_score:.0f}%"></div></div></div>'
         + f'</div></div>'
         + f'</div></div>'
         + f'<div class="ps-strate">'
