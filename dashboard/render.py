@@ -2589,9 +2589,9 @@ def _concentration(
     )
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl">Premi&egrave;re ligne</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Th&egrave;se dominante</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Capital investi</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} lignes &middot; {len(sw_real)} secteurs</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position dont le poids individuel est le plus eleve dans le portefeuille. Plafond par conviction (c5 jusqu\'a 22%, c4 jusqu\'a 14%).">Premi&egrave;re ligne</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="These dont le poids agrege (somme des lignes la portant) est le plus eleve. Indicateur de concentration thematique.">Th&egrave;se dominante</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Capital cumule entre dans le book (cost basis somme). Distinct de la valeur courante avec PnL.">Capital investi</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} lignes &middot; {len(sw_real)} secteurs</div></div>'
         + "</div>"
     )
     star_strate_foot = f'<div class="ps-strate ps-foot">{_cluster_foot}</div>'
@@ -2973,9 +2973,9 @@ def _signaux() -> str:
     )
     star_strate_kpis = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl">Signaux 24&nbsp;h</div><div class="ps-val">{s24}</div><div class="ps-cap">Gmail + EDGAR</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Signaux 30&nbsp;j</div><div class="ps-val">{s30}</div><div class="ps-cap">fen&ecirc;tre roulante</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">8-K &middot; 60&nbsp;j</div><div class="ps-val">{n8k}</div><div class="ps-cap">{tally_str}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Signaux entrants sur les dernieres 24h via Gmail (newsletters analystes) + EDGAR (8-K et insider Form 4).">Signaux 24&nbsp;h</div><div class="ps-val">{s24}</div><div class="ps-cap">Gmail + EDGAR</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Volume total signaux ingeres sur 30 jours roulants. Permet de juger l\'activite globale.">Signaux 30&nbsp;j</div><div class="ps-val">{s30}</div><div class="ps-cap">fen&ecirc;tre roulante</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Depots reglementaires 8-K sur 60 jours (changements materiel SEC). Tally affiche le breakdown HIGH/MEDIUM/LOW severite.">8-K &middot; 60&nbsp;j</div><div class="ps-val">{n8k}</div><div class="ps-cap">{tally_str}</div></div>'
         + "</div>"
     )
     star_strate_foot = (
@@ -3659,9 +3659,9 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     hero = (
         f'<div class="page-star">'
         f'<div class="ps-strate ps-grid">'
-        f'<div class="ps-cell"><div class="ps-lbl">Proches de la cible</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">marge &lt; 12%</div></div>'
-        f'<div class="ps-cell"><div class="ps-lbl">En gain</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">cours &gt; co&ucirc;t d&rsquo;entr&eacute;e</div></div>'
-        f'<div class="ps-cell"><div class="ps-lbl">Marges faibles</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">marge &lt; 10% du stop</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses dont la position courante est a moins de 12% du target_full. Zone de prise de profit.">Proches de la cible</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">marge &lt; 12%</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses dont le cours actuel est superieur au cout d\'entree de la these (entry_price).">En gain</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">cours &gt; co&ucirc;t d&rsquo;entr&eacute;e</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses a moins de 10% du stop. Zone critique a verifier.">Marges faibles</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">marge &lt; 10% du stop</div></div>'
         f'</div>'
         f'<div class="ps-strate"><div class="ps-lbl">Convictions</div>'
         f'<div class="ps-macro-row"><div class="ps-val {_conv_cls}">{_conv_lbl}</div>'
@@ -3992,6 +3992,8 @@ _CSS = """
   .page-star .ps-sub-lien { font-family:var(--fb); font-size:13px; color:var(--steel); margin-top:8px; }
   .page-star .ps-sub-lien b { color:var(--ink); font-weight:500; }
   .page-star .ps-sub-lien b.acc { color:var(--acc); }
+  /* Sparkline hero 30j (Robinhood/TR pattern) inline avec PnL */
+  .ps-spark { margin-left:14px; vertical-align:middle; opacity:.85; }
   /* Sprint 4 CTA flottants bas (TR/RH-inspired) : 3 pills sticky bottom */
   .cta-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:color-mix(in srgb,var(--panel) 95%,transparent); border:1px solid var(--line2); border-radius:32px; padding:6px; display:flex; gap:2px; z-index:50; box-shadow:0 12px 32px -10px rgba(0,0,0,.18); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
   .cta-bar button { font-family:var(--fb); font-size:13px; font-weight:500; color:var(--ink); background:transparent; border:none; padding:10px 18px; border-radius:24px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background .15s,color .15s; }
@@ -4805,6 +4807,55 @@ _APP_JS = """
       }
     }
   });
+  // Right-click context menu ticker (Bloomberg/TradingView pattern) : sur
+  // tout element avec data-tk, ouvre menu avec actions Analyse / Copie /
+  // Yahoo Finance / Watchlist.
+  (function(){
+    var menu=document.createElement('div');
+    menu.id='ctx-menu';
+    menu.style.cssText='position:fixed;display:none;z-index:200;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:4px;min-width:180px;box-shadow:0 12px 32px -8px rgba(0,0,0,.25);font-family:var(--fb);font-size:13px;';
+    document.body.appendChild(menu);
+    function close(){ menu.style.display='none'; }
+    function render(tk){
+      menu.innerHTML=
+        '<div class="ctx-item ctx-tk" style="padding:8px 14px;color:var(--steel);font-size:11px;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--line);margin-bottom:4px">'+tk+'</div>'+
+        '<div class="ctx-item" data-act="analyze" style="padding:9px 14px;cursor:pointer;border-radius:6px;color:var(--ink)">Analyser (popup loupe)</div>'+
+        '<div class="ctx-item" data-act="copy" style="padding:9px 14px;cursor:pointer;border-radius:6px;color:var(--ink)">Copier le ticker</div>'+
+        '<div class="ctx-item" data-act="yahoo" style="padding:9px 14px;cursor:pointer;border-radius:6px;color:var(--ink)">Voir sur Yahoo Finance</div>'+
+        '<div class="ctx-item" data-act="tv" style="padding:9px 14px;cursor:pointer;border-radius:6px;color:var(--ink)">Voir sur TradingView</div>';
+      Array.from(menu.querySelectorAll('.ctx-item[data-act]')).forEach(function(el){
+        el.addEventListener('mouseenter', function(){ el.style.background='color-mix(in srgb,var(--ink) 6%,transparent)'; });
+        el.addEventListener('mouseleave', function(){ el.style.background='transparent'; });
+        el.addEventListener('click', function(){
+          var act=el.getAttribute('data-act');
+          if(act==='analyze' && typeof openLoupe==='function'){ openLoupe(tk); }
+          else if(act==='copy'){ navigator.clipboard && navigator.clipboard.writeText(tk); }
+          else if(act==='yahoo'){ window.open('https://finance.yahoo.com/quote/'+encodeURIComponent(tk), '_blank'); }
+          else if(act==='tv'){ window.open('https://www.tradingview.com/symbols/'+encodeURIComponent(tk.replace(/\\./g,'-')), '_blank'); }
+          close();
+        });
+      });
+    }
+    document.addEventListener('contextmenu', function(e){
+      var el=e.target.closest('[data-tk]');
+      if(!el) return;
+      var tk=el.getAttribute('data-tk');
+      if(!tk) return;
+      e.preventDefault();
+      render(tk);
+      menu.style.display='block';
+      // Position au point de clic, clamp dans viewport
+      var x=e.clientX, y=e.clientY;
+      menu.style.left=Math.min(x, window.innerWidth - 200)+'px';
+      menu.style.top=Math.min(y, window.innerHeight - 180)+'px';
+    });
+    document.addEventListener('click', function(e){
+      if(!e.target.closest('#ctx-menu')) close();
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key==='Escape') close();
+    });
+  })();
   function _pct(v,sg){ return v==null?'&mdash;':((sg&&v>=0?'+':'')+v+'%'); }
   function mom(l,v){var c=v==null?'var(--steel)':(v>=0?'var(--acc)':'var(--bear)');return '<div class="lp-stat"><div class="lp-sl">'+l+'</div><div class="lp-sv" style="color:'+c+';font-size:16px">'+(v==null?'&mdash;':((v>=0?'+':'')+v+'%'))+'</div></div>';}
   // Sprint 3 logos tickers : map JS mirror du shared/ticker_logos.py
@@ -5530,9 +5581,9 @@ def _discipline_biais_panel() -> str:
         + f'<div class="ps-cap">{_kpi2_cap} &middot; {_jday_str}</div>'
         + '</div>'
         + '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl">Brier moyen</div><div class="ps-val {_brier_cls}">{_brier_str}</div><div class="ps-cap">{_brier_cap}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Biais ouverts</div><div class="ps-val">{n_bias_open}</div><div class="ps-cap">events en observation</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Biais r&eacute;solus</div><div class="ps-val acc">{n_bias_resolved}</div><div class="ps-cap">post-r&eacute;solution</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Score de calibration des predictions probabilistes. (proba - outcome)^2 moyen. &lt; 0.20 bon, &lt; 0.25 acceptable, &gt;= 0.25 a corriger.">Brier moyen</div><div class="ps-val {_brier_cls}">{_brier_str}</div><div class="ps-cap">{_brier_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Candidats bias_event ouverts (lock_in/fomo_greed). Fenetre d\'observation +30j post-detection.">Biais ouverts</div><div class="ps-val">{n_bias_open}</div><div class="ps-cap">events en observation</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Events bias resolus avec scoring canonique +30j. Enrichis observations +60/+90j ulterieurement.">Biais r&eacute;solus</div><div class="ps-val acc">{n_bias_resolved}</div><div class="ps-cap">post-r&eacute;solution</div></div>'
         + '</div>'
         + '<div class="ps-strate ps-foot">'
         + 'Pr&eacute;dictions &middot; fomo_greed (2 canaux) &middot; lock_in (Surface 2 v2.c.6 livr&eacute;e) ci-dessous'
@@ -5791,6 +5842,34 @@ def render() -> Path:
     # _grade_panel() call pour side-effects DB potentiels mais on supprime
     # le rendu dupliqué.
     _ = grade_html  # noqa: ne pas retirer l'appel
+    # Sparkline hero 30j depuis portfolio_snapshots (Robinhood/TR pattern).
+    try:
+        _spark_vals = [r[0] for r in _q(
+            "SELECT total_value_eur FROM portfolio_snapshots "
+            "WHERE total_value_eur IS NOT NULL ORDER BY snapshot_date DESC LIMIT 30"
+        )]
+        _spark_vals.reverse()
+    except Exception:
+        _spark_vals = []
+    if len(_spark_vals) >= 2:
+        _spk_lo, _spk_hi = min(_spark_vals), max(_spark_vals)
+        _spk_rng = (_spk_hi - _spk_lo) or 1.0
+        _spk_w, _spk_h, _spk_pad = 130, 32, 3
+        _spk_pts = []
+        _spk_n = len(_spark_vals)
+        for _i, _v in enumerate(_spark_vals):
+            _x = _spk_pad + (_i / max(1, _spk_n - 1)) * (_spk_w - 2 * _spk_pad)
+            _y = _spk_pad + (_spk_h - 2 * _spk_pad) - ((_v - _spk_lo) / _spk_rng) * (_spk_h - 2 * _spk_pad)
+            _spk_pts.append(f"{_x:.1f},{_y:.1f}")
+        _spk_color = "var(--acc)" if _spark_vals[-1] >= _spark_vals[0] else "var(--bear)"
+        _sparkline = (
+            f'<svg class="ps-spark" viewBox="0 0 {_spk_w} {_spk_h}" width="{_spk_w}" height="{_spk_h}" '
+            f'style="overflow:visible" aria-label="Trajectoire 30j">'
+            f'<polyline points="{" ".join(_spk_pts)}" fill="none" stroke="{_spk_color}" '
+            f'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        )
+    else:
+        _sparkline = ""
     # Color note + bar selon score (consistent avec _cls() interne grade_panel)
     try:
         _gscore_int = int(_grade_score) if _grade_score is not None else 0
@@ -5811,11 +5890,12 @@ def render() -> Path:
         + f'<div class="ps-macro-row" style="align-items:baseline">'
         + f'<div class="ps-val" style="font-size:34px">{pf_val_str}&nbsp;&euro;</div>'
         + f'<div class="ps-val {_pnl_star_cls}" style="font-size:18px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
+        + f'{_sparkline}'
         + f'</div>'
         + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> en gain &middot; {n_gain} lignes &middot; {n_pnl - n_gain} en perte ({100 - gpct:.0f}%)</div>'
         + f'</div>'
         + f'<div class="ps-hero-right">'
-        + f'<div class="ps-lbl">Note du portefeuille</div>'
+        + f'<div class="ps-lbl" data-tip="Grade global Construction + Fragilite. Construction = Solidite/Pari/Doublons/Calibrage. Fragilite = Sante/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Note du portefeuille</div>'
         + f'<div class="ps-grade-row">'
         + f'<div class="ps-grade-letter {_grade_color}">{_grade_letter}</div>'
         + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
@@ -5891,9 +5971,9 @@ def render() -> Path:
         + '<div class="ps-cap">D&eacute;clar&eacute; vs lecture vs risques cach&eacute;s &mdash; 3 niveaux ci-dessous</div>'
         + '</div>'
         + '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl">Biais m&eacute;canis&eacute;s</div><div class="ps-val {_bias_cls}">2</div><div class="ps-cap">{_bias_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Biais ouverts</div><div class="ps-val">{_n_bias_open_s}</div><div class="ps-cap">events en cours d\'observation</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Biais r&eacute;solus</div><div class="ps-val acc">{_n_bias_resolved_s}</div><div class="ps-cap">events post-r&eacute;solution</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Nombre de biais comportementaux instrumentes (capture automatique). lock_in = vendre winners trop tot. fomo_greed = tenir au-dela du top.">Biais m&eacute;canis&eacute;s</div><div class="ps-val {_bias_cls}">2</div><div class="ps-cap">{_bias_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Candidats bias_event en cours d\'observation (fenetre +30j post-detection). Verdict gele a +30j puis enrichi +60/+90.">Biais ouverts</div><div class="ps-val">{_n_bias_open_s}</div><div class="ps-cap">events en cours d\'observation</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Events bias post-resolution +30j avec scoring canonique immutable. Enrichis avec observations +60/+90j architecture B3.">Biais r&eacute;solus</div><div class="ps-val acc">{_n_bias_resolved_s}</div><div class="ps-cap">events post-r&eacute;solution</div></div>'
         + '</div>'
         + '<div class="ps-strate ps-foot">'
         + 'Strat&eacute;gie d&eacute;clar&eacute;e &middot; lecture du livre &middot; risques cach&eacute;s ci-dessous'
@@ -5981,9 +6061,9 @@ def render() -> Path:
     _tgt_caption = (", ".join(near_tgt_tk[:3]) + ("…" if len(near_tgt_tk) > 3 else "")) if near_tgt_tk else "aucune"
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl">Au stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Surveillance 10-20%</div><div class="ps-val {_star_watch_cls}">{n_watch}</div><div class="ps-cap">{_watch_caption}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Proche cible</div><div class="ps-val {_star_tgt_cls}">{n_tgt}</div><div class="ps-cap">{_tgt_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions a moins de 10% de declenchement du stop. Marge critique : reviser these ou trailing stop avant la seance.">Au stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Zone d\'alerte intermediaire 10-20% du stop. Surveiller, pas d\'action immediate.">Surveillance 10-20%</div><div class="ps-val {_star_watch_cls}">{n_watch}</div><div class="ps-cap">{_watch_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions a moins de 12% de leur cible (target_full). Zone de prise de profit pour winners avec valo &gt; bull.">Proche cible</div><div class="ps-val {_star_tgt_cls}">{n_tgt}</div><div class="ps-cap">{_tgt_caption}</div></div>'
         + "</div>"
     )
     star_strate_foot = (
