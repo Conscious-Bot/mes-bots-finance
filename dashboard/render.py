@@ -3457,7 +3457,7 @@ _TIER_LABEL = {
 }
 
 
-def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:  # noqa: ARG001
+def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     "Page Theses : asymetrie cible/stop par conviction + gap cible partielle."
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
@@ -3659,6 +3659,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:  # n
 _NAV = (
     '<nav class="nav" role="navigation" aria-label="Navigation principale">'
     '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
+    '<div class="nitem" data-nav="discipline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="nlab">Discipline &amp; Biais</span></div>'
     '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
     '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
     '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
@@ -5001,6 +5002,248 @@ document.querySelectorAll('.sec-cols').forEach(function(hdr){
 });</script>"""
 
 
+_DBA_CSS = r"""
+<style>
+  .dba-sh { font-family:var(--fb); font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin: var(--s5) 2px var(--s2); display:flex; align-items:baseline; gap:var(--s3); }
+  .dba-sh::after { content:""; flex:1; height:1px; background:var(--line); }
+  .dba-sh-aside { text-transform:none; letter-spacing:0; color:var(--steel); font-weight:normal; font-size:11px; margin-left:6px; }
+  .dba-card { padding: var(--s4); border:1px solid var(--line); border-radius:var(--r3); background:color-mix(in srgb,var(--ink) 1.2%, transparent); margin-bottom:var(--s3); }
+  .dba-chrow { display:flex; justify-content:space-between; align-items:baseline; gap:var(--s4); font-family:var(--fm); }
+  .dba-chrow .lab { font-weight:600; color:var(--ink); font-size:13px; }
+  .dba-chrow .stat { font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:var(--r1); border:1px solid var(--line); white-space:nowrap; }
+  .dba-chrow .stat.actif { color:var(--acc); border-color:color-mix(in srgb, var(--acc) 30%, var(--line)); }
+  .dba-chrow .stat.veille { color:var(--warn); border-color:color-mix(in srgb, var(--warn) 30%, var(--line)); }
+  .dba-chrow .stat.non-inst { color:var(--steel); opacity:.7; }
+  .dba-meta { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:6px; line-height:1.5; }
+  .dba-bars { margin-top:var(--s3); }
+  /* Bars : couleur = SEVERITE (etat), pas presence. Label + count
+     portent la couleur ; la fill l'amplifie. Row a 0 reste typee. */
+  .dba-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:12px; margin:6px 0; }
+  .dba-hbar.zero { opacity:.55; }
+  .dba-hlab { width:80px; }
+  .dba-haxis { flex:1; height:6px; background:color-mix(in srgb, var(--steel) 12%, transparent); border-radius:3px; overflow:hidden; }
+  .dba-hfill { height:100%; background:var(--steel); }
+  .dba-hn { width:30px; text-align:right; font-weight:600; }
+  .dba-hbar.dormant .dba-hlab,
+  .dba-hbar.dormant .dba-hn { color:var(--steel); }
+  .dba-hbar.dormant .dba-hfill { background:var(--steel); }
+  .dba-hbar.at_risk .dba-hlab,
+  .dba-hbar.at_risk .dba-hn { color:var(--warn); font-weight:700; }
+  .dba-hbar.at_risk .dba-hfill { background:var(--warn); }
+  .dba-hbar.triggered .dba-hlab,
+  .dba-hbar.triggered .dba-hn { color:var(--bear); font-weight:700; }
+  .dba-hbar.triggered .dba-hfill { background:var(--bear); }
+  .dba-count { font-family:var(--fm); font-size:14px; color:var(--ink); margin-top:var(--s2); font-weight:600; }
+  .dba-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .dba-tag { font-family:var(--fm); font-size:11px; padding:2px 8px; border-radius:var(--r1); background:color-mix(in srgb, var(--steel) 10%, transparent); color:var(--steel); }
+  .dba-cond { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:8px; font-style:italic; }
+  .dba-honest { font-family:var(--fm); font-size:11px; color:var(--warn); margin-top:8px; padding:7px 11px; background:color-mix(in srgb, var(--warn) 6%, transparent); border-left:2px solid var(--warn); border-radius:var(--r1); line-height:1.5; }
+  .dba-arrow { font-family:var(--fm); font-size:12px; color:var(--steel); margin-top:var(--s3); }
+  .dba-arrow .v { color:var(--ink); font-weight:600; }
+</style>
+"""
+
+
+def _dba_eur(n: float) -> str:
+    """Format EUR FR canon : separateur narrow no-break space, 0 decimale.
+    Aligne avec '70 180' deja dans le panneau (litteral) -- evite l'ambiguite
+    virgule = decimale en FR."""
+    return f"{n:,.0f}".replace(",", "&#8239;")
+
+
+def _dba_bar(state: str, count: int, total: int) -> str:
+    """Bar canonique : la classe d'etat (dormant/at_risk/triggered) porte
+    la severite ; CSS colore label + count + fill. Une row a 0 reste typee
+    (opacity au row) -- le label triggered en rouge bold meme a count=0."""
+    width = (count / total * 100) if total else 0
+    zero = " zero" if count == 0 else ""
+    return (
+        f'<div class="dba-hbar {state}{zero}">'
+        f'<span class="dba-hlab">{state}</span>'
+        f'<div class="dba-haxis"><div class="dba-hfill" '
+        f'style="width:{width:.0f}%"></div></div>'
+        f'<span class="dba-hn">{count}</span></div>'
+    )
+
+
+def _dba_predictions_brier_html(brier_avg: float | None, brier_n: int) -> str:
+    """Affichage Brier honnete : N<10 = bruit, ne pas afficher comme metrique.
+    N>=10 sur cohorte V1 figee = caveater fort (FICHE_TECHNIQUE.md L150)."""
+    if not brier_n:
+        return '<div class="dba-meta">Brier : aucune pr&eacute;diction r&eacute;solue &agrave; mesurer</div>'
+    if brier_n < 10:
+        return (f'<div class="dba-meta">Brier : N={brier_n} '
+                f'(insuffisant &mdash; seuil meaningful N&ge;10)</div>')
+    return (
+        f'<div class="dba-meta">Brier moyen : {brier_avg:.3f} sur N={brier_n}</div>'
+        f'<div class="dba-honest">Cohorte V1 fig&eacute;e (probability_at_creation '
+        f'= snapshot cr&eacute;dibilit&eacute; source &asymp; 0.5). Brier {brier_avg:.3f} '
+        f'&asymp; prior trivial. Vraie calibration V2 disponible quand N V2 suffisant '
+        f'(post-ao&ucirc;t).</div>'
+    )
+
+
+def _discipline_biais_panel() -> str:
+    """Pile 1.1 -- surface de la mission PRESAGE (compteur disciplines + biais).
+    Etat honnete-tot (user 01/06) : afficher creux + raisons. Conformite
+    lexique etat-de-canal cf docs/GLOSSARY.md sect 'Etat de canal d'instrumentation'.
+    Densite reelle viendra a J+30 quand les premiers biais se resolvent."""
+
+    # Predictions cluster KPI #2 -- batch 10/06 specifique : V1 dont
+    # target_date <= 2026-06-10. User 01/06 critique : la query precedente
+    # comptait TOUTES les V1 resolues, biais vers "5 du cluster" alors qu'aucune
+    # n'est du batch 10/06. Cluster cible = 35 predictions a J-day.
+    n_cluster_total = _q(
+        "SELECT COUNT(*) FROM predictions "
+        "WHERE methodology_version != 'v0' AND target_date <= '2026-06-10'"
+    )[0][0]
+    n_resolved = _q(
+        "SELECT COUNT(*) FROM predictions WHERE resolved_at IS NOT NULL "
+        "AND outcome != 'neutral' AND methodology_version != 'v0' "
+        "AND target_date <= '2026-06-10'"
+    )[0][0]
+    brier_row = _q(
+        "SELECT AVG(brier_score), COUNT(brier_score) FROM predictions "
+        "WHERE brier_score IS NOT NULL AND methodology_version != 'v0' "
+        "AND resolved_at IS NOT NULL AND target_date <= '2026-06-10'"
+    )[0]
+    brier_avg, brier_n = brier_row[0], brier_row[1] or 0
+
+    # KCA counts (last status per these active)
+    kca_counts = {
+        r[0]: r[1] for r in _q(
+            "SELECT kca.status, COUNT(*) "
+            "FROM (SELECT thesis_id, MAX(id) AS mid "
+            "      FROM kill_criteria_alerts GROUP BY thesis_id) m "
+            "JOIN kill_criteria_alerts kca ON kca.id = m.mid "
+            "JOIN theses t ON t.id = kca.thesis_id "
+            "WHERE t.status='active' "
+            "GROUP BY kca.status"
+        )
+    }
+    kca_dormant = kca_counts.get("dormant", 0)
+    kca_at_risk = kca_counts.get("at_risk", 0)
+    kca_triggered = kca_counts.get("triggered", 0)
+    kca_total = max(kca_dormant + kca_at_risk + kca_triggered, 1)
+    n_active_theses = _q("SELECT COUNT(*) FROM theses WHERE status='active'")[0][0]
+
+    # User 01/06 critique : "derniere eval" est faux -- kca skip INSERT si
+    # prev=new=dormant, donc MAX(created_at) = derniere TRANSITION persistee,
+    # pas dernier run cron. Libelle reformule pour la verite.
+    last_trans = _q("SELECT MAX(created_at) FROM kill_criteria_alerts")[0][0]
+    last_trans_str = last_trans[:16].replace("T", " ") if last_trans else "aucune"
+
+    # bias_events compteurs
+    n_bias_open = _q("SELECT COUNT(*) FROM bias_events WHERE status='open'")[0][0]
+    n_bias_resolved = _q("SELECT COUNT(*) FROM bias_events WHERE status='resolved'")[0][0]
+
+    # over_cap live (classify_position du monitor = source de verite)
+    try:
+        from intelligence.bias_events import MissingDataError
+        from intelligence.over_cap_monitor import classify_position
+        from shared import book as _bk
+
+        caps = _CFG.get("concentration", {}).get("line_cap_by_conviction", {})
+        raw = list(_bk.get_held_lines())
+        lines = [
+            {"ticker": ln.ticker, "weight": ln.weight_market_eur,
+             "qty": float(ln.qty or 0), "current_price_eur": ln.current_price_eur}
+            for ln in raw
+        ]
+        convs_rows = _q(
+            "SELECT ticker, conviction FROM theses WHERE status='active'"
+        )
+        convs = {r[0]: r[1] for r in convs_rows if isinstance(r[1], int)}
+        over_tk: list[str] = []
+        for ln in lines:
+            try:
+                cls = classify_position(ln["ticker"], lines, convs, caps)
+                if cls and cls["status"] == "over":
+                    over_tk.append(ln["ticker"])
+            except MissingDataError:
+                pass
+        book_total_eur = sum((ln.get("weight") or 0) for ln in lines)
+    except Exception:
+        over_tk = []
+        book_total_eur = 0
+
+    over_tags_html = (
+        '<div class="dba-tags">'
+        + "".join(f'<span class="dba-tag">{t}</span>' for t in over_tk)
+        + "</div>"
+    ) if over_tk else ""
+
+    pred_marker = "&#10003;" if n_resolved >= 5 else "&#9675;"
+
+    return (
+        '<section data-page="discipline" role="region" aria-label="Discipline et Biais">'
+        + _DBA_CSS
+        + '<div class="phead"><h2>Discipline &amp; Biais</h2>'
+        '<div class="sub">Compteur de la mission : pr&eacute;dictions calibr&eacute;es '
+        '+ biais comportementaux m&eacute;canis&eacute;s. &Eacute;tat honn&ecirc;te, '
+        'densit&eacute; &agrave; J+30.</div></div>'
+        # ─── PREDICTIONS ─────────────────────────────────────────────────
+        '<div class="dba-sh">Pr&eacute;dictions'
+        '<span class="dba-sh-aside">cluster KPI #2 &mdash; J+28 batch 10/06</span></div>'
+        '<div class="dba-card">'
+        f'<div class="dba-chrow"><span class="lab">{n_resolved}/{n_cluster_total} '
+        f'r&eacute;solues &middot; KPI #2 &ge;5 {pred_marker}</span>'
+        '<span class="stat actif">actif</span></div>'
+        f'{_dba_predictions_brier_html(brier_avg, brier_n)}'
+        '</div>'
+        # ─── BIAIS fomo_greed ────────────────────────────────────────────
+        '<div class="dba-sh">Biais &mdash; fomo_greed'
+        '<span class="dba-sh-aside">tenir au-del&agrave; du top &middot; 2 canaux instrument&eacute;s</span></div>'
+        # Canal kill_criteria
+        '<div class="dba-card">'
+        '<div class="dba-chrow"><span class="lab">kill_criteria</span>'
+        '<span class="stat actif">actif</span></div>'
+        f'<div class="dba-meta">{n_active_theses} th&egrave;ses surveill&eacute;es '
+        f'(monitoring quotidien) &middot; derni&egrave;re transition '
+        f'enregistr&eacute;e {last_trans_str}</div>'
+        '<div class="dba-bars">'
+        + _dba_bar("dormant", kca_dormant, kca_total)
+        + _dba_bar("at_risk", kca_at_risk, kca_total)
+        + _dba_bar("triggered", kca_triggered, kca_total)
+        + '</div>'
+        f'<div class="dba-arrow">&rsaquo; <span class="v">{n_bias_open}</span> '
+        f'candidat{"s" if n_bias_open != 1 else ""} ouvert{"s" if n_bias_open != 1 else ""} '
+        f'&middot; <span class="v">{n_bias_resolved}</span> '
+        f'r&eacute;solu{"s" if n_bias_resolved != 1 else ""}</div>'
+        '</div>'
+        # Canal over_cap
+        '<div class="dba-card">'
+        '<div class="dba-chrow"><span class="lab">over_cap</span>'
+        '<span class="stat veille">en veille (par d&eacute;cision)</span></div>'
+        f'<div class="dba-meta">Book {_dba_eur(book_total_eur)}&nbsp;&euro; &rarr; '
+        f'{_dba_eur(70180)}&nbsp;&euro; cible &middot; phase construction</div>'
+        f'<div class="dba-count">{len(over_tk)} OVER d&eacute;tect&eacute;'
+        f'{"s" if len(over_tk) != 1 else ""} actuellement</div>'
+        f'{over_tags_html}'
+        '<div class="dba-honest">Marginaux : tous repassent sous leur cap &agrave; '
+        '70&nbsp;k = artefacts du d&eacute;nominateur, pas sur-concentration r&eacute;elle. '
+        'Firer maintenant = mesurer une discipline qui n\'a pas dit &laquo;&nbsp;trimme&nbsp;&raquo;.</div>'
+        '<div class="dba-cond">R&eacute;-activation : book &ge; 65&nbsp;k&euro; '
+        'OU flag construction_phase lev&eacute;</div>'
+        '<div class="dba-arrow">&rsaquo; <span class="v">0</span> candidat &eacute;mis '
+        '&middot; r&eacute;solution N/A</div>'
+        '</div>'
+        # ─── BIAIS lock_in ──────────────────────────────────────────────
+        '<div class="dba-sh">Biais &mdash; lock_in'
+        '<span class="dba-sh-aside">vendre les gagnants trop t&ocirc;t</span></div>'
+        '<div class="dba-card">'
+        '<div class="dba-chrow">'
+        '<span class="lab">Surface 2 &mdash; capture synchrone vente winner</span>'
+        '<span class="stat non-inst">non instrument&eacute;</span></div>'
+        '<div class="dba-meta">Chemin pr&eacute;vu par ADR-010 &sect;2. '
+        'Pas de canal de capture aujourd\'hui &mdash; biais #1 de PRESAGE, &agrave; combler.</div>'
+        '<div class="dba-cond">Pas de candidat capturable tant que ce chemin '
+        'n\'est pas livr&eacute;.</div>'
+        '</div>'
+        '</section>'
+    )
+
+
 def render() -> Path:
     # Bug fix 31/05 wave 9b : asymmetry compare current vs stop_price/target_full.
     # Comme ces derniers sont stockes NATIVE (cf currency_native_invariant),
@@ -5301,6 +5544,7 @@ def render() -> Path:
         f'{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
+        + _discipline_biais_panel()
         + positions_pg
         + _copilot()
         + _theses(names, sectors, positions, pnl)
