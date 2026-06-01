@@ -2966,6 +2966,8 @@ _MACRO_BANDS = {
     "CPI": (3.0, 4.0, True),
     "T10Y2Y": (0.2, 0.0, False),
     "MfgIP": (0.0, -2.0, False),
+    # V3 (task #42) : drawdown BTC, lower = worse (hi_bad=False)
+    "BTC_drawdown180": (-30.0, -50.0, False),
 }
 
 
@@ -2976,14 +2978,12 @@ _MACRO_TIPS: dict[str, str] = {
     "VIX": "Vol implicite S&P 500 30j. < 15 euphorie, > 25 stress, > 40 panique.",
     "HY_OAS": "Prime obligations haut rendement vs Treasury. < 300 = complacent, > 600 = panique. Signal avancé.",
     "DXY": "USD vs 6 majeures. > 105 = vent contraire multinationales US ; > 110 = stress global.",
-    "BTC": "Baromètre appétit pour le risque et proxy de liquidité globale.",
+    "BTC_drawdown180": "Drawdown BTC vs max 6 mois. < -30% = bear risk-off, < -50% = capitulation. Capte le stress crypto reel sans confondre avec niveau brut.",
     "MOVE": "VIX des Treasuries. > 130 = stress obligataire, souvent avancé sur actions.",
     "T10Y2Y": "Courbe des taux 10A-2A. Dé-inversion (passage <0 vers >0) = récession dans 3-6 mois.",
     "BankReserves": "Cash bancaire à la Fed. < 2.5T = stress plomberie imminent.",
     "RepoSRF": "Standing Repo Facility. > 30B = banques court de cash, alarme plomberie aiguë.",
-    "FedBalance": "Bilan Fed. Contraction (QT) = liquidité retirée, vent contraire actifs risqués.",
-    "FedBalanceSheet": "Bilan Fed. Contraction (QT) = liquidité retirée, vent contraire actifs risqués.",
-    "FedBS": "Bilan Fed. Contraction (QT) = liquidité retirée, vent contraire actifs risqués.",
+    "FedBalance_yoy": "Bilan Fed variation YoY %. > +20% = QE emergency (Fed combat crash). < -10% = QT agressif. +- 5% = stable.",
     "KRE": "ETF banques régionales. Décrochage brutal = signal stress type SVB.",
     "CopperGold": "Cuivre industriel vs or refuge. Monte = cycle haussier, baisse = peur récession.",
     "CoreCPI": "Core CPI YoY. > 2.5% = Fed bloquée en restrictif → vent contraire growth/tech.",
@@ -3115,16 +3115,13 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         "HY_OAS": (1, "Spread HY (bp)", 2, False),
         "VIX": (1, "VIX", 2, False),
         "DXY": (1, "Dollar (DXY)", 2, False),
-        "BTC": (1, "Bitcoin ($)", 0, True),
+        "BTC_drawdown180": (1, "BTC drawdown 6 mois (%)", 1, False),
         "Gold": (1, "Or ($/oz)", 0, True),
         # Tier 2: Stress bancaire & liquidité Fed — signaux avancés en haut, plomberie milieu, slow bas
         "MOVE": (2, "Vol. obligataire (MOVE)", 2, False),
         "T10Y2Y": (2, "Pente 10a-2a (%)", 4, False),
         "BankReserves": (2, "R&eacute;serves bancaires Fed ($M)", 0, True),
         "RepoSRF": (2, "Standing Repo Facility ($B)", 2, False),
-        "FedBalance": (2, "Bilan Fed ($M)", 0, True),
-        "FedBalanceSheet": (2, "Bilan Fed ($M)", 0, True),
-        "FedBS": (2, "Bilan Fed ($M)", 0, True),
         "KRE": (2, "Banques r&eacute;gionales ($)", 2, False),
         "CopperGold": (2, "Ratio cuivre/or", 4, False),
         # Tier 3: Macro lente
@@ -3132,6 +3129,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         "CPI": (3, "Inflation core (%)", 4, False),
         "MfgIP": (3, "Production industrielle (%)", 4, False),
         "MfgIP_yoy": (3, "Production industrielle (%)", 4, False),
+        "FedBalance_yoy": (3, "Bilan Fed YoY (%)", 1, False),
     }
     tnames = {
         1: "March&eacute; &amp; liquidit&eacute;",
@@ -3188,19 +3186,19 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     _reduced = _vix is not None and _vix >= _vthr
     _sfac = _vsf if _reduced else 1.0
     # Sizing est calcule sur VIX seul (regle empiriquement validee, BIS papers
-    # 30+ ans). Indique explicitement la regle pour ne pas creer de lien
-    # implicite avec le score composite affiche par la frise (qui est
-    # non-calibre, cf demote ci-dessous).
+    # 30+ ans). Composite phase frise sert d'overlay informationnel macro,
+    # decouple du sizing trading (= different domaines decisionnels).
     size_txt = (
         f"VIX {_vix:.1f} {'&ge;' if _reduced else '&lt;'} {_vthr} (r&egrave;gle VIX seule)"
         if _vix is not None else "VIX indisponible"
     )
-    # Demote frise macro (user 01/06) : composite phase calcule sur 25 snapshots
-    # (12 jours), tous en phase 2 -- empiriquement non-calibre. Etiquette
-    # "non calibre" pour tuer la fausse autorite decisionnelle, en attendant
-    # le backtest 2018-2025 sur 5 anchors (cf task #42 P1). La barre gradient
-    # reste affichee comme observation, sans piloter de comportement.
-    clabel = "SCORE EXPLORATOIRE"
+    # Frise macro V3 (task #42 portage 01/06) : formule debt_monitor avec 3
+    # transformations structurelles (BTC_drawdown180 / FedBalance_yoy / MfgIP
+    # P4 -5%). Validee OOS 7/8 dates non-anchor + 5/5 regimes soutenus
+    # (cf docs/backtests/debt_composite_2017_2026_v3_insample.csv).
+    _PHASE_LBL = {1: "STABLE", 2: "STRESS", 3: "ALERTE", 4: "CRISE"}
+    _PHASE_COL = {1: "acc", 2: "warn", 3: "warn", 4: "bear"}
+    clabel = _PHASE_LBL.get(cphase, "INCONNU")
     _conc = []
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
@@ -3218,16 +3216,14 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         + f'<span>{size_txt} &middot; sizing <b style="color:var(--ink)">&times;{_sfac:.1f}</b></span>'
         + "</div></div>"
     )
-    # _phase_col neutralise -- toutes phases en steel tant que non-calibre
-    _phase_col = "steel"
+    _phase_col = _PHASE_COL.get(cphase, "steel")
     gauge = (
         '<div class="gauge"><div class="ghead">'
         '<span class="gl">Sant&eacute; macro &middot; cr&eacute;dit / or / taux 30a / inflation / VIX</span>'
         + f'<span class="gv"><span class="gvm" style="--c:var(--{_phase_col})">{clabel}</span>'
-        + f'<span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; score {score:.0f} '
-        + '&middot; <i>non calibr&eacute; &middot; backtest en cours</i></span></span></div>'
-        + f'<div class="gtrack"><div class="axis-mark mute" style="left:{(cphase - 0.5) * 25:.0f}%" title="score {score:.0f} (non calibr&eacute;)"></div></div>'
-        + '<div class="glab" style="opacity:.5"><span>bas</span><span>&middot;</span><span>&middot;</span><span>haut</span></div></div>'
+        + f'<span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; score {score:.0f}</span></span></div>'
+        + f'<div class="gtrack"><div class="axis-mark" style="left:{(cphase - 0.5) * 25:.0f}%" title="score {score:.0f} &middot; phase {cphase}"></div></div>'
+        + '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
     )
     rsi_html = _market_rsi()
     breadth_html = _breadth_rsp_spy()
@@ -3238,7 +3234,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f'<div class="cols">'
         f'<div><div class="ph3">Course vers la cible</div><div class="card pad">{elan}</div></div>'
         f'<div><div class="ph3">Marges les plus faibles</div><div class="card pad">{watch}</div></div>'
-        f'<div><div class="ph3">Moniteur de stress macro &mdash; score {score:.0f} <i style="color:var(--steel);font-weight:normal">non calibr&eacute;</i></div>'
+        f'<div><div class="ph3">Moniteur de stress macro &mdash; score {score:.0f}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
         f'<div class="cols">'
         f'<div><div class="ph3">Momentum march&eacute; &middot; RSI(14) daily &middot; cache 30min</div>'

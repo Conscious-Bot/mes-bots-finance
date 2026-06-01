@@ -3,9 +3,17 @@
 15 indicators across 3 tiers, deterministic threshold classification.
 Composite scoring → overall debt crisis phase (1/2/3/4).
 
-Tier 1 (daily, weight 1.0):  TYX, Gold, USDJPY, VIX, HY_OAS, DXY, BTC
+Tier 1 (daily, weight 1.0):  TYX, Gold, USDJPY, VIX, HY_OAS, DXY, BTC_drawdown180
 Tier 2 (weekly, weight 0.75): MOVE, KRE, T10Y2Y, BankReserves, CopperGold
-Tier 3 (monthly, weight 0.5): CoreCPI, FedBalance, ISMMfg
+Tier 3 (monthly, weight 0.5): CoreCPI, FedBalance_yoy, MfgIP_yoy
+
+V3 (task #42, 01/06/2026) : 3 transformations structurelles validees OOS
+(7/8 dates non-anchor + 5/5 regimes soutenus, cf docs/backtests/) :
+ - BTC niveau absolu -> BTC_drawdown180 (drawdown 6m vs max). Capte -50% mars
+   2020 et -75% 2022, neutre quand BTC bear lent (SVB 2023 ne sur-stresse pas).
+ - FedBalance niveau absolu -> FedBalance_yoy (variation YoY %). Capte QE
+   emergency (+30% YoY COVID) ET QT agressif (-10% YoY 2023).
+ - MfgIP_yoy seuil P4 -2% -> -5% (recession moderee n'est pas crise).
 
 Reads:
 * yfinance for market price tickers (real-time)
@@ -114,17 +122,20 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
             (115, 999, 3),
         ],
     },
-    "BTC": {
+    "BTC_drawdown180": {
         "tier": 1,
         "weight": 1.0,
-        "source": "yfinance:BTC-USD",
-        "label": "Bitcoin ($)",
-        # Signal: extreme up = monetary debasement narrative; extreme down = risk-off
+        "source": "derived:btc_drawdown180",
+        "label": "BTC drawdown 180j (%)",
+        # V3 : drawdown vs max sur 180j glissant (negatif si en baisse).
+        # Capte stress crypto reel (-50% mars 2020, -75% 2022) sans confondre
+        # avec niveau brut. 0 a -15% = near ATH risk-on, -15 a -30% correction,
+        # -30 a -50% bear modere risk-off, < -50% capitulation.
         "phase_ranges": [
-            (0, 30000, 3),
-            (30000, 100000, 1),
-            (100000, 150000, 2),
-            (150000, 999999, 3),
+            (-100, -50, 4),
+            (-50, -30, 3),
+            (-30, -15, 2),
+            (-15, 100, 1),
         ],
     },
     # ---- Tier 2: important, weekly ----
@@ -209,17 +220,22 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
             (6.0, 999, 4),
         ],
     },
-    "FedBalance": {
+    "FedBalance_yoy": {
         "tier": 3,
         "weight": 0.5,
-        "source": "fred:WALCL",
-        "label": "Fed Balance Sheet ($M)",
-        # Static reference; trend matters more than level. Placeholder phases.
+        "source": "fred:WALCL_yoy",
+        "label": "Fed Balance Sheet YoY (%)",
+        # V3 : variation YoY % du balance sheet. Capte la reaction Fed au
+        # stress (QE emergency) ET le QT actif.
+        # > +20% = QE emergency (Fed combat un crash, ex COVID +30% YoY)
+        # +5 a +20% = QE intervention. +-5% = stable normal.
+        # -10 a -5% = QT modere. < -10% = QT agressif (risk assets sous pression).
         "phase_ranges": [
-            (0, 7000000, 1),
-            (7000000, 8000000, 2),
-            (8000000, 9000000, 3),
-            (9000000, 99999999, 4),
+            (-100, -10, 3),
+            (-10, -5, 2),
+            (-5, 5, 1),
+            (5, 20, 3),
+            (20, 100, 4),
         ],
     },
     "MfgIP_yoy": {
@@ -228,13 +244,16 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "source": "fred:IPMAN_yoy",
         "label": "Mfg Industrial Production YoY (%)",
         # ISM Mfg PMI replacement: FRED dropped ISM series 2024+.
-        # YoY % change of IPMAN as proxy. >2% = expansion (P1),
-        # 0-2% = sluggish (P2), -2 to 0 = contraction (P3), <-2 = recession (P4).
+        # YoY % change of IPMAN as proxy. V3 : seuil P4 -2% trop strict
+        # (recession moderee n'est pas crise systemique). Recalibre :
+        # P4 < -5% (recession profonde type 2008/COVID).
+        # P3 -5 a -2% (recession moderee). P2 -2 a 0% (sluggish).
+        # P1 >= 0% (expansion).
         "phase_ranges": [
-            (-999, -2, 4),
-            (-2, 0, 3),
-            (0, 2, 2),
-            (2, 999, 1),
+            (-999, -5, 4),
+            (-5, -2, 3),
+            (-2, 0, 2),
+            (0, 999, 1),
         ],
     },
 }
@@ -312,6 +331,38 @@ def _fetch_fred_ipman_yoy() -> float | None:
     return (current - year_ago) / year_ago * 100
 
 
+def _fetch_btc_drawdown180() -> float | None:
+    """V3 : BTC drawdown vs max sur 180j glissant (%, negatif si en baisse).
+
+    Pull yfinance period='200d' pour avoir marge, garde les 180 derniers points.
+    """
+    try:
+        h = yf.Ticker("BTC-USD").history(period="200d", interval="1d")
+        if h.empty:
+            return None
+        closes = h["Close"].dropna().tolist()[-180:]
+        if len(closes) < 30 or max(closes) <= 0:
+            return None
+        max_180 = max(closes)
+        return (closes[-1] - max_180) / max_180 * 100
+    except Exception as e:
+        log.warning(f"BTC_drawdown180 fetch: {e}")
+        return None
+
+
+def _fetch_fred_walcl_yoy() -> float | None:
+    """V3 : Fed balance sheet YoY % change. WALCL est hebdomadaire,
+    obs[51] = ~52 semaines avant (1 an)."""
+    obs = macro._fred_series("WALCL", limit=56)
+    if not obs or len(obs) < 52:
+        return None
+    current = float(obs[0]["value"])
+    year_ago = float(obs[51]["value"])
+    if year_ago <= 0:
+        return None
+    return (current - year_ago) / year_ago * 100
+
+
 def fetch_indicator(name: str) -> float | None:
     """Dispatch fetch by INDICATOR_CONFIG[name]['source']."""
     cfg = INDICATOR_CONFIG.get(name)
@@ -337,6 +388,8 @@ def fetch_indicator(name: str) -> float | None:
             return _fetch_fred_cpi_yoy()
         if sid == "IPMAN_yoy":
             return _fetch_fred_ipman_yoy()
+        if sid == "WALCL_yoy":
+            return _fetch_fred_walcl_yoy()
         return _fetch_fred_latest(sid)
 
     if src == "derived:copper_gold":
@@ -345,6 +398,9 @@ def fetch_indicator(name: str) -> float | None:
         if copper is None or gold is None or gold == 0:
             return None
         return copper / gold
+
+    if src == "derived:btc_drawdown180":
+        return _fetch_btc_drawdown180()
 
     log.warning(f"unknown source scheme: {src}")
     return None
