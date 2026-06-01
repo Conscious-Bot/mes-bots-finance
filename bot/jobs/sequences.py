@@ -151,6 +151,7 @@ async def weekly_chain_sunday():
     Conceptions → portfolio_narrative → user_profile → cost_summary → kpi_status
     """
     from bot.jobs.daily import (
+        weekly_bias_event_backfill_observations_job,
         weekly_bot_conceptions_synthesis_job,
         weekly_portfolio_narrative_synthesis_job,
         weekly_user_profile_refresh_job,
@@ -173,4 +174,7 @@ async def weekly_chain_sunday():
     await _safe_run("cost_summary", weekly_cost_summary_job)
     await _safe_run("kpi_status", weekly_kpi_status_job)
     await _safe_run("handler_stats", weekly_handler_stats_job)
+    # v2.c.6 : backfill observations[] longs horizons sur bias_events resolved
+    # (architecture B3 append-only enrichment, apres KPI cron)
+    await _safe_run("bias_event_backfill", weekly_bias_event_backfill_observations_job)
     log.info("weekly_chain_sunday end")

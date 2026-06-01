@@ -207,6 +207,23 @@ def add_sell(ticker: str, qty: float, price: float, notes: str | None = None) ->
             (existing["id"], ticker, qty, price, pnl, notes),
         )
         cx.commit()
+    # Pile 2.1 v2.c.6 -- Surface 2 lock_in detector (biais #1 PRESAGE).
+    # Hook APRES cx.commit() (cf docs/LESSONS.md L7) : silent miss accepte,
+    # la vente reste valide quoi qu'il arrive. Pas de raise vers caller.
+    try:
+        import logging
+
+        from intelligence.lock_in_detector import detect_winner_sell
+
+        detect_winner_sell(
+            position_id=existing["id"], ticker=ticker,
+            qty_sold=qty, sold_price_native=price,
+            qty_before=existing["qty"], avg_cost=existing["avg_cost"],
+        )
+    except Exception as e:
+        logging.getLogger(__name__).warning(
+            f"lock_in_detector silent miss for {ticker}: {e}", exc_info=True,
+        )
     return {
         "ticker": ticker,
         "sold_qty": qty,

@@ -561,3 +561,134 @@ def resolve_due_bias_events(limit: int = 50) -> dict[str, Any]:
         "resolved": n_resolved, "missing": n_missing, "void": n_void,
         "details": details,
     }
+
+
+# Pile 2.1 v2.c.6 -- Backfill cron weekly enrichit observations[] sur les
+# bias_events resolved (architecture B3 user 01/06 Q3). Sememantique :
+# - resolution_json.delta_signed_eur = scoring CANONIQUE immutable (a +30j)
+# - resolution_json.observations[] = log d'enrichissement APPEND-ONLY
+#   (jamais mutation, jamais delete -- compatible PIT bitemporal ADR 001)
+# - Chaque entree observations[] = {horizon_days, price_native, price_eur,
+#   delta_eur, fetched_at}
+#
+# Run weekly Sunday apres le cron KPI (~22:45). Fetch yfinance cache _PX_TTL.
+# Idempotent : skip si observation pour ce horizon deja presente.
+
+_BACKFILL_HORIZONS_DAYS = (60, 90)
+
+
+def backfill_resolved_observations(
+    horizons: tuple[int, ...] = _BACKFILL_HORIZONS_DAYS,
+    limit: int = 200,
+) -> dict[str, Any]:
+    """Pour chaque bias_event status='resolved' suffisamment ancien (resolve_at
+    + horizon <= now), append observation prix EUR pour les horizons longs
+    manquants. Append-only dans resolution_json.observations[].
+
+    Architecture B3 (user 01/06 Q3) : pas de mutation du scoring canonical,
+    juste enrichissement async. Resilient au crash (skip si deja present).
+
+    Args:
+        horizons: horizons longs a backfiller (default 60, 90 jours).
+        limit: max bias_events scannes par run (eviter LIMITless si journal
+            grossit).
+
+    Returns:
+        dict {scanned, enriched, skipped, errors, missing_data}.
+    """
+    from shared.prices import get_close_on, get_close_on_in_eur
+    from shared.storage import DB_PATH
+
+    stats = {"scanned": 0, "enriched": 0, "skipped": 0, "errors": 0, "missing_data": 0}
+    max_horizon = max(horizons)
+
+    cx = sqlite3.connect(DB_PATH)
+    cx.row_factory = sqlite3.Row
+    try:
+        # bias_events resolved dont anchor + max_horizon est passe -> on peut
+        # backfiller tous les horizons demandes.
+        rows = cx.execute(
+            "SELECT id, ticker, created_at, resolve_at, counterfactual_json, "
+            "       resolution_json "
+            "FROM bias_events "
+            "WHERE status='resolved' "
+            "  AND resolution_json IS NOT NULL "
+            "  AND datetime(created_at, ?) <= datetime('now') "
+            "ORDER BY id ASC "
+            "LIMIT ?",
+            (f"+{max_horizon} days", limit),
+        ).fetchall()
+    finally:
+        cx.close()
+
+    for r in rows:
+        stats["scanned"] += 1
+        try:
+            cf = json.loads(r["counterfactual_json"] or "{}")
+            res = json.loads(r["resolution_json"] or "{}")
+        except json.JSONDecodeError:
+            stats["errors"] += 1
+            continue
+
+        anchor_eur = cf.get("anchor_price_eur")
+        if not anchor_eur or anchor_eur <= 0:
+            stats["errors"] += 1
+            continue
+
+        # Date d'ancrage = created_at (heure d'ouverture du candidat = vente
+        # pour lock_in, ou transition pour kca/over_cap)
+        try:
+            created = datetime.fromisoformat(
+                str(r["created_at"]).replace("Z", "+00:00")
+            )
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=UTC)
+        except ValueError:
+            stats["errors"] += 1
+            continue
+
+        observations = list(res.get("observations") or [])
+        existing_horizons = {o.get("horizon_days") for o in observations}
+
+        any_added = False
+        for h in horizons:
+            if h in existing_horizons:
+                continue  # deja backfille
+            target_date = (created + timedelta(days=h)).strftime("%Y-%m-%d")
+            price_eur = get_close_on_in_eur(r["ticker"], target_date)
+            if price_eur is None:
+                stats["missing_data"] += 1
+                continue
+            try:
+                price_native = get_close_on(r["ticker"], target_date)
+            except Exception:
+                price_native = None
+            delta_eur = (price_eur - anchor_eur) * cf.get("initial_qty", 0)
+            observations.append({
+                "horizon_days": h,
+                "price_native": price_native,
+                "price_eur": round(price_eur, 6),
+                "delta_eur": round(delta_eur, 4),
+                "fetched_at": datetime.now(UTC).isoformat(),
+            })
+            any_added = True
+
+        if not any_added:
+            stats["skipped"] += 1
+            continue
+
+        # Persist : append observations[], jamais mutation des champs
+        # canoniques.
+        res["observations"] = observations
+        cx_upd = sqlite3.connect(DB_PATH)
+        try:
+            cx_upd.execute(
+                "UPDATE bias_events SET resolution_json=? WHERE id=?",
+                (json.dumps(res, sort_keys=True), r["id"]),
+            )
+            cx_upd.commit()
+            stats["enriched"] += 1
+        finally:
+            cx_upd.close()
+
+    return stats

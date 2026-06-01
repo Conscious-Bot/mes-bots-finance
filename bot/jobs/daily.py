@@ -504,6 +504,29 @@ async def daily_over_cap_check_job():
         log.error(f"daily_over_cap_check failed: {e}")
 
 
+async def weekly_bias_event_backfill_observations_job():
+    """v2.c.6 -- backfill observations[] longs horizons (60j, 90j) sur les
+    bias_events resolved canoniquement (a +30j).
+
+    Architecture B3 (user 01/06 Q3) : append-only enrichment log, jamais
+    mutation du scoring canonical. Permet analyse v2 data-driven post-90j
+    pour decider du bon horizon empiriquement.
+
+    Run Sunday ~22:45 apres le KPI cron. Idempotent : skip si observation
+    deja presente pour ce horizon."""
+    log.info("Weekly bias_event backfill observations starting")
+    try:
+        from intelligence import bias_events as _be
+        out = _be.backfill_resolved_observations()
+        log.info(
+            f"bias_event_backfill : scanned={out['scanned']} "
+            f"enriched={out['enriched']} skipped={out['skipped']} "
+            f"missing_data={out['missing_data']} errors={out['errors']}"
+        )
+    except Exception as e:
+        log.error(f"weekly_bias_event_backfill failed: {e}")
+
+
 async def weekly_data_clusters_synthesis_job():
     """Sprint 17 — Data-defined clusters par correlation rendements (hebdo).
 

@@ -73,7 +73,11 @@
 
 **Biais #1 de PRESAGE, raison d'être de l'instrument.** Pulsion de sécuriser un gain qui court encore : prise de profit prématurée, mean-reversion réflexe sur un winner, fermeture par confort psychologique plutôt que par invalidation de thèse.
 
-**État d'instrumentation : non instrumenté.** Aucun canal ne capture ce biais aujourd'hui. Chemin prévu = **Surface 2** (capture synchrone de la vente d'un winner, contrefactuel à +N jours), spécifiée ADR-010 §2 mais non livrée. **Toute surface qui présente PRESAGE comme mécanisant ce biais lit faux.**
+**État d'instrumentation : mécanisé** (depuis v2.c.6, 01/06/2026). Surface 2 ADR-010 §2 livrée : hook dans `shared.positions.add_sell` après commit DB (cf [LESSONS L7](LESSONS.md)) → `intelligence.lock_in_detector.detect_winner_sell` ouvre un candidat `bias_event` si gate v1 satisfait (`pnl_pct ≥ 0.15 AND conviction_at_sell ≥ 3`). Résolution canonique à +30j, observations longues (+60j, +90j) ajoutées par cron weekly `weekly_bias_event_backfill_observations_job` en append-only dans `resolution_json.observations[]` (architecture B3 : scoring immuable + enrichissement séparé). Conviction lue **at sell time** (revisits comptés), pas at creation.
+
+**Définition gate v1 (absolu, pédagogie ship simple + log dimensions pour v2 data-driven post-90j)** — 4 dimensions logguées par candidat (`pnl_pct_at_sell`, `conviction_at_sell`, `pnl_pct_progress` = pnl / target, `time_progress` = days_held / horizon). v2 data-driven attendue après 20-30 candidats résolus : prédicat relatif `pnl_pct_progress < 0.6 AND time_progress < 0.5`.
+
+**Bypass paths hors-scope documentés** : `scripts/import_positions_legacy.py`, `scripts/refresh_positions_2026_05_23.py`, `shared/sql_observability.py` ne passent pas par `positions.add_sell` donc le détecteur ne fire pas. Acceptable pour des opérations exceptionnelles (backfill, refresh, audit).
 
 ##### `fomo_greed` — l'enum technique (acception large)
 

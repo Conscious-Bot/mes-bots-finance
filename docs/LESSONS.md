@@ -94,6 +94,22 @@
 
 ---
 
+## L7 — Side-effects analytiques après commit DB, avec acceptation explicite du failure mode « silent miss »
+
+**Règle** : tout hook d'instrumentation (bias detection, observability, ledger enrichment) fire **après la transaction métier commitée**. Conséquence directe : si le hook échoue, l'événement métier reste valide mais l'observation analytique est perdue silencieusement (catch + log warning, **ne jamais re-throw**).
+
+**Tradeoff explicite** :
+- **Bénéfice principal** : un rollback métier ne laisse pas d'event analytique orphelin. Le journal de calibration / bias_events reste cohérent avec la vérité des transactions.
+- **Coût accepté** : un crash entre commit et hook laisse l'analytique muette pour cet event. La transaction métier est OK, mais on a perdu l'opportunité d'observer.
+
+**Quand abandonner ce pattern** : si l'analytique devient critique — par exemple, elle alimente un modèle de prediction en boucle fermée, ou un KPI non-récupérable (pas re-calculable depuis l'état actuel) — basculer vers un **transactional outbox** : insérer un marker dans la même transaction que l'event métier (atomicité garantie), puis le marker est consommé par un job séparé idempotent.
+
+**Application courante** : `shared.positions.add_sell` → `intelligence.lock_in_detector.detect_winner_sell` (lock_in v2.c.6, juin 2026). Le hook fire après `cx.commit()`, wrapé `try/except Exception as e: log.warning(...); pass`. Si le détecteur lock_in crashe, la vente est enregistrée sans candidat bias — accepté car la mesure du biais est statistique (pas chaque event ne doit être capturé) et l'observation manquée est un coût acceptable face au risque d'un event analytique orphelin.
+
+**Red flag** : si tu te retrouves à vouloir `raise` depuis le hook pour rollback la transaction métier, **stop** — c'est le signe que tu confonds analytique et critique. Soit le hook est analytique (= L7 pattern, silent miss accepté), soit il est critique (= transactional outbox, marker atomique).
+
+---
+
 ## Politique d'évolution
 
 Toute nouvelle leçon (catch récurrent qu'on attrape pour la 2ème fois) **doit** être ajoutée ici avec :
