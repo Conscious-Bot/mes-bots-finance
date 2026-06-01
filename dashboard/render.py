@@ -2539,23 +2539,42 @@ def _concentration(
     these_msg = f"{dom_these} &middot; {'&#9888; all&eacute;ger' if dom_these_pct >= NARRATIVE_CAP else 'sous le plafond'} {NARRATIVE_CAP:.0f}%"
     cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
     # === Star Concentration : fusion verdict + cluster + 3 KPIs ===
-    # (ancien rendu cluster row-by-row retire 01/06 -- le Star ne montre que
-    # le breach principal en footer, le detail multi-clusters est superflu)
-    # Mapping vcls (acc/warn/bear) -> ps-val color class
-    _verdict_pcls = {"acc": "acc", "warn": "warn", "bear": "bear"}.get(vcls, "")
-    _top_pcls = {"acc": "acc", "warn": "warn", "bear": "bear"}.get(top_cls, "")
-    _these_pcls = {"acc": "acc", "warn": "warn", "bear": "bear"}.get(these_cls, "")
-    # Footer : cluster gouverneur si breached
+    # Mapping verdict cls -> ps-val color class
+    # vcls peut etre danger/warn/calm OU acc/warn/bear selon la source.
+    # Normalise vers acc/warn/bear pour les ps-val color.
+    _to_pscls = lambda c: {"danger": "bear", "bear": "bear", "warn": "warn", "calm": "acc", "acc": "acc"}.get(c, "")
+    _verdict_pcls = _to_pscls(vcls)
+    _top_pcls = _to_pscls(top_cls)
+    _these_pcls = _to_pscls(these_cls)
+    # Footer : cluster gouverneur si breached. Color le depassement selon gravite.
     _cluster_foot = ""
     breached = [c for c in _ch if c["breached"]]
     if breached:
         c = breached[0]
         _ov = f"{c['over_eur']:,.0f}".replace(",", "&#8239;")
-        _cluster_foot = f"Cluster <b>{c['name']}</b> &agrave; {c['pct']:.0f}% (plafond {c['cap']:.0f}%) &middot; d&eacute;passement +{_ov}&nbsp;&euro;"
+        _over_pct = max(0, c["pct"] - c["cap"])
+        # Gravite : <2pp warn light, 2-5pp warn, >=5pp bear
+        if _over_pct >= 5:
+            _over_color = "bear"
+        elif _over_pct >= 2:
+            _over_color = "warn"
+        else:
+            _over_color = "warn"
+        _cluster_foot = (
+            f"Cluster <b>{c['name']}</b> &agrave; {c['pct']:.0f}% (plafond {c['cap']:.0f}%) "
+            f"&middot; <b class=\"{_over_color}\">+{_over_pct:.0f}%</b> au-dessus &middot; +{_ov}&nbsp;&euro;"
+        )
     else:
         _cluster_foot = "Cluster corr&eacute;l&eacute; (gouverneur) : sous plafond"
+    # Over_cap color selon gravite : 0 ligne = acc, 1-2 = warn, 3+ = bear
+    if over_cap == 0:
+        _oc_color = "acc"
+    elif over_cap <= 2:
+        _oc_color = "warn"
+    else:
+        _oc_color = "bear"
     _overcap_meta = (
-        f"{over_cap} ligne(s) au-dessus du plafond {POS_CAP:.0f}%"
+        f'<b class="{_oc_color}">{over_cap}</b> ligne(s) au-dessus du plafond {POS_CAP:.0f}%'
         + (f" &middot; {over_nm}" if over_nm else "")
     )
     star_strate_verdict = (
@@ -2583,7 +2602,10 @@ def _concentration(
         f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h2>Concentration</h2>'
         f'<div class="sub">Trois axes de concentration &mdash; par ligne, par secteur, par g&eacute;ographie</div></div>'
         f"{star_concentration}"
-        f'<div class="card pad"><div class="sbwrap"><div class="sb-top"><div class="sb-kpi"><span class="sb-kl">CAPITAL D&Eacute;PLOY&Eacute;</span><span class="sb-kv">{cap}&nbsp;&euro;</span></div><div class="sb-kpi"><span class="sb-kl">SECTEURS</span><span class="sb-kv">{len(sw_real)}</span></div><div class="sb-kpi"><span class="sb-kl">PLUS GROSSE EXPOSITION</span><span class="sb-kv">{dom_these} &middot; {dom_these_pct:.0f}%</span></div></div><div id="sb-bars" class="sb-bars"></div><div id="sb-panel"></div></div></div>'
+        # sbwrap : sb-top kpis retires (duplicate du Star Concentration ci-dessus :
+        # Capital + Premiere ligne + These dominante). On garde le bars/panel
+        # interactif sub-jacent.
+        f'<div class="card pad"><div class="sbwrap"><div id="sb-bars" class="sb-bars"></div><div id="sb-panel"></div></div></div>'
         f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
         f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
         f'<div style="margin-top:var(--s4)">{_fx_exposure_panel()}</div>'
@@ -3268,9 +3290,9 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     s_cap = "&agrave; surveiller" if near else "calme"
     star_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Cibles &ge;75%</div><div class="ps-val">{near_t}</div><div class="ps-cap">{t_cap}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl">Stops &lt;10%</div><div class="ps-val {s_cls}">{near}</div><div class="ps-cap">{s_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Cluster correle dont la position cumulee depasse le plafond = action recommandee.">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Lignes parcourant ≥75% du chemin entree -> cible. Zone de prise de profit a surveiller.">Cibles &ge;75%</div><div class="ps-val">{near_t}</div><div class="ps-cap">{t_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Lignes a moins de 10% de leur stop. Marge faible, verifier avant la seance.">Stops &lt;10%</div><div class="ps-val {s_cls}">{near}</div><div class="ps-cap">{s_cap}</div></div>'
         + "</div>"
     )
     # Strate 3 : footer technique (VIX + sizing)
@@ -3484,7 +3506,9 @@ _TH_CSS = """
   .th-hlab { width:24px; color:var(--steel); }
   .th-hbar .axis { flex:1; margin:0; }
   .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
-  .th-grp { font-family:var(--fb); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:34px 2px 13px; display:flex; align-items:center; gap:var(--s3); }
+  /* Section headers unifies (Polish 01/06) : meme pattern visuel pour
+     .th-grp / .strat-sh / .vigie-sh / .dba-sh. Noms preserves pour HTML. */
+  .th-grp { font-family:var(--fm); font-weight:500; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
   .th-grp::after { content:""; flex:1; height:1px; background:var(--line); }
   /* Sprint 2 purge borders TR-style : retire border + bg fill par thesis row.
      Garde padding pour respiration + grid layout + hover propre. Separation
@@ -3746,15 +3770,15 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
 
 _NAV = (
     '<nav class="nav" role="navigation" aria-label="Navigation principale">'
-    '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
-    '<div class="nitem" data-nav="discipline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="nlab">Discipline &amp; Biais</span></div>'
-    '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
-    '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
-    '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
-    '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie</span></div>'
-    '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
-    '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux</span></div>'
-    '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div></nav>'
+    '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble<kbd>&#8984;1</kbd></span></div>'
+    '<div class="nitem" data-nav="discipline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="nlab">Discipline &amp; Biais<kbd>&#8984;2</kbd></span></div>'
+    '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions<kbd>&#8984;3</kbd></span></div>'
+    '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot<kbd>&#8984;4</kbd></span></div>'
+    '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses<kbd>&#8984;5</kbd></span></div>'
+    '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie<kbd>&#8984;6</kbd></span></div>'
+    '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration<kbd>&#8984;7</kbd></span></div>'
+    '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux<kbd>&#8984;8</kbd></span></div>'
+    '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence<kbd>&#8984;9</kbd></span></div></nav>'
 )
 
 _TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
@@ -3809,7 +3833,8 @@ _CSS = """
   .nitem svg { width:26px; height:26px; }
   .nitem:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); color:var(--ink); }
   .nitem.on { background:color-mix(in srgb,var(--id) 13%,transparent); color:var(--ink); border-left-color:var(--id); box-shadow:inset 0 0 22px -10px color-mix(in srgb,var(--id) 55%,transparent); }
-  .nlab { position:absolute; left:56px; top:50%; transform:translateY(-50%); white-space:nowrap; background:var(--panel); border:1px solid var(--line2); border-radius:var(--r2); padding:var(--s2) 12px; font-family:var(--fb); font-size:13px; font-weight:500; color:var(--ink); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:80; box-shadow:0 10px 26px -12px #000; }
+  .nlab { position:absolute; left:56px; top:50%; transform:translateY(-50%); white-space:nowrap; background:var(--panel); border:1px solid var(--line2); border-radius:var(--r2); padding:var(--s2) 12px; font-family:var(--fb); font-size:13px; font-weight:500; color:var(--ink); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:80; box-shadow:0 10px 26px -12px #000; display:flex; align-items:center; gap:9px; }
+  .nlab kbd { font-family:var(--fm); font-size:10px; padding:1px 5px; background:color-mix(in srgb,var(--ink) 10%,transparent); border-radius:4px; color:var(--steel); border:none; opacity:.85; }
   .nitem:hover .nlab { opacity:1; }
   .foot { margin-top:auto; padding:var(--s3) 0 2px; display:flex; flex-direction:column; align-items:center; gap:7px; }
   .rfoot { display:flex; flex-direction:column; align-items:center; gap:var(--s15); }
@@ -3826,7 +3851,11 @@ _CSS = """
   .statedot { width:8px; height:8px; border-radius:50%; }
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
   .main { padding:30px 52px 54px; max-width:1340px; }
-  .phead { margin-bottom:22px; } .phead h2 { font-family:var(--fd); font-weight:300; font-size:32px; margin:0 0 6px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); } .phead .sub { font-family:var(--fb); font-weight:400; font-size:12px; letter-spacing:.04em; color:var(--steel); }
+  /* Sticky page header (Stripe/Linear pattern) : reste en haut au scroll
+     avec backdrop subtil. Z-index 30 sous .dband (45). */
+  .phead { position:sticky; top:0; z-index:30; margin-bottom:22px; padding:14px 0 12px; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent); }
+  .phead h2 { font-family:var(--fd); font-weight:300; font-size:32px; margin:0 0 6px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); }
+  .phead .sub { font-family:var(--fb); font-weight:400; font-size:12px; letter-spacing:.04em; color:var(--steel); }
   [data-page] { display:none; } [data-page].active { display:block; animation:fadein .42s ease; } @keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
   /* Cascade signature Vue d'ensemble : page load orchestre, blocs en revel
      staggered 60ms. Remplace le fadein page generique sur vigie uniquement.
@@ -3913,7 +3942,13 @@ _CSS = """
   /* User feedback 01/06 : un panneau clair, bien espace, hierarchie typo
      restreinte (label uppercase steel + value 24-28px ink + caption steel),
      3 strates separees par hairlines, padding genereux (32-40px). */
-  .page-star { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:32px 36px; margin-bottom:var(--s4); }
+  /* Animation entry fade-in sur Star (Polish 01/06) : subtle premium feel
+     a la TR/Linear. 280ms ease, opacity + translate-y 8px. Anti-double-fire
+     via .noanim gate (cf dashboard_anim_session_gate). */
+  .page-star { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:32px 36px; margin-bottom:var(--s4); animation:starIn .28s ease-out; }
+  .noanim .page-star { animation:none; }
+  @keyframes starIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .page-star { animation:none; } }
   .page-star .ps-strate { padding:18px 0; }
   .page-star .ps-strate:first-child { padding-top:0; }
   .page-star .ps-strate:last-child { padding-bottom:0; }
@@ -3923,6 +3958,10 @@ _CSS = """
   .page-star .ps-val.bear { color:var(--bear); }
   .page-star .ps-val.acc { color:var(--acc); }
   .page-star .ps-val.warn { color:var(--warn); }
+  /* Color helpers generiques (applicable a n'importe quel inline element) */
+  .acc-c, b.acc { color:var(--acc); }
+  .warn-c, b.warn { color:var(--warn); }
+  .bear-c, b.bear { color:var(--bear); }
   .page-star .ps-cap { font-family:var(--fb); font-size:13px; color:var(--steel); margin-top:8px; line-height:1.4; }
   .page-star .ps-macro-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
   .page-star .ps-macro-meta { font-family:var(--fm); font-size:13px; color:var(--steel); }
@@ -3961,8 +4000,11 @@ _CSS = """
   .cta-bar kbd { font-family:var(--fm); font-size:10px; padding:1px 5px; background:color-mix(in srgb,var(--ink) 10%,transparent); border-radius:4px; opacity:.7; border:none; }
   .cta-bar button.act kbd { background:color-mix(in srgb,var(--bg) 25%,transparent); color:var(--bg); }
   /* Search modal */
-  .cta-modal { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; display:none; align-items:flex-start; justify-content:center; padding-top:14vh; }
-  .cta-modal.open { display:flex; }
+  .cta-modal { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; display:none; align-items:flex-start; justify-content:center; padding-top:14vh; opacity:0; transition:opacity .2s ease; }
+  .cta-modal.open { display:flex; opacity:1; }
+  .cta-modal-inner { animation:modalIn .24s ease-out; }
+  @keyframes modalIn { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .cta-modal, .cta-modal-inner { animation:none; transition:none; } }
   .cta-modal-inner { background:var(--panel); border:1px solid var(--line2); border-radius:12px; width:min(560px,92vw); max-height:64vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 64px -16px rgba(0,0,0,.4); }
   .cta-search-input { width:100%; padding:18px 24px; font-family:var(--fb); font-size:16px; background:transparent; border:none; border-bottom:1px solid var(--line); color:var(--ink); outline:none; box-sizing:border-box; }
   .cta-search-results { max-height:50vh; overflow-y:auto; padding:4px; }
@@ -3970,6 +4012,8 @@ _CSS = """
   .cta-result:hover, .cta-result.sel { background:color-mix(in srgb,var(--ink) 6%,transparent); }
   .cta-result .ctk { font-family:var(--fm); font-weight:600; color:var(--ink); }
   .cta-result .cnm { color:var(--steel); font-size:13px; }
+  .cta-result .tklogo { width:24px; height:24px; padding:2px; margin-right:4px; }
+  .cta-result .tklogo.tkfb { font-size:11px; }
   .tag { font-family:var(--fm); font-weight:600; font-size:11px; padding:3px 9px; border-radius:var(--r1); }
   .tag.up { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); } .tag.acc2 { color:var(--acc2); background:color-mix(in srgb, var(--acc2) 12%, transparent); }
   .tag.down,.tag.danger { color:var(--bear); background:color-mix(in srgb, var(--bear) 13%, transparent); } .tag.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 14%, transparent); } .tag.calm { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); } .tag.mute { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); }
@@ -4266,10 +4310,14 @@ _CSS = """
   .calibcard .calib-brier .mono, .calibcard .calib-gap .mono { color:var(--ink); margin-left:var(--s1); }
   .calibcard .calib-msg { margin-top:var(--s25); font-family:var(--fm); font-size:13px; color:var(--ink2); line-height:1.55; padding-top:var(--s25); border-top:1px solid var(--line); }
   /* Page Strategie : sub-section headers */
-  .strat-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:32px 0 14px; padding-bottom:var(--s2); border-bottom:1px solid var(--line); }
+  /* Unified avec .th-grp / .vigie-sh / .dba-sh : flex + after-line subtile */
+  .strat-sh { font-family:var(--fm); font-weight:500; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
+  .strat-sh::after { content:""; flex:1; height:1px; background:var(--line); }
   .strat-sh:first-of-type { margin-top:var(--s35); }
   /* Section headers page vigie (refonte hierarchie 30/05 -- 3 blocs : Operationnel / Systeme V2 / Contextuel) */
-  .vigie-sh { font-family:var(--fb); font-weight:500; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:28px 0 12px; padding-bottom:var(--s2); border-bottom:1px solid var(--line); }
+  /* Unified avec .th-grp / .strat-sh / .dba-sh : flex + after-line subtile */
+  .vigie-sh { font-family:var(--fm); font-weight:500; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
+  .vigie-sh::after { content:""; flex:1; height:1px; background:var(--line); }
   .vigie-sh:first-of-type { margin-top:var(--s4); }
   /* Sprint 19 - User strategy panel */
   .strategiecard .us-grid { display:grid; grid-template-columns:1fr; gap:var(--s2); margin:var(--s35) 0; padding-bottom:var(--s35); border-bottom:1px solid var(--line); }
@@ -4747,6 +4795,16 @@ _APP_JS = """
   }
   items.forEach(n=>n.addEventListener('click',()=>show(n.dataset.nav)));
   var _h=(location.hash||'').replace('#','');if(_h&&/^[a-z]+$/.test(_h))show(_h);
+  // Cmd+1..9 raccourcis nav (Linear/Notion pattern) : index dans la sidebar
+  document.addEventListener('keydown', function(e){
+    if((e.metaKey||e.ctrlKey) && /^[1-9]$/.test(e.key)){
+      var idx = parseInt(e.key, 10) - 1;
+      if(items[idx]){
+        e.preventDefault();
+        show(items[idx].dataset.nav);
+      }
+    }
+  });
   function _pct(v,sg){ return v==null?'&mdash;':((sg&&v>=0?'+':'')+v+'%'); }
   function mom(l,v){var c=v==null?'var(--steel)':(v>=0?'var(--acc)':'var(--bear)');return '<div class="lp-stat"><div class="lp-sl">'+l+'</div><div class="lp-sv" style="color:'+c+';font-size:16px">'+(v==null?'&mdash;':((v>=0?'+':'')+v+'%'))+'</div></div>';}
   // Sprint 3 logos tickers : map JS mirror du shared/ticker_logos.py
@@ -5263,7 +5321,8 @@ document.querySelectorAll('.sec-cols').forEach(function(hdr){
 
 _DBA_CSS = r"""
 <style>
-  .dba-sh { font-family:var(--fb); font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin: var(--s5) 2px var(--s2); display:flex; align-items:baseline; gap:var(--s3); }
+  /* Unified avec .th-grp / .strat-sh / .vigie-sh : flex + after-line subtile */
+  .dba-sh { font-family:var(--fm); font-weight:500; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
   .dba-sh::after { content:""; flex:1; height:1px; background:var(--line); }
   .dba-sh-aside { text-transform:none; letter-spacing:0; color:var(--steel); font-weight:normal; font-size:11px; margin-left:6px; }
   .dba-card { padding: var(--s4); border:1px solid var(--line); border-radius:var(--r3); background:color-mix(in srgb,var(--ink) 1.2%, transparent); margin-bottom:var(--s3); }
@@ -5442,6 +5501,44 @@ def _discipline_biais_panel() -> str:
 
     pred_marker = "&#10003;" if n_resolved >= 5 else "&#9675;"
 
+    # === Star Discipline : KPI #2 + Brier + biais counts ===
+    from datetime import date as _date
+    _today_d = _date.today()
+    _jday = _date(2026, 6, 10)
+    _delta_jday = (_jday - _today_d).days
+    if _delta_jday > 0:
+        _jday_str = f"J-{_delta_jday} avant batch 10/06"
+    elif _delta_jday == 0:
+        _jday_str = "J-day batch 10/06 (aujourd'hui)"
+    else:
+        _jday_str = f"J+{-_delta_jday} apr&egrave;s batch 10/06"
+    _kpi2_cls = "acc" if n_resolved >= 5 else "warn"
+    _kpi2_cap = "calibrage actif" if n_resolved >= 5 else f"besoin de {5 - n_resolved} de plus"
+    _brier_cls = ""
+    if brier_n >= 5:
+        _brier_cls = "acc" if brier_avg < 0.20 else ("warn" if brier_avg < 0.25 else "bear")
+    _brier_str = f"{brier_avg:.3f}" if brier_n else "&mdash;"
+    _brier_cap = f"N={brier_n}" + ("" if brier_n >= 5 else f" &middot; besoin {5 - brier_n}")
+    star_discipline = (
+        '<div class="page-star">'
+        + '<div class="ps-strate">'
+        + '<div class="ps-lbl">Discipline &amp; Biais</div>'
+        + '<div class="ps-macro-row">'
+        + f'<div class="ps-val {_kpi2_cls}">{n_resolved}/{n_cluster_total}</div>'
+        + f'<div class="ps-macro-meta">pr&eacute;dictions r&eacute;solues &middot; KPI #2 &ge;5</div>'
+        + '</div>'
+        + f'<div class="ps-cap">{_kpi2_cap} &middot; {_jday_str}</div>'
+        + '</div>'
+        + '<div class="ps-strate ps-grid">'
+        + f'<div class="ps-cell"><div class="ps-lbl">Brier moyen</div><div class="ps-val {_brier_cls}">{_brier_str}</div><div class="ps-cap">{_brier_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Biais ouverts</div><div class="ps-val">{n_bias_open}</div><div class="ps-cap">events en observation</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Biais r&eacute;solus</div><div class="ps-val acc">{n_bias_resolved}</div><div class="ps-cap">post-r&eacute;solution</div></div>'
+        + '</div>'
+        + '<div class="ps-strate ps-foot">'
+        + 'Pr&eacute;dictions &middot; fomo_greed (2 canaux) &middot; lock_in (Surface 2 v2.c.6 livr&eacute;e) ci-dessous'
+        + '</div>'
+        + '</div>'
+    )
     return (
         '<section data-page="discipline" role="region" aria-label="Discipline et Biais">'
         + _DBA_CSS
@@ -5449,8 +5546,9 @@ def _discipline_biais_panel() -> str:
         '<div class="sub">Compteur de la mission : pr&eacute;dictions calibr&eacute;es '
         '+ biais comportementaux m&eacute;canis&eacute;s. &Eacute;tat honn&ecirc;te, '
         'densit&eacute; &agrave; J+30.</div></div>'
+        + star_discipline
         # ─── PREDICTIONS ─────────────────────────────────────────────────
-        '<div class="dba-sh">Pr&eacute;dictions'
+        + '<div class="dba-sh">Pr&eacute;dictions'
         '<span class="dba-sh-aside">cluster KPI #2 &mdash; J+28 batch 10/06</span></div>'
         '<div class="dba-card">'
         f'<div class="dba-chrow"><span class="lab">{n_resolved}/{n_cluster_total} '
@@ -5570,6 +5668,8 @@ def render() -> Path:
     pf_value = sum(p["weight"] for p in positions)
     pf_pnl_eur = pf_value - _pfcost
     vcls = "pos" if pf_pnl_eur >= 0 else "neg"
+    # Star Vue d'ensemble : .ps-val attend acc/warn/bear, pas pos/neg
+    _pnl_star_cls = "acc" if pf_pnl_eur >= 0 else "bear"
     pf_arrow = "&#9650;" if pf_pnl_eur >= 0 else "&#9660;"
     pf_val_str = f"{pf_value:,.0f}".replace(",", "&#8239;")
     pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")
@@ -5687,11 +5787,16 @@ def render() -> Path:
         }.get(_trend, "")
     except Exception:
         _grade_letter, _grade_score, _grade_trend_str = "&mdash;", 0, "indisponible"
-    # Add CSS class .below-star au gradecard pour cacher la ghead duplicate
-    _grade_html_below_star = grade_html.replace(
-        'class="card pad gradecard"',
-        'class="card pad gradecard below-star"',
-    )
+    # grade_html n'est plus affiche separement (integre dans Star). Conserve
+    # _grade_panel() call pour side-effects DB potentiels mais on supprime
+    # le rendu dupliqué.
+    _ = grade_html  # noqa: ne pas retirer l'appel
+    # Color note + bar selon score (consistent avec _cls() interne grade_panel)
+    try:
+        _gscore_int = int(_grade_score) if _grade_score is not None else 0
+    except Exception:
+        _gscore_int = 0
+    _grade_color = "acc" if _gscore_int >= 70 else ("warn" if _gscore_int >= 50 else "bear")
     vigie = (
         f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
@@ -5705,16 +5810,16 @@ def render() -> Path:
         + f'<div class="ps-lbl">Valeur du portefeuille</div>'
         + f'<div class="ps-macro-row" style="align-items:baseline">'
         + f'<div class="ps-val" style="font-size:34px">{pf_val_str}&nbsp;&euro;</div>'
-        + f'<div class="ps-val {vcls}" style="font-size:18px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
+        + f'<div class="ps-val {_pnl_star_cls}" style="font-size:18px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         + f'</div>'
         + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> en gain &middot; {n_gain} lignes &middot; {n_pnl - n_gain} en perte ({100 - gpct:.0f}%)</div>'
         + f'</div>'
         + f'<div class="ps-hero-right">'
         + f'<div class="ps-lbl">Note du portefeuille</div>'
         + f'<div class="ps-grade-row">'
-        + f'<div class="ps-grade-letter acc">{_grade_letter}</div>'
+        + f'<div class="ps-grade-letter {_grade_color}">{_grade_letter}</div>'
         + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
-        + f'<div class="ps-grade-bar"><div class="ps-grade-fill acc" style="width:{_grade_score:.0f}%"></div></div></div>'
+        + f'<div class="ps-grade-bar"><div class="ps-grade-fill {_grade_color}" style="width:{_grade_score:.0f}%"></div></div></div>'
         + f'</div></div>'
         + f'</div></div>'
         + f'<div class="ps-strate">'
@@ -5756,10 +5861,50 @@ def render() -> Path:
     # ─── Page Strategie : lecture analytique du book (vocabulaire canonique) ───
     # Refonte 31/05 user feedback : retire placement fiscal + chat_signals + conversations
     # Ordre : declaration -> etat -> risques caches -> meta (4 sections au lieu de 5)
+    # === Star Strategie : 4 axes lecture + conviction stats ===
+    try:
+        _t_rows = _q("SELECT conviction FROM theses WHERE status='active'")
+        _conv_list = [int(r[0]) for r in _t_rows if r[0]]
+        _n_act_t = len(_conv_list)
+        _conv_med_s = sorted(_conv_list)[_n_act_t // 2] if _n_act_t else 0
+        _n_c5_s = sum(1 for c in _conv_list if c == 5)
+        _pct_c5_s = (_n_c5_s / _n_act_t * 100) if _n_act_t else 0
+    except Exception:
+        _n_act_t, _conv_med_s, _pct_c5_s = 0, 0, 0
+    try:
+        _n_bias_open_s = _q("SELECT COUNT(*) FROM bias_events WHERE status='open'")[0][0]
+        _n_bias_resolved_s = _q("SELECT COUNT(*) FROM bias_events WHERE status='resolved'")[0][0]
+    except Exception:
+        _n_bias_open_s, _n_bias_resolved_s = 0, 0
+    # Determine biais mecanise status : ✓ si au moins 1 surface lock_in cable
+    _bias_msg = "lock_in (winners trop tot) + fomo_greed mecanises"
+    _bias_cls = "acc"
+    _med_cls = "acc" if _conv_med_s >= 4 else ("warn" if _pct_c5_s > 20 else "")
+    star_strategie = (
+        '<div class="page-star">'
+        + '<div class="ps-strate">'
+        + '<div class="ps-lbl">Lecture du livre</div>'
+        + '<div class="ps-macro-row">'
+        + f'<div class="ps-val {_med_cls}">M&Eacute;DIANE c{_conv_med_s}</div>'
+        + f'<div class="ps-macro-meta">{_n_act_t} th&egrave;ses actives &middot; {_n_c5_s} c5 ({_pct_c5_s:.0f}%)</div>'
+        + '</div>'
+        + '<div class="ps-cap">D&eacute;clar&eacute; vs lecture vs risques cach&eacute;s &mdash; 3 niveaux ci-dessous</div>'
+        + '</div>'
+        + '<div class="ps-strate ps-grid">'
+        + f'<div class="ps-cell"><div class="ps-lbl">Biais m&eacute;canis&eacute;s</div><div class="ps-val {_bias_cls}">2</div><div class="ps-cap">{_bias_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Biais ouverts</div><div class="ps-val">{_n_bias_open_s}</div><div class="ps-cap">events en cours d\'observation</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Biais r&eacute;solus</div><div class="ps-val acc">{_n_bias_resolved_s}</div><div class="ps-cap">events post-r&eacute;solution</div></div>'
+        + '</div>'
+        + '<div class="ps-strate ps-foot">'
+        + 'Strat&eacute;gie d&eacute;clar&eacute;e &middot; lecture du livre &middot; risques cach&eacute;s ci-dessous'
+        + '</div>'
+        + '</div>'
+    )
     strategie_html = (
         '<section data-page="strategie" role="region" aria-label="Strategie"><div class="phead"><h2>Strat&eacute;gie</h2>'
         '<div class="sub">Lire le livre en profondeur &middot; pourquoi la note '
         'est ce qu\'elle est, et ou est la vraie fragilit&eacute;</div></div>'
+        f'{star_strategie}'
         # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
         '<div class="strat-sh">Strat&eacute;gie d&eacute;clar&eacute;e &mdash; r&eacute;f&eacute;rentiel</div>'
         f'{_user_strategy_panel()}'
