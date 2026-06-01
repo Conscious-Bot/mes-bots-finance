@@ -1,115 +1,110 @@
-# Glossary - mes-bots-finance
+# GLOSSARY — Vocabulaire canonique PRESAGE
 
-**Purpose**: project-specific terminology for Path 5/6 readability.
+**Version : 1.0** (figé le 31 mai 2026)
+**Rôle** : source unique du vocabulaire. Tout terme employé dans le code, l'UI, le dashboard, les posts et la doc s'y conforme.
 
----
-
-## Core concepts
-
-**Brier score**: Quadratic loss measuring calibration of probabilistic predictions. (probability - outcome)^2. Range [0,1], 0 = perfect, 0.25 = always 0.5, 1 = catastrophically wrong. Used for monthly source credibility recalibration.
-
-**Credibility ledger**: Per-source trust score in [0,1]. Updated based on prediction outcomes (correct +0.03, incorrect -0.05, asymmetric penalty). Default 0.5 for new sources.
-
-**Materiality composite**: 0-10 score from 3-axis rubric: impact_magnitude (1-5), reversibility (1-5, inverted), time_to_realization (urgent/medium/slow/na). Formula: (imp*0.5 + (6-rev)*0.3 + time_factor*0.2) * 2. Replaces monolithic score with explicit reasoning.
-
-**Echo cluster**: Group of semantically similar signals detected via BGE-small-en-v1.5 embeddings + cosine similarity. Prevents over-weighting same narrative repeated across sources.
-
-**Half-life**: Per-source decay rate of signal relevance in days. Computed empirically. Used for time-weighted aggregation.
-
-**Signal type**: Haiku-classified label: catalyst (event-driven), data (macro print), opinion, narrative (slow-burn theme), noise. Determines downstream processing.
-
-**Thesis (bidirectional)**: Investment hypothesis with explicit entry / target_partial / target_full / stop_price. Bidirectional means both anti-vend-trop-tot (force exit at targets) AND anti-tient-trop-long (force exit at stop) discipline.
-
-**Asymmetry ratio**: Upside_to_target / |downside_to_stop| at current price. Verdicts: STRONG_RUN (>3), FAVORABLE (1.5-3), BALANCED (0.7-1.5), UNFAVORABLE (0.3-0.7), FLIPPED (<0.3), STOP_BREACHED, TARGET_HIT.
-
-**Pre-mortem**: Imagined future failure analysis written BEFORE trade entry. Forces enumeration of how thesis could be wrong.
-
-**Panic sell**: Heuristic: full_exit decision on a thesis BEFORE triggered_partial_at OR triggered_stop_at. Indicates exit not driven by thesis-defined triggers.
+> Cet ancien glossaire (Path 5/6 readability) est REMPLACÉ par cette version canonique v1.0. Les définitions historiques (Brier, calibration, etc.) sont absorbées et raffinées ci-dessous selon les désambiguïsations figées.
 
 ---
 
-## Behavioral framework
+## Principe — deux couches
 
-**Bias asymetrique**: Olivier's documented pattern: sells stock winners too early (PLTR @9, NVDA @130) AND fails to sell crypto at indicator tops (FOMO on BTC/ETH).
+1. **Marque / éditoriale** — le nom, le tagline, la voix. Registre poétique permis.
+2. **Opérationnelle** — concepts et métriques. Lexique rigoureux du forecasting, point.
 
-**Bias tags**: Manual or auto-attached labels on decisions: regret_avoidance, fomo, anchor_bias, recency_bias, confirmation_bias. Used for bias_review retrospectives.
+**Règle d'or** : le nom peut être poétique ; le vocabulaire doit être précis. La marque vit dans la couche 1 ; jamais dans les concepts de données.
 
-**Risk_check**: Pre-trade Opus call that ingests journal + bias history + thesis + current state, outputs structured risk assessment. Forces deliberate pre-commit reflection.
-
----
-
-## LLM cascade
-
-**Tier extract (Haiku)**: Cheap, high-volume tasks: signal_type classification, entity extraction, basic scoring. ~$0.0005/call.
-
-**Tier enrich (Sonnet)**: Mid-cost reasoning: materiality_v2 rubric, digest narrative, signal scoring. ~$0.04/call.
-
-**Tier reasoning (Opus)**: Expensive structured analysis: risk_check, multi-round debate, decision pre-mortem. ~$0.10-0.30/call. Used sparingly.
+**Langue** : termes canoniques en français, équivalent anglais entre parenthèses (sert de label pour les surfaces EN, dont les posts menés en anglais).
 
 ---
 
-## Pipeline stages
+## Couche 1 — Marque / éditoriale
 
-**Substrate**: DB schema (15 tables), config.yaml, .env secrets.
+| Élément | Valeur |
+|---|---|
+| Nom | **PRESAGE** |
+| Tagline | « La vérité dans le bruit » / *Truth in the noise* |
+| Voix | sobre, savante, honnête ; instrument de mesure, pas terminal ni app |
+| Description produit | (à définir — ne pas fabriquer ici) |
 
-**Ingestion**: Gmail OAuth (gmail 1h, max=50), EDGAR 8-K (cron 6:30), FRED macro (calendar 5h), yfinance (price_monitor 15min), CoinGecko (crypto 10h), insider Form 4 (insider 6h).
-
-**Entonnoir**: Filter+score pipeline: signal_classify Haiku, materiality_v2 Sonnet chained post-ingest, echo cluster dedup.
-
-**Synthesis**: Multi-round debate (Opus), /analyze deep fiche, risk_check.
-
-**Appropriation**: Position book tracking, journal auto-resolve, bias_tagger, pre-mortem.
-
-**Restitution**: /brief (6 sections), /digest (Sonnet narrative 2x/day), /kpi_status, /cost_trajectory.
+À éviter dans la couche 1 comme ailleurs : thématiser le lexique technique sur la métaphore (« présages », « augures » comme termes techniques) = cosplay, à proscrire.
 
 ---
 
-## KPIs
+## Couche 2 — Opérationnelle
 
-**KPI #2 NON-NEG**: 5+ predictions resolues rolling 28d. Breach action: stop 5d build + force-use.
+### Calibration & scoring
 
-**KPI #3**: Brier rolling 90d < 0.20. Action if >0.25: alert + revue methodo.
+- **Calibration** (*calibration*) — tes prédictions à X % se réalisent-elles X % du temps.
+- **Score de Brier** (*Brier score*) — règle de scoring ; 0 = parfait, plus bas = mieux.
+- **Fiabilité** (*reliability*) — composante calibration du Brier ; aussi le **diagramme de fiabilité** (*reliability diagram*).
+- **Discrimination** (*discrimination*) — composante « pouvoir de séparer les issues » du Brier.
+- **Taux de base** (*base rate*) — fréquence a priori ; l'ancre.
 
-**KPI #4**: 0 panic sells thesis core. Action if 1+: pause + bias analysis.
+### Prédictions & thèses
 
-**KPI #5**: 100% decisions materielles journalisees (reasoning 30+ chars + bias_tags). Action if <90%: no new thesis until backfill.
+- **Prédiction** (*prediction*) — claim falsifiable : direction + probabilité + horizon + critère de résolution.
+- **Résolution** (*resolution*) — l'événement où une prédiction expire et se mesure objectivement.
+- **Horizon** (*horizon*) — délai jusqu'à résolution.
+- **Conviction (1-5)** (*conviction*) — confiance ressentie ; distincte de la probabilité.
+- **Probabilité (0-1)** (*probability*) — probabilité stockée de la prédiction ; jamais en pourcentage en base.
+- **Thèse** (*thesis*) — vue directionnelle + critère d'invalidation. Statuts (enum) : `active | invalidated | realized | stale`.
 
-**KPI #6**: TWR vs SPY/QQQ 12M > -5pp. Not yet implemented (requires positions integration).
+### Risque & position
+
+- **Stop / Cible** (*stop / target*) — les deux bornes de l'axe ; la primitive de lecture réutilisée à l'identique partout.
+- **Asymétrie** (*asymmetry*) — distances brutes vers stop vs cible. Aucun verdict auto-dérivé du framework (fix anti-tautologie).
+
+### Signaux & sources
+
+- **Signal** (*signal*) — unité ingérée (newsletter, 8-K, macro…), typée + sentiment.
+- **Matérialité** (*materiality*) — combien un signal compte pour une décision.
+- **Crédibilité** (*credibility*) — score par source, affiné par les outcomes objectifs.
+
+### Boucle de biais
+
+- **Événement de biais** (*bias event*) — divergence loggée entre discipline et action.
+- Les deux biais documentés :
+  - **lock-in** (`lock_in`) — vendre les gagnants trop tôt (*locking-in / mean-reversion*).
+  - **FOMO / avidité** (`fomo_greed`) — tenir au-delà du top (*FOMO / greed*).
+- **Résisté** (`resisted`) — discipline suivie sous tension ; le moment à haute valeur.
+- **Coût du biais / valeur de la discipline** (*cost of bias / value of discipline*) — le compteur bidirectionnel : somme signée des deltas contrefactuels.
+
+### État de canal d'instrumentation
+
+Lexique canonique pour décrire l'état d'un canal qui pourrait émettre des candidats biais (ou prédictions). Trois états mutuellement exclusifs ; un canal en est exactement un à un instant donné. Aucune surface ne réinvente d'autre vocabulaire.
+
+- **actif** (*active*) — canal câblé et opérationnel. Peut émettre. Comptage à 0 lit littéralement « actif mais aucun événement qualifiant ».
+- **en veille (par décision)** (*dormant by decision*) — canal câblé mais désactivé par choix explicite, documenté. Exige toujours une **raison** (le confound contextuel : phase, donnée manquante, gel délibéré) et une **condition de réactivation** (le seuil ou flag qui le rallume). Le « par décision » est obligatoire pour distinguer d'un canal qui ne tourne plus par bug.
+- **non instrumenté** (*not instrumented*) — chemin existe en concept (ADR / roadmap) mais n'a pas été livré. N'implique aucune imminence ; nomme **le chemin prévu** (ex. ADR, surface, Sprint) pour rester auditable.
+
+Règle d'affichage : un compteur à 0 sans état de canal lit faux. Toute surface qui affiche « 0 candidat » nomme l'état du canal qui produit ce zéro.
 
 ---
 
-## Sources tiers
+## Désambiguïsations figées
 
-**Tier S**: composite_avg 5.5+ OR paid sub irreplaceable. Examples: Adam Tooze, Chamath, Wall Street Rollup, Coin Metrics, SemiAnalysis ($65/mo).
+Deux termes du champ se chevauchent ; tranché ici, **ne plus les recroiser** :
 
-**Tier A**: composite_avg 4.0-5.5. Solid signal, monthly monitor.
-
-**Tier B**: composite_avg 3.0-4.0 OR volume-noise pattern (Short Squeez 22 signals avg 3.69).
-
-**Tier INV**: Reputation high but 0 signals 30d. Investigate ingestion.
-
-**Drop candidate**: composite_avg <2.5 sustained sur 3+ signals.
+- **« résolution »** = uniquement l'événement qui résout une prédiction. La composante du Brier que la littérature nomme parfois *resolution* s'appelle ici **discrimination**.
+- **« fiabilité »** = uniquement la composante calibration du Brier (+ le diagramme). Le sens « le bot tourne-t-il » se dit **disponibilité / uptime**, jamais « fiabilité ».
 
 ---
 
-## Path 5/6 strategy
+## Règles transversales
 
-**Path 5**: Acquihire ($200K-$1M, 18-24mo). Target: family offices, RIA, fintech B2B.
-
-**Path 6**: Substack + prosumer subscription ($100K-500K/an, 24-36mo). Requires 12-24mo public track record.
-
-**High Standard Mode**: Operating posture post 13 mai pivot. STOP velocity-shipping. Every ship: tests + cost modeled + observability + failure modes + doc.
-
-**4 Dimensions roadmap**: Dim 1 Solidification technique (DONE) / Dim 2 Track record mesure (ACTIVATED) / Dim 3 Depersonnalisation (month 6+) / Dim 4 Positionnement public (month 12+).
+1. **Toujours probabiliste** : jamais « Buy / Sell », jamais binaire.
+2. **Pas de métaphore-marque dans les termes techniques** (voir couche 1).
+3. **Les enums de statut restent en lowercase_snake_case** (cf. `CONVENTIONS.md`).
 
 ---
 
-## Architectural primitives
+## Politique d'application (règle « type quand tu touches »)
 
-**WAL mode**: SQLite Write-Ahead Logging. N readers + 1 writer concurrent. Activated 13 mai.
+Pas de grand sweep du code existant. Conforme le **code neuf** au glossaire systématiquement. Corrige l'**ancien** quand tu le touches naturellement (rule rape par effet de bord, pas par campagne).
 
-**Bitemporal ledger**: Append-only history with valid_from/valid_to (world time) + created_at (transaction time). Proposed in ADR 001. Implementation deferred to juin 2026.
+Un sweep complet maintenant = du risque pour zéro gain pendant l'observation pré-10/06. Les anciens termes mal alignés (ex. usage historique de « résolution » au sens Brier dans certains commentaires) se rectifient au fur et à mesure.
 
-**Atomic insert pattern**: INSERT INTO signals + UPDATE sources.n_signals + last_signal_at in same transaction, try/except IntegrityError for duplicate gmail_id. Reference: shared/storage.py:insert_raw_signal.
+---
 
-**Chained ingestion**: ingest_gmail_job triggers materiality_v2 immediately post-INSERT. Reduces latency from 0-60min to seconds.
+**Figé v1.0.** Toute évolution = bump de version + note de ce qui change.
