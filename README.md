@@ -4,7 +4,7 @@
 
 Closed-loop personal finance intelligence: Telegram bot (`@Hawk_Dove_bot`) + Claude. Self-learning thesis tracker with bidirectional discipline enforcement.
 
-**Le bot ne trade pas.** Il mécanise la discipline pré-commit pour compenser deux biais asymétriques empiriquement documentés : vendre les winners trop tôt + ne pas vendre crypto aux tops d'indicateurs. Boucle : ingestion → process LLM → décision → prédiction (horizon mesurable) → outcome → calibration → réinjection contexte.
+**Le bot ne trade pas.** Il mécanise la discipline pré-commit. Deux biais empiriquement documentés (cf [`docs/glossary.md` § Biais documentés](docs/glossary.md)) : **`lock_in`** (vendre les winners trop tôt) = biais #1, raison d'être de PRESAGE — **non instrumenté à ce jour**, chemin prévu Surface 2 ADR-010 §2 ; **biais #2 historique** (anti-FOMO crypto aux tops) dormant ortho (stock-only depuis 26/05). L'enum technique `fomo_greed` (acception large = « pas réduit/sorti quand la discipline le disait ») est mécanisé sur 2 canaux (`kill_criteria` actif, `over_cap` en veille phase construction) — distinct du biais #2 crypto-tops. Boucle : ingestion → process LLM → décision → prédiction (horizon mesurable) → outcome → calibration → réinjection contexte.
 
 ## État (30/05/2026)
 

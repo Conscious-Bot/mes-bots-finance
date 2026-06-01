@@ -65,10 +65,14 @@ Refonte profonde du systeme d'aide a la decision :
 
 ## Mission
 
-Système d'intelligence finance perso en boucle fermée self-learning (Telegram + Claude). **Mécanise la discipline** pour compenser **un biais asymétrique actif** :
-1. Vend les winners trop tôt (locking-in + mean-reversion) — historique PLTR @9, NVDA @130
+Système d'intelligence finance perso en boucle fermée self-learning (Telegram + Claude). **Mécanise la discipline.**
 
-*Biais #2 historique (anti-FOMO crypto) dormant depuis stock-only 26/05 — 0 crypto en book. Code backend préservé (regime CRYPTO-TOP-ZONE, risk_manager, self_loop, etc.), réactivable si re-exposition crypto. Vision projet (31/05) : outil rigoureux multi-tenant subscription investisseurs sérieux, track record performance proof-of-value.*
+**Biais documentés et état d'instrumentation** (source canonique : [`docs/glossary.md` § Biais documentés](docs/glossary.md)) :
+1. **`lock_in`** — vendre les winners trop tôt (historique PLTR @9, NVDA @130). **Biais #1 de PRESAGE, raison d'être.** *Non instrumenté à ce jour* — chemin prévu Surface 2 (ADR-010 §2), non livrée. Toute surface qui présente PRESAGE comme mécanisant ce biais lit faux.
+2. **`fomo_greed` (enum technique, acception large)** — « pas réduit/sorti quand la discipline le disait ». Mécanisé sur 2 canaux (cf glossaire) : `kill_criteria` actif, `over_cap` en veille (par décision) phase construction.
+3. **Biais #2 historique anti-FOMO crypto aux tops** — distinct de l'enum `fomo_greed` ci-dessus (cas spécifique signal-de-top, pas l'enum large). Dormant ortho depuis stock-only 26/05 — 0 crypto en book. Code backend (regime CRYPTO-TOP-ZONE, risk_manager, self_loop) préservé, réactivable.
+
+*Vision projet (31/05) : outil rigoureux multi-tenant subscription investisseurs sérieux, track record performance proof-of-value.*
 
 Le bot **ne trade pas**. Il force la réflexion structurée pré-commit via thesis tracker bidirectionnel, calibration Brier, multi-round debate, /risk_check Opus, journal auto-résolu. Boucle : ingestion → process LLM → décision → prédiction (horizon mesurable) → outcome → rétrospection → enrichissement contexte → loop.
 

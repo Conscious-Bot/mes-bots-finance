@@ -64,11 +64,32 @@
 ### Boucle de biais
 
 - **Événement de biais** (*bias event*) — divergence loggée entre discipline et action.
-- Les deux biais documentés :
-  - **lock-in** (`lock_in`) — vendre les gagnants trop tôt (*locking-in / mean-reversion*).
-  - **FOMO / avidité** (`fomo_greed`) — tenir au-delà du top (*FOMO / greed*).
 - **Résisté** (`resisted`) — discipline suivie sous tension ; le moment à haute valeur.
 - **Coût du biais / valeur de la discipline** (*cost of bias / value of discipline*) — le compteur bidirectionnel : somme signée des deltas contrefactuels.
+
+#### Biais documentés — désambiguïsation canonique
+
+##### `lock_in` — vendre les gagnants trop tôt
+
+**Biais #1 de PRESAGE, raison d'être de l'instrument.** Pulsion de sécuriser un gain qui court encore : prise de profit prématurée, mean-reversion réflexe sur un winner, fermeture par confort psychologique plutôt que par invalidation de thèse.
+
+**État d'instrumentation : non instrumenté.** Aucun canal ne capture ce biais aujourd'hui. Chemin prévu = **Surface 2** (capture synchrone de la vente d'un winner, contrefactuel à +N jours), spécifiée ADR-010 §2 mais non livrée. **Toute surface qui présente PRESAGE comme mécanisant ce biais lit faux.**
+
+##### `fomo_greed` — l'enum technique (acception large)
+
+Mécaniquement : « ne pas avoir réduit / sorti la position quand la discipline le disait ». L'enum couvre donc :
+- **laisser courir un runner** au-delà de son cap (canal `over_cap`),
+- **tenir une thèse cassée** au lieu d'en sortir (canal `kill_criteria`) — psychologiquement de l'aversion à la perte, rangée v1 sous `fomo_greed` faute d'un enum dédié.
+
+**État d'instrumentation : mécanisé sur 2 canaux** — `kill_criteria` actif, `over_cap` en veille (par décision) phase construction.
+
+##### Biais #2 historique — anti-FOMO crypto aux tops
+
+Cas spécifique documenté empiriquement : ne pas vendre crypto sur signaux de top d'indicateurs. **Distinct de l'enum `fomo_greed` ci-dessus** : c'est un *cas* (instrument + signal-de-top) que l'enum large n'instrumente pas directement. Touché incidemment par `over_cap` si une crypto déborde son cap, mais aucun canal n'observe le signal-de-top.
+
+**État d'instrumentation : dormant ortho.** Stock-only depuis 26/05/2026 = 0 crypto en book. Code backend (regime CRYPTO-TOP-ZONE, risk_manager, self_loop) préservé, réactivable si re-exposition crypto.
+
+**Règle d'écriture** : ne pas écrire « biais #2 mécanisé » — c'est une fausse équivalence avec l'enum. Écrire soit `fomo_greed (enum large) mécanisé sur 2 canaux`, soit `biais #2 historique crypto-tops, dormant ortho`. Les deux ne se substituent pas.
 
 ### État de canal d'instrumentation
 
