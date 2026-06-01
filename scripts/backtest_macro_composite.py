@@ -123,6 +123,7 @@ OOS_DATES = [
 # Cf docs/LESSONS.md L9 + L11 : pas de wire prod sans backtest contre N
 # regimes verifies AVANT le tuning. Cette serie HOLDOUT scelle le verdict.
 HOLDOUT_DATES = [
+    # ─── Vague 1 (02/06 matin) : verdict initial 2/4 ────────────────────
     # 2020-09-23 : Stress moderne post-COVID. S&P -3.1% sur 5j, VIX 30,
     # USD remonte (DXY 94->94.6), Russell 2K -4%. P3 attendu (stress
     # actif mais pas crise systemique).
@@ -131,12 +132,33 @@ HOLDOUT_DATES = [
     # singleton mais semaine -3%. Phase de fragilite mondiale. P3 attendu.
     ("2022-09-26", 3, "UK gilts + GBP crash"),
     # 2025-02-25 : Mi-fevrier 2025 calme avant tariff. VIX 17, courbe
-    # 10s-2s +20bps, regime risk-on stable. P1 attendu.
+    # 10s-2s +20bps, regime risk-on stable. P1 attendu (CONTESTABLE).
     ("2025-02-25", 1, "Calme pre-tariff fev 2025"),
     # 2017-08-10 : NorthKorea Guam threat brief stress. VIX 16, S&P
     # singleton -1.5%, recovery rapide. Avant le repricing macro, regime
     # globalement P1. Test si V3 ne sur-reagit pas a un bruit ponctuel.
-    ("2017-08-10", 1, "NK Guam threat sigleton (no follow-through)"),
+    ("2017-08-10", 1, "NK Guam threat singleton (no follow-through)"),
+    # ─── Vague 2 (02/06 -- task #67 enrichi) : 4 dates a regime CLAIR ──
+    # Criteres : VIX, courbe, indicateurs primaires sans ambiguite. Pas
+    # de labels contestables type "singleton" ou "borderline".
+    #
+    # 2017-12-15 : Goldilocks 2017 ATH calme. VIX 9.5 (record low),
+    # courbe 10s-2s +60bps (steepening healthy), USD bas (DXY 93), pas
+    # de stress credit (HY OAS <300). Regime P1 unambiguous.
+    ("2017-12-15", 1, "Goldilocks 2017 (VIX 9.5 record low)"),
+    # 2018-10-29 : Sell-off octobre 2018 (Fed hawkish, dollar strong).
+    # VIX 27, S&P -10% sur le mois (NDX -12%), tech massacre, USD
+    # ramping, BTC drawdown debutant -50%. P3 unambiguous (stress actif
+    # multi-indicateur, pas singleton).
+    ("2018-10-29", 3, "Sell-off oct 2018 (Fed hawkish + tech massacre)"),
+    # 2020-03-12 : COVID circuit breakers day. VIX 75 (close), S&P -9.5%
+    # une seule seance, panique systemique, repo blowup, treasury
+    # liquidity stress. P4 unambiguous.
+    ("2020-03-12", 4, "COVID circuit breakers (VIX 75)"),
+    # 2024-04-15 : Q1 2024 hiccup (sticky inflation, repricing Fed cuts).
+    # VIX 19, USDJPY 154 (intervention talk), 10Y back to 4.7%. Stress
+    # macro fragilite sans crise. P2 unambiguous.
+    ("2024-04-15", 2, "Q1 2024 sticky CPI + USDJPY 154"),
 ]
 
 
@@ -453,8 +475,9 @@ def report_oos_strict(results: list[dict]) -> None:
 
     print("\n" + "=" * 100)
     print(f"SYNTHESE  OOS {oos_p}/{oos_t}  +  HOLDOUT {h_p}/{h_t}")
-    holdout_pass = h_p >= max(3, h_t - 1)  # >=3/4 ou tolerance N-1
-    oos_pass = oos_p >= max(4, oos_t - 2)  # >=4/6
+    # Seuils 75% : 8 dates HOLDOUT -> >= 6/8 ; 6 dates OOS -> >= 4/6.
+    holdout_pass = h_p / h_t >= 0.75 if h_t else False
+    oos_pass = oos_p / oos_t >= 0.66 if oos_t else False
     if holdout_pass and oos_pass:
         print("\n→ VERDICT OOS : V3 wirable Phase A sizing-phase.")
         print("  Les frontieres tiennent hors de l'echantillon de tune.")

@@ -43,23 +43,42 @@ Investigation en couches :
 3. **Verdict logic** : HOLDOUT pass ≥ 3/4 + OOS ≥ 4/6 → V3 wirable. Sinon demote à exploratoire.
 4. **Snapshot CSV** : `docs/backtests/debt_composite_2017_2026_v3_holdout_02_06.csv` (reproductible).
 
-### Résultat empirique du run 02/06
+### Résultat empirique vague 1 (02/06 matin, 4 HOLDOUT)
 
 | Dataset | Pass | Total |
 |---|---|---|
 | ANCHORS (in-sample) | **8/8** | tautologique |
 | OOS_DATES (commit 7a43189) | **5/6** | 1 fail = Delta variant 2021-07-19 (V3 dit P3, label P2 fenêtre — singleton) |
-| HOLDOUT_DATES (vrais OOS) | **2/4** | 2 fails sur dates « calme » 2017-08-10 et 2025-02-25 |
+| HOLDOUT_DATES (vague 1) | **2/4** | 2 fails sur dates « calme » 2017-08-10 et 2025-02-25 |
 
-**Verdict synthèse** : HOLDOUT 2/4 < seuil 3/4 → **V3 DEMOTE à exploratoire**, pas de wire Phase A.
+### Résultat empirique vague 2 (02/06 après-midi, 8 HOLDOUT)
 
-### Honnêteté L11 sur les 2 fails HOLDOUT
-Avant de conclure « formule cassée » :
+HOLDOUT enrichi avec 4 dates additionnelles à régime CLAIR (Goldilocks 2017, sell-off oct 2018, COVID circuit breakers, Q1 2024 sticky CPI).
 
-- **2025-02-25** label P1 « calme pré-tariff ». V3 dit P2 (score 26.8). À ce moment : Fed encore en QT (FedBalance YoY négatif), BTC en drawdown post-ATH, DXY remontée. Plusieurs flags risque actifs. **Label P1 contestable** — V3 peut avoir raison.
-- **2017-08-10** label P1 « NK Guam singleton ». V3 dit P2 (score 36.0). À ce moment : Fed tapering commencé, BTC drawdown amorçé, CoreCPI sous target. Score 36 ≈ frontière P1/P2. **Borderline**.
+| HOLDOUT date | Label | V3 phase | V3 score | Verdict |
+|---|---|---|---|---|
+| 2020-09-23 stress post-COVID | P3 | P3 | 79.8 | ✓ |
+| 2022-09-26 UK gilts | P3 | P3 | 83.0 | ✓ |
+| 2025-02-25 calme pré-tariff | P1 | **P2** | 26.8 | ✗ |
+| 2017-08-10 NK threat | P1 | **P2** | 36.0 | ✗ |
+| 2017-12-15 Goldilocks (VIX 9.5) | P1 | **P2** | 36.0 | ✗ |
+| 2018-10-29 sell-off oct (VIX 27) | P3 | **P2** | 53.0 | ✗ |
+| 2020-03-12 COVID circuit breakers | P4 | P4 | 142.0 | ✓ |
+| 2024-04-15 Q1 2024 sticky CPI | P2 | P2 | 32.0 | ✓ |
 
-Si on accepte les 2 fails comme « V3 borderline juste, label P1 strict trop optimiste », alors HOLDOUT 4/4 et V3 wirable. **Mais** L11 dit explicitement : on ne relabelise PAS post-hoc après mesure — c'est le piège tautologique. Verdict reste **DEMOTE**.
+**Synthèse : HOLDOUT 4/8** (50%) < seuil 75%. **V3 DEMOTE à exploratoire** confirmé.
+
+### Diagnostic structurel (pattern observé, pas du bruit)
+
+**Biais centriste P2 systématique** :
+1. **3/3 dates labelées P1 fail toutes** → V3 répond systématiquement P2, jamais P1. Le score minimum observé sur ces dates « calmes » est 26-36, alors que la frontière P1/P2 est probablement ~25. Goldilocks 2017 avec VIX 9.5 record low et S&P ATH calme → V3 score 36 (= score le plus bas pour P2). **La formule ne génère jamais de P1**.
+2. **1/1 sell-off net P3 fail** (oct 2018) → V3 dit P2 (score 53). Sell-off -10% S&P en 30j + VIX 27 + Fed hawkish + tech massacre = P3 sans ambiguïté. V3 sous-estime le stress.
+
+**Origine probable** :
+- **Frontière P1/P2 trop basse** : la combinaison BTC_drawdown180 + FedBalance_yoy injecte un floor de stress structurel qui empêche P1 même en régime calme.
+- **Frontière P2/P3 trop haute** : V3 demande trop d'indicateurs co-firing pour passer P2→P3 (manque d'expression de la vélocité du sell-off).
+
+**Conclusion** : V3 n'est pas borderline juste sur quelques labels contestables — V3 est **structurellement biaisée vers P2** (centre de gravité). Le pattern est trop systématique pour relabel post-hoc.
 
 ---
 
@@ -89,7 +108,13 @@ Si on accepte les 2 fails comme « V3 borderline juste, label P1 strict trop opt
 
 [À remplir après enrichissement HOLDOUT + sanity-check 2 fails.]
 
-**Verdict** : EXPLORATOIRE (au 02/06) — révision attendue 09/06 avant J-day.
+**Verdict** : EXPLORATOIRE — pas de wire Phase A. V4 nécessaire (changement structurel, pas tweaks de seuils).
+
+**Pistes V4 prioritaires** (à explorer post J-day, pas en pré-batch) :
+1. **Retirer BTC_drawdown180 du composite** : il pollue le P1 en imposant un floor de stress structurel même en régime calme (BTC est souvent en drawdown même sans stress macro).
+2. **Repenser FedBalance_yoy** : YoY négatif en QT permanent depuis 2022 → injecte un biais P2. Considérer un seuil de QT (>= -20% YoY → flag) plutôt qu'un input continu.
+3. **Boost frontière P2→P3** : ajouter un indicateur de vélocité (S&P drawdown 30j, MOVE 30j vs moyenne) pour capter les sell-offs nets type oct 2018 que V3 manque.
+4. **Frontière P1/P2 ajustée empiriquement** : viser que ~30% des dates 2017-2026 tombent en P1 (au lieu de 0% actuel).
 
 ---
 
