@@ -12,6 +12,13 @@ import yaml
 
 from intelligence import asymmetry as asym_mod
 
+# Sprint 3 logos tickers : import + force-reload pour bypass cache sys.modules
+# tant que serve.py n'est pas restart pour activer le nouveau watch.
+import importlib  # noqa: E402
+import shared.ticker_logos as _ticker_logos_mod  # noqa: E402
+importlib.reload(_ticker_logos_mod)
+_ticker_logo = _ticker_logos_mod.logo_html
+
 # Reconciliation flags - known book/broker drifts not yet journaled.
 # Clear an entry when reconciled via /position_sell + /position_buy.
 RECONCILE_FLAGS: list[dict] = []
@@ -2355,12 +2362,12 @@ def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
         pc = max(0.0, min(100.0, prog))
         hit = prog >= 100
         hits += 1 if hit else 0
-        cls, sign = ("up", "+") if pnl >= 0 else ("down", "")
+        cls, arrow = ("up", "&#9650;") if pnl >= 0 else ("down", "&#9660;")
         flag = " &#127919;" if hit else ""
         d = i * 0.035
         rows.append(
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
-            f'<span class="tk">{tk}{flag}</span><span class="tag {cls}">{sign}{pnl:.1f}%</span></div>'
+            f'<span class="tk">{_ticker_logo(tk)}{tk}{flag}</span><span class="tag {cls}">{arrow}&nbsp;{abs(pnl):.1f}%</span></div>'
             f'<div class="axis"><div class="axis-mark" style="left:{pc:.1f}%" title="{pc:.1f}%"></div></div>'
             f'<div class="rs"><span>vers la cible</span><span class="mono">{prog:.0f}%</span></div></div>'
         )
@@ -2531,47 +2538,51 @@ def _concentration(
     line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du plafond' if top_pct >= POS_CAP else 'sous le plafond'} {POS_CAP:.0f}%"
     these_msg = f"{dom_these} &middot; {'&#9888; all&eacute;ger' if dom_these_pct >= NARRATIVE_CAP else 'sous le plafond'} {NARRATIVE_CAP:.0f}%"
     cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
-    # --- Cluster correle (gouverneur de concentration, policy 25/05) ---
-    # source unique partagee avec le bandeau d'ecart (cf. _cluster_health)
-    _crows = []
-    for _c in _ch:
-        _ccls = "danger" if _c["breached"] else "calm"
-        _otxt = (
-            f"d&eacute;passement +{_c['over_eur']:,.0f}&#8239;&euro; &rarr; all&eacute;ger"
-            if _c["over_eur"] > 0
-            else "sous le plafond"
-        ).replace(",", "&#8239;")
-        _crows.append(
-            f'<div class="pi {_ccls}"><span class="pn">{_c["pct"]:.0f}%</span>'
-            f'<span class="pl">{_c["name"]} &middot; plafond {_c["cap"]:.0f}%</span>'
-            f'<span class="pt">{_otxt}</span></div>'
-        )
-    cluster_card = (
-        (
-            '<div class="plan"><div class="plan-h">Cluster corr&eacute;l&eacute; (gouverneur)</div><div class="plan-row">'
-            + "".join(_crows)
-            + "</div></div>"
-        )
-        if _crows
-        else ""
+    # === Star Concentration : fusion verdict + cluster + 3 KPIs ===
+    # (ancien rendu cluster row-by-row retire 01/06 -- le Star ne montre que
+    # le breach principal en footer, le detail multi-clusters est superflu)
+    # Mapping vcls (acc/warn/bear) -> ps-val color class
+    _verdict_pcls = {"acc": "acc", "warn": "warn", "bear": "bear"}.get(vcls, "")
+    _top_pcls = {"acc": "acc", "warn": "warn", "bear": "bear"}.get(top_cls, "")
+    _these_pcls = {"acc": "acc", "warn": "warn", "bear": "bear"}.get(these_cls, "")
+    # Footer : cluster gouverneur si breached
+    _cluster_foot = ""
+    breached = [c for c in _ch if c["breached"]]
+    if breached:
+        c = breached[0]
+        _ov = f"{c['over_eur']:,.0f}".replace(",", "&#8239;")
+        _cluster_foot = f"Cluster <b>{c['name']}</b> &agrave; {c['pct']:.0f}% (plafond {c['cap']:.0f}%) &middot; d&eacute;passement +{_ov}&nbsp;&euro;"
+    else:
+        _cluster_foot = "Cluster corr&eacute;l&eacute; (gouverneur) : sous plafond"
+    _overcap_meta = (
+        f"{over_cap} ligne(s) au-dessus du plafond {POS_CAP:.0f}%"
+        + (f" &middot; {over_nm}" if over_nm else "")
     )
-    verdict_card = (
-        '<div class="plan"><div class="plan-h">Verdict concentration</div>'
-        '<div class="plan-row" style="grid-template-columns:minmax(160px,1fr) 2fr">'
-        + f'<div class="pi {vcls}"><span class="pn">{verdict}</span><span class="pl">posture concentration</span><span class="pt">{cause}</span></div>'
-        + f'<div class="pi"><span class="pl">{over_cap} ligne(s) au-dessus du plafond {POS_CAP:.0f}%</span>'
-        + f'<span class="pt" style="font-size:13px;color:var(--ink);margin-top:var(--s1);line-height:1.5">{over_nm or "aucune"}</span></div>'
-        + "</div></div>"
+    star_strate_verdict = (
+        '<div class="ps-strate">'
+        + '<div class="ps-lbl">Verdict concentration</div>'
+        + '<div class="ps-macro-row">'
+        + f'<div class="ps-val {_verdict_pcls}">{verdict}</div>'
+        + f'<div class="ps-macro-meta">{cause}</div>'
+        + "</div>"
+        + f'<div class="ps-cap">{_overcap_meta}</div>'
+        + "</div>"
+    )
+    star_strate_grid = (
+        '<div class="ps-strate ps-grid">'
+        + f'<div class="ps-cell"><div class="ps-lbl">Premi&egrave;re ligne</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Th&egrave;se dominante</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Capital investi</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} lignes &middot; {len(sw_real)} secteurs</div></div>'
+        + "</div>"
+    )
+    star_strate_foot = f'<div class="ps-strate ps-foot">{_cluster_foot}</div>'
+    star_concentration = (
+        f'<div class="page-star">{star_strate_verdict}{star_strate_grid}{star_strate_foot}</div>'
     )
     return (
         f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h2>Concentration</h2>'
         f'<div class="sub">Trois axes de concentration &mdash; par ligne, par secteur, par g&eacute;ographie</div></div>'
-        f"{verdict_card}"
-        f"{cluster_card}"
-        f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
-        f'<div class="kpi"><span class="kl">Premi&egrave;re ligne</span><span class="kv {top_cls}">{_pct(top_pct)}%</span><span class="kd">{line_msg}</span></div>'
-        f'<div class="kpi"><span class="kl">Th&egrave;se dominante</span><span class="kv {these_cls}">{dom_these_pct:.0f}%</span><span class="kd">{these_msg}</span></div>'
-        f'<div class="kpi"><span class="kl">Capital investi</span><span class="kv">{cap}&nbsp;&euro;</span><span class="kd">{len(positions)} lignes</span></div></div>'
+        f"{star_concentration}"
         f'<div class="card pad"><div class="sbwrap"><div class="sb-top"><div class="sb-kpi"><span class="sb-kl">CAPITAL D&Eacute;PLOY&Eacute;</span><span class="sb-kv">{cap}&nbsp;&euro;</span></div><div class="sb-kpi"><span class="sb-kl">SECTEURS</span><span class="sb-kv">{len(sw_real)}</span></div><div class="sb-kpi"><span class="sb-kl">PLUS GROSSE EXPOSITION</span><span class="sb-kv">{dom_these} &middot; {dom_these_pct:.0f}%</span></div></div><div id="sb-bars" class="sb-bars"></div><div id="sb-panel"></div></div></div>'
         f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
         f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
@@ -2617,7 +2628,7 @@ def _render_bucket(
         )
         lines += (
             f'<div class="sec-row" data-tk="{tk}" data-w="{w:.2f}" data-pct="{pct:.4f}" data-dv="{dv if dv is not None else -1e9:.2f}" data-pl="{pl if pl is not None else -1e9:.2f}">'
-            f'<span class="sec-tk">{tk}{badge}{nmspan}</span>'
+            f'<span class="sec-tk">{_ticker_logo(tk)}{tk}{badge}{nmspan}</span>'
             f'<span class="num">{w:.0f}&euro;</span><span class="num">${usd:.0f}</span>'
             f'<span class="num">{pct:.1f}%</span>{dvc}{plc}</div>'
         )
@@ -2920,11 +2931,38 @@ def _signaux() -> str:
     except Exception as e:
         src_rows, nsrc = _err(e), 0
 
-    kpis = (
-        f'<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
-        f'<div class="kpi"><span class="kl">Signaux 24&nbsp;h</span><span class="kv">{s24}</span><span class="kd">Gmail + EDGAR</span></div>'
-        f'<div class="kpi"><span class="kl">Signaux 30&nbsp;j</span><span class="kv">{s30}</span><span class="kd">fen&ecirc;tre roulante</span></div>'
-        f'<div class="kpi"><span class="kl">D&eacute;p&ocirc;ts 8-K &middot; 60&nbsp;j</span><span class="kv">{n8k}</span><span class="kd">source EDGAR</span></div></div>'
+    # === Star Signaux : verdict activite + 3 KPIs flow + tally severite ===
+    # Verdict activite 24h : ACTIF si s24 >= 5, sinon CALME (seuil approximatif
+    # ajuste si besoin avec backlog reel observe).
+    if s24 >= 5:
+        _act_cls, _act_lbl, _act_cap = "warn", "ACTIF", f"{s24} signaux entrants 24h"
+    elif s24 >= 1:
+        _act_cls, _act_lbl, _act_cap = "", "MOD&Eacute;R&Eacute;", f"{s24} signal(aux) 24h &middot; flux normal"
+    else:
+        _act_cls, _act_lbl, _act_cap = "acc", "CALME", "aucun signal 24h"
+    star_strate_act = (
+        '<div class="ps-strate">'
+        + '<div class="ps-lbl">Activit&eacute; signaux 24h</div>'
+        + '<div class="ps-macro-row">'
+        + f'<div class="ps-val {_act_cls}">{_act_lbl}</div>'
+        + f'<div class="ps-macro-meta">{_act_cap}</div>'
+        + "</div>"
+        + "</div>"
+    )
+    star_strate_kpis = (
+        '<div class="ps-strate ps-grid">'
+        + f'<div class="ps-cell"><div class="ps-lbl">Signaux 24&nbsp;h</div><div class="ps-val">{s24}</div><div class="ps-cap">Gmail + EDGAR</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Signaux 30&nbsp;j</div><div class="ps-val">{s30}</div><div class="ps-cap">fen&ecirc;tre roulante</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">8-K &middot; 60&nbsp;j</div><div class="ps-val">{n8k}</div><div class="ps-cap">{tally_str}</div></div>'
+        + "</div>"
+    )
+    star_strate_foot = (
+        '<div class="ps-strate ps-foot">'
+        + f'{nsrc} sources actives &middot; recalibrage cr&eacute;dibilit&eacute; 1er du mois'
+        + "</div>"
+    )
+    star_signaux = (
+        f'<div class="page-star">{star_strate_act}{star_strate_kpis}{star_strate_foot}</div>'
     )
     cols = (
         f'<div class="cols">'
@@ -2948,10 +2986,13 @@ def _signaux() -> str:
             f'<span class="a">60&nbsp;j &middot; Form 4 EDGAR</span></div>'
             f'<div class="card pad">{insiders}</div>'
         )
+    # Track record + sante distribution remontes ici (depuis vue d'ensemble)
+    # 01/06 user pref : la page signaux groupe le pilotage qualite des signaux
+    # (track record + 6 vigilances + 8-K + insider flux).
     return (
         f'<section data-page="signaux" role="region" aria-label="Signaux"><div class="phead"><h2>Signaux</h2>'
-        f'<div class="sub">D&eacute;p&ocirc;ts 8-K par s&eacute;v&eacute;rit&eacute; &middot; cr&eacute;dibilit&eacute; des sources &middot; flux d\'initi&eacute;s</div></div>'
-        f"{kpis}{cols}{insider_flow_strip}{insider_clusters_strip}</section>"
+        f'<div class="sub">Track record &middot; sant&eacute; distribution &middot; d&eacute;p&ocirc;ts 8-K &middot; flux d\'initi&eacute;s</div></div>'
+        f"{star_signaux}{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}</section>"
     )
 
 
@@ -3204,33 +3245,47 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         if _c["breached"]:
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
             _conc.append(f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;")
-    _dev_cls, _dev_lab = ("danger", "FRICTIONS") if _conc else ("calm", "ALIGN&Eacute;")
-    _dev_txt = " &nbsp;&middot;&nbsp; ".join(_conc) if _conc else "concentration sous les plafonds"
-    feu = (
-        '<div class="plan"><div class="plan-h">&Agrave; arbitrer aujourd&rsquo;hui</div><div class="plan-row">'
-        + f'<div class="pi {_dev_cls}"><span class="pn">{_dev_lab}</span><span class="pl">&eacute;cart de discipline</span><span class="pt">{_dev_txt}</span></div>'
-        + f'<div class="pi calm"><span class="pn">{near_t}</span><span class="pl">ligne(s) &agrave; &ge;75% de la cible</span><span class="pt">marge restante OK</span></div>'
-        + f'<div class="pi {"danger" if near else "calm"}"><span class="pn">{near}</span><span class="pl">ligne(s) &agrave; &lt;10% du stop</span><span class="pt">{"&agrave; surveiller" if near else "calme"}</span></div>'
-        + "</div>"
-        + '<div style="margin-top:16px;padding-top:13px;border-top:1px solid var(--line);display:flex;gap:30px;flex-wrap:wrap;font-size:12px;color:var(--steel)">'
-        + f'<span>{size_txt} &middot; sizing <b style="color:var(--ink)">&times;{_sfac:.1f}</b></span>'
-        + "</div></div>"
-    )
     _phase_col = _PHASE_COL.get(cphase, "steel")
-    gauge = (
-        '<div class="gauge"><div class="ghead">'
-        '<span class="gl">Sant&eacute; macro &middot; cr&eacute;dit / or / taux 30a / inflation / VIX</span>'
-        + f'<span class="gv"><span class="gvm" style="--c:var(--{_phase_col})">{clabel}</span>'
-        + f'<span style="font-size:12px;color:var(--steel);font-weight:500"> &middot; score {score:.0f}</span></span></div>'
-        + f'<div class="gtrack"><div class="axis-mark" style="left:{(cphase - 0.5) * 25:.0f}%" title="score {score:.0f} &middot; phase {cphase}"></div></div>'
-        + '<div class="glab"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div></div>'
+    # Strate 1 : etat macro + frise STRESS pleine largeur
+    star_macro = (
+        '<div class="ps-strate">'
+        + '<div class="ps-lbl">&Eacute;tat macro</div>'
+        + '<div class="ps-macro-row">'
+        + f'<div class="ps-val {_phase_col}">{clabel}</div>'
+        + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}</div>'
+        + "</div>"
+        + f'<div class="ps-frise"><div class="ps-frise-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
+        + '<div class="ps-frise-labs"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div>'
+        + "</div>"
     )
+    # Strate 2 : 3 cellules (frictions, cibles, stops)
+    if _conc:
+        f_cls, f_val, f_lbl, f_cap = "bear", len(_conc), "FRICTIONS", _conc[0]
+    else:
+        f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGN&Eacute;", "concentration sous les plafonds"
+    t_cap = "marge restante OK" if near_t else "rien proche de la cible"
+    s_cls = "bear" if near else "acc"
+    s_cap = "&agrave; surveiller" if near else "calme"
+    star_grid = (
+        '<div class="ps-strate ps-grid">'
+        + f'<div class="ps-cell"><div class="ps-lbl">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Cibles &ge;75%</div><div class="ps-val">{near_t}</div><div class="ps-cap">{t_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Stops &lt;10%</div><div class="ps-val {s_cls}">{near}</div><div class="ps-cap">{s_cap}</div></div>'
+        + "</div>"
+    )
+    # Strate 3 : footer technique (VIX + sizing)
+    star_foot = (
+        '<div class="ps-strate ps-foot">'
+        + f'{size_txt} &middot; sizing <b>&times;{_sfac:.1f}</b>'
+        + "</div>"
+    )
+    star = f'<div class="page-star">{star_macro}{star_grid}{star_foot}</div>'
     rsi_html = _market_rsi()
     breadth_html = _breadth_rsp_spy()
     return (
         f'<section data-page="urgence" role="region" aria-label="Urgence"><div class="phead"><h2>Urgence</h2>'
         f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro</div></div>'
-        f"{feu}{gauge}"
+        f"{star}"
         f'<div class="cols">'
         f'<div><div class="ph3">Course vers la cible</div><div class="card pad">{elan}</div></div>'
         f'<div><div class="ph3">Marges les plus faibles</div><div class="card pad">{watch}</div></div>'
@@ -3361,7 +3416,7 @@ def _cockpit() -> str:
     css = (
         "<style>"
         ".ck-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--s3);margin-top:var(--s2)}"
-        ".ck-cell{background:color-mix(in srgb,var(--ink) 2%,transparent);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s35) 16px}"
+        ".ck-cell{padding:var(--s35) 4px;border-bottom:1px solid var(--line)}"
         ".ck-label{font-size:12px;color:var(--steel);letter-spacing:.01em}"
         ".ck-num{font-family:var(--fm);font-size:22px;font-weight:500;margin-top:var(--s15);line-height:1.05;letter-spacing:-.01em}"
         ".ck-sub{font-size:12px;color:var(--steel);margin-top:var(--s15);line-height:1.4}"
@@ -3417,7 +3472,9 @@ def _journal() -> str:
     return out
 
 
-_LOGO = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='270 202 906 483' role='img' aria-label='PRESAGE' fill='currentColor'><g transform='translate(375,195)'><g transform='translate(0.000000,380.000000) scale(0.100000,-0.100000)' fill='currentColor' stroke='none'><path d='M2330 3208 c-223 -222 -441 -439 -485 -483 l-81 -80 -17 -53 -17 -54 7 -194 6 -195 141 3 141 3 5 150 5 150 12 20 c6 11 215 222 462 470 l451 450 0 15 0 15 -93 93 -92 92 -20 0 -19 0 -406 -402z'/><path d='M4114 3528 c-45 -46 -87 -94 -94 -107 l-12 -23 463 -464 464 -464 5 -158 5 -157 134 -3 134 -3 8 8 8 8 3 195 3 195 -26 55 -27 55 -471 470 -471 470 -23 3 -22 3 -81 -83z'/><path d='M3485 2454 c-3 -22 -17 -75 -31 -119 l-25 -80 -30 -47 c-38 -59 -95 -110 -157 -142 l-48 -24 -60 -11 -59 -10 -305 -6 c-168 -3 -640 -12 -1050 -20 -829 -16 -1399 -33 -1475 -44 l-50 -7 370 -12 c204 -7 674 -19 1045 -27 371 -8 862 -19 1090 -25 l415 -10 60 -15 60 -16 48 -31 c61 -39 111 -98 147 -173 l28 -60 12 -65 c7 -36 16 -76 20 -90 l7 -25 8 40 c16 87 38 162 62 213 l26 53 42 47 43 48 49 26 c27 15 70 32 96 37 l47 11 342 10 c189 6 667 17 1063 25 396 8 887 20 1090 27 l370 13 -65 6 c-139 15 -885 35 -2205 59 l-580 11 -60 15 -60 15 -41 24 -42 24 -45 51 -46 51 -25 52 -26 52 -19 88 c-11 49 -22 91 -25 94 -2 3 -7 -12 -11 -33z'/><path d='M1738 1613 c-2 -76 -3 -168 -2 -204 l0 -66 27 -55 27 -55 52 -44 c29 -24 242 -231 474 -461 l420 -418 25 0 24 0 88 91 88 92 -3 13 c-2 8 -210 221 -463 474 l-460 460 -3 148 -4 147 -11 7 -12 8 -132 0 -133 0 -2 -137z'/><path d='M4953 1744 l-13 -6 -1 -136 c0 -75 -3 -144 -7 -153 -4 -9 -211 -223 -459 -474 l-453 -458 0 -16 0 -16 87 -87 88 -88 25 0 24 0 459 457 458 458 27 44 26 45 11 55 10 56 -5 160 -5 160 -130 2 c-71 1 -136 -1 -142 -3z'/></g></g><g transform='translate(265,598)'><g transform='translate(0.000000,100.000000) scale(0.100000,-0.100000)' fill='currentColor' stroke='none'><path d='M174 841 c-2 -2 -4 -136 -4 -298 l0 -293 45 0 45 0 0 100 0 100 98 0 c53 0 114 5 135 11 163 45 185 285 31 359 -42 21 -62 23 -196 24 -82 1 -152 -1 -154 -3z m301 -95 c89 -37 83 -166 -9 -201 -28 -11 -66 -15 -121 -13 l-80 3 -3 113 -3 112 91 0 c56 0 104 -5 125 -14z'/><path d='M1534 835 c-3 -6 -3 -141 -2 -300 l3 -290 45 0 45 0 3 113 3 112 62 0 63 0 78 -110 77 -110 56 0 55 0 -17 28 c-10 15 -45 65 -78 112 -33 46 -55 86 -49 88 24 8 76 49 96 75 15 20 21 46 24 95 4 87 -22 135 -91 171 -45 23 -59 25 -209 25 -100 1 -162 -3 -164 -9z m347 -113 c53 -59 29 -140 -49 -162 -20 -5 -74 -10 -119 -10 l-83 0 0 106 0 106 111 -4 c111 -3 111 -3 140 -36z'/><path d='M2988 843 l-48 -4 0 -295 0 -294 220 0 220 0 0 40 0 40 -175 0 -175 0 0 85 0 85 150 0 150 0 0 45 0 45 -150 0 -150 0 0 85 0 85 173 2 172 3 3 34 c2 20 -2 37 -10 42 -13 8 -283 9 -380 2z'/><path d='M4435 832 c-105 -49 -135 -171 -62 -250 31 -34 59 -46 172 -76 113 -30 135 -45 135 -93 0 -41 -26 -68 -80 -83 -57 -15 -121 -3 -185 35 l-55 34 -27 -36 c-27 -35 -27 -36 -8 -50 62 -46 121 -67 207 -71 76 -4 92 -1 140 21 89 40 131 140 93 221 -25 52 -56 70 -190 110 -127 37 -148 51 -143 100 7 73 128 96 223 43 l49 -28 25 26 c33 32 23 51 -45 85 -66 34 -190 40 -249 12z'/><path d='M5918 843 l-36 -4 -112 -262 c-62 -144 -119 -277 -127 -294 l-13 -33 52 0 53 0 23 58 c99 244 175 422 181 422 4 0 13 -17 20 -37 7 -21 24 -63 37 -93 13 -30 50 -120 83 -200 l59 -145 51 -5 c34 -4 51 -2 51 6 0 6 -48 121 -106 255 -58 134 -113 262 -121 284 -9 22 -17 41 -17 41 -4 6 -48 10 -78 7z'/><path d='M7273 829 c-73 -28 -135 -92 -163 -165 -44 -118 -12 -278 71 -348 60 -51 109 -69 195 -74 93 -5 159 12 221 57 l38 28 -1 89 c-1 49 -2 104 -3 122 l-1 32 -121 0 -120 0 3 -42 3 -43 73 -3 72 -3 0 -59 0 -58 -47 -19 c-115 -43 -232 -6 -282 91 -59 114 -7 274 102 315 68 26 178 9 228 -36 15 -13 20 -11 43 14 15 15 25 34 24 42 -2 7 -27 27 -57 44 -47 27 -66 31 -140 34 -69 3 -97 -1 -138 -18z'/><path d='M8567 843 c-4 -3 -7 -138 -7 -300 l0 -293 220 0 220 0 0 40 0 40 -172 2 -173 3 -3 82 -3 82 148 3 148 3 3 43 3 42 -151 0 -151 0 3 83 3 82 170 5 170 5 3 36 3 36 -53 6 c-70 9 -373 9 -381 0z'/></g></g></svg>"
+# Brand mark PRESAGE : star 4 points + flare horizontal + 7 signal dots fading.
+# Source = dashboard/static/brand/presage_symbol.svg (user-provided 01/06).
+_LOGO = (Path(__file__).parent / "static" / "brand" / "presage_symbol.svg").read_text(encoding="utf-8")
 
 _TH_CSS = """
 <style>
@@ -3429,8 +3486,12 @@ _TH_CSS = """
   .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
   .th-grp { font-family:var(--fb); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin:34px 2px 13px; display:flex; align-items:center; gap:var(--s3); }
   .th-grp::after { content:""; flex:1; height:1px; background:var(--line); }
-  .th-row { display:grid; grid-template-columns:160px 46px 1fr; gap:var(--s3); align-items:center; padding:13px 15px; border:1px solid var(--line); border-radius:var(--r3); margin-bottom:0; background:color-mix(in srgb,var(--ink) 1.2%,transparent); cursor:pointer; transition:.15s; }
-  .th-row:hover { border-color:var(--line2); background:color-mix(in srgb,var(--ink) 3.5%,transparent); }
+  /* Sprint 2 purge borders TR-style : retire border + bg fill par thesis row.
+     Garde padding pour respiration + grid layout + hover propre. Separation
+     entre rows via whitespace + une hairline subtile via border-bottom. */
+  .th-row { display:grid; grid-template-columns:160px 46px 1fr; gap:var(--s3); align-items:center; padding:14px 4px; border-bottom:1px solid var(--line); margin-bottom:0; cursor:pointer; transition:background .15s; }
+  .th-row:last-child { border-bottom:none; }
+  .th-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
   .th-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
   .th-conv { font-family:var(--fm); font-weight:600; font-size:11px; letter-spacing:.04em; padding:2px 7px; border-radius:var(--r1); }
   .th-conv.c5 { color:var(--bg); background:var(--ink); }
@@ -3559,21 +3620,37 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         else f"c5 = {c5_pct:.0f}% &middot; pas d&rsquo;inflation (seuil 20%)"
     )
 
+    # === Star Theses : conviction mediane + 3 cells (cibles, gain, marges) ===
+    pcls = "acc" if n_profit * 2 >= n else "bear"
+    ncls = "bear" if n_near else "acc"
+    _tg_cls = "acc" if n_near_tgt else ""
+    _conv_lbl = f"M&Eacute;DIANE c{med}"
+    _conv_cap = f"{n} th&egrave;se(s) active(s) &middot; {dist[5]} c5 ({c5_pct:.0f}%)"
+    if infl:
+        _conv_cls = "warn"
+    elif med >= 4:
+        _conv_cls = "acc"
+    else:
+        _conv_cls = ""
     hero = (
-        '<div class="hero"><div><div class="hl">Th&egrave;ses actives</div>'
-        f'<div class="big" style="--c:var(--id)">{n}</div>'
-        f'<div class="hsub">m&eacute;diane c{med} &middot; {n_near} marge(s) faible(s) &middot; {n_near_tgt} proche(s) de la cible</div></div>'
-        '<div style="flex:1;min-width:250px"><div class="hl">R&eacute;partition par conviction</div>'
-        f'{hist}<div class="hsub" style="margin-top:var(--s2)">{infl_msg}</div></div></div>'
+        f'<div class="page-star">'
+        f'<div class="ps-strate ps-grid">'
+        f'<div class="ps-cell"><div class="ps-lbl">Proches de la cible</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">marge &lt; 12%</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl">En gain</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">cours &gt; co&ucirc;t d&rsquo;entr&eacute;e</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl">Marges faibles</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">marge &lt; 10% du stop</div></div>'
+        f'</div>'
+        f'<div class="ps-strate"><div class="ps-lbl">Convictions</div>'
+        f'<div class="ps-macro-row"><div class="ps-val {_conv_cls}">{_conv_lbl}</div>'
+        f'<div class="ps-macro-meta">{_conv_cap}</div></div>'
+        f'<div class="ps-cap">{infl_msg}</div></div>'
+        f'<div class="ps-strate ps-foot">R&eacute;partition par conviction ci-dessous</div>'
+        f'</div>'
     )
-
-    pcls = "acc" if n_profit * 2 >= n else "negc"
-    ncls = "negc" if n_near else "acc"
+    # Repartition par conviction (ancien hero 2nd col) reste en panneau detail
     kpis = (
-        '<div class="kpis" style="grid-template-columns:repeat(3,1fr)">'
-        f'<div class="kpi"><span class="kl">Proches de la cible</span><span class="kv acc">{n_near_tgt}</span><span class="kd">marge &lt; 12%</span></div>'
-        f'<div class="kpi"><span class="kl">En gain</span><span class="kv {pcls}">{n_profit}/{n}</span><span class="kd">cours &gt; co&ucirc;t d&rsquo;entr&eacute;e</span></div>'
-        f'<div class="kpi"><span class="kl">Marges faibles</span><span class="kv {ncls}">{n_near}</span><span class="kd">marge &lt; 10% du stop</span></div></div>'
+        f'<div class="card pad" style="margin-bottom:var(--s4)">'
+        f'<div class="ps-lbl" style="margin-bottom:14px">R&eacute;partition par conviction</div>'
+        f'{hist}</div>'
     )
 
     gap = ""
@@ -3773,7 +3850,7 @@ _CSS = """
   .hero .hl { font-family:var(--fb); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
   .hero .hsub { font-size:13px; color:var(--steel); margin-top:var(--s15); }
   .distbar { flex:1; min-width:240px; } .distline { display:flex; height:8px; border-radius:var(--r1); overflow:hidden; }
-  .distline .g { background:oklch(0.72 0.16 150); } .distline .r { background:oklch(0.62 0.18 25); }
+  .distline .g { background:var(--acc); } .distline .r { background:var(--bear); }
   .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s4); margin-bottom:26px; }
   .kpi { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:13px 16px; }
   .kl { display:block; font-family:var(--fb); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
@@ -3820,11 +3897,79 @@ _CSS = """
   .mono { font-family:var(--fm); font-weight:600; color:var(--ink); } .mono.pos { color:var(--acc); } .mono.neg { color:var(--bear); }
   .gauge { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:16px 20px; margin-bottom:15px; }
   .ghead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:11px; } .ghead .gl { font-family:var(--fb); font-weight:600; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); } .ghead .gv { font-family:var(--fm); font-weight:500; font-size:22px; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
-  .gtrack { position:relative; height:6px; border-radius:3px; background:linear-gradient(90deg in oklch,oklch(0.80 0.15 150),oklch(0.80 0.16 90) 52%,oklch(0.63 0.18 25)); }
+  .gtrack { position:relative; height:6px; border-radius:3px; background:linear-gradient(90deg, var(--acc), var(--warn) 52%, var(--bear)); }
   .glab { margin-top:9px; font-size:11px; color:var(--steel); display:flex; justify-content:space-between; font-family:var(--fm); letter-spacing:.08em; }
   .row { padding:9px 0; border-bottom:1px solid var(--line); opacity:0; animation:fade .45s ease forwards; } .row:last-child { border-bottom:none; }
   .row[data-tk] { cursor:pointer; } .row[data-tk]:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
-  .rt { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; } .tk { font-family:var(--fm); font-weight:600; font-size:13px; }
+  .rt { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; gap:8px; } .tk { font-family:var(--fm); font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:7px; }
+  /* Sprint 3 logos tickers (Clearbit + fallback initiale, cf shared/ticker_logos.py) */
+  .tklogo { width:18px; height:18px; border-radius:50%; object-fit:contain; background:#fff; padding:2px; vertical-align:middle; flex-shrink:0; box-sizing:border-box; border:1px solid var(--line); margin-right:6px; }
+  .tklogo.tkfb { display:inline-flex; align-items:center; justify-content:center; background:var(--steel); color:var(--bg); font-family:var(--fm); font-size:9px; font-weight:700; padding:0; border:none; }
+  .tape .tklogo { width:16px; height:16px; padding:1px; margin-right:5px; }
+  .lp-h .tklogo { width:32px; height:32px; padding:3px; margin-right:10px; align-self:center; }
+  .lp-h .tklogo.tkfb { font-size:14px; }
+  .lp-h { align-items:center !important; }
+  /* === Page Star : panneau hero "verdict 3 secondes" par page === */
+  /* User feedback 01/06 : un panneau clair, bien espace, hierarchie typo
+     restreinte (label uppercase steel + value 24-28px ink + caption steel),
+     3 strates separees par hairlines, padding genereux (32-40px). */
+  .page-star { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:32px 36px; margin-bottom:var(--s4); }
+  .page-star .ps-strate { padding:18px 0; }
+  .page-star .ps-strate:first-child { padding-top:0; }
+  .page-star .ps-strate:last-child { padding-bottom:0; }
+  .page-star .ps-strate + .ps-strate { border-top:1px solid var(--line); }
+  .page-star .ps-lbl { font-family:var(--fm); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
+  .page-star .ps-val { font-family:var(--fb); font-size:24px; font-weight:500; color:var(--ink); line-height:1.1; }
+  .page-star .ps-val.bear { color:var(--bear); }
+  .page-star .ps-val.acc { color:var(--acc); }
+  .page-star .ps-val.warn { color:var(--warn); }
+  .page-star .ps-cap { font-family:var(--fb); font-size:13px; color:var(--steel); margin-top:8px; line-height:1.4; }
+  .page-star .ps-macro-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .page-star .ps-macro-meta { font-family:var(--fm); font-size:13px; color:var(--steel); }
+  .page-star .ps-frise { height:6px; border-radius:3px; background:linear-gradient(90deg,var(--acc),var(--warn) 52%,var(--bear)); position:relative; margin-top:18px; }
+  .page-star .ps-frise-mark { position:absolute; top:50%; width:14px; height:14px; background:var(--ink); border-radius:50%; transform:translate(-50%,-50%); border:2px solid var(--panel); }
+  .page-star .ps-frise-labs { display:flex; justify-content:space-between; font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:10px; letter-spacing:.06em; }
+  .page-star .ps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:38px; }
+  .page-star .ps-cell { display:flex; flex-direction:column; }
+  .page-star .ps-foot { font-family:var(--fm); font-size:12px; color:var(--steel); }
+  .page-star .ps-foot b { color:var(--ink); font-weight:500; }
+  /* Hero row 2-col pour Vue d'ensemble Star (Valeur + Grade aesthetic) */
+  .page-star .ps-hero-row { display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start; }
+  .page-star .ps-hero-left, .page-star .ps-hero-right { min-width:0; }
+  .page-star .ps-grade-row { display:flex; align-items:center; gap:18px; margin-top:8px; }
+  .page-star .ps-grade-letter { font-family:var(--fb); font-size:42px; font-weight:500; line-height:1; flex-shrink:0; }
+  .page-star .ps-grade-letter.acc { color:var(--acc); }
+  .page-star .ps-grade-letter.warn { color:var(--warn); }
+  .page-star .ps-grade-letter.bear { color:var(--bear); }
+  .page-star .ps-grade-score { flex:1; min-width:140px; }
+  .page-star .ps-grade-num { font-family:var(--fb); font-size:22px; font-weight:500; color:var(--ink); margin-bottom:8px; }
+  .page-star .ps-grade-max { font-family:var(--fm); font-size:13px; color:var(--steel); font-weight:400; }
+  .page-star .ps-grade-bar { height:6px; background:color-mix(in srgb,var(--line) 90%,transparent); border-radius:3px; overflow:hidden; }
+  .page-star .ps-grade-fill { height:100%; transition:width .3s ease; }
+  .page-star .ps-grade-fill.acc { background:var(--acc); }
+  .page-star .ps-grade-fill.warn { background:var(--warn); }
+  .page-star .ps-grade-fill.bear { background:var(--bear); }
+  /* Ligne sous Valeur portefeuille (sub-info en lien typographique) */
+  .page-star .ps-sub-lien { font-family:var(--fb); font-size:13px; color:var(--steel); margin-top:8px; }
+  .page-star .ps-sub-lien b { color:var(--ink); font-weight:500; }
+  .page-star .ps-sub-lien b.acc { color:var(--acc); }
+  /* Sprint 4 CTA flottants bas (TR/RH-inspired) : 3 pills sticky bottom */
+  .cta-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:color-mix(in srgb,var(--panel) 95%,transparent); border:1px solid var(--line2); border-radius:32px; padding:6px; display:flex; gap:2px; z-index:50; box-shadow:0 12px 32px -10px rgba(0,0,0,.18); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+  .cta-bar button { font-family:var(--fb); font-size:13px; font-weight:500; color:var(--ink); background:transparent; border:none; padding:10px 18px; border-radius:24px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background .15s,color .15s; }
+  .cta-bar button:hover { background:color-mix(in srgb,var(--ink) 6%,transparent); }
+  .cta-bar button.act { background:var(--ink); color:var(--bg); }
+  .cta-bar kbd { font-family:var(--fm); font-size:10px; padding:1px 5px; background:color-mix(in srgb,var(--ink) 10%,transparent); border-radius:4px; opacity:.7; border:none; }
+  .cta-bar button.act kbd { background:color-mix(in srgb,var(--bg) 25%,transparent); color:var(--bg); }
+  /* Search modal */
+  .cta-modal { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; display:none; align-items:flex-start; justify-content:center; padding-top:14vh; }
+  .cta-modal.open { display:flex; }
+  .cta-modal-inner { background:var(--panel); border:1px solid var(--line2); border-radius:12px; width:min(560px,92vw); max-height:64vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 64px -16px rgba(0,0,0,.4); }
+  .cta-search-input { width:100%; padding:18px 24px; font-family:var(--fb); font-size:16px; background:transparent; border:none; border-bottom:1px solid var(--line); color:var(--ink); outline:none; box-sizing:border-box; }
+  .cta-search-results { max-height:50vh; overflow-y:auto; padding:4px; }
+  .cta-result { padding:10px 16px; display:flex; align-items:center; gap:10px; cursor:pointer; border-radius:8px; }
+  .cta-result:hover, .cta-result.sel { background:color-mix(in srgb,var(--ink) 6%,transparent); }
+  .cta-result .ctk { font-family:var(--fm); font-weight:600; color:var(--ink); }
+  .cta-result .cnm { color:var(--steel); font-size:13px; }
   .tag { font-family:var(--fm); font-weight:600; font-size:11px; padding:3px 9px; border-radius:var(--r1); }
   .tag.up { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); } .tag.acc2 { color:var(--acc2); background:color-mix(in srgb, var(--acc2) 12%, transparent); }
   .tag.down,.tag.danger { color:var(--bear); background:color-mix(in srgb, var(--bear) 13%, transparent); } .tag.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 14%, transparent); } .tag.calm { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); } .tag.mute { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); }
@@ -4513,6 +4658,76 @@ _CSS = """
   .brk-row-val { font-family:var(--fm); font-weight:400; font-size:11px; color:var(--steel); text-align:right; font-variant-numeric:tabular-nums; }
 """
 
+_CTA_JS = """
+(function(){
+  var modal=document.getElementById('ctaSearchModal');
+  var input=document.getElementById('ctaSearchInput');
+  var results=document.getElementById('ctaSearchResults');
+  var btnSearch=document.getElementById('ctaSearch');
+  var tkData=window.TK||{};
+  var allTk=Object.keys(window._TKDOMAIN||{});
+  var dataKeys=Object.keys(tkData);
+  var uniq={}; allTk.concat(dataKeys).forEach(function(t){uniq[t]=1;});
+  var allTickers=Object.keys(uniq).sort();
+  var selIdx=0;
+  function makeLogo(tk){
+    if(typeof _tkLogoJs==='function') return _tkLogoJs(tk);
+    return '<span class="tklogo tkfb">'+String(tk||'?').charAt(0).toUpperCase()+'</span>';
+  }
+  function render(q){
+    var ql=(q||'').toLowerCase();
+    var matches;
+    if(!ql){ matches=allTickers.slice(0,25); }
+    else {
+      matches=allTickers.filter(function(tk){
+        var nm=(tkData[tk]||{}).name||'';
+        return tk.toLowerCase().indexOf(ql)>=0 || nm.toLowerCase().indexOf(ql)>=0;
+      }).slice(0,40);
+    }
+    selIdx=0;
+    if(!matches.length){ results.innerHTML='<div class="cta-result" style="opacity:.5">Aucun resultat</div>'; return; }
+    results.innerHTML=matches.map(function(tk,i){
+      var nm=(tkData[tk]||{}).name||'';
+      return '<div class="cta-result '+(i===0?'sel':'')+'" data-tk="'+tk+'">'+makeLogo(tk)+'<span class="ctk">'+tk+'</span><span class="cnm">'+nm+'</span></div>';
+    }).join('');
+  }
+  function open(){ modal.classList.add('open'); input.value=''; render(''); setTimeout(function(){input.focus();},50); }
+  function close(){ modal.classList.remove('open'); }
+  function chooseSel(){
+    var els=results.querySelectorAll('.cta-result[data-tk]');
+    if(els[selIdx]){
+      var tk=els[selIdx].getAttribute('data-tk');
+      close();
+      if(typeof openLoupe==='function') openLoupe(tk);
+    }
+  }
+  if(btnSearch) btnSearch.addEventListener('click',open);
+  if(input){
+    input.addEventListener('input',function(e){render(e.target.value);});
+    input.addEventListener('keydown',function(e){
+      if(e.key==='Escape'){ e.preventDefault(); close(); return; }
+      if(e.key==='Enter'){ e.preventDefault(); chooseSel(); return; }
+      if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+        e.preventDefault();
+        var els=results.querySelectorAll('.cta-result[data-tk]');
+        if(!els.length) return;
+        selIdx=(selIdx+(e.key==='ArrowDown'?1:-1)+els.length)%els.length;
+        els.forEach(function(el,i){el.classList.toggle('sel',i===selIdx);});
+        els[selIdx].scrollIntoView({block:'nearest'});
+      }
+    });
+  }
+  if(modal) modal.addEventListener('click',function(e){
+    if(e.target===modal){ close(); return; }
+    var r=e.target.closest('.cta-result[data-tk]');
+    if(r){ var tk=r.getAttribute('data-tk'); close(); if(typeof openLoupe==='function') openLoupe(tk); }
+  });
+  document.addEventListener('keydown',function(e){
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); open(); }
+  });
+})();
+"""
+
 _APP_JS = """
   const items=document.querySelectorAll('[data-nav]'),pages=document.querySelectorAll('[data-page]');
   document.querySelectorAll('table.dt th').forEach(function(th){
@@ -4534,6 +4749,23 @@ _APP_JS = """
   var _h=(location.hash||'').replace('#','');if(_h&&/^[a-z]+$/.test(_h))show(_h);
   function _pct(v,sg){ return v==null?'&mdash;':((sg&&v>=0?'+':'')+v+'%'); }
   function mom(l,v){var c=v==null?'var(--steel)':(v>=0?'var(--acc)':'var(--bear)');return '<div class="lp-stat"><div class="lp-sl">'+l+'</div><div class="lp-sv" style="color:'+c+';font-size:16px">'+(v==null?'&mdash;':((v>=0?'+':'')+v+'%'))+'</div></div>';}
+  // Sprint 3 logos tickers : map JS mirror du shared/ticker_logos.py
+  window._TKDOMAIN = __TKDOMAIN_JSON__;
+  window._TKLOCAL = __TKLOCAL_JSON__;
+  function _tkLogoJs(tk){
+    var init=String(tk||'?').charAt(0).toUpperCase();
+    var fb="this.outerHTML='<span class=&quot;tklogo tkfb&quot;>"+init+"</span>'";
+    // Priorite 1 : fichier local self-host (offline, sans appel externe)
+    var localFile=(window._TKLOCAL||{})[tk]||(window._TKLOCAL||{})[String(tk).toUpperCase()];
+    if(localFile){
+      return '<img class="tklogo" src="/static/brand/logos/'+localFile+'" alt="" onerror="'+fb+'">';
+    }
+    var dom=(window._TKDOMAIN||{})[tk]||(window._TKDOMAIN||{})[String(tk).toUpperCase()];
+    if(!dom) return '<span class="tklogo tkfb">'+init+'</span>';
+    var ddg='https://icons.duckduckgo.com/ip3/'+dom+'.ico';
+    var fb2="this.onerror=function(){"+fb+"};this.src='"+ddg+"'";
+    return '<img class="tklogo" src="https://www.google.com/s2/favicons?domain='+dom+'&amp;sz=64" alt="" onerror="'+fb2+'">';
+  }
   function openLoupe(tk){
     var d=(window.TK||{})[tk]||{};
     var st=d.status||'out';
@@ -4547,7 +4779,7 @@ _APP_JS = """
     }
     var ana = a ? ('<div class="lp-sec">Derni&egrave;re analyse &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">R&eacute;gime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'</div>':'')+'<div class="lp-hint">Analyse compl&egrave;te : <code>/analyze '+tk+'</code> sur Telegram, ou demande-la dans le chat.</div>') : '<div class="lp-sec">Analyse</div><div class="lp-empty">Aucune analyse stock&eacute;e. <code>/analyze '+tk+'</code> sur Telegram pour g&eacute;n&eacute;rer.</div>';
     document.getElementById('loupe-body').innerHTML =
-      '<div class="lp-h"><span class="lp-tk">'+tk+'</span><span class="lp-nm">'+(d.name||'')+'</span></div>'
+      '<div class="lp-h">'+_tkLogoJs(tk)+'<span class="lp-tk">'+tk+'</span><span class="lp-nm">'+(d.name||'')+'</span></div>'
       +'<div class="lp-meta">'+badge+' &middot; '+(d.sector||'&mdash;')+' &middot; '+(d.country||'&mdash;')+'</div>'
       +((st==='held')?('<div class="lp-grid">'
       +'<div class="lp-stat"><div class="lp-sl">Poids</div><div class="lp-sv">'+d.weight_pct+'%</div></div>'
@@ -4923,7 +5155,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         vstr = f"{v:,.0f}".replace(",", "&#8239;")
         asym_cls, asym_str = _asym_format(asym.get(tk))
         rows += (
-            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{tk}<span class="nm">{nm}</span></td>'
+            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}{tk}<span class="nm">{nm}</span></td>'
             f'<td class="num mono">{vstr}&nbsp;&euro;</td><td class="num">{w:.1f}%</td>'
             f'<td class="num {pcls}">{pstr}</td>'
             f'<td class="{asym_cls}">{asym_str}</td></tr>'
@@ -5338,9 +5570,10 @@ def render() -> Path:
     pf_value = sum(p["weight"] for p in positions)
     pf_pnl_eur = pf_value - _pfcost
     vcls = "pos" if pf_pnl_eur >= 0 else "neg"
+    pf_arrow = "&#9650;" if pf_pnl_eur >= 0 else "&#9660;"
     pf_val_str = f"{pf_value:,.0f}".replace(",", "&#8239;")
     pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")
-    pf_pe = f"{pf_pnl_eur:+,.0f}".replace(",", "&#8239;")
+    pf_pe = f"{abs(pf_pnl_eur):,.0f}".replace(",", "&#8239;")
     near_stop_tk = [
         r["ticker"]
         for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
@@ -5362,7 +5595,8 @@ def render() -> Path:
     tape_items = ""
     for tk, p in sorted(pnl.items(), key=lambda x: -x[1]):
         cls = "pos" if p >= 0 else "neg"
-        tape_items += f'<span class="ti"><span class="tk tkc" data-tk="{tk}">{tk}</span> <span class="{cls}">{"+" if p >= 0 else ""}{p:.1f}%</span></span>'
+        arrow = "&#9650;" if p >= 0 else "&#9660;"
+        tape_items += f'<span class="ti">{_ticker_logo(tk)}<span class="tk tkc" data-tk="{tk}">{tk}</span> <span class="{cls}">{arrow}&nbsp;{abs(p):.1f}%</span></span>'
     tape = f'<div class="tape"><div class="track2">{tape_items}{tape_items}</div></div>'
     tape8k = _tape_8k()
 
@@ -5432,29 +5666,65 @@ def render() -> Path:
     spof_html = _spof_panel()
     mauboussin_html = _mauboussin_sizing_panel()
     valo_html = _valo_above_bull_panel()
+    # Star Vue d'ensemble : extract grade data pour 3-strate hero
+    try:
+        from intelligence import portfolio_grade as _pgrade
+        from shared import storage as _stg_g
+        _latest_g = _stg_g.get_latest_portfolio_grade()
+        if _latest_g:
+            _grade_letter = _latest_g["overall_grade"]
+            _grade_score = _latest_g["overall_score"]
+        else:
+            _g_fresh = _pgrade.compute_grade()
+            _grade_letter = _g_fresh["overall_grade"]
+            _grade_score = _g_fresh["overall_score"]
+        _trend = _pgrade.compute_trend_7d()
+        _grade_trend_str = {
+            "improving": "&uarr; 7j",
+            "stable": "stable 7j",
+            "deteriorating": "&darr; 7j",
+            "no_history": "snapshot J0",
+        }.get(_trend, "")
+    except Exception:
+        _grade_letter, _grade_score, _grade_trend_str = "&mdash;", 0, "indisponible"
+    # Add CSS class .below-star au gradecard pour cacher la ghead duplicate
+    _grade_html_below_star = grade_html.replace(
+        'class="card pad gradecard"',
+        'class="card pad gradecard below-star"',
+    )
     vigie = (
         f'<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
         f'<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
-        # Hero refonte 31/05 : Valeur + Note du portefeuille sur MEME panneau
-        # (user feedback : "valeur du portefeuille et note du portefeuille sur
-        # meme panneaux"). Flex 2 colonnes, gap discret, alignement stretch.
-        # grade_html margin-bottom strip avant embed pour eviter double-gap.
-        f'<div class="hero-row" style="display:flex;gap:var(--s4);align-items:stretch;margin-bottom:var(--s4)">'
-        f'<div class="pfcard" style="flex:1"><div class="hl">Valeur du portefeuille</div>'
-        f'<div class="v">{pf_val_str}&nbsp;&euro;</div>'
-        f'<div class="d {vcls}">{pf_pe}&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
-        f'<div class="distline" title="r&eacute;partition lignes : {gpct:.0f}% en gain ({n_gain}) / {100 - gpct:.0f}% en perte ({n_pnl - n_gain})"><div class="g" style="width:{gpct:.0f}%" title="{gpct:.0f}% en gain &middot; {n_gain} lignes"></div><div class="r" style="width:{100 - gpct:.0f}%" title="{100 - gpct:.0f}% en perte &middot; {n_pnl - n_gain} lignes"></div></div>'
-        f'<div class="distcap"><span class="cg">en gain {gpct:.0f}% &middot; {n_gain} lignes</span><span class="cr">en perte {100 - gpct:.0f}% &middot; {n_pnl - n_gain} lignes</span></div>'
-        f'<div class="sub2">{pf_cost_str}&euro; investi</div></div>'
-        f'{grade_html.replace("margin-bottom:var(--s4)", "flex:1").replace("gradecard", "gradecard").replace("class=\"card pad gradecard\"", "class=\"card pad gradecard\" style=\"flex:1\"") if "flex:1" not in grade_html else grade_html}'
-        f'</div>'
-        # Track record en tete (user feedback 31/05 wave 7 : "track record en
-        # tete + etat honnete-tot maintenant, se remplit avec data post-10/06")
-        f'{_track_record_panel()}'
-        # Sante distribution (W13 31/05 : extension scaffold ROUGE/ORANGE/VERT
-        # ops -> data : watch_rate, probas etalees, horizons diversifies,
-        # conviction, FX freshness, insider pipeline)
-        f'{_distribution_health_panel()}'
+        # === Star Vue d'ensemble (unifie) : valeur+PnL+capital sous-jacent
+        # a gauche, grade A+ + bar a droite. Strate 2 = repartition lignes
+        # pleine largeur. Gradecard detail retire (vide visuel).
+        + f'<div class="page-star">'
+        + f'<div class="ps-strate">'
+        + f'<div class="ps-hero-row">'
+        + f'<div class="ps-hero-left">'
+        + f'<div class="ps-lbl">Valeur du portefeuille</div>'
+        + f'<div class="ps-macro-row" style="align-items:baseline">'
+        + f'<div class="ps-val" style="font-size:34px">{pf_val_str}&nbsp;&euro;</div>'
+        + f'<div class="ps-val {vcls}" style="font-size:18px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
+        + f'</div>'
+        + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> en gain &middot; {n_gain} lignes &middot; {n_pnl - n_gain} en perte ({100 - gpct:.0f}%)</div>'
+        + f'</div>'
+        + f'<div class="ps-hero-right">'
+        + f'<div class="ps-lbl">Note du portefeuille</div>'
+        + f'<div class="ps-grade-row">'
+        + f'<div class="ps-grade-letter acc">{_grade_letter}</div>'
+        + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
+        + f'<div class="ps-grade-bar"><div class="ps-grade-fill acc" style="width:{_grade_score:.0f}%"></div></div></div>'
+        + f'</div></div>'
+        + f'</div></div>'
+        + f'<div class="ps-strate">'
+        + f'<div class="ps-lbl">Capital investi</div>'
+        + f'<div class="ps-macro-row" style="margin-top:4px"><div class="ps-val" style="font-size:22px">{pf_cost_str}&nbsp;&euro;</div>'
+        + f'<div class="ps-macro-meta">{n_pnl} lignes &middot; snapshot {_grade_trend_str}</div></div>'
+        + f'</div>'
+        + f'</div>'
+        # Track record + Sante distribution deplaces vers page "signaux"
+        # (user feedback 01/06 : pilotage qualite des signaux groupe ensemble).
         # ── BLOC 1 : URGENCE -- positions en danger immediat ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html migre vers section Copilot dediee 31/05 wave 5)
@@ -5516,18 +5786,74 @@ def render() -> Path:
         for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
         if r.get("downside_pct") is not None and 10 <= r["downside_pct"] < 20
     ]
-    pos_plan = (
-        '<div class="plan"><div class="plan-h">Aujourd&rsquo;hui sur les positions</div><div class="plan-row">'
-        + _pi(len(near_stop_tk), near_stop_tk, "au stop (&lt;10%)", "danger" if near_stop_tk else "calm")
-        + _pi(len(watch_zone_tk), watch_zone_tk, "sous surveillance (10-20%)", "warn" if watch_zone_tk else "calm")
-        + _pi(len(near_tgt_tk), near_tgt_tk, "proche d&rsquo;un palier", "warn" if near_tgt_tk else "calm")
-        + "</div></div>"
+    # === Star Positions : posture portefeuille en 3 strates ===
+    # Recompute sizing context (_sfac + size_txt) localement -- defini dans
+    # _urgence() seulement, pas accessible ici. Source unique = VIX courant.
+    try:
+        _vix_p = _cached_price_native("^VIX") or 0
+    except Exception:
+        _vix_p = 0
+    try:
+        _rk_p = _cfg().get("risk", {})
+        _vthr_p = float(_rk_p.get("vol_scaling_threshold_vix", 25))
+        _vsf_p = float(_rk_p.get("vol_scaling_factor", 0.7))
+    except Exception:
+        _vthr_p, _vsf_p = 25.0, 0.7
+    _reduced_p = _vix_p and _vix_p >= _vthr_p
+    _sfac = _vsf_p if _reduced_p else 1.0
+    size_txt = (
+        f"VIX {_vix_p:.1f} {'&ge;' if _reduced_p else '&lt;'} {_vthr_p:.0f} (r&egrave;gle VIX seule)"
+        if _vix_p else "VIX indisponible"
+    )
+    n_stop, n_watch, n_tgt = len(near_stop_tk), len(watch_zone_tk), len(near_tgt_tk)
+    if n_stop:
+        _post_cls, _post_lbl = "bear", "VIGILANCE"
+        _post_cap = f"{n_stop} ligne(s) au stop &lt; 10% &middot; v&eacute;rifier avant la s&eacute;ance"
+    elif n_watch:
+        _post_cls, _post_lbl = "warn", "SURVEILLANCE"
+        _post_cap = f"{n_watch} ligne(s) en zone 10-20% du stop &middot; marge restante"
+    elif n_tgt:
+        _post_cls, _post_lbl = "acc", "PRISE&nbsp;DE&nbsp;PROFIT"
+        _post_cap = f"{n_tgt} ligne(s) proche(s) d&rsquo;un palier"
+    else:
+        _post_cls, _post_lbl = "acc", "AU&nbsp;REPOS"
+        _post_cap = "aucune ligne en zone critique &middot; surveiller la d&eacute;rive"
+    _star_stop_cls = "bear" if n_stop else "acc"
+    _star_watch_cls = "warn" if n_watch else "acc"
+    _star_tgt_cls = "warn" if n_tgt else "acc"
+    star_strate_post = (
+        '<div class="ps-strate">'
+        + '<div class="ps-lbl">Posture positions</div>'
+        + '<div class="ps-macro-row">'
+        + f'<div class="ps-val {_post_cls}">{_post_lbl}</div>'
+        + f'<div class="ps-macro-meta">{len(positions)} lignes &middot; sizing &times;{_sfac:.1f}</div>'
+        + "</div>"
+        + f'<div class="ps-cap">{_post_cap}</div>'
+        + "</div>"
+    )
+    _stop_caption = (", ".join(near_stop_tk[:3]) + ("…" if len(near_stop_tk) > 3 else "")) if near_stop_tk else "aucune"
+    _watch_caption = (", ".join(watch_zone_tk[:3]) + ("…" if len(watch_zone_tk) > 3 else "")) if watch_zone_tk else "aucune"
+    _tgt_caption = (", ".join(near_tgt_tk[:3]) + ("…" if len(near_tgt_tk) > 3 else "")) if near_tgt_tk else "aucune"
+    star_strate_grid = (
+        '<div class="ps-strate ps-grid">'
+        + f'<div class="ps-cell"><div class="ps-lbl">Au stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Surveillance 10-20%</div><div class="ps-val {_star_watch_cls}">{n_watch}</div><div class="ps-cap">{_watch_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl">Proche cible</div><div class="ps-val {_star_tgt_cls}">{n_tgt}</div><div class="ps-cap">{_tgt_caption}</div></div>'
+        + "</div>"
+    )
+    star_strate_foot = (
+        '<div class="ps-strate ps-foot">'
+        + f'{size_txt} &middot; sizing <b>&times;{_sfac:.1f}</b>'
+        + "</div>"
+    )
+    star_positions = (
+        f'<div class="page-star">{star_strate_post}{star_strate_grid}{star_strate_foot}</div>'
     )
     broker_html = _broker_tables(positions, names, pnl, sectors)
     positions_pg = (
         f'<section data-page="positions" role="region" aria-label="Positions"><div class="phead"><h2>Positions</h2>'
         f'<div class="sub">Marge &agrave; la hausse vers la cible &middot; &agrave; la baisse vers le stop</div></div>'
-        f"{pos_plan}{broker_html}</section>"
+        f"{star_positions}{broker_html}</section>"
     )
 
     # --- Bandeau d'ecart de discipline (sticky, haut de page) ---
@@ -5611,13 +5937,26 @@ def render() -> Path:
         + ";</script>"
         + ""
         + "<script>"
-        + _APP_JS
+        + _APP_JS.replace("__TKDOMAIN_JSON__", json.dumps(_ticker_logos_mod.TICKER_DOMAIN)).replace("__TKLOCAL_JSON__", json.dumps(_ticker_logos_mod._scan_local_logos()))
         + "</script>"
         # Live-reload : poll Last-Modified toutes les 1s (vs 600s ancien). User
         # spec close-session : "Live-reload + Geist auto-hebergé = maintenant
         # (30 min, ca accelere tout le reste)". Iteration design instantanee
         # vs regen 60s. isTyping protege la zone chat. Charge negligeable
         # (HEAD request, 1KB, local serve.py).
+        # Sprint 4 CTA flottant bas : Recherche seule (Compact + Filtrer retires
+        # 01/06 user feedback : Compact aucun interet, Filtrer pas de utilite plug)
+        + '<div class="cta-bar" role="toolbar" aria-label="Recherche rapide">'
+        + '<button id="ctaSearch" title="Rechercher (Cmd+K)"><span aria-hidden="true">&#9906;</span> Rechercher <kbd>&#8984;K</kbd></button>'
+        + "</div>"
+        + '<div class="cta-modal" id="ctaSearchModal" role="dialog" aria-modal="true" aria-label="Recherche ticker">'
+        + '<div class="cta-modal-inner">'
+        + '<input class="cta-search-input" id="ctaSearchInput" placeholder="Ticker ou nom de societe..." autocomplete="off" spellcheck="false" />'
+        + '<div class="cta-search-results" id="ctaSearchResults"></div>'
+        + "</div></div>"
+        + "<script>"
+        + _CTA_JS
+        + "</script>"
         + "<script>(function(){var b=null;function isTyping(){var ta=document.getElementById('chat-input');if(ta&&ta.value.trim().length>0)return true;if(ta&&document.activeElement===ta)return true;return false;}function c(){if(isTyping())return;fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,1000);})();</script>"
         + "</body></html>"
     )
