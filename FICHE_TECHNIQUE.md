@@ -1,9 +1,63 @@
 # PRESAGE (mes-bots-finance) — Fiche Technique (Lean)
 
-**Version**: 30 mai 2026 soir (Day 25 — arc V2 calibration, 35 commits, wire EDGAR primary forward)
+**Version**: 01 juin 2026 soir (Day 27 — polish UI 8 pages + 5 tâches P2 fermées + filet 4-layer currency)
 **Auteur**: Olivier Legendre
 **État**: High Standard / Observation jusqu'au 10/06/2026 (KPI #2 batch resolution V1 ; V2 pour cohortes futures wired en prod)
-**Bot**: Telegram @Hawk_Dove_bot (PID 84607 caffeinate, code wire chargé)
+**Bot**: Telegram @Hawk_Dove_bot (mono-instance lock fcntl depuis 01/06)
+
+## Session 01/06/2026 — 8 commits, polish UI complet + filet currency + 5 tâches P2
+
+Session multi-bloc : polish dashboard exhaustif + canonisation currency-native + dette technique P2.
+
+### Dashboard polish UI (8 commits avant tâches P2)
+- **8 Stars** (verdict 3 secondes) sur les 8 pages : Vue d'ensemble, Discipline, Positions, Copilot, Thèses, Stratégie, Concentration, Signaux, Urgence
+- **Palette modernisée TR/Robinhood** : `--acc #16C055`, `--bear #E53935`, `--bg #F8F9FB` (light bg), respiration spacing tokens élargie
+- **Sparkline hero** Catmull-Rom smoothing + area fill gradient + endpoint pulse animation
+- **Accordéon FX** : pattern `geo-item` cloné pour exposition par devise (click → drop tickers + poids)
+- **8 section icons** SVG inline 16×16 cohérents (`sh-ico`) sur tous les headers (Synthèse copilot, Prédictions, Biais fomo_greed, Biais lock_in, Journal, Stratégie déclarée, Lecture livre, Risques cachés)
+- **Sidebar tooltip stacking context fix** : `.sidebar z-index:60` + `.wrap z-index:0` isole + bg ink contrasté
+- **Logo PRESAGE refonte fidèle** : sparkle 4-points élongué vertical + halo radial + 7 dots signal droite + wordmark espacé
+- **Réordre Vue d'ensemble** : Opportunités + Mouvement du jour AU-DESSUS de Top risque (lecture acte→bouge→risque)
+- Cmd+1..9 retirés (parasite UX), Cmd+K conservé
+- Transitions smooth sur `.card` `.kpi` `.row[data-tk]` (slide-in 4px hover)
+
+### Currency-native canonisé (L12 LESSONS, fix racine bug récurrent)
+Bug 4063.T cible +23876% (31/05) puis stop -11089% (01/06) = même classe = mix EUR/native dans formule `%`.
+
+- **Helper canonique** `_stop_distance_pct_native(ticker, stop_price)` dans `dashboard/render.py` : tout calcul `%` impliquant un prix-thèse passe par native vs native
+- **Sentinel TARGET_HIT** (`asymmetry_ratio = 999.0` quand `current ≥ target_full`) → `_asym_format()` rend "cible ✓" pas "999.0×"
+- **Accordéon FX** `compute_fx_exposure()` étendu avec `holdings[{tk, eur, pct_of_cur}]`
+- **LESSONS.md L12** : "Devise native vs EUR : interdit mélanger dans une formule de %"
+- **Memory** `currency-native-render-helper`
+
+**Filet anti-régression 4-layer** (`tests/test_currency_native_guard.py`) :
+1. Grep static sur `render.py` + `intelligence/` + `shared/` (pattern syntaxique EUR/native dans expression arithmétique)
+2. Helper canonique présent
+3. Sentinel TARGET_HIT branchement explicite (`ratio >= 999`)
+4. Smoke e2e du HTML rendu (fail si `%` > 1000 apparaît, signature classique JPY/KRW)
+
+### 5 tâches P2/P3 fermées
+- **#34** Guard mono-instance bot/main.py : `fcntl.flock` exclusif sur `data/bot.pid`, 2e instance exit 1 propre. N'affecte pas le tennis bot (process différent, lock différent).
+- **#40** Endpoint Telegram `/bias_status` : aggregate read-only des `bias_events` (total + breakdown par bias + status). Empty state propre pré-J-day avec marqueurs de canaux.
+- **#36** Couverture chemins critiques : `materiality_boost.py` 17%→**100%** (13 tests) + `asymmetry.compute_thesis_asymmetry` 13 chemins (19 tests pure-function).
+- **#38** Tests `self_loop_v0` isolation : fixture `_isolated_db` autouse avec schéma temp (decision_counterfactual + counterfactual_resolution + decisions + triggers append-only). Plus de `database is locked` sous load bot, plus de 150 rows TEST_SL_ qui s'accumulent en prod. 13 tests verts en 1s.
+- **#41** Fixture `migrated_db` + invariants L8 à la racine : `tests/conftest.py` expose fixture pytest réutilisable qui crée sqlite temp + lance `bootstrap_schema (alembic upgrade head)` + monkeypatch `storage.DB_PATH`. `tests/test_migrated_db_schema.py` : 7 tests d'invariant qui catch toute future drift schéma/code (note_tags_json, position_event_id, status enum, append-only triggers, baseline_price).
+
+### Backup + checkpoint
+- Backup tarball + DB snapshot 01/06 23:40 (DB integrity OK)
+- 8 commits propres, branche `main`
+
+### Pour reprise demain
+Roadmap chronologique (cf memory `session_roadmap_j_day`) :
+1. **#67 Macro composite V3 holdout OOS strict** ← bloquant non-gated avant J-day
+2. **#15** Pre-J-3 vérif scaffolds activation sur vraies résolutions (07/06)
+3. **#13** J-day 10/06 batch KPI #2 + observer activation
+4. **#19** Publi #01 réelle (post-J-day si densité)
+5. **#11** Hero track record (J+30 = 10/07)
+6. (mi-juin) #35 mypy strict + #61/#66 refactor render.py
+7. (sur déclencheur) #21/#22 viz upgrades, #24/#37 site presage.pro
+
+---
 
 ## Session 30/05/2026 — 35 commits, 14 chantiers, 10 itérations arc V2
 
