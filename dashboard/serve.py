@@ -31,7 +31,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _WATCHED_PATHS = [
     Path(__file__).with_name("render.py"),
     Path(__file__).with_name("chat.py"),
+    Path(__file__).with_name("tokens.css"),  # palette CSS : reload _TOKENS_CSS dans render
     _REPO_ROOT / "shared" / "storage.py",
+    _REPO_ROOT / "shared" / "ticker_logos.py",
     _REPO_ROOT / "intelligence" / "portfolio_grade.py",
     _REPO_ROOT / "intelligence" / "bot_conceptions.py",
     _REPO_ROOT / "intelligence" / "bot_preferences.py",
@@ -59,14 +61,25 @@ _LAST_MTIMES = _mtimes()
 
 
 def _reload_changed(prev: dict, curr: dict) -> list[str]:
-    """Reload modules whose backing file changed. Returns list of modules reloaded."""
+    """Reload modules whose backing file changed. Returns list of modules reloaded.
+
+    Special case : tokens.css n'est pas un module Python, mais render.py le lit
+    en `_TOKENS_CSS` module-level. Force reload de render quand tokens.css change.
+    """
     reloaded = []
     for path_str, mtime in curr.items():
         if mtime == prev.get(path_str):
             continue
-        # Path -> module name (dotted)
         p = Path(path_str)
-        # find the module name relative to repo root
+        # tokens.css : force reload de render pour relire _TOKENS_CSS
+        if p.suffix == ".css":
+            try:
+                importlib.reload(render_mod)
+                reloaded.append("dashboard.render (tokens.css changed)")
+            except Exception as e:
+                print(f"[serve] reload render (tokens.css) FAILED: {type(e).__name__}: {e}", flush=True)
+            continue
+        # Path -> module name (dotted)
         try:
             rel = p.relative_to(_REPO_ROOT)
         except ValueError:

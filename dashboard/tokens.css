@@ -87,29 +87,35 @@
    ============================================================ */
 
 :root {
-  /* --- 1. PALETTE -- parchemin warm (default light) -------------- */
-  --bg:    #F9F6F3;
-  --panel: #F9F6F3;
+  /* --- 1. PALETTE -- hybride moderne fintech (Robinhood-inspired) -
+     Pivot 01/06 : abandon du warm parchemin pour off-white frais +
+     cards blanches pures + ink slate-900. DNA reste signal-subtil sur
+     la chrome mais surfaces moderne contemporain. */
+  --bg:    #F8F9FB;
+  --panel: #FFFFFF;
 
-  /* --- 2. ENCRE -- 3 niveaux + neutre dim ------------------------ */
-  --ink:   #1A1814;   /* primaire warm-black */
-  --ink2:  #3A352D;   /* secondaire */
-  --steel: #7E7770;   /* caption / mono dim / verdicts */
-  --metal: #7E7770;   /* alias --steel pour back-compat */
-  --id:    #1A1814;   /* identite (= ink), pour focus / accent neutre */
+  /* --- 2. ENCRE -- slate moderne (vs warm-black vintage) --------- */
+  --ink:   #111827;   /* primaire slate-900 (Tailwind) */
+  --ink2:  #374151;   /* secondaire slate-700 */
+  --steel: #6B7280;   /* caption slate-500 */
+  --metal: #6B7280;   /* alias --steel pour back-compat */
+  --id:    #111827;   /* identite (= ink), pour focus / accent neutre */
 
   /* --- 3. ACCENTS semantiques (couleur = fait, rare, charte §7.2)
-     Voie 1 polish 31/05 -- saturation +20-30% vs print-grade vintage. */
-  --acc:   #5F9A4D;   /* vert olive : positif / bullish / OK */
-  --acc2:  #5F9A4D;   /* alias acc */
-  --bear:  #C24332;   /* oxblood : negatif / bearish / ALERT */
-  --warn:  #C8862F;   /* ochre : vigilance / WARN */
+     Modernisation 01/06 v2 : push chroma vert + rouge pour effet
+     gamify/dopamine sur les action-triggers (PnL win/loss, alertes).
+     Garde un fond terre (pas neon Pokemon) mais nettement plus vif. */
+  --acc:   #16C055;   /* TR-inspired green : sobre vivid, lisible dense */
+  --acc2:  #16C055;   /* alias acc */
+  --bear:  #E53935;   /* TR-inspired red : un cheveu warm, dense-friendly */
+  --warn:  #C8862F;   /* ochre : vigilance / WARN (inchange) */
   --gold:  #D4A040;   /* OR : reserve 1 spark / viewport (charte §7.3) */
 
   /* --- 4. FILETS -- hairlines uniquement (charte §1.5 + §7.4) ---- */
-  --line:  #E5E0DB;   /* hairline standard cards */
-  --line2: #CFC7BF;   /* separateur marquee */
-  --line3: #B5ABA0;   /* bordure focus / outline TOP */
+  /* Pivot 01/06 hybride moderne : lignes slate neutres (vs warm). */
+  --line:  #E5E7EB;   /* hairline standard cards (Tailwind gray-200) */
+  --line2: #D1D5DB;   /* separateur marquee (Tailwind gray-300) */
+  --line3: #9CA3AF;   /* bordure focus / outline TOP (Tailwind gray-400) */
 
   /* --- 5. TYPOGRAPHIE -------------------------------------------- */
   /* Fonts : Geist universel (charte §2), Geist Mono pour TOUS chiffres */
@@ -128,15 +134,18 @@
   --t-hero:    46px;
 
   /* --- 6. ESPACEMENT -- base 4, genereux -------------------------- */
+  /* Sprint 1 breathing TR-inspired : bump des tokens mid-large.
+     s1-s3 inchanges (espacement intern row : si on les bumpe la row
+     se deforme). s35-s4-s5 bumpes ~35-40% : respiration cards + sections. */
   --s1:  4px;
   --s15: 6px;
   --s2:  8px;
   --s25: 10px;
   --s3:  12px;
-  --s35: 16px;
-  --s4:  20px;
-  --s5:  32px;
-  --s6:  52px;
+  --s35: 22px;  /* etait 16, padding card vertical / gaps mid */
+  --s4:  28px;  /* etait 20, margin block / gap inter-sections */
+  --s5:  44px;  /* etait 32, margin hero / gros gaps */
+  --s6:  64px;  /* etait 52, plus respirable */
 
   /* --- 7. RAYONS -------------------------------------------------- */
   --r1: 4px;
@@ -144,36 +153,39 @@
   --r3: 12px;
 
   /* --- 8. SURFACES translucides (charte §5) ----------------------- */
+  /* Pivot 01/06 hybride moderne : alignement sur nouveau bg #F8F9FB. */
   --elev:  none;    /* PAS de box-shadow par defaut (charte §1.5) */
-  --glass:  rgba(249, 246, 243, .92);
-  --glass2: rgba(249, 246, 243, .88);
-  --tape:   rgba(249, 246, 243, .96);
-  --barbg:  #EDE8E2;
+  --glass:  rgba(255, 255, 255, .92);
+  --glass2: rgba(248, 249, 251, .88);
+  --tape:   rgba(255, 255, 255, .96);
+  --barbg:  #F3F4F6;
 
   /* --- 9. MOTION -- ease canonique unique (charte §7) ------------ */
   --ease: cubic-bezier(.22, .61, .36, 1);
 }
 
 /* ============================================================
-   MIDNIGHT (mode sombre) -- ivoire sur noir warm, jamais bleu
+   MIDNIGHT (mode sombre) -- warm noir + accents pop fintech
+   Restore 01/06 : warm noir bg (user pref), garde accents
+   action-triggers modernes (vert/rouge Tailwind 500, amber warm).
    ============================================================ */
 body.midnight {
   --bg:    #0E0D0B;   /* warm noir */
   --panel: #16140F;
-  --ink:   #F1ECE3;   /* ivoire */
+  --ink:   #F1ECE3;   /* ivoire warm */
   --ink2:  #CFC6B5;
   --steel: #8C8273;
   --metal: #8C8273;
   --line:  #2A2520;
   --line2: #3D362E;
   --line3: #5A5046;
-  /* Accents adoucis pour contraste sur fond sombre (Voie 1 polish 31/05) */
-  --acc:   #9DC07F;
-  --acc2:  #9DC07F;
+  /* Accents action-trigger : pop fintech tempere (Tailwind 500) */
+  --acc:   #16C055;   /* TR-inspired green : sobre vivid */
+  --acc2:  #16C055;
   --id:    #F1ECE3;
-  --bear:  #DD6655;
-  --warn:  #E5B05D;
-  --gold:  #E0B85A;
+  --bear:  #E53935;   /* TR-inspired red : warm dense */
+  --warn:  #F59E0B;   /* amber-500 -- legerement cooler que ochre vintage */
+  --gold:  #FBBF24;   /* amber-400 reserve 1 spark */
   /* Dark mode = elevation legere autorisee (texture profondeur) */
   --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
   --glass:  rgba(22, 20, 15, .85);
