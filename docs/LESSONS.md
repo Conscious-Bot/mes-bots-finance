@@ -118,9 +118,13 @@
 
 **Origine** : sprint v2.c.6 lock_in, hotfix `9a67e0c` (01/06/2026), J−9 avant batch KPI #2. La colonne `note_tags_json` ajoutée par migration 0023 n'avait jamais été propagée aux fixtures tests (qui contenaient `note TEXT`). `open_candidate` INSERT dans la colonne nommée `note` — le code prod silently failed à chaque tentative d'ouverture de candidat depuis Sprint 15 (kca) + Sprint 25 (over_cap). Non révélé parce que 0 transition réelle (kca tout dormant, over_cap dark par décision). **Le bug aurait pété au premier vrai trigger kca le 10/06**, en plein milieu de la batch résolution KPI #2 — exactement le mauvais moment pour découvrir qu'un hook silencieusement mort depuis 40 jours fait sauter l'intégrité du ledger. Sans le smoke E2E ajouté avant J-day, post-mortem garanti.
 
-### Règle structurelle (le vrai fix, à shipper)
+### Règle structurelle (le vrai fix, **shipped 01/06/2026**)
 
-Les fixtures DB tests **sont dérivées de la migration head courante**, pas commitées comme snapshots statiques. Régénération automatique au CI via `alembic upgrade head` sur un volume éphémère + minimal seed. Tue le mode de défaillance à sa racine — 1h d'écriture, économie illimitée.
+Les fixtures DB tests **sont dérivées de la migration head courante**, pas commitées comme snapshots statiques. Régénération automatique au CI via `alembic upgrade head` sur un volume éphémère + minimal seed.
+
+**Livré** : fixture pytest `migrated_db` dans `tests/conftest.py`. Tout test qui ajoute `migrated_db` en argument reçoit une DB sqlite temp **avec le schéma head courant** + `storage.DB_PATH` monkeypatché. Le drift schéma-prod / fixture-test devient impossible par construction.
+
+**Tests d'invariant** dans `tests/test_migrated_db_schema.py` : vérifie que les colonnes critiques (`bias_events.note_tags_json`, `bias_events.position_event_id`, status enum canonique, triggers append-only, `predictions.baseline_price`) sont présentes après `alembic upgrade head`. Toute migration future qui drop ou renomme une colonne critique fire un test.
 
 ### Règle tactique (palliatif en attendant la structurelle)
 
