@@ -3299,6 +3299,65 @@ def get_all_latest_kca() -> list[dict]:
         return []
 
 
+# === over_cap_alerts (Pile 2.1 v2.c.5) =======================================
+# Journal incremental par evaluation over_cap, miroir kill_criteria_alerts.
+# Table cree via migration alembic 0024 (pas de DDL lazy ici). Voir le
+# module intelligence/over_cap_monitor pour la sequence transition->wire.
+
+
+def insert_over_cap_alert(
+    ticker: str,
+    status: str,
+    weight_pct: float,
+    cap_pct: float,
+    conviction: int | None = None,
+    notified: bool = False,
+    transition: str | None = None,
+    bias_event_id: int | None = None,
+) -> int | None:
+    """Insert un row d'evaluation over_cap. status ∈ {over, dormant}. La
+    table est append-only ; prev_status = derniere row (cf
+    get_latest_oca_per_ticker). transition ∈ {dormant_to_over, over_to_dormant,
+    no_change, NULL}."""
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO over_cap_alerts "
+                "(ticker, status, weight_pct, cap_pct, conviction, "
+                " notified, transition, bias_event_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    ticker.upper(), status, float(weight_pct), float(cap_pct),
+                    conviction, 1 if notified else 0, transition, bias_event_id,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_over_cap_alert failed: {e}")
+        return None
+
+
+def get_latest_oca_per_ticker(ticker: str) -> dict | None:
+    """Last evaluation row for ticker, ou None si jamais evalue."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT id, created_at, status, weight_pct, cap_pct, "
+                "       conviction, notified, transition, bias_event_id "
+                "FROM over_cap_alerts WHERE ticker=? "
+                "ORDER BY id DESC LIMIT 1",
+                (ticker.upper(),),
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["id", "created_at", "status", "weight_pct", "cap_pct",
+                    "conviction", "notified", "transition", "bias_event_id"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_oca_per_ticker failed: {e}")
+        return None
+
+
 # === data_clusters_snapshots (Sprint 17) =====================================
 
 _DC_DDL = (

@@ -486,6 +486,24 @@ async def daily_kill_criteria_check_job():
         log.error(f"daily_kill_criteria_check failed: {e}")
 
 
+async def daily_over_cap_check_job():
+    """v2.c.5 -- detecte transition dormant -> over_cap par position.
+    Notify Telegram + ouvre candidat bias_event fomo_greed (resister a
+    trimmer un runner) pour instrumenter la resistance future. Miroir
+    structurel de daily_kill_criteria_check_job."""
+    log.info("Daily over_cap check starting")
+    try:
+        from intelligence import over_cap_monitor as _ocm
+        out = _ocm.check_all_overcap_transitions()
+        log.info(
+            f"over_cap_check : checked={out['checked']} over={out['over']} "
+            f"transitions={out['transitions']} notified={out['notified']} "
+            f"wired={out['wired']} errors={out['errors']}"
+        )
+    except Exception as e:
+        log.error(f"daily_over_cap_check failed: {e}")
+
+
 async def weekly_data_clusters_synthesis_job():
     """Sprint 17 — Data-defined clusters par correlation rendements (hebdo).
 

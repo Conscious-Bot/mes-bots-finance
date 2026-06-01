@@ -116,14 +116,29 @@ def test_insert_canonique_valide_accepte(in_memory_db: sqlite3.Connection) -> No
     assert row[0] == "open", "Default status doit etre 'open'"
 
 
+def _schema_with_position_events(cx: sqlite3.Connection) -> None:
+    """v2.c.3 : resolve_due_bias_events query position_events, donc le
+    schema test doit l'inclure."""
+    cx.executescript("""
+        CREATE TABLE position_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            position_id INTEGER,
+            ticker TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            qty REAL, price REAL, pnl REAL, notes TEXT,
+            timestamp TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+    """)
+
+
 def test_resolve_due_noop_quand_table_vide(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """resolve_due_bias_events sur table vide -> {resolved:0, missing:0, void:0}.
-    Mise a jour v2 : key 'deferred' supprimee depuis alignement ADR 010."""
+    """resolve_due_bias_events sur table vide -> {resolved:0, missing:0, void:0}."""
     db_path = tmp_path / "test_bias.db"
     cx = sqlite3.connect(db_path)
     _schema_minimal(cx)
+    _schema_with_position_events(cx)
     cx.close()
     monkeypatch.setattr("shared.storage.DB_PATH", db_path)
     from intelligence import bias_events
@@ -138,13 +153,12 @@ def test_resolve_due_noop_quand_table_vide(
 def test_resolve_due_v2_marque_void_si_counterfactual_malforme(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """1 event open avec counterfactual_json='{}' (manque anchor_price_eur
-    + shares_taken + shares_avoided) -> ValueError -> status='void'.
-    Mise a jour v2 : avant ce test verifiait skeleton no-op (deferred=1)
-    qui n'existe plus depuis ADR 010 Accepted + alignement v2.b."""
+    """counterfactual_json='{}' (manque anchor_price_eur + initial_qty +
+    expected_delta) -> ValueError -> status='void'. v2.c.3 shape requis."""
     db_path = tmp_path / "test_bias.db"
     cx = sqlite3.connect(db_path)
     _schema_minimal(cx)
+    _schema_with_position_events(cx)
     cx.execute(
         "INSERT INTO bias_events "
         "(created_at, ticker, bias, action, decision_json, counterfactual_json, "

@@ -240,6 +240,33 @@ def check_one_thesis(thesis: dict) -> tuple[dict | None, int | None]:
             log.info(f"kca {ticker} : transition -> triggered, notified")
         except Exception as e:
             log.warning(f"kca notify failed: {e}")
+        # v2.c.5 : wire_bias_trigger sur transition triggered, juste apres
+        # notify (l'instant T fidele = quand la reco "sors" est dite a l'user).
+        # Bias fomo_greed : resister a sortir une these cassee = tenir un
+        # perdant. Ref stable par thesis_id (rule:kill_criteria_t{id}).
+        # Fail-safe strict : un bug ici NE CASSE PAS le check ni la notify.
+        try:
+            from intelligence.bias_events import wire_bias_trigger
+            from shared.prices import get_current_price_in_eur
+            anchor_eur = get_current_price_in_eur(ticker)
+            pos = storage.get_position_by_ticker(ticker)
+            initial_qty = float(pos["qty"]) if pos and pos.get("qty") else 0.0
+            if anchor_eur and initial_qty > 0:
+                wire_bias_trigger([{
+                    "ticker": ticker, "bias": "fomo_greed",
+                    "discipline_said": {
+                        "action": "exit",
+                        "ref": f"rule:kill_criteria_t{thesis['id']}",
+                    },
+                    "horizon_days": 30,
+                    "anchor_price_eur": anchor_eur,
+                    "initial_qty": initial_qty,
+                    "discipline_expected_delta": -initial_qty,  # exit full
+                    "thesis_id": thesis["id"],
+                    "source": "auto_detected",
+                }])
+        except Exception as e:
+            log.warning(f"kca {ticker} : wire_bias_trigger failed: {e}")
     elif new_status == "at_risk" and prev_status == "dormant":
         # Pre-alert : these passe de dormant a at_risk (signal precoce)
         try:

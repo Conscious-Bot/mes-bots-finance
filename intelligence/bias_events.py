@@ -206,6 +206,124 @@ def open_candidate(
         conn.close()
 
 
+def wire_bias_trigger(recommendations: list[dict]) -> dict[str, int]:
+    """v2.c.5 -- branchement observation-only : pour chaque reco emise
+    au point user-facing (brief / risk_check / tiers), ouvre 1 candidat
+    bias_event -- SANS le piege #1 (sur-declenchement).
+
+    Cle d'identite reco = (ticker, bias, discipline_said.action,
+    discipline_said.ref). Le prix, la qty courante, l'ecart cible peuvent
+    deriver d'un cycle a l'autre (recompute internes) ; ils ne changent
+    PAS l'identite de la reco -- ce sont des parametres. Sans cette regle,
+    chaque cycle prix voiderait/reouvrirait, remettant created_at a zero
+    en boucle : la fenetre n'accumulerait jamais et rien ne resoudrait.
+
+    Comportement par reco :
+    - aucun open meme (ticker, bias)            -> open_candidate (new)
+    - open meme (ticker, bias) + MEME action+ref -> NO-OP (kept, created_at preserve)
+    - open meme (ticker, bias) + action/ref DIFFERENT -> open_candidate
+      (supersede automatique via c.2 : void ancien + INSERT)
+
+    FAIL-SAFE (user 01/06) : chaque ouverture est wrapee try/except. Un
+    bug dans une reco ne casse JAMAIS la boucle ni le caller. Le brief/
+    risk/tiers user-facing survit toujours. Stats retournees pour
+    observation.
+
+    Args:
+        recommendations: list de dicts avec champs requis :
+            - ticker (str UPPERCASE)
+            - bias ('lock_in' | 'fomo_greed' | 'other')
+            - discipline_said (dict avec 'action' + 'ref')
+            - horizon_days (int)
+            - anchor_price_eur (float)
+            - initial_qty (float)
+            - discipline_expected_delta (float)
+          + optionnels : thesis_id, prediction_id, source, note.
+
+    Returns:
+        dict {opened, kept, superseded, errors} -- diagnostic, jamais raise.
+    """
+    from shared.storage import DB_PATH
+
+    stats = {"opened": 0, "kept": 0, "superseded": 0, "errors": 0}
+    if not recommendations:
+        return stats
+
+    for reco in recommendations:
+        try:
+            ticker = reco["ticker"]
+            bias = reco["bias"]
+            discipline_said = reco["discipline_said"]
+            new_action = discipline_said.get("action")
+            new_ref = discipline_said.get("ref")
+
+            conn = sqlite3.connect(DB_PATH)
+            try:
+                row = conn.execute(
+                    "SELECT id, decision_json FROM bias_events "
+                    "WHERE status='open' AND ticker=? AND bias=? "
+                    "ORDER BY id DESC LIMIT 1",
+                    (ticker, bias),
+                ).fetchone()
+            finally:
+                conn.close()
+
+            if row is not None:
+                try:
+                    existing_decision = json.loads(row[1])
+                    existing_said = existing_decision.get("discipline_said", {})
+                    existing_action = existing_said.get("action")
+                    existing_ref = existing_said.get("ref")
+                except (json.JSONDecodeError, TypeError, KeyError):
+                    existing_action = existing_ref = None
+
+                if existing_action == new_action and existing_ref == new_ref:
+                    # MEME reco -> NO-OP. created_at de l'ancien preserve,
+                    # la fenetre court depuis l'emission initiale.
+                    stats["kept"] += 1
+                    continue
+                # Reco materiellement differente -> supersede via c.2
+                # (open_candidate void TOUS les open meme ticker+bias).
+                open_candidate(
+                    ticker=ticker, bias=bias,
+                    discipline_said=discipline_said,
+                    horizon_days=reco["horizon_days"],
+                    anchor_price_eur=reco["anchor_price_eur"],
+                    initial_qty=reco["initial_qty"],
+                    discipline_expected_delta=reco["discipline_expected_delta"],
+                    thesis_id=reco.get("thesis_id"),
+                    prediction_id=reco.get("prediction_id"),
+                    source=reco.get("source", "auto_detected"),
+                    note=reco.get("note"),
+                )
+                stats["superseded"] += 1
+            else:
+                # Aucun open existant -> nouvelle ouverture
+                open_candidate(
+                    ticker=ticker, bias=bias,
+                    discipline_said=discipline_said,
+                    horizon_days=reco["horizon_days"],
+                    anchor_price_eur=reco["anchor_price_eur"],
+                    initial_qty=reco["initial_qty"],
+                    discipline_expected_delta=reco["discipline_expected_delta"],
+                    thesis_id=reco.get("thesis_id"),
+                    prediction_id=reco.get("prediction_id"),
+                    source=reco.get("source", "auto_detected"),
+                    note=reco.get("note"),
+                )
+                stats["opened"] += 1
+        except Exception as e:
+            # FAIL-SAFE strict : aucune exception ne traverse vers le caller.
+            log.warning(
+                "wire_bias_trigger: ouverture echouee pour %s : %s",
+                reco.get("ticker", "?"), e,
+            )
+            stats["errors"] += 1
+            continue
+
+    return stats
+
+
 def get_due_bias_events(limit: int = 50) -> list[dict]:
     """Open events dont resolve_at est passe. Pattern clone get_due_predictions."""
     from shared.storage import DB_PATH
@@ -224,25 +342,90 @@ def get_due_bias_events(limit: int = 50) -> list[dict]:
         conn.close()
 
 
-def resolve_one_bias_event(event: dict[str, Any]) -> dict[str, Any]:
-    """Calcule resolution_json pour UN event. Convention :
-    delta_signed_eur = (shares_taken - shares_avoided) * (price_horizon_eur - anchor_eur)
+_TRADE_TYPES = ("buy", "sell")  # SEULS types qui changent les shares.
+
+
+def _qty_delta_from_event(pos_event: dict[str, Any]) -> float:
+    """Signe le qty selon event_type. buy -> +qty, sell -> -qty.
+    Tout type hors _TRADE_TYPES (dividend, split, adjustment, metadata)
+    -> 0.0 (ignore du delta net). Aligne user guidance v2.c.3 prep #2.
+    """
+    et = (pos_event.get("event_type") or "").lower()
+    if et not in _TRADE_TYPES:
+        return 0.0
+    qty = float(pos_event.get("qty", 0.0))
+    return qty if et == "buy" else -qty
+
+
+def _query_position_events_in_window(
+    ticker: str, created_at_iso: str, resolve_at_iso: str,
+) -> list[dict[str, Any]]:
+    """Query position_events strictement filtree pour le window
+    (created_at, resolve_at]. Borne exclusive a created_at (event au moment
+    de l'open est deja dans initial_qty), inclusive a resolve_at (last
+    moment avant resolution). Tie-break par id si timestamps egaux.
+    Filtre type IN ('buy', 'sell') AU NIVEAU SQL (exclus div/split/etc).
+    """
+    from shared.storage import DB_PATH
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT id, ticker, event_type, qty, timestamp "
+            "FROM position_events "
+            "WHERE ticker = ? "
+            "  AND event_type IN ('buy', 'sell') "
+            "  AND timestamp > ? AND timestamp <= ? "
+            "ORDER BY timestamp ASC, id ASC",
+            (ticker.upper(), created_at_iso, resolve_at_iso),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def resolve_one_bias_event(
+    event: dict[str, Any],
+    position_events_in_window: list[dict[str, Any]],
+) -> tuple[dict[str, Any], str]:
+    """Calcule resolution_json + action classifiee pour UN event.
+    Single-path post v2.c.3 : shares_taken/avoided SOURCES DE position_events
+    via classify_net_delta. plus de shares_taken/avoided dans counterfactual_json.
+
+    Value-equivalence preservee (user guide regle #1) : la valorisation EUR
+    FX-coherente de v2.b ne bouge pas. Seule la source des shares change
+    (table position_events au lieu du JSON).
 
     Args:
-        event: dict avec keys ticker, counterfactual_json (JSON string), resolve_at
+        event: dict avec keys ticker, counterfactual_json, decision_json,
+               resolve_at, bias, created_at
+        position_events_in_window: list de position_events filtres + dans
+            le window, deja injecte par le caller (resolve_due_bias_events
+            ou test). Permet unit test pure sans DB query.
 
     Returns:
-        dict resolution_json prêt à insérer en DB (status='resolved' implicite côté caller)
+        (resolution_json_dict, classified_action)
+        - classified_action : 'acted_on_bias' OU 'resisted', a appliquer
+          via UPDATE bias_events.action = ? avant marquage resolved.
 
     Raises:
         MissingDataError: si price_at_horizon_eur indisponible (delisted/FX gap)
-        ValueError: si counterfactual_json mal formé (donnees obligatoires manquantes)
+        ValueError: si counterfactual_json mal forme (champs requis manquants)
+
+    PIEGE FENETRE VIDE (user guide #1) : 0 trade dans le window N'EST PAS
+    une erreur. C'est un signal valide -- classify_net_delta retourne
+    actual_delta=0 et le label depend de discipline_expected_delta :
+    - discipline=hold (expected=0) + 0 trade -> resisted (a tenu)
+    - discipline=exit (expected=-initial) + 0 trade -> acted_on_bias
+      (echec a sortir). NE PAS confondre avec MissingDataError (prix manquant).
     """
     from shared.prices import get_close_on_in_eur
 
     ticker = event.get("ticker")
     cf_raw = event.get("counterfactual_json")
     resolve_at = event.get("resolve_at")
+    bias = event.get("bias", "other")
     if not cf_raw or not resolve_at:
         raise ValueError(
             f"event id={event.get('id')} : counterfactual_json ou resolve_at "
@@ -250,21 +433,20 @@ def resolve_one_bias_event(event: dict[str, Any]) -> dict[str, Any]:
         )
     cf = json.loads(cf_raw)
     anchor_price_eur = cf.get("anchor_price_eur")
-    shares_taken = cf.get("shares_taken")
-    shares_avoided = cf.get("shares_avoided")
-    if anchor_price_eur is None or shares_taken is None or shares_avoided is None:
+    initial_qty = cf.get("initial_qty")
+    discipline_expected_delta = cf.get("discipline_expected_delta")
+    if anchor_price_eur is None or initial_qty is None or discipline_expected_delta is None:
         raise ValueError(
             f"event id={event.get('id')} : counterfactual_json incomplet "
-            f"(anchor_price_eur, shares_taken, shares_avoided requis)."
+            f"(anchor_price_eur, initial_qty, discipline_expected_delta requis "
+            f"-- shape v2.c attendu)."
         )
 
-    # Resolve_at vient en ISO UTC. On extrait la date pour fetch close + FX a CETTE date.
-    horizon_date = resolve_at[:10]  # 'YYYY-MM-DD'
+    horizon_date = resolve_at[:10]
     if ticker is None:
-        # Event au niveau portefeuille (pas un ticker) -- v1 ne supporte pas.
         raise MissingDataError(
             f"event id={event.get('id')} : ticker NULL (event portefeuille) "
-            f"non-support en v2.b. Reserve a v2.c+."
+            f"non-supporte en v2.c. Reserve a iteration future."
         )
     price_at_horizon_eur = get_close_on_in_eur(ticker, horizon_date)
     if price_at_horizon_eur is None:
@@ -273,33 +455,44 @@ def resolve_one_bias_event(event: dict[str, Any]) -> dict[str, Any]:
             f"None au {horizon_date} (delisted / FX gap / suspended)."
         )
 
-    # Calcul canonical delta_signed
+    # Classifie via position_events injecte (peut etre [] = fenetre vide).
+    # _qty_delta_from_event ignore les types non-trade (dividend, split, etc).
+    enriched_events = [
+        {"qty_delta": _qty_delta_from_event(e)} for e in position_events_in_window
+    ]
+    classified_action, shares_taken, shares_avoided, actual_delta = classify_net_delta(
+        bias=bias,
+        discipline_expected_delta=float(discipline_expected_delta),
+        position_events_in_window=enriched_events,
+        initial_qty=float(initial_qty),
+    )
+
+    # Formule canonique inchangee (value-equivalence v2.b)
     shares_delta = shares_taken - shares_avoided
     delta_signed_eur = shares_delta * (price_at_horizon_eur - anchor_price_eur)
-
-    # value_taken : ce que vaut la portion taken au horizon (incl. cash oisif v1)
-    # cash_oisif_eur = max(0, (shares_avoided - shares_taken) * anchor_eur)
-    # (positif seulement si user a degage du cash en prenant moins de shares)
     cash_oisif_eur = max(0.0, (shares_avoided - shares_taken) * anchor_price_eur)
     value_taken_eur = shares_taken * price_at_horizon_eur + cash_oisif_eur
     value_avoided_eur = shares_avoided * price_at_horizon_eur
 
-    # Aligne ADR 010 : counterfactual_method = "cash_idle" (v1) vs "redeployment" (v2 differe).
     counterfactual_method = cf.get("counterfactual_method", "cash_idle")
-    return {
+    resolution = {
         "delta_signed_eur": round(delta_signed_eur, 2),
         "value_taken_eur": round(value_taken_eur, 2),
         "value_avoided_eur": round(value_avoided_eur, 2),
         "measured_at": datetime.now(UTC).isoformat(),
         "price_at_horizon_eur": round(price_at_horizon_eur, 4),
+        "classified_action": classified_action,
+        "n_trades_in_window": len(position_events_in_window),
+        "actual_delta_net": actual_delta,
         "summary": (
-            f"{ticker} : "
-            f"{'taken>avoided' if shares_delta > 0 else 'taken<avoided'} "
-            f"({shares_taken}-{shares_avoided}={shares_delta}), "
+            f"{ticker} {bias} : classified={classified_action} "
+            f"({len(position_events_in_window)} trades, net {actual_delta:+.2f}), "
+            f"taken={shares_taken} vs avoided={shares_avoided}, "
             f"price {anchor_price_eur:.2f} -> {price_at_horizon_eur:.2f} EUR, "
             f"method={counterfactual_method}, delta {delta_signed_eur:+.2f} EUR"
         ),
     }
+    return resolution, classified_action
 
 
 def resolve_due_bias_events(limit: int = 50) -> dict[str, Any]:
@@ -320,14 +513,27 @@ def resolve_due_bias_events(limit: int = 50) -> dict[str, Any]:
         for event in due:
             eid = event["id"]
             try:
-                resolution_json = resolve_one_bias_event(event)
+                # v2.c.3 : query position_events au lieu de lire JSON.
+                # Window strict (created_at, resolve_at], filtre buy/sell.
+                pos_events = _query_position_events_in_window(
+                    ticker=event["ticker"],
+                    created_at_iso=event["created_at"],
+                    resolve_at_iso=event["resolve_at"],
+                ) if event.get("ticker") else []
+                resolution_json, classified_action = resolve_one_bias_event(
+                    event, pos_events,
+                )
+                # UPDATE action si classification dit resisted (provisoire
+                # acted_on_bias a l'open via open_candidate).
                 conn.execute(
-                    "UPDATE bias_events SET resolution_json=?, status='resolved' WHERE id=?",
-                    (json.dumps(resolution_json, sort_keys=True), eid),
+                    "UPDATE bias_events SET action=?, resolution_json=?, "
+                    "status='resolved' WHERE id=?",
+                    (classified_action, json.dumps(resolution_json, sort_keys=True), eid),
                 )
                 n_resolved += 1
                 details.append({
                     "id": eid, "status": "resolved",
+                    "classified_action": classified_action,
                     "delta_signed_eur": resolution_json["delta_signed_eur"],
                     "summary": resolution_json["summary"],
                 })
