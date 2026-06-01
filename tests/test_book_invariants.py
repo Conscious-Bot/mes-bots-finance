@@ -173,7 +173,7 @@ def held_positions():
 def test_position_facts_are_immutable(held_positions):
     """PositionFacts est frozen=True : impossible de modifier les faits broker."""
     p = held_positions[0]
-    with pytest.raises(Exception):  # FrozenInstanceError / AttributeError
+    with pytest.raises(AttributeError):  # FrozenInstanceError est subclass d'AttributeError
         p.facts.qty = 999999  # ne doit pas marcher
 
 

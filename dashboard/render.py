@@ -2070,28 +2070,28 @@ def _track_record_panel() -> str:
     # panneau -- il sera affiche en footer normal de la page une fois activee.
     if n >= MIN_CONCLUSIF and n_brier >= MIN_CONCLUSIF:
         return ""
-    rate_str = f"{n_corr}/{n} ({n_corr/n:.0%})" if n else "—"
+    _rate_str = f"{n_corr}/{n} ({n_corr/n:.0%})" if n else "—"
     if n >= 2:
         lo, hi = proportion_confint(n_corr, n, alpha=0.05, method="wilson")
         ci_str = f"IC95% [{lo:.0%}, {hi:.0%}]"
     else:
         ci_str = "IC indisponible"
     if n < MIN_CONCLUSIF:
-        rate_cls, rate_verdict = "warn", f"INSUFFISANT &mdash; N&lt;{MIN_CONCLUSIF} pour conclure"
+        _rate_cls, rate_verdict = "warn", f"INSUFFISANT &mdash; N&lt;{MIN_CONCLUSIF} pour conclure"
     elif n_corr / n >= 0.55:
-        rate_cls, rate_verdict = "acc", "verdict provisoire favorable"
+        _rate_cls, rate_verdict = "acc", "verdict provisoire favorable"
     else:
-        rate_cls, rate_verdict = "bear", "verdict provisoire defavorable"
+        _rate_cls, rate_verdict = "bear", "verdict provisoire defavorable"
 
     brier_str = f"{brier_mean:.3f}" if brier_mean is not None else "—"
     if n_brier < MIN_CONCLUSIF:
-        brier_cls, brier_verdict = "warn", f"INSUFFISANT &mdash; N={n_brier}&lt;{MIN_CONCLUSIF}"
+        _brier_cls, brier_verdict = "warn", f"INSUFFISANT &mdash; N={n_brier}&lt;{MIN_CONCLUSIF}"
     elif brier_mean < 0.20:
-        brier_cls, brier_verdict = "acc", "sous la cible 0.20"
+        _brier_cls, brier_verdict = "acc", "sous la cible 0.20"
     elif brier_mean < 0.25:
-        brier_cls, brier_verdict = "warn", "approche le seuil"
+        _brier_cls, brier_verdict = "warn", "approche le seuil"
     else:
-        brier_cls, brier_verdict = "bear", "au-dessus du seuil"
+        _brier_cls, brier_verdict = "bear", "au-dessus du seuil"
 
     # Axe taux correct : 0% -> 100%, marker = position actuelle
     rate_frac = (n_corr / n * 100) if n else 0.0
@@ -5284,10 +5284,10 @@ def render() -> Path:
     sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans th&egrave;se", -sum(x["w"] for x in kv[1])))
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
-    _ris, near, heat, watch = _rows_risque(computed)
+    _ris, near, _heat, watch = _rows_risque(computed)
     gain, lose = _movers(pnl)
     day_up, day_dn = _day_movers(daily)
-    stamp = datetime.now().strftime("%d.%m.%Y &middot; %H:%M")
+    _stamp = datetime.now().strftime("%d.%m.%Y &middot; %H:%M")
     today = datetime.now().strftime("%Y-%m-%d")
     erows = ""
     for rdate, rlab in sorted(REVIEWS):
@@ -5325,7 +5325,7 @@ def render() -> Path:
         if r.get("upside_pct") is not None and r["upside_pct"] < 12
     ]
     _conv_tk = {row[0]: row[1] for row in _q("SELECT ticker, conviction FROM theses WHERE status='active'")}
-    over_cap_tk = _sizing_overcap(
+    _over_cap_tk = _sizing_overcap(
         positions, _conv_tk, _CFG.get("concentration", {}).get("line_cap_by_conviction", {}), pnl
     )
 
