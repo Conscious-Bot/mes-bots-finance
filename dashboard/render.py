@@ -5067,19 +5067,27 @@ def _dba_bar(state: str, count: int, total: int) -> str:
 
 
 def _dba_predictions_brier_html(brier_avg: float | None, brier_n: int) -> str:
-    """Affichage Brier honnete : N<10 = bruit, ne pas afficher comme metrique.
-    N>=10 sur cohorte V1 figee = caveater fort (FICHE_TECHNIQUE.md L150)."""
+    """Affichage Brier honnete (user 01/06) : N<10 = bruit, ne pas afficher
+    comme metrique. N>=10 sur cohorte V1 figee = caveater fort.
+
+    Baseline canonique : 0.25 = Brier du predicteur constante 0.5 (le plus
+    faible, qui hedge tout a 50/50). Le NOMMER explicitement -- sinon
+    'Brier 0.25' lit faussement comme victoire alors que c'est le no-info.
+    Le vrai referent de skill = b(1-b) avec b = taux de base (post-J-day,
+    quand N=35 le justifiera)."""
     if not brier_n:
         return '<div class="dba-meta">Brier : aucune pr&eacute;diction r&eacute;solue &agrave; mesurer</div>'
     if brier_n < 10:
         return (f'<div class="dba-meta">Brier : N={brier_n} '
                 f'(insuffisant &mdash; seuil meaningful N&ge;10)</div>')
     return (
-        f'<div class="dba-meta">Brier moyen : {brier_avg:.3f} sur N={brier_n}</div>'
-        f'<div class="dba-honest">Cohorte V1 fig&eacute;e (probability_at_creation '
-        f'= snapshot cr&eacute;dibilit&eacute; source &asymp; 0.5). Brier {brier_avg:.3f} '
-        f'&asymp; prior trivial. Vraie calibration V2 disponible quand N V2 suffisant '
-        f'(post-ao&ucirc;t).</div>'
+        f'<div class="dba-meta">Brier moyen : {brier_avg:.3f} sur N={brier_n} '
+        f'&middot; vs 0.25 (pr&eacute;dicteur constante 0.5, baseline le plus faible)</div>'
+        f'<div class="dba-honest">Cohorte V1 fig&eacute;e (probability_at_creation = '
+        f'snapshot cr&eacute;dibilit&eacute; source &asymp; 0.5). Battre 0.25 ne d&eacute;montre '
+        f'pas un skill &mdash; juste une am&eacute;lioration sur le pr&eacute;dicteur le plus '
+        f'b&ecirc;te. Vraie calibration V2 = post-ao&ucirc;t (N V2 suffisant + comparaison '
+        f'au pr&eacute;dicteur taux-de-base).</div>'
     )
 
 
