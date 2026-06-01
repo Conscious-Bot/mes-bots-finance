@@ -175,6 +175,48 @@ Sprint v2.macro sizing→phase, J−9 avant batch KPI #2 (01/06/2026). L'agent p
 
 ---
 
+## L10 — Biais de séquence : débloquer vite la friction visible avant la rigueur empirique différée
+
+**Règle** : quand on propose une séquence d'exécution, le premier réflexe est souvent *« faisons d'abord ce qui débloque la friction visible immédiate »* plutôt que *« faisons d'abord ce qui valide empiriquement le sous-jacent »*. Cette préférence est **systématique** dans les propositions agent et doit être identifiée comme biais à corriger consciemment. La séquence empirique-d'abord est presque toujours la bonne, même quand elle coûte plus de temps initial.
+
+**Pourquoi le coût est asymétrique** : raccourcir l'ordre revient à shipper du comportement de production basé sur un construct non-validé (cf L9). Le faux-positif silencieux qui en résulte (cost-drag, ledger pollué, débogage post-mortem en plein pic de charge) excède de plusieurs ordres de grandeur le temps initial gagné. La friction visible immédiate, elle, peut presque toujours être traitée par démote ou caveat plutôt que par câblage.
+
+### Heuristique de détection (avant de proposer une séquence)
+
+Trois questions explicites à se poser :
+
+1. **La friction qui se débloque rapidement vient-elle d'une matière empirique validée OU d'un construct non-validé ?** Si construct non-validé, alarme.
+2. **L'ordre proposé fait-il shipper un comportement prod basé sur un modèle dont le verdict de validation arrive après ?** Si oui, c'est le pattern L9 « wire et observe » — refuser.
+3. **Une démote visuelle (étiquette "exploratoire / non calibré" + neutralisation des labels décisionnels) résoudrait-elle la friction visible sans engager la décision ?** Si oui, c'est presque toujours le bon move tactique en attendant la validation empirique.
+
+Si une seule réponse est positive, **inverser la séquence avant de proposer**.
+
+### Cas concrets observés (01/06/2026)
+
+**Cas 1 — Sprint v2.c.6 Q2 lock_in gate** : proposition initiale "ship gate v1 absolu `pnl_pct ≥ 0.15 AND conviction ≥ 3`, simple, on shippe". User push-back : ship simple **mais** logger les 4 dimensions (`pnl_pct_progress`, `time_progress`, etc.) dans `counterfactual_json` pour permettre v2 data-driven post-90j sur prédicat relatif (`pnl_pct_progress < 0.6 AND time_progress < 0.5`). Sans le logging, v2 aurait nécessité de refaire 6 mois d'observation sur de nouvelles dimensions.
+
+**Cas 2 — Sprint v2.macro sizing→phase** : proposition initiale A→B (câbler sizing sur composite phase avant le backtest) "pour débloquer vite la cohérence visuelle entre frise et sizing". User push-back : B→A, backtest empirique = **prerequisite** absolue. La friction visible (incohérence affichée) se résout par démote, pas par câblage à l'aveugle. Commit démote `f2eefbc`, task backtest #42.
+
+### Anti-pattern à interdire explicitement
+
+❌ « Pour livrer vite la valeur visible, on shippe maintenant et on validera ensuite. » Formulation qui semble pragmatique mais qui est exactement le pattern `PHILOSOPHY.md` « matière empirique > construction » interdit, déguisé en réalisme business.
+
+❌ « La friction visible crée une pression à résoudre vite. » Pression légitime à ressentir, mais à canaliser vers démote (cf L9), pas vers raccourcissement de la séquence empirique.
+
+❌ « Sans le câblage, l'utilisateur ne voit pas la valeur. » L'utilisateur voit déjà la valeur — la matière empirique solide à l'arrivée. L'attente initiale est largement compensée par l'absence de débogage post-mortem.
+
+### Application
+
+Avant de proposer une séquence d'exécution, vérifier explicitement les 3 questions de détection ci-dessus. Si un raccourcissement est tentant, **nommer le trade-off vitesse vs validation explicitement** dans la proposition, sans masquer sous une formulation "pragmatique". Le décideur (user) doit voir le coût asymétrique pour pouvoir refuser l'inversion.
+
+### Origine
+
+Deux occurrences identifiées 01/06/2026 dans la même session (v2.c.6 Q2 + v2.macro sizing→phase). Pattern reconnu comme récurrent (« souvent ») par user post-mortem. Codifié ici pour que les futures séquences d'exécution proposées soient automatiquement vérifiées contre le biais avant émission, plutôt qu'attendre le push-back utilisateur à chaque occurrence.
+
+L10 est un invariant **anti-agent** au sens où elle code une discipline qui n'est pas naturelle dans les heuristiques d'optimisation typiques (« minimiser le temps jusqu'à valeur visible ») et qui doit être imposée externalement par la PHILOSOPHY.md PRESAGE (« matière empirique > construction »).
+
+---
+
 ## Politique d'évolution
 
 Toute nouvelle leçon (catch récurrent qu'on attrape pour la 2ème fois) **doit** être ajoutée ici avec :
