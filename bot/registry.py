@@ -12,6 +12,7 @@ from bot.handlers.anti_erosion import (
     cmd_remarks,
 )
 from bot.handlers.bias_pattern import cmd_bias_pattern
+from bot.handlers.bias_status import cmd_bias_status
 from bot.handlers.debt_crisis import (
     cmd_debt_alerts,
     cmd_debt_history,
@@ -165,6 +166,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("portfolio", cmd_portfolio))
     app.add_handler(CommandHandler("positions", cmd_portfolio))  # alias intuitif (telem: 5 tentatives)
     app.add_handler(CommandHandler("bias_review", cmd_bias_review))
+    app.add_handler(CommandHandler("bias_status", cmd_bias_status))
     app.add_handler(CommandHandler("calendar", cmd_calendar))
     app.add_handler(CommandHandler("insiders", cmd_insiders))
     app.add_handler(CommandHandler("macro", cmd_macro))

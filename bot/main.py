@@ -1,9 +1,13 @@
 """Entrypoint bot. Long-running async."""
 
+import atexit
 import contextlib
+import fcntl
 import logging
 import os
+import sys
 from datetime import UTC, datetime
+from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Update
@@ -284,7 +288,62 @@ async def error_handler(update, ctx):
         log.error("error_handler: echec notification user", exc_info=True)
 
 
+_LOCK_PATH = Path(__file__).resolve().parent.parent / "data" / "bot.pid"
+_LOCK_FH = None
+
+
+def _acquire_mono_instance_lock() -> None:
+    """Lock file PID-based pour empecher 2 instances PRESAGE bot en parallele.
+
+    Cause connue : 2 `bot.main` simultanes => Telegram getUpdates Conflict
+    (long-polling exclusif). Le tennis bot (`bot.py`, com.olivier.tennisbot
+    launchd) est un PROCESS DIFFERENT, lock different, non affecte.
+
+    Approche : fcntl.flock exclusif sur data/bot.pid. Si l'autre instance
+    detient le lock -> EXIT 1 propre avec message. Si stale (instance
+    crashed sans cleanup), le lock est release par l'OS au close FD.
+    """
+    global _LOCK_FH
+    _LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # SIM115 noqa : fichier doit rester ouvert toute la duree du process pour
+    # que fcntl.flock tienne le lock. Cleanup via atexit ci-dessous.
+    _LOCK_FH = open(_LOCK_PATH, "w")  # noqa: SIM115
+    try:
+        fcntl.flock(_LOCK_FH.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        # Lock detenu par autre instance.
+        try:
+            with open(_LOCK_PATH) as f:
+                other_pid = f.read().strip() or "?"
+        except OSError:
+            other_pid = "?"
+        sys.stderr.write(
+            f"[bot.main] Autre instance PRESAGE detient {_LOCK_PATH} (PID {other_pid}). "
+            "Arrete-la d'abord (ou laisse-la tourner). Exit 1.\n"
+        )
+        sys.exit(1)
+    _LOCK_FH.write(str(os.getpid()))
+    _LOCK_FH.flush()
+    atexit.register(_release_mono_instance_lock)
+
+
+def _release_mono_instance_lock() -> None:
+    """Cleanup au exit propre : release flock + supprime le PID file."""
+    global _LOCK_FH
+    if _LOCK_FH is None:
+        return
+    try:
+        fcntl.flock(_LOCK_FH.fileno(), fcntl.LOCK_UN)
+        _LOCK_FH.close()
+    except OSError:
+        pass
+    with contextlib.suppress(OSError):
+        _LOCK_PATH.unlink()
+    _LOCK_FH = None
+
+
 def main():
+    _acquire_mono_instance_lock()
     storage.log_event("startup", {"phase": "2"})
     config.load()
     log.info(
