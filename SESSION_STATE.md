@@ -936,3 +936,66 @@ posee avec garde-fous et declencheurs explicites.
   sens contre vraies donnees.
 - Vision long terme : task #24 modernisation interface PRESAGE
   contre site public presage.pro + premieres lectures honnetes.
+
+### Extension Close 01/06 -- session prolongee apres-midi
+
+Apres le close initial du matin, session etendue avec :
+
+**Audit complet 7 dimensions** (commit b1c2171 cleanup + ef525f9 ruff
++ f603589 cascade) :
+- 5 vrais fixes : #25 ALLOWED_FILES bias_events / #27 SESSION_STATE
+  / #29 v2_vigilance fixture / #31 skill gitignored / #33 ruff 10 -> 0
+- 3 faux positifs identifies : #28 backup sain / #30 register_prediction
+  refuse deja / #32 DEPRECATED = kill-switches volontaires
+- 2 P1 #26 telegram Conflict auto-resolu (root cause -> task #34 guard
+  mono-instance preventif)
+
+**Capitalisation post-audit** (commit 0251067) :
+- docs/LESSONS.md cree (6 lecons canoniques L1-L6 : source unique,
+  ne pas batir avant la donnee, etat honnete, anti-double-instrumentation,
+  fail-safe strict, rituel de cloture)
+- docs/templates/monitor_pattern.md cree (gabarit miroir kca/over_cap
+  pour tout futur monitor)
+- .claude/commands/close.md + gates.md crees (slash-commands)
+- CLAUDE.md mis a jour avec 3 references source-unique
+
+**Installation skills** :
+- 17 skills officiels Anthropic + 3 OneWave AI selectifs en user-level
+  (~/.claude/skills/, 11 MB, gitignored)
+- Claude Squad binary v1.0.18 installe (~/.local/bin/cs) pour multi-
+  session parallele
+- ClaudeForge + VoltAgent + impeccable + skills "research/security/
+  humanizer/etc." ecartes (anti-pattern L1 / hors-stack / sources
+  tierces non verifiees)
+
+**Audit dashboard avec nouveaux skills** :
+- Rapport en 3 grilles : ui-ux projet (autorite) / frontend-design
+  Anthropic / lookalike futur site public
+- Verdict : systeme design mature, anti-AI-slop, "2-3 chantiers polish
+  cibles a 2-3 chantiers de la facade publique, pas une refonte"
+- 3 frictions lookalike identifiees : F1 pas de hero editorial /
+  F2 densite interne vs curatoriale / F3 pas de ton "ouverture des
+  livres" -- toutes deja gated par #11/#19/#24
+
+**Amplification brand identite** (task #37 creee) :
+- 5 axes documentes pour future migration presage.pro
+- AXE 4 motion epistemique partial livre : cascade Vue d'ensemble
+  (commit f603589) -- presage-cascade 320ms staggered 60ms x 8 blocs,
+  gate sessionStorage.h_seen anim 1x par session
+- AXE 3 grain texture noise : ABANDONNE essai (old school a toutes
+  intensites cf [[feedback-no-grain-texture]])
+- AXE 4 marker pose : RETIRE (imperceptible sans cause identifiee,
+  cf piege #3 lecons website migration)
+- 4 pieges identifies pour future site public
+  [[website-migration-motion-lessons]] : sessionStorage gate,
+  superposition non validee, imperceptible tolere, cache leurrant
+
+**Net session etendue** : 4 commits supplementaires (b1c2171, 0251067,
+ef525f9, f603589), 536 tests verts maintenus, ruff 0 errors, working
+tree clean cote repo.
+
+**Restant pour prochaine session** :
+- Surface 2 / lock_in : conception 3 questions ouvertes (point
+  d'emission, seuil winner, horizon contrefactuel). Le vrai forward.
+- P1 #34 guard mono-instance preventif si Conflict revient
+- Backlog #11/#19/#24 reste gated par J-day + densite biais
