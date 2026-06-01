@@ -217,6 +217,54 @@ L10 est un invariant **anti-agent** au sens où elle code une discipline qui n'e
 
 ---
 
+## L11 — Les anchors a priori sont une hypothèse à valider empiriquement, pas une vérité
+
+**Règle** : quand on backteste une formule contre une liste d'anchors labellisés a priori (« 2017 = P1 calme », « SVB = P2 stress modéré »), la labellisation est elle-même une **hypothèse**, pas un référentiel absolu. Avant de conclure « formule cassée » sur un fail, vérifier empiriquement la qualité du label : tirer 2-4 indicateurs macro de la période réelle (VIX moyen, spreads, courbe taux, ISM) et confirmer que le régime étiqueté correspond bien à la réalité observée.
+
+**Pourquoi le coût est asymétrique** : conclure « formule cassée » sur un anchor mal labellisé conduit à 3 erreurs en cascade : (1) on rejette une formule qui captait correctement le signal ; (2) on entreprend un redesign inutile ; (3) on perd la confiance dans le sous-jacent qui était valide. À l'inverse, vérifier 4 indicateurs macro coûte 30 minutes et tranche définitivement.
+
+### Heuristique de détection (avant de conclure sur un fail d'anchor)
+
+Avant d'écrire « anchor X échoue → formule cassée », répondre explicitement :
+
+1. **Le label de l'anchor a-t-il été assigné après vérification empirique du régime macro de la période, OU sur réputation/narratif ?** Si « réputation », c'est une hypothèse de travail, pas un référentiel.
+2. **Si la formule classe X plus stressé que prévu, quels 2-3 indicateurs macro indépendants (hors composite) confirment / infirment cette classification ?** VIX moyen 6m, spread HY OAS, courbe 10s-2s, ISM Manuf, etc.
+3. **L'écart entre score formule et label attendu est-il cohérent avec un pré-stress latent qui n'avait pas été reconnu dans la labellisation initiale ?**
+
+Si une seule réponse confirme la mauvaise labellisation, **relabel l'anchor avant de conclure sur la formule**.
+
+### Cas concret observé (01/06/2026)
+
+**Task #42 backtest macro composite** : labellisation initiale « 2017-06 = 2019-06 = P1 calme ». La formule V3 classait 2017-06 à 21 (P1) et 2019-06 à 45 (P2). Conclusion immédiate de l'agent : « formule cassée, baseline trop élevé, variance 24 points entre 2 calmes ». User push-back : « juin 2019 n'était pas un calme — courbe 10s-2s à l'inversion, Fed pivot dovish, ISM <50, trade war Chine pic ».
+
+Sanity-check empirique sur 4 indicateurs :
+- VIX moyen 2017 = **11.09** vs 2019 = **15.39** → 2019 plus stressé ✓
+- 10s-2s juin 2017 = **84 bps** vs juin 2019 = **26 bps** + 3 jours d'inversion → 2019 pré-récession ✓
+- IPMAN YoY juin 2017 = **+0.61%** vs juin 2019 = **-1.91%** → 2019 contraction industrielle ✓
+- HY OAS juin 2017 < juin 2019 (rate-limit FRED, mais ordre évident)
+
+Conclusion révisée : juin 2019 = vrai P2 (pré-stress latent), pas P1 calme. L'écart 24 points était du **signal correctement capté** par la formule, pas du bruit. Relabel 2019 → P2 → V3 passe 8/8 anchors a priori + 7/8 OOS + 5/5 fenêtres soutenues.
+
+### Anti-pattern à interdire explicitement
+
+❌ « L'anchor échoue, la formule est cassée. » Court-circuite la possibilité que ce soit l'anchor qui soit mal labellisé. Toujours vérifier les deux côtés.
+
+❌ « La labellisation a été faite par un expert (humain ou agent), donc elle est fiable. » Les labellisations a priori reposent sur la réputation des événements (« COVID = crise », « 2017 = calme »), pas sur leur granularité macro. La granularité macro peut être contre-intuitive.
+
+❌ « Tester 4 indicateurs prend du temps, on tranche sur le verdict actuel. » 30 minutes de sanity-check économisent typiquement plusieurs heures de redesign inutile + une perte de confiance dans la formule.
+
+### Application
+
+Avant tout backtest, **listing dual** : (1) anchors avec leur label attendu ; (2) sources empiriques de vérification pour chaque anchor (VIX moyen, courbe, spreads, ISM sur la fenêtre). Si une labellisation diffère de la formule par > 1 cran de phase, runner la vérification empirique avant de conclure sur la formule.
+
+### Origine
+
+Session 01/06/2026 task #42 backtest macro composite, V3 redesign BTC drawdown 180j + FedBalance YoY + MfgIP P4. Pattern reconnu par user après que l'agent eut conclu « formule cassée, baseline trop élevé » sur l'écart 2017/2019, alors que la réalité macro confirmait l'écart. Commit `715c7df` (CSV in-sample), commit V3 prod `7a43189`.
+
+L11 est un complément de L9 et L10 : L9 dit « pas de prod sur modèle non backtesté » ; L10 dit « ne pas raccourcir la séquence empirique » ; L11 dit **« et le backtest lui-même doit reposer sur des anchors empiriquement vérifiés, pas labellisés au feeling »**.
+
+---
+
 ## Politique d'évolution
 
 Toute nouvelle leçon (catch récurrent qu'on attrape pour la 2ème fois) **doit** être ajoutée ici avec :
