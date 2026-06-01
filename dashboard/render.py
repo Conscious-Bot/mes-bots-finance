@@ -6235,22 +6235,26 @@ def render() -> Path:
         + f'</div>'
         # Track record + Sante distribution deplaces vers page "signaux"
         # (user feedback 01/06 : pilotage qualite des signaux groupe ensemble).
-        # ── BLOC 1 : URGENCE -- positions en danger immediat ──
+        # Reordre 01/06 soir (user feedback) : Opportunites + Mouvement
+        # AU-DESSUS de "Etat -- lignes a examiner" (top risque). Lecture :
+        # d'abord ce sur quoi agir (ops), puis ce qui bouge, puis ce qui
+        # demande surveillance approfondie.
+        # ── BLOC 1 : OPPORTUNITES -- a cloturer ou consolider ──
+        '<div class="vigie-sh" data-tip="Lignes proches de la cible (zone de prise de profit, valo &gt; bull) ou proches du stop (zone trim/exit)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">th&egrave;se en cours de r&eacute;alisation &middot; surveiller valo &gt; bull et fragilit&eacute;</span></div>'
+        f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
+        f'<div class="card pad">{lose}</div></div></div>'
+        # ── BLOC 2 : MOUVEMENT -- info dynamique du jour ──
+        '<div class="vigie-sh" data-tip="Variations intraday vs cloture veille. Permet de capter les rotations rapides sans attendre la cloture."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l4-4 3 3 5-6"/></svg>Mouvement du jour</div>'
+        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
+        f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
+        f'<div class="card pad">{day_dn}</div></div></div>'
+        # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html migre vers section Copilot dediee 31/05 wave 5)
         '<div class="vigie-sh" data-tip="Lignes du book a verifier en priorite : marges critiques (stop &lt; 10%), zones at_risk kill_criteria, vol aveugle."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>&Eacute;tat &mdash; lignes &agrave; examiner</div>'
         f'{_risk_watch_panel()}'
         f"{blind_html}"
-        # ── BLOC 2 : OPPORTUNITES -- a cloturer ou consolider ──
-        '<div class="vigie-sh" data-tip="Lignes proches de la cible (zone de prise de profit, valo &gt; bull) ou proches du stop (zone trim/exit)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">th&egrave;se en cours de r&eacute;alisation &middot; surveiller valo &gt; bull et fragilit&eacute;</span></div>'
-        f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
-        f'<div class="card pad">{lose}</div></div></div>'
-        # ── BLOC 3 : MOUVEMENT -- info dynamique du jour ──
-        '<div class="vigie-sh" data-tip="Variations intraday vs cloture veille. Permet de capter les rotations rapides sans attendre la cloture."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l4-4 3 3 5-6"/></svg>Mouvement du jour</div>'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
-        f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
-        f'<div class="card pad">{day_dn}</div></div></div>'
         # ── BLOC 4 : SYNTHESE COPILOT (interventions adversariales) ──
         # (Retraits 31/05 user feedback : wire_activity / vigilance_v2 / v2_cohort /
         # calib_progress / cockpit / disc_hero -- code backend conserve, alertes Telegram
