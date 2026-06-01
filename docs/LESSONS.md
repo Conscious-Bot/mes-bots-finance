@@ -110,6 +110,32 @@
 
 ---
 
+## L8 — Les test fixtures DB ne sont pas le schéma de production
+
+**Règle (cause structurelle)** : les fixtures DB des tests sont **clonées d'un état du schéma à un moment T**. Une fois la migration suivante posée (`ALTER TABLE`, nouvelle colonne, contrainte, index), les fixtures restent à T sauf régénération explicite. Tous les tests qui touchent cette table continuent de passer ✅ alors que le code, en condition réelle migrée, échoue.
+
+**Mode de défaillance typique** : colonnes optionnelles ajoutées par migration récente que le code consomme mais que la fixture ne contient pas. Les writes/reads sur la colonne fail silencieusement (None retourné, INSERT qui ignore la colonne inexistante, ou crash décalé à la première vraie utilisation prod).
+
+**Origine** : sprint v2.c.6 lock_in, hotfix `9a67e0c` (01/06/2026), J−9 avant batch KPI #2. La colonne `note_tags_json` ajoutée par migration 0023 n'avait jamais été propagée aux fixtures tests (qui contenaient `note TEXT`). `open_candidate` INSERT dans la colonne nommée `note` — le code prod silently failed à chaque tentative d'ouverture de candidat depuis Sprint 15 (kca) + Sprint 25 (over_cap). Non révélé parce que 0 transition réelle (kca tout dormant, over_cap dark par décision). **Le bug aurait pété au premier vrai trigger kca le 10/06**, en plein milieu de la batch résolution KPI #2 — exactement le mauvais moment pour découvrir qu'un hook silencieusement mort depuis 40 jours fait sauter l'intégrité du ledger. Sans le smoke E2E ajouté avant J-day, post-mortem garanti.
+
+### Règle structurelle (le vrai fix, à shipper)
+
+Les fixtures DB tests **sont dérivées de la migration head courante**, pas commitées comme snapshots statiques. Régénération automatique au CI via `alembic upgrade head` sur un volume éphémère + minimal seed. Tue le mode de défaillance à sa racine — 1h d'écriture, économie illimitée.
+
+### Règle tactique (palliatif en attendant la structurelle)
+
+Tout code qui consume une colonne ajoutée par migration récente **embarque un smoke E2E contre une DB freshly-migrated**, distinct des tests unitaires fixtures. Le smoke crée une vraie position dans la vraie DB live, fait fire le chemin réel (ex. `positions.add_sell` → hook → INSERT bias_event), vérifie le row écrit, cleanup. 30 secondes d'écriture, attrape les drifts schema.
+
+### Anti-pattern à interdire explicitement
+
+❌ Ajouter une colonne par migration → écrire les tests sur fixture pré-migration → déclarer tests verts = code safe.
+
+Le raisonnement fallacieux est : « tests verts donc code safe ». La vérité est : « tests verts contre le schéma de la fixture, indépendamment du schéma de la prod ». Si la fixture diverge de la prod, les tests verts ne disent rien sur la safety prod.
+
+Quand la version structurelle (régénération fixtures CI) sera shippée, cette section "Règle tactique" devient un commentaire historique à l'intérieur de L8 — le smoke E2E par hook reste utile en complément, mais cesse d'être le filet de sécurité principal.
+
+---
+
 ## Politique d'évolution
 
 Toute nouvelle leçon (catch récurrent qu'on attrape pour la 2ème fois) **doit** être ajoutée ici avec :
