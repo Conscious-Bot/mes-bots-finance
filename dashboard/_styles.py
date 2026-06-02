@@ -374,18 +374,17 @@ _CSS = """
   .tag { font-family:var(--fm); font-weight:600; font-size:14px; padding:3px 9px; border-radius:var(--r1); }
   .tag.up { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); } .tag.acc2 { color:var(--acc2); background:color-mix(in srgb, var(--acc2) 12%, transparent); }
   .tag.down,.tag.danger { color:var(--bear); background:color-mix(in srgb, var(--bear) 13%, transparent); } .tag.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 14%, transparent); } .tag.calm { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); } .tag.mute { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); }
-  /* Signal-subtil PRESAGE : axe gradient red->neutral->green + dot noir-bezel-gold.
-     Redesign 02/06 : visual width 150% range (target tick at 66.67%, overshoot
-     zone 66.67->100% gold). User feedback : voir le depassement quand atteinte. */
+  /* Axe gradient evolutif smooth (red -> steel -> green) du DNA original.
+     Target tick a 66.67% (zone overshoot 66.67..100%). Le marker peut
+     occuper la zone droite, mais le DEGRADE reste continu (pas de zone
+     gold rupture) -- user "gauges evolutives etaient bien". */
   .axis { position:relative; height:5px; border-radius:2.5px; margin:var(--s35) 0 6px;
     background:linear-gradient(90deg,
       var(--bear) 0%,
-      color-mix(in srgb,var(--bear) 45%,transparent) 17%,
-      color-mix(in srgb,var(--steel) 35%,transparent) 33%,
-      color-mix(in srgb,var(--acc) 45%,transparent) 50%,
-      var(--acc) 66.67%,
-      color-mix(in srgb,var(--gold) 60%,var(--acc)) 80%,
-      var(--gold) 100%); }
+      color-mix(in srgb,var(--bear) 45%,transparent) 22%,
+      color-mix(in srgb,var(--steel) 35%,transparent) 44%,
+      color-mix(in srgb,var(--acc) 50%,transparent) 66.67%,
+      var(--acc) 100%); }
   .axis-target-tick { position:absolute; top:-3px; width:2px; height:11px; background:var(--ink); opacity:.6; border-radius:1px; pointer-events:none; }
   /* Sizebar redesign 02/06 : target a 50% = zone verte optimale.
      Under-target = rouge (under-sized, need bump). Over-cap = rouge
