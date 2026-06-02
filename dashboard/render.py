@@ -3224,9 +3224,12 @@ def _signaux() -> str:
             tally[key] += int(cnt)
         tally_str = " &middot; ".join(f"{c} {k}" for k, c in tally.items() if c) or "&mdash;"
         rows8k = ""
+        # Filter book : 8-K externes au book = bruit (user mandate 02/06).
         for tk, sev, codes, reason, filed in _q(
             "SELECT ticker, COALESCE(severity,''), COALESCE(item_codes,''), COALESCE(severity_reason,''), filed_at "
             "FROM filings_8k_log WHERE filed_at > datetime('now','-60 day') "
+            "  AND ticker IN (SELECT DISTINCT ticker FROM positions "
+            "                  UNION SELECT DISTINCT ticker FROM portfolio_targets) "
             "ORDER BY " + sev_order + ", filed_at DESC LIMIT 12"
         ):
             su = str(sev).upper()
@@ -3252,9 +3255,13 @@ def _signaux() -> str:
 
     try:
         rowsib = ""
+        # Filter book : insider clusters external = bruit (user mandate 02/06).
         for tk, det, buyers, buym, strength in _q(
             "SELECT ticker, detected_at, COALESCE(distinct_buyers,0), COALESCE(total_buy_m,0), COALESCE(cluster_strength,'') "
-            "FROM insider_buy_clusters_log ORDER BY detected_at DESC LIMIT 8"
+            "FROM insider_buy_clusters_log "
+            "WHERE ticker IN (SELECT DISTINCT ticker FROM positions "
+            "                 UNION SELECT DISTINCT ticker FROM portfolio_targets) "
+            "ORDER BY detected_at DESC LIMIT 8"
         ):
             rowsib += (
                 f'<div class="row"><div class="rt"><span class="tk tkc" data-tk="{tk}">{tk}</span>'
@@ -3711,8 +3718,8 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h2>Alerts</h2>'
         f'<div class="sub">Momentum toward targets &middot; margin before stops &middot; macro stress</div></div>'
         f"{star}"
-        # Retraits 02/06 user : "Race toward target" et "Lowest stop margins"
-        # = waste/useless (info accessible ailleurs : Theses + dashboard hero).
+        # Restore 02/06 user "alerts et tous les indicateurs etait bien" :
+        # macro stress monitor + RSI + breadth conserves sur Alerts (utile au user).
         f'<div class="cols">'
         f'<div><div class="ph3">Macro stress monitor &mdash; score {score:.0f}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
@@ -3728,9 +3735,13 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
 def _tape_8k() -> str:
     sevcls = {"HIGH": "neg", "MEDIUM": "warn", "MED": "warn", "LOW": "pos"}
     try:
+        # Filter book : tape8k externes au book = bruit (user mandate 02/06).
         rows = _q(
             "SELECT ticker, COALESCE(severity,''), COALESCE(severity_reason,''), COALESCE(item_codes,''), filed_at "
-            "FROM filings_8k_log WHERE filed_at > datetime('now','-60 day') ORDER BY filed_at DESC LIMIT 18"
+            "FROM filings_8k_log WHERE filed_at > datetime('now','-60 day') "
+            "  AND ticker IN (SELECT DISTINCT ticker FROM positions "
+            "                 UNION SELECT DISTINCT ticker FROM portfolio_targets) "
+            "ORDER BY filed_at DESC LIMIT 18"
         )
     except Exception:
         return ""
