@@ -249,9 +249,11 @@ _CSS = """
      a la TR/Linear. 280ms ease, opacity + translate-y 8px. Anti-double-fire
      via .noanim gate (cf dashboard_anim_session_gate). */
   /* page-star kill 02/06 user "degage moi ces panneaux horribles".
-     EXCEPTION : Vigie/Overview garde son panneau star (valeur + note PF). */
+     EXCEPTIONS : Vigie (valeur + note PF) + Concentration (verdict + top +
+     capital = info contextuelle pas banner trophy). */
   .page-star { display:none !important; }
-  [data-page="vigie"] .page-star { display:block !important; background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:24px 28px; margin-bottom:var(--s4); }
+  [data-page="vigie"] .page-star,
+  [data-page="concentration"] .page-star { display:block !important; background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:24px 28px; margin-bottom:var(--s4); }
   [data-page="vigie"] .page-star .ps-strate { display:block; padding:14px 0; gap:0; }
   [data-page="vigie"] .page-star .ps-strate:first-child { padding-top:0; }
   [data-page="vigie"] .page-star .ps-strate:last-child { padding-bottom:0; }
@@ -274,6 +276,20 @@ _CSS = """
   [data-page="vigie"] .page-star .ps-grade-fill.acc { background:var(--acc); }
   [data-page="vigie"] .page-star .ps-grade-fill.warn { background:var(--warn); }
   [data-page="vigie"] .page-star .ps-grade-fill.bear { background:var(--bear); }
+
+  /* Concentration page-star : verdict + grid 3-cell + foot cluster */
+  [data-page="concentration"] .page-star .ps-strate { display:block; padding:14px 0; gap:0; }
+  [data-page="concentration"] .page-star .ps-strate:first-child { padding-top:0; }
+  [data-page="concentration"] .page-star .ps-strate:last-child { padding-bottom:0; }
+  [data-page="concentration"] .page-star .ps-strate + .ps-strate { border-top:1px solid var(--line); }
+  [data-page="concentration"] .page-star .ps-lbl { display:block; margin-bottom:8px; font-size:11px; letter-spacing:.10em; }
+  [data-page="concentration"] .page-star .ps-macro-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  [data-page="concentration"] .page-star .ps-val { font-size:24px; font-family:var(--fm); font-variant-numeric:tabular-nums; font-weight:500; line-height:1.15; }
+  [data-page="concentration"] .page-star .ps-cap { font-size:13px; margin-top:4px; }
+  [data-page="concentration"] .page-star .ps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
+  [data-page="concentration"] .page-star .ps-cell { display:block; }
+  [data-page="concentration"] .page-star .ps-cell .ps-val { font-size:24px; }
+  [data-page="concentration"] .page-star .ps-foot { font-size:12px; padding-top:4px; }
   .page-star .ps-strate { padding:6px 0; display:flex; flex-wrap:wrap; align-items:baseline; gap:18px; }
   .page-star .ps-lbl { font-family:var(--fb); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--steel); margin:0; font-weight:500; display:inline-block; }
   .ps-tag-explor { display:inline-block; margin-left:6px; padding:1px 6px; font-size:10px; font-weight:500; letter-spacing:.06em; text-transform:uppercase; color:var(--steel); border:1px solid var(--line2); border-radius:var(--r1); font-family:var(--fm); cursor:help; }
