@@ -3902,6 +3902,9 @@ _NAV = (
 )
 
 _TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
+# Direction esthetique #37 -- cahier de bord instrument (Bloomberg / cockpit).
+# Override CSS active via body.cahier-de-bord (toggle JS).
+_CAHIER_CSS = (Path(__file__).parent / "cahier_de_bord.css").read_text(encoding="utf-8")
 
 _CSS = """
   * { box-sizing:border-box; }
@@ -6530,8 +6533,12 @@ def render() -> Path:
         "<style>"
         + _TOKENS_CSS
         + _CSS
+        + _CAHIER_CSS
         + "</style></head><body>"
         + body
+        + '<button class="cahier-toggle" onclick="toggleCahierDeBord()" title="Mode cahier de bord instrument">CAHIER</button>'
+        + '<script>function toggleCahierDeBord(){var b=document.body;b.classList.toggle("cahier-de-bord");try{localStorage.setItem("hmdl-mode",b.classList.contains("cahier-de-bord")?"cahier":"default")}catch(e){}}'
+        + 'try{if(localStorage.getItem("hmdl-mode")==="cahier"){document.body.classList.add("cahier-de-bord")}}catch(e){}</script>'
         + "<script>window.TK="
         + json.dumps(loupe_data)
         + ";window.SB_DATA="
