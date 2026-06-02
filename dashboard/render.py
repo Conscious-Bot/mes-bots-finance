@@ -3426,15 +3426,33 @@ _MACRO_TIPS: dict[str, str] = {
 }
 
 
-def _macro_dot(ind: str, v: float) -> str:
-    "Couleur du point macro selon le level reel (decouplee de la phase). Inconnu -> mute."
+def _macro_dot(ind: str, v: float, phase: int | None = None) -> str:
+    """Couleur du point macro.
+
+    Priorite : (1) bands locales (interpretation level-based directe, ex VIX),
+    sinon (2) fallback sur la phase stockee en DB par le composite V3 -- ainsi
+    indicateurs sans threshold dur (Gold, BankReserves, KRE, etc.) refletent
+    quand meme l'avis du composite, et restent coherents avec top stressor /
+    tally. (3) Inconnu total -> mute.
+    """
     band = _MACRO_BANDS.get(ind)
-    if band is None:
-        return "mute"
-    warn, danger, hi_bad = band
-    if hi_bad:
-        return "danger" if v >= danger else ("warn" if v >= warn else "calm")
-    return "danger" if v <= danger else ("warn" if v <= warn else "calm")
+    if band is not None:
+        warn, danger, hi_bad = band
+        if hi_bad:
+            return "danger" if v >= danger else ("warn" if v >= warn else "calm")
+        return "danger" if v <= danger else ("warn" if v <= warn else "calm")
+    if phase is not None:
+        try:
+            p = int(phase)
+        except Exception:
+            return "mute"
+        if p >= 4:
+            return "danger"
+        if p == 3:
+            return "warn"
+        if p in (1, 2):
+            return "calm"
+    return "mute"
 
 
 # === Equity internals: RSI(14) + Breadth (RSP/SPY) — cache TTL 30min ===
@@ -3590,7 +3608,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         v = float(val or 0)
         num = f"{v:,.{dec}f}" if thou else f"{v:.{dec}f}"
         ph = int(phase or 1)
-        dot = _macro_dot(ind, v)
+        dot = _macro_dot(ind, v, phase)
         try:
             _age = (_today - _dt.date.fromisoformat(str(ts)[:10])).days
         except Exception:
