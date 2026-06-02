@@ -187,6 +187,13 @@ def classify_lock_in(sale: dict[str, Any]) -> dict[str, Any] | None:
     if pnl_pct <= 0:
         return None  # not_winner
 
+    # Gate 2b : floor canonique pnl >= 15% (CLAUDE.md spec lock_in v2.c.6).
+    # Sans ce floor, toute vente prematuree micro-gain (ex 2%) est flag,
+    # bruit demesure. 15% = "vraiment un winner sold pre-target".
+    # Epsilon 1e-6 pour gerer precision IEEE 754 (ex 115/100-1 = 0.14999...).
+    if pnl_pct < 0.15 - 1e-6:
+        return None  # below_pnl_floor (gain trop faible pour qualifier de lock_in)
+
     # Gate 3 : gain < 50% de la cible_conviction (axe timing)
     target_pnl = TARGET_PNL_BY_CONV[conv]
     target_halfway = 0.5 * target_pnl

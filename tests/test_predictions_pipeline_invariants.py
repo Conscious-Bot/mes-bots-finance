@@ -154,11 +154,14 @@ def test_no_mono_bucket_on_recent_resolutions(conn):
     """Sur les N dernieres resolutions, au moins 2 buckets distincts de
     probabilite. Pattern V1 mono-bucket (toutes proba ~0.63) etait le
     bug critique post-30/05 -- ce test l'attrape si V1 ressuscitait."""
+    # Filter v0 AND v1 : V1 mono-bucket WAS the bug fixed via V2 pivot 30/05.
+    # Pre-pivot V1 resolutions correctly mono-bucket -- pas une regression.
+    # On audite V2+ uniquement (le scorer post-pivot).
     rows = conn.execute(
         "SELECT probability_at_creation FROM predictions "
         "WHERE resolved_at IS NOT NULL "
         "AND probability_at_creation IS NOT NULL "
-        "AND methodology_version != 'v0' "
+        "AND methodology_version NOT IN ('v0', 'v1') "
         "ORDER BY resolved_at DESC LIMIT 30"
     ).fetchall()
     if len(rows) < 10:

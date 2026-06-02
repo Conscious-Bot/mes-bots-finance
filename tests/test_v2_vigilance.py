@@ -255,7 +255,7 @@ def test_insider_clusters_alive_info_dry_universe(tmp_path, monkeypatch):
     assert r["status"] == "INFO"
     assert r["n"] == 0
     assert r["any_individual_buys"] == 5
-    assert "Normal pour book large-cap" in r["message"]
+    assert "Normal for large-cap" in r["message"]
 
 
 def test_insider_clusters_alive_ok_with_clusters(tmp_path, monkeypatch):

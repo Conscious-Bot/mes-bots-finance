@@ -11,6 +11,7 @@ Si une modif de #1/#2 re-introduit le bug, ces tests crashent.
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime
 
 import pytest
 
@@ -47,7 +48,9 @@ def db_with_mixed_predictions() -> sqlite3.Connection:
             methodology_version TEXT NOT NULL DEFAULT 'v1'
         )
     """)
-    now = "2026-05-31T12:00:00"
+    # now dynamique : queries -24h/-30d/-28d sont anchored sur datetime('now')
+    # SQL, donc fixture doit suivre la date courante pour rester dans la fenetre.
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
     rows = [
         (1, "AAPL", "bullish", 14, 100, "2026-05-01", "2026-05-15", now, 110, 0.10, "correct",   0.03, now, 0.7, 0.09,   "v1"),
         (2, "MSFT", "bullish", 14, 100, "2026-05-01", "2026-05-15", now, 112, 0.12, "correct",   0.03, now, 0.7, 0.09,   "v1"),

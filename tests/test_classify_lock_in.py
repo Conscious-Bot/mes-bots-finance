@@ -206,10 +206,11 @@ def test_c2_trim_below_threshold_returns_none():
 
 
 def test_c2_exit_above_threshold_is_candidate():
-    """c2 seuil 75%. Vendre 80% -> exit -> candidat."""
+    """c2 seuil 75%. Vendre 80% -> exit -> candidat.
+    PnL 16% pour passer gate 2b floor 15% (spec CLAUDE.md lock_in v2.c.6)."""
     sale = _make_sale(
         thesis=_make_thesis(conviction=2),
-        sold_price=110, avg_cost=100,
+        sold_price=116, avg_cost=100,
         qty_sold=80, qty_before=100,
     )
     result = classify_lock_in(sale)

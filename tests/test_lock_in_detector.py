@@ -176,7 +176,9 @@ def test_winner_pnl20_c4_sold_opens_candidate(
     ).fetchone()
     cx.close()
     cf = json.loads(row[0])
-    assert cf["initial_qty"] == 100.0
+    # Spec lock_in v2.c.6 : initial_qty = qty_sold (les parts vendues, pas la position
+    # entiere) car le contrefactuel suit "qu'aurait fait la discipline = hold sur ces 50 parts".
+    assert cf["initial_qty"] == 50.0
     assert cf["discipline_expected_delta"] == 0.0  # discipline = hold
     assert cf["anchor_price_eur"] == 110.0
 
@@ -184,8 +186,10 @@ def test_winner_pnl20_c4_sold_opens_candidate(
     note = json.loads(row[2])
     assert note["pnl_pct_at_sell"] == pytest.approx(0.20, abs=0.001)
     assert note["conviction_at_sell"] == 4
-    assert note["pnl_pct_progress"] is not None  # target connu (200/100-1 = 1.0)
-    assert note["pnl_pct_progress"] == pytest.approx(0.20, abs=0.001)
+    # pnl_pct_progress = pnl / TARGET_PNL_BY_CONV (constant par conviction)
+    # c4 target = 0.60, pnl = 0.20 -> progress = 0.20 / 0.60 = 0.333.
+    assert note["pnl_pct_progress"] is not None
+    assert note["pnl_pct_progress"] == pytest.approx(0.333, abs=0.001)
     assert note["surface"] == "surface_2_winner_sell"
 
     # FK position_event_id renseignee
