@@ -791,7 +791,7 @@ def _blind_positions_panel() -> str:
     position ouverte, mais au moins UN input critique manquant (entry,
     target_full, stop_price, invalidation_triggers). Self-disable si zero.
 
-    Anti-pattern combattu : SNOW vivait en vol aveugle integral (tout NULL)
+    Anti-pattern combattu : SNOW vivait en vol disclosuregle integral (tout NULL)
     et affichait '*' sain dans les panels existants. Le bot accepte que ses
     propres inputs soient creux.
     """
@@ -807,7 +807,7 @@ def _blind_positions_panel() -> str:
                 "ORDER BY t.ticker"
             ).fetchall()
     except Exception as e:
-        return f'<div class="card pad"><div class="empty">vol aveugle indispo: {type(e).__name__}</div></div>'
+        return f'<div class="card pad"><div class="empty">vol disclosuregle indispo: {type(e).__name__}</div></div>'
 
     blind: list = []
     for r in rows:
@@ -842,7 +842,7 @@ def _blind_positions_panel() -> str:
     )
     return (
         '<div class="card pad blindcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Positions en vol aveugle</span>'
+        '<div class="colhead"><span class="t">Positions en vol disclosuregle</span>'
         f'<span class="a">{len(blind)} position(s) sans entry / target / stop / kill-criteria '
         '&middot; le bot ne peut RIEN evaluer dessus tant que ces champs sont creux</span></div>'
         + items
@@ -1351,7 +1351,7 @@ def _valo_above_bull_panel() -> str:
     return (
         '<div class="card pad valocard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Valuations already beyond bull case</span>'
-        '<span class="a">le prix actuel exige plus que le sc&eacute;nario haussier raisonnable</span></div>'
+        '<span class="a">current price requires more than a reasonable bull case</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -1617,7 +1617,7 @@ def _trajectory_panel() -> str:
         )
     return (
         '<div class="card pad trajcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">D&eacute;rive de la note (30j)</span>'
+        '<div class="colhead"><span class="t">Grade drift (30d)</span>'
         f'<span class="a">{len(snaps)} photos &middot; '
         f'{score_drift.get("first_date","?")} → {score_drift.get("last_date","?")}</span></div>'
         f'<div class="tr-hero">Score : {score_drift.get("first", "?")} '
@@ -1677,7 +1677,7 @@ def _ticker_axes_panel() -> str:
     return (
         '<div class="card pad axescard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Fiches techniques par ticker</span>'
-        '<span class="a">moteur de demande &middot; &eacute;tage chaine de valeur &middot; nature du moat &middot; facteur macro</span></div>'
+        '<span class="a">demand engine &middot; value chain layer &middot; moat nature &middot; macro factor</span></div>'
         + "".join(groups_html)
         + "</div>"
     )
@@ -1748,7 +1748,7 @@ def _preferences_panel() -> str:
         )
     return (
         '<div class="card pad preferencescard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Ce qui a march&eacute; chez toi</span>'
+        '<div class="colhead"><span class="t">What worked for you</span>'
         '<span class="a">samples + winrate on your real resolved decisions &middot; no model opinion</span></div>'
         f'<div class="pr-grid">{"".join(groups)}</div>'
         '</div>'
@@ -1877,7 +1877,7 @@ def _chat_signals_panel() -> str:
         )
     return (
         '<div class="card pad chatsigcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Ce que tu laisses &eacute;chapper en conversation</span>'
+        '<div class="colhead"><span class="t">What you let slip in conversation</span>'
         '<span class="a">concerns / doutes / vues que le bot capte chaque message &middot; nourrit ton profil</span></div>'
         f'<div class="cs-grid">{"".join(groups_html)}</div>'
         '</div>'
@@ -2145,7 +2145,7 @@ def _track_record_panel() -> str:
     return (
         f'<div class="card pad tr-card" style="margin-bottom:var(--s4)">'
         f'<div class="colhead"><span class="t">Track record</span>'
-        f'<span class="a">N={n} substantiel(s) &middot; aveu honn&ecirc;te-t&ocirc;t si N&lt;{MIN_CONCLUSIF}</span></div>'
+        f'<span class="a">N={n} substantial &middot; honest-early disclosure if N&lt;{MIN_CONCLUSIF}</span></div>'
         # Metric 1 : Taux correct (axe 0->100%)
         f'<div class="tr-metric">'
         f'<div class="tr-mlabel"><span class="tr-mname">Taux correct</span>'
@@ -2169,9 +2169,9 @@ def _track_record_panel() -> str:
         f'<div class="tr-mfoot"><span class="mono">target 0,20</span>'
         f'<span class="tr-verdict">{brier_verdict}</span></div>'
         f'</div>'
-        # Metric 3 : Courbe de fiabilite (cadre vide + diagonale qui se trace)
+        # Metric 3 : Curve de fiabilite (cadre vide + diagonale qui se trace)
         f'<div class="tr-metric">'
-        f'<div class="tr-mlabel"><span class="tr-mname">Courbe de fiabilit&eacute;</span>'
+        f'<div class="tr-mlabel"><span class="tr-mname">Reliability curve</span>'
         f'<span class="tr-munit">attend la first cohorte calibration</span></div>'
         f'<svg class="tr-rsvg" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">'
         f'<line x1="0" y1="60" x2="100" y2="0" class="tr-diag"/>'
@@ -2214,7 +2214,7 @@ def _chat_panel() -> str:
     n_msg, n_sess, oldest = _chat_memory_stats()
     mem_str = (
         f"il connait ton profil, ta note PF, tes positions, tes theses, "
-        f"interventions &middot; m&eacute;moire : {n_msg} messages sur {n_sess} sessions depuis {oldest}"
+        f"interventions &middot; memory : {n_msg} messages on {n_sess} sessions since {oldest}"
         if n_msg > 0 else
         "il connait ton profil, ta note PF, tes positions, tes theses et son historique d'interventions"
     )
@@ -2420,17 +2420,17 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
     # = 100% -> "a la target"
     def _label(prog: float) -> str:
         if prog >= 100.5:
-            return f"+{prog - 100:.0f}% au-del&agrave; target"
+            return f"+{prog - 100:.0f}% beyond target"
         if prog <= 99.5:
             return f"&minus;{100 - prog:.0f}% sous target"
-        return "&agrave; la target"
+        return "at target"
 
     rows = "".join(
         f'<div class="line"><span>{tk}</span><span class="mono">{_label(prog)}</span></div>'
         for prog, tk in data
     )
     watch = (
-        rows or '<div class="empty" style="padding:var(--s4) 0">nonee ligne &agrave; &ge;75% de la target &mdash; marges restantes</div>'
+        rows or '<div class="empty" style="padding:var(--s4) 0">no position &ge;75% of target &mdash; remaining margins</div>'
     )
     return watch, len(data)
 
@@ -2565,7 +2565,7 @@ def _concentration(
     top_cls = "negc" if top_pct >= POS_CAP else "acc"
     these_cls = "negc" if dom_these_pct >= NARRATIVE_CAP else "acc"
     line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du cap' if top_pct >= POS_CAP else 'sous le cap'} {POS_CAP:.0f}%"
-    these_msg = f"{dom_these} &middot; {'&#9888; all&eacute;ger' if dom_these_pct >= NARRATIVE_CAP else 'sous le cap'} {NARRATIVE_CAP:.0f}%"
+    these_msg = f"{dom_these} &middot; {'&#9888; trim' if dom_these_pct >= NARRATIVE_CAP else 'under cap'} {NARRATIVE_CAP:.0f}%"
     cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
     # === Star Concentration : fusion verdict + cluster + 3 KPIs ===
     # Mapping verdict cls -> ps-val color class
@@ -2591,7 +2591,7 @@ def _concentration(
         else:
             _over_color = "warn"
         _cluster_foot = (
-            f"Cluster <b>{c['name']}</b> &agrave; {c['pct']:.0f}% (cap {c['cap']:.0f}%) "
+            f"Cluster <b>{c['name']}</b> at {c['pct']:.0f}% (cap {c['cap']:.0f}%) "
             f"&middot; <b class=\"{_over_color}\">+{_over_pct:.0f}%</b> au-dessus &middot; +{_ov}&nbsp;&euro;"
         )
     else:
@@ -2751,7 +2751,7 @@ def _sector_blocks(
     return (
         f'<div class="sub" style="margin-bottom:var(--s25)">{sub}</div>'
         f'<div class="sec-cols"><span></span><span class="num">&euro;</span><span class="num">$</span>'
-        f'<span class="num">%</span><span class="num">Jour</span><span class="num">P&amp;L</span></div>'
+        f'<span class="num">%</span><span class="num">Day</span><span class="num">P&amp;L</span></div>'
         f"{blocks}"
     )
 
@@ -2905,7 +2905,7 @@ def _insider_flow_strip_html() -> str:
         return rows or (
             '<div class="empty">'
             '<span class="empty-ico">i</span>'
-            '<b>None flux d&rsquo;initi&eacute;s</b>'
+            '<b>No insider flow</b>'
             'No transactions Form 4 SEC sur la fen&ecirc;tre 7&nbsp;j.'
             '<span class="hint">Se remplit avec les ventes/achats d&rsquo;executives &gt; $50k</span>'
             '</div>'
@@ -2956,7 +2956,7 @@ def _signaux() -> str:
             '<div class="empty">'
             '<span class="empty-ico">8</span>'
             '<b>No 8-K filing</b>'
-            'No filings r&eacute;glementaires SEC sur 60&nbsp;j.'
+            'No SEC regulatory filings over 60d.'
             '<span class="hint">Se remplit avec acquisitions, departures CEO, materiel events</span>'
             '</div>'
         )
@@ -3065,13 +3065,13 @@ def _signaux() -> str:
     )
     cols = (
         f'<div class="cols">'
-        f'<div class="col"><div class="colhead"><span class="t">8-K r&eacute;cents</span><span class="a">{tally_str}</span></div><div class="card">{eightk}</div></div>'
-        f'<div class="col"><div class="colhead"><span class="t">Source credibility</span><span class="a">{nsrc} sources &middot; recal 1er du mois</span></div><div class="card">{src_rows}</div></div>'
+        f'<div class="col"><div class="colhead"><span class="t">Recent 8-K</span><span class="a">{tally_str}</span></div><div class="card">{eightk}</div></div>'
+        f'<div class="col"><div class="colhead"><span class="t">Source credibility</span><span class="a">{nsrc} sources &middot; recal 1st of month</span></div><div class="card">{src_rows}</div></div>'
         f"</div>"
     )
     insider_flow = _insider_flow_strip_html()
     insider_flow_strip = (
-        f'<div class="colhead spaced"><span class="t">Flux d\'initi&eacute;s &middot; 7&nbsp;j</span>'
+        f'<div class="colhead spaced"><span class="t">Insider flow &middot; 7&nbsp;j</span>'
         f'<span class="a">aggregated net buy/sell &middot; &#9733; = en portefeuille</span></div>'
         f'<div class="card pad">{insider_flow}</div>'
     )
@@ -3081,7 +3081,7 @@ def _signaux() -> str:
     insider_clusters_strip = ""
     if empty_clusters_msg not in insiders:
         insider_clusters_strip = (
-            f'<div class="colhead spaced"><span class="t">Clusters d\'achats group&eacute;s</span>'
+            f'<div class="colhead spaced"><span class="t">Clustered buys</span>'
             f'<span class="a">60&nbsp;j &middot; Form 4 EDGAR</span></div>'
             f'<div class="card pad">{insiders}</div>'
         )
@@ -3121,7 +3121,7 @@ _MACRO_TIPS: dict[str, str] = {
     "DXY": "USD vs 6 majeures. > 105 = vent contraire multinationales US ; > 110 = stress global.",
     "BTC_drawdown180": "Drawdown BTC vs max 6 mois. < -30% = bear risk-off, < -50% = capitulation. Capte le stress crypto reel sans confondre avec level brut.",
     "MOVE": "VIX des Treasuries. > 130 = stress obligataire, souvent avancé sur actions.",
-    "T10Y2Y": "Courbe des taux 10A-2A. Dé-inversion (passage <0 vers >0) = récession dans 3-6 mois.",
+    "T10Y2Y": "Curve des taux 10A-2A. Dé-inversion (passage <0 vers >0) = récession dans 3-6 mois.",
     "BankReserves": "Cash bancaire à la Fed. < 2.5T = stress plomberie imminent.",
     "RepoSRF": "Standing Repo Facility. > 30B = banques court de cash, alarme plomberie aiguë.",
     "FedBalance_yoy": "Bilan Fed variation YoY %. > +20% = QE emergency (Fed combat crash). < -10% = QT agressif. +- 5% = stable.",
@@ -3261,9 +3261,9 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         # Tier 2: Stress bancaire & liquidité Fed — signaux avancés en haut, plomberie milieu, slow bas
         "MOVE": (2, "Vol. obligataire (MOVE)", 2, False),
         "T10Y2Y": (2, "Pente 10a-2a (%)", 4, False),
-        "BankReserves": (2, "R&eacute;serves bancaires Fed ($M)", 0, True),
+        "BankReserves": (2, "Fed bank reserves ($M)", 0, True),
         "RepoSRF": (2, "Standing Repo Facility ($B)", 2, False),
-        "KRE": (2, "Banques r&eacute;gionales ($)", 2, False),
+        "KRE": (2, "Regional banks ($)", 2, False),
         "CopperGold": (2, "Ratio cuivre/or", 4, False),
         # Tier 3: Macro lente
         "CoreCPI": (3, "Inflation core (%)", 4, False),
@@ -3274,7 +3274,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     }
     tnames = {
         1: "Market &amp; liquidity",
-        2: "Stress bancaire &amp; liquidit&eacute; Fed",
+        2: "Banking stress &amp; Fed liquidity",
         3: "Macro lente",
         9: "Autres",
     }
@@ -3359,7 +3359,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     # 30+ ans). Composite phase frise sert d'overlay informationnel macro,
     # decouple du sizing trading (= different domaines decisionnels).
     size_txt = (
-        f"VIX {_vix:.1f} {'&ge;' if _reduced else '&lt;'} {_vthr} (r&egrave;gle VIX seule)"
+        f"VIX {_vix:.1f} {'&ge;' if _reduced else '&lt;'} {_vthr} (VIX-only rule)"
         if _vix is not None else "VIX indisponible"
     )
     # Frise macro V3 (task #42 portage 01/06) : formule debt_monitor avec 3
@@ -3380,7 +3380,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
-            _conc.append(f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;")
+            _conc.append(f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;")
     _phase_col = _PHASE_COL.get(cphase, "steel")
     # Strate 1 : etat macro + frise STRESS pleine largeur + tag exploratoire
     # (cf decision_log 02 -- V3 demote, V4 a venir).
@@ -3403,7 +3403,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGNED", "concentration sous les caps"
     t_cap = "marge restante OK" if near_t else "rien proche de la target"
     s_cls = "bear" if near else "acc"
-    s_cap = "&agrave; surveiller" if near else "calme"
+    s_cap = "to watch" if near else "calme"
     star_grid = (
         '<div class="ps-strate ps-grid">'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Correlated cluster whose cumulative position exceeds cap = action recommended.">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
@@ -3430,9 +3430,9 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f'<div><div class="ph3">Moniteur de stress macro &mdash; score {score:.0f}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
         f'<div class="cols">'
-        f'<div><div class="ph3">Momentum march&eacute; &middot; RSI(14) daily &middot; cache 30min</div>'
+        f'<div><div class="ph3">Market momentum &middot; RSI(14) daily &middot; 30min cache</div>'
         f'<div class="card pad"><div class="dlist">{rsi_html}</div></div></div>'
-        f'<div><div class="ph3">Largeur du march&eacute; &middot; participation</div>'
+        f'<div><div class="ph3">Market breadth &middot; participation</div>'
         f'<div class="card pad"><div class="dlist">{breadth_html}</div></div></div>'
         f"</div></section>"
     )
@@ -3527,15 +3527,15 @@ def _cockpit() -> str:
     INK, WARN, DANGER = "var(--ink)", "var(--warn)", "var(--bear)"
 
     if dec_30d < 2:
-        dec_color, dec_sub = DANGER, "journal sous-aliment&eacute;"
+        dec_color, dec_sub = DANGER, "under-fed journal"
     elif dec_30d < 5:
         dec_color, dec_sub = WARN, "feed le journal"
     else:
-        dec_color, dec_sub = INK, f"{dec_30d} d&eacute;c. / 30j"
+        dec_color, dec_sub = INK, f"{dec_30d} dec. / 30d"
 
     drift_color = WARN if drift_count else INK
     panic_color = INK if panic == 0 else DANGER
-    panic_sub = "KPI #4 tenu" if panic == 0 else f"KPI #4 cass&eacute; ({panic})"
+    panic_sub = "KPI #4 tenu" if panic == 0 else f"KPI #4 broken ({panic})"
 
     if days_to_jun10 <= 3:
         cd_color = DANGER
@@ -3545,11 +3545,11 @@ def _cockpit() -> str:
         cd_color = INK
 
     if days_to_jun10 > 0:
-        countdown, countdown_sub = f"J-{days_to_jun10}", f"10/06 &middot; {preds_due} pred. r&eacute;solvent"
+        countdown, countdown_sub = f"J-{days_to_jun10}", f"10/06 &middot; {preds_due} pred. resolve"
     elif days_to_jun10 == 0:
-        countdown, countdown_sub = "AUJOURD'HUI", f"{preds_due} pred. r&eacute;solvent"
+        countdown, countdown_sub = "TODAY", f"{preds_due} pred. resolve"
     else:
-        countdown, countdown_sub = f"J+{-days_to_jun10}", f"batch pass&eacute; &middot; {preds_due} en retard"
+        countdown, countdown_sub = f"J+{-days_to_jun10}", f"batch past &middot; {preds_due} en retard"
 
     css = (
         "<style>"
@@ -3574,7 +3574,7 @@ def _cockpit() -> str:
         cell("Decisions logged &middot; 30d", str(dec_30d), dec_sub, dec_color)
         + cell("Batch Brier", countdown, countdown_sub, cd_color)
         + cell(
-            "R&eacute;conciliation book", f"{drift_count} ligne{'s' if drift_count > 1 else ''}", drift_sub, drift_color
+            "Book reconciliation", f"{drift_count} ligne{'s' if drift_count > 1 else ''}", drift_sub, drift_color
         )
         + cell("Panic sells core", str(panic), panic_sub, panic_color)
     )
@@ -3592,10 +3592,10 @@ def _journal() -> str:
     tmap = {
         "entry": "Entry",
         "scale_in": "Renforcement",
-        "partial_exit": "All&egrave;gement",
+        "partial_exit": "Trim",
         "full_exit": "Sortie",
-        "override": "D&eacute;rogation",
-        "no_action_flag": "Non-action document&eacute;e",
+        "override": "Override",
+        "no_action_flag": "Documented no-action",
     }
     out = ""
     for created, tk, dtype, reason in rows:
@@ -3665,7 +3665,7 @@ _TH_CSS = """
 _TIER_LABEL = {
     5: "Conviction 5 &middot; la plus forte",
     4: "Conviction 4",
-    3: "Conviction 3 &middot; m&eacute;diane",
+    3: "Conviction 3 &middot; median",
     2: "Conviction 2",
     1: "Conviction 1 &middot; faibles",
 }
@@ -3864,7 +3864,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _de = f"{_v / 1000:.1f}k" if _v >= 1000 else f"{round(_v / 50) * 50:.0f}"
                 if _d > 0.4:
                     _tail = f" &middot; &gt; cap {_cappct:.0f}%" if wv > _cappct else ""
-                    adj = f'<div class="th-adj trim">all&eacute;ger &minus;{_de}&nbsp;&euro;{_tail}</div>'
+                    adj = f'<div class="th-adj trim">trim &minus;{_de}&nbsp;&euro;{_tail}</div>'
                 elif _d < -0.4:
                     adj = f'<div class="th-adj add">renforcer +{_de}&nbsp;&euro;</div>'
                 else:
@@ -4245,7 +4245,7 @@ _CSS = """
   .noanim .axis-mark { transition:none !important; }
 
   /* Track record refonte W14 (31/05) : axes = primitive, filets fins, encre,
-     courbe fiabilite SVG cadre vide + diagonale qui se trace au load. */
+     curve fiabilite SVG cadre vide + diagonale qui se trace au load. */
   .tr-card .tr-metric { padding:var(--s35) 0; border-bottom:1px solid var(--line); }
   .tr-card .tr-metric:last-of-type { border-bottom:none; }
   .tr-card .tr-mlabel { display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s2); flex-wrap:wrap; }
@@ -4536,7 +4536,7 @@ _CSS = """
   .strategiecard .us-construction { font-family:var(--fm); margin:var(--s2) 0 14px; padding:var(--s3) var(--s35); border-left:2px solid var(--warn); background:color-mix(in srgb, var(--warn) 5%, transparent); border-radius:2px; }
   .strategiecard .us-cstr-h { font-size:14px; color:var(--warn); text-transform:uppercase; letter-spacing:.05em; font-weight:600; margin-bottom:var(--s15); }
   .strategiecard .us-cstr-b { font-size:16px; color:var(--ink); line-height:1.6; }
-  /* F7 add 29/05 - Positions en vol aveugle (entry/target/stop/triggers manquants) */
+  /* F7 add 29/05 - Positions en vol disclosuregle (entry/target/stop/triggers manquants) */
   .blindcard { border-left:2px solid var(--bear); padding-left:var(--s35) !important; }
   .blindcard .ba-row { padding:var(--s25) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .blindcard .ba-row:last-child { border-bottom:none; }
@@ -4994,7 +4994,7 @@ _CTA_JS = """
     }
     results.innerHTML=matches.map(function(tk,i){
       var nm=(tkData[tk]||{}).name||'';
-      var tag = recentSet[tk] ? '<span class="cta-tag">r&eacute;cent</span>' : '';
+      var tag = recentSet[tk] ? '<span class="cta-tag">recent</span>' : '';
       return '<div class="cta-result '+(i===0?'sel':'')+'" data-tk="'+tk+'">'+makeLogo(tk)+'<span class="ctk">'+tk+'</span><span class="cnm">'+nm+'</span>'+tag+'</div>';
     }).join('');
   }
@@ -5197,7 +5197,7 @@ _APP_JS = """
       var nm={quality:'Quality',growth:'Growth',profitability:'Profitability',valuation:'Valuation',risk:'Risk',momentum:'Momentum',macro_alignment:'Macro'};
       for(var k in nm){ if(a.scores[k]!=null){ var v=Math.round(a.scores[k]); sc+='<div class="lp-score"><span class="ln">'+nm[k]+'</span><span class="bar"><span class="bf" style="width:'+v+'%"></span></span><span class="vv">'+v+'</span></div>'; } }
     }
-    var ana = a ? ('<div class="lp-sec">Latest analysis &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">Regime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'</div>':'')+'<div class="lp-hint">Analyse compl&egrave;te : <code>/analyze '+tk+'</code> sur Telegram, ou demande-la dans le chat.</div>') : '<div class="lp-sec">Analyse</div><div class="lp-empty">Nonee analyse stock&eacute;e. <code>/analyze '+tk+'</code> sur Telegram pour g&eacute;n&eacute;rer.</div>';
+    var ana = a ? ('<div class="lp-sec">Latest analysis &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">Regime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'</div>':'')+'<div class="lp-hint">Full analysis: <code>/analyze '+tk+'</code> on Telegram, or ask in chat.</div>') : '<div class="lp-sec">Analysis</div><div class="lp-empty">No analysis stored. <code>/analyze '+tk+'</code> on Telegram to generate.</div>';
     document.getElementById('loupe-body').innerHTML =
       '<div class="lp-h">'+_tkLogoJs(tk)+'<span class="lp-tk">'+tk+'</span><span class="lp-nm">'+(d.name||'')+'</span></div>'
       +'<div class="lp-meta">'+badge+' &middot; '+(d.sector||'&mdash;')+' &middot; '+(d.country||'&mdash;')+'</div>'
@@ -5207,8 +5207,8 @@ _APP_JS = """
       +'<div class="lp-stat"><div class="lp-sl">P&amp;L</div><div class="lp-sv">'+_pct(d.pnl,true)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">Marge stop</div><div class="lp-sv">'+_pct(d.down)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">Vers target</div><div class="lp-sv">'+_pct(d.up)+'</div></div>'
-      +'<div class="lp-stat"><div class="lp-sl">Asym&eacute;trie</div><div class="lp-sv">'+(d.ratio==null?'&mdash;':d.ratio+'x')+'</div></div>'
-      +'</div>'+(d.perf?('<div class="lp-sec" style="margin-top:16px">Momentum r&eacute;cent</div><div class="lp-mom">'+mom('Jour',d.perf.d)+mom('Semaine',d.perf.w)+mom('Mois',d.perf.m)+'</div>'):'')):'<div class="lp-empty" style="padding:var(--s25) 0 2px">No position ouverte sur ce titre.</div>')+ana;
+      +'<div class="lp-stat"><div class="lp-sl">Asymmetry</div><div class="lp-sv">'+(d.ratio==null?'&mdash;':d.ratio+'x')+'</div></div>'
+      +'</div>'+(d.perf?('<div class="lp-sec" style="margin-top:16px">Recent momentum</div><div class="lp-mom">'+mom('Day',d.perf.d)+mom('Week',d.perf.w)+mom('Month',d.perf.m)+'</div>'):'')):'<div class="lp-empty" style="padding:var(--s25) 0 2px">No position ouverte sur ce titre.</div>')+ana;
     document.getElementById('loupe').classList.add('open');
   }
   function closeLoupe(){ var el=document.getElementById('loupe'); if(el)el.classList.remove('open'); }
@@ -5586,7 +5586,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             f'<td class="{asym_cls}">{asym_str}</td></tr>'
         )
     if not ps:
-        rows = '<tr><td class="empty" colspan="5" style="padding:var(--s4) 0">nonee ligne</td></tr>'
+        rows = '<tr><td class="empty" colspan="5" style="padding:var(--s4) 0">no position</td></tr>'
     tot_str = f"{tot:,.0f}".replace(",", "&#8239;")
     donut = _sector_donut(_sector_mix(ps, pnl, sectors)) if ps else ""
     return (
@@ -5595,7 +5595,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} lignes &middot; {share:.0f}% du total</span></div></div>'
         f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:var(--s1) 18px"><table class="dt"><thead><tr><th>Ligne</th>'
         f'<th class="num">Valeur</th><th class="num">Poids</th><th class="num">P&amp;L</th>'
-        f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (laisser courir). <1 = inverse (candidate trim).">Asym&eacute;trie</th></tr></thead>'
+        f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (laisser courir). <1 = inverse (candidate trim).">Asymmetry</th></tr></thead>'
         f"<tbody>{rows}</tbody></table></div></div></div></div>"
     )
 
@@ -5616,8 +5616,8 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
     eu = [p for p in positions if _broker(p["ticker"]) == "bourso"]
     head = (
         '<div class="colhead tight"><span class="t">Comptes</span>'
-        '<span class="a">par courtier &middot; tri&eacute; par valeur &middot; '
-        'asym&eacute;trie = upside_to_target / downside_to_stop (Taleb barbell)</span></div>'
+        '<span class="a">by broker &middot; sorted by value &middot; '
+        'asymmetry = upside_to_target / downside_to_stop (Taleb barbell)</span></div>'
     )
     return (
         head
@@ -5773,11 +5773,11 @@ def _dba_predictions_brier_html(brier_avg: float | None, brier_n: int) -> str:
     return (
         f'<div class="dba-meta">Brier mean: {brier_avg:.3f} sur N={brier_n} '
         f'&middot; vs 0.25 (constant 0.5 predictor, weakest baseline)</div>'
-        f'<div class="dba-honest">Cohorte V1 fig&eacute;e (probability_at_creation = '
+        f'<div class="dba-honest">V1 cohort frozen (probability_at_creation = '
         f'source credibility snapshot &asymp; 0.5). Beating 0.25 does not demonstrate '
         f'not a skill -- just an improvement over the weakest predictor '
-        f'b&ecirc;te. Vraie calibration V2 = post-ao&ucirc;t (N V2 suffisant + comparaison '
-        f'au pr&eacute;dicteur taux-de-base).</div>'
+        f'weak. Real V2 calibration = post-August (N V2 suffisant + comparaison '
+        f'to the base-rate predictor).</div>'
     )
 
 
@@ -5884,7 +5884,7 @@ def _discipline_biais_panel() -> str:
     elif _delta_jday == 0:
         _jday_str = "J-day batch 10/06 (aujourd'hui)"
     else:
-        _jday_str = f"J+{-_delta_jday} apr&egrave;s batch 10/06"
+        _jday_str = f"J+{-_delta_jday} after batch 10/06"
     _kpi2_cls = "acc" if n_resolved >= 5 else "warn"
     _kpi2_cap = "calibrage actif" if n_resolved >= 5 else f"besoin de {5 - n_resolved} de plus"
     _brier_cls = ""
@@ -5958,17 +5958,17 @@ def _discipline_biais_panel() -> str:
         f'<div class="dba-count">{len(over_tk)} OVER detected'
         f'{"s" if len(over_tk) != 1 else ""} actuellement</div>'
         f'{over_tags_html}'
-        '<div class="dba-honest">Marginaux : tous repassent sous leur cap &agrave; '
+        '<div class="dba-honest">Marginals: all return below cap at '
         '70k = denominator artifacts, not real over-concentration. '
         'Firing now = measuring a discipline that did not say &laquo;&nbsp;trim&nbsp;&raquo;.</div>'
-        '<div class="dba-cond">R&eacute;-activation : book &ge; 65&nbsp;k&euro; '
-        'OU flag construction_phase lev&eacute;</div>'
-        '<div class="dba-arrow">&rsaquo; <span class="v">0</span> candidat &eacute;mis '
+        '<div class="dba-cond">Re-activation: book &ge; 65&nbsp;k&euro; '
+        'OU construction_phase flag raised</div>'
+        '<div class="dba-arrow">&rsaquo; <span class="v">0</span> candidate emitted '
         '&middot; resolution N/A</div>'
         '</div>'
         # ─── BIAIS lock_in ──────────────────────────────────────────────
         '<div class="dba-sh" data-tip="Lock-in bias: selling winners too early. PRESAGE bias #1 per ADR-010. Mechanized via Surface 2 (sell winner sync capture)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/><circle cx="8" cy="10.5" r=".9" fill="currentColor" stroke="none"/></svg>Biais &mdash; lock_in'
-        '<span class="dba-sh-aside">vendre les gagnants trop t&ocirc;t</span></div>'
+        '<span class="dba-sh-aside">selling winners too early</span></div>'
         '<div class="dba-card">'
         '<div class="dba-chrow">'
         '<span class="lab">Surface 2 &mdash; capture synchrone vente winner</span>'
@@ -5976,7 +5976,7 @@ def _discipline_biais_panel() -> str:
         '<div class="dba-meta">Path planned by ADR-010 §2. '
         'No capture channel today &mdash; PRESAGE bias #1, to fill in.</div>'
         '<div class="dba-cond">No candidat capturable tant que ce chemin '
-        'n\'est pas livr&eacute;.</div>'
+        'not yet shipped.</div>'
         '</div>'
         '</div>'
     )
@@ -6025,7 +6025,7 @@ def render() -> Path:
         rpast = rdate < today
         rdd = f"{rdate[8:10]}.{rdate[5:7]}"
         rop = ' style="opacity:.45"' if rpast else ""
-        rtag = " &middot; pass&eacute;e" if rpast else ""
+        rtag = " &middot; passed" if rpast else ""
         erows += f'<div class="line"{rop}><span>{rlab}{rtag}</span><span class="mono">{rdd}</span></div>'
     erows = erows or '<div class="empty" style="padding:var(--s35) 0">nonee deadline</div>'
 
@@ -6224,7 +6224,7 @@ def render() -> Path:
                 d += f" C {c1x:.1f} {c1y:.1f} {c2x:.1f} {c2y:.1f} {p2[0]:.1f} {p2[1]:.1f}"
             return d
         _spk_path = _spk_smooth_path(_spk_pts)
-        # Area fill : meme courbe + ferme vers le bas (style Robinhood)
+        # Area fill : meme curve + ferme vers le bas (style Robinhood)
         _spk_area = _spk_path + f" L {_spk_w - _spk_pad:.1f} {_spk_h - _spk_pad:.1f} L {_spk_pad:.1f} {_spk_h - _spk_pad:.1f} Z"
         _gradient_id = "spk-grad-up" if _spark_vals[-1] >= _spark_vals[0] else "spk-grad-dn"
         # Encode points+dates pour hover interactif (data attrs : x|y|val|date)
@@ -6313,7 +6313,7 @@ def render() -> Path:
         # via cron weekly_v2_vigilance + weekly_calibration_audit prennent le relais)
         # Synthese copilot retiree 31/05 wave 5bis : migre vers section Copilot dediee.
         # ── BLOC 5 : JOURNAL -- echeances + log decisions (chat remonte au BLOC 1) ──
-        '<div class="vigie-sh" data-tip="Logbook: recent daily decisions + upcoming review/resolution deadlines."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Journal &amp; deadlines</div>'
+        '<div class="vigie-sh" data-tip="Logbook: recent daily decisions + upcoming review/resolution deadlines."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Daynal &amp; deadlines</div>'
         f'<div class="colhead tight"><span class="t">Upcoming deadlines</span></div>'
         f'<div class="card pad">{erows}</div>'
         f"{journal_block}</section>"
@@ -6402,13 +6402,13 @@ def render() -> Path:
     _reduced_p = _vix_p and _vix_p >= _vthr_p
     _sfac = _vsf_p if _reduced_p else 1.0
     size_txt = (
-        f"VIX {_vix_p:.1f} {'&ge;' if _reduced_p else '&lt;'} {_vthr_p:.0f} (r&egrave;gle VIX seule)"
+        f"VIX {_vix_p:.1f} {'&ge;' if _reduced_p else '&lt;'} {_vthr_p:.0f} (VIX-only rule)"
         if _vix_p else "VIX indisponible"
     )
     n_stop, n_watch, n_tgt = len(near_stop_tk), len(watch_zone_tk), len(near_tgt_tk)
     if n_stop:
         _post_cls, _post_lbl = "bear", "ALERT"
-        _post_cap = f"{n_stop} ligne(s) au stop &lt; 10% &middot; check avant la s&eacute;ance"
+        _post_cap = f"{n_stop} ligne(s) au stop &lt; 10% &middot; check before session"
     elif n_watch:
         _post_cls, _post_lbl = "warn", "WATCH"
         _post_cap = f"{n_watch} ligne(s) en zone 10-20% du stop &middot; marge restante"
@@ -6417,7 +6417,7 @@ def render() -> Path:
         _post_cap = f"{n_tgt} ligne(s) proche(s) d&rsquo;un palier"
     else:
         _post_cls, _post_lbl = "acc", "AT&nbsp;REST"
-        _post_cap = "nonee ligne en zone critique &middot; surveiller la d&eacute;rive"
+        _post_cap = "no position en zone critique &middot; surveiller la drift"
     _star_stop_cls = "bear" if n_stop else "acc"
     _star_watch_cls = "warn" if n_watch else "acc"
     _star_tgt_cls = "warn" if n_tgt else "acc"
@@ -6468,7 +6468,7 @@ def render() -> Path:
         if _c["breached"]:
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
             _dev_items.append(
-                (f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;", "concentration")
+                (f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;", "concentration")
             )
     if near:
         _dev_items.append((f"{near} ligne(s) &lt; 10% du stop", "risque"))
@@ -6476,7 +6476,7 @@ def render() -> Path:
     _dcls, _dverdict = ("bear", "FRICTIONS") if _dn else ("acc", "ALIGNED")
     _ddetail = (
         " &nbsp;&middot;&nbsp; ".join(item[0] for item in _dev_items)
-        if _dev_items else "tout sous les r&egrave;gles"
+        if _dev_items else "all under rules"
     )
     # Nav target : si tous les items pointent au meme endroit, on y va direct.
     # Sinon, on tombe sur concentration (la "premiere" categorie historique).
