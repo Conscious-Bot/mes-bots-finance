@@ -372,14 +372,19 @@ _CSS = """
   .tag { font-family:var(--fm); font-weight:600; font-size:14px; padding:3px 9px; border-radius:var(--r1); }
   .tag.up { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); } .tag.acc2 { color:var(--acc2); background:color-mix(in srgb, var(--acc2) 12%, transparent); }
   .tag.down,.tag.danger { color:var(--bear); background:color-mix(in srgb, var(--bear) 13%, transparent); } .tag.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 14%, transparent); } .tag.calm { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); } .tag.mute { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); }
-  /* Signal-subtil PRESAGE : axe gradient red->neutral->green + dot noir-bezel-gold */
+  /* Signal-subtil PRESAGE : axe gradient red->neutral->green + dot noir-bezel-gold.
+     Redesign 02/06 : visual width 150% range (target tick at 66.67%, overshoot
+     zone 66.67->100% gold). User feedback : voir le depassement quand atteinte. */
   .axis { position:relative; height:5px; border-radius:2.5px; margin:var(--s35) 0 6px;
     background:linear-gradient(90deg,
       var(--bear) 0%,
-      color-mix(in srgb,var(--bear) 45%,transparent) 25%,
-      color-mix(in srgb,var(--steel) 35%,transparent) 50%,
-      color-mix(in srgb,var(--acc) 45%,transparent) 75%,
-      var(--acc) 100%); }
+      color-mix(in srgb,var(--bear) 45%,transparent) 17%,
+      color-mix(in srgb,var(--steel) 35%,transparent) 33%,
+      color-mix(in srgb,var(--acc) 45%,transparent) 50%,
+      var(--acc) 66.67%,
+      color-mix(in srgb,var(--gold) 60%,var(--acc)) 80%,
+      var(--gold) 100%); }
+  .axis-target-tick { position:absolute; top:-3px; width:2px; height:11px; background:var(--ink); opacity:.6; border-radius:1px; pointer-events:none; }
   .axis.sizebar { background:linear-gradient(90deg,
     color-mix(in srgb,var(--acc) 75%,transparent) 0%,
     color-mix(in srgb,var(--acc) 30%,transparent) 35%,

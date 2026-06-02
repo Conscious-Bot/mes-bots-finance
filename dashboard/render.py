@@ -2928,37 +2928,36 @@ def _insider_flow_strip_html() -> str:
 
 
 def _loop() -> str:
-    """Page Loop -- decision provenance graph.
+    """Page Loop -- decision provenance per ticker.
 
-    Revolutionary surface : signal -> prediction -> decision -> outcome
-    sur 4 swimlanes horizontales. Time on X axis (last 60d). Hover/click
-    pour drill detail. Unique a PRESAGE -- personne ne montre la chaine
-    causale en retail finance.
+    Revolutionary surface : pour chaque ticker actif, montre la chaine
+    causale visuelle des 60 derniers jours : signaux entrants (sources)
+    + predictions emises + decisions journees + outcomes resolus.
 
-    State 02/06 : 354 signals, 18 resolved predictions, 65 audit logs,
-    0 bias_events resolved, 0 V2 scoring traces. Le graph se densifie
-    apres J-day 10/06.
+    State 02/06 : 354 signals, 173 preds 60d, 65 audit logs (V0 epoch -- pas
+    de ticker direct), 18 outcomes resolved. Le graph se densifie post J-day
+    10/06. Per-ticker view = lisible MEME sur peu de data.
     """
     try:
-        # Pull last 60d of predictions joined with their source signal
-        rows = _q(
+        # All predictions last 60d with source name
+        preds = _q(
             "SELECT p.id, p.ticker, p.direction, p.outcome, p.brier_score, "
-            "       p.baseline_date, p.resolved_at, p.signal_id, "
-            "       s.timestamp as sig_ts, COALESCE(src.name, 'manual') as sig_source, "
-            "       COALESCE(substr(s.title, 1, 80), '?') as sig_title "
+            "       p.baseline_date, p.resolved_at, "
+            "       COALESCE(src.name, 'manual') as sig_source, "
+            "       p.probability_at_creation "
             "FROM predictions p "
             "LEFT JOIN signals s ON s.id = p.signal_id "
             "LEFT JOIN sources src ON src.id = s.source_id "
             "WHERE p.methodology_version != 'v0' "
             "  AND p.baseline_date >= date('now', '-60 days') "
-            "ORDER BY p.baseline_date ASC LIMIT 200"
+            "ORDER BY p.ticker, p.baseline_date ASC"
         )
         audits = _q(
-            "SELECT id, ticker, event_type, occurred_at "
+            "SELECT ticker, event_type, occurred_at "
             "FROM position_audit_log "
             "WHERE occurred_at >= datetime('now', '-60 days') "
             "  AND event_type IN ('buy', 'sell', 'partial_sell', 'trim') "
-            "ORDER BY occurred_at ASC LIMIT 100"
+            "ORDER BY occurred_at ASC"
         )
     except Exception as e:
         return (
@@ -2966,176 +2965,134 @@ def _loop() -> str:
             f'<div class="phead"><h2>Loop</h2></div>{_err(e)}</section>'
         )
 
-    n_sig = len({r[7] for r in rows if r[7] is not None})
-    n_pred = len(rows)
-    n_resolved = sum(1 for r in rows if r[3] is not None)
-    n_decisions = len(audits)
-
-    # Time bounds : last 60 days
+    # Group by ticker
+    from collections import defaultdict
     from datetime import date, timedelta
+    by_ticker: dict[str, dict] = defaultdict(lambda: {
+        "preds": [], "audits": [], "sources": set(),
+    })
+    for r in preds:
+        pid, tk, direction, outcome, brier, baseline, resolved, source, prob = r
+        by_ticker[tk]["preds"].append({
+            "id": pid, "dir": direction, "outcome": outcome,
+            "brier": brier, "baseline": baseline, "resolved": resolved,
+            "source": source or "?", "prob": prob,
+        })
+        if source:
+            by_ticker[tk]["sources"].add(source)
+    for tk, evt, occ in audits:
+        if tk in by_ticker:
+            by_ticker[tk]["audits"].append({"event": evt, "occurred": occ})
+
+    # Sort tickers by activity (n predictions desc)
+    sorted_tk = sorted(by_ticker.items(), key=lambda kv: -len(kv[1]["preds"]))
+
+    # Time window
     end = date.today()
     start = end - timedelta(days=60)
-    span_days = (end - start).days
+    span_days = max(1, (end - start).days)
 
-    def x_pos(date_str: str) -> float:
-        """Map YYYY-MM-DD or YYYY-MM-DD HH:MM:SS to x% [0, 100]."""
+    def x_pct(date_str: str) -> float:
         if not date_str:
             return 0.0
         try:
-            d_str = date_str[:10]
-            d = date.fromisoformat(d_str)
-            delta = (d - start).days
-            return max(0.0, min(100.0, delta / max(1, span_days) * 100))
+            d = date.fromisoformat(date_str[:10])
+            return max(0.0, min(100.0, (d - start).days / span_days * 100))
         except Exception:
             return 0.0
 
-    # Build SVG lanes
-    LANES = [
-        ("signals", "Signals", 1, "var(--steel)"),
-        ("predictions", "Predictions", 2, "var(--ink)"),
-        ("decisions", "Decisions", 3, "var(--warn)"),
-        ("outcomes", "Outcomes", 4, "var(--acc)"),
-    ]
-    lane_y = {key: 50 + i * 90 for key, _, i, _ in LANES}  # 50,140,230,320
+    # Build per-ticker rows
+    rows_html = []
+    for tk, data in sorted_tk[:50]:  # cap 50 tickers
+        n_pred = len(data["preds"])
+        n_resolved = sum(1 for p in data["preds"] if p["outcome"] is not None)
+        briers = [p["brier"] for p in data["preds"] if p["brier"] is not None]
+        avg_brier = sum(briers) / len(briers) if briers else None
+        n_sources = len(data["sources"])
+        n_audits = len(data["audits"])
 
-    nodes_svg = []
-    edges_svg = []
-
-    # Signals: unique signal ids encountered
-    sig_seen: dict[int, tuple[str, str, str]] = {}
-    for r in rows:
-        if r[7] is not None and r[7] not in sig_seen:
-            sig_seen[r[7]] = (r[8] or r[5], r[9], r[10])
-    for sid, (ts, source, title) in sig_seen.items():
-        x = x_pos(ts)
-        nodes_svg.append(
-            f'<circle cx="{x}%" cy="{lane_y["signals"]}" r="5" '
-            f'fill="var(--panel)" stroke="var(--steel)" stroke-width="1.5" '
-            f'class="loop-node" data-kind="signal" data-id="{sid}" '
-            f'data-tip="{source} · {title[:50]}"/>'
-        )
-
-    # Predictions: every prediction row
-    for r in rows:
-        pid, tk, direction, outcome, brier, baseline, resolved, sid, _sts, source, title = r
-        x_p = x_pos(baseline)
-        # Outcome color
-        if outcome == "correct":
-            ocol = "var(--acc)"
-        elif outcome == "incorrect":
-            ocol = "var(--bear)"
-        elif outcome == "neutral":
-            ocol = "var(--steel)"
+        # Brier badge
+        if avg_brier is None:
+            brier_html = '<span class="lp-badge muted">N/A</span>'
+        elif avg_brier < 0.20:
+            brier_html = f'<span class="lp-badge acc">{avg_brier:.2f}</span>'
+        elif avg_brier < 0.25:
+            brier_html = f'<span class="lp-badge warn">{avg_brier:.2f}</span>'
         else:
-            ocol = "var(--line2)"
-        fill = "var(--panel)" if outcome is None else ocol
-        nodes_svg.append(
-            f'<rect x="{x_p}%" y="{lane_y["predictions"] - 6}" width="10" height="12" '
-            f'transform="translate(-5,0)" rx="2" '
-            f'fill="{fill}" stroke="{ocol}" stroke-width="1.5" '
-            f'class="loop-node" data-kind="prediction" data-id="{pid}" '
-            f'data-tip="{tk} {direction} · {source} · pred#{pid}"/>'
-        )
-        # Edge signal -> prediction if same x reasonable
-        if sid is not None and sid in sig_seen:
-            x_s = x_pos(sig_seen[sid][0])
-            edges_svg.append(
-                f'<path d="M {x_s}% {lane_y["signals"]} C {x_s}% {(lane_y["signals"] + lane_y["predictions"])/2}, '
-                f'{x_p}% {(lane_y["signals"] + lane_y["predictions"])/2}, {x_p}% {lane_y["predictions"] - 6}" '
-                f'fill="none" stroke="var(--line2)" stroke-width="1" opacity=".4" '
-                f'class="loop-edge" data-from-pred="{pid}"/>'
+            brier_html = f'<span class="lp-badge bear">{avg_brier:.2f}</span>'
+
+        # Build events on a timeline
+        events_html = []
+        for p in data["preds"]:
+            x = x_pct(p["baseline"])
+            if p["outcome"] == "correct":
+                cls = "ev-pred acc"
+            elif p["outcome"] == "incorrect":
+                cls = "ev-pred bear"
+            elif p["outcome"] == "neutral":
+                cls = "ev-pred steel"
+            else:
+                cls = "ev-pred open"
+            tip = f"pred#{p['id']} {p['dir']} {p['source'][:30]} {p['baseline']}"
+            if p["brier"] is not None:
+                tip += f" Brier {p['brier']:.3f}"
+            events_html.append(
+                f'<span class="ev {cls}" style="left:{x:.1f}%" title="{tip}"></span>'
             )
-        # Outcome node if resolved
-        if outcome is not None:
-            x_o = x_pos(resolved)
-            nodes_svg.append(
-                f'<path d="M {x_o}% {lane_y["outcomes"] - 6} L {x_o}% {lane_y["outcomes"] + 6} '
-                f'L {x_o}% {lane_y["outcomes"] + 6}" '
-                f'transform="" '
-                f'fill="{ocol}" class="loop-node" data-kind="outcome" data-id="{pid}" '
-                f'data-tip="{tk} {outcome} · Brier {brier:.3f}" />'
-            ) if brier is not None else None
-            # Star as outcome marker
-            star = (
-                f'<circle cx="{x_o}%" cy="{lane_y["outcomes"]}" r="5" '
-                f'fill="{ocol}" stroke="{ocol}" stroke-width="1" '
-                f'class="loop-node" data-kind="outcome" data-id="{pid}" '
-                f'data-tip="{tk} {outcome}'
-                + (f' · Brier {brier:.3f}' if brier is not None else '')
-                + '"/>'
-            )
-            nodes_svg.append(star)
-            # Edge prediction -> outcome
-            edges_svg.append(
-                f'<path d="M {x_p}% {lane_y["predictions"] + 6} L {x_o}% {lane_y["outcomes"] - 5}" '
-                f'stroke="{ocol}" stroke-width="1.2" fill="none" opacity=".55" '
-                f'class="loop-edge"/>'
+            # Resolution dot if resolved
+            if p["resolved"]:
+                xr = x_pct(p["resolved"])
+                events_html.append(
+                    f'<span class="ev ev-out" style="left:{xr:.1f}%" title="resolved {p["resolved"][:10]}"></span>'
+                )
+        for a in data["audits"]:
+            x = x_pct(a["occurred"])
+            evt = a["event"]
+            cls = "ev-dec bear" if evt in ("sell", "partial_sell", "trim") else "ev-dec acc"
+            events_html.append(
+                f'<span class="ev {cls}" style="left:{x:.1f}%" title="{evt} {a["occurred"][:10]}"></span>'
             )
 
-    # Decisions: position_audit_log
-    for aid, tk, evt, occ in audits:
-        x_d = x_pos(occ)
-        col = "var(--bear)" if evt in ("sell", "partial_sell", "trim") else "var(--acc)"
-        nodes_svg.append(
-            f'<path d="M {x_d}% {lane_y["decisions"]} '
-            f'l 0 -6 l 5 6 l -5 6 l -5 -6 z" '
-            f'fill="{col}" stroke="{col}" stroke-width="1" '
-            f'class="loop-node" data-kind="decision" data-id="{aid}" '
-            f'data-tip="{tk} {evt} · {occ[:10]}" />'
+        rows_html.append(
+            f'<div class="lp-row" data-ticker="{tk}">'
+            f'<div class="lp-tk">'
+            f'<span class="lp-tkname">{tk}</span>'
+            f'<span class="lp-tkmeta">{n_pred} pred &middot; {n_sources} src &middot; {n_audits} dec</span>'
+            f'</div>'
+            f'<div class="lp-track">{"".join(events_html)}</div>'
+            f'<div class="lp-stats">'
+            f'<span class="lp-resolved">{n_resolved}/{n_pred}</span>'
+            f'{brier_html}'
+            f'</div>'
+            f'</div>'
         )
 
-    # Time axis labels
-    week_marks = []
-    for w in range(9):  # ~every 7 days over 60d
-        days_back = 60 - w * 7
-        if days_back < 0:
+    # Date axis labels (top of grid)
+    axis_marks = []
+    for w in (0, 7, 14, 21, 28, 35, 42, 49, 56):
+        if w > 60:
             continue
-        d = start + timedelta(days=w * 7)
-        x = x_pos(d.isoformat())
-        week_marks.append(
-            f'<text x="{x}%" y="395" font-family="var(--fm)" font-size="11" '
-            f'fill="var(--steel)" text-anchor="middle">{d.strftime("%d/%m")}</text>'
+        d = start + timedelta(days=w)
+        x = w / span_days * 100
+        axis_marks.append(
+            f'<span class="lp-mark" style="left:{x:.1f}%">{d.strftime("%d/%m")}</span>'
         )
 
-    # Lane labels (left)
-    lane_labels = []
-    for key, lbl, _i, _c in LANES:
-        lane_labels.append(
-            f'<text x="0" y="{lane_y[key]}" font-family="var(--fm)" font-size="10" '
-            f'letter-spacing="2" fill="var(--steel)" '
-            f'text-transform="uppercase" dominant-baseline="middle">{lbl.upper()}</text>'
-        )
+    # Aggregate stats
+    n_sig = len({p["source"] for tk_data in by_ticker.values() for p in tk_data["preds"]})
+    n_pred_total = sum(len(d["preds"]) for d in by_ticker.values())
+    _n_dec = len(audits)
+    n_out = sum(1 for d in by_ticker.values() for p in d["preds"] if p["outcome"])
 
-    # Lane separators
-    lane_lines = []
-    for _key, _lbl, _i, _c in LANES:
-        y = lane_y[_key]
-        lane_lines.append(
-            f'<line x1="0" y1="{y}" x2="100%" y2="{y}" '
-            f'stroke="var(--line)" stroke-width=".5" opacity=".5"/>'
-        )
-
-    svg = (
-        '<svg viewBox="0 0 1080 410" preserveAspectRatio="xMidYMid meet" '
-        'style="width:100%;height:auto;display:block;font-family:var(--fm)">'
-        + "".join(lane_lines)
-        + "".join(lane_labels)
-        + "".join(edges_svg)
-        + "".join(nodes_svg)
-        + "".join(week_marks)
-        + "</svg>"
-    )
-
-    # Stats hero
     stats = (
         f'<div class="loop-stats">'
+        f'<div class="loop-stat"><span class="ls-val">{len(sorted_tk)}</span>'
+        f'<span class="ls-lbl">active tickers</span></div>'
         f'<div class="loop-stat"><span class="ls-val">{n_sig}</span>'
-        f'<span class="ls-lbl">unique signals (60d)</span></div>'
-        f'<div class="loop-stat"><span class="ls-val">{n_pred}</span>'
-        f'<span class="ls-lbl">predictions</span></div>'
-        f'<div class="loop-stat"><span class="ls-val">{n_decisions}</span>'
-        f'<span class="ls-lbl">decisions</span></div>'
-        f'<div class="loop-stat"><span class="ls-val">{n_resolved}</span>'
+        f'<span class="ls-lbl">distinct sources</span></div>'
+        f'<div class="loop-stat"><span class="ls-val">{n_pred_total}</span>'
+        f'<span class="ls-lbl">predictions 60d</span></div>'
+        f'<div class="loop-stat"><span class="ls-val">{n_out}</span>'
         f'<span class="ls-lbl">resolved outcomes</span></div>'
         f'</div>'
     )
@@ -3146,24 +3103,59 @@ def _loop() -> str:
   .loop-stat { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s3) var(--s4); display:flex; flex-direction:column; gap:4px; }
   .loop-stat .ls-val { font-family:var(--fm); font-size:32px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
   .loop-stat .ls-lbl { font-family:var(--fm); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
-  .loop-wrap { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s4); }
-  .loop-node { cursor:pointer; transition:transform .12s ease, stroke-width .12s ease; transform-origin:center; transform-box:fill-box; }
-  .loop-node:hover { transform:scale(1.4); stroke-width:2.5; }
-  .loop-edge { transition:opacity .15s ease; }
-  .loop-legend { display:flex; gap:var(--s4); margin-top:var(--s3); font-family:var(--fm); font-size:12px; color:var(--steel); }
-  .loop-legend-item { display:flex; align-items:center; gap:6px; }
-  .loop-legend-shape { width:10px; height:10px; }
+
+  .lp-wrap { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s35) var(--s3) var(--s2); }
+  .lp-axis { position:relative; height:18px; margin: 0 0 8px 130px; border-bottom:1px solid var(--line); }
+  .lp-mark { position:absolute; transform:translateX(-50%); font-family:var(--fm); font-size:10px; color:var(--steel); top:0; }
+  .lp-mark::after { content:""; position:absolute; left:50%; top:14px; width:1px; height:4px; background:var(--line); }
+
+  .lp-row { display:grid; grid-template-columns:130px 1fr 110px; gap:var(--s3); align-items:center; padding:6px 0; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent); transition:background .12s; }
+  .lp-row:hover { background:color-mix(in srgb, var(--acc) 4%, transparent); }
+  .lp-row:last-child { border-bottom:none; }
+
+  .lp-tk { display:flex; flex-direction:column; gap:2px; }
+  .lp-tkname { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); letter-spacing:.04em; }
+  .lp-tkmeta { font-family:var(--fm); font-size:10px; color:var(--steel); letter-spacing:.04em; }
+
+  .lp-track { position:relative; height:18px; background:linear-gradient(to right, color-mix(in srgb, var(--line) 30%, transparent), color-mix(in srgb, var(--line) 60%, transparent), color-mix(in srgb, var(--line) 30%, transparent)); border-radius:9px; }
+  .lp-track .ev { position:absolute; top:50%; transform:translate(-50%, -50%); border-radius:50%; }
+  .lp-track .ev-pred { width:9px; height:9px; }
+  .lp-track .ev-pred.open { background:var(--panel); border:1.5px solid var(--ink); }
+  .lp-track .ev-pred.acc { background:var(--acc); }
+  .lp-track .ev-pred.bear { background:var(--bear); }
+  .lp-track .ev-pred.steel { background:var(--steel); }
+  .lp-track .ev-out { width:5px; height:5px; background:var(--ink); opacity:.5; }
+  .lp-track .ev-dec { width:8px; height:8px; transform:translate(-50%, -50%) rotate(45deg); border-radius:1px; }
+  .lp-track .ev-dec.acc { background:var(--acc); }
+  .lp-track .ev-dec.bear { background:var(--bear); }
+  .lp-track .ev:hover { box-shadow:0 0 0 4px color-mix(in srgb, var(--acc) 25%, transparent); z-index:5; cursor:help; }
+
+  .lp-stats { display:flex; align-items:center; gap:8px; justify-content:flex-end; font-family:var(--fm); font-size:12px; }
+  .lp-resolved { color:var(--steel); font-variant-numeric:tabular-nums; }
+  .lp-badge { font-family:var(--fm); font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; border:1px solid currentColor; font-variant-numeric:tabular-nums; }
+  .lp-badge.acc { color:var(--acc); }
+  .lp-badge.warn { color:var(--warn); }
+  .lp-badge.bear { color:var(--bear); }
+  .lp-badge.muted { color:var(--steel); opacity:.6; }
+
+  .lp-legend { display:flex; gap:18px; margin-top:var(--s3); padding-top:var(--s2); border-top:1px solid var(--line); font-family:var(--fm); font-size:11px; color:var(--steel); flex-wrap:wrap; }
+  .lp-legend-item { display:flex; align-items:center; gap:6px; }
+  .lp-leg-dot { display:inline-block; width:10px; height:10px; border-radius:50%; }
+  .lp-leg-dot.open { background:var(--panel); border:1.5px solid var(--ink); }
+  .lp-leg-dot.acc { background:var(--acc); }
+  .lp-leg-dot.bear { background:var(--bear); }
+  .lp-leg-dot.dec { transform:rotate(45deg); border-radius:1px; }
 </style>
 """
 
     legend = (
-        '<div class="loop-legend">'
-        '<div class="loop-legend-item"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="var(--panel)" stroke="var(--steel)" stroke-width="1.2"/></svg> Signal</div>'
-        '<div class="loop-legend-item"><svg width="10" height="10"><rect x="0" y="1" width="10" height="8" rx="1" fill="var(--panel)" stroke="var(--ink)" stroke-width="1.2"/></svg> Prediction (open)</div>'
-        '<div class="loop-legend-item"><svg width="10" height="10"><rect x="0" y="1" width="10" height="8" rx="1" fill="var(--acc)" stroke="var(--acc)" stroke-width="1.2"/></svg> Prediction (correct)</div>'
-        '<div class="loop-legend-item"><svg width="10" height="10"><rect x="0" y="1" width="10" height="8" rx="1" fill="var(--bear)" stroke="var(--bear)" stroke-width="1.2"/></svg> Prediction (incorrect)</div>'
-        '<div class="loop-legend-item"><svg width="10" height="10" viewBox="0 0 10 10"><polygon points="5,0 10,5 5,10 0,5" fill="var(--warn)"/></svg> Decision</div>'
-        '<div class="loop-legend-item"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="var(--acc)"/></svg> Outcome</div>'
+        '<div class="lp-legend">'
+        '<div class="lp-legend-item"><span class="lp-leg-dot open"></span> Open prediction</div>'
+        '<div class="lp-legend-item"><span class="lp-leg-dot acc"></span> Correct</div>'
+        '<div class="lp-legend-item"><span class="lp-leg-dot bear"></span> Incorrect</div>'
+        '<div class="lp-legend-item"><span class="lp-leg-dot dec acc"></span> Buy decision</div>'
+        '<div class="lp-legend-item"><span class="lp-leg-dot dec bear"></span> Sell/trim decision</div>'
+        '<div class="lp-legend-item">Brier badge: green &lt;0.20, amber &lt;0.25, red &ge;0.25</div>'
         '</div>'
     )
 
@@ -3171,11 +3163,17 @@ def _loop() -> str:
         f'<section data-page="loop" role="region" aria-label="Loop">'
         f'{css}'
         f'<div class="phead"><h2>Loop</h2>'
-        f'<div class="sub">Signal &rarr; Prediction &rarr; Decision &rarr; Outcome &middot; full audit chain, 60d window</div></div>'
+        f'<div class="sub">Per-ticker provenance timeline &middot; 60d window &middot; '
+        f'signals &rarr; predictions &rarr; decisions &rarr; outcomes</div></div>'
         f'{stats}'
-        f'<div class="loop-wrap">{svg}{legend}</div>'
+        f'<div class="lp-wrap">'
+        f'<div class="lp-axis">{"".join(axis_marks)}</div>'
+        f'{"".join(rows_html)}'
+        f'{legend}'
+        f'</div>'
         f'</section>'
     )
+
 
 
 def _signaux() -> str:
@@ -3688,9 +3686,9 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h2>Alerts</h2>'
         f'<div class="sub">Momentum toward targets &middot; margin before stops &middot; macro stress</div></div>'
         f"{star}"
+        # Retraits 02/06 user : "Race toward target" et "Lowest stop margins"
+        # = waste/useless (info accessible ailleurs : Theses + dashboard hero).
         f'<div class="cols">'
-        f'<div><div class="ph3">Race toward target</div><div class="card pad">{elan}</div></div>'
-        f'<div><div class="ph3">Lowest stop margins</div><div class="card pad">{watch}</div></div>'
         f'<div><div class="ph3">Macro stress monitor &mdash; score {score:.0f}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
         f'<div class="cols">'
@@ -4752,9 +4750,18 @@ def render() -> Path:
         st, tg, c = r.get("stop") or 0, r.get("target_full") or 0, r.get("current_price") or 0
         up, dn = r.get("upside_pct"), r.get("downside_pct")
         if st and tg and tg != st and c and up is not None and dn is not None:
-            _axis[r["ticker"]] = {"frac": max(0.0, min(100.0, (c - st) / (tg - st) * 100)), "up": up, "dn": dn}
-    _targets = sorted(_axis, key=lambda tk: -_axis[tk]["frac"])[:6]
-    _stops = sorted(_axis, key=lambda tk: _axis[tk]["frac"])[:6]
+            # frac_raw : 0 = at stop, 100 = at target, >100 = beyond target.
+            # Conserve la valeur > 100 pour visualiser overshoot.
+            frac_raw = (c - st) / (tg - st) * 100
+            _axis[r["ticker"]] = {
+                "frac": max(0.0, min(100.0, frac_raw)),
+                "frac_raw": frac_raw,
+                "up": up,
+                "dn": dn,
+                "tg_pct": (c / tg - 1) * 100 if tg else 0,  # % beyond target (negative = below)
+            }
+    _targets = sorted(_axis, key=lambda tk: -_axis[tk]["frac_raw"])[:6]
+    _stops = sorted(_axis, key=lambda tk: _axis[tk]["frac_raw"])[:6]
 
     # F13 fix : "proche de la target" n'est PAS une victoire mecanique. Si la
     # position est aussi fragile / valo > bull / solidite faible, atteindre
@@ -4769,16 +4776,31 @@ def render() -> Path:
 
     def _axisrow(tk: str) -> str:
         a = _axis[tk]
-        # Profit-take flag si frac > 80% AND (valo>bull OR solidite Fragile/Incertain)
+        # Gauge redesign 02/06 user : montrer overshoot visuellement.
+        # Bar = 0..150% mapped to width. Target = 100%, overshoot zone = 100..150%.
+        # Marker position visuelle : map frac_raw [0..150+] -> [0..100]% visual width.
+        VISUAL_MAX = 150.0  # frac_raw at visual right edge
+        frac_raw = a["frac_raw"]
+        # Si overshoot > 50%, on cap visual et on a un "+overshoot" badge
+        visual_pct = max(0.0, min(100.0, frac_raw / VISUAL_MAX * 100))
+        # Profit-take chip
         profit_chip = ""
         ln = _book_idx.get(tk)
-        if ln and a["frac"] > 80:
+        beyond_pct = a["tg_pct"]
+        if frac_raw > 100:
+            profit_chip = f'<span class="th-pt acc">target +{beyond_pct:.1f}% beyond</span>'
+        elif ln and a["frac"] > 80:
             risky = ln.valo_above_bull_case or ln.solidite in ("Fragile", "Incertain")
             if risky:
-                profit_chip = '<span class="th-pt">target atteinte</span>'
+                profit_chip = '<span class="th-pt">target hit</span>'
+        # Target tick marker at 100/150 = 66.67% of visual width
+        target_tick_pct = 100.0 / VISUAL_MAX * 100
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%" title="{a["frac"]:.1f}%"></div></div>'
+            f'<div class="axis">'
+            f'<div class="axis-target-tick" style="left:{target_tick_pct:.1f}%" title="target"></div>'
+            f'<div class="axis-mark" style="left:{visual_pct:.1f}%" title="progress {frac_raw:.0f}%"></div>'
+            f'</div>'
             f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
             f'<span class="th-tgt">target +{a["up"]:.0f}%</span></div></div>'
         )
