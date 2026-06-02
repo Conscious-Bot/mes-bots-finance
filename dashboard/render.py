@@ -2965,7 +2965,17 @@ def _loop() -> str:
             f'<div class="phead"><h2>Loop</h2></div>{_err(e)}</section>'
         )
 
-    # Group by ticker
+    # Filter universe : held positions + planned only (user 02/06).
+    # Le bot scanne 354 signals sur ~50 tickers mais l'user ne suit que ses
+    # positions actuelles et planifiees.
+    try:
+        held_rows = _q("SELECT DISTINCT ticker FROM positions")
+        planned_rows = _q("SELECT DISTINCT ticker FROM portfolio_targets")
+        universe = {r[0] for r in held_rows} | {r[0] for r in planned_rows}
+    except Exception:
+        universe = set()
+
+    # Group by ticker (only those in universe)
     from collections import defaultdict
     from datetime import date, timedelta
     by_ticker: dict[str, dict] = defaultdict(lambda: {
@@ -2973,6 +2983,8 @@ def _loop() -> str:
     })
     for r in preds:
         pid, tk, direction, outcome, brier, baseline, resolved, source, prob = r
+        if universe and tk not in universe:
+            continue
         by_ticker[tk]["preds"].append({
             "id": pid, "dir": direction, "outcome": outcome,
             "brier": brier, "baseline": baseline, "resolved": resolved,
@@ -2981,8 +2993,16 @@ def _loop() -> str:
         if source:
             by_ticker[tk]["sources"].add(source)
     for tk, evt, occ in audits:
+        if universe and tk not in universe:
+            continue
         if tk in by_ticker:
             by_ticker[tk]["audits"].append({"event": evt, "occurred": occ})
+
+    # Also add held/planned tickers that have NO predictions yet (empty rows
+    # show the user that this ticker is being tracked even if signals are quiet)
+    for tk in universe:
+        if tk not in by_ticker:
+            by_ticker[tk]  # touch via defaultdict to initialize
 
     # Sort tickers by activity (n predictions desc)
     sorted_tk = sorted(by_ticker.items(), key=lambda kv: -len(kv[1]["preds"]))
