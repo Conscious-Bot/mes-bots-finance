@@ -245,10 +245,10 @@ _CSS = """
   /* Animation entry fade-in sur Star (Polish 01/06) : subtle premium feel
      a la TR/Linear. 280ms ease, opacity + translate-y 8px. Anti-double-fire
      via .noanim gate (cf dashboard_anim_session_gate). */
-  /* DNA v2 page-star : drop banner concept. Pas de card, pas de border,
-     pas de padding. Juste un thin readout sous le phead, mono, inline,
-     separe par middot. L'info reste, le bandeau disparait. */
-  .page-star { background:transparent; border:none; border-radius:0; padding:0; margin:0 0 var(--s4); }
+  /* page-star kill 02/06 user "degage moi ces panneaux horribles".
+     L'info reste calculee cote Python (variables conservees), juste
+     pas rendue. Revert = remove display:none. */
+  .page-star { display:none !important; }
   .page-star .ps-strate { padding:6px 0; display:flex; flex-wrap:wrap; align-items:baseline; gap:18px; }
   .page-star .ps-lbl { font-family:var(--fb); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--steel); margin:0; font-weight:500; display:inline-block; }
   .ps-tag-explor { display:inline-block; margin-left:6px; padding:1px 6px; font-size:10px; font-weight:500; letter-spacing:.06em; text-transform:uppercase; color:var(--steel); border:1px solid var(--line2); border-radius:var(--r1); font-family:var(--fm); cursor:help; }
