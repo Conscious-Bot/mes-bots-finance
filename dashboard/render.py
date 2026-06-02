@@ -177,7 +177,7 @@ _DP_TTL = 840.0
 
 
 def _dp_pct(ticker: str) -> float | None:
-    # Variation % du jour (cloture veille -> dernier close). Invariant en devise: nonee conversion FX.
+    # Variation % du jour (cloture veille -> dernier close). Invariant en devise: none conversion FX.
     import time as _t
 
     now = _t.monotonic()
@@ -878,7 +878,7 @@ def _copilot_panel() -> str:
     if not rows:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Nonee intervention du copilot pour le moment. Les pressure-tests "
+            "None intervention du copilot pour le moment. Les pressure-tests "
             "apparaitront ici a chaque /position_buy /position_sell /override."
             "</div></div>"
         )
@@ -993,7 +993,7 @@ def _return_clustering_panel() -> str:
         f'<span class="dc-pair">{p["ticker_a"]} &harr; {p["ticker_b"]}</span>'
         f'<span class="dc-corr mono">{p["correlation"]:.2f}</span></div>'
         for p in pairs[:12]
-    ) or '<div class="empty" style="padding:var(--s2) 0">nonee paire >0.7</div>'
+    ) or '<div class="empty" style="padding:var(--s2) 0">none paire >0.7</div>'
 
     cluster_rows = []
     for c in clusters:
@@ -1206,7 +1206,7 @@ def _kill_criteria_panel() -> str:
             f'<div class="kc-ev">{evidence}</div></div>'
         )
     items_html = "".join(items) or (
-        '<div class="empty" style="padding:var(--s25) 0">nonee these triggered/at_risk &mdash; ' +
+        '<div class="empty" style="padding:var(--s25) 0">none these triggered/at_risk &mdash; ' +
         f'{counts["dormant"]} dormant</div>'
     )
     return (
@@ -1348,7 +1348,7 @@ def _valo_above_bull_panel() -> str:
     if not flags:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Nonee position avec expectations > bull case identifiees."
+            "None position avec expectations > bull case identifiees."
             "</div></div>"
         )
     rows = []
@@ -1383,7 +1383,7 @@ def _factor_exposures_panel() -> str:
     except Exception as e:
         return f'<div class="card pad"><div class="empty">factor exposures indispo: {type(e).__name__}</div></div>'
     if not facts:
-        return '<div class="card pad"><div class="empty">nonee position classifiee</div></div>'
+        return '<div class="card pad"><div class="empty">none position classifiee</div></div>'
     # Tri : composites en TETE (vue agregée d'abord), puis sub-buckets par pct
     sorted_f = sorted(facts.items(), key=lambda kv: (not kv[1].get("is_composite"), -kv[1]["pct_of_book"]))
     rows = []
@@ -1912,7 +1912,7 @@ def _conversations_panel() -> str:
     if not rows:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Nonee conversation enregistree pour le moment. Les echanges chat "
+            "None conversation enregistree pour le moment. Les echanges chat "
             "(dashboard + Telegram) seront consignes ici et integres au profil utilisateur."
             "</div></div>"
         )
@@ -1997,7 +1997,7 @@ def _narrative_panel() -> str:
         f'<span class="nv-with">redondant avec {r.get("redundant_with","?")}</span>'
         f'<span class="nv-why">{(r.get("reason") or "")[:160]}</span></div>'
         for r in redundant
-    ) or '<div class="empty" style="padding:var(--s25) 0">nonee redondance</div>'
+    ) or '<div class="empty" style="padding:var(--s25) 0">none redondance</div>'
 
     return (
         '<div class="card pad narrativecard" style="margin-bottom:var(--s4)">'
@@ -3821,7 +3821,7 @@ def _cockpit() -> str:
 
     drift_count = len(RECONCILE_FLAGS)
     drift_sub = (
-        "; ".join(f"{f['ticker']} ~{int(f['drift_eur'])} EUR" for f in RECONCILE_FLAGS) if drift_count else "nonee"
+        "; ".join(f"{f['ticker']} ~{int(f['drift_eur'])} EUR" for f in RECONCILE_FLAGS) if drift_count else "none"
     )
 
     INK, WARN, DANGER = "var(--ink)", "var(--warn)", "var(--bear)"
@@ -3933,7 +3933,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     if not rows:
         return (
             '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Theses</h2>'
-            '<div class="sub">nonee thesis active</div></div></section>'
+            '<div class="sub">none thesis active</div></div></section>'
         )
     _u = _cfg().get("universe", {})
     crypto_tk = set(_u.get("core", {}).get("crypto_core", [])) | set(_u.get("extended", {}).get("crypto_etfs", []))
@@ -4505,7 +4505,7 @@ def _discipline_biais_panel() -> str:
 
     # Predictions cluster KPI #2 -- batch 10/06 specifique : V1 dont
     # target_date <= 2026-06-10. User 01/06 critique : la query precedente
-    # comptait TOUTES les V1 resolues, biais vers "5 du cluster" alors qu'nonee
+    # comptait TOUTES les V1 resolues, biais vers "5 du cluster" alors qu'none
     # n'est du batch 10/06. Cluster target = 35 predictions a J-day.
     n_cluster_total = _q(
         "SELECT COUNT(*) FROM predictions "
@@ -4545,7 +4545,7 @@ def _discipline_biais_panel() -> str:
     # prev=new=dormant, donc MAX(created_at) = derniere TRANSITION persistee,
     # nornier run cron. Libelle reformule pour la verite.
     last_trans = _q("SELECT MAX(created_at) FROM kill_criteria_alerts")[0][0]
-    last_trans_str = last_trans[:16].replace("T", " ") if last_trans else "nonee"
+    last_trans_str = last_trans[:16].replace("T", " ") if last_trans else "none"
 
     # bias_events compteurs
     n_bias_open = _q("SELECT COUNT(*) FROM bias_events WHERE status='open'")[0][0]
@@ -4743,7 +4743,7 @@ def render() -> Path:
         rop = ' style="opacity:.45"' if rpast else ""
         rtag = " &middot; passed" if rpast else ""
         erows += f'<div class="line"{rop}><span>{rlab}{rtag}</span><span class="mono">{rdd}</span></div>'
-    erows = erows or '<div class="empty" style="padding:var(--s35) 0">nonee deadline</div>'
+    erows = erows or '<div class="empty" style="padding:var(--s35) 0">none deadline</div>'
 
     wbase = sum(p["weight"] for p in positions if p["ticker"] in pnl) or 1
     port_pnl = sum(p["weight"] * pnl[p["ticker"]] for p in positions if p["ticker"] in pnl) / wbase
@@ -5158,9 +5158,9 @@ def render() -> Path:
         + f'<div class="ps-cap">{_post_cap}</div>'
         + "</div>"
     )
-    _stop_caption = (", ".join(near_stop_tk[:3]) + ("…" if len(near_stop_tk) > 3 else "")) if near_stop_tk else "nonee"
-    _watch_caption = (", ".join(watch_zone_tk[:3]) + ("…" if len(watch_zone_tk) > 3 else "")) if watch_zone_tk else "nonee"
-    _tgt_caption = (", ".join(near_tgt_tk[:3]) + ("…" if len(near_tgt_tk) > 3 else "")) if near_tgt_tk else "nonee"
+    _stop_caption = (", ".join(near_stop_tk[:3]) + ("…" if len(near_stop_tk) > 3 else "")) if near_stop_tk else "none"
+    _watch_caption = (", ".join(watch_zone_tk[:3]) + ("…" if len(watch_zone_tk) > 3 else "")) if watch_zone_tk else "none"
+    _tgt_caption = (", ".join(near_tgt_tk[:3]) + ("…" if len(near_tgt_tk) > 3 else "")) if near_tgt_tk else "none"
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 10% from stop trigger. Critical margin: review thesis or trailing stop before session.">At stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
@@ -5216,7 +5216,7 @@ def render() -> Path:
                    .replace("&euro;", "€").replace("&#8239;", " ")
                    .replace("&lt;", "<").replace("&nbsp;", " ")
                    for item in _dev_items)
-        if _dev_items else "nonee friction de discipline"
+        if _dev_items else "none friction de discipline"
     )
     _dband = (
         f'<div class="dband {_dcls}" title="{_dtitle}" '

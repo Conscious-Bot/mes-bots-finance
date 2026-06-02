@@ -166,7 +166,7 @@ _CSS = """
   .distline:hover .g { opacity:.7; } .distline:hover .r { opacity:.7; }
   .distline .g:hover, .distline .r:hover { opacity:1 !important; }
   .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s4); margin-bottom:26px; }
-  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:13px 16px; transition:border-color .15s ease-out, box-shadow .15s ease-out, transform .15s ease-out; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:18px 24px; transition:border-color .18s ease-out; }
   .kl { display:block; font-family:var(--fb); font-size:14px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
   .kv { font-family:var(--fm); font-weight:500; font-size:31px; letter-spacing:-.01em; line-height:1; font-variant-numeric:tabular-nums; }
   .kv, .gvm, .big { color:var(--c, var(--ink)); }
@@ -204,7 +204,10 @@ _CSS = """
   /*CHER*/
   /* Card hover elevation (Linear/Stripe premium) : subtle shadow + translateY */
   .card, .kpi { transition:transform .18s ease-out, box-shadow .18s ease-out, border-color .15s ease-out; }
-  .card:hover, .kpi:hover { border-color:var(--line2); box-shadow:0 6px 18px -10px rgba(0,0,0,.10); transform:translateY(-1px); }
+  /* DNA v2 : carte = bordure OU ombre, jamais les deux. On garde la bordure
+     subtile au repos ET au hover (ombre + transform retires). Hover signal
+     via border-color shift seul. */
+  .card:hover, .kpi:hover { border-color:var(--line2); }
   .tape .ti::after { content:"·"; margin-left:30px; color:var(--steel); opacity:.4; }
   /*METAL2*/
   .card, .kpi, .hero, .pfcard { border-top:1px solid color-mix(in srgb,var(--ink) 16%,var(--line)); }
@@ -216,7 +219,9 @@ _CSS = """
   .modetgl .ico-sun { display:none; } body.midnight .modetgl .ico-moon { display:none; } body.midnight .modetgl .ico-sun { display:inline-block; }
   /*DVAL-STATE*/
   .dval.calm { color:var(--acc); } .dval.warn { color:var(--warn); } .dval.danger { color:var(--bear); } .dval.mute { color:var(--steel); }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s2) 24px; transition:border-color .15s ease-out, box-shadow .15s ease-out, transform .15s ease-out; } .card.pad { padding:var(--s35) 18px; }
+  /* DNA v2 : padding ample 24-32px (charte instrument). */
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:18px 26px; transition:border-color .18s ease-out; }
+  .card.pad { padding:26px 28px; }
   .line { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:16px; } .line:last-child { border-bottom:none; }
   .mono { font-family:var(--fm); font-weight:600; color:var(--ink); } .mono.pos { color:var(--acc); } .mono.neg { color:var(--bear); }
   .gauge { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:16px 20px; margin-bottom:15px; }
@@ -240,33 +245,19 @@ _CSS = """
   /* Animation entry fade-in sur Star (Polish 01/06) : subtle premium feel
      a la TR/Linear. 280ms ease, opacity + translate-y 8px. Anti-double-fire
      via .noanim gate (cf dashboard_anim_session_gate). */
-  .page-star { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:32px 36px; margin-bottom:var(--s4); animation:starIn .28s ease-out; transition:box-shadow .2s ease-out, transform .2s ease-out; }
-  .page-star:hover { box-shadow:0 8px 24px -12px rgba(0,0,0,.12); transform:translateY(-1px); }
-  .noanim .page-star { animation:none; }
-  @keyframes starIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-  /* Staggered entry for Star strates (TR/Apple Card pattern) : 80ms delays */
-  .page-star .ps-strate { animation:strateIn .24s ease-out both; }
-  .page-star .ps-strate:nth-child(1) { animation-delay:60ms; }
-  .page-star .ps-strate:nth-child(2) { animation-delay:140ms; }
-  .page-star .ps-strate:nth-child(3) { animation-delay:220ms; }
-  @keyframes strateIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-  .noanim .page-star .ps-strate { animation:none; }
-  @media (prefers-reduced-motion: reduce) { .page-star, .page-star .ps-strate { animation:none; } }
-  .page-star .ps-strate { padding:18px 0; }
+  /* DNA v2 page-star : instrument sobre. Plus de gradient chrome, plus
+     d'animations stagger, plus de separateurs strate (single flowing card).
+     Numbers Geist Mono ink. Labels small caps quiet. Moins de padding. */
+  .page-star { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:24px 28px; margin-bottom:var(--s4); }
+  .page-star .ps-strate { padding:14px 0; }
   .page-star .ps-strate:first-child { padding-top:0; }
   .page-star .ps-strate:last-child { padding-bottom:0; }
-  .page-star .ps-strate + .ps-strate { border-top:1px solid var(--line); }
-  .page-star .ps-lbl { font-family:var(--fm); font-size:14px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
-  /* Tag exploratoire : marque visuelle que le modele sous-jacent n'a pas valide OOS strict. Honnete > invente (L3). */
-  .ps-tag-explor { display:inline-block; margin-left:7px; padding:2px 7px; font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--warn); background:color-mix(in srgb,var(--warn) 12%,transparent); border:1px solid color-mix(in srgb,var(--warn) 35%,transparent); border-radius:var(--r1); font-family:var(--fm); cursor:help; }
-  .page-star .ps-val { font-family:var(--fb); font-size:27px; font-weight:500; color:var(--ink); line-height:1.1; }
-  /* Chrome touch hero valeur portefeuille : text gradient subtle silver (Apple-like).
-     Activé uniquement quand font-size > 30px (hero valeur). */
-  .page-star .ps-val[style*="font-size:37px"], .page-star .ps-val[style*="font-size: 37px"] {
-    background:linear-gradient(180deg, var(--ink) 0%, var(--ink) 40%, color-mix(in srgb,var(--ink) 88%,var(--steel)) 100%);
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent; color:transparent;
-  }
+  /* Pas de border separator entre strates : design unifie */
+  .page-star .ps-lbl { font-family:var(--fb); font-size:11px; letter-spacing:.10em; text-transform:uppercase; color:var(--steel); margin-bottom:6px; font-weight:500; }
+  .ps-tag-explor { display:inline-block; margin-left:7px; padding:2px 7px; font-size:11px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--steel); border:1px solid var(--line2); border-radius:var(--r1); font-family:var(--fm); cursor:help; }
+  /* ps-val : Geist Mono tabular (instrument). Sober ink, accent uniquement
+     quand explicit class .acc/.bear/.warn appliquee par render. */
+  .page-star .ps-val { font-family:var(--fm); font-size:24px; font-weight:500; color:var(--ink); line-height:1.15; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
   .page-star .ps-val.bear { color:var(--bear); }
   .page-star .ps-val.acc { color:var(--acc); }
   .page-star .ps-val.warn { color:var(--warn); }
@@ -274,29 +265,28 @@ _CSS = """
   .acc-c, b.acc { color:var(--acc); }
   .warn-c, b.warn { color:var(--warn); }
   .bear-c, b.bear { color:var(--bear); }
-  .page-star .ps-cap { font-family:var(--fb); font-size:16px; color:var(--steel); margin-top:8px; line-height:1.4; }
-  .page-star .ps-macro-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
-  .page-star .ps-macro-meta { font-family:var(--fm); font-size:16px; color:var(--steel); }
-  .page-star .ps-frise { height:6px; border-radius:3px; background:linear-gradient(90deg,var(--acc),var(--warn) 52%,var(--bear)); position:relative; margin-top:18px; }
-  .page-star .ps-frise-mark { position:absolute; top:50%; width:14px; height:14px; background:var(--ink); border-radius:50%; transform:translate(-50%,-50%); border:2px solid var(--panel); }
-  .page-star .ps-frise-labs { display:flex; justify-content:space-between; font-family:var(--fm); font-size:14px; color:var(--steel); margin-top:10px; letter-spacing:.06em; }
-  .page-star .ps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:38px; }
+  .page-star .ps-cap { font-family:var(--fb); font-size:13px; color:var(--steel); margin-top:6px; line-height:1.5; }
+  .page-star .ps-macro-row { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .page-star .ps-macro-meta { font-family:var(--fm); font-size:13px; color:var(--steel); }
+  .page-star .ps-frise { height:4px; border-radius:2px; background:linear-gradient(90deg,color-mix(in srgb,var(--bear) 55%,transparent),color-mix(in srgb,var(--steel) 50%,transparent) 50%,color-mix(in srgb,var(--acc) 55%,transparent)); position:relative; margin-top:14px; }
+  .page-star .ps-frise-mark { position:absolute; top:50%; width:10px; height:10px; background:var(--ink); border-radius:50%; transform:translate(-50%,-50%); border:2px solid var(--panel); }
+  .page-star .ps-frise-labs { display:flex; justify-content:space-between; font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:8px; letter-spacing:.04em; }
+  .page-star .ps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
   .page-star .ps-cell { display:flex; flex-direction:column; }
-  .page-star .ps-foot { font-family:var(--fm); font-size:15px; color:var(--steel); }
+  .page-star .ps-foot { font-family:var(--fm); font-size:12px; color:var(--steel); }
   .page-star .ps-foot b { color:var(--ink); font-weight:500; }
-  /* Hero row 2-col pour Vue d'ensemble Star (Valeur + Grade aesthetic) */
-  .page-star .ps-hero-row { display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start; }
+  /* Hero row Vue d'ensemble Star : 2 cols, no chrome gradient */
+  .page-star .ps-hero-row { display:grid; grid-template-columns:1fr 1fr; gap:36px; align-items:start; }
   .page-star .ps-hero-left, .page-star .ps-hero-right { min-width:0; }
-  .page-star .ps-grade-row { display:flex; align-items:center; gap:18px; margin-top:8px; }
-  /* Chrome touch grade letter : subtle vertical gradient pour profondeur metallique.
-     Garde la color sémantique mais ajoute brillance. */
-  .page-star .ps-grade-letter { font-family:var(--fb); font-size:45px; font-weight:500; line-height:1; flex-shrink:0; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
-  .page-star .ps-grade-letter.acc { background-image:linear-gradient(180deg, var(--acc) 0%, var(--acc) 60%, color-mix(in srgb,var(--acc) 75%,var(--ink)) 100%); }
-  .page-star .ps-grade-letter.warn { background-image:linear-gradient(180deg, var(--warn) 0%, var(--warn) 60%, color-mix(in srgb,var(--warn) 75%,var(--ink)) 100%); }
-  .page-star .ps-grade-letter.bear { background-image:linear-gradient(180deg, var(--bear) 0%, var(--bear) 60%, color-mix(in srgb,var(--bear) 75%,var(--ink)) 100%); }
-  .page-star .ps-grade-score { flex:1; min-width:140px; }
-  .page-star .ps-grade-num { font-family:var(--fb); font-size:25px; font-weight:500; color:var(--ink); margin-bottom:8px; }
-  .page-star .ps-grade-max { font-family:var(--fm); font-size:16px; color:var(--steel); font-weight:400; }
+  .page-star .ps-grade-row { display:flex; align-items:center; gap:14px; margin-top:6px; }
+  /* Grade letter : plain ink, no gradient chrome */
+  .page-star .ps-grade-letter { font-family:var(--fb); font-size:36px; font-weight:500; line-height:1; flex-shrink:0; color:var(--ink); }
+  .page-star .ps-grade-letter.acc { color:var(--acc); }
+  .page-star .ps-grade-letter.warn { color:var(--warn); }
+  .page-star .ps-grade-letter.bear { color:var(--bear); }
+  .page-star .ps-grade-score { flex:1; min-width:120px; }
+  .page-star .ps-grade-num { font-family:var(--fm); font-size:18px; font-weight:500; color:var(--ink); margin-bottom:6px; font-variant-numeric:tabular-nums; }
+  .page-star .ps-grade-max { font-family:var(--fm); font-size:12px; color:var(--steel); font-weight:400; }
   .page-star .ps-grade-bar { height:6px; background:color-mix(in srgb,var(--line) 90%,transparent); border-radius:3px; overflow:hidden; }
   .page-star .ps-grade-fill { height:100%; transition:width .3s ease; }
   .page-star .ps-grade-fill.acc { background:var(--acc); }
