@@ -2422,7 +2422,7 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
         if prog >= 100.5:
             return f"+{prog - 100:.0f}% beyond target"
         if prog <= 99.5:
-            return f"&minus;{100 - prog:.0f}% sous target"
+            return f"&minus;{100 - prog:.0f}% below target"
         return "at target"
 
     rows = "".join(
@@ -3129,8 +3129,8 @@ _MACRO_TIPS: dict[str, str] = {
     "CopperGold": "Cuivre industriel vs or refuge. Monte = cycle haussier, baisse = peur récession.",
     "CoreCPI": "Core CPI YoY. > 2.5% = Fed bloquée en restrictif → vent contraire growth/tech.",
     "CPI": "Core CPI YoY. > 2.5% = Fed bloquée en restrictif → vent contraire growth/tech.",
-    "MfgIP": "Production industrielle YoY. > 0 = expansion molle ou forte.",
-    "MfgIP_yoy": "Production industrielle YoY. > 0 = expansion molle ou forte.",
+    "MfgIP": "Industrial production YoY. > 0 = soft or strong expansion.",
+    "MfgIP_yoy": "Industrial production YoY. > 0 = soft or strong expansion.",
 }
 
 
@@ -3259,24 +3259,24 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         "BTC_drawdown180": (1, "BTC drawdown 6M (%)", 1, False),
         "Gold": (1, "Or ($/oz)", 0, True),
         # Tier 2: Stress bancaire & liquidité Fed — signaux avancés en haut, plomberie milieu, slow bas
-        "MOVE": (2, "Vol. obligataire (MOVE)", 2, False),
-        "T10Y2Y": (2, "Pente 10a-2a (%)", 4, False),
+        "MOVE": (2, "Bond vol (MOVE)", 2, False),
+        "T10Y2Y": (2, "10Y-2Y slope (%)", 4, False),
         "BankReserves": (2, "Fed bank reserves ($M)", 0, True),
         "RepoSRF": (2, "Standing Repo Facility ($B)", 2, False),
         "KRE": (2, "Regional banks ($)", 2, False),
-        "CopperGold": (2, "Ratio cuivre/or", 4, False),
+        "CopperGold": (2, "Copper/gold ratio", 4, False),
         # Tier 3: Macro lente
-        "CoreCPI": (3, "Inflation core (%)", 4, False),
-        "CPI": (3, "Inflation core (%)", 4, False),
-        "MfgIP": (3, "Production industrielle (%)", 4, False),
-        "MfgIP_yoy": (3, "Production industrielle (%)", 4, False),
+        "CoreCPI": (3, "Core inflation (%)", 4, False),
+        "CPI": (3, "Core inflation (%)", 4, False),
+        "MfgIP": (3, "Industrial production (%)", 4, False),
+        "MfgIP_yoy": (3, "Industrial production (%)", 4, False),
         "FedBalance_yoy": (3, "Bilan Fed YoY (%)", 1, False),
     }
     tnames = {
         1: "Market &amp; liquidity",
         2: "Banking stress &amp; Fed liquidity",
-        3: "Macro lente",
-        9: "Autres",
+        3: "Slow macro",
+        9: "Other",
     }
     try:
         sig = _q(
@@ -3386,7 +3386,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     # (cf decision_log 02 -- V3 demote, V4 a venir).
     star_macro = (
         '<div class="ps-strate">'
-        + '<div class="ps-lbl" data-tip="V3 composite macro phase (debt_monitor). STATUS: exploratory -- strict HOLDOUT 4/8 (02/06). V3 never generates P1 (centrist bias). Do not drive decisions on this value. V4 forthcoming (cf decision_log 02).">&Eacute;tat macro <span class="ps-tag-explor">exploratoire</span></div>'
+        + '<div class="ps-lbl" data-tip="V3 composite macro phase (debt_monitor). STATUS: exploratory -- strict HOLDOUT 4/8 (02/06). V3 never generates P1 (centrist bias). Do not drive decisions on this value. V4 forthcoming (cf decision_log 02).">Macro state <span class="ps-tag-explor">exploratory</span></div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_phase_col}">{clabel}</div>'
         + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}</div>'
@@ -3401,7 +3401,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f_cls, f_val, f_lbl, f_cap = "bear", len(_conc), "FRICTIONS", _conc[0]
     else:
         f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGNED", "concentration under caps"
-    t_cap = "marge restante OK" if near_t else "rien proche de la target"
+    t_cap = "margin remaining OK" if near_t else "nothing close to target"
     s_cls = "bear" if near else "acc"
     s_cap = "to watch" if near else "calm"
     star_grid = (
@@ -3427,7 +3427,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f'<div class="cols">'
         f'<div><div class="ph3">Race toward target</div><div class="card pad">{elan}</div></div>'
         f'<div><div class="ph3">Lowest stop margins</div><div class="card pad">{watch}</div></div>'
-        f'<div><div class="ph3">Moniteur de stress macro &mdash; score {score:.0f}</div>'
+        f'<div><div class="ph3">Macro stress monitor &mdash; score {score:.0f}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
         f'<div class="cols">'
         f'<div><div class="ph3">Market momentum &middot; RSI(14) daily &middot; 30min cache</div>'
