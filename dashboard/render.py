@@ -1515,15 +1515,14 @@ def _user_strategy_panel() -> str:
         construction_html = (
             '<div class="us-construction">'
             '<div class="us-cstr-h">Construction phase</div>'
-            f'<div class="us-cstr-b">Le book est en cours de constitution : '
+            f'<div class="us-cstr-b">Book is under construction: '
             f'<b class="mono">{cur_eur:,.0f}&nbsp;€</b> / '
             f'<b class="mono">{tgt_eur:,.0f}&nbsp;€</b> target '
             f'(<b>{progress:.0f}%</b> &middot; {cur_pos}/{tgt_pos} positions). '
-            "Les decorrelants (Energie-pour-IA, Defense, Robotique) sont en "
-            "cours d'ajout. Les ratios de concentration actuels (cluster cap, "
-            "ballast strict, expo AI capex) <b>convergeront naturellement</b> "
-            "vers la target. Lecture informative, pas actionnable : on ne "
-            "pousse pas a trim tant que la construction n'est pas terminee."
+            "Decorrelators (Energy-for-AI, Defense, Robotics) are being added. "
+            "Current concentration ratios (cluster cap, strict ballast, AI capex expo) "
+            "<b>will naturally converge</b> toward target. Informational only, "
+            "not actionable: do not push trims until construction is complete."
             '</div>'
             '</div>'
         )
@@ -2049,8 +2048,8 @@ def _distribution_health_panel() -> str:
         "watch_rate": "Watch-rate distribution",
         "directional_spread": "Spread probas",
         "insider_clusters_alive": "Pipeline insider clusters",
-        "horizon_diversification": "Horizons diversifiés",
-        "conviction_distribution": "Conviction étalée",
+        "horizon_diversification": "Horizon diversification",
+        "conviction_distribution": "Conviction spread",
         "fx_freshness": "FX live (max-age 24h)",
     }
     rows = ""

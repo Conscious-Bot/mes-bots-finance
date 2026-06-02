@@ -162,14 +162,14 @@ def check_insider_clusters_alive(cx, days: int = 30) -> dict[str, Any]:
     if any_buys == 0:
         status = "ALERT"
         msg = (f"0 cluster + 0 trade insider buy detecte sur {days}j. "
-               f"Le job scheduled_insider_refresh_job tourne ? "
-               f"Debug requis avant que ca pourrisse silencieusement.")
+               f"Is job scheduled_insider_refresh_job running? "
+               f"Debug required before silent rot.")
     else:
         status = "INFO"
-        msg = (f"0 cluster sur {days}j MAIS {any_buys} snapshot(s) avec buys individuels. "
-               f"Normal pour book large-cap AI (insider buys clusters rares). "
-               f"Pas de bug -- seuils `_classify_buy_cluster` (n>=3 + $1M) sont juste "
-               f"strict vs profil book. Si on veut plus de signal : abaisser seuil $.")
+        msg = (f"0 cluster over {days}d BUT {any_buys} snapshot(s) with individual buys. "
+               f"Normal for large-cap AI book (insider buy clusters rare). "
+               f"Not a bug -- `_classify_buy_cluster` thresholds (n>=3 + $1M) "
+               f"are just strict vs book profile. To get more signal: lower $ threshold.")
 
     return {
         "name": "insider_clusters_alive", "status": status, "days": days,
@@ -211,7 +211,7 @@ def check_horizon_diversification(cx, days: int = 60) -> dict[str, Any]:
     max_share = max(buckets.values()) / n
     nonempty = sum(1 for v in buckets.values() if v > 0)
     if max_share >= 0.70:
-        status, msg = "ALERT", f"horizon mono-bucket ({max_share:.0%} dans 1 bucket /5) sur {n} preds {days}j."
+        status, msg = "ALERT", f"horizon mono-bucket ({max_share:.0%} in 1 bucket /5) over {n} preds {days}d."
     elif max_share >= 0.55 or nonempty <= 2:
         status, msg = "WARN", f"horizon peu diversifie ({max_share:.0%} max, {nonempty}/5 buckets) sur {n} preds {days}j."
     else:
