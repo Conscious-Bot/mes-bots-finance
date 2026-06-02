@@ -4101,14 +4101,22 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _hue = 150 - 125 * _heat
                 _lt = 0.60 + 0.20 * (_hue / 150)
                 wtxt = f'<span style="color:oklch({_lt:.2f} 0.22 {_hue:.0f})">{wv:.1f}%</span>'
-                _scale = _cappct * 1.3
-                _tgt_pos = min(_tgt / _scale * 100, 100.0)
-                _w_pos = min(max(wv / _scale * 100, 0.0), 100.0)
+                # Sizebar redesign 02/06 user "bump -> tend vers vert optimal".
+                # Target = 50% visuel (zone verte optimale). 0% = no position
+                # (rouge -- under), 100% = cap exceeded (rouge -- over).
+                # Marker en green zone => action en cours est bonne; marker
+                # en red zone => correction necessaire.
+                if wv <= _tgt:
+                    _w_pos = (wv / _tgt) * 50.0 if _tgt > 0 else 0.0
+                else:
+                    extra = wv - _tgt
+                    span = _cappct - _tgt if _cappct > _tgt else 1.0
+                    _w_pos = 50.0 + min(50.0, extra / span * 50.0)
+                _w_pos = max(0.0, min(100.0, _w_pos))
                 sizebar = (
                     '<div class="axis sizebar">'
-                    f'<div class="axis-tick" style="left:{_tgt_pos:.1f}%"></div>'
-                    '<div class="axis-tick strong" style="left:76.9%"></div>'
-                    f'<div class="axis-mark" style="left:{_w_pos:.1f}%" title="poids {_w_pos:.1f}%"></div>'
+                    f'<div class="axis-target-tick" style="left:50%" title="target"></div>'
+                    f'<div class="axis-mark" style="left:{_w_pos:.1f}%" title="weight {wv:.1f}% / target {_tgt:.1f}%"></div>'
                     '</div>'
                 )
                 _d = wv - _tgt

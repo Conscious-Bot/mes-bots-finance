@@ -387,11 +387,17 @@ _CSS = """
       color-mix(in srgb,var(--gold) 60%,var(--acc)) 80%,
       var(--gold) 100%); }
   .axis-target-tick { position:absolute; top:-3px; width:2px; height:11px; background:var(--ink); opacity:.6; border-radius:1px; pointer-events:none; }
+  /* Sizebar redesign 02/06 : target a 50% = zone verte optimale.
+     Under-target = rouge (under-sized, need bump). Over-cap = rouge
+     (over-sized, need trim). Marker dans la zone verte = bonne taille,
+     marker dans le rouge = correction urgente. */
   .axis.sizebar { background:linear-gradient(90deg,
-    color-mix(in srgb,var(--acc) 75%,transparent) 0%,
-    color-mix(in srgb,var(--acc) 30%,transparent) 35%,
-    color-mix(in srgb,var(--steel) 35%,transparent) 60%,
-    color-mix(in srgb,var(--warn) 55%,transparent) 77%,
+    var(--bear) 0%,
+    color-mix(in srgb,var(--bear) 55%,transparent) 20%,
+    color-mix(in srgb,var(--steel) 35%,transparent) 38%,
+    var(--acc) 50%,
+    color-mix(in srgb,var(--acc) 55%,transparent) 62%,
+    color-mix(in srgb,var(--warn) 50%,transparent) 80%,
     var(--bear) 100%); }
   .axis::before, .axis::after { content:""; position:absolute; top:-3px; width:1px; height:10px; background:var(--line2); }
   .axis::before { left:0; } .axis::after { right:0; }
