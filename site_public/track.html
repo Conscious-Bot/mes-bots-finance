@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PRESAGE — Track record</title>
+  <meta name="description" content="Public track record d'un portefeuille single-stock avec détection mécanisée des biais comportementaux. Brier scores, biais résolus, alpha décomposé. Mis à jour mensuellement.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='64' height='64' rx='14' fill='%230c0c0e'/%3E%3Cpath d='M32 8L33 30L50 32L33 34L32 56L31 34L14 32L31 30Z' fill='%23ECEFF4'/%3E%3Ccircle cx='32' cy='32' r='2' fill='%23ECEFF4'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg:#FBFAF8; --ink:#1A1814; --steel:#6B7686; --line:#E8E4DE;
+      --acc:#5F9A4D; --bear:#C24332; --warn:#D6A748; --panel:#FFFFFF;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#0E0D0B; --ink:#F1ECE3; --steel:#9CA3AD; --line:#262320; --panel:#16140F; }
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; padding:0;
+      font-family:'Geist', 'Inter', system-ui, -apple-system, sans-serif;
+      background:var(--bg); color:var(--ink); line-height:1.55;
+      -webkit-font-smoothing:antialiased;
+    }
+    .wrap { max-width:760px; margin:0 auto; padding:64px 28px 96px; }
+    header { margin-bottom:48px; }
+    .brand {
+      display:flex; align-items:center; gap:14px;
+      font-family:'Geist Mono', monospace; font-size:12px;
+      letter-spacing:.18em; text-transform:uppercase; color:var(--steel);
+      margin-bottom:32px;
+    }
+    .brand-sym {
+      width:14px; height:14px;
+      background:linear-gradient(45deg, var(--ink) 0%, transparent 50%, var(--ink) 100%);
+      mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 1L9 7L15 8L9 9L8 15L7 9L1 8L7 7Z'/></svg>") center/contain no-repeat;
+      -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 1L9 7L15 8L9 9L8 15L7 9L1 8L7 7Z'/></svg>") center/contain no-repeat;
+    }
+    h1 {
+      font-size:38px; font-weight:300; letter-spacing:-.015em;
+      margin:0 0 16px; line-height:1.15;
+    }
+    .lede {
+      font-size:18px; color:var(--steel); margin:0 0 12px; max-width:62ch;
+    }
+    .updated {
+      font-family:'Geist Mono', monospace; font-size:11px; color:var(--steel);
+      letter-spacing:.06em; margin-top:24px;
+    }
+    .updated b { color:var(--ink); font-weight:500; }
+
+    section { margin:56px 0; }
+    h2 {
+      font-size:14px; font-weight:500; letter-spacing:.16em;
+      text-transform:uppercase; color:var(--steel); margin:0 0 24px;
+      display:flex; align-items:center; gap:14px;
+    }
+    h2::after {
+      content:""; flex:1; height:1px; background:var(--line);
+    }
+    p { margin:0 0 16px; max-width:62ch; }
+    .small { font-size:14px; color:var(--steel); }
+
+    /* KPI grid */
+    .kpis {
+      display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+      gap:18px; margin:24px 0;
+    }
+    .kpi {
+      background:var(--panel); border:1px solid var(--line);
+      border-radius:8px; padding:18px 20px;
+    }
+    .kpi-lbl {
+      font-family:'Geist Mono', monospace; font-size:10px;
+      letter-spacing:.14em; text-transform:uppercase; color:var(--steel);
+      margin-bottom:8px;
+    }
+    .kpi-val {
+      font-size:28px; font-weight:300; color:var(--ink);
+      font-variant-numeric:tabular-nums;
+    }
+    .kpi-val.placeholder { color:var(--steel); font-size:22px; font-style:italic; }
+    .kpi-cap {
+      font-size:12px; color:var(--steel); margin-top:6px;
+      font-variant-numeric:tabular-nums;
+    }
+
+    /* Honnêteté pré-J-day */
+    .honest {
+      background:color-mix(in srgb, var(--warn) 8%, transparent);
+      border-left:3px solid var(--warn);
+      padding:18px 22px; border-radius:0 6px 6px 0;
+      margin:24px 0;
+    }
+    .honest b { color:var(--ink); font-weight:600; }
+    .honest .small { color:var(--steel); margin-top:6px; }
+
+    /* Roadmap */
+    .roadmap { border:1px solid var(--line); border-radius:8px; padding:4px 0; }
+    .roadmap-row {
+      display:grid; grid-template-columns:120px 1fr; gap:24px;
+      padding:14px 24px; border-bottom:1px solid var(--line);
+    }
+    .roadmap-row:last-child { border-bottom:none; }
+    .roadmap-date {
+      font-family:'Geist Mono', monospace; font-size:12px;
+      letter-spacing:.06em; color:var(--ink); font-weight:500;
+    }
+    .roadmap-what { font-size:14px; color:var(--steel); }
+    .roadmap-what b { color:var(--ink); font-weight:500; }
+
+    /* Links + posts */
+    a { color:var(--ink); text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; }
+    a:hover { text-decoration-color:var(--ink); }
+    ul.posts { list-style:none; padding:0; margin:0; }
+    ul.posts li {
+      padding:14px 0; border-bottom:1px solid var(--line);
+      display:flex; gap:16px; align-items:baseline;
+    }
+    ul.posts li:last-child { border-bottom:none; }
+    .post-date {
+      font-family:'Geist Mono', monospace; font-size:11px; color:var(--steel);
+      letter-spacing:.06em; flex-shrink:0; width:80px;
+    }
+    .post-title { font-size:15px; }
+
+    footer {
+      margin-top:80px; padding-top:32px; border-top:1px solid var(--line);
+      font-size:12px; color:var(--steel);
+    }
+    footer a { color:var(--steel); }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand"><span class="brand-sym"></span><span>PRESAGE&nbsp;·&nbsp;track</span></div>
+  <h1>Public track record d'un instrument de discipline.</h1>
+  <p class="lede">
+    Un portefeuille single-stock géré avec détection mécanisée des biais comportementaux.
+    Brier scores, lock_in / fomo_greed résolus, alpha décomposé. Mis à jour mensuellement.
+  </p>
+  <p class="updated">
+    Statut · <b>PRÉ-J-DAY</b> — première batch de résolutions prévue 10 juin 2026
+  </p>
+</header>
+
+<section>
+  <h2>État au 2 juin 2026</h2>
+  <p>
+    Cette page est volontairement vide. Le track record commence à mesurer
+    quelque chose au moment où la première batch de prédictions probabilistes
+    arrive à échéance — <b>10 juin 2026</b>. Avant ça, tout chiffre publié
+    serait du contenu inventé.
+  </p>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="kpi-lbl">Prédictions ouvertes</div>
+      <div class="kpi-val">167</div>
+      <div class="kpi-cap">méthodologie V1/V2 · résolution à J+28</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Brier moyen</div>
+      <div class="kpi-val placeholder">— J+28</div>
+      <div class="kpi-cap">N=0 résolutions probantes au 2 juin</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Bias events résolus</div>
+      <div class="kpi-val">0</div>
+      <div class="kpi-cap">lock_in + fomo_greed · première à 10 juillet</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Alpha vs SOXX</div>
+      <div class="kpi-val placeholder">— J+90</div>
+      <div class="kpi-cap">décomposition prévue trimestriellement</div>
+    </div>
+  </div>
+  <div class="honest">
+    <b>Honnêteté pré-J-day.</b>
+    <div class="small">
+      Aucun chiffre de performance n'est publié avant que la mécanique de
+      résolution ait tourné contre des prédictions réelles datées. Le seul
+      contenu disponible aujourd'hui est <em>méthodologique</em> et
+      <em>négatif</em> (voir post sur l'échec OOS du modèle macro V3).
+      C'est intentionnel. C'est le coût d'éviter le <em>resulting</em>.
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Calendrier de publication</h2>
+  <div class="roadmap">
+    <div class="roadmap-row">
+      <div class="roadmap-date">10 juin 2026</div>
+      <div class="roadmap-what">
+        <b>J-day.</b> Première batch de prédictions probabilistes résolues
+        à J+28. Brier moyen mesuré, reliability diagram publié, verdict
+        sur la calibration scorer V2. Quel que soit le résultat.
+      </div>
+    </div>
+    <div class="roadmap-row">
+      <div class="roadmap-date">10 juillet 2026</div>
+      <div class="roadmap-what">
+        <b>J+30 résolutions bias_events.</b> Premiers
+        <code>lock_in</code> / <code>fomo_greed</code> avec leur delta
+        signé en EUR (gain ou coût réel de la discipline vs absence de
+        discipline). Tableau brut publié.
+      </div>
+    </div>
+    <div class="roadmap-row">
+      <div class="roadmap-date">Septembre 2026</div>
+      <div class="roadmap-what">
+        <b>Premier trimestre track record.</b> Alpha décomposé vs B&amp;H et SOXX.
+        Brier rolling 3 mois + IC95 Wilson. Audit comportemental cumulé.
+      </div>
+    </div>
+    <div class="roadmap-row">
+      <div class="roadmap-date">Mensuel</div>
+      <div class="roadmap-what">
+        <b>Decision log narratif.</b> Décisions ouvertes/fermées,
+        prédictions résolues, biais détectés, leçons ajoutées. Premier
+        numéro juin 2026.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Publications</h2>
+  <ul class="posts">
+    <li>
+      <span class="post-date">2026-06-02</span>
+      <span class="post-title">
+        <a href="#">Mon modèle macro a échoué hors échantillon. Voici pourquoi je le publie.</a>
+        <span class="small"> · le verdict honnête d'un backtest qui devait valider V3.</span>
+      </span>
+    </li>
+    <li>
+      <span class="post-date">2026-05-30</span>
+      <span class="post-title">
+        <a href="#">Le fix qui n'était pas un fix</a>
+        <span class="small"> · quand le test que tu écris pour empêcher un bug attrape ton propre patch.</span>
+      </span>
+    </li>
+    <li>
+      <span class="post-date">2026-05-29</span>
+      <span class="post-title">
+        <a href="#">J-11 dry-run honnête</a>
+        <span class="small"> · le mécanisme tourne. La calibration est mauvaise. Les deux verdicts comptent.</span>
+      </span>
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2>Méthodologie</h2>
+  <p>
+    Single-stock portfolio. Signaux ingérés via SEC EDGAR (8-K + Form 4 insider clusters)
+    et un set restreint de newsletters publiques. Chaque signal génère une prédiction
+    probabiliste signée (bullish/bearish) via un scoring LLM en 3 étapes (base rate,
+    ajustement, anti-ancrage). Résolution déterministe à J+28 sur close native currency.
+  </p>
+  <p>
+    Biais détectés mécaniquement :
+    <code>lock_in</code> (vente d'un winner avec PnL ≥ 15% et conviction ≥ 3) et
+    <code>fomo_greed</code> (absence d'action quand la discipline le commandait, via
+    deux canaux : kill_criteria et over_cap). Chaque biais détecté ouvre un événement
+    résolu à J+30 avec son delta signé EUR.
+  </p>
+  <p class="small">
+    Méthodologie complète, code source et 12 leçons opérationnelles
+    sur le repo public.
+  </p>
+</section>
+
+<footer>
+  PRESAGE · construit en solo · pas de fundraising, pas d'API payante, pas de partenaires payés.
+  Le track record est l'unique référence.
+  <br>
+  <a href="mailto:hello@presage.pro">RSS / email (bientôt)</a>
+  ·
+  <a href="https://github.com/...">repo public</a>
+</footer>
+
+</div>
+</body>
+</html>
