@@ -4851,11 +4851,19 @@ def render() -> Path:
     # disc_hero (Cockpit posture hero) retire 31/05 user feedback
     # _pi() helper toujours utilise par d'autres panneaux (.plan etc.)
 
+    # Tape ticker DAILY % (user 02/06 "valeurs tickers en daily%"). Avant
+    # on affichait pnl[tk] = lifetime PnL since entry -> incoherent avec
+    # un bandeau "roulant" qui suggere flux temps-reel.
     tape_items = ""
-    for tk, p in sorted(pnl.items(), key=lambda x: -x[1]):
-        cls = "pos" if p >= 0 else "neg"
-        arrow = "&#9650;" if p >= 0 else "&#9660;"
-        tape_items += f'<span class="ti">{_ticker_logo(tk)}<span class="tk tkc" data-tk="{tk}">{tk}</span> <span class="{cls}">{arrow}&nbsp;{abs(p):.1f}%</span></span>'
+    tape_data = []
+    for tk in pnl.keys():
+        dp = _dp_pct(tk)
+        if dp is not None:
+            tape_data.append((tk, dp))
+    for tk, dp in sorted(tape_data, key=lambda x: -x[1]):
+        cls = "pos" if dp >= 0 else "neg"
+        arrow = "&#9650;" if dp >= 0 else "&#9660;"
+        tape_items += f'<span class="ti">{_ticker_logo(tk)}<span class="tk tkc" data-tk="{tk}">{tk}</span> <span class="{cls}">{arrow}&nbsp;{abs(dp):.1f}%</span></span>'
     tape = f'<div class="tape"><div class="track2">{tape_items}{tape_items}</div></div>'
     # tape8k (8-K events scrolling ticker) supprime 02/06 user "delete le
     # bandeau des events". Tape ticker daily% conserve.
@@ -5072,7 +5080,7 @@ def render() -> Path:
         + f'<div class="ps-val {_pnl_star_cls}" style="font-size:21px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         + f'{_sparkline}'
         + '</div>'
-        + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> in profit &middot; {n_gain} positions &middot; {n_pnl - n_gain} in loss ({100 - gpct:.0f}%) {_val_delta_str}</div>'
+        + f'<div class="ps-sub-lien">{_val_delta_str}</div>'
         + '</div>'
         + '<div class="ps-hero-right">'
         + '<div class="ps-lbl" data-tip="Global Construction + Fragility grade. Construction = Solidity/Bet/Overlap/Calibration. Fragility = Health/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Portfolio grade</div>'
