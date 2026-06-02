@@ -3331,8 +3331,15 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     )
     # Frise macro V3 (task #42 portage 01/06) : formule debt_monitor avec 3
     # transformations structurelles (BTC_drawdown180 / FedBalance_yoy / MfgIP
-    # P4 -5%). Validee OOS 7/8 dates non-anchor + 5/5 regimes soutenus
-    # (cf docs/backtests/debt_composite_2017_2026_v3_insample.csv).
+    # P4 -5%).
+    #
+    # STATUT (cf docs/decision_logs/02_macro_v3_holdout_strict.md) : V3 a
+    # ECHOUE le HOLDOUT strict 4/8 (02/06/2026). Biais centriste P2
+    # structurel : V3 ne genere JAMAIS de P1 (3/3 dates calmes -> P2) et
+    # sous-estime certains P3 (oct 2018 -> P2). DEMOTE a 'exploratoire' /
+    # NON VALIDEE OOS. V4 a venir avec changement structurel. La frise est
+    # affichee comme indicatif, taguee "exploratoire" pour respecter L3
+    # (etat honnete > contenu invente).
     _PHASE_LBL = {1: "STABLE", 2: "STRESS", 3: "ALERTE", 4: "CRISE"}
     _PHASE_COL = {1: "acc", 2: "warn", 3: "warn", 4: "bear"}
     clabel = _PHASE_LBL.get(cphase, "INCONNU")
@@ -3342,10 +3349,11 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
             _conc.append(f"all&eacute;ger {_c['name']} &middot; +{_ov}&#8239;&euro;")
     _phase_col = _PHASE_COL.get(cphase, "steel")
-    # Strate 1 : etat macro + frise STRESS pleine largeur
+    # Strate 1 : etat macro + frise STRESS pleine largeur + tag exploratoire
+    # (cf decision_log 02 -- V3 demote, V4 a venir).
     star_macro = (
         '<div class="ps-strate">'
-        + '<div class="ps-lbl">&Eacute;tat macro</div>'
+        + '<div class="ps-lbl" data-tip="Phase macro composite V3 (debt_monitor). STATUT : exploratoire -- HOLDOUT strict 4/8 (02/06). V3 ne genere jamais P1 (biais centriste). Ne pas piloter de decision sur cette valeur. V4 a venir (cf decision_log 02).">&Eacute;tat macro <span class="ps-tag-explor">exploratoire</span></div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_phase_col}">{clabel}</div>'
         + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}</div>'
@@ -4049,6 +4057,8 @@ _CSS = """
   .page-star .ps-strate:last-child { padding-bottom:0; }
   .page-star .ps-strate + .ps-strate { border-top:1px solid var(--line); }
   .page-star .ps-lbl { font-family:var(--fm); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:8px; }
+  /* Tag exploratoire : marque visuelle que le modele sous-jacent n'a pas valide OOS strict. Honnete > invente (L3). */
+  .ps-tag-explor { display:inline-block; margin-left:7px; padding:2px 7px; font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--warn); background:color-mix(in srgb,var(--warn) 12%,transparent); border:1px solid color-mix(in srgb,var(--warn) 35%,transparent); border-radius:var(--r1); font-family:var(--fm); cursor:help; }
   .page-star .ps-val { font-family:var(--fb); font-size:24px; font-weight:500; color:var(--ink); line-height:1.1; }
   /* Chrome touch hero valeur portefeuille : text gradient subtle silver (Apple-like).
      Activé uniquement quand font-size > 30px (hero valeur). */
