@@ -212,6 +212,103 @@ def compute_brier_by_source(cx, days: int = 180) -> list[dict[str, Any]]:
     return out
 
 
+def recalibrate_source_credibility(
+    cx,
+    days: int = 180,
+    min_n: int = 10,
+    learning_rate: float = 0.3,
+    floor: float = 0.30,
+    ceiling: float = 0.95,
+    dry_run: bool = False,
+) -> list[dict[str, Any]]:
+    """#76 LOOP -- Recal credibility par source via Brier empirique.
+
+    Cron mensuel (1er du mois). Pour chaque source avec n>=min_n
+    resolutions sur la fenetre :
+      target_credibility = 1 - brier_avg, clipped [floor, ceiling]
+      new_credibility = old + learning_rate * (target - old)
+
+    learning_rate=0.3 = moyenne ponderee glissante stable (pas de jump
+    violent) -- pattern recommande pour scoring dynamique.
+
+    Args:
+        cx: connexion sqlite3
+        days: fenetre rolling pour Brier (default 180j)
+        min_n: minimum resolutions pour considerer la source (default 10)
+        learning_rate: poids du nouveau signal (0.3 = 30% bouge,
+                       70% inertie)
+        floor: credibility minimum (eviter signal mort)
+        ceiling: credibility maximum (eviter overconfidence)
+        dry_run: si True, calcule sans appliquer (audit)
+
+    Returns:
+        Liste de dicts par source recalibree :
+            {source_name, n_resolved, brier_avg, old_cred, new_cred,
+             delta, applied (bool)}
+        Sources avec n<min_n sont retournees aussi avec
+        applied=False + new_cred=old_cred.
+
+    Sans recal automatique, les sources se degradent silently. Boucle
+    learning = mesure -> ajustement -> mesure.
+    """
+    brier_per_src = compute_brier_by_source(cx, days=days)
+
+    out: list[dict[str, Any]] = []
+    for s in brier_per_src:
+        name = s["source_name"]
+        n = s["n_resolved"]
+        brier_avg = s["brier_avg"]
+
+        old_row = cx.execute(
+            "SELECT credibility FROM sources WHERE name=?", (name,)
+        ).fetchone()
+        old_cred = float(old_row[0]) if old_row and old_row[0] is not None else 0.5
+
+        if n < min_n:
+            out.append({
+                "source_name": name,
+                "n_resolved": n,
+                "brier_avg": brier_avg,
+                "old_cred": old_cred,
+                "new_cred": old_cred,
+                "delta": 0.0,
+                "applied": False,
+                "reason": f"n<{min_n}",
+            })
+            continue
+
+        target_cred = max(floor, min(ceiling, 1.0 - brier_avg))
+        new_cred = old_cred + learning_rate * (target_cred - old_cred)
+        new_cred = max(floor, min(ceiling, new_cred))
+        delta = new_cred - old_cred
+
+        applied = False
+        if not dry_run and abs(delta) >= 0.001:
+            cx.execute(
+                "UPDATE sources SET credibility=? WHERE name=?",
+                (round(new_cred, 4), name),
+            )
+            cx.commit()
+            applied = True
+            log.info(
+                f"recal credibility {name}: {old_cred:.3f} -> {new_cred:.3f} "
+                f"(brier={brier_avg:.3f}, n={n})"
+            )
+
+        out.append({
+            "source_name": name,
+            "n_resolved": n,
+            "brier_avg": brier_avg,
+            "old_cred": round(old_cred, 4),
+            "new_cred": round(new_cred, 4),
+            "delta": round(delta, 4),
+            "applied": applied,
+            "reason": "dry_run" if dry_run else "ok",
+        })
+
+    return out
+
+
 def check_scorer_calibration(cx, days: int | None = None) -> dict[str, Any]:
     """Reliability diagram + verdict scorer V2 calibration.
 
