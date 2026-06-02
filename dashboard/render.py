@@ -3674,6 +3674,42 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
             _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
             _conc.append(f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;")
     _phase_col = _PHASE_COL.get(cphase, "steel")
+    # Tally indicateurs par phase (responsive : on voit combien d'indicateurs
+    # contribuent a chaque niveau de stress, pas juste le score agrege).
+    _phase_counts = {1: 0, 2: 0, 3: 0, 4: 0}
+    for _ind, _val, _ph, _ts in sig:
+        try:
+            _pi = int(_ph) if _ph is not None else 0
+        except Exception:
+            _pi = 0
+        if _pi in _phase_counts:
+            _phase_counts[_pi] += 1
+    # Top stressor : indicateur en phase >= 3 avec le plus fort phase. Surface
+    # le name lisible (debt_map) pour que l'user voie quel signal allume la frise.
+    _non_none = [(_i, _v, int(_p)) for _i, _v, _p, _t in sig if _p is not None]
+    _top_stressor_html = ""
+    if _non_none:
+        _worst = max(_non_none, key=lambda r: r[2])
+        if _worst[2] >= 3:
+            _wlabel = debt_map.get(_worst[0], (9, _worst[0], 2, False))[1]
+            _cls = "bear" if _worst[2] >= 4 else "warn"
+            _top_stressor_html = (
+                f'<div class="ps-stressor">top stressor: '
+                f'<b class="{_cls}">{_wlabel}</b> &middot; phase {_worst[2]}/4</div>'
+            )
+    # Delta composite vs reading precedente -> direction (improving/worsening).
+    _delta_html = ""
+    try:
+        _deltq = _q("SELECT score FROM debt_composite ORDER BY timestamp DESC LIMIT 2")
+        if len(_deltq) == 2:
+            _prev = float(_deltq[1][0] or 0)
+            _diff = score - _prev
+            if abs(_diff) >= 1:
+                _arr = "&uarr;" if _diff > 0 else "&darr;"
+                _cls = "bear" if _diff > 0 else "acc"
+                _delta_html = f' <span class="ps-delta {_cls}">{_arr}{abs(_diff):.0f}</span>'
+    except Exception:
+        pass
     # Strate 1 : etat macro + frise STRESS pleine largeur + tag exploratoire
     # (cf decision_log 02 -- V3 demote, V4 a venir).
     star_macro = (
@@ -3681,14 +3717,21 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         + '<div class="ps-lbl" data-tip="V3 composite macro phase (debt_monitor). STATUS: exploratory -- strict HOLDOUT 4/8 (02/06). V3 never generates P1 (centrist bias). Do not drive decisions on this value. V4 forthcoming (cf decision_log 02).">Macro state <span class="ps-tag-explor">exploratory</span></div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_phase_col}">{clabel}</div>'
-        + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}</div>'
+        + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}{_delta_html}</div>'
         + "</div>"
         + '<div class="ps-frise-wrap">'
         + f'<div class="ps-frise"><div class="ps-frise-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
         + '<div class="ps-frise-labs" data-tip="Macro regime scale (V3 debt_monitor composite, exploratory). STABLE = calm vol + tight spreads + risk-on. STRESS = rising vol or widening credit, no panic. ALERT = clear deterioration, defensive posture warranted. CRISIS = full risk-off, large drawdowns, severe credit/vol stress.">'
         + '<span>stable</span><span>stress</span><span>alert</span><span>crisis</span>'
         + '</div>'
+        + '<div class="ps-frise-tally" data-tip="Distribution courante des indicateurs sous-jacents par phase. Si P3+P4 montent, la frise va vers la droite. Permet de voir lesquels contribuent au stress sans cliquer dans le panneau d\'indicateurs.">'
+        + f'<span class="ps-tally-cell"><span class="ps-tally-dot ph1"></span>P1 {_phase_counts[1]}</span>'
+        + f'<span class="ps-tally-cell"><span class="ps-tally-dot ph2"></span>P2 {_phase_counts[2]}</span>'
+        + f'<span class="ps-tally-cell"><span class="ps-tally-dot ph3"></span>P3 {_phase_counts[3]}</span>'
+        + f'<span class="ps-tally-cell"><span class="ps-tally-dot ph4"></span>P4 {_phase_counts[4]}</span>'
         + '</div>'
+        + '</div>'
+        + f'{_top_stressor_html}'
         + f'{_macro_sparkline}'
         + "</div>"
     )

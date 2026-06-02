@@ -328,6 +328,25 @@ _CSS = """
   .page-star .ps-frise-labs span { text-align:center; }
   .page-star .ps-frise-labs span:first-child { text-align:left; }
   .page-star .ps-frise-labs span:last-child { text-align:right; }
+  /* Tally indicateurs par phase -- responsive feedback de ce qui pousse la frise. */
+  .page-star .ps-frise-tally { display:grid; grid-template-columns:repeat(4, 1fr); font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:6px; gap:6px; cursor:help; letter-spacing:.02em; }
+  .page-star .ps-tally-cell { display:flex; align-items:center; gap:5px; justify-content:center; }
+  .page-star .ps-frise-tally .ps-tally-cell:first-child { justify-content:flex-start; }
+  .page-star .ps-frise-tally .ps-tally-cell:last-child { justify-content:flex-end; }
+  .page-star .ps-tally-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .page-star .ps-tally-dot.ph1 { background:var(--acc); }
+  .page-star .ps-tally-dot.ph2 { background:color-mix(in srgb,var(--warn) 70%,var(--acc) 30%); }
+  .page-star .ps-tally-dot.ph3 { background:var(--warn); }
+  .page-star .ps-tally-dot.ph4 { background:var(--bear); }
+  /* Top stressor : nomme le pire indicateur quand frise >= alert. */
+  .page-star .ps-stressor { font-family:var(--fm); font-size:12px; color:var(--steel); margin-top:8px; letter-spacing:.02em; }
+  .page-star .ps-stressor b { font-weight:500; }
+  .page-star .ps-stressor b.bear { color:var(--bear); }
+  .page-star .ps-stressor b.warn { color:var(--warn); }
+  /* Delta vs reading precedente -- direction du score. */
+  .page-star .ps-delta { font-family:var(--fm); font-size:12px; margin-left:4px; font-weight:500; }
+  .page-star .ps-delta.bear { color:var(--bear); }
+  .page-star .ps-delta.acc { color:var(--acc); }
   /* ps-grid : flex inline row au lieu de 3-col grid card */
   .page-star .ps-grid { display:flex; flex-wrap:wrap; gap:24px; margin:0; }
   .page-star .ps-cell { display:flex; align-items:baseline; gap:6px; }
