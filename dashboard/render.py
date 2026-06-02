@@ -2193,20 +2193,18 @@ def _track_record_panel() -> str:
 
 
 def _copilot() -> str:
-    """Page dediee Copilot (user feedback 31/05) : chat + historique + ce que
-    le bot pense par ticker + signaux soft extraits du chat. Place entre
-    Positions et Theses en nav. Reactive _conversations_panel + _chat_signals_panel
-    qui etaient defines mais non-utilises depuis le retrait 27/05 (commit c4ecebc)."""
+    """Page dediee Copilot : chat + pressure tests historique.
+    Retraits 02/06 user (panneaux infinis rebarbatifs) :
+    _conceptions_panel (redondant avec theses), _conversations_panel
+    (redondant avec chat-log), _chat_signals_panel (niche). Code backend
+    conserve, donnees disponibles pour reactivation future."""
     return (
         f'<section data-page="copilot" role="region" aria-label="Copilot">'
         f'<div class="phead"><h2>Copilot</h2>'
-        f'<div class="sub">Discussion &middot; synth&egrave;se interventions &middot; historique &middot; ce qu&rsquo;il pense par ticker</div></div>'
+        f'<div class="sub">Discussion &middot; synth&egrave;se interventions adversariales</div></div>'
         f'{_chat_panel()}'
-        f'<div class="vigie-sh" data-tip="Lecture quotidienne du copilot : ce qu\'il faut faire / surveiller / mediter aujourd\'hui."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Synth&egrave;se copilot</div>'
+        f'<div class="vigie-sh" data-tip="Pressure tests adversariaux historiques : ce que le copilot a conteste recemment."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Pressions adversariales</div>'
         f'{_copilot_panel()}'
-        f'{_conceptions_panel()}'
-        f'{_conversations_panel()}'
-        f'{_chat_signals_panel()}'
         f'</section>'
     )
 
@@ -2634,11 +2632,10 @@ def _concentration(
         f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h2>Concentration</h2>'
         f'<div class="sub">Trois axes de concentration &mdash; par ligne, par secteur, par g&eacute;ographie</div></div>'
         f"{star_concentration}"
-        # sbwrap : sb-top kpis retires (duplicate du Star Concentration ci-dessus :
-        # Capital + Premiere ligne + These dominante). On garde le bars/panel
-        # interactif sub-jacent.
-        f'<div class="card pad"><div class="sbwrap"><div id="sb-bars" class="sb-bars"></div><div id="sb-panel"></div></div></div>'
-        f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
+        # Retrait 02/06 user : sb-bars (horizontal bars par secteur) = doublon
+        # evident avec donut secteurs page Positions. JS sb-bars handler conserve
+        # dans le code, panneau retire de la page Concentration.
+        f'<div class="card pad"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
         f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
         f'<div style="margin-top:var(--s4)">{_fx_exposure_panel()}</div>'
         f"</section>"
@@ -2923,7 +2920,7 @@ def _signaux() -> str:
         s30 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-30 day')")[0][0]
         n8k = _q("SELECT COUNT(*) FROM filings_8k_log WHERE filed_at > datetime('now','-60 day')")[0][0]
     except Exception as e:
-        return f'<section data-page="signaux" role="region" aria-label="Signaux"><div class="phead"><h2>Signaux</h2></div>{_err(e)}</section>'
+        return f'<section data-page="methode" role="region" aria-label="Methode"><div class="phead"><h2>M&eacute;thode</h2></div>{_err(e)}</section>'
 
     sevcls = {"HIGH": "danger", "MEDIUM": "warn", "MED": "warn", "LOW": "calm"}
     sev_order = (
@@ -3092,9 +3089,10 @@ def _signaux() -> str:
     # 01/06 user pref : la page signaux groupe le pilotage qualite des signaux
     # (track record + 6 vigilances + 8-K + insider flux).
     return (
-        f'<section data-page="signaux" role="region" aria-label="Signaux"><div class="phead"><h2>Signaux</h2>'
-        f'<div class="sub">Track record &middot; sant&eacute; distribution &middot; d&eacute;p&ocirc;ts 8-K &middot; flux d\'initi&eacute;s</div></div>'
-        f"{star_signaux}{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}</section>"
+        f'<section data-page="methode" role="region" aria-label="Methode"><div class="phead"><h2>M&eacute;thode</h2>'
+        f'<div class="sub">Comment le bot lit les signaux + comment il surveille tes biais &middot; track record &middot; flux initi&eacute;s</div></div>'
+        f"{star_signaux}{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}"
+        f"{_discipline_biais_panel()}</section>"
     )
 
 
@@ -3891,14 +3889,14 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
 _NAV = (
     '<nav class="nav" role="navigation" aria-label="Navigation principale">'
     '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
-    '<div class="nitem" data-nav="discipline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l2 2 4-4"/><path d="M13 6h7"/><path d="M4 13l2 2 4-4"/><path d="M13 13h7"/><path d="M4 20l2 2 4-4"/><path d="M13 20h7"/></svg><span class="nlab">Discipline &amp; Biais</span></div>'
-'<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
-    '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
-'<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
-    '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie</span></div>'
+    '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
     '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
-    '<div class="nitem" data-nav="signaux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Signaux</span></div>'
-'<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div></nav>'
+    '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
+    '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie</span></div>'
+    '<div class="nitem" data-nav="methode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">M&eacute;thode</span></div>'
+    '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div>'
+    '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
+    '</nav>'
 )
 
 _TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
@@ -4027,12 +4025,16 @@ _CSS = """
   .sec-cols { display:grid; grid-template-columns:1fr 92px 96px 58px 72px 78px; gap:var(--s3); padding:2px 16px 9px; font-family:var(--fb); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); border-bottom:1px solid var(--line); margin-bottom:var(--s3); }
   .sec-cols .num { text-align:right; }
   .sec-grp { margin-bottom:var(--s35); }
-  .sec-h { display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); margin:0 4px 9px; }
+  .sec-h { display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); margin:0 4px 9px; cursor:pointer; user-select:none; padding:6px 4px; border-radius:var(--r2); transition:background .12s; }
+  .sec-h:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); }
   .sec-name { font-family:var(--fd); font-weight:500; font-size:16px; color:var(--ink); display:flex; align-items:center; gap:9px; }
   .sec-name::before { content:""; width:6px; height:6px; border-radius:2px; background:var(--id); }
+  .sec-name::after { content:"\\25B8"; margin-left:8px; color:var(--steel); font-size:11px; transition:transform .18s ease; display:inline-block; }
+  .sec-grp.open .sec-name::after { transform:rotate(90deg); }
   .sec-meta { font-family:var(--fm); font-size:12px; color:var(--steel); white-space:nowrap; }
   .sec-pl.pos { color:var(--acc); } .sec-pl.neg { color:var(--bear); }
-  .sec-rows { display:flex; flex-direction:column; gap:1px; }
+  .sec-rows { display:flex; flex-direction:column; gap:1px; max-height:0; overflow:hidden; opacity:0; transition:max-height .28s ease, opacity .18s ease, margin .28s ease; }
+  .sec-grp.open .sec-rows { max-height:2000px; opacity:1; margin-bottom:var(--s2); }
   .sec-row { display:grid; grid-template-columns:1fr 92px 96px 58px 72px 78px; gap:var(--s3); align-items:center; padding:var(--s2) 16px; border-radius:var(--r2); font-family:var(--fm); font-size:13px; cursor:pointer; transition:background .12s; }
   .sec-row:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); }
   .sec-row .num { text-align:right; color:var(--ink); font-variant-numeric:tabular-nums; }
@@ -5681,6 +5683,10 @@ document.querySelectorAll('.sec-cols').forEach(function(hdr){
     });
   });
 });
+/* Accordion sec-grp : click sec-h toggles .open (collapsed par defaut). */
+document.querySelectorAll('.sec-grp .sec-h').forEach(function(h){
+  h.addEventListener('click',function(){h.parentElement.classList.toggle('open');});
+});
 });</script>"""
 
 
@@ -5907,12 +5913,12 @@ def _discipline_biais_panel() -> str:
         + '</div>'
     )
     return (
-        '<section data-page="discipline" role="region" aria-label="Discipline et Biais">'
+        # Migre 02/06 user : fusion dans page Methode (data-page="methode").
+        # Wrapper section retire -- ce bloc est inline dans _signaux().
+        '<div class="dba-block">'
         + _DBA_CSS
-        + '<div class="phead"><h2>Discipline &amp; Biais</h2>'
-        '<div class="sub">Compteur de la mission : pr&eacute;dictions calibr&eacute;es '
-        '+ biais comportementaux m&eacute;canis&eacute;s. &Eacute;tat honn&ecirc;te, '
-        'densit&eacute; &agrave; J+30.</div></div>'
+        + '<div class="dba-sh" data-tip="Compteur de la mission PRESAGE : predictions calibrees + biais comportementaux mecanises."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.5 1.5L8.5 4.5"/><path d="M10 6h4"/><path d="M4 11l1.5 1.5L8.5 9.5"/><path d="M10 11h4"/></svg>Discipline &amp; biais m&eacute;canis&eacute;s'
+        '<span class="dba-sh-aside">compteur mission &middot; densit&eacute; r&eacute;elle a J+30</span></div>'
         + star_discipline
         # ─── PREDICTIONS ─────────────────────────────────────────────────
         + '<div class="dba-sh" data-tip="Predictions resolues a J+28 : marker probabiliste (Brier score) sur la calibration des estimations."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="0.8" fill="currentColor" stroke="none"/></svg>Pr&eacute;dictions'
@@ -5972,7 +5978,7 @@ def _discipline_biais_panel() -> str:
         '<div class="dba-cond">Pas de candidat capturable tant que ce chemin '
         'n\'est pas livr&eacute;.</div>'
         '</div>'
-        '</section>'
+        '</div>'
     )
 
 
@@ -6125,12 +6131,11 @@ def render() -> Path:
     # alertes Telegram via cron weekly prennent le relais)
     # v2_cohort_html / wire_activity_html / vigilance_html / calib_progress_html
     # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
-    axes_html = _ticker_axes_panel()
-    factor_html = _factor_exposures_panel()
-    stress_html = _stress_tests_panel()
+    # Retraits 02/06 page Strategie (panneaux infinis rebarbatifs) :
+    # _ticker_axes_panel / _factor_exposures_panel / _stress_tests_panel /
+    # _spof_panel / _mauboussin_sizing_panel -- code backend conserve,
+    # donnees disponibles pour reactivation future.
     trajectory_html = _trajectory_panel()
-    spof_html = _spof_panel()
-    mauboussin_html = _mauboussin_sizing_panel()
     valo_html = _valo_above_bull_panel()
     # Star Vue d'ensemble : extract grade data pour 3-strate hero
     try:
@@ -6362,27 +6367,21 @@ def render() -> Path:
     )
     strategie_html = (
         '<section data-page="strategie" role="region" aria-label="Strategie"><div class="phead"><h2>Strat&eacute;gie</h2>'
-        '<div class="sub">Lire le livre en profondeur &middot; pourquoi la note '
-        'est ce qu\'elle est, et ou est la vraie fragilit&eacute;</div></div>'
+        '<div class="sub">R&eacute;f&eacute;rentiel d&eacute;clar&eacute; &middot; trajectoire vs plan &middot; positions au-del&agrave; du bull</div></div>'
         f'{star_strategie}'
         # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
         '<div class="strat-sh" data-tip="Ce que tu as ecrit comme objectif (theses, horizon, conviction). Le referentiel contre lequel on lit le livre."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v12"/><path d="M3 3h7l-1.5 2.5L10 8H3"/></svg>Strat&eacute;gie d&eacute;clar&eacute;e &mdash; r&eacute;f&eacute;rentiel</div>'
         f'{_user_strategy_panel()}'
-        # 2. Lecture du livre -- etat actuel vs declare (trajectoire, paris macro, stress)
-        # Retrait 31/05 user : bench_html (Surperformance reelle vs secteur)
-        '<div class="strat-sh" data-tip="Etat reel du book : trajectoire vs declare, factor exposures, stress tests. Ou en est-on factuellement."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3L14 14"/></svg>Lecture du livre &mdash; &eacute;tat actuel</div>'
+        # 2. Lecture du livre -- trajectoire vs declare
+        '<div class="strat-sh" data-tip="Trajectoire reelle du book vs ce qui a ete declare."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3L14 14"/></svg>Lecture du livre &mdash; trajectoire</div>'
         f'{trajectory_html}'
-        f'{factor_html}'
-        f'{stress_html}'
-        # 3. Risques caches -- fusion Concentration + Doublons (= ce que la surface cache)
-        '<div class="strat-sh" data-tip="Concentrations non-evidentes (these dominante, factor exposure) + doublons sectoriels qui font porter le meme pari deux fois."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L14.5 13H1.5L8 2z"/><path d="M8 6.5v3.5"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg>Risques cach&eacute;s &mdash; concentration &amp; doublons</div>'
-        f'{spof_html}'
-        f'{mauboussin_html}'
+        # 3. Actionnable -- positions au-dessus du bull case (candidats fomo_greed)
+        '<div class="strat-sh" data-tip="Positions au-dela de leur bull case = candidats trim (mecanise via fomo_greed gate)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L14.5 13H1.5L8 2z"/><path d="M8 6.5v3.5"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg>Au-del&agrave; du bull &mdash; candidats trim</div>'
         f'{valo_html}'
-        f'{_return_clustering_panel()}'
-        f'{axes_html}'
-        # 4. Apprentissage du bot retire 31/05 wave 5 : conceptions migre vers
-        # section Copilot dediee (avec chat + historique + signaux soft)
+        # Retraits 02/06 user feedback (panneaux infinis rebarbatifs) :
+        # factor_html / stress_html / spof_html / mauboussin_html /
+        # _return_clustering_panel / axes_html -- code backend conserve,
+        # donnees disponibles pour reactivation future.
         '</section>'
     )
 
@@ -6510,14 +6509,13 @@ def render() -> Path:
         f'{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
-        + _discipline_biais_panel()
         + positions_pg
-        + _copilot()
+        + _concentration(positions, planned, sectors, names, pnl, daily)
         + _theses(names, sectors, positions, pnl)
         + strategie_html
-        + _concentration(positions, planned, sectors, names, pnl, daily)
         + _signaux()
         + _urgence(watch, near, positions, pnl, elan, near_t)
+        + _copilot()
         + "</main></div>"
         + _LOUPE_HTML
     )
