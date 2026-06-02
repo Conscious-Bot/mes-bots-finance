@@ -26,7 +26,8 @@ RECONCILE_FLAGS: list[dict] = []
 
 def _cfg() -> dict:
     try:
-        return yaml.safe_load(Path("config.yaml").read_text())
+        loaded = yaml.safe_load(Path("config.yaml").read_text())
+        return dict(loaded) if loaded else {}
     except Exception:
         return {}
 
@@ -647,7 +648,7 @@ def _grade_panel() -> str:
             score = latest["overall_score"]
             dims = json.loads(latest["dimensions_json"]) if latest.get("dimensions_json") else {}
             snapshot_date = latest.get("snapshot_date", "")
-            gates = []  # not persisted in snapshot, can compute fresh if needed
+            gates: list[str] = []  # not persisted in snapshot, can compute fresh if needed
         else:
             g = _grade.compute_grade()
             grade_letter = g["overall_grade"]
@@ -2040,8 +2041,8 @@ def _distribution_health_panel() -> str:
     }
     rows = ""
     for r in results:
-        cls = status_tag.get(r.get("status"), "calm")
-        name = label_map.get(r.get("name"), r.get("name", "?"))
+        cls = status_tag.get(str(r.get("status") or ""), "calm")
+        name = label_map.get(str(r.get("name") or ""), r.get("name", "?"))
         status = r.get("status", "?")
         msg = (r.get("message") or "").replace("<", "&lt;").replace(">", "&gt;")
         rows += (
@@ -2121,7 +2122,7 @@ def _track_record_panel() -> str:
         _rate_cls, rate_verdict = "bear", "verdict provisoire defavorable"
 
     brier_str = f"{brier_mean:.3f}" if brier_mean is not None else "—"
-    if n_brier < MIN_CONCLUSIF:
+    if n_brier < MIN_CONCLUSIF or brier_mean is None:
         _brier_cls, brier_verdict = "warn", f"INSUFFISANT &mdash; N={n_brier}&lt;{MIN_CONCLUSIF}"
     elif brier_mean < 0.20:
         _brier_cls, brier_verdict = "acc", "sous la cible 0.20"
@@ -2500,7 +2501,7 @@ def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:  # noqa: AR
     se contredire (cf. ancienne jauge 0 calme vs verdict ELEVEE)."""
 
     def _v(p: dict) -> float:
-        return p["weight"]
+        return float(p["weight"])
 
     total = sum(_v(p) for p in positions) or 1
     _conc = yaml.safe_load(Path("config.yaml").read_text()).get("concentration", {})
@@ -2526,7 +2527,7 @@ def _concentration(
     positions: list[dict], planned: list[dict], sectors: dict, names: dict, pnl: dict, daily: dict
 ) -> str:
     def _v(p: dict) -> float:
-        return p["weight"]  # market value post-migration 29/05
+        return float(p["weight"])  # market value post-migration 29/05
 
     # Post-migration : "cost_total" est maintenant explicitement cost basis.
     cost_total = sum(p.get("cost_basis_eur", p["weight"]) for p in positions) or 1
@@ -2766,8 +2767,11 @@ def _geo_bars(positions: list[dict]) -> str:
         c = _country(p["ticker"])
         cw[c] = cw.get(c, 0.0) + p["weight"]
         cstk.setdefault(c, []).append((p["ticker"], p["weight"]))
+    from collections.abc import Callable
+    _gsn: Callable[[str], str | None] | None
     try:
-        from shared.ticker_names import get_short_name as _gsn
+        from shared.ticker_names import get_short_name as _gsn_real
+        _gsn = _gsn_real
     except Exception:
         _gsn = None
     css = (
@@ -3771,7 +3775,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     groups = ""
     for c in (5, 4, 3, 2, 1):
         tier = [t for t in ths if t["conv"] == c]
-        secw = {}
+        secw: dict[str, float] = {}
         for _t in tier:
             secw[_t["cat"]] = secw.get(_t["cat"], 0.0) + vmap.get(_t["tk"], 0.0)
         grp = sorted(tier, key=lambda t: (-secw.get(t["cat"], 0.0), t["cat"] or "~~~", -vmap.get(t["tk"], 0.0)))
@@ -5285,7 +5289,7 @@ def _perf_dwm(ticker: str) -> dict:
     now = time.monotonic()
     hit = _PERF_CACHE.get(ticker)
     if hit and now - hit[0] < _PERF_TTL:
-        return hit[1]
+        return dict(hit[1])
     out: dict = {"d": None, "w": None, "m": None}
     try:
         import yfinance as yf
@@ -5367,7 +5371,9 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
             "SELECT ticker, COALESCE(type,''), timestamp, COALESCE(content,''), COALESCE(metadata,'') "
             "FROM analyses WHERE id IN (SELECT MAX(id) FROM analyses GROUP BY ticker)"
         ):
-            scores, regime, narr = {}, "", []
+            scores: dict = {}
+            regime: str = ""
+            narr: list = []
             try:
                 md = json.loads(meta) if meta else {}
                 scores = md.get("scores", {}) or {}
@@ -5465,7 +5471,7 @@ def _broker(tk: str) -> str:
 
 
 def _broker_value(p: dict, pnl: dict) -> float:  # noqa: ARG001
-    return p["weight"]  # market value post-migration
+    return float(p["weight"])  # market value post-migration
 
 
 def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
@@ -5808,13 +5814,14 @@ def _discipline_biais_panel() -> str:
         convs = {r[0]: r[1] for r in convs_rows if isinstance(r[1], int)}
         over_tk: list[str] = []
         for ln in lines:
+            tk_str = str(ln["ticker"])
             try:
-                cls = classify_position(ln["ticker"], lines, convs, caps)
+                cls = classify_position(tk_str, lines, convs, caps)
                 if cls and cls["status"] == "over":
-                    over_tk.append(ln["ticker"])
+                    over_tk.append(tk_str)
             except MissingDataError:
                 pass
-        book_total_eur = sum((ln.get("weight") or 0) for ln in lines)
+        book_total_eur = sum(float(ln.get("weight") or 0) for ln in lines)
     except Exception:
         over_tk = []
         book_total_eur = 0
@@ -5959,9 +5966,9 @@ def render() -> Path:
         sb_secs.setdefault(sectors.get(p["ticker"], "Sans th&egrave;se"), []).append(
             {
                 "tk": p["ticker"],
-                "w": round(p["weight"]),
+                "w": round(p["weight"] or 0),
                 "pnl": round(pnl[p["ticker"]], 1) if p["ticker"] in pnl else None,
-                "down": round(sb_down[p["ticker"]], 1) if sb_down.get(p["ticker"]) is not None else None,
+                "down": round(sb_down[p["ticker"]] or 0, 1) if sb_down.get(p["ticker"]) is not None else None,
             }
         )
     sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans th&egrave;se", -sum(x["w"] for x in kv[1])))
