@@ -609,15 +609,10 @@ _CSS = """
   .loupe.open { display:flex; animation:loupe-bg-fade .22s var(--ease) both; }
   /* Loupe card : scale-in subtil au reveal (fallback si View Transitions pas supporte). */
   .loupe.open .loupe-card { animation:loupe-card-enter .28s var(--ease) both; }
-  /* vt-loupe : kill le root crossfade pendant ouverture loupe. Seul le logo
-     morph via shared element, le body reste statique (pas de "saut" du bg). */
-  html.vt-loupe { view-transition-name: none; }
+  /* (Drop 02/06 : View Transitions for loupe abandonne -- "interface saute".
+     Garde seulement le CSS keyframe scale-in qui est propre et fiable.) */
   @keyframes loupe-bg-fade { from { background:rgba(6,10,18,0); backdrop-filter:blur(0); } to { background:rgba(6,10,18,.72); backdrop-filter:blur(6px); } }
   @keyframes loupe-card-enter { from { opacity:0; transform:scale(.96) translateY(8px); } to { opacity:1; transform:none; } }
-  /* View Transitions : logo morph shared element row -> modal. */
-  @supports (view-transition-name: a) {
-    ::view-transition-group(loupe-logo) { animation-duration: .34s; animation-timing-function: var(--ease); }
-  }
   /* Respect prefers-reduced-motion. */
   @media (prefers-reduced-motion: reduce) {
     .loupe.open, .loupe.open .loupe-card { animation: none !important; }
