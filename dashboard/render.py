@@ -4817,10 +4817,10 @@ def render() -> Path:
 
     wbase = sum(p["weight"] for p in positions if p["ticker"] in pnl) or 1
     port_pnl = sum(p["weight"] * pnl[p["ticker"]] for p in positions if p["ticker"] in pnl) / wbase
-    gain_eur = sum(p["weight"] for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
-    n_gain = sum(1 for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
-    n_pnl = sum(1 for p in positions if p["ticker"] in pnl) or 1
-    gpct = gain_eur / wbase * 100
+    _gain_eur = sum(p["weight"] for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
+    _n_gain = sum(1 for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
+    _n_pnl = sum(1 for p in positions if p["ticker"] in pnl) or 1
+    _gpct = _gain_eur / wbase * 100
     # Post-migration 29/05 round 2 : p["weight"] est MARKET VALUE, cost basis
     # est explicitement dans p["cost_basis_eur"]. Avant le sed, le hero
     # affichait double-PnL (cost * (1+pnl) au lieu de market).
@@ -4856,7 +4856,7 @@ def render() -> Path:
     # un bandeau "roulant" qui suggere flux temps-reel.
     tape_items = ""
     tape_data = []
-    for tk in pnl.keys():
+    for tk in pnl:
         dp = _dp_pct(tk)
         if dp is not None:
             tape_data.append((tk, dp))
