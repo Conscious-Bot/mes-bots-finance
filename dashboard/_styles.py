@@ -133,7 +133,8 @@ _CSS = """
   .phead { position:sticky; top:0; z-index:30; margin-bottom:var(--s35); padding:14px 0 12px; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent); transition:box-shadow .2s ease-out, border-color .2s ease-out; }
   .phead.stuck { box-shadow:0 6px 16px -10px rgba(0,0,0,.10); border-bottom-color:var(--line2); }
   .phead h2 { font-family:var(--fd); font-weight:300; font-size:35px; margin:0 0 6px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); }
-  .phead .sub { font-family:var(--fb); font-weight:400; font-size:15px; letter-spacing:.04em; color:var(--steel); }
+  .phead .sub { font-family:var(--fb); font-weight:400; font-size:13px; letter-spacing:.04em; color:var(--steel); opacity:.65; transition:opacity .22s ease; }
+  .phead:hover .sub { opacity:1; }
   /* Page transitions (Emil framework) : Cmd+1..9 = action keyboard 30-50x/jour
      -> doit feel instant. .26s cubic-bezier ease-out vs .42s ease (sluggish). */
   [data-page] { display:none; } [data-page].active { display:block; animation:fadein .26s cubic-bezier(.22,.61,.36,1); } @keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
@@ -171,7 +172,12 @@ _CSS = """
   .kv.acc { color:var(--acc); } .kv.negc { color:var(--bear); } .kv.warn { color:var(--warn); } .kv.hot { color:var(--warn); } .kv.danger { color:var(--bear); } .kv.calm { color:var(--acc); }
   .kd { display:block; font-size:14px; color:var(--steel); margin-top:var(--s15); }
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:start; }
-  .colhead { display:flex; align-items:baseline; gap:9px; margin-bottom:var(--s3); padding-left:2px; } .colhead .t { font-family:var(--fd); font-weight:500; font-size:16px; } .colhead .a { font-family:var(--fm); font-size:15px; color:var(--steel); }
+  /* Move #4 DNA : colhead .a recede (font-size 12 + opacity .55) pour reduire cognitive load.
+     Reveal-on-hover du parent (.colhead:hover .a opacity 1) = recompense l'attention. */
+  .colhead { display:flex; align-items:baseline; gap:9px; margin-bottom:var(--s3); padding-left:2px; }
+  .colhead .t { font-family:var(--fd); font-weight:500; font-size:16px; }
+  .colhead .a { font-family:var(--fm); font-size:12px; color:var(--steel); opacity:.55; transition:opacity .22s ease; letter-spacing:.01em; }
+  .colhead:hover .a { opacity:1; }
   .colhead.tight { margin-top:var(--s15); } /* 6px : aerer un peu apres un bloc voisin */
   .colhead.spaced { margin-top:var(--s4); } /* 20px : separateur de section, sous-titre marque */
   .sec-cols { display:grid; grid-template-columns:1fr 92px 96px 58px 72px 78px; gap:var(--s3); padding:2px 16px 9px; font-family:var(--fb); font-size:14px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); border-bottom:1px solid var(--line); margin-bottom:var(--s3); }
