@@ -606,13 +606,8 @@ _CSS = """
   .pl { font-size:15px; color:var(--ink); } .pt { font-family:var(--fm); font-size:14px; color:var(--steel); }
   .dt tbody tr:not(.prev) { cursor:pointer; }
   .loupe { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:34px; }
-  .loupe.open { display:flex; animation:loupe-bg-fade .22s var(--ease) both; }
-  /* Loupe card : scale-in subtil au reveal (fallback si View Transitions pas supporte). */
-  .loupe.open .loupe-card { animation:loupe-card-enter .28s var(--ease) both; }
-  /* (Drop 02/06 : View Transitions for loupe abandonne -- "interface saute".
-     Garde seulement le CSS keyframe scale-in qui est propre et fiable.) */
-  @keyframes loupe-bg-fade { from { background:rgba(6,10,18,0); backdrop-filter:blur(0); } to { background:rgba(6,10,18,.72); backdrop-filter:blur(6px); } }
-  @keyframes loupe-card-enter { from { opacity:0; transform:scale(.96) translateY(8px); } to { opacity:1; transform:none; } }
+  .loupe.open { display:flex; }
+  /* Drop 02/06 : scale-in keyframe + VT drops (user "interface saute"). Modal apparait direct. */
   /* Respect prefers-reduced-motion. */
   @media (prefers-reduced-motion: reduce) {
     .loupe.open, .loupe.open .loupe-card { animation: none !important; }
