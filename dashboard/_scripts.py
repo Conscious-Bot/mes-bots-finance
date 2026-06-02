@@ -5,9 +5,6 @@ Pure data, no behavior. Imported by render.py.
 from pathlib import Path
 
 _LOGO = (Path(__file__).parent / "static" / "brand" / "presage_symbol.svg").read_text(encoding="utf-8")
-# Wide wordmark / lockup (4-pointed needle + extended right horizon).
-# Inline pour que fill=currentColor herite de la couleur encre du parent.
-_WORDMARK_WIDE = (Path(__file__).parent / "static" / "brand" / "presage_wordmark.svg").read_text(encoding="utf-8")
 
 # Set v2 (02/06) : ancien set GARDE pour Overview/Positions/Concentration/
 # Alerts/Copilot/Method (user pref). SEULS Theses (crosshair) + Strategy (map)
