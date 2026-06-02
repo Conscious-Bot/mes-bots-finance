@@ -3866,9 +3866,9 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     _tail = f" &middot; &gt; cap {_cappct:.0f}%" if wv > _cappct else ""
                     adj = f'<div class="th-adj trim">trim &minus;{_de}&nbsp;&euro;{_tail}</div>'
                 elif _d < -0.4:
-                    adj = f'<div class="th-adj add">renforcer +{_de}&nbsp;&euro;</div>'
+                    adj = f'<div class="th-adj add">bump +{_de}&nbsp;&euro;</div>'
                 else:
-                    adj = '<div class="th-adj ok">&check; au poids</div>'
+                    adj = '<div class="th-adj ok">&check; on weight</div>'
             else:
                 wtxt = f"{wv:.1f}%"
             groups += (
