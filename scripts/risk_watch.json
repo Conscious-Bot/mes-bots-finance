@@ -1,13 +1,13 @@
 {
   "_meta": {
-    "description": "Risques majeurs declares par l'user, surveille en first-class sur Vue d'ensemble. Le bot monitore les signaux indicators chaque jour et flag les transitions.",
+    "description": "Major risks declared by user, first-class monitored on Overview. The bot monitors signal indicators daily and flags transitions.",
     "declared_at": "2026-05-29"
   },
   "risks": [
     {
       "id": "surchauffe_tech_ai",
       "rank": 1,
-      "name": "Surchauffe tech / AI capex",
+      "name": "Tech overheat / AI capex",
       "severity": "critical",
       "declared_at": "2026-05-29",
       "exposure": {
@@ -28,91 +28,83 @@
         "CCJ"
       ],
       "scenarios": [
-        "De-rating multiple sans cassure fondamentale (style ete 2024): -25 a -35% noms premium, fondamentaux intacts",
-        "Pause capex hyperscaler (META/MSFT/GOOGL/AMZN ralentissement 2026-2027): toute chaine pass-through (ASML/TSM/4063/BESI/KLAC/6857/7011/SU/AVGO/ALAB) se re-price ensemble, -35 a -45% facteur",
-        "Cassure these AI plus profonde (ROI decoit clients finaux): scenario -50%+ sur facteur"
+        "Multiple de-rating without fundamental break (summer 2024 style): -25 to -35% on premium names, fundamentals intact",
+        "Hyperscaler capex pause (META/MSFT/GOOGL/AMZN slowdown 2026-2027): entire pass-through chain (ASML/TSM/4063/BESI/KLAC/6857/7011/SU/AVGO/ALAB) re-prices together, -35 to -45% factor",
+        "Deeper AI thesis break (ROI disappoints end customers): -50%+ scenario on factor"
       ],
       "surveillance_signals": [
         {
           "id": "capex_hyperscaler",
-          "label": "Capex guidance hyperscalers (next earnings)",
+          "label": "Hyperscaler capex guidance (next earnings)",
           "tickers_to_watch": [
             "MSFT",
             "META",
             "GOOGL",
             "AMZN"
           ],
-          "trigger": "Revision baissiere du capex 2026 / commentary prudent",
+          "trigger": "Bearish revision of 2026 capex / cautious commentary",
           "current_status": "monitoring",
           "weight": "major",
-          "last_evaluated_at": "2026-05-29T08:50:14.289752+00:00",
-          "last_eval_reason": "Signaux récents montrent une activité élevée sur l'IA/cloud (signal_287 AWS margins, signal_233 biotech) et préoccupations macro (signal_219 dette US), mais aucune révision baissière de capex 2026 ou commentary prudent des hyperscalers n'est explicitement documentée dans les signaux.",
-          "last_eval_confidence": 45,
+          "last_evaluated_at": "2026-06-02T04:07:26.980592+00:00",
+          "last_eval_reason": "evaluation LLM failed",
+          "last_eval_confidence": 30,
           "last_eval_evidence_ids": []
         },
         {
           "id": "asml_bookings",
-          "label": "ASML bookings annuels",
+          "label": "ASML annual bookings",
           "threshold": ">=50B EUR annual",
-          "trigger": "Miss sur 2 quarters consecutifs",
+          "trigger": "Miss on 2 consecutive quarters",
           "current_status": "monitoring",
           "weight": "major",
-          "last_evaluated_at": "2026-05-29T08:50:16.057300+00:00",
-          "last_eval_reason": "Les signaux récents (score 6-7) traitent de mouvements d'investisseurs et tendances macro/IA, mais aucun ne mentionne explicitement les bookings ASML ou miss de quarters consecutifs requis pour le trigger.",
-          "last_eval_confidence": 85,
+          "last_evaluated_at": "2026-06-02T04:07:27.245465+00:00",
+          "last_eval_reason": "evaluation LLM failed",
+          "last_eval_confidence": 30,
           "last_eval_evidence_ids": []
         },
         {
           "id": "tsm_monthly_rev",
           "label": "TSM monthly revenue + utilization N3/N2",
-          "trigger": "Decline 2 mois consecutifs ou guidance prudent",
+          "trigger": "2 consecutive months decline or cautious guidance",
           "current_status": "monitoring",
           "weight": "leading",
-          "last_evaluated_at": "2026-05-29T08:50:17.862937+00:00",
-          "last_eval_reason": "Signaux récents montrent volatilité macro et inquiétudes générales (dette, valorisations, Fed) mais aucune evidence concrète de déclin TSM revenue N3/N2 ou guidance prudent spécifiquement",
-          "last_eval_confidence": 65,
+          "last_evaluated_at": "2026-06-02T04:07:27.680609+00:00",
+          "last_eval_reason": "evaluation LLM failed",
+          "last_eval_confidence": 30,
           "last_eval_evidence_ids": []
         },
         {
           "id": "hbm_pricing",
           "label": "HBM pricing (SK Hynix / Micron commentary)",
-          "trigger": "Pricing power craque malgre ramp Blackwell soutien",
-          "current_status": "at_risk",
+          "trigger": "Pricing power cracks despite Blackwell ramp support",
+          "current_status": "monitoring",
           "weight": "major",
-          "last_evaluated_at": "2026-05-29T08:50:20.225393+00:00",
-          "last_eval_reason": "Signal_158 et signal_248 indiquent une valorisation élevée (Priced for Perfection) malgré les fondamentaux (800VDC Revolution), corroboré par signal_272 (Micron dans Trillion Dollar Club) suggérant un début de déconnexion entre prix et réalité opérationnelle du secteur mémoire, sans confirmation de révision capex baissière explicite.",
-          "last_eval_confidence": 72,
-          "last_eval_evidence_ids": [
-            158,
-            248,
-            272
-          ]
+          "last_evaluated_at": "2026-06-02T04:07:27.951436+00:00",
+          "last_eval_reason": "evaluation LLM failed",
+          "last_eval_confidence": 30,
+          "last_eval_evidence_ids": []
         },
         {
           "id": "vix_credit",
           "label": "VIX + IG spreads (risk-off macro)",
           "threshold": "VIX >25 sustained, IG spreads widening",
-          "trigger": "Amplificateur risk-off sur duration longue tech",
-          "current_status": "at_risk",
+          "trigger": "Risk-off amplifier on long-duration tech",
+          "current_status": "monitoring",
           "weight": "amplifier",
-          "last_evaluated_at": "2026-05-29T08:50:22.568951+00:00",
-          "last_eval_reason": "Accumulation de signaux macro risk-off (signal_292 sur dysfonctionnement des marchés, signal_114 et signal_289 sur volatilité boursière) suggère début de pattern amplificateur sur duration, sans déclencher explicite confirmé",
-          "last_eval_confidence": 72,
-          "last_eval_evidence_ids": [
-            292,
-            114,
-            289
-          ]
+          "last_evaluated_at": "2026-06-02T04:07:28.235052+00:00",
+          "last_eval_reason": "evaluation LLM failed",
+          "last_eval_confidence": 30,
+          "last_eval_evidence_ids": []
         },
         {
           "id": "wafer_pricing",
           "label": "Wafer pricing (4063.T Shin-Etsu commentary)",
-          "trigger": "Pricing softening alors que demande devrait soutenir = signal precoce chaine pass-through brise par le bas",
+          "trigger": "Pricing softening while demand should support = early signal pass-through chain breaks from below",
           "current_status": "monitoring",
           "weight": "leading",
-          "last_evaluated_at": "2026-05-29T08:50:24.009306+00:00",
-          "last_eval_reason": "Le signal AWS/Anthropic (signal_287) évoque des marges meilleures mais ne confirme pas le softening de pricing wafer ni la rupture de pass-through attendus par wafer_pricing.",
-          "last_eval_confidence": 35,
+          "last_evaluated_at": "2026-06-02T04:07:28.573430+00:00",
+          "last_eval_reason": "evaluation LLM failed",
+          "last_eval_confidence": 30,
           "last_eval_evidence_ids": []
         },
         {
@@ -133,40 +125,40 @@
             "AMZN",
             "TSLA"
           ],
-          "trigger": "Net insider sells > 50M$ sur 30j sans achats compensateurs sur 2+ tickers strategiques",
+          "trigger": "Net insider sells > $50M over 30d without compensating buys on 2+ strategic tickers",
           "current_status": "triggered",
           "weight": "leading",
-          "data_source": "insider_snapshots (table dediee, pas signals)",
-          "last_evaluated_at": "2026-05-29T08:50:24.010898+00:00",
-          "last_eval_reason": "Cluster insider selling > 50M$/30j sur 4 tickers strategiques : AVGO (-356M$), AMD (-117M$), MU (-54M$), AMZN (-52M$). Smart money out concret.",
+          "data_source": "insider_snapshots (dedicated table, not signals)",
+          "last_evaluated_at": "2026-06-02T04:07:28.576383+00:00",
+          "last_eval_reason": "Insider selling cluster > $50M/30d on 4 strategic tickers: AVGO (-$356M), AMD (-$117M), MU (-$54M), AMZN (-$52M). Concrete smart money out.",
           "last_eval_confidence": 85,
           "last_eval_evidence_ids": []
         },
         {
           "id": "order_intake_softening",
-          "label": "Carnets de commande qui s'essoufflent",
-          "trigger": "Order intake/bookings decline, lead times shrinking, soft demand commentary chez fabless/foundry/equipment",
+          "label": "Order books running out of steam",
+          "trigger": "Order intake/bookings decline, lead times shrinking, soft demand commentary at fabless/foundry/equipment",
           "current_status": "monitoring",
           "weight": "leading",
-          "last_evaluated_at": "2026-05-29T08:50:26.667030+00:00",
-          "last_eval_reason": "Signaux récents couvrent macro-économie large (dette, politique, pharma) et valorisations, sans évidence concrète de déclin de commandes ou raccourcissement de délais dans la chaîne semi-conducteurs/équipements.",
-          "last_eval_confidence": 35,
+          "last_evaluated_at": "2026-06-02T04:07:28.838835+00:00",
+          "last_eval_reason": "evaluation LLM failed",
+          "last_eval_confidence": 30,
           "last_eval_evidence_ids": []
         },
         {
           "id": "inventory_buildup",
-          "label": "Inventory buildup chez clients (channel destocking)",
-          "trigger": "Days inventory rising chez hyperscalers/distributors, channel stuffing warnings, destocking risk",
+          "label": "Inventory buildup at customers (channel destocking)",
+          "trigger": "Days inventory rising at hyperscalers/distributors, channel stuffing warnings, destocking risk",
           "current_status": "monitoring",
           "weight": "leading",
-          "last_evaluated_at": "2026-05-29T08:50:26.670067+00:00",
-          "last_eval_reason": "aucun signal recent matchant",
+          "last_evaluated_at": "2026-06-02T04:07:28.843941+00:00",
+          "last_eval_reason": "no recent matching signal",
           "last_eval_confidence": 50,
           "last_eval_evidence_ids": []
         },
         {
           "id": "earnings_revisions",
-          "label": "Earnings revisions baissieres (Sell-side estimates)",
+          "label": "Bearish earnings revisions (Sell-side estimates)",
           "tickers_to_watch": [
             "TSM",
             "ASML",
@@ -175,39 +167,39 @@
             "MU",
             "ALAB"
           ],
-          "trigger": "Consensus estimates revises a la baisse 2 fois consecutives sur tickers Compute AI",
+          "trigger": "Consensus estimates revised downward 2 consecutive times on Compute AI tickers",
           "current_status": "monitoring",
           "weight": "major",
-          "last_evaluated_at": "2026-05-29T08:50:28.360711+00:00",
-          "last_eval_reason": "Aucun signal récent ne mentionne explicitement des révisions consensus baissières consécutives sur Compute AI ; les signaux présents couvrent des thèmes macro larges (dette, Fed, tech générale) sans evidence spécifique du trigger défini.",
-          "last_eval_confidence": 35,
+          "last_evaluated_at": "2026-06-02T04:07:29.104686+00:00",
+          "last_eval_reason": "evaluation LLM failed",
+          "last_eval_confidence": 30,
           "last_eval_evidence_ids": []
         }
       ],
       "mitigation_plan": [
         {
           "id": "A_trim_doublons",
-          "label": "A. Continuer pruning doublons memoire",
-          "action": "Sortir SK Hynix (~1500-2000€) vers ballast strict. MU reste gardien memoire.",
+          "label": "A. Continue pruning memory overlaps",
+          "action": "Exit SK Hynix (~1500-2000€) toward strict ballast. MU stays memory anchor.",
           "status": "started",
           "progress_pct": 25,
-          "notes": "Trim 499€ fait le 29/05, reste ~1500€"
+          "notes": "Trim 499€ done on 05-29, ~1500€ remaining"
         },
         {
           "id": "B_renforcer_ballast",
-          "label": "B. Renforcer le ballast strict",
-          "action": "Bump SAF.PA (renfort prioritaire PEA), MP (ramp aimants a executer), HO.PA, CCJ pur uranium",
+          "label": "B. Strengthen strict ballast",
+          "action": "Bump SAF.PA (priority PEA reinforcement), MP (magnets ramp to execute), HO.PA, CCJ pure uranium",
           "status": "in_progress",
           "progress_pct": 30,
-          "notes": "CCJ bump +1000€ fait le 29/05, SAF reste sous-dimensionne (606€)"
+          "notes": "CCJ bump +1000€ done on 05-29, SAF still under-sized (606€)"
         },
         {
           "id": "C_trim_valos_premium",
-          "label": "C. Trim sur valos > bull case (en cas de signal #1 declenche)",
-          "action": "Sorties prioritaires : AMD (P/E ~92x), ALAB (valo>bull+fade), TSLA (valo>bull). Pour liberer cash defensif rapidement.",
+          "label": "C. Trim on valos > bull case (if signal #1 triggered)",
+          "action": "Priority exits: AMD (P/E ~92x), ALAB (valo>bull+fade), TSLA (valo>bull). To free defensive cash quickly.",
           "status": "pending",
           "progress_pct": 0,
-          "notes": "A activer SEULEMENT en cas de signal capex revision baissier"
+          "notes": "Activate ONLY if bearish capex revision signal"
         }
       ],
       "target": {
@@ -215,13 +207,13 @@
         "target_ballast_strict_pct": 20,
         "current_estimated_drawdown_stress": -31,
         "target_estimated_drawdown_stress": -25,
-        "note": "Pas reduire la concentration deliberee, mais maximiser ballast decorrele dans le budget accepte."
+        "note": "Do not reduce deliberate concentration, but maximize decorrelated ballast within accepted budget."
       },
       "user_arbitrage_history": [
         {
           "date": "2026-05-29",
-          "decision": "cluster_cap_target 75 -> 70 pour tolerer -21% drawdown au lieu de -23%",
-          "rationale": "validation explicite : tolere -16k€ sur cible 70k (-11k€ aujourd'hui) avec discipline"
+          "decision": "cluster_cap_target 75 -> 70 to tolerate -21% drawdown instead of -23%",
+          "rationale": "explicit validation: tolerates -16k€ on 70k target (-11k€ today) with discipline"
         }
       ]
     }

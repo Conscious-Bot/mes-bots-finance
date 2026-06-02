@@ -576,15 +576,15 @@ def _risk_watch_panel() -> str:
             f'<div class="rw-head"><span class="rw-rank">#{r.get("rank", "?")}</span>'
             f'<span class="rw-name">{r.get("name", "?")}</span>'
             f'<span class="rw-sev {sev_cls}">{r.get("severity", "?")}</span></div>'
-            f'<div class="rw-expo">Exposure : {exposure.get("pct_book", "?")}% du book '
-            f'(cluster {exposure.get("cluster", "?")} &middot; facteur {exposure.get("factor", "?")})</div>'
+            f'<div class="rw-expo">Exposure: {exposure.get("pct_book", "?")}% of book '
+            f'(cluster {exposure.get("cluster", "?")} &middot; factor {exposure.get("factor", "?")})</div>'
             '<div class="rw-grid">'
-            f'<div class="rw-cell"><div class="rw-h">Drawdown stress estime</div>'
+            f'<div class="rw-cell"><div class="rw-h">Estimated drawdown stress</div>'
             f'<div class="rw-v mono neg">{target.get("current_estimated_drawdown_stress", "?")}%</div>'
-            f'<div class="rw-t">target : {target.get("target_estimated_drawdown_stress", "?")}%</div></div>'
-            f'<div class="rw-cell"><div class="rw-h">Ballast decorrele strict</div>'
+            f'<div class="rw-t">target: {target.get("target_estimated_drawdown_stress", "?")}%</div></div>'
+            f'<div class="rw-cell"><div class="rw-h">Strict decorrelated ballast</div>'
             f'<div class="rw-v mono">{target.get("current_ballast_strict_pct", "?")}%</div>'
-            f'<div class="rw-t">target : {target.get("target_ballast_strict_pct", "?")}%</div></div>'
+            f'<div class="rw-t">target: {target.get("target_ballast_strict_pct", "?")}%</div></div>'
             f'<div class="rw-cell"><div class="rw-h">Mitigation plan</div>'
             f'<div class="rw-v mono">{avg_progress:.0f}%</div>'
             f'<div class="rw-t">A/B/C levers in progress</div></div>'
@@ -614,9 +614,9 @@ def _risk_watch_panel() -> str:
             construction_lens = (
                 '<div class="rw-lens">'
                 'Active construction phase &middot; '
-                "l'expo actuelle se diluera mecaniquement vers la target "
-                "quand les decorrelants (Energie-pour-IA, Defense, Robotique) entreront. "
-                '<b>Lecture : surveiller, pas corriger.</b>'
+                "current exposure will mechanically dilute toward target "
+                "as decorrelators (Energy-for-AI, Defense, Robotics) come in. "
+                '<b>Reading: watch, do not correct.</b>'
                 '</div>'
             )
     except Exception:
