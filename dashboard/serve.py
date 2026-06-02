@@ -31,7 +31,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _WATCHED_PATHS = [
     Path(__file__).with_name("render.py"),
     Path(__file__).with_name("chat.py"),
-    Path(__file__).with_name("tokens.css"),  # palette CSS : reload _TOKENS_CSS dans render
+    Path(__file__).with_name("tokens.css"),  # palette CSS : reload _TOKENS_CSS dans _styles
+    Path(__file__).with_name("_styles.py"),  # _CSS / _TOKENS_CSS / _DBA_CSS / _TH_CSS lus a load
+    Path(__file__).with_name("_scripts.py"),  # _NAV / _APP_JS / _THEME_INIT / etc.
     _REPO_ROOT / "shared" / "storage.py",
     _REPO_ROOT / "shared" / "ticker_logos.py",
     _REPO_ROOT / "intelligence" / "portfolio_grade.py",
@@ -71,13 +73,18 @@ def _reload_changed(prev: dict, curr: dict) -> list[str]:
         if mtime == prev.get(path_str):
             continue
         p = Path(path_str)
-        # tokens.css : force reload de render pour relire _TOKENS_CSS
+        # tokens.css : reload _styles ET _scripts ET render (chain de read_text).
+        # _TOKENS_CSS / _CSS / _CAHIER_CSS sont dans _styles, _LOGO/_NAV dans _scripts.
         if p.suffix == ".css":
             try:
+                if "dashboard._styles" in sys.modules:
+                    importlib.reload(sys.modules["dashboard._styles"])
+                if "dashboard._scripts" in sys.modules:
+                    importlib.reload(sys.modules["dashboard._scripts"])
                 importlib.reload(render_mod)
-                reloaded.append("dashboard.render (tokens.css changed)")
+                reloaded.append("dashboard._styles + render (tokens.css changed)")
             except Exception as e:
-                print(f"[serve] reload render (tokens.css) FAILED: {type(e).__name__}: {e}", flush=True)
+                print(f"[serve] reload styles+render (tokens.css) FAILED: {type(e).__name__}: {e}", flush=True)
             continue
         # Path -> module name (dotted)
         try:
