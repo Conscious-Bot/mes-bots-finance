@@ -181,8 +181,10 @@ _CSS = """
   /* Move #4 DNA : colhead .a recede (font-size 12 + opacity .55) pour reduire cognitive load.
      Reveal-on-hover du parent (.colhead:hover .a opacity 1) = recompense l'attention. */
   .colhead { display:flex; align-items:baseline; gap:9px; margin-bottom:var(--s3); padding-left:2px; }
-  .colhead .t { font-family:var(--fd); font-weight:500; font-size:16px; }
+  .colhead .t { font-family:var(--fd); font-weight:600; font-size:22px; letter-spacing:-.005em; color:var(--ink); }
   .colhead .a { font-family:var(--fm); font-size:12px; color:var(--steel); opacity:.55; transition:opacity .22s ease; letter-spacing:.01em; }
+  /* Sub line inside .card (PAS .phead) : data caption, doit lire SOUS le titre colhead. */
+  .card .sub { font-family:var(--fb); font-size:13px; color:var(--steel); letter-spacing:.02em; }
   .colhead:hover .a { opacity:1; }
   .colhead.tight { margin-top:var(--s15); } /* 6px : aerer un peu apres un bloc voisin */
   .colhead.spaced { margin-top:var(--s4); } /* 20px : separateur de section, sous-titre marque */
