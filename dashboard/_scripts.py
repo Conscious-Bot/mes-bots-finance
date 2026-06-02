@@ -480,12 +480,49 @@ _APP_JS = """
     PANEL.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('.sb-back'))overview();});
     overview();
   })();
-  /* Loupe : entree via CSS keyframe scale-in (loupe-card-enter). View Transition
-     drop (02/06 user feedback "interface saute et bug toujours") -- le morph
-     logo amenait plus de bug visuel qu'il n'apportait. Le scale-in CSS suffit
-     pour une entree elegante. */
+  /* E (#90 motion) : shared element morph row->loupe modal via View Transitions.
+     Le ticker source (.tklogo > .tk > null) morph vers sa position dans le modal.
+     html.vt-loupe { view-transition-name: none } sur root pendant la transition
+     -> seul le logo morph, le background ne crossfade pas (sinon "saut").
+     Pas de CSS keyframe scale-in sur la card (root cause du bug du 02/06 soir
+     "interface saute" -- l'anim cumulait avec le morph et creait conflict). */
+  function findMorphSource(srcEl){
+    if (!srcEl) return null;
+    if (srcEl.classList && srcEl.classList.contains('tklogo')) return srcEl;
+    if (srcEl.classList && srcEl.classList.contains('tk')) return srcEl;
+    if (srcEl.querySelector){
+      var logo = srcEl.querySelector('.tklogo');
+      if (logo) return logo;
+      var tkText = srcEl.querySelector('.tk');
+      if (tkText) return tkText;
+    }
+    return null;
+  }
+  function findMorphTarget(){
+    var modal = document.getElementById('loupe');
+    if (!modal) return null;
+    return modal.querySelector('.lp-h .tklogo') || modal.querySelector('.lp-tk') || null;
+  }
+  function openLoupeMorph(tk, srcEl){
+    if (!document.startViewTransition) { openLoupe(tk); return; }
+    var src = findMorphSource(srcEl);
+    if (src) src.style.viewTransitionName = 'loupe-logo';
+    document.documentElement.classList.add('vt-loupe');
+    var t = document.startViewTransition(function(){
+      if (src) src.style.viewTransitionName = '';
+      openLoupe(tk);
+      var tgt = findMorphTarget();
+      if (tgt) tgt.style.viewTransitionName = 'loupe-logo';
+    });
+    function cleanup(){
+      var tgt = findMorphTarget();
+      if (tgt) tgt.style.viewTransitionName = '';
+      document.documentElement.classList.remove('vt-loupe');
+    }
+    t.finished.then(cleanup).catch(cleanup);
+  }
   document.addEventListener('click',function(ev){
-    var r=ev.target.closest&&ev.target.closest('[data-tk]'); if(r&&r.dataset.tk){ openLoupe(r.dataset.tk); }
+    var r=ev.target.closest&&ev.target.closest('[data-tk]'); if(r&&r.dataset.tk){ openLoupeMorph(r.dataset.tk, r); }
     if(ev.target.id==='loupe'){ closeLoupe(); }
   });
   document.addEventListener('keydown',function(ev){ if(ev.key==='Escape')closeLoupe(); });

@@ -607,7 +607,10 @@ _CSS = """
   .dt tbody tr:not(.prev) { cursor:pointer; }
   .loupe { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:34px; }
   .loupe.open { display:flex; }
-  /* Drop 02/06 : scale-in keyframe + VT drops (user "interface saute"). Modal apparait direct. */
+  /* vt-loupe : kill le root crossfade pendant la transition loupe.
+     Seul le .tklogo morph (shared element), background reste statique.
+     Pas de scale-in card (root cause du bug "interface saute"). */
+  html.vt-loupe { view-transition-name: none; }
   /* Respect prefers-reduced-motion. */
   @media (prefers-reduced-motion: reduce) {
     .loupe.open, .loupe.open .loupe-card { animation: none !important; }
