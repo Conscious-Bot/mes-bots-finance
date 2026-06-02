@@ -3427,13 +3427,14 @@ _MACRO_TIPS: dict[str, str] = {
 
 
 def _macro_dot(ind: str, v: float, phase: int | None = None) -> str:
-    """Couleur du point macro.
+    """Couleur du point macro -- TOUJOURS l'une des 3 : calm / warn / danger.
 
-    Priorite : (1) bands locales (interpretation level-based directe, ex VIX),
-    sinon (2) fallback sur la phase stockee en DB par le composite V3 -- ainsi
-    indicateurs sans threshold dur (Gold, BankReserves, KRE, etc.) refletent
-    quand meme l'avis du composite, et restent coherents avec top stressor /
-    tally. (3) Inconnu total -> mute.
+    Pas de "mute" : user 02/06 "green yellow and red". Donnee absente
+    (no band + no phase) -> defaut WARN (yellow) car incertain = posture
+    prudente, jamais vert silencieux.
+
+    Priorite : (1) bands locales level-based (VIX/HY_OAS/...), (2) phase
+    stockee par composite V3 (Gold/BankReserves/...), (3) fallback warn.
     """
     band = _MACRO_BANDS.get(ind)
     if band is not None:
@@ -3445,14 +3446,14 @@ def _macro_dot(ind: str, v: float, phase: int | None = None) -> str:
         try:
             p = int(phase)
         except Exception:
-            return "mute"
+            return "warn"
         if p >= 4:
             return "danger"
         if p == 3:
             return "warn"
         if p in (1, 2):
             return "calm"
-    return "mute"
+    return "warn"
 
 
 # === Equity internals: RSI(14) + Breadth (RSP/SPY) — cache TTL 30min ===
@@ -3614,7 +3615,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         except Exception:
             _age = 0
         stale = '<span class="stale">stale</span>' if _age > _STALE.get(tier, 10) else ""
-        vcls = "mute" if stale else dot
+        vcls = dot  # user 02/06 "green yellow red only" -- pas de mute meme si stale, le badge "stale" suffit
         tip = _MACRO_TIPS.get(ind, "")
         tip_attr = f' data-tip="{_html_esc.escape(tip, quote=True)}"' if tip else ""
         sort_key = (_dot_priority.get(dot, 9), _pos.get(ind, 999), ind)
