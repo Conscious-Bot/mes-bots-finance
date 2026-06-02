@@ -2998,14 +2998,19 @@ def _loop() -> str:
         if tk in by_ticker:
             by_ticker[tk]["audits"].append({"event": evt, "occurred": occ})
 
-    # Also add held/planned tickers that have NO predictions yet (empty rows
-    # show the user that this ticker is being tracked even if signals are quiet)
-    for tk in universe:
-        if tk not in by_ticker:
-            by_ticker[tk]  # touch via defaultdict to initialize
-
-    # Sort tickers by activity (n predictions desc)
-    sorted_tk = sorted(by_ticker.items(), key=lambda kv: -len(kv[1]["preds"]))
+    # User 02/06 : positions apparaissent au compte-gouttes selon signaux
+    # emergents. Pas de signal -> pas de row. Drip-feed dynamic.
+    # Sort tickers par activite recente (most recent prediction first)
+    def _latest_activity(kv):
+        prs = kv[1]["preds"]
+        if not prs:
+            return ""
+        return max((p["baseline"] or "") for p in prs)
+    sorted_tk = sorted(
+        ((tk, d) for tk, d in by_ticker.items() if d["preds"] or d["audits"]),
+        key=lambda kv: _latest_activity(kv),
+        reverse=True,
+    )
 
     # Time window
     end = date.today()
