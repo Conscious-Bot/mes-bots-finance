@@ -19,6 +19,7 @@ Quality bar (meme que copilot) :
 import json
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -335,7 +336,7 @@ def assemble_synthesis_context(months_window: int = 6) -> tuple[dict, dict]:
     window_start = (now - timedelta(days=months_window * 30)).isoformat()
     window_end = now.isoformat()
 
-    counts = {"window_start": window_start, "window_end": window_end}
+    counts: dict[str, Any] = {"window_start": window_start, "window_end": window_end}
 
     with db() as conn:
         # Positions

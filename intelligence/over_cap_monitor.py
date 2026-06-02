@@ -191,7 +191,7 @@ def check_all_overcap_transitions() -> dict[str, Any]:
     for ln in lines:
         try:
             stats["checked"] += 1
-            ticker = ln["ticker"]
+            ticker = str(ln["ticker"])
             try:
                 cls = classify_position(ticker, lines, convs, caps)
             except MissingDataError as md:

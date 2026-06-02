@@ -383,8 +383,9 @@ def position_from_sources(
                 claim = kd_raw
         else:
             claim = str(kd_raw)
+        _tid = thesis_row.get("thesis_id") or thesis_row.get("id") or 0
         thesis = ThesisFrozen(
-            thesis_id=thesis_row.get("thesis_id") or thesis_row.get("id"),
+            thesis_id=int(_tid),
             opened_at=thesis_row.get("opened_at") or "",
             claim=claim,
             horizon_days=thesis_row.get("horizon_days"),

@@ -235,7 +235,7 @@ def evaluate_one_signal(surveillance_signal: dict) -> dict:
     Sprint 20.c : insider_selling_cluster utilise une eval deterministe sur
     insider_snapshots table (pas via signals + LLM).
     """
-    sig_id = surveillance_signal.get("id")
+    sig_id = str(surveillance_signal.get("id") or "")
     # Special case : insider cluster = eval deterministe (pas LLM)
     if sig_id == "insider_selling_cluster":
         return _evaluate_insider_cluster()

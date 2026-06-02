@@ -283,7 +283,8 @@ def synthesize_one(kind: str) -> tuple[dict | None, int | None]:
 
 def synthesize_all() -> dict:
     """Run all extractors, persist each. Returns summary."""
-    out = {"ok": 0, "skip": 0, "fail": 0, "details": {}}
+    from typing import Any
+    out: dict[str, Any] = {"ok": 0, "skip": 0, "fail": 0, "details": {}}
     for kind in _EXTRACTORS:
         try:
             metric, pid = synthesize_one(kind)

@@ -34,7 +34,7 @@ import logging
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -48,7 +48,7 @@ DEFAULT_METHOD: Literal["isotonic", "platt"] = "isotonic"
 class CalibrationMap:
     """Carte de recalibration fittee. Wrap un modele sklearn + metadata audit."""
 
-    model: object  # sklearn IsotonicRegression ou LogisticRegression
+    model: Any  # sklearn IsotonicRegression ou LogisticRegression
     method: Literal["isotonic", "platt"]
     fitted_at: datetime
     n_fit: int

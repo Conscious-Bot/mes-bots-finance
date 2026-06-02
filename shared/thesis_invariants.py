@@ -178,7 +178,7 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tole
 
     Best-effort : si yfinance indispo, skip ce check pour ce ticker.
     """
-    violations = []
+    violations: list[str] = []
     try:
         import yfinance as yf
     except Exception:

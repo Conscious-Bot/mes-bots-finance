@@ -92,8 +92,11 @@ def _fetch_state(months_brier_window: int = 6) -> dict:
 
     state: dict = {}
     # Pre-fetch prices via le cache existant (throttle yfinance respecte)
+    from collections.abc import Callable
+    _px: Callable[[str], float | None]
     try:
-        from dashboard.render import _cached_price_eur as _px
+        from dashboard.render import _cached_price_eur as _px_real
+        _px = _px_real
     except Exception:
         _px = lambda _tk: None  # noqa: E731
 
@@ -577,8 +580,8 @@ def _compute_decorrelation_star(state: dict) -> dict:
     # Fallback Sprint 5
     sec_counts: dict[str, int] = {}
     for p in positions:
-        sec = _ticker_sector(p["ticker"]) or "Other"
-        sec_counts[sec] = sec_counts.get(sec, 0) + 1
+        sec_def: str = _ticker_sector(p["ticker"]) or "Other"
+        sec_counts[sec_def] = sec_counts.get(sec_def, 0) + 1
     star_eur = 0.0
     n_star = 0
     for p in positions:
@@ -761,8 +764,8 @@ def _compute_thesis_health(state: dict) -> dict:
         last_rev = t.get("last_reviewed") or t.get("last_revisit_at") or t.get("opened_at") or ""
         last_rev_dt = _parse_dt_aware(last_rev)
         reviewed_recent = last_rev_dt and last_rev_dt >= cutoff
-        m = meta.get(t["ticker"])
-        eroding = m and (m.get("fade_rate_score", 0) >= 70 or m.get("valo_above_bull_case", False))
+        m = meta.get(t["ticker"]) or {}
+        eroding = bool(m.get("fade_rate_score", 0) >= 70 or m.get("valo_above_bull_case", False))
         if reviewed_recent and not eroding:
             n_sain += 1
         elif eroding:

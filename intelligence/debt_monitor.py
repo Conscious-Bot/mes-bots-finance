@@ -344,7 +344,7 @@ def _fetch_btc_drawdown180() -> float | None:
         if len(closes) < 30 or max(closes) <= 0:
             return None
         max_180 = max(closes)
-        return (closes[-1] - max_180) / max_180 * 100
+        return float((closes[-1] - max_180) / max_180 * 100)
     except Exception as e:
         log.warning(f"BTC_drawdown180 fetch: {e}")
         return None
