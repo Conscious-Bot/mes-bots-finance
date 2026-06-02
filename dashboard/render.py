@@ -2203,7 +2203,7 @@ def _copilot() -> str:
         f'<div class="phead"><h2>Copilot</h2>'
         f'<div class="sub">Chat &middot; adversarial interventions summary</div></div>'
         f'{_chat_panel()}'
-        f'<div class="vigie-sh" data-tip="Pressure tests adversariaux historiques : ce que le copilot a conteste recemment."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Pressions adversariales</div>'
+        f'<div class="vigie-sh" data-tip="Historical adversarial pressure tests: what the copilot challenged recently."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Pressions adversariales</div>'
         f'{_copilot_panel()}'
         f'</section>'
     )
@@ -2619,9 +2619,9 @@ def _concentration(
     )
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position dont le poids individuel est le plus eleve dans le portefeuille. Plafond par conviction (c5 jusqu\'a 22%, c4 jusqu\'a 14%).">Top position</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="These dont le poids agrege (somme des lignes la portant) est le plus eleve. Indicateur de concentration thematique.">Dominant thesis</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Capital cumule entre dans le book (cost basis somme). Distinct de la valeur courante avec PnL.">Capital investi</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} lignes &middot; {len(sw_real)} secteurs</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position with highest individual weight in portfolio. Cap by conviction (c5 up to 22%, c4 up to 14%).">Top position</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Thesis with highest aggregated weight (sum of positions carrying it). Thematic concentration indicator.">Dominant thesis</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Cumulative capital invested in book (cost basis sum). Distinct from current value with PnL.">Capital investi</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} lignes &middot; {len(sw_real)} secteurs</div></div>'
         + "</div>"
     )
     star_strate_foot = f'<div class="ps-strate ps-foot">{_cluster_foot}</div>'
@@ -3050,9 +3050,9 @@ def _signaux() -> str:
     )
     star_strate_kpis = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Signaux entrants sur les dernieres 24h via Gmail (newsletters analystes) + EDGAR (8-K et insider Form 4).">Signaux 24&nbsp;h</div><div class="ps-val">{s24}</div><div class="ps-cap">Gmail + EDGAR</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Volume total signaux ingeres sur 30 jours roulants. Permet de juger l\'activite globale.">Signaux 30&nbsp;j</div><div class="ps-val">{s30}</div><div class="ps-cap">fen&ecirc;tre roulante</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Depots reglementaires 8-K sur 60 jours (changements materiel SEC). Tally affiche le breakdown HIGH/MEDIUM/LOW severite.">8-K &middot; 60&nbsp;j</div><div class="ps-val">{n8k}</div><div class="ps-cap">{tally_str}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Incoming signals over last 24h via Gmail (analyst newsletters) + EDGAR (8-K and insider Form 4).">Signaux 24&nbsp;h</div><div class="ps-val">{s24}</div><div class="ps-cap">Gmail + EDGAR</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Total signal volume ingested over rolling 30 days. Used to judge overall activity.">Signaux 30&nbsp;j</div><div class="ps-val">{s30}</div><div class="ps-cap">fen&ecirc;tre roulante</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Regulatory 8-K filings over 60 days (material SEC changes). Tally shows HIGH/MEDIUM/LOW severity breakdown.">8-K &middot; 60&nbsp;j</div><div class="ps-val">{n8k}</div><div class="ps-cap">{tally_str}</div></div>'
         + "</div>"
     )
     star_strate_foot = (
@@ -3386,7 +3386,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     # (cf decision_log 02 -- V3 demote, V4 a venir).
     star_macro = (
         '<div class="ps-strate">'
-        + '<div class="ps-lbl" data-tip="Phase macro composite V3 (debt_monitor). STATUT : exploratoire -- HOLDOUT strict 4/8 (02/06). V3 ne genere jamais P1 (biais centriste). Ne pas piloter de decision sur cette valeur. V4 a venir (cf decision_log 02).">&Eacute;tat macro <span class="ps-tag-explor">exploratoire</span></div>'
+        + '<div class="ps-lbl" data-tip="V3 composite macro phase (debt_monitor). STATUS: exploratory -- strict HOLDOUT 4/8 (02/06). V3 never generates P1 (centrist bias). Do not drive decisions on this value. V4 forthcoming (cf decision_log 02).">&Eacute;tat macro <span class="ps-tag-explor">exploratoire</span></div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_phase_col}">{clabel}</div>'
         + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}</div>'
@@ -3406,9 +3406,9 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     s_cap = "&agrave; surveiller" if near else "calme"
     star_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Cluster correle dont la position cumulee depasse le plafond = action recommandee.">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Lignes parcourant ≥75% du chemin entree -> cible. Zone de prise de profit a surveiller.">Cibles &ge;75%</div><div class="ps-val">{near_t}</div><div class="ps-cap">{t_cap}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Lignes a moins de 10% de leur stop. Marge faible, verifier avant la seance.">Stops &lt;10%</div><div class="ps-val {s_cls}">{near}</div><div class="ps-cap">{s_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Correlated cluster whose cumulative position exceeds cap = action recommended.">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions ≥75% along entry -> target path. Take-profit zone to watch.">Cibles &ge;75%</div><div class="ps-val">{near_t}</div><div class="ps-cap">{t_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 10% from their stop. Low margin, check before session.">Stops &lt;10%</div><div class="ps-val {s_cls}">{near}</div><div class="ps-cap">{s_cap}</div></div>'
         + "</div>"
     )
     # Strate 3 : footer technique (VIX + sizing)
@@ -3777,9 +3777,9 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     hero = (
         f'<div class="page-star">'
         f'<div class="ps-strate ps-grid">'
-        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses dont la position courante est a moins de 12% du target_full. Zone de prise de profit.">Proches de la cible</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">marge &lt; 12%</div></div>'
-        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses dont le cours actuel est superieur au cout d\'entree de la these (entry_price).">En gain</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">cours &gt; co&ucirc;t d&rsquo;entr&eacute;e</div></div>'
-        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses a moins de 10% du stop. Zone critique a verifier.">Marges faibles</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">marge &lt; 10% du stop</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current position is less than 12% from target_full. Take-profit zone.">Proches de la cible</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">marge &lt; 12%</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current price is above thesis entry cost (entry_price).">En gain</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">cours &gt; co&ucirc;t d&rsquo;entr&eacute;e</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses less than 10% from stop. Critical zone to review.">Marges faibles</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">marge &lt; 10% du stop</div></div>'
         f'</div>'
         f'<div class="ps-strate"><div class="ps-lbl">Convictions</div>'
         f'<div class="ps-macro-row"><div class="ps-val {_conv_cls}">{_conv_lbl}</div>'
@@ -5903,9 +5903,9 @@ def _discipline_biais_panel() -> str:
         + f'<div class="ps-cap">{_kpi2_cap} &middot; {_jday_str}</div>'
         + '</div>'
         + '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Score de calibration des predictions probabilistes. (proba - outcome)^2 moyen. &lt; 0.20 bon, &lt; 0.25 acceptable, &gt;= 0.25 a corriger.">Brier mean</div><div class="ps-val {_brier_cls}">{_brier_str}</div><div class="ps-cap">{_brier_cap}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Candidats bias_event ouverts (lock_in/fomo_greed). Fenetre d\'observation +30j post-detection.">Open biases</div><div class="ps-val">{n_bias_open}</div><div class="ps-cap">events under observation</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Events bias resolus avec scoring canonique +30j. Enrichis observations +60/+90j ulterieurement.">Resolved biases</div><div class="ps-val acc">{n_bias_resolved}</div><div class="ps-cap">post-resolution</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Probabilistic prediction calibration score. Mean (prob - outcome)^2. &lt; 0.20 good, &lt; 0.25 acceptable, &gt;= 0.25 to fix.">Brier mean</div><div class="ps-val {_brier_cls}">{_brier_str}</div><div class="ps-cap">{_brier_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Open bias_event candidates (lock_in/fomo_greed). +30d observation window post-detection.">Open biases</div><div class="ps-val">{n_bias_open}</div><div class="ps-cap">events under observation</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Resolved bias events with canonical +30d scoring. Enriched with later +60/+90d observations.">Resolved biases</div><div class="ps-val acc">{n_bias_resolved}</div><div class="ps-cap">post-resolution</div></div>'
         + '</div>'
         + '<div class="ps-strate ps-foot">'
         + 'Predictions &middot; fomo_greed (2 canaux) &middot; lock_in (Surface 2 v2.c.6 shipped) ci-dessous'
@@ -5917,11 +5917,11 @@ def _discipline_biais_panel() -> str:
         # Wrapper section retire -- ce bloc est inline dans _signaux().
         '<div class="dba-block">'
         + _DBA_CSS
-        + '<div class="dba-sh" data-tip="Compteur de la mission PRESAGE : predictions calibrees + biais comportementaux mecanises."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.5 1.5L8.5 4.5"/><path d="M10 6h4"/><path d="M4 11l1.5 1.5L8.5 9.5"/><path d="M10 11h4"/></svg>Discipline &amp; mechanized biases'
+        + '<div class="dba-sh" data-tip="PRESAGE mission counter: calibrated predictions + mechanized behavioral biases."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.5 1.5L8.5 4.5"/><path d="M10 6h4"/><path d="M4 11l1.5 1.5L8.5 9.5"/><path d="M10 11h4"/></svg>Discipline &amp; mechanized biases'
         '<span class="dba-sh-aside">mission counter &middot; real density at J+30</span></div>'
         + star_discipline
         # ─── PREDICTIONS ─────────────────────────────────────────────────
-        + '<div class="dba-sh" data-tip="Predictions resolues a J+28 : marker probabiliste (Brier score) sur la calibration des estimations."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="0.8" fill="currentColor" stroke="none"/></svg>Pr&eacute;dictions'
+        + '<div class="dba-sh" data-tip="Predictions resolved at J+28: probabilistic marker (Brier score) on estimate calibration."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="0.8" fill="currentColor" stroke="none"/></svg>Pr&eacute;dictions'
         '<span class="dba-sh-aside">cluster KPI #2 &mdash; J+28 batch 10/06</span></div>'
         '<div class="dba-card">'
         f'<div class="dba-chrow"><span class="lab">{n_resolved}/{n_cluster_total} '
@@ -5930,7 +5930,7 @@ def _discipline_biais_panel() -> str:
         f'{_dba_predictions_brier_html(brier_avg, brier_n)}'
         '</div>'
         # ─── BIAIS fomo_greed ────────────────────────────────────────────
-        '<div class="dba-sh" data-tip="Biais FOMO/greed : ne pas alleger quand la discipline le commandait. Instrumente sur 2 canaux : kill_criteria + over_cap."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14c-3 0-5-2-5-5 0-2 1.5-3.5 2.5-4 0 1.5 1 2 1.5 2 0-2 1-4 3-5 .5 2 3 3 3 6 0 4-2 6-5 6z"/><path d="M7 11.5c0-1 .5-1.5 1-2 .5.5 1 1 1 2 0 .7-.5 1.2-1 1.2s-1-.5-1-1.2z"/></svg>Biais &mdash; fomo_greed'
+        '<div class="dba-sh" data-tip="FOMO/greed bias: not trimming when discipline called for it. Instrumented on 2 channels: kill_criteria + over_cap."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14c-3 0-5-2-5-5 0-2 1.5-3.5 2.5-4 0 1.5 1 2 1.5 2 0-2 1-4 3-5 .5 2 3 3 3 6 0 4-2 6-5 6z"/><path d="M7 11.5c0-1 .5-1.5 1-2 .5.5 1 1 1 2 0 .7-.5 1.2-1 1.2s-1-.5-1-1.2z"/></svg>Biais &mdash; fomo_greed'
         '<span class="dba-sh-aside">hold beyond top &middot; 2 channels instrumented</span></div>'
         # Canal kill_criteria
         '<div class="dba-card">'
@@ -5967,7 +5967,7 @@ def _discipline_biais_panel() -> str:
         '&middot; r&eacute;solution N/A</div>'
         '</div>'
         # ─── BIAIS lock_in ──────────────────────────────────────────────
-        '<div class="dba-sh" data-tip="Biais lock-in : vendre les gagnants trop tot. Biais #1 de PRESAGE selon ADR-010. Mecanise via Surface 2 (sell winner sync capture)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/><circle cx="8" cy="10.5" r=".9" fill="currentColor" stroke="none"/></svg>Biais &mdash; lock_in'
+        '<div class="dba-sh" data-tip="Lock-in bias: selling winners too early. PRESAGE bias #1 per ADR-010. Mechanized via Surface 2 (sell winner sync capture)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/><circle cx="8" cy="10.5" r=".9" fill="currentColor" stroke="none"/></svg>Biais &mdash; lock_in'
         '<span class="dba-sh-aside">vendre les gagnants trop t&ocirc;t</span></div>'
         '<div class="dba-card">'
         '<div class="dba-chrow">'
@@ -6277,7 +6277,7 @@ def render() -> Path:
         + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> en gain &middot; {n_gain} lignes &middot; {n_pnl - n_gain} en perte ({100 - gpct:.0f}%) {_val_delta_str}</div>'
         + '</div>'
         + '<div class="ps-hero-right">'
-        + '<div class="ps-lbl" data-tip="Grade global Construction + Fragilite. Construction = Solidite/Pari/Doublons/Calibrage. Fragilite = Sante/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Portfolio grade</div>'
+        + '<div class="ps-lbl" data-tip="Global Construction + Fragility grade. Construction = Solidity/Bet/Overlap/Calibration. Fragility = Health/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Portfolio grade</div>'
         + '<div class="ps-grade-row">'
         + f'<div class="ps-grade-letter {_grade_color}">{_grade_letter}</div>'
         + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
@@ -6298,13 +6298,13 @@ def render() -> Path:
         # D2 retire 02/06 : "Today's movers" (hausses/baisses) entierement
         # duplique avec Urgence (meme _day_movers). Garde seulement la col
         # "Plus proches de la cible" qui pointe action fomo_greed (trim winners).
-        '<div class="vigie-sh" data-tip="Lignes proches de la cible (zone de prise de profit, valo &gt; bull) -- candidats trim mecanise via fomo_greed gate."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunities &mdash; close or consolidate</div>'
+        '<div class="vigie-sh" data-tip="Positions close to target (take-profit zone, valo &gt; bull) -- mechanized trim candidates via fomo_greed gate."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunities &mdash; close or consolidate</div>'
         f'<div class="colhead"><span class="t">Closest to target</span><span class="a">thesis in realization &middot; watch valo &gt; bull and fragility</span></div>'
         f'<div class="card pad">{gain}</div>'
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html migre vers section Copilot dediee 31/05 wave 5)
-        '<div class="vigie-sh" data-tip="Lignes du book a verifier en priorite : marges critiques (stop &lt; 10%), zones at_risk kill_criteria, vol aveugle."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
+        '<div class="vigie-sh" data-tip="Book positions to review first: critical margins (stop &lt; 10%), at_risk kill_criteria zones, blind vol."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
         f'{_risk_watch_panel()}'
         f"{blind_html}"
         # ── BLOC 4 : SYNTHESE COPILOT (interventions adversariales) ──
@@ -6313,7 +6313,7 @@ def render() -> Path:
         # via cron weekly_v2_vigilance + weekly_calibration_audit prennent le relais)
         # Synthese copilot retiree 31/05 wave 5bis : migre vers section Copilot dediee.
         # ── BLOC 5 : JOURNAL -- echeances + log decisions (chat remonte au BLOC 1) ──
-        '<div class="vigie-sh" data-tip="Cahier de bord : decisions journees recentes + echeances de revue/resolution a venir."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Journal &amp; deadlines</div>'
+        '<div class="vigie-sh" data-tip="Logbook: recent daily decisions + upcoming review/resolution deadlines."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Journal &amp; deadlines</div>'
         f'<div class="colhead tight"><span class="t">Upcoming deadlines</span></div>'
         f'<div class="card pad">{erows}</div>'
         f"{journal_block}</section>"
@@ -6352,9 +6352,9 @@ def render() -> Path:
         + '<div class="ps-cap">Declared vs book reading vs hidden risks &mdash; 3 levels below</div>'
         + '</div>'
         + '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Nombre de biais comportementaux instrumentes (capture automatique). lock_in = vendre winners trop tot. fomo_greed = tenir au-dela du top.">Mechanized biases</div><div class="ps-val {_bias_cls}">2</div><div class="ps-cap">{_bias_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Candidats bias_event en cours d\'observation (fenetre +30j post-detection). Verdict gele a +30j puis enrichi +60/+90.">Open biases</div><div class="ps-val">{_n_bias_open_s}</div><div class="ps-cap">events under observation</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Events bias post-resolution +30j avec scoring canonique immutable. Enrichis avec observations +60/+90j architecture B3.">Resolved biases</div><div class="ps-val acc">{_n_bias_resolved_s}</div><div class="ps-cap">events post-resolution</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Number of instrumented behavioral biases (automatic capture). lock_in = selling winners too early. fomo_greed = holding beyond top.">Mechanized biases</div><div class="ps-val {_bias_cls}">2</div><div class="ps-cap">{_bias_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="bias_event candidates under observation (+30d window post-detection). Verdict frozen at +30d then enriched +60/+90.">Open biases</div><div class="ps-val">{_n_bias_open_s}</div><div class="ps-cap">events under observation</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Post-resolution bias events +30d with immutable canonical scoring. Enriched with +60/+90d observations per B3 architecture.">Resolved biases</div><div class="ps-val acc">{_n_bias_resolved_s}</div><div class="ps-cap">events post-resolution</div></div>'
         + '</div>'
         + '<div class="ps-strate ps-foot">'
         + 'Declared strategy &middot; book reading &middot; hidden risks below'
@@ -6366,13 +6366,13 @@ def render() -> Path:
         '<div class="sub">Declared reference &middot; trajectory vs plan &middot; positions beyond bull</div></div>'
         f'{star_strategie}'
         # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
-        '<div class="strat-sh" data-tip="Ce que tu as ecrit comme objectif (theses, horizon, conviction). Le referentiel contre lequel on lit le livre."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v12"/><path d="M3 3h7l-1.5 2.5L10 8H3"/></svg>Declared strategy &mdash; reference</div>'
+        '<div class="strat-sh" data-tip="What you wrote as objective (theses, horizon, conviction). The reference against which book is read."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v12"/><path d="M3 3h7l-1.5 2.5L10 8H3"/></svg>Declared strategy &mdash; reference</div>'
         f'{_user_strategy_panel()}'
         # 2. Lecture du livre -- trajectoire vs declare
-        '<div class="strat-sh" data-tip="Trajectoire reelle du book vs ce qui a ete declare."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3L14 14"/></svg>Book reading &mdash; trajectory</div>'
+        '<div class="strat-sh" data-tip="Actual book trajectory vs declared plan."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3L14 14"/></svg>Book reading &mdash; trajectory</div>'
         f'{trajectory_html}'
         # 3. Actionnable -- positions au-dessus du bull case (candidats fomo_greed)
-        '<div class="strat-sh" data-tip="Positions au-dela de leur bull case = candidats trim (mecanise via fomo_greed gate)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L14.5 13H1.5L8 2z"/><path d="M8 6.5v3.5"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg>Beyond bull &mdash; trim candidates</div>'
+        '<div class="strat-sh" data-tip="Positions beyond their bull case = trim candidates (mechanized via fomo_greed gate)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L14.5 13H1.5L8 2z"/><path d="M8 6.5v3.5"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg>Beyond bull &mdash; trim candidates</div>'
         f'{valo_html}'
         # Retraits 02/06 user feedback (panneaux infinis rebarbatifs) :
         # factor_html / stress_html / spof_html / mauboussin_html /
@@ -6436,9 +6436,9 @@ def render() -> Path:
     _tgt_caption = (", ".join(near_tgt_tk[:3]) + ("…" if len(near_tgt_tk) > 3 else "")) if near_tgt_tk else "aucune"
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions a moins de 10% de declenchement du stop. Marge critique : reviser these ou trailing stop avant la seance.">At stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Zone d\'alerte intermediaire 10-20% du stop. Surveiller, pas d\'action immediate.">Watch 10-20%</div><div class="ps-val {_star_watch_cls}">{n_watch}</div><div class="ps-cap">{_watch_caption}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions a moins de 12% de leur cible (target_full). Zone de prise de profit pour winners avec valo &gt; bull.">Near target</div><div class="ps-val {_star_tgt_cls}">{n_tgt}</div><div class="ps-cap">{_tgt_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 10% from stop trigger. Critical margin: review thesis or trailing stop before session.">At stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Intermediate alert zone 10-20% from stop. Watch, no immediate action.">Watch 10-20%</div><div class="ps-val {_star_watch_cls}">{n_watch}</div><div class="ps-cap">{_watch_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 12% from target (target_full). Take-profit zone for winners with valo &gt; bull.">Near target</div><div class="ps-val {_star_tgt_cls}">{n_tgt}</div><div class="ps-cap">{_tgt_caption}</div></div>'
         + "</div>"
     )
     star_strate_foot = (
