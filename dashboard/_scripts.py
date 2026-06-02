@@ -449,11 +449,13 @@ _THEME_INIT = (
     "<script>"
     "try{"
     "var t=localStorage.getItem('hmdl-theme');"
-    # 02/06 user "les versions changent a chaque refresh pour les bg" :
-    # retrait du prefers-color-scheme auto-detect qui pouvait faire bouger
-    # le bg entre refreshes (OS auto-toggle day/night ou state instable).
-    # Default = light. User toggle via .modetgl persiste en localStorage.
-    "if(t==='midnight'){document.body.classList.add('midnight');}"
+    # Anti-FOUC : ce script s'injecte AVANT </head> et AVANT body parse.
+    # 1. Pre-paint le bg sur <html> immediatement (evite flash blanc)
+    # 2. Schedule body class add via DOMContentLoaded pour le reste des styles
+    "if(t==='midnight'){"
+    "document.documentElement.style.background='#0F1115';"
+    "document.addEventListener('DOMContentLoaded',function(){document.body.classList.add('midnight');});"
+    "}"
     "}catch(e){}"
     "</script>"
 )

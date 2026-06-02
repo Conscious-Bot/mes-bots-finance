@@ -5302,7 +5302,7 @@ def render() -> Path:
     body = (
         f'<aside class="sidebar" role="complementary" aria-label="Barre laterale"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
         f'{_NAV}<div class="foot">'
-        f'{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
+        f'{_MODE_BTN}</div></aside>{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
         + positions_pg
@@ -5328,7 +5328,11 @@ def render() -> Path:
         "<style>"
         + _TOKENS_CSS
         + _CSS
-        + "</style></head><body>"
+        + "</style>"
+        # _THEME_INIT injecte AVANT </head> -> applique la class midnight
+        # AVANT le paint initial, evite FOUC light->dark sur chaque refresh.
+        + _THEME_INIT
+        + "</head><body>"
         + body
         + "<script>window.TK="
         + json.dumps(loupe_data)
