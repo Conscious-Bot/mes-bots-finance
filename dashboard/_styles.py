@@ -311,10 +311,15 @@ _CSS = """
   .page-star .ps-cap::before { content:"\\00a0\\00b7\\00a0"; color:var(--steel); opacity:.5; }
   .page-star .ps-macro-row { display:inline-flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
   .page-star .ps-macro-meta { font-family:var(--fm); font-size:12px; color:var(--steel); }
-  /* Frise : devient un thin inline indicator avec marker. */
-  .page-star .ps-frise { height:3px; border-radius:1.5px; background:linear-gradient(90deg,color-mix(in srgb,var(--bear) 55%,transparent),color-mix(in srgb,var(--steel) 50%,transparent) 50%,color-mix(in srgb,var(--acc) 55%,transparent)); position:relative; margin:10px 0 0; min-width:160px; flex:0 0 220px; }
-  .page-star .ps-frise-mark { position:absolute; top:50%; width:8px; height:8px; background:var(--ink); border-radius:50%; transform:translate(-50%,-50%); border:2px solid var(--bg); }
-  .page-star .ps-frise-labs { display:flex; justify-content:space-between; font-family:var(--fm); font-size:10px; color:var(--steel); margin-top:5px; letter-spacing:.04em; }
+  /* Frise gauge : stable -> crise, GREEN gauche (calm) -> RED droite (crise).
+     Wrap frise + labels dans ps-frise-wrap pour aligner les ticks. */
+  .page-star .ps-frise-wrap { flex:0 0 260px; min-width:200px; display:block; margin-top:10px; }
+  .page-star .ps-frise { height:4px; border-radius:2px; background:linear-gradient(90deg,color-mix(in srgb,var(--acc) 60%,transparent),color-mix(in srgb,var(--warn) 55%,transparent) 50%,color-mix(in srgb,var(--bear) 65%,transparent)); position:relative; }
+  .page-star .ps-frise-mark { position:absolute; top:50%; width:10px; height:10px; background:var(--ink); border-radius:50%; transform:translate(-50%,-50%); border:2px solid var(--bg); box-shadow:0 1px 3px rgba(0,0,0,.2); }
+  .page-star .ps-frise-labs { display:grid; grid-template-columns:repeat(4, 1fr); font-family:var(--fm); font-size:10px; color:var(--steel); margin-top:8px; letter-spacing:.06em; text-transform:uppercase; cursor:help; }
+  .page-star .ps-frise-labs span { text-align:center; }
+  .page-star .ps-frise-labs span:first-child { text-align:left; }
+  .page-star .ps-frise-labs span:last-child { text-align:right; }
   /* ps-grid : flex inline row au lieu de 3-col grid card */
   .page-star .ps-grid { display:flex; flex-wrap:wrap; gap:24px; margin:0; }
   .page-star .ps-cell { display:flex; align-items:baseline; gap:6px; }

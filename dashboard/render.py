@@ -3687,8 +3687,12 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         + f'<div class="ps-val {_phase_col}">{clabel}</div>'
         + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}</div>'
         + "</div>"
+        + '<div class="ps-frise-wrap">'
         + f'<div class="ps-frise"><div class="ps-frise-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
-        + '<div class="ps-frise-labs"><span>stable</span><span>stress</span><span>alerte</span><span>crise</span></div>'
+        + '<div class="ps-frise-labs" data-tip="Macro regime scale (V3 debt_monitor composite, exploratory). STABLE = calm vol + tight spreads + risk-on. STRESS = rising vol or widening credit, no panic. ALERT = clear deterioration, defensive posture warranted. CRISIS = full risk-off, large drawdowns, severe credit/vol stress.">'
+        + '<span>stable</span><span>stress</span><span>alert</span><span>crisis</span>'
+        + '</div>'
+        + '</div>'
         + f'{_macro_sparkline}'
         + "</div>"
     )
