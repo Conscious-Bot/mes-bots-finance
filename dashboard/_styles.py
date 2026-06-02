@@ -1155,5 +1155,31 @@ _DBA_CSS = r"""
   .dba-honest { font-family:var(--fm); font-size:14px; color:var(--warn); margin-top:8px; padding:7px 11px; background:color-mix(in srgb, var(--warn) 6%, transparent); border-left:2px solid var(--warn); border-radius:var(--r1); line-height:1.5; }
   .dba-arrow { font-family:var(--fm); font-size:15px; color:var(--steel); margin-top:var(--s3); }
   .dba-arrow .v { color:var(--ink); font-weight:600; }
+
+  /* DNA v2 surface d'honnetete : carte calibration Brier vs baseline */
+  .calib-card { background:var(--bg); border:1px solid var(--line); border-radius:var(--r3); padding:18px 22px; }
+  .calib-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .calib-row .calib-lbl { font-family:var(--fb); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); font-weight:500; }
+  .calib-row .calib-val { font-family:var(--fm); font-size:32px; font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; line-height:1; letter-spacing:-.01em; }
+  .calib-row .calib-val.muted { color:var(--steel); opacity:.5; }
+  .calib-row .calib-val.acc { color:var(--acc); }
+  .calib-row .calib-val.warn { color:var(--warn); }
+  .calib-row .calib-val.bear { color:var(--bear); }
+  .calib-row .calib-baseline { font-family:var(--fm); font-size:12px; color:var(--steel); }
+  .calib-row .calib-delta { font-family:var(--fm); font-size:13px; margin-left:auto; padding:2px 9px; border-radius:99px; border:1px solid currentColor; font-variant-numeric:tabular-nums; }
+  .calib-row .calib-delta.acc { color:var(--acc); }
+  .calib-row .calib-delta.bear { color:var(--bear); }
+  .calib-axis { position:relative; height:34px; margin:18px 0 8px; }
+  .calib-axis .calib-track { position:absolute; left:0; right:0; top:8px; height:4px; background:linear-gradient(90deg, var(--acc), color-mix(in srgb,var(--acc) 40%,var(--steel)) 40%, var(--steel) 50%, color-mix(in srgb,var(--bear) 40%,var(--steel)) 60%, var(--bear)); border-radius:2px; }
+  .calib-axis .calib-baseline-tick { position:absolute; top:4px; width:2px; height:12px; background:var(--ink); opacity:.6; border-radius:1px; transform:translateX(-50%); }
+  .calib-axis .calib-baseline-tick::after { content:"baseline"; position:absolute; bottom:-14px; left:50%; transform:translateX(-50%); font-family:var(--fm); font-size:10px; color:var(--steel); white-space:nowrap; }
+  .calib-axis .calib-mark { position:absolute; top:5px; width:10px; height:10px; background:var(--ink); border:2px solid var(--bg); border-radius:50%; transform:translateX(-50%); box-shadow:0 0 0 1px var(--ink); }
+  .calib-axis .calib-scale { display:flex; justify-content:space-between; position:absolute; left:0; right:0; top:24px; font-family:var(--fm); font-size:10px; color:var(--steel); }
+  .calib-axis .calib-scale span:nth-child(2) { visibility:hidden; }
+  .calib-meta { margin-top:18px; }
+  .calib-badge { display:inline-block; font-family:var(--fm); font-size:11px; font-weight:500; letter-spacing:.04em; padding:3px 10px; border-radius:99px; border:1px solid currentColor; }
+  .calib-badge.acc { color:var(--acc); }
+  .calib-badge.warn { color:var(--warn); }
+  .calib-honest { font-family:var(--fb); font-size:12px; color:var(--steel); margin-top:12px; padding:10px 12px; background:var(--panel); border-left:2px solid var(--line2); border-radius:var(--r1); line-height:1.55; }
 </style>
 """

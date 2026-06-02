@@ -4504,27 +4504,66 @@ def _dba_bar(state: str, count: int, total: int) -> str:
 
 
 def _dba_predictions_brier_html(brier_avg: float | None, brier_n: int) -> str:
-    """Affichage Brier honnete (user 01/06) : N<10 = bruit, ne pas afficher
-    comme metrique. N>=10 sur cohorte V1 figee = caveater fort.
+    """Calibration card honnete (DNA v2 surface d'honnetete).
 
-    Baseline canonique : 0.25 = Brier du predicteur constante 0.5 (le plus
-    faible, qui hedge tout a 50/50). Le NOMMER explicitement -- sinon
-    'Brier 0.25' lit faussement comme victoire alors que c'est le no-info.
-    Le vrai referent de skill = b(1-b) avec b = taux de base (post-J-day,
-    quand N=35 le justifiera)."""
+    Design : visualisation Brier vs baseline 0.25 (predicteur constante 0.5).
+    Le honnete = afficher la baseline explicitement, badge fiabilite N<20,
+    nommer le drift quand applicable."""
     if not brier_n:
-        return '<div class="dba-meta">Brier: no resolved prediction to measure</div>'
-    if brier_n < 10:
-        return (f'<div class="dba-meta">Brier: N={brier_n} '
-                f'(insufficient &mdash; meaningful threshold N&ge;10)</div>')
+        return (
+            '<div class="calib-card">'
+            '<div class="calib-row">'
+            '<span class="calib-lbl">BRIER</span>'
+            '<span class="calib-val muted">--</span>'
+            '<span class="calib-baseline">baseline 0.250</span>'
+            '</div>'
+            '<div class="calib-meta">N=0 &middot; no resolved prediction yet</div>'
+            '</div>'
+        )
+    # Position du marker sur axis 0..0.50 (visual range)
+    AXIS_MAX = 0.50
+    brier_pos = max(0.0, min(100.0, brier_avg / AXIS_MAX * 100))
+    baseline_pos = 0.25 / AXIS_MAX * 100  # 50%
+    # Drift signal vs baseline
+    delta = brier_avg - 0.25
+    delta_str = f"{'+' if delta >= 0 else ''}{delta:.3f}"
+    drift_cls = "bear" if delta > 0 else "acc"
+    drift_lbl = "worse than baseline" if delta > 0 else "beats baseline"
+    # Fiabilite badge
+    if brier_n < 20:
+        reliability = (
+            f'<span class="calib-badge warn" title="N&lt;20 = not yet reliable">'
+            f'N={brier_n} &middot; not yet reliable</span>'
+        )
+    else:
+        reliability = (
+            f'<span class="calib-badge acc" title="N&ge;20 = reliable enough to compare">'
+            f'N={brier_n} &middot; reliable</span>'
+        )
+    val_cls = "acc" if brier_avg < 0.20 else ("warn" if brier_avg < 0.25 else "bear")
     return (
-        f'<div class="dba-meta">Brier mean: {brier_avg:.3f} sur N={brier_n} '
-        f'&middot; vs 0.25 (constant 0.5 predictor, weakest baseline)</div>'
-        f'<div class="dba-honest">V1 cohort frozen (probability_at_creation = '
-        f'source credibility snapshot &asymp; 0.5). Beating 0.25 does not demonstrate '
-        f'not a skill -- just an improvement over the weakest predictor '
-        f'weak. Real V2 calibration = post-August (N V2 suffisant + comparaison '
-        f'to the base-rate predictor).</div>'
+        '<div class="calib-card">'
+        '<div class="calib-row">'
+        '<span class="calib-lbl">BRIER</span>'
+        f'<span class="calib-val {val_cls}">{brier_avg:.3f}</span>'
+        '<span class="calib-baseline">baseline 0.250</span>'
+        f'<span class="calib-delta {drift_cls}">{delta_str} &middot; {drift_lbl}</span>'
+        '</div>'
+        '<div class="calib-axis">'
+        '<div class="calib-track"></div>'
+        f'<div class="calib-baseline-tick" style="left:{baseline_pos:.1f}%" title="baseline 0.250"></div>'
+        f'<div class="calib-mark" style="left:{brier_pos:.1f}%" title="Brier {brier_avg:.3f}"></div>'
+        '<div class="calib-scale"><span>0</span><span>0.25 baseline</span><span>0.5</span></div>'
+        '</div>'
+        '<div class="calib-meta">'
+        f'{reliability}'
+        '</div>'
+        '<div class="calib-honest">'
+        'Baseline 0.250 = constant 0.5 predictor (weakest possible). '
+        'Beating it requires meaningful prediction skill ; matching it = no signal. '
+        'Real benchmark = base-rate predictor b(1-b), shown post J+30 batch when N=35.'
+        '</div>'
+        '</div>'
     )
 
 
