@@ -960,7 +960,7 @@ def _return_clustering_panel() -> str:
     if not row:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Premiere mesure des doublons par correlation prevue samedi 18h. Une fois disponible, les paires qui bougent ensemble apparaitront ici."
+            "First overlap measurement by correlation scheduled Saturday 18:00. Once available, pairs moving together will appear here."
             "</div></div>"
         )
     import json as _json
@@ -1210,7 +1210,7 @@ def _spof_panel() -> str:
 
     Critique : 'Ta vraie concentration n'est pas dans le book, elle est en
     amont : TSMC fabrique pour AMD, Broadcom, Astera. Un incident TSMC touche
-    bien plus que la ligne TSMC. HBM = 3 fournisseurs, EUV = ASML seul.'
+    far more than TSMC alone. HBM = 3 suppliers, EUV = ASML only.'
     """
     try:
         from intelligence import spof_and_sizing as _sp
@@ -1221,7 +1221,7 @@ def _spof_panel() -> str:
     if not spofs:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Classification des tickers en cours. Les fiches techniques apparaitront ici une fois la passe terminee."
+            "Ticker classification in progress. Tech sheets will appear here once the pass is complete."
             "</div></div>"
         )
     rows = []
@@ -1300,8 +1300,8 @@ def _mauboussin_sizing_panel() -> str:
         fragile_flag = ""
         if tk in bull_tickers:
             fragile_flag = (
-                '<span class="ms-frag" title="aussi flagge valo > bull case '
-                'dans une autre vue">valo &gt; bull</span>'
+                '<span class="ms-frag" title="also flags valo > bull case '
+                'in another view">valo &gt; bull</span>'
             )
         rows.append(
             f'<div class="ms-row">'
@@ -1330,7 +1330,7 @@ def _valo_above_bull_panel() -> str:
 
         flags = _sp.list_above_bull_case()
     except Exception as e:
-        return f'<div class="card pad"><div class="empty">valo indispo: {type(e).__name__}</div></div>'
+        return f'<div class="card pad"><div class="empty">valo unavailable: {type(e).__name__}</div></div>'
     if not flags:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
@@ -1415,7 +1415,7 @@ def _factor_exposures_panel() -> str:
     return (
         '<div class="card pad factorscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Bets du portefeuille</span>'
-        '<span class="a">sur quoi tu paries vraiment, par facteur macro &middot; un seul gros pari domine</span></div>'
+        '<span class="a">what you really bet on, by macro factor &middot; a single big bet dominates</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -1701,7 +1701,7 @@ def _preferences_panel() -> str:
     if not prefs:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Calibration mensuelle prevue le 1er du mois. Les preferences (ce qui a marche chez toi) apparaitront ici une fois les decisions accumulees."
+            "Monthly calibration scheduled 1st of month. Preferences (what worked for you) will appear here once decisions accumulate."
             "</div></div>"
         )
     groups: list[str] = []
@@ -1776,7 +1776,7 @@ def _conceptions_panel() -> str:
     if not concs:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Synthese hebdomadaire prevue dimanche 19h. Une fois generees, les vues stables du bot par ticker apparaitront ici."
+            "Weekly summary scheduled Sunday 19:00. Once generated, bot's stable per-ticker views will appear here."
             "</div></div>"
         )
     rows = []
@@ -1878,7 +1878,7 @@ def _chat_signals_panel() -> str:
     return (
         '<div class="card pad chatsigcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">What you let slip in conversation</span>'
-        '<span class="a">concerns / doutes / vues que le bot capte chaque message &middot; nourrit ton profil</span></div>'
+        '<span class="a">concerns / doubts / views the bot captures each message &middot; feeds your profile</span></div>'
         f'<div class="cs-grid">{"".join(groups_html)}</div>'
         '</div>'
     )
@@ -1949,7 +1949,7 @@ def _narrative_panel() -> str:
     if not raw:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Synthese narrative hebdomadaire prevue dimanche 20h30. Les clusters narratifs apparaitront ici une fois generes."
+            "Weekly narrative synthesis scheduled Sunday 20:30. Narrative clusters will appear here once generated."
             "</div></div>"
         )
     clusters = _json.loads(raw.get("clusters_json") or "[]")
@@ -2398,13 +2398,13 @@ def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
             f'<span class="tk">{_ticker_logo(tk)}{tk}{flag}</span><span class="tag {cls}">{arrow}&nbsp;{abs(pnl):.1f}%</span></div>'
             f'<div class="axis"><div class="axis-mark" style="left:{pc:.1f}%" title="{pc:.1f}%"></div></div>'
-            f'<div class="rs"><span>vers la target</span><span class="mono">{prog:.0f}%</span></div></div>'
+            f'<div class="rs"><span>toward target</span><span class="mono">{prog:.0f}%</span></div></div>'
         )
     return "".join(rows), hits, top
 
 
 def _elan_watch(computed: list[dict]) -> tuple[str, int]:
-    """Course vers la target : winners proches du target (axe anti-biais #1, cadrage positif)."""
+    """Race toward target: winners near target (anti-bias #1 axis, positive framing)."""
     data = []
     for r in computed:
         e, t, c = r.get("entry") or 0, r.get("target_full") or 0, r.get("current_price") or 0
@@ -2451,13 +2451,13 @@ def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
             f'<span class="tk">{tk}{flag}</span><span class="tag {cls}">{down:.0f}%</span></div>'
             f'<div class="axis"><div class="axis-mark" style="left:{buf:.1f}%" title="{buf:.1f}%"></div></div>'
-            f'<div class="rs"><span>marge avant le stop</span></div></div>'
+            f'<div class="rs"><span>margin before stop</span></div></div>'
         )
         if is_near:
             near_rows.append(f'<div class="line"><span>{tk}</span><span class="mono">{down:.0f}% de marge</span></div>')
     watch = (
         "".join(near_rows)
-        or '<div class="empty" style="padding:var(--s4) 0">nonee marge faible &mdash; calme</div>'
+        or '<div class="empty" style="padding:var(--s4) 0">no low margin &mdash; calm</div>'
     )
     return "".join(rows), near, heat, watch
 
@@ -2558,7 +2558,7 @@ def _concentration(
     if dom_these_pct >= NARRATIVE_CAP:
         cbits.append("thesis au-dessus du cap")
     if over_cap:
-        cbits.append(f"{over_cap} ligne(s) hors cap")
+        cbits.append(f"{over_cap} position(s) outside cap")
     if cluster_breached:
         cbits.append("correlated cluster above cap")
     cause = " &middot; ".join(cbits) or "tout sous les caps"
@@ -2604,7 +2604,7 @@ def _concentration(
     else:
         _oc_color = "bear"
     _overcap_meta = (
-        f'<b class="{_oc_color}">{over_cap}</b> ligne(s) au-dessus du cap {POS_CAP:.0f}%'
+        f'<b class="{_oc_color}">{over_cap}</b> position(s) above cap {POS_CAP:.0f}%'
         + (f" &middot; {over_nm}" if over_nm else "")
     )
     star_strate_verdict = (
@@ -3057,7 +3057,7 @@ def _signaux() -> str:
     )
     star_strate_foot = (
         '<div class="ps-strate ps-foot">'
-        + f'{nsrc} sources actives &middot; recalibrage credibility 1er du mois'
+        + f'{nsrc} active sources &middot; credibility recalibration 1st of month'
         + "</div>"
     )
     star_signaux = (
@@ -3121,7 +3121,7 @@ _MACRO_TIPS: dict[str, str] = {
     "DXY": "USD vs 6 majeures. > 105 = vent contraire multinationales US ; > 110 = stress global.",
     "BTC_drawdown180": "Drawdown BTC vs max 6 mois. < -30% = bear risk-off, < -50% = capitulation. Capte le stress crypto reel sans confondre avec level brut.",
     "MOVE": "VIX des Treasuries. > 130 = stress obligataire, souvent avancé sur actions.",
-    "T10Y2Y": "Curve des taux 10A-2A. Dé-inversion (passage <0 vers >0) = récession dans 3-6 mois.",
+    "T10Y2Y": "10Y-2Y rate curve. De-inversion (cross from <0 to >0) = recession in 3-6 months.",
     "BankReserves": "Cash bancaire à la Fed. < 2.5T = stress plomberie imminent.",
     "RepoSRF": "Standing Repo Facility. > 30B = banques court de cash, alarme plomberie aiguë.",
     "FedBalance_yoy": "Bilan Fed variation YoY %. > +20% = QE emergency (Fed combat crash). < -10% = QT agressif. +- 5% = stable.",
@@ -3403,7 +3403,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGNED", "concentration sous les caps"
     t_cap = "marge restante OK" if near_t else "rien proche de la target"
     s_cls = "bear" if near else "acc"
-    s_cap = "to watch" if near else "calme"
+    s_cap = "to watch" if near else "calm"
     star_grid = (
         '<div class="ps-strate ps-grid">'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Correlated cluster whose cumulative position exceeds cap = action recommended.">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
@@ -3422,10 +3422,10 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     breadth_html = _breadth_rsp_spy()
     return (
         f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h2>Alerts</h2>'
-        f'<div class="sub">&Eacute;lan vers les targets &middot; marge avant les stops &middot; stress macro</div></div>'
+        f'<div class="sub">Momentum toward targets &middot; margin before stops &middot; macro stress</div></div>'
         f"{star}"
         f'<div class="cols">'
-        f'<div><div class="ph3">Course vers la target</div><div class="card pad">{elan}</div></div>'
+        f'<div><div class="ph3">Race toward target</div><div class="card pad">{elan}</div></div>'
         f'<div><div class="ph3">Marges les plus faibles</div><div class="card pad">{watch}</div></div>'
         f'<div><div class="ph3">Moniteur de stress macro &mdash; score {score:.0f}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
@@ -3574,7 +3574,7 @@ def _cockpit() -> str:
         cell("Decisions logged &middot; 30d", str(dec_30d), dec_sub, dec_color)
         + cell("Batch Brier", countdown, countdown_sub, cd_color)
         + cell(
-            "Book reconciliation", f"{drift_count} ligne{'s' if drift_count > 1 else ''}", drift_sub, drift_color
+            "Book reconciliation", f"{drift_count} position{'s' if drift_count > 1 else ''}", drift_sub, drift_color
         )
         + cell("Panic sells core", str(panic), panic_sub, panic_color)
     )
@@ -3811,7 +3811,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         if not grp:
             continue
         _tgt_tier = (_caps.get(c, 0) / _sumcaps * 100) if _caps.get(c) else None
-        _tgt_lab = f" &middot; target {_tgt_tier:.1f}%/ligne" if _tgt_tier else ""
+        _tgt_lab = f" &middot; target {_tgt_tier:.1f}%/position" if _tgt_tier else ""
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
@@ -5245,17 +5245,17 @@ _APP_JS = """
     function overview(){
       for(var k in groups){groups[k].classList.remove('on');groups[k].classList.remove('dim');}
       var top=sorted[0],tp=Math.round(top.tw/total*100),ov=tp>=30;
-      PANEL.innerHTML='<div style="font-family:var(--fb);font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin-bottom:var(--s25)">Vue d&rsquo;ensemble</div>'
+      PANEL.innerHTML='<div style="font-family:var(--fb);font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin-bottom:var(--s25)">Overview</div>'
         +rw('Plus gros sector',top.name+' &middot; '+tp+'%',ov?'var(--bear)':'var(--acc)')
-        +rw('Lignes total',DATA.reduce(function(a,s){return a+s.t.length;},0)+'')
+        +rw('Total positions',DATA.reduce(function(a,s){return a+s.t.length;},0)+'')
         +'<div style="margin-top:var(--s3);font-size:15px;color:'+(ov?'var(--warn)':'var(--steel)')+'">'+(ov?('&#9888; '+top.name+' au-dessus du cap 30%'):'sous le cap 30%')+'</div>'
-        +'<div style="margin-top:var(--s35);font-size:14px;color:var(--steel)">clique un sector pour voir ses lignes</div>';
+        +'<div style="margin-top:var(--s35);font-size:14px;color:var(--steel)">click a sector to see its positions</div>';
     }
     function showSector(name){
       var s=null;DATA.forEach(function(d){if(d.name===name)s=d;});if(!s)return;
       for(var k in groups){if(k===name){groups[k].classList.add('on');groups[k].classList.remove('dim');}else{groups[k].classList.remove('on');groups[k].classList.add('dim');}}
       var rows=s.t.slice().sort(function(a,b){return b.w-a.w;}).map(function(x){var pc=x.pnl==null?'var(--steel)':(x.pnl>=0?'var(--acc)':'var(--bear)');return '<div class="sbrow" data-tk="'+x.tk+'"><span class="mono">'+x.tk+'</span><span style="display:flex;gap:var(--s3);align-items:center"><span class="mono" style="width:48px;text-align:right;color:'+pc+'">'+pv(x.pnl)+'</span><span class="mono" style="color:var(--steel);font-size:14px">stop '+(x.down==null?'&mdash;':x.down+'%')+'</span></span></div>';}).join('');
-      PANEL.innerHTML='<div class="sb-back" style="cursor:pointer;color:var(--steel);font-size:14px;margin-bottom:var(--s2)">&larr; vue d&rsquo;ensemble</div><div style="display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s25)"><span style="width:10px;height:10px;border-radius:2px;background:'+s.col+'"></span><span style="font-family:var(--fd);font-weight:500;font-size:16px">'+s.name+'</span><span class="mono" style="color:var(--steel);font-size:15px">'+Math.round(s.tw/total*100)+'% &middot; '+s.t.length+' lignes</span></div>'+rows+'<div style="margin-top:var(--s25);font-size:14px;color:var(--steel)">clique un titre pour sa fiche</div>';
+      PANEL.innerHTML='<div class="sb-back" style="cursor:pointer;color:var(--steel);font-size:14px;margin-bottom:var(--s2)">&larr; overview</div><div style="display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s25)"><span style="width:10px;height:10px;border-radius:2px;background:'+s.col+'"></span><span style="font-family:var(--fd);font-weight:500;font-size:16px">'+s.name+'</span><span class="mono" style="color:var(--steel);font-size:15px">'+Math.round(s.tw/total*100)+'% &middot; '+s.t.length+' lignes</span></div>'+rows+'<div style="margin-top:var(--s25);font-size:14px;color:var(--steel)">clique un titre pour sa fiche</div>';
     }
     PANEL.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('.sb-back'))overview();});
     overview();
@@ -5592,8 +5592,8 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     return (
         f'<div class="brk"><div class="brk-h"><div><span class="brk-n">{label}</span>'
         f'<span class="brk-note">{note}</span></div>'
-        f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} lignes &middot; {share:.0f}% du total</span></div></div>'
-        f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:var(--s1) 18px"><table class="dt"><thead><tr><th>Ligne</th>'
+        f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} positions &middot; {share:.0f}% of total</span></div></div>'
+        f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:var(--s1) 18px"><table class="dt"><thead><tr><th>Position</th>'
         f'<th class="num">Valeur</th><th class="num">Poids</th><th class="num">P&amp;L</th>'
         f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (laisser courir). <1 = inverse (candidate trim).">Asymmetry</th></tr></thead>'
         f"<tbody>{rows}</tbody></table></div></div></div></div>"
@@ -5626,7 +5626,7 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
     )
 
 
-_MODE_BTN = """<button class="modetgl" title="Mode jour / nuit" aria-label="Basculer mode jour / nuit" onclick="document.body.classList.toggle('midnight');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('midnight')?'midnight':'parchment')}catch(e){}"><svg class="ico-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>"""
+_MODE_BTN = """<button class="modetgl" title="Day / night mode" aria-label="Toggle day / night mode" onclick="document.body.classList.toggle('midnight');try{localStorage.setItem('hmdl-theme',document.body.classList.contains('midnight')?'midnight':'parchment')}catch(e){}"><svg class="ico-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>"""
 _THEME_INIT = (
     "<script>"
     "try{"
@@ -5880,7 +5880,7 @@ def _discipline_biais_panel() -> str:
     _jday = _date(2026, 6, 10)
     _delta_jday = (_jday - _today_d).days
     if _delta_jday > 0:
-        _jday_str = f"J-{_delta_jday} avant batch 10/06"
+        _jday_str = f"J-{_delta_jday} before batch 10/06"
     elif _delta_jday == 0:
         _jday_str = "J-day batch 10/06 (aujourd'hui)"
     else:
@@ -6274,7 +6274,7 @@ def render() -> Path:
         + f'<div class="ps-val {_pnl_star_cls}" style="font-size:21px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         + f'{_sparkline}'
         + '</div>'
-        + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> en gain &middot; {n_gain} lignes &middot; {n_pnl - n_gain} en perte ({100 - gpct:.0f}%) {_val_delta_str}</div>'
+        + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> in profit &middot; {n_gain} positions &middot; {n_pnl - n_gain} in loss ({100 - gpct:.0f}%) {_val_delta_str}</div>'
         + '</div>'
         + '<div class="ps-hero-right">'
         + '<div class="ps-lbl" data-tip="Global Construction + Fragility grade. Construction = Solidity/Bet/Overlap/Calibration. Fragility = Health/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Portfolio grade</div>'
@@ -6408,13 +6408,13 @@ def render() -> Path:
     n_stop, n_watch, n_tgt = len(near_stop_tk), len(watch_zone_tk), len(near_tgt_tk)
     if n_stop:
         _post_cls, _post_lbl = "bear", "ALERT"
-        _post_cap = f"{n_stop} ligne(s) au stop &lt; 10% &middot; check before session"
+        _post_cap = f"{n_stop} position(s) at stop &lt; 10% &middot; check before session"
     elif n_watch:
         _post_cls, _post_lbl = "warn", "WATCH"
-        _post_cap = f"{n_watch} ligne(s) en zone 10-20% du stop &middot; marge restante"
+        _post_cap = f"{n_watch} position(s) in 10-20% from stop zone &middot; remaining margin"
     elif n_tgt:
         _post_cls, _post_lbl = "acc", "TAKE&nbsp;PROFIT"
-        _post_cap = f"{n_tgt} ligne(s) proche(s) d&rsquo;un palier"
+        _post_cap = f"{n_tgt} position(s) near a level"
     else:
         _post_cls, _post_lbl = "acc", "AT&nbsp;REST"
         _post_cap = "no position en zone critique &middot; surveiller la drift"
@@ -6426,7 +6426,7 @@ def render() -> Path:
         + '<div class="ps-lbl">Positions posture</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_post_cls}">{_post_lbl}</div>'
-        + f'<div class="ps-macro-meta">{len(positions)} lignes &middot; sizing &times;{_sfac:.1f}</div>'
+        + f'<div class="ps-macro-meta">{len(positions)} positions &middot; sizing &times;{_sfac:.1f}</div>'
         + "</div>"
         + f'<div class="ps-cap">{_post_cap}</div>'
         + "</div>"
@@ -6471,7 +6471,7 @@ def render() -> Path:
                 (f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;", "concentration")
             )
     if near:
-        _dev_items.append((f"{near} ligne(s) &lt; 10% du stop", "risque"))
+        _dev_items.append((f"{near} position(s) &lt; 10% from stop", "risque"))
     _dn = len(_dev_items)
     _dcls, _dverdict = ("bear", "FRICTIONS") if _dn else ("acc", "ALIGNED")
     _ddetail = (
