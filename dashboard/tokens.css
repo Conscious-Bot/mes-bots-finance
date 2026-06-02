@@ -116,7 +116,7 @@
      Cold whites/grays. Single accent bleu encre. Zero warm parchemin.
      Zero green/red moral. Couleur = fait, jamais jugement. */
   --bg:    #FFFFFF;   /* blanc net, neutre froid */
-  --panel: #F7F8FA;   /* surface gris froid pour cards posees dessus */
+  --panel: #F4F7FC;   /* surface tres legerement bleutee ciel (user 02/06 iter) */
 
   /* --- 2. ENCRE -- gris fonce, JAMAIS noir pur ----------------------- */
   --ink:   #1C1E21;   /* primaire (jamais #000) */
@@ -198,7 +198,7 @@
 body.midnight {
   /* Dark mode v2 : cold neutral (no warm noir). Single blue accent reste. */
   --bg:    #0F1115;   /* cold near-black */
-  --panel: #161A20;
+  --panel: #161B23;   /* tres legerement bleute, match light tint */
   --ink:   #E6E8EB;   /* cold off-white (no ivory) */
   --ink2:  #C8CCD2;
   --steel: #8B919A;
