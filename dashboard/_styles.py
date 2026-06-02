@@ -442,6 +442,10 @@ _CSS = """
   .cta-result .cnm { color:var(--steel); font-size:16px; }
   .cta-result .tklogo { width:24px; height:24px; padding:2px; margin-right:4px; }
   .cta-result .tklogo.tkfb { font-size:14px; }
+  /* Cmd+K highlight match : bold + couleur accent --data sur les chars matches.
+     Donne le retour visuel signature Linear/VSCode sur la pertinence. */
+  .cta-result .ctk b, .cta-result .cnm b { color:var(--data); font-weight:700; font-style:normal; }
+  .cta-result.sel .ctk b, .cta-result.sel .cnm b { color:var(--data); }
   .tag { font-family:var(--fm); font-weight:600; font-size:14px; padding:3px 9px; border-radius:var(--r1); }
   .tag.up { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); } .tag.acc2 { color:var(--acc2); background:color-mix(in srgb, var(--acc2) 12%, transparent); }
   .tag.down,.tag.danger { color:var(--bear); background:color-mix(in srgb, var(--bear) 13%, transparent); } .tag.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 14%, transparent); } .tag.calm { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); } .tag.mute { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); }
