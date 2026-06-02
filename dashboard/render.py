@@ -120,7 +120,7 @@ def _cached_price_native(ticker: str) -> float | None:
     Pour comparer aux stop_price/target_full qui sont en NATIVE (cf memory
     currency_native_invariant). Bug fix 31/05 : _theses() utilisait
     _cached_price_eur pour comparer a stop/tgt native -> %.absurdes (4063.T
-    cible +23876%, 000660.KS cible +175408%)."""
+    target +23876%, 000660.KS target +175408%)."""
     import time as _t
 
     now = _t.monotonic()
@@ -145,7 +145,7 @@ def _stop_distance_pct_native(ticker: str, stop_price: float | None) -> float | 
     Respecte [[currency-native-invariant]] : stop_price (et target_full,
     target_partial) sont stockes en native currency du ticker. Comparer a
     un current_price_eur produit des % absurdes (4063.T -11089%, 000660.KS
-    cible +175408% etc.). Helper canonique pour TOUS les sites qui calculent
+    target +175408% etc.). Helper canonique pour TOUS les sites qui calculent
     une distance pct vs un prix-these (stop/target/entry).
 
     Returns None si stop manquant, current introuvable, ou stop <= 0.
@@ -252,15 +252,15 @@ TICKER_SECTOR = {
 SECTOR_ALIAS = {"EU Defense": "Defense"}
 
 
-# Glossaire canonique (FR). Mapping dim internal name -> (label affiche, sens cible,
+# Glossaire canonique (FR). Mapping dim internal name -> (label affiche, sens target,
 # bucket Construction/Fragilite). Construction = ce qui structure le book.
 # Fragilite = ce qui peut le briser maintenant.
 _DIM_LABELS = {
     "quality_T1_plus": ("Solidit&eacute; haute", "min", "construction"),
     "T2_redondant": ("Doublons", "max", "construction"),
-    "decorrelation_star": ("Autres paris", "min", "construction"),
+    "decorrelation_star": ("Autres bets", "min", "construction"),
     "sizing_conviction": ("Calibrage", "min", "construction"),
-    "cluster_cap": ("Pari principal", "max", "construction"),
+    "cluster_cap": ("Bet principal", "max", "construction"),
     "thesis_health": ("Sant&eacute;", "min", "fragilite"),
     "cycle_valo_exposure": ("Cycle / valo", "max", "fragilite"),
 }
@@ -312,7 +312,7 @@ def _v2_cohort_panel() -> str:
     v2_lo, v2_hi, v2_b = v2_range['lo'] or 0, v2_range['hi'] or 0, v2_range['buckets'] or 0
 
     v2_status = (
-        '<div class="v2-status v2-empty">Premi&egrave;re coh&egrave;rte V2 attendue '
+        '<div class="v2-status v2-empty">First V2 cohort expected '
         '31/05 6:30 (cron 8-K scan + 6:20 insider clusters)</div>'
         if v2_n == 0
         else f'<div class="v2-stat-row">'
@@ -327,7 +327,7 @@ def _v2_cohort_panel() -> str:
         f'<span class="v2-stat-rg mono">[{v1_lo:.3f} - {v1_hi:.3f}]</span>'
         f'<span class="v2-stat-bk mono">{v1_b} bucket(s)</span></div>'
         if v1_n > 0
-        else '<div class="v2-status v2-empty">aucune pr&eacute;diction V1</div>'
+        else '<div class="v2-status v2-empty">aucune prediction V1</div>'
     )
 
     return (
@@ -375,7 +375,7 @@ def _calibration_progress_panel() -> str:
         return (
             '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
             '<div class="colhead"><span class="t">Calibration scorer V2</span>'
-            f'<span class="a">accumulation cohorte &mdash; verdict s&apos;active &agrave; n&ge;{target} predictions r&eacute;solues non-neutral</span></div>'
+            f'<span class="a">cohort accumulation &mdash; verdict activates at n&ge;{target} non-neutral resolved predictions</span></div>'
             '<div class="calib-progress">'
             f'<div class="calib-bar"><div class="calib-fill" style="width:{pct:.1f}%"></div></div>'
             '<div class="calib-meta">'
@@ -447,7 +447,7 @@ def _wire_activity_panel() -> str:
         '<div class="colhead"><span class="t">Wire EDGAR activity</span>'
         '<span class="a">8-K + insider clusters arriv&eacute;s dans le pipeline scoring V2</span></div>'
         f'<div class="wact-grid">{cells}</div>'
-        '<div class="wact-recent-head">Derni&egrave;res 5 d&eacute;p&ocirc;ts 8-K (toutes severities)</div>'
+        '<div class="wact-recent-head">Latest 5 8-K filings (toutes severities)</div>'
         f'<div class="wact-recent-list">{last_rows}</div></div>'
     )
 
@@ -614,7 +614,7 @@ def _risk_watch_panel() -> str:
             construction_lens = (
                 '<div class="rw-lens">'
                 'Phase construction active &middot; '
-                "l'expo actuelle se diluera mecaniquement vers la cible "
+                "l'expo actuelle se diluera mecaniquement vers la target "
                 "quand les decorrelants (Energie-pour-IA, Defense, Robotique) entreront. "
                 '<b>Lecture : surveiller, pas corriger.</b>'
                 '</div>'
@@ -635,7 +635,7 @@ def _grade_panel() -> str:
     """Glossaire canonique : DEUX notes (Construction + Fragilite), chacune
     decomposee par axe. Vocabulaire FR clair, plus de jargon T1/T1★/cluster.
 
-    - Construction = Solidite + Pari + Doublons + Calibrage (ce qui structure)
+    - Construction = Solidite + Bet + Doublons + Calibrage (ce qui structure)
     - Fragilite = Sante + cycle/valo (ce qui peut briser maintenant)
     """
     try:
@@ -731,7 +731,7 @@ def _grade_panel() -> str:
                 f'<div class="gaxis"><div class="gfill {tcls}" style="width:{bar_pct:.1f}%"></div>'
                 f'<div class="gtgt" style="left:{tgt:.1f}%"></div></div>'
                 f'<div class="gnum"><span class="mono">{cur:.1f}%</span>'
-                f'<span class="gt">cible {prefix} {tgt:.0f}%</span></div>'
+                f'<span class="gt">target {prefix} {tgt:.0f}%</span></div>'
                 f'</div>'
                 f'<div class="gsub">'
                 f'<div class="gsub-chips">{chips_html}</div>'
@@ -1138,7 +1138,7 @@ def _benchmark_panel() -> str:
     )
     return (
         '<div class="card pad benchcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Surperformance r&eacute;elle vs secteur</span>'
+        '<div class="colhead"><span class="t">Surperformance r&eacute;elle vs sector</span>'
         f'<span class="a">{bench["bench_window"]} &middot; book vs indice semi-conducteurs PHLX</span></div>'
         f'{warning_html}'
         '<div class="bm-grid">'
@@ -1193,13 +1193,13 @@ def _kill_criteria_panel() -> str:
         )
     items_html = "".join(items) or (
         '<div class="empty" style="padding:var(--s25) 0">aucune these triggered/at_risk &mdash; ' +
-        f'{counts["dormant"]} dormantes</div>'
+        f'{counts["dormant"]} dormant</div>'
     )
     return (
         '<div class="card pad killcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Conditions d\'invalidation des th&egrave;ses</span>'
-        f'<span class="a">d&eacute;clench&eacute;es {counts["triggered"]} &middot; &agrave; risque {counts["at_risk"]} &middot; '
-        f'dormantes {counts["dormant"]} &middot; v&eacute;rifi&eacute; 07h30</span></div>'
+        '<div class="colhead"><span class="t">Conditions d\'invalidation des theses</span>'
+        f'<span class="a">triggered {counts["triggered"]} &middot; at risk {counts["at_risk"]} &middot; '
+        f'dormant {counts["dormant"]} &middot; checked 07:30</span></div>'
         + items_html
         + "</div>"
     )
@@ -1242,7 +1242,7 @@ def _spof_panel() -> str:
         )
     return (
         '<div class="card pad spofcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">D&eacute;pendances cach&eacute;es en amont</span>'
+        '<div class="colhead"><span class="t">Hidden upstream dependencies</span>'
         '<span class="a">si un fournisseur en amont casse, tout ce qui en d&eacute;pend casse aussi</span></div>'
         + "".join(rows)
         + "</div>"
@@ -1309,7 +1309,7 @@ def _mauboussin_sizing_panel() -> str:
             f'<span class="ms-conv mono">c{d["conviction"]}</span>'
             f'<span class="ms-fade {fcls} mono">fade {fade}</span>'
             f'{stop_dist_html}'
-            f'<span class="ms-target mono">cible {d["target_pct"]:.1f}%</span>'
+            f'<span class="ms-target mono">target {d["target_pct"]:.1f}%</span>'
             f'<span class="ms-actual mono">reel {d["actual_pct"]:.1f}%</span>'
             f'<span class="ms-gap {gcls} mono">{gap:+.1f}pp</span>'
             f'{fragile_flag}</div>'
@@ -1317,7 +1317,7 @@ def _mauboussin_sizing_panel() -> str:
     return (
         '<div class="card pad mauboussincard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Calibrage rigoureux</span>'
-        '<span class="a">taille r&eacute;elle vs taille th&eacute;orique (conviction &times; vitesse d\'&eacute;rosion du moat)</span></div>'
+        '<span class="a">real size vs theoretical size (conviction &times; moat erosion speed)</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -1350,7 +1350,7 @@ def _valo_above_bull_panel() -> str:
         )
     return (
         '<div class="card pad valocard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Valos d&eacute;j&agrave; au-del&agrave; du bull case</span>'
+        '<div class="colhead"><span class="t">Valuations already beyond bull case</span>'
         '<span class="a">le prix actuel exige plus que le sc&eacute;nario haussier raisonnable</span></div>'
         + "".join(rows)
         + "</div>"
@@ -1377,7 +1377,7 @@ def _factor_exposures_panel() -> str:
         pct = d["pct_of_book"]
         wcls = "high" if pct >= 30 else ("mid" if pct >= 10 else "low")
         # F9 fix : afficher le theme thesis user a cote de chaque ticker
-        # quand il y a divergence entre le macro_factor (vue Paris) et le
+        # quand il y a divergence entre le macro_factor (vue Bets) et le
         # theme (vue Theses). Ex MHI : macro="Industrial reshoring" mais
         # theme="Defense" -> classification croisee enfin visible.
         themes_overlay = d.get("themes_overlay") or {}
@@ -1414,7 +1414,7 @@ def _factor_exposures_panel() -> str:
         )
     return (
         '<div class="card pad factorscard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Paris du portefeuille</span>'
+        '<div class="colhead"><span class="t">Bets du portefeuille</span>'
         '<span class="a">sur quoi tu paries vraiment, par facteur macro &middot; un seul gros pari domine</span></div>'
         + "".join(rows)
         + "</div>"
@@ -1455,7 +1455,7 @@ def _stress_tests_panel() -> str:
 
 
 def _user_strategy_panel() -> str:
-    """Sprint 19 — affiche la strategie utilisateur declaree (cibles custom)."""
+    """Sprint 19 — affiche la strategie utilisateur declaree (targets custom)."""
     try:
         from pathlib import Path
 
@@ -1483,7 +1483,7 @@ def _user_strategy_panel() -> str:
     tol_validated_at = us.get("drawdown_tolerance_validated_at") or "?"
     accepted_html = ", ".join(accepted) if accepted else "(aucun)"
     # Phase construction : badge en tete pour cadrer la lecture du reste.
-    # Tant que le book n'a pas atteint sa cible (~70k€/~33 pos), les
+    # Tant que le book n'a pas atteint sa target (~70k€/~33 pos), les
     # metriques de concentration sont en convergence, pas en derive.
     construction_html = ""
     if us.get("construction_phase"):
@@ -1503,18 +1503,18 @@ def _user_strategy_panel() -> str:
             '<div class="us-cstr-h">Phase construction</div>'
             f'<div class="us-cstr-b">Le book est en cours de constitution : '
             f'<b class="mono">{cur_eur:,.0f}&nbsp;€</b> / '
-            f'<b class="mono">{tgt_eur:,.0f}&nbsp;€</b> cible '
+            f'<b class="mono">{tgt_eur:,.0f}&nbsp;€</b> target '
             f'(<b>{progress:.0f}%</b> &middot; {cur_pos}/{tgt_pos} positions). '
             "Les decorrelants (Energie-pour-IA, Defense, Robotique) sont en "
             "cours d'ajout. Les ratios de concentration actuels (cluster cap, "
             "ballast strict, expo AI capex) <b>convergeront naturellement</b> "
-            "vers la cible. Lecture informative, pas actionnable : on ne "
+            "vers la target. Lecture informative, pas actionnable : on ne "
             "pousse pas a trim tant que la construction n'est pas terminee."
             '</div>'
             '</div>'
         )
     # CTA "a valider" : lit le drawdown estime sur scenario AI capex -30%
-    # depuis risk_watch.json. Tant que pas valide explicitement, la cible
+    # depuis risk_watch.json. Tant que pas valide explicitement, la target
     # 75% n'a pas ete confirmee par un gut-check sur le chiffre reel.
     cta_html = ""
     if not tol_validated:
@@ -1536,10 +1536,10 @@ def _user_strategy_panel() -> str:
             cta_html = (
                 '<div class="us-cta">'
                 '<div class="us-cta-h">A valider : ta tolerance drawdown</div>'
-                f'<div class="us-cta-b">Ta cible cluster {cap}% implique '
+                f'<div class="us-cta-b">Ta target cluster {cap}% implique '
                 f'<b class="neg mono">{dd_mild}%</b> sur scenario AI capex de-rating '
                 f'-30% (~<b class="neg mono">{dd_eur:+,}&nbsp;€</b>). '
-                "Si voir le book a ce niveau touche ta limite, baisse la cible : la "
+                "Si voir le book a ce niveau touche ta limite, baisse la target : la "
                 "la note globale ne vaut que ce que vaut cette tolerance."
                 '</div>'
                 '<div class="us-cta-f">Pour valider : '
@@ -1595,9 +1595,9 @@ def _trajectory_panel() -> str:
     canon_labels = {
         "quality_T1_plus": "Solidit&eacute; haute",
         "T2_redondant": "Doublons",
-        "decorrelation_star": "Autres paris",
+        "decorrelation_star": "Autres bets",
         "sizing_conviction": "Calibrage",
-        "cluster_cap": "Pari principal",
+        "cluster_cap": "Bet principal",
         "thesis_health": "Sant&eacute;",
     }
     rows = []
@@ -1686,7 +1686,7 @@ def _ticker_axes_panel() -> str:
 def _preferences_panel() -> str:
     """Layer 3 — ce qui MARCHE deterministically pour CE user.
 
-    Pas d'opinion modele, juste les chiffres bruts groupes par kind. La
+    Pas d'opinion modele, juste les chiffres bruts groups par kind. La
     confidence est derivee du sample size (Wilson-conservative). Pas de
     note magique : tout est expose avec n explicit.
     """
@@ -1749,7 +1749,7 @@ def _preferences_panel() -> str:
     return (
         '<div class="card pad preferencescard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Ce qui a march&eacute; chez toi</span>'
-        '<span class="a">samples + winrate sur tes vraies d&eacute;cisions r&eacute;solues &middot; pas d\'opinion mod&egrave;le</span></div>'
+        '<span class="a">samples + winrate on your real resolved decisions &middot; no model opinion</span></div>'
         f'<div class="pr-grid">{"".join(groups)}</div>'
         '</div>'
     )
@@ -1809,7 +1809,7 @@ def _conceptions_panel() -> str:
     return (
         '<div class="card pad conceptionscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Ce que le bot pense par ticker</span>'
-        '<span class="a">synth&egrave;se stable per ticker mise &agrave; jour chaque semaine '
+        '<span class="a">stable per-ticker summary updated weekly '
         '&middot; survole ou clique pour d&eacute;rouler</span></div>'
         + "".join(rows)
         + "<script>document.querySelectorAll('.conceptionscard .bc-row').forEach(function(e){"
@@ -1930,7 +1930,7 @@ def _conversations_panel() -> str:
     return (
         '<div class="card pad conversationscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Historique chat</span>'
-        '<span class="a">tout est consign&eacute; et r&eacute;-int&eacute;gr&eacute; au profil au fil du temps</span></div>'
+        '<span class="a">all logged and re-integrated into profile over time</span></div>'
         + "".join(lis)
         + "</div>"
     )
@@ -2101,7 +2101,7 @@ def _track_record_panel() -> str:
     brier_mean = sum(briers) / n_brier if briers else None
 
     MIN_CONCLUSIF = 10
-    # Panel honnete-tot : disparait une fois la cible atteinte (user feedback
+    # Panel honnete-tot : disparait une fois la target atteinte (user feedback
     # 31/05 wave 7bis). Sa raison d'etre = combler l'absence de verdict. Quand
     # N>=10 sur les 2 metriques, le vrai chiffre vit ailleurs (KPI #2 +
     # calibration_audit). Le pipeline (batch 10/06) seul ne justifie pas le
@@ -2125,7 +2125,7 @@ def _track_record_panel() -> str:
     if n_brier < MIN_CONCLUSIF or brier_mean is None:
         _brier_cls, brier_verdict = "warn", f"INSUFFISANT &mdash; N={n_brier}&lt;{MIN_CONCLUSIF}"
     elif brier_mean < 0.20:
-        _brier_cls, brier_verdict = "acc", "sous la cible 0.20"
+        _brier_cls, brier_verdict = "acc", "sous la target 0.20"
     elif brier_mean < 0.25:
         _brier_cls, brier_verdict = "warn", "approche le seuil"
     else:
@@ -2133,7 +2133,7 @@ def _track_record_panel() -> str:
 
     # Axe taux correct : 0% -> 100%, marker = position actuelle
     rate_frac = (n_corr / n * 100) if n else 0.0
-    # Axe Brier : 0 -> 0.5, marker = brier_mean, ligne ref a cible 0.20 (= 40%)
+    # Axe Brier : 0 -> 0.5, marker = brier_mean, ligne ref a target 0.20 (= 40%)
     brier_frac = (brier_mean / 0.5 * 100) if brier_mean is not None else None
     brier_target_x = 40.0  # 0.20 / 0.5
     brier_marker = (
@@ -2157,22 +2157,22 @@ def _track_record_panel() -> str:
         f'<div class="tr-mfoot"><span class="mono">IC95% {ci_str.replace("IC95% ", "")}</span>'
         f'<span class="tr-verdict">{rate_verdict}</span></div>'
         f'</div>'
-        # Metric 2 : Brier rolling (axe 0->0.5, cible 0.20)
+        # Metric 2 : Brier rolling (axe 0->0.5, target 0.20)
         f'<div class="tr-metric">'
         f'<div class="tr-mlabel"><span class="tr-mname">Brier rolling</span>'
         f'<span class="tr-mval mono">{brier_str}</span>'
         f'<span class="tr-munit">sur 0&ndash;0,5</span></div>'
         f'<div class="axis tr-axis-brier">'
-        f'<div class="tr-axref" style="left:{brier_target_x:.0f}%" title="cible 0,20"></div>'
+        f'<div class="tr-axref" style="left:{brier_target_x:.0f}%" title="target 0,20"></div>'
         f'{brier_marker}'
         f'</div>'
-        f'<div class="tr-mfoot"><span class="mono">cible 0,20</span>'
+        f'<div class="tr-mfoot"><span class="mono">target 0,20</span>'
         f'<span class="tr-verdict">{brier_verdict}</span></div>'
         f'</div>'
         # Metric 3 : Courbe de fiabilite (cadre vide + diagonale qui se trace)
         f'<div class="tr-metric">'
         f'<div class="tr-mlabel"><span class="tr-mname">Courbe de fiabilit&eacute;</span>'
-        f'<span class="tr-munit">attend la premi&egrave;re cohorte calibration</span></div>'
+        f'<span class="tr-munit">attend la first cohorte calibration</span></div>'
         f'<svg class="tr-rsvg" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">'
         f'<line x1="0" y1="60" x2="100" y2="0" class="tr-diag"/>'
         f'<line x1="0" y1="60" x2="100" y2="60" class="tr-frame"/>'
@@ -2183,7 +2183,7 @@ def _track_record_panel() -> str:
         f'</div>'
         # Pipeline state -- plat, honnete
         f'<div class="tr-pipe mono">'
-        f'<span><b>{n}</b> r&eacute;solu(s)</span><span class="tr-sep">&middot;</span>'
+        f'<span><b>{n}</b> resolved(s)</span><span class="tr-sep">&middot;</span>'
         f'<span><b>{open_n}</b> en attente (hors v0)</span><span class="tr-sep">&middot;</span>'
         f'<span>+<b>{v0_n}</b> v0 quarantine</span><span class="tr-sep">&middot;</span>'
         f'<span>prochaine cohorte <b>10/06</b></span>'
@@ -2216,7 +2216,7 @@ def _chat_panel() -> str:
         f"il connait ton profil, ta note PF, tes positions, tes theses, "
         f"interventions &middot; m&eacute;moire : {n_msg} messages sur {n_sess} sessions depuis {oldest}"
         if n_msg > 0 else
-        "il connait ton profil, ta note PF, tes positions, tes th&egrave;ses et son historique d'interventions"
+        "il connait ton profil, ta note PF, tes positions, tes theses et son historique d'interventions"
     )
     return (
         '<div class="card pad chatcard" style="margin-bottom:var(--s4)">'
@@ -2272,7 +2272,7 @@ def _chat_panel() -> str:
 
 def _clean_sector(sid: str | None) -> str:
     if not sid:
-        return "Sans th&egrave;se"
+        return "Sans thesis"
     s = re.sub(r"_20\d\d$", "", sid).replace("_", " ").title()
     return (
         s.replace(" Ai", " AI")
@@ -2398,13 +2398,13 @@ def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
             f'<span class="tk">{_ticker_logo(tk)}{tk}{flag}</span><span class="tag {cls}">{arrow}&nbsp;{abs(pnl):.1f}%</span></div>'
             f'<div class="axis"><div class="axis-mark" style="left:{pc:.1f}%" title="{pc:.1f}%"></div></div>'
-            f'<div class="rs"><span>vers la cible</span><span class="mono">{prog:.0f}%</span></div></div>'
+            f'<div class="rs"><span>vers la target</span><span class="mono">{prog:.0f}%</span></div></div>'
         )
     return "".join(rows), hits, top
 
 
 def _elan_watch(computed: list[dict]) -> tuple[str, int]:
-    """Course vers la cible : winners proches du target (axe anti-biais #1, cadrage positif)."""
+    """Course vers la target : winners proches du target (axe anti-biais #1, cadrage positif)."""
     data = []
     for r in computed:
         e, t, c = r.get("entry") or 0, r.get("target_full") or 0, r.get("current_price") or 0
@@ -2413,24 +2413,24 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
             if prog >= 75:
                 data.append((prog, r["ticker"]))
     data.sort(key=lambda x: -x[0])
-    # Fix ambiguite 31/05 user : "149% vers la cible" pretait a confusion
+    # Fix ambiguite 31/05 user : "149% vers la target" pretait a confusion
     # (depassement vs progression). Split en 2 verbiages directionnels :
-    # > 100% -> "+X% au-dela cible" (overshoot, prends ton profit / rightsize)
-    # < 100% -> "-X% sous cible"   (reste a parcourir, marge restante)
-    # = 100% -> "a la cible"
+    # > 100% -> "+X% au-dela target" (overshoot, prends ton profit / rightsize)
+    # < 100% -> "-X% sous target"   (reste a parcourir, marge restante)
+    # = 100% -> "a la target"
     def _label(prog: float) -> str:
         if prog >= 100.5:
-            return f"+{prog - 100:.0f}% au-del&agrave; cible"
+            return f"+{prog - 100:.0f}% au-del&agrave; target"
         if prog <= 99.5:
-            return f"&minus;{100 - prog:.0f}% sous cible"
-        return "&agrave; la cible"
+            return f"&minus;{100 - prog:.0f}% sous target"
+        return "&agrave; la target"
 
     rows = "".join(
         f'<div class="line"><span>{tk}</span><span class="mono">{_label(prog)}</span></div>'
         for prog, tk in data
     )
     watch = (
-        rows or '<div class="empty" style="padding:var(--s4) 0">aucune ligne &agrave; &ge;75% de la cible &mdash; marges restantes</div>'
+        rows or '<div class="empty" style="padding:var(--s4) 0">aucune ligne &agrave; &ge;75% de la target &mdash; marges restantes</div>'
     )
     return watch, len(data)
 
@@ -2537,9 +2537,9 @@ def _concentration(
     top_pct = (_v(top) / total * 100) if top else 0.0
     sw: dict[str, float] = {}
     for p in positions:
-        key = sectors.get(p["ticker"], "Sans th&egrave;se")
+        key = sectors.get(p["ticker"], "Sans thesis")
         sw[key] = sw.get(key, 0.0) + _v(p)
-    sw_real = {k: v for k, v in sw.items() if k != "Sans th&egrave;se"}
+    sw_real = {k: v for k, v in sw.items() if k != "Sans thesis"}
     dom_these = max(sw_real, key=lambda k: sw_real[k]) if sw_real else "&mdash;"
     dom_these_pct = (max(sw_real.values()) / total * 100) if sw_real else 0.0
     over_cap_tk = [p["ticker"] for p in ps if _v(p) / total * 100 >= POS_CAP]
@@ -2556,16 +2556,16 @@ def _concentration(
         verdict, vcls = "MESUR&Eacute;E", "calm"
     cbits = []
     if dom_these_pct >= NARRATIVE_CAP:
-        cbits.append("th&egrave;se au-dessus du plafond")
+        cbits.append("thesis au-dessus du cap")
     if over_cap:
-        cbits.append(f"{over_cap} ligne(s) hors plafond")
+        cbits.append(f"{over_cap} ligne(s) hors cap")
     if cluster_breached:
-        cbits.append("cluster corr&eacute;l&eacute; au-dessus du plafond")
-    cause = " &middot; ".join(cbits) or "tout sous les plafonds"
+        cbits.append("correlated cluster above cap")
+    cause = " &middot; ".join(cbits) or "tout sous les caps"
     top_cls = "negc" if top_pct >= POS_CAP else "acc"
     these_cls = "negc" if dom_these_pct >= NARRATIVE_CAP else "acc"
-    line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du plafond' if top_pct >= POS_CAP else 'sous le plafond'} {POS_CAP:.0f}%"
-    these_msg = f"{dom_these} &middot; {'&#9888; all&eacute;ger' if dom_these_pct >= NARRATIVE_CAP else 'sous le plafond'} {NARRATIVE_CAP:.0f}%"
+    line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du cap' if top_pct >= POS_CAP else 'sous le cap'} {POS_CAP:.0f}%"
+    these_msg = f"{dom_these} &middot; {'&#9888; all&eacute;ger' if dom_these_pct >= NARRATIVE_CAP else 'sous le cap'} {NARRATIVE_CAP:.0f}%"
     cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
     # === Star Concentration : fusion verdict + cluster + 3 KPIs ===
     # Mapping verdict cls -> ps-val color class
@@ -2591,11 +2591,11 @@ def _concentration(
         else:
             _over_color = "warn"
         _cluster_foot = (
-            f"Cluster <b>{c['name']}</b> &agrave; {c['pct']:.0f}% (plafond {c['cap']:.0f}%) "
+            f"Cluster <b>{c['name']}</b> &agrave; {c['pct']:.0f}% (cap {c['cap']:.0f}%) "
             f"&middot; <b class=\"{_over_color}\">+{_over_pct:.0f}%</b> au-dessus &middot; +{_ov}&nbsp;&euro;"
         )
     else:
-        _cluster_foot = "Cluster corr&eacute;l&eacute; (gouverneur) : sous plafond"
+        _cluster_foot = "Correlated cluster (governor): below cap"
     # Over_cap color selon gravite : 0 ligne = acc, 1-2 = warn, 3+ = bear
     if over_cap == 0:
         _oc_color = "acc"
@@ -2604,7 +2604,7 @@ def _concentration(
     else:
         _oc_color = "bear"
     _overcap_meta = (
-        f'<b class="{_oc_color}">{over_cap}</b> ligne(s) au-dessus du plafond {POS_CAP:.0f}%'
+        f'<b class="{_oc_color}">{over_cap}</b> ligne(s) au-dessus du cap {POS_CAP:.0f}%'
         + (f" &middot; {over_nm}" if over_nm else "")
     )
     star_strate_verdict = (
@@ -2632,8 +2632,8 @@ def _concentration(
         f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h2>Concentration</h2>'
         f'<div class="sub">Three concentration axes &mdash; by position, by sector, by geography</div></div>'
         f"{star_concentration}"
-        # Retrait 02/06 user : sb-bars (horizontal bars par secteur) = doublon
-        # evident avec donut secteurs page Positions. JS sb-bars handler conserve
+        # Retrait 02/06 user : sb-bars (horizontal bars par sector) = doublon
+        # evident avec donut sectors page Positions. JS sb-bars handler conserve
         # dans le code, panneau retire de la page Concentration.
         f'<div class="card pad"><div class="colhead"><span class="t">By sector</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
         f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">By country</span><span class="a">headquarters &middot; not real supply chain (Taiwan underweighted)</span></div>{_geo_bars(positions)}</div>'
@@ -2662,7 +2662,7 @@ def _render_bucket(
         w = r["w"]
         usd = w / fx
         pct = w / total * 100
-        badge = '<span class="bdg">pr&eacute;vu</span>' if r["prev"] else ""
+        badge = '<span class="bdg">planned</span>' if r["prev"] else ""
         nm = names.get(tk, "")
         nmspan = f'<span class="sec-nm">{nm}</span>' if nm else ""
         pl = None if r["prev"] else pnl.get(tk)
@@ -2745,8 +2745,8 @@ def _sector_blocks(
         h, _sw = _render_bucket(fb, standalone[fb], total, pnl, names, daily, fx)
         blocks += h
     sub = (
-        f"D&eacute;tenu {real_t:.0f}&euro; &middot; pr&eacute;vu {plan_t:.0f}&euro; &middot; "
-        f"total {total:.0f}&euro; (${total / fx:.0f}) &middot; {len(order) + (1 if compute_sub else 0)} groupes"
+        f"Held {real_t:.0f}&euro; &middot; planned {plan_t:.0f}&euro; &middot; "
+        f"total {total:.0f}&euro; (${total / fx:.0f}) &middot; {len(order) + (1 if compute_sub else 0)} groups"
     )
     return (
         f'<div class="sub" style="margin-bottom:var(--s25)">{sub}</div>'
@@ -2955,7 +2955,7 @@ def _signaux() -> str:
         eightk = rows8k or (
             '<div class="empty">'
             '<span class="empty-ico">8</span>'
-            '<b>Aucun d&eacute;p&ocirc;t 8-K</b>'
+            '<b>No 8-K filing</b>'
             'Pas de filings r&eacute;glementaires SEC sur 60&nbsp;j.'
             '<span class="hint">Se remplit avec acquisitions, departures CEO, materiel events</span>'
             '</div>'
@@ -2977,7 +2977,7 @@ def _signaux() -> str:
             )
         insiders = (
             rowsib
-            or '<div class="empty" style="padding:var(--s4) 0">aucun cluster d\'achats group&eacute;s d&eacute;tect&eacute;</div>'
+            or '<div class="empty" style="padding:var(--s4) 0">no clustered buy detected</div>'
         )
     except Exception as e:
         insiders = _err(e)
@@ -3024,8 +3024,8 @@ def _signaux() -> str:
             src_rows += (
                 f'<div class="row"><div class="rt"><span class="tk">{str(name)[:24]}</span>'
                 f'<span class="tag {col}">{cv:.2f}</span>{b_badge}</div>'
-                f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, cv * 100)):.1f}%" title="cr&eacute;dibilit&eacute; {cv:.2f}"></div></div>'
-                f'<div class="rs"><span>cr&eacute;dibilit&eacute; a priori</span><span class="mono">{int(n)} signaux</span></div></div>'
+                f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, cv * 100)):.1f}%" title="credibility {cv:.2f}"></div></div>'
+                f'<div class="rs"><span>credibility a priori</span><span class="mono">{int(n)} signaux</span></div></div>'
             )
     except Exception as e:
         src_rows, nsrc = _err(e), 0
@@ -3057,7 +3057,7 @@ def _signaux() -> str:
     )
     star_strate_foot = (
         '<div class="ps-strate ps-foot">'
-        + f'{nsrc} sources actives &middot; recalibrage cr&eacute;dibilit&eacute; 1er du mois'
+        + f'{nsrc} sources actives &middot; recalibrage credibility 1er du mois'
         + "</div>"
     )
     star_signaux = (
@@ -3077,7 +3077,7 @@ def _signaux() -> str:
     )
     # Clusters strip : montre seulement si non-empty (insider_buy_clusters_log
     # actuellement vide, s'affichera quand cluster detection fire).
-    empty_clusters_msg = "aucun cluster d'achats group"
+    empty_clusters_msg = "no clustered buy"
     insider_clusters_strip = ""
     if empty_clusters_msg not in insiders:
         insider_clusters_strip = (
@@ -3396,18 +3396,18 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         + f'{_macro_sparkline}'
         + "</div>"
     )
-    # Strate 2 : 3 cellules (frictions, cibles, stops)
+    # Strate 2 : 3 cellules (frictions, targets, stops)
     if _conc:
         f_cls, f_val, f_lbl, f_cap = "bear", len(_conc), "FRICTIONS", _conc[0]
     else:
-        f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGNED", "concentration sous les plafonds"
-    t_cap = "marge restante OK" if near_t else "rien proche de la cible"
+        f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGNED", "concentration sous les caps"
+    t_cap = "marge restante OK" if near_t else "rien proche de la target"
     s_cls = "bear" if near else "acc"
     s_cap = "&agrave; surveiller" if near else "calme"
     star_grid = (
         '<div class="ps-strate ps-grid">'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Correlated cluster whose cumulative position exceeds cap = action recommended.">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions ≥75% along entry -> target path. Take-profit zone to watch.">Cibles &ge;75%</div><div class="ps-val">{near_t}</div><div class="ps-cap">{t_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions ≥75% along entry -> target path. Take-profit zone to watch.">Targets &ge;75%</div><div class="ps-val">{near_t}</div><div class="ps-cap">{t_cap}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 10% from their stop. Low margin, check before session.">Stops &lt;10%</div><div class="ps-val {s_cls}">{near}</div><div class="ps-cap">{s_cap}</div></div>'
         + "</div>"
     )
@@ -3422,10 +3422,10 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     breadth_html = _breadth_rsp_spy()
     return (
         f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h2>Alerts</h2>'
-        f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro</div></div>'
+        f'<div class="sub">&Eacute;lan vers les targets &middot; marge avant les stops &middot; stress macro</div></div>'
         f"{star}"
         f'<div class="cols">'
-        f'<div><div class="ph3">Course vers la cible</div><div class="card pad">{elan}</div></div>'
+        f'<div><div class="ph3">Course vers la target</div><div class="card pad">{elan}</div></div>'
         f'<div><div class="ph3">Marges les plus faibles</div><div class="card pad">{watch}</div></div>'
         f'<div><div class="ph3">Moniteur de stress macro &mdash; score {score:.0f}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
@@ -3590,7 +3590,7 @@ def _journal() -> str:
     if not rows:
         return ""
     tmap = {
-        "entry": "Entr&eacute;e",
+        "entry": "Entry",
         "scale_in": "Renforcement",
         "partial_exit": "All&egrave;gement",
         "full_exit": "Sortie",
@@ -3672,7 +3672,7 @@ _TIER_LABEL = {
 
 
 def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
-    "Page Theses : asymetrie cible/stop par conviction + gap cible partielle."
+    "Page Theses : asymetrie target/stop par conviction + gap target partielle."
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
         "target_partial, last_price FROM theses WHERE status='active' "
@@ -3681,7 +3681,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     if not rows:
         return (
             '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Theses</h2>'
-            '<div class="sub">aucune th&egrave;se active</div></div></section>'
+            '<div class="sub">aucune thesis active</div></div></section>'
         )
     _u = _cfg().get("universe", {})
     crypto_tk = set(_u.get("core", {}).get("crypto_core", [])) | set(_u.get("extended", {}).get("crypto_etfs", []))
@@ -3697,7 +3697,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             n_missing += 1
         # Bug fix 31/05 wave 9 : stop_price + target_full sont stockes en
         # NATIVE currency (cf [[currency-native-invariant]]). Comparer a un
-        # current_price EUR donnait des % absurdes (4063.T cible +23876% etc.).
+        # current_price EUR donnait des % absurdes (4063.T target +23876% etc.).
         # Native vs native -> ratios FX-invariants corrects.
         current = _cached_price_native(tk) or last or entry
         d_stop = d_tgt = ratio = frac = entry_frac = pnl_e = None
@@ -3762,12 +3762,12 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         else f"c5 = {c5_pct:.0f}% &middot; pas d&rsquo;inflation (seuil 20%)"
     )
 
-    # === Star Theses : conviction mediane + 3 cells (cibles, gain, marges) ===
+    # === Star Theses : conviction mediane + 3 cells (targets, gain, marges) ===
     pcls = "acc" if n_profit * 2 >= n else "bear"
     ncls = "bear" if n_near else "acc"
     _tg_cls = "acc" if n_near_tgt else ""
     _conv_lbl = f"M&Eacute;DIANE c{med}"
-    _conv_cap = f"{n} th&egrave;se(s) active(s) &middot; {dist[5]} c5 ({c5_pct:.0f}%)"
+    _conv_cap = f"{n} thesis(s) active(s) &middot; {dist[5]} c5 ({c5_pct:.0f}%)"
     if infl:
         _conv_cls = "warn"
     elif med >= 4:
@@ -3777,7 +3777,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     hero = (
         f'<div class="page-star">'
         f'<div class="ps-strate ps-grid">'
-        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current position is less than 12% from target_full. Take-profit zone.">Proches de la cible</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">marge &lt; 12%</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current position is less than 12% from target_full. Take-profit zone.">Proches de la target</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">marge &lt; 12%</div></div>'
         f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current price is above thesis entry cost (entry_price).">En gain</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">price &gt; entry cost</div></div>'
         f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses less than 10% from stop. Critical zone to review.">Marges faibles</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">marge &lt; 10% du stop</div></div>'
         f'</div>'
@@ -3811,7 +3811,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         if not grp:
             continue
         _tgt_tier = (_caps.get(c, 0) / _sumcaps * 100) if _caps.get(c) else None
-        _tgt_lab = f" &middot; cible {_tgt_tier:.1f}%/ligne" if _tgt_tier else ""
+        _tgt_lab = f" &middot; target {_tgt_tier:.1f}%/ligne" if _tgt_tier else ""
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
@@ -3821,10 +3821,10 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     zones = ""
                 bar = (
                     '<div class="th-bar"><div class="axis">'
-                    f'{zones}<div class="axis-mark" style="left:{t["frac"]:.1f}%" title="position {t["frac"]:.1f}% entre stop et cible"></div></div>'
+                    f'{zones}<div class="axis-mark" style="left:{t["frac"]:.1f}%" title="position {t["frac"]:.1f}% entre stop et target"></div></div>'
                     '<div class="th-ends">'
                     f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
-                    f'<span class="th-tgt">cible +{t["d_tgt"]:.0f}%</span></div></div>'
+                    f'<span class="th-tgt">target +{t["d_tgt"]:.0f}%</span></div></div>'
                 )
             else:
                 bar = '<div class="th-na">donn&eacute;es de prix incompl&egrave;tes</div>'
@@ -3833,7 +3833,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _crypto = t["tk"] in crypto_tk
                 if t["pnl_e"] >= 12 and not _crypto:
                     _acls = "acc"
-                    _amsg = "Ligne en gain, marge de hausse restante. Biais : s&eacute;curiser trop t&ocirc;t. R&egrave;gle : laisser courir vers la cible."
+                    _amsg = "Position in profit, upside margin remaining. Bias: securing too early. Rule: let it run toward target."
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
             wv = vmap.get(t["tk"], 0.0)
@@ -4197,7 +4197,7 @@ _CSS = """
   .cta-modal-inner { background:var(--panel); border:1px solid var(--line2); border-radius:12px; width:min(560px,92vw); max-height:64vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 64px -16px rgba(0,0,0,.4); }
   .cta-search-input { width:100%; padding:18px 24px; font-family:var(--fb); font-size:19px; background:transparent; border:none; border-bottom:1px solid var(--line); color:var(--ink); outline:none; box-sizing:border-box; }
   .cta-search-results { max-height:46vh; overflow-y:auto; padding:4px; }
-  /* Chips secteur filter (search modal enrichi) */
+  /* Chips sector filter (search modal enrichi) */
   .cta-search-chips { display:flex; gap:6px; padding:8px 16px 4px; flex-wrap:wrap; border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent); }
   .cta-chip { font-family:var(--fb); font-size:14px; font-weight:500; padding:5px 11px; border-radius:14px; background:transparent; border:1px solid var(--line); color:var(--steel); cursor:pointer; transition:.12s; }
   .cta-chip:hover { background:color-mix(in srgb,var(--ink) 5%,transparent); color:var(--ink); }
@@ -5197,7 +5197,7 @@ _APP_JS = """
       var nm={quality:'Qualit&eacute;',growth:'Croissance',profitability:'Rentabilit&eacute;',valuation:'Valorisation',risk:'Risque',momentum:'Momentum',macro_alignment:'Macro'};
       for(var k in nm){ if(a.scores[k]!=null){ var v=Math.round(a.scores[k]); sc+='<div class="lp-score"><span class="ln">'+nm[k]+'</span><span class="bar"><span class="bf" style="width:'+v+'%"></span></span><span class="vv">'+v+'</span></div>'; } }
     }
-    var ana = a ? ('<div class="lp-sec">Derni&egrave;re analyse &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">R&eacute;gime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'</div>':'')+'<div class="lp-hint">Analyse compl&egrave;te : <code>/analyze '+tk+'</code> sur Telegram, ou demande-la dans le chat.</div>') : '<div class="lp-sec">Analyse</div><div class="lp-empty">Aucune analyse stock&eacute;e. <code>/analyze '+tk+'</code> sur Telegram pour g&eacute;n&eacute;rer.</div>';
+    var ana = a ? ('<div class="lp-sec">Latest analysis &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">R&eacute;gime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'</div>':'')+'<div class="lp-hint">Analyse compl&egrave;te : <code>/analyze '+tk+'</code> sur Telegram, ou demande-la dans le chat.</div>') : '<div class="lp-sec">Analyse</div><div class="lp-empty">Aucune analyse stock&eacute;e. <code>/analyze '+tk+'</code> sur Telegram pour g&eacute;n&eacute;rer.</div>';
     document.getElementById('loupe-body').innerHTML =
       '<div class="lp-h">'+_tkLogoJs(tk)+'<span class="lp-tk">'+tk+'</span><span class="lp-nm">'+(d.name||'')+'</span></div>'
       +'<div class="lp-meta">'+badge+' &middot; '+(d.sector||'&mdash;')+' &middot; '+(d.country||'&mdash;')+'</div>'
@@ -5206,7 +5206,7 @@ _APP_JS = """
       +'<div class="lp-stat"><div class="lp-sl">Investi</div><div class="lp-sv">'+d.weight_eur+'&euro;</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">P&amp;L</div><div class="lp-sv">'+_pct(d.pnl,true)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">Marge stop</div><div class="lp-sv">'+_pct(d.down)+'</div></div>'
-      +'<div class="lp-stat"><div class="lp-sl">Vers cible</div><div class="lp-sv">'+_pct(d.up)+'</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">Vers target</div><div class="lp-sv">'+_pct(d.up)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">Asym&eacute;trie</div><div class="lp-sv">'+(d.ratio==null?'&mdash;':d.ratio+'x')+'</div></div>'
       +'</div>'+(d.perf?('<div class="lp-sec" style="margin-top:16px">Momentum r&eacute;cent</div><div class="lp-mom">'+mom('Jour',d.perf.d)+mom('Semaine',d.perf.w)+mom('Mois',d.perf.m)+'</div>'):'')):'<div class="lp-empty" style="padding:var(--s25) 0 2px">Pas de position ouverte sur ce titre.</div>')+ana;
     document.getElementById('loupe').classList.add('open');
@@ -5246,10 +5246,10 @@ _APP_JS = """
       for(var k in groups){groups[k].classList.remove('on');groups[k].classList.remove('dim');}
       var top=sorted[0],tp=Math.round(top.tw/total*100),ov=tp>=30;
       PANEL.innerHTML='<div style="font-family:var(--fb);font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin-bottom:var(--s25)">Vue d&rsquo;ensemble</div>'
-        +rw('Plus gros secteur',top.name+' &middot; '+tp+'%',ov?'var(--bear)':'var(--acc)')
+        +rw('Plus gros sector',top.name+' &middot; '+tp+'%',ov?'var(--bear)':'var(--acc)')
         +rw('Lignes total',DATA.reduce(function(a,s){return a+s.t.length;},0)+'')
-        +'<div style="margin-top:var(--s3);font-size:15px;color:'+(ov?'var(--warn)':'var(--steel)')+'">'+(ov?('&#9888; '+top.name+' au-dessus du plafond 30%'):'sous le plafond 30%')+'</div>'
-        +'<div style="margin-top:var(--s35);font-size:14px;color:var(--steel)">clique un secteur pour voir ses lignes</div>';
+        +'<div style="margin-top:var(--s3);font-size:15px;color:'+(ov?'var(--warn)':'var(--steel)')+'">'+(ov?('&#9888; '+top.name+' au-dessus du cap 30%'):'sous le cap 30%')+'</div>'
+        +'<div style="margin-top:var(--s35);font-size:14px;color:var(--steel)">clique un sector pour voir ses lignes</div>';
     }
     function showSector(name){
       var s=null;DATA.forEach(function(d){if(d.name===name)s=d;});if(!s)return;
@@ -5442,7 +5442,7 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
         dn, up, rt = r.get("downside_pct"), r.get("upside_pct"), r.get("asymmetry_ratio")
         out[tk] = {
             "name": names.get(tk, ""),
-            "sector": sectors.get(tk, "Sans th&egrave;se"),
+            "sector": sectors.get(tk, "Sans thesis"),
             "country": _country(tk),
             "status": "held",
             "weight_eur": round(p["weight"]),
@@ -5459,7 +5459,7 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
             continue
         out[tk] = {
             "name": names.get(tk, ""),
-            "sector": sectors.get(tk, "Sans th&egrave;se"),
+            "sector": sectors.get(tk, "Sans thesis"),
             "country": _country(tk),
             "status": status,
             "weight_eur": None,
@@ -5513,7 +5513,7 @@ def _broker_value(p: dict, pnl: dict) -> float:  # noqa: ARG001
 def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
     agg: dict[str, float] = {}
     for p in ps:
-        sec = sectors.get(p["ticker"], "Sans th&egrave;se")
+        sec = sectors.get(p["ticker"], "Sans thesis")
         agg[sec] = agg.get(sec, 0.0) + _broker_value(p, pnl)
     return sorted(agg.items(), key=lambda kv: -kv[1])
 
@@ -5547,7 +5547,7 @@ def _asym_format(ratio):
     """Format asymmetry_ratio avec class de coloration parchemin.
 
     Convention Taleb barbell :
-    - ratio >= 999   -> sentinel TARGET_HIT (current >= target_full) -> 'cible' badge
+    - ratio >= 999   -> sentinel TARGET_HIT (current >= target_full) -> 'target' badge
     - ratio >= 3.0   -> 'barbell' (asymetrie favorable, laisser courir) -> .acc (olive)
     - 1.0 <= r < 3.0 -> 'modere' (neutre) -> .num (ink2)
     - r < 1.0        -> 'inverse' (downside > upside, candidate trim) -> .neg (oxblood)
@@ -5556,7 +5556,7 @@ def _asym_format(ratio):
     if ratio is None:
         return ('num', '&mdash;')
     if ratio >= 999:
-        return ('num acc', 'cible &check;')
+        return ('num acc', 'target &check;')
     if ratio >= 3.0:
         return ('num acc', f'{ratio:.1f}&times;')
     if ratio >= 1.0:
@@ -5774,7 +5774,7 @@ def _dba_predictions_brier_html(brier_avg: float | None, brier_n: int) -> str:
         f'<div class="dba-meta">Brier mean: {brier_avg:.3f} sur N={brier_n} '
         f'&middot; vs 0.25 (constant 0.5 predictor, weakest baseline)</div>'
         f'<div class="dba-honest">Cohorte V1 fig&eacute;e (probability_at_creation = '
-        f'snapshot cr&eacute;dibilit&eacute; source &asymp; 0.5). Battre 0.25 ne d&eacute;montre '
+        f'source credibility snapshot &asymp; 0.5). Beating 0.25 does not demonstrate '
         f'pas un skill &mdash; juste une am&eacute;lioration sur le pr&eacute;dicteur le plus '
         f'b&ecirc;te. Vraie calibration V2 = post-ao&ucirc;t (N V2 suffisant + comparaison '
         f'au pr&eacute;dicteur taux-de-base).</div>'
@@ -5790,7 +5790,7 @@ def _discipline_biais_panel() -> str:
     # Predictions cluster KPI #2 -- batch 10/06 specifique : V1 dont
     # target_date <= 2026-06-10. User 01/06 critique : la query precedente
     # comptait TOUTES les V1 resolues, biais vers "5 du cluster" alors qu'aucune
-    # n'est du batch 10/06. Cluster cible = 35 predictions a J-day.
+    # n'est du batch 10/06. Cluster target = 35 predictions a J-day.
     n_cluster_total = _q(
         "SELECT COUNT(*) FROM predictions "
         "WHERE methodology_version != 'v0' AND target_date <= '2026-06-10'"
@@ -5898,7 +5898,7 @@ def _discipline_biais_panel() -> str:
         + '<div class="ps-lbl">Discipline &amp; Bias</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_kpi2_cls}">{n_resolved}/{n_cluster_total}</div>'
-        + '<div class="ps-macro-meta">pr&eacute;dictions r&eacute;solues &middot; KPI #2 &ge;5</div>'
+        + '<div class="ps-macro-meta">predictions resolvedes &middot; KPI #2 &ge;5</div>'
         + '</div>'
         + f'<div class="ps-cap">{_kpi2_cap} &middot; {_jday_str}</div>'
         + '</div>'
@@ -5921,7 +5921,7 @@ def _discipline_biais_panel() -> str:
         '<span class="dba-sh-aside">mission counter &middot; real density at J+30</span></div>'
         + star_discipline
         # ─── PREDICTIONS ─────────────────────────────────────────────────
-        + '<div class="dba-sh" data-tip="Predictions resolved at J+28: probabilistic marker (Brier score) on estimate calibration."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="0.8" fill="currentColor" stroke="none"/></svg>Pr&eacute;dictions'
+        + '<div class="dba-sh" data-tip="Predictions resolved at J+28: probabilistic marker (Brier score) on estimate calibration."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="0.8" fill="currentColor" stroke="none"/></svg>Predictions'
         '<span class="dba-sh-aside">cluster KPI #2 &mdash; J+28 batch 10/06</span></div>'
         '<div class="dba-card">'
         f'<div class="dba-chrow"><span class="lab">{n_resolved}/{n_cluster_total} '
@@ -5947,7 +5947,7 @@ def _discipline_biais_panel() -> str:
         f'<div class="dba-arrow">&rsaquo; <span class="v">{n_bias_open}</span> '
         f'candidat{"s" if n_bias_open != 1 else ""} ouvert{"s" if n_bias_open != 1 else ""} '
         f'&middot; <span class="v">{n_bias_resolved}</span> '
-        f'r&eacute;solu{"s" if n_bias_resolved != 1 else ""}</div>'
+        f'resolved{"s" if n_bias_resolved != 1 else ""}</div>'
         '</div>'
         # Canal over_cap
         '<div class="dba-card">'
@@ -5964,7 +5964,7 @@ def _discipline_biais_panel() -> str:
         '<div class="dba-cond">R&eacute;-activation : book &ge; 65&nbsp;k&euro; '
         'OU flag construction_phase lev&eacute;</div>'
         '<div class="dba-arrow">&rsaquo; <span class="v">0</span> candidat &eacute;mis '
-        '&middot; r&eacute;solution N/A</div>'
+        '&middot; resolution N/A</div>'
         '</div>'
         # ─── BIAIS lock_in ──────────────────────────────────────────────
         '<div class="dba-sh" data-tip="Lock-in bias: selling winners too early. PRESAGE bias #1 per ADR-010. Mechanized via Surface 2 (sell winner sync capture)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/><circle cx="8" cy="10.5" r=".9" fill="currentColor" stroke="none"/></svg>Biais &mdash; lock_in'
@@ -5987,7 +5987,7 @@ def render() -> Path:
     # Comme ces derniers sont stockes NATIVE (cf currency_native_invariant),
     # current doit etre NATIVE aussi pour des ratios FX-invariants. Ancien
     # patch vers _cached_price_eur produisait "Marges les plus faibles" avec
-    # cible +175408% (000660.KS KRW vs current EUR).
+    # target +175408% (000660.KS KRW vs current EUR).
     asym_mod._get_current_price = _cached_price_native
     full = asym_mod.compute_portfolio_asymmetry()
     computed = [r for r in full if "asymmetry_ratio" in r]
@@ -6003,7 +6003,7 @@ def render() -> Path:
     sb_down = {r["ticker"]: r.get("downside_pct") for r in computed}
     sb_secs: dict = {}
     for p in positions:
-        sb_secs.setdefault(sectors.get(p["ticker"], "Sans th&egrave;se"), []).append(
+        sb_secs.setdefault(sectors.get(p["ticker"], "Sans thesis"), []).append(
             {
                 "tk": p["ticker"],
                 "w": round(p["weight"] or 0),
@@ -6011,7 +6011,7 @@ def render() -> Path:
                 "down": round(sb_down[p["ticker"]] or 0, 1) if sb_down.get(p["ticker"]) is not None else None,
             }
         )
-    sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans th&egrave;se", -sum(x["w"] for x in kv[1])))
+    sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans thesis", -sum(x["w"] for x in kv[1])))
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
     _ris, near, _heat, watch = _rows_risque(computed)
@@ -6027,7 +6027,7 @@ def render() -> Path:
         rop = ' style="opacity:.45"' if rpast else ""
         rtag = " &middot; pass&eacute;e" if rpast else ""
         erows += f'<div class="line"{rop}><span>{rlab}{rtag}</span><span class="mono">{rdd}</span></div>'
-    erows = erows or '<div class="empty" style="padding:var(--s35) 0">aucune &eacute;ch&eacute;ance</div>'
+    erows = erows or '<div class="empty" style="padding:var(--s35) 0">aucune deadline</div>'
 
     wbase = sum(p["weight"] for p in positions if p["ticker"] in pnl) or 1
     port_pnl = sum(p["weight"] * pnl[p["ticker"]] for p in positions if p["ticker"] in pnl) / wbase
@@ -6076,7 +6076,7 @@ def render() -> Path:
     journal_html = _journal()
     journal_block = (
         (
-            '<div class="colhead spaced"><span class="t">Derni&egrave;res d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
+            '<div class="colhead spaced"><span class="t">Lasts d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
             f'<div class="card pad">{journal_html}</div>'
         )
         if journal_html
@@ -6088,12 +6088,12 @@ def render() -> Path:
         up, dn = r.get("upside_pct"), r.get("downside_pct")
         if st and tg and tg != st and c and up is not None and dn is not None:
             _axis[r["ticker"]] = {"frac": max(0.0, min(100.0, (c - st) / (tg - st) * 100)), "up": up, "dn": dn}
-    _cibles = sorted(_axis, key=lambda tk: -_axis[tk]["frac"])[:6]
+    _targets = sorted(_axis, key=lambda tk: -_axis[tk]["frac"])[:6]
     _stops = sorted(_axis, key=lambda tk: _axis[tk]["frac"])[:6]
 
-    # F13 fix : "proche de la cible" n'est PAS une victoire mecanique. Si la
+    # F13 fix : "proche de la target" n'est PAS une victoire mecanique. Si la
     # position est aussi fragile / valo > bull / solidite faible, atteindre
-    # la cible = signal de prendre profit, pas la these qui marche. On surface
+    # la target = signal de prendre profit, pas la these qui marche. On surface
     # ce tag explicite sur chaque row qui meriterait un trim.
     try:
         from shared import book as _bk
@@ -6110,15 +6110,15 @@ def render() -> Path:
         if ln and a["frac"] > 80:
             risky = ln.valo_above_bull_case or ln.solidite in ("Fragile", "Incertain")
             if risky:
-                profit_chip = '<span class="th-pt">cible atteinte</span>'
+                profit_chip = '<span class="th-pt">target atteinte</span>'
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
             f'<div class="axis"><div class="axis-mark" style="left:{a["frac"]:.1f}%" title="{a["frac"]:.1f}%"></div></div>'
             f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
-            f'<span class="th-tgt">cible +{a["up"]:.0f}%</span></div></div>'
+            f'<span class="th-tgt">target +{a["up"]:.0f}%</span></div></div>'
         )
 
-    gain = "".join(_axisrow(tk) for tk in _cibles) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
+    gain = "".join(_axisrow(tk) for tk in _targets) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
     _lose_stops = "".join(_axisrow(tk) for tk in _stops) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'  # D1 retire Vigie, compute conserve
     # cockpit_html (Cockpit discipline panel) retire 31/05 user feedback
     # _cockpit() helper toujours dispo si reactivation future
@@ -6293,11 +6293,11 @@ def render() -> Path:
         # AU-DESSUS de "Etat -- lignes a examiner" (top risque). Lecture :
         # d'abord ce sur quoi agir (ops), puis ce qui bouge, puis ce qui
         # demande surveillance approfondie.
-        # ── BLOC 1 : OPPORTUNITES -- proches cible (winners en realisation) ──
+        # ── BLOC 1 : OPPORTUNITES -- proches target (winners en realisation) ──
         # D1 retire 02/06 : "Marges les plus faibles" duplique avec page Urgence.
         # D2 retire 02/06 : "Today's movers" (hausses/baisses) entierement
         # duplique avec Urgence (meme _day_movers). Garde seulement la col
-        # "Plus proches de la cible" qui pointe action fomo_greed (trim winners).
+        # "Plus proches de la target" qui pointe action fomo_greed (trim winners).
         '<div class="vigie-sh" data-tip="Positions close to target (take-profit zone, valo &gt; bull) -- mechanized trim candidates via fomo_greed gate."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunities &mdash; close or consolidate</div>'
         f'<div class="colhead"><span class="t">Closest to target</span><span class="a">thesis in realization &middot; watch valo &gt; bull and fragility</span></div>'
         f'<div class="card pad">{gain}</div>'
@@ -6347,7 +6347,7 @@ def render() -> Path:
         + '<div class="ps-lbl">Book reading</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_med_cls}">M&Eacute;DIANE c{_conv_med_s}</div>'
-        + f'<div class="ps-macro-meta">{_n_act_t} th&egrave;ses actives &middot; {_n_c5_s} c5 ({_pct_c5_s:.0f}%)</div>'
+        + f'<div class="ps-macro-meta">{_n_act_t} theses actives &middot; {_n_c5_s} c5 ({_pct_c5_s:.0f}%)</div>'
         + '</div>'
         + '<div class="ps-cap">Declared vs book reading vs hidden risks &mdash; 3 levels below</div>'
         + '</div>'
@@ -6408,7 +6408,7 @@ def render() -> Path:
     n_stop, n_watch, n_tgt = len(near_stop_tk), len(watch_zone_tk), len(near_tgt_tk)
     if n_stop:
         _post_cls, _post_lbl = "bear", "ALERT"
-        _post_cap = f"{n_stop} ligne(s) au stop &lt; 10% &middot; v&eacute;rifier avant la s&eacute;ance"
+        _post_cap = f"{n_stop} ligne(s) au stop &lt; 10% &middot; check avant la s&eacute;ance"
     elif n_watch:
         _post_cls, _post_lbl = "warn", "WATCH"
         _post_cap = f"{n_watch} ligne(s) en zone 10-20% du stop &middot; marge restante"
@@ -6452,12 +6452,12 @@ def render() -> Path:
     broker_html = _broker_tables(positions, names, pnl, sectors)
     positions_pg = (
         f'<section data-page="positions" role="region" aria-label="Positions"><div class="phead"><h2>Positions</h2>'
-        f'<div class="sub">Marge &agrave; la hausse vers la cible &middot; &agrave; la baisse vers le stop</div></div>'
+        f'<div class="sub">Marge &agrave; la hausse vers la target &middot; &agrave; la baisse vers le stop</div></div>'
         f"{star_positions}{broker_html}</section>"
     )
 
     # --- Bandeau d'ecart de discipline (sticky, haut de page) ---
-    # v1: axe concentration (cluster hors plafond, source unique _cluster_health) + axe stop (near).
+    # v1: axe concentration (cluster hors cap, source unique _cluster_health) + axe stop (near).
     # axe prise-profit -> ajoute apres ADR target_partial.
     # E4 craft 31/05 : "A CALIBRER" -> "A AJUSTER" (eviter confusion avec
     # calibration scorer). Smart routing : si seulement clusters -> nav
