@@ -3570,16 +3570,14 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         "BTC_drawdown180": (1, "BTC drawdown 6M (%)", 1, False),
         "Gold": (1, "Or ($/oz)", 0, True),
         # Tier 2: Stress bancaire & liquidité Fed — signaux avancés en haut, plomberie milieu, slow bas
+        # RepoSRF retire 02/06 -- replace par BankReserves (ADR 006 audit : ON RRP ambigu post-QT).
         "MOVE": (2, "Bond vol (MOVE)", 2, False),
         "T10Y2Y": (2, "10Y-2Y slope (%)", 4, False),
         "BankReserves": (2, "Fed bank reserves ($M)", 0, True),
-        "RepoSRF": (2, "Standing Repo Facility ($B)", 2, False),
         "KRE": (2, "Regional banks ($)", 2, False),
         "CopperGold": (2, "Copper/gold ratio", 4, False),
-        # Tier 3: Macro lente
+        # Tier 3: Macro lente -- canonical V3 names (CPI/MfgIP raw legacy supprimes 02/06)
         "CoreCPI": (3, "Core inflation (%)", 4, False),
-        "CPI": (3, "Core inflation (%)", 4, False),
-        "MfgIP": (3, "Industrial production (%)", 4, False),
         "MfgIP_yoy": (3, "Industrial production (%)", 4, False),
         "FedBalance_yoy": (3, "Bilan Fed YoY (%)", 1, False),
     }
