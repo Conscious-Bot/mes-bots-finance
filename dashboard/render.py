@@ -20,6 +20,7 @@ from dashboard._scripts import (
     _CTA_JS,
     _DONUT_JS,
     _EU_SUFFIX,
+    _FOOT_METHOD,
     _LOGO,
     _LOUPE_HTML,
     _MODE_BTN,
@@ -2960,10 +2961,7 @@ def _loop() -> str:
             "ORDER BY occurred_at ASC"
         )
     except Exception as e:
-        return (
-            f'<section data-page="loop" role="region" aria-label="Loop">'
-            f'<div class="phead"><h2>Loop</h2></div>{_err(e)}</section>'
-        )
+        return _err(e)
 
     # Filter universe : held positions + planned only (user 02/06).
     # Le bot scanne 354 signals sur ~50 tickers mais l'user ne suit que ses
@@ -3185,18 +3183,14 @@ def _loop() -> str:
     )
 
     return (
-        f'<section data-page="loop" role="region" aria-label="Loop">'
         f'{css}'
-        f'<div class="phead"><h2>Loop</h2>'
-        f'<div class="sub">Per-ticker provenance timeline &middot; 60d window &middot; '
-        f'signals &rarr; predictions &rarr; decisions &rarr; outcomes</div></div>'
+        f'<div class="ph3" style="margin-top:var(--s5)" data-tip="Per-ticker provenance timeline -- 60d window. Signals -> predictions -> decisions -> outcomes.">Loop &mdash; provenance timeline</div>'
         f'{stats}'
         f'<div class="lp-wrap">'
         f'<div class="lp-axis">{"".join(axis_marks)}</div>'
         f'{"".join(rows_html)}'
         f'{legend}'
         f'</div>'
-        f'</section>'
     )
 
 
@@ -3384,9 +3378,11 @@ def _signaux() -> str:
     # (track record + 6 vigilances + 8-K + insider flux).
     return (
         f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h2>Method</h2>'
-        f'<div class="sub">How the bot reads signals + how it monitors your biases &middot; track record &middot; insider flow</div></div>'
+        f'<div class="sub">How the bot reads signals + how it monitors your biases &middot; track record &middot; insider flow &middot; loop provenance</div></div>'
         f"{star_signaux}{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}"
-        f"{_discipline_biais_panel()}</section>"
+        f"{_discipline_biais_panel()}"
+        f"{_loop()}"
+        f"</section>"
     )
 
 
@@ -5306,7 +5302,7 @@ def render() -> Path:
     body = (
         f'<aside class="sidebar" role="complementary" aria-label="Barre laterale"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
         f'{_NAV}<div class="foot">'
-        f'{_MODE_BTN}</div></aside>{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
+        f'{_FOOT_METHOD}{_MODE_BTN}</div></aside>{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
         + vigie
         + positions_pg
@@ -5314,7 +5310,6 @@ def render() -> Path:
         + _theses(names, sectors, positions, pnl)
         + strategie_html
         + _signaux()
-        + _loop()
         + _urgence(watch, near, positions, pnl, elan, near_t)
         + _copilot()
         + "</main></div>"
