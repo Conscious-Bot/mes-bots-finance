@@ -246,9 +246,31 @@ _CSS = """
      a la TR/Linear. 280ms ease, opacity + translate-y 8px. Anti-double-fire
      via .noanim gate (cf dashboard_anim_session_gate). */
   /* page-star kill 02/06 user "degage moi ces panneaux horribles".
-     L'info reste calculee cote Python (variables conservees), juste
-     pas rendue. Revert = remove display:none. */
+     EXCEPTION : Vigie/Overview garde son panneau star (valeur + note PF). */
   .page-star { display:none !important; }
+  [data-page="vigie"] .page-star { display:block !important; background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:24px 28px; margin-bottom:var(--s4); }
+  [data-page="vigie"] .page-star .ps-strate { display:block; padding:14px 0; gap:0; }
+  [data-page="vigie"] .page-star .ps-strate:first-child { padding-top:0; }
+  [data-page="vigie"] .page-star .ps-strate:last-child { padding-bottom:0; }
+  [data-page="vigie"] .page-star .ps-strate + .ps-strate { border-top:1px solid var(--line); }
+  [data-page="vigie"] .page-star .ps-hero-row { display:grid; grid-template-columns:1fr 1fr; gap:36px; align-items:start; }
+  [data-page="vigie"] .page-star .ps-hero-left, [data-page="vigie"] .page-star .ps-hero-right { display:block; }
+  [data-page="vigie"] .page-star .ps-lbl { display:block; margin-bottom:8px; font-size:11px; letter-spacing:.10em; }
+  [data-page="vigie"] .page-star .ps-macro-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  [data-page="vigie"] .page-star .ps-val { font-size:30px; font-family:var(--fm); font-variant-numeric:tabular-nums; font-weight:500; line-height:1.1; }
+  [data-page="vigie"] .page-star .ps-val[style*="font-size:37px"] { font-size:37px !important; }
+  [data-page="vigie"] .page-star .ps-val[style*="font-size:21px"] { font-size:21px !important; }
+  [data-page="vigie"] .page-star .ps-sub-lien { font-family:var(--fm); font-size:13px; color:var(--steel); margin-top:8px; }
+  [data-page="vigie"] .page-star .ps-grade-row { display:flex; align-items:center; gap:18px; margin-top:6px; }
+  [data-page="vigie"] .page-star .ps-grade-letter { font-size:40px; }
+  [data-page="vigie"] .page-star .ps-grade-num { font-size:22px; margin-bottom:8px; }
+  [data-page="vigie"] .page-star .ps-grade-max { font-size:14px; }
+  [data-page="vigie"] .page-star .ps-grade-score { flex:1; min-width:140px; }
+  [data-page="vigie"] .page-star .ps-grade-bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; }
+  [data-page="vigie"] .page-star .ps-grade-fill { height:100%; transition:width .3s ease; }
+  [data-page="vigie"] .page-star .ps-grade-fill.acc { background:var(--acc); }
+  [data-page="vigie"] .page-star .ps-grade-fill.warn { background:var(--warn); }
+  [data-page="vigie"] .page-star .ps-grade-fill.bear { background:var(--bear); }
   .page-star .ps-strate { padding:6px 0; display:flex; flex-wrap:wrap; align-items:baseline; gap:18px; }
   .page-star .ps-lbl { font-family:var(--fb); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--steel); margin:0; font-weight:500; display:inline-block; }
   .ps-tag-explor { display:inline-block; margin-left:6px; padding:1px 6px; font-size:10px; font-weight:500; letter-spacing:.06em; text-transform:uppercase; color:var(--steel); border:1px solid var(--line2); border-radius:var(--r1); font-family:var(--fm); cursor:help; }
