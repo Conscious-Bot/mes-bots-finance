@@ -1558,11 +1558,11 @@ def _user_strategy_panel() -> str:
         f'<span class="a">archetype = {archetype} &middot; depuis {declared} &middot; surcharge les defaults</span></div>'
         f'{construction_html}'
         '<div class="us-grid">'
-        f'<div class="us-row"><span class="us-k">Pari principal cible</span><span class="us-v mono">{cap}%</span></div>'
-        f'<div class="us-row"><span class="us-k">Autres paris cible</span><span class="us-v mono">{dec}%</span></div>'
+        f'<div class="us-row"><span class="us-k">Main bet target</span><span class="us-v mono">{cap}%</span></div>'
+        f'<div class="us-row"><span class="us-k">Other bets target</span><span class="us-v mono">{dec}%</span></div>'
         f'<div class="us-row"><span class="us-k">Benchmark</span><span class="us-v mono">{bench}</span></div>'
-        f'<div class="us-row"><span class="us-k">Horizon th&egrave;ses</span><span class="us-v mono">{horizon} ans</span></div>'
-        f'<div class="us-row"><span class="us-k">Concentrations accept&eacute;es</span><span class="us-v">{accepted_html}</span></div>'
+        f'<div class="us-row"><span class="us-k">Theses horizon</span><span class="us-v mono">{horizon} ans</span></div>'
+        f'<div class="us-row"><span class="us-k">Accepted concentrations</span><span class="us-v">{accepted_html}</span></div>'
         '</div>'
         f'{cta_html}'
         f'<div class="us-desc">{desc}</div>'
@@ -2621,7 +2621,7 @@ def _concentration(
         '<div class="ps-strate ps-grid">'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position with highest individual weight in portfolio. Cap by conviction (c5 up to 22%, c4 up to 14%).">Top position</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Thesis with highest aggregated weight (sum of positions carrying it). Thematic concentration indicator.">Dominant thesis</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Cumulative capital invested in book (cost basis sum). Distinct from current value with PnL.">Capital investi</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} lignes &middot; {len(sw_real)} secteurs</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Cumulative capital invested in book (cost basis sum). Distinct from current value with PnL.">Capital investi</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} positions &middot; {len(sw_real)} sectors</div></div>'
         + "</div>"
     )
     star_strate_foot = f'<div class="ps-strate ps-foot">{_cluster_foot}</div>'
@@ -3034,7 +3034,7 @@ def _signaux() -> str:
     # Verdict activite 24h : ACTIF si s24 >= 5, sinon CALME (seuil approximatif
     # ajuste si besoin avec backlog reel observe).
     if s24 >= 5:
-        _act_cls, _act_lbl, _act_cap = "warn", "ACTIF", f"{s24} signaux entrants 24h"
+        _act_cls, _act_lbl, _act_cap = "warn", "ACTIVE", f"{s24} incoming signals 24h"
     elif s24 >= 1:
         _act_cls, _act_lbl, _act_cap = "", "MOD&Eacute;R&Eacute;", f"{s24} signal(aux) 24h &middot; flux normal"
     else:
@@ -3051,7 +3051,7 @@ def _signaux() -> str:
     star_strate_kpis = (
         '<div class="ps-strate ps-grid">'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Incoming signals over last 24h via Gmail (analyst newsletters) + EDGAR (8-K and insider Form 4).">Signaux 24&nbsp;h</div><div class="ps-val">{s24}</div><div class="ps-cap">Gmail + EDGAR</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Total signal volume ingested over rolling 30 days. Used to judge overall activity.">Signaux 30&nbsp;j</div><div class="ps-val">{s30}</div><div class="ps-cap">fen&ecirc;tre roulante</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Total signal volume ingested over rolling 30 days. Used to judge overall activity.">Signals 30d</div><div class="ps-val">{s30}</div><div class="ps-cap">rolling window</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Regulatory 8-K filings over 60 days (material SEC changes). Tally shows HIGH/MEDIUM/LOW severity breakdown.">8-K &middot; 60&nbsp;j</div><div class="ps-val">{n8k}</div><div class="ps-cap">{tally_str}</div></div>'
         + "</div>"
     )
@@ -3778,7 +3778,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         f'<div class="page-star">'
         f'<div class="ps-strate ps-grid">'
         f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current position is less than 12% from target_full. Take-profit zone.">Proches de la cible</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">marge &lt; 12%</div></div>'
-        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current price is above thesis entry cost (entry_price).">En gain</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">cours &gt; co&ucirc;t d&rsquo;entr&eacute;e</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current price is above thesis entry cost (entry_price).">En gain</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">price &gt; entry cost</div></div>'
         f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses less than 10% from stop. Critical zone to review.">Marges faibles</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">marge &lt; 10% du stop</div></div>'
         f'</div>'
         f'<div class="ps-strate"><div class="ps-lbl">Convictions</div>'
@@ -5766,13 +5766,13 @@ def _dba_predictions_brier_html(brier_avg: float | None, brier_n: int) -> str:
     Le vrai referent de skill = b(1-b) avec b = taux de base (post-J-day,
     quand N=35 le justifiera)."""
     if not brier_n:
-        return '<div class="dba-meta">Brier : aucune pr&eacute;diction r&eacute;solue &agrave; mesurer</div>'
+        return '<div class="dba-meta">Brier: no resolved prediction to measure</div>'
     if brier_n < 10:
-        return (f'<div class="dba-meta">Brier : N={brier_n} '
-                f'(insuffisant &mdash; seuil meaningful N&ge;10)</div>')
+        return (f'<div class="dba-meta">Brier: N={brier_n} '
+                f'(insufficient &mdash; meaningful threshold N&ge;10)</div>')
     return (
-        f'<div class="dba-meta">Brier moyen : {brier_avg:.3f} sur N={brier_n} '
-        f'&middot; vs 0.25 (pr&eacute;dicteur constante 0.5, baseline le plus faible)</div>'
+        f'<div class="dba-meta">Brier mean: {brier_avg:.3f} sur N={brier_n} '
+        f'&middot; vs 0.25 (constant 0.5 predictor, weakest baseline)</div>'
         f'<div class="dba-honest">Cohorte V1 fig&eacute;e (probability_at_creation = '
         f'snapshot cr&eacute;dibilit&eacute; source &asymp; 0.5). Battre 0.25 ne d&eacute;montre '
         f'pas un skill &mdash; juste une am&eacute;lioration sur le pr&eacute;dicteur le plus '
@@ -5925,8 +5925,8 @@ def _discipline_biais_panel() -> str:
         '<span class="dba-sh-aside">cluster KPI #2 &mdash; J+28 batch 10/06</span></div>'
         '<div class="dba-card">'
         f'<div class="dba-chrow"><span class="lab">{n_resolved}/{n_cluster_total} '
-        f'r&eacute;solues &middot; KPI #2 &ge;5 {pred_marker}</span>'
-        '<span class="stat actif">actif</span></div>'
+        f'resolved &middot; KPI #2 &ge;5 {pred_marker}</span>'
+        '<span class="stat actif">active</span></div>'
         f'{_dba_predictions_brier_html(brier_avg, brier_n)}'
         '</div>'
         # ─── BIAIS fomo_greed ────────────────────────────────────────────
@@ -5935,7 +5935,7 @@ def _discipline_biais_panel() -> str:
         # Canal kill_criteria
         '<div class="dba-card">'
         '<div class="dba-chrow"><span class="lab">kill_criteria</span>'
-        '<span class="stat actif">actif</span></div>'
+        '<span class="stat actif">active</span></div>'
         f'<div class="dba-meta">{n_active_theses} theses monitored '
         f'(daily monitoring) &middot; last transition '
         f'recorded {last_trans_str}</div>'
@@ -5954,13 +5954,13 @@ def _discipline_biais_panel() -> str:
         '<div class="dba-chrow"><span class="lab">over_cap</span>'
         '<span class="stat veille">en veille (par d&eacute;cision)</span></div>'
         f'<div class="dba-meta">Book {_dba_eur(book_total_eur)}&nbsp;&euro; &rarr; '
-        f'{_dba_eur(70180)}&nbsp;&euro; cible &middot; phase construction</div>'
+        f'{_dba_eur(70180)}&nbsp;&euro; target &middot; construction phase</div>'
         f'<div class="dba-count">{len(over_tk)} OVER d&eacute;tect&eacute;'
         f'{"s" if len(over_tk) != 1 else ""} actuellement</div>'
         f'{over_tags_html}'
         '<div class="dba-honest">Marginaux : tous repassent sous leur cap &agrave; '
         '70&nbsp;k = artefacts du d&eacute;nominateur, pas sur-concentration r&eacute;elle. '
-        'Firer maintenant = mesurer une discipline qui n\'a pas dit &laquo;&nbsp;trimme&nbsp;&raquo;.</div>'
+        'Firing now = measuring a discipline that did not say &laquo;&nbsp;trim&nbsp;&raquo;.</div>'
         '<div class="dba-cond">R&eacute;-activation : book &ge; 65&nbsp;k&euro; '
         'OU flag construction_phase lev&eacute;</div>'
         '<div class="dba-arrow">&rsaquo; <span class="v">0</span> candidat &eacute;mis '
@@ -5972,9 +5972,9 @@ def _discipline_biais_panel() -> str:
         '<div class="dba-card">'
         '<div class="dba-chrow">'
         '<span class="lab">Surface 2 &mdash; capture synchrone vente winner</span>'
-        '<span class="stat non-inst">non instrument&eacute;</span></div>'
-        '<div class="dba-meta">Chemin pr&eacute;vu par ADR-010 &sect;2. '
-        'Pas de canal de capture aujourd\'hui &mdash; biais #1 de PRESAGE, &agrave; combler.</div>'
+        '<span class="stat non-inst">not instrumented</span></div>'
+        '<div class="dba-meta">Path planned by ADR-010 §2. '
+        'No capture channel today &mdash; PRESAGE bias #1, to fill in.</div>'
         '<div class="dba-cond">Pas de candidat capturable tant que ce chemin '
         'n\'est pas livr&eacute;.</div>'
         '</div>'
