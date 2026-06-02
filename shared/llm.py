@@ -71,6 +71,62 @@ def _log_call(tier, model, task, input_tokens, output_tokens, cached_tokens, cos
         pass
 
 
+# #87 (02/06) -- Cost cap mitigation vendor lock Anthropic.
+# Default 10 USD/24h. Override via env LLM_COST_CAP_USD_24H. Bypass d'urgence
+# LLM_COST_CAP_DISABLE=1. Soft warn a 80%, hard raise a 100%.
+_COST_CAP_LAST_WARNED = 0.0
+
+
+class CostCapExceeded(RuntimeError):
+    """Raised quand la consommation LLM 24h depasse LLM_COST_CAP_USD_24H.
+
+    Mitigation vendor lock Anthropic : limite l'exposition financiere si
+    cron runaway ou bug d'infinite-retry. Override emergency via env
+    LLM_COST_CAP_DISABLE=1.
+    """
+
+
+def _get_cost_usage_24h() -> float:
+    """Cost USD cumule sur les 24 dernieres heures depuis llm_calls."""
+    try:
+        conn = sqlite3.connect(_DB_PATH)
+        row = conn.execute(
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls "
+            "WHERE created_at > datetime('now', '-24 hours')"
+        ).fetchone()
+        conn.close()
+        return float(row[0]) if row else 0.0
+    except Exception:
+        return 0.0  # fail-open : ne pas bloquer si DB indispo
+
+
+def _check_cost_cap() -> None:
+    """Check 24h cost vs cap. Soft-warn a 80%, raise a 100%."""
+    if os.environ.get("LLM_COST_CAP_DISABLE") == "1":
+        return
+    try:
+        cap = float(os.environ.get("LLM_COST_CAP_USD_24H", "10.0"))
+    except ValueError:
+        cap = 10.0
+    if cap <= 0:
+        return
+    used = _get_cost_usage_24h()
+    if used >= cap:
+        raise CostCapExceeded(
+            f"LLM cost cap atteint : {used:.2f} USD / {cap:.2f} USD sur "
+            "24h. Override LLM_COST_CAP_DISABLE=1 si intentionnel."
+        )
+    # Soft warn : log une seule fois par tranche de 10% au-dessus de 80%
+    global _COST_CAP_LAST_WARNED
+    pct = used / cap
+    if pct >= 0.8 and pct - _COST_CAP_LAST_WARNED >= 0.1:
+        import logging
+        logging.getLogger("shared.llm").warning(
+            f"LLM cost approche cap : {used:.2f}/{cap:.2f} USD ({pct * 100:.0f}%)"
+        )
+        _COST_CAP_LAST_WARNED = pct
+
+
 def call(
     prompt: str,
     task: str | None = None,
@@ -92,6 +148,7 @@ def call(
                         Must be >=1024 tokens to actually cache.
     Returns: text response (stripped)
     """
+    _check_cost_cap()  # #87 hard stop si cap atteint
     model, resolved_tier = _resolve_model(tier=tier, task=task)
 
     if cache_invariant:
@@ -149,6 +206,7 @@ def call_multiturn(
     cache_invariant : marked cache_control:ephemeral on system block (5min TTL).
     Returns text response (stripped).
     """
+    _check_cost_cap()  # #87 hard stop si cap atteint
     model, resolved_tier = _resolve_model(tier=tier, task=task)
     if cache_invariant:
         system_blocks = [{"type": "text", "text": cache_invariant, "cache_control": {"type": "ephemeral"}}]
