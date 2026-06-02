@@ -228,7 +228,17 @@ _APP_JS = """
 
     if(history.replaceState){history.replaceState(null,'','#'+id);}
   }
-  items.forEach(n=>n.addEventListener('click',()=>show(n.dataset.nav)));
+  /* C (#90 motion) : View Transitions API pour morph entre pages.
+     Capture snapshot avant + apres show(), browser crossfade smoothement.
+     Fallback gracieux si pas supporte (Firefox <128, vieux Safari) : show() direct. */
+  function navTo(id){
+    if (document.startViewTransition) {
+      document.startViewTransition(function(){ show(id); });
+    } else {
+      show(id);
+    }
+  }
+  items.forEach(n=>n.addEventListener('click',()=>navTo(n.dataset.nav)));
   var _h=(location.hash||'').replace('#','');if(_h&&/^[a-z]+$/.test(_h))show(_h);
   // Cmd+1..9 retire 01/06 user feedback : pas utile, parasite plus qu'autre chose
   // Sticky page header drop shadow on scroll (Stripe/Linear pattern) :

@@ -144,6 +144,25 @@ _CSS = """
   /* Page transitions (Emil framework) : Cmd+1..9 = action keyboard 30-50x/jour
      -> doit feel instant. .26s cubic-bezier ease-out vs .42s ease (sluggish). */
   [data-page] { display:none; } [data-page].active { display:block; animation:fadein .26s cubic-bezier(.22,.61,.36,1); } @keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  /* View Transitions API (Chrome 111+, Safari 18+, Edge 111+). Override le
+     fadein generique : croise old + new snapshots avec slide subtil. Linear-
+     like. Fallback : fadein keyframe ci-dessus reste. */
+  @supports (view-transition-name: a) {
+    [data-page].active { view-transition-name: page-body; animation: none; }
+    .phead h2 { view-transition-name: page-title; }
+    .phead .sub { view-transition-name: page-sub; }
+    ::view-transition-group(page-body) { animation-duration: .32s; animation-timing-function: var(--ease); }
+    ::view-transition-old(page-body) { animation: vt-fade-out .18s var(--ease) both; }
+    ::view-transition-new(page-body) { animation: vt-slide-in .32s var(--ease) both; }
+    ::view-transition-old(page-title), ::view-transition-new(page-title) { animation-duration: .26s; animation-timing-function: var(--ease); }
+    ::view-transition-old(page-sub),   ::view-transition-new(page-sub)   { animation-duration: .26s; animation-timing-function: var(--ease); }
+    @keyframes vt-fade-out { to { opacity: 0; transform: translateY(-6px); } }
+    @keyframes vt-slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  }
+  /* Respect prefers-reduced-motion : kill toute view-transition. */
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  }
   /* Cascade signature Vue d'ensemble : page load orchestre, blocs en revel
      staggered 60ms. Remplace le fadein page generique sur vigie uniquement.
      Direction "instrument vivant qui se decouvre" (task #37 axe 4). */
