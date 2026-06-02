@@ -48,33 +48,33 @@ OUTPUT = Path("dashboard/dashboard.html")
 DB = "file:data/bot.db?mode=ro"
 
 COUNTRY = {
-    "TSM": "Ta&iuml;wan",
-    "TSEM": "Isra&euml;l",
-    "ASML": "Pays-Bas",
-    "NVO": "Danemark",
-    "ARM": "Royaume-Uni",
-    "IFNNY": "Allemagne",
-    "BABA": "Chine",
-    "TCEHY": "Chine",
-    "PDD": "Chine",
+    "TSM": "Taiwan",
+    "TSEM": "Israel",
+    "ASML": "Netherlands",
+    "NVO": "Denmark",
+    "ARM": "United Kingdom",
+    "IFNNY": "Germany",
+    "BABA": "China",
+    "TCEHY": "China",
+    "PDD": "China",
     "STM": "France",
 }
 SUFFIX = {
-    ".KS": "Cor&eacute;e",
-    ".T": "Japon",
-    ".TW": "Ta&iuml;wan",
+    ".KS": "Korea",
+    ".T": "Japan",
+    ".TW": "Taiwan",
     ".PA": "France",
-    ".AS": "Pays-Bas",
-    ".L": "Royaume-Uni",
-    ".HK": "Chine",
-    ".DE": "Allemagne",
-    ".MI": "Italie",
-    ".ST": "Su&egrave;de",
-    ".AX": "Australie",
+    ".AS": "Netherlands",
+    ".L": "United Kingdom",
+    ".HK": "China",
+    ".DE": "Germany",
+    ".MI": "Italy",
+    ".ST": "Sweden",
+    ".AX": "Australia",
     ".TO": "Canada",
-    ".SS": "Chine",
-    ".SZ": "Chine",
-    ".SW": "Suisse",
+    ".SS": "China",
+    ".SZ": "China",
+    ".SW": "Switzerland",
 }
 
 
@@ -163,7 +163,7 @@ _DP_TTL = 840.0
 
 
 def _dp_pct(ticker: str) -> float | None:
-    # Variation % du jour (cloture veille -> dernier close). Invariant en devise: aucune conversion FX.
+    # Variation % du jour (cloture veille -> dernier close). Invariant en devise: nonee conversion FX.
     import time as _t
 
     now = _t.monotonic()
@@ -189,7 +189,7 @@ def _country(tk: str) -> str:
     for suf, c in SUFFIX.items():
         if tk.endswith(suf):
             return c
-    return "&Eacute;tats-Unis"
+    return "United States"
 
 
 def _q(sql: str) -> list:
@@ -201,7 +201,7 @@ def _q(sql: str) -> list:
 
 
 def _err(e: Exception) -> str:
-    return f'<div class="empty"><b>Requ&ecirc;te &agrave; ajuster</b><span class="mono" style="font-size:14px">{type(e).__name__}: {str(e)[:130]}</span></div>'
+    return f'<div class="empty"><b>Query to adjust</b><span class="mono" style="font-size:14px">{type(e).__name__}: {str(e)[:130]}</span></div>'
 
 
 def _needle_color(frac: float, *, invert: bool = False) -> str:
@@ -256,12 +256,12 @@ SECTOR_ALIAS = {"EU Defense": "Defense"}
 # bucket Construction/Fragilite). Construction = ce qui structure le book.
 # Fragilite = ce qui peut le briser maintenant.
 _DIM_LABELS = {
-    "quality_T1_plus": ("Solidit&eacute; haute", "min", "construction"),
+    "quality_T1_plus": ("Solidity haute", "min", "construction"),
     "T2_redondant": ("Doublons", "max", "construction"),
     "decorrelation_star": ("Autres bets", "min", "construction"),
     "sizing_conviction": ("Calibrage", "min", "construction"),
     "cluster_cap": ("Bet principal", "max", "construction"),
-    "thesis_health": ("Sant&eacute;", "min", "fragilite"),
+    "thesis_health": ("Health", "min", "fragilite"),
     "cycle_valo_exposure": ("Cycle / valo", "max", "fragilite"),
 }
 
@@ -327,12 +327,12 @@ def _v2_cohort_panel() -> str:
         f'<span class="v2-stat-rg mono">[{v1_lo:.3f} - {v1_hi:.3f}]</span>'
         f'<span class="v2-stat-bk mono">{v1_b} bucket(s)</span></div>'
         if v1_n > 0
-        else '<div class="v2-status v2-empty">aucune prediction V1</div>'
+        else '<div class="v2-status v2-empty">nonee prediction V1</div>'
     )
 
     return (
         '<div class="card pad v2cohortcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Coh&egrave;rte V2 vs V1 (scorer pivot 30/05)</span>'
+        '<div class="colhead"><span class="t">Cohort V2 vs V1 (scorer pivot 30/05)</span>'
         '<span class="a">V2 = SEC EDGAR primary content &middot; V1 = newsletter sentiment (mono-bucket)</span></div>'
         '<div class="v2-grid">'
         '<div class="v2-side v2-current"><div class="v2-label">V2 (canonique post-30/05)</div>'
@@ -380,7 +380,7 @@ def _calibration_progress_panel() -> str:
             f'<div class="calib-bar"><div class="calib-fill" style="width:{pct:.1f}%"></div></div>'
             '<div class="calib-meta">'
             f'<span class="calib-n mono">{n_total}/{target}</span>'
-            f'<span class="calib-rem">{remaining} &agrave; attendre</span>'
+            f'<span class="calib-rem">{remaining} to wait</span>'
             '</div></div></div>'
         )
 
@@ -440,12 +440,12 @@ def _wire_activity_panel() -> str:
         f'<span class="wact-sev wact-{r["severity"]}">{r["severity"]}</span>'
         f'<span class="wact-items mono">{r["items_raw"]}</span></div>'
         for r in recent_8k
-    ) or '<div class="empty">aucune 8-K log&eacute;e</div>'
+    ) or '<div class="empty">no 8-K logged</div>'
 
     return (
         '<div class="card pad wactcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Wire EDGAR activity</span>'
-        '<span class="a">8-K + insider clusters arriv&eacute;s dans le pipeline scoring V2</span></div>'
+        '<span class="a">8-K + insider clusters arrived in the V2 scoring pipeline</span></div>'
         f'<div class="wact-grid">{cells}</div>'
         '<div class="wact-recent-head">Latest 5 8-K filings (toutes severities)</div>'
         f'<div class="wact-recent-list">{last_rows}</div></div>'
@@ -502,7 +502,7 @@ def _vigilance_panel() -> str:
 
 
 def _risk_watch_panel() -> str:
-    """Top Risques declares - first-class surveillance sur Vue d'ensemble.
+    """Top Risks declares - first-class surveillance sur Vue d'ensemble.
 
     Lit scripts/risk_watch.json (declaration user) + status courant des
     mitigations + signals surveillance. Pas une opinion bot, juste tracking
@@ -623,7 +623,7 @@ def _risk_watch_panel() -> str:
         pass
     return (
         '<div class="card pad riskwatchcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Top Risques surveillance</span>'
+        '<div class="colhead"><span class="t">Top Risks surveillance</span>'
         f'<span class="a">{len(risks_list)} risque(s) declare(s) &middot; thesis-level reflection</span></div>'
         f'{construction_lens}'
         + "".join(out)
@@ -721,7 +721,7 @@ def _grade_panel() -> str:
                     for t in tickers
                 )
                 if tickers else
-                '<span class="gsub-empty">aucun ticker specifique cite dans l\'evidence</span>'
+                '<span class="gsub-empty">none ticker specifique cite dans l\'evidence</span>'
             )
             ev_safe = evidence.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")[:280]
             rows.append(
@@ -770,7 +770,7 @@ def _grade_panel() -> str:
         f'<div class="gbody">{_build_rows(construction_dims)}</div>'
         '</div>'
         '<div class="gsub">'
-        f'<div class="gsubh">Fragilit&eacute;</div>'
+        f'<div class="gsubh">Fragility</div>'
         f'<div class="gsubscore mono {f_cls}">{fragilite_score}<span class="gsubmax">/100</span></div>'
         f'<div class="gbody">{_build_rows(fragilite_dims)}</div>'
         '</div>'
@@ -864,7 +864,7 @@ def _copilot_panel() -> str:
     if not rows:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Aucune intervention du copilot pour le moment. Les pressure-tests "
+            "Nonee intervention du copilot pour le moment. Les pressure-tests "
             "apparaitront ici a chaque /position_buy /position_sell /override."
             "</div></div>"
         )
@@ -930,7 +930,7 @@ def _copilot_panel() -> str:
     return (
         '<div class="card pad copilotcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Copilot pressure before trades</span>'
-        '<span class="a">survole/clique une ligne pour le diagnostic complet &middot; verdict m&eacute;canique avant chaque action</span></div>'
+        '<span class="a">hover/click a row for full diagnostic &middot; mechanical verdict before each action</span></div>'
         + "".join(lis)
         + "<script>document.querySelectorAll('.copilotcard .cp-row').forEach(function(e){"
         "e.addEventListener('click',function(){e.classList.toggle('open')})});</script>"
@@ -979,7 +979,7 @@ def _return_clustering_panel() -> str:
         f'<span class="dc-pair">{p["ticker_a"]} &harr; {p["ticker_b"]}</span>'
         f'<span class="dc-corr mono">{p["correlation"]:.2f}</span></div>'
         for p in pairs[:12]
-    ) or '<div class="empty" style="padding:var(--s2) 0">aucune paire >0.7</div>'
+    ) or '<div class="empty" style="padding:var(--s2) 0">nonee paire >0.7</div>'
 
     cluster_rows = []
     for c in clusters:
@@ -994,12 +994,12 @@ def _return_clustering_panel() -> str:
             f'<div class="dc-mix-h">cluster #{c["cluster_id"]} (n={c["n_members"]})</div>'
             f'<div class="dc-mix-members">{members}</div></div>'
         )
-    mix_html = "".join(cluster_rows) or '<div class="empty" style="padding:var(--s2) 0">aucun cluster avec macro_factor melange</div>'
+    mix_html = "".join(cluster_rows) or '<div class="empty" style="padding:var(--s2) 0">none cluster avec macro_factor melange</div>'
 
     return (
         '<div class="card pad clustercard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Doublons vus par les prix</span>'
-        f'<span class="a">{snapshot_date} &middot; corr&eacute;lation rendements &middot; ce qui bouge ensemble vraiment</span></div>'
+        f'<span class="a">{snapshot_date} &middot; returns correlation &middot; what truly moves together</span></div>'
         '<div class="dc-sub">'
         f'<div class="dc-sh">Paires correlees (>0.7)</div>'
         f'<div class="dc-list">{pairs_html}</div></div>'
@@ -1106,7 +1106,7 @@ def _fx_exposure_panel() -> str:
     return (
         '<div class="card pad fxcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Exposition par devise</span>'
-        '<span class="a">cliquer une ligne pour d&eacute;rouler les positions &middot; pas de hedge FX</span></div>'
+        '<span class="a">click a row to expand positions &middot; no FX hedge</span></div>'
         + "".join(rows)
         + '<script>document.querySelectorAll(".fxcard .fx-item").forEach(function(e){'
         + 'e.addEventListener("click",function(){e.classList.toggle("open")})});</script>'
@@ -1138,7 +1138,7 @@ def _benchmark_panel() -> str:
     )
     return (
         '<div class="card pad benchcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Surperformance r&eacute;elle vs sector</span>'
+        '<div class="colhead"><span class="t">Real outperformance vs sector</span>'
         f'<span class="a">{bench["bench_window"]} &middot; book vs indice semi-conducteurs PHLX</span></div>'
         f'{warning_html}'
         '<div class="bm-grid">'
@@ -1192,7 +1192,7 @@ def _kill_criteria_panel() -> str:
             f'<div class="kc-ev">{evidence}</div></div>'
         )
     items_html = "".join(items) or (
-        '<div class="empty" style="padding:var(--s25) 0">aucune these triggered/at_risk &mdash; ' +
+        '<div class="empty" style="padding:var(--s25) 0">nonee these triggered/at_risk &mdash; ' +
         f'{counts["dormant"]} dormant</div>'
     )
     return (
@@ -1243,7 +1243,7 @@ def _spof_panel() -> str:
     return (
         '<div class="card pad spofcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Hidden upstream dependencies</span>'
-        '<span class="a">si un fournisseur en amont casse, tout ce qui en d&eacute;pend casse aussi</span></div>'
+        '<span class="a">if an upstream supplier breaks, everything depending on it breaks too</span></div>'
         + "".join(rows)
         + "</div>"
     )
@@ -1265,7 +1265,7 @@ def _mauboussin_sizing_panel() -> str:
         # F10 fix 29/05 round 2 : surface stop_distance% par row pour rendre
         # la contradiction stops decroches du fade visible. Astera fade=80
         # mais stop -51% (large), Synopsys fade=8 mais stop -20% (idem),
-        # SK Hynix stop -43%. Pas de relation coherente -- regression du
+        # SK Hynix stop -43%. No relation coherente -- regression du
         # Day 5 sur l'asymetrie tautologique. Au lieu de le decrire dans
         # le TODO, on l'affiche : 3 colonnes (conv, fade, stop_dist%)
         # cote a cote permettent de voir l'incoherence d'un coup d'oeil.
@@ -1275,7 +1275,7 @@ def _mauboussin_sizing_panel() -> str:
     if not sizing:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Pas encore de meta classifies pour calculer le sizing implicite."
+            "Not yet de meta classifies pour calculer le sizing implicite."
             "</div></div>"
         )
     rows = []
@@ -1334,7 +1334,7 @@ def _valo_above_bull_panel() -> str:
     if not flags:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Aucune position avec expectations > bull case identifiees."
+            "Nonee position avec expectations > bull case identifiees."
             "</div></div>"
         )
     rows = []
@@ -1369,7 +1369,7 @@ def _factor_exposures_panel() -> str:
     except Exception as e:
         return f'<div class="card pad"><div class="empty">factor exposures indispo: {type(e).__name__}</div></div>'
     if not facts:
-        return '<div class="card pad"><div class="empty">aucune position classifiee</div></div>'
+        return '<div class="card pad"><div class="empty">nonee position classifiee</div></div>'
     # Tri : composites en TETE (vue agregée d'abord), puis sub-buckets par pct
     sorted_f = sorted(facts.items(), key=lambda kv: (not kv[1].get("is_composite"), -kv[1]["pct_of_book"]))
     rows = []
@@ -1481,7 +1481,7 @@ def _user_strategy_panel() -> str:
     declared = us.get("declared_at", "?")
     tol_validated = bool(us.get("drawdown_tolerance_validated"))
     tol_validated_at = us.get("drawdown_tolerance_validated_at") or "?"
-    accepted_html = ", ".join(accepted) if accepted else "(aucun)"
+    accepted_html = ", ".join(accepted) if accepted else "(none)"
     # Phase construction : badge en tete pour cadrer la lecture du reste.
     # Tant que le book n'a pas atteint sa target (~70k€/~33 pos), les
     # metriques de concentration sont en convergence, pas en derive.
@@ -1539,7 +1539,7 @@ def _user_strategy_panel() -> str:
                 f'<div class="us-cta-b">Ta target cluster {cap}% implique '
                 f'<b class="neg mono">{dd_mild}%</b> sur scenario AI capex de-rating '
                 f'-30% (~<b class="neg mono">{dd_eur:+,}&nbsp;€</b>). '
-                "Si voir le book a ce niveau touche ta limite, baisse la target : la "
+                "Si voir le book a ce level touche ta limite, baisse la target : la "
                 "la note globale ne vaut que ce que vaut cette tolerance."
                 '</div>'
                 '<div class="us-cta-f">Pour valider : '
@@ -1593,12 +1593,12 @@ def _trajectory_panel() -> str:
     cls = "pos" if delta_score > 0 else ("neg" if delta_score < 0 else "neu")
     # Use canonical glossary labels
     canon_labels = {
-        "quality_T1_plus": "Solidit&eacute; haute",
+        "quality_T1_plus": "Solidity haute",
         "T2_redondant": "Doublons",
         "decorrelation_star": "Autres bets",
         "sizing_conviction": "Calibrage",
         "cluster_cap": "Bet principal",
-        "thesis_health": "Sant&eacute;",
+        "thesis_health": "Health",
     }
     rows = []
     for dk in ("quality_T1_plus", "T2_redondant", "decorrelation_star",
@@ -1687,7 +1687,7 @@ def _preferences_panel() -> str:
     """Layer 3 — ce qui MARCHE deterministically pour CE user.
 
     Pas d'opinion modele, juste les chiffres bruts groups par kind. La
-    confidence est derivee du sample size (Wilson-conservative). Pas de
+    confidence est derivee du sample size (Wilson-conservative). No
     note magique : tout est expose avec n explicit.
     """
     try:
@@ -1739,7 +1739,7 @@ def _preferences_panel() -> str:
                 )
         else:
             rows.append('<div class="pr-row"><span class="pr-key">no formatter</span></div>')
-        rows_html = "".join(rows) or '<div class="empty" style="padding:var(--s2) 0">aucun sample</div>'
+        rows_html = "".join(rows) or '<div class="empty" style="padding:var(--s2) 0">none sample</div>'
         groups.append(
             f'<div class="pr-group"><div class="pr-h">'
             f'<span class="pr-kind">{kind.replace("_"," ")}</span>'
@@ -1810,7 +1810,7 @@ def _conceptions_panel() -> str:
         '<div class="card pad conceptionscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Ce que le bot pense par ticker</span>'
         '<span class="a">stable per-ticker summary updated weekly '
-        '&middot; survole ou clique pour d&eacute;rouler</span></div>'
+        '&middot; survole ou clique pour expand</span></div>'
         + "".join(rows)
         + "<script>document.querySelectorAll('.conceptionscard .bc-row').forEach(function(e){"
         "e.addEventListener('click',function(){e.classList.toggle('open')})});</script>"
@@ -1899,7 +1899,7 @@ def _conversations_panel() -> str:
     if not rows:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Aucune conversation enregistree pour le moment. Les echanges chat "
+            "Nonee conversation enregistree pour le moment. Les echanges chat "
             "(dashboard + Telegram) seront consignes ici et integres au profil utilisateur."
             "</div></div>"
         )
@@ -1977,14 +1977,14 @@ def _narrative_panel() -> str:
         f'<div class="nv-line"><span class="nv-tk">{e.get("ticker","?")}</span>'
         f'<span class="nv-why">{(e.get("reason") or "")[:200]}</span></div>'
         for e in edges
-    ) or '<div class="empty" style="padding:var(--s25) 0">aucun edge identifie</div>'
+    ) or '<div class="empty" style="padding:var(--s25) 0">none edge identifie</div>'
 
     red_rows = "".join(
         f'<div class="nv-line"><span class="nv-tk">{r.get("ticker","?")}</span>'
         f'<span class="nv-with">redondant avec {r.get("redundant_with","?")}</span>'
         f'<span class="nv-why">{(r.get("reason") or "")[:160]}</span></div>'
         for r in redundant
-    ) or '<div class="empty" style="padding:var(--s25) 0">aucune redondance</div>'
+    ) or '<div class="empty" style="padding:var(--s25) 0">nonee redondance</div>'
 
     return (
         '<div class="card pad narrativecard" style="margin-bottom:var(--s4)">'
@@ -2430,7 +2430,7 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
         for prog, tk in data
     )
     watch = (
-        rows or '<div class="empty" style="padding:var(--s4) 0">aucune ligne &agrave; &ge;75% de la target &mdash; marges restantes</div>'
+        rows or '<div class="empty" style="padding:var(--s4) 0">nonee ligne &agrave; &ge;75% de la target &mdash; marges restantes</div>'
     )
     return watch, len(data)
 
@@ -2457,7 +2457,7 @@ def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
             near_rows.append(f'<div class="line"><span>{tk}</span><span class="mono">{down:.0f}% de marge</span></div>')
     watch = (
         "".join(near_rows)
-        or '<div class="empty" style="padding:var(--s4) 0">aucune marge faible &mdash; calme</div>'
+        or '<div class="empty" style="padding:var(--s4) 0">nonee marge faible &mdash; calme</div>'
     )
     return "".join(rows), near, heat, watch
 
@@ -2905,8 +2905,8 @@ def _insider_flow_strip_html() -> str:
         return rows or (
             '<div class="empty">'
             '<span class="empty-ico">i</span>'
-            '<b>Aucun flux d&rsquo;initi&eacute;s</b>'
-            'Pas de transactions Form 4 SEC sur la fen&ecirc;tre 7&nbsp;j.'
+            '<b>None flux d&rsquo;initi&eacute;s</b>'
+            'No transactions Form 4 SEC sur la fen&ecirc;tre 7&nbsp;j.'
             '<span class="hint">Se remplit avec les ventes/achats d&rsquo;executives &gt; $50k</span>'
             '</div>'
         )
@@ -2956,7 +2956,7 @@ def _signaux() -> str:
             '<div class="empty">'
             '<span class="empty-ico">8</span>'
             '<b>No 8-K filing</b>'
-            'Pas de filings r&eacute;glementaires SEC sur 60&nbsp;j.'
+            'No filings r&eacute;glementaires SEC sur 60&nbsp;j.'
             '<span class="hint">Se remplit avec acquisitions, departures CEO, materiel events</span>'
             '</div>'
         )
@@ -3038,7 +3038,7 @@ def _signaux() -> str:
     elif s24 >= 1:
         _act_cls, _act_lbl, _act_cap = "", "MOD&Eacute;R&Eacute;", f"{s24} signal(aux) 24h &middot; flux normal"
     else:
-        _act_cls, _act_lbl, _act_cap = "acc", "CALME", "aucun signal 24h"
+        _act_cls, _act_lbl, _act_cap = "acc", "CALME", "none signal 24h"
     star_strate_act = (
         '<div class="ps-strate">'
         + '<div class="ps-lbl">Signal activity 24h</div>'
@@ -3066,13 +3066,13 @@ def _signaux() -> str:
     cols = (
         f'<div class="cols">'
         f'<div class="col"><div class="colhead"><span class="t">8-K r&eacute;cents</span><span class="a">{tally_str}</span></div><div class="card">{eightk}</div></div>'
-        f'<div class="col"><div class="colhead"><span class="t">Cr&eacute;dibilit&eacute; des sources</span><span class="a">{nsrc} sources &middot; recal 1er du mois</span></div><div class="card">{src_rows}</div></div>'
+        f'<div class="col"><div class="colhead"><span class="t">Source credibility</span><span class="a">{nsrc} sources &middot; recal 1er du mois</span></div><div class="card">{src_rows}</div></div>'
         f"</div>"
     )
     insider_flow = _insider_flow_strip_html()
     insider_flow_strip = (
         f'<div class="colhead spaced"><span class="t">Flux d\'initi&eacute;s &middot; 7&nbsp;j</span>'
-        f'<span class="a">net buy/sell agr&eacute;g&eacute; &middot; &#9733; = en portefeuille</span></div>'
+        f'<span class="a">aggregated net buy/sell &middot; &#9733; = en portefeuille</span></div>'
         f'<div class="card pad">{insider_flow}</div>'
     )
     # Clusters strip : montre seulement si non-empty (insider_buy_clusters_log
@@ -3119,7 +3119,7 @@ _MACRO_TIPS: dict[str, str] = {
     "VIX": "Vol implicite S&P 500 30j. < 15 euphorie, > 25 stress, > 40 panique.",
     "HY_OAS": "Prime obligations haut rendement vs Treasury. < 300 = complacent, > 600 = panique. Signal avancé.",
     "DXY": "USD vs 6 majeures. > 105 = vent contraire multinationales US ; > 110 = stress global.",
-    "BTC_drawdown180": "Drawdown BTC vs max 6 mois. < -30% = bear risk-off, < -50% = capitulation. Capte le stress crypto reel sans confondre avec niveau brut.",
+    "BTC_drawdown180": "Drawdown BTC vs max 6 mois. < -30% = bear risk-off, < -50% = capitulation. Capte le stress crypto reel sans confondre avec level brut.",
     "MOVE": "VIX des Treasuries. > 130 = stress obligataire, souvent avancé sur actions.",
     "T10Y2Y": "Courbe des taux 10A-2A. Dé-inversion (passage <0 vers >0) = récession dans 3-6 mois.",
     "BankReserves": "Cash bancaire à la Fed. < 2.5T = stress plomberie imminent.",
@@ -3135,7 +3135,7 @@ _MACRO_TIPS: dict[str, str] = {
 
 
 def _macro_dot(ind: str, v: float) -> str:
-    "Couleur du point macro selon le niveau reel (decouplee de la phase). Inconnu -> mute."
+    "Couleur du point macro selon le level reel (decouplee de la phase). Inconnu -> mute."
     band = _MACRO_BANDS.get(ind)
     if band is None:
         return "mute"
@@ -3239,7 +3239,7 @@ def _breadth_rsp_spy() -> str:
         dot, tag = "warn", "&Eacute;TROIT"
     else:
         dot, tag = "calm", ""
-    tip = "Equipondere (RSP) vs ponder&eacute; capitalisation (SPY). > MM50 = hausse large (saine). < MM50 = mega-caps isol&eacute;es (fragile)."
+    tip = "Equal-weight (RSP) vs cap-weighted (SPY). > MA50 = broad rally (healthy). < MA50 = isolated mega-caps (fragile)."
     tip_attr = f' data-tip="{_h.escape(tip, quote=True)}"'
     return (
         f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span>'
@@ -3273,7 +3273,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         "FedBalance_yoy": (3, "Bilan Fed YoY (%)", 1, False),
     }
     tnames = {
-        1: "March&eacute; &amp; liquidit&eacute;",
+        1: "Market &amp; liquidity",
         2: "Stress bancaire &amp; liquidit&eacute; Fed",
         3: "Macro lente",
         9: "Autres",
@@ -3303,7 +3303,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
             _age = (_today - _dt.date.fromisoformat(str(ts)[:10])).days
         except Exception:
             _age = 0
-        stale = '<span class="stale">p&eacute;rim&eacute;</span>' if _age > _STALE.get(tier, 10) else ""
+        stale = '<span class="stale">stale</span>' if _age > _STALE.get(tier, 10) else ""
         vcls = "mute" if stale else dot
         tip = _MACRO_TIPS.get(ind, "")
         tip_attr = f' data-tip="{_html_esc.escape(tip, quote=True)}"' if tip else ""
@@ -3521,7 +3521,7 @@ def _cockpit() -> str:
 
     drift_count = len(RECONCILE_FLAGS)
     drift_sub = (
-        "; ".join(f"{f['ticker']} ~{int(f['drift_eur'])} EUR" for f in RECONCILE_FLAGS) if drift_count else "aucune"
+        "; ".join(f"{f['ticker']} ~{int(f['drift_eur'])} EUR" for f in RECONCILE_FLAGS) if drift_count else "nonee"
     )
 
     INK, WARN, DANGER = "var(--ink)", "var(--warn)", "var(--bear)"
@@ -3571,7 +3571,7 @@ def _cockpit() -> str:
         )
 
     cells = (
-        cell("D&eacute;cisions logg&eacute;es &middot; 30j", str(dec_30d), dec_sub, dec_color)
+        cell("Decisions logged &middot; 30d", str(dec_30d), dec_sub, dec_color)
         + cell("Batch Brier", countdown, countdown_sub, cd_color)
         + cell(
             "R&eacute;conciliation book", f"{drift_count} ligne{'s' if drift_count > 1 else ''}", drift_sub, drift_color
@@ -3681,7 +3681,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     if not rows:
         return (
             '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Theses</h2>'
-            '<div class="sub">aucune thesis active</div></div></section>'
+            '<div class="sub">nonee thesis active</div></div></section>'
         )
     _u = _cfg().get("universe", {})
     crypto_tk = set(_u.get("core", {}).get("crypto_core", [])) | set(_u.get("extended", {}).get("crypto_etfs", []))
@@ -3827,7 +3827,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     f'<span class="th-tgt">target +{t["d_tgt"]:.0f}%</span></div></div>'
                 )
             else:
-                bar = '<div class="th-na">donn&eacute;es de prix incompl&egrave;tes</div>'
+                bar = '<div class="th-na">incomplete price data</div>'
             anchor = ""
             if t["has_bar"] and t["pnl_e"] is not None:
                 _crypto = t["tk"] in crypto_tk
@@ -4454,7 +4454,7 @@ _CSS = """
   .gradecard .gsubmax { color:var(--steel); font-size:16px; margin-left:1px; font-weight:400; }
   @media (max-width:980px) { .gradecard .gsplit { grid-template-columns:1fr; gap:var(--s35); } }
   .gradecard .ggate { font-family:var(--fm); font-size:15px; color:var(--bear); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:var(--s25) 14px; border-radius:var(--r2); margin:var(--s35) 0; border-left:3px solid var(--bear); }
-  /* Top Risques surveillance */
+  /* Top Risks surveillance */
   .riskwatchcard .rw-lens { font-family:var(--fm); margin:var(--s25) 0 4px; padding:9px 12px; background:color-mix(in srgb, var(--warn) 5%, transparent); border-left:2px solid var(--warn); border-radius:2px; font-size:15px; color:var(--ink); line-height:1.55; }
   .riskwatchcard .rw-card { padding:16px 0; border-bottom:1px solid var(--line); }
   .riskwatchcard .rw-card:last-child { border-bottom:none; }
@@ -4987,7 +4987,7 @@ _CTA_JS = """
       }).slice(0,40);
     }
     selIdx=0;
-    if(!matches.length){ results.innerHTML='<div class="cta-result" style="opacity:.5">Aucun resultat</div>'; return; }
+    if(!matches.length){ results.innerHTML='<div class="cta-result" style="opacity:.5">None resultat</div>'; return; }
     var recentSet={};
     if(!ql && !activeSector){
       getRecent().forEach(function(tk){recentSet[tk]=1;});
@@ -5189,15 +5189,15 @@ _APP_JS = """
   function openLoupe(tk){
     var d=(window.TK||{})[tk]||{};
     var st=d.status||'out';
-    var stm={held:['d&eacute;tenu','held'],watch:['watchlist','watch'],core:['univers core','univ'],extended:['univers &eacute;tendu','univ'],out:['hors-univers','out']};
+    var stm={held:['held','held'],watch:['watchlist','watch'],core:['core universe','univ'],extended:['extended universe','univ'],out:['out-of-universe','out']};
     var sb=stm[st]||stm.out;
     var badge='<span class="lp-badge '+sb[1]+'">'+sb[0]+(st==='held'&&d.weight_pct!=null?' &middot; '+d.weight_pct+'%':'')+'</span>';
     var a=d.analysis, sc='';
     if(a&&a.scores){
-      var nm={quality:'Qualit&eacute;',growth:'Croissance',profitability:'Rentabilit&eacute;',valuation:'Valorisation',risk:'Risque',momentum:'Momentum',macro_alignment:'Macro'};
+      var nm={quality:'Quality',growth:'Growth',profitability:'Profitability',valuation:'Valuation',risk:'Risk',momentum:'Momentum',macro_alignment:'Macro'};
       for(var k in nm){ if(a.scores[k]!=null){ var v=Math.round(a.scores[k]); sc+='<div class="lp-score"><span class="ln">'+nm[k]+'</span><span class="bar"><span class="bf" style="width:'+v+'%"></span></span><span class="vv">'+v+'</span></div>'; } }
     }
-    var ana = a ? ('<div class="lp-sec">Latest analysis &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">R&eacute;gime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'</div>':'')+'<div class="lp-hint">Analyse compl&egrave;te : <code>/analyze '+tk+'</code> sur Telegram, ou demande-la dans le chat.</div>') : '<div class="lp-sec">Analyse</div><div class="lp-empty">Aucune analyse stock&eacute;e. <code>/analyze '+tk+'</code> sur Telegram pour g&eacute;n&eacute;rer.</div>';
+    var ana = a ? ('<div class="lp-sec">Latest analysis &middot; '+a.date+(a.type?' &middot; '+a.type:'')+'</div>'+sc+(a.regime?'<div class="lp-meta">Regime '+a.regime+(a.narr&&a.narr.length?' &middot; '+a.narr.join(', '):'')+'</div>':'')+(a.excerpt?'<div class="lp-ex">'+a.excerpt+'</div>':'')+'<div class="lp-hint">Analyse compl&egrave;te : <code>/analyze '+tk+'</code> sur Telegram, ou demande-la dans le chat.</div>') : '<div class="lp-sec">Analyse</div><div class="lp-empty">Nonee analyse stock&eacute;e. <code>/analyze '+tk+'</code> sur Telegram pour g&eacute;n&eacute;rer.</div>';
     document.getElementById('loupe-body').innerHTML =
       '<div class="lp-h">'+_tkLogoJs(tk)+'<span class="lp-tk">'+tk+'</span><span class="lp-nm">'+(d.name||'')+'</span></div>'
       +'<div class="lp-meta">'+badge+' &middot; '+(d.sector||'&mdash;')+' &middot; '+(d.country||'&mdash;')+'</div>'
@@ -5208,7 +5208,7 @@ _APP_JS = """
       +'<div class="lp-stat"><div class="lp-sl">Marge stop</div><div class="lp-sv">'+_pct(d.down)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">Vers target</div><div class="lp-sv">'+_pct(d.up)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">Asym&eacute;trie</div><div class="lp-sv">'+(d.ratio==null?'&mdash;':d.ratio+'x')+'</div></div>'
-      +'</div>'+(d.perf?('<div class="lp-sec" style="margin-top:16px">Momentum r&eacute;cent</div><div class="lp-mom">'+mom('Jour',d.perf.d)+mom('Semaine',d.perf.w)+mom('Mois',d.perf.m)+'</div>'):'')):'<div class="lp-empty" style="padding:var(--s25) 0 2px">Pas de position ouverte sur ce titre.</div>')+ana;
+      +'</div>'+(d.perf?('<div class="lp-sec" style="margin-top:16px">Momentum r&eacute;cent</div><div class="lp-mom">'+mom('Jour',d.perf.d)+mom('Semaine',d.perf.w)+mom('Mois',d.perf.m)+'</div>'):'')):'<div class="lp-empty" style="padding:var(--s25) 0 2px">No position ouverte sur ce titre.</div>')+ana;
     document.getElementById('loupe').classList.add('open');
   }
   function closeLoupe(){ var el=document.getElementById('loupe'); if(el)el.classList.remove('open'); }
@@ -5271,7 +5271,7 @@ _APP_JS = """
     document.body.appendChild(box);
     var inp=box.querySelector('#qs-input'),res=box.querySelector('#qs-res'),sel=0,cur=[];
     var rk={held:0,watch:1,core:2,extended:3,out:4};
-    function lab(st){return {held:'d&eacute;tenu',watch:'watch',core:'core',extended:'&eacute;tendu'}[st]||'hors-univers';}
+    function lab(st){return {held:'held',watch:'watch',core:'core',extended:'extended'}[st]||'out-of-universe';}
     function openQS(){box.classList.add('open');inp.value='';qrender('');setTimeout(function(){inp.focus();},30);}
     function closeQS(){box.classList.remove('open');}
     function qrender(q){
@@ -5282,7 +5282,7 @@ _APP_JS = """
       cur=out.slice(0,8);sel=0;
       res.innerHTML=cur.length?cur.map(function(e,i){var d=e[1];
         return '<div class="qs-row'+(i===0?' on':'')+'" data-qtk="'+e[0]+'"><span class="qs-tk">'+e[0]+'</span><span class="qs-nm">'+(d.name||'')+'</span><span class="qs-st '+(d.status||'out')+'">'+lab(d.status||'out')+'</span></div>';
-      }).join(''):'<div class="qs-empty">aucun titre</div>';
+      }).join(''):'<div class="qs-empty">none titre</div>';
     }
     function pick(tk){if(!tk)return;closeQS();openLoupe(tk);}
     function hi(){var rows=res.querySelectorAll('.qs-row');for(var i=0;i<rows.length;i++){rows[i].classList.toggle('on',i===sel);}}
@@ -5586,7 +5586,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             f'<td class="{asym_cls}">{asym_str}</td></tr>'
         )
     if not ps:
-        rows = '<tr><td class="empty" colspan="5" style="padding:var(--s4) 0">aucune ligne</td></tr>'
+        rows = '<tr><td class="empty" colspan="5" style="padding:var(--s4) 0">nonee ligne</td></tr>'
     tot_str = f"{tot:,.0f}".replace(",", "&#8239;")
     donut = _sector_donut(_sector_mix(ps, pnl, sectors)) if ps else ""
     return (
@@ -5775,7 +5775,7 @@ def _dba_predictions_brier_html(brier_avg: float | None, brier_n: int) -> str:
         f'&middot; vs 0.25 (constant 0.5 predictor, weakest baseline)</div>'
         f'<div class="dba-honest">Cohorte V1 fig&eacute;e (probability_at_creation = '
         f'source credibility snapshot &asymp; 0.5). Beating 0.25 does not demonstrate '
-        f'pas un skill &mdash; juste une am&eacute;lioration sur le pr&eacute;dicteur le plus '
+        f'not a skill -- just an improvement over the weakest predictor '
         f'b&ecirc;te. Vraie calibration V2 = post-ao&ucirc;t (N V2 suffisant + comparaison '
         f'au pr&eacute;dicteur taux-de-base).</div>'
     )
@@ -5789,7 +5789,7 @@ def _discipline_biais_panel() -> str:
 
     # Predictions cluster KPI #2 -- batch 10/06 specifique : V1 dont
     # target_date <= 2026-06-10. User 01/06 critique : la query precedente
-    # comptait TOUTES les V1 resolues, biais vers "5 du cluster" alors qu'aucune
+    # comptait TOUTES les V1 resolues, biais vers "5 du cluster" alors qu'nonee
     # n'est du batch 10/06. Cluster target = 35 predictions a J-day.
     n_cluster_total = _q(
         "SELECT COUNT(*) FROM predictions "
@@ -5827,9 +5827,9 @@ def _discipline_biais_panel() -> str:
 
     # User 01/06 critique : "derniere eval" est faux -- kca skip INSERT si
     # prev=new=dormant, donc MAX(created_at) = derniere TRANSITION persistee,
-    # pas dernier run cron. Libelle reformule pour la verite.
+    # nornier run cron. Libelle reformule pour la verite.
     last_trans = _q("SELECT MAX(created_at) FROM kill_criteria_alerts")[0][0]
-    last_trans_str = last_trans[:16].replace("T", " ") if last_trans else "aucune"
+    last_trans_str = last_trans[:16].replace("T", " ") if last_trans else "nonee"
 
     # bias_events compteurs
     n_bias_open = _q("SELECT COUNT(*) FROM bias_events WHERE status='open'")[0][0]
@@ -5952,14 +5952,14 @@ def _discipline_biais_panel() -> str:
         # Canal over_cap
         '<div class="dba-card">'
         '<div class="dba-chrow"><span class="lab">over_cap</span>'
-        '<span class="stat veille">en veille (par d&eacute;cision)</span></div>'
+        '<span class="stat veille">en veille (par decision)</span></div>'
         f'<div class="dba-meta">Book {_dba_eur(book_total_eur)}&nbsp;&euro; &rarr; '
         f'{_dba_eur(70180)}&nbsp;&euro; target &middot; construction phase</div>'
-        f'<div class="dba-count">{len(over_tk)} OVER d&eacute;tect&eacute;'
+        f'<div class="dba-count">{len(over_tk)} OVER detected'
         f'{"s" if len(over_tk) != 1 else ""} actuellement</div>'
         f'{over_tags_html}'
         '<div class="dba-honest">Marginaux : tous repassent sous leur cap &agrave; '
-        '70&nbsp;k = artefacts du d&eacute;nominateur, pas sur-concentration r&eacute;elle. '
+        '70k = denominator artifacts, not real over-concentration. '
         'Firing now = measuring a discipline that did not say &laquo;&nbsp;trim&nbsp;&raquo;.</div>'
         '<div class="dba-cond">R&eacute;-activation : book &ge; 65&nbsp;k&euro; '
         'OU flag construction_phase lev&eacute;</div>'
@@ -5975,7 +5975,7 @@ def _discipline_biais_panel() -> str:
         '<span class="stat non-inst">not instrumented</span></div>'
         '<div class="dba-meta">Path planned by ADR-010 §2. '
         'No capture channel today &mdash; PRESAGE bias #1, to fill in.</div>'
-        '<div class="dba-cond">Pas de candidat capturable tant que ce chemin '
+        '<div class="dba-cond">No candidat capturable tant que ce chemin '
         'n\'est pas livr&eacute;.</div>'
         '</div>'
         '</div>'
@@ -6027,7 +6027,7 @@ def render() -> Path:
         rop = ' style="opacity:.45"' if rpast else ""
         rtag = " &middot; pass&eacute;e" if rpast else ""
         erows += f'<div class="line"{rop}><span>{rlab}{rtag}</span><span class="mono">{rdd}</span></div>'
-    erows = erows or '<div class="empty" style="padding:var(--s35) 0">aucune deadline</div>'
+    erows = erows or '<div class="empty" style="padding:var(--s35) 0">nonee deadline</div>'
 
     wbase = sum(p["weight"] for p in positions if p["ticker"] in pnl) or 1
     port_pnl = sum(p["weight"] * pnl[p["ticker"]] for p in positions if p["ticker"] in pnl) / wbase
@@ -6076,7 +6076,7 @@ def render() -> Path:
     journal_html = _journal()
     journal_block = (
         (
-            '<div class="colhead spaced"><span class="t">Lasts d&eacute;cisions</span><span class="a">journal Telegram</span></div>'
+            '<div class="colhead spaced"><span class="t">Lasts decisions</span><span class="a">journal Telegram</span></div>'
             f'<div class="card pad">{journal_html}</div>'
         )
         if journal_html
@@ -6417,7 +6417,7 @@ def render() -> Path:
         _post_cap = f"{n_tgt} ligne(s) proche(s) d&rsquo;un palier"
     else:
         _post_cls, _post_lbl = "acc", "AT&nbsp;REST"
-        _post_cap = "aucune ligne en zone critique &middot; surveiller la d&eacute;rive"
+        _post_cap = "nonee ligne en zone critique &middot; surveiller la d&eacute;rive"
     _star_stop_cls = "bear" if n_stop else "acc"
     _star_watch_cls = "warn" if n_watch else "acc"
     _star_tgt_cls = "warn" if n_tgt else "acc"
@@ -6431,9 +6431,9 @@ def render() -> Path:
         + f'<div class="ps-cap">{_post_cap}</div>'
         + "</div>"
     )
-    _stop_caption = (", ".join(near_stop_tk[:3]) + ("…" if len(near_stop_tk) > 3 else "")) if near_stop_tk else "aucune"
-    _watch_caption = (", ".join(watch_zone_tk[:3]) + ("…" if len(watch_zone_tk) > 3 else "")) if watch_zone_tk else "aucune"
-    _tgt_caption = (", ".join(near_tgt_tk[:3]) + ("…" if len(near_tgt_tk) > 3 else "")) if near_tgt_tk else "aucune"
+    _stop_caption = (", ".join(near_stop_tk[:3]) + ("…" if len(near_stop_tk) > 3 else "")) if near_stop_tk else "nonee"
+    _watch_caption = (", ".join(watch_zone_tk[:3]) + ("…" if len(watch_zone_tk) > 3 else "")) if watch_zone_tk else "nonee"
+    _tgt_caption = (", ".join(near_tgt_tk[:3]) + ("…" if len(near_tgt_tk) > 3 else "")) if near_tgt_tk else "nonee"
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 10% from stop trigger. Critical margin: review thesis or trailing stop before session.">At stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
@@ -6452,7 +6452,7 @@ def render() -> Path:
     broker_html = _broker_tables(positions, names, pnl, sectors)
     positions_pg = (
         f'<section data-page="positions" role="region" aria-label="Positions"><div class="phead"><h2>Positions</h2>'
-        f'<div class="sub">Marge &agrave; la hausse vers la target &middot; &agrave; la baisse vers le stop</div></div>'
+        f'<div class="sub">Upside margin to target &middot; downside to stop</div></div>'
         f"{star_positions}{broker_html}</section>"
     )
 
@@ -6489,7 +6489,7 @@ def render() -> Path:
                    .replace("&euro;", "€").replace("&#8239;", " ")
                    .replace("&lt;", "<").replace("&nbsp;", " ")
                    for item in _dev_items)
-        if _dev_items else "aucune friction de discipline"
+        if _dev_items else "nonee friction de discipline"
     )
     _dband = (
         f'<div class="dband {_dcls}" title="{_dtitle}" '
@@ -6521,7 +6521,7 @@ def render() -> Path:
         '<meta name="viewport" content="width=device-width, initial-scale=1"><script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>PRESAGE</title><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230c0c0e%22%2F%3E%3Cg%20transform%3D%22translate%288.00%2C19.57%29%20scale%280.13079%29%22%20fill%3D%22%23ECEFF4%22%3E%3Cg%20transform%3D%22translate%280.000000%2C190.000000%29%20scale%280.100000%2C-0.100000%29%22%20%20stroke%3D%22none%22%3E%20%3Cpath%20d%3D%22M1335%201890%20c-11%20-4%20-200%20-189%20-419%20-409%20l-399%20-401%20251%200%20250%200%20254%20260%20253%20260%2071%200%2071%200%2058%20-62%20c32%20-35%20168%20-174%20301%20-309%20l242%20-246%2069%20-7%20c37%20-4%20148%20-11%20246%20-16%2098%20-4%20181%20-11%20184%20-14%204%20-3%20-45%20-6%20-108%20-6%20-63%200%20-175%20-5%20-249%20-10%20l-135%20-11%20-72%20-72%20c-40%20-39%20-73%20-76%20-73%20-82%200%20-6%2051%20-61%20114%20-124%20l113%20-113%20184%20187%20184%20186%20330%209%20c182%205%20394%209%20473%2010%20l142%200%200%2030%200%2030%20-127%201%20c-71%201%20-284%204%20-474%207%20l-346%207%20-87%2082%20c-47%2045%20-126%20129%20-175%20186%20-131%20153%20-581%20617%20-609%20628%20-29%2011%20-490%2011%20-517%20-1z%22%2F%3E%20%3Cpath%20d%3D%22M2308%201888%20c-9%20-7%20-26%20-33%20-37%20-58%20-12%20-25%20-44%20-68%20-72%20-97%20l-51%20-52%20105%20-108%20105%20-107%2064%2067%2063%2067%2072%200%2071%200%20253%20-260%20252%20-260%20244%200%20c238%200%20244%200%20231%2019%20-23%2032%20-760%20775%20-782%20788%20-30%2018%20-496%2018%20-518%201z%22%2F%3E%20%3Cpath%20d%3D%22M1693%201259%20c-54%20-61%20-109%20-127%20-123%20-145%20-14%20-19%20-51%20-54%20-83%20-78%20l-58%20-43%20-487%20-7%20c-268%20-3%20-589%20-9%20-715%20-13%20-207%20-5%20-227%20-7%20-227%20-23%200%20-16%2024%20-18%20298%20-24%20163%20-4%20488%20-11%20721%20-17%20l424%20-10%2061%20-44%20c89%20-63%20148%20-125%20236%20-250%2053%20-75%20150%20-184%20305%20-345%20125%20-129%20237%20-240%20249%20-247%2015%20-9%2095%20-12%20276%20-13%20l254%200%20411%20410%20410%20410%20-245%200%20-245%200%20-255%20-255%20-255%20-255%20-81%200%20-80%200%20-244%20253%20c-309%20320%20-340%20349%20-388%20353%20-20%201%20-91%208%20-157%2013%20-66%206%20-176%2011%20-245%2012%20-149%202%20-118%2016%2039%2018%2056%200%20169%206%20250%2012%20l146%2011%2073%2071%20c39%2040%2071%2075%2070%2079%20-5%2013%20-221%20238%20-229%20238%20-4%200%20-52%20-50%20-106%20-111z%22%2F%3E%20%3Cpath%20d%3D%22M715%20618%20c110%20-112%20290%20-295%20402%20-408%20l202%20-205%20161%20-3%20c182%20-4%20206%203%20285%2077%2052%2049%20126%2093%20193%20115%20l54%2018%20-112%20112%20-111%20111%20-58%20-62%20-57%20-63%20-81%200%20-80%200%20-176%20178%20c-96%2097%20-208%20212%20-247%20255%20l-72%2077%20-251%200%20-251%200%20199%20-202z%22%2F%3E%20%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E">'
         ""
         # Geist auto-hosted depuis dashboard/static/fonts/ (cf tokens.css
-        # @font-face block). Pas de CDN Google Fonts (zero round-trip externe,
+        # @font-face block). No CDN Google Fonts (zero round-trip externe,
         # zero tracking, souveraine).
         ''
         "<style>"
@@ -6548,7 +6548,7 @@ def render() -> Path:
         # vs regen 60s. isTyping protege la zone chat. Charge negligeable
         # (HEAD request, 1KB, local serve.py).
         # Sprint 4 CTA flottant bas : Recherche seule (Compact + Filtrer retires
-        # 01/06 user feedback : Compact aucun interet, Filtrer pas de utilite plug)
+        # 01/06 user feedback : Compact none interet, Filtrer no utilite plug)
         + '<div class="cta-bar" role="toolbar" aria-label="Recherche rapide">'
         + '<button id="ctaSearch" title="Rechercher (Cmd+K)"><span aria-hidden="true">&#9906;</span> Rechercher <kbd>&#8984;K</kbd></button>'
         + "</div>"
