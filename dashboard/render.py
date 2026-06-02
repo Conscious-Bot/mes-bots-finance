@@ -2987,17 +2987,48 @@ def _signaux() -> str:
 
     try:
         nsrc = _q("SELECT COUNT(*) FROM sources")[0][0]
+        # #72 + #75 : Brier mesure rolling 180j par source (calibration empirique).
+        # Pre-J-day, N=0 -> badge "—". Post-J+30, badge OK/WARN/ALERT visible.
+        brier_by_src: dict[str, dict] = {}
+        try:
+            from intelligence.calibration_audit import compute_brier_by_source
+            cx = sqlite3.connect(DB, uri=True)
+            try:
+                cx.row_factory = sqlite3.Row
+                brier_data = compute_brier_by_source(cx, days=180)
+            finally:
+                cx.close()
+            brier_by_src = {b["source_name"]: b for b in brier_data}
+        except Exception:
+            brier_by_src = {}
+
         src_rows = ""
         for name, cred, n in _q(
             "SELECT name, credibility, COALESCE(n_signals,0) FROM sources ORDER BY credibility DESC, n_signals DESC LIMIT 10"
         ):
             cv = float(cred or 0)
             col = "acc2" if cv >= 0.65 else ("warn" if cv >= 0.45 else "calm")
+            # Brier badge si dispo
+            b_info = brier_by_src.get(name)
+            if b_info and b_info["status"] != "INSUFFICIENT_DATA":
+                b_cls = {"OK": "acc", "WARN": "warn", "ALERT": "bear"}.get(b_info["status"], "")
+                b_badge = (
+                    f' <span class="tag {b_cls}" '
+                    f'title="Brier {b_info["brier_avg"]:.2f} sur {b_info["n_resolved"]} resolutions">'
+                    f'B={b_info["brier_avg"]:.2f}</span>'
+                )
+            elif b_info:
+                b_badge = (
+                    f' <span class="tag" title="N={b_info["n_resolved"]} insuffisant">'
+                    f'B=—</span>'
+                )
+            else:
+                b_badge = ''
             src_rows += (
                 f'<div class="row"><div class="rt"><span class="tk">{str(name)[:24]}</span>'
-                f'<span class="tag {col}">{cv:.2f}</span></div>'
+                f'<span class="tag {col}">{cv:.2f}</span>{b_badge}</div>'
                 f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, cv * 100)):.1f}%" title="cr&eacute;dibilit&eacute; {cv:.2f}"></div></div>'
-                f'<div class="rs"><span>cr&eacute;dibilit&eacute;</span><span class="mono">{int(n)} signaux</span></div></div>'
+                f'<div class="rs"><span>cr&eacute;dibilit&eacute; a priori</span><span class="mono">{int(n)} signaux</span></div></div>'
             )
     except Exception as e:
         src_rows, nsrc = _err(e), 0
