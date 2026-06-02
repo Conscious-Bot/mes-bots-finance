@@ -96,6 +96,7 @@ def _all_source_files() -> list[Path]:
     return out
 
 
+@pytest.mark.live_book
 def test_no_orphan_table_refs() -> None:
     """Every table referenced in .execute()/.executemany() SQL must exist.
 

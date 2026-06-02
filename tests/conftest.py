@@ -48,3 +48,40 @@ def migrated_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     storage.bootstrap_schema(db_path=str(db))
     monkeypatch.setattr(storage, "DB_PATH", db)
     return db
+
+
+def _has_book_data() -> bool:
+    """Detection robuste : DB courante a-t-elle des positions ?
+
+    Retourne False si DB vide / schema-only / erreur acces. Utilise par le
+    marker `live_book` (cf pytest_collection_modifyitems) pour skip cleanly
+    les tests data-dependants en CI fresh checkout.
+    """
+    try:
+        from shared import storage
+        bv = storage.get_book_view()
+        return bv.n_positions > 0
+    except Exception:
+        return False
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "live_book: test requires a populated bot.db (positions > 0). "
+        "Auto-skip in CI fresh checkout, run in dev local.",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
+    """Auto-skip tests marques @pytest.mark.live_book si la DB est vide.
+
+    Pattern symetrique au marker `slow` (network/LLM tests skipped via -m
+    "not slow" en CI). Ici on skip dynamiquement selon l'etat de la DB,
+    pour les tests qui valident des invariants sur le book reel."""
+    if _has_book_data():
+        return
+    skip = pytest.mark.skip(reason="requires live book data (n_positions > 0)")
+    for item in items:
+        if "live_book" in item.keywords:
+            item.add_marker(skip)

@@ -148,6 +148,7 @@ def test_target_70k_total_matches_meta(all_lines):
     )
 
 
+@pytest.mark.live_book
 def test_held_market_value_is_positive(held_lines):
     """Trivial mais cle : la valeur totale du book est > 0 et coherente."""
     total = sum(ln.weight_market_eur for ln in held_lines)
@@ -170,6 +171,7 @@ def held_positions():
     return book.get_held_positions()
 
 
+@pytest.mark.live_book
 def test_position_facts_are_immutable(held_positions):
     """PositionFacts est frozen=True : impossible de modifier les faits broker."""
     p = held_positions[0]
@@ -177,6 +179,7 @@ def test_position_facts_are_immutable(held_positions):
         p.facts.qty = 999999  # ne doit pas marcher
 
 
+@pytest.mark.live_book
 def test_position_derived_never_stored_only_computed(held_positions):
     """weight_market_eur etc sont @property, jamais des champs stockes."""
     p = held_positions[0]

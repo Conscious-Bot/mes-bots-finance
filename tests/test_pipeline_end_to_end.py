@@ -75,6 +75,7 @@ def test_book_view_refreshes_after_cache_clear():
     assert bv3.n_positions == bv1.n_positions
 
 
+@pytest.mark.live_book
 def test_storage_passerelle_unique():
     """storage.get_position_view() = passerelle unique. Lit shared/views
     qui lit shared/book canonique. Pas de raccourci."""
@@ -87,6 +88,7 @@ def test_storage_passerelle_unique():
 # ─────────────────────── Chaine 2 : signal -> digest book-anchored ────────
 
 
+@pytest.mark.live_book
 def test_signal_book_anchored_scoring_uses_book():
     """Un signal sur un ticker du book recoit un book_score > 0.
     Un signal sur un ticker hors book recoit 0."""
@@ -125,6 +127,7 @@ def test_signal_book_anchored_scoring_uses_book():
 # ─────────────────────── Chaine 3 : invariants apres trade ────────────────
 
 
+@pytest.mark.live_book
 def test_invariants_pass_after_synthetic_decision():
     """run_static_gate doit etre vert avant ET apres une decision test."""
     from shared.position_invariants import run_static_gate

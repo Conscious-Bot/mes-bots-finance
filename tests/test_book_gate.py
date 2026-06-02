@@ -18,6 +18,7 @@ KNOWN_DEBT_TICKERS_KILL_CRITERIA: set[str] = set()
 KNOWN_DEBT_TICKERS_CURRENCY: set[str] = set()
 
 
+@pytest.mark.live_book
 def test_static_gate_no_new_violations():
     """Le book : aucune NOUVELLE violation hors dette connue 29/05/2026.
 
@@ -67,6 +68,7 @@ def test_gate_strict_mode_raises():
             raise InvariantViolation("test")
 
 
+@pytest.mark.live_book
 def test_storage_get_position_view_passerelle():
     """Point #3 brief : storage.get_position_view est la passerelle unique.
     Doit fonctionner pour un ticker tenu + retourner None pour ticker inconnu."""
@@ -79,6 +81,7 @@ def test_storage_get_position_view_passerelle():
     assert v_none is None
 
 
+@pytest.mark.live_book
 def test_storage_get_book_view():
     """Alias get_book_view retourne le BookView complet."""
     bv = storage.get_book_view()
