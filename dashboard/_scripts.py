@@ -239,6 +239,48 @@ _APP_JS = """
     }
   }
   items.forEach(n=>n.addEventListener('click',()=>navTo(n.dataset.nav)));
+  /* B (#90 motion) : CountUp sur les hero values, 1ere visite uniquement
+     (sessionStorage gate h_seen deja en place dans <head>). Anime de 0 a la
+     valeur sur 700ms ease-out cubic. Respect prefers-reduced-motion. */
+  (function(){
+    if (document.documentElement.classList.contains('noanim')) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    function animateNumber(el, durationMs){
+      var origText = el.textContent;
+      var m = origText.match(/(\\d[\\d\\u202F,.]*)/);
+      if (!m) return;
+      var numStr = m[1];
+      var before = origText.slice(0, m.index);
+      var after = origText.slice(m.index + numStr.length);
+      var cleaned = numStr.replace(/[\\u202F,]/g, '');
+      var val = parseFloat(cleaned);
+      if (isNaN(val) || !isFinite(val)) return;
+      var hasDecimal = cleaned.indexOf('.') >= 0;
+      var decimals = hasDecimal ? cleaned.split('.')[1].length : 0;
+      function fmt(n){
+        var s = decimals > 0 ? n.toFixed(decimals) : Math.round(n).toString();
+        var parts = s.split('.');
+        parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, '\\u202F');
+        return parts.join('.');
+      }
+      var start = performance.now();
+      function step(now){
+        var t = Math.min(1, (now - start) / durationMs);
+        var e = 1 - Math.pow(1 - t, 3);
+        el.textContent = before + fmt(val * e) + after;
+        if (t < 1) requestAnimationFrame(step);
+        else el.textContent = origText;
+      }
+      el.textContent = before + fmt(0) + after;
+      requestAnimationFrame(step);
+    }
+    var sels = ['.page-star .ps-val', '.hero .big', '.kv'];
+    document.querySelectorAll(sels.join(',')).forEach(function(el){
+      if (!/\\d/.test(el.textContent)) return;
+      if (el.children.length > 0) return;
+      animateNumber(el, 700);
+    });
+  })();
   var _h=(location.hash||'').replace('#','');if(_h&&/^[a-z]+$/.test(_h))show(_h);
   // Cmd+1..9 retire 01/06 user feedback : pas utile, parasite plus qu'autre chose
   // Sticky page header drop shadow on scroll (Stripe/Linear pattern) :
