@@ -481,29 +481,47 @@ _APP_JS = """
     overview();
   })();
   /* E (#90 motion) : shared element morph row->loupe modal via View Transitions.
-     Le logo cliquee (.tklogo) "morph" visuellement vers la position du logo
-     dans le modal. Linear-style. Fallback : open direct sans transition. */
+     L'element source (priorite : .tklogo > .tk text > row) "morph" visuellement
+     vers sa position dans le modal. Linear-style.
+     tklogo est rendu seulement cote JS (Cmd+K + modal), donc 95% des rows tables
+     ont juste .tk text -> on morph LE TICKER TEXT (ce qui donne aussi un bel effet
+     de codeticker qui grandit depuis sa position table vers le modal title). */
+  function findMorphSource(srcEl){
+    if (!srcEl) return null;
+    if (srcEl.classList && srcEl.classList.contains('tklogo')) return srcEl;
+    if (srcEl.classList && srcEl.classList.contains('tk')) return srcEl;
+    if (srcEl.querySelector){
+      var logo = srcEl.querySelector('.tklogo');
+      if (logo) return logo;
+      var tkText = srcEl.querySelector('.tk');
+      if (tkText) return tkText;
+    }
+    return null;
+  }
+  function findMorphTarget(){
+    var modal = document.getElementById('loupe');
+    if (!modal) return null;
+    return modal.querySelector('.lp-h .tklogo') || modal.querySelector('.lp-tk') || null;
+  }
   function openLoupeMorph(tk, srcEl){
-    if (!document.startViewTransition || !srcEl) { openLoupe(tk); return; }
-    /* Trouve le logo source dans l'element clique (peut etre le row entier OU le logo directement). */
-    var srcLogo = srcEl.classList && srcEl.classList.contains('tklogo')
-      ? srcEl
-      : (srcEl.querySelector ? srcEl.querySelector('.tklogo') : null);
-    if (!srcLogo) { openLoupe(tk); return; }
-    srcLogo.style.viewTransitionName = 'loupe-logo';
+    if (!document.startViewTransition) { openLoupe(tk); return; }
+    var src = findMorphSource(srcEl);
+    if (src) src.style.viewTransitionName = 'loupe-logo';
+    var loupeEl = document.getElementById('loupe');
+    /* Suppress CSS keyframe scale-in during View Transition (eviter double animation). */
+    if (loupeEl) loupeEl.classList.add('vt-suppress');
     var t = document.startViewTransition(function(){
-      srcLogo.style.viewTransitionName = '';
+      if (src) src.style.viewTransitionName = '';
       openLoupe(tk);
-      var modalLogo = document.querySelector('#loupe .lp-h .tklogo');
-      if (modalLogo) modalLogo.style.viewTransitionName = 'loupe-logo';
+      var tgt = findMorphTarget();
+      if (tgt) tgt.style.viewTransitionName = 'loupe-logo';
     });
-    t.finished.then(function(){
-      var modalLogo = document.querySelector('#loupe .lp-h .tklogo');
-      if (modalLogo) modalLogo.style.viewTransitionName = '';
-    }).catch(function(){
-      var modalLogo = document.querySelector('#loupe .lp-h .tklogo');
-      if (modalLogo) modalLogo.style.viewTransitionName = '';
-    });
+    function cleanup(){
+      var tgt = findMorphTarget();
+      if (tgt) tgt.style.viewTransitionName = '';
+      if (loupeEl) loupeEl.classList.remove('vt-suppress');
+    }
+    t.finished.then(cleanup).catch(cleanup);
   }
   document.addEventListener('click',function(ev){
     var r=ev.target.closest&&ev.target.closest('[data-tk]'); if(r&&r.dataset.tk){ openLoupeMorph(r.dataset.tk, r); }

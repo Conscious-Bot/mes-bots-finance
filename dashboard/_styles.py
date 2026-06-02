@@ -589,6 +589,8 @@ _CSS = """
   .loupe.open { display:flex; animation:loupe-bg-fade .22s var(--ease) both; }
   /* Loupe card : scale-in subtil au reveal (fallback si View Transitions pas supporte). */
   .loupe.open .loupe-card { animation:loupe-card-enter .28s var(--ease) both; }
+  /* vt-suppress : kill les CSS keyframes pendant un View Transition (sinon double anim). */
+  .loupe.vt-suppress.open, .loupe.vt-suppress.open .loupe-card { animation: none !important; }
   @keyframes loupe-bg-fade { from { background:rgba(6,10,18,0); backdrop-filter:blur(0); } to { background:rgba(6,10,18,.72); backdrop-filter:blur(6px); } }
   @keyframes loupe-card-enter { from { opacity:0; transform:scale(.96) translateY(8px); } to { opacity:1; transform:none; } }
   /* View Transitions : logo morph shared element row -> modal. */
