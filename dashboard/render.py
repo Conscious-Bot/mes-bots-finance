@@ -6015,8 +6015,9 @@ def render() -> Path:
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
     _ris, near, _heat, watch = _rows_risque(computed)
-    gain, lose = _movers(pnl)
-    day_up, day_dn = _day_movers(daily)
+    gain, _lose = _movers(pnl)
+    # day_up/day_dn computes pour _urgence() seulement (D2 retire de Vigie 02/06).
+    _day_up, _day_dn = _day_movers(daily)
     _stamp = datetime.now().strftime("%d.%m.%Y &middot; %H:%M")
     today = datetime.now().strftime("%Y-%m-%d")
     erows = ""
@@ -6044,7 +6045,7 @@ def render() -> Path:
     _pnl_star_cls = "acc" if pf_pnl_eur >= 0 else "bear"
     pf_arrow = "&#9650;" if pf_pnl_eur >= 0 else "&#9660;"
     pf_val_str = f"{pf_value:,.0f}".replace(",", "&#8239;")
-    pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")
+    _pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")  # D5 retire Vigie, conserve compute (re-use eventuelle)
     pf_pe = f"{abs(pf_pnl_eur):,.0f}".replace(",", "&#8239;")
     near_stop_tk = [
         r["ticker"]
@@ -6118,7 +6119,7 @@ def render() -> Path:
         )
 
     gain = "".join(_axisrow(tk) for tk in _cibles) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
-    lose = "".join(_axisrow(tk) for tk in _stops) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
+    _lose_stops = "".join(_axisrow(tk) for tk in _stops) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'  # D1 retire Vigie, compute conserve
     # cockpit_html (Cockpit discipline panel) retire 31/05 user feedback
     # _cockpit() helper toujours dispo si reactivation future
     grade_html = _grade_panel()
@@ -6283,11 +6284,8 @@ def render() -> Path:
         + f'<div class="ps-grade-bar"><div class="ps-grade-fill {_grade_color}" style="width:{_grade_score:.0f}%"></div></div></div>'
         + '</div></div>'
         + '</div></div>'
-        + '<div class="ps-strate">'
-        + '<div class="ps-lbl">Capital investi</div>'
-        + f'<div class="ps-macro-row" style="margin-top:4px"><div class="ps-val" style="font-size:25px">{pf_cost_str}&nbsp;&euro;</div>'
-        + f'<div class="ps-macro-meta">{n_pnl} lignes &middot; snapshot {_grade_trend_str}</div></div>'
-        + '</div>'
+        # D5 retire 02/06 user : "Capital investi" duplique avec Star Concentration.
+        # Vigie garde valeur PF + grade en haut (suffisant pour posture).
         + f'</div>'
         # Track record + Sante distribution deplaces vers page "signaux"
         # (user feedback 01/06 : pilotage qualite des signaux groupe ensemble).
@@ -6295,16 +6293,14 @@ def render() -> Path:
         # AU-DESSUS de "Etat -- lignes a examiner" (top risque). Lecture :
         # d'abord ce sur quoi agir (ops), puis ce qui bouge, puis ce qui
         # demande surveillance approfondie.
-        # ── BLOC 1 : OPPORTUNITES -- a cloturer ou consolider ──
-        '<div class="vigie-sh" data-tip="Lignes proches de la cible (zone de prise de profit, valo &gt; bull) ou proches du stop (zone trim/exit)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">th&egrave;se en cours de r&eacute;alisation &middot; surveiller valo &gt; bull et fragilit&eacute;</span></div>'
-        f'<div class="card pad">{gain}</div></div><div class="col"><div class="colhead"><span class="t">Marges les plus faibles</span><span class="a">avant invalidation du stop</span></div>'
-        f'<div class="card pad">{lose}</div></div></div>'
-        # ── BLOC 2 : MOUVEMENT -- info dynamique du jour ──
-        '<div class="vigie-sh" data-tip="Variations intraday vs cloture veille. Permet de capter les rotations rapides sans attendre la cloture."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l4-4 3 3 5-6"/></svg>Mouvement du jour</div>'
-        f'<div class="cols"><div class="col"><div class="colhead"><span class="t">Hausses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
-        f'<div class="card pad">{day_up}</div></div><div class="col"><div class="colhead"><span class="t">Baisses du jour</span><span class="a">vs cl&ocirc;ture veille</span></div>'
-        f'<div class="card pad">{day_dn}</div></div></div>'
+        # ── BLOC 1 : OPPORTUNITES -- proches cible (winners en realisation) ──
+        # D1 retire 02/06 : "Marges les plus faibles" duplique avec page Urgence.
+        # D2 retire 02/06 : "Mouvement du jour" (hausses/baisses) entierement
+        # duplique avec Urgence (meme _day_movers). Garde seulement la col
+        # "Plus proches de la cible" qui pointe action fomo_greed (trim winners).
+        '<div class="vigie-sh" data-tip="Lignes proches de la cible (zone de prise de profit, valo &gt; bull) -- candidats trim mecanise via fomo_greed gate."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
+        f'<div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">th&egrave;se en cours de r&eacute;alisation &middot; surveiller valo &gt; bull et fragilit&eacute;</span></div>'
+        f'<div class="card pad">{gain}</div>'
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html migre vers section Copilot dediee 31/05 wave 5)
