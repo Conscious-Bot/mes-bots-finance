@@ -42,7 +42,7 @@ body.cahier-de-bord h3 {
 }
 
 body.cahier-de-bord .phead h2 {
-  font-size: 20px;
+  font-size: 21px;
   letter-spacing: 0.12em;
   color: var(--ink);
   border-bottom: 1px solid var(--line);
@@ -62,7 +62,7 @@ body.cahier-de-bord .ps-val {
 }
 
 body.cahier-de-bord .ps-val {
-  font-size: 24px !important;
+  font-size: 25px !important;
   font-weight: 500 !important;
 }
 
@@ -94,14 +94,14 @@ body.cahier-de-bord .dt th,
 body.cahier-de-bord .dt td {
   font-family: var(--fm) !important;
   font-variant-numeric: tabular-nums;
-  font-size: 14px;
+  font-size: 15px;
   border-color: var(--line) !important;
 }
 
 body.cahier-de-bord .dt th {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--steel);
   background: var(--bg);
 }
@@ -116,7 +116,7 @@ body.cahier-de-bord .row {
 body.cahier-de-bord .tag,
 body.cahier-de-bord .stat {
   font-family: var(--fm) !important;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   border-radius: 0;
@@ -134,7 +134,7 @@ body.cahier-de-bord .sidebar {
 
 body.cahier-de-bord .nlab {
   font-family: var(--fm) !important;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   background: var(--bg) !important;
@@ -197,7 +197,7 @@ body.cahier-de-bord .gold { color: var(--gold) !important; }
   right: 14px;
   z-index: 200;
   font-family: var(--fm);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 4px 10px;

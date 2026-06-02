@@ -125,13 +125,13 @@
   --fo: "Geist", ui-sans-serif, sans-serif;
   /* Font-size scale -- base 15px, ratio ~1.2. Charte §1.4.
      Toute nouvelle ecriture utilise ces tokens, pas font-size:Npx inline. */
-  --t-caption: 15px;
-  --t-body:    17px;
-  --t-base:    18px;
-  --t-h3:      22px;
-  --t-h2:      28px;
-  --t-h1:      36px;
-  --t-hero:    48px;
+  --t-caption: 16px;
+  --t-body:    18px;
+  --t-base:    19px;
+  --t-h3:      23px;
+  --t-h2:      29px;
+  --t-h1:      37px;
+  --t-hero:    49px;
 
   /* --- 6. ESPACEMENT -- base 4, genereux -------------------------- */
   /* Sprint 1 breathing TR-inspired : bump des tokens mid-large.
