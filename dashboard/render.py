@@ -998,7 +998,7 @@ def _return_clustering_panel() -> str:
 
     return (
         '<div class="card pad clustercard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Doublons vus par les prix</span>'
+        '<div class="colhead"><span class="t">Overlaps seen by prices</span>'
         f'<span class="a">{snapshot_date} &middot; returns correlation &middot; what truly moves together</span></div>'
         '<div class="dc-sub">'
         f'<div class="dc-sh">Paires correlees (>0.7)</div>'
@@ -1642,7 +1642,7 @@ def _ticker_axes_panel() -> str:
     if not rows:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Tagging axes (driver/stage/moat/macro) en attente. Les fiches techniques apparaitront ici une fois classifies."
+            "Axes tagging (driver/stage/moat/macro) pending. Tech sheets will appear here once classified."
             "</div></div>"
         )
     # Group by macro_factor (dominant macro view)
@@ -2561,7 +2561,7 @@ def _concentration(
         cbits.append(f"{over_cap} position(s) outside cap")
     if cluster_breached:
         cbits.append("correlated cluster above cap")
-    cause = " &middot; ".join(cbits) or "tout sous les caps"
+    cause = " &middot; ".join(cbits) or "all under caps"
     top_cls = "negc" if top_pct >= POS_CAP else "acc"
     these_cls = "negc" if dom_these_pct >= NARRATIVE_CAP else "acc"
     line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du cap' if top_pct >= POS_CAP else 'sous le cap'} {POS_CAP:.0f}%"
@@ -3251,12 +3251,12 @@ def _breadth_rsp_spy() -> str:
 def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str = "", near_t: int = 0) -> str:
     debt_map = {
         # Tier 1: Marché & liquidité — alertes en haut, crédit/peur/FX/sentiment, hedge en bas
-        "TYX": (1, "Taux US 30 ans (%)", 4, False),
+        "TYX": (1, "US 30Y rate (%)", 4, False),
         "USDJPY": (1, "USD/JPY", 2, False),
         "HY_OAS": (1, "Spread HY (bp)", 2, False),
         "VIX": (1, "VIX", 2, False),
         "DXY": (1, "Dollar (DXY)", 2, False),
-        "BTC_drawdown180": (1, "BTC drawdown 6 mois (%)", 1, False),
+        "BTC_drawdown180": (1, "BTC drawdown 6M (%)", 1, False),
         "Gold": (1, "Or ($/oz)", 0, True),
         # Tier 2: Stress bancaire & liquidité Fed — signaux avancés en haut, plomberie milieu, slow bas
         "MOVE": (2, "Vol. obligataire (MOVE)", 2, False),
@@ -3400,7 +3400,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     if _conc:
         f_cls, f_val, f_lbl, f_cap = "bear", len(_conc), "FRICTIONS", _conc[0]
     else:
-        f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGNED", "concentration sous les caps"
+        f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGNED", "concentration under caps"
     t_cap = "marge restante OK" if near_t else "rien proche de la target"
     s_cls = "bear" if near else "acc"
     s_cap = "to watch" if near else "calm"
@@ -3426,7 +3426,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
         f"{star}"
         f'<div class="cols">'
         f'<div><div class="ph3">Race toward target</div><div class="card pad">{elan}</div></div>'
-        f'<div><div class="ph3">Marges les plus faibles</div><div class="card pad">{watch}</div></div>'
+        f'<div><div class="ph3">Lowest stop margins</div><div class="card pad">{watch}</div></div>'
         f'<div><div class="ph3">Moniteur de stress macro &mdash; score {score:.0f}</div>'
         f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
         f'<div class="cols">'
