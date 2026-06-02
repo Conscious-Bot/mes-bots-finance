@@ -2927,6 +2927,257 @@ def _insider_flow_strip_html() -> str:
         return _err(e)
 
 
+def _loop() -> str:
+    """Page Loop -- decision provenance graph.
+
+    Revolutionary surface : signal -> prediction -> decision -> outcome
+    sur 4 swimlanes horizontales. Time on X axis (last 60d). Hover/click
+    pour drill detail. Unique a PRESAGE -- personne ne montre la chaine
+    causale en retail finance.
+
+    State 02/06 : 354 signals, 18 resolved predictions, 65 audit logs,
+    0 bias_events resolved, 0 V2 scoring traces. Le graph se densifie
+    apres J-day 10/06.
+    """
+    try:
+        # Pull last 60d of predictions joined with their source signal
+        rows = _q(
+            "SELECT p.id, p.ticker, p.direction, p.outcome, p.brier_score, "
+            "       p.baseline_date, p.resolved_at, p.signal_id, "
+            "       s.timestamp as sig_ts, COALESCE(src.name, 'manual') as sig_source, "
+            "       COALESCE(substr(s.title, 1, 80), '?') as sig_title "
+            "FROM predictions p "
+            "LEFT JOIN signals s ON s.id = p.signal_id "
+            "LEFT JOIN sources src ON src.id = s.source_id "
+            "WHERE p.methodology_version != 'v0' "
+            "  AND p.baseline_date >= date('now', '-60 days') "
+            "ORDER BY p.baseline_date ASC LIMIT 200"
+        )
+        audits = _q(
+            "SELECT id, ticker, event_type, occurred_at "
+            "FROM position_audit_log "
+            "WHERE occurred_at >= datetime('now', '-60 days') "
+            "  AND event_type IN ('buy', 'sell', 'partial_sell', 'trim') "
+            "ORDER BY occurred_at ASC LIMIT 100"
+        )
+    except Exception as e:
+        return (
+            f'<section data-page="loop" role="region" aria-label="Loop">'
+            f'<div class="phead"><h2>Loop</h2></div>{_err(e)}</section>'
+        )
+
+    n_sig = len({r[7] for r in rows if r[7] is not None})
+    n_pred = len(rows)
+    n_resolved = sum(1 for r in rows if r[3] is not None)
+    n_decisions = len(audits)
+
+    # Time bounds : last 60 days
+    from datetime import date, timedelta
+    end = date.today()
+    start = end - timedelta(days=60)
+    span_days = (end - start).days
+
+    def x_pos(date_str: str) -> float:
+        """Map YYYY-MM-DD or YYYY-MM-DD HH:MM:SS to x% [0, 100]."""
+        if not date_str:
+            return 0.0
+        try:
+            d_str = date_str[:10]
+            d = date.fromisoformat(d_str)
+            delta = (d - start).days
+            return max(0.0, min(100.0, delta / max(1, span_days) * 100))
+        except Exception:
+            return 0.0
+
+    # Build SVG lanes
+    LANES = [
+        ("signals", "Signals", 1, "var(--steel)"),
+        ("predictions", "Predictions", 2, "var(--ink)"),
+        ("decisions", "Decisions", 3, "var(--warn)"),
+        ("outcomes", "Outcomes", 4, "var(--acc)"),
+    ]
+    lane_y = {key: 50 + i * 90 for key, _, i, _ in LANES}  # 50,140,230,320
+
+    nodes_svg = []
+    edges_svg = []
+
+    # Signals: unique signal ids encountered
+    sig_seen: dict[int, tuple[str, str, str]] = {}
+    for r in rows:
+        if r[7] is not None and r[7] not in sig_seen:
+            sig_seen[r[7]] = (r[8] or r[5], r[9], r[10])
+    for sid, (ts, source, title) in sig_seen.items():
+        x = x_pos(ts)
+        nodes_svg.append(
+            f'<circle cx="{x}%" cy="{lane_y["signals"]}" r="5" '
+            f'fill="var(--panel)" stroke="var(--steel)" stroke-width="1.5" '
+            f'class="loop-node" data-kind="signal" data-id="{sid}" '
+            f'data-tip="{source} · {title[:50]}"/>'
+        )
+
+    # Predictions: every prediction row
+    for r in rows:
+        pid, tk, direction, outcome, brier, baseline, resolved, sid, _sts, source, title = r
+        x_p = x_pos(baseline)
+        # Outcome color
+        if outcome == "correct":
+            ocol = "var(--acc)"
+        elif outcome == "incorrect":
+            ocol = "var(--bear)"
+        elif outcome == "neutral":
+            ocol = "var(--steel)"
+        else:
+            ocol = "var(--line2)"
+        fill = "var(--panel)" if outcome is None else ocol
+        nodes_svg.append(
+            f'<rect x="{x_p}%" y="{lane_y["predictions"] - 6}" width="10" height="12" '
+            f'transform="translate(-5,0)" rx="2" '
+            f'fill="{fill}" stroke="{ocol}" stroke-width="1.5" '
+            f'class="loop-node" data-kind="prediction" data-id="{pid}" '
+            f'data-tip="{tk} {direction} · {source} · pred#{pid}"/>'
+        )
+        # Edge signal -> prediction if same x reasonable
+        if sid is not None and sid in sig_seen:
+            x_s = x_pos(sig_seen[sid][0])
+            edges_svg.append(
+                f'<path d="M {x_s}% {lane_y["signals"]} C {x_s}% {(lane_y["signals"] + lane_y["predictions"])/2}, '
+                f'{x_p}% {(lane_y["signals"] + lane_y["predictions"])/2}, {x_p}% {lane_y["predictions"] - 6}" '
+                f'fill="none" stroke="var(--line2)" stroke-width="1" opacity=".4" '
+                f'class="loop-edge" data-from-pred="{pid}"/>'
+            )
+        # Outcome node if resolved
+        if outcome is not None:
+            x_o = x_pos(resolved)
+            nodes_svg.append(
+                f'<path d="M {x_o}% {lane_y["outcomes"] - 6} L {x_o}% {lane_y["outcomes"] + 6} '
+                f'L {x_o}% {lane_y["outcomes"] + 6}" '
+                f'transform="" '
+                f'fill="{ocol}" class="loop-node" data-kind="outcome" data-id="{pid}" '
+                f'data-tip="{tk} {outcome} · Brier {brier:.3f}" />'
+            ) if brier is not None else None
+            # Star as outcome marker
+            star = (
+                f'<circle cx="{x_o}%" cy="{lane_y["outcomes"]}" r="5" '
+                f'fill="{ocol}" stroke="{ocol}" stroke-width="1" '
+                f'class="loop-node" data-kind="outcome" data-id="{pid}" '
+                f'data-tip="{tk} {outcome}'
+                + (f' · Brier {brier:.3f}' if brier is not None else '')
+                + '"/>'
+            )
+            nodes_svg.append(star)
+            # Edge prediction -> outcome
+            edges_svg.append(
+                f'<path d="M {x_p}% {lane_y["predictions"] + 6} L {x_o}% {lane_y["outcomes"] - 5}" '
+                f'stroke="{ocol}" stroke-width="1.2" fill="none" opacity=".55" '
+                f'class="loop-edge"/>'
+            )
+
+    # Decisions: position_audit_log
+    for aid, tk, evt, occ in audits:
+        x_d = x_pos(occ)
+        col = "var(--bear)" if evt in ("sell", "partial_sell", "trim") else "var(--acc)"
+        nodes_svg.append(
+            f'<path d="M {x_d}% {lane_y["decisions"]} '
+            f'l 0 -6 l 5 6 l -5 6 l -5 -6 z" '
+            f'fill="{col}" stroke="{col}" stroke-width="1" '
+            f'class="loop-node" data-kind="decision" data-id="{aid}" '
+            f'data-tip="{tk} {evt} · {occ[:10]}" />'
+        )
+
+    # Time axis labels
+    week_marks = []
+    for w in range(9):  # ~every 7 days over 60d
+        days_back = 60 - w * 7
+        if days_back < 0:
+            continue
+        d = start + timedelta(days=w * 7)
+        x = x_pos(d.isoformat())
+        week_marks.append(
+            f'<text x="{x}%" y="395" font-family="var(--fm)" font-size="11" '
+            f'fill="var(--steel)" text-anchor="middle">{d.strftime("%d/%m")}</text>'
+        )
+
+    # Lane labels (left)
+    lane_labels = []
+    for key, lbl, _i, _c in LANES:
+        lane_labels.append(
+            f'<text x="0" y="{lane_y[key]}" font-family="var(--fm)" font-size="10" '
+            f'letter-spacing="2" fill="var(--steel)" '
+            f'text-transform="uppercase" dominant-baseline="middle">{lbl.upper()}</text>'
+        )
+
+    # Lane separators
+    lane_lines = []
+    for _key, _lbl, _i, _c in LANES:
+        y = lane_y[_key]
+        lane_lines.append(
+            f'<line x1="0" y1="{y}" x2="100%" y2="{y}" '
+            f'stroke="var(--line)" stroke-width=".5" opacity=".5"/>'
+        )
+
+    svg = (
+        '<svg viewBox="0 0 1080 410" preserveAspectRatio="xMidYMid meet" '
+        'style="width:100%;height:auto;display:block;font-family:var(--fm)">'
+        + "".join(lane_lines)
+        + "".join(lane_labels)
+        + "".join(edges_svg)
+        + "".join(nodes_svg)
+        + "".join(week_marks)
+        + "</svg>"
+    )
+
+    # Stats hero
+    stats = (
+        f'<div class="loop-stats">'
+        f'<div class="loop-stat"><span class="ls-val">{n_sig}</span>'
+        f'<span class="ls-lbl">unique signals (60d)</span></div>'
+        f'<div class="loop-stat"><span class="ls-val">{n_pred}</span>'
+        f'<span class="ls-lbl">predictions</span></div>'
+        f'<div class="loop-stat"><span class="ls-val">{n_decisions}</span>'
+        f'<span class="ls-lbl">decisions</span></div>'
+        f'<div class="loop-stat"><span class="ls-val">{n_resolved}</span>'
+        f'<span class="ls-lbl">resolved outcomes</span></div>'
+        f'</div>'
+    )
+
+    css = """
+<style>
+  .loop-stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:var(--s3); margin-bottom:var(--s4); }
+  .loop-stat { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s3) var(--s4); display:flex; flex-direction:column; gap:4px; }
+  .loop-stat .ls-val { font-family:var(--fm); font-size:32px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .loop-stat .ls-lbl { font-family:var(--fm); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
+  .loop-wrap { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s4); }
+  .loop-node { cursor:pointer; transition:transform .12s ease, stroke-width .12s ease; transform-origin:center; transform-box:fill-box; }
+  .loop-node:hover { transform:scale(1.4); stroke-width:2.5; }
+  .loop-edge { transition:opacity .15s ease; }
+  .loop-legend { display:flex; gap:var(--s4); margin-top:var(--s3); font-family:var(--fm); font-size:12px; color:var(--steel); }
+  .loop-legend-item { display:flex; align-items:center; gap:6px; }
+  .loop-legend-shape { width:10px; height:10px; }
+</style>
+"""
+
+    legend = (
+        '<div class="loop-legend">'
+        '<div class="loop-legend-item"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="var(--panel)" stroke="var(--steel)" stroke-width="1.2"/></svg> Signal</div>'
+        '<div class="loop-legend-item"><svg width="10" height="10"><rect x="0" y="1" width="10" height="8" rx="1" fill="var(--panel)" stroke="var(--ink)" stroke-width="1.2"/></svg> Prediction (open)</div>'
+        '<div class="loop-legend-item"><svg width="10" height="10"><rect x="0" y="1" width="10" height="8" rx="1" fill="var(--acc)" stroke="var(--acc)" stroke-width="1.2"/></svg> Prediction (correct)</div>'
+        '<div class="loop-legend-item"><svg width="10" height="10"><rect x="0" y="1" width="10" height="8" rx="1" fill="var(--bear)" stroke="var(--bear)" stroke-width="1.2"/></svg> Prediction (incorrect)</div>'
+        '<div class="loop-legend-item"><svg width="10" height="10" viewBox="0 0 10 10"><polygon points="5,0 10,5 5,10 0,5" fill="var(--warn)"/></svg> Decision</div>'
+        '<div class="loop-legend-item"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="var(--acc)"/></svg> Outcome</div>'
+        '</div>'
+    )
+
+    return (
+        f'<section data-page="loop" role="region" aria-label="Loop">'
+        f'{css}'
+        f'<div class="phead"><h2>Loop</h2>'
+        f'<div class="sub">Signal &rarr; Prediction &rarr; Decision &rarr; Outcome &middot; full audit chain, 60d window</div></div>'
+        f'{stats}'
+        f'<div class="loop-wrap">{svg}{legend}</div>'
+        f'</section>'
+    )
+
+
 def _signaux() -> str:
     try:
         s24 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-1 day')")[0][0]
@@ -4931,6 +5182,7 @@ def render() -> Path:
         + _theses(names, sectors, positions, pnl)
         + strategie_html
         + _signaux()
+        + _loop()
         + _urgence(watch, near, positions, pnl, elan, near_t)
         + _copilot()
         + "</main></div>"
