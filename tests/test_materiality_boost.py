@@ -14,7 +14,6 @@ from intelligence.materiality_boost import (
     recompute_boosts_for_clustered_signals,
 )
 
-
 # ─── compute_corroboration_multiplier : 4 branches ────────────────────────
 
 
@@ -54,7 +53,7 @@ def test_multiplier_many_sources_caps_at_1_7():
 def test_multiplier_monotonic():
     """Invariant metier : plus de sources -> boost >= (jamais decroissant)."""
     prev = 0.0
-    for n in range(0, 10):
+    for n in range(10):
         b = compute_corroboration_multiplier(n)
         assert b >= prev, f"n={n} regresse: {b} < {prev}"
         prev = b

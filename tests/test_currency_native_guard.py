@@ -38,7 +38,7 @@ def _scan_file_for_mix(path: Path) -> list[tuple[int, str]]:
     flagged: list[tuple[int, str]] = []
     for i, line in enumerate(text.splitlines(), 1):
         stripped = line.strip()
-        if stripped.startswith("#") or stripped.startswith('"""') or stripped.startswith("'"):
+        if stripped.startswith(("#", '"""', "'")):
             continue
         has_arith = any(op in line for op in ("-", "/", "*"))
         if not has_arith:
@@ -105,7 +105,7 @@ def test_asym_sentinel_target_hit():
     assert re.search(r"ratio\s*>=\s*999", body), (
         "_asym_format ne gere pas le sentinel `ratio >= 999` (TARGET_HIT). "
         "Cf intelligence/asymmetry.py ligne ~105. Sans ce branchement, "
-        "l'affichage rend '999.0×' qui lit faux."
+        "l'affichage rend '999.0x' qui lit faux."
     )
 
 
@@ -123,10 +123,10 @@ def test_render_smoke_no_currency_bug_in_html():
     html = out.read_text(encoding="utf-8")
     # Pattern bug : nombre absolu >= 1000% est presque toujours un currency mix
     # (les ratios financiers legitimes restent sous +-500%). On exclut les
-    # rares legitimes (`999.0×` sentinel asymetrie -- mais on l'a remplace par
+    # rares legitimes (`999.0x` sentinel asymetrie -- mais on l'a remplace par
     # le badge "cible &check;" donc ne devrait plus exister en HTML).
     susp = re.findall(r"[+&minus;\-]\s?[1-9]\d{3,}%", html)
-    # Filter "999×" pattern (sentinel) si encore present quelque part
+    # Filter "999x" pattern (sentinel) si encore present quelque part
     susp = [s for s in susp if "999" not in s.replace(",", "")]
     assert not susp, (
         f"HTML contient des % > 1000 (probable currency mix EUR/native bug) : "

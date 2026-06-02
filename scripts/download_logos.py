@@ -22,7 +22,7 @@ import requests
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from shared.ticker_logos import TICKER_DOMAIN  # noqa: E402
+from shared.ticker_logos import TICKER_DOMAIN
 
 LOGOS_DIR = ROOT / "dashboard" / "static" / "brand" / "logos"
 LOGOS_DIR.mkdir(parents=True, exist_ok=True)

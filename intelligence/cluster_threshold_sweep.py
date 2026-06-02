@@ -121,9 +121,7 @@ def sweep_thresholds(
             status = "INSUFFICIENT_DATA"
         elif mean_r < 0:
             status = "ALERT"
-        elif sharpe is not None and sharpe < 0.5:
-            status = "WARN"
-        elif positive_rate < 0.55:
+        elif (sharpe is not None and sharpe < 0.5) or positive_rate < 0.55:
             status = "WARN"
         else:
             status = "OK"

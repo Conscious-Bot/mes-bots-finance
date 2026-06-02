@@ -110,7 +110,7 @@ def domain_for(ticker: str) -> str | None:
     return TICKER_DOMAIN.get(ticker.upper()) or TICKER_DOMAIN.get(ticker)
 
 
-def logo_html(ticker: str, size: int = 22) -> str:
+def logo_html(ticker: str, size: int = 22) -> str:  # noqa: ARG001  size pour API future
     """Retourne <img favicon /> avec cascade de fallbacks : Google -> DuckDuckGo -> initiale.
 
     Cascade 01/06 :

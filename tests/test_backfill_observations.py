@@ -189,7 +189,7 @@ def test_observation_already_present_skip_idempotent(
     _mock_prices(monkeypatch, eur=140.0)
 
     from intelligence.bias_events import backfill_resolved_observations
-    stats = backfill_resolved_observations(horizons=(60, 90))
+    _ = backfill_resolved_observations(horizons=(60, 90))
     # +60j skip (deja present), +90j enriched
     obs = _read_observations(isolated_db, 1)
     assert len(obs) == 2

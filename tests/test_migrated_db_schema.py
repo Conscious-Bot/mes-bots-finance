@@ -148,6 +148,6 @@ def test_fixture_patches_storage_db_path(migrated_db):
     consumers (ex. open_candidate, register_prediction) frappent
     automatiquement la DB temp."""
     from shared import storage
-    assert storage.DB_PATH == migrated_db, (
+    assert migrated_db == storage.DB_PATH, (
         f"storage.DB_PATH {storage.DB_PATH} != fixture {migrated_db}"
     )
