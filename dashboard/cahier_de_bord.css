@@ -23,6 +23,12 @@ body.cahier-de-bord {
   --bear: #E94B4B;          /* alert red */
   --warn: #E0A82E;          /* amber warning */
   --gold: #E0A82E;
+  /* Surfaces translucides : aligner sur near-black, sinon tape8k / glass
+     restent au blanc light mode et explosent visuellement. */
+  --tape:  rgba(10, 10, 11, .92);
+  --glass: rgba(19, 19, 22, .88);
+  --glass2:rgba(10, 10, 11, .82);
+  --barbg: #18181C;
 
   font-family: var(--fm) !important;  /* mono partout */
   letter-spacing: 0;
