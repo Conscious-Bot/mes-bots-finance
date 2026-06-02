@@ -64,6 +64,7 @@ from bot.handlers.positions import (
     cmd_position_sell,
     cmd_trade,
 )
+from bot.handlers.prediction_why import cmd_why
 from bot.handlers.predictions import (
     cmd_credibility,
     cmd_feedback,
@@ -169,6 +170,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("bias_review", cmd_bias_review))
     app.add_handler(CommandHandler("bias_status", cmd_bias_status))
     app.add_handler(CommandHandler("track_record", cmd_track_record))
+    app.add_handler(CommandHandler("why", cmd_why))
     app.add_handler(CommandHandler("calendar", cmd_calendar))
     app.add_handler(CommandHandler("insiders", cmd_insiders))
     app.add_handler(CommandHandler("macro", cmd_macro))
