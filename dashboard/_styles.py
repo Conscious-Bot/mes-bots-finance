@@ -245,19 +245,16 @@ _CSS = """
   /* Animation entry fade-in sur Star (Polish 01/06) : subtle premium feel
      a la TR/Linear. 280ms ease, opacity + translate-y 8px. Anti-double-fire
      via .noanim gate (cf dashboard_anim_session_gate). */
-  /* DNA v2 page-star : instrument sobre. Plus de gradient chrome, plus
-     d'animations stagger, plus de separateurs strate (single flowing card).
-     Numbers Geist Mono ink. Labels small caps quiet. Moins de padding. */
-  .page-star { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:24px 28px; margin-bottom:var(--s4); }
-  .page-star .ps-strate { padding:14px 0; }
-  .page-star .ps-strate:first-child { padding-top:0; }
-  .page-star .ps-strate:last-child { padding-bottom:0; }
-  /* Pas de border separator entre strates : design unifie */
-  .page-star .ps-lbl { font-family:var(--fb); font-size:11px; letter-spacing:.10em; text-transform:uppercase; color:var(--steel); margin-bottom:6px; font-weight:500; }
-  .ps-tag-explor { display:inline-block; margin-left:7px; padding:2px 7px; font-size:11px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--steel); border:1px solid var(--line2); border-radius:var(--r1); font-family:var(--fm); cursor:help; }
-  /* ps-val : Geist Mono tabular (instrument). Sober ink, accent uniquement
-     quand explicit class .acc/.bear/.warn appliquee par render. */
-  .page-star .ps-val { font-family:var(--fm); font-size:24px; font-weight:500; color:var(--ink); line-height:1.15; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+  /* DNA v2 page-star : drop banner concept. Pas de card, pas de border,
+     pas de padding. Juste un thin readout sous le phead, mono, inline,
+     separe par middot. L'info reste, le bandeau disparait. */
+  .page-star { background:transparent; border:none; border-radius:0; padding:0; margin:0 0 var(--s4); }
+  .page-star .ps-strate { padding:6px 0; display:flex; flex-wrap:wrap; align-items:baseline; gap:18px; }
+  .page-star .ps-lbl { font-family:var(--fb); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--steel); margin:0; font-weight:500; display:inline-block; }
+  .ps-tag-explor { display:inline-block; margin-left:6px; padding:1px 6px; font-size:10px; font-weight:500; letter-spacing:.06em; text-transform:uppercase; color:var(--steel); border:1px solid var(--line2); border-radius:var(--r1); font-family:var(--fm); cursor:help; }
+  /* ps-val : inline, monosbre, plus de hero. Accent applique seulement
+     quand .acc/.bear/.warn explicite. */
+  .page-star .ps-val { font-family:var(--fm); font-size:16px; font-weight:500; color:var(--ink); line-height:1.4; font-variant-numeric:tabular-nums; letter-spacing:-.005em; }
   .page-star .ps-val.bear { color:var(--bear); }
   .page-star .ps-val.acc { color:var(--acc); }
   .page-star .ps-val.warn { color:var(--warn); }
@@ -265,28 +262,35 @@ _CSS = """
   .acc-c, b.acc { color:var(--acc); }
   .warn-c, b.warn { color:var(--warn); }
   .bear-c, b.bear { color:var(--bear); }
-  .page-star .ps-cap { font-family:var(--fb); font-size:13px; color:var(--steel); margin-top:6px; line-height:1.5; }
-  .page-star .ps-macro-row { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
-  .page-star .ps-macro-meta { font-family:var(--fm); font-size:13px; color:var(--steel); }
-  .page-star .ps-frise { height:4px; border-radius:2px; background:linear-gradient(90deg,color-mix(in srgb,var(--bear) 55%,transparent),color-mix(in srgb,var(--steel) 50%,transparent) 50%,color-mix(in srgb,var(--acc) 55%,transparent)); position:relative; margin-top:14px; }
-  .page-star .ps-frise-mark { position:absolute; top:50%; width:10px; height:10px; background:var(--ink); border-radius:50%; transform:translate(-50%,-50%); border:2px solid var(--panel); }
-  .page-star .ps-frise-labs { display:flex; justify-content:space-between; font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:8px; letter-spacing:.04em; }
-  .page-star .ps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
-  .page-star .ps-cell { display:flex; flex-direction:column; }
-  .page-star .ps-foot { font-family:var(--fm); font-size:12px; color:var(--steel); }
+  .page-star .ps-cap { font-family:var(--fb); font-size:12px; color:var(--steel); margin:0; line-height:1.4; display:inline; }
+  .page-star .ps-cap::before { content:"\\00a0\\00b7\\00a0"; color:var(--steel); opacity:.5; }
+  .page-star .ps-macro-row { display:inline-flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .page-star .ps-macro-meta { font-family:var(--fm); font-size:12px; color:var(--steel); }
+  /* Frise : devient un thin inline indicator avec marker. */
+  .page-star .ps-frise { height:3px; border-radius:1.5px; background:linear-gradient(90deg,color-mix(in srgb,var(--bear) 55%,transparent),color-mix(in srgb,var(--steel) 50%,transparent) 50%,color-mix(in srgb,var(--acc) 55%,transparent)); position:relative; margin:10px 0 0; min-width:160px; flex:0 0 220px; }
+  .page-star .ps-frise-mark { position:absolute; top:50%; width:8px; height:8px; background:var(--ink); border-radius:50%; transform:translate(-50%,-50%); border:2px solid var(--bg); }
+  .page-star .ps-frise-labs { display:flex; justify-content:space-between; font-family:var(--fm); font-size:10px; color:var(--steel); margin-top:5px; letter-spacing:.04em; }
+  /* ps-grid : flex inline row au lieu de 3-col grid card */
+  .page-star .ps-grid { display:flex; flex-wrap:wrap; gap:24px; margin:0; }
+  .page-star .ps-cell { display:flex; align-items:baseline; gap:6px; }
+  .page-star .ps-cell .ps-lbl { margin:0; }
+  .page-star .ps-cell .ps-val { font-size:15px; }
+  .page-star .ps-foot { font-family:var(--fm); font-size:11px; color:var(--steel); padding-top:4px; opacity:.8; }
   .page-star .ps-foot b { color:var(--ink); font-weight:500; }
-  /* Hero row Vue d'ensemble Star : 2 cols, no chrome gradient */
-  .page-star .ps-hero-row { display:grid; grid-template-columns:1fr 1fr; gap:36px; align-items:start; }
-  .page-star .ps-hero-left, .page-star .ps-hero-right { min-width:0; }
-  .page-star .ps-grade-row { display:flex; align-items:center; gap:14px; margin-top:6px; }
-  /* Grade letter : plain ink, no gradient chrome */
-  .page-star .ps-grade-letter { font-family:var(--fb); font-size:36px; font-weight:500; line-height:1; flex-shrink:0; color:var(--ink); }
+  /* Hero row Vigie (valeur + grade) : inline aussi, sober */
+  .page-star .ps-hero-row { display:flex; align-items:baseline; gap:24px; flex-wrap:wrap; }
+  .page-star .ps-hero-left, .page-star .ps-hero-right { min-width:0; display:flex; align-items:baseline; gap:10px; }
+  .page-star .ps-grade-row { display:inline-flex; align-items:center; gap:10px; }
+  .page-star .ps-grade-letter { font-family:var(--fm); font-size:22px; font-weight:500; line-height:1; flex-shrink:0; color:var(--ink); }
   .page-star .ps-grade-letter.acc { color:var(--acc); }
   .page-star .ps-grade-letter.warn { color:var(--warn); }
   .page-star .ps-grade-letter.bear { color:var(--bear); }
-  .page-star .ps-grade-score { flex:1; min-width:120px; }
-  .page-star .ps-grade-num { font-family:var(--fm); font-size:18px; font-weight:500; color:var(--ink); margin-bottom:6px; font-variant-numeric:tabular-nums; }
-  .page-star .ps-grade-max { font-family:var(--fm); font-size:12px; color:var(--steel); font-weight:400; }
+  .page-star .ps-grade-score { display:inline-flex; align-items:baseline; gap:6px; min-width:0; }
+  .page-star .ps-grade-num { font-family:var(--fm); font-size:14px; font-weight:500; color:var(--ink); margin:0; font-variant-numeric:tabular-nums; }
+  .page-star .ps-grade-max { font-family:var(--fm); font-size:11px; color:var(--steel); font-weight:400; }
+  /* Sub-lien / val-delta sous le hero : compact inline */
+  .page-star .ps-sub-lien { font-family:var(--fm); font-size:12px; color:var(--steel); margin:6px 0 0; }
+  .page-star .ps-sub-lien b { color:var(--ink); font-weight:500; }
   .page-star .ps-grade-bar { height:6px; background:color-mix(in srgb,var(--line) 90%,transparent); border-radius:3px; overflow:hidden; }
   .page-star .ps-grade-fill { height:100%; transition:width .3s ease; }
   .page-star .ps-grade-fill.acc { background:var(--acc); }
