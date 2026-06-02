@@ -39,9 +39,9 @@ DD_REDUCE = float(_CFG.get("risk", {}).get("drawdown_reduce_pct", 0.08)) * 100
 DD_STOP = float(_CFG.get("risk", {}).get("drawdown_stop_pct", 0.20)) * 100
 FX_USD = 0.858
 REVIEWS = [
-    ("2026-05-30", "R&eacute;solution Brier (KPI#2)"),
-    ("2026-05-30", "Revue COHR"),
-    ("2026-06-16", "Revue orphelins c1 (J+30)"),
+    ("2026-05-30", "Brier resolution (KPI#2)"),
+    ("2026-05-30", "COHR review"),
+    ("2026-06-16", "c1 orphans review (J+30)"),
 ]
 
 OUTPUT = Path("dashboard/dashboard.html")
@@ -754,7 +754,7 @@ def _grade_panel() -> str:
         )
     return (
         '<div class="card pad gradecard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Note du portefeuille</span>'
+        '<div class="colhead"><span class="t">Portfolio grade</span>'
         f'<span class="a">{snapshot_date} &middot; {trend_str}</span></div>'
         f'{gates_html}'
         '<div class="ghead">'
@@ -929,7 +929,7 @@ def _copilot_panel() -> str:
         )
     return (
         '<div class="card pad copilotcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Pressions du copilot avant tes trades</span>'
+        '<div class="colhead"><span class="t">Copilot pressure before trades</span>'
         '<span class="a">survole/clique une ligne pour le diagnostic complet &middot; verdict m&eacute;canique avant chaque action</span></div>'
         + "".join(lis)
         + "<script>document.querySelectorAll('.copilotcard .cp-row').forEach(function(e){"
@@ -1468,7 +1468,7 @@ def _user_strategy_panel() -> str:
     if not us:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Pas de strategie utilisateur declaree. Defaults config.yaml utilises."
+            "No declared user strategy. Defaults from config.yaml in use."
             "</div></div>"
         )
     archetype = us.get("archetype", "?")
@@ -1554,7 +1554,7 @@ def _user_strategy_panel() -> str:
         )
     return (
         '<div class="card pad strategiecard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Ta strategie declaree</span>'
+        '<div class="colhead"><span class="t">Your declared strategy</span>'
         f'<span class="a">archetype = {archetype} &middot; depuis {declared} &middot; surcharge les defaults</span></div>'
         f'{construction_html}'
         '<div class="us-grid">'
@@ -1834,7 +1834,7 @@ def _chat_signals_panel() -> str:
     if not rows:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Pas encore de signaux soft extraits. Continue de discuter dans le "
+            "No soft signals extracted yet. Continue de discuter dans le "
             "chat — chaque conversation lambda devient une mine d'infos pour le profil."
             "</div></div>"
         )
@@ -2201,7 +2201,7 @@ def _copilot() -> str:
     return (
         f'<section data-page="copilot" role="region" aria-label="Copilot">'
         f'<div class="phead"><h2>Copilot</h2>'
-        f'<div class="sub">Discussion &middot; synth&egrave;se interventions adversariales</div></div>'
+        f'<div class="sub">Chat &middot; adversarial interventions summary</div></div>'
         f'{_chat_panel()}'
         f'<div class="vigie-sh" data-tip="Pressure tests adversariaux historiques : ce que le copilot a conteste recemment."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Pressions adversariales</div>'
         f'{_copilot_panel()}'
@@ -2220,12 +2220,12 @@ def _chat_panel() -> str:
     )
     return (
         '<div class="card pad chatcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Pose une question au copilot</span>'
+        '<div class="colhead"><span class="t">Ask the copilot</span>'
         f'<span class="a">{mem_str}</span></div>'
         '<div id="chat-log" class="chat-log"></div>'
         '<form id="chat-form" class="chat-form" onsubmit="return chatSend(event)">'
-        '<textarea id="chat-input" class="chat-input" aria-label="Pose une question au copilot" placeholder="ex. Quelle est ma plus grosse fragilite en ce moment ?" rows="2"></textarea>'
-        '<button type="submit" class="chat-send" aria-label="Envoyer le message">Envoyer</button>'
+        '<textarea id="chat-input" class="chat-input" aria-label="Ask the copilot" placeholder="ex. What is my biggest fragility right now?" rows="2"></textarea>'
+        '<button type="submit" class="chat-send" aria-label="Send message">Send</button>'
         '</form>'
         '<div class="chat-foot">Le contexte (profil + grade + positions + interventions) est rejoue a chaque message.</div>'
         '</div>'
@@ -2619,8 +2619,8 @@ def _concentration(
     )
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position dont le poids individuel est le plus eleve dans le portefeuille. Plafond par conviction (c5 jusqu\'a 22%, c4 jusqu\'a 14%).">Premi&egrave;re ligne</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="These dont le poids agrege (somme des lignes la portant) est le plus eleve. Indicateur de concentration thematique.">Th&egrave;se dominante</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position dont le poids individuel est le plus eleve dans le portefeuille. Plafond par conviction (c5 jusqu\'a 22%, c4 jusqu\'a 14%).">Top position</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="These dont le poids agrege (somme des lignes la portant) est le plus eleve. Indicateur de concentration thematique.">Dominant thesis</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Capital cumule entre dans le book (cost basis somme). Distinct de la valeur courante avec PnL.">Capital investi</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} lignes &middot; {len(sw_real)} secteurs</div></div>'
         + "</div>"
     )
@@ -2630,13 +2630,13 @@ def _concentration(
     )
     return (
         f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h2>Concentration</h2>'
-        f'<div class="sub">Trois axes de concentration &mdash; par ligne, par secteur, par g&eacute;ographie</div></div>'
+        f'<div class="sub">Three concentration axes &mdash; by position, by sector, by geography</div></div>'
         f"{star_concentration}"
         # Retrait 02/06 user : sb-bars (horizontal bars par secteur) = doublon
         # evident avec donut secteurs page Positions. JS sb-bars handler conserve
         # dans le code, panneau retire de la page Concentration.
-        f'<div class="card pad"><div class="colhead"><span class="t">Par secteur</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
-        f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">Par pays</span><span class="a">si&egrave;ge social &middot; pas la cha&icirc;ne d&rsquo;approvisionnement r&eacute;elle (Ta&iuml;wan sous-estim&eacute;)</span></div>{_geo_bars(positions)}</div>'
+        f'<div class="card pad"><div class="colhead"><span class="t">By sector</span></div>{_sector_blocks(positions, planned, sectors, pnl, names, daily)}</div>'
+        f'<div class="card pad" style="margin-top:var(--s4)"><div class="colhead"><span class="t">By country</span><span class="a">headquarters &middot; not real supply chain (Taiwan underweighted)</span></div>{_geo_bars(positions)}</div>'
         f'<div style="margin-top:var(--s4)">{_fx_exposure_panel()}</div>'
         f"</section>"
     )
@@ -2920,7 +2920,7 @@ def _signaux() -> str:
         s30 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-30 day')")[0][0]
         n8k = _q("SELECT COUNT(*) FROM filings_8k_log WHERE filed_at > datetime('now','-60 day')")[0][0]
     except Exception as e:
-        return f'<section data-page="methode" role="region" aria-label="Methode"><div class="phead"><h2>M&eacute;thode</h2></div>{_err(e)}</section>'
+        return f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h2>Method</h2></div>{_err(e)}</section>'
 
     sevcls = {"HIGH": "danger", "MEDIUM": "warn", "MED": "warn", "LOW": "calm"}
     sev_order = (
@@ -3041,7 +3041,7 @@ def _signaux() -> str:
         _act_cls, _act_lbl, _act_cap = "acc", "CALME", "aucun signal 24h"
     star_strate_act = (
         '<div class="ps-strate">'
-        + '<div class="ps-lbl">Activit&eacute; signaux 24h</div>'
+        + '<div class="ps-lbl">Signal activity 24h</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_act_cls}">{_act_lbl}</div>'
         + f'<div class="ps-macro-meta">{_act_cap}</div>'
@@ -3089,8 +3089,8 @@ def _signaux() -> str:
     # 01/06 user pref : la page signaux groupe le pilotage qualite des signaux
     # (track record + 6 vigilances + 8-K + insider flux).
     return (
-        f'<section data-page="methode" role="region" aria-label="Methode"><div class="phead"><h2>M&eacute;thode</h2>'
-        f'<div class="sub">Comment le bot lit les signaux + comment il surveille tes biais &middot; track record &middot; flux initi&eacute;s</div></div>'
+        f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h2>Method</h2>'
+        f'<div class="sub">How the bot reads signals + how it monitors your biases &middot; track record &middot; insider flow</div></div>'
         f"{star_signaux}{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}"
         f"{_discipline_biais_panel()}</section>"
     )
@@ -3400,7 +3400,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     if _conc:
         f_cls, f_val, f_lbl, f_cap = "bear", len(_conc), "FRICTIONS", _conc[0]
     else:
-        f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGN&Eacute;", "concentration sous les plafonds"
+        f_cls, f_val, f_lbl, f_cap = "acc", 0, "ALIGNED", "concentration sous les plafonds"
     t_cap = "marge restante OK" if near_t else "rien proche de la cible"
     s_cls = "bear" if near else "acc"
     s_cap = "&agrave; surveiller" if near else "calme"
@@ -3421,7 +3421,7 @@ def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str 
     rsi_html = _market_rsi()
     breadth_html = _breadth_rsp_spy()
     return (
-        f'<section data-page="urgence" role="region" aria-label="Urgence"><div class="phead"><h2>Urgence</h2>'
+        f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h2>Alerts</h2>'
         f'<div class="sub">&Eacute;lan vers les cibles &middot; marge avant les stops &middot; stress macro</div></div>'
         f"{star}"
         f'<div class="cols">'
@@ -3680,7 +3680,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     )
     if not rows:
         return (
-            '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Th&egrave;ses</h2>'
+            '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Theses</h2>'
             '<div class="sub">aucune th&egrave;se active</div></div></section>'
         )
     _u = _cfg().get("universe", {})
@@ -3785,13 +3785,13 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         f'<div class="ps-macro-row"><div class="ps-val {_conv_cls}">{_conv_lbl}</div>'
         f'<div class="ps-macro-meta">{_conv_cap}</div></div>'
         f'<div class="ps-cap">{infl_msg}</div></div>'
-        f'<div class="ps-strate ps-foot">R&eacute;partition par conviction ci-dessous</div>'
+        f'<div class="ps-strate ps-foot">Distribution by conviction below</div>'
         f'</div>'
     )
     # Repartition par conviction (ancien hero 2nd col) reste en panneau detail
     kpis = (
         f'<div class="card pad" style="margin-bottom:var(--s4)">'
-        f'<div class="ps-lbl" style="margin-bottom:14px">R&eacute;partition par conviction</div>'
+        f'<div class="ps-lbl" style="margin-bottom:14px">Distribution by conviction</div>'
         f'{hist}</div>'
     )
 
@@ -3880,21 +3880,21 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += "</div>"
 
     return (
-        '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Th&egrave;ses</h2>'
-        '<div class="sub">Asym&eacute;trie cible / stop, par niveau de conviction</div></div>'
+        '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Theses</h2>'
+        '<div class="sub">Target/stop asymmetry, by conviction level</div></div>'
         f"{_TH_CSS}{hero}{kpis}{gap}{groups}</section>"
     )
 
 
 _NAV = (
-    '<nav class="nav" role="navigation" aria-label="Navigation principale">'
-    '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Vue d&rsquo;ensemble</span></div>'
+    '<nav class="nav" role="navigation" aria-label="Main navigation">'
+    '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Overview</span></div>'
     '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
     '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
-    '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Th&egrave;ses</span></div>'
-    '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strat&eacute;gie</span></div>'
-    '<div class="nitem" data-nav="methode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">M&eacute;thode</span></div>'
-    '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Urgence</span></div>'
+    '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="nlab">Theses</span></div>'
+    '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 L7 14 L10 10 L12 14 L14 10 L17 14 L19 9 V18 H5 Z"/><path d="M5 14h14"/></svg><span class="nlab">Strategy</span></div>'
+    '<div class="nitem" data-nav="methode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/><path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/><path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/></svg><span class="nlab">Method</span></div>'
+    '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Alerts</span></div>'
     '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
     '</nav>'
 )
@@ -4401,7 +4401,7 @@ _CSS = """
   .hrow.star .hero.posture .hl { font-size:14px; letter-spacing:.22em; }
   .hrow.star .hero.posture .pn { font-size:45px; line-height:.95; }
   .hrow.star .hero.posture .plan-row { margin-top:var(--s4); gap:30px; }
-  /* Sprint 5 - Note du portefeuille */
+  /* Sprint 5 - Portfolio grade */
   .gradecard .ghead { display:flex; align-items:center; gap:22px; margin:var(--s35) 0 18px; padding-bottom:var(--s4); border-bottom:1px solid var(--line); }
   .gradecard .gletter { font-family:var(--fm); font-weight:500; font-size:59px; line-height:.9; letter-spacing:-.02em; padding:0 18px; border-radius:var(--r2); }
   .gradecard .gletter.good { color:var(--acc); }
@@ -5895,7 +5895,7 @@ def _discipline_biais_panel() -> str:
     star_discipline = (
         '<div class="page-star">'
         + '<div class="ps-strate">'
-        + '<div class="ps-lbl">Discipline &amp; Biais</div>'
+        + '<div class="ps-lbl">Discipline &amp; Bias</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_kpi2_cls}">{n_resolved}/{n_cluster_total}</div>'
         + '<div class="ps-macro-meta">pr&eacute;dictions r&eacute;solues &middot; KPI #2 &ge;5</div>'
@@ -5903,12 +5903,12 @@ def _discipline_biais_panel() -> str:
         + f'<div class="ps-cap">{_kpi2_cap} &middot; {_jday_str}</div>'
         + '</div>'
         + '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Score de calibration des predictions probabilistes. (proba - outcome)^2 moyen. &lt; 0.20 bon, &lt; 0.25 acceptable, &gt;= 0.25 a corriger.">Brier moyen</div><div class="ps-val {_brier_cls}">{_brier_str}</div><div class="ps-cap">{_brier_cap}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Candidats bias_event ouverts (lock_in/fomo_greed). Fenetre d\'observation +30j post-detection.">Biais ouverts</div><div class="ps-val">{n_bias_open}</div><div class="ps-cap">events en observation</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Events bias resolus avec scoring canonique +30j. Enrichis observations +60/+90j ulterieurement.">Biais r&eacute;solus</div><div class="ps-val acc">{n_bias_resolved}</div><div class="ps-cap">post-r&eacute;solution</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Score de calibration des predictions probabilistes. (proba - outcome)^2 moyen. &lt; 0.20 bon, &lt; 0.25 acceptable, &gt;= 0.25 a corriger.">Brier mean</div><div class="ps-val {_brier_cls}">{_brier_str}</div><div class="ps-cap">{_brier_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Candidats bias_event ouverts (lock_in/fomo_greed). Fenetre d\'observation +30j post-detection.">Open biases</div><div class="ps-val">{n_bias_open}</div><div class="ps-cap">events under observation</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Events bias resolus avec scoring canonique +30j. Enrichis observations +60/+90j ulterieurement.">Resolved biases</div><div class="ps-val acc">{n_bias_resolved}</div><div class="ps-cap">post-resolution</div></div>'
         + '</div>'
         + '<div class="ps-strate ps-foot">'
-        + 'Pr&eacute;dictions &middot; fomo_greed (2 canaux) &middot; lock_in (Surface 2 v2.c.6 livr&eacute;e) ci-dessous'
+        + 'Predictions &middot; fomo_greed (2 canaux) &middot; lock_in (Surface 2 v2.c.6 shipped) ci-dessous'
         + '</div>'
         + '</div>'
     )
@@ -5917,8 +5917,8 @@ def _discipline_biais_panel() -> str:
         # Wrapper section retire -- ce bloc est inline dans _signaux().
         '<div class="dba-block">'
         + _DBA_CSS
-        + '<div class="dba-sh" data-tip="Compteur de la mission PRESAGE : predictions calibrees + biais comportementaux mecanises."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.5 1.5L8.5 4.5"/><path d="M10 6h4"/><path d="M4 11l1.5 1.5L8.5 9.5"/><path d="M10 11h4"/></svg>Discipline &amp; biais m&eacute;canis&eacute;s'
-        '<span class="dba-sh-aside">compteur mission &middot; densit&eacute; r&eacute;elle a J+30</span></div>'
+        + '<div class="dba-sh" data-tip="Compteur de la mission PRESAGE : predictions calibrees + biais comportementaux mecanises."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.5 1.5L8.5 4.5"/><path d="M10 6h4"/><path d="M4 11l1.5 1.5L8.5 9.5"/><path d="M10 11h4"/></svg>Discipline &amp; mechanized biases'
+        '<span class="dba-sh-aside">mission counter &middot; real density at J+30</span></div>'
         + star_discipline
         # ─── PREDICTIONS ─────────────────────────────────────────────────
         + '<div class="dba-sh" data-tip="Predictions resolues a J+28 : marker probabiliste (Brier score) sur la calibration des estimations."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="0.8" fill="currentColor" stroke="none"/></svg>Pr&eacute;dictions'
@@ -5931,14 +5931,14 @@ def _discipline_biais_panel() -> str:
         '</div>'
         # ─── BIAIS fomo_greed ────────────────────────────────────────────
         '<div class="dba-sh" data-tip="Biais FOMO/greed : ne pas alleger quand la discipline le commandait. Instrumente sur 2 canaux : kill_criteria + over_cap."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14c-3 0-5-2-5-5 0-2 1.5-3.5 2.5-4 0 1.5 1 2 1.5 2 0-2 1-4 3-5 .5 2 3 3 3 6 0 4-2 6-5 6z"/><path d="M7 11.5c0-1 .5-1.5 1-2 .5.5 1 1 1 2 0 .7-.5 1.2-1 1.2s-1-.5-1-1.2z"/></svg>Biais &mdash; fomo_greed'
-        '<span class="dba-sh-aside">tenir au-del&agrave; du top &middot; 2 canaux instrument&eacute;s</span></div>'
+        '<span class="dba-sh-aside">hold beyond top &middot; 2 channels instrumented</span></div>'
         # Canal kill_criteria
         '<div class="dba-card">'
         '<div class="dba-chrow"><span class="lab">kill_criteria</span>'
         '<span class="stat actif">actif</span></div>'
-        f'<div class="dba-meta">{n_active_theses} th&egrave;ses surveill&eacute;es '
-        f'(monitoring quotidien) &middot; derni&egrave;re transition '
-        f'enregistr&eacute;e {last_trans_str}</div>'
+        f'<div class="dba-meta">{n_active_theses} theses monitored '
+        f'(daily monitoring) &middot; last transition '
+        f'recorded {last_trans_str}</div>'
         '<div class="dba-bars">'
         + _dba_bar("dormant", kca_dormant, kca_total)
         + _dba_bar("at_risk", kca_at_risk, kca_total)
@@ -6257,10 +6257,10 @@ def render() -> Path:
     except Exception:
         _gscore_int = 0
     _grade_color = "acc" if _gscore_int >= 70 else ("warn" if _gscore_int >= 50 else "bear")
-    # (Grade sparkline retire 01/06 user feedback : pas besoin sur Note du portefeuille)
+    # (Grade sparkline retire 01/06 user feedback : pas besoin sur Portfolio grade)
     vigie = (
-        '<section data-page="vigie" class="active" role="region" aria-label="Vue d&#39;ensemble"><div class="phead"><h2>Vue d\'ensemble</h2>'
-        '<div class="sub">Posture de discipline &middot; sur quoi agir aujourd&rsquo;hui</div></div>'
+        '<section data-page="vigie" class="active" role="region" aria-label="Overview"><div class="phead"><h2>Vue d\'ensemble</h2>'
+        '<div class="sub">Discipline posture &middot; what to act on today</div></div>'
         # === Star Vue d'ensemble (unifie) : valeur+PnL+capital sous-jacent
         # a gauche, grade A+ + bar a droite. Strate 2 = repartition lignes
         # pleine largeur. Gradecard detail retire (vide visuel).
@@ -6268,7 +6268,7 @@ def render() -> Path:
         + '<div class="ps-strate">'
         + '<div class="ps-hero-row">'
         + '<div class="ps-hero-left">'
-        + '<div class="ps-lbl">Valeur du portefeuille</div>'
+        + '<div class="ps-lbl">Portfolio value</div>'
         + '<div class="ps-macro-row" style="align-items:baseline">'
         + f'<div class="ps-val" style="font-size:37px">{pf_val_str}&nbsp;&euro;</div>'
         + f'<div class="ps-val {_pnl_star_cls}" style="font-size:21px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
@@ -6277,7 +6277,7 @@ def render() -> Path:
         + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> en gain &middot; {n_gain} lignes &middot; {n_pnl - n_gain} en perte ({100 - gpct:.0f}%) {_val_delta_str}</div>'
         + '</div>'
         + '<div class="ps-hero-right">'
-        + '<div class="ps-lbl" data-tip="Grade global Construction + Fragilite. Construction = Solidite/Pari/Doublons/Calibrage. Fragilite = Sante/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Note du portefeuille</div>'
+        + '<div class="ps-lbl" data-tip="Grade global Construction + Fragilite. Construction = Solidite/Pari/Doublons/Calibrage. Fragilite = Sante/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Portfolio grade</div>'
         + '<div class="ps-grade-row">'
         + f'<div class="ps-grade-letter {_grade_color}">{_grade_letter}</div>'
         + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
@@ -6295,16 +6295,16 @@ def render() -> Path:
         # demande surveillance approfondie.
         # ── BLOC 1 : OPPORTUNITES -- proches cible (winners en realisation) ──
         # D1 retire 02/06 : "Marges les plus faibles" duplique avec page Urgence.
-        # D2 retire 02/06 : "Mouvement du jour" (hausses/baisses) entierement
+        # D2 retire 02/06 : "Today's movers" (hausses/baisses) entierement
         # duplique avec Urgence (meme _day_movers). Garde seulement la col
         # "Plus proches de la cible" qui pointe action fomo_greed (trim winners).
-        '<div class="vigie-sh" data-tip="Lignes proches de la cible (zone de prise de profit, valo &gt; bull) -- candidats trim mecanise via fomo_greed gate."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunit&eacute;s &mdash; cl&ocirc;turer ou consolider</div>'
-        f'<div class="colhead"><span class="t">Plus proches de la cible</span><span class="a">th&egrave;se en cours de r&eacute;alisation &middot; surveiller valo &gt; bull et fragilit&eacute;</span></div>'
+        '<div class="vigie-sh" data-tip="Lignes proches de la cible (zone de prise de profit, valo &gt; bull) -- candidats trim mecanise via fomo_greed gate."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunities &mdash; close or consolidate</div>'
+        f'<div class="colhead"><span class="t">Closest to target</span><span class="a">thesis in realization &middot; watch valo &gt; bull and fragility</span></div>'
         f'<div class="card pad">{gain}</div>'
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
         # chat_html migre vers section Copilot dediee 31/05 wave 5)
-        '<div class="vigie-sh" data-tip="Lignes du book a verifier en priorite : marges critiques (stop &lt; 10%), zones at_risk kill_criteria, vol aveugle."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>&Eacute;tat &mdash; lignes &agrave; examiner</div>'
+        '<div class="vigie-sh" data-tip="Lignes du book a verifier en priorite : marges critiques (stop &lt; 10%), zones at_risk kill_criteria, vol aveugle."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
         f'{_risk_watch_panel()}'
         f"{blind_html}"
         # ── BLOC 4 : SYNTHESE COPILOT (interventions adversariales) ──
@@ -6313,8 +6313,8 @@ def render() -> Path:
         # via cron weekly_v2_vigilance + weekly_calibration_audit prennent le relais)
         # Synthese copilot retiree 31/05 wave 5bis : migre vers section Copilot dediee.
         # ── BLOC 5 : JOURNAL -- echeances + log decisions (chat remonte au BLOC 1) ──
-        '<div class="vigie-sh" data-tip="Cahier de bord : decisions journees recentes + echeances de revue/resolution a venir."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Journal &amp; &eacute;ch&eacute;ances</div>'
-        f'<div class="colhead tight"><span class="t">&Eacute;ch&eacute;ances &agrave; venir</span></div>'
+        '<div class="vigie-sh" data-tip="Cahier de bord : decisions journees recentes + echeances de revue/resolution a venir."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Journal &amp; deadlines</div>'
+        f'<div class="colhead tight"><span class="t">Upcoming deadlines</span></div>'
         f'<div class="card pad">{erows}</div>'
         f"{journal_block}</section>"
     )
@@ -6344,35 +6344,35 @@ def render() -> Path:
     star_strategie = (
         '<div class="page-star">'
         + '<div class="ps-strate">'
-        + '<div class="ps-lbl">Lecture du livre</div>'
+        + '<div class="ps-lbl">Book reading</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_med_cls}">M&Eacute;DIANE c{_conv_med_s}</div>'
         + f'<div class="ps-macro-meta">{_n_act_t} th&egrave;ses actives &middot; {_n_c5_s} c5 ({_pct_c5_s:.0f}%)</div>'
         + '</div>'
-        + '<div class="ps-cap">D&eacute;clar&eacute; vs lecture vs risques cach&eacute;s &mdash; 3 niveaux ci-dessous</div>'
+        + '<div class="ps-cap">Declared vs book reading vs hidden risks &mdash; 3 levels below</div>'
         + '</div>'
         + '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Nombre de biais comportementaux instrumentes (capture automatique). lock_in = vendre winners trop tot. fomo_greed = tenir au-dela du top.">Biais m&eacute;canis&eacute;s</div><div class="ps-val {_bias_cls}">2</div><div class="ps-cap">{_bias_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Candidats bias_event en cours d\'observation (fenetre +30j post-detection). Verdict gele a +30j puis enrichi +60/+90.">Biais ouverts</div><div class="ps-val">{_n_bias_open_s}</div><div class="ps-cap">events en cours d\'observation</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Events bias post-resolution +30j avec scoring canonique immutable. Enrichis avec observations +60/+90j architecture B3.">Biais r&eacute;solus</div><div class="ps-val acc">{_n_bias_resolved_s}</div><div class="ps-cap">events post-r&eacute;solution</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Nombre de biais comportementaux instrumentes (capture automatique). lock_in = vendre winners trop tot. fomo_greed = tenir au-dela du top.">Mechanized biases</div><div class="ps-val {_bias_cls}">2</div><div class="ps-cap">{_bias_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Candidats bias_event en cours d\'observation (fenetre +30j post-detection). Verdict gele a +30j puis enrichi +60/+90.">Open biases</div><div class="ps-val">{_n_bias_open_s}</div><div class="ps-cap">events under observation</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Events bias post-resolution +30j avec scoring canonique immutable. Enrichis avec observations +60/+90j architecture B3.">Resolved biases</div><div class="ps-val acc">{_n_bias_resolved_s}</div><div class="ps-cap">events post-resolution</div></div>'
         + '</div>'
         + '<div class="ps-strate ps-foot">'
-        + 'Strat&eacute;gie d&eacute;clar&eacute;e &middot; lecture du livre &middot; risques cach&eacute;s ci-dessous'
+        + 'Declared strategy &middot; book reading &middot; hidden risks below'
         + '</div>'
         + '</div>'
     )
     strategie_html = (
-        '<section data-page="strategie" role="region" aria-label="Strategie"><div class="phead"><h2>Strat&eacute;gie</h2>'
-        '<div class="sub">R&eacute;f&eacute;rentiel d&eacute;clar&eacute; &middot; trajectoire vs plan &middot; positions au-del&agrave; du bull</div></div>'
+        '<section data-page="strategie" role="region" aria-label="Strategy"><div class="phead"><h2>Strategy</h2>'
+        '<div class="sub">Declared reference &middot; trajectory vs plan &middot; positions beyond bull</div></div>'
         f'{star_strategie}'
         # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
-        '<div class="strat-sh" data-tip="Ce que tu as ecrit comme objectif (theses, horizon, conviction). Le referentiel contre lequel on lit le livre."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v12"/><path d="M3 3h7l-1.5 2.5L10 8H3"/></svg>Strat&eacute;gie d&eacute;clar&eacute;e &mdash; r&eacute;f&eacute;rentiel</div>'
+        '<div class="strat-sh" data-tip="Ce que tu as ecrit comme objectif (theses, horizon, conviction). Le referentiel contre lequel on lit le livre."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v12"/><path d="M3 3h7l-1.5 2.5L10 8H3"/></svg>Declared strategy &mdash; reference</div>'
         f'{_user_strategy_panel()}'
         # 2. Lecture du livre -- trajectoire vs declare
-        '<div class="strat-sh" data-tip="Trajectoire reelle du book vs ce qui a ete declare."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3L14 14"/></svg>Lecture du livre &mdash; trajectoire</div>'
+        '<div class="strat-sh" data-tip="Trajectoire reelle du book vs ce qui a ete declare."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3L14 14"/></svg>Book reading &mdash; trajectory</div>'
         f'{trajectory_html}'
         # 3. Actionnable -- positions au-dessus du bull case (candidats fomo_greed)
-        '<div class="strat-sh" data-tip="Positions au-dela de leur bull case = candidats trim (mecanise via fomo_greed gate)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L14.5 13H1.5L8 2z"/><path d="M8 6.5v3.5"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg>Au-del&agrave; du bull &mdash; candidats trim</div>'
+        '<div class="strat-sh" data-tip="Positions au-dela de leur bull case = candidats trim (mecanise via fomo_greed gate)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L14.5 13H1.5L8 2z"/><path d="M8 6.5v3.5"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg>Beyond bull &mdash; trim candidates</div>'
         f'{valo_html}'
         # Retraits 02/06 user feedback (panneaux infinis rebarbatifs) :
         # factor_html / stress_html / spof_html / mauboussin_html /
@@ -6407,23 +6407,23 @@ def render() -> Path:
     )
     n_stop, n_watch, n_tgt = len(near_stop_tk), len(watch_zone_tk), len(near_tgt_tk)
     if n_stop:
-        _post_cls, _post_lbl = "bear", "VIGILANCE"
+        _post_cls, _post_lbl = "bear", "ALERT"
         _post_cap = f"{n_stop} ligne(s) au stop &lt; 10% &middot; v&eacute;rifier avant la s&eacute;ance"
     elif n_watch:
-        _post_cls, _post_lbl = "warn", "SURVEILLANCE"
+        _post_cls, _post_lbl = "warn", "WATCH"
         _post_cap = f"{n_watch} ligne(s) en zone 10-20% du stop &middot; marge restante"
     elif n_tgt:
-        _post_cls, _post_lbl = "acc", "PRISE&nbsp;DE&nbsp;PROFIT"
+        _post_cls, _post_lbl = "acc", "TAKE&nbsp;PROFIT"
         _post_cap = f"{n_tgt} ligne(s) proche(s) d&rsquo;un palier"
     else:
-        _post_cls, _post_lbl = "acc", "AU&nbsp;REPOS"
+        _post_cls, _post_lbl = "acc", "AT&nbsp;REST"
         _post_cap = "aucune ligne en zone critique &middot; surveiller la d&eacute;rive"
     _star_stop_cls = "bear" if n_stop else "acc"
     _star_watch_cls = "warn" if n_watch else "acc"
     _star_tgt_cls = "warn" if n_tgt else "acc"
     star_strate_post = (
         '<div class="ps-strate">'
-        + '<div class="ps-lbl">Posture positions</div>'
+        + '<div class="ps-lbl">Positions posture</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_post_cls}">{_post_lbl}</div>'
         + f'<div class="ps-macro-meta">{len(positions)} lignes &middot; sizing &times;{_sfac:.1f}</div>'
@@ -6436,9 +6436,9 @@ def render() -> Path:
     _tgt_caption = (", ".join(near_tgt_tk[:3]) + ("…" if len(near_tgt_tk) > 3 else "")) if near_tgt_tk else "aucune"
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions a moins de 10% de declenchement du stop. Marge critique : reviser these ou trailing stop avant la seance.">Au stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Zone d\'alerte intermediaire 10-20% du stop. Surveiller, pas d\'action immediate.">Surveillance 10-20%</div><div class="ps-val {_star_watch_cls}">{n_watch}</div><div class="ps-cap">{_watch_caption}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions a moins de 12% de leur cible (target_full). Zone de prise de profit pour winners avec valo &gt; bull.">Proche cible</div><div class="ps-val {_star_tgt_cls}">{n_tgt}</div><div class="ps-cap">{_tgt_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions a moins de 10% de declenchement du stop. Marge critique : reviser these ou trailing stop avant la seance.">At stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Zone d\'alerte intermediaire 10-20% du stop. Surveiller, pas d\'action immediate.">Watch 10-20%</div><div class="ps-val {_star_watch_cls}">{n_watch}</div><div class="ps-cap">{_watch_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions a moins de 12% de leur cible (target_full). Zone de prise de profit pour winners avec valo &gt; bull.">Near target</div><div class="ps-val {_star_tgt_cls}">{n_tgt}</div><div class="ps-cap">{_tgt_caption}</div></div>'
         + "</div>"
     )
     star_strate_foot = (
@@ -6473,7 +6473,7 @@ def render() -> Path:
     if near:
         _dev_items.append((f"{near} ligne(s) &lt; 10% du stop", "risque"))
     _dn = len(_dev_items)
-    _dcls, _dverdict = ("bear", "FRICTIONS") if _dn else ("acc", "ALIGN&Eacute;")
+    _dcls, _dverdict = ("bear", "FRICTIONS") if _dn else ("acc", "ALIGNED")
     _ddetail = (
         " &nbsp;&middot;&nbsp; ".join(item[0] for item in _dev_items)
         if _dev_items else "tout sous les r&egrave;gles"
