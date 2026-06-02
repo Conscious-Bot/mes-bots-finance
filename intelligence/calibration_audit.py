@@ -123,6 +123,95 @@ def _get_resolved_predictions(cx, days: int | None = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def compute_brier_by_source(cx, days: int = 180) -> list[dict[str, Any]]:
+    """#72 LOOP -- Disaggregation Brier par signal source (rolling window).
+
+    Permet d'identifier les sources qui sous-performent en calibration
+    et les retirer/downweight. Sans cette desagregation, le Brier moyen
+    global masque les ecarts.
+
+    Returns list de dicts (par source name) :
+      - source_name (str)
+      - n_resolved (int) : predictions resolved non-neutral via cette source
+      - brier_avg (float)
+      - brier_ic95_low, brier_ic95_high (Wilson sur l'accuracy underlying)
+      - accuracy (float) : % correct (helper)
+      - status : 'OK' (brier <= 0.20), 'WARN' (<= 0.25), 'ALERT' (> 0.25),
+                'INSUFFICIENT_DATA' (n < 5)
+
+    Trie par n_resolved DESC. Sources avec n=0 sur la fenetre sont omises.
+
+    Note : un Brier eleve sur une source bien-calibree peut etre du a un
+    signal-to-noise faible. La metrique est diagnostique, pas autoritaire
+    -- a contextualiser avec evidence_strength dans scoring_trace_json.
+    """
+    rows = cx.execute(
+        """SELECT
+              COALESCE(s.name, '?') AS source_name,
+              p.brier_score, p.outcome
+           FROM predictions p
+           LEFT JOIN signals sig ON sig.id = p.signal_id
+           LEFT JOIN sources s ON s.id = sig.source_id
+           WHERE p.resolved_at IS NOT NULL
+             AND p.brier_score IS NOT NULL
+             AND p.probability_at_creation IS NOT NULL
+             AND p.methodology_version != 'v0'
+             AND p.outcome IN ('correct', 'incorrect')
+             AND p.resolved_at >= datetime('now', ?)
+           ORDER BY p.resolved_at DESC""",
+        (f"-{days} days",),
+    ).fetchall()
+
+    by_src: dict[str, list[tuple[float, str]]] = {}
+    for r in rows:
+        # Tuple access -- row_factory-agnostic
+        name = r[0] if not isinstance(r, dict) else r["source_name"]
+        brier = r[1] if not isinstance(r, dict) else r["brier_score"]
+        outcome = r[2] if not isinstance(r, dict) else r["outcome"]
+        by_src.setdefault(name, []).append((float(brier), str(outcome)))
+
+    out: list[dict[str, Any]] = []
+    for src_name, items in by_src.items():
+        n = len(items)
+        if n == 0:
+            continue
+        brier_avg = sum(b for b, _ in items) / n
+        n_correct = sum(1 for _, o in items if o == "correct")
+        accuracy = n_correct / n
+        # Wilson 95 sur accuracy
+        if n >= 1:
+            z = 1.96
+            denom = 1 + z * z / n
+            center = (n_correct + z * z / 2) / n / denom
+            half = z * math.sqrt(accuracy * (1 - accuracy) / n + z * z / (4 * n * n)) / denom
+            ic_lo = max(0.0, center - half)
+            ic_hi = min(1.0, center + half)
+        else:
+            ic_lo, ic_hi = 0.0, 1.0
+
+        if n < 5:
+            status = "INSUFFICIENT_DATA"
+        elif brier_avg <= 0.20:
+            status = "OK"
+        elif brier_avg <= 0.25:
+            status = "WARN"
+        else:
+            status = "ALERT"
+
+        out.append({
+            "source_name": src_name,
+            "n_resolved": n,
+            "brier_avg": round(brier_avg, 4),
+            "accuracy": round(accuracy, 3),
+            "brier_ic95_low": round(ic_lo, 3),
+            "brier_ic95_high": round(ic_hi, 3),
+            "status": status,
+        })
+
+    out.sort(key=lambda d: -d["n_resolved"])
+    return out
+
+
 def check_scorer_calibration(cx, days: int | None = None) -> dict[str, Any]:
     """Reliability diagram + verdict scorer V2 calibration.
 
