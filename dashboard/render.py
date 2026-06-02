@@ -943,8 +943,7 @@ def _copilot_panel() -> str:
             f'{outc_html}</div>'
         )
     return (
-        '<div class="colhead"><span class="t">Copilot pressure before trades</span>'
-        '<span class="a">hover/click a row for full diagnostic &middot; mechanical verdict before each action</span></div>'
+        '<div class="colhead"><span class="t">Copilot pressure before trades</span></div>'
         '<div class="card pad copilotcard" style="margin-bottom:var(--s4)">'
         + "".join(lis)
         + "<script>document.querySelectorAll('.copilotcard .cp-row').forEach(function(e){"
@@ -1119,8 +1118,7 @@ def _fx_exposure_panel() -> str:
             f'<div class="fx-sub">{sub_html}</div></div>'
         )
     return (
-        '<div class="colhead"><span class="t">Exposition par devise</span>'
-        '<span class="a">click a row to expand positions &middot; no FX hedge</span></div>'
+        '<div class="colhead"><span class="t">Exposition par devise</span></div>'
         '<div class="card pad fxcard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + '<script>document.querySelectorAll(".fxcard .fx-item").forEach(function(e){'
@@ -1364,8 +1362,7 @@ def _valo_above_bull_panel() -> str:
             f'<div class="vb-rat">{f["rationale"]}</div></div>'
         )
     return (
-        '<div class="colhead"><span class="t">Valuations already beyond bull case</span>'
-        '<span class="a">current price requires more than a reasonable bull case</span></div>'
+        '<div class="colhead"><span class="t">Valuations already beyond bull case</span></div>'
         '<div class="card pad valocard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + "</div>"
@@ -1486,14 +1483,12 @@ def _user_strategy_panel() -> str:
             "No declared user strategy. Defaults from config.yaml in use."
             "</div></div>"
         )
-    archetype = us.get("archetype", "?")
     desc = us.get("description", "")
     cap = us.get("target_cluster_cap_pct", 35)
     dec = us.get("target_decorrelation_pct", 15)
     bench = us.get("benchmark_ticker", "?")
     horizon = us.get("thesis_horizon_years", "?")
     accepted = us.get("accepted_concentrated_factors") or []
-    declared = us.get("declared_at", "?")
     tol_validated = bool(us.get("drawdown_tolerance_validated"))
     tol_validated_at = us.get("drawdown_tolerance_validated_at") or "?"
     accepted_html = ", ".join(accepted) if accepted else "(none)"
@@ -1567,8 +1562,7 @@ def _user_strategy_panel() -> str:
             f'Tolerance drawdown validee le {tol_validated_at[:10]}</div></div>'
         )
     return (
-        '<div class="colhead"><span class="t">Your declared strategy</span>'
-        f'<span class="a">archetype = {archetype} &middot; depuis {declared} &middot; surcharge les defaults</span></div>'
+        '<div class="colhead"><span class="t">Your declared strategy</span></div>'
         '<div class="card pad strategiecard" style="margin-bottom:var(--s4)">'
         f'{construction_html}'
         '<div class="us-grid">'
@@ -2214,8 +2208,7 @@ def _copilot() -> str:
     conserve, donnees disponibles pour reactivation future."""
     return (
         f'<section data-page="copilot" role="region" aria-label="Copilot">'
-        f'<div class="phead"><h2>Copilot</h2>'
-        f'<div class="sub">Chat &middot; adversarial interventions summary</div></div>'
+        f'<div class="phead"><h2>Copilot</h2></div>'
         f'{_chat_panel()}'
         f'<div class="vigie-sh" data-tip="Historical adversarial pressure tests: what the copilot challenged recently."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Pressions adversariales</div>'
         f'{_copilot_panel()}'
@@ -2225,16 +2218,8 @@ def _copilot() -> str:
 
 def _chat_panel() -> str:
     """Sprint 7 — Chat surface : pose une question, contexte assemble cote serveur."""
-    n_msg, n_sess, oldest = _chat_memory_stats()
-    mem_str = (
-        f"it knows your profile, PF grade, positions, theses, "
-        f"interventions &middot; memory : {n_msg} messages on {n_sess} sessions since {oldest}"
-        if n_msg > 0 else
-        "it knows your profile, PF grade, positions, theses and intervention history"
-    )
     return (
-        '<div class="colhead"><span class="t">Ask the copilot</span>'
-        f'<span class="a">{mem_str}</span></div>'
+        '<div class="colhead"><span class="t">Ask the copilot</span></div>'
         '<div class="card pad chatcard" style="margin-bottom:var(--s4)">'
         '<div id="chat-log" class="chat-log"></div>'
         '<form id="chat-form" class="chat-form" onsubmit="return chatSend(event)">'
@@ -2644,7 +2629,7 @@ def _concentration(
     )
     return (
         f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h2>Concentration</h2>'
-        f'<div class="sub">Three concentration axes &mdash; by position, by sector, by geography</div></div>'
+        f'</div>'
         f"{star_concentration}"
         # Retrait 02/06 user : sb-bars (horizontal bars par sector) = doublon
         # evident avec donut sectors page Positions. JS sb-bars handler conserve
@@ -2758,12 +2743,7 @@ def _sector_blocks(
     for fb in order:
         h, _sw = _render_bucket(fb, standalone[fb], total, pnl, names, daily, fx)
         blocks += h
-    sub = (
-        f"Held {real_t:.0f}&euro; &middot; planned {plan_t:.0f}&euro; &middot; "
-        f"total {total:.0f}&euro; (${total / fx:.0f}) &middot; {len(order) + (1 if compute_sub else 0)} groups"
-    )
     return (
-        f'<div class="sub" style="margin-bottom:var(--s25)">{sub}</div>'
         f'<div class="sec-cols"><span></span><span class="num">&euro;</span><span class="num">$</span>'
         f'<span class="num">%</span><span class="num">Day</span><span class="num">P&amp;L</span></div>'
         f"{blocks}"
@@ -3778,7 +3758,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     breadth_html = _breadth_rsp_spy()
     return (
         f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h2>Alerts</h2>'
-        f'<div class="sub">Momentum toward targets &middot; margin before stops &middot; macro stress</div></div>'
+        f'</div>'
         f"{star}"
         # Layout 02/06 user "organize, evitons les trous" : macro stress
         # full-width au-dessus (indicateurs naturellement nombreux), puis
@@ -4521,9 +4501,7 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
     tr = [p for p in positions if _broker(p["ticker"]) == "tr"]
     eu = [p for p in positions if _broker(p["ticker"]) == "bourso"]
     head = (
-        '<div class="colhead tight"><span class="t">Comptes</span>'
-        '<span class="a">by broker &middot; sorted by value &middot; '
-        'asymmetry = upside_to_target / downside_to_stop (Taleb barbell)</span></div>'
+        '<div class="colhead tight"><span class="t">Comptes</span></div>'
     )
     return (
         head
@@ -5161,8 +5139,7 @@ def render() -> Path:
         # demande surveillance approfondie.
         # ── BLOC 1 : OPPORTUNITES -- proches target (winners en realisation) ──
         # D1 retire 02/06 : "Marges les plus faibles" duplique avec page Urgence.
-        '<div class="vigie-sh" data-tip="Positions close to target (take-profit zone, valo &gt; bull) -- mechanized trim candidates via fomo_greed gate."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunities &mdash; close or consolidate</div>'
-        f'<div class="colhead"><span class="t">Closest to target</span><span class="a">thesis in realization &middot; watch valo &gt; bull and fragility</span></div>'
+        f'<div class="colhead"><span class="t">Closest to target</span></div>'
         f'<div class="card pad">{gain}</div>'
         # ── BLOC 2 : MOUVEMENT DU JOUR -- restaure 02/06 user (winners/losers %) ──
         '<div class="vigie-sh" data-tip="Today\'s biggest intraday movers (vs prior close)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>Today&rsquo;s movers</div>'

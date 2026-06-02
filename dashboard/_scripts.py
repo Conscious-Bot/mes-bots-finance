@@ -507,9 +507,12 @@ _APP_JS = """
     if (!document.startViewTransition) { openLoupe(tk); return; }
     var src = findMorphSource(srcEl);
     if (src) src.style.viewTransitionName = 'loupe-logo';
-    var loupeEl = document.getElementById('loupe');
-    /* Suppress CSS keyframe scale-in during View Transition (eviter double animation). */
-    if (loupeEl) loupeEl.classList.add('vt-suppress');
+    /* Kill le root crossfade pendant cette transition : seul le logo morph,
+       le background reste statique. Sinon TOUT le body est capture (snapshot
+       avec modal absent vs snapshot avec modal full-screen overlay) -> grosse
+       difference visuelle = "saut" / flash inacceptable. CSS keyframe
+       loupe-card-enter prend le relais pour le scale-in du card. */
+    document.documentElement.classList.add('vt-loupe');
     var t = document.startViewTransition(function(){
       if (src) src.style.viewTransitionName = '';
       openLoupe(tk);
@@ -519,7 +522,7 @@ _APP_JS = """
     function cleanup(){
       var tgt = findMorphTarget();
       if (tgt) tgt.style.viewTransitionName = '';
-      if (loupeEl) loupeEl.classList.remove('vt-suppress');
+      document.documentElement.classList.remove('vt-loupe');
     }
     t.finished.then(cleanup).catch(cleanup);
   }
