@@ -723,6 +723,8 @@ def insert_prediction(
     signal_type=None,
     impact_magnitude=None,
     probability_override=None,
+    scoring_trace_json=None,
+    source_metadata_json=None,
 ):
     """Brier: probability_at_creation source determined by caller.
 
@@ -768,12 +770,74 @@ def insert_prediction(
             prob = estimate_probability(score, credibility, signal_type, impact_magnitude)
         cur = conn.execute(
             "INSERT INTO predictions (signal_id, ticker, direction, horizon_days, baseline_price, "
-            "baseline_date, target_date, probability_at_creation) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (signal_id, ticker, direction, horizon_days, baseline_price, baseline_date, target_date, prob),
+            "baseline_date, target_date, probability_at_creation, "
+            "scoring_trace_json, source_metadata_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (signal_id, ticker, direction, horizon_days, baseline_price, baseline_date,
+             target_date, prob, scoring_trace_json, source_metadata_json),
         )
         conn.commit()
         return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def get_prediction_provenance(pred_id: int) -> dict | None:
+    """#70 + #74 -- Audit trail full per prediction.
+
+    Returns dict {prediction, signal, source, scoring_trace, source_metadata}
+    avec la chaine complete de provenance. None si pred_id introuvable.
+
+    Sert le panneau loupe ticker (UI "pourquoi cette proba?") + l'audit
+    externe (chaine reproductible bout en bout).
+    """
+    import json as _json
+    conn = _sqlite3.connect(DB_PATH)
+    conn.row_factory = _sqlite3.Row
+    try:
+        pred_row = conn.execute(
+            "SELECT * FROM predictions WHERE id = ?", (pred_id,)
+        ).fetchone()
+        if not pred_row:
+            return None
+        pred = dict(pred_row)
+
+        sig = None
+        src = None
+        if pred.get("signal_id"):
+            sig_row = conn.execute(
+                "SELECT * FROM signals WHERE id = ?", (pred["signal_id"],)
+            ).fetchone()
+            if sig_row:
+                sig = dict(sig_row)
+                if sig.get("source_id"):
+                    src_row = conn.execute(
+                        "SELECT * FROM sources WHERE id = ?", (sig["source_id"],)
+                    ).fetchone()
+                    if src_row:
+                        src = dict(src_row)
+
+        trace = None
+        if pred.get("scoring_trace_json"):
+            try:
+                trace = _json.loads(pred["scoring_trace_json"])
+            except (TypeError, ValueError):
+                trace = None
+
+        src_meta = None
+        if pred.get("source_metadata_json"):
+            try:
+                src_meta = _json.loads(pred["source_metadata_json"])
+            except (TypeError, ValueError):
+                src_meta = None
+
+        return {
+            "prediction": pred,
+            "signal": sig,
+            "source": src,
+            "scoring_trace": trace,
+            "source_metadata": src_meta,
+        }
     finally:
         conn.close()
 

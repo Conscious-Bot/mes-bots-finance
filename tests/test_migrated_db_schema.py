@@ -129,6 +129,17 @@ def test_predictions_has_baseline_price(migrated_db):
     )
 
 
+def test_predictions_has_audit_trail_columns(migrated_db):
+    """#70 + #74 -- scoring_trace_json + source_metadata_json requis pour
+    audit trail full per prediction. Sans ca, provenance perdue."""
+    cols = _columns(migrated_db, "predictions")
+    missing = {"scoring_trace_json", "source_metadata_json"} - cols
+    assert not missing, (
+        f"predictions audit trail columns manquantes : {missing}. "
+        "Check migration 0026."
+    )
+
+
 # ─── Demo : fixture s'integre avec storage.DB_PATH ──────────────────────
 
 

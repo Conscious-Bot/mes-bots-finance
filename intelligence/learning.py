@@ -104,6 +104,8 @@ def register_prediction(
     impact_magnitude: float | None = None,
     score: int | None = None,
     probability: float | None = None,
+    scoring_trace_json: str | None = None,
+    source_metadata_json: str | None = None,
 ) -> int | None:
     if horizon_days is None:
         horizon_days = horizon_for_signal_type(signal_type, impact_magnitude)
@@ -130,6 +132,8 @@ def register_prediction(
             score=score,
             signal_type=signal_type,
             impact_magnitude=impact_magnitude,
+            scoring_trace_json=scoring_trace_json,
+            source_metadata_json=source_metadata_json,
         ),
     )
 
@@ -207,6 +211,21 @@ def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int =
                 log.info(f"V2 [{tk}] sig={sig_id} -> watch (ev={v2['evidence_strength']}) -- not registered")
                 continue
 
+            # #70 + #74 -- capture trace V2 + source metadata pour audit
+            # trail full per prediction. Sans ca, impossible de defendre
+            # "pourquoi cette proba?" en audit externe.
+            import json as _json_t
+            trace_json = _json_t.dumps(v2, ensure_ascii=False, sort_keys=True)
+            src_meta_json = _json_t.dumps({
+                "title": (sig.get("title") or "")[:200],
+                "source_name": sig.get("source_name"),
+                "gmail_id": sig.get("gmail_id"),
+                "credibility_at_creation": sig.get("credibility"),
+                "score_at_creation": score,
+                "sentiment_at_creation": sentiment,
+                "signal_timestamp": sig.get("timestamp"),
+            }, ensure_ascii=False, sort_keys=True)
+
             pid = register_prediction(
                 signal_id=sig_id,
                 ticker=tk,
@@ -217,6 +236,8 @@ def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int =
                 impact_magnitude=sig.get("impact_magnitude"),
                 score=score,
                 probability=v2["probability"],
+                scoring_trace_json=trace_json,
+                source_metadata_json=src_meta_json,
             )
             if pid:
                 registered.append(pid)
