@@ -227,16 +227,16 @@ def _needle_color(frac: float, *, invert: bool = False) -> str:
 
 SECTOR_COLORS = {
     "Foundry & logique": "#3056D3",
-    "Équipement semi": "#10A37F",
-    "Mémoire": "#E14B62",
-    "Matériaux semi": "#FB923C",
+    "Semi equipment": "#10A37F",
+    "Memory": "#E14B62",
+    "Semi materials": "#FB923C",
     "EDA": "#7E47C9",
-    "Connectivité & optique": "#D154AB",
+    "Connectivity & optics": "#D154AB",
     "Hyperscalers": "#0D9488",
-    "Power & électrification": "#B45D31",
-    "Défense": "#475569",
-    "Énergie & matières premières": "#CA8A04",
-    "Auto / robotique": "#0EAFC4",
+    "Power & electrification": "#B45D31",
+    "Defense": "#475569",
+    "Energy & raw materials": "#CA8A04",
+    "Auto / robotics": "#0EAFC4",
 }
 TICKER_SECTOR = {
     "AMZN": "MAG 7",
@@ -259,7 +259,7 @@ _DIM_LABELS = {
     "quality_T1_plus": ("High solidity", "min", "construction"),
     "T2_redondant": ("Overlaps", "max", "construction"),
     "decorrelation_star": ("Other bets", "min", "construction"),
-    "sizing_conviction": ("Calibrage", "min", "construction"),
+    "sizing_conviction": ("Calibration", "min", "construction"),
     "cluster_cap": ("Bet principal", "max", "construction"),
     "thesis_health": ("Health", "min", "fragilite"),
     "cycle_valo_exposure": ("Cycle / valo", "max", "fragilite"),
@@ -1316,7 +1316,7 @@ def _mauboussin_sizing_panel() -> str:
         )
     return (
         '<div class="card pad mauboussincard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Calibrage rigoureux</span>'
+        '<div class="colhead"><span class="t">Rigorous calibration</span>'
         '<span class="a">real size vs theoretical size (conviction &times; moat erosion speed)</span></div>'
         + "".join(rows)
         + "</div>"
@@ -1596,7 +1596,7 @@ def _trajectory_panel() -> str:
         "quality_T1_plus": "High solidity",
         "T2_redondant": "Overlaps",
         "decorrelation_star": "Other bets",
-        "sizing_conviction": "Calibrage",
+        "sizing_conviction": "Calibration",
         "cluster_cap": "Bet principal",
         "thesis_health": "Health",
     }
@@ -2033,7 +2033,7 @@ def _distribution_health_panel() -> str:
     }
     label_map = {
         "watch_rate": "Watch-rate distribution",
-        "directional_spread": "Probas étalées",
+        "directional_spread": "Spread probas",
         "insider_clusters_alive": "Pipeline insider clusters",
         "horizon_diversification": "Horizons diversifiés",
         "conviction_distribution": "Conviction étalée",
@@ -2054,7 +2054,7 @@ def _distribution_health_panel() -> str:
         )
     return (
         '<div class="card pad" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Santé distribution</span>'
+        '<div class="colhead"><span class="t">Distribution health</span>'
         '<span class="a">extension scaffold ROUGE/ORANGE/VERT ops &mdash; data &middot; cron weekly Mon 7h push Telegram si !OK</span></div>'
         + rows
         + '</div>'
@@ -2609,7 +2609,7 @@ def _concentration(
     )
     star_strate_verdict = (
         '<div class="ps-strate">'
-        + '<div class="ps-lbl">Verdict concentration</div>'
+        + '<div class="ps-lbl">Concentration verdict</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_verdict_pcls}">{verdict}</div>'
         + f'<div class="ps-macro-meta">{cause}</div>'
@@ -6338,7 +6338,7 @@ def render() -> Path:
     except Exception:
         _n_bias_open_s, _n_bias_resolved_s = 0, 0
     # Determine biais mecanise status : ✓ si au moins 1 surface lock_in cable
-    _bias_msg = "lock_in (winners trop tot) + fomo_greed mecanises"
+    _bias_msg = "lock_in (winners sold too early) + fomo_greed mechanized"
     _bias_cls = "acc"
     _med_cls = "acc" if _conv_med_s >= 4 else ("warn" if _pct_c5_s > 20 else "")
     star_strategie = (
@@ -6347,7 +6347,7 @@ def render() -> Path:
         + '<div class="ps-lbl">Book reading</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_med_cls}">MEDIAN c{_conv_med_s}</div>'
-        + f'<div class="ps-macro-meta">{_n_act_t} theses actives &middot; {_n_c5_s} c5 ({_pct_c5_s:.0f}%)</div>'
+        + f'<div class="ps-macro-meta">{_n_act_t} active theses &middot; {_n_c5_s} c5 ({_pct_c5_s:.0f}%)</div>'
         + '</div>'
         + '<div class="ps-cap">Declared vs book reading vs hidden risks &mdash; 3 levels below</div>'
         + '</div>'
