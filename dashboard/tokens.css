@@ -106,7 +106,7 @@
   --data:  #2D5BFF;   /* bleu encre canonical -- accent focus */
   --acc:   #15803D;   /* green-700 sobre, was #16C055 flashy */
   --acc2:  #15803D;
-  --bear:  #B91C1C;   /* red-700 sobre, was #E53935 dense */
+  --bear:  #8B1A1E;   /* wine/oxblood deep (user image 02/06), was #B91C1C */
   --warn:  #A16207;   /* amber-700 sobre, ochre vigilance */
   --gold:  #A16207;   /* alias warn (1 spark spec) */
 
@@ -182,7 +182,7 @@ body.midnight {
   --acc:   #22C55E;   /* green-500 dark mode (more luminance needed) */
   --acc2:  #22C55E;
   --id:    #E6E8EB;
-  --bear:  #EF4444;   /* red-500 dark mode (more luminance needed) */
+  --bear:  #C7464A;   /* wine lift pour contraste dark mode (was #EF4444 neon) */
   --warn:  #F59E0B;   /* amber-500 dark mode */
   --gold:  #F59E0B;
   --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
