@@ -54,7 +54,9 @@ _TH_CSS = """
 
 _TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
 
-_CAHIER_CSS = (Path(__file__).parent / "cahier_de_bord.css").read_text(encoding="utf-8")
+# Mode cahier-de-bord supprime 02/06 user "mode cahier a supprimer"
+# (incompatible avec DNA instrument v2 cold/single accent).
+# _CAHIER_CSS = (Path(__file__).parent / "cahier_de_bord.css").read_text(encoding="utf-8")
 
 _CSS = """
   * { box-sizing:border-box; }

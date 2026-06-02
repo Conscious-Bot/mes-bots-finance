@@ -34,28 +34,7 @@ def test_dashboard_has_sidebar_nav(page, dashboard_server):
     assert len(items) >= 8, f"Expected >=8 nitem, got {len(items)}"
 
 
-def test_cahier_toggle_button_visible(page, dashboard_server):
-    """Bouton CAHIER toggle visible (#37)."""
-    page.goto(f"{dashboard_server}/dashboard.html")
-    btn = page.wait_for_selector(".cahier-toggle", timeout=5000)
-    assert btn is not None
-    assert "CAHIER" in btn.inner_text()
-
-
-def test_cahier_toggle_applies_class(page, dashboard_server):
-    """Clic sur CAHIER ajoute body.cahier-de-bord."""
-    page.goto(f"{dashboard_server}/dashboard.html")
-    page.wait_for_selector(".cahier-toggle", timeout=5000)
-    has_class_before = page.evaluate(
-        "() => document.body.classList.contains('cahier-de-bord')"
-    )
-    assert has_class_before is False
-    page.click(".cahier-toggle")
-    page.wait_for_timeout(100)
-    has_class_after = page.evaluate(
-        "() => document.body.classList.contains('cahier-de-bord')"
-    )
-    assert has_class_after is True
+# Tests cahier-de-bord supprimes 02/06 user "mode cahier a supprimer"
 
 
 def test_dark_mode_toggle_works(page, dashboard_server):
