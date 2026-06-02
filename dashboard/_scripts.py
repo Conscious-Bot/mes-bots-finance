@@ -427,7 +427,7 @@ _APP_JS = """
       +'<div class="lp-stat"><div class="lp-sl">P&amp;L</div><div class="lp-sv">'+_pct(d.pnl,true)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">Stop margin</div><div class="lp-sv">'+_pct(d.down)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">To target</div><div class="lp-sv">'+_pct(d.up)+'</div></div>'
-      +'<div class="lp-stat"><div class="lp-sl">Asymmetry</div><div class="lp-sv">'+(d.ratio==null?'&mdash;':d.ratio+'x')+'</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">Asymmetry</div><div class="lp-sv">'+(d.ratio==null?'&mdash;':(d.ratio>=999?'target &check;':d.ratio.toFixed(1)+'&times;'))+'</div></div>'
       +'</div>'+(d.perf?('<div class="lp-sec" style="margin-top:16px">Recent momentum</div><div class="lp-mom">'+mom('Day',d.perf.d)+mom('Week',d.perf.w)+mom('Month',d.perf.m)+'</div>'):'')):'<div class="lp-empty" style="padding:var(--s25) 0 2px">No position ouverte sur ce titre.</div>')+ana;
     document.getElementById('loupe').classList.add('open');
   }
