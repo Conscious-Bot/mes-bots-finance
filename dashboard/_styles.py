@@ -249,9 +249,15 @@ _CSS = """
      a la TR/Linear. 280ms ease, opacity + translate-y 8px. Anti-double-fire
      via .noanim gate (cf dashboard_anim_session_gate). */
   /* page-star kill 02/06 user "degage moi ces panneaux horribles".
-     SEULE EXCEPTION : Vigie/Overview (valeur PF + note PF hero card). */
+     EXCEPTIONS :
+       - Vigie/Overview : full hero card (valeur PF + note PF)
+       - Urgence/Alerts : strate 1 seule (macro state + frise gauge) sans
+         cadre lourd. User 02/06 "j'aimais le principe de la gauge". */
   .page-star { display:none !important; }
   [data-page="vigie"] .page-star { display:block !important; background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:24px 28px; margin-bottom:var(--s4); }
+  [data-page="urgence"] .page-star { display:block !important; background:transparent; border:none; padding:0; margin-bottom:var(--s4); }
+  [data-page="urgence"] .page-star .ps-strate:not(:first-child) { display:none !important; }
+  [data-page="urgence"] .page-star .ps-strate:first-child { border-top:none; padding:0; }
   [data-page="vigie"] .page-star .ps-strate { display:block; padding:14px 0; gap:0; }
   [data-page="vigie"] .page-star .ps-strate:first-child { padding-top:0; }
   [data-page="vigie"] .page-star .ps-strate:last-child { padding-bottom:0; }
