@@ -180,9 +180,14 @@ _CSS = """
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:start; }
   /* Move #4 DNA : colhead .a recede (font-size 12 + opacity .55) pour reduire cognitive load.
      Reveal-on-hover du parent (.colhead:hover .a opacity 1) = recompense l'attention. */
-  .colhead { display:flex; align-items:baseline; gap:9px; margin-bottom:var(--s3); padding-left:2px; }
-  .colhead .t { font-family:var(--fd); font-weight:600; font-size:22px; letter-spacing:-.005em; color:var(--ink); }
-  .colhead .a { font-family:var(--fm); font-size:12px; color:var(--steel); opacity:.55; transition:opacity .22s ease; letter-spacing:.01em; }
+  /* CANONIQUE 02/06 user pref Image #8 : .colhead aligne sur .strat-sh ->
+     uppercase letterspaced steel + divider line ::after qui remplit a droite.
+     Ancien style (22px ink-bold) abandonne -- trop dominant, casse l'unite
+     visuelle avec strat-sh / th-grp / dba-sh / vigie-sh. */
+  .colhead { display:flex; align-items:center; gap:var(--s3); margin:0 2px var(--s3); padding-left:0; font-family:var(--fm); font-weight:500; font-size:15px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); }
+  .colhead::after { content:""; flex:1; height:1px; background:var(--line); }
+  .colhead .t { font-family:inherit; font-weight:inherit; font-size:inherit; letter-spacing:inherit; color:inherit; text-transform:inherit; }
+  .colhead .a { font-family:var(--fm); font-size:12px; color:var(--steel); opacity:.55; text-transform:none; letter-spacing:.01em; }
   /* Sub line inside .card (PAS .phead) : data caption, doit lire SOUS le titre colhead. */
   .card .sub { font-family:var(--fb); font-size:13px; color:var(--steel); letter-spacing:.02em; }
   .colhead:hover .a { opacity:1; }
