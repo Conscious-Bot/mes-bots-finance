@@ -256,9 +256,9 @@ SECTOR_ALIAS = {"EU Defense": "Defense"}
 # bucket Construction/Fragilite). Construction = ce qui structure le book.
 # Fragilite = ce qui peut le briser maintenant.
 _DIM_LABELS = {
-    "quality_T1_plus": ("Solidity haute", "min", "construction"),
-    "T2_redondant": ("Doublons", "max", "construction"),
-    "decorrelation_star": ("Autres bets", "min", "construction"),
+    "quality_T1_plus": ("High solidity", "min", "construction"),
+    "T2_redondant": ("Overlaps", "max", "construction"),
+    "decorrelation_star": ("Other bets", "min", "construction"),
     "sizing_conviction": ("Calibrage", "min", "construction"),
     "cluster_cap": ("Bet principal", "max", "construction"),
     "thesis_health": ("Health", "min", "fragilite"),
@@ -585,16 +585,16 @@ def _risk_watch_panel() -> str:
             f'<div class="rw-cell"><div class="rw-h">Ballast decorrele strict</div>'
             f'<div class="rw-v mono">{target.get("current_ballast_strict_pct", "?")}%</div>'
             f'<div class="rw-t">target : {target.get("target_ballast_strict_pct", "?")}%</div></div>'
-            f'<div class="rw-cell"><div class="rw-h">Plan mitigation</div>'
+            f'<div class="rw-cell"><div class="rw-h">Mitigation plan</div>'
             f'<div class="rw-v mono">{avg_progress:.0f}%</div>'
-            f'<div class="rw-t">leviers A/B/C en cours</div></div>'
+            f'<div class="rw-t">A/B/C levers in progress</div></div>'
             '</div>'
             '<div class="rw-section">'
-            '<div class="rw-sh">Surveillance signaux</div>'
+            '<div class="rw-sh">Signal watch</div>'
             f'<div class="rw-sigs">{signals_html}</div>'
             '</div>'
             '<div class="rw-section">'
-            '<div class="rw-sh">Plan mitigation</div>'
+            '<div class="rw-sh">Mitigation plan</div>'
             f'<div class="rw-mits">{mit_html}</div>'
             '</div>'
             '</div>'
@@ -613,7 +613,7 @@ def _risk_watch_panel() -> str:
         if (_cfg.get("user_strategy") or {}).get("construction_phase"):
             construction_lens = (
                 '<div class="rw-lens">'
-                'Phase construction active &middot; '
+                'Active construction phase &middot; '
                 "l'expo actuelle se diluera mecaniquement vers la target "
                 "quand les decorrelants (Energie-pour-IA, Defense, Robotique) entreront. "
                 '<b>Lecture : surveiller, pas corriger.</b>'
@@ -623,8 +623,8 @@ def _risk_watch_panel() -> str:
         pass
     return (
         '<div class="card pad riskwatchcard" style="margin-bottom:var(--s4)">'
-        '<div class="colhead"><span class="t">Top Risks surveillance</span>'
-        f'<span class="a">{len(risks_list)} risque(s) declare(s) &middot; thesis-level reflection</span></div>'
+        '<div class="colhead"><span class="t">Top Risks watch</span>'
+        f'<span class="a">{len(risks_list)} declared risk(s) &middot; thesis-level reflection</span></div>'
         f'{construction_lens}'
         + "".join(out)
         + "</div>"
@@ -1500,7 +1500,7 @@ def _user_strategy_panel() -> str:
         progress = (cur_eur / tgt_eur * 100) if tgt_eur else 0
         construction_html = (
             '<div class="us-construction">'
-            '<div class="us-cstr-h">Phase construction</div>'
+            '<div class="us-cstr-h">Construction phase</div>'
             f'<div class="us-cstr-b">Le book est en cours de constitution : '
             f'<b class="mono">{cur_eur:,.0f}&nbsp;€</b> / '
             f'<b class="mono">{tgt_eur:,.0f}&nbsp;€</b> target '
@@ -1593,9 +1593,9 @@ def _trajectory_panel() -> str:
     cls = "pos" if delta_score > 0 else ("neg" if delta_score < 0 else "neu")
     # Use canonical glossary labels
     canon_labels = {
-        "quality_T1_plus": "Solidity haute",
-        "T2_redondant": "Doublons",
-        "decorrelation_star": "Autres bets",
+        "quality_T1_plus": "High solidity",
+        "T2_redondant": "Overlaps",
+        "decorrelation_star": "Other bets",
         "sizing_conviction": "Calibrage",
         "cluster_cap": "Bet principal",
         "thesis_health": "Health",
@@ -1835,7 +1835,7 @@ def _chat_signals_panel() -> str:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
             "No soft signals extracted yet. Continue de discuter dans le "
-            "chat — chaque conversation lambda devient une mine d'infos pour le profil."
+            "chat — every casual conversation becomes an info goldmine for the profile."
             "</div></div>"
         )
     by_kind: dict = {}
@@ -3759,15 +3759,15 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     infl_msg = (
         f"&#9888; inflation de conviction : c5 = {c5_pct:.0f}% (seuil 20%)"
         if infl
-        else f"c5 = {c5_pct:.0f}% &middot; pas d&rsquo;inflation (seuil 20%)"
+        else f"c5 = {c5_pct:.0f}% &middot; no inflation (seuil 20%)"
     )
 
     # === Star Theses : conviction mediane + 3 cells (targets, gain, marges) ===
     pcls = "acc" if n_profit * 2 >= n else "bear"
     ncls = "bear" if n_near else "acc"
     _tg_cls = "acc" if n_near_tgt else ""
-    _conv_lbl = f"M&Eacute;DIANE c{med}"
-    _conv_cap = f"{n} thesis(s) active(s) &middot; {dist[5]} c5 ({c5_pct:.0f}%)"
+    _conv_lbl = f"MEDIAN c{med}"
+    _conv_cap = f"{n} active thesis(es) &middot; {dist[5]} c5 ({c5_pct:.0f}%)"
     if infl:
         _conv_cls = "warn"
     elif med >= 4:
@@ -3777,9 +3777,9 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     hero = (
         f'<div class="page-star">'
         f'<div class="ps-strate ps-grid">'
-        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current position is less than 12% from target_full. Take-profit zone.">Proches de la target</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">marge &lt; 12%</div></div>'
-        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current price is above thesis entry cost (entry_price).">En gain</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">price &gt; entry cost</div></div>'
-        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses less than 10% from stop. Critical zone to review.">Marges faibles</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">marge &lt; 10% du stop</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current position is less than 12% from target_full. Take-profit zone.">Closer to target</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">margin &lt; 12%</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current price is above thesis entry cost (entry_price).">In profit</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">price &gt; entry cost</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses less than 10% from stop. Critical zone to review.">Low margins</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">margin &lt; 10% from stop</div></div>'
         f'</div>'
         f'<div class="ps-strate"><div class="ps-lbl">Convictions</div>'
         f'<div class="ps-macro-row"><div class="ps-val {_conv_cls}">{_conv_lbl}</div>'
@@ -5886,7 +5886,7 @@ def _discipline_biais_panel() -> str:
     else:
         _jday_str = f"J+{-_delta_jday} after batch 10/06"
     _kpi2_cls = "acc" if n_resolved >= 5 else "warn"
-    _kpi2_cap = "calibrage actif" if n_resolved >= 5 else f"besoin de {5 - n_resolved} de plus"
+    _kpi2_cap = "calibration active" if n_resolved >= 5 else f"need {5 - n_resolved} more"
     _brier_cls = ""
     if brier_n >= 5:
         _brier_cls = "acc" if brier_avg < 0.20 else ("warn" if brier_avg < 0.25 else "bear")
@@ -5898,7 +5898,7 @@ def _discipline_biais_panel() -> str:
         + '<div class="ps-lbl">Discipline &amp; Bias</div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_kpi2_cls}">{n_resolved}/{n_cluster_total}</div>'
-        + '<div class="ps-macro-meta">predictions resolvedes &middot; KPI #2 &ge;5</div>'
+        + '<div class="ps-macro-meta">resolved predictions &middot; KPI #2 &ge;5</div>'
         + '</div>'
         + f'<div class="ps-cap">{_kpi2_cap} &middot; {_jday_str}</div>'
         + '</div>'
@@ -6076,7 +6076,7 @@ def render() -> Path:
     journal_html = _journal()
     journal_block = (
         (
-            '<div class="colhead spaced"><span class="t">Lasts decisions</span><span class="a">journal Telegram</span></div>'
+            '<div class="colhead spaced"><span class="t">Latest decisions</span><span class="a">journal Telegram</span></div>'
             f'<div class="card pad">{journal_html}</div>'
         )
         if journal_html
@@ -6259,7 +6259,7 @@ def render() -> Path:
     _grade_color = "acc" if _gscore_int >= 70 else ("warn" if _gscore_int >= 50 else "bear")
     # (Grade sparkline retire 01/06 user feedback : pas besoin sur Portfolio grade)
     vigie = (
-        '<section data-page="vigie" class="active" role="region" aria-label="Overview"><div class="phead"><h2>Vue d\'ensemble</h2>'
+        '<section data-page="vigie" class="active" role="region" aria-label="Overview"><div class="phead"><h2>Overview</h2>'
         '<div class="sub">Discipline posture &middot; what to act on today</div></div>'
         # === Star Vue d'ensemble (unifie) : valeur+PnL+capital sous-jacent
         # a gauche, grade A+ + bar a droite. Strate 2 = repartition lignes
@@ -6313,7 +6313,7 @@ def render() -> Path:
         # via cron weekly_v2_vigilance + weekly_calibration_audit prennent le relais)
         # Synthese copilot retiree 31/05 wave 5bis : migre vers section Copilot dediee.
         # ── BLOC 5 : JOURNAL -- echeances + log decisions (chat remonte au BLOC 1) ──
-        '<div class="vigie-sh" data-tip="Logbook: recent daily decisions + upcoming review/resolution deadlines."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Daynal &amp; deadlines</div>'
+        '<div class="vigie-sh" data-tip="Logbook: recent daily decisions + upcoming review/resolution deadlines."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Journal &amp; deadlines</div>'
         f'<div class="colhead tight"><span class="t">Upcoming deadlines</span></div>'
         f'<div class="card pad">{erows}</div>'
         f"{journal_block}</section>"
@@ -6346,7 +6346,7 @@ def render() -> Path:
         + '<div class="ps-strate">'
         + '<div class="ps-lbl">Book reading</div>'
         + '<div class="ps-macro-row">'
-        + f'<div class="ps-val {_med_cls}">M&Eacute;DIANE c{_conv_med_s}</div>'
+        + f'<div class="ps-val {_med_cls}">MEDIAN c{_conv_med_s}</div>'
         + f'<div class="ps-macro-meta">{_n_act_t} theses actives &middot; {_n_c5_s} c5 ({_pct_c5_s:.0f}%)</div>'
         + '</div>'
         + '<div class="ps-cap">Declared vs book reading vs hidden risks &mdash; 3 levels below</div>'
