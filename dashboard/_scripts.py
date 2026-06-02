@@ -449,11 +449,11 @@ _THEME_INIT = (
     "<script>"
     "try{"
     "var t=localStorage.getItem('hmdl-theme');"
+    # 02/06 user "les versions changent a chaque refresh pour les bg" :
+    # retrait du prefers-color-scheme auto-detect qui pouvait faire bouger
+    # le bg entre refreshes (OS auto-toggle day/night ou state instable).
+    # Default = light. User toggle via .modetgl persiste en localStorage.
     "if(t==='midnight'){document.body.classList.add('midnight');}"
-    "else if(t==='parchment'){/* explicit light, ne rien faire */}"
-    "else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches){"
-    "document.body.classList.add('midnight');"
-    "}"
     "}catch(e){}"
     "</script>"
 )
