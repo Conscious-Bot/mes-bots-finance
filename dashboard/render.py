@@ -240,7 +240,7 @@ def _needle_color(frac: float, *, invert: bool = False) -> str:
 
 
 SECTOR_COLORS = {
-    "Foundry & logique": "#3056D3",
+    "Foundry & logic": "#3056D3",
     "Semi equipment": "#10A37F",
     "Memory": "#E14B62",
     "Semi materials": "#FB923C",
@@ -2570,7 +2570,7 @@ def _concentration(
         verdict, vcls = "MESUR&Eacute;E", "calm"
     cbits = []
     if dom_these_pct >= NARRATIVE_CAP:
-        cbits.append("thesis au-dessus du cap")
+        cbits.append("thesis above cap")
     if over_cap:
         cbits.append(f"{over_cap} position(s) outside cap")
     if cluster_breached:
@@ -2578,7 +2578,7 @@ def _concentration(
     cause = " &middot; ".join(cbits) or "all under caps"
     top_cls = "negc" if top_pct >= POS_CAP else "acc"
     these_cls = "negc" if dom_these_pct >= NARRATIVE_CAP else "acc"
-    line_msg = f"{top_nm} &middot; {'&#9888; au-dessus du cap' if top_pct >= POS_CAP else 'sous le cap'} {POS_CAP:.0f}%"
+    line_msg = f"{top_nm} &middot; {'&#9888; above cap' if top_pct >= POS_CAP else 'under cap'} {POS_CAP:.0f}%"
     these_msg = f"{dom_these} &middot; {'&#9888; trim' if dom_these_pct >= NARRATIVE_CAP else 'under cap'} {NARRATIVE_CAP:.0f}%"
     cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
     # === Star Concentration : fusion verdict + cluster + 3 KPIs ===
@@ -2913,7 +2913,7 @@ def _insider_flow_strip_html() -> str:
             rows += (
                 f'<div class="row"><div class="rt"><span class="tk tkc" data-tk="{tk_u}">{star}{tk_u}</span>'
                 f'<span class="tag {tag_cls}">{tag_lbl}</span></div>'
-                f'<div class="rs"><span>{int(buys)} achats &middot; {int(sells)} ventes</span>'
+                f'<div class="rs"><span>{int(buys)} buys &middot; {int(sells)} sells</span>'
                 f'<span class="mono">7&nbsp;j</span></div></div>'
             )
         return rows or (
@@ -2921,7 +2921,7 @@ def _insider_flow_strip_html() -> str:
             '<span class="empty-ico">i</span>'
             '<b>No insider flow</b>'
             'No transactions Form 4 SEC sur la fen&ecirc;tre 7&nbsp;j.'
-            '<span class="hint">Se remplit avec les ventes/achats d&rsquo;executives &gt; $50k</span>'
+            '<span class="hint">Filled by executive buys/sells &gt; $50k</span>'
             '</div>'
         )
     except Exception as e:
@@ -4972,7 +4972,7 @@ def render() -> Path:
         # Sprint 4 CTA flottant bas : Recherche seule (Compact + Filtrer retires
         # 01/06 user feedback : Compact none interet, Filtrer no utilite plug)
         + '<div class="cta-bar" role="toolbar" aria-label="Recherche rapide">'
-        + '<button id="ctaSearch" title="Rechercher (Cmd+K)"><span aria-hidden="true">&#9906;</span> Rechercher <kbd>&#8984;K</kbd></button>'
+        + '<button id="ctaSearch" title="Search (Cmd+K)"><span aria-hidden="true">&#9906;</span> Search <kbd>&#8984;K</kbd></button>'
         + "</div>"
         + '<div class="cta-modal" id="ctaSearchModal" role="dialog" aria-modal="true" aria-label="Recherche ticker">'
         + '<div class="cta-modal-inner">'

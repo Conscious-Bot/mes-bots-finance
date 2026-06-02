@@ -304,11 +304,11 @@ _APP_JS = """
       '<div class="lp-h">'+_tkLogoJs(tk)+'<span class="lp-tk">'+tk+'</span><span class="lp-nm">'+(d.name||'')+'</span></div>'
       +'<div class="lp-meta">'+badge+' &middot; '+(d.sector||'&mdash;')+' &middot; '+(d.country||'&mdash;')+'</div>'
       +((st==='held')?('<div class="lp-grid">'
-      +'<div class="lp-stat"><div class="lp-sl">Poids</div><div class="lp-sv">'+d.weight_pct+'%</div></div>'
-      +'<div class="lp-stat"><div class="lp-sl">Investi</div><div class="lp-sv">'+d.weight_eur+'&euro;</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">Weight</div><div class="lp-sv">'+d.weight_pct+'%</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">Invested</div><div class="lp-sv">'+d.weight_eur+'&euro;</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">P&amp;L</div><div class="lp-sv">'+_pct(d.pnl,true)+'</div></div>'
-      +'<div class="lp-stat"><div class="lp-sl">Marge stop</div><div class="lp-sv">'+_pct(d.down)+'</div></div>'
-      +'<div class="lp-stat"><div class="lp-sl">Vers target</div><div class="lp-sv">'+_pct(d.up)+'</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">Stop margin</div><div class="lp-sv">'+_pct(d.down)+'</div></div>'
+      +'<div class="lp-stat"><div class="lp-sl">To target</div><div class="lp-sv">'+_pct(d.up)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">Asymmetry</div><div class="lp-sv">'+(d.ratio==null?'&mdash;':d.ratio+'x')+'</div></div>'
       +'</div>'+(d.perf?('<div class="lp-sec" style="margin-top:16px">Recent momentum</div><div class="lp-mom">'+mom('Day',d.perf.d)+mom('Week',d.perf.w)+mom('Month',d.perf.m)+'</div>'):'')):'<div class="lp-empty" style="padding:var(--s25) 0 2px">No position ouverte sur ce titre.</div>')+ana;
     document.getElementById('loupe').classList.add('open');
@@ -369,7 +369,7 @@ _APP_JS = """
   document.addEventListener('keydown',function(ev){ if(ev.key==='Escape')closeLoupe(); });
   (function(){
     var box=document.createElement('div');box.id='qsearch';box.className='qs';
-    box.innerHTML='<div class="qs-card"><input id="qs-input" type="text" aria-label="Rechercher un titre ou un nom" placeholder="Rechercher un titre ou un nom..." autocomplete="off"><div id="qs-res"></div></div>';
+    box.innerHTML='<div class="qs-card"><input id="qs-input" type="text" aria-label="Search ticker or name" placeholder="Search ticker or name..." autocomplete="off"><div id="qs-res"></div></div>';
     document.body.appendChild(box);
     var inp=box.querySelector('#qs-input'),res=box.querySelector('#qs-res'),sel=0,cur=[];
     var rk={held:0,watch:1,core:2,extended:3,out:4};

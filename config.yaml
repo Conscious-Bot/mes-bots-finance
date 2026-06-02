@@ -710,7 +710,7 @@ sectors_taxonomy:
       - IBIT         # iShares Bitcoin Trust
 
 sectors:
-  "Foundry & logique": ["TSM", "AMD", "STMPA.PA"]
+  "Foundry & logic": ["TSM", "AMD", "STMPA.PA"]
   "Memory": ["000660.KS", "MU"]
   "Semi equipment": ["ASML.AS", "KLAC", "BESI.AS", "TER", "6857.T", "6920.T"]
   "Semi materials": ["4063.T", "ENTG"]

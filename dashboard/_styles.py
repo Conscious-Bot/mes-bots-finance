@@ -447,8 +447,11 @@ _CSS = """
   .dtier { font-family:var(--fb); font-size:14px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin:16px 0 6px; padding-bottom:var(--s15); border-bottom:1px solid var(--line); }
   .dlist > .dtier:first-child { margin-top:0; }
   [data-tip]{position:relative;cursor:help}
-  [data-tip]:hover::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 4px);background:var(--panel);color:var(--ink);border:1px solid var(--line2);padding:var(--s2) 11px;border-radius:var(--r1);font-family:var(--fb);font-size:14px;font-weight:400;letter-spacing:0;text-transform:none;white-space:normal;max-width:300px;width:max-content;z-index:1000;box-shadow:0 6px 18px rgba(0,0,0,.5);pointer-events:none;line-height:1.4}
-  body.midnight [data-tip]:hover::after{box-shadow:0 6px 18px rgba(0,0,0,.55)}
+  /* Tooltip position : appears ABOVE trigger (bottom:100%) to avoid overlapping
+     content below (colhead, ps-cell). Fully opaque bg + strong shadow + high
+     z-index pour clarte visuelle. */
+  [data-tip]:hover::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 6px);top:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line2);padding:8px 12px;border-radius:var(--r1);font-family:var(--fb);font-size:14px;font-weight:400;letter-spacing:0;text-transform:none;white-space:normal;max-width:340px;min-width:240px;width:max-content;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.12);pointer-events:none;line-height:1.45;}
+  body.midnight [data-tip]:hover::after{box-shadow:0 8px 24px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.35);background:var(--panel);}
   .drow { display:grid; grid-template-columns:14px 1fr auto auto auto; align-items:center; gap:var(--s3); padding:var(--s2) 0; font-size:16px; }
   .ddot { width:8px; height:8px; border-radius:50%; }
   .ddot.calm { background:var(--acc); } .ddot.warn { background:var(--warn); }
