@@ -218,6 +218,227 @@ def _err(e: Exception) -> str:
     return f'<div class="empty"><b>Query to adjust</b><span class="mono" style="font-size:14px">{type(e).__name__}: {str(e)[:130]}</span></div>'
 
 
+def _track_pill_html() -> str:
+    """Always-visible track record pill (top-right corner).
+
+    Move #2 du DNA target : Brier moyen + N resolved + status colored,
+    fixed top-right tous ecrans, cliquable -> Methode. Dopamine aesthetic :
+    micro-gradient parchemin, hover scale, dot pulse si Brier trending good.
+    """
+    try:
+        rows = _q(
+            "SELECT brier_score FROM predictions "
+            "WHERE methodology_version != 'v0' "
+            "AND brier_score IS NOT NULL "
+            "AND resolved_at IS NOT NULL "
+            "ORDER BY resolved_at DESC LIMIT 30"
+        )
+        briers = [float(r[0]) for r in rows]
+        n = len(briers)
+        if n == 0:
+            return (
+                '<div class="track-pill empty" title="No resolved prediction yet">'
+                '<span class="tp-dot"></span>'
+                '<span class="tp-lbl">Brier</span>'
+                '<span class="tp-val">--</span>'
+                '<span class="tp-n">n=0</span>'
+                '</div>'
+            )
+        avg = sum(briers) / n
+        # Status : OK if < 0.20, WARN if < 0.25, ALERT >= 0.25
+        if avg < 0.20:
+            status_cls = "acc"
+        elif avg < 0.25:
+            status_cls = "warn"
+        else:
+            status_cls = "bear"
+        # Mini sparkline values (reverse to chronological)
+        spark = list(reversed(briers))[-30:]
+        if len(spark) >= 2:
+            mn = min(spark)
+            mx = max(spark)
+            rng = (mx - mn) or 1.0
+            pts = [(i / max(1, len(spark) - 1) * 100, 100 - (v - mn) / rng * 100) for i, v in enumerate(spark)]
+            poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+            spark_svg = (
+                f'<svg class="tp-spark" viewBox="0 0 100 100" preserveAspectRatio="none">'
+                f'<polyline points="{poly}" fill="none" stroke="currentColor" stroke-width="3" '
+                f'stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+                f'</svg>'
+            )
+        else:
+            spark_svg = ""
+        # Direction arrow if N >= 6 : compare last 3 avg vs prev 3 avg
+        trend = ""
+        if len(spark) >= 6:
+            recent = sum(spark[-3:]) / 3
+            prev = sum(spark[-6:-3]) / 3
+            if recent < prev - 0.005:
+                trend = ' improving'
+            elif recent > prev + 0.005:
+                trend = ' worsening'
+        return (
+            f'<a href="#methode" class="track-pill {status_cls}{trend}" '
+            f'title="Brier mean {avg:.3f} on N={n} resolved -- click to Method page" '
+            f'onclick="document.querySelector(\'[data-nav=methode]\').click(); return false;">'
+            f'<span class="tp-dot"></span>'
+            f'<span class="tp-lbl">Brier</span>'
+            f'<span class="tp-val">{avg:.3f}</span>'
+            f'{spark_svg}'
+            f'<span class="tp-n">n={n}</span>'
+            f'</a>'
+        )
+    except Exception:
+        return ""
+
+
+_TRACK_PILL_CSS = """
+<style>
+  .track-pill {
+    position:fixed; top:14px; right:18px; z-index:200;
+    display:flex; align-items:center; gap:9px;
+    padding:8px 14px;
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--panel) 92%, var(--acc) 4%) 0%,
+      color-mix(in srgb, var(--panel) 88%, var(--ink) 6%) 100%);
+    border:1px solid var(--line);
+    border-radius:99px;
+    text-decoration:none;
+    box-shadow: 0 2px 12px -6px color-mix(in srgb, var(--ink) 18%, transparent),
+                0 0 0 0 transparent;
+    transition: transform .22s cubic-bezier(.34,1.56,.64,1),
+                box-shadow .25s ease,
+                border-color .2s ease;
+    cursor:pointer;
+    font-family: var(--fm);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: tp-rise .55s cubic-bezier(.22,.97,.39,1.05) both;
+  }
+  @keyframes tp-rise {
+    from { opacity:0; transform:translateY(-8px) scale(.96); }
+    to   { opacity:1; transform:translateY(0) scale(1); }
+  }
+  .track-pill:hover {
+    transform: scale(1.03) translateY(-1px);
+    box-shadow: 0 6px 22px -8px color-mix(in srgb, var(--ink) 28%, transparent),
+                0 0 0 3px color-mix(in srgb, var(--acc) 12%, transparent);
+    border-color: color-mix(in srgb, var(--acc) 35%, var(--line));
+  }
+  .track-pill .tp-dot {
+    width:7px; height:7px; border-radius:50%; background: var(--steel);
+    flex-shrink:0; box-shadow: 0 0 0 0 transparent;
+    transition: background .25s ease, box-shadow .3s ease;
+  }
+  .track-pill.acc .tp-dot { background: var(--acc); box-shadow: 0 0 0 4px color-mix(in srgb, var(--acc) 18%, transparent); }
+  .track-pill.warn .tp-dot { background: var(--warn); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 14%, transparent); }
+  .track-pill.bear .tp-dot { background: var(--bear); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bear) 14%, transparent); }
+  .track-pill.improving .tp-dot { animation: tp-pulse 2.4s ease-in-out infinite; }
+  @keyframes tp-pulse {
+    0%, 100% { transform:scale(1); }
+    50% { transform:scale(1.35); }
+  }
+  .track-pill .tp-lbl {
+    font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--steel); font-weight:500;
+  }
+  .track-pill .tp-val {
+    font-size:18px; font-variant-numeric:tabular-nums; font-weight:600;
+    color:var(--ink); letter-spacing:-.01em;
+  }
+  .track-pill.acc .tp-val { color: var(--acc); }
+  .track-pill.warn .tp-val { color: var(--warn); }
+  .track-pill.bear .tp-val { color: var(--bear); }
+  .track-pill .tp-spark {
+    width:60px; height:18px; opacity:.65; color:currentColor;
+    transition: opacity .25s ease, transform .3s ease;
+  }
+  .track-pill.acc .tp-spark { color: var(--acc); }
+  .track-pill.warn .tp-spark { color: var(--warn); }
+  .track-pill.bear .tp-spark { color: var(--bear); }
+  .track-pill:hover .tp-spark { opacity:1; transform: scaleY(1.15); }
+  .track-pill .tp-n {
+    font-size:12px; color:var(--steel); font-variant-numeric:tabular-nums;
+    padding-left:6px; border-left:1px solid var(--line);
+  }
+  .track-pill.empty .tp-val { color: var(--steel); }
+  /* Dark mode adapt */
+  body.midnight .track-pill {
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--panel) 80%, var(--ink) 8%) 0%,
+      color-mix(in srgb, var(--panel) 86%, var(--acc) 3%) 100%);
+  }
+  /* Anim disable session */
+  .noanim .track-pill { animation: none; }
+  .noanim .track-pill.improving .tp-dot { animation: none; }
+  @media (max-width: 880px) {
+    .track-pill { top:10px; right:10px; padding:6px 11px; gap:7px; }
+    .track-pill .tp-spark { width:40px; }
+    .track-pill .tp-n { display:none; }
+  }
+</style>
+"""
+
+
+_COUNTUP_JS = """
+<script>
+/* Move #3 : CountUp + sparkline animate-in. Plaisir esthetique sur refresh
+ * (pas gamification : recompense l'attention, pas le comportement). */
+(function(){
+  function fmt(n, decimals) {
+    var s = (decimals ? n.toFixed(decimals) : Math.round(n).toString());
+    var parts = s.split('.');
+    parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, '\\u202f');
+    return parts.join('.');
+  }
+  function animate(el) {
+    if (el._countup) return;
+    el._countup = true;
+    var target = parseFloat(el.getAttribute('data-target'));
+    if (isNaN(target)) return;
+    var prefix = el.getAttribute('data-prefix') || '';
+    var suffix = el.getAttribute('data-suffix') || '';
+    var decimals = parseInt(el.getAttribute('data-decimals') || '0', 10);
+    var dur = 900;  // ms
+    var t0 = performance.now();
+    function tick(now) {
+      var p = Math.min(1, (now - t0) / dur);
+      // ease-out cubic
+      var eased = 1 - Math.pow(1 - p, 3);
+      var v = target * eased;
+      el.innerHTML = prefix + fmt(v, decimals) + suffix;
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  function run() {
+    if (document.body.classList.contains('noanim')) return;
+    document.querySelectorAll('.ps-countup').forEach(animate);
+    /* sparkline animate-in : stroke-dasharray reveal */
+    document.querySelectorAll('.ps-hero-row svg polyline, .ps-hero-row svg path').forEach(function(el){
+      try {
+        var len = el.getTotalLength();
+        if (!len) return;
+        el.style.strokeDasharray = len;
+        el.style.strokeDashoffset = len;
+        el.style.transition = 'none';
+        requestAnimationFrame(function(){
+          el.style.transition = 'stroke-dashoffset 1.2s cubic-bezier(.22,.97,.39,1.05)';
+          el.style.strokeDashoffset = '0';
+        });
+      } catch(e) {}
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
+})();
+</script>
+"""
+
+
 def _needle_color(frac: float, *, invert: bool = False) -> str:
     """Couleur continue du needle calee sur le gradient de l'axe.
     frac 0->100 = bear -> steel -> acc (defaut)
@@ -4692,8 +4913,8 @@ def render() -> Path:
         + '<div class="ps-hero-left">'
         + '<div class="ps-lbl">Portfolio value</div>'
         + '<div class="ps-macro-row" style="align-items:baseline">'
-        + f'<div class="ps-val" style="font-size:37px">{pf_val_str}&nbsp;&euro;</div>'
-        + f'<div class="ps-val {_pnl_star_cls}" style="font-size:21px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
+        + f'<div class="ps-val ps-countup" data-target="{pf_value:.0f}" data-suffix="&nbsp;&euro;" style="font-size:37px">{pf_val_str}&nbsp;&euro;</div>'
+        + f'<div class="ps-val {_pnl_star_cls} ps-countup" data-target="{abs(pf_pnl_eur):.0f}" data-prefix="{pf_arrow}&nbsp;" data-suffix="&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)" style="font-size:21px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         + f'{_sparkline}'
         + '</div>'
         + f'<div class="ps-sub-lien"><b class="acc">{gpct:.0f}%</b> in profit &middot; {n_gain} positions &middot; {n_pnl - n_gain} in loss ({100 - gpct:.0f}%) {_val_delta_str}</div>'
@@ -4922,6 +5143,9 @@ def render() -> Path:
     )
     elan, near_t = _elan_watch(computed)
     body = (
+        f'{_TRACK_PILL_CSS}'
+        f'{_COUNTUP_JS}'
+        f'{_track_pill_html()}'
         f'<aside class="sidebar" role="complementary" aria-label="Barre laterale"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
         f'{_NAV}<div class="foot">'
         f'{_MODE_BTN}</div></aside>{_THEME_INIT}{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
