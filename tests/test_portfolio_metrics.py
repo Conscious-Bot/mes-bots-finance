@@ -237,11 +237,27 @@ class TestComputePortfolioReturnEur:
             "shared.portfolio_metrics.get_current_price_in",
             lambda t, c: 1350.0,
         )
-        with caplog.at_level(logging.WARNING):
-            r = compute_portfolio_return_eur()
+        # Mock log.warning directly : caplog/handler approaches flake en suite
+        # complete (un test prealable peut disable le root logger ou retirer
+        # les handlers via logging.disable). Mock direct = robust path-coverage
+        # check : verifie que la branche naive est BIEN traversee, peu importe
+        # ce que pytest fait avec ses handlers.
+        warnings_emitted: list[str] = []
+        import shared.portfolio_metrics as pm
+
+        original_warning = pm.log.warning
+
+        def capture_warning(msg, *args, **kwargs):
+            warnings_emitted.append(msg if isinstance(msg, str) else str(msg))
+            return original_warning(msg, *args, **kwargs)
+
+        monkeypatch.setattr(pm.log, "warning", capture_warning)
+        r = compute_portfolio_return_eur()
         assert r is not None
         assert r["days"] >= 0
-        assert any("naive opened_at" in rec.message for rec in caplog.records)
+        assert any("naive opened_at" in m for m in warnings_emitted), (
+            f"Expected 'naive opened_at' warning, got: {warnings_emitted}"
+        )
 
 
 # === Day 9 Audit Ship IV M1 — coverage fetch_benchmark_return_eur ===
