@@ -68,7 +68,7 @@ def wire_8k_to_signal(filing: dict) -> int | None:
     filed_at = filing.get("filed_at")
     items_raw = filing.get("items_raw", "")
 
-    if not ticker or not accession or not filing_url:
+    if not ticker or not accession or not filing_url or not filed_at:
         log.warning(f"wire_8k_to_signal: missing required fields in {filing}")
         return None
 

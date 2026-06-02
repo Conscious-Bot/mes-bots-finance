@@ -23,6 +23,7 @@ Kinds supportes :
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from shared import llm
 
@@ -512,13 +513,14 @@ def _exec_override(intent: dict, _: str) -> dict:
     if not ticker or level not in ("partial", "full", "stop") or not reason:
         return {"executed": False, "summary": "ticker/level/reason manquant ou level != partial|full|stop", "error": "incomplete"}
     dtype = {"partial": "partial_exit", "full": "full_exit", "stop": "override"}.get(level, "override")
-    cop_resp = None
+    cop_resp: Any = None
     try:
         t = storage.get_thesis_by_ticker(ticker, status="active") or {}
         cp_price = t.get("last_price") or t.get("entry_price") or 0
-        cop_resp, _ = decision_copilot.run_pre_trade_copilot(
+        _cp_out = decision_copilot.run_pre_trade_copilot(
             ticker=ticker, decision_type=dtype, reasoning=reason, price=cp_price
         )
+        cop_resp = _cp_out[0] if _cp_out else None
     except Exception as e:
         log.warning(f"copilot pre-trade override {ticker}: {e}")
     try:
@@ -704,9 +706,10 @@ def extract_passive_signals(message: str, chat_message_id: int | None = None) ->
     for s in signals:
         if not isinstance(s, dict) or not s.get("kind"):
             continue
+        s_kind = str(s.get("kind"))
         sid = storage.insert_chat_signal(
             chat_message_id=chat_message_id,
-            kind=s.get("kind"),
+            kind=s_kind,
             ticker=(s.get("ticker") or None),
             sector=(s.get("sector") or None),
             theme=(s.get("theme") or None),

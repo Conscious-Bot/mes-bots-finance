@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from shared import storage
 
@@ -104,7 +105,7 @@ def resolve_due_anchors(horizon_days: int = 30) -> dict:
     from shared import positions as positions_mod, prices
 
     cutoff_iso = (datetime.now(UTC) - timedelta(days=horizon_days)).isoformat()
-    out = {"resolved": 0, "skipped": 0, "errors": 0, "details": []}
+    out: dict[str, Any] = {"resolved": 0, "skipped": 0, "errors": 0, "details": []}
 
     with storage.db() as cx:
         # Ancres dont T+N est passe ET pas encore resolu pour cet horizon
@@ -196,7 +197,7 @@ def resolve_due_anchors(horizon_days: int = 30) -> dict:
 # ─────────────────────── MEASURE : biais quantifie ─────────────────────────
 
 
-_BIAS_PREDICATES = {
+_BIAS_PREDICATES: dict[str, dict[str, Any]] = {
     "vend_winners_trop_tot": {
         "decision_types": ("partial_exit", "full_exit"),
         "min_pnl_pct_at_decision": 10.0,  # winner = en gain >10%

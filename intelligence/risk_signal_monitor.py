@@ -285,7 +285,8 @@ def check_all_risks() -> dict:
         log.error(f"risk_watch.json parse failed: {e}")
         return {"error": str(e)}
 
-    out = {"n_signals_evaluated": 0, "transitions": [], "current_statuses": {}}
+    from typing import Any
+    out: dict[str, Any] = {"n_signals_evaluated": 0, "transitions": [], "current_statuses": {}}
     for risk in data.get("risks") or []:
         for sig in risk.get("surveillance_signals") or []:
             prev_status = sig.get("current_status", "monitoring")
