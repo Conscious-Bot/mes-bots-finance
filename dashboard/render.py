@@ -4857,7 +4857,9 @@ def render() -> Path:
         arrow = "&#9650;" if p >= 0 else "&#9660;"
         tape_items += f'<span class="ti">{_ticker_logo(tk)}<span class="tk tkc" data-tk="{tk}">{tk}</span> <span class="{cls}">{arrow}&nbsp;{abs(p):.1f}%</span></span>'
     tape = f'<div class="tape"><div class="track2">{tape_items}{tape_items}</div></div>'
-    tape8k = _tape_8k()
+    # tape8k (8-K events scrolling ticker) supprime 02/06 user "delete le
+    # bandeau des events". Tape ticker daily% conserve.
+    tape8k = ""
 
     # Journal block retire 02/06 Vigie -- compute conserve pour reactivation eventuelle.
     _journal_html = _journal()
