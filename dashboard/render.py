@@ -3718,11 +3718,11 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h2>Alerts</h2>'
         f'<div class="sub">Momentum toward targets &middot; margin before stops &middot; macro stress</div></div>'
         f"{star}"
-        # Restore 02/06 user "alerts et tous les indicateurs etait bien" :
-        # macro stress monitor + RSI + breadth conserves sur Alerts (utile au user).
-        f'<div class="cols">'
-        f'<div><div class="ph3">Macro stress monitor &mdash; score {score:.0f}</div>'
-        f'<div class="card pad"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div></div></div>'
+        # Layout 02/06 user "organize, evitons les trous" : macro stress
+        # full-width au-dessus (indicateurs naturellement nombreux), puis
+        # RSI + breadth cote-a-cote en bas.
+        f'<div class="ph3">Macro stress monitor &mdash; score {score:.0f}</div>'
+        f'<div class="card pad" style="margin-bottom:var(--s4)"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div>'
         f'<div class="cols">'
         f'<div><div class="ph3">Market momentum &middot; RSI(14) daily &middot; 30min cache</div>'
         f'<div class="card pad"><div class="dlist">{rsi_html}</div></div></div>'

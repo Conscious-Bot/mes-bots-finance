@@ -449,8 +449,13 @@ _CSS = """
   .dt tr.prev td { opacity:.72; } .dt tr.prev td.tk { color:var(--id); }
   .nm { display:block; font-size:14px; font-weight:400; color:var(--steel); margin-top:2px; }
   .ph3 { font-family:var(--fb); font-size:14px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin:0 0 12px; }
-  .dtier { font-family:var(--fb); font-size:14px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin:16px 0 6px; padding-bottom:var(--s15); border-bottom:1px solid var(--line); }
-  .dlist > .dtier:first-child { margin-top:0; }
+  .dtier { font-family:var(--fb); font-size:14px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin:0 0 6px; padding-bottom:var(--s15); border-bottom:1px solid var(--line); break-after:avoid; }
+  /* Macro stress monitor full-width : flow tiers en colonnes auto
+     pour eviter le trou. Sous-blocs lus de gauche a droite. */
+  .dlist { columns: 2; column-gap: var(--s4); }
+  .dlist > .dtier { break-inside:avoid; }
+  .dlist > .dtier + * { break-before:avoid; }
+  @media (max-width: 980px) { .dlist { columns: 1; } }
   [data-tip]{position:relative;cursor:help}
   /* Tooltip position : appears ABOVE trigger (bottom:100%) to avoid overlapping
      content below (colhead, ps-cell). Fully opaque bg + strong shadow + high
