@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" preserveAspectRatio="xMidYMid meet" aria-label="PRESAGE wide mark">
+  <!-- PRESAGE wide wordmark : 4-pointed needle + extended right horizon line.
+       Aspect 4.28:1, can be used as header logo / lockup. The right arm
+       extends ~80% of the width to read as "data line / axis", echoing
+       DNA "instrument de mesure" v2. Star centered around x=320.
+       Recolor via currentColor or set fill on the `mark` group. -->
+  <g class="mark" fill="currentColor">
+    <!-- Up needle -->
+    <polygon points="320,30 322,140 318,140"/>
+    <!-- Down needle -->
+    <polygon points="320,250 322,140 318,140"/>
+    <!-- Left short arm -->
+    <polygon points="40,140 320,142 320,138"/>
+    <!-- Right long horizon arm -->
+    <polygon points="1180,140 320,142 320,138"/>
+    <!-- Center intersection dot -->
+    <circle cx="320" cy="140" r="2.6"/>
+  </g>
+</svg>

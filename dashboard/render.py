@@ -22,6 +22,7 @@ from dashboard._scripts import (
     _EU_SUFFIX,
     _FOOT_METHOD,
     _LOGO,
+    _WORDMARK_WIDE,
     _LOUPE_HTML,
     _MODE_BTN,
     _NAV,
@@ -5366,7 +5367,9 @@ def render() -> Path:
         f'{_NAV}<div class="foot">'
         f'{_FOOT_METHOD}<div class="foot-sep"></div>{_MODE_BTN}'
         f'</div></aside>{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
-        f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
+        f'<div class="wrap">{tape}{tape8k}<main class="main">'
+        f'<div class="wm-banner" aria-label="PRESAGE">{_WORDMARK_WIDE}</div>'
+        f'{_dband}'
         + vigie
         + positions_pg
         + _concentration(positions, planned, sectors, names, pnl, daily)

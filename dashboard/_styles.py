@@ -119,6 +119,9 @@ _CSS = """
   .nitem:hover .nlab { opacity:1; transform:translateY(-50%) translateX(2px); }
   .foot { margin-top:auto; padding:var(--s3) 0 var(--s25); display:flex; flex-direction:column; align-items:center; gap:var(--s2); }
   .foot-sep { width:30px; height:1px; background:var(--line); margin:var(--s15) 0; }
+  /* Wide wordmark banner -- top of main content, full width, encre subtile. */
+  .wm-banner { display:flex; justify-content:center; align-items:center; padding:var(--s35) 0 var(--s3); color:var(--ink); }
+  .wm-banner svg { width:420px; max-width:80%; height:auto; opacity:.78; }
   .rfoot { display:flex; flex-direction:column; align-items:center; gap:var(--s15); }
   .rfm { font-family:var(--fm); font-size:14px; color:var(--steel); }
   .rfmacro { width:8px; height:8px; border-radius:2px; }
