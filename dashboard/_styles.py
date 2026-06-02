@@ -586,7 +586,19 @@ _CSS = """
   .pl { font-size:15px; color:var(--ink); } .pt { font-family:var(--fm); font-size:14px; color:var(--steel); }
   .dt tbody tr:not(.prev) { cursor:pointer; }
   .loupe { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:34px; }
-  .loupe.open { display:flex; }
+  .loupe.open { display:flex; animation:loupe-bg-fade .22s var(--ease) both; }
+  /* Loupe card : scale-in subtil au reveal (fallback si View Transitions pas supporte). */
+  .loupe.open .loupe-card { animation:loupe-card-enter .28s var(--ease) both; }
+  @keyframes loupe-bg-fade { from { background:rgba(6,10,18,0); backdrop-filter:blur(0); } to { background:rgba(6,10,18,.72); backdrop-filter:blur(6px); } }
+  @keyframes loupe-card-enter { from { opacity:0; transform:scale(.96) translateY(8px); } to { opacity:1; transform:none; } }
+  /* View Transitions : logo morph shared element row -> modal. */
+  @supports (view-transition-name: a) {
+    ::view-transition-group(loupe-logo) { animation-duration: .34s; animation-timing-function: var(--ease); }
+  }
+  /* Respect prefers-reduced-motion. */
+  @media (prefers-reduced-motion: reduce) {
+    .loupe.open, .loupe.open .loupe-card { animation: none !important; }
+  }
   .loupe-card { position:relative; width:min(560px,100%); max-height:86vh; overflow:auto; background:var(--panel); border:1px solid var(--line2); border-radius:var(--r3); padding:28px 30px; box-shadow:0 30px 90px -20px #000; }
   .loupe-x { position:absolute; top:var(--s35); right:var(--s4); background:none; border:none; color:var(--steel); font-size:25px; line-height:1; cursor:pointer; }
   .loupe-x:hover { color:var(--ink); }

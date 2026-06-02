@@ -480,8 +480,33 @@ _APP_JS = """
     PANEL.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('.sb-back'))overview();});
     overview();
   })();
+  /* E (#90 motion) : shared element morph row->loupe modal via View Transitions.
+     Le logo cliquee (.tklogo) "morph" visuellement vers la position du logo
+     dans le modal. Linear-style. Fallback : open direct sans transition. */
+  function openLoupeMorph(tk, srcEl){
+    if (!document.startViewTransition || !srcEl) { openLoupe(tk); return; }
+    /* Trouve le logo source dans l'element clique (peut etre le row entier OU le logo directement). */
+    var srcLogo = srcEl.classList && srcEl.classList.contains('tklogo')
+      ? srcEl
+      : (srcEl.querySelector ? srcEl.querySelector('.tklogo') : null);
+    if (!srcLogo) { openLoupe(tk); return; }
+    srcLogo.style.viewTransitionName = 'loupe-logo';
+    var t = document.startViewTransition(function(){
+      srcLogo.style.viewTransitionName = '';
+      openLoupe(tk);
+      var modalLogo = document.querySelector('#loupe .lp-h .tklogo');
+      if (modalLogo) modalLogo.style.viewTransitionName = 'loupe-logo';
+    });
+    t.finished.then(function(){
+      var modalLogo = document.querySelector('#loupe .lp-h .tklogo');
+      if (modalLogo) modalLogo.style.viewTransitionName = '';
+    }).catch(function(){
+      var modalLogo = document.querySelector('#loupe .lp-h .tklogo');
+      if (modalLogo) modalLogo.style.viewTransitionName = '';
+    });
+  }
   document.addEventListener('click',function(ev){
-    var r=ev.target.closest&&ev.target.closest('[data-tk]'); if(r&&r.dataset.tk){ openLoupe(r.dataset.tk); }
+    var r=ev.target.closest&&ev.target.closest('[data-tk]'); if(r&&r.dataset.tk){ openLoupeMorph(r.dataset.tk, r); }
     if(ev.target.id==='loupe'){ closeLoupe(); }
   });
   document.addEventListener('keydown',function(ev){ if(ev.key==='Escape')closeLoupe(); });
