@@ -46,7 +46,10 @@ _TH_CSS = """
   .th-ends { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--fm); font-size:14px; }
   .th-stop { color:var(--bear); }
   .th-tgt { color:var(--acc); font-weight:600; }
+  /* th-pt par defaut = rouge (target hit + risky = signal trim a risque).
+     Variant .acc = vert (target beyond = indicateur positif). */
   .th-pt { font-family:var(--fm); font-size:14px; padding:1px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); letter-spacing:.04em; margin-left:var(--s2); text-transform:uppercase; }
+  .th-pt.acc { background:color-mix(in srgb,var(--acc) 16%,transparent); color:var(--acc); }
   .th-na { font-family:var(--fm); font-size:14px; color:var(--steel); }
   .th-cat { font-family:var(--fm); font-size:14px; letter-spacing:.03em; color:var(--steel); background:color-mix(in srgb, var(--steel) 10%, transparent); border:1px solid var(--line); border-radius:var(--r1); padding:2px 8px; margin-left:2px; white-space:nowrap; }
 </style>
