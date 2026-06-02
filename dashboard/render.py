@@ -5027,27 +5027,20 @@ def render() -> Path:
                 d += f" C {c1x:.1f} {c1y:.1f} {c2x:.1f} {c2y:.1f} {p2[0]:.1f} {p2[1]:.1f}"
             return d
         _spk_path = _spk_smooth_path(_spk_pts)
-        # Area fill : meme curve + ferme vers le bas (style Robinhood)
-        _spk_area = _spk_path + f" L {_spk_w - _spk_pad:.1f} {_spk_h - _spk_pad:.1f} L {_spk_pad:.1f} {_spk_h - _spk_pad:.1f} Z"
-        _gradient_id = "spk-grad-up" if _spark_vals[-1] >= _spark_vals[0] else "spk-grad-dn"
         # Encode points+dates pour hover interactif (data attrs : x|y|val|date)
         _spk_pts_data = ";".join(
             f"{_spk_pts[_i].split(',')[0]}|{_spk_pts[_i].split(',')[1]}|{_spark_vals[_i]:.0f}|{_spark_dates[_i]}"
             for _i in range(len(_spk_pts))
         )
+        # DNA v2 : sparkline mono-trait, no area fill, no pulsing animation.
+        # Hover crosshair conserve (epistemic data reveal, pas celebration).
         _sparkline = (
             f'<span class="ps-spark-wrap"><svg class="ps-spark" viewBox="0 0 {_spk_w} {_spk_h}" width="{_spk_w}" height="{_spk_h}" '
             f'style="overflow:visible" aria-label="Trajectoire 30j" '
             f'data-pts="{_spk_pts_data}" data-w="{_spk_w}" data-h="{_spk_h}" data-color="{_spk_color}">'
-            f'<defs><linearGradient id="{_gradient_id}" x1="0" y1="0" x2="0" y2="1">'
-            f'<stop offset="0%" stop-color="{_spk_color}" stop-opacity="0.25"/>'
-            f'<stop offset="100%" stop-color="{_spk_color}" stop-opacity="0"/>'
-            f'</linearGradient></defs>'
-            f'<path d="{_spk_area}" fill="url(#{_gradient_id})" stroke="none"/>'
             f'<path d="{_spk_path}" fill="none" stroke="{_spk_color}" '
-            f'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>'
-            f'<circle cx="{_spk_last_x}" cy="{_spk_last_y}" r="2.8" fill="{_spk_color}"/>'
-            f'<circle cx="{_spk_last_x}" cy="{_spk_last_y}" r="5" fill="{_spk_color}" opacity="0.25"><animate attributeName="r" values="5;8;5" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.25;0.05;0.25" dur="2.4s" repeatCount="indefinite"/></circle>'
+            f'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+            f'<circle cx="{_spk_last_x}" cy="{_spk_last_y}" r="2.5" fill="{_spk_color}"/>'
             f'<line class="spk-cross" x1="0" y1="0" x2="0" y2="{_spk_h}" stroke="{_spk_color}" stroke-width="1" opacity="0" stroke-dasharray="2 2"/>'
             f'<circle class="spk-cur" cx="0" cy="0" r="3" fill="{_spk_color}" opacity="0"/>'
             f'</svg><span class="spk-tip" style="display:none"></span></span>'
