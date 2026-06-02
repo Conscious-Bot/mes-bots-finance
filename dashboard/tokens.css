@@ -100,16 +100,15 @@
   --metal: #6B7280;   /* alias --steel pour back-compat */
   --id:    #1C1E21;   /* identite = ink */
 
-  /* --- 3. ACCENT UNIQUE bleu encre froid (porte la donnee) ----------
-     DNA v2 : 1 SEUL accent qui porte la donnee. Tout le reste = encres
-     neutres. --acc remap au bleu, --bear remap a ink, --warn remap a
-     steel (preservation back-compat sans casser les classes existantes). */
-  --data:  #2D5BFF;   /* bleu encre canonical -- THE accent */
-  --acc:   #2D5BFF;   /* remap : was green moral, devient bleu donnee */
-  --acc2:  #2D5BFF;
-  --bear:  #1C1E21;   /* remap : was red moral, devient encre neutre */
-  --warn:  #6B7280;   /* remap : was amber, devient steel neutre */
-  --gold:  #2D5BFF;   /* remap : was gold spark, devient data accent */
+  /* --- 3. ACCENTS reframe 02/06 user "vert/rouge necessaires mais moins
+     flashy". 3 hues : data blue (focus/accent) + green (gain) + red (loss).
+     Tons sobres dense-friendly (Tailwind 700 family), pas neon. */
+  --data:  #2D5BFF;   /* bleu encre canonical -- accent focus */
+  --acc:   #15803D;   /* green-700 sobre, was #16C055 flashy */
+  --acc2:  #15803D;
+  --bear:  #B91C1C;   /* red-700 sobre, was #E53935 dense */
+  --warn:  #A16207;   /* amber-700 sobre, ochre vigilance */
+  --gold:  #A16207;   /* alias warn (1 spark spec) */
 
   /* --- 4. FILETS -- echelle froide ---------------------------------- */
   --line:  #E8EAED;   /* bordure standard cards */
@@ -179,13 +178,13 @@ body.midnight {
   --line:  #1F242C;
   --line2: #2B313A;
   --line3: #3F4754;
-  --data:  #5B7DFF;   /* bleu encre legerement lifte pour contraste sombre */
-  --acc:   #5B7DFF;
-  --acc2:  #5B7DFF;
+  --data:  #5B7DFF;   /* bleu encre lift pour contraste sombre */
+  --acc:   #22C55E;   /* green-500 dark mode (more luminance needed) */
+  --acc2:  #22C55E;
   --id:    #E6E8EB;
-  --bear:  #E6E8EB;   /* neutre encre */
-  --warn:  #8B919A;   /* neutre steel */
-  --gold:  #5B7DFF;
+  --bear:  #EF4444;   /* red-500 dark mode (more luminance needed) */
+  --warn:  #F59E0B;   /* amber-500 dark mode */
+  --gold:  #F59E0B;
   --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
   --glass:  rgba(22, 26, 32, .85);
   --glass2: rgba(15, 17, 21, .7);
