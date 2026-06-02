@@ -1,35 +1,45 @@
-"""Pile 2.1 v2.c.6 -- Surface 2 lock_in : detection winner sold.
+"""Surface 2 lock_in -- detection winner sold, version spec 02/06/2026.
 
 Biais #1 de PRESAGE (vendre les gagnants trop tot), raison d'etre de
-l'instrument. ADR-010 §2 prevoyait Surface 2 ; livre 01/06/2026.
+l'instrument. ADR-010 §2 ; spec finale user 02/06/2026.
 
-Architecture :
+Architecture
+------------
 - Hook dans shared.positions.add_sell apres cx.commit() (cf LESSONS L7).
-- Si gate v1 satisfait (pnl_pct >= 0.15 AND conviction_at_sell >= 3),
-  ouvre un candidat bias_event via wire_bias_trigger.
-- Resolution canonique a +30j (delta_signed_eur immutable, scoring).
-- Backfill cron weekly enrichit observations[] avec +60j, +90j
-  (cf bias_events.backfill_resolved_observations -- architecture B3
-  user 01/06 Q3).
+- Pure fonction `classify_lock_in(sale)` -> candidat ou None (sans DB,
+  testable property-based).
+- `detect_winner_sell()` collecte le sale dict (lit theses + overcap
+  state) puis appelle classify_lock_in, puis wire bias_event si candidat.
+- Resolution canonique +90j via machinerie bias_events existante.
+- delta_signed = (px_90j - px_vente) * parts_vendues, en EUR.
+  Negatif = le prix a monte apres la vente = cout lock_in.
+  Positif = le prix a baisse apres la vente = exit sage.
 
-Gate v1 (user Q2 : ship simple + log dimensions pour v2 data-driven) :
-  pnl_pct >= 0.15  AND  conviction_at_sell >= 3
-  AND ticker UPPERCASE et qty/price > 0
+Gates (4 + 1 garde) -- ALL must pass for candidate
+--------------------------------------------------
+1. Status these == 'active' (invalidee/stale -> out)
+2. Gain realise > 0 (c'est un gagnant)
+3. Gain realise < 50% de la cible_conviction (axe timing prematuration) :
+     c5 cible +70%  -> flag si pnl < 35%
+     c4 cible +60%  -> flag si pnl < 30%
+     c3 cible +50%  -> flag si pnl < 25%
+     c2 cible +40%  -> flag si pnl < 20%
+     c1 cible +30%  -> flag si pnl < 15% (mais ignored via gate 4)
+4. Magnitude vendue >= seuil degressif (axe exit-vs-trim) :
+     c5 >= 25% de la position
+     c4 >= 35%
+     c3 >= 50%
+     c2 >= 75%
+     c1 -> IGNORED (trim sur c1 = pas un lock_in significatif)
+5. Garde over-cap : exclu si la coupe ramene une ligne over-cap vers cap
+   (rightsize != lock_in, ADR 009). Par defaut conservateur : si la ligne
+   etait over-cap avant la vente, on EXCLUE (priorite faux-negatif <
+   faux-positif).
 
-4 dimensions logguees dans counterfactual_json pour analyse v2 post-90j :
-  pnl_pct_at_sell, conviction_at_sell (CONTEMPORAINE, pas at-creation),
-  pnl_pct_progress (= pnl_pct / thesis_target_pnl_pct si disponible),
-  time_progress (= days_held / horizon_days si disponible).
-
-V2 predicat data-driven (post 20-30 candidats resolus) :
-  pnl_pct_progress < 0.6  AND  time_progress < 0.5  (relatif au target/horizon
-  de la these, pas absolu sur pnl_pct).
-
-Bypass paths hors-scope (documentes user 01/06 Q1) :
-  - scripts/import_positions_legacy.py : backfill ponctuel, ignore
-  - scripts/refresh_positions_2026_05_23.py : refresh account/status, ignore
-  - shared/sql_observability.py : UPDATE qty audit, ignore
-  Ces chemins ne passent PAS par positions.add_sell donc le hook ne fire pas.
+Auto-calibration des seuils
+---------------------------
+N >= 20 candidats resolus requis pour considerer un ajustement
+data-driven des seuils. Jusque-la : priors ci-dessus, revision manuelle.
 """
 
 from __future__ import annotations
@@ -42,82 +52,185 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-_GATE_PNL_PCT_MIN = 0.15
-_GATE_CONVICTION_MIN = 3
-_HORIZON_DAYS = 30
+# Cibles pnl% par conviction (la these "vise" cette progression vs entry).
+# Gate timing flag si pnl_realise < 50% de la cible (premature halfway).
+TARGET_PNL_BY_CONV: dict[int, float] = {
+    5: 0.70,
+    4: 0.60,
+    3: 0.50,
+    2: 0.40,
+    1: 0.30,
+}
+
+# Magnitude vendue minimum pour declarer un "exit" vs "trim" (dgressive).
+# c1 = None : tout trim sur c1 est ignore (pas un signal significatif).
+MAGNITUDE_THRESHOLD_BY_CONV: dict[int, float | None] = {
+    5: 0.25,
+    4: 0.35,
+    3: 0.50,
+    2: 0.75,
+    1: None,
+}
+
+_HORIZON_DAYS = 90  # spec : resolution canonique +90j
 _BIAS = "lock_in"
 _REF = "rule:winner_sell"
 
+# Knob pour auto-calibration future : pas d'auto avant N candidats resolus.
+_AUTO_CALIB_MIN_N = 20
 
-def _read_thesis_conviction_and_horizon(ticker: str) -> tuple[int | None, dict[str, Any]]:
-    """Lit conviction CONTEMPORAINE (post-revisits) + targets/horizon de la these
-    active. Retourne (conviction, extra) ou (None, {}) si pas de these."""
+
+def _read_thesis(ticker: str) -> dict[str, Any] | None:
+    """Lit la these (active OU autre status). Retourne dict ou None si pas
+    de these. La spec exige these active pour candidat ; ce helper expose
+    le status pour que classify_lock_in() puisse filtrer."""
     from shared.storage import DB_PATH
 
     cx = sqlite3.connect(DB_PATH)
     cx.row_factory = sqlite3.Row
     try:
         row = cx.execute(
-            "SELECT conviction, target_partial, target_full, opened_at, "
-            "       entry_price "
-            "FROM theses WHERE ticker=? AND status='active' "
+            "SELECT conviction, status, target_partial, target_full, "
+            "       opened_at, entry_price "
+            "FROM theses WHERE ticker=? "
             "ORDER BY id DESC LIMIT 1",
             (ticker,),
         ).fetchone()
     finally:
         cx.close()
     if not row:
-        return None, {}
-    extra = {
+        return None
+    return {
+        "conviction": row["conviction"],
+        "status": row["status"],
         "target_partial": row["target_partial"],
         "target_full": row["target_full"],
         "opened_at": row["opened_at"],
         "entry_price": row["entry_price"],
     }
-    return row["conviction"], extra
 
 
-def _compute_dimensions(
-    pnl_pct: float,
-    conviction: int,
-    thesis_extra: dict[str, Any],
-    sold_price_native: float,
-) -> dict[str, Any]:
-    """Calcule les 4 dimensions logguees pour v2 data-driven.
+def _read_overcap_state(ticker: str) -> str:
+    """Wrap defensif autour de over_cap_monitor._prev_status_for_overcap.
+    Retourne 'over' / 'dormant' / 'unknown' si erreur. La garde a moins
+    qu'over est conservatrice : on suppose dormant par defaut (sinon
+    'unknown' -> classify decide selon politique)."""
+    try:
+        from intelligence.over_cap_monitor import _prev_status_for_overcap
+        return _prev_status_for_overcap(ticker)
+    except Exception as e:
+        log.info(f"lock_in_detector overcap_state ticker={ticker} error={e}")
+        return "unknown"
 
-    pnl_pct_progress et time_progress retournent None si donnee these
-    manquante -- preserve l'information "non-calculable" sans faux 0.
+
+def _compute_time_progress(opened_at: str | None) -> float | None:
+    """days_held / HORIZON_DAYS. None si opened_at non-parsable."""
+    if not opened_at:
+        return None
+    try:
+        opened = datetime.fromisoformat(str(opened_at).replace("Z", "+00:00"))
+        if opened.tzinfo is None:
+            opened = opened.replace(tzinfo=UTC)
+        days_held = (datetime.now(UTC) - opened).days
+        return round(days_held / _HORIZON_DAYS, 4)
+    except (ValueError, TypeError):
+        return None
+
+
+def classify_lock_in(sale: dict[str, Any]) -> dict[str, Any] | None:
+    """Pure fonction (sans DB) qui applique les 4 gates + garde over-cap.
+
+    Args:
+        sale: dict avec cles requises :
+            - ticker (str)
+            - qty_sold (float > 0)
+            - sold_price_native (float > 0)
+            - qty_before (float > 0)
+            - avg_cost (float > 0)
+            - thesis: dict ou None
+                {conviction, status, target_partial, target_full,
+                 opened_at, entry_price}
+            - overcap_state: 'over' | 'dormant' | 'unknown'
+
+    Returns:
+        Dict candidate (avec reason='candidate', dimensions, gates_passed)
+        SI tous les gates passent. None sinon (avec reason loggee).
+
+    Logique exposee pour property-based testing -- ne touche pas la DB.
     """
-    dims: dict[str, Any] = {
-        "pnl_pct_at_sell": round(pnl_pct, 4),
-        "conviction_at_sell": conviction,
-        "pnl_pct_progress": None,
-        "time_progress": None,
+    ticker = str(sale.get("ticker") or "").upper()
+    qty_sold = float(sale.get("qty_sold") or 0)
+    sold_price = float(sale.get("sold_price_native") or 0)
+    qty_before = float(sale.get("qty_before") or 0)
+    avg_cost = float(sale.get("avg_cost") or 0)
+    thesis = sale.get("thesis") or None
+    overcap = sale.get("overcap_state") or "unknown"
+
+    # Pre-conditions arithmetiques
+    if not ticker or qty_sold <= 0 or sold_price <= 0 or qty_before <= 0 or avg_cost <= 0:
+        return None  # invalid_args
+    if qty_sold > qty_before:
+        return None  # bug caller : tu peux pas vendre plus que tu n'as
+
+    # Gate 1 : these active
+    if not thesis:
+        return None  # no_thesis -- IGNORED (pas la peine de creer un bias_event)
+    if thesis.get("status") != "active":
+        return None  # thesis_inactive
+
+    conv = thesis.get("conviction")
+    if conv is None or not isinstance(conv, int) or conv not in TARGET_PNL_BY_CONV:
+        return None  # conviction_invalid
+
+    # Gate 2 : gain > 0 (winner)
+    pnl_pct = (sold_price / avg_cost) - 1
+    if pnl_pct <= 0:
+        return None  # not_winner
+
+    # Gate 3 : gain < 50% de la cible_conviction (axe timing)
+    target_pnl = TARGET_PNL_BY_CONV[conv]
+    target_halfway = 0.5 * target_pnl
+    if pnl_pct >= target_halfway:
+        return None  # pnl_above_halfway (la these a deja bien progresse)
+
+    # Gate 4 : magnitude vendue >= seuil degressif (axe exit-vs-trim)
+    mag_threshold = MAGNITUDE_THRESHOLD_BY_CONV.get(conv)
+    if mag_threshold is None:
+        return None  # ignored_conviction (c1 ignored)
+    magnitude = qty_sold / qty_before
+    if magnitude < mag_threshold:
+        return None  # magnitude_below_threshold (c'est juste un trim)
+
+    # Garde 5 : over-cap rightsize (ADR 009)
+    if overcap == "over":
+        return None  # overcap_rightsize (exclu, c'est de la discipline)
+
+    # Candidat ! Compute dimensions enrichies
+    pnl_progress = round(pnl_pct / target_pnl, 4) if target_pnl > 0 else None
+    time_progress = _compute_time_progress(thesis.get("opened_at"))
+
+    return {
+        "reason": "candidate",
+        "ticker": ticker,
+        "pnl_pct": round(pnl_pct, 4),
+        "target_pnl_pct": target_pnl,
+        "target_halfway": round(target_halfway, 4),
+        "magnitude_pct": round(magnitude, 4),
+        "magnitude_threshold": mag_threshold,
+        "conviction": conv,
+        "overcap_state": overcap,
+        "dimensions": {
+            # 4 dimensions canonical pour analyse data-driven post-N=20
+            "pnl_pct_at_sell": round(pnl_pct, 4),
+            "conviction_at_sell": conv,
+            "pnl_pct_progress": pnl_progress,
+            "time_progress": time_progress,
+        },
     }
-    entry = thesis_extra.get("entry_price")
-    target_full = thesis_extra.get("target_full")
-    if entry and target_full and entry > 0:
-        target_pnl_pct = (target_full / entry) - 1
-        if target_pnl_pct > 0:
-            dims["pnl_pct_progress"] = round(pnl_pct / target_pnl_pct, 4)
-    opened_at = thesis_extra.get("opened_at")
-    if opened_at:
-        try:
-            opened = datetime.fromisoformat(str(opened_at).replace("Z", "+00:00"))
-            if opened.tzinfo is None:
-                opened = opened.replace(tzinfo=UTC)
-            now = datetime.now(UTC)
-            days_held = (now - opened).days
-            if _HORIZON_DAYS > 0:
-                dims["time_progress"] = round(days_held / _HORIZON_DAYS, 4)
-        except (ValueError, TypeError):
-            pass
-    return dims
 
 
 def _link_position_event(bias_event_id: int, position_event_id: int) -> None:
-    """Update bias_events.position_event_id post-INSERT pour audit-trail FK
-    (migration 0025). Wrap en try/except pour L7 : silent miss si echoue."""
+    """Update bias_events.position_event_id post-INSERT pour audit FK."""
     from shared.storage import DB_PATH
 
     cx = sqlite3.connect(DB_PATH)
@@ -133,50 +246,47 @@ def _link_position_event(bias_event_id: int, position_event_id: int) -> None:
 
 def detect_winner_sell(
     *,
-    position_id: int,
+    position_id: int,  # noqa: ARG001  reserve pour futur audit
     ticker: str,
     qty_sold: float,
     sold_price_native: float,
     qty_before: float,
     avg_cost: float,
 ) -> dict[str, Any] | None:
-    """Hook appele depuis shared.positions.add_sell APRES cx.commit() (L7).
+    """Hook appele depuis shared.positions.add_sell APRES cx.commit().
 
-    Si gate v1 satisfait, ouvre un candidat bias_event lock_in via
-    wire_bias_trigger. Lie le bias_event au position_events row (le dernier
-    insert event_type='sell' pour cette position).
-
-    Returns:
-        dict {bias_event_id, dimensions} si candidat ouvert, None sinon.
-        Aucune exception ne traverse vers le caller (catch interne par hook).
+    Toute exception capturee en interne -- ne casse jamais l'enregistrement
+    de la vente (L7).
     """
     ticker = ticker.upper()
-    # Observability cold-start (user 01/06 #3) : log ENTERED a chaque
-    # invocation pour distinguer "silence correct" vs "hook mort".
-    # Grep bot.log "lock_in_detector ENTERED" -> compteur invocations.
     log.info(
         f"lock_in_detector ENTERED ticker={ticker} qty_sold={qty_sold} "
         f"sold_price={sold_price_native} avg_cost={avg_cost}"
     )
-    if avg_cost <= 0 or sold_price_native <= 0 or qty_sold <= 0 or qty_before <= 0:
-        log.info(f"lock_in_detector SKIP invalid_args ticker={ticker}")
-        return None
 
-    pnl_pct = (sold_price_native / avg_cost) - 1
-    # Epsilon float : (115/100 - 1) donne 0.14999999999999991, rejette 15% exact
-    if pnl_pct < _GATE_PNL_PCT_MIN - 1e-9:
-        log.info(f"lock_in_detector SKIP gate_pnl ticker={ticker} pnl_pct={pnl_pct:.4f}")
-        return None  # pas un winner (gate pnl)
+    # Read thesis + overcap state (DB)
+    thesis = _read_thesis(ticker)
+    overcap = _read_overcap_state(ticker)
 
-    conviction, thesis_extra = _read_thesis_conviction_and_horizon(ticker)
-    if conviction is None or conviction < _GATE_CONVICTION_MIN:
+    # Build sale dict puis classify
+    sale = {
+        "ticker": ticker,
+        "qty_sold": qty_sold,
+        "sold_price_native": sold_price_native,
+        "qty_before": qty_before,
+        "avg_cost": avg_cost,
+        "thesis": thesis,
+        "overcap_state": overcap,
+    }
+    candidate = classify_lock_in(sale)
+    if not candidate:
         log.info(
-            f"lock_in_detector SKIP gate_conviction ticker={ticker} "
-            f"conviction={conviction}"
+            f"lock_in_detector SKIP ticker={ticker} no_candidate "
+            f"thesis_status={thesis.get('status') if thesis else 'no_thesis'} "
+            f"conv={thesis.get('conviction') if thesis else None} "
+            f"overcap={overcap}"
         )
-        return None  # these trash ou pas de these active (gate conviction)
-
-    dims = _compute_dimensions(pnl_pct, conviction, thesis_extra, sold_price_native)
+        return None
 
     # Anchor price EUR au moment de la vente
     from shared.prices import get_current_price_in_eur
@@ -186,7 +296,7 @@ def detect_winner_sell(
         log.warning(f"lock_in_detector {ticker}: anchor_eur unavailable, skip")
         return None
 
-    # Trouve le dernier position_event sell pour ce ticker (FK pour audit)
+    # Trouve le dernier position_event sell pour FK
     from shared.storage import DB_PATH
 
     cx = sqlite3.connect(DB_PATH)
@@ -200,42 +310,42 @@ def detect_winner_sell(
     finally:
         cx.close()
 
-    # wire_bias_trigger ouvre le candidat (idempotence sur cle ticker+bias+
-    # action+ref ; si meme vente loggee 2x, kept). Note pratique : sur lock_in,
-    # le user peut faire plusieurs ventes successives sur le meme winner --
-    # chacune doit ouvrir son candidat. Le ref includes position_event_id
-    # pour distinguer.
+    # wire_bias_trigger ouvre le candidat. initial_qty = qty_sold (spec :
+    # delta_signed est calcule sur les parts vendues, pas sur la position
+    # entiere). discipline_said.action='hold' (la discipline aurait tenu
+    # les parts vendues a horizon +90j).
     from intelligence.bias_events import wire_bias_trigger
 
     ref = f"{_REF}:pe{position_event_id}" if position_event_id else _REF
     extra_cf = {
-        # 4 dimensions pour v2 data-driven (user Q2)
-        **dims,
-        # Surface origine
+        **candidate["dimensions"],
         "surface": "surface_2_winner_sell",
         "sold_price_native": sold_price_native,
         "avg_cost_native": avg_cost,
         "qty_sold": qty_sold,
+        "qty_before": qty_before,
+        "target_pnl_pct": candidate["target_pnl_pct"],
+        "magnitude_pct": candidate["magnitude_pct"],
+        "overcap_state": candidate["overcap_state"],
     }
     stats = wire_bias_trigger([{
         "ticker": ticker, "bias": _BIAS,
         "discipline_said": {"action": "hold", "ref": ref},
         "horizon_days": _HORIZON_DAYS,
         "anchor_price_eur": float(anchor_eur),
-        "initial_qty": qty_before,  # ce que la discipline aurait tenu
-        "discipline_expected_delta": 0.0,  # discipline = hold winner
+        "initial_qty": qty_sold,  # spec : sur les parts vendues
+        "discipline_expected_delta": 0.0,
         "source": "auto_detected",
         "note": json.dumps(extra_cf, sort_keys=True),
     }])
 
     if stats.get("opened") != 1:
-        # Idempotence kept ou error -- pas de nouveau lien FK a poser
         log.info(
             f"lock_in_detector SKIP wire_stats ticker={ticker} stats={stats}"
         )
         return None
 
-    # Recupere bias_event_id pour lier FK
+    # Recupere bias_event_id pour FK
     cx2 = sqlite3.connect(DB_PATH)
     try:
         row2 = cx2.execute(
@@ -252,8 +362,7 @@ def detect_winner_sell(
 
     log.info(
         f"lock_in_detector OPENED ticker={ticker} bias_event_id={bias_event_id} "
-        f"pnl_pct={pnl_pct:.4f} conv={conviction} "
-        f"pnl_pct_progress={dims.get('pnl_pct_progress')} "
-        f"time_progress={dims.get('time_progress')}"
+        f"pnl_pct={candidate['pnl_pct']:.4f} conv={candidate['conviction']} "
+        f"magnitude={candidate['magnitude_pct']:.4f} horizon={_HORIZON_DAYS}j"
     )
-    return {"bias_event_id": bias_event_id, "dimensions": dims}
+    return {"bias_event_id": bias_event_id, "candidate": candidate}
