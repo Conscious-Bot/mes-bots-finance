@@ -4,281 +4,307 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PRESAGE — Track record</title>
-  <meta name="description" content="Public track record d'un portefeuille single-stock avec détection mécanisée des biais comportementaux. Brier scores, biais résolus, alpha décomposé. Mis à jour mensuellement.">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='64' height='64' rx='14' fill='%230c0c0e'/%3E%3Cpath d='M32 8L33 30L50 32L33 34L32 56L31 34L14 32L31 30Z' fill='%23ECEFF4'/%3E%3Ccircle cx='32' cy='32' r='2' fill='%23ECEFF4'/%3E%3C/svg%3E">
+  <meta name="description" content="Public track record d'un portefeuille single-stock avec détection mécanisée des biais comportementaux.">
   <style>
     :root {
       --bg:#FBFAF8; --ink:#1A1814; --steel:#6B7686; --line:#E8E4DE;
       --acc:#5F9A4D; --bear:#C24332; --warn:#D6A748; --panel:#FFFFFF;
+      --fm:'Geist Mono', ui-monospace, monospace;
+      --fb:'Geist', 'Inter', system-ui, sans-serif;
     }
     @media (prefers-color-scheme: dark) {
       :root { --bg:#0E0D0B; --ink:#F1ECE3; --steel:#9CA3AD; --line:#262320; --panel:#16140F; }
     }
     * { box-sizing:border-box; }
-    body {
-      margin:0; padding:0;
-      font-family:'Geist', 'Inter', system-ui, -apple-system, sans-serif;
-      background:var(--bg); color:var(--ink); line-height:1.55;
-      -webkit-font-smoothing:antialiased;
-    }
-    .wrap { max-width:760px; margin:0 auto; padding:64px 28px 96px; }
-    header { margin-bottom:48px; }
-    .brand {
-      display:flex; align-items:center; gap:14px;
-      font-family:'Geist Mono', monospace; font-size:12px;
-      letter-spacing:.18em; text-transform:uppercase; color:var(--steel);
-      margin-bottom:32px;
-    }
-    .brand-sym {
-      width:14px; height:14px;
-      background:linear-gradient(45deg, var(--ink) 0%, transparent 50%, var(--ink) 100%);
-      mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 1L9 7L15 8L9 9L8 15L7 9L1 8L7 7Z'/></svg>") center/contain no-repeat;
-      -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 1L9 7L15 8L9 9L8 15L7 9L1 8L7 7Z'/></svg>") center/contain no-repeat;
-    }
-    h1 {
-      font-size:38px; font-weight:300; letter-spacing:-.015em;
-      margin:0 0 16px; line-height:1.15;
-    }
-    .lede {
-      font-size:18px; color:var(--steel); margin:0 0 12px; max-width:62ch;
-    }
-    .updated {
-      font-family:'Geist Mono', monospace; font-size:11px; color:var(--steel);
-      letter-spacing:.06em; margin-top:24px;
-    }
-    .updated b { color:var(--ink); font-weight:500; }
+    body { margin:0; font-family:var(--fb); background:var(--bg); color:var(--ink);
+            line-height:1.55; -webkit-font-smoothing:antialiased; }
+    .wrap { max-width:780px; margin:0 auto; padding:56px 24px 96px; }
+    .brand { font-family:var(--fm); font-size:11px; letter-spacing:.16em;
+             text-transform:uppercase; color:var(--steel); margin-bottom:32px; }
+    h1 { font-size:34px; font-weight:300; letter-spacing:-.015em; margin:0 0 14px; line-height:1.15; }
+    .lede { font-size:17px; color:var(--steel); margin:0 0 16px; max-width:62ch; }
+    .updated { font-family:var(--fm); font-size:11px; color:var(--steel); letter-spacing:.06em; }
+    .updated b { color:var(--ink); }
+    .posture-pill { display:inline-block; padding:3px 11px; border-radius:99px;
+                     font-family:var(--fm); font-size:10px; letter-spacing:.1em;
+                     text-transform:uppercase; font-weight:600; }
+    .posture-pill.acc { background:color-mix(in srgb,var(--acc) 16%,transparent); color:var(--acc); }
+    .posture-pill.warn { background:color-mix(in srgb,var(--warn) 16%,transparent); color:var(--warn); }
+    .posture-pill.bear { background:color-mix(in srgb,var(--bear) 18%,transparent); color:var(--bear); }
+    .posture-pill.steel { background:color-mix(in srgb,var(--steel) 12%,transparent); color:var(--steel); }
 
-    section { margin:56px 0; }
-    h2 {
-      font-size:14px; font-weight:500; letter-spacing:.16em;
-      text-transform:uppercase; color:var(--steel); margin:0 0 24px;
-      display:flex; align-items:center; gap:14px;
-    }
-    h2::after {
-      content:""; flex:1; height:1px; background:var(--line);
-    }
-    p { margin:0 0 16px; max-width:62ch; }
-    .small { font-size:14px; color:var(--steel); }
+    section { margin:48px 0; }
+    h2 { font-family:var(--fm); font-size:11px; font-weight:600; letter-spacing:.18em;
+          text-transform:uppercase; color:var(--steel); margin:0 0 18px;
+          display:flex; align-items:center; gap:14px; }
+    h2::after { content:""; flex:1; height:1px; background:var(--line); }
+    p { margin:0 0 14px; max-width:62ch; }
+    .small { font-size:13px; color:var(--steel); }
 
-    /* KPI grid */
-    .kpis {
-      display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
-      gap:18px; margin:24px 0;
-    }
-    .kpi {
-      background:var(--panel); border:1px solid var(--line);
-      border-radius:8px; padding:18px 20px;
-    }
-    .kpi-lbl {
-      font-family:'Geist Mono', monospace; font-size:10px;
-      letter-spacing:.14em; text-transform:uppercase; color:var(--steel);
-      margin-bottom:8px;
-    }
-    .kpi-val {
-      font-size:28px; font-weight:300; color:var(--ink);
-      font-variant-numeric:tabular-nums;
-    }
-    .kpi-val.placeholder { color:var(--steel); font-size:22px; font-style:italic; }
-    .kpi-cap {
-      font-size:12px; color:var(--steel); margin-top:6px;
-      font-variant-numeric:tabular-nums;
-    }
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
+              gap:14px; margin:18px 0; }
+    .kpi { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+            padding:16px 18px; }
+    .kpi-lbl { font-family:var(--fm); font-size:9px; letter-spacing:.14em;
+                text-transform:uppercase; color:var(--steel); margin-bottom:6px; }
+    .kpi-val { font-size:26px; font-weight:300; color:var(--ink); font-variant-numeric:tabular-nums; }
+    .kpi-val.placeholder { color:var(--steel); font-size:18px; font-style:italic; }
+    .kpi-cap { font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:4px; }
 
-    /* Honnêteté pré-J-day */
-    .honest {
-      background:color-mix(in srgb, var(--warn) 8%, transparent);
-      border-left:3px solid var(--warn);
-      padding:18px 22px; border-radius:0 6px 6px 0;
-      margin:24px 0;
-    }
-    .honest b { color:var(--ink); font-weight:600; }
-    .honest .small { color:var(--steel); margin-top:6px; }
+    .chart-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:18px; }
+    .chart-card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; }
 
-    /* Roadmap */
-    .roadmap { border:1px solid var(--line); border-radius:8px; padding:4px 0; }
-    .roadmap-row {
-      display:grid; grid-template-columns:120px 1fr; gap:24px;
-      padding:14px 24px; border-bottom:1px solid var(--line);
-    }
-    .roadmap-row:last-child { border-bottom:none; }
-    .roadmap-date {
-      font-family:'Geist Mono', monospace; font-size:12px;
-      letter-spacing:.06em; color:var(--ink); font-weight:500;
-    }
-    .roadmap-what { font-size:14px; color:var(--steel); }
-    .roadmap-what b { color:var(--ink); font-weight:500; }
+    table.t { width:100%; border-collapse:collapse; font-family:var(--fm); font-size:12px; }
+    table.t th, table.t td { padding:8px 6px; border-bottom:1px solid var(--line); text-align:left; }
+    table.t th { font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+                  color:var(--steel); font-weight:500; }
+    table.t .num { text-align:right; font-variant-numeric:tabular-nums; }
+    .tag { display:inline-block; padding:1px 6px; border-radius:99px; font-family:var(--fm);
+            font-size:9px; letter-spacing:.06em; text-transform:uppercase; font-weight:600;
+            border:1px solid currentColor; }
+    .tag.acc { color:var(--acc); }
+    .tag.warn { color:var(--warn); }
+    .tag.bear { color:var(--bear); }
+    .tag.steel { color:var(--steel); }
 
-    /* Links + posts */
-    a { color:var(--ink); text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; }
-    a:hover { text-decoration-color:var(--ink); }
     ul.posts { list-style:none; padding:0; margin:0; }
-    ul.posts li {
-      padding:14px 0; border-bottom:1px solid var(--line);
-      display:flex; gap:16px; align-items:baseline;
-    }
+    ul.posts li { padding:12px 0; border-bottom:1px solid var(--line);
+                    display:flex; gap:14px; align-items:baseline; }
     ul.posts li:last-child { border-bottom:none; }
-    .post-date {
-      font-family:'Geist Mono', monospace; font-size:11px; color:var(--steel);
-      letter-spacing:.06em; flex-shrink:0; width:80px;
-    }
-    .post-title { font-size:15px; }
+    .post-date { font-family:var(--fm); font-size:11px; color:var(--steel);
+                   letter-spacing:.04em; flex-shrink:0; width:80px; }
+    .post-title { font-size:14px; }
+    a { color:var(--ink); text-decoration:underline; text-decoration-color:var(--line);
+          text-underline-offset:3px; }
+    a:hover { text-decoration-color:var(--ink); }
 
-    footer {
-      margin-top:80px; padding-top:32px; border-top:1px solid var(--line);
-      font-size:12px; color:var(--steel);
-    }
-    footer a { color:var(--steel); }
+    .methodology details { background:var(--panel); border:1px solid var(--line);
+                             border-radius:8px; padding:14px 18px; }
+    .methodology summary { font-family:var(--fm); font-size:11px; letter-spacing:.12em;
+                              text-transform:uppercase; color:var(--steel); cursor:pointer;
+                              font-weight:500; }
+    .methodology dl { display:grid; grid-template-columns:max-content 1fr;
+                        gap:6px 16px; margin-top:14px; font-family:var(--fm); font-size:12px; }
+    .methodology dt { color:var(--steel); }
+    .methodology dd { margin:0; color:var(--ink); font-variant-numeric:tabular-nums; }
+
+    footer { margin-top:72px; padding-top:24px; border-top:1px solid var(--line);
+              font-size:12px; color:var(--steel); }
   </style>
 </head>
 <body>
 <div class="wrap">
 
 <header>
-  <div class="brand"><span class="brand-sym"></span><span>PRESAGE&nbsp;·&nbsp;track</span></div>
+  <div class="brand">PRESAGE · track</div>
   <h1>Public track record d'un instrument de discipline.</h1>
   <p class="lede">
-    Un portefeuille single-stock géré avec détection mécanisée des biais comportementaux.
-    Brier scores, lock_in / fomo_greed résolus, alpha décomposé. Mis à jour mensuellement.
+    Portefeuille single-stock géré avec détection mécanisée des biais
+    comportementaux. Brier scores, lock-in et fomo-greed résolus, alpha
+    décomposé. Mise à jour mensuelle automatique.
   </p>
-  <p class="updated">
-    Statut · <b>PRÉ-J-DAY</b> — première batch de résolutions prévue 10 juin 2026
-  </p>
+  <div class="updated">
+    Statut : <span class="posture-pill warn">WARN</span>
+    · mis à jour <b>2026-06-02 03:08</b>
+  </div>
 </header>
 
 <section>
-  <h2>État au 2 juin 2026</h2>
-  <p>
-    Cette page est volontairement vide. Le track record commence à mesurer
-    quelque chose au moment où la première batch de prédictions probabilistes
-    arrive à échéance — <b>10 juin 2026</b>. Avant ça, tout chiffre publié
-    serait du contenu inventé.
-  </p>
+  <h2>KPIs canoniques</h2>
   <div class="kpis">
     <div class="kpi">
-      <div class="kpi-lbl">Prédictions ouvertes</div>
-      <div class="kpi-val">167</div>
-      <div class="kpi-cap">méthodologie V1/V2 · résolution à J+28</div>
+      <div class="kpi-lbl">Prédictions résolues</div>
+      <div class="kpi-val">6</div>
+      <div class="kpi-cap">167 ouvertes</div>
     </div>
     <div class="kpi">
       <div class="kpi-lbl">Brier moyen</div>
-      <div class="kpi-val placeholder">— J+28</div>
-      <div class="kpi-cap">N=0 résolutions probantes au 2 juin</div>
+      <div class="kpi-val">0.248</div>
+      <div class="kpi-cap">accuracy 50.0%</div>
     </div>
     <div class="kpi">
-      <div class="kpi-lbl">Bias events résolus</div>
-      <div class="kpi-val">0</div>
-      <div class="kpi-cap">lock_in + fomo_greed · première à 10 juillet</div>
+      <div class="kpi-lbl">Biais cumulé</div>
+      <div class="kpi-val">+0 €</div>
+      <div class="kpi-cap">lock_in + fomo_greed + other</div>
     </div>
-    <div class="kpi">
-      <div class="kpi-lbl">Alpha vs SOXX</div>
-      <div class="kpi-val placeholder">— J+90</div>
-      <div class="kpi-cap">décomposition prévue trimestriellement</div>
-    </div>
-  </div>
-  <div class="honest">
-    <b>Honnêteté pré-J-day.</b>
-    <div class="small">
-      Aucun chiffre de performance n'est publié avant que la mécanique de
-      résolution ait tourné contre des prédictions réelles datées. Le seul
-      contenu disponible aujourd'hui est <em>méthodologique</em> et
-      <em>négatif</em> (voir post sur l'échec OOS du modèle macro V3).
-      C'est intentionnel. C'est le coût d'éviter le <em>resulting</em>.
-    </div>
+    <div class="kpi"><div class="kpi-lbl">Alpha vs SOXX</div><div class="kpi-val placeholder">— Q3</div><div class="kpi-cap">décomposition trimestrielle</div></div>
   </div>
 </section>
 
 <section>
-  <h2>Calendrier de publication</h2>
-  <div class="roadmap">
-    <div class="roadmap-row">
-      <div class="roadmap-date">10 juin 2026</div>
-      <div class="roadmap-what">
-        <b>J-day.</b> Première batch de prédictions probabilistes résolues
-        à J+28. Brier moyen mesuré, reliability diagram publié, verdict
-        sur la calibration scorer V2. Quel que soit le résultat.
-      </div>
+  <h2>Calibration et discipline (timeseries)</h2>
+  <div class="chart-grid">
+    <div class="chart-card">
+<div class="chart-wrap" data-chart="chart-a7a69bb0">
+  <div class="chart-title" style="font-family:var(--fm);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);margin-bottom:8px">Brier rolling 30j</div>
+  <div id="chart-a7a69bb0" style="width:100%;height:160px"></div>
+  <script type="application/json" id="chart-a7a69bb0-data">[{"accuracy_pct": null, "brier_avg": null, "date": "2025-12-09", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2025-12-16", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2025-12-23", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2025-12-30", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-01-06", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-01-13", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-01-20", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-01-27", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-02-03", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-02-10", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-02-17", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-02-24", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-03-03", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-03-10", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-03-17", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-03-24", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-03-31", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-04-07", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-04-14", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-04-21", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-04-28", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-05-05", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-05-12", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-05-19", "n_resolved": 0}, {"accuracy_pct": null, "brier_avg": null, "date": "2026-05-26", "n_resolved": 0}, {"accuracy_pct": 60.0, "brier_avg": 0.2484, "date": "2026-06-02", "n_resolved": 5}]</script>
+  <script type="module">
+    import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.16/+esm";
+    const data = JSON.parse(document.getElementById("chart-a7a69bb0-data").textContent);
+    const filtered = data.filter(d => d["brier_avg"] !== null && d["brier_avg"] !== undefined);
+    if (filtered.length > 0) {
+      const chart = Plot.plot({
+        height: 160,
+        marginLeft: 40, marginBottom: 28, marginTop: 10, marginRight: 12,
+        style: {
+          background: "transparent",
+          color: "var(--steel, #6B7686)",
+          fontFamily: "var(--fm, monospace)",
+          fontSize: "10px",
+        },
+        x: { label: null, tickFormat: d => String(d).slice(5) },
+        y: { label: null, grid: true },
+        marks: [
+          Plot.line(filtered, { x: "date", y: "brier_avg", stroke: "var(--acc)", strokeWidth: 1.5 }),
+          Plot.dot(filtered, { x: "date", y: "brier_avg", fill: "var(--acc)", r: 2 }),
+        ],
+      });
+      document.getElementById("chart-a7a69bb0").appendChild(chart);
+    } else {
+      document.getElementById("chart-a7a69bb0").innerHTML =
+        '<div style="font-family:var(--fm);font-size:11px;color:var(--steel);' +
+        'text-align:center;padding-top:70px">' +
+        'pas encore de données mesurables</div>';
+    }
+  </script>
+</div>
+</div>
+    <div class="chart-card">
+<div class="chart-wrap" data-chart="chart-b5dc6a1f">
+  <div class="chart-title" style="font-family:var(--fm);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);margin-bottom:8px">Lock-in delta cumulé (EUR)</div>
+  <div id="chart-b5dc6a1f" style="width:100%;height:160px"></div>
+  <script type="application/json" id="chart-b5dc6a1f-data">[{"cumul_delta_eur": 0.0, "date": "2025-12-09", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2025-12-16", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2025-12-23", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2025-12-30", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-01-06", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-01-13", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-01-20", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-01-27", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-02-03", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-02-10", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-02-17", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-02-24", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-03", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-10", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-17", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-24", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-31", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-04-07", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-04-14", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-04-21", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-04-28", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-05-05", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-05-12", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-05-19", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-05-26", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-06-02", "n_resolved_to_date": 0}]</script>
+  <script type="module">
+    import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.16/+esm";
+    const data = JSON.parse(document.getElementById("chart-b5dc6a1f-data").textContent);
+    const filtered = data.filter(d => d["cumul_delta_eur"] !== null && d["cumul_delta_eur"] !== undefined);
+    if (filtered.length > 0) {
+      const chart = Plot.plot({
+        height: 160,
+        marginLeft: 40, marginBottom: 28, marginTop: 10, marginRight: 12,
+        style: {
+          background: "transparent",
+          color: "var(--steel, #6B7686)",
+          fontFamily: "var(--fm, monospace)",
+          fontSize: "10px",
+        },
+        x: { label: null, tickFormat: d => String(d).slice(5) },
+        y: { label: null, grid: true },
+        marks: [
+          Plot.line(filtered, { x: "date", y: "cumul_delta_eur", stroke: "var(--bear)", strokeWidth: 1.5 }),
+          Plot.dot(filtered, { x: "date", y: "cumul_delta_eur", fill: "var(--bear)", r: 2 }),
+        ],
+      });
+      document.getElementById("chart-b5dc6a1f").appendChild(chart);
+    } else {
+      document.getElementById("chart-b5dc6a1f").innerHTML =
+        '<div style="font-family:var(--fm);font-size:11px;color:var(--steel);' +
+        'text-align:center;padding-top:70px">' +
+        'pas encore de données mesurables</div>';
+    }
+  </script>
+</div>
+</div>
+    <div class="chart-card">
+<div class="chart-wrap" data-chart="chart-36b75824">
+  <div class="chart-title" style="font-family:var(--fm);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);margin-bottom:8px">Fomo-greed delta cumulé (EUR)</div>
+  <div id="chart-36b75824" style="width:100%;height:160px"></div>
+  <script type="application/json" id="chart-36b75824-data">[{"cumul_delta_eur": 0.0, "date": "2025-12-09", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2025-12-16", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2025-12-23", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2025-12-30", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-01-06", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-01-13", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-01-20", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-01-27", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-02-03", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-02-10", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-02-17", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-02-24", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-03", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-10", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-17", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-24", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-03-31", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-04-07", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-04-14", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-04-21", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-04-28", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-05-05", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-05-12", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-05-19", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-05-26", "n_resolved_to_date": 0}, {"cumul_delta_eur": 0.0, "date": "2026-06-02", "n_resolved_to_date": 0}]</script>
+  <script type="module">
+    import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.16/+esm";
+    const data = JSON.parse(document.getElementById("chart-36b75824-data").textContent);
+    const filtered = data.filter(d => d["cumul_delta_eur"] !== null && d["cumul_delta_eur"] !== undefined);
+    if (filtered.length > 0) {
+      const chart = Plot.plot({
+        height: 160,
+        marginLeft: 40, marginBottom: 28, marginTop: 10, marginRight: 12,
+        style: {
+          background: "transparent",
+          color: "var(--steel, #6B7686)",
+          fontFamily: "var(--fm, monospace)",
+          fontSize: "10px",
+        },
+        x: { label: null, tickFormat: d => String(d).slice(5) },
+        y: { label: null, grid: true },
+        marks: [
+          Plot.line(filtered, { x: "date", y: "cumul_delta_eur", stroke: "var(--warn)", strokeWidth: 1.5 }),
+          Plot.dot(filtered, { x: "date", y: "cumul_delta_eur", fill: "var(--warn)", r: 2 }),
+        ],
+      });
+      document.getElementById("chart-36b75824").appendChild(chart);
+    } else {
+      document.getElementById("chart-36b75824").innerHTML =
+        '<div style="font-family:var(--fm);font-size:11px;color:var(--steel);' +
+        'text-align:center;padding-top:70px">' +
+        'pas encore de données mesurables</div>';
+    }
+  </script>
+</div>
+</div>
+  </div>
+</section>
+
+<section>
+  <h2>Biais comportementaux — bilan</h2>
+  <table class="t">
+    <thead>
+      <tr><th>Biais</th><th>Résolus</th><th class="num">Δ EUR cumulé</th><th>Posture</th></tr>
+    </thead>
+    <tbody><tr><td>lock_in</td><td>0</td><td>—</td><td><span class="tag steel">non instrumenté</span></td></tr><tr><td>fomo_greed</td><td>0</td><td>—</td><td><span class="tag steel">non instrumenté</span></td></tr><tr><td>other</td><td>0</td><td>—</td><td><span class="tag steel">non instrumenté</span></td></tr></tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Thèses actives</h2>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="kpi-lbl">Total</div>
+      <div class="kpi-val">27</div>
     </div>
-    <div class="roadmap-row">
-      <div class="roadmap-date">10 juillet 2026</div>
-      <div class="roadmap-what">
-        <b>J+30 résolutions bias_events.</b> Premiers
-        <code>lock_in</code> / <code>fomo_greed</code> avec leur delta
-        signé en EUR (gain ou coût réel de la discipline vs absence de
-        discipline). Tableau brut publié.
-      </div>
+    <div class="kpi">
+      <div class="kpi-lbl">OK</div>
+      <div class="kpi-val">0</div>
     </div>
-    <div class="roadmap-row">
-      <div class="roadmap-date">Septembre 2026</div>
-      <div class="roadmap-what">
-        <b>Premier trimestre track record.</b> Alpha décomposé vs B&amp;H et SOXX.
-        Brier rolling 3 mois + IC95 Wilson. Audit comportemental cumulé.
-      </div>
+    <div class="kpi">
+      <div class="kpi-lbl">WARN</div>
+      <div class="kpi-val">0</div>
     </div>
-    <div class="roadmap-row">
-      <div class="roadmap-date">Mensuel</div>
-      <div class="roadmap-what">
-        <b>Decision log narratif.</b> Décisions ouvertes/fermées,
-        prédictions résolues, biais détectés, leçons ajoutées. Premier
-        numéro juin 2026.
-      </div>
+    <div class="kpi">
+      <div class="kpi-lbl">ALERT</div>
+      <div class="kpi-val">0</div>
     </div>
   </div>
+</section>
+
+<section class="methodology">
+  <h2>Méthodologie</h2>
+  <details>
+    <summary>Voir paramètres et règles</summary>
+    <dl>
+      <dt>Scorer version</dt><dd>v2</dd>
+      <dt>Horizon prédictions</dt><dd>28 j</dd>
+      <dt>Horizon lock-in</dt><dd>90 j</dd>
+      <dt>Cibles lock-in / conviction</dt>
+      <dd>c5 +70% · c4 +60% · c3 +50% · c2 +40% · c1 +30%</dd>
+      <dt>Seuils magnitude (exit ≥)</dt>
+      <dd>c5 ≥25% · c4 ≥35% · c3 ≥50% · c2 ≥75% · c1 ignoré</dd>
+      <dt>Recal credibility</dt>
+      <dd>fenêtre 180j · plancher 0.30 · plafond 0.95</dd>
+    </dl>
+  </details>
 </section>
 
 <section>
   <h2>Publications</h2>
-  <ul class="posts">
-    <li>
-      <span class="post-date">2026-06-02</span>
-      <span class="post-title">
-        <a href="#">Mon modèle macro a échoué hors échantillon. Voici pourquoi je le publie.</a>
-        <span class="small"> · le verdict honnête d'un backtest qui devait valider V3.</span>
-      </span>
-    </li>
-    <li>
-      <span class="post-date">2026-05-30</span>
-      <span class="post-title">
-        <a href="#">Le fix qui n'était pas un fix</a>
-        <span class="small"> · quand le test que tu écris pour empêcher un bug attrape ton propre patch.</span>
-      </span>
-    </li>
-    <li>
-      <span class="post-date">2026-05-29</span>
-      <span class="post-title">
-        <a href="#">J-11 dry-run honnête</a>
-        <span class="small"> · le mécanisme tourne. La calibration est mauvaise. Les deux verdicts comptent.</span>
-      </span>
-    </li>
-  </ul>
-</section>
-
-<section>
-  <h2>Méthodologie</h2>
-  <p>
-    Single-stock portfolio. Signaux ingérés via SEC EDGAR (8-K + Form 4 insider clusters)
-    et un set restreint de newsletters publiques. Chaque signal génère une prédiction
-    probabiliste signée (bullish/bearish) via un scoring LLM en 3 étapes (base rate,
-    ajustement, anti-ancrage). Résolution déterministe à J+28 sur close native currency.
-  </p>
-  <p>
-    Biais détectés mécaniquement :
-    <code>lock_in</code> (vente d'un winner avec PnL ≥ 15% et conviction ≥ 3) et
-    <code>fomo_greed</code> (absence d'action quand la discipline le commandait, via
-    deux canaux : kill_criteria et over_cap). Chaque biais détecté ouvre un événement
-    résolu à J+30 avec son delta signé EUR.
-  </p>
-  <p class="small">
-    Méthodologie complète, code source et 12 leçons opérationnelles
-    sur le repo public.
-  </p>
+  <ul class="posts"><li><span class="post-date">2026-06-02</span><span class="post-title"><a href="#">Mon modèle macro a échoué hors échantillon. Voici pourquoi je le publie.</a><span class="small"> · Le verdict honnête d'un backtest qui devait valider V3.</span></span></li><li><span class="post-date">2026-05-30</span><span class="post-title"><a href="#">Le fix qui n'était pas un fix</a><span class="small"> · Quand le test que tu écris pour empêcher un bug attrape ton propre patch.</span></span></li><li><span class="post-date">2026-05-29</span><span class="post-title"><a href="#">J-11 dry-run honnête</a><span class="small"> · Le mécanisme tourne. La calibration est mauvaise. Les deux verdicts comptent.</span></span></li></ul>
 </section>
 
 <footer>
   PRESAGE · construit en solo · pas de fundraising, pas d'API payante, pas de partenaires payés.
   Le track record est l'unique référence.
   <br>
-  <a href="mailto:hello@presage.pro">RSS / email (bientôt)</a>
-  ·
+  <a href="mailto:hello@presage.pro">RSS / email (bientôt)</a> ·
   <a href="https://github.com/...">repo public</a>
 </footer>
 

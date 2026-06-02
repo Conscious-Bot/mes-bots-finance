@@ -110,9 +110,20 @@ def run_monthly_track_record_job(
     )
     log.info(f"monthly_track_record EXPORTED {snapshot_path}")
 
+    # Re-render la page publique avec donnees fraiches.
+    public_html_path: str | None = None
+    try:
+        from scripts.render_public_track import main as render_public_main
+        rendered = render_public_main()
+        public_html_path = str(rendered)
+        log.info(f"monthly_track_record PUBLIC_RENDERED {public_html_path}")
+    except Exception as exc:
+        log.warning(f"monthly_track_record PUBLIC_RENDER_FAILED {exc}")
+
     return {
         "year_month": year_month,
         "snapshot_path": str(snapshot_path),
+        "public_html_path": public_html_path,
         "aggregator_summary": {
             "posture_global": aggregator.get("posture_global"),
             "n_resolved_predictions": aggregator.get("predictions", {}).get("n_resolved"),
