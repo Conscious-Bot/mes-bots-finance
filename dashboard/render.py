@@ -346,9 +346,9 @@ def _v2_cohort_panel() -> str:
     )
 
     return (
-        '<div class="card pad v2cohortcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Cohort V2 vs V1 (scorer pivot 30/05)</span>'
         '<span class="a">V2 = SEC EDGAR primary content &middot; V1 = newsletter sentiment (mono-bucket)</span></div>'
+        '<div class="card pad v2cohortcard" style="margin-bottom:var(--s4)">'
         '<div class="v2-grid">'
         '<div class="v2-side v2-current"><div class="v2-label">V2 (canonique post-30/05)</div>'
         f'{v2_status}</div>'
@@ -388,9 +388,9 @@ def _calibration_progress_panel() -> str:
         pct = min(n_total / target * 100, 100) if target else 0
         remaining = max(target - n_total, 0)
         return (
-            '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
             '<div class="colhead"><span class="t">Calibration scorer V2</span>'
             f'<span class="a">cohort accumulation &mdash; verdict activates at n&ge;{target} non-neutral resolved predictions</span></div>'
+            '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
             '<div class="calib-progress">'
             f'<div class="calib-bar"><div class="calib-fill" style="width:{pct:.1f}%"></div></div>'
             '<div class="calib-meta">'
@@ -405,9 +405,9 @@ def _calibration_progress_panel() -> str:
     status_cls = {"OK": "acc", "WARN": "warn", "ALERT": "neg"}.get(result["status"], "")
     brier_str = f"{brier:.4f}" if brier is not None else "&mdash;"
     return (
-        '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Calibration scorer V2</span>'
         f'<span class="a">verdict reliability + Brier moyen sur cohorte n={n_total}</span></div>'
+        '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
         f'<div class="calib-verdict">'
         f'<span class="calib-status {status_cls}">{result["status"]}</span>'
         f'<span class="calib-brier">Brier <span class="mono">{brier_str}</span></span>'
@@ -458,9 +458,9 @@ def _wire_activity_panel() -> str:
     ) or '<div class="empty">no 8-K logged</div>'
 
     return (
-        '<div class="card pad wactcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Wire EDGAR activity</span>'
         '<span class="a">8-K + insider clusters arrived in the V2 scoring pipeline</span></div>'
+        '<div class="card pad wactcard" style="margin-bottom:var(--s4)">'
         f'<div class="wact-grid">{cells}</div>'
         '<div class="wact-recent-head">Latest 5 8-K filings (toutes severities)</div>'
         f'<div class="wact-recent-list">{last_rows}</div></div>'
@@ -508,9 +508,9 @@ def _vigilance_panel() -> str:
         )
 
     return (
-        '<div class="card pad vgcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Vigilances V2</span>'
         '<span class="a">3 fitness functions auto &middot; cron weekly lundi 7h &middot; push Telegram UNIQUEMENT si ALERT/WARN</span></div>'
+        '<div class="card pad vgcard" style="margin-bottom:var(--s4)">'
         + "".join(rows) +
         "</div>"
     )
@@ -637,9 +637,9 @@ def _risk_watch_panel() -> str:
     except Exception:
         pass
     return (
-        '<div class="card pad riskwatchcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Top Risks watch</span>'
         f'<span class="a">{len(risks_list)} declared risk(s) &middot; thesis-level reflection</span></div>'
+        '<div class="card pad riskwatchcard" style="margin-bottom:var(--s4)">'
         f'{construction_lens}'
         + "".join(out)
         + "</div>"
@@ -768,9 +768,9 @@ def _grade_panel() -> str:
             '<div class="ggate">⚠ ' + " · ".join(g for g in gates) + '</div>'
         )
     return (
-        '<div class="card pad gradecard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Portfolio grade</span>'
         f'<span class="a">{snapshot_date} &middot; {trend_str}</span></div>'
+        '<div class="card pad gradecard" style="margin-bottom:var(--s4)">'
         f'{gates_html}'
         '<div class="ghead">'
         f'<div class="gletter {grade_cls}">{grade_letter}</div>'
@@ -856,10 +856,10 @@ def _blind_positions_panel() -> str:
         for b in blind
     )
     return (
-        '<div class="card pad blindcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Positions en vol disclosuregle</span>'
         f'<span class="a">{len(blind)} position(s) sans entry / target / stop / kill-criteria '
         '&middot; le bot ne peut RIEN evaluer dessus tant que ces champs sont creux</span></div>'
+        '<div class="card pad blindcard" style="margin-bottom:var(--s4)">'
         + items
         + "</div>"
     )
@@ -943,9 +943,9 @@ def _copilot_panel() -> str:
             f'{outc_html}</div>'
         )
     return (
-        '<div class="card pad copilotcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Copilot pressure before trades</span>'
         '<span class="a">hover/click a row for full diagnostic &middot; mechanical verdict before each action</span></div>'
+        '<div class="card pad copilotcard" style="margin-bottom:var(--s4)">'
         + "".join(lis)
         + "<script>document.querySelectorAll('.copilotcard .cp-row').forEach(function(e){"
         "e.addEventListener('click',function(){e.classList.toggle('open')})});</script>"
@@ -1012,9 +1012,9 @@ def _return_clustering_panel() -> str:
     mix_html = "".join(cluster_rows) or '<div class="empty" style="padding:var(--s2) 0">none cluster avec macro_factor melange</div>'
 
     return (
-        '<div class="card pad clustercard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Overlaps seen by prices</span>'
         f'<span class="a">{snapshot_date} &middot; returns correlation &middot; what truly moves together</span></div>'
+        '<div class="card pad clustercard" style="margin-bottom:var(--s4)">'
         '<div class="dc-sub">'
         f'<div class="dc-sh">Paires correlees (>0.7)</div>'
         f'<div class="dc-list">{pairs_html}</div></div>'
@@ -1072,9 +1072,9 @@ def _wrapper_panel() -> str:
             + items + '</div>'
         )
     return (
-        '<div class="card pad wrappercard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Placement fiscal (PEA / CTO)</span>'
         '<span class="a">tax-loss harvest + flag PEA-eligibles mal places</span></div>'
+        '<div class="card pad wrappercard" style="margin-bottom:var(--s4)">'
         f'<div class="wr-alloc">{"".join(rows_alloc)}</div>'
         f'{misalloc_html}{loss_html}'
         '</div>'
@@ -1119,9 +1119,9 @@ def _fx_exposure_panel() -> str:
             f'<div class="fx-sub">{sub_html}</div></div>'
         )
     return (
-        '<div class="card pad fxcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Exposition par devise</span>'
         '<span class="a">click a row to expand positions &middot; no FX hedge</span></div>'
+        '<div class="card pad fxcard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + '<script>document.querySelectorAll(".fxcard .fx-item").forEach(function(e){'
         + 'e.addEventListener("click",function(){e.classList.toggle("open")})});</script>'
@@ -1152,9 +1152,9 @@ def _benchmark_panel() -> str:
         f'<div class="bm-warn">⚠️ {warning}</div>' if warning else ""
     )
     return (
-        '<div class="card pad benchcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Real outperformance vs sector</span>'
         f'<span class="a">{bench["bench_window"]} &middot; book vs indice semi-conducteurs PHLX</span></div>'
+        '<div class="card pad benchcard" style="margin-bottom:var(--s4)">'
         f'{warning_html}'
         '<div class="bm-grid">'
         f'<div class="bm-cell"><div class="bm-h">Book</div><div class="bm-v mono">{book_r:+.1f}%</div></div>'
@@ -1211,10 +1211,10 @@ def _kill_criteria_panel() -> str:
         f'{counts["dormant"]} dormant</div>'
     )
     return (
-        '<div class="card pad killcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Conditions d\'invalidation des theses</span>'
         f'<span class="a">triggered {counts["triggered"]} &middot; at risk {counts["at_risk"]} &middot; '
         f'dormant {counts["dormant"]} &middot; checked 07:30</span></div>'
+        '<div class="card pad killcard" style="margin-bottom:var(--s4)">'
         + items_html
         + "</div>"
     )
@@ -1256,9 +1256,9 @@ def _spof_panel() -> str:
             f'<div class="sp-deps">{deps}</div></div>'
         )
     return (
-        '<div class="card pad spofcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Hidden upstream dependencies</span>'
         '<span class="a">if an upstream supplier breaks, everything depending on it breaks too</span></div>'
+        '<div class="card pad spofcard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + "</div>"
     )
@@ -1330,9 +1330,9 @@ def _mauboussin_sizing_panel() -> str:
             f'{fragile_flag}</div>'
         )
     return (
-        '<div class="card pad mauboussincard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Rigorous calibration</span>'
         '<span class="a">real size vs theoretical size (conviction &times; moat erosion speed)</span></div>'
+        '<div class="card pad mauboussincard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + "</div>"
     )
@@ -1364,9 +1364,9 @@ def _valo_above_bull_panel() -> str:
             f'<div class="vb-rat">{f["rationale"]}</div></div>'
         )
     return (
-        '<div class="card pad valocard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Valuations already beyond bull case</span>'
         '<span class="a">current price requires more than a reasonable bull case</span></div>'
+        '<div class="card pad valocard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + "</div>"
     )
@@ -1428,9 +1428,9 @@ def _factor_exposures_panel() -> str:
             "</div>"
         )
     return (
-        '<div class="card pad factorscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Bets du portefeuille</span>'
         '<span class="a">what you really bet on, by macro factor &middot; a single big bet dominates</span></div>'
+        '<div class="card pad factorscard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + "</div>"
     )
@@ -1461,9 +1461,9 @@ def _stress_tests_panel() -> str:
             f'<span class="st-n">n={n}</span></div></div>'
         )
     return (
-        '<div class="card pad stresscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Si tel pari rate</span>'
         '<span class="a">drawdown estime par scenario macro &middot; transforme le 73% en chiffre concret</span></div>'
+        '<div class="card pad stresscard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + "</div>"
     )
@@ -1567,9 +1567,9 @@ def _user_strategy_panel() -> str:
             f'Tolerance drawdown validee le {tol_validated_at[:10]}</div></div>'
         )
     return (
-        '<div class="card pad strategiecard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Your declared strategy</span>'
         f'<span class="a">archetype = {archetype} &middot; depuis {declared} &middot; surcharge les defaults</span></div>'
+        '<div class="card pad strategiecard" style="margin-bottom:var(--s4)">'
         f'{construction_html}'
         '<div class="us-grid">'
         f'<div class="us-row"><span class="us-k">Main bet target</span><span class="us-v mono">{cap}%</span></div>'
@@ -1630,10 +1630,10 @@ def _trajectory_panel() -> str:
             f'<span class="tr-delta {dcls} mono">{dirsym} {delta:+.1f}</span></div>'
         )
     return (
-        '<div class="card pad trajcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Grade drift (30d)</span>'
         f'<span class="a">{len(snaps)} photos &middot; '
         f'{score_drift.get("first_date","?")} → {score_drift.get("last_date","?")}</span></div>'
+        '<div class="card pad trajcard" style="margin-bottom:var(--s4)">'
         f'<div class="tr-hero">Score : {score_drift.get("first", "?")} '
         f'<span class="tr-arr">→</span> '
         f'{score_drift.get("last", "?")} '
@@ -1689,9 +1689,9 @@ def _ticker_axes_panel() -> str:
             + "".join(lis) + "</div>"
         )
     return (
-        '<div class="card pad axescard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Fiches techniques par ticker</span>'
         '<span class="a">demand engine &middot; value chain layer &middot; moat nature &middot; macro factor</span></div>'
+        '<div class="card pad axescard" style="margin-bottom:var(--s4)">'
         + "".join(groups_html)
         + "</div>"
     )
@@ -1761,9 +1761,9 @@ def _preferences_panel() -> str:
             f'{rows_html}</div>'
         )
     return (
-        '<div class="card pad preferencescard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">What worked for you</span>'
         '<span class="a">samples + winrate on your real resolved decisions &middot; no model opinion</span></div>'
+        '<div class="card pad preferencescard" style="margin-bottom:var(--s4)">'
         f'<div class="pr-grid">{"".join(groups)}</div>'
         '</div>'
     )
@@ -1821,10 +1821,10 @@ def _conceptions_panel() -> str:
             f'<div class="bc-text">{text}</div></div>'
         )
     return (
-        '<div class="card pad conceptionscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Ce que le bot pense par ticker</span>'
         '<span class="a">stable per-ticker summary updated weekly '
         '&middot; survole ou clique pour expand</span></div>'
+        '<div class="card pad conceptionscard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + "<script>document.querySelectorAll('.conceptionscard .bc-row').forEach(function(e){"
         "e.addEventListener('click',function(){e.classList.toggle('open')})});</script>"
@@ -1890,9 +1890,9 @@ def _chat_signals_panel() -> str:
             + "".join(lis) + "</div>"
         )
     return (
-        '<div class="card pad chatsigcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">What you let slip in conversation</span>'
         '<span class="a">concerns / doubts / views the bot captures each message &middot; feeds your profile</span></div>'
+        '<div class="card pad chatsigcard" style="margin-bottom:var(--s4)">'
         f'<div class="cs-grid">{"".join(groups_html)}</div>'
         '</div>'
     )
@@ -1942,9 +1942,9 @@ def _conversations_panel() -> str:
             f'<div class="cv-content">{content}</div></div>'
         )
     return (
-        '<div class="card pad conversationscard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Historique chat</span>'
         '<span class="a">all logged and re-integrated into profile over time</span></div>'
+        '<div class="card pad conversationscard" style="margin-bottom:var(--s4)">'
         + "".join(lis)
         + "</div>"
     )
@@ -2001,9 +2001,9 @@ def _narrative_panel() -> str:
     ) or '<div class="empty" style="padding:var(--s25) 0">none redondance</div>'
 
     return (
-        '<div class="card pad narrativecard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Clusters narratifs (LLM)</span>'
         f'<span class="a">{raw.get("snapshot_date","?")} &middot; consume par T2 + decorrelation du grade</span></div>'
+        '<div class="card pad narrativecard" style="margin-bottom:var(--s4)">'
         f'<div class="nv-grid">{"".join(cluster_rows)}</div>'
         '<div class="nv-split">'
         '<div class="nv-col"><div class="nv-h">Edge positions (independantes)</div>'
@@ -2067,9 +2067,9 @@ def _distribution_health_panel() -> str:
             f'</div>'
         )
     return (
-        '<div class="card pad" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Distribution health</span>'
         '<span class="a">extension scaffold ROUGE/ORANGE/VERT ops &mdash; data &middot; cron weekly Mon 7h push Telegram si !OK</span></div>'
+        '<div class="card pad" style="margin-bottom:var(--s4)">'
         + rows
         + '</div>'
     )
@@ -2157,9 +2157,9 @@ def _track_record_panel() -> str:
     rate_pct = f"{n_corr/n:.0%}" if n else "&mdash;"
 
     return (
-        f'<div class="card pad tr-card" style="margin-bottom:var(--s4)">'
         f'<div class="colhead"><span class="t">Track record</span>'
         f'<span class="a">N={n} substantial &middot; honest-early disclosure if N&lt;{MIN_CONCLUSIF}</span></div>'
+        f'<div class="card pad tr-card" style="margin-bottom:var(--s4)">'
         # Metric 1 : Taux correct (axe 0->100%)
         f'<div class="tr-metric">'
         f'<div class="tr-mlabel"><span class="tr-mname">Taux correct</span>'
@@ -2233,9 +2233,9 @@ def _chat_panel() -> str:
         "it knows your profile, PF grade, positions, theses and intervention history"
     )
     return (
-        '<div class="card pad chatcard" style="margin-bottom:var(--s4)">'
         '<div class="colhead"><span class="t">Ask the copilot</span>'
         f'<span class="a">{mem_str}</span></div>'
+        '<div class="card pad chatcard" style="margin-bottom:var(--s4)">'
         '<div id="chat-log" class="chat-log"></div>'
         '<form id="chat-form" class="chat-form" onsubmit="return chatSend(event)">'
         '<textarea id="chat-input" class="chat-input" aria-label="Ask the copilot" placeholder="ex. What is my biggest fragility right now?" rows="2"></textarea>'
