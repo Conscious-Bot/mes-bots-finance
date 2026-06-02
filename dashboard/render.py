@@ -3915,7 +3915,7 @@ def _journal() -> str:
 
 
 _TIER_LABEL = {
-    5: "Conviction 5 &middot; la plus forte",
+    5: "Conviction 5 &middot; highest",
     4: "Conviction 4",
     3: "Conviction 3 &middot; median",
     2: "Conviction 2",
