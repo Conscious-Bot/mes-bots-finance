@@ -3391,18 +3391,20 @@ def _signaux() -> str:
 
 
 _MACRO_BANDS = {
-    "VIX": (22.0, 30.0, True),
-    "HY_OAS": (350.0, 500.0, True),
-    "MOVE": (100.0, 130.0, True),
-    "USDJPY": (152.0, 160.0, True),
-    "TYX": (4.5, 5.0, True),
-    "DXY": (104.0, 108.0, True),
-    "CoreCPI": (3.0, 4.0, True),
-    "CPI": (3.0, 4.0, True),
-    "T10Y2Y": (0.2, 0.0, False),
-    "MfgIP": (0.0, -2.0, False),
-    # V3 (task #42) : drawdown BTC, lower = worse (hi_bad=False)
-    "BTC_drawdown180": (-30.0, -50.0, False),
+    # Tightened 02/06 user "plus dur dans ta gradation" : warn earlier,
+    # danger plus tot. Calm = vraiment calme. (warn_threshold, danger_threshold, hi_bad)
+    "VIX": (16.0, 22.0, True),         # was (22, 30) -- 15 euphorie, >25 stress
+    "HY_OAS": (250.0, 400.0, True),    # was (350, 500) -- <300 complacent, >600 panique
+    "MOVE": (85.0, 110.0, True),       # was (100, 130) -- vol bonds plus tot warn
+    "USDJPY": (148.0, 155.0, True),    # was (152, 160) -- carry stress plus tot
+    "TYX": (4.0, 4.6, True),           # was (4.5, 5) -- >4% cost capital deja contraint
+    "DXY": (100.0, 105.0, True),       # was (104, 108) -- USD strength plus stricte
+    "CoreCPI": (2.5, 3.5, True),       # was (3, 4) -- Fed bloque deja >2.5
+    "CPI": (2.5, 3.5, True),
+    "T10Y2Y": (0.5, 0.0, False),       # was (0.2, 0) -- de-inversion warn plus tot
+    "MfgIP": (0.5, -1.0, False),       # was (0, -2) -- expansion fragile <0.5
+    # V3 BTC drawdown (hi_bad=False : lower = worse)
+    "BTC_drawdown180": (-20.0, -35.0, False),  # was (-30, -50) -- crypto stress plus tot
 }
 
 
