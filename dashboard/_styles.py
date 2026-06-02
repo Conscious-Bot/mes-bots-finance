@@ -117,7 +117,8 @@ _CSS = """
   .ctx-item:active { transform:scale(.98); }
   .nlab { position:absolute; left:58px; top:50%; transform:translateY(-50%); white-space:nowrap; background:var(--ink); color:var(--bg); border-radius:var(--r2); padding:6px 11px; font-family:var(--fb); font-size:12.5px; font-weight:500; letter-spacing:-.005em; opacity:0; pointer-events:none; transition:opacity .12s ease-out, transform .12s ease-out; z-index:1000; box-shadow:0 8px 22px -8px rgba(0,0,0,.35), 0 2px 6px -2px rgba(0,0,0,.2); will-change:opacity,transform; }
   .nitem:hover .nlab { opacity:1; transform:translateY(-50%) translateX(2px); }
-  .foot { margin-top:auto; padding:var(--s3) 0 2px; display:flex; flex-direction:column; align-items:center; gap:7px; }
+  .foot { margin-top:auto; padding:var(--s3) 0 var(--s25); display:flex; flex-direction:column; align-items:center; gap:var(--s2); }
+  .foot-sep { width:30px; height:1px; background:var(--line); margin:var(--s15) 0; }
   .rfoot { display:flex; flex-direction:column; align-items:center; gap:var(--s15); }
   .rfm { font-family:var(--fm); font-size:14px; color:var(--steel); }
   .rfmacro { width:8px; height:8px; border-radius:2px; }
@@ -1104,15 +1105,13 @@ _CSS = """
      SEULE position:fixed est canonique (suit la vision user au scroll).
      L'esthetique reste soft/discrete (border 1px --line, color --steel,
      bg --bg). z-index 90 = au-dessus du tape (80) mais sous loupe (1000). */
-  .modetgl { position:fixed !important; left:var(--s25) !important;
-             bottom:var(--s25) !important; z-index:90 !important;
-             display:flex; align-items:center; justify-content:center;
-             width:44px; height:44px; border-radius:var(--r3);
-             border:1px solid var(--line); background:var(--bg);
-             color:var(--steel); cursor:pointer; transition:.15s; }
-  .foot .modetgl { margin-top:var(--s4); padding-top:0; }
-  .foot::before { content:""; display:block; width:30px; height:1px; background:var(--line); margin:var(--s35) auto 4px; }
-  .modetgl svg { width:20px; height:20px; }
+  /* Mode toggle vit dans .foot comme un nitem regular (02/06 user). */
+  .modetgl { display:flex; align-items:center; justify-content:center;
+             width:48px; height:48px; border-radius:var(--r3);
+             border:none; background:transparent; color:var(--steel);
+             cursor:pointer; transition:.15s; padding:0; }
+  .modetgl:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); color:var(--ink); }
+  .modetgl svg { width:26px; height:26px; }
   /* duplicate .modetgl:hover supprime 31/05 close W14b -- override la regle
      canonique §15 (background:var(--ink) color:var(--bg)) en noir-sur-noir.
      La regle canonique en haut du fichier est l'unique source de verite. */
