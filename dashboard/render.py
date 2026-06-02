@@ -4745,15 +4745,8 @@ def render() -> Path:
     tape = f'<div class="tape"><div class="track2">{tape_items}{tape_items}</div></div>'
     tape8k = _tape_8k()
 
-    journal_html = _journal()
-    journal_block = (
-        (
-            '<div class="colhead spaced"><span class="t">Latest decisions</span><span class="a">journal Telegram</span></div>'
-            f'<div class="card pad">{journal_html}</div>'
-        )
-        if journal_html
-        else ""
-    )
+    # Journal block retire 02/06 Vigie -- compute conserve pour reactivation eventuelle.
+    _journal_html = _journal()
     _axis: dict[str, dict[str, float]] = {}
     for r in computed:
         st, tg, c = r.get("stop") or 0, r.get("target_full") or 0, r.get("current_price") or 0
@@ -4967,28 +4960,22 @@ def render() -> Path:
         # demande surveillance approfondie.
         # ── BLOC 1 : OPPORTUNITES -- proches target (winners en realisation) ──
         # D1 retire 02/06 : "Marges les plus faibles" duplique avec page Urgence.
-        # D2 retire 02/06 : "Today's movers" (hausses/baisses) entierement
-        # duplique avec Urgence (meme _day_movers). Garde seulement la col
-        # "Plus proches de la target" qui pointe action fomo_greed (trim winners).
         '<div class="vigie-sh" data-tip="Positions close to target (take-profit zone, valo &gt; bull) -- mechanized trim candidates via fomo_greed gate."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 3 3 4-6"/><path d="M11 6h3v3"/></svg>Opportunities &mdash; close or consolidate</div>'
         f'<div class="colhead"><span class="t">Closest to target</span><span class="a">thesis in realization &middot; watch valo &gt; bull and fragility</span></div>'
         f'<div class="card pad">{gain}</div>'
+        # ── BLOC 2 : MOUVEMENT DU JOUR -- restaure 02/06 user (winners/losers %) ──
+        '<div class="vigie-sh" data-tip="Today\'s biggest intraday movers (vs prior close)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>Today&rsquo;s movers</div>'
+        f'<div class="cols">'
+        f'<div class="col"><div class="colhead"><span class="t">Top winners</span><span class="a">vs prior close</span></div><div class="card pad">{_day_up}</div></div>'
+        f'<div class="col"><div class="colhead"><span class="t">Top losers</span><span class="a">vs prior close</span></div><div class="card pad">{_day_dn}</div></div>'
+        f'</div>'
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
-        # (kill_criteria_panel retire 31/05 user feedback, code backend conserve.
-        # chat_html migre vers section Copilot dediee 31/05 wave 5)
         '<div class="vigie-sh" data-tip="Book positions to review first: critical margins (stop &lt; 10%), at_risk kill_criteria zones, blind vol."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
         f'{_risk_watch_panel()}'
         f"{blind_html}"
-        # ── BLOC 4 : SYNTHESE COPILOT (interventions adversariales) ──
-        # (Retraits 31/05 user feedback : wire_activity / vigilance_v2 / v2_cohort /
-        # calib_progress / cockpit / disc_hero -- code backend conserve, alertes Telegram
-        # via cron weekly_v2_vigilance + weekly_calibration_audit prennent le relais)
-        # Synthese copilot retiree 31/05 wave 5bis : migre vers section Copilot dediee.
-        # ── BLOC 5 : JOURNAL -- echeances + log decisions (chat remonte au BLOC 1) ──
-        '<div class="vigie-sh" data-tip="Logbook: recent daily decisions + upcoming review/resolution deadlines."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="10" rx="1"/><path d="M3 6.5h10"/><path d="M6 2v3"/><path d="M10 2v3"/><path d="M5.5 9h2"/><path d="M5.5 11h4"/></svg>Journal &amp; deadlines</div>'
-        f'<div class="colhead tight"><span class="t">Upcoming deadlines</span></div>'
-        f'<div class="card pad">{erows}</div>'
-        f"{journal_block}</section>"
+        # Journal & deadlines retire 02/06 user (useless boards :
+        # TEST_E2E_DEC pollue + deadlines disponibles ailleurs).
+        f"</section>"
     )
 
     # ─── Page Strategie : lecture analytique du book (vocabulaire canonique) ───
@@ -5223,7 +5210,7 @@ def render() -> Path:
         # Sprint 4 CTA flottant bas : Recherche seule (Compact + Filtrer retires
         # 01/06 user feedback : Compact none interet, Filtrer no utilite plug)
         + '<div class="cta-bar" role="toolbar" aria-label="Recherche rapide">'
-        + '<button id="ctaSearch" title="Search (Cmd+K)"><span aria-hidden="true">&#9906;</span> Search <kbd>&#8984;K</kbd></button>'
+        + '<button id="ctaSearch" title="Search (Cmd+K)"><span aria-hidden="true">&#9906;</span> Search</button>'
         + "</div>"
         + '<div class="cta-modal" id="ctaSearchModal" role="dialog" aria-modal="true" aria-label="Recherche ticker">'
         + '<div class="cta-modal-inner">'
