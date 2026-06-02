@@ -380,6 +380,10 @@ _CSS = """
       color-mix(in srgb,var(--acc) 50%,transparent) 66.67%,
       var(--acc) 100%); }
   .axis-target-tick { position:absolute; top:-3px; width:2px; height:11px; background:var(--ink); opacity:.6; border-radius:1px; pointer-events:none; }
+  /* Row-axis : variant compact pour cellules de table (Positions broker). */
+  .axis.row-axis { width:120px; height:4px; margin:0; }
+  .axis.row-axis .axis-target-tick { top:-2px; height:8px; }
+  td.row-gauge { padding:6px 8px; min-width:140px; }
   /* Sizebar redesign 02/06 : target a 50% = zone verte optimale.
      Under-target = rouge (under-sized, need bump). Over-cap = rouge
      (over-sized, need trim). Marker dans la zone verte = bonne taille,

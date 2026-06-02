@@ -4379,7 +4379,8 @@ def _asym_format(ratio):
     return ('num neg', f'{ratio:.1f}&times;')
 
 
-def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict, asym: dict) -> str:
+def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict, asym: dict, gauges: dict | None = None) -> str:
+    gauges = gauges or {}
     ps = sorted(ps, key=lambda p: -_broker_value(p, pnl))
     tot = sum(_broker_value(p, pnl) for p in ps)
     share = tot / grand * 100
@@ -4394,14 +4395,25 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         nm = names.get(tk, tk)
         vstr = f"{v:,.0f}".replace(",", "&#8239;")
         asym_cls, asym_str = _asym_format(asym.get(tk))
+        g = gauges.get(tk)
+        if g:
+            gauge_html = (
+                f'<div class="axis row-axis" title="stop {-g["dn"]:.0f}% / target +{g["up"]:.0f}%">'
+                f'<div class="axis-target-tick" style="left:{g["target_tick"]:.1f}%"></div>'
+                f'<div class="axis-mark" style="left:{g["pos"]:.1f}%"></div>'
+                f'</div>'
+            )
+        else:
+            gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         rows += (
             f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}{tk}<span class="nm">{nm}</span></td>'
             f'<td class="num mono">{vstr}&nbsp;&euro;</td><td class="num">{w:.1f}%</td>'
             f'<td class="num {pcls}">{pstr}</td>'
-            f'<td class="{asym_cls}">{asym_str}</td></tr>'
+            f'<td class="{asym_cls}">{asym_str}</td>'
+            f'<td class="row-gauge">{gauge_html}</td></tr>'
         )
     if not ps:
-        rows = '<tr><td class="empty" colspan="5" style="padding:var(--s4) 0">no position</td></tr>'
+        rows = '<tr><td class="empty" colspan="6" style="padding:var(--s4) 0">no position</td></tr>'
     tot_str = f"{tot:,.0f}".replace(",", "&#8239;")
     donut = _sector_donut(_sector_mix(ps, pnl, sectors)) if ps else ""
     return (
@@ -4410,23 +4422,42 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} positions &middot; {share:.0f}% of total</span></div></div>'
         f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:var(--s1) 18px"><table class="dt"><thead><tr><th>Position</th>'
         f'<th class="num">Valeur</th><th class="num">Poids</th><th class="num">P&amp;L</th>'
-        f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (laisser courir). <1 = inverse (candidate trim).">Asymmetry</th></tr></thead>'
+        f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (laisser courir). <1 = inverse (candidate trim).">Asymmetry</th>'
+        f'<th title="Stop -> target progress (marker = current price, tick = target).">Progress</th></tr></thead>'
         f"<tbody>{rows}</tbody></table></div></div></div></div>"
     )
 
 
 def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict) -> str:
     grand = sum(_broker_value(p, pnl) for p in positions) or 1
-    # Fetch asymmetry par ticker (cf intelligence/asymmetry.py compute_portfolio_asymmetry)
+    # Fetch asymmetry + stop/target progress par ticker
     asym = {}
+    gauges: dict[str, dict] = {}
     try:
         asym_results = asym_mod.compute_portfolio_asymmetry()
         for r in asym_results:
             tk = r.get("ticker")
-            if tk and r.get("asymmetry_ratio") is not None:
+            if not tk:
+                continue
+            if r.get("asymmetry_ratio") is not None:
                 asym[tk] = r["asymmetry_ratio"]
+            # Stop / current / target -> frac 0..150% pour mini-gauge
+            st, tg, c = r.get("stop") or 0, r.get("target_full") or 0, r.get("current_price") or 0
+            up, dn = r.get("upside_pct"), r.get("downside_pct")
+            if st and tg and tg != st and c and up is not None and dn is not None:
+                frac_raw = (c - st) / (tg - st) * 100
+                VISUAL_MAX = 150.0
+                visual_pct = max(0.0, min(100.0, frac_raw / VISUAL_MAX * 100))
+                target_tick_pct = 100.0 / VISUAL_MAX * 100
+                gauges[tk] = {
+                    "pos": visual_pct,
+                    "target_tick": target_tick_pct,
+                    "up": up,
+                    "dn": dn,
+                    "frac_raw": frac_raw,
+                }
     except Exception:
-        pass  # self-disable si calcul fail, fallback "—" affiche
+        pass
     tr = [p for p in positions if _broker(p["ticker"]) == "tr"]
     eu = [p for p in positions if _broker(p["ticker"]) == "bourso"]
     head = (
@@ -4436,8 +4467,8 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
     )
     return (
         head
-        + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors, asym)
-        + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors, asym)
+        + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors, asym, gauges)
+        + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors, asym, gauges)
     )
 
 
