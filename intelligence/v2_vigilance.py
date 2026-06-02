@@ -53,7 +53,7 @@ def check_watch_rate(cx, days: int = 28) -> dict[str, Any]:
         return {
             "name": "watch_rate", "status": "INSUFFICIENT_DATA", "days": days,
             "n_total": 0, "n_watch": 0, "watch_rate": None,
-            "message": f"Aucun signal V2 sur {days}j -- attendre data."
+            "message": f"No V2 signal over {days}d -- waiting for data."
         }
 
     watch_rate = n_watch / n_total

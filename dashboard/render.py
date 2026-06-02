@@ -327,7 +327,7 @@ def _v2_cohort_panel() -> str:
         f'<span class="v2-stat-rg mono">[{v1_lo:.3f} - {v1_hi:.3f}]</span>'
         f'<span class="v2-stat-bk mono">{v1_b} bucket(s)</span></div>'
         if v1_n > 0
-        else '<div class="v2-status v2-empty">nonee prediction V1</div>'
+        else '<div class="v2-status v2-empty">no V1 prediction</div>'
     )
 
     return (
@@ -2213,10 +2213,10 @@ def _chat_panel() -> str:
     """Sprint 7 — Chat surface : pose une question, contexte assemble cote serveur."""
     n_msg, n_sess, oldest = _chat_memory_stats()
     mem_str = (
-        f"il connait ton profil, ta note PF, tes positions, tes theses, "
+        f"it knows your profile, PF grade, positions, theses, "
         f"interventions &middot; memory : {n_msg} messages on {n_sess} sessions since {oldest}"
         if n_msg > 0 else
-        "il connait ton profil, ta note PF, tes positions, tes theses et son historique d'interventions"
+        "it knows your profile, PF grade, positions, theses and intervention history"
     )
     return (
         '<div class="card pad chatcard" style="margin-bottom:var(--s4)">'
@@ -2227,7 +2227,7 @@ def _chat_panel() -> str:
         '<textarea id="chat-input" class="chat-input" aria-label="Ask the copilot" placeholder="ex. What is my biggest fragility right now?" rows="2"></textarea>'
         '<button type="submit" class="chat-send" aria-label="Send message">Send</button>'
         '</form>'
-        '<div class="chat-foot">Le contexte (profil + grade + positions + interventions) est rejoue a chaque message.</div>'
+        '<div class="chat-foot">Context (profile + grade + positions + interventions) is replayed on each message.</div>'
         '</div>'
         '<script>'
         # Sprint 19 : persist chat-log + textarea draft dans localStorage pour
@@ -3757,9 +3757,9 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         )
     hist += "</div>"
     infl_msg = (
-        f"&#9888; inflation de conviction : c5 = {c5_pct:.0f}% (seuil 20%)"
+        f"&#9888; conviction inflation: c5 = {c5_pct:.0f}% (threshold 20%)"
         if infl
-        else f"c5 = {c5_pct:.0f}% &middot; no inflation (seuil 20%)"
+        else f"c5 = {c5_pct:.0f}% &middot; no inflation (threshold 20%)"
     )
 
     # === Star Theses : conviction mediane + 3 cells (targets, gain, marges) ===
