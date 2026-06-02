@@ -137,7 +137,7 @@ _CSS = """
      quand le header est "stuck" (detecté via .stuck class JS IntersectionObserver). */
   .phead { position:sticky; top:0; z-index:30; margin-bottom:var(--s35); padding:14px 0 12px; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent); transition:box-shadow .2s ease-out, border-color .2s ease-out; }
   .phead.stuck { box-shadow:0 6px 16px -10px rgba(0,0,0,.10); border-bottom-color:var(--line2); }
-  .phead h2 { font-family:var(--fd); font-weight:300; font-size:35px; margin:0 0 6px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); }
+  .phead h2 { font-family:var(--fdis); font-weight:700; font-size:35px; margin:0 0 6px; letter-spacing:.02em; text-transform:uppercase; color:var(--ink); }
   .phead .sub { font-family:var(--fb); font-weight:400; font-size:13px; letter-spacing:.04em; color:var(--steel); opacity:.65; transition:opacity .22s ease; }
   .phead:hover .sub { opacity:1; }
   /* Page transitions (Emil framework) : Cmd+1..9 = action keyboard 30-50x/jour
@@ -160,7 +160,7 @@ _CSS = """
   @keyframes presage-cascade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
   .noanim [data-page="vigie"].active > * { animation:none; opacity:1; transform:none; }
   .hero { background:var(--panel); border:1px solid var(--line3); border-radius:var(--r3); padding:28px 34px; margin-bottom:26px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; }
-  .hero .big { font-family:var(--fm); font-weight:500; font-size:45px; line-height:.95; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+  .hero .big { font-family:var(--fdis); font-weight:800; font-size:48px; line-height:.95; letter-spacing:-.015em; font-variant-numeric:tabular-nums; }
   .hero .big.pos { color:var(--acc); } .hero .big.neg { color:var(--bear); }
   .hero .hl { font-family:var(--fb); font-size:14px; letter-spacing:.2em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
   .hero .hsub { font-size:16px; color:var(--steel); margin-top:var(--s15); }
@@ -171,7 +171,7 @@ _CSS = """
   .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s4); margin-bottom:26px; }
   .kpi { background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:18px 24px; transition:border-color .18s ease-out; }
   .kl { display:block; font-family:var(--fb); font-size:14px; letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
-  .kv { font-family:var(--fm); font-weight:500; font-size:31px; letter-spacing:-.01em; line-height:1; font-variant-numeric:tabular-nums; }
+  .kv { font-family:var(--fdis); font-weight:700; font-size:32px; letter-spacing:-.01em; line-height:1; font-variant-numeric:tabular-nums; }
   .kv, .gvm, .big { color:var(--c, var(--ink)); }
   .kv.bear { --c:var(--bear); } .kv.acc { --c:var(--acc); } .kv.warn { --c:var(--warn); } .kv.id { --c:var(--id); }
   .kv.acc { color:var(--acc); } .kv.negc { color:var(--bear); } .kv.warn { color:var(--warn); } .kv.hot { color:var(--warn); } .kv.danger { color:var(--bear); } .kv.calm { color:var(--acc); }
@@ -260,7 +260,7 @@ _CSS = """
   [data-page="vigie"] .page-star .ps-hero-left, [data-page="vigie"] .page-star .ps-hero-right { display:block; }
   [data-page="vigie"] .page-star .ps-lbl { display:block; margin-bottom:8px; font-size:11px; letter-spacing:.10em; }
   [data-page="vigie"] .page-star .ps-macro-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
-  [data-page="vigie"] .page-star .ps-val { font-size:30px; font-family:var(--fm); font-variant-numeric:tabular-nums; font-weight:500; line-height:1.1; }
+  [data-page="vigie"] .page-star .ps-val { font-size:32px; font-family:var(--fdis); font-variant-numeric:tabular-nums; font-weight:700; line-height:1.1; letter-spacing:-.01em; }
   [data-page="vigie"] .page-star .ps-val[style*="font-size:37px"] { font-size:37px !important; }
   [data-page="vigie"] .page-star .ps-val[style*="font-size:21px"] { font-size:21px !important; }
   [data-page="vigie"] .page-star .ps-sub-lien { font-family:var(--fm); font-size:13px; color:var(--steel); margin-top:8px; }
@@ -457,7 +457,7 @@ _CSS = """
   .tr-card .tr-metric:last-of-type { border-bottom:none; }
   .tr-card .tr-mlabel { display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s2); flex-wrap:wrap; }
   .tr-card .tr-mname { font-weight:600; font-size:var(--t-base); color:var(--ink); }
-  .tr-card .tr-mval { font-size:var(--t-h3); color:var(--ink); letter-spacing:-.01em; }
+  .tr-card .tr-mval { font-family:var(--fdis); font-weight:700; font-size:var(--t-h3); color:var(--ink); letter-spacing:-.01em; }
   .tr-card .tr-mvsep { color:var(--steel); padding:0 2px; }
   .tr-card .tr-munit { font-size:var(--t-caption); color:var(--steel); }
   .tr-card .tr-axis-brier { background:linear-gradient(to right, var(--acc) 0%, var(--acc) 40%, var(--line2) 40%, var(--bear) 100%); }

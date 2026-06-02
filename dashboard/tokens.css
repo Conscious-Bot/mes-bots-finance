@@ -65,6 +65,31 @@
   src: url("/static/fonts/geist-mono-500.woff2") format("woff2");
 }
 
+/* Hubot Sans Expanded -- display face wide-rounded-geometric.
+   GitHub OFL. Self-host comme Geist. Reserve aux titres + heros + KPI
+   gros chiffres (var --fdis). PAS pour body/data dense (lisibilite). */
+@font-face {
+  font-family: "Hubot Sans Expanded";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/fonts/hubot-expanded-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hubot Sans Expanded";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/fonts/hubot-expanded-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hubot Sans Expanded";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/static/fonts/hubot-expanded-800.woff2") format("woff2");
+}
+
 /* ============================================================
    TOKENS PRESAGE — couche unique de design system
    ============================================================
@@ -121,6 +146,9 @@
   --fb: "Geist", ui-sans-serif, system-ui, sans-serif;
   --fm: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
   --fo: "Geist", ui-sans-serif, sans-serif;
+  /* Display heading face -- titres pages + heros + KPI gros chiffres.
+     Wide rounded geometric (user 02/06 img Hue cookies). Fallback Geist. */
+  --fdis: "Hubot Sans Expanded", "Geist", ui-sans-serif, sans-serif;
   /* Font-size scale -- base 15px, ratio ~1.2. Charte §1.4.
      Toute nouvelle ecriture utilise ces tokens, pas font-size:Npx inline. */
   --t-caption: 16px;
