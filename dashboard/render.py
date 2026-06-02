@@ -3510,7 +3510,7 @@ def _breadth_rsp_spy() -> str:
     )
 
 
-def _urgence(watch: str, near: int, positions: list[dict], pnl: dict, elan: str = "", near_t: int = 0) -> str:
+def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: str = "", near_t: int = 0) -> str:
     debt_map = {
         # Tier 1: Marché & liquidité — alertes en haut, crédit/peur/FX/sentiment, hedge en bas
         "TYX": (1, "US 30Y rate (%)", 4, False),
