@@ -38,6 +38,7 @@ from bot.jobs.intervals import (
     update_echo_clusters_job,
 )
 from bot.jobs.periodic import (
+    monthly_track_record_snapshot_job,
     recalibrate_credibility_brier_job,
     refresh_source_half_lives_job,
     weekly_calibration_audit_job,
@@ -61,6 +62,7 @@ __all__ = [
     "heartbeat",
     "ingest_gmail_job",
     "monthly_bot_preferences_synthesis_job",
+    "monthly_track_record_snapshot_job",
     "price_monitor_job",
     "recalibrate_credibility_brier_job",
     "refresh_source_half_lives_job",

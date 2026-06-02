@@ -106,6 +106,7 @@ from bot.handlers.thesis_crud import (
     cmd_thesis_list,
 )
 from bot.handlers.thesis_health import cmd_thesis_health
+from bot.handlers.track_record import cmd_track_record
 
 
 def register_command_handlers(app: Application) -> None:
@@ -167,6 +168,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("positions", cmd_portfolio))  # alias intuitif (telem: 5 tentatives)
     app.add_handler(CommandHandler("bias_review", cmd_bias_review))
     app.add_handler(CommandHandler("bias_status", cmd_bias_status))
+    app.add_handler(CommandHandler("track_record", cmd_track_record))
     app.add_handler(CommandHandler("calendar", cmd_calendar))
     app.add_handler(CommandHandler("insiders", cmd_insiders))
     app.add_handler(CommandHandler("macro", cmd_macro))

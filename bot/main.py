@@ -127,6 +127,7 @@ from bot.jobs import (
     heartbeat,
     ingest_gmail_job,
     monthly_bot_preferences_synthesis_job,
+    monthly_track_record_snapshot_job,
     price_monitor_job,
     recalibrate_credibility_brier_job,
     refresh_source_half_lives_job,
@@ -234,6 +235,9 @@ async def post_init(app):
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
     sched.add_job(daily_crypto_zone_job, "cron", hour=10, minute=0)
     sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=0)
+    # #89 cadence mensuelle : snapshot JSON + recal credibility V2 + digest Telegram
+    sched.add_job(monthly_track_record_snapshot_job, "cron", day=1, hour=8, minute=0,
+                  misfire_grace_time=86400)
     # V2 vigilances : check hebdo lundi 7h, push Telegram UNIQUEMENT si ALERT/WARN
     sched.add_job(weekly_v2_vigilance_check_job, "cron", day_of_week="mon", hour=7, minute=0)
     # Calibration audit scorer V2 : check hebdo dimanche 22h, push Telegram si transition status notable

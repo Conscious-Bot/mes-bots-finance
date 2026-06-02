@@ -215,3 +215,56 @@ async def recalibrate_credibility_brier_job():
         log.info(f"Brier recalibration done: {len(updates)} sources updated")
     except Exception as e:
         log.exception(f"recalibrate_credibility_brier_job crashed: {e}")
+
+
+async def monthly_track_record_snapshot_job():
+    """#89 cadence mensuelle (1er du mois) -- snapshot JSON + recal credibility +
+    digest Telegram.
+
+    Coupe la duplication avec recalibrate_credibility_brier_job historique
+    (which uses storage layer recalibration). Ce nouveau job utilise
+    intelligence.calibration_audit.recalibrate_source_credibility +
+    aggregator + timeseries + snapshot JSON dated.
+
+    Idempotent : skip si data/track_record/snapshots/YYYY-MM.json existe.
+    Output : digest Telegram court avec posture_global + cumul bias delta.
+    """
+    log.info("monthly_track_record_snapshot_job starting")
+    try:
+        import sqlite3 as _sqlite3
+
+        from intelligence.monthly_track_record import run_monthly_track_record_job
+        from shared.storage import DB_PATH
+
+        cx = _sqlite3.connect(DB_PATH)
+        try:
+            result = run_monthly_track_record_job(cx)
+        finally:
+            cx.close()
+
+        if result.get("skipped"):
+            log.info(f"monthly_track_record SKIP {result.get('reason')}")
+            return
+
+        # Digest Telegram court
+        agg = result.get("aggregator_summary", {})
+        recal = result.get("recal_summary", {})
+        lines = [
+            f"📊 Track record snapshot {result['year_month']}",
+            f"Posture: {agg.get('posture_global', '—')}",
+            f"Predictions résolues: {agg.get('n_resolved_predictions', 0)}",
+            f"Bias delta cumulé: {agg.get('bias_total_delta_eur', 0):+.0f} €",
+            f"Thèses actives: {agg.get('n_active_theses', 0)}",
+            f"Credibility updates: {recal.get('n_applied', 0)} sources",
+            f"Snapshot: {result['snapshot_path']}",
+        ]
+        try:
+            notify.send_text("\n".join(lines))
+        except Exception as e:
+            log.warning(f"monthly_track_record: telegram send failed: {e}")
+        log.info(
+            f"monthly_track_record done {result['year_month']} "
+            f"posture={agg.get('posture_global')} recal_applied={recal.get('n_applied')}"
+        )
+    except Exception as e:
+        log.exception(f"monthly_track_record_snapshot_job crashed: {e}")
