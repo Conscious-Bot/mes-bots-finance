@@ -87,35 +87,34 @@
    ============================================================ */
 
 :root {
-  /* --- 1. PALETTE -- hybride moderne fintech (Robinhood-inspired) -
-     Pivot 01/06 : abandon du warm parchemin pour off-white frais +
-     cards blanches pures + ink slate-900. DNA reste signal-subtil sur
-     la chrome mais surfaces moderne contemporain. */
-  --bg:    #F8F9FB;
-  --panel: #FFFFFF;
+  /* --- 1. PALETTE -- DNA "instrument de mesure" v2 (02/06 reframe) ---
+     Cold whites/grays. Single accent bleu encre. Zero warm parchemin.
+     Zero green/red moral. Couleur = fait, jamais jugement. */
+  --bg:    #FFFFFF;   /* blanc net, neutre froid */
+  --panel: #F7F8FA;   /* surface gris froid pour cards posees dessus */
 
-  /* --- 2. ENCRE -- slate moderne (vs warm-black vintage) --------- */
-  --ink:   #111827;   /* primaire slate-900 (Tailwind) */
-  --ink2:  #374151;   /* secondaire slate-700 */
-  --steel: #6B7280;   /* caption slate-500 */
+  /* --- 2. ENCRE -- gris fonce, JAMAIS noir pur ----------------------- */
+  --ink:   #1C1E21;   /* primaire (jamais #000) */
+  --ink2:  #374151;   /* secondaire (preserved pour usages explicites) */
+  --steel: #6B7280;   /* secondary / captions */
   --metal: #6B7280;   /* alias --steel pour back-compat */
-  --id:    #111827;   /* identite (= ink), pour focus / accent neutre */
+  --id:    #1C1E21;   /* identite = ink */
 
-  /* --- 3. ACCENTS semantiques (couleur = fait, rare, charte §7.2)
-     Modernisation 01/06 v2 : push chroma vert + rouge pour effet
-     gamify/dopamine sur les action-triggers (PnL win/loss, alertes).
-     Garde un fond terre (pas neon Pokemon) mais nettement plus vif. */
-  --acc:   #16C055;   /* TR-inspired green : sobre vivid, lisible dense */
-  --acc2:  #16C055;   /* alias acc */
-  --bear:  #E53935;   /* TR-inspired red : un cheveu warm, dense-friendly */
-  --warn:  #C8862F;   /* ochre : vigilance / WARN (inchange) */
-  --gold:  #D4A040;   /* OR : reserve 1 spark / viewport (charte §7.3) */
+  /* --- 3. ACCENT UNIQUE bleu encre froid (porte la donnee) ----------
+     DNA v2 : 1 SEUL accent qui porte la donnee. Tout le reste = encres
+     neutres. --acc remap au bleu, --bear remap a ink, --warn remap a
+     steel (preservation back-compat sans casser les classes existantes). */
+  --data:  #2D5BFF;   /* bleu encre canonical -- THE accent */
+  --acc:   #2D5BFF;   /* remap : was green moral, devient bleu donnee */
+  --acc2:  #2D5BFF;
+  --bear:  #1C1E21;   /* remap : was red moral, devient encre neutre */
+  --warn:  #6B7280;   /* remap : was amber, devient steel neutre */
+  --gold:  #2D5BFF;   /* remap : was gold spark, devient data accent */
 
-  /* --- 4. FILETS -- hairlines uniquement (charte §1.5 + §7.4) ---- */
-  /* Pivot 01/06 hybride moderne : lignes slate neutres (vs warm). */
-  --line:  #E5E7EB;   /* hairline standard cards (Tailwind gray-200) */
-  --line2: #D1D5DB;   /* separateur marquee (Tailwind gray-300) */
-  --line3: #9CA3AF;   /* bordure focus / outline TOP (Tailwind gray-400) */
+  /* --- 4. FILETS -- echelle froide ---------------------------------- */
+  --line:  #E8EAED;   /* bordure standard cards */
+  --line2: #D1D5DB;   /* separateur plus marque */
+  --line3: #9CA3AF;   /* focus / outline TOP */
 
   /* --- 5. TYPOGRAPHIE -------------------------------------------- */
   /* Fonts : Geist universel (charte §2), Geist Mono pour TOUS chiffres */
@@ -170,26 +169,26 @@
    action-triggers modernes (vert/rouge Tailwind 500, amber warm).
    ============================================================ */
 body.midnight {
-  --bg:    #0E0D0B;   /* warm noir */
-  --panel: #16140F;
-  --ink:   #F1ECE3;   /* ivoire warm */
-  --ink2:  #CFC6B5;
-  --steel: #8C8273;
-  --metal: #8C8273;
-  --line:  #2A2520;
-  --line2: #3D362E;
-  --line3: #5A5046;
-  /* Accents action-trigger : pop fintech tempere (Tailwind 500) */
-  --acc:   #16C055;   /* TR-inspired green : sobre vivid */
-  --acc2:  #16C055;
-  --id:    #F1ECE3;
-  --bear:  #E53935;   /* TR-inspired red : warm dense */
-  --warn:  #F59E0B;   /* amber-500 -- legerement cooler que ochre vintage */
-  --gold:  #FBBF24;   /* amber-400 reserve 1 spark */
-  /* Dark mode = elevation legere autorisee (texture profondeur) */
+  /* Dark mode v2 : cold neutral (no warm noir). Single blue accent reste. */
+  --bg:    #0F1115;   /* cold near-black */
+  --panel: #161A20;
+  --ink:   #E6E8EB;   /* cold off-white (no ivory) */
+  --ink2:  #C8CCD2;
+  --steel: #8B919A;
+  --metal: #8B919A;
+  --line:  #1F242C;
+  --line2: #2B313A;
+  --line3: #3F4754;
+  --data:  #5B7DFF;   /* bleu encre legerement lifte pour contraste sombre */
+  --acc:   #5B7DFF;
+  --acc2:  #5B7DFF;
+  --id:    #E6E8EB;
+  --bear:  #E6E8EB;   /* neutre encre */
+  --warn:  #8B919A;   /* neutre steel */
+  --gold:  #5B7DFF;
   --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
-  --glass:  rgba(22, 20, 15, .85);
-  --glass2: rgba(14, 13, 11, .7);
-  --tape:   rgba(14, 13, 11, .9);
-  --barbg:  #1F1C18;
+  --glass:  rgba(22, 26, 32, .85);
+  --glass2: rgba(15, 17, 21, .7);
+  --tape:   rgba(15, 17, 21, .9);
+  --barbg:  #1B1F26;
 }
