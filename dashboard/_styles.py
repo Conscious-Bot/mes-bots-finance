@@ -342,7 +342,15 @@ _CSS = """
      Wrap frise + labels dans ps-frise-wrap pour aligner les ticks. */
   .page-star .ps-frise-wrap { flex:0 0 260px; min-width:200px; display:block; margin-top:10px; }
   .page-star .ps-frise { height:4px; border-radius:2px; background:linear-gradient(90deg,color-mix(in srgb,var(--acc) 60%,transparent),color-mix(in srgb,var(--warn) 55%,transparent) 50%,color-mix(in srgb,var(--bear) 65%,transparent)); position:relative; }
-  .page-star .ps-frise-mark { position:absolute; top:50%; width:10px; height:10px; background:var(--ink); border-radius:50%; transform:translate(-50%,-50%); border:2px solid var(--bg); box-shadow:0 1px 3px rgba(0,0,0,.2); }
+  /* #91 sig viz : ps-frise-mark adopte le 4-pointed star canonical (meme
+     pattern que .axis-mark) pour identite visuelle unifiee. Plus de circle
+     dot generique. */
+  .page-star .ps-frise-mark { position:absolute; top:50%; width:24px; height:13px;
+    background-color:var(--ink);
+    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
+    mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
+    transform:translate(-50%,-50%); z-index:2; animation: axis-mark-slide-in .9s cubic-bezier(.2,.8,.2,1) both; }
+  .noanim .page-star .ps-frise-mark { animation: none; }
   .page-star .ps-frise-labs { display:grid; grid-template-columns:repeat(4, 1fr); font-family:var(--fm); font-size:10px; color:var(--steel); margin-top:8px; letter-spacing:.06em; text-transform:uppercase; cursor:help; }
   .page-star .ps-frise-labs span { text-align:center; }
   .page-star .ps-frise-labs span:first-child { text-align:left; }
@@ -505,6 +513,18 @@ _CSS = """
     transform:translate(-50%,-50%); z-index:2; transition:left .6s cubic-bezier(.2,.8,.2,1); }
   .axis-mark.pos { background-color:var(--acc); }
   .axis-mark.neg, .axis-mark.danger { background-color:var(--bear); }
+  /* #91 sig viz : marker slide-in depuis 0% au load 1ere visite. Le marker
+     glisse depuis l'entree (gauche) jusqu'a sa position courante -- preuve
+     visuelle de la trajectoire. .noanim (2e visite) skip. */
+  @keyframes axis-mark-slide-in {
+    from { left: 0% !important; opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .axis-mark { animation: axis-mark-slide-in .9s cubic-bezier(.2,.8,.2,1) both; }
+  .noanim .axis-mark { animation: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .axis-mark { animation: none !important; }
+  }
   .axis-mark.warn { background-color:var(--warn); }
   .axis-mark.mute { background-color:var(--steel); opacity:.6; }
   .axis-tick { position:absolute; top:-3px; width:1px; height:7px; background:var(--line2); }
