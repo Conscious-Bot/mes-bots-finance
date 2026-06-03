@@ -219,6 +219,60 @@ def _err(e: Exception) -> str:
     return f'<div class="empty"><b>Query to adjust</b><span class="mono" style="font-size:14px">{type(e).__name__}: {str(e)[:130]}</span></div>'
 
 
+def _llm_status_badge() -> str:
+    """Phase B (#93) : surface llm_status dans la sidebar foot.
+
+    Etats (couleur, label) :
+    - healthy + model 'sonnet'/'opus' : --acc dot, "LLM sonnet"
+    - healthy + model 'haiku' : --steel dot, "LLM haiku" (extract-tier normal)
+    - degraded + reason 'cost_cap_soft' : --warn dot, "LLM haiku (cost cap 80%)"
+    - degraded + reason 'cost_cap_hard' : --bear dot, "LLM stopped (cost cap)"
+    - degraded + reason 'credit_exhausted' : --bear dot, "LLM credit exhausted"
+    - degraded + reason 'rate_limited' : --warn dot, "LLM rate limited"
+    - down : --bear dot, "LLM down"
+    - Defensive : si erreur lecture state, on rend rien (pas de marker faux).
+    """
+    try:
+        from shared import llm as _llm
+        st = _llm.get_llm_status()
+    except Exception:
+        return ""
+    status = st.get("status", "healthy")
+    reason = st.get("reason")
+    model = st.get("active_model")
+    since = st.get("since") or ""
+
+    if status == "healthy":
+        dot = "--acc" if model in ("sonnet", "opus") else "--steel"
+        label = f"LLM {model}" if model else "LLM"
+    elif status == "degraded":
+        if reason == "cost_cap_soft":
+            dot, label = "--warn", "LLM haiku (cap 80%)"
+        elif reason == "cost_cap_hard":
+            dot, label = "--bear", "LLM stopped (cap 100%)"
+        elif reason == "credit_exhausted":
+            dot, label = "--bear", "LLM credit exhausted"
+        elif reason == "rate_limited":
+            dot, label = "--warn", "LLM rate limited"
+        else:
+            dot, label = "--warn", f"LLM degraded ({reason or '?'})"
+    elif status == "down":
+        dot, label = "--bear", "LLM down"
+    else:
+        return ""
+
+    tip = f"status={status} reason={reason or '-'} since={since[:16] if since else '-'}"
+    return (
+        f'<div class="nitem llm-badge" title="{tip}" '
+        f'style="display:flex;align-items:center;gap:8px;cursor:default">'
+        f'<span class="llm-dot" aria-hidden="true" '
+        f'style="display:inline-block;width:8px;height:8px;border-radius:50%;'
+        f'background:var({dot})"></span>'
+        f'<span class="nlab" style="font-size:13px">{label}</span>'
+        f'</div>'
+    )
+
+
 def _needle_color(frac: float, *, invert: bool = False) -> str:
     """Couleur continue du needle calee sur le gradient de l'axe.
     frac 0->100 = bear -> steel -> acc (defaut)
@@ -5368,6 +5422,7 @@ def render() -> Path:
     body = (
         f'<aside class="sidebar" role="complementary" aria-label="Barre laterale"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
         f'{_NAV}<div class="foot">'
+        f'{_llm_status_badge()}'
         f'{_FOOT_METHOD}<div class="foot-sep"></div>{_MODE_BTN}'
         f'</div></aside>{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'

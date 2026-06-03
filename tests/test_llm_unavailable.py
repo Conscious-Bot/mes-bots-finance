@@ -215,7 +215,7 @@ def test_llm_status_set_to_degraded_on_unavailable(monkeypatch, tmp_path):
 
     captured = []
 
-    def _fake_set_status(status, reason=None):
+    def _fake_set_status(status, reason=None, active_model=None):  # noqa: ARG001
         captured.append((status, reason))
 
     monkeypatch.setattr(llm_mod, "set_llm_status", _fake_set_status)
@@ -246,7 +246,7 @@ def test_llm_status_set_to_healthy_on_success(monkeypatch):
 
     captured = []
 
-    def _fake_set_status(status, reason=None):
+    def _fake_set_status(status, reason=None, active_model=None):  # noqa: ARG001
         captured.append((status, reason))
 
     monkeypatch.setattr(llm_mod, "set_llm_status", _fake_set_status)

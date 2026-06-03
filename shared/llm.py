@@ -30,18 +30,36 @@ def client() -> Any:  # anthropic.Anthropic
 
 
 def _resolve_model(tier: str | None = None, task: str | None = None) -> tuple[str, str]:
-    """Return (model_id, resolved_tier). tier overrides task."""
+    """Return (model_id, resolved_tier). tier overrides task.
+
+    Phase B (#93) : si _should_downgrade_to_haiku() (cost cap soft a 80%),
+    force route via 'extract' tier (Haiku) quelque soit le tier/task demande.
+    Marker resolved_tier = '<orig>+haiku_softcap' pour audit trail.
+    """
     cfg = config.load()
     if tier:
         m = cfg.get("tiers", {}).get(tier)
         if m:
-            return m, tier
-    if task:
+            chosen, resolved_tier = m, tier
+        else:
+            chosen, resolved_tier = cfg.get("models", {}).get("synthesis"), "enrich"
+    elif task:
         m = cfg.get("models", {}).get(task)
         if m:
-            return m, _TASK_TO_TIER.get(task, "enrich")
-        return cfg.get("models", {}).get("synthesis"), "enrich"
-    return cfg.get("models", {}).get("synthesis"), "enrich"
+            chosen, resolved_tier = m, _TASK_TO_TIER.get(task, "enrich")
+        else:
+            chosen, resolved_tier = cfg.get("models", {}).get("synthesis"), "enrich"
+    else:
+        chosen, resolved_tier = cfg.get("models", {}).get("synthesis"), "enrich"
+
+    # Phase B : downgrade auto a Haiku si cost cap soft (80%) franchi.
+    # Effet boundary : la decision se prend a chaque call (pct re-evalue),
+    # donc si l'on retombe sous 80%, le downgrade se leve automatiquement.
+    if _should_downgrade_to_haiku() and resolved_tier != "extract":
+        haiku = cfg.get("tiers", {}).get("extract")
+        if haiku and haiku != chosen:
+            return haiku, f"{resolved_tier}+haiku_softcap"
+    return chosen, resolved_tier
 
 
 def _compute_cost(model: str, input_tokens: int, output_tokens: int, cached_tokens: int = 0) -> float:
@@ -111,16 +129,23 @@ class LLMUnavailableError(RuntimeError):
         super().__init__(f"LLM unavailable ({reason}): {upstream_msg[:200]}")
 
 
-def set_llm_status(status: str, reason: str | None = None) -> None:
+def set_llm_status(
+    status: str,
+    reason: str | None = None,
+    active_model: str | None = None,
+) -> None:
     """Ecrit l'etat global du LLM dans bot_state.json (visible par dashboard / Telegram).
 
     Etats canoniques :
     - 'healthy'  : derniere call() reussie, pas de signe degradation.
-    - 'degraded' : LLMUnavailableError recente (credit_exhausted / rate_limited).
-    - 'down'     : persistance prolongee (gere par 1B avec debounce, pas ici).
+    - 'degraded' : LLMUnavailableError recente OU cost_cap_soft (Haiku auto) OU
+                   cost_cap_hard (CostCapExceeded). Le `reason` discrimine.
+    - 'down'     : persistance prolongee. 1B fait debounce + bascule sur rule scorer.
 
-    1A : on bascule juste healthy <-> degraded sur les call() / catch.
-    Le passage degraded -> down ainsi que les alertes Telegram = 1B.
+    Phase B : transition fire Telegram alert exactly once (set_llm_status est
+    no-op si statut+reason identiques -> debounce naturel).
+
+    active_model : 'haiku' / 'sonnet' / 'opus' / None. Surface dashboard badge.
     """
     from datetime import UTC, datetime
 
@@ -130,18 +155,79 @@ def set_llm_status(status: str, reason: str | None = None) -> None:
         s = storage.load_state()
     except Exception:
         s = {}
-    if s.get("llm_status") == status and s.get("llm_status_reason") == reason:
-        return  # no-op si pas de transition (evite churn write)
+    state_initialized = "llm_status" in s
+    prev_status = s.get("llm_status", "healthy")
+    prev_reason = s.get("llm_status_reason")
+    prev_active_model = s.get("llm_active_model")
+    # Debounce : pas de re-ecriture si rien ne change. MAIS toujours ecrire la
+    # 1ere fois (state_initialized=False) sinon le 1er set_llm_status sur
+    # bot_state vierge serait silencieusement perdu (bug test_active_model).
+    if (
+        state_initialized
+        and prev_status == status
+        and prev_reason == reason
+        and (active_model is None or active_model == prev_active_model)
+    ):
+        return  # no-op (debounce write + alert spam)
+
     s["llm_status"] = status
     s["llm_status_since"] = datetime.now(UTC).isoformat()
     s["llm_status_reason"] = reason
+    if active_model is not None:
+        s["llm_active_model"] = active_model
     import contextlib
     with contextlib.suppress(Exception):
         storage.save_state(s)  # fail-open : ne pas casser l'appel LLM si bot_state ecriture echoue
 
+    # Telegram alert sur transition (Phase B). Fail-safe : si notify casse,
+    # l'etat reste sauvegarde -- on n'echange pas la verite contre le bruit.
+    with contextlib.suppress(Exception):
+        _maybe_notify_transition(prev_status, prev_reason, status, reason)
+
+
+def _maybe_notify_transition(
+    prev_status: str,
+    _prev_reason: str | None,
+    new_status: str,
+    new_reason: str | None,
+) -> None:
+    """Fire Telegram alert sur transition LLM significative.
+
+    Couvre : healthy -> degraded (premier signe de degradation),
+             degraded -> down (escalade resilience),
+             {degraded,down} -> healthy (recovery).
+    Pas d'alert sur degraded->degraded meme avec reason different (un mode
+    degrade reste degrade ; les details vont dans le log structure).
+    """
+    from shared import notify
+
+    transitions_to_alert = {
+        ("healthy", "degraded"),
+        ("healthy", "down"),
+        ("degraded", "down"),
+        ("degraded", "healthy"),
+        ("down", "healthy"),
+        ("down", "degraded"),
+    }
+    key = (prev_status, new_status)
+    if key not in transitions_to_alert:
+        return
+
+    icons = {"healthy": "✅", "degraded": "⚠️", "down": "🚨"}
+    icon_new = icons.get(new_status, "•")
+    if new_status == "healthy":
+        msg = f"{icon_new} LLM recovered : {prev_status} -> healthy"
+    else:
+        reason_str = new_reason or "?"
+        msg = (
+            f"{icon_new} LLM {new_status} ({reason_str}) -- prev {prev_status}. "
+            f"Voir dashboard badge + tail dashboard/serve.log."
+        )
+    notify.send_text(msg)
+
 
 def get_llm_status() -> dict[str, Any]:
-    """Retourne {status, since, reason}. Defaut healthy si jamais ecrit."""
+    """Retourne {status, since, reason, active_model}. Defaut healthy si jamais ecrit."""
     from shared import storage
 
     try:
@@ -152,6 +238,7 @@ def get_llm_status() -> dict[str, Any]:
         "status": s.get("llm_status", "healthy"),
         "since": s.get("llm_status_since"),
         "reason": s.get("llm_status_reason"),
+        "active_model": s.get("llm_active_model"),
     }
 
 
@@ -200,18 +287,59 @@ def _get_cost_usage_24h() -> float:
         return 0.0  # fail-open : ne pas bloquer si DB indispo
 
 
-def _check_cost_cap() -> None:
-    """Check 24h cost vs cap. Soft-warn a 80%, raise a 100%."""
+_COST_CAP_SOFT_PCT = 0.8
+
+
+def _model_short_name(model_id: str | None) -> str | None:
+    """'claude-haiku-4-5-...' -> 'haiku'. Pour dashboard badge + state."""
+    if not model_id:
+        return None
+    m = model_id.lower()
+    if "haiku" in m:
+        return "haiku"
+    if "sonnet" in m:
+        return "sonnet"
+    if "opus" in m:
+        return "opus"
+    return model_id
+
+
+def _cost_cap_config() -> tuple[float, bool]:
+    """Returns (cap_usd_24h, disabled). disabled=True -> bypass."""
     if os.environ.get("LLM_COST_CAP_DISABLE") == "1":
-        return
+        return 0.0, True
     try:
         cap = float(os.environ.get("LLM_COST_CAP_USD_24H", "10.0"))
     except ValueError:
         cap = 10.0
-    if cap <= 0:
+    return cap, cap <= 0
+
+
+def _get_cost_pct() -> float | None:
+    """Returns used/cap dans [0, inf) ou None si cap disabled."""
+    cap, disabled = _cost_cap_config()
+    if disabled:
+        return None
+    return _get_cost_usage_24h() / cap
+
+
+def _should_downgrade_to_haiku() -> bool:
+    """True si cost pct >= 80% (cap soft, downgrade auto Haiku)."""
+    pct = _get_cost_pct()
+    return pct is not None and pct >= _COST_CAP_SOFT_PCT
+
+
+def _check_cost_cap() -> None:
+    """Check 24h cost vs cap. Soft-warn + Haiku-downgrade a 80%, raise a 100%."""
+    cap, disabled = _cost_cap_config()
+    if disabled:
         return
     used = _get_cost_usage_24h()
     if used >= cap:
+        # Phase B : set status AVANT de raise pour que dashboard badge + Telegram
+        # capturent le hard-cap. Sinon CostCapExceeded remonte silencieusement
+        # cote consumer et seul le log structure le voit.
+        set_llm_status("degraded", reason="cost_cap_hard", active_model=None)
         raise CostCapExceeded(
             f"LLM cost cap atteint : {used:.2f} USD / {cap:.2f} USD sur "
             "24h. Override LLM_COST_CAP_DISABLE=1 si intentionnel."
@@ -219,10 +347,11 @@ def _check_cost_cap() -> None:
     # Soft warn : log une seule fois par tranche de 10% au-dessus de 80%
     global _COST_CAP_LAST_WARNED
     pct = used / cap
-    if pct >= 0.8 and pct - _COST_CAP_LAST_WARNED >= 0.1:
+    if pct >= _COST_CAP_SOFT_PCT and pct - _COST_CAP_LAST_WARNED >= 0.1:
         import logging
         logging.getLogger("shared.llm").warning(
-            f"LLM cost approche cap : {used:.2f}/{cap:.2f} USD ({pct * 100:.0f}%)"
+            f"LLM cost approche cap : {used:.2f}/{cap:.2f} USD ({pct * 100:.0f}%) "
+            "-- Haiku auto active"
         )
         _COST_CAP_LAST_WARNED = pct
 
@@ -282,13 +411,18 @@ def call(
             in_tok = getattr(usage, "input_tokens", 0) or 0
             out_tok = getattr(usage, "output_tokens", 0) or 0
             cached_tok = getattr(usage, "cache_read_input_tokens", 0) or 0
-        set_llm_status("healthy", reason=None)  # success path : recover
+        # Phase B : si downgrade Haiku actif, status reste degraded (cost_cap_soft)
+        # meme si l'appel reussit. La qualite est sous l'ideal -> dashboard montre.
+        if "+haiku_softcap" in resolved_tier:
+            set_llm_status("degraded", reason="cost_cap_soft", active_model="haiku")
+        else:
+            set_llm_status("healthy", reason=None, active_model=_model_short_name(model))
         return text
     except Exception as e:
         error = f"{type(e).__name__}: {str(e)[:200]}"
         unavailable = _classify_anthropic_error(e)
         if unavailable is not None:
-            set_llm_status("degraded", reason=unavailable.reason)
+            set_llm_status("degraded", reason=unavailable.reason, active_model=None)
             raise unavailable from e
         raise
     finally:
@@ -344,13 +478,18 @@ def call_multiturn(
             in_tok = getattr(usage, "input_tokens", 0) or 0
             out_tok = getattr(usage, "output_tokens", 0) or 0
             cached_tok = getattr(usage, "cache_read_input_tokens", 0) or 0
-        set_llm_status("healthy", reason=None)  # success path : recover
+        # Phase B : si downgrade Haiku actif, status reste degraded (cost_cap_soft)
+        # meme si l'appel reussit. La qualite est sous l'ideal -> dashboard montre.
+        if "+haiku_softcap" in resolved_tier:
+            set_llm_status("degraded", reason="cost_cap_soft", active_model="haiku")
+        else:
+            set_llm_status("healthy", reason=None, active_model=_model_short_name(model))
         return text
     except Exception as e:
         error = f"{type(e).__name__}: {str(e)[:200]}"
         unavailable = _classify_anthropic_error(e)
         if unavailable is not None:
-            set_llm_status("degraded", reason=unavailable.reason)
+            set_llm_status("degraded", reason=unavailable.reason, active_model=None)
             raise unavailable from e
         raise
     finally:
