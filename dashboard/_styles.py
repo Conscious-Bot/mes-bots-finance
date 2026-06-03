@@ -11,6 +11,10 @@ _TH_CSS = """
   .th-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:15px; }
   .th-hlab { width:24px; color:var(--steel); }
   .th-hbar .axis { flex:1; margin:0; }
+  .th-htrack { flex:1; height:5px; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 6%,transparent); overflow:hidden; }
+  .th-hfill { height:100%; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 55%,transparent); transition:width .25s ease-out; }
+  body.midnight .th-htrack { background:rgba(255,255,255,.05); }
+  body.midnight .th-hfill { background:color-mix(in srgb,var(--ink) 75%,transparent); }
   .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
   /* Section headers unifies (Polish 01/06) : meme pattern visuel pour
      .th-grp / .strat-sh / .vigie-sh / .dba-sh. Noms preserves pour HTML.

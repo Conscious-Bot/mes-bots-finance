@@ -8,7 +8,7 @@ import importlib
 import json
 import re
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -4136,11 +4136,14 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     infl = c5_pct > 20
     maxc = max(dist.values()) or 1
 
+    # Bar chart neutre (gauge gradient + needle KILL 03/06 user : pas de
+    # semantique implicite vert=bon ; juste un compte par tier. Cf task #108.)
     hist = '<div class="th-hist">'
     for c in (5, 4, 3, 2, 1):
+        _pct_w = max(0.5, dist[c] / maxc * 100) if maxc > 0 else 0.5
         hist += (
             f'<div class="th-hbar"><span class="th-hlab">c{c}</span>'
-            f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, dist[c] / maxc * 100)):.1f}%" title="{dist[c]/maxc*100:.1f}%"></div></div>'
+            f'<div class="th-htrack"><div class="th-hfill" style="width:{_pct_w:.1f}%"></div></div>'
             f'<span class="th-hn">{dist[c]}</span></div>'
         )
     hist += "</div>"
@@ -5134,6 +5137,14 @@ def render() -> Path:
         _spark_dates_sorted = sorted(_spark_by_day.keys())
         _spark_vals = [_spark_by_day[k] for k in _spark_dates_sorted]
         _spark_dates = _spark_dates_sorted
+        # Append live value si snapshot du jour pas encore present (snapshot
+        # tourne dans evening_chain 23:00 -- en attendant, le widget refletait
+        # hier soir au lieu de maintenant -> sparkline endpoint + delta vs J-1
+        # tous deux mensongers. Cf docs/audit_2026-06-03 Pattern 2 + 3.
+        _today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
+        if pf_value > 0 and (not _spark_dates or _spark_dates[-1] != _today_iso):
+            _spark_vals.append(pf_value)
+            _spark_dates.append(_today_iso)
     except Exception:
         _spark_vals = []
         _spark_dates = []
