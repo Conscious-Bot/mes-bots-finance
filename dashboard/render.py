@@ -4138,14 +4138,23 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         # Native vs native -> ratios FX-invariants corrects.
         current = _cached_price_native(tk) or last or entry
         d_stop = d_tgt = ratio = frac = entry_frac = pnl_e = None
+        # Axis centre sur target (user 03/06) : target = 0 au centre, neg gauche,
+        # pos droite. Pre-calcule les distances en % depuis target (signed).
+        cur_vs_tgt = stop_vs_tgt = entry_vs_tgt = axis_max = None
         has_bar = bool(current and stop and tgt and tgt != stop)
         if has_bar:
             d_stop = abs(stop - current) / current * 100
             d_tgt = abs(tgt - current) / current * 100
             ratio = d_tgt / d_stop if d_stop else None
             frac = max(0.0, min(100.0, (current - stop) / (tgt - stop) * 100))
+            # Centre-sur-target geometry (axis from -X to +Y around target=0)
+            cur_vs_tgt = (current - tgt) / tgt * 100  # signed % from target
+            stop_vs_tgt = (stop - tgt) / tgt * 100    # always negative
+            # axis_max = symetrique, scale par max deviation visible (min ±20%)
+            axis_max = max(abs(stop_vs_tgt), abs(cur_vs_tgt), 20.0)
             if entry:
                 entry_frac = max(0.0, min(100.0, (entry - stop) / (tgt - stop) * 100))
+                entry_vs_tgt = (entry - tgt) / tgt * 100
                 # pnl_e calcule via entry de THESE (= prix quand thèse écrite) en NATIVE.
                 # Sert au tracking "depuis rédaction de la thèse" SEULEMENT.
                 pnl_e = (current - entry) / entry * 100
@@ -4177,6 +4186,10 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 "has_bar": has_bar,
                 "cat": sectors.get(tk, ""),
                 "tpart": tpart,
+                "cur_vs_tgt": cur_vs_tgt,
+                "stop_vs_tgt": stop_vs_tgt,
+                "entry_vs_tgt": entry_vs_tgt,
+                "axis_max": axis_max,
             }
         )
     n = len(ths)
@@ -4244,19 +4257,42 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                # Signature axis stop->target : ticks rouges/verts aux extremites,
-                # dot pour position, hover continu %. Pas de texte (user 03/06).
-                _frac = t["frac"]
-                _dot_cls = "bear" if _frac < 25 else ("acc" if _frac > 75 else "")
-                _dash = t["entry_frac"] if t.get("entry_frac") is not None else None
+                # Signature axis centre sur target=0 (user 03/06) :
+                # negatif a gauche (vers stop), positif a droite (overshoot).
+                # Target tick vert au centre (50% visuel), stop tick rouge a
+                # sa vraie position % vs target, dot pour current.
+                _ax = t["axis_max"] or 20.0
+                _cur = t["cur_vs_tgt"] or 0.0
+                _stp = t["stop_vs_tgt"] or 0.0
+                _ent = t.get("entry_vs_tgt")
+                # Map signed % to 0..100 visual (target at 50%)
+                _dot_v = max(0.0, min(100.0, 50.0 + (_cur / _ax) * 50.0))
+                _stop_v = max(0.0, min(100.0, 50.0 + (_stp / _ax) * 50.0))
+                _ent_v = (
+                    max(0.0, min(100.0, 50.0 + (_ent / _ax) * 50.0))
+                    if _ent is not None else None
+                )
+                # Dot color : zone vs target (proche target = neutre, loin = bear si neg, acc si pos)
+                if _cur >= -2 and _cur <= 2:
+                    _dot_cls = ""
+                elif _cur > 5:
+                    _dot_cls = "acc"
+                elif _cur < -15:
+                    _dot_cls = "bear"
+                else:
+                    _dot_cls = ""
                 bar = (
                     '<div class="th-bar">'
                     + _tbar(
-                        _frac,
-                        dash_at=_dash,
+                        _dot_v,
+                        ticks=[(_stop_v, "stop", "stop"), (50.0, "target", "target")],
+                        dash_at=_ent_v,
                         dot_color=_dot_cls,
-                        stop_target_ends=True,
-                        title=f"position {_frac:.1f}% entre stop et target",
+                        title=f"current {_cur:+.1f}% vs target",
+                        extra_class="sig-tgt0",
+                    ).replace(
+                        '<div class="tbar sig-tgt0"',
+                        f'<div class="tbar sig-tgt0" data-axmin="{-_ax:.1f}" data-axmax="{_ax:.1f}"'
                     )
                     + '</div>'
                 )
@@ -5566,8 +5602,10 @@ def render() -> Path:
         + _CTA_JS
         + "</script>"
         + "<script>(function(){var b=null;function isTyping(){var ta=document.getElementById('chat-input');if(ta&&ta.value.trim().length>0)return true;if(ta&&document.activeElement===ta)return true;return false;}function c(){if(isTyping())return;fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,1000);})();</script>"
-        # Hover continuous % sur les .tbar : displays the % under cursor.
-        + "<script>(function(){function wire(){document.querySelectorAll('.tbar').forEach(function(bar){var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;bar.dataset.tbarWired='1';bar.addEventListener('mousemove',function(e){var r=bar.getBoundingClientRect();if(r.width<=0)return;var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));tip.style.left=p.toFixed(1)+'%';tip.textContent=p.toFixed(0)+'%';});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});})();</script>"
+        # Hover continuous % sur les .tbar : displays % under cursor. Si
+        # data-axmin/data-axmax presents (axes centres sur target), la valeur
+        # affichee est signed % depuis le 0 logique (e.g. "-13.4%" / "+5.2%").
+        + "<script>(function(){function wire(){document.querySelectorAll('.tbar').forEach(function(bar){var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;bar.dataset.tbarWired='1';var axmin=parseFloat(bar.dataset.axmin);var axmax=parseFloat(bar.dataset.axmax);var signed=!isNaN(axmin)&&!isNaN(axmax);bar.addEventListener('mousemove',function(e){var r=bar.getBoundingClientRect();if(r.width<=0)return;var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));tip.style.left=p.toFixed(1)+'%';if(signed){var v=axmin+(axmax-axmin)*(p/100);tip.textContent=(v>=0?'+':'')+v.toFixed(1)+'%';}else{tip.textContent=p.toFixed(0)+'%';}});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});})();</script>"
         + "</body></html>"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
