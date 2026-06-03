@@ -41,6 +41,8 @@ from __future__ import annotations
 import logging
 import sqlite3
 
+from shared import storage
+
 log = logging.getLogger(__name__)
 
 K_ANALOGUES_DEFAULT = 5
@@ -57,13 +59,13 @@ def fetch_analogues(
     """K predictions resolues les plus recentes pour ce ticker (priorite) ou
     signal_type (fallback). Exclut neutral + v0."""
     rows = cx.execute(
-        """
+        f"""
         SELECT ticker, signal_type, direction, horizon_days, outcome,
                return_pct, resolved_at, probability_at_creation
         FROM predictions
         WHERE resolved_at IS NOT NULL
           AND outcome IN ('correct', 'incorrect')
-          AND methodology_version != 'v0'
+          AND {storage.substance_predictions_filter()}
           AND (ticker = ? OR signal_type = ?)
         ORDER BY resolved_at DESC
         LIMIT ?
@@ -89,12 +91,12 @@ def fetch_recent_lessons(cx: sqlite3.Connection, window_days: int = 30) -> dict 
     """Patterns d'erreurs recents : par direction / par ticker suffix / par
     signal_type. Retourne None si insufficient data."""
     rows = cx.execute(
-        """
+        f"""
         SELECT direction, outcome, COUNT(*) AS n
         FROM predictions
         WHERE resolved_at IS NOT NULL
           AND outcome IN ('correct', 'incorrect')
-          AND methodology_version != 'v0'
+          AND {storage.substance_predictions_filter()}
           AND resolved_at >= datetime('now', ?)
         GROUP BY direction, outcome
         """,

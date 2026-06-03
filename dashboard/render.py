@@ -2996,6 +2996,12 @@ def _loop() -> str:
     10/06. Per-ticker view = lisible MEME sur peu de data.
     """
     try:
+        from shared import storage as _stg_loop
+        # ADR 014 § Substance tier : LLM-loop audit affiche les predictions
+        # LLM (v1 archive + v2 canonical). Exclut shadow/fallback non-LLM.
+        _loop_filter = _stg_loop.substance_predictions_filter().replace(
+            "methodology_version", "p.methodology_version"
+        )
         # All predictions last 60d with source name
         preds = _q(
             "SELECT p.id, p.ticker, p.direction, p.outcome, p.brier_score, "
@@ -3005,7 +3011,7 @@ def _loop() -> str:
             "FROM predictions p "
             "LEFT JOIN signals s ON s.id = p.signal_id "
             "LEFT JOIN sources src ON src.id = s.source_id "
-            "WHERE p.methodology_version != 'v0' "
+            f"WHERE {_loop_filter} "
             "  AND p.baseline_date >= date('now', '-60 days') "
             "ORDER BY p.ticker, p.baseline_date ASC"
         )

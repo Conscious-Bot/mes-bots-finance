@@ -209,7 +209,7 @@ def _stats_section():
             conn,
             "SELECT COUNT(*) AS n FROM predictions "
             "WHERE resolved_at IS NOT NULL AND outcome != 'neutral' "
-            "AND methodology_version != 'v0' "
+            f"AND {storage.substance_predictions_filter()} "
             "AND datetime(resolved_at) >= datetime('now', '-24 hours')",
             tag="morning_brief.predictions_resolved_24h",
             fetch="one",
@@ -233,7 +233,7 @@ def _kpi_timer_section():
             conn,
             "SELECT COUNT(*) AS n FROM predictions "
             "WHERE resolved_at IS NULL "
-            "AND methodology_version != 'v0' "
+            f"AND {storage.substance_predictions_filter()} "
             "AND target_date <= date('now', '+28 days')",
             tag="morning_brief.predictions_due_in_window",
             fetch="one",
@@ -243,7 +243,7 @@ def _kpi_timer_section():
             conn,
             "SELECT COUNT(*) AS n FROM predictions "
             "WHERE resolved_at IS NOT NULL AND outcome != 'neutral' "
-            "AND methodology_version != 'v0' "
+            f"AND {storage.substance_predictions_filter()} "
             "AND datetime(resolved_at) >= datetime('now', '-30 days')",
             tag="morning_brief.predictions_resolved_30d",
             fetch="one",
@@ -252,7 +252,7 @@ def _kpi_timer_section():
         row = query(
             conn,
             "SELECT MIN(target_date) AS earliest FROM predictions "
-            "WHERE resolved_at IS NULL AND methodology_version != 'v0'",
+            f"WHERE resolved_at IS NULL AND {storage.substance_predictions_filter()}",
             tag="morning_brief.earliest_unresolved_target",
             fetch="one",
         )

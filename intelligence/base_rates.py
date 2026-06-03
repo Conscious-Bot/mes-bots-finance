@@ -37,6 +37,8 @@ import math
 import sqlite3
 from typing import Any
 
+from shared import storage
+
 log = logging.getLogger(__name__)
 
 MIN_N_PER_BUCKET = 10
@@ -105,7 +107,7 @@ def get_empirical_base_rate(
         FROM predictions
         WHERE resolved_at IS NOT NULL
           AND outcome IN ('correct', 'incorrect')
-          AND methodology_version != 'v0'
+          AND {storage.substance_predictions_filter()}
           AND direction = ?
           AND horizon_days BETWEEN ? AND ?
           {where_signal}

@@ -15,6 +15,8 @@ V2-source-of-truth : signal_scorer_v2 (cf memoire scorer-v2-canonical).
 import logging
 from typing import Any
 
+from shared import storage
+
 log = logging.getLogger(__name__)
 
 # Seuils -- a re-tuner empiriquement post-aout quand N V2 suffisant
@@ -184,7 +186,7 @@ def check_horizon_diversification(cx, days: int = 60) -> dict[str, Any]:
     rows = cx.execute(
         "SELECT horizon_days FROM predictions "
         "WHERE created_at >= datetime('now', ?) "
-        "AND methodology_version != 'v0' "
+        f"AND {storage.substance_predictions_filter()} "
         "AND horizon_days IS NOT NULL",
         (f"-{days} days",),
     ).fetchall()

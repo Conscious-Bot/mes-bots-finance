@@ -23,6 +23,8 @@ import math
 import sqlite3
 from typing import Any
 
+from shared import storage
+
 
 def _wilson_ic95(n_correct: int, n_total: int) -> tuple[float, float]:
     """IC95 Wilson sur p = correct/total."""
@@ -99,7 +101,7 @@ def compute_thesis_track_record(
                    p.probability_at_creation, p.resolved_at
             FROM predictions p
             WHERE {base_cond}
-              AND p.methodology_version != 'v0'""",
+              AND {storage.substance_predictions_filter().replace('methodology_version', 'p.methodology_version')}""",
         params,
     ).fetchall()
 

@@ -88,6 +88,7 @@ def _fetch_state(months_brier_window: int = 6) -> dict:
     on retombe sur avg_cost pour cette ligne -- la note ne disparait pas
     pour un fetch rate.
     """
+    from shared import storage
     from shared.storage import db
 
     state: dict = {}
@@ -145,7 +146,7 @@ def _fetch_state(months_brier_window: int = 6) -> dict:
         pred_rows = cx.execute(
             "SELECT ticker, brier_score FROM predictions "
             "WHERE resolved_at IS NOT NULL AND resolved_at >= ? AND brier_score IS NOT NULL "
-            "AND methodology_version != 'v0'",
+            f"AND {storage.substance_predictions_filter()}",
             (bw_start,),
         ).fetchall()
         state["predictions_resolved"] = [{"ticker": r[0], "brier": r[1]} for r in pred_rows]

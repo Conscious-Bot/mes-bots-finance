@@ -155,6 +155,52 @@ def canonical_predictions_filter() -> str:
     return f"methodology_version NOT IN ({quoted})"
 
 
+# ─── ADR 014 § Substance tier (post-#97 hazard A fix) ─────────────────────────
+# Substance accounting : "toutes les predictions LLM reelles" pour scorer
+# inputs (base_rates, outcome_context), accounting operationnel (morning_brief,
+# v2_vigilance), per-thesis tracking (portfolio_grade, thesis_track_record),
+# et LLM-loop audit (render._loop). Inclut v1 archive + v2 canonical + futures
+# llm_v3 / ensemble_v1 / etc. EXCLUT :
+#   - v0 (cohorte quarantine 12/05)
+#   - rule_v1_shadow (non-LLM challenger paired ; pollute analogues + base rates)
+#   - rule_v1_fallback (non-LLM plancher ; pollute le meme)
+# Pre-fix : ces surfaces utilisaient `methodology_version != 'v0'` (denylist
+# implicite). Quand rule_v1_* shippe (#94/#96), serait silently swept dans
+# l'accounting -> contamination. Le filtre devient SOURCE UNIQUE comme
+# canonical_predictions_filter().
+
+SUBSTANCE_METHODOLOGY_EXCLUSIONS: tuple[str, ...] = (
+    "v0",                # quarantine
+    "rule_v1_shadow",    # non-LLM family : ne pas mixer dans LLM substance
+    "rule_v1_fallback",  # non-LLM family : ne pas mixer dans LLM substance
+)
+
+
+def substance_predictions_filter() -> str:
+    """Fragment SQL WHERE pour les surfaces de substance accounting LLM.
+
+    Inclut TOUTES les familles LLM (v1, v2, futures llm_v3...), exclut v0
+    quarantine + familles non-LLM (rule_v1_shadow/fallback). Strictement plus
+    large que canonical_predictions_filter() qui exclut aussi v1 archive.
+
+    Pattern d'usage : identique a canonical_predictions_filter(). Aucune
+    query consommatrice ne re-derive ce filtre.
+
+    Distinction avec canonical_filter (ADR 014 § Disambiguation rule) :
+      - canonical = forward-headline (track record public, KPI #2 forward,
+                    calibration audit). Brier publi-facing.
+      - substance = LLM-only working set (base_rates, outcome_context,
+                    portfolio_grade, thesis_track_record, v2_vigilance,
+                    morning_brief, render._loop).
+
+    Surface user-facing lookup (prediction_why /pred_why) reste sur le
+    `!= 'v0'` direct car l'utilisateur veut retrouver TOUTE prediction faite
+    sur un ticker (y compris shadow/fallback) avec leur provenance.
+    """
+    quoted = ", ".join(f"'{v}'" for v in SUBSTANCE_METHODOLOGY_EXCLUSIONS)
+    return f"methodology_version NOT IN ({quoted})"
+
+
 def brier_by_methodology(methodology_version: str) -> dict:
     """Stats Brier pour UNE famille de predicteur (resolved, scored, raw avg, dedup avg).
 
