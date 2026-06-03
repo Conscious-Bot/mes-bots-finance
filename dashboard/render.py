@@ -250,12 +250,19 @@ def _tbar(
     parts = [f'<div class="{cls}"' + (f' title="{title}"' if title else "") + ">"]
     # Stop/target ends pour axes signature (red gauche, green droite)
     if stop_target_ends:
-        parts.append('<div class="tbar-tick stop" style="left:0%"></div>')
-        parts.append('<div class="tbar-tick target" style="left:100%"></div>')
-    for tp, tlbl in (ticks or []):
+        parts.append('<div class="tbar-tick stop" style="left:0%" title="stop"></div>')
+        parts.append('<div class="tbar-tick target" style="left:100%" title="target"></div>')
+    for tick in (ticks or []):
+        # Backward-compat : (pos, label) ou (pos, label, style)
+        if len(tick) == 3:
+            tp, tlbl, tstyle = tick
+        else:
+            tp, tlbl = tick
+            tstyle = ""
         tp = max(0.0, min(100.0, tp))
         tt = f' title="{tlbl}"' if tlbl else ""
-        parts.append(f'<div class="tbar-tick" style="left:{tp:.1f}%"{tt}></div>')
+        tcls = "tbar-tick" + (f" {tstyle}" if tstyle else "")
+        parts.append(f'<div class="{tcls}" style="left:{tp:.1f}%"{tt}></div>')
     if dash_at is not None:
         da = max(0.0, min(100.0, dash_at))
         parts.append(f'<div class="tbar-tick dash" style="left:{da:.1f}%"></div>')
@@ -4579,7 +4586,10 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             _g_dot_cls = "bear" if _g_pos < 25 else ("acc" if _g_pos > 75 else "")
             gauge_html = _tbar(
                 _g_pos,
-                ticks=[(g["target_tick"], "target")],
+                ticks=[
+                    (0.0, "stop", "stop"),
+                    (g["target_tick"], "target", "target"),
+                ],
                 dot_color=_g_dot_cls,
                 title=f'stop {-g["dn"]:.0f}% / target +{g["up"]:.0f}%',
                 extra_class="row-bar",
@@ -5107,11 +5117,12 @@ def render() -> Path:
                 profit_chip = '<span class="th-pt">target hit</span>'
         # Target tick marker at 100/150 = 66.67% of visual width
         target_tick_pct = 100.0 / VISUAL_MAX * 100
+        # Signature axis : stop tick a 0%, target tick green a target_tick_pct,
+        # zone overshoot au-dela. Texte stop/target supprime (user 03/06).
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
-            f'{_tbar(visual_pct, ticks=[(target_tick_pct, "target")], dot_color=("acc" if visual_pct > 75 else ("bear" if visual_pct < 25 else "")), title=f"progress {frac_raw:.0f}%")}'
-            f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
-            f'<span class="th-tgt">target +{a["up"]:.0f}%</span></div></div>'
+            f'{_tbar(visual_pct, ticks=[(0.0, "stop", "stop"), (target_tick_pct, "target", "target")], dot_color=("acc" if visual_pct > 75 else ("bear" if visual_pct < 25 else "")), title=f"progress {frac_raw:.0f}%")}'
+            + '</div>'
         )
 
     gain = "".join(_axisrow(tk) for tk in _targets) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
