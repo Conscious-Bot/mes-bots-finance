@@ -129,9 +129,9 @@
      flashy". 3 hues : data blue (focus/accent) + green (gain) + red (loss).
      Tons sobres dense-friendly (Tailwind 700 family), pas neon. */
   --data:  #2D5BFF;   /* bleu encre canonical -- accent focus */
-  --acc:   #15803D;   /* green-700 sobre, was #16C055 flashy */
-  --acc2:  #15803D;
-  --bear:  #B53729;   /* brick red orange-tinged (user 02/06 iter img Hue cookies) */
+  --acc:   #16A34A;   /* green-600 flashy (bump 03/06 user "a bit more flashy green") */
+  --acc2:  #16A34A;
+  --bear:  #DC2626;   /* red-600 flashy fintech action-trigger (bump 03/06 user "same flashy red partout") */
   --warn:  #A16207;   /* amber-700 sobre, ochre vigilance */
   --gold:  #A16207;   /* alias warn (1 spark spec) */
 
@@ -207,10 +207,10 @@ body.midnight {
   --line2: #2B313A;
   --line3: #3F4754;
   --data:  #5B7DFF;   /* bleu encre lift pour contraste sombre */
-  --acc:   #22C55E;   /* green-500 dark mode (more luminance needed) */
-  --acc2:  #22C55E;
+  --acc:   #4ADE80;   /* green-400 dark flashy (bump 03/06) */
+  --acc2:  #4ADE80;
   --id:    #E6E8EB;
-  --bear:  #C7464A;   /* wine lift pour contraste dark mode (was #EF4444 neon) */
+  --bear:  #EF4444;   /* red-500 dark flashy (bump 03/06 user "same flashy red") */
   --warn:  #F59E0B;   /* amber-500 dark mode */
   --gold:  #F59E0B;
   --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
