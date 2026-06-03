@@ -352,21 +352,13 @@ def chat(
                 messages, tier="synthesize", max_tokens=4000, system=system_with_ctx,
             )
     except llm.LLMUnavailableError as e:
-        # #93 Composant A : reponse propre, pas stack trace ni silence.
-        # La reponse degradee riche (templates + BGE analogs) = #94.
+        # #93 Composant A : MARQUEUR SEC sur slot SYNTHESIZED en panne
+        # (degraded_restitution_contract). Aucune prose qui imite le
+        # raisonnement. Pas de "le copilot pense que...", pas de fiche
+        # fabriquee. Label seul + provenance.
         err_msg = f"LLM unavailable ({e.reason})"
         log.error(f"chat LLM unavailable: {e.upstream_msg[:150]}")
-        if e.reason == "credit_exhausted":
-            reply_text = (
-                "LLM indisponible (credits Anthropic epuises). "
-                "Le copilot revient quand l'API est rechargee. "
-                "En attendant : /brief Telegram pour les faits structures."
-            )
-        else:
-            reply_text = (
-                f"LLM indisponible ({e.reason}). "
-                f"Reessaie dans quelques minutes."
-            )
+        reply_text = f"⦿ synthèse indisponible (LLM · {e.reason})"
     except Exception as e:
         err_msg = f"{type(e).__name__}: {e}"
         log.error(f"chat failed: {err_msg}")

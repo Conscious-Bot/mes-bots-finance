@@ -529,9 +529,9 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
         except Exception as e:
             last_err = e
     if llm_unavailable is not None:
-        # Mode dégradé minimal : on retourne les faits déjà collectés (prix,
-        # data brutes) avec un marker explicite. La synthèse dégradée riche
-        # (templates + BGE analogs) sera ajoutée en #94.
+        # MARQUEUR SEC (degraded_restitution_contract) : slot SYNTHESIZED
+        # en panne -> label seul, aucune prose qui imite la pensee.
+        # data brutes (COMPUTED) restent disponibles pour le caller.
         return {
             "ticker": data.get("ticker"),
             "data": data,
@@ -539,10 +539,7 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
             "cached": False,
             "llm_unavailable": True,
             "llm_unavailable_reason": llm_unavailable.reason,
-            "error": (
-                f"LLM indisponible ({llm_unavailable.reason}). "
-                "Faits bruts retournes, synthese reportee a recovery."
-            ),
+            "marker": f"⦿ synthèse indisponible (LLM · {llm_unavailable.reason})",
         }
     if not synthesis:
         return {"error": f"LLM call failed: {last_err}", "data": data}
