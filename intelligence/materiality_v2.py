@@ -87,6 +87,12 @@ def score_materiality_structured(
             "time_to_realization": time,
             "reasoning": data.get("reasoning", "")[:300],
         }
+    except llm.LLMUnavailableError:
+        # #93 Composant A : LLM upstream indisponible (credit / 429). JAMAIS de
+        # default silencieux. On laisse remonter l'exception : le caller
+        # (recompute_materiality_for_recent_signals) la catch + marque
+        # scoring_status='pending_llm' sur le signal pour retry.
+        raise
     except json.JSONDecodeError as e:
         log.warning(f"materiality_v2 JSON decode failed: {e}")
         return None
@@ -132,11 +138,33 @@ def persist_breakdown(signal_id: int, breakdown: dict[str, Any]) -> None:
         conn.close()
 
 
-def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
-    """Cron: score signals where impact_magnitude IS NULL. Returns counts."""
+def _mark_pending_llm(signal_id: int) -> None:
+    """#93 Composant A2 : marque scoring_status='pending_llm' pour retry quand API up."""
     import sqlite3
 
     from shared import storage
+
+    conn = sqlite3.connect(storage._DB_PATH)
+    try:
+        conn.execute(
+            "UPDATE signals SET scoring_status='pending_llm' WHERE id=?",
+            (int(signal_id),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
+    """Cron: score signals where impact_magnitude IS NULL. Returns counts.
+
+    #93 (03/06) : sur LLMUnavailableError, marque scoring_status='pending_llm'
+    + break la boucle (inutile de bruler les autres signaux quand l'API dit
+    non). JAMAIS de drop silencieux. Le drain job futur reprend les pending.
+    """
+    import sqlite3
+
+    from shared import llm, storage
 
     conn = sqlite3.connect(storage._DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -146,6 +174,7 @@ def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
             "       COALESCE(src.credibility, 0.5) AS cred "
             "FROM signals s LEFT JOIN sources src ON s.source_id = src.id "
             "WHERE s.impact_magnitude IS NULL "
+            "  AND s.scoring_status != 'pending_llm' "
             "ORDER BY s.timestamp DESC LIMIT ?",
             (int(limit),),
         ).fetchall()
@@ -153,6 +182,7 @@ def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
         conn.close()
     scored = 0
     failed = 0
+    pending_llm = 0
     for r in rows:
         entities = []
         try:
@@ -160,11 +190,35 @@ def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
                 entities = json.loads(r["entities"])
         except Exception as e:
             log.debug(f"Materiality entities parse failed (non-blocking): {e}")
-        breakdown = score_materiality_structured(r["title"], r["summary"], r["content"], entities, r["cred"])
+        try:
+            breakdown = score_materiality_structured(r["title"], r["summary"], r["content"], entities, r["cred"])
+        except llm.LLMUnavailableError as e:
+            _mark_pending_llm(r["id"])
+            pending_llm += 1
+            log.error(
+                f"materiality_v2 LLM unavailable ({e.reason}) -- signal {r['id']} "
+                f"marque pending_llm. Stop boucle, reprise quand API up."
+            )
+            # Marque les restants comme pending_llm aussi (inutile de tenter)
+            for remaining in rows[rows.index(r) + 1 :]:
+                _mark_pending_llm(remaining["id"])
+                pending_llm += 1
+            break
         if breakdown:
             persist_breakdown(r["id"], breakdown)
+            # Ligne deja a 'scored' via persist_breakdown via update si on l'ajoute la,
+            # mais on garde le marquage explicite ici pour clarte.
+            conn = sqlite3.connect(storage._DB_PATH)
+            try:
+                conn.execute("UPDATE signals SET scoring_status='scored' WHERE id=?", (int(r["id"]),))
+                conn.commit()
+            finally:
+                conn.close()
             scored += 1
         else:
             failed += 1
-    log.info(f"materiality_v2: {scored} scored, {failed} failed of {len(rows)}")
+    log.info(
+        f"materiality_v2: {scored} scored, {failed} failed, "
+        f"{pending_llm} pending_llm of {len(rows)}"
+    )
     return scored, failed, len(rows)

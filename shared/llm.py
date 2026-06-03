@@ -86,6 +86,106 @@ class CostCapExceeded(RuntimeError):
     """
 
 
+class LLMUnavailableError(RuntimeError):
+    """#93 Composant A : LLM provider indisponible (credit_exhausted ou rate_limited).
+
+    Distincte de CostCapExceeded (decision locale) : ici c'est l'UPSTREAM
+    qui dit non. Les consommateurs doivent attraper cette exception
+    explicitement, logger en ERROR, et marquer l'item pending_llm.
+
+    Spec user 03/06 : "JAMAIS default=0.5, JAMAIS drop silencieux
+    (lecon tennis-bot). Le bug '28/28 failed en silence' doit devenir
+    impossible."
+
+    Attributes:
+        reason: 'credit_exhausted' (400 + credit balance too low) ou
+                'rate_limited' (429).
+        retry_after: seconds si serveur a renvoye Retry-After (429), sinon None.
+        upstream_msg: message brut de l'API pour debug.
+    """
+
+    def __init__(self, reason: str, upstream_msg: str = "", retry_after: int | None = None):
+        self.reason = reason
+        self.retry_after = retry_after
+        self.upstream_msg = upstream_msg
+        super().__init__(f"LLM unavailable ({reason}): {upstream_msg[:200]}")
+
+
+def set_llm_status(status: str, reason: str | None = None) -> None:
+    """Ecrit l'etat global du LLM dans bot_state.json (visible par dashboard / Telegram).
+
+    Etats canoniques :
+    - 'healthy'  : derniere call() reussie, pas de signe degradation.
+    - 'degraded' : LLMUnavailableError recente (credit_exhausted / rate_limited).
+    - 'down'     : persistance prolongee (gere par 1B avec debounce, pas ici).
+
+    1A : on bascule juste healthy <-> degraded sur les call() / catch.
+    Le passage degraded -> down ainsi que les alertes Telegram = 1B.
+    """
+    from datetime import UTC, datetime
+
+    from shared import storage
+
+    try:
+        s = storage.load_state()
+    except Exception:
+        s = {}
+    if s.get("llm_status") == status and s.get("llm_status_reason") == reason:
+        return  # no-op si pas de transition (evite churn write)
+    s["llm_status"] = status
+    s["llm_status_since"] = datetime.now(UTC).isoformat()
+    s["llm_status_reason"] = reason
+    import contextlib
+    with contextlib.suppress(Exception):
+        storage.save_state(s)  # fail-open : ne pas casser l'appel LLM si bot_state ecriture echoue
+
+
+def get_llm_status() -> dict[str, Any]:
+    """Retourne {status, since, reason}. Defaut healthy si jamais ecrit."""
+    from shared import storage
+
+    try:
+        s = storage.load_state()
+    except Exception:
+        s = {}
+    return {
+        "status": s.get("llm_status", "healthy"),
+        "since": s.get("llm_status_since"),
+        "reason": s.get("llm_status_reason"),
+    }
+
+
+def _classify_anthropic_error(e: Exception) -> LLMUnavailableError | None:
+    """Detecte credit_exhausted / rate_limited dans une exception Anthropic.
+
+    Strategie : status_code first (le plus stable), fallback sur substring
+    match du message (Anthropic peut renvoyer 400 avec un message specifique
+    "credit balance too low" pour distinguer du 400-malformed-request).
+
+    Returns LLMUnavailableError mappe, ou None si l'exception n'est PAS
+    une indispo upstream (laisser remonter telle quelle : parse, network,
+    autres).
+    """
+    msg = str(e)
+    status = getattr(e, "status_code", None)
+    if status is None:
+        # anthropic SDK : APIError.response.status_code
+        resp = getattr(e, "response", None)
+        if resp is not None:
+            status = getattr(resp, "status_code", None) or getattr(resp, "status", None)
+    msg_low = msg.lower()
+    if "credit balance is too low" in msg_low or "credit balance too low" in msg_low:
+        return LLMUnavailableError("credit_exhausted", upstream_msg=msg)
+    if status == 429 or "rate limit" in msg_low or "too many requests" in msg_low:
+        retry_after = None
+        for token in msg.split():
+            if token.isdigit() and 1 <= int(token) <= 86400:
+                retry_after = int(token)
+                break
+        return LLMUnavailableError("rate_limited", upstream_msg=msg, retry_after=retry_after)
+    return None
+
+
 def _get_cost_usage_24h() -> float:
     """Cost USD cumule sur les 24 dernieres heures depuis llm_calls."""
     try:
@@ -182,9 +282,14 @@ def call(
             in_tok = getattr(usage, "input_tokens", 0) or 0
             out_tok = getattr(usage, "output_tokens", 0) or 0
             cached_tok = getattr(usage, "cache_read_input_tokens", 0) or 0
+        set_llm_status("healthy", reason=None)  # success path : recover
         return text
     except Exception as e:
         error = f"{type(e).__name__}: {str(e)[:200]}"
+        unavailable = _classify_anthropic_error(e)
+        if unavailable is not None:
+            set_llm_status("degraded", reason=unavailable.reason)
+            raise unavailable from e
         raise
     finally:
         elapsed_ms = int((time.time() - t0) * 1000)
@@ -239,9 +344,14 @@ def call_multiturn(
             in_tok = getattr(usage, "input_tokens", 0) or 0
             out_tok = getattr(usage, "output_tokens", 0) or 0
             cached_tok = getattr(usage, "cache_read_input_tokens", 0) or 0
+        set_llm_status("healthy", reason=None)  # success path : recover
         return text
     except Exception as e:
         error = f"{type(e).__name__}: {str(e)[:200]}"
+        unavailable = _classify_anthropic_error(e)
+        if unavailable is not None:
+            set_llm_status("degraded", reason=unavailable.reason)
+            raise unavailable from e
         raise
     finally:
         elapsed_ms = int((time.time() - t0) * 1000)

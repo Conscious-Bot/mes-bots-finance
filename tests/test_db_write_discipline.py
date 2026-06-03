@@ -31,6 +31,7 @@ ALLOWED_FILES = {
     "intelligence/bias_events.py",  # User Bias Detector v2.c (01/06) : open_candidate / resolve_due_bias_events / wire_bias_trigger / backfill_resolved_observations -- table dediee bias_events, cron. Pattern identique a price_monitor / debt_monitor.
     "intelligence/lock_in_detector.py",  # Surface 2 lock_in v2.c.6 (01/06) : detect_winner_sell hook positions.add_sell (L7 post-commit), update bias_events.position_event_id FK. Cron-equivalent (declenche par add_sell, pas par scheduler).
     "intelligence/calibration_audit.py",  # Calibration audit credibility recal (cron weekly) : UPDATE sources SET credibility=? -- pattern materiality_v2 / debt_monitor cron.
+    "intelligence/learning.py",  # #93 Composant A2 (03/06) : UPDATE signals SET scoring_status='pending_llm' sur LLMUnavailableError dans la boucle V2 batch. Pattern materiality_v2 / debt_monitor cron.
     "bot/main.py",  # telemetrie handler_calls
     "bot/handlers/misc.py",  # edition champs these
 }

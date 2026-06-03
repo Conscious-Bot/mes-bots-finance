@@ -205,6 +205,11 @@ def score_directional_probability(
             "direction": direction,
             "reasoning": (data.get("reasoning") or "")[:500],
         }
+    except llm.LLMUnavailableError:
+        # #93 Composant A : LLM upstream indisponible -- laisse remonter pour
+        # que le caller marque scoring_status='pending_llm' sur le signal.
+        # JAMAIS de drop silencieux (lecon tennis-bot, spec user 03/06).
+        raise
     except json.JSONDecodeError as e:
         log.warning(f"signal_scorer_v2 JSON decode failed for {ticker}: {e}")
         return None

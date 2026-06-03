@@ -14,7 +14,22 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
-from shared import math_helpers, prices, storage
+from shared import llm, math_helpers, prices, storage
+
+
+def _mark_signal_pending_llm(signal_id: int) -> None:
+    """#93 Composant A2 : marque scoring_status='pending_llm' pour retry quand API up."""
+    import sqlite3
+
+    conn = sqlite3.connect(storage._DB_PATH)
+    try:
+        conn.execute(
+            "UPDATE signals SET scoring_status='pending_llm' WHERE id=?",
+            (int(signal_id),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 log = logging.getLogger(__name__)
 
@@ -199,6 +214,22 @@ def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int =
                     entities=sig_entities,
                     source_name=None,  # explicite : source-credibility est une couche apres
                 )
+            except llm.LLMUnavailableError as _e:
+                # #93 Composant A : LLM upstream indisponible. Marque le signal
+                # pending_llm pour retry quand l'API revient, et break la boucle
+                # tickers (inutile de bruler le batch entier sur API down).
+                log.error(
+                    f"signal_scorer_v2 LLM unavailable ({_e.reason}) sig={sig_id} "
+                    f"ticker={tk} -- marquage pending_llm + abort batch"
+                )
+                _mark_signal_pending_llm(sig_id)
+                # Marque aussi les signaux restants du batch (eviter retry massif)
+                for _remaining in signals[signals.index(sig) + 1 :]:
+                    _rid = _remaining.get("id")
+                    if _rid:
+                        _mark_signal_pending_llm(_rid)
+                log.info(f"learning: stop batch (LLM down). Predictions enregistrees jusque-la : {len(registered)}")
+                return registered
             except Exception as e:
                 log.warning(f"signal_scorer_v2 failed for sig={sig_id} ticker={tk}: {e}")
                 v2 = None
