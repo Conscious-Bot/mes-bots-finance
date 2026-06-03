@@ -8,7 +8,7 @@ import importlib
 import json
 import re
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import yaml
@@ -4401,7 +4401,17 @@ _PERF_TTL = 840
 
 
 def _perf_dwm(ticker: str) -> dict:
-    # % jour / semaine / mois depuis closes journaliers (1 appel yfinance, cache TTL).
+    """% sur dernieres 24h / semaine / mois.
+
+    "d" = rolling 24h change (user 03/06 : "last 24 hours" pour Top movers).
+    Pour CRYPTO (24/7) : intraday 1h, derniere bougie vs ~24h en arriere.
+    Pour STOCKS : marche ferme nuit/WE, intraday 1h donne quand meme la
+    derniere session close vs ~24h calendar ago si dispo, sinon fallback
+    daily session change (close[-1] vs close[-2]) qui est l'approximation
+    canonique "Today" sur Yahoo/Robinhood.
+
+    "w" / "m" : daily closes, inchanges.
+    """
     import time
 
     now = time.monotonic()
@@ -4412,10 +4422,26 @@ def _perf_dwm(ticker: str) -> dict:
     try:
         import yfinance as yf
 
-        c = yf.Ticker(ticker).history(period="1mo", interval="1d")["Close"].dropna()
+        tk = yf.Ticker(ticker)
+        # Rolling 24h via intraday 1h (2 jours de donnees pour couvrir gap WE).
+        try:
+            ih = tk.history(period="2d", interval="1h")["Close"].dropna()
+            if len(ih) >= 2:
+                last_ts = ih.index[-1]
+                cutoff = last_ts - timedelta(hours=24)
+                # Plus ancien point >= cutoff (closest to 24h ago).
+                older = ih[ih.index <= cutoff]
+                ref = older.iloc[-1] if len(older) > 0 else ih.iloc[0]
+                last = float(ih.iloc[-1])
+                out["d"] = round((last / float(ref) - 1) * 100, 1)
+        except Exception:
+            pass
+        # Daily closes pour w / m + fallback "d" si intraday a echoue.
+        c = tk.history(period="1mo", interval="1d")["Close"].dropna()
         if len(c) >= 2:
             last = float(c.iloc[-1])
-            out["d"] = round((last / float(c.iloc[-2]) - 1) * 100, 1)
+            if out["d"] is None:
+                out["d"] = round((last / float(c.iloc[-2]) - 1) * 100, 1)
             out["m"] = round((last / float(c.iloc[0]) - 1) * 100, 1)
             if len(c) >= 6:
                 out["w"] = round((last / float(c.iloc[-6]) - 1) * 100, 1)
@@ -5352,10 +5378,10 @@ def render() -> Path:
         f'<div class="colhead"><span class="t">Closest to target</span></div>'
         f'<div class="card pad">{gain}</div>'
         # ── BLOC 2 : MOUVEMENT DU JOUR -- restaure 02/06 user (winners/losers %) ──
-        '<div class="vigie-sh" data-tip="Today\'s biggest intraday movers (vs prior close)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>Today&rsquo;s movers</div>'
+        '<div class="vigie-sh" data-tip="Biggest movers over the last 24 hours (rolling, intraday-based when available)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>Last 24h movers</div>'
         f'<div class="cols">'
-        f'<div class="col"><div class="colhead"><span class="t">Top winners</span><span class="a">vs prior close</span></div><div class="card pad">{_day_up}</div></div>'
-        f'<div class="col"><div class="colhead"><span class="t">Top losers</span><span class="a">vs prior close</span></div><div class="card pad">{_day_dn}</div></div>'
+        f'<div class="col"><div class="colhead"><span class="t">Top winners</span><span class="a">last 24h</span></div><div class="card pad">{_day_up}</div></div>'
+        f'<div class="col"><div class="colhead"><span class="t">Top losers</span><span class="a">last 24h</span></div><div class="card pad">{_day_dn}</div></div>'
         f'</div>'
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         '<div class="vigie-sh" data-tip="Book positions to review first: critical margins (stop &lt; 10%), at_risk kill_criteria zones, blind vol."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
