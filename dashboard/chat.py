@@ -352,13 +352,14 @@ def chat(
                 messages, tier="synthesize", max_tokens=4000, system=system_with_ctx,
             )
     except llm.LLMUnavailableError as e:
-        # #93 Composant A : MARQUEUR SEC sur slot SYNTHESIZED en panne
-        # (degraded_restitution_contract). Aucune prose qui imite le
-        # raisonnement. Pas de "le copilot pense que...", pas de fiche
-        # fabriquee. Label seul + provenance.
+        # #93 Composant A + #94 Phase 4 : MARQUEUR SEC via la source unique
+        # dashboard.restitution (degraded_restitution_contract). Aucune prose
+        # qui imite le raisonnement.
+        from dashboard.restitution import format_llm_unavailable_marker
+
         err_msg = f"LLM unavailable ({e.reason})"
         log.error(f"chat LLM unavailable: {e.upstream_msg[:150]}")
-        reply_text = f"⦿ synthèse indisponible (LLM · {e.reason})"
+        reply_text = format_llm_unavailable_marker(e.reason, surface="synthèse")
     except Exception as e:
         err_msg = f"{type(e).__name__}: {e}"
         log.error(f"chat failed: {err_msg}")

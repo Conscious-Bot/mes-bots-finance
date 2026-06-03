@@ -529,9 +529,11 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
         except Exception as e:
             last_err = e
     if llm_unavailable is not None:
-        # MARQUEUR SEC (degraded_restitution_contract) : slot SYNTHESIZED
-        # en panne -> label seul, aucune prose qui imite la pensee.
-        # data brutes (COMPUTED) restent disponibles pour le caller.
+        # MARQUEUR SEC (degraded_restitution_contract) via source unique
+        # dashboard.restitution. data brutes (COMPUTED) restent disponibles
+        # pour le caller -- on n'efface QUE le slot SYNTHESIZED.
+        from dashboard.restitution import format_llm_unavailable_marker
+
         return {
             "ticker": data.get("ticker"),
             "data": data,
@@ -539,7 +541,9 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
             "cached": False,
             "llm_unavailable": True,
             "llm_unavailable_reason": llm_unavailable.reason,
-            "marker": f"⦿ synthèse indisponible (LLM · {llm_unavailable.reason})",
+            "marker": format_llm_unavailable_marker(
+                llm_unavailable.reason, surface="synthèse"
+            ),
         }
     if not synthesis:
         return {"error": f"LLM call failed: {last_err}", "data": data}
