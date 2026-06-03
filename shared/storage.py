@@ -123,6 +123,85 @@ def seed_narratives(narratives_config: list[dict[str, Any]]) -> None:
 
 import sqlite3 as _sqlite3
 
+# ─── ADR 014 -- Ledger segmentation par methodology_version ───────────────────
+# Canonique = familles de predicteurs incluses dans Brier headline / KPI #3 /
+# calibration. Le reste (v0, v1 archives, rule_v1_shadow paired, rule_v1_fallback
+# plancher degrade) est mesure separement via brier_by_methodology(version).
+# Source unique : aucune query consommatrice ne re-derive ces filtres.
+
+CANONICAL_METHODOLOGY_EXCLUSIONS: tuple[str, ...] = (
+    "v0",                # cohorte quarantine 12/05 (horizon=30 hardcode)
+    "v1",                # pre-pivot mono-bucket
+    "rule_v1_shadow",    # challenger paired -- mesure delta vs LLM, hors headline
+    "rule_v1_fallback",  # plancher degrade LLM down, mesure separement
+)
+
+
+def canonical_predictions_filter() -> str:
+    """Fragment SQL WHERE qui exclut les methodologies non-canoniques.
+
+    Pattern d'usage :
+        sql = f"SELECT * FROM predictions WHERE resolved_at IS NOT NULL "
+              f"AND {canonical_predictions_filter()}"
+        rows = conn.execute(sql).fetchall()
+
+    Tous les consommateurs canoniques (KPI #2 morning_brief, KPI #3 calibration,
+    J-day batch, panneau vigie calibration, monthly_track_record) doivent passer
+    par ce fragment. Aucune SQL parallele.
+
+    ADR 014. Source unique. Ne pas dupliquer.
+    """
+    quoted = ", ".join(f"'{v}'" for v in CANONICAL_METHODOLOGY_EXCLUSIONS)
+    return f"methodology_version NOT IN ({quoted})"
+
+
+def brier_by_methodology(methodology_version: str) -> dict:
+    """Stats Brier pour UNE famille de predicteur (resolved, scored, raw avg, dedup avg).
+
+    Utilise pour /shadow_compare, /methodology_status, et tout readout qui veut
+    un Brier d'une famille separement (ex : 'rule_v1_shadow' pour mesurer le
+    baseline determinist vs LLM canonique 'v2').
+
+    Returns {n_total, n_scored, n_correct, n_incorrect, n_neutral,
+             brier_raw_avg, brier_dedup_avg, dedup_ratio}.
+    """
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT id, ticker, direction, outcome, brier_score, signal_id "
+            "FROM predictions "
+            "WHERE methodology_version = ? AND resolved_at IS NOT NULL",
+            (methodology_version,),
+        ).fetchall()
+    if not rows:
+        return {
+            "methodology_version": methodology_version,
+            "n_total": 0, "n_scored": 0, "n_correct": 0, "n_incorrect": 0,
+            "n_neutral": 0, "brier_raw_avg": None, "brier_dedup_avg": None,
+            "dedup_ratio": None,
+        }
+    n_total = len(rows)
+    n_correct = sum(1 for r in rows if r["outcome"] == "correct")
+    n_incorrect = sum(1 for r in rows if r["outcome"] == "incorrect")
+    n_neutral = n_total - n_correct - n_incorrect
+    briers = [r["brier_score"] for r in rows if r["brier_score"] is not None]
+    clusters: dict[tuple, list[float]] = {}
+    for r in rows:
+        if r["brier_score"] is None:
+            continue
+        k = (r["signal_id"], r["ticker"], r["direction"])
+        clusters.setdefault(k, []).append(r["brier_score"])
+    cluster_briers = [sum(v) / len(v) for v in clusters.values()]
+    avg_raw = sum(briers) / len(briers) if briers else None
+    avg_dedup = sum(cluster_briers) / len(cluster_briers) if cluster_briers else None
+    dedup_ratio = (len(briers) / len(clusters)) if clusters else None
+    return {
+        "methodology_version": methodology_version,
+        "n_total": n_total, "n_scored": len(briers),
+        "n_correct": n_correct, "n_incorrect": n_incorrect, "n_neutral": n_neutral,
+        "brier_raw_avg": avg_raw, "brier_dedup_avg": avg_dedup,
+        "dedup_ratio": dedup_ratio,
+    }
+
 
 def get_open_positions() -> list[dict]:
     "Positions detenues (qty > 0). avg_cost en EUR (ADR 005)."
