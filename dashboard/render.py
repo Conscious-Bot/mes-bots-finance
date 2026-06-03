@@ -226,6 +226,8 @@ def _tbar(
     dash_at: float | None = None,
     title: str = "",
     extra_class: str = "",
+    stop_target_ends: bool = False,
+    hover_pct: bool = True,
 ) -> str:
     """Canonical track bar (#91 signature unifie 03/06/2026).
 
@@ -246,6 +248,10 @@ def _tbar(
     """
     cls = f"tbar {extra_class}".strip()
     parts = [f'<div class="{cls}"' + (f' title="{title}"' if title else "") + ">"]
+    # Stop/target ends pour axes signature (red gauche, green droite)
+    if stop_target_ends:
+        parts.append('<div class="tbar-tick stop" style="left:0%"></div>')
+        parts.append('<div class="tbar-tick target" style="left:100%"></div>')
     for tp, tlbl in (ticks or []):
         tp = max(0.0, min(100.0, tp))
         tt = f' title="{tlbl}"' if tlbl else ""
@@ -257,6 +263,8 @@ def _tbar(
         v = max(0.0, min(100.0, value_pct))
         dot_cls = f" {dot_color}" if dot_color else ""
         parts.append(f'<div class="tbar-dot{dot_cls}" style="left:{v:.1f}%"></div>')
+    if hover_pct:
+        parts.append('<div class="tbar-hover-tip"></div>')
     parts.append("</div>")
     return "".join(parts)
 
@@ -4229,7 +4237,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                # Dot color = zone (proche stop = bear, proche target = acc, milieu = neutre)
+                # Signature axis stop->target : ticks rouges/verts aux extremites,
+                # dot pour position, hover continu %. Pas de texte (user 03/06).
                 _frac = t["frac"]
                 _dot_cls = "bear" if _frac < 25 else ("acc" if _frac > 75 else "")
                 _dash = t["entry_frac"] if t.get("entry_frac") is not None else None
@@ -4239,11 +4248,10 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                         _frac,
                         dash_at=_dash,
                         dot_color=_dot_cls,
+                        stop_target_ends=True,
                         title=f"position {_frac:.1f}% entre stop et target",
                     )
-                    + '<div class="th-ends">'
-                    f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
-                    f'<span class="th-tgt">target +{t["d_tgt"]:.0f}%</span></div></div>'
+                    + '</div>'
                 )
             else:
                 bar = '<div class="th-na">incomplete price data</div>'
@@ -5547,6 +5555,8 @@ def render() -> Path:
         + _CTA_JS
         + "</script>"
         + "<script>(function(){var b=null;function isTyping(){var ta=document.getElementById('chat-input');if(ta&&ta.value.trim().length>0)return true;if(ta&&document.activeElement===ta)return true;return false;}function c(){if(isTyping())return;fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,1000);})();</script>"
+        # Hover continuous % sur les .tbar : displays the % under cursor.
+        + "<script>(function(){function wire(){document.querySelectorAll('.tbar').forEach(function(bar){var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;bar.dataset.tbarWired='1';bar.addEventListener('mousemove',function(e){var r=bar.getBoundingClientRect();if(r.width<=0)return;var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));tip.style.left=p.toFixed(1)+'%';tip.textContent=p.toFixed(0)+'%';});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});})();</script>"
         + "</body></html>"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)

@@ -23,14 +23,20 @@ _TH_CSS = """
      mask SVG losange. Pas de gradient (sauf cas signature ou les extremes
      ont vraiment un sens et le tick aux extremites le porte). Stripe/Linear.
      Anti-Robinhood (#103 invariant : motion encode le delta, pas l'excitation). */
-  .tbar { position:relative; width:100%; height:5px; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 6%,transparent); margin:var(--s2) 0; }
+  .tbar { position:relative; width:100%; height:5px; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 6%,transparent); margin:var(--s2) 0; cursor:default; }
   .tbar-tick { position:absolute; top:-2px; width:1.5px; height:9px; background:var(--ink); opacity:.7; border-radius:1px; pointer-events:none; }
   .tbar-tick.dash { background:transparent; border-left:1px dashed var(--steel); opacity:.55; width:0; }
+  /* Ticks colores extremites pour axes signature (stop -> target) */
+  .tbar-tick.stop { background:var(--bear); opacity:1; height:10px; top:-2.5px; width:2px; }
+  .tbar-tick.target { background:var(--acc); opacity:1; height:10px; top:-2.5px; width:2px; }
   .tbar-dot { position:absolute; top:50%; width:6px; height:6px; border-radius:50%; background:var(--ink); transform:translate(-50%,-50%); z-index:2; box-shadow:0 0 0 1px var(--bg); transition:left .25s ease-out; }
   .tbar-dot.acc { background:var(--acc); }
   .tbar-dot.warn { background:var(--warn); }
   .tbar-dot.bear { background:var(--bear); }
   .tbar-fill { position:absolute; left:0; top:0; height:100%; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 50%,transparent); transition:width .25s ease-out; }
+  /* Hover tooltip : % continu sous le curseur */
+  .tbar-hover-tip { position:absolute; bottom:11px; transform:translateX(-50%); background:var(--panel); border:1px solid var(--line2); border-radius:4px; padding:2px 7px; font:11px/1.2 var(--fm); color:var(--ink); pointer-events:none; white-space:nowrap; opacity:0; transition:opacity .12s; z-index:5; box-shadow:0 2px 6px -2px rgba(0,0,0,.15); }
+  .tbar:hover .tbar-hover-tip { opacity:1; }
   body.midnight .tbar { background:rgba(255,255,255,.05); }
   body.midnight .tbar-fill { background:color-mix(in srgb,var(--ink) 70%,transparent); }
   body.midnight .tbar-tick { background:rgba(255,255,255,.6); }
