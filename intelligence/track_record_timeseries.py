@@ -18,6 +18,8 @@ import sqlite3
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+from shared import storage
+
 
 def _date_range(total_days: int, step_days: int, end_date: date | None = None) -> list[date]:
     """Liste des dates ancrees (les end-of-period) du window total_days
@@ -58,7 +60,7 @@ def compute_brier_rolling_timeseries(
             "SELECT AVG(brier_score) AS b, COUNT(*) AS n, "
             "       SUM(CASE WHEN outcome='correct' THEN 1 ELSE 0 END) AS nc "
             "FROM predictions "
-            "WHERE methodology_version != 'v0' "
+            f"WHERE {storage.canonical_predictions_filter()} "
             "AND resolved_at >= ? AND resolved_at < ? "
             "AND brier_score IS NOT NULL "
             "AND outcome IN ('correct', 'incorrect')",
@@ -154,13 +156,13 @@ def compute_predictions_volume_timeseries(
         window_end = d.isoformat()
         row_c = cx.execute(
             "SELECT COUNT(*) FROM predictions "
-            "WHERE methodology_version != 'v0' "
+            f"WHERE {storage.canonical_predictions_filter()} "
             "AND baseline_date >= ? AND baseline_date < ?",
             (window_start, window_end),
         ).fetchone()
         row_r = cx.execute(
             "SELECT COUNT(*) FROM predictions "
-            "WHERE methodology_version != 'v0' "
+            f"WHERE {storage.canonical_predictions_filter()} "
             "AND resolved_at >= ? AND resolved_at < ?",
             (window_start, window_end),
         ).fetchone()

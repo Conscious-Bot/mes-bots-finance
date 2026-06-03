@@ -42,11 +42,16 @@ def _seed(
     resolved_at = (datetime.now(UTC) - timedelta(days=max(0, days_ago - 28))).isoformat()
     for brier, outcome in predictions:
         cx.execute(
+            # ADR 014 : compute_brier_by_source = forward-headline surface,
+            # filtre via canonical_predictions_filter() qui exclut v1. Les
+            # fixtures specifient methodology_version='v2' pour rester dans
+            # le scope canonique (sinon les inserts utilisent le DEFAULT 'v1'
+            # de la colonne et les tests renvoient 0).
             "INSERT INTO predictions (signal_id, ticker, direction, horizon_days, "
             "baseline_price, baseline_date, target_date, probability_at_creation, "
-            "brier_score, outcome, resolved_at) "
+            "brier_score, outcome, resolved_at, methodology_version) "
             "VALUES (?, 'NVDA', 'bullish', 28, 100.0, "
-            "?, ?, 0.65, ?, ?, ?)",
+            "?, ?, 0.65, ?, ?, ?, 'v2')",
             (sig_id,
              (datetime.now(UTC) - timedelta(days=days_ago)).date().isoformat(),
              (datetime.now(UTC) - timedelta(days=max(0, days_ago - 28))).date().isoformat(),
@@ -194,11 +199,12 @@ def test_includes_signals_without_source(migrated_db):
     )
     sig_id = cx.execute("SELECT last_insert_rowid()").fetchone()[0]
     cx.execute(
+        # ADR 014 : methodology_version='v2' explicit (cf docstring _seed).
         "INSERT INTO predictions (signal_id, ticker, direction, horizon_days, "
         "baseline_price, baseline_date, target_date, probability_at_creation, "
-        "brier_score, outcome, resolved_at) "
+        "brier_score, outcome, resolved_at, methodology_version) "
         "VALUES (?, 'X', 'bullish', 28, 100, '2026-05-01', '2026-05-29', "
-        "0.6, 0.15, 'correct', datetime('now', '-5 days'))",
+        "0.6, 0.15, 'correct', datetime('now', '-5 days'), 'v2')",
         (sig_id,),
     )
     cx.commit()

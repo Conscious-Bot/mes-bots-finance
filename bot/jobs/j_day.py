@@ -32,17 +32,30 @@ def _build_brier_telegram_msg(target_date: str) -> tuple[str, dict]:
     """
     from shared import storage
 
+    # ADR 014 § Archive-report rule : ce rapport est le wrapup V1.
+    # Son sujet = methodology_version='v1' EXPLICITEMENT. On n'applique PAS
+    # canonical_predictions_filter() ici (ce filtre exclut v1 et le rapport
+    # deviendrait un silent zero le 10/06 -- bug interdit par CONVENTIONS #6).
+    # canonical_filter sert UNIQUEMENT aux surfaces forward-headline
+    # (track record public, KPI #2 forward, calibration audit). Ce rapport
+    # est un archive-report sur une famille morte -> il cible la famille.
     with storage.db() as cx:
         rows = cx.execute(
             """SELECT id, ticker, direction, return_pct, outcome,
                       probability_at_creation, brier_score, signal_id
                FROM predictions
-               WHERE date(resolved_at) = ? AND resolved_at IS NOT NULL""",
+               WHERE date(resolved_at) = ? AND resolved_at IS NOT NULL
+                 AND methodology_version = 'v1'""",
             (target_date,),
         ).fetchall()
 
     if not rows:
-        return (f"J-day {target_date} : aucune prediction resolue ce jour.", {})
+        # Honest marker plutot que silent zero : on dit POURQUOI c'est vide.
+        return (
+            f"J-day {target_date} : aucune prediction V1 resolue ce jour. "
+            "(Archive V1 close. v2 pas encore demarre -> headline canonique a venir.)",
+            {},
+        )
 
     n = len(rows)
     n_correct = sum(1 for r in rows if r["outcome"] == "correct")
@@ -82,6 +95,7 @@ def _build_brier_telegram_msg(target_date: str) -> tuple[str, dict]:
     pct_corr = (n_correct / n * 100) if n else 0
     lines = [
         f"J-DAY BATCH {target_date}",
+        "Famille : V1 (transitional, exclue du headline canonique public)",
         f"N resolved: {n} ({n_correct}/{n_incorrect}/{n_neutral} = {pct_corr:.0f}% correct)",
     ]
     if avg_raw is not None:

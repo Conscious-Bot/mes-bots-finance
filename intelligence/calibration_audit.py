@@ -41,6 +41,8 @@ import logging
 import math
 from typing import Any
 
+from shared import storage
+
 log = logging.getLogger(__name__)
 
 # Seuils discipline
@@ -103,7 +105,7 @@ def _get_resolved_predictions(cx, days: int | None = None) -> list[dict]:
             "WHERE resolved_at IS NOT NULL "
             "AND brier_score IS NOT NULL "
             "AND probability_at_creation IS NOT NULL "
-            "AND methodology_version != 'v0' "
+            f"AND {storage.canonical_predictions_filter()} "
             "AND resolved_at >= datetime('now', ?) "
             "ORDER BY resolved_at DESC"
         )
@@ -116,7 +118,7 @@ def _get_resolved_predictions(cx, days: int | None = None) -> list[dict]:
             "WHERE resolved_at IS NOT NULL "
             "AND brier_score IS NOT NULL "
             "AND probability_at_creation IS NOT NULL "
-            "AND methodology_version != 'v0' "
+            f"AND {storage.canonical_predictions_filter()} "
             "ORDER BY resolved_at DESC"
         )
         rows = cx.execute(sql).fetchall()
@@ -145,8 +147,10 @@ def compute_brier_by_source(cx, days: int = 180) -> list[dict[str, Any]]:
     signal-to-noise faible. La metrique est diagnostique, pas autoritaire
     -- a contextualiser avec evidence_strength dans scoring_trace_json.
     """
+    # ADR 014 : filter canonique reutilise (alias p. -> on remplace 'methodology_version' par 'p.methodology_version')
+    _canonical_p = storage.canonical_predictions_filter().replace("methodology_version", "p.methodology_version")
     rows = cx.execute(
-        """SELECT
+        f"""SELECT
               COALESCE(s.name, '?') AS source_name,
               p.brier_score, p.outcome
            FROM predictions p
@@ -155,7 +159,7 @@ def compute_brier_by_source(cx, days: int = 180) -> list[dict[str, Any]]:
            WHERE p.resolved_at IS NOT NULL
              AND p.brier_score IS NOT NULL
              AND p.probability_at_creation IS NOT NULL
-             AND p.methodology_version != 'v0'
+             AND {_canonical_p}
              AND p.outcome IN ('correct', 'incorrect')
              AND p.resolved_at >= datetime('now', ?)
            ORDER BY p.resolved_at DESC""",

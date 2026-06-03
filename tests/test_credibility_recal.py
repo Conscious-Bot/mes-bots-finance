@@ -43,11 +43,13 @@ def _seed(
     resolved_at = (datetime.now(UTC) - timedelta(days=2)).isoformat()
     for outcome in (["correct"] * n_correct + ["incorrect"] * n_incorrect):
         cx.execute(
+            # ADR 014 : recalibrate_source_credibility consume canonical via
+            # compute_brier_by_source -> fixture force methodology_version='v2'.
             "INSERT INTO predictions (signal_id, ticker, direction, horizon_days, "
             "baseline_price, baseline_date, target_date, probability_at_creation, "
-            "brier_score, outcome, resolved_at) "
+            "brier_score, outcome, resolved_at, methodology_version) "
             "VALUES (?, 'NVDA', 'bullish', 28, 100.0, "
-            "'2026-05-01', '2026-05-29', 0.65, ?, ?, ?)",
+            "'2026-05-01', '2026-05-29', 0.65, ?, ?, ?, 'v2')",
             (sig_id, brier_per_pred, outcome, resolved_at),
         )
     cx.commit()

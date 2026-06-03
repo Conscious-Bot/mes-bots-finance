@@ -30,7 +30,9 @@ def test_build_brier_msg_empty_returns_no_resolution(migrated_db):
         mock_db.return_value.__enter__.return_value = sqlite3.connect(migrated_db)
         mock_db.return_value.__enter__.return_value.row_factory = sqlite3.Row
         msg, metrics = _build_brier_telegram_msg("2099-01-01")
-    assert "aucune prediction resolue" in msg
+    # ADR 014 disambiguation : J-day est un archive-report V1, marker honnete
+    # explicite (jamais silent zero) cf docs/adrs/014.
+    assert "aucune prediction V1 resolue" in msg
     assert metrics == {}
 
 

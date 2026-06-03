@@ -101,7 +101,9 @@ def test_empty_db_posture_insufficient(migrated_db):
         rec = compute_public_track_record(cx)
         assert rec["posture_global"] == "INSUFFICIENT_DATA"
         assert rec["predictions"]["n_resolved"] == 0
-        assert rec["predictions"]["brier_status"] == "INSUFFICIENT_DATA"
+        # ADR 014 disambiguation : DB vide (n_open==0 AND n_resolved==0) =
+        # PRE_LAUNCH explicite ("v2 pas demarre"), pas INSUFFICIENT_DATA muet.
+        assert rec["predictions"]["brier_status"] == "PRE_LAUNCH"
         assert rec["theses"]["n_active"] == 0
     finally:
         cx.close()

@@ -252,10 +252,12 @@ def _kpi_compute_all():
         }
 
     # KPI #2: predictions résolues 28d (target ≥5) + forecast 28d ahead
+    # ADR 014 : filter canonique pour exclure v0/v1/rule_v1_*.
+    from shared import storage as _stg_kpi
     r2 = conn.execute(
         "SELECT COUNT(*) AS resolved_28d FROM predictions "
         "WHERE resolved_at IS NOT NULL AND outcome != 'neutral' "
-        "AND methodology_version != 'v0' "
+        f"AND {_stg_kpi.canonical_predictions_filter()} "
         "AND resolved_at >= datetime('now', '-28 days')"
     ).fetchone()
     open_pred = conn.execute("SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL").fetchone()["n"]
@@ -267,6 +269,14 @@ def _kpi_compute_all():
     ).fetchone()["n"]
     target = 5
     n2 = r2["resolved_28d"]
+    # ADR 014 : detection "v2 pas encore demarre" pour eviter silent zero
+    # quand le compte canonique = 0 mais v1 substance existe.
+    v1_resolved_28d = conn.execute(
+        "SELECT COUNT(*) FROM predictions "
+        "WHERE resolved_at IS NOT NULL AND outcome != 'neutral' "
+        "AND methodology_version = 'v1' "
+        "AND resolved_at >= datetime('now', '-28 days')"
+    ).fetchone()[0]
     # Forecast at J+28: current resolutions in window won't all stay (rolling), but new ones come in
     # Simpler heuristic: projected = current + new resolutions expected in next 28d
     forecast_j28 = n2 + projected_28d  # upper bound
@@ -274,6 +284,11 @@ def _kpi_compute_all():
         s2 = "✅ GREEN"
     elif stuck > 0:
         s2 = f"🚨 RED — {stuck} predictions stuck (target date passé, resolve cron failing?)"
+    elif n2 == 0 and v1_resolved_28d > 0:
+        s2 = (
+            f"🔍 V2 NOT YET STARTED — {v1_resolved_28d} v1 archive resolved 28d "
+            "(hors headline canonique ADR 014). Headline v2 ouvre post-J-day 10/06."
+        )
     elif forecast_j28 >= target:
         s2 = f"⏳ ON TRACK — {projected_28d} resolutions dues in next 28d, forecast J+28: {forecast_j28}"
     elif n2 >= target * 0.6:

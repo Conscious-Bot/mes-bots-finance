@@ -17,6 +17,8 @@ import sqlite3
 from datetime import UTC, datetime
 from typing import Any
 
+from shared import storage
+
 
 def compute_public_track_record(
     cx: sqlite3.Connection,
@@ -59,7 +61,7 @@ def compute_public_track_record(
             "  SUM(CASE WHEN outcome='correct' THEN 1 ELSE 0 END) AS n_correct, "
             "  AVG(brier_score) AS brier_avg "
             "FROM predictions "
-            "WHERE methodology_version != 'v0' "
+            f"WHERE {storage.canonical_predictions_filter()} "
             "AND (resolved_at IS NULL OR resolved_at >= datetime('now', ?))",
             (f"-{rolling_days} days",),
         ).fetchone()
@@ -67,7 +69,11 @@ def compute_public_track_record(
         n_resolved = int(pred_row[1] or 0)
         n_correct = int(pred_row[2] or 0)
         brier_avg = float(pred_row[3]) if pred_row[3] is not None else None
-        if n_resolved < 5:
+        # ADR 014 § Honest-marker rule : N=0 sur canonique == v2 pas demarre.
+        # Surface PRE_LAUNCH explicite plutot que INSUFFICIENT_DATA muet.
+        if n_resolved == 0 and n_open == 0:
+            brier_status = "PRE_LAUNCH"
+        elif n_resolved < 5:
             brier_status = "INSUFFICIENT_DATA"
         elif brier_avg is not None and brier_avg <= 0.20:
             brier_status = "OK"

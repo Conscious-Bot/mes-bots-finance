@@ -2085,18 +2085,31 @@ def _track_record_panel() -> str:
 
         from statsmodels.stats.proportion import proportion_confint
 
+        from shared import storage as _stg
+
         cx = _sql.connect(_q.__globals__["DB_PATH"]) if "DB_PATH" in _q.__globals__ else _sql.connect("data/bot.db")
         rows = cx.execute(
             "SELECT outcome, brier_score FROM predictions "
             "WHERE resolved_at IS NOT NULL AND outcome IN ('correct','incorrect') "
-            "AND methodology_version != 'v0'"
+            f"AND {_stg.canonical_predictions_filter()}"
         ).fetchall()
         open_n = cx.execute(
             "SELECT COUNT(*) FROM predictions WHERE resolved_at IS NULL "
-            "AND methodology_version != 'v0'"
+            f"AND {_stg.canonical_predictions_filter()}"
         ).fetchone()[0]
         v0_n = cx.execute(
             "SELECT COUNT(*) FROM predictions WHERE methodology_version = 'v0'"
+        ).fetchone()[0]
+        # ADR 014 § Archive-report rule : on surface explicitement le compte
+        # V1 archive pour eviter la lecture "0 en attente" trompeuse quand
+        # 155 v1 sont en realite open mais hors headline canonique.
+        v1_resolved_n = cx.execute(
+            "SELECT COUNT(*) FROM predictions WHERE methodology_version = 'v1' "
+            "AND resolved_at IS NOT NULL"
+        ).fetchone()[0]
+        v1_open_n = cx.execute(
+            "SELECT COUNT(*) FROM predictions WHERE methodology_version = 'v1' "
+            "AND resolved_at IS NULL"
         ).fetchone()[0]
         cx.close()
     except Exception as e:
@@ -2122,7 +2135,13 @@ def _track_record_panel() -> str:
         ci_str = f"IC95% [{lo:.0%}, {hi:.0%}]"
     else:
         ci_str = "IC indisponible"
-    if n < MIN_CONCLUSIF:
+    if n == 0:
+        # ADR 014 : si canonical = 0, c'est parce que v2 n'a pas encore tire.
+        # On dit "pas encore demarre" explicitement, jamais silent zero.
+        _rate_cls, rate_verdict = "warn", (
+            "V2 pas encore d&eacute;marr&eacute; &mdash; v1 archive cl&ocirc;ture au batch 10/06"
+        )
+    elif n < MIN_CONCLUSIF:
         _rate_cls, rate_verdict = "warn", f"INSUFFISANT &mdash; N&lt;{MIN_CONCLUSIF} pour conclure"
     elif n_corr / n >= 0.55:
         _rate_cls, rate_verdict = "acc", "verdict provisoire favorable"
@@ -2189,10 +2208,13 @@ def _track_record_panel() -> str:
         f'<div class="tr-mfoot"><span class="mono">&mdash; &middot; N insuffisant</span>'
         f'<span class="tr-verdict">trace se construit post 10/06</span></div>'
         f'</div>'
-        # Pipeline state -- plat, honnete
+        # Pipeline state -- plat, honnete. ADR 014 : on surface v0 quarantine
+        # ET v1 archive separement pour eviter "0 en attente" trompeur.
         f'<div class="tr-pipe mono">'
-        f'<span><b>{n}</b> resolved(s)</span><span class="tr-sep">&middot;</span>'
-        f'<span><b>{open_n}</b> en attente (hors v0)</span><span class="tr-sep">&middot;</span>'
+        f'<span><b>{n}</b> resolved (canonique)</span><span class="tr-sep">&middot;</span>'
+        f'<span><b>{open_n}</b> en attente (canonique)</span><span class="tr-sep">&middot;</span>'
+        f'<span>+<b>{v1_resolved_n}/{v1_resolved_n + v1_open_n}</b> v1 archive</span>'
+        f'<span class="tr-sep">&middot;</span>'
         f'<span>+<b>{v0_n}</b> v0 quarantine</span><span class="tr-sep">&middot;</span>'
         f'<span>prochaine cohorte <b>10/06</b></span>'
         f'</div>'
@@ -4615,18 +4637,23 @@ def _discipline_biais_panel() -> str:
     # target_date <= 2026-06-10. User 01/06 critique : la query precedente
     # comptait TOUTES les V1 resolues, biais vers "5 du cluster" alors qu'none
     # n'est du batch 10/06. Cluster target = 35 predictions a J-day.
+    #
+    # ADR 014 § Archive-report rule : panneau archive-V1 explicite. On NE
+    # filtre PAS via canonical_predictions_filter() (qui exclut v1 -> 0/0).
+    # Le label "V1 (exclu du headline canonique)" est rendu plus bas pour
+    # eviter qu'un visiteur cite ce Brier comme track record canonique.
     n_cluster_total = _q(
         "SELECT COUNT(*) FROM predictions "
-        "WHERE methodology_version != 'v0' AND target_date <= '2026-06-10'"
+        "WHERE methodology_version = 'v1' AND target_date <= '2026-06-10'"
     )[0][0]
     n_resolved = _q(
         "SELECT COUNT(*) FROM predictions WHERE resolved_at IS NOT NULL "
-        "AND outcome != 'neutral' AND methodology_version != 'v0' "
+        "AND outcome != 'neutral' AND methodology_version = 'v1' "
         "AND target_date <= '2026-06-10'"
     )[0][0]
     brier_row = _q(
         "SELECT AVG(brier_score), COUNT(brier_score) FROM predictions "
-        "WHERE brier_score IS NOT NULL AND methodology_version != 'v0' "
+        "WHERE brier_score IS NOT NULL AND methodology_version = 'v1' "
         "AND resolved_at IS NOT NULL AND target_date <= '2026-06-10'"
     )[0]
     brier_avg, brier_n = brier_row[0], brier_row[1] or 0
@@ -4725,6 +4752,8 @@ def _discipline_biais_panel() -> str:
         + '<div class="ps-macro-meta">resolved predictions &middot; KPI #2 &ge;5</div>'
         + '</div>'
         + f'<div class="ps-cap">{_kpi2_cap} &middot; {_jday_str}</div>'
+        + '<div class="ps-cap" style="opacity:.65">V1 transitional &middot; '
+          'exclu du headline canonique public (ADR 014)</div>'
         + '</div>'
         + '<div class="ps-strate ps-grid">'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Probabilistic prediction calibration score. Mean (prob - outcome)^2. &lt; 0.20 good, &lt; 0.25 acceptable, &gt;= 0.25 to fix.">Brier mean</div><div class="ps-val {_brier_cls}">{_brier_str}</div><div class="ps-cap">{_brier_cap}</div></div>'

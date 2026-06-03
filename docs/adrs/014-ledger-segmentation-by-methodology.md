@@ -135,3 +135,21 @@ Sans cette ségrégation explicite, #94 et #96 contamineraient le ledger canoniq
 ## Future-self note
 
 Si une nouvelle famille de prédicteur arrive (ex: `llm_v3`, `embedding_v1`, `ensemble_v1`), **ajouter à `canonical_predictions_query()` EXCLUSIONS si non-canonique**, ou la migrer comme méthodologie canonique courante (déprécation explicite de `v2` documentée dans l'ADR successeur).
+
+## Disambiguation rule — Scope du filtre canonique (ajout 03/06)
+
+Question découverte pendant la migration consommateurs (#95 phase 2) : la session a brièvement appliqué `canonical_predictions_filter()` au rapport J-day batch 10/06. Or **le J-day est le wrapup de la famille V1** — y appliquer le filtre canonique (qui exclut V1) le transforme en silent zero "0 prédiction résolue" alors que 35 le sont. Bug interdit par CONVENTIONS #6 et la doctrine [[degraded_restitution_contract]].
+
+**Règle disambiguation explicite** :
+
+| Type de surface | Filtre méthodologie | Exemples |
+|---|---|---|
+| **Forward-headline public** (track record public, KPI #2 forward forecast, calibration audit) | `canonical_predictions_filter()` | `intelligence/track_record_aggregator.py`, `intelligence/track_record_timeseries.py`, `dashboard/render.py:_track_record_panel`, `bot/handlers/observability.py:kpi2`, `intelligence/calibration_audit.py` |
+| **Archive-report sur une famille spécifique** | `methodology_version = '<famille>'` explicite + provenance marker | `bot/jobs/j_day.py` (V1), `dashboard/render.py:_discipline_biais_panel` (V1 batch 10/06) |
+| **Substance accounting interne** (outils opérationnels, scorer inputs, internal audit) | `methodology_version != 'v0'` (exclut quarantine uniquement) | `intelligence/base_rates.py`, `intelligence/outcome_context.py`, `intelligence/v2_vigilance.py`, `intelligence/portfolio_grade.py`, `intelligence/thesis_track_record.py`, `intelligence/morning_brief.py`, `bot/handlers/prediction_why.py`, `dashboard/render.py:_loop` |
+
+**Principe** : "non-canonical" signifie **"pas dans le headline public"**, **jamais "invisible"**. Une famille archivée (V1, futur V2 → V3) garde son propre rapport explicite avec provenance marker `"famille X, exclue du headline canonique"`. Les surfaces de substance accounting voient toutes les familles non-quarantine pour ne pas trahir l'activité réelle.
+
+**Corollaire forward-headline N=0** : quand le filtre canonique retourne 0 (typiquement v2 pas encore tiré), la surface DOIT rendre **"v2 pas encore démarré"** explicitement (status `PRE_LAUNCH` dans aggregator, message clair dans le panneau), **jamais 0/0 muet**. Sinon on déplace le bug (B) du J-day vers le headline.
+
+**Future retirement (V2 → V3 someday)** : quand V2 sera déprécié vers V3, refaire cet exercice : ajouter V2 dans `CANONICAL_METHODOLOGY_EXCLUSIONS`, créer un V2-archive report explicite, garder `!= 'v0'` sur le substance accounting (qui inclura alors V2 + V3 actifs).
