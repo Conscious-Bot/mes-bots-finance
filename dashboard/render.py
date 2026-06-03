@@ -4134,19 +4134,11 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     med = sorted(t["conv"] for t in ths)[n // 2]
     c5_pct = dist[5] / n * 100
     infl = c5_pct > 20
-    maxc = max(dist.values()) or 1
 
-    # Bar chart neutre (gauge gradient + needle KILL 03/06 user : pas de
-    # semantique implicite vert=bon ; juste un compte par tier. Cf task #108.)
-    hist = '<div class="th-hist">'
-    for c in (5, 4, 3, 2, 1):
-        _pct_w = max(0.5, dist[c] / maxc * 100) if maxc > 0 else 0.5
-        hist += (
-            f'<div class="th-hbar"><span class="th-hlab">c{c}</span>'
-            f'<div class="th-htrack"><div class="th-hfill" style="width:{_pct_w:.1f}%"></div></div>'
-            f'<span class="th-hn">{dist[c]}</span></div>'
-        )
-    hist += "</div>"
+    # Distribution by conviction : inline string dans la strate hero
+    # (panel separe + bar chart elimines 03/06 user : pas de panel-pour-5-counts.
+    # L'info vit dans le foot de la strate Convictions, point.)
+    _dist_inline = " &middot; ".join(f"c{c} <b>{dist[c]}</b>" for c in (5, 4, 3, 2, 1))
     infl_msg = (
         f"&#9888; conviction inflation: c5 = {c5_pct:.0f}% (threshold 20%)"
         if infl
@@ -4175,16 +4167,13 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         f'<div class="ps-strate"><div class="ps-lbl">Convictions</div>'
         f'<div class="ps-macro-row"><div class="ps-val {_conv_cls}">{_conv_lbl}</div>'
         f'<div class="ps-macro-meta">{_conv_cap}</div></div>'
+        f'<div class="ps-cap">{_dist_inline}</div>'
         f'<div class="ps-cap">{infl_msg}</div></div>'
-        f'<div class="ps-strate ps-foot">Distribution by conviction below</div>'
         f'</div>'
     )
-    # Repartition par conviction (ancien hero 2nd col) reste en panneau detail
-    kpis = (
-        f'<div class="card pad" style="margin-bottom:var(--s4)">'
-        f'<div class="ps-lbl" style="margin-bottom:14px">Distribution by conviction</div>'
-        f'{hist}</div>'
-    )
+    # Panel "Distribution by conviction" supprime 03/06 user : info inline
+    # dans la strate Convictions ci-dessus. Pas de card pour 5 nombres.
+    kpis = ""
 
     gap = ""
 
