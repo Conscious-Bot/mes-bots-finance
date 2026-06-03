@@ -228,6 +228,7 @@ def _tbar(
     extra_class: str = "",
     stop_target_ends: bool = False,
     hover_pct: bool = True,
+    data_attrs: dict[str, str] | None = None,
 ) -> str:
     """Canonical track bar (#91 signature unifie 03/06/2026).
 
@@ -247,7 +248,13 @@ def _tbar(
         str HTML <div class="tbar">...</div>
     """
     cls = f"tbar {extra_class}".strip()
-    parts = [f'<div class="{cls}"' + (f' title="{title}"' if title else "") + ">"]
+    da = "".join(f' data-{k}="{v}"' for k, v in (data_attrs or {}).items())
+    parts = [
+        f'<div class="{cls}"'
+        + da
+        + (f' title="{title}"' if title else "")
+        + ">"
+    ]
     # Stop/target ends pour axes signature (red gauche, green droite)
     if stop_target_ends:
         parts.append('<div class="tbar-tick stop" style="left:0%" title="stop"></div>')
@@ -274,6 +281,64 @@ def _tbar(
         parts.append('<div class="tbar-hover-tip"></div>')
     parts.append("</div>")
     return "".join(parts)
+
+
+def _position_axis(
+    entry: float | None,
+    stop: float | None,
+    target: float | None,
+    current: float | None,
+    extra_class: str = "",
+) -> str:
+    """Canonical position gauge (#91 unifie 03/06/2026).
+
+    Quatre repères, lecture immediate, zero second-guess :
+    - LIMIT (stop) -> tick rouge a sa vraie distance neg vs entry
+    - 0 (entry)    -> centre de l'axe, reference zero PnL
+    - TARGET       -> tick vert a sa vraie distance pos vs entry
+    - DOT          -> current price = signed PnL % vs entry
+
+    Geometrie : axis symetrique = max(|stop|, |target|, |cur|, 10%) autour
+    de entry. data-axmin/axmax injectes pour que le hover tooltip affiche
+    le signed % a la position du curseur (pas le % visuel brut).
+
+    Returns "" si donnees insuffisantes (caller affiche son fallback).
+    """
+    if not (entry and stop and target and current and target != stop):
+        return ""
+    cur_pct = (current - entry) / entry * 100
+    stop_pct = (stop - entry) / entry * 100
+    tgt_pct = (target - entry) / entry * 100
+    # Axis symetrique = max distance from entry. Floor 10% pour eviter
+    # un axis micro si tout est tres pres d'entry.
+    ax = max(abs(stop_pct), abs(tgt_pct), abs(cur_pct), 10.0)
+    # Distance proportionnelle depuis le 0 central (50% visuel = entry).
+    dot_v = max(0.0, min(100.0, 50.0 + (cur_pct / ax) * 50.0))
+    stop_v = max(0.0, min(100.0, 50.0 + (stop_pct / ax) * 50.0))
+    tgt_v = max(0.0, min(100.0, 50.0 + (tgt_pct / ax) * 50.0))
+    # Repères : stop rouge gauche, entry gris centre, target vert droite.
+    # Dot noir par defaut ; rouge si current < stop (limite cassee), vert si
+    # current > target (signal complete). La couleur ne s'allume qu'aux
+    # boundary crossings, sinon la position seule porte l'info.
+    if current <= stop:
+        dot_cls = "bear"
+    elif current >= target:
+        dot_cls = "acc"
+    else:
+        dot_cls = ""
+    cls_full = ("sig-ent0 " + extra_class).strip()
+    return _tbar(
+        dot_v,
+        ticks=[
+            (stop_v, "stop", "stop"),
+            (50.0, "entry", "entry"),
+            (tgt_v, "target", "target"),
+        ],
+        dot_color=dot_cls,
+        title=f"PnL {cur_pct:+.1f}% (stop {stop_pct:+.1f}% / target {tgt_pct:+.1f}%)",
+        extra_class=cls_full,
+        data_attrs={"axmin": f"{-ax:.1f}", "axmax": f"{ax:.1f}"},
+    )
 
 
 def _llm_status_badge() -> str:
@@ -4138,31 +4203,16 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         # Native vs native -> ratios FX-invariants corrects.
         current = _cached_price_native(tk) or last or entry
         d_stop = d_tgt = ratio = frac = entry_frac = pnl_e = None
-        # Axis centre sur ENTRY (user 03/06 v2 : profitable position should
-        # READ profitable). 0 = entry, neg gauche = drawdown, pos droite =
-        # toward target. Stop tick bouge a sa vraie distance (negative %),
-        # target tick bouge a sa vraie distance (positive %), dot = signed
-        # PnL vs entry. Axis symetrique = max(|stop|, |tgt|, |cur|, 10%).
-        cur_vs_ent = stop_vs_ent = tgt_vs_ent = axis_max = None
+        # Canonical position gauge requires entry/stop/target/current.
+        # _position_axis helper builds the bar a partir de ces 4 valeurs raw.
         has_bar = bool(current and stop and tgt and tgt != stop and entry)
         if has_bar:
             d_stop = abs(stop - current) / current * 100
             d_tgt = abs(tgt - current) / current * 100
             ratio = d_tgt / d_stop if d_stop else None
             frac = max(0.0, min(100.0, (current - stop) / (tgt - stop) * 100))
-            # Entry-zero geometry (axis centered on entry=0, signed PnL %)
-            cur_vs_ent = (current - entry) / entry * 100  # signed PnL %
-            stop_vs_ent = (stop - entry) / entry * 100    # always negative
-            tgt_vs_ent = (tgt - entry) / entry * 100      # always positive
-            # axis_max symetrique pour que stop ET target soient visibles dans
-            # leurs vraies positions relatives ; floor 10% pour eviter un axis
-            # micro si tout est tres proche d'entry.
-            axis_max = max(
-                abs(stop_vs_ent), abs(tgt_vs_ent), abs(cur_vs_ent), 10.0
-            )
             entry_frac = max(0.0, min(100.0, (entry - stop) / (tgt - stop) * 100))
-            # pnl_e = signed PnL vs entry-de-these (NATIVE). Identique a cur_vs_ent.
-            pnl_e = cur_vs_ent
+            pnl_e = (current - entry) / entry * 100  # signed PnL %
             if d_tgt is not None and d_tgt < 12:
                 n_near_tgt += 1
             if d_stop < 10:
@@ -4191,10 +4241,10 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 "has_bar": has_bar,
                 "cat": sectors.get(tk, ""),
                 "tpart": tpart,
-                "cur_vs_ent": cur_vs_ent,
-                "stop_vs_ent": stop_vs_ent,
-                "tgt_vs_ent": tgt_vs_ent,
-                "axis_max": axis_max,
+                "_entry": entry if has_bar else None,
+                "_stop": stop if has_bar else None,
+                "_tgt": tgt if has_bar else None,
+                "_cur": current if has_bar else None,
             }
         )
     n = len(ths)
@@ -4262,47 +4312,11 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                # Signature axis centre sur ENTRY=0 (user 03/06 v2) :
-                # negatif a gauche (drawdown vers stop), positif a droite
-                # (profit vers target et au-dela). Dot = signed PnL % vs entry,
-                # lecture immediate. Stop tick rouge a sa vraie distance neg,
-                # target tick vert a sa vraie distance pos.
-                _ax = t["axis_max"] or 10.0
-                _cur = t["cur_vs_ent"] or 0.0
-                _stp = t["stop_vs_ent"] or 0.0
-                _tgv = t["tgt_vs_ent"] or 0.0
-                # Map signed % to 0..100 visual : entry=50%, axis -ax..+ax.
-                _dot_v = max(0.0, min(100.0, 50.0 + (_cur / _ax) * 50.0))
-                _stop_v = max(0.0, min(100.0, 50.0 + (_stp / _ax) * 50.0))
-                _tgt_v = max(0.0, min(100.0, 50.0 + (_tgv / _ax) * 50.0))
-                # Dot color : sign-based, lecture instantanee de PnL state.
-                # Au-dessus target (signal acheve) -> strong acc.
-                # En profit material (>=3%) -> acc. En drawdown (<=-3%) -> bear.
-                # Pres entry (±3%) -> neutre.
-                if _cur >= _tgv - 0.5:
-                    _dot_cls = "acc"
-                elif _cur <= _stp + 0.5:
-                    _dot_cls = "bear"
-                elif _cur >= 3:
-                    _dot_cls = "acc"
-                elif _cur <= -3:
-                    _dot_cls = "bear"
-                else:
-                    _dot_cls = ""
-                bar = (
-                    '<div class="th-bar">'
-                    + _tbar(
-                        _dot_v,
-                        ticks=[(_stop_v, "stop", "stop"), (_tgt_v, "target", "target")],
-                        dot_color=_dot_cls,
-                        title=f"PnL {_cur:+.1f}% (stop {_stp:+.1f}% / target {_tgv:+.1f}%)",
-                        extra_class="sig-ent0",
-                    ).replace(
-                        '<div class="tbar sig-ent0"',
-                        f'<div class="tbar sig-ent0" data-axmin="{-_ax:.1f}" data-axmax="{_ax:.1f}"'
-                    )
-                    + '</div>'
-                )
+                # Canonical position gauge (#91) via _position_axis :
+                # stop red gauche, entry grey centre (0), target green droite,
+                # dot noir = current. Distance proportionnelle au 0 central.
+                _pa = _position_axis(t["_entry"], t["_stop"], t["_tgt"], t["_cur"])
+                bar = f'<div class="th-bar">{_pa}</div>' if _pa else '<div class="th-na">incomplete price data</div>'
             else:
                 bar = '<div class="th-na">incomplete price data</div>'
             anchor = ""
@@ -4625,18 +4639,9 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         asym_cls, asym_str = _asym_format(asym.get(tk))
         g = gauges.get(tk)
         if g:
-            _g_pos = g["pos"]
-            _g_dot_cls = "bear" if _g_pos < 25 else ("acc" if _g_pos > 75 else "")
-            gauge_html = _tbar(
-                _g_pos,
-                ticks=[
-                    (0.0, "stop", "stop"),
-                    (g["target_tick"], "target", "target"),
-                ],
-                dot_color=_g_dot_cls,
-                title=f'stop {-g["dn"]:.0f}% / target +{g["up"]:.0f}%',
-                extra_class="row-bar",
-            )
+            gauge_html = _position_axis(
+                g["_entry"], g["_stop"], g["_tgt"], g["_cur"], extra_class="row-bar"
+            ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         else:
             gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         rows += (
@@ -4664,9 +4669,13 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
 
 def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict) -> str:
     grand = sum(_broker_value(p, pnl) for p in positions) or 1
-    # Fetch asymmetry + stop/target progress par ticker
     asym = {}
     gauges: dict[str, dict] = {}
+    try:
+        from shared import book as _bk
+        _book_idx = _bk.get_book_index()
+    except Exception:
+        _book_idx = {}
     try:
         asym_results = asym_mod.compute_portfolio_asymmetry()
         for r in asym_results:
@@ -4675,20 +4684,18 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
                 continue
             if r.get("asymmetry_ratio") is not None:
                 asym[tk] = r["asymmetry_ratio"]
-            # Stop / current / target -> frac 0..150% pour mini-gauge
             st, tg, c = r.get("stop") or 0, r.get("target_full") or 0, r.get("current_price") or 0
             up, dn = r.get("upside_pct"), r.get("downside_pct")
+            ln = _book_idx.get(tk)
+            entry = ln.entry_price if ln else None
             if st and tg and tg != st and c and up is not None and dn is not None:
-                frac_raw = (c - st) / (tg - st) * 100
-                VISUAL_MAX = 150.0
-                visual_pct = max(0.0, min(100.0, frac_raw / VISUAL_MAX * 100))
-                target_tick_pct = 100.0 / VISUAL_MAX * 100
                 gauges[tk] = {
-                    "pos": visual_pct,
-                    "target_tick": target_tick_pct,
+                    "_entry": entry,
+                    "_stop": st,
+                    "_tgt": tg,
+                    "_cur": c,
                     "up": up,
                     "dn": dn,
-                    "frac_raw": frac_raw,
                 }
     except Exception:
         pass
@@ -5116,14 +5123,16 @@ def render() -> Path:
         up, dn = r.get("upside_pct"), r.get("downside_pct")
         if st and tg and tg != st and c and up is not None and dn is not None:
             # frac_raw : 0 = at stop, 100 = at target, >100 = beyond target.
-            # Conserve la valeur > 100 pour visualiser overshoot.
             frac_raw = (c - st) / (tg - st) * 100
             _axis[r["ticker"]] = {
                 "frac": max(0.0, min(100.0, frac_raw)),
                 "frac_raw": frac_raw,
                 "up": up,
                 "dn": dn,
-                "tg_pct": (c / tg - 1) * 100 if tg else 0,  # % beyond target (negative = below)
+                "tg_pct": (c / tg - 1) * 100 if tg else 0,
+                "_stop": st,
+                "_tgt": tg,
+                "_cur": c,
             }
     _targets = sorted(_axis, key=lambda tk: -_axis[tk]["frac_raw"])[:6]
     _stops = sorted(_axis, key=lambda tk: _axis[tk]["frac_raw"])[:6]
@@ -5141,31 +5150,25 @@ def render() -> Path:
 
     def _axisrow(tk: str) -> str:
         a = _axis[tk]
-        # Gauge redesign 02/06 user : montrer overshoot visuellement.
-        # Bar = 0..150% mapped to width. Target = 100%, overshoot zone = 100..150%.
-        # Marker position visuelle : map frac_raw [0..150+] -> [0..100]% visual width.
-        VISUAL_MAX = 150.0  # frac_raw at visual right edge
         frac_raw = a["frac_raw"]
-        # Si overshoot > 50%, on cap visual et on a un "+overshoot" badge
-        visual_pct = max(0.0, min(100.0, frac_raw / VISUAL_MAX * 100))
-        # Profit-take chip
-        profit_chip = ""
         ln = _book_idx.get(tk)
         beyond_pct = a["tg_pct"]
+        profit_chip = ""
         if frac_raw > 100:
             profit_chip = f'<span class="th-pt acc">target +{beyond_pct:.1f}% beyond</span>'
         elif ln and a["frac"] > 80:
             risky = ln.valo_above_bull_case or ln.solidite in ("Fragile", "Incertain")
             if risky:
                 profit_chip = '<span class="th-pt">target hit</span>'
-        # Target tick marker at 100/150 = 66.67% of visual width
-        target_tick_pct = 100.0 / VISUAL_MAX * 100
-        # Signature axis : stop tick a 0%, target tick green a target_tick_pct,
-        # zone overshoot au-dela. Texte stop/target supprime (user 03/06).
+        # Canonical position gauge : stop red / entry grey / target green / dot.
+        # Entry vient du book line (entry_price de la these).
+        entry = ln.entry_price if ln else None
+        bar = _position_axis(entry, a["_stop"], a["_tgt"], a["_cur"]) or (
+            f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
+        )
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
-            f'{_tbar(visual_pct, ticks=[(0.0, "stop", "stop"), (target_tick_pct, "target", "target")], dot_color=("acc" if visual_pct > 75 else ("bear" if visual_pct < 25 else "")), title=f"progress {frac_raw:.0f}%")}'
-            + '</div>'
+            f'{bar}</div>'
         )
 
     gain = "".join(_axisrow(tk) for tk in _targets) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
@@ -5612,7 +5615,7 @@ def render() -> Path:
         # Hover continuous % sur les .tbar : displays % under cursor. Si
         # data-axmin/data-axmax presents (axes centres sur target), la valeur
         # affichee est signed % depuis le 0 logique (e.g. "-13.4%" / "+5.2%").
-        + "<script>(function(){function wire(){document.querySelectorAll('.tbar').forEach(function(bar){var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;bar.dataset.tbarWired='1';var axmin=parseFloat(bar.dataset.axmin);var axmax=parseFloat(bar.dataset.axmax);var signed=!isNaN(axmin)&&!isNaN(axmax);bar.addEventListener('mousemove',function(e){var r=bar.getBoundingClientRect();if(r.width<=0)return;var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));tip.style.left=p.toFixed(1)+'%';if(signed){var v=axmin+(axmax-axmin)*(p/100);tip.textContent=(v>=0?'+':'')+v.toFixed(1)+'%';}else{tip.textContent=p.toFixed(0)+'%';}});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});})();</script>"
+        + "<script>(function(){function fmt(v){var s=v>=0?'+':'\\u2212';return s+Math.abs(v).toFixed(1)+'%';}function wire(){document.querySelectorAll('.tbar').forEach(function(bar){var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;bar.dataset.tbarWired='1';var axmin=parseFloat(bar.dataset.axmin);var axmax=parseFloat(bar.dataset.axmax);var signed=!isNaN(axmin)&&!isNaN(axmax);bar.addEventListener('mousemove',function(e){var r=bar.getBoundingClientRect();if(r.width<=0)return;var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));tip.style.left=p.toFixed(1)+'%';if(signed){tip.textContent=fmt(axmin+(axmax-axmin)*(p/100));}else{tip.textContent=p.toFixed(0)+'%';}});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});})();</script>"
         + "</body></html>"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
