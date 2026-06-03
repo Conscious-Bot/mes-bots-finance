@@ -1005,3 +1005,77 @@ apres-midi est mauvaise chance.
   d'emission, seuil winner, horizon contrefactuel). Le vrai forward.
 - P1 #34 guard mono-instance preventif si Conflict revient
 - Backlog #11/#19/#24 reste gated par J-day + densite biais
+
+
+---
+
+## SESSION CLOSE 03/06/2026 — Resilience arc + J-day machinery (avant break few days)
+
+### Livré ce jour (16 commits, branch main)
+
+**Resilience arc complet** (#93→#95→#97→#98→#94→#96) :
+- `3ac571e` #93 phase 1A : LLMUnavailableError detection chokepoint + consumers catch + llm_status state machine + scoring_status='pending_llm' marker
+- `0889bc9` #93 phase B : cost cap soft (Haiku auto 80%) + LLM badge bottom-right (dot only) + Telegram alert transitions
+- `202a7a3` #95 : ADR-014 + canonical_predictions_filter() + brier_by_methodology()
+- `cc05e03` #95 ADR-014 doctrine : 3-tier taxonomy (canonical / archive-report / substance accounting / user-lookup)
+- `4b48b17` #97 ADR-014 hazard A : substance tier explicite (substance_predictions_filter) -- conversion denylist -> exclusion explicite
+- `d4a9481` #98 ADR-014 hazard B : methodology_version required (Python boundary keyword-only + SQL constraint via alembic 0028 drop DEFAULT 'v1')
+- `8249c71` #94 phase 1 : Scorer Protocol + LLMScorer adapter (zero-behavior change)
+- `4a5adfc` #94 phase 2 : RuleScorer determinist (plancher LLM down)
+- `5c32e82` #94 phase 3 : ScoringOrchestrator FLAG OFF routing (RESILIENCE_FALLBACK_ENABLED)
+- `6a66d20` #94 phase 4 : degraded restitution contract source unique (dashboard/restitution.py)
+- `55b048f` #96 : PairedShadowOrchestrator Champion-Challenger FLAG OFF (RESILIENCE_SHADOW_ENABLED)
+
+**J-day machinery** (10/06 in 7 days) :
+- `b9664eb` `crons/j_day_watcher.sh` + cron entries 30 10 10 6 * + 0 14 10 6 *
+- `3d442d9` Out-of-band switch : healthchecks.io ping in j_day.py + J-1 preflight push cron 0 9 9 6 * + reading contract `docs/j_day_reading_contract.md`
+- `0035bfe` preflight : alarm arming verification step
+
+**Audit deep tuyauterie** :
+- `21366d6` 6 docs sous `docs/audit_2026-06-03/` (5 flux + CROSS_CUTTING + SYNTHESIS)
+- P1 surfaced : deployment gap (bot tournait sur code d'hier post-migration 0028), partial-resolve detection J-day, scheduler dump verify, double cron_tier* registration, lock_in instrumentation decision
+
+**Polish** :
+- `58da9aa` LLM badge bottom-right, retire prose moralisante th-anchor
+- `d3d6908` LLM badge box-sizing fix (collapse → ring + dot 22x22 / 10x10)
+- `b8fd294` Spec post-J-day : Contrat Fraîcheur & Mouvement (#103)
+
+### État courant prod
+
+- **Bot relance** ce jour ~14:35 (PID 54583/54587). Code post-#98 chargé.
+- **Bot en boucle Conflict 409** au moment du close session : phantom getUpdates du PID 46307 killed à 14:30 OU collision avec autre instance.
+  - Devrait se résoudre naturellement après timeout Telegram (50s+).
+  - Si toujours Conflict au retour : verifier `pgrep -fl python.*bot.main` puis si OK kill + restart via `launchctl kickstart -k gui/$UID/com.olivier.presage`.
+  - tennis-bot `bot.py` distinct du PRESAGE `bot.main` (memory `[[parallel_projects_tennis_bot]]`), donc pas tennis qui interfère.
+- **DB** : alembic head 0028. Backup pre-migration `data/bot.db.backup_pre_0028_20260603_130643`.
+- **Tests** : 907+ passants (post-#96 base), 1 skipped intentional, 3 env-flaky pre-existing (edgar / book_gate, yfinance NaN).
+- **Resilience flags** : tous OFF (RESILIENCE_FALLBACK_ENABLED, RESILIENCE_SHADOW_ENABLED). Compat #93 stricte.
+- **LLM** : credit_exhausted depuis ~02/06. cost_cap_hard state. Badge bottom-right = rouge. Aucun signal scorer ne tire.
+
+### Tâches utilisateur AVANT 10/06 (10 min cumulé)
+
+1. **Healthchecks URL** : créer compte healthchecks.io, configurer un check (cron `30 9 10 6 *`, grace 4h), copier ping URL dans `.env` comme `HEALTHCHECKS_J_DAY_URL=...`
+2. **Reading contract** : réviser les 2 lignes `[YOUR CALL]` (sample floor N, verdict gap M) dans `docs/j_day_reading_contract.md`, commit avant 10/06
+3. **Mac plugged in** continuous jusqu'au 10/06 (caffeinate empêche idle sleep, mais pas battery exhaust)
+4. **La conversation** : 1 prosumer scarred, montrer panel discipline cold, 4 questions, observer-pas-vendre. Spec complete dans cette SESSION_STATE plus tôt + memory `[[next_session_agenda]]`.
+5. **Credit Anthropic** : recharger pour que les signal scorer recommencent. Avant ça : bot opérationnel mais aucune nouvelle prediction.
+
+### Tâches techniques pré-10/06 (déjà loggées)
+
+- P1 audit #2 : ajouter partial-resolve detection dans `_build_brier_telegram_msg` (~15min)
+- P1 audit #3 : verifier `Scheduler started with N jobs` log line contient j_day_batch_close_job avec next_run 2026-06-10 09:30 — **dès que bot stabilise**
+- P1 audit #4 : verifier pas de double `cron_tier*` registration (count dans le scheduler dump)
+- P1 audit #5 : décider explicit lock_in instrumentation `positions.py:399` ship vs skip
+
+### Tâches post-J-day (10 loggées, du #99 au #108)
+
+#99 Cross-machine guard (BLOCKS Hetzner) · #100 Heartbeat link-roundtrip · #101 Provenance stamps · #102 Aggregator-per-number · #103 Fraîcheur & Mouvement contract · #104 Wire orchestrator · #105 Validation calibration rule_v1_fallback · #106 /shadow_compare · #107 BGE phase 2b · #108 Theses panel sweet-spots (kill gauge)
+
+### Inputs pour reprise (cold-start)
+
+- Audit complet : `docs/audit_2026-06-03/SYNTHESIS.md` (action table prioritisée)
+- Resilience spine : `intelligence/scorers.py`, `intelligence/scoring_orchestrator.py`, `intelligence/shadow_scoring.py`, `dashboard/restitution.py`
+- Reading contract : `docs/j_day_reading_contract.md`
+- Fraicheur & Mouvement spec : `docs/presentation_contract_freshness_motion.md`
+- ADR-014 disambiguation : `docs/adrs/014-ledger-segmentation-by-methodology.md`
+- J-day machinery : `bot/jobs/j_day.py`, `crons/j_day_watcher.sh`, `crons/j_day_preflight_notify.sh`

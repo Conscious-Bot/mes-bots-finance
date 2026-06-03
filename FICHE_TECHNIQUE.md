@@ -279,3 +279,51 @@ Policy 2-week observation post-opening (Day 16) : pas d'action portfolio offensi
 ## MAJ 27/05/2026 — Dashboard cockpit (canonique)
 Cockpit HTTP (dashboard/serve.py, http://127.0.0.1:8000/dashboard.html) : identite visuelle canonique -- palette par etat (rouge breche / ambre attention / vert sain / bleu donnee / ink valeur), metal sur readouts (technique --c) et titres chrome (silver dark / graphite frost, 46px). 3-leviers Taille / Cible / Stop distincts. Reference : CONVENTIONS.md.
 Stock-only depuis 26/05 (axe crypto/biais #2 en pause). Prochain jalon : batch KPI #2 le 10/06.
+
+## MAJ 03/06/2026 — Resilience spine live + J-day machinery armed
+
+### Resilience layer (FLAG OFF, ledger segmente)
+
+Architecture spine livree post-decouverte credit_exhausted Anthropic :
+- `shared/llm.py` : LLMUnavailableError chokepoint detection (credit_exhausted / rate_limited / cost_cap_hard). llm_status state machine (healthy / degraded / down) + active_model surface dans bot_state.json. Cost cap soft 80% -> Haiku auto-downgrade. Telegram transition alerts one-shot.
+- `intelligence/scorers.py` : Scorer Protocol + ScorerInput + LLMScorer adapter + RuleScorer determinist (rule_v1_fallback / rule_v1_shadow tags).
+- `intelligence/scoring_orchestrator.py` : route LLMScorer <-> RuleScorer selon llm_status (FLAG `RESILIENCE_FALLBACK_ENABLED`, default OFF).
+- `intelligence/shadow_scoring.py` : PairedShadowOrchestrator (variante b independent call) -- mesure LLM-added value vs determinist baseline (FLAG `RESILIENCE_SHADOW_ENABLED`, default OFF).
+- `dashboard/restitution.py` : source unique markers SYNTHESIZED-down. Format canonique "⦿ <surface> indisponible (LLM · <reason>)". Anti-prose enforce via tests (no "pense que", "reviendra", etc.).
+- Dashboard : badge bottom-right (dot 22x22) color-coded selon llm_status. Stripe/Linear, anti-Robinhood.
+
+### Ledger segmentation (ADR-014)
+
+3 tiers explicites (`docs/adrs/014-ledger-segmentation-by-methodology.md`) :
+1. **Forward-headline canonical** (`canonical_predictions_filter`) : exclut v0, v1, rule_v1_shadow, rule_v1_fallback. Surface : public track record, KPI #2 forward forecast, calibration audit.
+2. **Archive-report par famille explicite** (`methodology_version = '<X>'`) : J-day batch (V1 wrap-up), discipline_biais_panel cluster 10/06. Marker "v1 transitional, hors headline canonique" affiche.
+3. **Substance accounting LLM** (`substance_predictions_filter`) : exclut v0 + rule_v1_*. Inclut v1 + v2 + futures llm_v3. Surface : base_rates, outcome_context, portfolio_grade, thesis_track_record, v2_vigilance, morning_brief, render._loop.
+4. **User-facing lookup** (`!= 'v0'` direct) : prediction_why /pred_why ticker inclut tous types avec provenance.
+
+Schema : alembic 0028 retire `DEFAULT 'v1'` sur predictions.methodology_version. `storage.insert_prediction(methodology_version=...)` keyword-only required. Test invariants Layer 1 (Python boundary) + Layer 2 (SQL constraint).
+
+### J-day 10/06 machinery (T-7 days)
+
+3 mecanismes liveness + 1 contrat de lecture :
+- **In-band cron local** : `crons/j_day_watcher.sh` x2 (10:30 + 14:00 le 10/06) -- check snapshot `data/track_record/snapshots/2026-06.json` fresh, fire alerte si stale.
+- **Out-of-band switch** : ping `HEALTHCHECKS_J_DAY_URL` depuis `j_day_batch_close_job` apres snapshot. Si ping arrive pas dans grace window cote healthchecks.io -> alarme externe (email/SMS), INDEPENDANTE du Mac. C'est le seul layer qui catch "Mac asleep / no network / crashed".
+- **J-1 preflight push** : `crons/j_day_preflight_notify.sh` (cron 0 9 9 6 *) envoie Telegram a 09:00 le 09/06 avec checklist (Mac awake, healthchecks URL configure, smoke test watcher, scheduler verify, reading contract committed). Inclut alarm arming verification (curl URL manuelle + dashboard healthchecks).
+- **Reading contract pre-registered** : `docs/j_day_reading_contract.md`. No-skill baseline = b(1-b). 2 lignes `[YOUR CALL]` : sample floor N (propose 20) + verdict gap M (propose 0.02). Verdict bands earned/did_not/inconclusive avec consequences pinned BEFORE data.
+
+### Pattern collapse (durable mental model)
+
+Tout "X ↔ Y decoupling" se collapse en 3 patterns + 1 op guard + 1 hygiene principle (`docs/audit_2026-06-03/SYNTHESIS.md`) :
+1. Liveness ≠ functionality (process alive mais lien silently dead). Couvert post-J-day via #100 heartbeat link-roundtrip.
+2. Snapshot drifts from source silently. Couvert via #101 provenance stamps.
+3. Multiple paths computing same number differently. Couvert via #102 aggregator-per-number extension.
++ Out-of-band dead-man's-switch (J-day = healthchecks.io). Hygiene : one aggregator per number.
+
+Pre-10/06 subset : dead-man + single-instance. Cross-machine guard = #99 BLOCKS Hetzner.
+
+### Backlog post-J-day (10 taches)
+
+#99 cross-machine guard · #100 heartbeat link · #101 provenance · #102 aggregator-per-number · #103 Fraîcheur & Mouvement (`docs/presentation_contract_freshness_motion.md` : diff anime une fois puis repos, anti-Robinhood structurel) · #104 wire consumer vers orchestrator · #105 validation rule_v1_fallback calibration (gate flip flag) · #106 /shadow_compare Telegram + dashboard · #107 RuleScorer Phase 2b BGE · #108 Theses panel sweet-spots (kill gauge).
+
+### Audit tuyauterie complet 03/06
+
+`docs/audit_2026-06-03/` : 5 flux (signal→pred / pred→Brier / state→surface / schedule→exec / storage discipline) + cross-cutting (dead code, doublons, TODOs) + SYNTHESIS avec action table. P1 surfaced : restart bot post-migration 0028 (fix), partial-resolve detection J-day (~15min), scheduler dump verify, double cron_tier* registration, decision lock_in instrumentation.
