@@ -157,3 +157,33 @@ async def j_day_batch_close_job():
         notify.send_text(
             f"J-day {J_DAY_DATE} snapshot FAILED: {type(e).__name__}: {e}"
         )
+
+    # 3. Out-of-band dead-man-s-switch : ping healthchecks.io. Si l'URL est
+    # configuree (.env HEALTHCHECKS_J_DAY_URL) et que ce ping arrive,
+    # healthchecks confirme silencieusement. S'il N'arrive PAS dans la grace
+    # window configuree cote healthchecks, leur infra envoie un alert email
+    # / SMS / webhook -- INDEPENDANT du Mac. C'est la vraie protection contre
+    # "Mac asleep / no network / process crashed", qu'aucun cron local ne
+    # peut detecter (le watcher j_day_watcher.sh fire dans la meme box).
+    #
+    # Setup une fois : creer un check sur healthchecks.io (cron 30 9 10 6 *,
+    # grace 4h), copier la ping URL dans .env HEALTHCHECKS_J_DAY_URL.
+    # Fail-safe : si l'URL absent ou ping fail, on ne casse pas le job.
+    try:
+        import os
+        import urllib.request
+
+        ping_url = os.environ.get("HEALTHCHECKS_J_DAY_URL", "").strip()
+        if ping_url:
+            req = urllib.request.Request(ping_url, method="GET")
+            with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+                log.info(
+                    f"J-day healthchecks.io ping sent (status={resp.status})"
+                )
+        else:
+            log.warning(
+                "J-day healthchecks.io ping skipped : HEALTHCHECKS_J_DAY_URL "
+                "absent du .env. Out-of-band dead-man-s-switch INACTIF."
+            )
+    except Exception as e:
+        log.warning(f"J-day healthchecks.io ping failed (non-fatal): {e}")
