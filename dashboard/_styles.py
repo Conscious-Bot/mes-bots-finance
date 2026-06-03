@@ -41,15 +41,23 @@ _TH_CSS = """
   .tbar-fill { position:absolute; left:0; top:0; height:100%; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 50%,transparent); transition:width .25s ease-out; }
   /* Hover tooltip : % continu sous le curseur. Pill ink-on-bg haute contraste,
      tabular nums (digits ne shiftent pas en width quand le curseur glisse),
-     caret vers le bar, micro-motion opacity+slide. Anti-parchemin-sur-parchemin
-     (precedente version : aplatie). Linear/Vercel style. */
-  .tbar-hover-tip { position:absolute; bottom:13px; transform:translateX(-50%) translateY(3px); background:var(--ink); color:var(--bg); border-radius:5px; padding:3px 8px 3.5px; font-family:var(--fm); font-size:11px; font-weight:500; letter-spacing:.01em; font-variant-numeric:tabular-nums; line-height:1.25; pointer-events:none; white-space:nowrap; opacity:0; transition:opacity .14s ease-out, transform .14s ease-out; z-index:5; box-shadow:0 4px 14px -4px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.08); }
-  .tbar-hover-tip::after { content:""; position:absolute; left:50%; top:100%; transform:translateX(-50%); width:0; height:0; border:3.5px solid transparent; border-top-color:var(--ink); border-bottom:0; }
+     caret vers le bar, micro-motion opacity+slide.
+     Variants .pos / .neg : pill verte / rouge quand signed % > 0 / < 0
+     (user 03/06 "dynamic % cursor green above 0, red under 0"). */
+  .tbar-hover-tip { --pill-bg:var(--ink); --pill-fg:var(--bg); position:absolute; bottom:13px; transform:translateX(-50%) translateY(3px); background:var(--pill-bg); color:var(--pill-fg); border-radius:5px; padding:3px 8px 3.5px; font-family:var(--fm); font-size:11px; font-weight:500; letter-spacing:.01em; font-variant-numeric:tabular-nums; line-height:1.25; pointer-events:none; white-space:nowrap; opacity:0; transition:opacity .14s ease-out, transform .14s ease-out, background .14s ease-out; z-index:5; box-shadow:0 4px 14px -4px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.08); }
+  .tbar-hover-tip::after { content:""; position:absolute; left:50%; top:100%; transform:translateX(-50%); width:0; height:0; border:3.5px solid transparent; border-top-color:var(--pill-bg); border-bottom:0; transition:border-top-color .14s ease-out; }
+  .tbar-hover-tip.pos { --pill-bg:var(--acc); --pill-fg:#fff; }
+  .tbar-hover-tip.neg { --pill-bg:var(--bear); --pill-fg:#fff; }
   .tbar:hover .tbar-hover-tip { opacity:1; transform:translateX(-50%) translateY(0); }
+  /* Midnight adaptations : track plus subtil + ticks neutres lift en blanc
+     transparent (mais SKIP les ticks colores sig-ent0 stop/entry/target qui
+     gardent leur couleur tokens). Dot box-shadow ring follows var(--bg)
+     auto -> pas besoin d'override. */
   body.midnight .tbar { background:rgba(255,255,255,.05); }
   body.midnight .tbar-fill { background:color-mix(in srgb,var(--ink) 70%,transparent); }
-  body.midnight .tbar-tick { background:rgba(255,255,255,.6); }
-  body.midnight .tbar-dot { box-shadow:0 0 0 1px var(--bg); }
+  body.midnight .tbar-tick:not(.stop):not(.entry):not(.target):not(.dash) { background:rgba(255,255,255,.55); }
+  body.midnight .tbar-tick.entry { background:var(--steel); opacity:.7; }
+  body.midnight .tbar-hover-tip { box-shadow:0 4px 14px -4px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.25); }
   /* Section headers unifies (Polish 01/06) : meme pattern visuel pour
      .th-grp / .strat-sh / .vigie-sh / .dba-sh. Noms preserves pour HTML.
      Petit icon optionnel via .sh-ico (data-icon attr peut etre utilise). */
@@ -74,9 +82,11 @@ _TH_CSS = """
   .th-dir { font-family:var(--fb); font-size:14px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
   .th-bar { display:flex; flex-direction:column; gap:var(--s15); grid-column:1/-1; margin-top:var(--s2); }
   .sizebar { margin:var(--s15) 0 4px; }
-  .th-adj { font-family:var(--fm); font-size:14px; letter-spacing:.02em; line-height:1.3; }
-  .th-adj.trim { color:var(--warn); }
-  .th-adj.add { color:var(--acc2); }
+  .th-adj { font-family:var(--fm); font-size:14px; letter-spacing:.02em; line-height:1.3; font-weight:500; }
+  /* trim/bump alignes sur palette flashy (user 03/06) : trim=bear action-trigger,
+     bump=acc action-trigger. ok reste steel mute (pas d'action). */
+  .th-adj.trim { color:var(--bear); }
+  .th-adj.add { color:var(--acc); }
   .th-adj.ok { color:var(--steel); }
   .th-szcol { display:flex; flex-direction:column; gap:5px; }
   .th-zone-loss { position:absolute; left:0; top:0; bottom:0; background:color-mix(in srgb, var(--bear) 13%, transparent); }
