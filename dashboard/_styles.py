@@ -421,7 +421,7 @@ _CSS = """
   /* === Print stylesheet : export PDF propre (Stars + contenu, retirer chrome) */
   @media print {
     body { background:#fff !important; color:#000 !important; }
-    .sidebar, .tape, .tape8k, .cta-bar, .cta-modal, #loupe, .modetgl { display:none !important; }
+    .sidebar, .tape, .tape8k, .cta-bar, .cta-modal, .llm-badge, #loupe, .modetgl { display:none !important; }
     main { margin-left:0 !important; padding:0 !important; }
     .phead { position:static !important; background:#fff !important; backdrop-filter:none !important; box-shadow:none !important; border-bottom:1px solid #ccc !important; }
     .page-star, .card, .kpi, .gauge, .dba-card { animation:none !important; box-shadow:none !important; page-break-inside:avoid; }

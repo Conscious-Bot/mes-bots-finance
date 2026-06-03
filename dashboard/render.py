@@ -220,17 +220,20 @@ def _err(e: Exception) -> str:
 
 
 def _llm_status_badge() -> str:
-    """Phase B (#93) : surface llm_status dans la sidebar foot.
+    """Phase B (#93) : surface llm_status comme chip flottant bottom-right.
 
     Etats (couleur, label) :
     - healthy + model 'sonnet'/'opus' : --acc dot, "LLM sonnet"
     - healthy + model 'haiku' : --steel dot, "LLM haiku" (extract-tier normal)
-    - degraded + reason 'cost_cap_soft' : --warn dot, "LLM haiku (cost cap 80%)"
-    - degraded + reason 'cost_cap_hard' : --bear dot, "LLM stopped (cost cap)"
+    - degraded + reason 'cost_cap_soft' : --warn dot, "LLM haiku (cap 80%)"
+    - degraded + reason 'cost_cap_hard' : --bear dot, "LLM stopped (cap 100%)"
     - degraded + reason 'credit_exhausted' : --bear dot, "LLM credit exhausted"
     - degraded + reason 'rate_limited' : --warn dot, "LLM rate limited"
     - down : --bear dot, "LLM down"
     - Defensive : si erreur lecture state, on rend rien (pas de marker faux).
+
+    Position fixe bottom-right (z-index 50, hauteur alignee sur .cta-bar a 22px
+    du bord). Style chip parchment/midnight aware via var(--panel) + var(--line2).
     """
     try:
         from shared import llm as _llm
@@ -261,14 +264,22 @@ def _llm_status_badge() -> str:
     else:
         return ""
 
-    tip = f"status={status} reason={reason or '-'} since={since[:16] if since else '-'}"
+    tip = f"{label} -- status={status} reason={reason or '-'} since={since[:16] if since else '-'}"
+    # Fixed bottom-right : dot seul (user spec : no text). Le label vit dans
+    # le title (tooltip hover) + le aria-label (accessibilite). Discretion
+    # signal-subtil : la presence indique "instrument", la couleur l'etat.
     return (
-        f'<div class="nitem llm-badge" title="{tip}" '
-        f'style="display:flex;align-items:center;gap:8px;cursor:default">'
+        f'<div class="llm-badge" role="status" aria-label="LLM {label}" '
+        f'title="{tip}" '
+        f'style="position:fixed;bottom:22px;right:22px;z-index:50;'
+        f'background:var(--panel);border:1px solid var(--line2);'
+        f'border-radius:50%;padding:8px;width:12px;height:12px;'
+        f'display:flex;align-items:center;justify-content:center;'
+        f'box-shadow:0 14px 40px -12px rgba(0,0,0,.20),0 2px 6px -2px rgba(0,0,0,.08);'
+        f'cursor:default;user-select:none">'
         f'<span class="llm-dot" aria-hidden="true" '
         f'style="display:inline-block;width:8px;height:8px;border-radius:50%;'
         f'background:var({dot})"></span>'
-        f'<span class="nlab" style="font-size:13px">{label}</span>'
         f'</div>'
     )
 
@@ -4207,7 +4218,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _crypto = t["tk"] in crypto_tk
                 if t["pnl_e"] >= 12 and not _crypto:
                     _acls = "acc"
-                    _amsg = "Position in profit, upside margin remaining. Bias: securing too early. Rule: let it run toward target."
+                    _amsg = "Position in profit, upside margin remaining."
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
             wv = vmap.get(t["tk"], 0.0)
@@ -5428,7 +5439,6 @@ def render() -> Path:
     body = (
         f'<aside class="sidebar" role="complementary" aria-label="Barre laterale"><div class="logo">{_LOGO}<span class="wm">PRESAGE<small>intelligence &middot; signal &middot; advantage</small></span></div>'
         f'{_NAV}<div class="foot">'
-        f'{_llm_status_badge()}'
         f'{_FOOT_METHOD}<div class="foot-sep"></div>{_MODE_BTN}'
         f'</div></aside>{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
         f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
@@ -5475,6 +5485,8 @@ def render() -> Path:
         # (30 min, ca accelere tout le reste)". Iteration design instantanee
         # vs regen 60s. isTyping protege la zone chat. Charge negligeable
         # (HEAD request, 1KB, local serve.py).
+        # #93 phase B : LLM status badge fixe bottom-right (resilience surface).
+        + _llm_status_badge()
         # Sprint 4 CTA flottant bas : Recherche seule (Compact + Filtrer retires
         # 01/06 user feedback : Compact none interet, Filtrer no utilite plug)
         + '<div class="cta-bar" role="toolbar" aria-label="Recherche rapide">'
