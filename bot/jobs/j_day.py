@@ -176,7 +176,7 @@ async def j_day_batch_close_job():
         ping_url = os.environ.get("HEALTHCHECKS_J_DAY_URL", "").strip()
         if ping_url:
             req = urllib.request.Request(ping_url, method="GET")
-            with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 log.info(
                     f"J-day healthchecks.io ping sent (status={resp.status})"
                 )

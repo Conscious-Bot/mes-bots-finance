@@ -219,6 +219,48 @@ def _err(e: Exception) -> str:
     return f'<div class="empty"><b>Query to adjust</b><span class="mono" style="font-size:14px">{type(e).__name__}: {str(e)[:130]}</span></div>'
 
 
+def _tbar(
+    value_pct: float | None,
+    ticks: list[tuple[float, str | None]] | None = None,
+    dot_color: str = "",
+    dash_at: float | None = None,
+    title: str = "",
+    extra_class: str = "",
+) -> str:
+    """Canonical track bar (#91 signature unifie 03/06/2026).
+
+    Une seule primitive visuelle pour TOUS les axes. Track + dot pour la
+    valeur courante + 0/1/2+ ticks de reference. Remplace l'ancien gauge
+    (axis + axis-mark losange + axis-target-tick).
+
+    Args:
+        value_pct : position du dot (0-100). None = pas de dot rendu.
+        ticks : liste de (pct, optional_title). 0/1/2+ ticks acceptes.
+        dot_color : '' (neutre ink) | 'acc' | 'warn' | 'bear'.
+        dash_at : pct optionnel pour un tick en pointilles (ex: prix d'entree).
+        title : tooltip texte sur le track.
+        extra_class : classe supplementaire sur .tbar (ex: 'row-bar').
+
+    Returns:
+        str HTML <div class="tbar">...</div>
+    """
+    cls = f"tbar {extra_class}".strip()
+    parts = [f'<div class="{cls}"' + (f' title="{title}"' if title else "") + ">"]
+    for tp, tlbl in (ticks or []):
+        tp = max(0.0, min(100.0, tp))
+        tt = f' title="{tlbl}"' if tlbl else ""
+        parts.append(f'<div class="tbar-tick" style="left:{tp:.1f}%"{tt}></div>')
+    if dash_at is not None:
+        da = max(0.0, min(100.0, dash_at))
+        parts.append(f'<div class="tbar-tick dash" style="left:{da:.1f}%"></div>')
+    if value_pct is not None:
+        v = max(0.0, min(100.0, value_pct))
+        dot_cls = f" {dot_color}" if dot_color else ""
+        parts.append(f'<div class="tbar-dot{dot_cls}" style="left:{v:.1f}%"></div>')
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def _llm_status_badge() -> str:
     """Phase B (#93) : surface llm_status comme chip flottant bottom-right.
 
@@ -2231,10 +2273,7 @@ def _track_record_panel() -> str:
     # Axe Brier : 0 -> 0.5, marker = brier_mean, ligne ref a target 0.20 (= 40%)
     brier_frac = (brier_mean / 0.5 * 100) if brier_mean is not None else None
     brier_target_x = 40.0  # 0.20 / 0.5
-    brier_marker = (
-        f'<div class="axis-mark" style="left:{min(99.0, brier_frac):.1f}%" title="Brier {brier_mean:.3f} sur 0&ndash;0,5"></div>'
-        if brier_frac is not None else ""
-    )
+    # P2 canon : tick a 0.20 target (40%) + dot pour Brier mean. Pas de gradient.
     rate_pct = f"{n_corr/n:.0%}" if n else "&mdash;"
 
     return (
@@ -2246,9 +2285,7 @@ def _track_record_panel() -> str:
         f'<div class="tr-mlabel"><span class="tr-mname">Taux correct</span>'
         f'<span class="tr-mval mono">{n_corr}<span class="tr-mvsep">/</span>{n}</span>'
         f'<span class="tr-munit">soit {rate_pct}</span></div>'
-        f'<div class="axis">'
-        f'<div class="axis-mark" style="left:{rate_frac:.1f}%" title="{rate_pct} correct"></div>'
-        f'</div>'
+        f'{_tbar(rate_frac, dot_color=_rate_cls, title=f"{rate_pct} correct")}'
         f'<div class="tr-mfoot"><span class="mono">IC95% {ci_str.replace("IC95% ", "")}</span>'
         f'<span class="tr-verdict">{rate_verdict}</span></div>'
         f'</div>'
@@ -2257,10 +2294,7 @@ def _track_record_panel() -> str:
         f'<div class="tr-mlabel"><span class="tr-mname">Brier rolling</span>'
         f'<span class="tr-mval mono">{brier_str}</span>'
         f'<span class="tr-munit">sur 0&ndash;0,5</span></div>'
-        f'<div class="axis tr-axis-brier">'
-        f'<div class="tr-axref" style="left:{brier_target_x:.0f}%" title="target 0,20"></div>'
-        f'{brier_marker}'
-        f'</div>'
+        f'{_tbar(brier_frac, ticks=[(brier_target_x, "target 0,20")], dot_color=_brier_cls, title="Brier sur 0-0,5")}'
         f'<div class="tr-mfoot"><span class="mono">target 0,20</span>'
         f'<span class="tr-verdict">{brier_verdict}</span></div>'
         f'</div>'
@@ -2486,7 +2520,7 @@ def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
         rows.append(
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
             f'<span class="tk">{_ticker_logo(tk)}{tk}{flag}</span><span class="tag {cls}">{arrow}&nbsp;{abs(pnl):.1f}%</span></div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{pc:.1f}%" title="{pc:.1f}%"></div></div>'
+            f'{_tbar(pc, title=f"{pc:.1f}%")}'
             f'<div class="rs"><span>toward target</span><span class="mono">{prog:.0f}%</span></div></div>'
         )
     return "".join(rows), hits, top
@@ -2539,7 +2573,7 @@ def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
         rows.append(
             f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
             f'<span class="tk">{tk}{flag}</span><span class="tag {cls}">{down:.0f}%</span></div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{buf:.1f}%" title="{buf:.1f}%"></div></div>'
+            f'{_tbar(buf, title=f"{buf:.1f}% margin before stop")}'
             f'<div class="rs"><span>margin before stop</span></div></div>'
         )
         if is_near:
@@ -2893,7 +2927,7 @@ def _geo_bars(positions: list[dict]) -> str:
             f'<div class="geo-item">'
             f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
             f'<span class="tag acc2">{pct:.0f}%</span></div>'
-            f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, pct)):.1f}%" title="{pct:.1f}%"></div></div>'
+            f'{_tbar(pct, title=f"{pct:.1f}%")}'
             f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
             f'<div class="geo-sub">{sub}</div></div>'
         )
@@ -3388,7 +3422,7 @@ def _signaux() -> str:
             src_rows += (
                 f'<div class="row"><div class="rt"><span class="tk">{str(name)[:24]}</span>'
                 f'<span class="tag {col}">{cv:.2f}</span>{b_badge}</div>'
-                f'<div class="axis"><div class="axis-mark" style="left:{max(2.0, min(100.0, cv * 100)):.1f}%" title="credibility {cv:.2f}"></div></div>'
+                f'{_tbar(cv * 100, title=f"credibility {cv:.2f}")}'
                 f'<div class="rs"><span>credibility a priori</span><span class="mono">{int(n)} signaux</span></div></div>'
             )
     except Exception as e:
@@ -4195,14 +4229,19 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                if t["entry_frac"] is not None:
-                    zones = f'<div class="axis-tick dash" style="left:{t["entry_frac"]:.1f}%"></div>'
-                else:
-                    zones = ""
+                # Dot color = zone (proche stop = bear, proche target = acc, milieu = neutre)
+                _frac = t["frac"]
+                _dot_cls = "bear" if _frac < 25 else ("acc" if _frac > 75 else "")
+                _dash = t["entry_frac"] if t.get("entry_frac") is not None else None
                 bar = (
-                    '<div class="th-bar"><div class="axis">'
-                    f'{zones}<div class="axis-mark" style="left:{t["frac"]:.1f}%" title="position {t["frac"]:.1f}% entre stop et target"></div></div>'
-                    '<div class="th-ends">'
+                    '<div class="th-bar">'
+                    + _tbar(
+                        _frac,
+                        dash_at=_dash,
+                        dot_color=_dot_cls,
+                        title=f"position {_frac:.1f}% entre stop et target",
+                    )
+                    + '<div class="th-ends">'
                     f'<span class="th-stop">stop &minus;{t["d_stop"]:.0f}%</span>'
                     f'<span class="th-tgt">target +{t["d_tgt"]:.0f}%</span></div></div>'
                 )
@@ -4241,11 +4280,14 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     span = _cappct - _tgt if _cappct > _tgt else 1.0
                     _w_pos = 50.0 + min(50.0, extra / span * 50.0)
                 _w_pos = max(0.0, min(100.0, _w_pos))
-                sizebar = (
-                    '<div class="axis sizebar">'
-                    f'<div class="axis-target-tick" style="left:50%" title="target"></div>'
-                    f'<div class="axis-mark" style="left:{_w_pos:.1f}%" title="weight {wv:.1f}% / target {_tgt:.1f}%"></div>'
-                    '</div>'
+                # P2 canon : tick a 50% target + dot pour position weight.
+                _w_dot_cls = "bear" if _w_pos < 25 or _w_pos > 75 else ("acc" if 40 < _w_pos < 60 else "")
+                sizebar = _tbar(
+                    _w_pos,
+                    ticks=[(50.0, "target")],
+                    dot_color=_w_dot_cls,
+                    title=f"weight {wv:.1f}% / target {_tgt:.1f}%",
+                    extra_class="sizebar",
                 )
                 _d = wv - _tgt
                 _v = abs(_d) / 100 * vtot
@@ -4525,11 +4567,14 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         asym_cls, asym_str = _asym_format(asym.get(tk))
         g = gauges.get(tk)
         if g:
-            gauge_html = (
-                f'<div class="axis row-axis" title="stop {-g["dn"]:.0f}% / target +{g["up"]:.0f}%">'
-                f'<div class="axis-target-tick" style="left:{g["target_tick"]:.1f}%"></div>'
-                f'<div class="axis-mark" style="left:{g["pos"]:.1f}%"></div>'
-                f'</div>'
+            _g_pos = g["pos"]
+            _g_dot_cls = "bear" if _g_pos < 25 else ("acc" if _g_pos > 75 else "")
+            gauge_html = _tbar(
+                _g_pos,
+                ticks=[(g["target_tick"], "target")],
+                dot_color=_g_dot_cls,
+                title=f'stop {-g["dn"]:.0f}% / target +{g["up"]:.0f}%',
+                extra_class="row-bar",
             )
         else:
             gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
@@ -5056,10 +5101,7 @@ def render() -> Path:
         target_tick_pct = 100.0 / VISUAL_MAX * 100
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
-            f'<div class="axis">'
-            f'<div class="axis-target-tick" style="left:{target_tick_pct:.1f}%" title="target"></div>'
-            f'<div class="axis-mark" style="left:{visual_pct:.1f}%" title="progress {frac_raw:.0f}%"></div>'
-            f'</div>'
+            f'{_tbar(visual_pct, ticks=[(target_tick_pct, "target")], dot_color=("acc" if visual_pct > 75 else ("bear" if visual_pct < 25 else "")), title=f"progress {frac_raw:.0f}%")}'
             f'<div class="th-ends"><span class="th-stop">stop &minus;{a["dn"]:.0f}%</span>'
             f'<span class="th-tgt">target +{a["up"]:.0f}%</span></div></div>'
         )

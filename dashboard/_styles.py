@@ -16,6 +16,25 @@ _TH_CSS = """
   body.midnight .th-htrack { background:rgba(255,255,255,.05); }
   body.midnight .th-hfill { background:color-mix(in srgb,var(--ink) 75%,transparent); }
   .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
+
+  /* === Canonical track bar (#91 signature unifie 03/06/2026) =============
+     Une primitive visuelle pour TOUS les axes du dashboard : track + dot +
+     ticks optionnels. Remplace .axis + .axis-mark + .axis-target-tick + le
+     mask SVG losange. Pas de gradient (sauf cas signature ou les extremes
+     ont vraiment un sens et le tick aux extremites le porte). Stripe/Linear.
+     Anti-Robinhood (#103 invariant : motion encode le delta, pas l'excitation). */
+  .tbar { position:relative; width:100%; height:5px; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 6%,transparent); margin:var(--s2) 0; }
+  .tbar-tick { position:absolute; top:-2px; width:1.5px; height:9px; background:var(--ink); opacity:.7; border-radius:1px; pointer-events:none; }
+  .tbar-tick.dash { background:transparent; border-left:1px dashed var(--steel); opacity:.55; width:0; }
+  .tbar-dot { position:absolute; top:50%; width:6px; height:6px; border-radius:50%; background:var(--ink); transform:translate(-50%,-50%); z-index:2; box-shadow:0 0 0 1px var(--bg); transition:left .25s ease-out; }
+  .tbar-dot.acc { background:var(--acc); }
+  .tbar-dot.warn { background:var(--warn); }
+  .tbar-dot.bear { background:var(--bear); }
+  .tbar-fill { position:absolute; left:0; top:0; height:100%; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 50%,transparent); transition:width .25s ease-out; }
+  body.midnight .tbar { background:rgba(255,255,255,.05); }
+  body.midnight .tbar-fill { background:color-mix(in srgb,var(--ink) 70%,transparent); }
+  body.midnight .tbar-tick { background:rgba(255,255,255,.6); }
+  body.midnight .tbar-dot { box-shadow:0 0 0 1px var(--bg); }
   /* Section headers unifies (Polish 01/06) : meme pattern visuel pour
      .th-grp / .strat-sh / .vigie-sh / .dba-sh. Noms preserves pour HTML.
      Petit icon optionnel via .sh-ico (data-icon attr peut etre utilise). */
