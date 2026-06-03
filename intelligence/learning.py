@@ -113,6 +113,8 @@ def register_prediction(
     signal_id: int,
     ticker: str,
     direction: str,
+    *,
+    methodology_version: str,
     horizon_days: int | None = None,
     baseline_date: str | None = None,
     signal_type: str | None = None,
@@ -122,6 +124,10 @@ def register_prediction(
     scoring_trace_json: str | None = None,
     source_metadata_json: str | None = None,
 ) -> int | None:
+    """ADR 014 § Hazard B (#98) : methodology_version est REQUIRED keyword-only.
+    Pas de default = pas de silent-mistag. La colonne SQL n'a plus de DEFAULT
+    apres migration 0028. Le caller doit specifier 'v1', 'v2', 'rule_v1_*' etc.
+    """
     if horizon_days is None:
         horizon_days = horizon_for_signal_type(signal_type, impact_magnitude)
     if direction not in ("bullish", "bearish"):
@@ -138,6 +144,7 @@ def register_prediction(
         storage.insert_prediction(
             signal_id=signal_id,
             ticker=ticker,
+            methodology_version=methodology_version,
             probability_override=probability,
             direction=direction,
             horizon_days=horizon_days,
@@ -261,6 +268,8 @@ def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int =
                 signal_id=sig_id,
                 ticker=tk,
                 direction=v2["direction"],
+                # ADR 014 hazard B : V2 scorer path -> tag 'v2' explicit.
+                methodology_version="v2",
                 horizon_days=horizon_days if horizon_days != HORIZON_DAYS else None,
                 baseline_date=baseline_date,
                 signal_type=sig.get("signal_type"),

@@ -82,6 +82,7 @@ def test_insert_prediction_persists_scoring_trace(migrated_db):
         baseline_price=140.0,
         baseline_date="2026-06-02",
         target_date="2026-06-30",
+        methodology_version="v2",  # ADR 014 hazard B (#98) : explicit required
         probability_override=0.68,
         scoring_trace_json=trace,
         source_metadata_json=meta,
@@ -124,6 +125,7 @@ def test_insert_prediction_works_without_trace_backward_compat(migrated_db):
         baseline_price=420.0,
         baseline_date="2026-06-02",
         target_date="2026-06-30",
+        methodology_version="v2",
         probability_override=0.62,
     )
     assert pid is not None
@@ -165,6 +167,7 @@ def test_get_prediction_provenance_full_chain(migrated_db):
         baseline_price=140.0,
         baseline_date="2026-06-02",
         target_date="2026-06-30",
+        methodology_version="v2",
         probability_override=0.68,
         scoring_trace_json=json.dumps(trace_dict, sort_keys=True),
         source_metadata_json=json.dumps(meta_dict, sort_keys=True),
@@ -201,10 +204,12 @@ def test_get_prediction_provenance_handles_corrupted_trace(migrated_db):
     )
     sig_id = cx.execute("SELECT last_insert_rowid()").fetchone()[0]
     cx.execute(
+        # ADR 014 hazard B : methodology_version explicit ('v2') car la migration
+        # 0028 retire le DEFAULT -> sinon IntegrityError NOT NULL.
         "INSERT INTO predictions (signal_id, ticker, direction, horizon_days, "
         "baseline_price, baseline_date, target_date, probability_at_creation, "
-        "scoring_trace_json) "
-        "VALUES (?, 'X', 'bullish', 28, 100.0, '2026-06-02', '2026-06-30', 0.6, ?)",
+        "scoring_trace_json, methodology_version) "
+        "VALUES (?, 'X', 'bullish', 28, 100.0, '2026-06-02', '2026-06-30', 0.6, ?, 'v2')",
         (sig_id, "{not valid json}"),
     )
     pid = cx.execute("SELECT last_insert_rowid()").fetchone()[0]

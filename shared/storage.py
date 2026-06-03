@@ -844,6 +844,8 @@ def insert_prediction(
     baseline_price,
     baseline_date,
     target_date,
+    *,
+    methodology_version: str,
     score=None,
     signal_type=None,
     impact_magnitude=None,
@@ -853,13 +855,19 @@ def insert_prediction(
 ):
     """Brier: probability_at_creation source determined by caller.
 
+    ADR 014 § Hazard B (#98) : methodology_version est PARAMETRE EXPLICITE
+    keyword-only. Pas de default = pas de silent-mistag possible. La colonne
+    SQL n'a plus de DEFAULT (migration 0028) -- un caller qui oublierait
+    crash a l'insert (defense en profondeur).
+
     Versioning:
     - V2 (signal_scorer_v2) : caller passes probability_override (LLM-elicited,
-      base-rate-first, 3-step prompt). Plage [0.0, 1.0] sans cap artificiel.
-      score peut etre None (V2 ne s'en sert pas pour calculer la proba).
+      base-rate-first, 3-step prompt). methodology_version='v2'.
     - V1 (estimate_probability) : si probability_override is None, fallback sur
-      formule deterministe. Cap [0.50, 0.72] (bug mono-bucket identifie 30/05).
-      Conserve pour rollback / A-B futur.
+      formule deterministe (cap [0.50, 0.72], bug mono-bucket 30/05).
+      methodology_version='v1'. Conserve pour rollback / A-B futur.
+    - rule_v1_shadow / rule_v1_fallback : #94/#96 RuleScorer, callers
+      specifient explicitement.
 
     V1 path : score/signal_type/impact_magnitude threaded ; credibility re-queried.
     Si score is None et probability_override is None : NOT registered (floored
@@ -868,6 +876,14 @@ def insert_prediction(
     import logging as _logging
 
     from shared.math_helpers import estimate_probability
+
+    if not methodology_version or not isinstance(methodology_version, str):
+        # Garde explicite : meme si Python n'a pas force le typing, on echoue
+        # loud plutot que silent-mistag. Doublure du schema sans-DEFAULT.
+        raise ValueError(
+            "insert_prediction: methodology_version is required and must be a non-empty str "
+            "(ADR 014 hazard B fix). Pass 'v1', 'v2', 'rule_v1_shadow', etc. explicitly."
+        )
 
     conn = _sqlite3.connect(DB_PATH)
     try:
@@ -896,10 +912,10 @@ def insert_prediction(
         cur = conn.execute(
             "INSERT INTO predictions (signal_id, ticker, direction, horizon_days, baseline_price, "
             "baseline_date, target_date, probability_at_creation, "
-            "scoring_trace_json, source_metadata_json) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "scoring_trace_json, source_metadata_json, methodology_version) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (signal_id, ticker, direction, horizon_days, baseline_price, baseline_date,
-             target_date, prob, scoring_trace_json, source_metadata_json),
+             target_date, prob, scoring_trace_json, source_metadata_json, methodology_version),
         )
         conn.commit()
         return cur.lastrowid

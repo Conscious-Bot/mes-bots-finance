@@ -45,6 +45,11 @@ _WHITELIST = {
     "pragma_table_info",  # SQLite pragma (rarely used in FROM but possible)
     "before",  # SQL keyword in CREATE TRIGGER BEFORE INSERT/UPDATE/DELETE
     "on",  # SQL keyword in CREATE TRIGGER ... ON table_name
+    # Migration 0028 (ADR 014 hazard B) : temp tables transient pour SQLite
+    # ALTER COLUMN recipe (rename swap). Existent uniquement le temps de la
+    # migration upgrade()/downgrade(), pas dans le schema final.
+    "predictions_new",
+    "predictions_old",
 }
 
 
