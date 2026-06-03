@@ -265,21 +265,24 @@ def _llm_status_badge() -> str:
         return ""
 
     tip = f"{label} -- status={status} reason={reason or '-'} since={since[:16] if since else '-'}"
-    # Fixed bottom-right : dot seul (user spec : no text). Le label vit dans
-    # le title (tooltip hover) + le aria-label (accessibilite). Discretion
-    # signal-subtil : la presence indique "instrument", la couleur l'etat.
+    # Fixed bottom-right : dot seul (user spec : no text). Label dans title
+    # (tooltip hover) + aria-label (accessibilite). Discretion signal-subtil :
+    # la presence indique "instrument", la couleur l'etat.
+    # NB : box-sizing:border-box est global (* {...}), donc width/height includent
+    # padding+border. Outer 22px sans padding + inner 10px centre via flex = ring
+    # visible avec dot couleur a l'interieur.
     return (
         f'<div class="llm-badge" role="status" aria-label="LLM {label}" '
         f'title="{tip}" '
         f'style="position:fixed;bottom:22px;right:22px;z-index:50;'
         f'background:var(--panel);border:1px solid var(--line2);'
-        f'border-radius:50%;padding:8px;width:12px;height:12px;'
+        f'border-radius:50%;width:22px;height:22px;'
         f'display:flex;align-items:center;justify-content:center;'
         f'box-shadow:0 14px 40px -12px rgba(0,0,0,.20),0 2px 6px -2px rgba(0,0,0,.08);'
         f'cursor:default;user-select:none">'
         f'<span class="llm-dot" aria-hidden="true" '
-        f'style="display:inline-block;width:8px;height:8px;border-radius:50%;'
-        f'background:var({dot})"></span>'
+        f'style="display:block;width:10px;height:10px;border-radius:50%;'
+        f'background:var({dot});flex-shrink:0"></span>'
         f'</div>'
     )
 
