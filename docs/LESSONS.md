@@ -321,6 +321,8 @@ def _stop_distance_pct_native(ticker, stop_price) -> float | None:
 - La seule voie auditable = forward-logging discipline : conviction/target/stop/asymétrie loggés AT entry, à partir du jour 0 d'instrumentation.
 - ADR-001 bitemporal (valid_time + transaction_time) justifié pour les décisions futures, pas pour ressusciter le passé.
 
+**Smoke-test associé** : `docs/smoke_test_lock_in_2026-06-04.md` documente le post-pivot après le constat L13 — N=5 brut → N=2 in-scope, 1 TN (ALAB) + 1 FP (SNOW), 1 levier structurel (#109 sell-UX radio status_change). Pas une preuve, un proof-of-discipline-sanity du dispositif.
+
 ---
 
 ## Politique d'évolution
