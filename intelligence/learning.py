@@ -42,6 +42,54 @@ OUTCOME_DELTA = {
     "neutral": 0.0,
 }
 
+# Resolution Rules Registry (#110 lock criteria, advisor 04/06/2026)
+# Toute methodology_version qui peut etre ecrite OU resolue DOIT etre listee ici
+# avec sa regle de resolution figee a la date frozen_at. Cf docs/LESSONS.md L13
+# et docs/smoke_test_lock_in_2026-06-04.md.
+#
+# Le but : pas de regle de resolution silencieusement modifiee qui re-evalue
+# retroactivement des predictions deja loggees. Le critere de resolution est
+# part du contrat ecrit au moment de l'enregistrement de la prediction.
+#
+# Ajouter une nouvelle methodology_version = un commit explicite ici. Sans ca,
+# register_prediction et resolve_due_predictions refusent.
+RESOLUTION_RULES: dict[str, dict[str, object]] = {
+    "v0": {
+        "threshold": 0.05,
+        "frozen_at": "2026-05-26",
+        "doc": "pre-V1 legacy, archived per ADR-014",
+    },
+    "v1": {
+        "threshold": 0.05,
+        "frozen_at": "2026-05-26",
+        "doc": "estimate_probability formula, mono-bucket [0.50-0.72]. J-day 10/06 wrapup",
+    },
+    "v2": {
+        "threshold": 0.05,
+        "frozen_at": "2026-05-31",
+        "doc": "signal_scorer_v2 base-rate-first LLM 3 etapes. Canonical forward",
+    },
+    "rule_v1_fallback": {
+        "threshold": 0.05,
+        "frozen_at": "2026-06-03",
+        "doc": "RuleScorer deterministe, FLAG OFF en prod (#94/#105 calibration pending)",
+    },
+    "rule_v1_shadow": {
+        "threshold": 0.05,
+        "frozen_at": "2026-06-03",
+        "doc": "RuleScorer shadow paired-prediction (#96)",
+    },
+}
+
+
+def resolution_rule_for(methodology_version: str) -> dict[str, object] | None:
+    """Return the frozen resolution rule for a methodology_version, or None.
+
+    Source de verite unique des regles de resolution. Refus silencieux si la
+    methodology_version n'est pas dans le registry = guard #110 (lock criteria).
+    """
+    return RESOLUTION_RULES.get(methodology_version)
+
 # Phase Solidification P2 — diversification horizon par signal_type
 # Rationale: catalyst = event-driven (jours/semaines), narrative = slow-burn (mois),
 # opinion/data = standard horizon. Évite cluster temporel de resolutions.
@@ -127,7 +175,18 @@ def register_prediction(
     """ADR 014 § Hazard B (#98) : methodology_version est REQUIRED keyword-only.
     Pas de default = pas de silent-mistag. La colonne SQL n'a plus de DEFAULT
     apres migration 0028. Le caller doit specifier 'v1', 'v2', 'rule_v1_*' etc.
+
+    Lock criteria (#110 advisor 04/06) : methodology_version DOIT etre dans
+    RESOLUTION_RULES registry. Sinon refus -- pas de prediction silencieusement
+    ecrite avec une regle de resolution non documentee.
     """
+    if methodology_version not in RESOLUTION_RULES:
+        log.error(
+            f"register_prediction REFUSE : methodology_version='{methodology_version}' "
+            f"absent de RESOLUTION_RULES. Ajouter dans le registry avec rule + frozen_at "
+            f"AVANT d'ecrire des predictions. Voir intelligence/learning.py."
+        )
+        return None
     if horizon_days is None:
         horizon_days = horizon_for_signal_type(signal_type, impact_magnitude)
     if direction not in ("bullish", "bearish"):
@@ -294,6 +353,20 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
         ticker = pred["ticker"]
         baseline_price = pred["baseline_price"]
         direction = pred["direction"]
+        # Lock criteria (#110) : resolution rule lookup par methodology_version.
+        # Si la methodology_version n'est pas dans le registry -> defensive skip,
+        # on log et on ne resoud PAS (au lieu de subtilement appliquer OUTCOME_THRESHOLD
+        # global qui pourrait ne pas etre la regle ecrite a la creation).
+        mv = pred.get("methodology_version")
+        rule = resolution_rule_for(mv) if mv else None
+        if rule is None:
+            log.warning(
+                f"resolve_due_predictions SKIP pred_id={pred.get('id')} ticker={ticker} "
+                f"methodology_version='{mv}' absent de RESOLUTION_RULES. "
+                f"Pour resoudre, ajouter au registry retroactivement avec la regle d'epoque."
+            )
+            continue
+        threshold = float(rule.get("threshold", OUTCOME_THRESHOLD))
         # Native-currency CORRECT here (not legacy).
         # This computes a RATIO (return_pct) which is FX-invariant — as long as
         # target_close and baseline_price are in same currency, the ratio holds.
@@ -308,16 +381,16 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
             continue
         return_pct = (target_close - baseline_price) / baseline_price
         if direction == "bullish":
-            if return_pct >= OUTCOME_THRESHOLD:
+            if return_pct >= threshold:
                 outcome = "correct"
-            elif return_pct <= -OUTCOME_THRESHOLD:
+            elif return_pct <= -threshold:
                 outcome = "incorrect"
             else:
                 outcome = "neutral"
         else:
-            if return_pct <= -OUTCOME_THRESHOLD:
+            if return_pct <= -threshold:
                 outcome = "correct"
-            elif return_pct >= OUTCOME_THRESHOLD:
+            elif return_pct >= threshold:
                 outcome = "incorrect"
             else:
                 outcome = "neutral"

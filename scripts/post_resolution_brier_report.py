@@ -6,6 +6,12 @@ Le format_resolve_report dans intelligence/learning.py envoie via Telegram
 un summary correct/incorrect/neutral counts mais SANS le Brier moyen --
 qui est la vraie metrique calibration. Ce script complete le report.
 
+Bootstrap CI ajoute 04/06/2026 (advisor : "garde-fou d'humilite, pas mesure
+de performance"). A N=45, un CI plus large que le score n'est PAS non-
+instructif : c'est l'etat le plus instructif, il crie "tu n'as pas encore
+de signal, ne lis pas ce chiffre". Special urgence J-day 10/06 ou la
+tentation de surlire un Brier sera maximale.
+
 Usage (depuis le ROOT du projet pour que les imports `from shared` marchent) :
   python -m scripts.post_resolution_brier_report [YYYY-MM-DD]
 
@@ -16,8 +22,62 @@ Exemple 10/06 a 9h05 (apres le cron daily_resolve_job 9h) :
   python -m scripts.post_resolution_brier_report 2026-06-10
 """
 
+import random
 import sys
 from datetime import date
+
+_BOOTSTRAP_N = 1000  # resamples ; 1000 = standard percentile bootstrap
+_BASELINE_NO_SKILL = 0.25  # Brier du prior trivial constant 0.5
+_CI_LO = 2.5
+_CI_HI = 97.5
+
+
+def _bootstrap_brier_ci(scores: list[float], n_resample: int = _BOOTSTRAP_N) -> tuple[float, float, float]:
+    """Bootstrap percentile CI 95% sur la moyenne Brier.
+
+    Retourne (mean, ci_low, ci_high). Resampling avec remplacement, n_resample
+    fois, calcule moyenne sur chaque sample, prend percentiles 2.5 / 97.5.
+
+    Deterministe via random.seed(42) pour reproducibilite des rapports.
+    """
+    if not scores:
+        return (0.0, 0.0, 0.0)
+    mean = sum(scores) / len(scores)
+    rng = random.Random(42)
+    means = []
+    n = len(scores)
+    for _ in range(n_resample):
+        sample = [scores[rng.randrange(n)] for _ in range(n)]
+        means.append(sum(sample) / n)
+    means.sort()
+    lo_idx = int(_CI_LO / 100 * n_resample)
+    hi_idx = int(_CI_HI / 100 * n_resample) - 1
+    return (mean, means[lo_idx], means[hi_idx])
+
+
+def _format_ci(mean: float, lo: float, hi: float) -> str:
+    """Formate "0.295 [0.18, 0.41] (95% CI bootstrap)" """
+    return f"{mean:.3f} [{lo:.3f}, {hi:.3f}] (95% CI bootstrap n={_BOOTSTRAP_N})"
+
+
+def _ci_verdict(mean: float, lo: float, hi: float, n: int) -> str:
+    """Verdict honnete : CI englobe-t-il la baseline no-skill (0.25) ?"""
+    if lo <= _BASELINE_NO_SKILL <= hi:
+        return (
+            f"⚠️  CI [{lo:.3f}, {hi:.3f}] ENGLOBE la baseline no-skill 0.250.\n"
+            f"   Sur N={n}, on ne peut PAS distinguer skill de chance.\n"
+            f"   Ne PAS lire le point estimate comme un verdict de calibration."
+        )
+    elif hi < _BASELINE_NO_SKILL:
+        return (
+            f"✓ CI [{lo:.3f}, {hi:.3f}] EST EN DESSOUS de baseline 0.250.\n"
+            f"   Sur N={n}, signal positif (mieux que chance) avec 95% confiance."
+        )
+    else:  # lo > baseline
+        return (
+            f"✗ CI [{lo:.3f}, {hi:.3f}] EST AU-DESSUS de baseline 0.250.\n"
+            f"   Sur N={n}, signal NEGATIF (pire que chance) avec 95% confiance."
+        )
 
 
 def main():
@@ -76,22 +136,26 @@ def main():
     print(f"  neutral    : {n_neutral} ({n_neutral / total * 100:.0f}%) -- exclu Brier")
 
     if briers:
-        avg_brier = sum(briers) / len(briers)
+        mean, lo, hi = _bootstrap_brier_ci(briers)
         print("\n=== Brier (raw, sans dedup) ===")
         print(f"  n scored : {len(briers)}")
-        print(f"  avg      : {avg_brier:.3f}")
+        print(f"  brier    : {_format_ci(mean, lo, hi)}")
         print("  baseline trivial (prior 0.5 constant) : 0.250")
-        verdict = "BEATS" if avg_brier < 0.25 else "WORSE THAN"
-        print(f"  -> {verdict} baseline 0.5 prior")
+        print()
+        for line in _ci_verdict(mean, lo, hi, len(briers)).split("\n"):
+            print(f"  {line}")
 
     if clusters:
         cluster_briers = [sum(v) / len(v) for v in clusters.values()]
-        avg_dedup = sum(cluster_briers) / len(cluster_briers)
+        mean_d, lo_d, hi_d = _bootstrap_brier_ci(cluster_briers)
         print("\n=== Brier dedup par cluster (signal_id x ticker x direction) ===")
         print(f"  n clusters uniques : {len(clusters)} (vs {len(briers)} predictions brier-scored)")
         print(f"  dedup ratio        : {len(briers) / len(clusters):.2f}")
-        print(f"  avg brier (dedup)  : {avg_dedup:.3f}")
+        print(f"  brier (dedup)      : {_format_ci(mean_d, lo_d, hi_d)}")
         print(f"  range cluster_briers : [{min(cluster_briers):.3f}, {max(cluster_briers):.3f}]")
+        print()
+        for line in _ci_verdict(mean_d, lo_d, hi_d, len(cluster_briers)).split("\n"):
+            print(f"  {line}")
 
     unique_probs = {round(r["probability_at_creation"], 2) for r in rows}
     if briers and len(unique_probs) <= 2:
