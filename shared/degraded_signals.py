@@ -77,33 +77,75 @@ def _truncate(s: str | None, n: int) -> str:
     return s if len(s) <= n else s[:n - 3] + "..."
 
 
-def _compile_patterns(tickers: list[str]) -> tuple[
-    dict[str, re.Pattern], dict[str, re.Pattern]
-]:
-    ticker_pats: dict[str, re.Pattern] = {}
-    alias_pats: dict[str, re.Pattern] = {}
+def _ticker_core(tk: str) -> str:
+    """Symbole nu sans suffixe d'exchange : '6857.T' -> '6857', 'STMPA.PA' -> 'STMPA'."""
+    return tk.split(".")[0]
+
+
+def _compile_patterns(tickers: list[str]) -> dict[str, re.Pattern]:
+    """Pattern per ticker : OR de tous les mecanismes de match acceptables.
+
+    Strategie pour eviter "MP" matchant "mortgage", "AT" matchant "at home" :
+      - Cashtag `$<SYM>` : haute confiance (financier specific). Tous tickers.
+      - Exchange tag `(NYSE: SYM)`, `(NASDAQ: SYM)`, `NYSE:SYM` : haute confiance.
+      - Symbole nu :
+          * >=4 chars : case-SENSITIVE word-boundary (GOOGL, AMZN faux pos rare)
+          * <=3 chars : INTERDIT seul (trop ambigu). Cashtag ou exchange tag requis.
+      - Alias (noms societe) : case-insensitive word-boundary. Tous tickers.
+
+    Pas de LLM, pas de fenetre contextuelle (gardable simple). Si insuffisant
+    en pratique, on peut ajouter dictionnaire 'noisy_neighbors' par ticker.
+    """
+    pats: dict[str, re.Pattern] = {}
     for tk in tickers:
-        ticker_pats[tk] = re.compile(r"(?:^|\W)(" + re.escape(tk) + r")(?:$|\W)")
+        core = _ticker_core(tk)
+        alternatives: list[str] = []
+        # Cashtag (toujours, haute confiance)
+        alternatives.append(r"\$" + re.escape(core))
+        # Exchange-tagged forms
+        alternatives.append(
+            r"(?:NYSE|NASDAQ|TYO|HKEX|EPA|LSE|XETRA|KRX|TSE)[ ]?:[ ]?" + re.escape(core)
+        )
+        # Symbole nu : autorise SEULEMENT >= 4 chars (case-sensitive)
+        if len(core) >= 4:
+            alternatives.append(r"(?:^|[^A-Z0-9$:])" + re.escape(core) + r"(?:$|[^A-Z0-9])")
+        # Alias noms societe (case-insensitive applique au pattern global ci-dessous)
+        for alias in TICKER_ALIASES.get(tk, []):
+            alternatives.append(r"(?:^|\W)" + re.escape(alias) + r"(?:$|\W)")
+        # Compile : on a un mix case-sensitive (cashtag, symbole) et case-insensitive
+        # (aliases). Solution : on compile case-sensitive par defaut, on rajoute les
+        # aliases en versions multi-case via (?i:...) inline flag (Python 3.6+).
+        # Mais pour simplicite et clarte : on compile case-sensitive, on uppercase
+        # aliases dans le pattern + on cherche case-insensitive sur les aliases en
+        # post-process. Plus simple : 2 patterns.
+        pats[tk] = re.compile("|".join(alternatives))
+    return pats
+
+
+def _compile_alias_patterns(tickers: list[str]) -> dict[str, re.Pattern]:
+    """Alias-only patterns, case-insensitive. Separe pour gerer la casse propre."""
+    pats: dict[str, re.Pattern] = {}
+    for tk in tickers:
         aliases = TICKER_ALIASES.get(tk, [])
         if aliases:
-            alias_pats[tk] = re.compile(
+            pats[tk] = re.compile(
                 r"(?:^|\W)(" + "|".join(re.escape(a) for a in aliases) + r")(?:$|\W)",
                 re.IGNORECASE,
             )
-    return ticker_pats, alias_pats
+    return pats
 
 
 def _match_book(
     title: str | None,
     content: str | None,
     held: list[str],
-    ticker_pats: dict[str, re.Pattern],
+    sym_pats: dict[str, re.Pattern],
     alias_pats: dict[str, re.Pattern],
 ) -> list[str]:
     text = (title or "") + " " + (content or "")[:800]
     hits = []
     for tk in held:
-        if ticker_pats[tk].search(text) or (
+        if sym_pats[tk].search(text) or (
             tk in alias_pats and alias_pats[tk].search(text)
         ):
             hits.append(tk)
@@ -141,7 +183,8 @@ def build_degraded_brief(
         if focus_tickers:
             held = [t for t in held if t in focus_tickers] or list(focus_tickers)
 
-        ticker_pats, alias_pats = _compile_patterns(held)
+        sym_pats = _compile_patterns(held)
+        alias_pats = _compile_alias_patterns(held)
 
         # Filings & insider (source EDGAR/SEC ou signal_type)
         filings = conn.execute(
@@ -172,7 +215,7 @@ def build_degraded_brief(
     # Split book-touching vs other
     book_rows, other_rows = [], []
     for r in raw:
-        hits = _match_book(r["title"], r["content"], held, ticker_pats, alias_pats)
+        hits = _match_book(r["title"], r["content"], held, sym_pats, alias_pats)
         if hits:
             book_rows.append((r, hits))
         else:
