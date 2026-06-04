@@ -355,11 +355,29 @@ def chat(
         # #93 Composant A + #94 Phase 4 : MARQUEUR SEC via la source unique
         # dashboard.restitution (degraded_restitution_contract). Aucune prose
         # qui imite le raisonnement.
+        # Mode vacances 04/06 : append brief raw HONNETE (filings + book +
+        # flux 24h) au marker. Source : shared.degraded_signals. Pas de
+        # synthese fabriquee, juste de la data non scoree.
         from dashboard.restitution import format_llm_unavailable_marker
+        from shared import storage as _stg_brief
+        from shared.degraded_signals import build_degraded_brief
 
         err_msg = f"LLM unavailable ({e.reason})"
         log.error(f"chat LLM unavailable: {e.upstream_msg[:150]}")
-        reply_text = format_llm_unavailable_marker(e.reason, surface="synthèse")
+        marker = format_llm_unavailable_marker(e.reason, surface="synthèse")
+        try:
+            brief = build_degraded_brief(_stg_brief.DB_PATH, hours=24)
+        except Exception as _be:
+            log.warning(f"degraded brief failed: {_be}")
+            brief = ""
+        if brief:
+            reply_text = (
+                f"{marker}\n\n"
+                "Data brute disponible (non scoree, synthese en pause) :\n\n"
+                f"{brief}"
+            )
+        else:
+            reply_text = marker
     except Exception as e:
         err_msg = f"{type(e).__name__}: {e}"
         log.error(f"chat failed: {err_msg}")
