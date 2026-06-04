@@ -297,6 +297,32 @@ def _stop_distance_pct_native(ticker, stop_price) -> float | None:
 
 ---
 
+## L13 — Backtest rétrospectif : plafonné par construction quand l'instrument est plus jeune que les erreurs
+
+**Règle** : un test honnête de détection comportementale exige une trace **timestampée AVANT** la décision, des **inputs PIT** (conviction / target / stop / thesis_status), et un **label posé indépendamment** du verdict. Si l'une des trois est absente, le rétrospectif ne teste rien — il fabrique ce qu'il prétend valider.
+
+**Pourquoi** : les "signature errors" mémorables (les ventes qu'on regrette le plus) sont par construction les plus anciennes → les plus pré-instrument. Le track-record d'un bot ne peut pas rétroagir sur des trades antérieurs à sa propre existence. Toute reconstruction d'inputs à partir du souvenir = hindsight contamination en blouse blanche.
+
+**Cas concret (TER, session 04/06/2026)** :
+- Une ligne du backtest N=6 "TER c3, entry 306 → sold 328, PnL +7.2%, no_flag par 15% floor + out_of_scope" semblait propre.
+- Triplement contaminée :
+  - **(i) Tranche déguisée en événement** : le ledger broker révèle 7 ventes sur 18 mois, le partial_exit 2026-05-29 @328 n'était que la dernière de la campagne.
+  - **(ii) Entry recalé à T-13j** : `thesis.entry_price=306` était le cost basis recalculé à l'ouverture thesis (2026-05-16), pas la vraie première entrée Dec 2024 (avg cost réel ≈ 110€).
+  - **(iii) 5 ventes orphan ignorées** : 2025-11-03, 2026-01-27, 02-24, 04-17, 05-15 — toutes pré-thesis, sans PIT.
+- Réalisé EUR sur le round-trip complet ≈ +93% (vs +7.2% sur la tranche isolée). Le "verdict no_flag" n'évaluait absolument pas la décision globale.
+
+**Red flag à repérer immédiatement** :
+- Tu construis un "cas test" rétrospectif → vérifie *avant tout autre chose* que la thèse était dans la table **avec timestamp antérieur** à la décision testée. Pas "à peu près à l'époque", pas "le bot a été créé après mais on peut reconstruire" — strictement antérieur.
+- Tu observes un sell isolé → vérifie qu'il n'est pas la dernière d'une série dans le ledger broker. Sinon traite la **campagne**, pas l'événement (D1 round-trip, jamais D2 per-event quand fragmenté).
+- Tu envisages de baisser un seuil détecteur "pour attraper le cas qui n'a pas flag" → STOP, c'est juste déplacer la contamination de la donnée vers la règle. Garde 1 : règle figée AVANT regard.
+
+**Corollaire structurel** :
+- SOFI/PLTR/NVDA et tout pré-instrument → **non testables**. Le rétrospectif rend P&L et regret-impressions, jamais validation détecteur.
+- La seule voie auditable = forward-logging discipline : conviction/target/stop/asymétrie loggés AT entry, à partir du jour 0 d'instrumentation.
+- ADR-001 bitemporal (valid_time + transaction_time) justifié pour les décisions futures, pas pour ressusciter le passé.
+
+---
+
 ## Politique d'évolution
 
 Toute nouvelle leçon (catch récurrent qu'on attrape pour la 2ème fois) **doit** être ajoutée ici avec :
