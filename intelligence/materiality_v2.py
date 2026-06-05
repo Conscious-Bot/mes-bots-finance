@@ -160,7 +160,12 @@ def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
 
     #93 (03/06) : sur LLMUnavailableError, marque scoring_status='pending_llm'
     + break la boucle (inutile de bruler les autres signaux quand l'API dit
-    non). JAMAIS de drop silencieux. Le drain job futur reprend les pending.
+    non). JAMAIS de drop silencieux.
+
+    Source unique de verite pour "pas encore score" = `impact_magnitude IS NULL`.
+    Le scoring_status est informatif (telemetrie / drain manuel), il ne gate PAS
+    la requete : sinon un crash LLM tague tout pending_llm et plus rien ne tire
+    quand l'API revient (bug constate 05/06 : 70 signaux stuck apres 2-3j off).
     """
     import sqlite3
 
@@ -174,7 +179,6 @@ def score_pending_signals_v2(limit: int = 20) -> tuple[int, int, int]:
             "       COALESCE(src.credibility, 0.5) AS cred "
             "FROM signals s LEFT JOIN sources src ON s.source_id = src.id "
             "WHERE s.impact_magnitude IS NULL "
-            "  AND s.scoring_status != 'pending_llm' "
             "ORDER BY s.timestamp DESC LIMIT ?",
             (int(limit),),
         ).fetchall()
