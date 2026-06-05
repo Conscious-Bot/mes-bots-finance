@@ -1,22 +1,20 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 01 juin 2026 (post wire B2 v2.c.5 + Pile 1.1 + audit cleanup)
-**Mode** : Phase construction (book 53k -> 70k) + Observation Brier V1 jusqu'au 10/06 (J-9)
+**Refresh** : 05 juin 2026 (post migration Hetzner + backup offsite Storage Box)
+**Mode** : Phase construction (book 53k -> 70k) + Observation Brier V1 jusqu'au 10/06 (J-5)
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (01/06)
+## 🟢 ÉTAT SYSTÈME (05/06)
 
-- **536 tests verts** (vs 534/536 avant audit cleanup ce matin)
-- **alembic head = 0024** (over_cap_alerts journal append-only), WAL actif, quick_check ok, db 10.3 MB
-- **Bot tourne** PID 8110 + caffeinate, kca cron live (27 theses dormant baseline)
-- **Backup cron sain** : ~/backups/mes-bots-finance/ snapshot 01/06 04:00 (DB 10.8 MB + tarball 37 MB)
-- **LLM cost** : $2/day / $27 sur 7 jours = budget OK
-- **Compteur live actif** sur canal honnete : kca actif (transition triggered -> wire fomo_greed), over_cap dark par decision phase construction, lock_in non instrumente (Surface 2 ADR-010 §2 attend)
-- **Cluster KPI #2 J-day** : 5/35 resolues precocement, Brier N=5 = 0.248 (~ baseline 0.25 no-skill). 30 resolutions restantes a venir d'ici 10/06
-- **8 commits poussés aujourd'hui** : `416d90c` v2.c.3-c.5 + `8b5cb68` glossary + `5fd488d` Pile 1.1 + `44bdd8b` Brier handler + `eebd6d2` biais desambiguisation + `b1c2171` audit cleanup
-- **Backlog audit** (cf SESSION_STATE close 01/06) : P1 #26 telegram Conflict / P2 #30 baseline price gate / P3 #33 hygiene de fond
+- **Bot + dashboard sur VM Hetzner H24** : `ssh presage@37.27.247.126`, systemd user + linger, APScheduler 26 jobs, Restart=always, start au boot. Mac launchd `com.olivier.presage` unloaded.
+- **DB** : migree depuis Mac (`.backup` atomique 14MB, parite 420 signals / 30 positions / 53 theses / 219 predictions). alembic head 0028.
+- **Backup offsite Storage Box BX11** (Falkenstein, 1TB, €3.84/mo) : `presage-backup.timer` daily 04:00 UTC, Persistent=true, push subaccount `u608897-sub1`. Premier run automatique : **Sat 2026-06-06 04:04 UTC**.
+- **LLM cost** : 70 signaux unstuck ce matin apres fix `pending_llm` double-gate (mode vacances digest etait du au bug pas au credit). Recovery automatique au prochain cron si API down → up.
+- **4 commits poussés aujourd'hui** : `327e1ea` materiality_v2 fix pending_llm + `e771c11` backup.sh portable+offsite + `76b5927` rename heimdall→presage units + `ce004b6` systemd timer daily backup.
+- **Tennis-bot intact** : binaire `bot.py` (vs `bot.main`), launchd `com.olivier.tennisbot` non touche.
+- **Backlog ouvert** : taches user residuelles cf SESSION_STATE close 05/06 §5 (delete old OAuth secret / kill Mac serve.py / Storage Box password reset / fix base dir `/.ssh/` → `/presage`).
 
 ---
 
@@ -90,6 +88,14 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 ---
 
 ## ✅ DÉJÀ FAIT (29/05 + 30/05 matin)
+
+### 05/06 — Migration Hetzner full + backup offsite (chantier marathon, cf SESSION_STATE close)
+
+- **Fix mode vacances digest** (`327e1ea`) : retire double-gate `pending_llm`. 70 signaux unstuck, recovery automatique au prochain cron quand LLM revient. Memoire `pending_llm_no_double_gate`.
+- **Migration full Mac→VM Hetzner CX22** (Helsinki, Ubuntu 26.04, IPv4 37.27.247.126) : user `presage` + pyenv 3.14.4 + venv + 115 packages + DB scp + OAuth rotation + cutover bot launchd-unloaded.
+- **Backup offsite Storage Box BX11** (Falkenstein, €3.84/mo) : 2e ed25519 sur VM, subaccount `u608897-sub1`, systemd timer daily 04:00 UTC, dry-run pousse 6.4MB + 14MB OK.
+- **4 commits pushes** : materiality_v2 fix + backup.sh portable + heimdall→presage rename + systemd backup timer.
+- **2 memoires** : `pending_llm_no_double_gate` (feedback), `hetzner_migration_triggered` (project, override `migration_solofounder_only`).
 
 ### 29/05 — Brief 10 points implémenté
 - ① Passerelle dérivée unique (`storage.get_position_view`)

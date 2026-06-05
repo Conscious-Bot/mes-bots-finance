@@ -1079,3 +1079,77 @@ apres-midi est mauvaise chance.
 - Fraicheur & Mouvement spec : `docs/presentation_contract_freshness_motion.md`
 - ADR-014 disambiguation : `docs/adrs/014-ledger-segmentation-by-methodology.md`
 - J-day machinery : `bot/jobs/j_day.py`, `crons/j_day_watcher.sh`, `crons/j_day_preflight_notify.sh`
+
+
+---
+
+## SESSION CLOSE 05/06/2026 — Migration Hetzner full + backup offsite Storage Box
+
+Le chantier majeur reporte (par construction) : passer le bot+dashboard de Mac (sleep/shutdown = 2-3j off causant le mode vacances digest stuck) a une VM Hetzner H24. Origine de la demarche : user veut `backup.sh` push offsite. En remontant le pourquoi, on a debouche sur la migration complete.
+
+### Livre ce jour (4 commits, branch main)
+
+**Bug fix matin** :
+- `327e1ea` [P1] materiality_v2 : retire double-gate `pending_llm` → `impact_magnitude IS NULL` seule source de verite. 70 signaux unstuck (1 cron drain + 0 fail). Memoire [[pending-llm-no-double-gate]].
+
+**Prep backup script portable** :
+- `e771c11` [ops] backup.sh : PROJECT_DIR auto-detect + env vars `BACKUP_REMOTE_HOST/PATH/PORT/SSH_KEY`. Echec push offsite non-fatal. Warn loud si non configure (sur serveur distant = doctrine INTERDIT silencieux).
+
+**Systemd units rename** :
+- `76b5927` [ops] deploy/heimdall-*.service → presage-*.service + fix `PRESAGE_PORT` env var (HEIMDALL_PORT n'etait pas lu, ignored silently).
+
+**Systemd backup timer** :
+- `ce004b6` [ops] deploy/presage-backup.{service,timer} : oneshot daily 04:00 UTC, Persistent=true, EnvironmentFile %h/.config/presage/backup.env (secrets hors git).
+
+### Migration Hetzner (executee, non commit dans repo car infra)
+
+VM provisionnee : **CX22 x86_64, Ubuntu 26.04 LTS, IPv4 37.27.247.126, Helsinki**. User `presage` (sudo NOPASSWD, ed25519 key Mac depose a creation VM). pyenv + Python 3.14.4 + venv + 115 packages requirements.txt (torch, anthropic, transformers, telegram, apscheduler). 2G swap + TMPDIR sur disque ($HOME/.cache/pip-tmp persistant `.bashrc`). yfinance GO/NO-GO **PASSE** depuis IP datacenter (NVDA + 4063.T + 000660.KS reels).
+
+OAuth Google rotation effectuee (ajout nouveau client_secret `GOCSPX-xgSJt…BACbk` sans suppression de l'ancien `GOCSPX-TM4Rqx…thNb` — **TODO user : delete l'ancien dans console.cloud.google.com**). `.env` + `credentials.json` + `token.json` scp vers VM (mode 600, owner presage). OAuth refresh-token valide depuis VM (15 labels Gmail visibles, `NewsLetters` matche).
+
+DB snapshot atomique `sqlite3 .backup` (14MB, integrity OK) scp vers VM. Parite confirmee Mac↔VM : 420 signals / 30 positions / 53 theses / 219 predictions.
+
+`presage-serve.service` + `presage-bot.service` deployes (`~/.config/systemd/user/`). `loginctl enable-linger presage` (survit reboot). serve.service start AVANT cutover (validation tunnel SSH dashboard `localhost:8001`→`VM:8000` OK, 200 OK, 476KB HTML valide).
+
+**CUTOVER execute** : pkill Mac bot + `launchctl unload ~/Library/LaunchAgents/com.olivier.presage.plist` (le launchd respawnait sinon — important catch). Re-snapshot DB pour catch les writes recents, atomic swap sur VM (stop serve / `mv bot.db.new bot.db` / restart serve). VM bot `systemctl --user enable --now presage-bot.service` → **Scheduler started with 26 jobs**, 1x Conflict 409 Telegram (~30s overlap window) auto-resolu, premier `[SQL] digest.fetch_signals_for_synthesis rows=16` confirme bot actif sur DB migree. Telegram `/brief` valide e2e par user depuis phone.
+
+**Backup offsite Storage Box BX11** (Falkenstein, 1TB, €3.84/mo, ID #591212) : subaccount `u608897-sub1` cree (base dir `/.ssh/`, **TBD: a re-configurer vers `/presage` pour isolation propre**, scope minimal). Cle ed25519 dediee `~/.ssh/backup_storagebox` sur VM (jamais sur Mac, jamais en repo). Authorized_keys uploaded via SFTP + password (`Presage-Backup-2026!` defini puis utilise une fois — **TODO user : reset a un random fort, password n'est plus utilise apres bootstrap**). Test rsync+key auth OK, dry-run full backup poussee : 6.4MB tarball + 14MB bot.db sur `presage-backups/`. Timer `presage-backup.timer` enable, **prochain trigger Sat 2026-06-06 04:04 UTC** (jitter +0..5min).
+
+### Etat infra apres cutover
+
+- **Bot Telegram + dashboard** : VM Hetzner systemd (linger, Restart=always, demarre au boot, 26 jobs APScheduler)
+- **DB** : migree depuis Mac, integrite OK, alembic head 0028
+- **Backup** : daily 04:00 UTC → Storage Box, 14j rotation locale, Persistent (catch-up si VM off)
+- **Mac** : launchd `com.olivier.presage` unloaded (plus de respawn), bot Mac dead, serve.py local toujours up sur :8000 (inoffensif mais inutile, peut etre kille a froid)
+- **tennis-bot** : intact comme demande, separable par binaire `bot.py` (vs `bot.main`)
+- **Github** : main au courant (4 commits pushes), repo cloned VM via deploy key SSH (read-only scope)
+- **Anthropic budget** : 70 signaux scored ce matin apres unstuck. Toujours risque depletion identique aux jours precedents, mais le mode vacances digest se debloque desormais tout seul au prochain cron quand l'API revient (fix `327e1ea`).
+
+### Taches user residuelles (5 min cumule, tout est non-bloquant)
+
+1. **Google OAuth ancien secret** : console.cloud.google.com → Credentials → ton client `711001773276-…` → delete l'ancien secret `GOCSPX-TM4Rqx…thNb`. 2 min. Sinon 2 secrets actifs en parallele = surface elargie.
+2. **Kill Mac serve.py** : `lsof -nP -iTCP:8000 -sTCP:LISTEN` → kill le PID Python (PID 2301 a la fin de session). Cosmetique.
+3. **Storage Box password reset** : console Hetzner → storage-box-1 → Subaccounts → `…` u608897-sub1 → Reset password → genere random fort. La cle SSH suffit pour les backups, le password n'est utilise nulle part en prod.
+4. **Storage Box base dir** : actuellement `/.ssh/` (clic accidentel pendant le setup). Sub-optimal pour isolation. Edit subaccount → BASE DIRECTORY → tape `presage` (new_directory racine). Backups continueront a marcher tant que `~/.config/presage/backup.env` est sync (BACKUP_REMOTE_PATH=presage-backups inchange).
+5. **Anthropic credits** : reload selon ton rythme. Plus de surveillance critique requise — le pipeline survit aux pannes.
+
+### Memoires Claude sync ce jour
+
+- `pending_llm_no_double_gate` : feedback regle source unique de verite cron drain
+- `hetzner_migration_triggered` : project, override `migration_solofounder_only` sur partie infra
+
+### Inputs pour reprise (cold-start)
+
+- Acces VM : `ssh presage@37.27.247.126` (cle ed25519 Mac)
+- Tunnel dashboard : `ssh -L 8001:localhost:8000 presage@37.27.247.126` puis http://localhost:8001/dashboard.html
+- Logs bot : `journalctl --user -u presage-bot -f` sur VM
+- Logs backup : `journalctl --user -u presage-backup.service` + `systemctl --user list-timers presage-backup`
+- Storage Box browse : `sftp -P 23 -i ~/.ssh/backup_storagebox u608897-sub1@u608897-sub1.your-storagebox.de` (depuis VM)
+- Mac : `~/Library/LaunchAgents/com.olivier.presage.plist` reste sur le disque (unloaded) — re-load possible via `launchctl load` si rollback necessaire
+- Backup pre-rotation OAuth : `credentials.json.pre-rotation-20260605` (Mac, untracked)
+
+### Entry next session
+
+- **Verifier le 1er backup automatique** : Sat 2026-06-06 04:04 UTC. `ssh presage@37.27.247.126 'journalctl --user -u presage-backup -n 30'` doit montrer un run reussi. Si fail, debugger avant la prochaine fenetre 24h.
+- **J-day 10/06** : le batch resolution Brier (cron `j_day_batch_close_job` date-trigger 2026-06-10 09:30) tourne maintenant **sur la VM**, pas sur Mac. Le scheduler dump initial montrait 26 jobs charges. Verifier explicitement le 09/06 que ce job est bien dans la liste avec next_run correct (P1 audit #3 du SESSION_STATE 03/06 reste valable, mais a verifier cote VM maintenant).
+- Si tu reprends apres pause : verifier `systemctl --user is-active presage-bot presage-serve` retourne `active` x2.
