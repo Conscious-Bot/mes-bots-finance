@@ -38,7 +38,31 @@ Les 3 patterns surveillés via `intelligence/v2_vigilance.py` (cron weekly lundi
 - [ ] **Daily check log bot** : `tail bot.log` confirme morning_chain (6h) + evening_chain (23h) tournent OK
 - [ ] **Daily gate** : doit rester 🟢 0 violations (toute violation = régression)
 - [ ] **VALUE_LOG** : remplir chaque jour ce que PRESAGE t'a appris (mesure réelle de valeur, pas commits)
-- [ ] **Refonte targets/stops thèses one-by-one** (flag 05/06 soir) : tous les stops actuels à exactement -25%, targets à +50/+60% par conviction = générique-aveugle, pas thèse-specific. ⚠️ **Bug urgent** : 6857.T entry 24215 JPY vs target 234.82 = -99% (probable mismatch JPY/USD ou décimale ratée). Voie : conversationnelle, 1 thèse à la fois, contexte ATH/ATL + asymmetry + fondamentaux. Cf voie A proposée 05/06.
+- [ ] **CHANTIER 06/06 — Refonte targets/stops par thèse + outil /review** :
+   Tous les stops actuels à exactement -25%, targets à +50/+60% par conviction =
+   générique-aveugle, pas thèse-specific.
+
+   **⚠️ Bug urgent à fixer en premier** : 6857.T entry 24215 JPY vs target 234.82 =
+   -99% (probable mismatch JPY/USD ou décimale ratée). Le gate currency_native
+   aurait dû l'attraper — investiguer pourquoi il est passé.
+
+   **Session A (~2h, code)** : build handler Telegram `/review TICKER` qui sort :
+     - PnL depuis achat (positions.avg_cost vs current)
+     - Perf 1y / 2y du ticker (yfinance)
+     - Perf relative au sector index (SOXX/XLE/etc., besoin mapping ticker→sector)
+     - Valorisation P/E + P/S vs sector median (FMP API déjà dans .env)
+     - Ressenti modèle : agrégat impact_magnitude + sentiment signaux 30j
+     - Phase cycle sectoriel : config user-defined (ta vue signée), pas LLM
+     - News récentes par ticker (signals matched cashtag/name)
+     - Cibles actuelles + asymmetry calculée
+
+   **Session B (~1h par 2-3 thèses)** : conversationnelle, tu reviews chaque
+   thèse séquentiellement avec /review output. Tu proposes nouveaux niveaux
+   target_partial / target_full / stop. Je valide via thesis_invariants
+   (currency_native + ratio sain) avant update DB.
+
+   Ordre suggéré (priorité) : 6857.T (bug), puis conviction 5 (CCJ), puis c4
+   (AMZN/MP), puis c3 (ENTG/LNG/MU).
 
 ---
 
