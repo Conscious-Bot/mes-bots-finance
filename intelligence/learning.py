@@ -233,7 +233,7 @@ def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int =
     """
     from intelligence import signal_scorer_v2
 
-    registered = []
+    registered: list[int] = []
     for sig in signals:
         score = sig.get("score") or 0
         sentiment = sig.get("sentiment") or ""
@@ -366,7 +366,8 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
                 f"Pour resoudre, ajouter au registry retroactivement avec la regle d'epoque."
             )
             continue
-        threshold = float(rule.get("threshold", OUTCOME_THRESHOLD))
+        threshold_raw = rule.get("threshold", OUTCOME_THRESHOLD)
+        threshold = float(threshold_raw)  # type: ignore[arg-type]  # registry values are int/float
         # Native-currency CORRECT here (not legacy).
         # This computes a RATIO (return_pct) which is FX-invariant — as long as
         # target_close and baseline_price are in same currency, the ratio holds.
