@@ -19,15 +19,15 @@ At b ≈ 60%, baseline ≈ 0.24. That's the floor the LLM must beat to have adde
 
 This is forced because it's math, not preference.
 
-## Sample floor — [YOUR CALL — proposed N=20]
+## Sample floor — N = 20 (committed 2026-06-05)
 
 **If `n_resolved < N`, the read is NULL.** No verdict. No priority change. No conclusion about LLM value. The number gets reported as a transparency snapshot ("here's what the small sample showed") but it does not bind future direction.
 
-Proposed N = 20. Current state: 18 already resolved + ~17 expected in this batch ≈ 35. So if the batch resolves cleanly, the read will be live. If a chunk fails to resolve (data gaps, stuck predictions), this floor catches that.
+N = 20. Current state: 18 already resolved + ~17 expected in this batch ≈ 35. Floor is low enough to survive a few stuck predictions and still produce a binding read, high enough to not be absurd.
 
-**Revise N to the number you'll actually hold to.** Lower than 20 is louder but noisier; higher is quieter but might null out a real read.
+**Effective N caveat — read this before reading the number.** N=35 is nominal. The predictions are heavily theme-correlated (semis cluster: NVDA/AMD/AVGO/MU/ARM/AMRC; crypto cluster: MSTR/COIN/IBIT; etc.). Independent information is well below 35. Treat the bootstrap CI as a *minimum* uncertainty bound — true uncertainty is wider because the bootstrap implicitly assumes independence that doesn't hold. The dedup-by-cluster Brier (already wired in `post_resolution_brier_report.py`) is the more honest read.
 
-## Verdict bands — [YOUR CALL — proposed M=0.02]
+## Verdict bands — M = 0.03 (committed 2026-06-05) — readability floor only
 
 Three outcomes, no fourth:
 
@@ -35,9 +35,27 @@ Three outcomes, no fourth:
 - **Did not earn its cost** if `Brier ≥ baseline`
 - **Inconclusive** if `baseline − M < Brier < baseline`
 
-Proposed M = 0.02. That's the gap the LLM must clear *below* the no-skill baseline to count as having added value beyond noise.
+M = 0.03. Stricter than the original proposed 0.02 — doctrine-consistent with anti-flattery.
 
-**Revise M to the gap you'll actually use as the line.** M too small = too easy to declare victory on noise. M too large = even a real edge gets called inconclusive. The honest number is the smallest gap you'd trust if it came in unfavorably.
+**But M is a readability floor, not the binding verdict.** A fixed gap M can't distinguish a real edge of 0.03 from a noise swing of 0.03. The signal-vs-noise question isn't a function of a fixed threshold — it's a function of the confidence interval.
+
+## Binding verdict — CI-based (the real test)
+
+**The committed verdict is read from `scripts/post_resolution_brier_report.py` `_ci_verdict()` (already wired), not from the simpler `j_day.py` Telegram auto-message.** The bootstrap percentile CI (n=1000, seed 42) is the authoritative read:
+
+- **Earned its cost** if `CI_high < baseline` (entire interval below 0.25)
+- **Did not earn its cost** if `CI_low > baseline` (entire interval above 0.25)
+- **Inconclusive** if the CI envelopes the baseline (which is what's expected for N=35 nominal in a noisy first cohort)
+
+The point estimate crossing M is informative as a *headline*, not as the verdict. The verdict is the CI relationship to the baseline.
+
+This applies to both the raw Brier and the cluster-dedup Brier. **The dedup version is the more honest read** because of theme correlation (see N caveat above).
+
+### Pre-resolution forecast (so we read 10/06 honestly)
+
+The 10/06 V1 verdict is essentially pre-determined by sample size + noise structure: at N≈35 nominal (effective N << 35 due to theme correlation) and the dry-run Brier ≈ 0.295 already on record, the CI will envelope the baseline → outcome will be **"did not earn its cost" or "inconclusive"** regardless of M. That's not a failure of the contract — it's the contract telling us truth: V1's first cohort doesn't have the statistical mass to declare itself, and the point estimate is on the wrong side of baseline anyway.
+
+The M=0.03 + CI-excluding-baseline rule **really bites later**, on V2 cohorts when N grows and the question shifts from "can we read anything" to "is the apparent edge real or noise." That's where this contract pays for itself.
 
 ## Pre-committed consequences (the anti-rationalization core)
 
@@ -80,4 +98,4 @@ The verdict (earned / did not / inconclusive) gets added to the public `site_pub
 
 ## Pre-flight
 
-This contract must be committed before 2026-06-10 to count as pre-registered. If the three [YOUR CALL] lines aren't revised and committed before resolution, the contract defaults to the proposed values (N=20, M=0.02), which is still a binding pre-registration — just with the default thresholds.
+This contract is pre-registered: committed on 2026-06-05, before resolution of the 2026-06-10 V1 cohort. The two thresholds (N=20, M=0.03) plus the CI-based verdict mechanism are the binding contract going into the read.
