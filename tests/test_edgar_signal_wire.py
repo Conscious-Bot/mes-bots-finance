@@ -259,7 +259,10 @@ def test_e2e_wire_real_nvda_8k_produces_strong_prediction(tmp_path, monkeypatch)
             baseline_price REAL,
             baseline_date TEXT,
             target_date TEXT,
-            probability_at_creation REAL
+            probability_at_creation REAL,
+            scoring_trace_json TEXT,
+            source_metadata_json TEXT,
+            methodology_version TEXT NOT NULL
         )""")
         cx.commit()
 

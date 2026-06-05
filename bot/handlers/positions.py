@@ -469,6 +469,33 @@ async def _buy_impl(update, ticker: str, qty: float, price: float, reasoning: st
     except Exception as e:
         await update.message.reply_text(f"Position updated but journal failed: {e}")
 
+    # 3.5 Boucle-de-soi V0 : capture ancre contrefactuelle apres log_decision.
+    # Source-direct fix 05/06 : avant ce patch, positions.py ne creait PAS d'ancre
+    # alors que chat_intent.py le faisait -> 5 decisions orphan 03/06 dans le gate.
+    # Branche : "would_have_sold" pour scale_in, "hold" sinon (entry).
+    if decision_id:
+        try:
+            from intelligence import self_loop as _sl
+            from shared import edgar as _edgar
+
+            _qty_before_buy = (existing_before.get("qty") if existing_before else 0) or 0
+            _currency = _edgar.get_currency_for_ticker(ticker) if hasattr(_edgar, "get_currency_for_ticker") else None
+            _sl.record_anchor(
+                decision_id=decision_id,
+                ticker=ticker,
+                decision_type=dtype,
+                qty_before=_qty_before_buy,
+                price_at_decision=price,
+                currency=_currency,
+                thesis_id=thesis_id,
+                reasoning=reasoning,
+                counterfactual_branch="would_have_sold" if dtype == "scale_in" else "hold",
+            )
+        except Exception as _e:
+            logging.getLogger("bot.position_buy").warning(
+                f"self_loop record_anchor failed {ticker}: {type(_e).__name__}: {_e}"
+            )
+
     # 4. Auto-tag biases
     bias_tags = []
     if decision_id:
@@ -566,6 +593,52 @@ async def _sell_impl(update, ticker: str, qty: float, price: float, reasoning: s
         )
     except Exception as e:
         await update.message.reply_text(f"Position updated but journal failed: {e}")
+
+    # 2.4 Boucle-de-soi V0 : capture ancre contrefactuelle apres log_decision.
+    # Source-direct fix 05/06 : avant ce patch, positions.py ne creait PAS d'ancre
+    # alors que chat_intent.py le faisait. Pour les sells : branche "hold"
+    # (l'alternative est de garder), + bias_hypothesis winner-sell si gain > 10%.
+    if decision_id:
+        try:
+            from intelligence import self_loop as _sl
+            from shared import edgar as _edgar
+
+            _qty_before_sell = (_existing_sell.get("qty") if _existing_sell else 0) or 0
+            _avg_cost = (_existing_sell.get("avg_cost") if _existing_sell else 0) or 0
+            _bias_hyp = []
+            if _avg_cost > 0 and (price - _avg_cost) / _avg_cost > 0.10:
+                _bias_hyp.append("vend_winners_trop_tot")
+            _currency = _edgar.get_currency_for_ticker(ticker) if hasattr(_edgar, "get_currency_for_ticker") else None
+            _sl.record_anchor(
+                decision_id=decision_id,
+                ticker=ticker,
+                decision_type=dtype,
+                qty_before=_qty_before_sell,
+                price_at_decision=price,
+                currency=_currency,
+                thesis_id=thesis_id,
+                bias_hypothesis=_bias_hyp,
+                reasoning=reasoning,
+                counterfactual_branch="hold",
+            )
+        except Exception as _e:
+            logging.getLogger("bot.position_sell").warning(
+                f"self_loop record_anchor failed {ticker}: {type(_e).__name__}: {_e}"
+            )
+
+    # 2.45 Source-direct fix 05/06 : full_exit + plus de position -> close la these
+    # automatiquement. Avant : these restait active malgre position closed,
+    # gate #5 deconnait (cf SNOW thesis_53 active sans position post 03/06).
+    if dtype == "full_exit" and r.get("closed") and thesis_id:
+        try:
+            storage_mod.update_thesis_status(
+                thesis_id, "concluded", notes=f"full_exit at {price} ({reasoning[:200]})"
+            )
+        except Exception as _close_err:
+            logging.getLogger("bot.position_sell").warning(
+                f"thesis close failed thesis={thesis_id} ticker={ticker}: "
+                f"{type(_close_err).__name__}: {_close_err}"
+            )
 
     # 2.5 Back-link copilot intervention to actual decision row
     if _copilot_intervention_id and decision_id:
