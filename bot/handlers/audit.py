@@ -10,6 +10,10 @@ Usage :
   /audit 14      -> derniers 14j
   /audit MU      -> filtre ticker
   /audit MU 30   -> filtre + window
+
+Format readable (refactor 05/06 soir) : groupe par date, verdicts en mots
+clairs (Stop/Pression/OK/—), branches cf en francais (vs vendre / vs garder),
+visuels alignes (⛔/⚠️/✓/·).
 """
 
 from __future__ import annotations
@@ -17,10 +21,63 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from collections import defaultdict
 
 from shared import storage
 
 log = logging.getLogger(__name__)
+
+# Mappings verdict -> visuel + label humain
+_COP_VERDICT_DISPLAY: dict[str, tuple[str, str]] = {
+    "STRONG_OPPOSE": ("⛔", "Stop"),
+    "PRESSURE": ("⚠️", "Pression"),
+    "PROCEED": ("✓", "OK"),
+}
+
+# Branches counterfactuelles -> francais
+_CF_BRANCH_DISPLAY: dict[str, str] = {
+    "hold": "vs garder",
+    "would_have_sold": "vs vendre",
+    "rotate_to": "vs roter",
+}
+
+
+def _format_decision_line(d: dict, cop: dict | None, cf: dict | None) -> str:
+    """1 ligne Telegram aligned for a single decision."""
+    # Verdict copilot
+    if cop and cop.get("verdict") in _COP_VERDICT_DISPLAY:
+        icon, label = _COP_VERDICT_DISPLAY[cop["verdict"]]
+        score = cop.get("pressure_score") or 0
+        cop_part = f"{icon} {label:<8}/{score:<2}"
+    else:
+        cop_part = "·  —       /-- "
+
+    # Counterfactual : si resolu, montre le verdict realise ; sinon la branche pending
+    if cf and cf.get("resolutions"):
+        last_res = cf["resolutions"][-1]
+        v = last_res["verdict"].replace("decision_", "")
+        # Translate v : harmful / beneficial / neutral
+        v_fr = {"harmful": "❌perte", "beneficial": "✅gain", "neutral": "○neutre"}.get(v, v)
+        cf_part = f"J+{last_res['horizon']}d {v_fr}"
+    elif cf:
+        cf_part = _CF_BRANCH_DISPLAY.get(cf["branch"], cf["branch"])
+    else:
+        cf_part = "(no cf)"
+
+    # Marker biais winner-sell suspect
+    bias_marker = ""
+    if cf and cf.get("biases"):
+        try:
+            bl = json.loads(cf["biases"])
+            if bl and any("winner" in b for b in bl):
+                bias_marker = " 💸"
+        except Exception:
+            pass
+
+    return (
+        f"  {d['ticker']:<10} {d['decision_type']:<13} "
+        f"{cop_part} {cf_part}{bias_marker}"
+    )
 
 
 async def cmd_audit(update, ctx):  # noqa: ARG001
@@ -35,7 +92,6 @@ async def cmd_audit(update, ctx):  # noqa: ARG001
         elif p.isalpha() or "." in p or "_" in p:
             ticker = p.upper()
 
-    # Import core logic from the script (avoid duplication).
     from scripts.decision_audit import (
         classify_decision,
         fetch_copilot_intervention,
@@ -48,8 +104,8 @@ async def cmd_audit(update, ctx):  # noqa: ARG001
         decisions = fetch_decisions(conn, days, ticker)
         if not decisions:
             await update.message.reply_text(
-                f"AUDIT {days}j" + (f" ({ticker})" if ticker else "")
-                + " : aucune decision materielle reelle dans la fenetre."
+                f"🔍 AUDIT {days}j" + (f" ({ticker})" if ticker else "")
+                + "\n\nAucune décision matérielle réelle sur la fenêtre."
             )
             return
 
@@ -62,17 +118,13 @@ async def cmd_audit(update, ctx):  # noqa: ARG001
     finally:
         conn.close()
 
-    # Aggregate classifications
+    # Aggregate classifications + coverage
     counts: dict[str, int] = {}
     n_copilot = 0
     n_cf = 0
     n_resolved = 0
     for _d, cop, cf, c in rows:
         counts[c] = counts.get(c, 0) + 1
-        # Compte seulement les interventions copilot avec verdict reel (pas
-        # les rows orphelines a verdict=NULL : ex backfill 05/06 des 5
-        # decisions 03/06 qui ont une ligne intervention mais pas de
-        # vraie analyse copilot enregistree).
         if cop and cop.get("verdict"):
             n_copilot += 1
         if cf:
@@ -80,68 +132,74 @@ async def cmd_audit(update, ctx):  # noqa: ARG001
             if cf.get("resolutions"):
                 n_resolved += 1
 
-    header = f"AUDIT {days}j" + (f" ({ticker})" if ticker else "") + f" — {len(rows)} decisions"
-    lines = [header, ""]
+    # Header
+    title = f"🔍 AUDIT {days}j" + (f" — {ticker}" if ticker else "")
+    n = len(rows)
+    lines = [f"{title} — {n} décision{'s' if n > 1 else ''}", ""]
 
-    # Classification summary
-    lines.append("Classification :")
-    important_first = ("PUSHED_THROUGH", "BLIND_SPOT", "COPILOT_WRONG", "OK", "PENDING")
-    for c in important_first:
-        if c in counts:
-            marker = ""
-            if c == "PUSHED_THROUGH":
-                marker = " ⚠️"
-            elif c == "BLIND_SPOT":
-                marker = " ❓"
-            elif c == "COPILOT_WRONG":
-                marker = " 🔧"
-            lines.append(f"  {c}: {counts[c]}{marker}")
+    # Status : pour l'instant majoritairement PENDING
+    if counts.get("PENDING") == n:
+        lines.append("État : aucune mature (premiers verdicts vers fin juin)")
+    else:
+        # Classification avec markers visuels uniquement pour les categories "learning"
+        bits = []
+        if counts.get("PUSHED_THROUGH"):
+            bits.append(f"⚠️ {counts['PUSHED_THROUGH']} pushed-through")
+        if counts.get("BLIND_SPOT"):
+            bits.append(f"❓ {counts['BLIND_SPOT']} blind-spot")
+        if counts.get("COPILOT_WRONG"):
+            bits.append(f"🔧 {counts['COPILOT_WRONG']} copilot-wrong")
+        if counts.get("OK"):
+            bits.append(f"✓ {counts['OK']} ok")
+        if counts.get("PENDING"):
+            bits.append(f"⏳ {counts['PENDING']} pending")
+        if bits:
+            lines.append("État : " + " · ".join(bits))
+
+    lines.append(f"Couverture : copilot {n_copilot}/{n} · cf {n_cf}/{n} · résolu {n_resolved}/{n_cf if n_cf else 0}")
     lines.append("")
 
-    # Coverage
-    lines.append(f"Coverage : copilot {n_copilot}/{len(rows)} | cf {n_cf}/{len(rows)} "
-                 f"| resolved {n_resolved}/{n_cf}")
-    lines.append("")
+    # Group par date
+    by_date: dict[str, list] = defaultdict(list)
+    for d, cop, cf, c in rows:
+        date_key = d["created_at"][:10]
+        by_date[date_key].append((d, cop, cf, c))
 
-    # Detail per decision (truncated to fit Telegram 4096 char limit)
-    lines.append("Decisions (recent first) :")
-    MAX_DETAIL = 15
-    for d, cop, cf, c in rows[:MAX_DETAIL]:
-        # 1 ligne par decision : id, ticker, type, date, verdict copilot, classif
-        cop_v = cop["verdict"] if cop else "no-cp"
-        cop_p = f"{cop['pressure_score']}" if cop and cop.get("pressure_score") else "-"
-        cf_state = "no-cf"
-        if cf:
-            if cf.get("resolutions"):
-                # Verdict de la resolution la plus longue
-                last_res = cf["resolutions"][-1]
-                v = last_res["verdict"]
-                cf_state = f"J+{last_res['horizon']}:{v.replace('decision_', '')}"
-            else:
-                cf_state = f"cf:{cf['branch']}"
+    # Sorted dates DESC (récent en premier)
+    sorted_dates = sorted(by_date.keys(), reverse=True)
 
-        # Bias flagging if any
-        bias_marker = ""
-        if cf and cf.get("biases"):
-            try:
-                bl = json.loads(cf["biases"])
-                if bl and any("winner" in b for b in bl):
-                    bias_marker = " 💸"  # winner-sell suspect
-            except Exception:
-                pass
+    MAX_TOTAL = 18  # cap pour Telegram limit
+    n_shown = 0
+    for date_key in sorted_dates:
+        decisions_day = by_date[date_key]
+        if n_shown >= MAX_TOTAL:
+            break
 
-        date_short = d["created_at"][:10]
-        lines.append(
-            f"#{d['id']} {d['ticker']:<10} {d['decision_type']:<13} {date_short} "
-            f"cp:{cop_v}/{cop_p} {cf_state} [{c}]{bias_marker}"
-        )
+        # Format date : 2026-06-03 -> 03/06
+        try:
+            _yyyy, mm, dd = date_key.split("-")
+            date_label = f"{dd}/{mm}"
+        except Exception:
+            date_label = date_key
 
-    if len(rows) > MAX_DETAIL:
-        lines.append(f"... +{len(rows) - MAX_DETAIL} autres (cf scripts/decision_audit.py pour full)")
+        lines.append(f"━ {date_label} ({len(decisions_day)})")
+        for d, cop, cf, _c in decisions_day:
+            if n_shown >= MAX_TOTAL:
+                break
+            lines.append(_format_decision_line(d, cop, cf))
+            n_shown += 1
+        lines.append("")
 
-    msg = "\n".join(lines)
-    # Telegram 4096 char limit safety
+    if n > MAX_TOTAL:
+        lines.append(f"… +{n - MAX_TOTAL} autres (cf `python -m scripts.decision_audit` pour full)")
+
+    # Légende compacte si pertinent
+    if any(cop and cop.get("verdict") for _d, cop, _cf, _c in rows):
+        lines.append("")
+        lines.append("Légende : ⛔ Stop · ⚠️ Pression · ✓ OK · 💸 winner-sell suspect")
+
+    msg = "\n".join(lines).rstrip()
     if len(msg) > 3900:
-        msg = msg[:3850] + "\n... [truncated]"
+        msg = msg[:3850] + "\n…[truncated]"
 
     await update.message.reply_text(msg)
