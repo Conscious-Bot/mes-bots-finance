@@ -1153,3 +1153,125 @@ DB snapshot atomique `sqlite3 .backup` (14MB, integrity OK) scp vers VM. Parite 
 - **Verifier le 1er backup automatique** : Sat 2026-06-06 04:04 UTC. `ssh presage@37.27.247.126 'journalctl --user -u presage-backup -n 30'` doit montrer un run reussi. Si fail, debugger avant la prochaine fenetre 24h.
 - **J-day 10/06** : le batch resolution Brier (cron `j_day_batch_close_job` date-trigger 2026-06-10 09:30) tourne maintenant **sur la VM**, pas sur Mac. Le scheduler dump initial montrait 26 jobs charges. Verifier explicitement le 09/06 que ce job est bien dans la liste avec next_run correct (P1 audit #3 du SESSION_STATE 03/06 reste valable, mais a verifier cote VM maintenant).
 - Si tu reprends apres pause : verifier `systemctl --user is-active presage-bot presage-serve` retourne `active` x2.
+
+
+---
+
+## SESSION CLOSE 05/06/2026 — Extension soir : analytics push + /audit en flow
+
+Continuation de la session marathon du 05/06. Apres la migration Hetzner +
+backup offsite + J-day prep du matin/aprem, la soiree s'est focalisee sur la
+construction d'outils d'analyse data + leur surface dans le flow.
+
+### Livre (18 commits supplementaires, branch main)
+
+**LLM cost optimization** :
+- `aee073d` Tier `narrate` (Sonnet) ajoute pour restitution narrative.
+  Switch 3 sites Opus→Sonnet : portfolio_grade_llm, bot_conceptions,
+  user_profile. Espacement crons : classify 30min→2h, mat_v2 + recompute_boost
+  1h→6h. Doctrine validee : ne PAS toucher decision_copilot ni dashboard/chat
+  (user-facing copilot quality preservee).
+
+**J-day reading contract pre-registration** :
+- `d298b01` N=20, M=0.03 commit, **verdict CI-based** (pas point estimate
+  franchissant M). M=0.03 reste comme readability floor mais le binding
+  verdict est CI bootstrap excluant baseline 0.250. Section "Pre-resolution
+  forecast" ajoutee : V1 cohort 10/06 essentiellement decide d'avance comme
+  "did not earn / inconclusive" -- M=0.03 mord vraiment sur V2.
+
+**P1 fix orphan decisions + currency NaN** :
+- `16e22bb` 5 decisions du 03/06 (74-78) orphelines : positions.py manquait
+  `record_anchor`. Source-direct fix + auto-close these sur full_exit +
+  backfill 5 counterfactuals marker `backfill_05_06_orphan` + close SNOW
+  these 53 active→concluded. Test edgar e2e schema fix (manque scoring_trace
+  + source_metadata + methodology_version columns).
+- `53446f8` currency_native gate : `math.isnan` check ajoute. Avant : NaN <= 0
+  False -> ratio NaN comparait False -> faux mismatch fire. ALAB/MP plus
+  rejetes par yfinance NaN occasionnel.
+
+**Doc + setup** :
+- `50b8ea1` PROVISION.md retrospective post-migration : 200+ lignes catalogues
+  tous les gotchas reels (user non-root, swap 2G + TMPDIR persistant, deploy
+  key SSH > PAT, OAuth Add secret nouvelle UI, launchd unload avant pkill,
+  Storage Box subaccount + cle SFTP, Healthchecks).
+- `8566520` `.claude/settings.json` projet (3 ruff check patterns durables)
+  + `.gitignore credentials.json.pre-*`
+
+**6 outils d'analyse data (chantier majeur)** :
+- `aacefc7` + `76ae9dd` **thesis_clusters_brier.py** : KMeans embedding
+  key_drivers + Brier per cluster + decomposition par conviction × direction
+  × status. Output cohort : silhouette 0.046 faible (key_drivers partagent
+  "AI capex"), tous Brier ~0.30 INCONCLUSIVE.
+- `31b20d7` **source_attribution_brier.py** : Brier par source signal avec
+  dual reporting raw vs dedup signal_id. Revelation cohort : 25 raw = 9
+  signaux uniques (compression 3.6x par theme correlation).
+- `069f0b2` **calibration_plot.py** : reliability diagram + ECE. Confirme
+  empiriquement V1 mono-bucket [0.626, 0.658] (spread 3.2pt seulement). ECE
+  dedup = 30.7pt = antiskill grave (predicted 0.64, realized 0.33).
+- `68b661c` **measure_bias filter TEST_*** + **bias_ledger.py**. Decouverte
+  critique : ledger boucle-de-soi 100% pollue par tests e2e (30/30 resolutions
+  TEST_SL_*). Avant fix : "100% lock_in confirme -6000 EUR" = mensonger.
+  Apres fix : 0 vraies resolutions, 13 ancres reelles pending mature ~28/06.
+- `f4b2041` + `bf4a9a4` **decision_audit.py** : per-decision view avec
+  classification PUSHED_THROUGH / BLIND_SPOT / COPILOT_WRONG / OK / PENDING.
+  Cohort 21 decisions / 16 avec copilot / 13 avec cf / 0 mature.
+- `3d48fc0` **materiality_validation.py** : Spearman rho impact_magnitude vs
+  Brier quality. rho=-0.254 directionnel ANTI-correle (sous seuil ±0.3,
+  FLAT verdict). Materiality_v2 V1 pourrait etre miscalibree -- a confirmer
+  post-J-day a N plus grand.
+
+**Test isolation fix source-direct** :
+- `2b56b5c` `test_pipeline_end_to_end.py` ajout fixture `isolated_full_db`
+  opt-in pour les 2 tests qui INSERT (decision_creates_counterfactual_anchor
+  + position_audit_log_append_only). Pollution stoppee a la source : 50
+  TEST_E2E_DEC count avant/apres run = identique. La pollution historique
+  (200 rows) reste en append-only mais ignored au query-time.
+
+**Telegram handler /audit en flow quotidien** :
+- `f5cabf5` + `db7f198` + `3a12f59` **`/audit` handler** : reuse logique
+  decision_audit.py + format Telegram compact lisible.
+  - Pattern : group par date · verdicts en mots (⛔ Stop · ⚠️ Pression · ✓ OK)
+    · branches cf en francais (vs vendre · vs garder) · 💸 marker winner-sell
+  - Coverage corrige (count only non-NULL verdicts)
+  - Wired dans bot/registry.py
+  - Deploye VM + restart bot. Tape `/audit` ou `/audit 14` ou `/audit MU`.
+
+### Findings de cette extension
+
+- **V1 mono-bucket confirme** : probas distinctes 0.626/0.638/0.656/0.658 (3.2pt).
+- **Compression theme correlation** : 25 predictions = 9 signaux indep (3.6x).
+- **Ledger boucle-de-soi 100% pollue** (avant fix) par tests TEST_SL_*.
+- **5 décisions du 03/06 sans counterfactual** = positions.py manquait record_anchor.
+- **0/30 ancres reelles mature** : premiers verdicts vers 27-28/06.
+- **Materiality_v2 rho=-0.254** : directionnel inverse, sous seuil significance.
+
+### Etat post-extension
+
+- VM tourne H24, /audit dispo Telegram + 6 scripts CLI ad-hoc
+- 26 commits cumulatifs aujourd'hui (matin + extension soir)
+- Pollution test data : stoppee a la source + filtree query-time
+- J-day reading contract pre-registered avec methodologie CI-based
+
+### Outils ajoutes (extension)
+
+- 6 scripts standalone CLI : `scripts/thesis_clusters_brier.py` ·
+  `source_attribution_brier.py` · `calibration_plot.py` · `bias_ledger.py` ·
+  `decision_audit.py` · `materiality_validation.py`
+- 1 Telegram handler : `/audit` (la seule surface user-facing reguliere)
+- 1 backfill script one-shot : `backfill_orphan_decisions_20260605.py` (done)
+
+### Entry next session (extension override le matin)
+
+- **Verifier le 1er backup automatique** : Sat 2026-06-06 04:04 UTC. Toujours
+  le 1er trigger automatique a observer demain matin.
+- **Tester /audit en flow regulier** -- tirer 1x/jour pendant 1 semaine pour
+  voir si la routine prend. Si oui = on garde. Si non = simplifier output
+  ou retirer du registry.
+- **J-day 10/06** : armer mentalement, sortir `post_resolution_brier_report.py`
+  9h05 + run les 6 outils d'analyse pour decomposition. Les resultats seront
+  probablement INCONCLUSIVE/NULL par construction N=15 dedup.
+- **D+30 boucle-de-soi 27-28/06** : 1ers verdicts reels (13 ancres ALAB/MU/LNG/
+  CCJ/MP/...) sur biais #1. C'est le VRAI test du projet, pas le 10/06.
+- **Materiality_v2 audit** : si rho reste anti-correle a N plus grand
+  post-J-day, c'est un meta-bug a investiguer (scorer pose etiquette inverse
+  a realite predictive).

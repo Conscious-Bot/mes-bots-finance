@@ -1,20 +1,22 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 05 juin 2026 (post migration Hetzner + backup offsite Storage Box)
+**Refresh** : 05 juin 2026 (extension soir : analytics push + /audit Telegram)
 **Mode** : Phase construction (book 53k -> 70k) + Observation Brier V1 jusqu'au 10/06 (J-5)
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (05/06)
+## 🟢 ÉTAT SYSTÈME (05/06 soir)
 
-- **Bot + dashboard sur VM Hetzner H24** : `ssh presage@37.27.247.126`, systemd user + linger, APScheduler 26 jobs, Restart=always, start au boot. Mac launchd `com.olivier.presage` unloaded.
-- **DB** : migree depuis Mac (`.backup` atomique 14MB, parite 420 signals / 30 positions / 53 theses / 219 predictions). alembic head 0028.
-- **Backup offsite Storage Box BX11** (Falkenstein, 1TB, €3.84/mo) : `presage-backup.timer` daily 04:00 UTC, Persistent=true, push subaccount `u608897-sub1`. Premier run automatique : **Sat 2026-06-06 04:04 UTC**.
-- **LLM cost** : 70 signaux unstuck ce matin apres fix `pending_llm` double-gate (mode vacances digest etait du au bug pas au credit). Recovery automatique au prochain cron si API down → up.
-- **4 commits poussés aujourd'hui** : `327e1ea` materiality_v2 fix pending_llm + `e771c11` backup.sh portable+offsite + `76b5927` rename heimdall→presage units + `ce004b6` systemd timer daily backup.
-- **Tennis-bot intact** : binaire `bot.py` (vs `bot.main`), launchd `com.olivier.tennisbot` non touche.
-- **Backlog ouvert** : taches user residuelles cf SESSION_STATE close 05/06 §5 (delete old OAuth secret / kill Mac serve.py / Storage Box password reset / fix base dir `/.ssh/` → `/presage`).
+- **Bot + dashboard sur VM Hetzner H24** : `ssh presage@37.27.247.126`, systemd user + linger, APScheduler 26 jobs, Restart=always.
+- **DB** : migree Mac→VM (parite 420 signals / 30 positions / 53 theses / 219 predictions). alembic head 0028.
+- **Backup offsite Storage Box BX11** (Falkenstein, €3.84/mo) : `presage-backup.timer` daily 04:00 UTC. Premier run auto : **Sat 2026-06-06 04:04 UTC**.
+- **LLM cost optimise** : tier `narrate` Sonnet pour 3 sites Opus narrative ; crons espacés (classify 30min→2h, mat_v2 + recompute_boost 1h→6h). Decision_copilot + dashboard chat restent Opus.
+- **6 outils analyse data** : `thesis_clusters_brier` · `source_attribution_brier` · `calibration_plot` · `bias_ledger` · `decision_audit` · `materiality_validation`. Tous scripts CLI standalone, doctrine CI-based + dedup signal_id.
+- **/audit Telegram handler** : surface decision_audit dans le flow quotidien. Tape `/audit` / `/audit 14` / `/audit MU`.
+- **J-day 10/06 prep** : reading contract pre-registered (N=20, M=0.03, **verdict CI-based**), healthchecks armed.
+- **26 commits aujourd'hui** (matin + extension soir). Tennis-bot intact (binaire `bot.py`).
+- **Backlog ouvert** : essentiellement gated par calendrier 10/06 + 27-28/06. Pas de chantier libre actionable ce soir.
 
 ---
 
@@ -88,6 +90,19 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 ---
 
 ## ✅ DÉJÀ FAIT (29/05 + 30/05 matin)
+
+### 05/06 soir — Analytics push + /audit en flow (extension)
+
+- **LLM cost optimization** : tier `narrate` Sonnet pour 3 sites Opus narrative (portfolio_grade_llm, bot_conceptions, user_profile) + crons espacés. Decision_copilot + dashboard chat preservés Opus.
+- **J-day reading contract pre-registered** : N=20, M=0.03, verdict CI-based (pas point estimate franchissant M).
+- **6 outils data livrés** : thesis_clusters_brier · source_attribution_brier · calibration_plot · bias_ledger · decision_audit · materiality_validation. Tous CI-based + dedup signal_id.
+- **`/audit` Telegram handler** : per-decision view dans flow quotidien (group date, verdicts mots, branches FR, markers 💸).
+- **Test isolation source-direct** : fixture `isolated_full_db` pour les 2 tests INSERT → pollution TEST_E2E_DEC stoppée.
+- **measure_bias TEST_* filter** : ledger boucle-de-soi etait 100% pollue (30/30 résolutions TEST). Fix source-direct + bias_ledger.py outil.
+- **Fix orphan decisions 03/06** : positions.py manquait record_anchor + auto-close thèse sur full_exit. Source-direct + backfill 5 counterfactuals + SNOW thèse close.
+- **Fix currency_native NaN gate** : math.isnan check ajouté.
+- **PROVISION.md retrospective** : 200+ lignes catalogues tous les gotchas migration.
+- **18 commits supplémentaires** (cumulé 26 jour).
 
 ### 05/06 — Migration Hetzner full + backup offsite (chantier marathon, cf SESSION_STATE close)
 
