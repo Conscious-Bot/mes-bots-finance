@@ -1,0 +1,14 @@
+[Unit]
+Description=PRESAGE daily backup timer (04:00 UTC)
+Requires=presage-backup.service
+
+[Timer]
+# 04:00 UTC daily = 06:00 Paris (CEST). Avant le batch marche US/JP open.
+OnCalendar=*-*-* 04:00:00
+# Si le system etait off au moment prevu, run au prochain boot
+Persistent=true
+# Jitter 5min pour eviter pile a la seconde
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

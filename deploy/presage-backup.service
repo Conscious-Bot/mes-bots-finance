@@ -1,0 +1,15 @@
+[Unit]
+Description=PRESAGE daily backup (tarball + DB snapshot + push offsite)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/mes-bots-finance
+# Env vars (BACKUP_REMOTE_HOST/PATH/PORT/SSH_KEY) lues depuis un fichier local
+# non-versionne (pas dans git, contient les coordonnees Storage Box).
+EnvironmentFile=%h/.config/presage/backup.env
+ExecStart=/bin/bash %h/mes-bots-finance/scripts/backup.sh
+
+[Install]
+WantedBy=default.target
