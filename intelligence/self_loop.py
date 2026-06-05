@@ -235,18 +235,24 @@ def measure_bias(
 
     with storage.db() as cx:
         # Toutes les decisions correspondant au predicat
-        # Exclut les trades fantomes corriges : la cf est append-only donc on ne peut
-        # pas la delete, on filtre via le marqueur [VOIDED dans decisions.reasoning.
+        # Filtre 2 catégories de pollution append-only :
+        # - VOIDED : trades fantomes corriges (cf decisions.reasoning '[VOIDED ')
+        # - TEST_* : tickers synthetiques generes par tests e2e self_loop_v0
+        #   (200+ rows polluees au 05/06/2026, vu via scripts/bias_ledger.py).
+        #   Source-direct fix : on filtre query-time car la table cf est
+        #   append-only par trigger -- impossible de delete les rows tests.
+        test_filter = "AND dcf.ticker NOT LIKE 'TEST_%' AND dcf.ticker NOT LIKE 'test%'"
         all_rows = cx.execute(
             f"""SELECT dcf.id FROM decision_counterfactual dcf
                 LEFT JOIN decisions d ON d.id = dcf.decision_id
                 WHERE dcf.decision_type IN ({placeholders})
-                  AND (d.reasoning IS NULL OR d.reasoning NOT LIKE '[VOIDED %')""",
+                  AND (d.reasoning IS NULL OR d.reasoning NOT LIKE '[VOIDED %')
+                  {test_filter}""",
             types,
         ).fetchall()
         n_decisions = len(all_rows)
 
-        # Celles resolues a horizon_days (meme filter VOIDED)
+        # Celles resolues a horizon_days (meme filter VOIDED + TEST)
         resolved = cx.execute(
             f"""
             SELECT cfr.delta_eur, cfr.delta_pct, cfr.verdict
@@ -256,6 +262,7 @@ def measure_bias(
             WHERE dcf.decision_type IN ({placeholders})
               AND cfr.horizon_days = ?
               AND (d.reasoning IS NULL OR d.reasoning NOT LIKE '[VOIDED %')
+              {test_filter}
             """,
             (*types, horizon_days),
         ).fetchall()
