@@ -38,6 +38,7 @@ Les 3 patterns surveillés via `intelligence/v2_vigilance.py` (cron weekly lundi
 - [ ] **Daily check log bot** : `tail bot.log` confirme morning_chain (6h) + evening_chain (23h) tournent OK
 - [ ] **Daily gate** : doit rester 🟢 0 violations (toute violation = régression)
 - [ ] **VALUE_LOG** : remplir chaque jour ce que PRESAGE t'a appris (mesure réelle de valeur, pas commits)
+- [ ] **Refonte targets/stops thèses one-by-one** (flag 05/06 soir) : tous les stops actuels à exactement -25%, targets à +50/+60% par conviction = générique-aveugle, pas thèse-specific. ⚠️ **Bug urgent** : 6857.T entry 24215 JPY vs target 234.82 = -99% (probable mismatch JPY/USD ou décimale ratée). Voie : conversationnelle, 1 thèse à la fois, contexte ATH/ATL + asymmetry + fondamentaux. Cf voie A proposée 05/06.
 
 ---
 
