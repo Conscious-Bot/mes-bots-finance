@@ -236,7 +236,7 @@ def synthesize_conception(kind: str, target_key: str, months_window: int = 6) ->
 
     t0 = time.time()
     try:
-        result = llm.call_json(prompt, tier="synthesize", max_tokens=1200)
+        result = llm.call_json(prompt, tier="narrate", max_tokens=1200)
     except Exception as e:
         log.warning(f"conception synthesis {kind}={target_key} failed: {e}")
         return None, None

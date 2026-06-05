@@ -597,6 +597,7 @@ sources:
 tiers:
   extract: claude-haiku-4-5-20251001
   enrich: claude-sonnet-4-6
+  narrate: claude-sonnet-4-6
   synthesize: claude-opus-4-7
 pricing:
   claude-haiku-4-5-20251001:

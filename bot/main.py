@@ -279,9 +279,13 @@ async def post_init(app):
     sched.add_job(cron_tier1_daily, "cron", hour=6, minute=0)
     sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)
     sched.add_job(cron_tier3_monthly, "cron", day=1, hour=7, minute=0)
-    sched.add_job(scheduled_classify_signal_types_job, "interval", minutes=30)
-    sched.add_job(scheduled_recompute_materiality_boost_job, "interval", hours=1)
-    sched.add_job(scheduled_materiality_v2_job, "interval", hours=1)
+    # 05/06 : espacements crons pour reduire pression LLM + DB write sans perte coverage.
+    # classify 30min->2h, recompute_boost 1h->6h, materiality_v2 1h->6h.
+    # safety-net : ingest_gmail_job chain materiality_v2 immediat apres ingestion,
+    # donc le cron standalone est juste catch-up de stragglers.
+    sched.add_job(scheduled_classify_signal_types_job, "interval", hours=2)
+    sched.add_job(scheduled_recompute_materiality_boost_job, "interval", hours=6)
+    sched.add_job(scheduled_materiality_v2_job, "interval", hours=6)
     sched.start()
     # Dump real scheduler state (pas une string hardcoded qui drift) -- au moindre
     # add_job manque ou en trop, le log le revele. Critique avant J-day 10/06.

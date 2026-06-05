@@ -521,7 +521,7 @@ def run_synthesis(months_window: int = 6) -> tuple[dict | None, int | None]:
     ctx, counts = assemble_synthesis_context(months_window=months_window)
     prompt = PROMPT.format(**ctx)
     try:
-        result = llm.call_json(prompt, tier="synthesize", max_tokens=2500)
+        result = llm.call_json(prompt, tier="narrate", max_tokens=2500)
         if not isinstance(result, dict):
             log.warning(f"user_profile synthesis: unexpected response type {type(result)}")
             return None, None

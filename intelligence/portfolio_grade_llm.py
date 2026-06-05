@@ -131,7 +131,7 @@ def run_synthesis() -> tuple[dict, int | None]:
         positions_block=_format_positions_block(ctx["positions"]),
     )
     try:
-        result = llm.call_json(prompt, tier="synthesize", max_tokens=3500)
+        result = llm.call_json(prompt, tier="narrate", max_tokens=3500)
     except Exception as e:
         log.error(f"portfolio_grade_llm synthesis failed: {e}")
         return {}, None
