@@ -247,7 +247,7 @@ def main() -> None:
         print("SUMMARY")
         print("=" * 80)
         counts: dict[str, int] = {}
-        for d, copilot, cf in rows:
+        for _d, copilot, cf in rows:
             c = classify_decision(copilot, cf).split(" ")[0]
             counts[c] = counts.get(c, 0) + 1
         for category, n in sorted(counts.items(), key=lambda kv: -kv[1]):
