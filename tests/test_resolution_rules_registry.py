@@ -52,27 +52,40 @@ def test_resolution_rule_for_unknown_returns_none() -> None:
 # ─── register_prediction guard ────────────────────────────────────────────────
 
 
-def test_register_prediction_refuses_unknown_methodology(caplog) -> None:
-    """Lock #110 : methodology_version absent du registry -> return None + log error."""
-    with caplog.at_level("ERROR"):
-        result = learning.register_prediction(
-            signal_id=1,
-            ticker="NVDA",
-            direction="bullish",
-            methodology_version="v99_silent_addition",
-        )
+def test_register_prediction_refuses_unknown_methodology(monkeypatch) -> None:
+    """Lock #110 : methodology_version absent du registry -> return None + log error.
+
+    Note 05/06 : caplog approach flake en full suite (un test antérieur appelle
+    `logging.basicConfig()` via import qui casse la propagation -- cf
+    `tests/test_portfolio_metrics.py:240` + `tests/test_sql_observability.py:4`
+    qui documentent le meme contournement). Mock direct sur learning.log =
+    robust. CI Github failed pour ca depuis 03/06.
+    """
+    captured: list[str] = []
+    monkeypatch.setattr(learning.log, "error", lambda msg, *a, **kw: captured.append(str(msg)))
+
+    result = learning.register_prediction(
+        signal_id=1,
+        ticker="NVDA",
+        direction="bullish",
+        methodology_version="v99_silent_addition",
+    )
     assert result is None
-    assert any("RESOLUTION_RULES" in r.message for r in caplog.records)
+    assert any("RESOLUTION_RULES" in m for m in captured), \
+        f"Expected RESOLUTION_RULES in log.error msgs, got: {captured}"
 
 
-def test_register_prediction_refuses_empty_methodology(caplog) -> None:
-    with caplog.at_level("ERROR"):
-        result = learning.register_prediction(
-            signal_id=1,
-            ticker="NVDA",
-            direction="bullish",
-            methodology_version="",
-        )
+def test_register_prediction_refuses_empty_methodology(monkeypatch) -> None:
+    """Idem : mock direct au lieu de caplog (full-suite flake)."""
+    captured: list[str] = []
+    monkeypatch.setattr(learning.log, "error", lambda msg, *a, **kw: captured.append(str(msg)))
+
+    result = learning.register_prediction(
+        signal_id=1,
+        ticker="NVDA",
+        direction="bullish",
+        methodology_version="",
+    )
     assert result is None
 
 
