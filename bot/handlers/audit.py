@@ -69,7 +69,11 @@ async def cmd_audit(update, ctx):  # noqa: ARG001
     n_resolved = 0
     for _d, cop, cf, c in rows:
         counts[c] = counts.get(c, 0) + 1
-        if cop:
+        # Compte seulement les interventions copilot avec verdict reel (pas
+        # les rows orphelines a verdict=NULL : ex backfill 05/06 des 5
+        # decisions 03/06 qui ont une ligne intervention mais pas de
+        # vraie analyse copilot enregistree).
+        if cop and cop.get("verdict"):
             n_copilot += 1
         if cf:
             n_cf += 1
