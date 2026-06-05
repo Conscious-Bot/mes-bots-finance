@@ -13,7 +13,9 @@ detectable seulement quand l'user le voit dans le dashboard (= trop tard).
 from __future__ import annotations
 
 import json
+import sqlite3
 import time
+from pathlib import Path
 
 import pytest
 
@@ -25,12 +27,55 @@ def _uniq_ticker(prefix="TEST_PIPE"):
     return f"{prefix}_{int(time.time() * 1000) % 100000}"
 
 
+@pytest.fixture
+def isolated_full_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Cree une DB sqlite temp avec le schema complet (copie depuis prod DB).
+
+    Fix isolation 05/06/2026 (cf scripts/bias_ledger.py decouverte) :
+    plusieurs tests INSERT-aient des TEST_E2E_DEC / TEST_AUDIT_* dans la
+    PROD DB sans cleanup possible (triggers append-only). Resultat : 200+
+    rows polluees historiquement, dont 5+ aujourd hui.
+
+    Cette fixture opt-in copie le schema (sans data) de la prod DB vers
+    une DB temp, monkeypatch storage.DB_PATH dessus. A appliquer
+    explicitement aux tests qui INSERT (pas autouse car certains tests
+    LISENT delibarement la prod DB, ex marker live_book).
+    """
+    prod_db = storage.DB_PATH
+    test_db = tmp_path / "pipeline_test.db"
+
+    # Dump schema (CREATE TABLE / TRIGGER / INDEX) sans data
+    prod_conn = sqlite3.connect(str(prod_db))
+    schema_sql = "\n".join(
+        row[0] + ";"
+        for row in prod_conn.execute(
+            "SELECT sql FROM sqlite_master "
+            "WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' "
+            "ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 ELSE 2 END"
+        ).fetchall()
+    )
+    prod_conn.close()
+
+    # Load dans la DB temp
+    test_conn = sqlite3.connect(str(test_db))
+    test_conn.executescript(schema_sql)
+    test_conn.commit()
+    test_conn.close()
+
+    monkeypatch.setattr(storage, "DB_PATH", test_db)
+    return test_db
+
+
 # ─────────────────────── Chaine 1 : decision -> outcome artifact ──────────
 
 
-def test_decision_creates_counterfactual_anchor():
+def test_decision_creates_counterfactual_anchor(isolated_full_db):
     """Une INSERT decision suivi d'INSERT decision_counterfactual = chaine
-    decision -> outcome artifact fonctionnelle."""
+    decision -> outcome artifact fonctionnelle.
+
+    Fixture `isolated_full_db` : INSERT vont dans DB temp, pas prod
+    (cf fix pollution 05/06).
+    """
     with storage.db() as cx:
         # Simule une decision externe (qui passerait normalement par chat_intent)
         cur = cx.execute(
@@ -143,8 +188,11 @@ def test_invariants_pass_after_synthetic_decision():
 # ─────────────────────── Chaine 4 : audit log append-only ────────────────
 
 
-def test_position_audit_log_append_only():
-    """Append-only triggers actifs : pas d'UPDATE/DELETE possible."""
+def test_position_audit_log_append_only(isolated_full_db):
+    """Append-only triggers actifs : pas d'UPDATE/DELETE possible.
+
+    Fixture `isolated_full_db` : INSERT TEST_AUDIT_* va dans DB temp, pas prod.
+    """
     with storage.db() as cx:
         # Insert un event test
         tk = _uniq_ticker("TEST_AUDIT")
