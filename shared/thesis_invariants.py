@@ -180,6 +180,8 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tole
     """
     violations: list[str] = []
     try:
+        import math
+
         import yfinance as yf
     except Exception:
         return violations  # yfinance pas dispo
@@ -196,7 +198,6 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tole
         expected_cur = expected_native_currency(tk)
         # Get current price natif (yfinance retourne native)
         try:
-            import yfinance as yf
             t_obj = yf.Ticker(tk)
             hist = t_obj.history(period="5d")
             if hist.empty:
@@ -205,7 +206,10 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tole
         except Exception:
             continue
 
-        if cur_native <= 0:
+        # Skip gracieusement si yfinance retourne NaN (rate limit / ticker
+        # info incomplete sur small caps -- different d un mismatch devise).
+        # NaN <= 0 est False donc le check naif laissait passer NaN.
+        if math.isnan(cur_native) or cur_native <= 0:
             continue
         ratio = stop_price / cur_native
         if not (tolerance_low <= ratio <= tolerance_high):
