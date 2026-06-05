@@ -171,6 +171,56 @@ def label_cluster(theses_in_cluster: list[dict]) -> str:
     return ", ".join(tickers) + ("..." if len(theses_in_cluster) > 5 else "")
 
 
+def decompose_by_key(
+    theses: list[dict],
+    pred_briers: dict[str, list[float]],
+    key_fn,
+    key_label: str,
+) -> None:
+    """Decompose Brier par dimension arbitraire (conviction, direction, etc.)
+    Print les buckets non-vides en ordre value descendant.
+    """
+    buckets: dict[object, list[dict]] = {}
+    for t in theses:
+        k = key_fn(t)
+        if k is None:
+            continue
+        buckets.setdefault(k, []).append(t)
+
+    # Sort buckets : par valeur descendante pour conviction (5->1), alphabetique sinon
+    try:
+        sorted_keys = sorted(buckets.keys(), key=lambda k: (-int(k),))
+    except (TypeError, ValueError):
+        sorted_keys = sorted(buckets.keys(), key=lambda k: str(k))
+
+    print(f"─── DECOMPOSITION BY {key_label.upper()} ───")
+    for k in sorted_keys:
+        in_bucket = buckets[k]
+        tickers = sorted({t["ticker"] for t in in_bucket})
+        briers: list[float] = []
+        for tk in tickers:
+            briers.extend(pred_briers.get(tk, []))
+        line = f"  {key_label}={k} : n_theses={len(in_bucket)} ({len(tickers)} unique tickers)"
+        if len(briers) >= 5:
+            mean = sum(briers) / len(briers)
+            lo, hi = bootstrap_ci(briers)
+            envelope = lo <= 0.250 <= hi
+            if envelope:
+                verdict = "INCONCLUSIVE"
+            elif hi < 0.250:
+                verdict = "EARNED (CI<0.25)"
+            else:
+                verdict = "DID NOT EARN (CI>0.25)"
+            line += f" | Brier(N={len(briers)}) mean={mean:.3f} CI[{lo:.3f}, {hi:.3f}] {verdict}"
+        elif briers:
+            mean = sum(briers) / len(briers)
+            line += f" | Brier(N={len(briers)}<5) mean={mean:.3f} NULL (sample trop petit)"
+        else:
+            line += " | Brier: 0 resolved (pas de prediction resolue sur ces tickers)"
+        print(line)
+    print()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--k", type=int, default=None,
@@ -249,6 +299,14 @@ def main() -> None:
         else:
             print(f"  Brier : N={len(cluster_briers)} < 5 -> NULL (sample trop petit)")
         print()
+
+    print("=" * 78)
+    print()
+
+    # Decomposition par dimensions canoniques (orthogonales aux clusters narratifs)
+    decompose_by_key(theses, pred_briers, lambda t: t["conviction"], "conviction")
+    decompose_by_key(theses, pred_briers, lambda t: t["direction"], "direction")
+    decompose_by_key(theses, pred_briers, lambda t: t["status"], "status")
 
     print("=" * 78)
     print("Note : N par cluster reste petit (cohort entier ~15-30 resolved).")
