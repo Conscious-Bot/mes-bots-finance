@@ -1,5 +1,5 @@
 [Unit]
-Description=Heimdall finance bot (Telegram + Claude, boucle fermee)
+Description=PRESAGE finance bot (Telegram + Claude, boucle fermee)
 After=network-online.target
 Wants=network-online.target
 

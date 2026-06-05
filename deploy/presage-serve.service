@@ -1,5 +1,5 @@
 [Unit]
-Description=Heimdall dashboard (read-only, boucle de render)
+Description=PRESAGE dashboard (read-only, boucle de render)
 After=network-online.target
 
 [Service]
@@ -8,7 +8,7 @@ WorkingDirectory=%h/mes-bots-finance
 ExecStart=%h/mes-bots-finance/venv/bin/python -m dashboard.serve
 Restart=always
 RestartSec=10
-Environment=HEIMDALL_PORT=8000
+Environment=PRESAGE_PORT=8000
 
 [Install]
 WantedBy=default.target
