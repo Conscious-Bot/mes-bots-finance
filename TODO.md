@@ -1,12 +1,23 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 05 juin 2026 (extension soir : analytics push + /audit Telegram)
-**Mode** : Phase construction (book 53k -> 70k) + Observation Brier V1 jusqu'au 10/06 (J-5)
+**Refresh** : 06 juin 2026 (CI fix + /review + refonte targets 26 thèses)
+**Mode** : Phase construction (book 53k -> 70k) + Observation Brier V1 jusqu'au 10/06 (J-4)
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (05/06 soir)
+## 🟢 ÉTAT SYSTÈME (06/06)
+
+- **CI vert pour la 1ère fois historique** (commit `aac6f72`+) : marker `live_data` skip 13 fichiers data-dependent, mypy fix learning.py, ruff vert. Surveiller le badge à chaque push.
+- **Bot + dashboard sur VM Hetzner H24** : `ssh presage@37.27.247.126`, systemd user + linger.
+- **Backup offsite Storage Box BX11** : `presage-backup.timer` daily 04:00 UTC, 4+ runs déjà accumulés.
+- **`/audit` + `/review` Telegram handlers actifs** : décision audit + per-ticker fact-sheet (PnL EUR + perf 1y/2y vs sector + valo + asymmetry + signaux).
+- **26 thèses refondues tailor-made** : 9 patterns (-9% à -25% stop, +10% à +25% partial, +17% à +60% full) selon analyse perf/valo/cycle. Trailing stops sur AMD + STMPA.PA (profit-protection -15% from current). Audit avg_cost 24/26 positions clean (2 fixes : 6857.T, 000660.KS).
+- **Gate currency_native étendu** aux 5 champs prix (stop + 3 targets + entry).
+- **J-day 10/06 prep** : reading contract pré-registered (N=20, M=0.03, CI-based), healthchecks armed.
+- **35+ commits cumulés sur 05+06/06**. Tennis-bot intact.
+
+## 🟢 ÉTAT SYSTÈME (05/06 soir) [PREVIOUS REFRESH]
 
 - **Bot + dashboard sur VM Hetzner H24** : `ssh presage@37.27.247.126`, systemd user + linger, APScheduler 26 jobs, Restart=always.
 - **DB** : migree Mac→VM (parite 420 signals / 30 positions / 53 theses / 219 predictions). alembic head 0028.
@@ -115,6 +126,17 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 ---
 
 ## ✅ DÉJÀ FAIT (29/05 + 30/05 matin)
+
+### 06/06 — CI fix + /review + refonte targets 26 thèses
+
+- **CI vert 1ère fois** : `d3b23bf` test_resolution_rules caplog flake fix, `64e4d64` mypy learning.py, `fe0238c` marker `live_data` + skip 13 fichiers, `aac6f72` ruff cleanup. Post #06 draft "trois jours de CI rouge invisible".
+- **Currency_native gate étendu** (`e18ff54`) : check sur stop_price + target_price + target_partial + target_full + entry_price (avant : stop seul). Bug 6857.T target=-99% l'avait révélé.
+- **Handler `/review TICKER`** (`29dc215` + `9d83446` + `0ecfb0d`) : fact-sheet contextuel zéro LLM. Config sectors.yaml (5 secteurs × cycle phase user-signed). PnL EUR (fix : positions.avg_cost = EUR convention legacy). Tested NVDA + CCJ.
+- **Refonte cibles 26 thèses tailor-made** : 9 patterns selon analyse perf vs sector / valo / cycle / PnL / signaux. Strong A renforce (-15/+20/+40) sur 7 tickers, ALAB bump +60%, energy commodities -20/+15/+25, 6857.T tight -9/+10/+17, etc. Stop -25% générique aveugle remplacé partout.
+- **Trailing stops profit-protection** : AMD 396 EUR (-15% from current 466 USD), STMPA.PA 53.40 EUR.
+- **Data fixes positions.avg_cost** : 6857.T 4238→143 EUR (legacy pre-split), 000660.KS 1163→1060 EUR (user-provided buy 2000 EUR à 1060 - sell 490 EUR). TSLA conviction 2→4 (call personnel).
+- **Audit avg_cost 26 positions** clean (3 PnL +100%+ vérifiés = vrais gains AMD/HO.PA/STMPA.PA, pas bugs).
+- **11 commits** cumulés sur la journée 06/06.
 
 ### 05/06 soir — Analytics push + /audit en flow (extension)
 
