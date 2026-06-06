@@ -3794,22 +3794,37 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     tier_rows: dict[int, list[tuple]] = {}
     for ind, val, phase, ts in sig:
         tier, label, dec, thou = debt_map.get(ind, (9, ind, 2, False))
-        v = float(val or 0)
-        num = f"{v:,.{dec}f}" if thou else f"{v:.{dec}f}"
+        # L3 etat honnete : val=NULL -> "no data", pas 0.0 affiche en vert.
+        data_missing = val is None
+        if data_missing:
+            num = "&mdash;"
+            dot = "mute"
+            vcls = "mute"
+        else:
+            v = float(val)
+            num = f"{v:,.{dec}f}" if thou else f"{v:.{dec}f}"
+            dot = _macro_dot(ind, v, phase)
+            vcls = dot  # user 02/06 "green yellow red only"
         ph = int(phase or 1)
-        dot = _macro_dot(ind, v, phase)
         try:
             _age = (_today - _dt.date.fromisoformat(str(ts)[:10])).days
         except Exception:
             _age = 0
-        stale = '<span class="stale">stale</span>' if _age > _STALE.get(tier, 10) else ""
-        vcls = dot  # user 02/06 "green yellow red only" -- pas de mute meme si stale, le badge "stale" suffit
+        is_stale = (not data_missing) and _age > _STALE.get(tier, 10)
+        if data_missing:
+            badge = '<span class="nodata">no data</span>'
+        elif is_stale:
+            badge = f'<span class="stale">stale {_age}d</span>'
+        else:
+            badge = ""
         tip = _MACRO_TIPS.get(ind, "")
         tip_attr = f' data-tip="{_html_esc.escape(tip, quote=True)}"' if tip else ""
-        sort_key = (_dot_priority.get(dot, 9), _pos.get(ind, 999), ind)
+        # Stale/no-data ranges apres fresh de meme dot (focus visuel sur donnees actuelles).
+        _stale_rank = 1 if (data_missing or is_stale) else 0
+        sort_key = (_dot_priority.get(dot, 9), _stale_rank, _pos.get(ind, 999), ind)
         row_html = (
             f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span><span class="dname">{label}</span>'
-            f'<span class="dval {vcls}">{num}</span><span class="dp">P{ph}</span>{stale}</div>'
+            f'<span class="dval {vcls}">{num}</span><span class="dp">P{ph}</span>{badge}</div>'
         )
         tier_rows.setdefault(tier, []).append((sort_key, row_html))
     tiers: dict[int, str] = {t: "".join(h for _, h in sorted(rows)) for t, rows in tier_rows.items()}

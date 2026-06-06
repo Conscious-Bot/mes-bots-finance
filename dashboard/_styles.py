@@ -639,8 +639,10 @@ _CSS = """
   .ddot { width:8px; height:8px; border-radius:50%; }
   .ddot.calm { background:var(--acc); } .ddot.warn { background:var(--warn); }
   .ddot.hot { background:var(--warn); } .ddot.danger { background:var(--bear); }
+  .ddot.mute { background:var(--steel); opacity:.45; }
   .dname { color:var(--ink); } .dval { font-family:var(--fm); text-align:right; color:var(--ink); } .dp { font-family:var(--fm); font-size:14px; color:var(--steel); }
   .stale { font-family:var(--fb); font-size:14px; color:var(--steel); opacity:.7; text-transform:uppercase; letter-spacing:.08em; }
+  .nodata { font-family:var(--fb); font-size:14px; color:var(--bear); opacity:.85; text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
   @keyframes fade { to { opacity:1; } }
   .noanim [data-page].active, .noanim .row { animation:none !important; }
   .noanim .row { opacity:1 !important; }
