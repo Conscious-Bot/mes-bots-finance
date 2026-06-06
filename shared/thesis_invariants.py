@@ -165,16 +165,19 @@ def check_kill_criteria_substance(conn) -> list[str]:
     return violations
 
 
-def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tolerance_high: float = 1.1) -> list[str]:
-    """Cross-check stop_price vs prix natif du ticker.
+def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tolerance_high: float = 3.0) -> list[str]:
+    """Cross-check prix-fields vs prix natif du ticker.
 
-    Pour chaque these active sur position ouverte :
-    - derive expected currency from ticker suffix
-    - fetch current price native via yfinance
-    - ratio stop_price / current_native doit etre dans [tolerance_low, tolerance_high]
+    Check tous les champs prix de la these (stop_price, target_price,
+    target_partial, target_full, entry_price) contre prix natif yfinance.
+    Si ratio hors range = probable mismatch devise.
 
-    Si ratio hors range = probable mismatch devise (e.g. 71.90 EUR labelisé
-    comme stop_price sur CCJ qui cote en USD).
+    Extension 06/06 : on checkait UNIQUEMENT stop_price avant. Bug 6857.T
+    a echappe : target_price stocke en EUR (234.82) au lieu de JPY
+    (38745) parce que stop_price etait OK seul.
+
+    Tolerance haute relevee a 3.0 pour supporter targets > current_price
+    (target_partial peut etre +30%, target_full +60% par-dessus).
 
     Best-effort : si yfinance indispo, skip ce check pour ce ticker.
     """
@@ -187,14 +190,14 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tole
         return violations  # yfinance pas dispo
 
     rows = conn.execute("""
-        SELECT t.ticker, t.stop_price, t.entry_price
+        SELECT t.ticker, t.stop_price, t.entry_price, t.target_price,
+               t.target_partial, t.target_full
         FROM theses t
         INNER JOIN positions p ON p.ticker = t.ticker
         WHERE t.status='active' AND p.qty > 0 AND p.status='open'
-          AND t.stop_price IS NOT NULL
     """).fetchall()
 
-    for tk, stop_price, entry_price in rows:
+    for tk, stop_price, entry_price, target_price, target_partial, target_full in rows:
         expected_cur = expected_native_currency(tk)
         # Get current price natif (yfinance retourne native)
         try:
@@ -211,13 +214,28 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tole
         # NaN <= 0 est False donc le check naif laissait passer NaN.
         if math.isnan(cur_native) or cur_native <= 0:
             continue
-        ratio = stop_price / cur_native
-        if not (tolerance_low <= ratio <= tolerance_high):
-            violations.append(
-                f"currency_native : {tk} stop_price={stop_price} vs current_native={cur_native:.2f} "
-                f"{expected_cur} (ratio {ratio:.2f} hors [{tolerance_low}, {tolerance_high}]). "
-                f"Probable mismatch devise -- entry_price={entry_price}"
-            )
+
+        # Tolerance asymetrique : stop = tolerance_low..1.0 (toujours < current),
+        # targets = 1.0..tolerance_high (au-dessus de current), entry = 0.5..2.0
+        # (peut etre + ou - selon la phase de la these).
+        # On utilise tolerance_low..tolerance_high large pour tout fields.
+        for field_name, field_value in [
+            ("stop_price", stop_price),
+            ("target_price", target_price),
+            ("target_partial", target_partial),
+            ("target_full", target_full),
+            ("entry_price", entry_price),
+        ]:
+            if field_value is None or field_value <= 0:
+                continue
+            ratio = field_value / cur_native
+            if not (tolerance_low <= ratio <= tolerance_high):
+                violations.append(
+                    f"currency_native : {tk} {field_name}={field_value} vs "
+                    f"current_native={cur_native:.2f} {expected_cur} "
+                    f"(ratio {ratio:.3f} hors [{tolerance_low}, {tolerance_high}]). "
+                    f"Probable mismatch devise -- entry_price={entry_price}"
+                )
     return violations
 
 
