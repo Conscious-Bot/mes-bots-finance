@@ -2638,10 +2638,26 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
     return watch, len(data)
 
 
-def _rows_risque(computed: list[dict]) -> tuple[str, int, float, str]:
+def _rows_risque(computed: list[dict], positions: list[dict] | None = None) -> tuple[str, int, float, str]:
     data = sorted(((r.get("downside_pct", 0), r["ticker"]) for r in computed), key=lambda x: x[0])
     tensions = [max(0.0, min(1.0, (20 - d) / 20)) for d, _ in data]
-    heat = (max(tensions) * 100) if tensions else 0.0
+    # AUDIT v5 fix STRUCTUREL : heat = sum(weight_share * downside_pct) en %
+    # capital at risk si tous les stops touches.
+    # Convention pro (Pro Trader Dashboard / Van Tharp / Elder) : portfolio
+    # heat = SOMME ponderee, pas max(). Avant : max(tensions) sous-estimait
+    # le risque agrege. En crash, correlations spike, toutes les tensions
+    # s'additionnent.
+    if positions:
+        weight_map = {p["ticker"]: float(p.get("weight", 0)) for p in positions}
+        total_weight = sum(weight_map.values()) or 1.0
+        # % capital at risk if all stops hit = Σ (weight_share_i × downside_pct_i)
+        heat = sum(
+            (weight_map.get(tk, 0) / total_weight) * d
+            for d, tk in data
+        )
+    else:
+        # Fallback legacy (single-max) si positions pas fournies
+        heat = (max(tensions) * 100) if tensions else 0.0
     rows, near, near_rows = [], 0, []
     for i, (down, tk) in enumerate(data):
         buf = max(0.0, min(100.0, down / 30 * 100))
@@ -5297,7 +5313,7 @@ def render() -> Path:
     sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans thesis", -sum(x["w"] for x in kv[1])))
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
-    _ris, near, _heat, watch = _rows_risque(computed)
+    _ris, near, _heat, watch = _rows_risque(computed, positions)  # AUDIT v5 : pass positions pour weighted heat
     gain, _lose = _movers(pnl)
     # day_up/day_dn computes pour _urgence() seulement (D2 retire de Vigie 02/06).
     _day_up, _day_dn = _day_movers(daily)

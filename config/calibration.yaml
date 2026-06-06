@@ -22,10 +22,12 @@
 
 audit_metadata:
   last_audit: '2026-06-06'
-  audit_version: v4
-  audit_method: 'pro web research (FRED/BIS/JPM/GS/Bloomberg/Cboe)'
+  audit_version: v5
+  audit_method: 'pro web research (macro v4 + panels v5: RSI/Breadth/Risque/Concentration/Drawdown)'
   next_audit_due: '2026-06-16'  # +10 days, Phase B cron will refresh
-  audit_report: 'docs/calibration_audits/2026-06-06_v4.md'  # to create
+  audit_reports:
+    - 'docs/calibration_audits/2026-06-06_v4.md'        # macro panels
+    - 'docs/calibration_audits/2026-06-06_v5_panels.md' # autres panels (RSI/Breadth/Risque/Conc/DD)
   sources_consulted:
     - 'FRED St. Louis Fed (VIX/HY_OAS/T10Y2Y/WRESBAL/DGS30)'
     - 'Cboe (VIX historique)'
@@ -37,6 +39,14 @@ audit_metadata:
     - 'Deloitte / Evertiq (semiconductor cycle)'
     - 'BLS / Cleveland Fed / Philadelphia SPF Q2 2026 (CPI)'
     - 'ANZ Research (copper-gold caveat)'
+    - 'StreetStats / StockCharts ChartSchool (RSI Wilder, breadth, McClellan)'
+    - 'CXO Advisory + SentimenTrader (RSP/SPY breadth, A/D divergences)'
+    - 'Pro Trader Dashboard / MartinKronicle / TradingBlox (portfolio heat sum vs max)'
+    - 'Van Tharp Institute (position sizing variance contribution)'
+    - 'Minervini SEPA methodology (7-8% stop, 20-30% max DD)'
+    - 'Acquirers Multiple + Benzinga (Druckenmiller concentration)'
+    - 'QuantPedia / harbourfrontquant (VIX volatility targeting CTA)'
+    - 'Statman 1987 via MDPI review (diversification curve)'
 
 # Bands canoniques. (warn, danger, hi_bad).
 bands:
@@ -146,3 +156,117 @@ rules_thresholds:
   R3_growth_tech_min: 65.0       # R3 fire si semis+tech_mega > 65%
   R4_auto_ev_min: 3.0            # R4 fire si auto_ev_share > 3%
   R5_vix_complacent_max: 12.0    # R5 fire si VIX < 12 (COMPLACENT + ultra-bas)
+
+# === SECTIONS AUTRES PANELS (audit pro pending agent abaeaf60bf71f3485) ===
+# Valeurs courantes preservees, AUDIT_VERSION inscrit a v4-pending.
+# Une fois audit livre, mise a jour selectives + bump audit_metadata.audit_version.
+
+# RSI panel (Market Momentum) - source dashboard/render.py _market_rsi
+# AUDIT v5 : ACCURATE seuils standards 70/30 (Wilder). Upgrade cognitif possible
+# avec trend filter RSI 50 (>50 bias bull, <50 bias bear). Cheap wire, payoff cognitif.
+rsi_bands:
+  overbought_warn: 70.0     # 70-79 = warn yellow (consensus Fidelity/StockCharts)
+  overbought_danger: 80.0   # >= 80 = danger red (extreme OB, marche tendanciel fort)
+  oversold_warn: 30.0       # 21-30 = warn yellow
+  oversold_danger: 20.0     # <= 20 = danger red (extreme OS)
+  trend_filter_mid: 50.0    # NEW v5 : >50 bias bull, <50 bias bear (TO_WIRE next session)
+  cache_ttl_seconds: 1800   # 30 min cache, OK pour daily RSI(14) en swing PM
+
+# Breadth panel - source dashboard/render.py _breadth_rsp_spy
+# AUDIT v5 : SLIGHTLY-OFF. RSP/SPY est proxy partiel; les pros utilisent en
+# priorité S5FI (% S&P >50dma) et S5TH (% S&P >200dma). Seuils delta_pct
+# courants inventés (pas calibrés sur historique pro).
+# TO_WIRE next session : ajouter fetcher S5FI/S5TH + repenser ce panel.
+breadth_bands:
+  # RSP/SPY ratio vs MA50 (existant, garder mais reformuler tooltip)
+  large_calm_min: 1.0        # delta_pct >= +1% = calm LARGE
+  narrow_warn_max: -0.5      # delta_pct <= -0.5% = warn ÉTROIT
+  narrow_danger_max: -2.0    # delta_pct <= -2% = danger ÉTROIT
+  ma_window_days: 50         # MA50 reference
+  # NEW v5 : S5FI (% S&P 500 above 50dma) - INDICATEUR BREADTH #1 PRO
+  s5fi_bullish_min: 70.0     # >70% = bullish breadth
+  s5fi_calm_max: 70.0        # 50-70% = calm
+  s5fi_warn_max: 50.0        # <50% = warn (participation faible)
+  s5fi_danger_max: 30.0      # <30% = danger structurel
+  # NEW v5 : S5TH (% S&P 500 above 200dma) - signal SECULAR
+  s5th_healthy_min: 60.0     # >60% = bull market secular
+  s5th_bear_max: 40.0        # <40% = bear risk structurel
+
+# Risque panel - source dashboard/render.py _rows_risque
+# AUDIT v5 : WRONG STRUCTUREL. heat = max(tensions) sous-estime risque agrégé.
+# Convention pro (Pro Trader Dashboard / MartinKronicle / Van Tharp / Elder) :
+# portfolio heat = SOMME des risques = Σ(tension × weight × correlation_factor).
+# Quand correlations spike en crash, toutes les tensions s'additionnent.
+# FIX APPLIQUE v5 dans dashboard/render.py : heat_aggregated remplace heat_max.
+risk_thresholds:
+  near_stop_pct: 10.0        # downside_pct < 10 = near-stop danger (red dot, OK swing PM)
+  watch_zone_pct: 20.0       # downside_pct < 20 = warn yellow ; >= 20 = calm
+  tension_scale: 20.0        # tension_i = max(0, (20 - downside_i) / 20)
+  bar_full_at_pct: 30.0      # buf scale : downside/30 * 100 capped 0-100
+  # NEW v5 : portfolio heat seuils (consensus pro retail / institutional)
+  portfolio_heat_calm_max_pct: 3.0    # <3% capital at risk = calm
+  portfolio_heat_warn_max_pct: 6.0    # 3-6% = warn (zone consensus retail)
+  portfolio_heat_danger_min_pct: 6.0  # >6% danger (Elder rule -6% = stop trading mois)
+  elder_circuit_breaker_pct: 6.0      # -6%/mois portfolio drawdown = stop trading (Elder)
+
+# Concentration caps - source config.yaml original (style+risk+user_strategy)
+# DUPLIQUE PROVISOIREMENT ICI pour visibilite audit + canonical migration future.
+# Migration finale : retirer de config.yaml une fois lecteurs migres a shared.calibration.
+concentration_caps:
+  line_cap_by_conviction:    # taille max par ligne EUR % book par niveau conviction
+    c5: 8.0                  # 8% max single position pour conviction 5
+    c4: 6.0
+    c3: 4.5
+    c2: 3.0
+    c1: 2.0
+  sector_max_pct: 20.0       # max single sector % book
+  narrative_max_pct: 30.0    # max single narrative theme % book
+  cluster_max_pct: 35.0      # max single cluster % book (default)
+  user_cluster_target_pct: 70.0  # OVERRIDE user_strategy (compounder de conviction supercycle reel)
+  user_decorrelation_target_pct: 15.0  # cible autres paris
+  # NEW v5 : AUTO-DERISK trigger en STRESS regime (audit pro recommendation)
+  # Précédents historiques (Druckenmiller/Soros) : concentration EXTREME OK en
+  # conviction macro PLUS monitoring obsessionnel. Pour solofounder en phase
+  # construction sans la machine, STRESS confirmé = sécuriser tail risk.
+  stress_regime_max_cluster_pct: 55.0  # force cap a 55% si regime = STRESS
+  min_open_positions: 8                # garde-fou anti-overdilution (sweet spot CANSLIM/Minervini 8-20)
+
+# Risk management thresholds - source config.yaml risk:
+# AUDIT v5 : ACCURATE seuils stop/reduce (aligne Minervini SEPA + PM conviction).
+# VIX 21 threshold legerement bas vs pro consensus (20 round number).
+# MISSING : 2-tier VIX scaling (panic regime > 30 = halve exposure).
+drawdown_thresholds:
+  reduce_at_pct: 8.0         # -8% drawdown : reduce (aligne Minervini)
+  stop_at_pct: 20.0          # -20% drawdown : exit (PM conviction; max DD acceptable Minervini)
+  max_open_positions: 15     # plafond positions tenues (CANSLIM 8-20 range)
+  vol_scaling_vix_threshold: 21.0   # VIX > 21 -> apply 0.7x (CTA convention zone)
+  vol_scaling_factor: 0.7    # multiplie sizing par 0.7
+  # NEW v5 : 2e palier VIX panique (convention CTA 2-tier)
+  vol_scaling_vix_panic_threshold: 30.0  # VIX > 30 -> halve exposure
+  vol_scaling_vix_panic_factor: 0.5      # convention pro: -50% sizing en panique
+  # NEW v5 : portfolio circuit breaker (Elder rule)
+  portfolio_monthly_dd_circuit_breaker_pct: 6.0  # -6% mois => stop new positions
+
+# Grade portfolio bands - source intelligence/portfolio_grade.py GRADE_BANDS + hard gates
+grade_bands:
+  A_plus: 90
+  A: 85
+  A_minus: 80
+  B_plus: 75
+  B: 70
+  B_minus: 65
+  C_plus: 60
+  C: 55
+  C_minus: 50
+
+# Grade hard gates (caps appliques au score overall avant score_to_grade)
+# Source : intelligence/portfolio_grade.py compute_grade()
+grade_gates:
+  cluster_cap_over_2x_cap: 65          # Pari principal > 2x cible user -> note cap a B-
+  cluster_cap_over_1_5x_cap: 78        # Pari principal > 1.5x cible -> note cap a B+
+  calibrage_under_50_cap: 60           # sizing_conviction < 50 -> C+
+  calibrage_under_70_cap: 75           # sizing_conviction < 70 -> B
+  decorrelation_under_0_3x_cap: 60     # autres paris < 0.3x cible -> C+
+  decorrelation_under_0_6x_cap: 72     # autres paris < 0.6x cible -> B-
+  solidite_under_0_4x_cap: 65          # qualite haute < 0.4x cible -> B-
+  cycle_valo_over_2_5x_cap: 65         # cycle/valo > 2.5x cible -> B-
