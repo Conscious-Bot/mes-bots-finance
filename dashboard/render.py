@@ -4298,6 +4298,23 @@ _TIER_LABEL = {
 
 def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     "Page Theses : asymetrie target/stop par conviction + gap target partielle."
+    import html as _h_th
+    # 06/06 : connect Theses panel a shared/sectors + macro_state +
+    # macro_book_warnings. Chaque thesis affiche cycle phase + warning chips.
+    try:
+        from shared.sectors import cycle_phase_for_ticker as _cp_for
+    except Exception:
+        def _cp_for(_t: str) -> str:
+            return "unknown"
+    _th_warnings = _ticker_warnings_map(positions)
+    _CP_CLS_TH = {"early": "acc", "mid": "steel", "late": "warn", "contraction": "bear"}
+    _RULE_TITLES_TH = {
+        "R1_semis_concentration": "R1 — Concentration semis",
+        "R2_carry_unwind_jp": "R2 — Carry unwind JP",
+        "R3_growth_tech_dominance": "R3 — Growth-tech dominance",
+        "R4_auto_ev_stress": "R4 — Auto/EV stress",
+        "R5_complacent_hedge": "R5 — Complacency hedge",
+    }
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
         "target_partial, last_price FROM theses WHERE status='active' "
@@ -4496,10 +4513,32 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     adj = '<div class="th-adj ok">&check; on weight</div>'
             else:
                 wtxt = f"{wv:.1f}%"
+            # Cycle phase chip + warnings chips (06/06 wire).
+            _cp_th = _cp_for(t["tk"])
+            _cp_cls_th = _CP_CLS_TH.get(_cp_th, "steel-mute")
+            _cp_chip_th = (
+                f'<span class="cycle-chip cycle-{_cp_cls_th}" '
+                f'data-tip="Cycle phase {_cp_th} (config/sectors.yaml).">{_cp_th}</span>'
+                if _cp_th != "unknown" else ""
+            )
+            _tw_chips_th = ""
+            for _tw in _th_warnings.get(t["tk"], [])[:3]:
+                _rid = _tw.get("rule_id", "?")
+                _short = _rid.split("_")[0] if "_" in _rid else _rid[:4]
+                _sev = _tw.get("severity", "med")
+                _sev_cls = {"high": "bear", "med": "warn", "low": "steel"}.get(_sev, "steel")
+                _title = _RULE_TITLES_TH.get(_rid, _rid)
+                _action = _tw.get("action", "").rstrip(".")
+                _why = _tw.get("rationale", "").rstrip(".")
+                _tip = f"{_title} — {_sev.upper()}\nACTION : {_action}.\nPOURQUOI : {_why}."
+                _tw_chips_th += (
+                    f'<span class="warn-chip warn-chip-{_sev_cls}" '
+                    f'data-tip="{_h_th.escape(_tip, quote=True)}">{_short}</span>'
+                )
             groups += (
                 f'<div class="th-row" data-tk="{t["tk"]}">'
                 f'<div class="th-id"><span class="th-conv c{t["conv"]}">c{t["conv"]}</span>'
-                f'<span class="th-tk">{t["nm"]}</span>{cat_html}</div>'
+                f'<span class="th-tk">{t["nm"]}</span>{cat_html}{_cp_chip_th}{_tw_chips_th}</div>'
                 f'<div class="th-w">{wtxt}</div><div class="th-szcol">{sizebar}{adj}</div>{bar}{anchor}</div>'
             )
         groups += "</div>"
@@ -4819,7 +4858,18 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             _short = _rid.split("_")[0] if "_" in _rid else _rid[:4]
             _sev = _tw.get("severity", "med")
             _sev_cls = {"high": "bear", "med": "warn", "low": "steel"}.get(_sev, "steel")
-            _tw_tip = _tw.get("action", "") + " — " + _tw.get("rationale", "")[:120]
+            # Tooltip structure : titre + ACTION + WHY (no truncation, CSS wrap).
+            _rule_titles = {
+                "R1_semis_concentration": "R1 — Concentration semis",
+                "R2_carry_unwind_jp": "R2 — Carry unwind JP",
+                "R3_growth_tech_dominance": "R3 — Growth-tech dominance",
+                "R4_auto_ev_stress": "R4 — Auto/EV stress",
+                "R5_complacent_hedge": "R5 — Complacency hedge",
+            }
+            _title = _rule_titles.get(_rid, _rid)
+            _action = _tw.get("action", "").rstrip(".")
+            _why = _tw.get("rationale", "").rstrip(".")
+            _tw_tip = f"{_title} — {_sev.upper()}\nACTION : {_action}.\nPOURQUOI : {_why}."
             _tw_chips += (
                 f'<span class="warn-chip warn-chip-{_sev_cls}" '
                 f'data-tip="{_h_esc.escape(_tw_tip, quote=True)}">{_short}</span>'

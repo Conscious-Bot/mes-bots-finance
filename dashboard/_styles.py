@@ -665,6 +665,8 @@ _CSS = """
   .warn-chip.warn-chip-bear { color:var(--bear); }
   .warn-chip.warn-chip-warn { color:var(--warn); }
   .warn-chip.warn-chip-steel { color:var(--steel); }
+  /* Tooltip warn-chip : preserve \n pour structure ACTION / POURQUOI. */
+  .warn-chip[data-tip]:hover::after { white-space: pre-line; max-width: 400px; }
   /* Regime chip (Phase A) : label classify_regime dans le header panel. */
   .regime-chip { font-family:var(--fb); font-size:14px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; padding:2px 9px; border-radius:10px; border:1px solid currentColor; }
   .regime-chip.regime-bear { color:var(--bear); background:color-mix(in srgb, var(--bear) 12%, transparent); }
