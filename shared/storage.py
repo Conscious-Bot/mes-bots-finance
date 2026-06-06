@@ -3564,6 +3564,150 @@ def get_latest_oca_per_ticker(ticker: str) -> dict | None:
         return None
 
 
+# === position_decisions_context (Friction décision #2) ======================
+# Snapshot canonique du contexte au moment de chaque /trade confirm.
+# Cron retrospective +30j/+90j ecrit les verdicts (cf cron_retrospective_decisions).
+# Source canonique : alimente bias_ledger en donnees per-decision.
+
+
+def insert_decision_context(
+    action: str,
+    ticker: str,
+    qty: float,
+    price: float,
+    regime: str | None,
+    regime_score: float | None,
+    bucket_act: int | None,
+    bucket_watch: int | None,
+    bucket_calm: int | None,
+    bucket_silent: int | None,
+    cluster_id: str | None,
+    cluster_share_before: float | None,
+    cluster_share_after: float | None,
+    regime_warnings_json: str,
+    bias_warnings_json: str,
+    signals_30d_str: str,
+    decision_id: int | None = None,
+) -> int | None:
+    """Append row dans position_decisions_context au moment /trade confirm.
+
+    Tous champs nullable sauf action/ticker/qty/price (defensive : graceful
+    degrade si macro_state read failed).
+    """
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO position_decisions_context "
+                "(decision_id, action, ticker, qty, price, "
+                " regime, regime_score, bucket_act, bucket_watch, "
+                " bucket_calm, bucket_silent, cluster_id, "
+                " cluster_share_before, cluster_share_after, "
+                " regime_warnings_json, bias_warnings_json, signals_30d_str) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    decision_id, action, ticker.upper(), float(qty), float(price),
+                    regime, regime_score, bucket_act, bucket_watch,
+                    bucket_calm, bucket_silent, cluster_id,
+                    cluster_share_before, cluster_share_after,
+                    regime_warnings_json, bias_warnings_json, signals_30d_str,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_decision_context failed: {e}")
+        return None
+
+
+def get_decision_context(context_id: int) -> dict | None:
+    """Lit une row de context par id."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT id, created_at, decision_id, action, ticker, qty, price, "
+                "       regime, regime_score, bucket_act, bucket_watch, bucket_calm, "
+                "       bucket_silent, cluster_id, cluster_share_before, cluster_share_after, "
+                "       regime_warnings_json, bias_warnings_json, signals_30d_str, "
+                "       retrospective_30d_at, retrospective_30d_outcome_pct, "
+                "       retrospective_30d_pnl_pct, retrospective_30d_verdict, "
+                "       retrospective_90d_at, retrospective_90d_outcome_pct, "
+                "       retrospective_90d_pnl_pct, retrospective_90d_verdict "
+                "FROM position_decisions_context WHERE id = ?",
+                (context_id,),
+            ).fetchone()
+            if not row:
+                return None
+            cols = [
+                "id", "created_at", "decision_id", "action", "ticker", "qty", "price",
+                "regime", "regime_score", "bucket_act", "bucket_watch", "bucket_calm",
+                "bucket_silent", "cluster_id", "cluster_share_before", "cluster_share_after",
+                "regime_warnings_json", "bias_warnings_json", "signals_30d_str",
+                "retrospective_30d_at", "retrospective_30d_outcome_pct",
+                "retrospective_30d_pnl_pct", "retrospective_30d_verdict",
+                "retrospective_90d_at", "retrospective_90d_outcome_pct",
+                "retrospective_90d_pnl_pct", "retrospective_90d_verdict",
+            ]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_decision_context failed: {e}")
+        return None
+
+
+def list_pending_retrospectives(horizon_days: int) -> list[dict]:
+    """Liste les decision_contexts qui ont depasse l'horizon mais pas encore
+    retrospective. Returns rows ready for cron processing.
+
+    horizon_days : 30 ou 90.
+    """
+    col = f"retrospective_{horizon_days}d_at"
+    try:
+        with db() as cx:
+            rows = cx.execute(
+                f"SELECT id, created_at, action, ticker, qty, price "
+                f"FROM position_decisions_context "
+                f"WHERE {col} IS NULL "
+                f"  AND created_at < datetime('now', '-' || ? || ' day') "
+                f"ORDER BY created_at DESC LIMIT 100",
+                (int(horizon_days),),
+            ).fetchall()
+            return [
+                {
+                    "id": r[0], "created_at": r[1], "action": r[2],
+                    "ticker": r[3], "qty": float(r[4]), "price": float(r[5]),
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        _copilot_log.warning(f"list_pending_retrospectives failed: {e}")
+        return []
+
+
+def update_retrospective(
+    context_id: int,
+    horizon_days: int,
+    outcome_pct: float,
+    pnl_pct: float,
+    verdict: str,
+) -> bool:
+    """Update retrospective fields. Returns True si succes."""
+    col_at = f"retrospective_{horizon_days}d_at"
+    col_outcome = f"retrospective_{horizon_days}d_outcome_pct"
+    col_pnl = f"retrospective_{horizon_days}d_pnl_pct"
+    col_verdict = f"retrospective_{horizon_days}d_verdict"
+    try:
+        with db() as cx:
+            cx.execute(
+                f"UPDATE position_decisions_context "
+                f"SET {col_at} = datetime('now'), {col_outcome} = ?, "
+                f"    {col_pnl} = ?, {col_verdict} = ? "
+                f"WHERE id = ?",
+                (float(outcome_pct), float(pnl_pct), verdict, int(context_id)),
+            )
+        return True
+    except Exception as e:
+        _copilot_log.warning(f"update_retrospective failed: {e}")
+        return False
+
+
 # === macro_regime_alerts (Phase A macro stress monitor) =====================
 # Journal append-only par evaluation regime macro. Table cree via migration
 # alembic 0029. Voir intelligence/macro_regime.py pour la classify pure +

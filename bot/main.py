@@ -260,6 +260,10 @@ async def post_init(app):
     # les FRED-pas-encore-publies (CPI publish ~mid-month). persist_signal
     # ne stomp plus NULL = derniere valeur valide preserved.
     sched.add_job(cron_tier3_monthly, "cron", day="1,5,10,15", hour=7, minute=0)
+    # 06/06 Friction décision #2 : retrospective +30j/+90j sur position_decisions_context.
+    # 9h30 = post market open EU + assez de marge pour cron_tier1 06h finir.
+    from intelligence.retrospective_decisions import cron_retrospective_daily
+    sched.add_job(cron_retrospective_daily, "cron", hour=9, minute=30)
     sched.add_job(daily_digest_job, "cron", hour=19, minute=0, misfire_grace_time=7200)  # digest soir reste isole
 
     # === CHAINES SEQUENCEES (soudure ④ brief) ===

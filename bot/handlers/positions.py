@@ -746,14 +746,49 @@ async def cmd_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 f"Annulé : {pending['action'].upper()} {pending['ticker']} {pending['qty']} @ {pending['price']}."
             )
             return
-        # Confirm -> execute
+        # Confirm -> execute + snapshot canonical context (friction décision #2)
         try:
+            # Recompute context AU MOMENT du confirm (le state peut avoir bougé
+            # depuis le pre-check, on capture le vrai contexte à l'instant T)
+            import json as _json
+
+            from bot.handlers.trade_context import compute_trade_context
+            ctx_snapshot = compute_trade_context(
+                pending["action"], pending["ticker"],
+                pending["qty"], pending["price"]
+            )
+            # Execute trade first
             if pending["action"] == "buy":
                 await _buy_impl(update, pending["ticker"], pending["qty"],
                                 pending["price"], pending["reasoning"])
             else:
                 await _sell_impl(update, pending["ticker"], pending["qty"],
                                  pending["price"], pending["reasoning"])
+            # Snapshot context APRES success exec
+            try:
+                bc = ctx_snapshot.get("bucket_counts", {})
+                storage.insert_decision_context(
+                    action=pending["action"],
+                    ticker=pending["ticker"],
+                    qty=pending["qty"],
+                    price=pending["price"],
+                    regime=ctx_snapshot.get("regime"),
+                    regime_score=float(ctx_snapshot.get("score") or 0),
+                    bucket_act=bc.get("act"),
+                    bucket_watch=bc.get("watch"),
+                    bucket_calm=bc.get("calm"),
+                    bucket_silent=bc.get("silent"),
+                    cluster_id=ctx_snapshot.get("cluster_id"),
+                    cluster_share_before=ctx_snapshot.get("cluster_share_pct_now"),
+                    cluster_share_after=ctx_snapshot.get("cluster_share_pct_after"),
+                    regime_warnings_json=_json.dumps(ctx_snapshot.get("regime_warnings", [])),
+                    bias_warnings_json=_json.dumps(ctx_snapshot.get("bias_warnings", [])),
+                    signals_30d_str=ctx_snapshot.get("signals_30d_str", ""),
+                )
+            except Exception as snap_err:
+                # Snapshot context non-blocking : le trade s'est passe, on log juste.
+                import logging
+                logging.getLogger(__name__).warning(f"decision context snapshot failed: {snap_err}")
         except Exception as e:
             await update.message.reply_text(f"Error executing pending: {e}")
         return
