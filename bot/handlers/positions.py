@@ -689,35 +689,80 @@ async def _sell_impl(update, ticker: str, qty: float, price: float, reasoning: s
 async def cmd_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Sprint 1.2 Phase C dispatcher — /trade family.
 
-    Usage:
-      /trade buy TICKER QTY PRICE [reasoning]   → executes via _buy_impl
-      /trade sell TICKER QTY PRICE [reasoning]  → executes via _sell_impl
+    Usage (06/06 friction décision #1 : 2-step confirm) :
+      /trade buy TICKER QTY PRICE [reasoning]   → renvoie context + token TTL 60s
+      /trade sell TICKER QTY PRICE [reasoning]  → renvoie context + token TTL 60s
+      /trade confirm <token>                    → execute le pending trade
+      /trade cancel <token>                     → annule le pending trade
+
+    Pre-trade context check (4 dimensions) :
+      1. Régime macro courant + chip warnings ticker
+      2. Composition cluster avant → après simulé
+      3. Bias détecté (lock_in pour sell winner, fomo pour buy après run +15% 7j)
+      4. Signaux 30j ticker (bullish / bearish)
+
+    Discipline mécanisée : on montre, on ne bloque pas. Le token TTL 60s
+    force une confirmation explicite, mais user peut confirmer aveugle.
 
     Backward-compat:
       /position_buy [...] alias preserved 1 release cycle
       /position_sell [...] alias preserved 1 release cycle
-
-    Preserves Day 13 Ship 5 KPI #5 chain (journal + bias tagging) by
-    calling the same _buy_impl/_sell_impl helpers as the legacy handlers.
     """
     assert update.message is not None
     args = ctx.args or []
+    chat_id = update.message.chat_id
     if not args:
         await update.message.reply_text(
             "Usage: /trade <action> <TICKER> <QTY> <PRICE> [reasoning]\n"
+            "       /trade confirm <token>   → exécute le pending\n"
+            "       /trade cancel <token>    → annule\n"
             "\n"
             "Actions:\n"
             "  buy TICKER QTY PRICE [reasoning]\n"
             "  sell TICKER QTY PRICE [reasoning]\n"
             "\n"
-            "Examples:\n"
-            "  /trade buy NVDA 10 450 thesis_strong_compute\n"
-            "  /trade sell AMD 5 380 stop_triggered"
+            "Flow 06/06 (friction décision) :\n"
+            "  1. /trade buy NVDA 10 450 → context + token\n"
+            "  2. /trade confirm <token> → exécute (TTL 60s)\n"
         )
         return
     action = args[0].lower()
+
+    # === 2-step: confirm / cancel pending pre-checked trade ===
+    if action in ("confirm", "cancel"):
+        if len(args) < 2:
+            await update.message.reply_text(f"Usage: /trade {action} <token>")
+            return
+        from bot.handlers.trade_context import pop_pending
+        token = args[1].strip().lower()
+        pending = pop_pending(token)
+        if pending is None:
+            await update.message.reply_text(
+                f"Token '{token}' inconnu ou expiré (TTL 60s). Relance /trade {action}."
+            )
+            return
+        if action == "cancel":
+            await update.message.reply_text(
+                f"Annulé : {pending['action'].upper()} {pending['ticker']} {pending['qty']} @ {pending['price']}."
+            )
+            return
+        # Confirm -> execute
+        try:
+            if pending["action"] == "buy":
+                await _buy_impl(update, pending["ticker"], pending["qty"],
+                                pending["price"], pending["reasoning"])
+            else:
+                await _sell_impl(update, pending["ticker"], pending["qty"],
+                                 pending["price"], pending["reasoning"])
+        except Exception as e:
+            await update.message.reply_text(f"Error executing pending: {e}")
+        return
+
+    # === 1-step: pre-check + generate token ===
     if action not in ("buy", "sell"):
-        await update.message.reply_text(f"Unknown action: '{action}'\nValid: buy, sell\nSee /trade for usage.")
+        await update.message.reply_text(
+            f"Unknown action: '{action}'\nValid: buy, sell, confirm, cancel\nSee /trade for usage."
+        )
         return
     if len(args) < 4:
         await update.message.reply_text(f"Usage: /trade {action} <TICKER> <QTY> <PRICE> [reasoning]")
@@ -725,10 +770,16 @@ async def cmd_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         ticker, qty, price = args[1].upper(), float(args[2]), float(args[3])
         reasoning = " ".join(args[4:]) if len(args) > 4 else f"{action.capitalize()} via /trade"
-        if action == "buy":
-            await _buy_impl(update, ticker, qty, price, reasoning)
-        else:
-            await _sell_impl(update, ticker, qty, price, reasoning)
+        # Friction décision : compute context + stocker pending + renvoyer token
+        from bot.handlers.trade_context import (
+            compute_trade_context,
+            format_context_message,
+            store_pending,
+        )
+        trade_ctx = compute_trade_context(action, ticker, qty, price)
+        token = store_pending(action, ticker, qty, price, reasoning, chat_id)
+        msg = format_context_message(trade_ctx, token)
+        await update.message.reply_text(msg)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
