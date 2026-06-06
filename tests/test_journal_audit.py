@@ -8,8 +8,6 @@ from hypothesis import given, strategies as st
 
 from bot.handlers.journal_audit import _compute_audit, _extract_tickers
 
-
-
 # CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
 # CI skip via . Local : tourne normalement.
 pytestmark = pytest.mark.live_data

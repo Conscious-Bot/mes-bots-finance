@@ -21,8 +21,6 @@ import pytest
 
 from shared import storage
 
-
-
 # CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
 # CI skip via -m "not slow and not live_data". Local : tourne normalement.
 pytestmark = pytest.mark.live_data
