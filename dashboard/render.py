@@ -5434,13 +5434,41 @@ def render() -> Path:
         frac_raw = a["frac_raw"]
         ln = _book_idx.get(tk)
         beyond_pct = a["tg_pct"]
+        # 06/06 FX-aware tooltip : pour tickers en native non-EUR, compute la
+        # divergence target_native vs PnL_EUR reel (cas SK Hynix : "target hit
+        # en KRW mais EUR PnL seulement +8.6%"). Doctrine currency-native-invariant
+        # preservee, juste enrichit le tooltip.
+        fx_tip = ""
+        if ln and ln.avg_cost_eur:
+            try:
+                px_eur = _cached_price_eur(tk)
+                px_native = a["_cur"]
+                if px_eur and px_native:
+                    implied_fx = px_native / px_eur
+                    avg_eur = float(ln.avg_cost_eur)
+                    # FX-divergence detectee si difference avg/native >> 1
+                    # (tickers JP/KR/non-USD avec movement FX signifiant)
+                    if implied_fx > 2 and avg_eur > 0:  # heuristic : KRW/JPY/etc
+                        pnl_eur_pct = (px_eur / avg_eur - 1) * 100
+                        fx_tip = (
+                            f"native {a['_cur']:,.0f} vs target {a['_tgt']:,.0f} = "
+                            f"{beyond_pct:+.1f}% en native | "
+                            f"EUR : {px_eur:.2f} vs avg cost {avg_eur:.2f} = "
+                            f"{pnl_eur_pct:+.1f}% gain réel"
+                        )
+            except Exception:
+                pass
         profit_chip = ""
         if frac_raw > 100:
-            profit_chip = f'<span class="th-pt acc">target +{beyond_pct:.1f}% beyond</span>'
+            chip_tip_attr = f' data-tip="{fx_tip}"' if fx_tip else ""
+            profit_chip = (
+                f'<span class="th-pt acc"{chip_tip_attr}>target +{beyond_pct:.1f}% beyond</span>'
+            )
         elif ln and a["frac"] > 80:
             risky = ln.valo_above_bull_case or ln.solidite in ("Fragile", "Incertain")
             if risky:
-                profit_chip = '<span class="th-pt">target hit</span>'
+                chip_tip_attr = f' data-tip="{fx_tip}"' if fx_tip else ""
+                profit_chip = f'<span class="th-pt"{chip_tip_attr}>target hit</span>'
         # Canonical position gauge : stop red / entry grey / target green / dot.
         # Entry vient du book line (entry_price de la these).
         entry = ln.entry_price if ln else None
