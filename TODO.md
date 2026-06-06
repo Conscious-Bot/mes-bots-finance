@@ -33,33 +33,93 @@
 
 ---
 
-## 📋 TECH DEBT AUDIT OSS (07/06)
+## 📋 TECH DEBT AUDIT OSS (07/06) — Patterns library
 
-Audit comparatif de 9 repos OSS (Nango, FinceptTerminal, agentic-inbox, flowsint, LibreChat, TradingAgents, OpenBB, tushare, gs-quant) via 4 background agents. **Verdict global** : PRESAGE est sain, monolithe Python plus simple/discipliné/honnête que les alternatives. **5 patterns à adopter ponctuellement** (queue post J-day) :
+Audit OSS de **13 repos** (Nango, FinceptTerminal, agentic-inbox, flowsint, LibreChat, TradingAgents, OpenBB, qlib, Kronos, FinRL, QuantDinger, ai-hedge-fund + verdicts rapides tushare/gs-quant/nofx/lightweight-charts/maybe/bloomberg-terminal/maestro/Kronos/FinceptTerminal).
 
-### Adopter en priorité (post J-day)
+**Doctrine 07/06 (accumulate)** : tout potentiel d'amélioration consigné ici même mineur. Filtre seulement l'inutile structurel (anti-doctrine pure, stack incompatible, license bloquante).
+
+### Verdict global PRESAGE
+Monolithe Python + SQLite WAL + APScheduler + Telegram bot est plus simple que nango, plus discipliné que Fincept, plus honnête que TradingAgents/FinRL/QuantDinger. **Ne pas pivoter d'architecture**, adopter patterns ponctuels selon priorité.
+
+### 🔴 HAUTE priorité — top 5 (post J-day)
+
+### 🔴 HAUTE priorité — top 5 (post J-day, ~3-4h total)
 1. **Fail-closed LLM doctrine** → `intelligence/signal_scorer_v2.py` : si V2 échoue, status `degraded`, jamais score arbitraire. Ajouter L14 dans `docs/LESSONS.md`. Source : agentic-inbox `workers/lib/ai.ts`. **30 min + 1 test**.
-2. **Structured Pydantic output + free-text fallback** → `signal_scorer_v2` (`ScoringDecision(prob_3m, prob_12m, base_rate)`) + `/audit` (`AuditReport`). Source : TradingAgents `agents/utils/structured.py` (le seul morceau peer-review-grade du repo). **~2h**.
-3. **CSP + security headers minimaux** → `dashboard/serve.py` + `site_public/track.html` (aujourd'hui aucun). Source : nango `security.ts`. **15 min**.
-4. **Env singleton typed** vs `os.environ.get(...)` éparpillé → consolider `shared/env.py`. Source : OpenBB `core/env.py`. **~1h**.
-5. **Convention `# KNOWN-GAP:`** distincte de TODO → doc dans `CLAUDE.md` + adopter au prochain commit. Source : agentic-inbox style. **5 min**.
+2. **Structured Pydantic output + free-text fallback** → `signal_scorer_v2` (`ScoringDecision(prob_3m, prob_12m, base_rate)`) + `/audit` (`AuditReport`). Source : TradingAgents `agents/utils/structured.py`. **~2h**.
+3. **Workflow YAML déclaratif** → migrer `scripts/risk_watch.json` + tous configs scorer/cron vers YAML versionné avec train/val/test/oos dates IN-FILE. Source : qlib `examples/benchmarks/LightGBM/workflow_config_lightgbm_Alpha158.yaml`. **~1 jour**. Pivot d'audit J-day publishable. Empêche "in-sample tuning" silent. 🌟 **GROS gain doctrine**.
+4. **CSP + security headers minimaux** → `dashboard/serve.py` + `site_public/track.html`. Source : nango `security.ts`. **15 min**.
+5. **Env singleton typed** → consolider `shared/env.py`. Source : OpenBB `core/env.py`. **~1h**.
 
-### Anti-patterns identifiés (à NE PAS adopter)
-- Multi-agent persona debate (TradingAgents) — opposé à measure-first base-rate. Doctrine break.
-- Schema `z.any()` sur champs LLM (agentic-inbox confessait) — prompt injection trivial.
-- Stack multi-DB + Datadog/Sentry/ES (nango) — over-engineering, anti `[[business-path-6-acted]]`.
+### 🟠 MOYENNE priorité — généralisations infra (post J-day, ~3-4h chacun)
+6. **Reflection service cyclique** → généraliser `j_day_batch_close_job` en cron N-jours qui revalide auto toutes décisions âgées >7j contre outcome. `was_correct / actual_return_pct` en table. Source : QuantDinger `services/reflection.py` + `RESOLUTION_RULES registry` (commit #110) déjà à mi-chemin. **~3h**.
+7. **Convention `# KNOWN-GAP:`** distincte de TODO → doc dans `CLAUDE.md` + adopter prochain commit. Source : agentic-inbox style. **5 min**.
+8. **Append-only memory log + deferred reflection** (post-mortem +30j auto-écrit par Haiku 2-4 phrases). Compatible Brier ledger existant. Source : TradingAgents `agents/utils/memory.py`. **~1h**.
+9. **Splits temporels stricts in-file** → tout tuning scorer/threshold doit dater train/val/test dans YAML versionné AVANT le tuning. Formalise catch session 01/06 task #42. Source : Kronos `finetune/config.py:28-32`. **30 min** (doc + 1ère application).
+10. **Sample_count > 1 + temperature > 0** sur signal_scorer_v2 → distribution probabiliste vs point estimate. Source : Kronos `KronosPredictor`. **~1h**.
+11. **Turbulence threshold kill-switch macro** → désactive nouvelles entrées si VIX > seuil (PAS liquidate, juste pause buys). Source : FinRL `env_stocktrading.py:turbulence_threshold`. Complète Elder circuit breaker. **~30 min**.
 
-### Features Phase 2 (si pivot SaaS multi-user)
+### 🟢 MENTOR PATTERNS — heuristiques battle-tested encodées en gates (ai-hedge-fund extracted)
+Doctrine 07/06 : les principes des mentors ≠ persona LLM agents. On encode en gates déterministes.
+
+| # | Mentor | Encodage PRESAGE | Statut | Effort |
+|---|---|---|---|---|
+| M1 | **Buffett/Munger quality** | Gate `solidité ∈ {Incontournable, Solide}` requis pour `conviction ≥ 4` à création thèse | 🟡 mesuré pas enforced | 30 min Pydantic validator dans `intelligence/thesis.py` |
+| M2 | **Taleb/Pabrai asymmetry** | Gate `asymmetry_ratio ≥ 2` requis pour `conviction ≥ 4`. Calcul déjà fait. | 🟡 mesuré pas enforced | 30 min |
+| M3 | **Burry consensus check** | `intelligence/consensus_monitor.py` : insider buy cluster + sentiment bullish + perf 6m +50% → chip "POPULAR_BET" warning dans Positions panel. Cross-check edge. | ❌ pas wiré | ~2h |
+| M4 | **Graham margin of safety** | Watchlist `entry_safety_pct` field, gate "candidate" si discount < 25% intrinsic | ❌ pas wiré (post-entry only) | ~3h (nouveau workflow watchlist) |
+| M5 | **Lynch thesis clarity** | Validator thesis_text : c5 doit contenir clause `because:` ou `ten_x_path:` | ❌ pas wiré | 30 min Pydantic |
+| M6 | **Fisher scuttlebutt count** | Pour c≥4 : exiger ≥3 sources distinctes sur 90j | 🟡 sources trackées | ~1h gate dans création thèse |
+| M7 | **Druckenmiller cut-fast** | Metric `thesis_invalidation_speed_days` : jours entre kill_criteria trigger et exit | ❌ pas trackè | ~1h instrumentation |
+| M8 | **Buffett circle of competence** | Tag `in_competence_zone` per ticker, refuse c≥3 si false | ❌ pas wiré | 30 min |
+| M9 | **Damodaran story→numbers** | Validator thesis_text : doit contenir au moins 1 metric quanti + 1 catalyseur narratif | ❌ pas wiré | 30 min Pydantic |
+| M10 | **Taleb barbell strategy** | Dashboard métrique `barbell_score` = % book en c5 + % book en c1 ballast | 🟡 data dispo | 30 min panel |
+| M11 | **Ackman concentration check** | Gate : si c5 conviction mais position pas top-5 du book → flag "under-sized vs conviction" | ❌ pas wiré | 30 min |
+| M12 | **Pabrai Dhandho downside floor** | Champ `downside_eur` cap explicit par position | ❌ pas wiré | ~1h |
+| M13 | **Wood disruption stays-through-DD** | Tag `disruption_axis` + règle "conviction stays during DD > -20% if thesis intact" | 🟡 tag existe | 30 min règle |
+| M14 | **Jhunjhunwala long-term conviction** | Métrique `conviction_age_days` affichée (depuis dernière review) | ❌ pas affichée | 30 min chip |
+| M15 | **Fisher 15 points** | Étendre axes tagging avec 5-7 axes qualitatifs supplémentaires (R&D, mgmt quality, capital allocation, etc.) | 🟡 partiel | ~3h refonte axes |
+| M16 | **Munger latticework** | Meta-pattern cross-disciplinary thinking — non-encodable, garde en doctrine | ✅ doctrine | — |
+
+**Déjà wiré (mentor patterns implicites)** :
+- ✅ Munger invert → `kill_criteria_monitor` + over_cap_monitor
+- ✅ Druckenmiller macro × size → régime classifier × cluster cap + STRESS auto-derisk v5
+- ✅ Risk Manager → DD circuit breaker Elder + min positions + VIX 2-tier
+- ✅ Portfolio Manager → `/audit` + grade panel
+- ✅ Sentiment Agent → `ticker_outlook` aggregator
+
+### 🔵 PHASE 2 (si pivot SaaS multi-user, automne 2026+)
 - **Tenant ALS** (`contextvars.ContextVar`) → LibreChat pattern, filtre auto SQLite par tenant_id.
 - **Per-user secrets encrypted V1/V2/V3 rotation** → LibreChat `packages/api/src/crypto/`.
 - **Anti-enumeration constant-time** sur signup/reset → LibreChat `AuthService.js:434-460`.
 - **`runAsSystem()` sentinel** pour crons qui doivent traverser tenant filter.
+- **Agent token scope + paper-only par défaut + audit log** → QuantDinger `agent_token_service.py`. Pour API tierce future.
+- **Vault AES-256-GCM + HKDF + AAD** → flowsint `flowsint-core/src/flowsint_core/core/vault.py` pour stockage credentials API broker.
+- **RBAC court 35 lignes** → flowsint `permissions.py` si on ajoute jamais roles.
 
-### Features bonus (post J-day, optionnel)
-- **`/healthz /livez /readyz` triplet** sur `serve.py` (LibreChat). **10 min**.
-- **Append-only memory log + deferred reflection** (post-mortem +30j auto-écrit par Haiku 2-4 phrases) → compatible Brier ledger existant. Source : TradingAgents `agents/utils/memory.py`.
-- **Doc invariant header** style `BacktestEngine.h` (Fincept) sur `intelligence/lock_in_detector.py`, `intelligence/brier.py`.
-- **Catalog discovery MCP** (OpenBB) si PRESAGE exposé via MCP à Claude Desktop un jour.
+### 🟢 BONUS UX (post J-day, optionnel, ~30 min - 2h chacun)
+- **`/healthz /livez /readyz` triplet** sur `serve.py`. **10 min**. Source : LibreChat.
+- **Doc invariant header** style `BacktestEngine.h` (Fincept) sur `intelligence/lock_in_detector.py`, `intelligence/brier.py`, `intelligence/macro_regime.py`.
+- **Catalog discovery MCP** (OpenBB `mcp_server/app.py` + LibreChat) si PRESAGE exposé via MCP à Claude Desktop un jour. Pattern `available_categories` / `available_tools` / `activate_tools`.
+- **TradingView lightweight-charts wire** pour remplacer SVG sparklines par candlesticks pro sur Positions / Theses / Macro Stress. Apache 2.0, frontend JS via CDN, zero backend impact. **~2-3h** pour 3-4 panels.
+- **Helmet/CSP rate-limit middleware** → nango `ratelimit.middleware.ts` pattern : compteur points/user Telegram pour auto-protection sur boucle bug.
+- **BYOK `parseCredentials` unifié string|JSON|object** si on expose API key user un jour. Source : LibreChat `anthropic/llm.ts`.
+- **Anti-hallucination pre-fetch déterministe** → quand source LLM = sentiment, injecter data dans prompt à T0 plutôt que tool-call dynamique. Source : TradingAgents `agents/analysts/sentiment_analyst.py:1-30`. Application : généraliser à mode vacances.
+- **Verifier safety check 50%** : si LLM "nettoie" >50% du contenu → revert original. Source : agentic-inbox. Application : tout post-traitement LLM (résumés Telegram, formatage thèses).
+- **DCF/P/E/P/S déterministe** dans `/review` handler. Pas RD-Agent ni LLM, juste pip QuantLib-Python. Pattern Damodaran. **~3h**.
+- **Dual strategy runtime** : formaliser IndicatorStrategy (vectorized) vs ScriptStrategy (event-driven) dans même codebase. Source : QuantDinger pattern. **Conceptuel uniquement pour l'instant**.
+- **Kline cache TTL par timeframe** : 300s intraday / 1800s daily. Actuellement `_PX_TTL=1800` mono-timeframe. **~30 min** si on ajoute intraday.
+
+### 🚫 ANTI-PATTERNS confirmés (graver dans L14 LESSONS)
+1. **Multi-agent persona debate** (TradingAgents, ai-hedge-fund, QuantDinger fast_analysis) — opposé à measure-first base-rate. Doctrine break frontal.
+2. **Foundation model autoregressif sur OHLC seul** (Kronos) — zéro causalité, overfit régime de pré-entrainement. Pas de catalysts.
+3. **RL agent qui apprend la policy de trading** (FinRL) — opposé de "discipline mécanisée prédéfinie". Reward hacking inévitable.
+4. **Backtest sans walk-forward + sans transaction costs réalistes + sans CI** (FinRL exemple 2026 : 2 mois OOS, 5 agents → pick best) — overfitting déguisé.
+5. **LLM trend prediction multi-horizon** (next_24h / 3d / 1w / 1m → BUY/SELL/HOLD) — voir QuantDinger `fast_analysis.py`. Antithèse scorer base-rate-first.
+6. **Schema `z.any()` sur champs LLM** (agentic-inbox confessait) — prompt injection trivial.
+7. **Stack multi-DB + Datadog/Sentry/ES** (nango) — over-engineering, anti `[[business-path-6-acted]]`.
+8. **Model zoo SOTA papers tournée best-of-N** (qlib HIST/TRA/TFT/ADD…) — signature plateforme qui empile sans valider.
+9. **RD-Agent intégration** (microsoft qlib partenaire NeurIPS 2025) — LLM factor mining boucle fermée = overfitting industrialisé. Casserait l'auditabilité Brier ledger PRESAGE. **DON'T INTEGRATE**.
 
 ### Scores comparatifs
 
@@ -67,13 +127,23 @@ Audit comparatif de 9 repos OSS (Nango, FinceptTerminal, agentic-inbox, flowsint
 |---|---|---|
 | agentic-inbox | 9/10 | Le plus instructif. Fail-closed + self-doc comments à reprendre. |
 | LibreChat | 6/10 | Or si pivot multi-user. Tenant ALS + per-user crypto = patterns gold. |
+| qlib | 6/10 | Mine d'or infra (workflow YAML, recorder, risk_analysis) ; ignorer model zoo + RD-Agent. |
 | Nango | 6/10 + security 8/10 | Helmet/CSP + rate-limit middleware utiles. |
-| TradingAgents | 4.5/10 | Méthodologie fragile (N=3, SR>5 anomalie). Pydantic structured = vrai gain. |
+| QuantDinger | 5/10 | Reflection + agent scoping excellents ; cœur fast_analysis = doctrine break. |
 | FinceptTerminal | 5/10 | Doc invariant style C++ à imiter. Python à plat catastrophique. |
+| ai-hedge-fund | 4.5/10 architecture, 8/10 inspiration mentor heuristiques | Clone TradingAgents architecturalement. Mais checklist mémorable des principes battle-tested encodables en gates déterministes. |
+| TradingAgents | 4.5/10 | Méthodologie fragile (N=3, SR>5 anomalie). Pydantic structured = vrai gain. |
 | flowsint | 4/10 | Vault AES-256-GCM + RBAC court si multi-user. |
+| Kronos | 3/10 | Foundation model OHLC = alpha prédictif déguisé. Splits stricts in-file = bon pattern à voler. |
 | OpenBB | 3/10 | **AGPL + Py3.14 + bloat → inadoptable comme lib**. Fetcher 3-steps utile à connaître. |
-| gs-quant | 2/10 | Dep Goldman Marquee platform, pas SDK léger. |
+| gs-quant | 2/10 | Dep Goldman Marquee platform, pas SDK léger. Pricing dérivés exotiques utiles si on étend `/review`. |
+| FinRL | 2/10 | Anti-discipline mécanisée par construction. Turbulence kill-switch = seul pattern à voler. |
 | tushare | 1/10 | Hors scope (Chinese stocks). |
+| **lightweight-charts** | UX upgrade | Apache 2.0, frontend canvas pro. Remplace sparklines SVG dans dashboard.html. ~2-3h wire. |
+| nofx | 0/10 | AGPL + Go. Stack incompatible. |
+| maybe-finance | 0/10 | Ruby + AGPL + personal finance. Hors scope. |
+| bloomberg-terminal | 0/10 | No license + redondant FinceptTerminal. |
+| maestro | 2/10 | "Bloomberg CLI" 1k stars MIT. Possible inspiration CLI agent patterns si on étend. |
 
 ---
 
