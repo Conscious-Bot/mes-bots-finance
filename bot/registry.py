@@ -12,7 +12,6 @@ from bot.handlers.anti_erosion import (
     cmd_remarks,
 )
 from bot.handlers.audit import cmd_audit
-from bot.handlers.review import cmd_review
 from bot.handlers.bias_pattern import cmd_bias_pattern
 from bot.handlers.bias_status import cmd_bias_status
 from bot.handlers.debt_crisis import (
@@ -77,6 +76,7 @@ from bot.handlers.regime_calendar import (
     cmd_calendar,
     cmd_regime,
 )
+from bot.handlers.review import cmd_review
 from bot.handlers.signal_drilldown import cmd_signal_drilldown
 from bot.handlers.signals_filings import (
     cmd_eight_k_history,

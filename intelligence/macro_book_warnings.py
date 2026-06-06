@@ -3,7 +3,7 @@
 Doctrine : "discipline mecanisee, pas alpha predictif" (cf
 [[business-path-6-acted]]). On ne predit pas. On constate :
 1. Regime macro courant (Phase A classify_regime)
-2. Composition book courante (positions x sectors.yaml)
+2. Composition book courante (positions x sectors.yaml via shared.sectors)
 3. Si certaines confluences declenchent une regle -> warning actionnable
 
 Pas de signal "buy X". Que des "trim X" / "raise stops" / "rightsize".
@@ -11,17 +11,18 @@ Pas de signal "buy X". Que des "trim X" / "raise stops" / "rightsize".
 Doctrine secondaire (cf [[portfolio_construction_phase]]) : book en phase
 construction (43k -> 70k cible) -> warnings parlent de "rightsize" /
 "raise stops", pas de "trim hardcore" / "exit". Tone consciencieux.
+
+06/06 v2 : refactor sur shared.sectors (source unique sectors.yaml).
 """
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TypedDict
 
-log = logging.getLogger(__name__)
+from shared import sectors as _sec
 
-_SECTORS_YAML = Path(__file__).resolve().parent.parent / "config" / "sectors.yaml"
+log = logging.getLogger(__name__)
 
 
 class Warning(TypedDict):
@@ -32,66 +33,13 @@ class Warning(TypedDict):
     tickers: list[str]
 
 
-def _load_sectors() -> dict:
-    try:
-        import yaml
-        with open(_SECTORS_YAML) as f:
-            return yaml.safe_load(f) or {}
-    except Exception as e:
-        log.warning(f"sectors.yaml load failed: {e}")
-        return {}
-
-
-def _book_composition(positions: list[dict], sectors_cfg: dict) -> dict[str, dict]:
-    """Returns {sector_id: {exposure_eur, share_pct, tickers: [...]}}.
-
-    Tickers absents de sectors.yaml -> bucket 'uncat' (decision: surface
-    explicite pour pousser a categoriser, pas masquer en 'other').
-    """
-    sectors = sectors_cfg.get("sectors", {})
-    ticker_to_sector: dict[str, str] = {}
-    for sid, sdef in sectors.items():
-        for tk in sdef.get("tickers", []):
-            ticker_to_sector[tk] = sid
-
-    total_eur = 0.0
-    by_sector: dict[str, dict] = {}
-    for pos in positions:
-        tk = pos.get("ticker")
-        qty = float(pos.get("qty") or 0)
-        avg = float(pos.get("avg_cost") or 0)
-        if qty <= 0 or avg <= 0:
-            continue
-        exposure = qty * avg
-        sid = ticker_to_sector.get(tk, "uncat")
-        bucket = by_sector.setdefault(sid, {"exposure_eur": 0.0, "tickers": []})
-        bucket["exposure_eur"] += exposure
-        bucket["tickers"].append(tk)
-        total_eur += exposure
-
-    for _sid, b in by_sector.items():
-        b["share_pct"] = (b["exposure_eur"] / total_eur * 100.0) if total_eur > 0 else 0.0
-    return by_sector
-
-
-def _jp_tickers(by_sector: dict) -> list[str]:
-    """Tickers .T (Tokyo) across all sectors."""
-    out = []
-    for _, b in by_sector.items():
-        out.extend(t for t in b["tickers"] if t.endswith(".T"))
-    return out
-
-
 def compute_book_warnings(
     regime: str,
     positions: list[dict],
     indicator_values: dict[str, float | None],
 ) -> list[Warning]:
     """Apply rules. Returns sorted by severity (high first), max 4."""
-    cfg = _load_sectors()
-    if not cfg:
-        return []
-    by_sector = _book_composition(positions, cfg)
+    by_sector = _sec.book_composition_by_sector(positions)
     if not by_sector:
         return []
 
@@ -102,7 +50,7 @@ def compute_book_warnings(
     semis_tickers = by_sector.get("semis", {}).get("tickers", [])
     tech_tickers = by_sector.get("tech_mega", {}).get("tickers", [])
 
-    jp_tickers = _jp_tickers(by_sector)
+    jp_tickers = _sec.jp_tickers(positions)
     jp_exposure_eur = sum(
         sum(pos.get("qty", 0) * pos.get("avg_cost", 0) for pos in positions if pos.get("ticker") == tk)
         for tk in jp_tickers

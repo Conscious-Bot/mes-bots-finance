@@ -653,6 +653,13 @@ _CSS = """
   .dlist > .dbucket + * { break-before:avoid; }
   /* Tier chip per row : preserve tier origin sans dominer la lecture. */
   .dtchip { font-family:var(--fb); font-size:11px; letter-spacing:.1em; color:var(--steel); opacity:.65; margin-left:var(--s2); padding:1px 5px; border:1px solid var(--line); border-radius:4px; }
+  /* Cycle phase chip (Positions panel, 06/06 wire shared/sectors). */
+  .cycle-chip { font-family:var(--fb); font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-left:var(--s2); padding:1px 6px; border-radius:6px; font-weight:600; }
+  .cycle-chip.cycle-acc { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); }
+  .cycle-chip.cycle-warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 13%, transparent); }
+  .cycle-chip.cycle-bear { color:var(--bear); background:color-mix(in srgb, var(--bear) 13%, transparent); }
+  .cycle-chip.cycle-steel { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); }
+  .cycle-chip.cycle-steel-mute { color:var(--steel); opacity:.55; background:color-mix(in srgb, var(--steel) 8%, transparent); }
   /* Regime chip (Phase A) : label classify_regime dans le header panel. */
   .regime-chip { font-family:var(--fb); font-size:14px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; padding:2px 9px; border-radius:10px; border:1px solid currentColor; }
   .regime-chip.regime-bear { color:var(--bear); background:color-mix(in srgb, var(--bear) 12%, transparent); }

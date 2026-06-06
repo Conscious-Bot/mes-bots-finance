@@ -23,39 +23,13 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from pathlib import Path
 
 from shared import storage
 
 log = logging.getLogger(__name__)
 
-_SECTOR_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "sectors.yaml"
-_SECTOR_CONFIG_CACHE: dict | None = None
-
-
-def _load_sector_config() -> dict:
-    """Lazy load + cache sectors.yaml. Re-parse if file mtime change ? Non,
-    redemarrage bot suffit (config evolue trimestriellement)."""
-    global _SECTOR_CONFIG_CACHE
-    if _SECTOR_CONFIG_CACHE is not None:
-        return _SECTOR_CONFIG_CACHE
-    try:
-        import yaml
-        with open(_SECTOR_CONFIG_PATH) as f:
-            _SECTOR_CONFIG_CACHE = yaml.safe_load(f) or {}
-    except Exception as e:
-        log.warning(f"sectors.yaml load failed: {e}")
-        _SECTOR_CONFIG_CACHE = {}
-    return _SECTOR_CONFIG_CACHE
-
-
-def _find_sector_for_ticker(ticker: str) -> dict | None:
-    """Returns dict {label, index, cycle_phase, cycle_note} or None."""
-    cfg = _load_sector_config()
-    for sect_id, sect in cfg.get("sectors", {}).items():
-        if ticker in sect.get("tickers", []):
-            return {"id": sect_id, **sect}
-    return None
+# 06/06 : refactor sur shared.sectors (source unique sectors.yaml).
+from shared.sectors import sector_for_ticker as _find_sector_for_ticker
 
 
 def _compute_returns(ticker: str, sector_index: str | None) -> dict:

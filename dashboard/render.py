@@ -4775,6 +4775,13 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     ps = sorted(ps, key=lambda p: -_broker_value(p, pnl))
     tot = sum(_broker_value(p, pnl) for p in ps)
     share = tot / grand * 100
+    # 06/06 : cycle_phase chip canonique via shared.sectors (source unique
+    # sectors.yaml, partagee avec /review handler + macro_book_warnings).
+    try:
+        from shared.sectors import cycle_phase_for_ticker
+    except Exception:
+        def cycle_phase_for_ticker(_t: str) -> str:  # graceful degrade
+            return "unknown"
     rows = ""
     for p in ps:
         tk = p["ticker"]
@@ -4793,8 +4800,17 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         else:
             gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
+        # Cycle phase chip : late=warn / contraction=bear / early=acc / mid=steel
+        _cp = cycle_phase_for_ticker(tk)
+        _CP_CLS = {"early": "acc", "mid": "steel", "late": "warn", "contraction": "bear"}
+        _cp_cls = _CP_CLS.get(_cp, "steel-mute")
+        _cp_chip = (
+            f'<span class="cycle-chip cycle-{_cp_cls}" '
+            f'data-tip="Cycle phase {_cp} (source config/sectors.yaml).">{_cp}</span>'
+            if _cp != "unknown" else ""
+        )
         rows += (
-            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}{tk}<span class="nm">{nm}</span></td>'
+            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}{tk}<span class="nm">{nm}</span>{_cp_chip}</td>'
             f'<td class="num mono">{vstr}&nbsp;&euro;</td><td class="num">{w:.1f}%</td>'
             f'<td class="num {pcls}">{pstr}</td>'
             f'<td class="{asym_cls}">{asym_str}</td>'
@@ -5461,6 +5477,42 @@ def render() -> Path:
         _gscore_int = 0
     _grade_color = "acc" if _gscore_int >= 70 else ("warn" if _gscore_int >= 50 else "bear")
     # (Grade sparkline retire 01/06 user feedback : pas besoin sur Portfolio grade)
+    # === Macro state strate (06/06 user "tout connecter aux memes sources") ===
+    # Lecture canonique : shared.macro_state.current_macro_state(). Meme dict
+    # que celui consomme par _urgence panel. Source unique.
+    try:
+        import html as _html
+
+        from shared.macro_state import current_macro_state, regime_color
+        _ms = current_macro_state()
+        _ms_regime = _ms["regime"]
+        _ms_score = _ms["score"]
+        _ms_buckets = _ms["bucket_counts"]
+        _ms_color = regime_color(_ms_regime)
+        _ms_tip = (
+            f"Etat macro courant. Regime: {_ms_regime}. Score V3: {_ms_score:.0f}. "
+            f"Indicateurs : ACT {_ms_buckets.get('act', 0)} / "
+            f"WATCH {_ms_buckets.get('watch', 0)} / CALM {_ms_buckets.get('calm', 0)} / "
+            f"SILENT {_ms_buckets.get('silent', 0)}. "
+            "Source : shared.macro_state. Detail : page Alerts."
+        )
+        _macro_state_strate = (
+            '<div class="ps-strate" data-tip="' + _html.escape(_ms_tip, quote=True) + '">'
+            + '<div class="ps-lbl">Macro state</div>'
+            + '<div class="ps-macro-row" style="align-items:baseline;gap:var(--s4)">'
+            + f'<div class="ps-val {_ms_color}" style="font-size:24px">{_ms_regime.replace("_", " ")}</div>'
+            + f'<div class="ps-macro-meta">score {_ms_score:.0f}</div>'
+            + '<div class="ps-macro-meta" style="margin-left:auto">'
+            + f'<span class="bear" style="font-weight:600">ACT {_ms_buckets.get("act", 0)}</span>'
+            + ' &middot; '
+            + f'<span class="warn" style="font-weight:600">WATCH {_ms_buckets.get("watch", 0)}</span>'
+            + f' &middot; CALM {_ms_buckets.get("calm", 0)} &middot; SILENT {_ms_buckets.get("silent", 0)}'
+            + '</div>'
+            + '</div>'
+            + '</div>'
+        )
+    except Exception:
+        _macro_state_strate = ""
     vigie = (
         '<section data-page="vigie" class="active" role="region" aria-label="Overview"><div class="phead"><h2>Overview</h2>'
         '<div class="sub">Discipline posture &middot; what to act on today</div></div>'
@@ -5487,6 +5539,8 @@ def render() -> Path:
         + f'<div class="ps-grade-bar"><div class="ps-grade-fill {_grade_color}" style="width:{_grade_score:.0f}%"></div></div></div>'
         + '</div></div>'
         + '</div></div>'
+        # === Macro state strate 06/06 (Vigie connectee a shared.macro_state) ===
+        + _macro_state_strate
         # D5 retire 02/06 user : "Capital investi" duplique avec Star Concentration.
         # Vigie garde valeur PF + grade en haut (suffisant pour posture).
         + f'</div>'
