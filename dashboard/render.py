@@ -2650,7 +2650,7 @@ def _rows_risque(computed: list[dict], positions: list[dict] | None = None) -> t
     if positions:
         weight_map = {p["ticker"]: float(p.get("weight", 0)) for p in positions}
         total_weight = sum(weight_map.values()) or 1.0
-        # % capital at risk if all stops hit = Σ (weight_share_i × downside_pct_i)
+        # % capital at risk if all stops hit = sum (weight_share_i * downside_pct_i)
         heat = sum(
             (weight_map.get(tk, 0) / total_weight) * d
             for d, tk in data
