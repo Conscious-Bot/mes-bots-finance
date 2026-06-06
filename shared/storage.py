@@ -2302,6 +2302,7 @@ def get_signals_for_ticker(ticker, days=30, limit=8):
         rows = conn.execute(
             """SELECT s.id, s.title, s.summary, s.signal_type, s.sentiment,
                       s.score, s.materiality_boost, s.timestamp, s.echo_cluster_id, s.entities,
+                      s.impact_magnitude, s.reversibility,
                       src.name AS source_name, src.credibility AS source_credibility
                FROM signals s
                LEFT JOIN sources src ON s.source_id = src.id

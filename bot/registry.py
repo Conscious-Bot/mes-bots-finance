@@ -12,6 +12,7 @@ from bot.handlers.anti_erosion import (
     cmd_remarks,
 )
 from bot.handlers.audit import cmd_audit
+from bot.handlers.review import cmd_review
 from bot.handlers.bias_pattern import cmd_bias_pattern
 from bot.handlers.bias_status import cmd_bias_status
 from bot.handlers.debt_crisis import (
@@ -125,6 +126,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("log_friction", cmd_log_friction))
     app.add_handler(CommandHandler("remarks", cmd_remarks))  # Sprint 1.2 Phase L family
     app.add_handler(CommandHandler("audit", cmd_audit))  # per-decision audit (cf scripts/decision_audit.py)
+    app.add_handler(CommandHandler("review", cmd_review))  # per-ticker fact-sheet (cf bot/handlers/review.py)
     app.add_handler(CommandHandler("find", cmd_find))
     app.add_handler(CommandHandler("portfolio_sectors", cmd_portfolio_sectors))
     app.add_handler(CommandHandler("portfolio_narratives", cmd_portfolio_narratives))
