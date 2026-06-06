@@ -121,9 +121,10 @@ class TestIndicatorConfig:
         assert len(INDICATOR_CONFIG) == 15
 
     def test_tiers_distribution(self):
+        """06/06 : MOVE promu tier2 -> tier1 (bond vol reagit vite)."""
         tiers = [cfg["tier"] for cfg in INDICATOR_CONFIG.values()]
-        assert tiers.count(1) == 7  # Tier 1 daily
-        assert tiers.count(2) == 5  # Tier 2 weekly
+        assert tiers.count(1) == 8  # Tier 1 daily (incl. MOVE depuis 06/06)
+        assert tiers.count(2) == 4  # Tier 2 weekly
         assert tiers.count(3) == 3  # Tier 3 monthly
 
     def test_weights_canonical_per_tier(self):

@@ -1,21 +1,23 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 06 juin 2026 (CI fix + /review + refonte targets 26 thèses)
+**Refresh** : 06 juin 2026 (après-midi : macro panel Phase A/B/C/D + accuracy + calibration v3 hard reality)
 **Mode** : Phase construction (book 53k -> 70k) + Observation Brier V1 jusqu'au 10/06 (J-4)
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (06/06)
+## 🟢 ÉTAT SYSTÈME (06/06 après-midi)
 
-- **CI vert pour la 1ère fois historique** (commit `aac6f72`+) : marker `live_data` skip 13 fichiers data-dependent, mypy fix learning.py, ruff vert. Surveiller le badge à chaque push.
+- **Macro stress monitor entièrement refondu** : panel `_urgence` intelligent + warning. Triage ACT/WATCH/CALM/SILENT, regime detector 5 buckets (`intelligence/macro_regime.py`), tie-to-book warnings (`intelligence/macro_book_warnings.py`), honnêteté NULL/stale visible. Migration `0029_macro_regime_alerts`. État courant : STRESS · V3 score 120 (phase 4 CRISIS) · ACT 4 / WATCH 7 / CALM 4 / SILENT 0.
+- **Bands v3 hard reality** : 10 indicateurs calibrés post-3-iterations (v2 dur -> +5% margin -> hard-fix sur 4 greens trompeurs). Cross-file consistency auditée (`_MACRO_BANDS` + `_MACRO_TIPS` + `macro_regime.py` + `macro_book_warnings.py` + `phase_ranges` + `config.yaml vol_scaling_threshold_vix=21` tous alignés).
+- **Freshness améliorée** : tier1 cron 4x/jour (06h/12h/18h/22h Paris) au lieu de daily. MOVE promu tier1. `persist_signal` no-stomp fix (fetch fail garde la dernière valeur valide). Tier3 retry pattern day="1,5,10,15". CoreCPI NULL chronique fixé = 2.74% en DB.
+- **CI vert** (depuis session 06/06 matin) : marker `live_data` skip 13 fichiers data-dependent, mypy fix learning.py.
 - **Bot + dashboard sur VM Hetzner H24** : `ssh presage@37.27.247.126`, systemd user + linger.
-- **Backup offsite Storage Box BX11** : `presage-backup.timer` daily 04:00 UTC, 4+ runs déjà accumulés.
-- **`/audit` + `/review` Telegram handlers actifs** : décision audit + per-ticker fact-sheet (PnL EUR + perf 1y/2y vs sector + valo + asymmetry + signaux).
-- **26 thèses refondues tailor-made** : 9 patterns (-9% à -25% stop, +10% à +25% partial, +17% à +60% full) selon analyse perf/valo/cycle. Trailing stops sur AMD + STMPA.PA (profit-protection -15% from current). Audit avg_cost 24/26 positions clean (2 fixes : 6857.T, 000660.KS).
-- **Gate currency_native étendu** aux 5 champs prix (stop + 3 targets + entry).
-- **J-day 10/06 prep** : reading contract pré-registered (N=20, M=0.03, CI-based), healthchecks armed.
-- **35+ commits cumulés sur 05+06/06**. Tennis-bot intact.
+- **Backup offsite Storage Box BX11** : `presage-backup.timer` daily 04:00 UTC.
+- **`/audit` + `/review` Telegram handlers actifs**.
+- **26 thèses refondues tailor-made** (commit 06/06 matin), gate currency_native étendu 5 champs.
+- **J-day 10/06 prep** : reading contract pré-registered (N=20, M=0.03), healthchecks armed.
+- **45+ commits cumulés sur 05+06/06** (10 commits macro panel après-midi). Tennis-bot intact.
 
 ## 🟢 ÉTAT SYSTÈME (05/06 soir) [PREVIOUS REFRESH]
 
@@ -127,7 +129,21 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 
 ## ✅ DÉJÀ FAIT (29/05 + 30/05 matin)
 
-### 06/06 — CI fix + /review + refonte targets 26 thèses
+### 06/06 après-midi — Macro stress monitor refonte complète
+
+- **Phase D (honnêteté state)** (`88e5b09`) : NULL → `—` + class mute + badge `no data` rouge. Stale > tier threshold → badge `stale Nd`. Sort secondaire stale-after-fresh.
+- **Phase C (triage)** (`acd3302`) : remplace tier flat list par buckets `ACT/WATCH/CALM/SILENT` ordonnés par stress. Tier chip (M&L/BANK/SLOW) préservé sur chaque row.
+- **Phase A (regime detector)** (`24256e9`) : `intelligence/macro_regime.py` + migration `0029_macro_regime_alerts` + storage helpers + 9 tests dont L4 idempotence. Classifier déterministe 5 buckets (COMPLACENT/RISK_ON/LATE_CYCLE/FRAGILE/STRESS), indépendant V3 composite.
+- **Phase B (tie-to-book)** (`d899d44`) : `intelligence/macro_book_warnings.py` + 9 tests. 5 règles déterministes regime × book composition. Bloc "Macro impact on book" sous indicator grid.
+- **Bands v2 dur + rename CALM + tooltips resync** (`5afd248`) : 10 indicateurs durcis, tooltips audit complet (zero mismatch restant), UI label ASLEEP→CALM.
+- **Accuracy** (`186406b`) : cron tier1 4x/jour, MOVE promu tier1, persist_signal no-stomp, tier3 retry day="1,5,10,15", CoreCPI NULL chronique fix (2.74% maintenant).
+- **V3 phase_ranges align + VIX vol_scaling 25→21** (`266b28e` + `de8c48c`) : INDICATOR_CONFIG phase_ranges alignées bands, vol_scaling threshold descendu.
+- **v3 +5% margin** (`de8c48c`) : loosen v2 dur après user "peut-être allé un peu fort". 10 indicateurs +5%.
+- **v3 drift fix R1/R2/R5** (`e8dbc98`) : audit cross-file → 3 thresholds bookwarnings non syncs corrigés (TYX 4.5→4.2, USDJPY 158→154, VIX 13→12).
+- **v3 hard reality** (`7d0f683`) : 4 greens trompeurs → WATCH. T10Y2Y warn 0.28→0.5, DXY warn 103→98, CopperGold band ajouté (0.0015, 0.0008), BankReserves band ajouté (3.2T, 2.5T). Score V3 98→120 (phase 4 CRISIS dans frise).
+- **Cross-file consistency auditée** : tous fichiers alignés v3-fix (render.py bands + tips, macro_regime classifier, bookwarnings, debt_monitor phase_ranges, config.yaml vol_scaling).
+
+### 06/06 matin — CI fix + /review + refonte targets 26 thèses
 
 - **CI vert 1ère fois** : `d3b23bf` test_resolution_rules caplog flake fix, `64e4d64` mypy learning.py, `fe0238c` marker `live_data` + skip 13 fichiers, `aac6f72` ruff cleanup. Post #06 draft "trois jours de CI rouge invisible".
 - **Currency_native gate étendu** (`e18ff54`) : check sur stop_price + target_price + target_partial + target_full + entry_price (avant : stop seul). Bug 6857.T target=-99% l'avait révélé.

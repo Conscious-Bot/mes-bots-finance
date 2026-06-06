@@ -49,12 +49,13 @@ class TestConfigV3:
         assert cfg["source"] == "fred:WALCL_yoy"
 
     def test_mfgip_yoy_v3_phase_ranges(self):
-        """MfgIP_yoy V3 : seuil P4 a -5% (vs -2% V1)."""
+        """MfgIP_yoy V3 hard-reality 06/06 : bands (0.95, 0.28) alignes,
+        plus stricte que V2. -5% P4 verrou anti-regression preserve.
+        """
         cfg = INDICATOR_CONFIG["MfgIP_yoy"]
         ranges = cfg["phase_ranges"]
-        # First range is now (-999, -5, 4), not (-999, -2, 4)
         assert ranges[0] == (-999, -5, 4)
-        assert ranges[1] == (-5, -2, 3)
+        assert ranges[1] == (-5, 0, 3)  # was (-5, -2, 3), v3 plus stricte
 
 
 class TestClassifyV3:
@@ -124,15 +125,17 @@ class TestClassifyV3:
         assert classify_phase(-3.0, ranges) == 3
 
     def test_mfgip_yoy_sluggish(self):
-        """MfgIP -1% = P2 (sluggish, contraction legere)."""
+        """MfgIP -1% = P3 (v3 hard-reality : <0 = contraction = P3, plus
+        seulement sluggish)."""
         ranges = INDICATOR_CONFIG["MfgIP_yoy"]["phase_ranges"]
-        assert classify_phase(-1.0, ranges) == 2
+        assert classify_phase(-1.0, ranges) == 3
 
     def test_mfgip_yoy_expansion(self):
-        """MfgIP >= 0% = P1 (expansion)."""
+        """MfgIP > 0.95% = P1 (vraie expansion saine).
+        0.5% = P2 (ralenti, v3 plus stricte que V1 ou >=0 = P1)."""
         ranges = INDICATOR_CONFIG["MfgIP_yoy"]["phase_ranges"]
-        assert classify_phase(0.5, ranges) == 1
-        assert classify_phase(3.0, ranges) == 1
+        assert classify_phase(0.5, ranges) == 2  # ralenti
+        assert classify_phase(3.0, ranges) == 1  # expansion saine
 
 
 class TestSmokeV3Fetch:

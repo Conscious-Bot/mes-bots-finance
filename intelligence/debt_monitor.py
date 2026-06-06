@@ -149,8 +149,9 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
     "MOVE": {
         # User 06/06 "accuracy = basic". Bond vol reagit vite (Treasury moves)
         # -> bump tier2 weekly -> tier1 daily. FRED/yfinance publient daily.
+        # Weight bumpe 0.75 -> 1.0 cohérent tier1.
         "tier": 1,
-        "weight": 0.75,
+        "weight": 1.0,
         "source": "yfinance:^MOVE",
         "label": "MOVE Bond Vol",
         # phase_ranges v3 +5% margin (bands 79, 95).

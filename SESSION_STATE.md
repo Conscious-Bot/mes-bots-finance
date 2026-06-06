@@ -1408,3 +1408,131 @@ Pas urgent, mais a revisiter avant publication track record public :
   longtemps a priori).
 - Documenter la convention `positions.avg_cost = EUR` en commentaire
   schema/migration alembic dediee.
+
+---
+
+## Close 2026-06-06 (apres-midi) — Macro stress monitor refondu (Phase A/B/C/D + accuracy + 3 iterations de calibration)
+
+Session monolithique sur le panneau "MACRO STRESS MONITOR -- score X" de
+`_urgence` (dashboard/render.py). User initial : "à nous de developper ce
+panneau et le rendre vraiment intelligent et warning". Livraison en 4
+phases + 3 iterations de calibration suite a audits successifs.
+
+### Livre
+
+**4 phases architecturales (commits `88e5b09` -> `acd3302` -> `24256e9`
+-> `d899d44`)** :
+- **Phase D (honnetete)** : NULL value plus rendue `0.0000%` en vert mais
+  `&mdash;` + class mute + badge `no data` rouge. Stale > tier threshold
+  : badge `stale Nd`. Sort secondaire stale apres fresh meme dot.
+- **Phase C (triage)** : remplacement liste plate `tier 1/2/3` par
+  buckets `ACT NOW / WATCH / CALM / SILENT` ordonnes par stress.
+  Tier chip (M&L / BANK / SLOW) preserve sur chaque row.
+- **Phase A (regime detector)** : `intelligence/macro_regime.py` +
+  migration `0029_macro_regime_alerts` + `shared/storage.py` helpers
+  insert/get_latest + 9 tests (dont L4 idempotence + missing-data safe).
+  Classifier deterministe 5 buckets (COMPLACENT / RISK_ON / LATE_CYCLE
+  / FRAGILE / STRESS), independant V3 composite. Chip regime dans le
+  header avec tooltip detaille triggers.
+- **Phase B (tie-to-book)** : `intelligence/macro_book_warnings.py`
+  + 9 tests. 5 regles deterministes regime x composition book :
+  R1 semis concentration / R2 carry unwind JP / R3 growth-tech
+  dominance / R4 auto_ev stress / R5 complacent hedge. Bloc "Macro
+  impact on book" sous l'indicator grid.
+
+**Accuracy chantier (commit `186406b`)** suite user "we need the data
+to always be the latest, accuracy is the basic of what we need" :
+- `cron_tier1_daily` : hour=6 -> hour="6,12,18,22" (4x/jour).
+- MOVE bond vol promu tier2_weekly -> tier1 daily.
+- `persist_signal` no-stomp fix : fetch fail (FRED late publish,
+  network glitch) ne stomp plus NULL la derniere valeur valide.
+- `cron_tier3_monthly` : day=1 -> day="1,5,10,15" retry pattern
+  pour rattraper FRED late publish (CPI publie typiquement mid-month).
+- CoreCPI NULL fix : 5j de NULL chronique resolu, value 2.74% maintenant
+  en DB.
+
+**Calibration iterations (3 commits)** :
+- `5afd248` (bands v2 dur) : 10 indicateurs durcis (VIX 16/22->14/18,
+  HY 250/400->220/320, TYX 4.0/4.6->3.8/4.2, etc.). Tooltips resync
+  (zero mismatch tooltip-vs-band restant). Rename UI label ASLEEP -> CALM.
+- `266b28e` (gauges align) : V3 phase_ranges aligne sur bands +
+  VIX vol_scaling_threshold 25 -> 20.
+- `de8c48c` (v3 +5% margin) : user "peut-etre alle un peu fort,
+  rajoute 5% de marge". Loosen v2 dur. Score V3 126 -> 98.
+- `e8dbc98` (drift fix R1/R2/R5) : audit cross-file revele 3 thresholds
+  dans macro_book_warnings.py non syncs avec v3 (TYX 4.5->4.2,
+  USDJPY 158->154, VIX 13->12).
+- `7d0f683` (hard reality) : user "are the greens realistic ?".
+  Audit 8 CALMs revele 4 trompeurs. Reverse +5% margin sur T10Y2Y
+  (warn 0.28->0.5) + DXY (warn 103->98). Ajout bands explicites pour
+  CopperGold (0.0015, 0.0008) et BankReserves (3.2T, 2.5T). Score V3
+  98 -> 120 (phase 4 CRISIS).
+
+### Etat final post-session (data fresh Mac + VM)
+
+- **Regime** : STRESS (VIX 21.51 > 21 trigger)
+- **V3 composite** : score 120, phase 4 CRISIS (frise)
+- **Buckets** : ACT 4 / WATCH 7 / CALM 4 / SILENT 0
+- **ACT NOW (4)** : VIX, TYX, USDJPY, BTC_drawdown180 (tous P3+)
+- **WATCH (7)** : Gold, HY_OAS, CoreCPI, DXY, T10Y2Y, BankReserves,
+  CopperGold (tous P2)
+- **CALM legitime (4)** : KRE, FedBalance_yoy, MfgIP_yoy, MOVE
+- **Book warnings (3 actifs)** : R1 HIGH raise stops semis (64%),
+  R2 HIGH verify JP hedge (23%), R4 MED rightsize TSLA
+- **CoreCPI** : 2.74% en DB (etait NULL chronique)
+- **VM systemd** restarted x4, dashboard live a `localhost:8001` via tunnel
+
+### Cross-file consistency (audit explicite mi-session)
+
+- `dashboard/render.py` _MACRO_BANDS : v3-fix (10 entries)
+- `dashboard/render.py` _MACRO_TIPS : v3-fix tooltips resync
+- `intelligence/macro_regime.py` classifier : v3-fix (8 constants)
+- `intelligence/macro_book_warnings.py` R1/R2/R5 : v3-fix
+- `intelligence/debt_monitor.py` INDICATOR_CONFIG phase_ranges : v3-fix
+- `config.yaml` vol_scaling_threshold_vix : 20 (= _VIX_STRESS)
+- `composite_phase_from_score` (22/60/115) : unchanged volontairement
+
+### Tests
+
+- `tests/test_macro_regime.py` : 9 tests (5 regimes + L4 idempotence
+  + missing-data safe + 6+ warn threshold boundary)
+- `tests/test_macro_book_warnings.py` : 9 tests (R1-R5 fire + silent
+  when no condition + sort by severity + max 4 cap + empty book safe)
+- Full suite : 854 + 18 new = ok au moment du commit `7d0f683`
+
+### Outils ajoutes
+
+- Migration alembic `0029_macro_regime_alerts` : table journal
+  append-only des evaluations regime (status, score, danger/warn/calm/
+  silent counts, triggers JSON, transition).
+
+### Entry next session
+
+- **Cron tier1 4x/jour actif** : verifier qu'il tourne correctement
+  (logs `dashboard/serve.log` + `tail -f` du bot service systemd VM).
+  Si fail, monitor `data/bot.db` debt_signals age via badge `stale Nd`
+  dans le panel (auto-surface).
+- **CoreCPI tier3 retry pattern** : la prochaine refresh automatique
+  est `2026-07-01` puis 05/10/15 du mois. Verifier que CoreCPI reste
+  populated (badge `no data` doit etre absent ; CoreCPI ne doit pas
+  re-tomber a NULL).
+- **Regime track** : le journal `macro_regime_alerts` est present mais
+  `check_regime_transition` n'est PAS encore cable a un cron. Add
+  call apres `cron_tier1_daily` pour persister + notifier les
+  transitions (FRAGILE -> STRESS par exemple). Deferred Phase A.5.
+- **VIX vol_scaling actif (threshold 21)** : actuellement VIX 21.5
+  > 21 = sizing reduce -30% sur toute nouvelle position. Si tu prends
+  une nouvelle position, le size sera 70% du target normal. Si ca te
+  derange (phase construction), rebump a 22 ou 23 (mais classifier
+  STRESS suivra independant).
+- **Frise V3 = phase 4 CRISIS** : score 120, c'est honnete vu les
+  5 P3 + 6 P2. La frise tagged exploratoire toujours mais le visuel
+  fait sens. Si tu trouves CRISIS trop alarmiste, relax
+  `composite_phase_from_score` (22/60/115) -> (30/80/150).
+- **Telegram dispatch markdown bug** : observe pendant cron_tier3
+  ("Bad Request: can't parse entities"). Non bloquant mais a fix.
+  Probable double-asterisque ou char markdown unescaped dans
+  `_dispatch_alerts`. Investiguer si recurrent.
+- **J-day 10/06 imminent** (J-4) : prep complete pre-session, aucune
+  action ajoutee aujourd'hui. Tirer `post_resolution_brier_report`
+  9h05.
