@@ -4,7 +4,8 @@
 Composite scoring → overall debt crisis phase (1/2/3/4).
 
 Tier 1 (daily, weight 1.0):  TYX, Gold, USDJPY, VIX, HY_OAS, DXY, BTC_drawdown180
-Tier 2 (weekly, weight 0.75): MOVE, KRE, T10Y2Y, BankReserves, CopperGold
+Tier 1 (daily, weight 1.0): ... + MOVE (promote 06/06, bond vol reagit vite).
+Tier 2 (weekly, weight 0.75): KRE, T10Y2Y, BankReserves, CopperGold
 Tier 3 (monthly, weight 0.5): CoreCPI, FedBalance_yoy, MfgIP_yoy
 
 V3 (task #42, 01/06/2026) : 3 transformations structurelles validees OOS
@@ -140,7 +141,9 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
     },
     # ---- Tier 2: important, weekly ----
     "MOVE": {
-        "tier": 2,
+        # User 06/06 "accuracy = basic". Bond vol reagit vite (Treasury moves)
+        # -> bump tier2 weekly -> tier1 daily. FRED/yfinance publient daily.
+        "tier": 1,
         "weight": 0.75,
         "source": "yfinance:^MOVE",
         "label": "MOVE Bond Vol",
@@ -532,8 +535,12 @@ def run_scan(tiers: list[int] | None = None, dispatch_alerts: bool = False) -> d
 
         value = fetch_indicator(name)
         if value is None:
+            # Fetch failed (FRED data pas encore publie, network glitch, etc).
+            # NE PAS persist NULL : ca stomp la derniere valeur valide et fait
+            # apparaitre "no data" sur le panel alors qu'on a juste rate ce
+            # refresh. Le badge "stale Nd" (Phase D) surfacera l'age naturellement.
+            log.warning(f"debt_monitor: fetch {name} returned None, keeping last valid value")
             results[name] = {"value": None, "phase": None, "error": "fetch failed"}
-            persist_signal(name, None, None)
             continue
         phase = classify_phase(value, cfg["phase_ranges"])
         persist_signal(name, value, phase)
