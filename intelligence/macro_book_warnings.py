@@ -21,8 +21,19 @@ import logging
 from typing import TypedDict
 
 from shared import sectors as _sec
+from shared.calibration import get_rule_threshold as _rt
 
 log = logging.getLogger(__name__)
+
+# 06/06 architecture : thresholds canoniques desormais loaded depuis
+# config/calibration.yaml via shared.calibration.
+_R1_SEMIS_MIN = _rt("R1_semis_share_min") or 45.0
+_R2_USDJPY_GATE = _rt("R2_usdjpy_gate") or 155.0
+_R2_USDJPY_HIGH = _rt("R2_usdjpy_high_sev") or 160.0
+_R2_JP_MIN = _rt("R2_jp_share_min") or 10.0
+_R3_GROWTH_MIN = _rt("R3_growth_tech_min") or 65.0
+_R4_AUTO_MIN = _rt("R4_auto_ev_min") or 3.0
+_R5_VIX_MAX = _rt("R5_vix_complacent_max") or 12.0
 
 
 class Warning(TypedDict):
@@ -65,8 +76,7 @@ def compute_book_warnings(
     warnings: list[Warning] = []
 
     # R1 : FRAGILE/STRESS + semis dominant -> repricing risk concentre.
-    # Threshold TYX 4.2 = _TYX_HIGH v3.
-    if regime in ("FRAGILE", "STRESS", "LATE_CYCLE") and semis_share > 45.0:
+    if regime in ("FRAGILE", "STRESS", "LATE_CYCLE") and semis_share > _R1_SEMIS_MIN:
         sev = "high" if regime == "STRESS" else "med"
         tyx_phrase = f"Taux 30Y à {tyx:.1f}% (>4.2 = repricing actif). " if tyx and tyx > 4.2 else ""
         warnings.append(Warning(
@@ -81,24 +91,24 @@ def compute_book_warnings(
             tickers=semis_tickers[:5],
         ))
 
-    # R2 : USDJPY > 154 (band warn) + JP exposure > 10% -> carry unwind risk.
-    if usdjpy is not None and usdjpy > 154.0 and jp_share > 10.0 and jp_tickers:
-        sev = "high" if usdjpy > 160.0 else "med"
+    # R2 : USDJPY > gate (calib) + JP exposure > min (calib) -> carry unwind risk.
+    if usdjpy is not None and usdjpy > _R2_USDJPY_GATE and jp_share > _R2_JP_MIN and jp_tickers:
+        sev = "high" if usdjpy > _R2_USDJPY_HIGH else "med"
         warnings.append(Warning(
             severity=sev,
             rule_id="R2_carry_unwind_jp",
             action=f"Hedge ou réduis tes positions japonaises ({jp_share:.0f}% du book)",
             rationale=(
-                f"USDJPY à {usdjpy:.1f} : la BoJ peut intervenir au-dessus de 160. "
-                f"Si l'unwind du carry trade démarre, le yen monte vite et les tech "
-                f"JP se vendent en cascade. Tu as {len(jp_tickers)} positions JP."
+                f"USDJPY à {usdjpy:.1f}. BoJ/MoF ont déjà dépensé > 73 Mds$ pour défendre 160 "
+                f"en avril-mai 2026, l'intervention est confirmée. Si l'unwind carry démarre, "
+                f"yen monte vite et tech JP vendus en cascade. Tu as {len(jp_tickers)} positions JP."
             ),
             tickers=jp_tickers[:5],
         ))
 
     # R3 : LATE_CYCLE/FRAGILE + growth-tech combined elevee -> diversifier hors growth.
     growth_tech = semis_share + tech_mega_share
-    if regime in ("LATE_CYCLE", "FRAGILE") and growth_tech > 65.0:
+    if regime in ("LATE_CYCLE", "FRAGILE") and growth_tech > _R3_GROWTH_MIN:
         warnings.append(Warning(
             severity="med",
             rule_id="R3_growth_tech_dominance",
@@ -112,7 +122,7 @@ def compute_book_warnings(
         ))
 
     # R4 : STRESS + auto_ev exposure -> margins compression accelerent.
-    if regime == "STRESS" and auto_ev_share > 3.0:
+    if regime == "STRESS" and auto_ev_share > _R4_AUTO_MIN:
         warnings.append(Warning(
             severity="med",
             rule_id="R4_auto_ev_stress",
@@ -125,7 +135,7 @@ def compute_book_warnings(
         ))
 
     # R5 : COMPLACENT + zero stress flags -> consider tactical hedge.
-    if regime == "COMPLACENT" and vix is not None and vix < 12.0:
+    if regime == "COMPLACENT" and vix is not None and vix < _R5_VIX_MAX:
         warnings.append(Warning(
             severity="low",
             rule_id="R5_complacent_hedge",

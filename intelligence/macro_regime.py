@@ -42,15 +42,18 @@ class IndicatorReading(TypedDict):
     dot: str  # 'calm' | 'warn' | 'danger' | 'mute'
 
 
-# Thresholds canoniques (alignes avec _MACRO_BANDS render.py v3 06/06 +5%).
-_VIX_STRESS = 21.0        # v2 20 +5%
-_VIX_LOW = 17.0           # v2 16 +5%
-_VIX_COMPLACENT = 12.0    # v2 13 -5% (lower = harder to call complacent)
-_HY_STRESS = 365.0        # v2 350 +5%
-_HY_COMPLACENT = 210.0    # v2 220 -5%
-_USDJPY_UNWIND = 161.0    # v2 153 +5% (passe au-dessus de la zone BoJ 160)
-_TYX_HIGH = 4.2           # v2 4.0 +5%
-_DXY_HIGH = 98.0          # v3-fix : revert vers band warn 98. DXY 100 = USD strong = LATE_CYCLE trigger
+# 06/06 architecture : thresholds canoniques desormais loaded depuis
+# config/calibration.yaml via shared.calibration. Source unique evolutive.
+from shared.calibration import get_classifier_threshold as _ct
+
+_VIX_STRESS: float = _ct("VIX_STRESS") or 22.0
+_VIX_LOW: float = _ct("VIX_LOW") or 17.0
+_VIX_COMPLACENT: float = _ct("VIX_COMPLACENT") or 13.0
+_HY_STRESS: float = _ct("HY_STRESS") or 400.0
+_HY_COMPLACENT: float = _ct("HY_COMPLACENT") or 280.0
+_USDJPY_UNWIND: float = _ct("USDJPY_UNWIND") or 161.0
+_TYX_HIGH: float = _ct("TYX_HIGH") or 4.2
+_DXY_HIGH: float = _ct("DXY_HIGH") or 100.0
 
 
 def _val(readings: dict[str, IndicatorReading], key: str) -> float | None:

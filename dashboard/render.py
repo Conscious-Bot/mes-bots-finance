@@ -3587,52 +3587,16 @@ _RULE_CHIP_LABELS = {
 }
 
 
-_MACRO_BANDS = {
-    # Re-tightened 06/06 v3 user "rajoute 5% de marge a chaque indicateur" :
-    # +5% margin sur la v2 harsh (qui etait peut-etre trop dure). Equilibre
-    # entre durete de gradation et bruit potentiel.
-    # (warn_threshold, danger_threshold, hi_bad)
-    "VIX": (15.0, 19.0, True),         # v2 (14,18) +5%
-    "HY_OAS": (230.0, 335.0, True),    # v2 (220,320) +5%
-    "MOVE": (79.0, 95.0, True),        # v2 (75,90) +5%
-    "USDJPY": (154.0, 160.0, True),    # v2 (147,153) +5%
-    "TYX": (4.0, 4.4, True),           # v2 (3.8,4.2) +5%
-    "DXY": (98.0, 101.0, True),        # v3-fix : revert to v2. 100 = USD strong = WATCH territoire historique
-    "CoreCPI": (2.4, 2.9, True),       # v2 (2.3,2.8) +5%
-    "CPI": (2.4, 2.9, True),
-    "T10Y2Y": (0.5, 0.0, False),       # v3-fix : tightened 0.28->0.5. Courbe flat = WATCH (post-inversion bull-steepening precede recession)
-    "MfgIP": (0.95, 0.28, False),      # v2 (1.0, 0.3) loosen 5%
-    # V3 BTC drawdown (hi_bad=False : lower = worse). Loosen = more negative threshold.
-    "BTC_drawdown180": (-16.0, -26.0, False),  # v2 (-15,-25) +5% margin
-    # 06/06 hard-reality fix : 2 indicateurs sans band visible ajoutes
-    # (etaient phase-only, ratent les borderline cas).
-    "CopperGold": (0.0015, 0.0008, False),     # ratio < 0.0015 = recession pricing
-    "BankReserves": (3_200_000.0, 2_500_000.0, False),  # < 3.2T = trending down vers stress
-}
+# 06/06 architecture : _MACRO_BANDS + _MACRO_TIPS desormais loaded depuis
+# config/calibration.yaml via shared.calibration. Source unique canonique
+# evolutive (audit refresh tous les 10j via Phase B cron).
+from shared.calibration import (
+    get_all_bands as _calib_get_all_bands,
+    get_all_tooltips as _calib_get_all_tooltips,
+)
 
-
-_MACRO_TIPS: dict[str, str] = {
-    # Tooltips resync 06/06 : reflètent les vrais bands _MACRO_BANDS (audit
-    # post-tightening v2). Plus de tooltip-vs-band mismatch.
-    "TYX": "Coût capital long. > 4 = capital cost contraint, > 4.4 = stress growth/tech, > 5 = craquements historiques.",
-    "Gold": "Couverture taux réels / débasement / géopol. Lecture interprétative (no band fixe).",
-    "USDJPY": "Baromètre carry trade. > 154 = carry stress, > 160 = zone intervention BoJ → tail risk unwind tech US.",
-    "VIX": "Vol implicite S&P 500 30j. < 15 = euphorie/complacent, > 19 = stress actif, > 25 = panique.",
-    "HY_OAS": "Prime obligations haut rendement vs Treasury (bp). < 230 = complacent, > 335 = widening crédit, > 500 = crise. Signal avancé.",
-    "DXY": "USD vs 6 majeures. > 98 = USD strong (vent contraire EM), > 101 = stress multinationales US, > 107 = stress global.",
-    "BTC_drawdown180": "Drawdown BTC vs max 6 mois. > -16 % = sain, < -26 % = stress crypto, < -50 % = capitulation.",
-    "MOVE": "VIX des Treasuries. > 79 = attention, > 95 = stress obligataire, > 120 = crise. Réagit vite, souvent avancé sur actions.",
-    "T10Y2Y": "10Y-2Y rate curve. > 0.5 = normale saine, < 0.5 = aplatissement (post-inversion bull-steepening précède récession 3-6m), < 0 = inversion.",
-    "BankReserves": "Cash bancaire à la Fed. > 3.2 T = ample. < 3.2 T = trending down vers stress. < 2.5 T = stress plomberie imminent (Sept 2019 repo blowup ~1.4 T).",
-    "RepoSRF": "Standing Repo Facility. > 30 B = banques court de cash, alarme plomberie aiguë.",
-    "FedBalance_yoy": "Bilan Fed variation YoY %. > +20 % = QE emergency (Fed combat crash). < -10 % = QT agressif. ± 5 % = stable.",
-    "KRE": "ETF banques régionales. Décrochage brutal = signal stress type SVB (phase-based, no band).",
-    "CopperGold": "Cuivre industriel vs or refuge. > 0.0015 = cycle haussier, < 0.0015 = recession pricing classique (gold parabolique + copper sluggish), < 0.0008 = strong recession signal.",
-    "CoreCPI": "Core CPI YoY. > 2.4 % = Fed bloquée en restrictif, > 2.9 % = hawkish bias → vent contraire growth/tech.",
-    "CPI": "Core CPI YoY. > 2.4 % = Fed bloquée en restrictif, > 2.9 % = hawkish bias → vent contraire growth/tech.",
-    "MfgIP": "Industrial production YoY. > 0.95 % = expansion saine, < 0.28 % = ralenti, < 0 = contraction.",
-    "MfgIP_yoy": "Industrial production YoY. > 0.95 % = expansion saine, < 0.28 % = ralenti, < 0 = contraction.",
-}
+_MACRO_BANDS: dict[str, tuple[float, float, bool]] = _calib_get_all_bands()
+_MACRO_TIPS: dict[str, str] = _calib_get_all_tooltips()
 
 
 def _macro_dot(ind: str, v: float, phase: int | None = None) -> str:
@@ -3920,6 +3884,26 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     except Exception:
         # Fallback silencieux : presentation layer ne doit pas crasher le dashboard.
         _regime_chip_html = ""
+    # 06/06 Phase A canonical : chip audit metadata (date last audit + version).
+    try:
+        from shared.calibration import get_audit_metadata
+        _amd = get_audit_metadata()
+        _audit_last = _amd.get("last_audit", "?")
+        _audit_ver = _amd.get("audit_version", "?")
+        _audit_next = _amd.get("next_audit_due", "?")
+        _audit_report = _amd.get("audit_report", "?")
+        _audit_tip = _html_esc.escape(
+            f"Calibration {_audit_ver} — last audit {_audit_last}. "
+            f"Next audit due {_audit_next} (cron 10j Phase B). "
+            f"Source: config/calibration.yaml. Rapport: {_audit_report}.",
+            quote=True,
+        )
+        _audit_chip_html = (
+            f'<span class="audit-chip" data-tip="{_audit_tip}">'
+            f'calib {_audit_ver} &middot; {_audit_last}</span>'
+        )
+    except Exception:
+        _audit_chip_html = ""
     # Phase B : tie-to-book warnings (regime x book composition).
     try:
         from intelligence.macro_book_warnings import compute_book_warnings
@@ -4107,7 +4091,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         # Layout 02/06 user "organize, evitons les trous" : macro stress
         # full-width au-dessus (indicateurs naturellement nombreux), puis
         # RSI + breadth cote-a-cote en bas.
-        f'<div class="ph3">Macro stress monitor &mdash; score {score:.0f} {_regime_chip_html}</div>'
+        f'<div class="ph3">Macro stress monitor &mdash; score {score:.0f} {_regime_chip_html} {_audit_chip_html}</div>'
         f'<div class="card pad" style="margin-bottom:var(--s4)"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div>{_book_warnings_html}</div>'
         f'<div class="cols">'
         f'<div><div class="ph3">Market momentum &middot; RSI(14) daily &middot; 30min cache</div>'

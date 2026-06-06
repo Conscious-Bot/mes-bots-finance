@@ -1,0 +1,148 @@
+# Source canonique unique pour tous les seuils, tooltips et phases macro.
+#
+# Doctrine 06/06 : "toutes les pages connectees aux memes sources, evolutif".
+# Avant ce fichier : seuils dupliqués dans render.py _MACRO_BANDS + _MACRO_TIPS +
+# macro_regime._VIX_STRESS + macro_book_warnings hardcoded numbers. Drift garanti.
+# Après : un seul yaml, tous lecteurs importent shared.calibration.
+#
+# Process evolutif :
+#  - Cron `audit_calibration_job` (a venir, Phase B) tourne tous les 10j :
+#    research web sur thresholds + cycle phases, ecrit docs/calibration_audits/
+#    YYYY-MM-DD.md avec deltas proposes vs ce fichier.
+#  - User review l'audit report, applique manuellement les corrections.
+#  - Cette section `audit_metadata` track le dernier audit + version.
+#
+# Format strict :
+#  - bands : (warn_threshold, danger_threshold, hi_bad)
+#    hi_bad = True : valeur haute = mauvais (VIX, USDJPY, HY_OAS, TYX, DXY...)
+#    hi_bad = False : valeur basse = mauvais (T10Y2Y inversion, BTC DD, MfgIP)
+#  - tooltips : phrase FR explicative au survol du dot dans le panel
+#  - classifier_thresholds : utilisés par intelligence/macro_regime.py
+#  - rules_thresholds : utilisés par intelligence/macro_book_warnings.py
+
+audit_metadata:
+  last_audit: '2026-06-06'
+  audit_version: v4
+  audit_method: 'pro web research (FRED/BIS/JPM/GS/Bloomberg/Cboe)'
+  next_audit_due: '2026-06-16'  # +10 days, Phase B cron will refresh
+  audit_report: 'docs/calibration_audits/2026-06-06_v4.md'  # to create
+  sources_consulted:
+    - 'FRED St. Louis Fed (VIX/HY_OAS/T10Y2Y/WRESBAL/DGS30)'
+    - 'Cboe (VIX historique)'
+    - 'Tradingeconomics (USDJPY/DXY/Gold)'
+    - 'Goldman Sachs Asset Management (Q2 2026 Market Know-How)'
+    - 'JPMorgan Mid-Year Outlook 2026'
+    - 'Bloomberg (EV winter, MOVE, USDJPY intervention)'
+    - 'Sprott / IEA (Uranium / EV)'
+    - 'Deloitte / Evertiq (semiconductor cycle)'
+    - 'BLS / Cleveland Fed / Philadelphia SPF Q2 2026 (CPI)'
+    - 'ANZ Research (copper-gold caveat)'
+
+# Bands canoniques. (warn, danger, hi_bad).
+bands:
+  VIX:
+    warn: 15.0
+    danger: 20.0
+    hi_bad: true
+    note: 'Mediane 10y ~17.6, panique reelle > 30'
+  HY_OAS:
+    warn: 300.0
+    danger: 400.0
+    hi_bad: true
+    note: 'Audit v4 recalibre majeur : <300 complacent (vs 230 trop bas), >400 widening, >600 crise GFC/COVID'
+  MOVE:
+    warn: 79.0
+    danger: 95.0
+    hi_bad: true
+    note: 'Bond vol reagit vite, daily tier1'
+  USDJPY:
+    warn: 155.0
+    danger: 160.0
+    hi_bad: true
+    note: 'BoJ/MoF ont depense >73 Mds$ avr-mai 2026 pour defendre 160. Intervention confirmee.'
+  TYX:
+    warn: 4.0
+    danger: 4.4
+    hi_bad: true
+    note: '5%+ deja atteint = environnement compressif growth ACTIF (pas hypothetique)'
+  DXY:
+    warn: 100.0
+    danger: 104.0
+    hi_bad: true
+    note: 'Audit v4 recalibre : >100 USD strong (vs 98), >104 stress multinat US'
+  CoreCPI:
+    warn: 2.5
+    danger: 3.0
+    hi_bad: true
+    note: 'Fed target = PCE 2% ≈ CPI 2.4-2.5%. >3 = hawkish bias actif'
+  CPI:
+    warn: 2.5
+    danger: 3.0
+    hi_bad: true
+  T10Y2Y:
+    warn: 0.5
+    danger: 0.0
+    hi_bad: false
+    note: 'Inversion <0 = recession 3-6m historique. Aplatissement 0-0.5 = bull-steepening post-inversion'
+  MfgIP:
+    warn: 1.0
+    danger: 0.0
+    hi_bad: false
+    note: 'Audit v4 : seuils >1 expansion / 0-1 molle / <0 contraction (vs precedent trop fin)'
+  BTC_drawdown180:
+    warn: -16.0
+    danger: -26.0
+    hi_bad: false
+    note: '-16 attention, -50 capitulation'
+  CopperGold:
+    warn: 0.0015
+    danger: 0.0008
+    hi_bad: false
+    note: 'CAVEAT ANZ : signal contamine 2026 par electrification + ruee or BC. Lire avec HY_OAS + breakevens.'
+  BankReserves:
+    warn: 3000000.0
+    danger: 2800000.0
+    hi_bad: false
+    note: 'Audit v4 : ajuste taille bilan. 1.4T 2019 ~ 2.5-2.8T aujourd hui'
+
+# Tooltips FR (affiches au survol du dot indicateur).
+tooltips:
+  TYX: 'Coût capital long. > 4 = capital cost contraint, > 4.4 = stress growth/tech, > 5 = craquements historiques (DÉJÀ ATTEINT juin 2026, environnement compressif actif).'
+  Gold: 'Couverture taux réels / débasement / géopol. Lecture interprétative. Drivers structurels : achats BC (~755 t/an), géopol, débasement dollar, de-dollarisation.'
+  USDJPY: 'Baromètre carry trade. > 155 = MoF/BoJ jawboning, > 160 = zone intervention confirmée 2024+2026 (>73 Mds$ dépensés avr-mai). Unwind = tail risk tech US.'
+  VIX: 'Vol implicite S&P 500 30j. < 15 = euphorie/complacent (médiane 10y ~17.6), > 20 = stress actif, > 30 = panique sérieuse.'
+  HY_OAS: 'Prime obligations haut rendement vs Treasury (bp). < 300 = complacent, > 400 = widening crédit, > 600 = crise GFC/COVID. Signal avancé sur actions.'
+  DXY: 'USD vs 6 majeures. > 100 = USD strong (vent contraire EM), > 104 = stress multinationales US, > 108 = stress global.'
+  BTC_drawdown180: 'Drawdown BTC vs max 6 mois. > -16 % = sain, < -26 % = stress crypto, < -50 % = capitulation.'
+  MOVE: 'VIX des Treasuries. > 79 = attention, > 95 = stress obligataire, > 120 = crise. Réagit vite, souvent avancé sur actions.'
+  T10Y2Y: '10Y-2Y rate curve. > 0.5 = normale saine, < 0.5 = aplatissement (post-inversion bull-steepening précède récession 3-6m), < 0 = inversion.'
+  BankReserves: 'Cash bancaire à la Fed. > 3.0 T = ample. 2.8-3.0 T = vers stress plomberie. < 2.8 T = zone Sept 2019 ajustée (le seuil nominal 1.4 T 2019 n''est plus comparable car taille bilan x2).'
+  RepoSRF: 'Standing Repo Facility. > 30 B = banques court de cash, alarme plomberie aiguë.'
+  FedBalance_yoy: 'Bilan Fed variation YoY %. > +20 % = QE emergency (Fed combat crash). < -10 % = QT agressif. ± 5 % = stable.'
+  KRE: 'ETF banques régionales. Décrochage brutal = signal stress type SVB (phase-based, no band).'
+  CopperGold: 'Cuivre industriel vs or refuge. > 0.0015 = cycle haussier, < 0.0015 = recession pricing (mais signal contaminé 2026 par électrification + ruée or banques centrales — à lire avec HY_OAS et breakevens).'
+  CoreCPI: 'Core CPI YoY. > 2.5 % = au-dessus du proxy Fed target (PCE 2% ≈ CPI 2.4-2.5%), > 3.0 % = hawkish bias actif → vent contraire growth/tech.'
+  CPI: 'Core CPI YoY. > 2.5 % = au-dessus du proxy Fed target (PCE 2% ≈ CPI 2.4-2.5%), > 3.0 % = hawkish bias actif → vent contraire growth/tech.'
+  MfgIP: 'Industrial production YoY. > 1 % = expansion confirmée, 0-1 % = molle, < 0 = contraction.'
+  MfgIP_yoy: 'Industrial production YoY. > 1 % = expansion confirmée, 0-1 % = molle, < 0 = contraction.'
+
+# Thresholds utilises par intelligence/macro_regime.py classifier 5-state.
+classifier_thresholds:
+  VIX_STRESS: 22.0      # > 22 = STRESS rule fire (audit v4 : panique > 30, stress 20-30)
+  VIX_LOW: 17.0          # < 17 + dxy + tyx haut = LATE_CYCLE
+  VIX_COMPLACENT: 13.0   # < 13 + HY_OAS bas = COMPLACENT melt-up risk
+  HY_STRESS: 400.0       # > 400 = STRESS rule (audit v4)
+  HY_COMPLACENT: 280.0   # < 280 + zero danger + VIX bas = COMPLACENT (audit v4)
+  USDJPY_UNWIND: 161.0   # > 161 + multi-danger = STRESS rule (passe au-dessus zone intervention)
+  TYX_HIGH: 4.2          # > 4.2 + DXY high + VIX low = LATE_CYCLE
+  DXY_HIGH: 100.0        # > 100 = USD strong (LATE_CYCLE trigger, audit v4)
+
+# Thresholds utilises par intelligence/macro_book_warnings.py regles R1-R5.
+rules_thresholds:
+  R1_semis_share_min: 45.0       # R1 fire si semis_share > 45%
+  R2_usdjpy_gate: 155.0          # R2 fire si USDJPY > 155 + JP exposure > 10%
+  R2_usdjpy_high_sev: 160.0      # R2 severity HIGH si USDJPY > 160
+  R2_jp_share_min: 10.0          # R2 fire si jp_share > 10%
+  R3_growth_tech_min: 65.0       # R3 fire si semis+tech_mega > 65%
+  R4_auto_ev_min: 3.0            # R4 fire si auto_ev_share > 3%
+  R5_vix_complacent_max: 12.0    # R5 fire si VIX < 12 (COMPLACENT + ultra-bas)

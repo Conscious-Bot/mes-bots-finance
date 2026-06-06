@@ -673,6 +673,8 @@ _CSS = """
   .regime-chip.regime-warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 13%, transparent); }
   .regime-chip.regime-calm { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); }
   .regime-chip.regime-steel { color:var(--steel); background:color-mix(in srgb, var(--steel) 10%, transparent); }
+  /* Audit metadata chip (06/06 Phase A canonical) : surface date + version dernier audit calibration. */
+  .audit-chip { font-family:var(--fb); font-size:11px; letter-spacing:.1em; color:var(--steel); opacity:.65; padding:1px 7px; border:1px solid var(--line); border-radius:6px; margin-left:var(--s2); cursor:help; }
   /* Phase B : tie-to-book warnings */
   .bookwarn-block { margin-top:var(--s4); padding-top:var(--s3); border-top:1px dashed var(--line2); }
   .bookwarn-hdr { font-family:var(--fb); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s3); }
