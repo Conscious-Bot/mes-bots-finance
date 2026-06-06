@@ -175,6 +175,7 @@ def _render(
     sector: dict | None,
     position: dict | None,
     current_price: float | None,
+    current_price_eur: float | None,
     thesis: dict | None,
     perf: dict,
     valo: dict,
@@ -190,12 +191,12 @@ def _render(
     lines.append(f"🔎 *{ticker}* · {sect_label} · cycle: *{cycle}*")
     lines.append("")
 
-    # PnL
-    if position and current_price:
+    # PnL : positions.avg_cost en EUR, on calcule PnL en EUR.
+    if position and current_price_eur:
         avg = position.get("avg_cost") or 0
         qty = position.get("qty") or 0
-        pnl_pct = ((current_price - avg) / avg * 100) if avg > 0 else None
-        lines.append(f"PnL : {_fmt_pct(pnl_pct)} depuis avg {_fmt_num(avg)} (qty {_fmt_num(qty)})")
+        pnl_pct = ((current_price_eur - avg) / avg * 100) if avg > 0 else None
+        lines.append(f"PnL : {_fmt_pct(pnl_pct)} (avg {_fmt_num(avg)}€ · current {_fmt_num(current_price_eur)}€ · qty {_fmt_num(qty)})")
     elif position:
         lines.append(f"Position : qty {_fmt_num(position.get('qty'))} avg {_fmt_num(position.get('avg_cost'))} (no current price)")
     else:
@@ -307,14 +308,18 @@ async def cmd_review(update, ctx):  # noqa: ARG001
     finally:
         conn.close()
 
-    from shared.prices import get_current_price
+    from shared.prices import get_current_price, get_current_price_in_eur
     current_price = get_current_price(ticker)
+    # positions.avg_cost stocke en EUR (convention historique), pas en
+    # native currency. Pour le PnL calc, on convertit current price en EUR.
+    # Theses entry/target/stop restent en native (doctrine currency-native-invariant).
+    current_price_eur = get_current_price_in_eur(ticker)
 
     perf = _compute_returns(ticker, sector["index"] if sector else None)
     valo = _fetch_valuation(ticker)
     model = _compute_model_sentiment(signals)
 
-    msg = _render(ticker, sector, position, current_price, thesis, perf, valo, signals, model)
+    msg = _render(ticker, sector, position, current_price, current_price_eur, thesis, perf, valo, signals, model)
 
     # Telegram limit
     if len(msg) > 3900:
