@@ -660,6 +660,11 @@ _CSS = """
   .cycle-chip.cycle-bear { color:var(--bear); background:color-mix(in srgb, var(--bear) 13%, transparent); }
   .cycle-chip.cycle-steel { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); }
   .cycle-chip.cycle-steel-mute { color:var(--steel); opacity:.55; background:color-mix(in srgb, var(--steel) 8%, transparent); }
+  /* Macro book warning chip (R1/R2/R4/...) per ticker on Positions panel. */
+  .warn-chip { font-family:var(--fb); font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-left:var(--s15); padding:1px 5px; border-radius:5px; font-weight:700; border:1px solid currentColor; }
+  .warn-chip.warn-chip-bear { color:var(--bear); }
+  .warn-chip.warn-chip-warn { color:var(--warn); }
+  .warn-chip.warn-chip-steel { color:var(--steel); }
   /* Regime chip (Phase A) : label classify_regime dans le header panel. */
   .regime-chip { font-family:var(--fb); font-size:14px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; padding:2px 9px; border-radius:10px; border:1px solid currentColor; }
   .regime-chip.regime-bear { color:var(--bear); background:color-mix(in srgb, var(--bear) 12%, transparent); }

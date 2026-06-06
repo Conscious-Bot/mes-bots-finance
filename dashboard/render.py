@@ -4770,8 +4770,10 @@ def _asym_format(ratio):
     return ('num neg', f'{ratio:.1f}&times;')
 
 
-def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict, asym: dict, gauges: dict | None = None) -> str:
+def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict, asym: dict, gauges: dict | None = None, ticker_warnings: dict | None = None) -> str:
+    import html as _h_esc
     gauges = gauges or {}
+    ticker_warnings = ticker_warnings or {}
     ps = sorted(ps, key=lambda p: -_broker_value(p, pnl))
     tot = sum(_broker_value(p, pnl) for p in ps)
     share = tot / grand * 100
@@ -4809,8 +4811,21 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             f'data-tip="Cycle phase {_cp} (source config/sectors.yaml).">{_cp}</span>'
             if _cp != "unknown" else ""
         )
+        # Macro book warning chips : R1/R2/R4 par ticker selon shared/macro_state.
+        _tw_chips = ""
+        _tw_list = ticker_warnings.get(tk, [])
+        for _tw in _tw_list[:3]:  # cap 3 chips par ticker
+            _rid = _tw.get("rule_id", "?")
+            _short = _rid.split("_")[0] if "_" in _rid else _rid[:4]
+            _sev = _tw.get("severity", "med")
+            _sev_cls = {"high": "bear", "med": "warn", "low": "steel"}.get(_sev, "steel")
+            _tw_tip = _tw.get("action", "") + " — " + _tw.get("rationale", "")[:120]
+            _tw_chips += (
+                f'<span class="warn-chip warn-chip-{_sev_cls}" '
+                f'data-tip="{_h_esc.escape(_tw_tip, quote=True)}">{_short}</span>'
+            )
         rows += (
-            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}{tk}<span class="nm">{nm}</span>{_cp_chip}</td>'
+            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}{tk}<span class="nm">{nm}</span>{_cp_chip}{_tw_chips}</td>'
             f'<td class="num mono">{vstr}&nbsp;&euro;</td><td class="num">{w:.1f}%</td>'
             f'<td class="num {pcls}">{pstr}</td>'
             f'<td class="{asym_cls}">{asym_str}</td>'
@@ -4830,6 +4845,31 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         f'<th title="Stop -> target progress (marker = current price, tick = target).">Progress</th></tr></thead>'
         f"<tbody>{rows}</tbody></table></div></div></div></div>"
     )
+
+
+def _ticker_warnings_map(positions: list[dict]) -> dict[str, list[dict]]:
+    """Map ticker -> list of macro_book_warnings affecting it.
+
+    Source canonique : compute_book_warnings + current_macro_state.
+    Permet a tout panel (Positions, Theses) d'afficher quels regles
+    macro touchent quelle position.
+    """
+    try:
+        from intelligence.macro_book_warnings import compute_book_warnings
+        from shared.macro_state import current_macro_state
+        ms = current_macro_state()
+        ind_vals = {
+            k: (v.get("value") if isinstance(v, dict) else None)
+            for k, v in ms["readings_for_regime"].items()
+        }
+        warnings = compute_book_warnings(ms["regime"], positions, ind_vals)
+        out: dict[str, list[dict]] = {}
+        for w in warnings:
+            for tk in w.get("tickers", []):
+                out.setdefault(tk, []).append(dict(w))
+        return out
+    except Exception:
+        return {}
 
 
 def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict) -> str:
@@ -4864,6 +4904,10 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
                 }
     except Exception:
         pass
+    # 06/06 : warnings macro_book par ticker. Source canonique
+    # shared.macro_state + macro_book_warnings. Permet d'afficher R1/R2/R4
+    # chip a cote de chaque ticker affecte.
+    ticker_warnings = _ticker_warnings_map(positions)
     tr = [p for p in positions if _broker(p["ticker"]) == "tr"]
     eu = [p for p in positions if _broker(p["ticker"]) == "bourso"]
     head = (
@@ -4871,8 +4915,8 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
     )
     return (
         head
-        + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors, asym, gauges)
-        + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors, asym, gauges)
+        + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors, asym, gauges, ticker_warnings)
+        + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors, asym, gauges, ticker_warnings)
     )
 
 
