@@ -1536,3 +1536,158 @@ to always be the latest, accuracy is the basic of what we need" :
 - **J-day 10/06 imminent** (J-4) : prep complete pre-session, aucune
   action ajoutee aujourd'hui. Tirer `post_resolution_brier_report`
   9h05.
+
+---
+
+## Close 2026-06-06 (soiree) — Calibration pro v5 + friction decision + audit positions truth
+
+Session monstre apres-midi+soiree avec multiple chantiers structuraux.
+Le panneau macro stress monitor a passe de "v2 pieces hardcoded" a
+"v5 canonical evolutif". Le systeme intervient maintenant au point de
+decision (`/trade` 2-step), mesure les outcomes (retrospective +30j/+90j)
+et detecte ses propres signaux qui ratent (audit_calibration sanity check).
+
+### Livre (16 commits supplementaires + 1 close)
+
+**Audit calibration v4 macro + canonical** :
+- `5afd248` audit pro v4 (FRED/JPM/GS/Bloomberg/Cboe/Tradingeconomics)
+  -> HY_OAS recalibre 230/335->300/400, USDJPY 154->155 (BoJ intervention
+  >73Mds$ depenses avr-mai 2026 confirmee), DXY 98/101->100/104,
+  CoreCPI 2.4/2.9->2.5/3.0, MfgIP 0.95/0.28->1.0/0.0,
+  BankReserves 3.2T/2.5T->3.0T/2.8T (ajuste taille bilan x2 depuis 2019)
+- `a6b3d4e` canonical `config/calibration.yaml` source unique evolutive,
+  shared/calibration.py loader, refactor render.py + macro_regime +
+  macro_book_warnings pour lire de la, chip "calib v5 - 2026-06-06"
+  dans panel header
+- `docs/calibration_audits/2026-06-06_v4.md` rapport archive
+
+**Audit panels v5 + fix bug structurel** :
+- `03083ca` audit RSI/Breadth/Risque/Concentration/Drawdown (StreetStats/
+  StockCharts/CXO/SentimenTrader/VanTharp/Minervini refs)
+  -> Risque WRONG STRUCTUREL : `heat = max(tensions)` faux,
+  fixe en `heat = sum(weight_share * downside_pct)`. Sur le book
+  actuel : heat 60deg ancien -> 16.6% capital at risk
+  -> Cluster 70% supercycle dangereux en STRESS (audit identifie le
+  besoin d'un auto-derisk gate, livre Phase A plus tard)
+  -> Breadth manque S5FI (preparé canonique mais wire fetcher Phase ulterieure)
+- `docs/calibration_audits/2026-06-06_v5_panels.md`
+
+**Friction decision #1** :
+- `b5e910c` `bot/handlers/trade_context.py` : compute_trade_context
+  retourne {regime, cluster_share_before/after, regime_warnings,
+  bias_warnings, signals_30d_str}. Pattern 2-step :
+  /trade buy NVDA 10 450 -> renvoie context + token 6-hex TTL 60s
+  /trade confirm <token> -> execute
+  /trade cancel <token> -> annule
+- Detection bias : LOCK_IN si sell PnL >= 15% + conviction >= 3 ;
+  FOMO si buy apres run +15% sur 7j ; CIRCUIT_BREAKER si Elder
+  active ; OVERDILUTION si sell amenerait book sous min_positions 8
+
+**Tagging contextuel #2 + retrospective** :
+- `46aea7b` migration 0030 `position_decisions_context` (snapshot
+  canonique au confirm), `intelligence/retrospective_decisions.py`
+  classify_verdict {aligned_positive, aligned_negative, against_positive,
+  against_negative, neutral}, cron 9h30 daily processe +30j et +90j.
+  Etat futur : alimente bias_ledger en donnees per-decision.
+
+**Phase A wire 4 calibrations v5** :
+- `e8b98bf` cluster STRESS auto-derisk dans compute_grade (cap a 70
+  si regime STRESS + cluster > 55%) ; VIX 2-tier scaling (factor 0.5
+  si VIX > 30) ; min positions 8 (anti-overdilution); portfolio
+  circuit breaker Elder (-6%/mois) + cron 9h45 + Telegram alert.
+
+**Fix BUG MAJEUR price_monitor** :
+- `16ab071` Le code comparait current_price_in_eur avec target_full /
+  target_partial / stop_price qui sont stockes en NATIVE currency
+  (KRW/JPY/USD selon ticker, doctrine `[[currency-native-invariant]]`).
+  Resultat : 12 alertes manques + faux stops triggered.
+  Le commentaire dans le code "EUR canonical, DO NOT migrate" etait
+  obsolete (anterieur a la migration native).
+  Fix : prices.get_current_price (NATIVE) + ajout check target_partial
+  qui etait totalement absent du code (bug #2).
+  Apres fix : 14 alertes firent correctement (000660.KS + ALAB FULL,
+  10 PARTIAL sur 4063.T/6857.T/6920.T/AMD/CCJ/ENTG/KLAC/LNG/MU/STMPA.PA).
+  6 faux triggered_stop_at clearés.
+
+**Phase B audit_calibration cron 10j** :
+- `77cc8ce` `intelligence/audit_calibration.py` : daily check, si
+  last_audit > 10j trigger run_audit_refresh : sanity check auto sur
+  historique 14j (stuck_warn / stuck_danger / never_warn flags),
+  ecrit `docs/calibration_audits/YYYY-MM-DD_v(N+1)_skeleton.md` avec
+  findings auto + prompt structure pour recherche pro humaine ou
+  Claude Code. Telegram ping. Doctrine voie clean auditable :
+  pas d'auto-apply, user review + apply manuellement.
+- Wire cron 8h00 quotidien daily check.
+
+**Reconciliation positions DB <-> broker truth** :
+- User a envoye qty + avg_cost reels pour ses 26 positions :
+  20 CTO (Trade Republic) + 6 PEA (Boursorama). Bulk UPDATE
+  positions table Mac + VM avec ses valeurs exactes.
+  Cost total post-update : 44 239 EUR.
+  Valeur yfinance live : 52 763 EUR (gap +790 EUR sur tickers
+  asiatiques = FX spread broker vs yfinance, non-erreur).
+  Anomalies signifiantes detectees :
+   - 4063.T : qty 112.76 -> 115.26 (+2.5 actions, buy non-logge)
+   - 7011.T : qty 109.97 -> 112.73 (+2.76 actions, buy non-logge)
+   - GOOGL : avg 285.42 -> 257.60 (-28 EUR/share, cost surestime)
+   - AMZN, 6920.T : ecarts mineurs avg/qty
+  Gate position_invariants : 0 violations post-update.
+
+**Precision B FX-aware tooltip** :
+- `11ed595` cas SK Hynix : panel "Closest to target" affichait
+  "+11.3% beyond" en KRW natif mais user perceived seulement +8.6%
+  en EUR. FX KRW s'est affaibli 26% depuis creation thesis.
+  Doctrine currency-native-invariant preservee, tooltip enrichi :
+   "native 2,070,000 vs target 1,860,305 = +11.3% en native |
+    EUR : 1151.33 vs avg cost 1060.00 = +8.6% gain reel"
+  Heuristic detection : implied_fx > 2 = ticker non-USD.
+
+**Precision A audit (existing infra)** :
+- recalibrate_source_credibility EXISTE deja (cron mensuel 1er 6h00 +
+  monthly_track_record_snapshot_job 8h00). DRY-RUN retourne 0 sources
+  car canonical_predictions_filter exclut V1 (ADR 014). Sur 35
+  resolutions, toutes sont V1. Le mecanisme attend V2 = automne 2026.
+  Pas de fix code, documentation honnete via commit message.
+
+### Etat final post-session
+
+- 877 tests verts (+ ~25 nouveaux dans la session)
+- Mac + VM synced
+- alembic head 0030 (position_decisions_context)
+- Backup DB : data/bot.db.backup_session_close_20260606_192531
+- Calibration v5 canonical avec chip audit visible dans panel
+- 26 positions reconciliées avec broker truth (44 239 EUR cost exact)
+- Price monitor cron fixe (14 alerts manques vont firer prochain run)
+- Friction decision active sur /trade (2-step confirm)
+- Retrospective +30/+90j arme (cron 9h30 daily)
+- Cluster STRESS gate + VIX 2-tier + min positions + Elder breaker actifs
+- Audit calibration cron 10j tournera demain matin 8h
+- VM presage-bot + presage-serve restartes plusieurs fois durant la session
+
+### Entry next session
+
+- **J-day 10/06 imminent (J-4)** : verifier `daily_resolve_job` 9h00 +
+  `post_resolution_brier_report` 9h05. Healthchecks armed. Brier ~0.295
+  attendu (V1 mediocre = baseline figee pour future comparaison V2).
+- **Price monitor : verifier que les 14 alertes manques ont firé**
+  proprement lors du premier cron 14h00 (lundi 08/06). Telegram
+  attendu avec emojis 🎯/🎯🎯 selon partial/full.
+- **Friction décision : tester live `/trade` flow** en condition
+  reelle. Ajustments UX possibles : token TTL 60s assez ? tooltip
+  lisible ? bias warnings utiles vs noise ?
+- **Position decisions context : remplir au moins 1 row test** via
+  un `/trade confirm` pour valider le pipeline snapshot -> +30j.
+- **Audit calibration cron** : verifier que 8h00 demain matin ecrit
+  un skeleton dans `docs/calibration_audits/`. Sanity check current
+  state : 9 findings auto (BTC/CopperGold/CoreCPI stuck_warn) -
+  attendus en regime FRAGILE actuel.
+- **D+30 boucle-de-soi 27-28/06** : 13 ancres reelles mature. Premiers
+  vrais verdicts biais lock_in.
+- **Anomalies positions** : 4063.T et 7011.T avaient des actions non-logges
+  (+2.5 et +2.76 actions). Trouver les trades manquants dans le journal
+  broker historique si traceabilite importe pour Brier future.
+- **Telegram markdown bug** : recurrent sur multiple alerts (price_monitor +
+  cron_tier3). Pollue le dispatch + masque les notifications. A fix
+  separement, non-bloquant fonctionnellement.
+- **FX-aware tooltip** : verifier visuellement sur le dashboard que
+  l'enrichissement apparait bien pour SK Hynix sur "Closest to target".

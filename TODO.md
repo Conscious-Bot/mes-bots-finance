@@ -1,12 +1,24 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 06 juin 2026 (après-midi : macro panel Phase A/B/C/D + accuracy + calibration v3 hard reality)
-**Mode** : Phase construction (book 53k -> 70k) + Observation Brier V1 jusqu'au 10/06 (J-4)
+**Refresh** : 06 juin 2026 (soirée : calibration v5 canonique + friction décision + audit positions truth)
+**Mode** : Phase construction (book 44k cost -> 52k valeur live) + J-day 10/06 J-4
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (06/06 après-midi)
+## 🟢 ÉTAT SYSTÈME (06/06 soir)
+
+- **Calibration v5 canonique evolutive** : `config/calibration.yaml` source unique pour tous seuils + tooltips + classifier + rules + audit_metadata. Tous lecteurs (render.py / macro_regime / macro_book_warnings) délèguent à `shared/calibration.py`. Chip "calib v5 · 2026-06-06" dans panel header. Cron audit 10j tournera demain matin.
+- **Friction décision active** : `/trade` 2-step confirm avec 4 contextes (régime macro + warnings ticker + cluster delta + bias + signaux 30j). Token 6-hex TTL 60s.
+- **Retrospective +30j/+90j armée** : cron 9h30 daily. Snapshot canonique `position_decisions_context` à chaque `/trade confirm`. Classify_verdict {aligned_positive, aligned_negative, against_positive, against_negative, neutral}.
+- **Phase A wire 4 calibrations** : cluster STRESS auto-derisk (regime STRESS + cluster >55% → cap grade 70) ; VIX 2-tier scaling (factor 0.5 si VIX >30 panique) ; min positions 8 (anti-overdilution) ; circuit breaker Elder (-6%/mois portfolio DD).
+- **Audit panels v5 + fix bug structurel heat** : `heat = sum(weight × downside_pct)` au lieu de `max(tensions)`. Convention pro Van Tharp/Pro Trader Dashboard/Elder.
+- **price_monitor BUG MAJEUR fixé** : currency NATIVE vs EUR comparison + ajout check target_partial qui était totalement absent. 14 alertes manquées vont firer prochain run.
+- **Positions reconciliées DB ↔ broker truth** : 26 positions exactes (44 239 EUR cost, 52 763 EUR live yfinance, gap +790 EUR = FX spread Asie tickers, non-erreur). 3 anomalies corrigées (4063.T +2.5 actions, 7011.T +2.76 actions, GOOGL avg -28 EUR).
+- **FX-aware tooltip Closest-to-target** : cas SK Hynix surfacé. Native vs EUR PnL côte-à-côte quand FX gap signifiant.
+- **VM Hetzner H24 actif** : presage-bot + presage-serve restarted. alembic head 0030.
+- **877 tests verts** (+25 nouveaux session).
+- **DB backup** : `data/bot.db.backup_session_close_20260606_192531`.
 
 - **Macro stress monitor entièrement refondu** : panel `_urgence` intelligent + warning. Triage ACT/WATCH/CALM/SILENT, regime detector 5 buckets (`intelligence/macro_regime.py`), tie-to-book warnings (`intelligence/macro_book_warnings.py`), honnêteté NULL/stale visible. Migration `0029_macro_regime_alerts`. État courant : STRESS · V3 score 120 (phase 4 CRISIS) · ACT 4 / WATCH 7 / CALM 4 / SILENT 0.
 - **Bands v3 hard reality** : 10 indicateurs calibrés post-3-iterations (v2 dur -> +5% margin -> hard-fix sur 4 greens trompeurs). Cross-file consistency auditée (`_MACRO_BANDS` + `_MACRO_TIPS` + `macro_regime.py` + `macro_book_warnings.py` + `phase_ranges` + `config.yaml vol_scaling_threshold_vix=21` tous alignés).
@@ -128,6 +140,19 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 ---
 
 ## ✅ DÉJÀ FAIT (29/05 + 30/05 matin)
+
+### 06/06 soir — Calibration v5 canonique + friction décision + audit positions truth
+
+- **Audit pro macro v4** (`5afd248`) : FRED/JPM/GS/Bloomberg/Cboe sources. HY_OAS 230/335→300/400, USDJPY 154→155 (BoJ >73 Mds$ avr-mai 2026 confirmée), DXY 98/101→100/104, CoreCPI 2.4/2.9→2.5/3.0, MfgIP 0.95/0.28→1.0/0.0, BankReserves 3.2T/2.5T→3.0T/2.8T. Tooltips resync.
+- **Canonical calibration.yaml** (`a6b3d4e`) : `config/calibration.yaml` source unique evolutif. `shared/calibration.py` loader. Tous readers (render.py + macro_regime + macro_book_warnings) délèguent. Chip audit visible header panel. Rapport `docs/calibration_audits/2026-06-06_v4.md`.
+- **Audit panels v5** (`03083ca`) : RSI/Breadth/Risque/Concentration/Drawdown (StreetStats/Van Tharp/Minervini/Druckenmiller refs). **Fix bug structurel heat formula** : `max(tensions)` → `sum(weight × downside_pct)`. Convention pro. S5FI seuils canoniques préparés (fetcher à wire). Rapport `docs/calibration_audits/2026-06-06_v5_panels.md`.
+- **Friction décision #1** (`b5e910c`) : `bot/handlers/trade_context.py`. `/trade buy NVDA 10 450` → renvoie 4-dim context + token 6-hex TTL 60s. `/trade confirm <token>` execute. Bias detection : LOCK_IN, FOMO, CIRCUIT_BREAKER, OVERDILUTION. Source canonique unique pour tous les contextes.
+- **Tagging contextuel #2 + retrospective** (`46aea7b`) : migration 0030 `position_decisions_context`. Snapshot canonique à `/trade confirm`. `intelligence/retrospective_decisions.py` classify_verdict 5 catégories. Cron 9h30 daily +30j et +90j.
+- **Phase A wire 4 calibrations** (`e8b98bf`) : cluster STRESS auto-derisk (`compute_grade` cap 70 si STRESS + cluster >55%) ; VIX 2-tier (factor 0.5 si >30) ; min positions 8 garde-fou ; **circuit breaker Elder** -6%/mois (`intelligence/circuit_breaker.py`, cron 9h45 + Telegram).
+- **Fix BUG MAJEUR price_monitor** (`16ab071`) : currency NATIVE vs EUR comparison + ajout check target_partial absent. 14 alertes manquées vont firer (2 FULL + 12 PARTIAL). Tests OK.
+- **Phase B audit_calibration cron 10j** (`77cc8ce`) : `intelligence/audit_calibration.py`. Daily check, trigger refresh si >10j. Sanity check 14j (stuck_warn/danger flags). Skeleton + prompt structuré pour recherche pro. Wire cron 8h00.
+- **Reconciliation positions broker truth** (DB updates direct, pas de commit code) : 26 positions exactes user-provided. Cost 44 239 EUR. 3 anomalies corrigées (4063.T +2.5 actions, 7011.T +2.76, GOOGL avg -28). Backup `bot.db.backup_session_close_*`.
+- **Precision B FX-aware tooltip** (`11ed595`) : cas SK Hynix. Native vs EUR PnL côte-à-côte quand FX gap signifiant. Heuristic implied_fx > 2.
 
 ### 06/06 après-midi — Macro stress monitor refonte complète
 
