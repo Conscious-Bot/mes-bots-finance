@@ -118,14 +118,14 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 1.0,
         "source": "yfinance:DX-Y.NYB",
         "label": "DXY Dollar Index",
-        # phase_ranges v3 +5% margin (bands 103, 106).
+        # v3-fix : revert vers v2 bands (98, 101). 100 = USD strong WATCH.
         "phase_ranges": [
             (0, 90, 4),
             (90, 95, 3),
-            (95, 103, 1),
-            (103, 106, 2),
-            (106, 110, 3),
-            (110, 200, 4),
+            (95, 98, 1),
+            (98, 101, 2),
+            (101, 107, 3),
+            (107, 200, 4),
         ],
     },
     "BTC_drawdown180": {
@@ -179,12 +179,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 0.75,
         "source": "macro:yield_curve",
         "label": "10Y-2Y spread (%)",
-        # phase_ranges v3 +5% margin (bands 0.28, -0.05).
+        # v3-fix : warn 0.5 (vs 0.28). Courbe flat 0.5 = WATCH (post-inversion bull-steepening).
         "phase_ranges": [
             (-999, -0.5, 4),
-            (-0.5, -0.05, 3),
-            (-0.05, 0.28, 2),
-            (0.28, 1.0, 1),
+            (-0.5, 0, 3),
+            (0, 0.5, 2),
+            (0.5, 1.0, 1),
             (1.0, 2.0, 1),
             (2.0, 999, 2),
         ],
@@ -199,11 +199,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         # < $2T = Phase 4 crisis (Sept 2019 repo blowup at ~$1.4T forced Fed QE).
         # $2-2.5T = Phase 3 scarcity, $2.5-3T = Phase 2 tight, > $3T = Phase 1 ample.
         # Replaces RepoSRF (ON RRP) which was ambiguous post-QT — see ADR 006 audit.
+        # v3-fix : warn 3.2T (vs 3T). Reserves trending down depuis pic 4T 2022.
         "phase_ranges": [
             (0, 2_000_000, 4),
             (2_000_000, 2_500_000, 3),
-            (2_500_000, 3_000_000, 2),
-            (3_000_000, 99_999_999, 1),
+            (2_500_000, 3_200_000, 2),
+            (3_200_000, 99_999_999, 1),
         ],
     },
     "CopperGold": {
@@ -212,11 +213,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "source": "derived:copper_gold",
         "label": "Copper/Gold ratio",
         # Lower = recession pricing
+        # v3-fix : warn 0.0015 (vs 0.0012). Recession pricing classique.
         "phase_ranges": [
             (0, 0.0006, 4),
             (0.0006, 0.0008, 3),
-            (0.0008, 0.0012, 2),
-            (0.0012, 999, 1),
+            (0.0008, 0.0015, 2),
+            (0.0015, 999, 1),
         ],
     },
     # ---- Tier 3: background, monthly ----
