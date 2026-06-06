@@ -659,6 +659,15 @@ _CSS = """
   .regime-chip.regime-warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 13%, transparent); }
   .regime-chip.regime-calm { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); }
   .regime-chip.regime-steel { color:var(--steel); background:color-mix(in srgb, var(--steel) 10%, transparent); }
+  /* Phase B : tie-to-book warnings */
+  .bookwarn-block { margin-top:var(--s4); padding-top:var(--s3); border-top:1px dashed var(--line2); }
+  .bookwarn-hdr { font-family:var(--fb); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s3); }
+  .bookwarn-row { display:grid; grid-template-columns:auto 1fr auto; gap:var(--s3); align-items:baseline; padding:var(--s2) 0; border-bottom:1px solid var(--line); cursor:help; }
+  .bookwarn-row:last-child { border-bottom:none; }
+  .bookwarn-sev { font-family:var(--fb); font-size:12px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; padding:1px 7px; border:1px solid currentColor; border-radius:6px; }
+  .bookwarn-sev.bear { color:var(--bear); } .bookwarn-sev.warn { color:var(--warn); } .bookwarn-sev.steel { color:var(--steel); }
+  .bookwarn-action { color:var(--ink); font-size:15px; }
+  .bookwarn-tk { font-family:var(--fm); font-size:13px; color:var(--steel); }
   @keyframes fade { to { opacity:1; } }
   .noanim [data-page].active, .noanim .row { animation:none !important; }
   .noanim .row { opacity:1 !important; }

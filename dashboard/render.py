@@ -3874,9 +3874,11 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     score, cphase = (float(comp[0][0] or 0), int(comp[0][1] or 1)) if comp else (0.0, 1)
     # Phase A : classify_regime + chip dans le header. Decouple du V3 score
     # (V3 exploratoire, biais centriste). Regime = confluence rules deterministe.
+    _regime_label = "RISK_ON"
     try:
         from intelligence.macro_regime import classify_regime
         _reg = classify_regime(readings_for_regime)
+        _regime_label = _reg["regime"]
         _REGIME_COLOR = {
             "COMPLACENT": "warn",  # melt-up risk, attention
             "RISK_ON": "calm",
@@ -3899,6 +3901,39 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     except Exception:
         # Fallback silencieux : presentation layer ne doit pas crasher le dashboard.
         _regime_chip_html = ""
+    # Phase B : tie-to-book warnings (regime x book composition).
+    try:
+        from intelligence.macro_book_warnings import compute_book_warnings
+        _ind_vals = {
+            k: (v.get("value") if isinstance(v, dict) else None)
+            for k, v in readings_for_regime.items()
+        }
+        _warnings = compute_book_warnings(_regime_label, positions, _ind_vals)
+    except Exception:
+        _warnings = []
+    if _warnings:
+        _SEV_CLS = {"high": "bear", "med": "warn", "low": "steel"}
+        _warn_rows = []
+        for _w in _warnings:
+            _sev_cls = _SEV_CLS.get(_w["severity"], "steel")
+            _tk_str = " &middot; ".join(_w["tickers"][:5]) if _w["tickers"] else ""
+            _why_safe = _html_esc.escape(_w["rationale"], quote=True)
+            _warn_rows.append(
+                f'<div class="bookwarn-row" data-tip="{_why_safe}">'
+                f'<span class="bookwarn-sev {_sev_cls}">{_w["severity"].upper()}</span>'
+                f'<span class="bookwarn-action">{_html_esc.escape(_w["action"])}</span>'
+                f'<span class="bookwarn-tk">{_tk_str}</span>'
+                f'</div>'
+            )
+        _book_warnings_html = (
+            '<div class="bookwarn-block" data-tip="Confluence regime macro x composition book courante. '
+            'Regles deterministes (no LLM). Hover chaque row pour le rationale complet.">'
+            '<div class="bookwarn-hdr">Macro impact on book</div>'
+            + "".join(_warn_rows)
+            + '</div>'
+        )
+    else:
+        _book_warnings_html = ""
     # Macro composite sparkline 30 derniers points
     try:
         _macro_hist = [r[0] for r in _q(
@@ -4054,7 +4089,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         # full-width au-dessus (indicateurs naturellement nombreux), puis
         # RSI + breadth cote-a-cote en bas.
         f'<div class="ph3">Macro stress monitor &mdash; score {score:.0f} {_regime_chip_html}</div>'
-        f'<div class="card pad" style="margin-bottom:var(--s4)"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div>'
+        f'<div class="card pad" style="margin-bottom:var(--s4)"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div>{_book_warnings_html}</div>'
         f'<div class="cols">'
         f'<div><div class="ph3">Market momentum &middot; RSI(14) daily &middot; 30min cache</div>'
         f'<div class="card pad"><div class="dlist">{rsi_html}</div></div></div>'
