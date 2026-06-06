@@ -69,7 +69,7 @@ def _book_composition(positions: list[dict], sectors_cfg: dict) -> dict[str, dic
         bucket["tickers"].append(tk)
         total_eur += exposure
 
-    for sid, b in by_sector.items():
+    for _sid, b in by_sector.items():
         b["share_pct"] = (b["exposure_eur"] / total_eur * 100.0) if total_eur > 0 else 0.0
     return by_sector
 
@@ -169,8 +169,8 @@ def compute_book_warnings(
             rule_id="R4_auto_ev_stress",
             action="rightsize cluster auto_ev",
             rationale=(
-                f"Regime STRESS + auto/EV en contraction cycle = "
-                f"compression marges + sentiment cassant."
+                "Regime STRESS + auto/EV en contraction cycle = "
+                "compression marges + sentiment cassant."
             ),
             tickers=by_sector.get("auto_ev", {}).get("tickers", [])[:5],
         ))

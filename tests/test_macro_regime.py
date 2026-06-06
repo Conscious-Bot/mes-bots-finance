@@ -39,25 +39,25 @@ def test_classify_regime_risk_on_default():
 
 
 def test_classify_regime_complacent_ultra_low_vol():
-    """VIX < 13 + HY < 220 + zero danger -> COMPLACENT (melt-up risk).
+    """VIX < 12 + HY < 210 + zero danger -> COMPLACENT (v3 +5% margin).
 
-    Thresholds v2 06/06 harsher : ces seuils sont vraiment etroits =
-    vraiment euphorique pour declencher.
+    Seuils v3 plus difficiles a declencher : VIX vraiment ultra-bas,
+    spreads vraiment serres.
     """
     r = _readings(
-        VIX={"indicator": "VIX", "value": 12.0, "dot": "calm"},
-        HY_OAS={"indicator": "HY_OAS", "value": 210.0, "dot": "calm"},
+        VIX={"indicator": "VIX", "value": 11.0, "dot": "calm"},
+        HY_OAS={"indicator": "HY_OAS", "value": 200.0, "dot": "calm"},
     )
     out = classify_regime(r)
     assert out["regime"] == "COMPLACENT"
 
 
 def test_classify_regime_late_cycle_rates_dxy_vix_asleep():
-    """Taux > 4.0 + DXY > 99 + VIX < 16 -> LATE_CYCLE (thresholds v2)."""
+    """Taux > 4.2 + DXY > 103 + VIX < 17 -> LATE_CYCLE (v3 +5% margin)."""
     r = _readings(
-        TYX={"indicator": "TYX", "value": 4.5, "dot": "danger"},
-        DXY={"indicator": "DXY", "value": 102.0, "dot": "warn"},
-        VIX={"indicator": "VIX", "value": 15.0, "dot": "calm"},
+        TYX={"indicator": "TYX", "value": 4.6, "dot": "danger"},
+        DXY={"indicator": "DXY", "value": 104.0, "dot": "warn"},
+        VIX={"indicator": "VIX", "value": 16.0, "dot": "calm"},
     )
     out = classify_regime(r)
     assert out["regime"] == "LATE_CYCLE"

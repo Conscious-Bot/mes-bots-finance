@@ -54,13 +54,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 1.0,
         "source": "yfinance:^TYX",
         "label": "30Y Treasury Yield (%)",
-        # phase_ranges alignes 06/06 sur bands (3.8, 4.2). 5%+ = stress historic
-        # (multiples growth/tech craquent).
+        # phase_ranges v3 +5% margin (bands 4.0, 4.4).
         "phase_ranges": [
-            (0, 3.8, 1),
-            (3.8, 4.2, 2),
-            (4.2, 5.0, 3),
-            (5.0, 999, 4),
+            (0, 4.0, 1),
+            (4.0, 4.4, 2),
+            (4.4, 5.2, 3),
+            (5.2, 999, 4),
         ],
     },
     "Gold": {
@@ -80,13 +79,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 1.0,
         "source": "yfinance:USDJPY=X",
         "label": "USD/JPY",
-        # phase_ranges alignes 06/06 sur bands (147, 153). 160+ = zone
-        # intervention BoJ historique.
+        # phase_ranges v3 +5% margin (bands 154, 160).
         "phase_ranges": [
-            (0, 147, 1),
-            (147, 153, 2),
-            (153, 160, 3),
-            (160, 999, 4),
+            (0, 154, 1),
+            (154, 160, 2),
+            (160, 168, 3),
+            (168, 999, 4),
         ],
     },
     "VIX": {
@@ -94,12 +92,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 1.0,
         "source": "yfinance:^VIX",
         "label": "VIX",
-        # phase_ranges alignes 06/06 sur bands (14, 18). 25+ = panique historique.
+        # phase_ranges v3 +5% margin (bands 15, 19).
         "phase_ranges": [
-            (0, 14, 1),
-            (14, 18, 2),
-            (18, 25, 3),
-            (25, 999, 4),
+            (0, 15, 1),
+            (15, 19, 2),
+            (19, 26, 3),
+            (26, 999, 4),
         ],
     },
     "HY_OAS": {
@@ -107,12 +105,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 1.0,
         "source": "macro:hy_oas",
         "label": "HY OAS (bp)",
-        # phase_ranges alignes 06/06 sur bands (220, 320). 500+ = GFC/COVID zone.
+        # phase_ranges v3 +5% margin (bands 230, 335).
         "phase_ranges": [
-            (0, 220, 1),
-            (220, 320, 2),
-            (320, 500, 3),
-            (500, 9999, 4),
+            (0, 230, 1),
+            (230, 335, 2),
+            (335, 525, 3),
+            (525, 9999, 4),
         ],
     },
     "DXY": {
@@ -120,15 +118,14 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 1.0,
         "source": "yfinance:DX-Y.NYB",
         "label": "DXY Dollar Index",
-        # phase_ranges alignes 06/06 sur bands (98, 101). Asymmetrique : low <90
-        # = reserve status concern, high >101 = vent contraire EM/multinat US.
+        # phase_ranges v3 +5% margin (bands 103, 106).
         "phase_ranges": [
             (0, 90, 4),
             (90, 95, 3),
-            (95, 98, 1),
-            (98, 101, 2),
-            (101, 107, 3),
-            (107, 200, 4),
+            (95, 103, 1),
+            (103, 106, 2),
+            (106, 110, 3),
+            (110, 200, 4),
         ],
     },
     "BTC_drawdown180": {
@@ -140,12 +137,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         # Capte stress crypto reel (-50% mars 2020, -75% 2022) sans confondre
         # avec niveau brut. 0 a -15% = near ATH risk-on, -15 a -30% correction,
         # -30 a -50% bear modere risk-off, < -50% capitulation.
-        # phase_ranges alignes 06/06 sur bands (-15, -25). Capitulation <-50%.
+        # phase_ranges v3 +5% margin (bands -16, -26).
         "phase_ranges": [
             (-100, -50, 4),
-            (-50, -25, 3),
-            (-25, -15, 2),
-            (-15, 100, 1),
+            (-50, -26, 3),
+            (-26, -16, 2),
+            (-16, 100, 1),
         ],
     },
     # ---- Tier 2: important, weekly ----
@@ -156,12 +153,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 0.75,
         "source": "yfinance:^MOVE",
         "label": "MOVE Bond Vol",
-        # phase_ranges alignes 06/06 sur bands (75, 90). 120+ = stress histo.
+        # phase_ranges v3 +5% margin (bands 79, 95).
         "phase_ranges": [
-            (0, 75, 1),
-            (75, 90, 2),
-            (90, 120, 3),
-            (120, 999, 4),
+            (0, 79, 1),
+            (79, 95, 2),
+            (95, 125, 3),
+            (125, 999, 4),
         ],
     },
     "KRE": {
@@ -182,13 +179,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 0.75,
         "source": "macro:yield_curve",
         "label": "10Y-2Y spread (%)",
-        # phase_ranges alignes 06/06 sur bands (0.3, 0.0). Inversion = recession
-        # 3-6 mois historique. Bull steepening extreme >2 = fiscal dominance.
+        # phase_ranges v3 +5% margin (bands 0.28, -0.05).
         "phase_ranges": [
             (-999, -0.5, 4),
-            (-0.5, 0, 3),
-            (0, 0.3, 2),
-            (0.3, 1.0, 1),
+            (-0.5, -0.05, 3),
+            (-0.05, 0.28, 2),
+            (0.28, 1.0, 1),
             (1.0, 2.0, 1),
             (2.0, 999, 2),
         ],
@@ -229,13 +225,12 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         "weight": 0.5,
         "source": "fred:CPILFESL_yoy",
         "label": "Core CPI YoY (%)",
-        # phase_ranges alignes 06/06 sur bands (2.3, 2.8). Fed bloquee >2.3,
-        # hawkish bias >2.8, restrictif obstine >3.5.
+        # phase_ranges v3 +5% margin (bands 2.4, 2.9).
         "phase_ranges": [
-            (-999, 2.3, 1),
-            (2.3, 2.8, 2),
-            (2.8, 3.5, 3),
-            (3.5, 999, 4),
+            (-999, 2.4, 1),
+            (2.4, 2.9, 2),
+            (2.9, 3.7, 3),
+            (3.7, 999, 4),
         ],
     },
     "FedBalance_yoy": {
@@ -267,14 +262,13 @@ INDICATOR_CONFIG: dict[str, dict[str, Any]] = {
         # P4 < -5% (recession profonde type 2008/COVID).
         # P3 -5 a -2% (recession moderee). P2 -2 a 0% (sluggish).
         # P1 >= 0% (expansion).
-        # phase_ranges alignes 06/06 sur bands (1.0, 0.3). >1 sain, <0.3 ralenti,
-        # <0 contraction, <-5 crisis (GFC/COVID).
+        # phase_ranges v3 +5% margin (bands 0.95, 0.28).
         "phase_ranges": [
             (-999, -5, 4),
             (-5, 0, 3),
-            (0, 0.3, 3),
-            (0.3, 1.0, 2),
-            (1.0, 999, 1),
+            (0, 0.28, 3),
+            (0.28, 0.95, 2),
+            (0.95, 999, 1),
         ],
     },
 }

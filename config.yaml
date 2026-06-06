@@ -368,10 +368,8 @@ risk:
   drawdown_reduce_pct: 0.08
   drawdown_stop_pct: 0.2
   max_open_positions: 15
-  # Tightened 06/06 : 25 -> 20 (aligne avec nouveau VIX_STRESS classifier).
-  # Effet : sizing -30% reduce des que VIX > 20 (au lieu de 25). Cas miroir
-  # marche actuel (VIX 21.5 declenche le scaling) - voulu en phase de stress.
-  vol_scaling_threshold_vix: 20
+  # 06/06 v3 : 25 -> 20 -> 21 (+5% margin). Aligne sur VIX_STRESS classifier.
+  vol_scaling_threshold_vix: 21
   vol_scaling_factor: 0.7
   validate_enabled: false
 
