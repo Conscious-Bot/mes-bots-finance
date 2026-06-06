@@ -182,13 +182,15 @@ def check_thesis_triggers() -> dict:
         for t in active:
             ticker = t["ticker"]
             try:
-                # EUR canonical CORRECT here (not legacy).
-                # Theses.target_partial/target_full/stop_price are stored EUR-canonical
-                # per ADR 005 (avg_cost EUR-canonical, consistent storage convention).
-                # This is a COMPARISON layer (p vs threshold), not a DISPLAY layer.
-                # Migrating to USD would break threshold crossings. Day 7 commit 7aeac4a
-                # deliberately set EUR canonical here. DO NOT migrate.
-                p = prices.get_current_price_in_eur(ticker)
+                # 06/06 FIX BUG MAJEUR : currency-native-invariant doctrine.
+                # Theses target_partial / target_full / stop_price sont stockes
+                # en NATIVE currency du ticker (KRW pour 000660.KS, JPY pour
+                # 4063.T, USD pour AVGO, etc.). Gate position_invariants
+                # enforce. Comparer current_price_in_eur vs native -> bug
+                # massif (12 alerts manques + faux stops triggered).
+                # Le commentaire pre-existant "EUR-canonical, DO NOT migrate"
+                # etait obsolete (ecrit AVANT currency-native-invariant doctrine).
+                p = prices.get_current_price(ticker)  # NATIVE
                 if not p or p <= 0:
                     fails.append(ticker)
                     continue
@@ -196,11 +198,16 @@ def check_thesis_triggers() -> dict:
                 direction = (t["direction"] or "long").lower()
                 crossings = []
                 if direction == "long":
+                    # FIX 06/06 : check PARTIAL aussi (bug original : partial pas checke).
+                    if t["target_partial"] and p >= t["target_partial"] and not t["triggered_partial_at"]:
+                        crossings.append("partial")
                     if t["target_full"] and p >= t["target_full"] and not t["triggered_full_at"]:
                         crossings.append("full")
                     if t["stop_price"] and p <= t["stop_price"] and not t["triggered_stop_at"]:
                         crossings.append("stop")
                 else:  # short
+                    if t["target_partial"] and p <= t["target_partial"] and not t["triggered_partial_at"]:
+                        crossings.append("partial")
                     if t["target_full"] and p <= t["target_full"] and not t["triggered_full_at"]:
                         crossings.append("full")
                     if t["stop_price"] and p >= t["stop_price"] and not t["triggered_stop_at"]:
