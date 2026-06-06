@@ -33,7 +33,8 @@ def test_book_warnings_r1_semis_concentration_fragile():
     rule_ids = [w["rule_id"] for w in ws]
     assert "R1_semis_concentration" in rule_ids
     r1 = next(w for w in ws if w["rule_id"] == "R1_semis_concentration")
-    assert "TYX" in r1["rationale"]  # mentioned dans rationale puisque tyx > 4.5
+    # FR rationale v2 : "Taux 30Y" remplace TYX (jargon -> langue naturelle).
+    assert "Taux 30Y" in r1["rationale"] or "TYX" in r1["rationale"]
     assert r1["severity"] == "med"
 
 

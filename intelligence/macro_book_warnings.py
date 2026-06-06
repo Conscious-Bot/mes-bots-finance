@@ -65,35 +65,33 @@ def compute_book_warnings(
     warnings: list[Warning] = []
 
     # R1 : FRAGILE/STRESS + semis dominant -> repricing risk concentre.
-    # Threshold TYX 4.2 = _TYX_HIGH v3 (cf intelligence/macro_regime.py).
+    # Threshold TYX 4.2 = _TYX_HIGH v3.
     if regime in ("FRAGILE", "STRESS", "LATE_CYCLE") and semis_share > 45.0:
         sev = "high" if regime == "STRESS" else "med"
-        tyx_note = f"TYX {tyx:.2f} (>4.2 = repricing actif)" if tyx and tyx > 4.2 else ""
+        tyx_phrase = f"Taux 30Y à {tyx:.1f}% (>4.2 = repricing actif). " if tyx and tyx > 4.2 else ""
         warnings.append(Warning(
             severity=sev,
             rule_id="R1_semis_concentration",
-            action=f"raise stops sur cluster semis ({semis_share:.0f}% du book)",
+            action=f"Resserre tes stops sur le cluster semis ({semis_share:.0f}% du book)",
             rationale=(
-                f"Regime {regime} : multiples growth sensibles aux taux. "
-                f"{tyx_note}. Le book = {semis_share:.0f}% semis cyclical, premiers a craquer "
-                f"en repricing brutal."
+                f"Marché en {regime}. {tyx_phrase}"
+                f"Les multiples growth craquent en premier sur repricing brutal, "
+                f"et ton book est concentré à {semis_share:.0f}% sur les semis."
             ),
             tickers=semis_tickers[:5],
         ))
 
     # R2 : USDJPY > 154 (band warn) + JP exposure > 10% -> carry unwind risk.
-    # Threshold 154 = bands.USDJPY warn v3, 160 = bands.USDJPY danger v3.
     if usdjpy is not None and usdjpy > 154.0 and jp_share > 10.0 and jp_tickers:
         sev = "high" if usdjpy > 160.0 else "med"
         warnings.append(Warning(
             severity=sev,
             rule_id="R2_carry_unwind_jp",
-            action=f"verifier hedge / size sur positions JP ({jp_share:.0f}% du book)",
+            action=f"Hedge ou réduis tes positions japonaises ({jp_share:.0f}% du book)",
             rationale=(
-                f"USDJPY {usdjpy:.1f} > 154 = carry trade strained, > 160 = zone "
-                f"intervention BoJ. Unwind -> sharp JPY appreciation -> JP-tech "
-                f"sell-off asymetrique. Exposure JP: {jp_share:.0f}% sur "
-                f"{len(jp_tickers)} positions."
+                f"USDJPY à {usdjpy:.1f} : la BoJ peut intervenir au-dessus de 160. "
+                f"Si l'unwind du carry trade démarre, le yen monte vite et les tech "
+                f"JP se vendent en cascade. Tu as {len(jp_tickers)} positions JP."
             ),
             tickers=jp_tickers[:5],
         ))
@@ -104,11 +102,11 @@ def compute_book_warnings(
         warnings.append(Warning(
             severity="med",
             rule_id="R3_growth_tech_dominance",
-            action=f"diversifier hors growth-tech ({growth_tech:.0f}% combined)",
+            action=f"Diversifie hors du growth-tech ({growth_tech:.0f}% combiné)",
             rationale=(
-                f"Regime {regime} + book = semis ({semis_share:.0f}%) + tech_mega "
-                f"({tech_mega_share:.0f}%) = {growth_tech:.0f}% growth-sensitive. "
-                f"Energy ({energy_share:.0f}%) + EU industrials apportent de la decorrelation."
+                f"Tu cumules {semis_share:.0f}% semis + {tech_mega_share:.0f}% mega-cap = "
+                f"{growth_tech:.0f}% du book exposé au même facteur taux. "
+                f"L'energie ({energy_share:.0f}%) et les industriels EU décorrèlent."
             ),
             tickers=tech_tickers[:5],
         ))
@@ -118,24 +116,24 @@ def compute_book_warnings(
         warnings.append(Warning(
             severity="med",
             rule_id="R4_auto_ev_stress",
-            action="rightsize cluster auto_ev",
+            action="Allège le cluster auto/EV",
             rationale=(
-                "Regime STRESS + auto/EV en contraction cycle = "
-                "compression marges + sentiment cassant."
+                "Marché en STRESS et le cycle auto est en contraction. "
+                "Marges sous pression + sentiment fragile = baisse rapide possible."
             ),
             tickers=by_sector.get("auto_ev", {}).get("tickers", [])[:5],
         ))
 
     # R5 : COMPLACENT + zero stress flags -> consider tactical hedge.
-    # Threshold VIX 12 = _VIX_COMPLACENT v3 (cf intelligence/macro_regime.py).
     if regime == "COMPLACENT" and vix is not None and vix < 12.0:
         warnings.append(Warning(
             severity="low",
             rule_id="R5_complacent_hedge",
-            action="considere hedge tactique (VIX call spread / SPY put)",
+            action="Considère un hedge tactique (puts SPY / call spread VIX)",
             rationale=(
-                f"Regime COMPLACENT (VIX {vix:.1f} ultra-bas, spreads serres). "
-                f"Cout hedge minimal historiquement; melt-up risk asymetrique."
+                f"VIX à {vix:.1f} = ultra-bas, spreads serrés. "
+                f"Le coût d'un hedge est minimal historiquement, et le risque de "
+                f"correction asymétrique se construit."
             ),
             tickers=[],
         ))
