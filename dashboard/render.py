@@ -4526,6 +4526,12 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 if _cp_th != "unknown" else ""
             )
             _tw_chips_th = ""
+            # Signaux per-ticker une fois par row (orthogonal macro warnings).
+            try:
+                from shared.ticker_outlook import outlook_phrase as _op_th, recent_outlook as _ro_th
+                _outlook_th = _op_th(_ro_th(t["tk"]))
+            except Exception:
+                _outlook_th = ""
             for _tw in _th_warnings.get(t["tk"], [])[:3]:
                 _rid = _tw.get("rule_id", "?")
                 _sev = _tw.get("severity", "med")
@@ -4533,7 +4539,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _label = _RULE_CHIP_LABELS.get(_rid, _rid.split("_")[0])
                 _action = _tw.get("action", "").rstrip(".")
                 _why = _tw.get("rationale", "").rstrip(".")
-                _tip = f"{_action}.\n\n{_why}."
+                _tip = f"{_action}.\n\n{_why}.\n\n{_outlook_th}" if _outlook_th else f"{_action}.\n\n{_why}."
                 _tw_chips_th += (
                     f'<span class="warn-chip warn-chip-{_sev_cls}" '
                     f'data-tip="{_h_th.escape(_tip, quote=True)}">{_label}</span>'
@@ -4853,11 +4859,17 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             f'data-tip="Cycle phase {_cp} (source config/sectors.yaml).">{_cp}</span>'
             if _cp != "unknown" else ""
         )
-        # Macro book warning chips (06/06 v2 readability) :
+        # Macro book warning chips (06/06 v2 readability + ticker outlook v3) :
         # - Chip label = cluster identifiable (SEMIS/JP FX/...) au lieu de R1/R2
-        # - Tooltip = action en titre + 1 phrase pourquoi en FR simple
+        # - Tooltip = action + pourquoi + Signaux 30j per-ticker (contexte signal)
         _tw_chips = ""
         _tw_list = ticker_warnings.get(tk, [])
+        # Signaux per-ticker (orthogonal aux warnings macro portfolio-level).
+        try:
+            from shared.ticker_outlook import outlook_phrase, recent_outlook
+            _outlook_str = outlook_phrase(recent_outlook(tk))
+        except Exception:
+            _outlook_str = ""
         for _tw in _tw_list[:3]:  # cap 3 chips par ticker
             _rid = _tw.get("rule_id", "?")
             _sev = _tw.get("severity", "med")
@@ -4865,7 +4877,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             _label = _RULE_CHIP_LABELS.get(_rid, _rid.split("_")[0])
             _action = _tw.get("action", "").rstrip(".")
             _why = _tw.get("rationale", "").rstrip(".")
-            _tw_tip = f"{_action}.\n\n{_why}."
+            _tw_tip = f"{_action}.\n\n{_why}.\n\n{_outlook_str}" if _outlook_str else f"{_action}.\n\n{_why}."
             _tw_chips += (
                 f'<span class="warn-chip warn-chip-{_sev_cls}" '
                 f'data-tip="{_h_esc.escape(_tw_tip, quote=True)}">{_label}</span>'
