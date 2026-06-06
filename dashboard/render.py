@@ -3788,6 +3788,8 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     _pos = {k: i for i, k in enumerate(debt_map.keys())}
     _dot_priority = {"danger": 0, "warn": 1, "calm": 2, "mute": 3}
     bucket_rows: dict[str, list[tuple]] = {}
+    # Phase A : capture readings pour classify_regime apres la boucle.
+    readings_for_regime: dict[str, dict] = {}
     for ind, val, phase, ts in sig:
         tier, label, dec, thou = debt_map.get(ind, (9, ind, 2, False))
         # L3 etat honnete : val=NULL -> "no data", pas 0.0 affiche en vert.
@@ -3835,6 +3837,12 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
             else "asleep"
         )
         bucket_rows.setdefault(bucket, []).append((sort_key, row_html))
+        # Phase A : feed classify_regime input. NULL values -> None.
+        readings_for_regime[ind] = {
+            "indicator": ind,
+            "value": None if data_missing else float(val),
+            "dot": dot,
+        }
     # Render buckets in stress order. Headers incluent count chip + intent line.
     _BUCKET_META = [
         ("act", "ACT NOW", "bear", "stress materiel, posture defensive maintenant"),
@@ -3864,6 +3872,33 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     except Exception:
         comp = []
     score, cphase = (float(comp[0][0] or 0), int(comp[0][1] or 1)) if comp else (0.0, 1)
+    # Phase A : classify_regime + chip dans le header. Decouple du V3 score
+    # (V3 exploratoire, biais centriste). Regime = confluence rules deterministe.
+    try:
+        from intelligence.macro_regime import classify_regime
+        _reg = classify_regime(readings_for_regime)
+        _REGIME_COLOR = {
+            "COMPLACENT": "warn",  # melt-up risk, attention
+            "RISK_ON": "calm",
+            "LATE_CYCLE": "warn",
+            "FRAGILE": "warn",
+            "STRESS": "bear",
+        }
+        _reg_cls = _REGIME_COLOR.get(_reg["regime"], "steel")
+        _reg_tip = _html_esc.escape(
+            f"Regime: {_reg['regime']}. Triggers: {', '.join(_reg['triggers'])}. "
+            f"Buckets: ACT {_reg['danger_count']} / WATCH {_reg['warn_count']} / "
+            f"ASLEEP {_reg['asleep_count']} / SILENT {_reg['silent_count']}. "
+            f"Source: classify_regime deterministe (independant V3 composite, demote 02/06).",
+            quote=True,
+        )
+        _regime_chip_html = (
+            f'<span class="regime-chip regime-{_reg_cls}" data-tip="{_reg_tip}">'
+            f'&middot; {_reg["regime"].replace("_", " ")}</span>'
+        )
+    except Exception:
+        # Fallback silencieux : presentation layer ne doit pas crasher le dashboard.
+        _regime_chip_html = ""
     # Macro composite sparkline 30 derniers points
     try:
         _macro_hist = [r[0] for r in _q(
@@ -4018,7 +4053,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         # Layout 02/06 user "organize, evitons les trous" : macro stress
         # full-width au-dessus (indicateurs naturellement nombreux), puis
         # RSI + breadth cote-a-cote en bas.
-        f'<div class="ph3">Macro stress monitor &mdash; score {score:.0f}</div>'
+        f'<div class="ph3">Macro stress monitor &mdash; score {score:.0f} {_regime_chip_html}</div>'
         f'<div class="card pad" style="margin-bottom:var(--s4)"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div></div>'
         f'<div class="cols">'
         f'<div><div class="ph3">Market momentum &middot; RSI(14) daily &middot; 30min cache</div>'

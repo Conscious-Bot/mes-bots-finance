@@ -3564,6 +3564,65 @@ def get_latest_oca_per_ticker(ticker: str) -> dict | None:
         return None
 
 
+# === macro_regime_alerts (Phase A macro stress monitor) =====================
+# Journal append-only par evaluation regime macro. Table cree via migration
+# alembic 0029. Voir intelligence/macro_regime.py pour la classify pure +
+# check_regime_transition.
+
+
+def insert_macro_regime_alert(
+    regime: str,
+    score: float,
+    danger_count: int,
+    warn_count: int,
+    asleep_count: int,
+    silent_count: int,
+    triggers_json: str,
+    notified: bool = False,
+    transition: str | None = None,
+) -> int | None:
+    """Insert une row d'evaluation regime. regime ∈ {COMPLACENT, RISK_ON,
+    LATE_CYCLE, FRAGILE, STRESS}. transition ∈ {no_change, changed, NULL}."""
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO macro_regime_alerts "
+                "(regime, score, danger_count, warn_count, asleep_count, "
+                " silent_count, triggers, notified, transition) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    regime, float(score), int(danger_count), int(warn_count),
+                    int(asleep_count), int(silent_count), triggers_json,
+                    1 if notified else 0, transition,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_macro_regime_alert failed: {e}")
+        return None
+
+
+def get_latest_macro_regime() -> dict | None:
+    """Last regime evaluation, None si journal vide."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT id, created_at, regime, score, danger_count, warn_count, "
+                "       asleep_count, silent_count, triggers, notified, transition "
+                "FROM macro_regime_alerts "
+                "ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["id", "created_at", "regime", "score", "danger_count",
+                    "warn_count", "asleep_count", "silent_count", "triggers",
+                    "notified", "transition"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_macro_regime failed: {e}")
+        return None
+
+
 # === data_clusters_snapshots (Sprint 17) =====================================
 
 _DC_DDL = (

@@ -653,6 +653,12 @@ _CSS = """
   .dlist > .dbucket + * { break-before:avoid; }
   /* Tier chip per row : preserve tier origin sans dominer la lecture. */
   .dtchip { font-family:var(--fb); font-size:11px; letter-spacing:.1em; color:var(--steel); opacity:.65; margin-left:var(--s2); padding:1px 5px; border:1px solid var(--line); border-radius:4px; }
+  /* Regime chip (Phase A) : label classify_regime dans le header panel. */
+  .regime-chip { font-family:var(--fb); font-size:14px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; padding:2px 9px; border-radius:10px; border:1px solid currentColor; }
+  .regime-chip.regime-bear { color:var(--bear); background:color-mix(in srgb, var(--bear) 12%, transparent); }
+  .regime-chip.regime-warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 13%, transparent); }
+  .regime-chip.regime-calm { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); }
+  .regime-chip.regime-steel { color:var(--steel); background:color-mix(in srgb, var(--steel) 10%, transparent); }
   @keyframes fade { to { opacity:1; } }
   .noanim [data-page].active, .noanim .row { animation:none !important; }
   .noanim .row { opacity:1 !important; }

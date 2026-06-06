@@ -109,3 +109,164 @@ Si la migration phase 1 échoue ou casse quelque chose :
 - `SESSION_STATE.md` (privé, contexte LLM)
 - `TODO.md` (privé, backlog)
 - `posts/post_02/03/04.md` AVANT publication (drafts)
+
+---
+
+# Annexe — Phase 2 détaillée : SaaS multi-tenant subscription (01/06 soir)
+
+Le doc ci-dessus couvre phase 1 (landing publique). Cette annexe détaille la phase 2 : `app.presage.pro` = SaaS multi-tenant avec subscription paid.
+
+## Décisions architecture phase 2 (à valider)
+
+### Stack frontend
+**Recommandé : Next.js 15 App Router + React Server Components**
+- SEO landing public (Vercel edge)
+- RSC pour dashboard auth
+- Components Stars actuels (Python) → portés React preserve `.page-star` CSS
+- `tokens.css` → `app/globals.css` import (source unique palette)
+- Alternative : SvelteKit (plus léger mais écosystème SaaS plus pauvre)
+
+### Backend / API
+**Recommandé : Next.js API routes + Supabase (Postgres managé + Auth + Realtime)**
+- API routes pour CRUD positions, queries
+- Postgres exige (vs SQLite actuelle) : concurrence + Row Level Security per tenant
+- Supabase = Postgres + auth (magic link + Google OAuth) + RLS tout-en-un
+- Alternative : Neon Postgres + Clerk auth (séparation, plus de polish UX mais 2 services)
+
+### Multi-tenancy
+**Recommandé : Shared DB + RLS strict**
+- 1 schéma Postgres, toutes tables ont `user_id uuid`
+- Supabase RLS policies = isolation per-row + audit trail natif
+- Migrations alembic actuelles → Supabase migrations (script de portage)
+- Alternative DB per tenant = overkill complexité
+
+### Payment
+**Recommandé : Stripe Subscription mode**
+- Free trial 14 jours sans CC
+- Stripe Customer Portal pour upgrade/cancel
+- Webhook Stripe → DB `user.subscription_tier`
+
+### Hosting
+- Vercel (frontend + API routes, edge network, free tier large)
+- Supabase (DB + auth, free tier 500MB DB / 2GB bandwidth)
+- Coût démarrage 0€/mois, scale linéaire utilisateurs payants
+
+### Workers / Cron (intelligence non-JS)
+- Bot Python local NE migre PAS (cf phase 1)
+- Pour SaaS users : cron daily portfolio_snapshot + macro composite refresh via :
+  - **Option A** : Supabase Edge Functions (Deno, simple)
+  - **Option B** : Vercel Cron + API routes (limites timeout)
+  - **Option C** : Hetzner/Railway worker Python séparé (si garde intelligence Python)
+
+## Pricing tiers (proposition)
+
+| Tier | Prix | Limites | Cible |
+|------|------|---------|-------|
+| **Free** (trial 14j) | 0€ | 1 portfolio · 5 thèses · 3 LLM/mois · pas macro | Essai |
+| **Standard** | **29€/mois** | Portfolios illimités · thèses illimitées · 50 LLM/mois · macro + bias + track record · export PDF | Retail investor sérieux |
+| **Pro** | **79€/mois** | Multi-portfolios équipe · 200 LLM · API access · priority support · webhooks | Family office / advisors |
+| **Enterprise** | sur devis | White-label · DB dédiée RLS isolated · SLA 99.9% · integrations custom | RIAs / hedge funds boutique |
+
+**Coût marginal** infrastructure ~5-10€/user/mois (DB + LLM API). Marge brute Standard ~65%.
+
+## Modules à porter (mapping Python → SaaS)
+
+### Frontend Next.js
+| Local | Cible | Effort |
+|-------|-------|--------|
+| `dashboard/render.py` 8 Stars | Composants React `<StarUrgence/>` etc. | 2 semaines |
+| `tokens.css` palette | `app/globals.css` import | 1h |
+| `_APP_JS` modals + keyboard | Hooks React + Radix UI (Dialog/DropdownMenu) | 3 jours |
+| `_CTA_JS` search Cmd+K | `cmdk` lib (Linear/Vercel standard) | 1 jour |
+| Sparkline SVG inline | recharts / uPlot React / keep inline | 2 jours |
+| Right-click ctx menu | Radix UI ContextMenu | 1 jour |
+| Sticky header + animations | Tailwind utilities + framer-motion (subtle) | 2 jours |
+
+### Backend (Next.js API + Supabase)
+| Module Python | Équivalent SaaS | Effort |
+|---------------|-----------------|--------|
+| `shared/storage.py` (3462l) | Tables Postgres + Supabase client | 2 semaines |
+| `intelligence/portfolio_grade.py` | API route TypeScript | 1 semaine |
+| `intelligence/debt_monitor.py` macro | Cron Edge Function quotidien | 1 semaine |
+| `intelligence/bias_events.py` | API route + RLS policies | 1 semaine |
+| Signal ingestion EDGAR/Gmail | Cron Edge Function ou worker Python séparé | 1 semaine |
+
+## Roadmap 3 mois (juin 2026 → août 2026)
+
+### Mois 1 — Foundation
+**S1-2 setup** :
+- [ ] Vercel project `presage-app` + GitHub repo séparé
+- [ ] Supabase project + auth (email magic + Google OAuth)
+- [ ] DNS `app.presage.pro` → Vercel
+- [ ] Tokens.css portage + Geist fonts hosted
+- [ ] Stripe account + products configurés (Standard 29€, Pro 79€)
+
+**S3-4 Landing + Auth** :
+- [ ] Landing presage.pro (déjà fait phase 1 — landing statique)
+- [ ] app.presage.pro signup → portfolio setup
+- [ ] Magic link + Google OAuth flow
+- [ ] Dashboard route protégé avec RLS basic
+- [ ] Stripe Checkout integration
+
+### Mois 2 — Dashboard MVP
+**S5-6 Stars portés** :
+- [ ] `<StarUrgence/>` `<StarConcentration/>` `<StarSignaux/>` etc.
+- [ ] Tables Postgres : `portfolios`, `positions`, `theses`, `portfolio_snapshots`
+- [ ] API routes CRUD positions
+- [ ] Sparkline component (inline SVG portage)
+
+**S7-8 Import + Pricing** :
+- [ ] Import CSV broker (Trade Republic, Degiro, IBKR formats Europe)
+- [ ] Plaid integration optionnel (US brokers)
+- [ ] Stripe webhook → tier update DB
+- [ ] Free trial 14j flow
+- [ ] Customer Portal gérer subscription
+
+### Mois 3 — Intelligence + Launch
+**S9-10 Intelligence** :
+- [ ] Track record cluster KPI #2 portage (table predictions)
+- [ ] Bias detection lock_in + fomo_greed
+- [ ] Macro composite V3 (après OOS validation TODO #67)
+- [ ] LLM analyses (Anthropic API server-side)
+
+**S11-12 Launch** :
+- [ ] Print stylesheet portage
+- [ ] Emails transactionnels (welcome, subscription)
+- [ ] Analytics (Plausible ou Posthog)
+- [ ] Soft launch via Twitter/X + ProductHunt
+- [ ] Docs publics `/docs`
+
+## Risques migration (phase 2)
+
+1. **Refactor coût** : 2 mois full-time minimum. Si side-project 4-6 mois.
+2. **Stack divergent** : Python local intelligence vs Next.js web → maintenir 2 codebases en parallèle. Risque : drift entre logique Python (bot perso) et logique JS (SaaS).
+3. **Track record import** : data PRESAGE actuelle (43k€) doit migrer pour preserve "Day 0" honnête.
+4. **Plaid coût** : 0.30$/connected/mois → érode marge Standard.
+5. **LLM API costs** : 50 analyses × Claude Opus 4.7 ~0.10€ = 5€/user/mois fixe.
+6. **Compliance** : pas custody (juste analyse), donc pas KYC/AML. GDPR oui (DSR/portability/erase).
+
+## Décisions AVANT démarrage phase 2
+
+1. **Stack frontend final** : Next.js confirmé OU SvelteKit ?
+2. **DB managée** : Supabase OU Neon+Clerk ?
+3. **Python intelligence** : tout porté JS OU conservé via worker séparé (2 codebases) ?
+4. **Pricing final** : tiers + prix confirmés ?
+5. **Launch strategy** : soft réseau perso OU aggressive PH + cold outreach ?
+6. **Co-fondateur tech** : solo OU dev partenaire pour accélérer ?
+
+**Revenue model 6 mois conservateur** :
+- 50 trial → 20 Standard (40% conversion) = 580€/mois
+- + 5 Pro = 395€/mois
+- Total = **975€/mois recurring**
+- Infra ~150€/mois
+- **Marge nette : ~825€/mois à mois 6**
+
+## TODO maintenant pour mettre en route phase 2
+
+- [ ] Décider stack frontend (Next.js recommandé)
+- [ ] Décider DB managée (Supabase recommandé)
+- [ ] Setup Vercel + Supabase + Stripe accounts (1h)
+- [ ] Créer repo `presage-app` (séparé du bot perso `mes-bots-finance`)
+- [ ] Portage tokens.css + Geist en premier (1h)
+- [ ] Stars Component (1 d'abord, Urgence le plus impactant) en proof-of-concept
+

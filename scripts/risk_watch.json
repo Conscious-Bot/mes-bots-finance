@@ -43,12 +43,16 @@
             "AMZN"
           ],
           "trigger": "Bearish revision of 2026 capex / cautious commentary",
-          "current_status": "monitoring",
+          "current_status": "at_risk",
           "weight": "major",
-          "last_evaluated_at": "2026-06-02T04:07:26.980592+00:00",
-          "last_eval_reason": "evaluation LLM failed",
-          "last_eval_confidence": 30,
-          "last_eval_evidence_ids": []
+          "last_evaluated_at": "2026-06-05T04:12:45.295241+00:00",
+          "last_eval_reason": "signal_287 (AWS margins higher while peers lag) et signal_248 (800VDC revolution) suggèrent une accélération capex différenciée entre hyperscalers, créant les conditions d'une possible révision baissière de guidance, sans confirmation explicite encore.",
+          "last_eval_confidence": 62,
+          "last_eval_evidence_ids": [
+            287,
+            248,
+            327
+          ]
         },
         {
           "id": "asml_bookings",
@@ -57,9 +61,9 @@
           "trigger": "Miss on 2 consecutive quarters",
           "current_status": "monitoring",
           "weight": "major",
-          "last_evaluated_at": "2026-06-02T04:07:27.245465+00:00",
-          "last_eval_reason": "evaluation LLM failed",
-          "last_eval_confidence": 30,
+          "last_evaluated_at": "2026-06-05T04:12:49.300084+00:00",
+          "last_eval_reason": "Aucun signal récent ne mentionne explicitement une miss de bookings ASML ou un pattern de manquements consécutifs sur 2 trimestres; les signaux généraux sur marchés et investisseurs anglo-saxons (signal_234, signal_246, signal_356) ne constituent pas des évidences concrètes du trigger.",
+          "last_eval_confidence": 85,
           "last_eval_evidence_ids": []
         },
         {
@@ -68,33 +72,40 @@
           "trigger": "2 consecutive months decline or cautious guidance",
           "current_status": "monitoring",
           "weight": "leading",
-          "last_evaluated_at": "2026-06-02T04:07:27.680609+00:00",
-          "last_eval_reason": "evaluation LLM failed",
-          "last_eval_confidence": 30,
+          "last_evaluated_at": "2026-06-05T04:12:51.024275+00:00",
+          "last_eval_reason": "Signaux récents montrent activité macro et capex élevée (signal_202, signal_248) mais aucune evidence de déclin TSM consécutif ou guidance prudente spécifique; signal_424 (AVGO 8-K) nécessite vérification du contenu pour confirmation.",
+          "last_eval_confidence": 45,
           "last_eval_evidence_ids": []
         },
         {
           "id": "hbm_pricing",
           "label": "HBM pricing (SK Hynix / Micron commentary)",
           "trigger": "Pricing power cracks despite Blackwell ramp support",
-          "current_status": "monitoring",
+          "current_status": "at_risk",
           "weight": "major",
-          "last_evaluated_at": "2026-06-02T04:07:27.951436+00:00",
-          "last_eval_reason": "evaluation LLM failed",
-          "last_eval_confidence": 30,
-          "last_eval_evidence_ids": []
+          "last_evaluated_at": "2026-06-05T04:12:53.046074+00:00",
+          "last_eval_reason": "Signal_272 confirme que Micron a rejoint le club du trillion de dollars malgré le trigger 'pricing power cracks', suggérant un début de divergence entre performance boursière et fondamentaux de pricing (signal_248, signal_327 sur AI Dark Output renforcent le pattern de pression sur les marges).",
+          "last_eval_confidence": 72,
+          "last_eval_evidence_ids": [
+            272,
+            248,
+            327
+          ]
         },
         {
           "id": "vix_credit",
           "label": "VIX + IG spreads (risk-off macro)",
           "threshold": "VIX >25 sustained, IG spreads widening",
           "trigger": "Risk-off amplifier on long-duration tech",
-          "current_status": "monitoring",
+          "current_status": "at_risk",
           "weight": "amplifier",
-          "last_evaluated_at": "2026-06-02T04:07:28.235052+00:00",
-          "last_eval_reason": "evaluation LLM failed",
-          "last_eval_confidence": 30,
-          "last_eval_evidence_ids": []
+          "last_evaluated_at": "2026-06-05T04:12:55.244799+00:00",
+          "last_eval_reason": "Plusieurs signaux récents (signal_292, signal_426) mentionnent des dysfonctionnements de marché et des conditions risk-off, suggérant un début de pattern d'amplification du risque sur les actifs long-duration, sans confirmation explicite du déclenchement complet.",
+          "last_eval_confidence": 65,
+          "last_eval_evidence_ids": [
+            292,
+            426
+          ]
         },
         {
           "id": "wafer_pricing",
@@ -102,9 +113,9 @@
           "trigger": "Pricing softening while demand should support = early signal pass-through chain breaks from below",
           "current_status": "monitoring",
           "weight": "leading",
-          "last_evaluated_at": "2026-06-02T04:07:28.573430+00:00",
-          "last_eval_reason": "evaluation LLM failed",
-          "last_eval_confidence": 30,
+          "last_evaluated_at": "2026-06-05T04:12:58.251836+00:00",
+          "last_eval_reason": "Signal signal_287 montre une dynamique positive (AWS margins en hausse) contredisant le trigger de rupture de chaîne de transmission prix; absence de signal recent confirmant l'affaiblissement tarifaire wafer.",
+          "last_eval_confidence": 65,
           "last_eval_evidence_ids": []
         },
         {
@@ -129,8 +140,8 @@
           "current_status": "triggered",
           "weight": "leading",
           "data_source": "insider_snapshots (dedicated table, not signals)",
-          "last_evaluated_at": "2026-06-02T04:07:28.576383+00:00",
-          "last_eval_reason": "Insider selling cluster > $50M/30d on 4 strategic tickers: AVGO (-$356M), AMD (-$117M), MU (-$54M), AMZN (-$52M). Concrete smart money out.",
+          "last_evaluated_at": "2026-06-05T04:12:58.256080+00:00",
+          "last_eval_reason": "Cluster insider selling > 50M$/30j sur 4 tickers strategiques : AVGO (-356M$), AMD (-122M$), MU (-92M$), AMZN (-52M$). Smart money out concret.",
           "last_eval_confidence": 85,
           "last_eval_evidence_ids": []
         },
@@ -140,9 +151,9 @@
           "trigger": "Order intake/bookings decline, lead times shrinking, soft demand commentary at fabless/foundry/equipment",
           "current_status": "monitoring",
           "weight": "leading",
-          "last_evaluated_at": "2026-06-02T04:07:28.838835+00:00",
-          "last_eval_reason": "evaluation LLM failed",
-          "last_eval_confidence": 30,
+          "last_evaluated_at": "2026-06-05T04:13:00.129026+00:00",
+          "last_eval_reason": "Signaux récents dominés par thèmes macro-généraux (dette, Fed, politique) et innovations sectorielles (IA, GLP-1) sans évidence concrète de déclin de carnets de commandes ou raccourcissement de délais dans le semi-conducteur.",
+          "last_eval_confidence": 35,
           "last_eval_evidence_ids": []
         },
         {
@@ -151,8 +162,8 @@
           "trigger": "Days inventory rising at hyperscalers/distributors, channel stuffing warnings, destocking risk",
           "current_status": "monitoring",
           "weight": "leading",
-          "last_evaluated_at": "2026-06-02T04:07:28.843941+00:00",
-          "last_eval_reason": "no recent matching signal",
+          "last_evaluated_at": "2026-06-05T04:13:00.164899+00:00",
+          "last_eval_reason": "aucun signal recent matchant",
           "last_eval_confidence": 50,
           "last_eval_evidence_ids": []
         },
@@ -170,9 +181,9 @@
           "trigger": "Consensus estimates revised downward 2 consecutive times on Compute AI tickers",
           "current_status": "monitoring",
           "weight": "major",
-          "last_evaluated_at": "2026-06-02T04:07:29.104686+00:00",
-          "last_eval_reason": "evaluation LLM failed",
-          "last_eval_confidence": 30,
+          "last_evaluated_at": "2026-06-05T04:13:01.939319+00:00",
+          "last_eval_reason": "Aucun signal récent ne documente explicitement de révisions consensus baissières consécutives sur les tickers Compute AI; les signaux observés couvrent des thèmes macro, semi-conducteurs génériques et macro-économiques sans pattern d'ajustements d'estimations.",
+          "last_eval_confidence": 35,
           "last_eval_evidence_ids": []
         }
       ],
