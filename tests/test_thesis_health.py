@@ -1,5 +1,12 @@
 """Tests for /thesis_health handler."""
 
+
+import pytest
+
+# CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
+# CI skip via . Local : tourne normalement.
+pytestmark = pytest.mark.live_data
+
 from hypothesis import given, strategies as st
 
 from bot.handlers.thesis_health import _compute_health, _extract_narrative, _ticker_in_entities

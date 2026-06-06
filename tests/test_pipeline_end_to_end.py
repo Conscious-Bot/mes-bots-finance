@@ -22,6 +22,11 @@ import pytest
 from shared import storage
 
 
+
+# CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
+# CI skip via -m "not slow and not live_data". Local : tourne normalement.
+pytestmark = pytest.mark.live_data
+
 def _uniq_ticker(prefix="TEST_PIPE"):
     """Ticker unique par test (append-only oblige)."""
     return f"{prefix}_{int(time.time() * 1000) % 100000}"

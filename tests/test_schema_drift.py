@@ -26,6 +26,11 @@ import pytest
 
 from shared.schema import clear_cache, list_tables
 
+
+# CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
+# CI skip via -m "not slow and not live_data". Local : tourne normalement.
+pytestmark = pytest.mark.live_data
+
 REPO = Path(__file__).resolve().parent.parent
 SOURCE_DIRS = ("shared", "intelligence", "bot", "data_sources", "risk", "scripts")
 

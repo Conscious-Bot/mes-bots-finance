@@ -26,6 +26,11 @@ import pytest
 
 from shared import storage
 
+
+# CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
+# CI skip via . Local : tourne normalement.
+pytestmark = pytest.mark.live_data
+
 # Decisions au-dessus de ce seuil de "materialite" doivent avoir prediction
 _MATERIAL_DECISION_TYPES = ("entry", "scale_in", "full_exit", "partial_exit")
 

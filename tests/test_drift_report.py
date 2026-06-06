@@ -1,5 +1,12 @@
 """Property-based tests for storage.compute_drift_report."""
 
+
+import pytest
+
+# CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
+# CI skip via . Local : tourne normalement.
+pytestmark = pytest.mark.live_data
+
 from hypothesis import given, strategies as st
 
 from shared import storage

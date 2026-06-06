@@ -10,6 +10,11 @@ import pytest
 
 from shared import position_invariants as pi, storage
 
+
+# CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
+# CI skip via -m "not slow and not live_data". Local : tourne normalement.
+pytestmark = pytest.mark.live_data
+
 # Dette systemique RESORBEE 30/05/2026.
 # Avant : 11 violations cataloguees (5 currency + 6 kill-criteria substance).
 # Apres batch fix : 0 violations. Sets vides = aucune exemption.

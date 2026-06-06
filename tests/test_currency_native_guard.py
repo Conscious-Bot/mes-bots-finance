@@ -20,6 +20,11 @@ from pathlib import Path
 
 import pytest
 
+
+# CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
+# CI skip via -m "not slow and not live_data". Local : tourne normalement.
+pytestmark = pytest.mark.live_data
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RENDER_PY = REPO_ROOT / "dashboard" / "render.py"
 # Extension du scan au-dela de render.py : intelligence/ + shared/ peuvent

@@ -1,5 +1,12 @@
 """Tests for /bias_pattern handler."""
 
+
+import pytest
+
+# CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
+# CI skip via . Local : tourne normalement.
+pytestmark = pytest.mark.live_data
+
 from hypothesis import given, strategies as st
 
 from bot.handlers.bias_pattern import _compute_bias_pattern, _parse_bias_tags

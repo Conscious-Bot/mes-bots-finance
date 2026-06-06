@@ -21,6 +21,11 @@ from pathlib import Path
 
 import pytest
 
+
+# CI marker : ce module tape sur storage.DB_PATH (data/bot.db gitignored).
+# CI skip via . Local : tourne normalement.
+pytestmark = pytest.mark.live_data
+
 DB = Path(__file__).resolve().parent.parent / "data" / "bot.db"
 
 
