@@ -264,6 +264,10 @@ async def post_init(app):
     # 9h30 = post market open EU + assez de marge pour cron_tier1 06h finir.
     from intelligence.retrospective_decisions import cron_retrospective_daily
     sched.add_job(cron_retrospective_daily, "cron", hour=9, minute=30)
+    # 06/06 v5 audit pro : portfolio circuit breaker Elder (-6%/mois).
+    # 9h45 = apres retrospective + apres market open.
+    from intelligence.circuit_breaker import cron_circuit_breaker_daily
+    sched.add_job(cron_circuit_breaker_daily, "cron", hour=9, minute=45)
     sched.add_job(daily_digest_job, "cron", hour=19, minute=0, misfire_grace_time=7200)  # digest soir reste isole
 
     # === CHAINES SEQUENCEES (soudure ④ brief) ===

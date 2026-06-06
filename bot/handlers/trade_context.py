@@ -96,7 +96,7 @@ def compute_trade_context(action: str, ticker: str, qty: float, price: float) ->
 
     # 1. Régime + warnings ticker
     try:
-        from shared.calibration import get_concentration_caps  # noqa: F401
+        from shared.calibration import get_concentration_caps
         from shared.macro_state import current_macro_state
         ms = current_macro_state()
         ctx["regime"] = ms["regime"]
@@ -172,7 +172,39 @@ def compute_trade_context(action: str, ticker: str, qty: float, price: float) ->
         ctx["regime_warnings"] = []
 
     # 4. Bias detection (lock_in pour sell winner, fomo pour buy après run)
+    # + min_positions garde-fou (anti-overdilution) v5 audit
+    # + Elder circuit breaker check pour BUY (gate si DD > 6%/mois)
     bias_warnings: list[str] = []
+    # Circuit breaker Elder : si actif et action=buy, warning explicit
+    try:
+        from intelligence.circuit_breaker import check_circuit_breaker
+        cb_state = check_circuit_breaker()
+        if action == "buy" and cb_state.get("active"):
+            bias_warnings.append(
+                f"CIRCUIT BREAKER ACTIVE : portfolio DD "
+                f"{cb_state.get('dd_pct', 0):+.1f}% sur 30j (seuil Elder rule "
+                f"{-cb_state.get('threshold_pct', 6):.0f}%). Nouvelles positions "
+                f"deconseilles jusqu'a recovery."
+            )
+    except Exception as _e:
+        log.warning(f"trade_context circuit_breaker: {_e}")
+    # Min positions check : si SELL ferait passer sous min, warning
+    try:
+        from shared.calibration import get_concentration_caps
+        min_pos = int(get_concentration_caps().get("min_open_positions") or 8)
+        if action == "sell" and positions:
+            pos = storage.get_position_by_ticker(ticker.upper())
+            current_n = len([p for p in positions if float(p.get("qty", 0)) > 0])
+            qty_remaining = (float(pos.get("qty", 0)) - qty) if pos else 0
+            future_n = current_n - (1 if qty_remaining <= 0 else 0)
+            if future_n < min_pos:
+                bias_warnings.append(
+                    f"OVERDILUTION risk : sell complete amenerait book a "
+                    f"{future_n} positions (< min {min_pos}). Reconsidere "
+                    f"taille de la sortie (sweet spot 8-20 concentre)."
+                )
+    except Exception as _e:
+        log.warning(f"trade_context min_positions: {_e}")
     try:
         # Get current position state
         pos = storage.get_position_by_ticker(ticker.upper())

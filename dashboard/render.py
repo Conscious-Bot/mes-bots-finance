@@ -3983,18 +3983,32 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     else:
         _macro_sparkline = ""
     _rk = _cfg().get("risk", {})
-    _vthr = _rk.get("vol_scaling_threshold_vix", 25)
+    _vthr = _rk.get("vol_scaling_threshold_vix", 21)
     _vsf = _rk.get("vol_scaling_factor", 0.7)
+    # 06/06 v5 audit pro : 2-tier scaling (convention CTA QuantPedia).
+    # VIX > 30 = panique reelle -> factor 0.5 (halve exposure).
+    try:
+        from shared.calibration import get_drawdown_thresholds
+        _dd_calib = get_drawdown_thresholds()
+        _vthr_panic = float(_dd_calib.get("vol_scaling_vix_panic_threshold") or 30.0)
+        _vsf_panic = float(_dd_calib.get("vol_scaling_vix_panic_factor") or 0.5)
+    except Exception:
+        _vthr_panic, _vsf_panic = 30.0, 0.5
     _vix = next((float(v or 0) for i, v, p, t in sig if i == "VIX"), None)
+    _panic = _vix is not None and _vix >= _vthr_panic
     _reduced = _vix is not None and _vix >= _vthr
-    _sfac = _vsf if _reduced else 1.0
-    # Sizing est calcule sur VIX seul (regle empiriquement validee, BIS papers
-    # 30+ ans). Composite phase frise sert d'overlay informationnel macro,
-    # decouple du sizing trading (= different domaines decisionnels).
-    size_txt = (
-        f"VIX {_vix:.1f} {'&ge;' if _reduced else '&lt;'} {_vthr} (VIX-only rule)"
-        if _vix is not None else "VIX indisponible"
-    )
+    if _panic:
+        _sfac = _vsf_panic
+        _size_msg = f"VIX {_vix:.1f} &ge; {_vthr_panic:.0f} PANIC (sizing x{_vsf_panic:.1f})"
+    elif _reduced:
+        _sfac = _vsf
+        _size_msg = f"VIX {_vix:.1f} &ge; {_vthr} stress (sizing x{_vsf:.1f})"
+    else:
+        _sfac = 1.0
+        _size_msg = f"VIX {_vix:.1f} &lt; {_vthr} normal (sizing x1.0)" if _vix is not None else "VIX indisponible"
+    # Sizing 2-tier : warn zone (VIX > vthr) + panic zone (VIX > panic threshold).
+    # Convention CTA QuantPedia 2026 + BIS papers. Decouple de la frise V3.
+    size_txt = _size_msg
     # Frise macro V3 (task #42 portage 01/06) : formule debt_monitor avec 3
     # transformations structurelles (BTC_drawdown180 / FedBalance_yoy / MfgIP
     # P4 -5%).
@@ -5747,16 +5761,27 @@ def render() -> Path:
         _vix_p = 0
     try:
         _rk_p = _cfg().get("risk", {})
-        _vthr_p = float(_rk_p.get("vol_scaling_threshold_vix", 25))
+        _vthr_p = float(_rk_p.get("vol_scaling_threshold_vix", 21))
         _vsf_p = float(_rk_p.get("vol_scaling_factor", 0.7))
+        # v5 audit pro : 2-tier scaling (VIX panique > 30 -> halve).
+        from shared.calibration import get_drawdown_thresholds
+        _dd_p = get_drawdown_thresholds()
+        _vthr_panic_p = float(_dd_p.get("vol_scaling_vix_panic_threshold") or 30.0)
+        _vsf_panic_p = float(_dd_p.get("vol_scaling_vix_panic_factor") or 0.5)
     except Exception:
-        _vthr_p, _vsf_p = 25.0, 0.7
+        _vthr_p, _vsf_p = 21.0, 0.7
+        _vthr_panic_p, _vsf_panic_p = 30.0, 0.5
+    _panic_p = _vix_p and _vix_p >= _vthr_panic_p
     _reduced_p = _vix_p and _vix_p >= _vthr_p
-    _sfac = _vsf_p if _reduced_p else 1.0
-    size_txt = (
-        f"VIX {_vix_p:.1f} {'&ge;' if _reduced_p else '&lt;'} {_vthr_p:.0f} (VIX-only rule)"
-        if _vix_p else "VIX indisponible"
-    )
+    if _panic_p:
+        _sfac = _vsf_panic_p
+        size_txt = f"VIX {_vix_p:.1f} &ge; {_vthr_panic_p:.0f} PANIC (sizing x{_vsf_panic_p:.1f})"
+    elif _reduced_p:
+        _sfac = _vsf_p
+        size_txt = f"VIX {_vix_p:.1f} &ge; {_vthr_p:.0f} stress (sizing x{_vsf_p:.1f})"
+    else:
+        _sfac = 1.0
+        size_txt = f"VIX {_vix_p:.1f} &lt; {_vthr_p:.0f} normal" if _vix_p else "VIX indisponible"
     n_stop, n_watch, n_tgt = len(near_stop_tk), len(watch_zone_tk), len(near_tgt_tk)
     if n_stop:
         _post_cls, _post_lbl = "bear", "ALERT"

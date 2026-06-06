@@ -829,6 +829,28 @@ def compute_grade() -> dict:
             )
             overall_int = cap
 
+    # 06/06 v5 audit pro : gate AUTO-DERISK cluster en regime STRESS.
+    # Precedents Druckenmiller/Soros confirment 70%+ concentration OK MAIS
+    # sous monitoring obsessionnel. Solofounder en phase construction +
+    # regime STRESS confirme = tail risk asymétrique non géré -> force cap.
+    try:
+        from shared.calibration import get_concentration_caps
+        from shared.macro_state import current_regime
+        _caps_calib = get_concentration_caps()
+        _stress_max = float(_caps_calib.get("stress_regime_max_cluster_pct") or 55.0)
+        _regime_now = current_regime()
+        if _regime_now == "STRESS" and cc_current > _stress_max:
+            cap = 70  # plancher B sous STRESS + over-concentre
+            if overall_int > cap:
+                gates_applied.append(
+                    f"AUTO-DERISK STRESS : pari principal {cc_current:.0f}% > "
+                    f"seuil stress {_stress_max:.0f}% -> note cap a {cap}"
+                )
+                overall_int = cap
+    except Exception as _e:
+        # Non-blocking : si calibration ou regime indispo, gate normal seul.
+        pass
+
     # Gate Calibrage (sizing_conviction) — plafond + plancher
     # Per le co-analyste : "on reprend les planchers Autres paris / Calibrage
     # pour finir la spec des gates". Le plafond cluster_cap > 2x cible est en
