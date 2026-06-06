@@ -31,6 +31,52 @@
 - **J-day 10/06 prep** : reading contract pré-registered (N=20, M=0.03), healthchecks armed.
 - **45+ commits cumulés sur 05+06/06** (10 commits macro panel après-midi). Tennis-bot intact.
 
+---
+
+## 📋 TECH DEBT AUDIT OSS (07/06)
+
+Audit comparatif de 9 repos OSS (Nango, FinceptTerminal, agentic-inbox, flowsint, LibreChat, TradingAgents, OpenBB, tushare, gs-quant) via 4 background agents. **Verdict global** : PRESAGE est sain, monolithe Python plus simple/discipliné/honnête que les alternatives. **5 patterns à adopter ponctuellement** (queue post J-day) :
+
+### Adopter en priorité (post J-day)
+1. **Fail-closed LLM doctrine** → `intelligence/signal_scorer_v2.py` : si V2 échoue, status `degraded`, jamais score arbitraire. Ajouter L14 dans `docs/LESSONS.md`. Source : agentic-inbox `workers/lib/ai.ts`. **30 min + 1 test**.
+2. **Structured Pydantic output + free-text fallback** → `signal_scorer_v2` (`ScoringDecision(prob_3m, prob_12m, base_rate)`) + `/audit` (`AuditReport`). Source : TradingAgents `agents/utils/structured.py` (le seul morceau peer-review-grade du repo). **~2h**.
+3. **CSP + security headers minimaux** → `dashboard/serve.py` + `site_public/track.html` (aujourd'hui aucun). Source : nango `security.ts`. **15 min**.
+4. **Env singleton typed** vs `os.environ.get(...)` éparpillé → consolider `shared/env.py`. Source : OpenBB `core/env.py`. **~1h**.
+5. **Convention `# KNOWN-GAP:`** distincte de TODO → doc dans `CLAUDE.md` + adopter au prochain commit. Source : agentic-inbox style. **5 min**.
+
+### Anti-patterns identifiés (à NE PAS adopter)
+- Multi-agent persona debate (TradingAgents) — opposé à measure-first base-rate. Doctrine break.
+- Schema `z.any()` sur champs LLM (agentic-inbox confessait) — prompt injection trivial.
+- Stack multi-DB + Datadog/Sentry/ES (nango) — over-engineering, anti `[[business-path-6-acted]]`.
+
+### Features Phase 2 (si pivot SaaS multi-user)
+- **Tenant ALS** (`contextvars.ContextVar`) → LibreChat pattern, filtre auto SQLite par tenant_id.
+- **Per-user secrets encrypted V1/V2/V3 rotation** → LibreChat `packages/api/src/crypto/`.
+- **Anti-enumeration constant-time** sur signup/reset → LibreChat `AuthService.js:434-460`.
+- **`runAsSystem()` sentinel** pour crons qui doivent traverser tenant filter.
+
+### Features bonus (post J-day, optionnel)
+- **`/healthz /livez /readyz` triplet** sur `serve.py` (LibreChat). **10 min**.
+- **Append-only memory log + deferred reflection** (post-mortem +30j auto-écrit par Haiku 2-4 phrases) → compatible Brier ledger existant. Source : TradingAgents `agents/utils/memory.py`.
+- **Doc invariant header** style `BacktestEngine.h` (Fincept) sur `intelligence/lock_in_detector.py`, `intelligence/brier.py`.
+- **Catalog discovery MCP** (OpenBB) si PRESAGE exposé via MCP à Claude Desktop un jour.
+
+### Scores comparatifs
+
+| Repo | Utilité PRESAGE | Verdict 1-line |
+|---|---|---|
+| agentic-inbox | 9/10 | Le plus instructif. Fail-closed + self-doc comments à reprendre. |
+| LibreChat | 6/10 | Or si pivot multi-user. Tenant ALS + per-user crypto = patterns gold. |
+| Nango | 6/10 + security 8/10 | Helmet/CSP + rate-limit middleware utiles. |
+| TradingAgents | 4.5/10 | Méthodologie fragile (N=3, SR>5 anomalie). Pydantic structured = vrai gain. |
+| FinceptTerminal | 5/10 | Doc invariant style C++ à imiter. Python à plat catastrophique. |
+| flowsint | 4/10 | Vault AES-256-GCM + RBAC court si multi-user. |
+| OpenBB | 3/10 | **AGPL + Py3.14 + bloat → inadoptable comme lib**. Fetcher 3-steps utile à connaître. |
+| gs-quant | 2/10 | Dep Goldman Marquee platform, pas SDK léger. |
+| tushare | 1/10 | Hors scope (Chinese stocks). |
+
+---
+
 ## 🟢 ÉTAT SYSTÈME (05/06 soir) [PREVIOUS REFRESH]
 
 - **Bot + dashboard sur VM Hetzner H24** : `ssh presage@37.27.247.126`, systemd user + linger, APScheduler 26 jobs, Restart=always.
