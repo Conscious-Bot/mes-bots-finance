@@ -3771,12 +3771,8 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         "MfgIP_yoy": (3, "Industrial production (%)", 4, False),
         "FedBalance_yoy": (3, "Bilan Fed YoY (%)", 1, False),
     }
-    tnames = {
-        1: "Market &amp; liquidity",
-        2: "Banking stress &amp; Fed liquidity",
-        3: "Slow macro",
-        9: "Other",
-    }
+    # tnames retire (Phase C bucket triage remplace tier grouping). Tier_short
+    # chip preserve l'origine sur chaque row via le mapping inline plus bas.
     try:
         sig = _q(
             "SELECT indicator_name, value, phase, timestamp FROM debt_signals WHERE id IN (SELECT MAX(id) FROM debt_signals GROUP BY indicator_name) ORDER BY timestamp DESC"
@@ -3791,7 +3787,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
 
     _pos = {k: i for i, k in enumerate(debt_map.keys())}
     _dot_priority = {"danger": 0, "warn": 1, "calm": 2, "mute": 3}
-    tier_rows: dict[int, list[tuple]] = {}
+    bucket_rows: dict[str, list[tuple]] = {}
     for ind, val, phase, ts in sig:
         tier, label, dec, thou = debt_map.get(ind, (9, ind, 2, False))
         # L3 etat honnete : val=NULL -> "no data", pas 0.0 affiche en vert.
@@ -3822,13 +3818,47 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         # Stale/no-data ranges apres fresh de meme dot (focus visuel sur donnees actuelles).
         _stale_rank = 1 if (data_missing or is_stale) else 0
         sort_key = (_dot_priority.get(dot, 9), _stale_rank, _pos.get(ind, 999), ind)
+        # Tier chip pour preserver l'origine du signal (M&L / BANK / SLOW) malgre
+        # le regroupement par bucket de stress.
+        _tier_short = {1: "M&amp;L", 2: "BANK", 3: "SLOW", 9: "OTH"}.get(tier, "?")
+        tier_chip = f'<span class="dtchip">{_tier_short}</span>'
         row_html = (
-            f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span><span class="dname">{label}</span>'
+            f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span>'
+            f'<span class="dname">{label}{tier_chip}</span>'
             f'<span class="dval {vcls}">{num}</span><span class="dp">P{ph}</span>{badge}</div>'
         )
-        tier_rows.setdefault(tier, []).append((sort_key, row_html))
-    tiers: dict[int, str] = {t: "".join(h for _, h in sorted(rows)) for t, rows in tier_rows.items()}
-    blocks = "".join(f'<div class="dtier">{tnames[t]}</div>{tiers[t]}' for t in (1, 2, 3, 9) if tiers.get(t))
+        # Bucket de triage : ACT NOW > WATCH > ASLEEP > SILENT (no-data/stale-mute).
+        bucket = (
+            "act" if dot == "danger"
+            else "watch" if dot == "warn"
+            else "silent" if dot == "mute"
+            else "asleep"
+        )
+        bucket_rows.setdefault(bucket, []).append((sort_key, row_html))
+    # Render buckets in stress order. Headers incluent count chip + intent line.
+    _BUCKET_META = [
+        ("act", "ACT NOW", "bear", "stress materiel, posture defensive maintenant"),
+        ("watch", "WATCH", "warn", "borderline, suivre direction sur 7j"),
+        ("asleep", "ASLEEP", "steel", "calme, pas d'action requise"),
+        ("silent", "SILENT", "steel", "donnee absente/stale, non-decidable"),
+    ]
+    blocks_parts = []
+    for _bkey, _blabel, _bcls, _btip in _BUCKET_META:
+        _brows = bucket_rows.get(_bkey, [])
+        if not _brows:
+            continue
+        _bcount = len(_brows)
+        _btip_attr = f' data-tip="{_html_esc.escape(_btip, quote=True)}"'
+        blocks_parts.append(
+            f'<div class="dbucket dbucket-{_bkey}"{_btip_attr}>'
+            f'<span class="dbucket-lbl {_bcls}">{_blabel}</span>'
+            f'<span class="dbucket-count">{_bcount}</span>'
+            f'</div>'
+        )
+        blocks_parts.append("".join(h for _, h in sorted(_brows)))
+    blocks = "".join(blocks_parts)
+    # Diagnostic counts (utilise par Phase A regime detector + close ritual).
+    _bucket_counts = {k: len(v) for k, v in bucket_rows.items()}
     try:
         comp = _q("SELECT score, phase FROM debt_composite ORDER BY timestamp DESC LIMIT 1")
     except Exception:

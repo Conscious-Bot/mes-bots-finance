@@ -643,6 +643,16 @@ _CSS = """
   .dname { color:var(--ink); } .dval { font-family:var(--fm); text-align:right; color:var(--ink); } .dp { font-family:var(--fm); font-size:14px; color:var(--steel); }
   .stale { font-family:var(--fb); font-size:14px; color:var(--steel); opacity:.7; text-transform:uppercase; letter-spacing:.08em; }
   .nodata { font-family:var(--fb); font-size:14px; color:var(--bear); opacity:.85; text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
+  /* Macro stress monitor : triage ACT/WATCH/ASLEEP/SILENT (Phase C). */
+  .dbucket { display:flex; align-items:baseline; gap:var(--s2); margin:var(--s3) 0 var(--s15); padding-bottom:var(--s15); border-bottom:1px solid var(--line); break-after:avoid; }
+  .dbucket-lbl { font-family:var(--fb); font-size:15px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; }
+  .dbucket-lbl.bear { color:var(--bear); } .dbucket-lbl.warn { color:var(--warn); } .dbucket-lbl.steel { color:var(--steel); }
+  .dbucket-count { font-family:var(--fm); font-size:13px; color:var(--steel); padding:1px 7px; border:1px solid var(--line); border-radius:8px; }
+  .dbucket + .drow { margin-top:2px; }
+  .dlist > .dbucket { break-inside:avoid; }
+  .dlist > .dbucket + * { break-before:avoid; }
+  /* Tier chip per row : preserve tier origin sans dominer la lecture. */
+  .dtchip { font-family:var(--fb); font-size:11px; letter-spacing:.1em; color:var(--steel); opacity:.65; margin-left:var(--s2); padding:1px 5px; border:1px solid var(--line); border-radius:4px; }
   @keyframes fade { to { opacity:1; } }
   .noanim [data-page].active, .noanim .row { animation:none !important; }
   .noanim .row { opacity:1 !important; }
