@@ -117,9 +117,10 @@ def compute_book_warnings(
     warnings: list[Warning] = []
 
     # R1 : FRAGILE/STRESS + semis dominant -> repricing risk concentre.
+    # Threshold TYX 4.2 = _TYX_HIGH v3 (cf intelligence/macro_regime.py).
     if regime in ("FRAGILE", "STRESS", "LATE_CYCLE") and semis_share > 45.0:
         sev = "high" if regime == "STRESS" else "med"
-        tyx_note = f"TYX {tyx:.2f} (>4.5 = repricing actif)" if tyx and tyx > 4.5 else ""
+        tyx_note = f"TYX {tyx:.2f} (>4.2 = repricing actif)" if tyx and tyx > 4.2 else ""
         warnings.append(Warning(
             severity=sev,
             rule_id="R1_semis_concentration",
@@ -132,17 +133,19 @@ def compute_book_warnings(
             tickers=semis_tickers[:5],
         ))
 
-    # R2 : USDJPY proche/au-dessus 158 + JP exposure significative -> carry unwind.
-    if usdjpy is not None and usdjpy > 158.0 and jp_share > 10.0 and jp_tickers:
+    # R2 : USDJPY > 154 (band warn) + JP exposure > 10% -> carry unwind risk.
+    # Threshold 154 = bands.USDJPY warn v3, 160 = bands.USDJPY danger v3.
+    if usdjpy is not None and usdjpy > 154.0 and jp_share > 10.0 and jp_tickers:
         sev = "high" if usdjpy > 160.0 else "med"
         warnings.append(Warning(
             severity=sev,
             rule_id="R2_carry_unwind_jp",
             action=f"verifier hedge / size sur positions JP ({jp_share:.0f}% du book)",
             rationale=(
-                f"USDJPY {usdjpy:.1f} > 158 = zone intervention BoJ. Carry unwind "
-                f"-> sharp JPY appreciation -> JP-tech sell-off asymetrique. "
-                f"Exposure JP: {jp_share:.0f}% sur {len(jp_tickers)} positions."
+                f"USDJPY {usdjpy:.1f} > 154 = carry trade strained, > 160 = zone "
+                f"intervention BoJ. Unwind -> sharp JPY appreciation -> JP-tech "
+                f"sell-off asymetrique. Exposure JP: {jp_share:.0f}% sur "
+                f"{len(jp_tickers)} positions."
             ),
             tickers=jp_tickers[:5],
         ))
@@ -176,7 +179,8 @@ def compute_book_warnings(
         ))
 
     # R5 : COMPLACENT + zero stress flags -> consider tactical hedge.
-    if regime == "COMPLACENT" and vix is not None and vix < 13.0:
+    # Threshold VIX 12 = _VIX_COMPLACENT v3 (cf intelligence/macro_regime.py).
+    if regime == "COMPLACENT" and vix is not None and vix < 12.0:
         warnings.append(Warning(
             severity="low",
             rule_id="R5_complacent_hedge",
