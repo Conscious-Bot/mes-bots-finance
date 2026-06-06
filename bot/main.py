@@ -268,6 +268,10 @@ async def post_init(app):
     # 9h45 = apres retrospective + apres market open.
     from intelligence.circuit_breaker import cron_circuit_breaker_daily
     sched.add_job(cron_circuit_breaker_daily, "cron", hour=9, minute=45)
+    # 06/06 Phase B : audit_calibration_job 10j (evolutif refresh).
+    # 8h00 = avant marche, faible charge cron. Daily check, fire si >= 10j.
+    from intelligence.audit_calibration import cron_audit_calibration_daily
+    sched.add_job(cron_audit_calibration_daily, "cron", hour=8, minute=0)
     sched.add_job(daily_digest_job, "cron", hour=19, minute=0, misfire_grace_time=7200)  # digest soir reste isole
 
     # === CHAINES SEQUENCEES (soudure ④ brief) ===
