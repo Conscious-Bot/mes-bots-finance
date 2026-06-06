@@ -1,0 +1,80 @@
+# Mapping ticker -> secteur + index benchmark + phase cycle (user-signed view).
+#
+# Source de verite UNIQUE pour le handler /review TICKER et tous les futurs
+# outils qui ont besoin du contexte sectoriel.
+#
+# Convention phase cycle (extraite de [[business-path-6-acted]] doctrine,
+# wedge = discipline mecanisee, ta vue signee, jamais LLM-estimee) :
+#   - early      : debut de cycle, demande en hausse rapide, valos basses, oppose
+#   - mid        : cycle etabli, demande soutenue, valos justes
+#   - late       : capex peak imminent, valos extended, AI hype priced-in
+#   - contraction: demande qui faiblit, margin compression, derisking attendu
+#
+# Mise a jour : a faire trimestriellement (post-J-day, ~01/09 prochaine).
+# Toute modification = commit explicite avec justification dans le message.
+#
+# Cree 06/06/2026 (chantier /review TICKER).
+
+sectors:
+  semis:
+    label: "Semi-conducteurs (chip-related)"
+    index: SOXX
+    cycle_phase: late
+    cycle_note: "Capex cycle peak imminent. AI hype deja price dans valos."
+    tickers:
+      - NVDA
+      - AVGO
+      - AMD
+      - MU
+      - ASML.AS
+      - ARM
+      - ENTG
+      - KLAC
+      - BESI.AS
+      - TSM
+      - COHR
+      - ALAB
+      - STMPA.PA
+      - 4063.T   # Shin-Etsu (silicon wafers monopole)
+      - 6857.T   # Advantest (test equipment)
+      - 6920.T   # Lasertec (EUV photomask inspection)
+      - 000660.KS # SK Hynix (HBM)
+      - SNPS     # Synopsys EDA (chip design)
+
+  energy_commodities:
+    label: "Energie commodities (uranium / gaz / terres rares)"
+    index: XLE
+    cycle_phase: early
+    cycle_note: "Uranium renaissance datacenter power. LNG export structural."
+    tickers:
+      - CCJ      # Cameco uranium
+      - LNG      # Cheniere LNG export
+      - MP       # MP Materials rare earths
+
+  defense_industrials_eu:
+    label: "Defense + industriels EU (rearmement)"
+    index: XAR   # US aerospace/defense proxy
+    cycle_phase: mid
+    cycle_note: "Rearmement europeen structurel post-conflit."
+    tickers:
+      - SAF.PA   # Safran (motorisation aero)
+      - SU.PA    # Schneider Electric
+      - HO.PA    # Thales
+      - 7011.T   # Mitsubishi Heavy
+
+  tech_mega:
+    label: "Tech mega-cap (hyperscalers)"
+    index: XLK
+    cycle_phase: late
+    cycle_note: "Valorisations stretched. AI plays deja prices in stock."
+    tickers:
+      - GOOGL
+      - AMZN
+
+  auto_ev:
+    label: "Auto / EV"
+    index: DRIV
+    cycle_phase: contraction
+    cycle_note: "Demande EV peak fears. Margins Tesla en compression."
+    tickers:
+      - TSLA
