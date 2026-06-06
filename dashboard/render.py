@@ -3577,42 +3577,46 @@ def _signaux() -> str:
 
 
 _MACRO_BANDS = {
-    # Tightened 02/06 user "plus dur dans ta gradation" : warn earlier,
-    # danger plus tot. Calm = vraiment calme. (warn_threshold, danger_threshold, hi_bad)
-    "VIX": (16.0, 22.0, True),         # was (22, 30) -- 15 euphorie, >25 stress
-    "HY_OAS": (250.0, 400.0, True),    # was (350, 500) -- <300 complacent, >600 panique
-    "MOVE": (85.0, 110.0, True),       # was (100, 130) -- vol bonds plus tot warn
-    "USDJPY": (148.0, 155.0, True),    # was (152, 160) -- carry stress plus tot
-    "TYX": (4.0, 4.6, True),           # was (4.5, 5) -- >4% cost capital deja contraint
-    "DXY": (100.0, 105.0, True),       # was (104, 108) -- USD strength plus stricte
-    "CoreCPI": (2.5, 3.5, True),       # was (3, 4) -- Fed bloque deja >2.5
-    "CPI": (2.5, 3.5, True),
-    "T10Y2Y": (0.5, 0.0, False),       # was (0.2, 0) -- de-inversion warn plus tot
-    "MfgIP": (0.5, -1.0, False),       # was (0, -2) -- expansion fragile <0.5
+    # Re-tightened 06/06 user "soit plus dur dans ta notation" : harsh
+    # gradation v2. WARN earlier (calm window plus etroit), DANGER tot
+    # (gap warn-danger reduit). Calm = vraiment vraiment calme.
+    # (warn_threshold, danger_threshold, hi_bad)
+    "VIX": (14.0, 18.0, True),         # was (16, 22). <14 euphorie, >18 stress, >25 panique
+    "HY_OAS": (220.0, 320.0, True),    # was (250, 400). <220 complacent, >320 widening
+    "MOVE": (75.0, 90.0, True),        # was (85, 110). bond vol reagit vite
+    "USDJPY": (147.0, 153.0, True),    # was (148, 155). carry stress >147, BoJ >153
+    "TYX": (3.8, 4.2, True),           # was (4.0, 4.6). >3.8 capital cost contraint
+    "DXY": (98.0, 101.0, True),        # was (100, 105). >98 USD strong, >101 EM stress
+    "CoreCPI": (2.3, 2.8, True),       # was (2.5, 3.5). Fed bloquee >2.3, hawkish >2.8
+    "CPI": (2.3, 2.8, True),
+    "T10Y2Y": (0.3, 0.0, False),       # was (0.5, 0.0). <0.3 aplatie, <0 inversion
+    "MfgIP": (1.0, 0.3, False),        # was (0.5, -1.0). >1 sain, <0.3 ralenti
     # V3 BTC drawdown (hi_bad=False : lower = worse)
-    "BTC_drawdown180": (-20.0, -35.0, False),  # was (-30, -50) -- crypto stress plus tot
+    "BTC_drawdown180": (-15.0, -25.0, False),  # was (-20, -35). -15 attention, -25 stress
 }
 
 
 _MACRO_TIPS: dict[str, str] = {
-    "TYX": "Coût capital long. > 5% = multiples growth/tech craquent historiquement.",
-    "Gold": "Couverture taux réels / débasement / géopol. Lecture interprétative.",
-    "USDJPY": "Baromètre carry trade. > 160 = zone intervention BoJ → tail risk unwind tech US.",
-    "VIX": "Vol implicite S&P 500 30j. < 15 euphorie, > 25 stress, > 40 panique.",
-    "HY_OAS": "Prime obligations haut rendement vs Treasury. < 300 = complacent, > 600 = panique. Signal avancé.",
-    "DXY": "USD vs 6 majeures. > 105 = vent contraire multinationales US ; > 110 = stress global.",
-    "BTC_drawdown180": "Drawdown BTC vs max 6 mois. < -30% = bear risk-off, < -50% = capitulation. Capte le stress crypto reel sans confondre avec level brut.",
-    "MOVE": "VIX des Treasuries. > 130 = stress obligataire, souvent avancé sur actions.",
-    "T10Y2Y": "10Y-2Y rate curve. De-inversion (cross from <0 to >0) = recession in 3-6 months.",
-    "BankReserves": "Cash bancaire à la Fed. < 2.5T = stress plomberie imminent.",
-    "RepoSRF": "Standing Repo Facility. > 30B = banques court de cash, alarme plomberie aiguë.",
-    "FedBalance_yoy": "Bilan Fed variation YoY %. > +20% = QE emergency (Fed combat crash). < -10% = QT agressif. +- 5% = stable.",
-    "KRE": "ETF banques régionales. Décrochage brutal = signal stress type SVB.",
+    # Tooltips resync 06/06 : reflètent les vrais bands _MACRO_BANDS (audit
+    # post-tightening v2). Plus de tooltip-vs-band mismatch.
+    "TYX": "Coût capital long. > 3.8 = capital cost contraint, > 4.2 = stress growth/tech, > 5 = craquements historiques.",
+    "Gold": "Couverture taux réels / débasement / géopol. Lecture interprétative (no band fixe).",
+    "USDJPY": "Baromètre carry trade. > 147 = carry stress, > 153 = zone intervention BoJ → tail risk unwind tech US.",
+    "VIX": "Vol implicite S&P 500 30j. < 14 = euphorie/complacent, > 18 = stress actif, > 25 = panique.",
+    "HY_OAS": "Prime obligations haut rendement vs Treasury (bp). < 220 = complacent, > 320 = widening crédit, > 450 = crise. Signal avancé.",
+    "DXY": "USD vs 6 majeures. > 98 = USD strong, > 101 = vent contraire EM/multinationales US, > 105 = stress global.",
+    "BTC_drawdown180": "Drawdown BTC vs max 6 mois. > -15 % = sain, < -25 % = stress crypto, < -50 % = capitulation.",
+    "MOVE": "VIX des Treasuries. > 75 = attention, > 90 = stress obligataire, > 120 = crise. Réagit vite, souvent avancé sur actions.",
+    "T10Y2Y": "10Y-2Y rate curve. > 0.3 = normale, < 0.3 = aplatissement, < 0 = inversion (récession 3-6 mois historique).",
+    "BankReserves": "Cash bancaire à la Fed. < 2.5 T = stress plomberie imminent (phase-based, no band).",
+    "RepoSRF": "Standing Repo Facility. > 30 B = banques court de cash, alarme plomberie aiguë.",
+    "FedBalance_yoy": "Bilan Fed variation YoY %. > +20 % = QE emergency (Fed combat crash). < -10 % = QT agressif. ± 5 % = stable.",
+    "KRE": "ETF banques régionales. Décrochage brutal = signal stress type SVB (phase-based, no band).",
     "CopperGold": "Cuivre industriel vs or refuge. Monte = cycle haussier, baisse = peur récession.",
-    "CoreCPI": "Core CPI YoY. > 2.5% = Fed bloquée en restrictif → vent contraire growth/tech.",
-    "CPI": "Core CPI YoY. > 2.5% = Fed bloquée en restrictif → vent contraire growth/tech.",
-    "MfgIP": "Industrial production YoY. > 0 = soft or strong expansion.",
-    "MfgIP_yoy": "Industrial production YoY. > 0 = soft or strong expansion.",
+    "CoreCPI": "Core CPI YoY. > 2.3 % = Fed bloquée en restrictif, > 2.8 % = hawkish bias → vent contraire growth/tech.",
+    "CPI": "Core CPI YoY. > 2.3 % = Fed bloquée en restrictif, > 2.8 % = hawkish bias → vent contraire growth/tech.",
+    "MfgIP": "Industrial production YoY. > 1 % = expansion saine, < 0.3 % = ralenti, < 0 = contraction.",
+    "MfgIP_yoy": "Industrial production YoY. > 1 % = expansion saine, < 0.3 % = ralenti, < 0 = contraction.",
 }
 
 
@@ -3847,7 +3851,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     _BUCKET_META = [
         ("act", "ACT NOW", "bear", "stress materiel, posture defensive maintenant"),
         ("watch", "WATCH", "warn", "borderline, suivre direction sur 7j"),
-        ("asleep", "ASLEEP", "steel", "calme, pas d'action requise"),
+        ("asleep", "CALM", "steel", "zone calme, pas d'action requise"),
         ("silent", "SILENT", "steel", "donnee absente/stale, non-decidable"),
     ]
     blocks_parts = []
@@ -3890,7 +3894,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         _reg_tip = _html_esc.escape(
             f"Regime: {_reg['regime']}. Triggers: {', '.join(_reg['triggers'])}. "
             f"Buckets: ACT {_reg['danger_count']} / WATCH {_reg['warn_count']} / "
-            f"ASLEEP {_reg['asleep_count']} / SILENT {_reg['silent_count']}. "
+            f"CALM {_reg['asleep_count']} / SILENT {_reg['silent_count']}. "
             f"Source: classify_regime deterministe (independant V3 composite, demote 02/06).",
             quote=True,
         )

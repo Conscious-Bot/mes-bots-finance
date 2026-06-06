@@ -42,15 +42,15 @@ class IndicatorReading(TypedDict):
     dot: str  # 'calm' | 'warn' | 'danger' | 'mute'
 
 
-# Thresholds canoniques (alignes avec _MACRO_BANDS render.py).
-_VIX_STRESS = 22.0
-_VIX_LOW = 18.0
-_VIX_COMPLACENT = 14.0
-_HY_STRESS = 400.0
-_HY_COMPLACENT = 250.0
-_USDJPY_UNWIND = 160.0
-_TYX_HIGH = 4.5
-_DXY_HIGH = 100.0
+# Thresholds canoniques (alignes avec _MACRO_BANDS render.py v2 06/06 harsh).
+_VIX_STRESS = 20.0       # was 22 — VIX > 20 = stress declared
+_VIX_LOW = 16.0          # was 18 — borderline late-cycle vol
+_VIX_COMPLACENT = 13.0   # was 14 — sub-13 = melt-up risk
+_HY_STRESS = 350.0       # was 400 — credit widening confirme
+_HY_COMPLACENT = 220.0   # was 250 — spreads vraiment serres
+_USDJPY_UNWIND = 153.0   # was 160 — BoJ zone intervention
+_TYX_HIGH = 4.0          # was 4.5 — rates contraint plus tot
+_DXY_HIGH = 99.0         # was 100 — USD strong borderline
 
 
 def _val(readings: dict[str, IndicatorReading], key: str) -> float | None:

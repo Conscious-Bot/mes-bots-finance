@@ -39,37 +39,43 @@ def test_classify_regime_risk_on_default():
 
 
 def test_classify_regime_complacent_ultra_low_vol():
-    """VIX < 14 + HY < 250 + zero danger -> COMPLACENT (melt-up risk)."""
+    """VIX < 13 + HY < 220 + zero danger -> COMPLACENT (melt-up risk).
+
+    Thresholds v2 06/06 harsher : ces seuils sont vraiment etroits =
+    vraiment euphorique pour declencher.
+    """
     r = _readings(
         VIX={"indicator": "VIX", "value": 12.0, "dot": "calm"},
-        HY_OAS={"indicator": "HY_OAS", "value": 220.0, "dot": "calm"},
+        HY_OAS={"indicator": "HY_OAS", "value": 210.0, "dot": "calm"},
     )
     out = classify_regime(r)
     assert out["regime"] == "COMPLACENT"
 
 
 def test_classify_regime_late_cycle_rates_dxy_vix_asleep():
-    """Taux > 4.5 + DXY > 100 + VIX < 18 -> LATE_CYCLE."""
+    """Taux > 4.0 + DXY > 99 + VIX < 16 -> LATE_CYCLE (thresholds v2)."""
     r = _readings(
-        TYX={"indicator": "TYX", "value": 4.8, "dot": "danger"},
+        TYX={"indicator": "TYX", "value": 4.5, "dot": "danger"},
         DXY={"indicator": "DXY", "value": 102.0, "dot": "warn"},
-        VIX={"indicator": "VIX", "value": 16.0, "dot": "calm"},
+        VIX={"indicator": "VIX", "value": 15.0, "dot": "calm"},
     )
     out = classify_regime(r)
     assert out["regime"] == "LATE_CYCLE"
 
 
 def test_classify_regime_fragile_multi_danger_vol_asleep():
-    """3+ dangers + VIX < 22 -> FRAGILE (stress reel, marche pas reveille).
+    """3+ dangers + VIX < 20 + USDJPY safe -> FRAGILE (stress reel, vol asleep).
 
-    Cas reel observable au 06/06 : TYX+USDJPY+BTC = 3 dangers, VIX 15.4
-    -> doit retourner FRAGILE, pas RISK_ON ni STRESS.
+    Cas miroir : 3 dangers stackes mais aucun ne tombe sous les STRESS rules
+    (USDJPY < 153 et VIX < 20 et HY < 350) -> doit retourner FRAGILE, pas
+    STRESS.
     """
     r = _readings(
-        TYX={"indicator": "TYX", "value": 4.98, "dot": "danger"},
-        USDJPY={"indicator": "USDJPY", "value": 159.0, "dot": "danger"},
-        BTC_drawdown180={"indicator": "BTC_drawdown180", "value": -35.0, "dot": "danger"},
-        VIX={"indicator": "VIX", "value": 15.4, "dot": "calm"},
+        TYX={"indicator": "TYX", "value": 4.5, "dot": "danger"},
+        Gold={"indicator": "Gold", "value": 4500.0, "dot": "danger"},
+        BTC_drawdown180={"indicator": "BTC_drawdown180", "value": -30.0, "dot": "danger"},
+        USDJPY={"indicator": "USDJPY", "value": 150.0, "dot": "calm"},
+        VIX={"indicator": "VIX", "value": 17.0, "dot": "calm"},
     )
     out = classify_regime(r)
     assert out["regime"] == "FRAGILE"
