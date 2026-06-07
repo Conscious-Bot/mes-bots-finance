@@ -1,8 +1,110 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 07 juin 2026 bis (session ultra-marathon + RED-TEAM pivot corrective)
-**Mode** : **STOP SOPHISTICATION, FOUNDATION FIRST.** Apres red-team 07/06 nuit.
+**Refresh** : 07 juin 2026 ter (DECISION_QUALITY_ENGINE A+B+C livre, capstone VISION_PRO active)
+**Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
+
+---
+
+## 🎯 VISION_PRO + ROADMAP CHRONOLOGIQUE (red-team 07/06 nuit++)
+
+Source spec : `docs/VISION_PRO.md` + `docs/DECISION_QUALITY_ENGINE.md`. Le critere nord, unique : **auditable par un adversaire**. Une due-diligence hostile peut-elle falsifier ou verifier chaque nombre ? Si non = journal intime sophistique, pas outil pro.
+
+### Le pivot (a garder en tete a chaque ligne)
+
+3 plafonds structurels que la calibration sur outcomes ne perce pas :
+
+| Plafond | Nature | Ce qui le perce |
+|---|---|---|
+| Auto-referentiel | l'operateur note l'operateur -> corruptible | Pre-engagement tamper-evident OTS-ancre (P1) |
+| Petit-n | N=35 outcomes = bruit, latence boucle 30j | Process-grading (N=53 immediat, P2) + outside-view (P3) |
+| Outcome-graded | Brier ignore quadrant LUCK | Attribution causale 2x2 (P2) |
+
+### Phase 0 — Nettoyer les instruments (semaine 1)
+
+- **0.1** Doc-drift check pre-commit (~45min) -- regen chiffres volatils (tests count 1107 vs annonce, LOC fichiers cites, modules "non instrumentes") + echec si AGENT_HANDOFF/README/CLAUDE.md divergent
+- **0.2** Gates CI grep yfinance + sqlite3 ✅ LIVRE (commit 4058a28)
+- **0.3** Lancer sondes 7j MAINTENANT (front-load latence 8 semaines) -- predictions-sondes court-horizon taggees `probe`, decouplees des theses 18-24m, accumule Brier vite. N=35 -> ~100 en 8 semaines.
+
+### Phase 1 — Fondation tamper-evident (semaines 1-3) — STATUS PARTIEL
+
+A0-A5 livres comme code (commits a7fc6cc + ce00c18 + 67dc11a + befe687) MAIS **non-trustless** tant que :
+
+- ❌ `anchor_chain_head_daily.py` cron pas wire APScheduler
+- ❌ OTS (opentimestamps-client) pas integre operationnel (script `scripts/integrity_anchor.sh` cree, pas execute en cron)
+- ❌ ledger jsonl export git-tracke pas committe (bot.db gitignored, donc actuel = pas auditable tier)
+- ❌ Bootstrap 219 predictions existantes pas ancrees (user va envoyer le script integrant compute_hash/canonical_payload/GENESIS_HASH + nonce commit-reveal sidecar)
+- ❌ Hook `insert_prediction` (storage.py:850, funnel unique confirme) pas ajoute
+
+**Next concret semaine 1** :
+1. Recevoir bootstrap script user + insert_prediction hook (user va envoyer)
+2. Wire `scripts/integrity_anchor.sh` en cron daily APScheduler ou crontab user
+3. Install opentimestamps-client + test ots stamp end-to-end
+4. Export ledger jsonl git-tracke + commit initial (bootstrap des 26 + 219)
+
+### Phase 2 — Changer l'objet score (semaines 3-6)
+
+- **2.1** Attribution causale 2x2 ✅ SCAFFOLD LIVRE (`track_record/attribution.py` + 13 tests). Reste a connecter au realized data (ReturnDecomposition needs Bigdata wire ou proxy)
+- **2.2** Scorecard process-graded (F1) -- note operateur sur specificite kill-criteria + falsifiabilite variant_perception + taux validation-de-raison. N=53 immediat (process observable par decision, pas N=35 resolus)
+- **2.3** factor_exposures -> monitor a transition (~2h) -- pattern monitor_pattern, seuil "AI-broad >75%" -> evenement + notif Telegram
+
+### Phase 3 — Outside view (semaines 5-8)
+
+- **3.1** Base-rate externe Bigdata (`track_record/reference_class.py` scaffold LIVRE, stub jusqu'a wire daloopa). Catch class de reference (Kahneman) : eviter double-comptage tes propres picks dans univers ref.
+- **3.2** Reference-class interne par embeddings -- etendre `signal_embeddings` (427 BGE local) aux decisions
+- **3.3** Prior a deux etages -- combiner 3.1 + 3.2 avec ponderation explicite (a N=40, prior domine)
+
+### Phase 4 — Asset defendable (semaines 8-12)
+
+- **4.1** Track-record du copilot -- quand decision_copilot objecte et qu'on passe outre, avait-il raison ? Mesurable seulement parce que P1 rend les overrides tamper-evident.
+- **4.2** Taux d'angle-mort -- boucle pre-mortem -> post-mortem. Le mode d'echec reel etait-il dans ton pre_mortem ou un angle mort ?
+- **4.3** Famille de shadow-books -- discipline stricte / ignore tout / suis seulement c5 / pondere base-rate en parallele. Ressuscite `intelligence/shadow_decisions.py` (code mort).
+
+### Phase 5 — Passage au pro (mois 4-6)
+
+- **5.1** Separer moteur / instance -- kernel scoring-de-jugement domain-agnostique vs book/sources/factors en config
+- **5.2** Multi-operateur par isolation-fichier (1 SQLite par operateur, pas Postgres+RLS)
+- **5.3** Reproductibilite / pinning modele -- methodology_version + replay
+- **5.4** Page track-record publique verifiable -- surface l'asset P1+P4 reproductible par tiers
+
+### Invariants transverses (a graver)
+
+1. **L19** Aucune nouvelle couche calibration tant que N_resolu < 100 ✅ INSCRIT
+2. **L20** Outcome-graded ne suffit pas, scorer la decision (attribution 2x2) ✅ INSCRIT
+3. Record append-only + OTS-ancre vs config declarative versionnee -- promotion L17
+4. Reste outil de process decisionnel, jamais de recommandation (douve regulatoire RIA)
+5. Construis la base pour qu'elle puisse t'humilier (volonte de publier resultat nul = credibilite)
+
+### Le wedge
+
+| Produit | Asset | Verdict |
+|---|---|---|
+| (i) Instrument jugement personnel prouvable (prosumer/Substack) | track-record verifiable | **Base** -- 80% deja construit |
+| (ii) Couche discipline pour PMs discretionnaires (B2B) | track-record copilot (F2) | Expansion une fois (i) prouve |
+| (iii) Kernel-as-API | -- | **Drop** (distraction) |
+
+Construire (i) d'abord. (ii) en expansion naturelle quand F2 a prouve le lift.
+
+### Vue dependances (spine)
+
+```
+P0.1 doc-drift ─┐
+P0.2 CI gates ──┤ (parallele)
+P0.3 sondes 7j ─┴───► (latence 8 sem, alimente P2/P3/P4)
+
+P1: A0 ► A2 ► A1 ► A3 ► A4(OTS!) ► A5
+     └► driver_epic capte ► P2.1 ───┐
+                            P2.2 (F1) ◄── N=53 process immediat
+
+P3.1 base-rate ext ┐
+P3.2 ref-class int ┴─► prior 2 etages ◄── P2.1 definit "raison validee"
+
+P4.1 copilot TR ◄── exige A4 + temps
+P4.2 angle-mort ◄── exige pre_mortem (A3)
+P4.3 shadow-books ◄── exige counterfactuals (deja la)
+
+P5: 5.1 moteur/instance ► 5.2 multi-tenant ► 5.3 repro ► 5.4 page publique
+```
 
 ---
 
