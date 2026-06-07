@@ -51,6 +51,33 @@ def add_thesis(
     if conviction == 5:
         warnings.append("Conviction 5 = tres rare. Tu es sur ?")
 
+    # M-B Pillar : gates mentor heuristiques (M1 Buffett + M2 Taleb).
+    # Doctrine : pas de persona LLM, gates deterministes inline. Non-bloquants
+    # par defaut (surfacent en warning sur dashboard + Telegram); peuvent etre
+    # promus strict via flag user.
+    try:
+        from intelligence.thesis_creation_gates import (
+            fetch_solidite_for_ticker,
+            run_creation_gates,
+        )
+        # stop_price ABSENT du signature actuel add_thesis ; pass None -> M2
+        # restera en warning si stop manquant (autre invariant le catche).
+        _gates = run_creation_gates(
+            ticker=ticker,
+            direction=direction,
+            conviction=conviction,
+            solidite=fetch_solidite_for_ticker(ticker),
+            entry=entry_price,
+            target_full=target_full,
+            stop_price=None,
+        )
+        for _g in _gates:
+            if not _g.passed:
+                warnings.append(_g.message)
+    except Exception as _e:
+        # Fail-safe : si gates crash, ne pas bloquer creation thèse.
+        warnings.append(f"M-B gates crashed: {_e}")
+
     thesis_id = storage.insert_thesis(
         ticker=ticker,
         direction=direction,
