@@ -2956,6 +2956,13 @@ def update_thesis_field(ticker: str, field: str, value) -> tuple[bool, str, obje
 
     Returns (success, message, old_value). Used by /thesis_set Telegram handler
     AND chat-driven set_field intent — single write surface (CONVENTIONS §5).
+
+    Hook drift conviction (Carte-decision #1 etape 1) : si field='conviction' ET
+    nouvelle valeur != old, append au thesis_integrity_log (event=conviction_drift)
+    avec old/new + asof. Tamper-evident : le drift conviction silencieux
+    (moteur biais #1 lock-in) laisse une trace dans la chain.
+    NB : conviction_at_entry n'est JAMAIS touche par cette fonction (snapshot
+    PIT immuable, set seulement a l'INSERT initial).
     """
     field_lc = (field or "").lower()
     if field_lc not in _THESIS_FIELD_NUM | _THESIS_FIELD_TEXT:
@@ -2965,6 +2972,9 @@ def update_thesis_field(ticker: str, field: str, value) -> tuple[bool, str, obje
             value = float(value) if field_lc != "conviction" else int(value)
         except (TypeError, ValueError):
             return False, f"valeur '{value}' invalide pour {field}", None
+    thesis_id = None
+    old_val = None
+    new_val = value
     with db() as cx:
         r = cx.execute(
             "SELECT id FROM theses WHERE ticker=? AND status='active'",
@@ -2972,13 +2982,32 @@ def update_thesis_field(ticker: str, field: str, value) -> tuple[bool, str, obje
         ).fetchone()
         if not r:
             return False, f"pas de these active sur {ticker}", None
-        old = cx.execute(f"SELECT {field_lc} FROM theses WHERE id=?", (r["id"],)).fetchone()
+        thesis_id = r["id"]
+        old = cx.execute(f"SELECT {field_lc} FROM theses WHERE id=?", (thesis_id,)).fetchone()
         old_val = old[0] if old else None
         cx.execute(
             f"UPDATE theses SET {field_lc}=?, last_reviewed=CURRENT_TIMESTAMP WHERE id=?",
-            (value, r["id"]),
+            (value, thesis_id),
         )
         cx.commit()
+
+    # Hook drift conviction : append integrity log si changement effectif
+    if field_lc == "conviction" and old_val is not None and int(old_val) != int(new_val):
+        from datetime import UTC as _UTC, datetime as _datetime
+        payload = {
+            "event": "conviction_drift",
+            "thesis_id": thesis_id,
+            "ticker": ticker.upper(),
+            "old_conviction": int(old_val),
+            "new_conviction": int(new_val),
+            "delta": int(new_val) - int(old_val),
+            "asof": _datetime.now(_UTC).isoformat(timespec="seconds"),
+        }
+        try:
+            insert_thesis_integrity_row(thesis_id, payload)
+        except Exception as e:
+            _copilot_log.warning(f"conviction drift hook failed: {e}")
+
     return True, f"{ticker} {field_lc} : {old_val} → {value}", old_val
 
 
@@ -3599,6 +3628,62 @@ def get_latest_oca_per_ticker(ticker: str) -> dict | None:
             return dict(zip(cols, row, strict=False))
     except Exception as e:
         _copilot_log.warning(f"get_latest_oca_per_ticker failed: {e}")
+        return None
+
+
+# === conviction PIT + drift (migration 0042) =================================
+
+
+def get_conviction_drift(thesis_id: int) -> dict | None:
+    """Lit conviction PIT (at_entry) vs courante + delta + last drift event.
+
+    Returns dict {
+      current: int | None,
+      at_entry: int | None,
+      delta: int,                      # current - at_entry
+      drifted: bool,                   # delta != 0
+      last_drift_at: str | None,       # timestamp dernier event drift dans chain
+      n_drifts: int,                   # nombre d'events drift historiques
+    } ou None si these introuvable.
+    """
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT conviction, conviction_at_entry "
+                "FROM theses WHERE id=?",
+                (thesis_id,),
+            ).fetchone()
+            if not row:
+                return None
+            current = row[0]
+            at_entry = row[1]
+            delta = (
+                int(current) - int(at_entry)
+                if (current is not None and at_entry is not None) else 0
+            )
+            # Compte drifts dans chain
+            drift_rows = cx.execute(
+                "SELECT payload_json, created_at FROM thesis_integrity_log "
+                "WHERE thesis_id=? ORDER BY seq DESC",
+                (thesis_id,),
+            ).fetchall()
+            n_drifts = 0
+            last_drift_at = None
+            for pr in drift_rows:
+                if '"conviction_drift"' in (pr[0] or ""):
+                    n_drifts += 1
+                    if last_drift_at is None:
+                        last_drift_at = pr[1]
+            return {
+                "current": current,
+                "at_entry": at_entry,
+                "delta": delta,
+                "drifted": delta != 0,
+                "last_drift_at": last_drift_at,
+                "n_drifts": n_drifts,
+            }
+    except Exception as e:
+        _copilot_log.warning(f"get_conviction_drift failed: {e}")
         return None
 
 
