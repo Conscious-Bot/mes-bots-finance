@@ -96,6 +96,20 @@ def get_audit_metadata() -> dict:
     return dict(load_calibration().get("audit_metadata", {}))
 
 
+def get_temporal_splits() -> dict:
+    """Splits temporels stricts (Phase 1.4 absorption_roadmap, doctrine L16).
+
+    Returns dict avec train_window / val_window / oos_window / next_oos_window
+    / rule. Vide {} si bloc absent (signal de violation L16 -- gate par
+    test_calibration_temporal_splits_present).
+
+    Lecteurs probables : footer dashboard ('calib v5 · OOS frozen jusqu'au
+    2026-09-30'), audit cron (verifie qu'on n'est pas en periode frozen avant
+    de proposer un re-tune), pre-commit hook futur.
+    """
+    return dict(get_audit_metadata().get("temporal_splits", {}))
+
+
 # === Accessors sections "autres panels" (06/06 extension audit pro) ===
 
 

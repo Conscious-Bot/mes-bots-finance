@@ -28,6 +28,25 @@ audit_metadata:
   audit_reports:
     - 'docs/calibration_audits/2026-06-06_v4.md'        # macro panels
     - 'docs/calibration_audits/2026-06-06_v5_panels.md' # autres panels (RSI/Breadth/Risque/Conc/DD)
+
+  # Phase 1.4 absorption_roadmap (07/06 soir) — splits temporels stricts.
+  # Doctrine L16 docs/LESSONS.md : tout tuning de threshold doit dater
+  # train/val/oos AVANT le tuning. Sinon "X/M valides" est tautologique
+  # (in-sample). Catch 01/06 task #42 cf memory feedback_in_sample_tuning_validation.
+  # Source pattern : Kronos finetune/config.py:28-32.
+  temporal_splits:
+    train_window: '2015-01-01 .. 2024-12-31'  # 10y history utilise pour deriver bands v5
+    val_window: '2025-01-01 .. 2025-12-31'    # 12m fitting in-sample (anchoring conscient)
+    oos_window: '2026-01-01 .. 2026-06-06'    # 5m1w out-of-sample (verifie post-hoc)
+    next_oos_window: '2026-06-07 .. 2026-09-30'  # forward-only, frozen jusqu'a 09-30
+    rule: |
+      Pas de re-tune des bands AVANT 2026-09-30, sauf trigger explicite :
+      misfire >15% sur regime alerts OU drift detecte par audit cron 10j.
+      Tout re-tune = NOUVEAU temporal_splits committe AVANT modif des bands
+      (pas le meme commit, et pas avant validation OOS du split en cours).
+      Verifiable post-hoc : `git log -p config/calibration.yaml` doit montrer
+      la sequence split-update -> bands-update, jamais l'inverse ni meme commit.
+
   sources_consulted:
     - 'FRED St. Louis Fed (VIX/HY_OAS/T10Y2Y/WRESBAL/DGS30)'
     - 'Cboe (VIX historique)'

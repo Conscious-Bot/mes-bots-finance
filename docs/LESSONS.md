@@ -422,3 +422,49 @@ Tentation 2 : "Au moins logger en `info` la valeur fabriquée pour audit, c'est 
 ### Référencer
 
 Depuis `CLAUDE.md` § "À retenir sans chercher" (doctrine fail-closed). Test verrouillé `tests/test_fail_closed_scorer.py`. Pas de re-formulation ailleurs.
+
+## L16 — Splits temporels stricts in-file (anti in-sample tuning)
+
+Phase 1.4 absorption_roadmap (07/06 soir). Doctrine héritée de Kronos `finetune/config.py:28-32` + catch session 01/06 task #42 (cf memory `feedback_in_sample_tuning_validation`).
+
+### Le piège
+
+Quand tu introduis N degrés de liberté (thresholds, bumps, gates) contre M anchors (predictions historiques), la phrase « X/M valides » est tautologique tant que les anchors et le tuning vivent dans la même fenêtre temporelle. Tu fittes une fonction qui passe par les points et tu te félicites de ce qu'elle passe par les points.
+
+Le pire : tu peux re-tuner « juste un peu » le soir même de l'audit, sans tracer, et personne (toi-même 3 mois plus tard inclus) ne peut le détecter.
+
+### La règle
+
+**Tout tuning de scorer / threshold / band doit dater train/val/oos dans le YAML versionné AVANT le tuning.** Ce qui veut dire :
+
+1. Un bloc `temporal_splits` figure dans le fichier config tuné (ex `config/calibration.yaml audit_metadata.temporal_splits`).
+2. Les fenêtres sont explicites : `train_window`, `val_window`, `oos_window` (vérifié post-hoc), `next_oos_window` (frozen, forward-only).
+3. Une `rule:` libre énonce le délai de freeze + conditions qui débloquent un re-tune (drift détecté, misfire >X%, audit cron N jours).
+4. Toute mise à jour de bands déclare son nouveau `next_oos_window` AVANT (commit séparé, ou ordre vérifiable dans `git log -p`).
+
+### Ce qui est interdit
+
+- Re-tune dans la fenêtre `next_oos_window` (in-sample par construction)
+- Modifier `temporal_splits` et les bands dans le même commit (pas de séparation = re-tune masqué)
+- Bands sans bloc `temporal_splits` du tout (signal de tuning intuitif non auditable)
+- "OOS" qui couvre la même période que les anchors utilisés pour valider (cas pernicieux : tu déclares OOS 2026-Q2 mais les predictions resolved 2026-Q2 ont été incluses dans val)
+
+### Test verrouillé
+
+`tests/test_calibration_temporal_splits.py` :
+1. Le bloc `audit_metadata.temporal_splits` existe + a les 5 clés requises
+2. Les dates sont parsables (ISO ou format `YYYY-MM-DD .. YYYY-MM-DD`)
+3. `oos_window` ≤ `next_oos_window` (chronologie cohérente)
+4. `next_oos_window` ≥ `last_audit` (la fenêtre frozen commence après l'audit)
+
+Régression sur un de ces 4 = violation L16, gate `assert` lors de la build.
+
+### Pourquoi cette doctrine est dure
+
+Tentation 1 : « Le marché a bougé, je dois adapter. » → Si tu n'as pas attendu la fin du `next_oos_window`, tu commits une violation. Adapter = légitime SEULEMENT si tu commits un nouveau split (split-update commit ≠ bands-update commit) avec justification écrite.
+
+Tentation 2 : « Je vais juste ajuster ce seuil de 15 à 16, c'est rien. » → 1 seuil × 12 indicateurs × 4 fois par an = 48 micro-ajustements. Chacun isolé semble inoffensif, en agrégat ils repeignent les bands pour qu'elles « marchent toujours » sur l'historique récent. Anti-pattern qlib model zoo (L14 anti-pattern #8) à l'échelle thresholds.
+
+### Référencer
+
+Depuis `CLAUDE.md` § "À retenir sans chercher" (splits temporels). Helper `shared.calibration.get_temporal_splits()`. Test verrouillé `tests/test_calibration_temporal_splits.py`. Pas de re-formulation ailleurs.
