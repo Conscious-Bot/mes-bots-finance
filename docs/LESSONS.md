@@ -742,3 +742,34 @@ Source canonique : `docs/QUALITY_BAR.md` (figé 07/06 nuit++). L21 ici = doctrin
 ### Référencer
 
 Source canonique : `docs/QUALITY_BAR.md` Axe 2 garde-fou (figé 07/06). L22 ici = encodage doctrine. CLAUDE.md "Catches récurrents" : ajouter L22 dans la liste compactée si la prochaine session en a besoin.
+
+---
+
+## L23 — Toute valeur dérivable est dérivée live, jamais figée en YAML/DB
+
+**Catch** : un YAML déclaratif qui porte une *valeur* (pas une *cible* ou un *seuil*) crée le même piège que `eur_value` stocké dans `notes` (founding bug Axe 3). La valeur déclarée vieillit ; la réalité dérive ; le dashboard ment. Exemple 07/06 : `risk_watch.yaml` déclarait `current_ballast_strict_pct=14%` (mai), réalité live calculée = **10.1%**. Le YAML mentait de 4pp.
+
+**Règle** : dans un YAML déclaratif (L17), n'écris JAMAIS une valeur dérivable depuis l'état du système. Écris seulement :
+- des **cibles** (target_ballast_strict_pct=20%)
+- des **seuils** (warn_pct=-25%, breach_pct=-30%)
+- des **identifiants** (ballast_strict_tickers=[MP, SAF.PA, ...])
+- des **flags doctrinaux** (archetype=concentrator_thematic, construction_phase=true)
+
+La **valeur courante** est calculée par un helper dédié qui lit les positions / signaux / state DB live.
+
+**Si une valeur "current_X" historique a une utilité de traçabilité** (ex : "ce que c'était au moment de la déclaration de la cible") → la garde comme `declared_pct` metadata explicite, et surface le live + la divergence si > tolérance.
+
+**Symptôme de violation** : un dashboard qui affiche `target.current_ballast_strict_pct` directement, ou un Telegram qui réutilise la valeur YAML pour calculer un gap.
+
+**Application** :
+- `intelligence/ballast_compute.compute_ballast_strict(positions)` = source canonique du live.
+- `dashboard.render._render_ballast_cell` consomme le live + surface `declared_pct` comme metadata si divergence > 1pp.
+- Le YAML garde `target_ballast_strict_pct` + `ballast_strict_tickers` (déclaratif), pas `current_*`.
+
+### Test verrouillé
+
+`tests/test_ballast_compute.py::test_declared_vs_live_divergence_surfaced` — YAML déclare 14%, positions live → 10%, helper retourne `current_pct=10.0` + `declared_pct=14.0`. La divergence est SURFACÉE, jamais cachée. Le live PRIME.
+
+### Référencer
+
+Source canonique : `docs/QUALITY_BAR.md` M1 doctrine (figé 07/06). L23 ici généralise M1 du cas eur_value (Axe 3) à tout YAML déclaratif. CLAUDE.md "Catches récurrents" : avant tout ajout de `current_*` dans un YAML, demander "ai-je un helper qui dérive ça live ?". Si oui → garder seulement target/seuil/identifiants, pas la valeur courante.

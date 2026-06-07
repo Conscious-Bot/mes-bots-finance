@@ -717,6 +717,42 @@ def _vigilance_panel() -> str:
     )
 
 
+def _render_ballast_cell(target: dict) -> str:
+    """Axe 4 (b) M1 doctrine : ballast live derive, jamais YAML statique.
+
+    Le YAML risk_watch declarait current_ballast_strict_pct=14% en mai (pollution
+    M1, valeur figee). Source verite ici = compute_ballast_strict(positions actuelles).
+    Si live diverge du YAML, surface les 2 avec live prominent.
+    """
+    try:
+        from intelligence.ballast_compute import compute_ballast_strict
+        positions = _positions()
+        bs = compute_ballast_strict(positions)
+    except Exception:
+        bs = None
+
+    if not bs:
+        # Fallback : YAML statique, marque "live indispo" (M1 honnete)
+        return (
+            f'<div class="rw-cell"><div class="rw-h">Strict decorrelated ballast</div>'
+            f'<div class="rw-v mono">{target.get("current_ballast_strict_pct", "?")}%</div>'
+            f'<div class="rw-t">target: {target.get("target_ballast_strict_pct", "?")}% · live indispo</div></div>'
+        )
+
+    sev_cls = {"breach": "neg", "warn": "warn", "ok": ""}.get(bs["severity"], "")
+    sub_parts = [f'target: {bs["target_pct"]}%', f'gap {bs["gap_pp"]:+.1f}pp']
+    if bs["declared_pct"] is not None and abs(bs["declared_pct"] - bs["current_pct"]) > 1.0:
+        sub_parts.append(f'decl(YAML): {bs["declared_pct"]}%')
+    if bs["tickers_missing"]:
+        sub_parts.append(f'missing: {",".join(bs["tickers_missing"])}')
+
+    return (
+        f'<div class="rw-cell"><div class="rw-h">Strict decorrelated ballast</div>'
+        f'<div class="rw-v mono {sev_cls}">{bs["current_pct"]}%</div>'
+        f'<div class="rw-t">{" · ".join(sub_parts)}</div></div>'
+    )
+
+
 def _risk_watch_panel() -> str:
     """Top Risks declares - first-class surveillance sur Vue d'ensemble.
 
@@ -790,6 +826,7 @@ def _risk_watch_panel() -> str:
             for m in mitigations
         )
 
+        ballast_cell_html = _render_ballast_cell(target)
         out.append(
             '<div class="rw-card">'
             f'<div class="rw-head"><span class="rw-rank">#{r.get("rank", "?")}</span>'
@@ -801,9 +838,7 @@ def _risk_watch_panel() -> str:
             f'<div class="rw-cell"><div class="rw-h">Estimated drawdown stress</div>'
             f'<div class="rw-v mono neg">{target.get("current_estimated_drawdown_stress", "?")}%</div>'
             f'<div class="rw-t">target: {target.get("target_estimated_drawdown_stress", "?")}%</div></div>'
-            f'<div class="rw-cell"><div class="rw-h">Strict decorrelated ballast</div>'
-            f'<div class="rw-v mono">{target.get("current_ballast_strict_pct", "?")}%</div>'
-            f'<div class="rw-t">target: {target.get("target_ballast_strict_pct", "?")}%</div></div>'
+            + ballast_cell_html +
             f'<div class="rw-cell"><div class="rw-h">Mitigation plan</div>'
             f'<div class="rw-v mono">{avg_progress:.0f}%</div>'
             f'<div class="rw-t">A/B/C levers in progress</div></div>'
