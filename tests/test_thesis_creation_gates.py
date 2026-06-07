@@ -17,6 +17,7 @@ import pytest
 from intelligence.thesis_creation_gates import (
     check_m1_buffett_quality,
     check_m2_taleb_asymmetry,
+    check_m11_ackman_concentration,
     run_creation_gates,
 )
 
@@ -139,19 +140,67 @@ def test_m2_invalid_geometry_warns_not_blocks():
     assert r.passed  # downside <= 0 -> ratio None -> warn
 
 
+# --- M11 Ackman concentration check ---------------------------------------
+
+
+def test_m11_low_conviction_does_not_fire():
+    """conviction 1-4 : ne fire pas (Ackman n'attend que sur conviction 5)."""
+    book_ranks = {"NVDA": 8}
+    for conv in (1, 2, 3, 4):
+        r = check_m11_ackman_concentration("NVDA", conv, book_ranks)
+        assert r.passed, f"conv={conv} doit passer"
+
+
+def test_m11_high_conviction_in_top5_passes():
+    """conviction 5 + rang 1-5 -> pass."""
+    book_ranks = {"NVDA": 1, "MSFT": 3, "ASML": 5}
+    for ticker in ("NVDA", "MSFT", "ASML"):
+        r = check_m11_ackman_concentration(ticker, 5, book_ranks)
+        assert r.passed
+        assert "top-5" in r.message or f"rang #{book_ranks[ticker]}" in r.message
+
+
+def test_m11_high_conviction_outside_top5_fails():
+    """conviction 5 + rang > 5 -> FAIL Ackman incoherence."""
+    book_ranks = {"NVDA": 1, "MSFT": 3, "LOWPOS": 12}
+    r = check_m11_ackman_concentration("LOWPOS", 5, book_ranks)
+    assert not r.passed
+    assert "M11 Ackman FAIL" in r.message
+    assert "#12" in r.message
+
+
+def test_m11_ticker_absent_from_book_warns_not_blocks():
+    """Ticker pas en book (these en cours creation) -> warning pas block."""
+    book_ranks = {"NVDA": 1}
+    r = check_m11_ackman_concentration("NEW_THESIS_TICKER", 5, book_ranks)
+    assert r.passed
+    assert "warning" in r.message.lower()
+
+
+def test_m11_book_ranks_none_tries_fetch():
+    """book_ranks=None -> fetch via shared.book (peut crash en test).
+    Si crash -> warning + passed=True. Si OK -> validate normalement."""
+    r = check_m11_ackman_concentration("UNKNOWN_TICKER", 5, book_ranks=None)
+    # Soit warning fetch indispo, soit ticker pas en book ; in both cases passed
+    assert r.passed
+
+
 # --- Aggregator ------------------------------------------------------------
 
 
-def test_run_creation_gates_returns_both():
-    """run_creation_gates lance les 2 gates et retourne les 2 results."""
+def test_run_creation_gates_returns_all_three():
+    """run_creation_gates lance les 3 gates (M1+M2+M11) et retourne les 3."""
     results = run_creation_gates(
         ticker="NVDA", direction="long", conviction=4,
         solidite="Solide",
         entry=100.0, target_full=120.0, stop_price=95.0,
+        book_ranks={"NVDA": 2},
     )
-    assert len(results) == 2
+    assert len(results) == 3
     names = {r.gate_name for r in results}
-    assert names == {"M1_buffett_quality", "M2_taleb_asymmetry"}
+    assert names == {
+        "M1_buffett_quality", "M2_taleb_asymmetry", "M11_ackman_concentration"
+    }
     assert all(r.passed for r in results)
 
 
@@ -166,12 +215,15 @@ def test_run_creation_gates_low_conviction_all_pass():
 
 
 def test_run_creation_gates_high_conviction_mixed_fail():
-    """conviction 5 + Fragile + low ratio -> deux gates fail simultanement."""
+    """conviction 5 + Fragile + low ratio + rank>5 -> 3 gates fail simultanement."""
     results = run_creation_gates(
-        ticker="ANY", direction="long", conviction=5,
+        ticker="LOWPOS", direction="long", conviction=5,
         solidite="Fragile",
         entry=100.0, target_full=105.0, stop_price=90.0,  # ratio=0.5
+        book_ranks={"LOWPOS": 10},
     )
     failed = [r for r in results if not r.passed]
-    assert len(failed) == 2
-    assert {r.gate_name for r in failed} == {"M1_buffett_quality", "M2_taleb_asymmetry"}
+    assert len(failed) == 3
+    assert {r.gate_name for r in failed} == {
+        "M1_buffett_quality", "M2_taleb_asymmetry", "M11_ackman_concentration"
+    }

@@ -47,6 +47,12 @@ SOLIDITE_ACCEPTABLE_HIGH_CONVICTION = {"Incontournable", "Solide"}
 CONVICTION_HIGH_THRESHOLD = 4
 ASYMMETRY_MIN_RATIO = 2.0
 
+# M11 Ackman concentration check : a conviction 5, on attend la position dans
+# le top-5 par poids du book. En dessous = sous-dimensionnement vs conviction
+# affichee (Ackman pattern : si tu CROIS, joue gros ; sinon baisse conviction).
+ACKMAN_MAX_RANK = 5
+ACKMAN_CONVICTION_THRESHOLD = 5
+
 
 @dataclass(frozen=True, slots=True)
 class GateResult:
@@ -205,6 +211,91 @@ def check_m2_taleb_asymmetry(
     )
 
 
+# === M11 Ackman concentration check ========================================
+
+
+def check_m11_ackman_concentration(
+    ticker: str,
+    conviction: int,
+    book_ranks: dict[str, int] | None = None,
+) -> GateResult:
+    """Conviction 5 EXIGE position dans le top-5 par poids du book.
+
+    Logique Ackman : si tu te dis ULTRA-convaincu (conviction max), tu joues
+    gros. Si tu joues petit malgre conviction max, c'est qu'au fond tu n'es
+    pas si convaincu, ou que la sizing trahit la conviction affichee.
+
+    Args:
+        ticker : pour le message + lookup dans book_ranks.
+        conviction : 1-5.
+        book_ranks : dict {ticker: rank_by_weight} ou None. Si None,
+          le helper essaie de fetch via shared.book (peut crash en test).
+          Rank 1 = plus gros poids du book.
+
+    Returns:
+        GateResult. Gate fire seulement si conviction == 5 ET ticker present
+        en book ET rank > 5. Si ticker absent du book (these en cours de
+        creation = pas encore en DB), passed=True avec note neutre."""
+    if conviction < ACKMAN_CONVICTION_THRESHOLD:
+        return GateResult(
+            gate_name="M11_ackman_concentration",
+            passed=True,
+            message=(
+                f"conviction {conviction} < {ACKMAN_CONVICTION_THRESHOLD} -- "
+                "gate ne fire pas"
+            ),
+        )
+    if book_ranks is None:
+        try:
+            book_ranks = _fetch_book_ranks_by_weight()
+        except Exception as e:
+            return GateResult(
+                gate_name="M11_ackman_concentration",
+                passed=True,
+                message=f"warning : book_ranks indisponible ({type(e).__name__}: {e})",
+            )
+    rank = book_ranks.get(ticker)
+    if rank is None:
+        return GateResult(
+            gate_name="M11_ackman_concentration",
+            passed=True,
+            message=(
+                f"warning : {ticker} pas (encore) en DB book -- "
+                "M11 ne peut pas verifier rang"
+            ),
+        )
+    if rank <= ACKMAN_MAX_RANK:
+        return GateResult(
+            gate_name="M11_ackman_concentration",
+            passed=True,
+            message=(
+                f"{ticker} rang #{rank} dans top-{ACKMAN_MAX_RANK} "
+                "(conviction 5 coherent avec sizing)"
+            ),
+        )
+    return GateResult(
+        gate_name="M11_ackman_concentration",
+        passed=False,
+        message=(
+            f"M11 Ackman FAIL : {ticker} conviction 5 mais rang #{rank} "
+            f"par poids (top-{ACKMAN_MAX_RANK} attendu). Catch Ackman : "
+            "'si t'es vraiment convaincu max, joue gros; sizing petit + "
+            "conviction max = incoherence ou conviction surevaluee'."
+        ),
+    )
+
+
+def _fetch_book_ranks_by_weight() -> dict[str, int]:
+    """Helper : rang par market value (weight_market_eur) des positions
+    ouvertes via shared.book. Rang 1 = plus gros poids."""
+    from shared.book import get_canonical_book
+    book = get_canonical_book(with_prices=True)
+    # Filter positions open + weight_market > 0
+    active = [bl for bl in book if bl.in_db and bl.weight_market_eur > 0]
+    active.sort(key=lambda bl: bl.weight_market_eur, reverse=True)
+    return {bl.ticker: i + 1 for i, bl in enumerate(active)}
+
+
 # === Aggregator ============================================================
 
 
@@ -216,6 +307,7 @@ def run_creation_gates(
     entry: float | None = None,
     target_full: float | None = None,
     stop_price: float | None = None,
+    book_ranks: dict[str, int] | None = None,
 ) -> list[GateResult]:
     """Lance tous les gates de creation thèse.
 
@@ -226,6 +318,7 @@ def run_creation_gates(
         check_m2_taleb_asymmetry(
             ticker, conviction, direction, entry, target_full, stop_price
         ),
+        check_m11_ackman_concentration(ticker, conviction, book_ranks),
     ]
 
 

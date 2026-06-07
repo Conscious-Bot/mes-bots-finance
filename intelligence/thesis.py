@@ -70,6 +70,7 @@ def add_thesis(
             entry=entry_price,
             target_full=target_full,
             stop_price=None,
+            book_ranks=None,  # M11 lazy fetch via shared.book
         )
         for _g in _gates:
             if not _g.passed:
