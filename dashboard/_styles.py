@@ -901,6 +901,10 @@ _CSS = """
   .performance-card .perf-kpi .k { font-family:var(--fb); font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s15); }
   .performance-card .perf-kpi .v { font-family:var(--fm); font-size:22px; font-weight:500; color:var(--ink); line-height:1; }
   .performance-card .perf-kpi .v.neg { color:var(--bear); }
+  .performance-card .perf-chart-block { margin-top:var(--s35); }
+  .performance-card .perf-chart-h { font-family:var(--fb); font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s15); }
+  .performance-card .perf-equity-svg { display:block; width:100%; max-height:60px; }
+  .performance-card .perf-dd-svg { display:block; width:100%; max-height:50px; }
   @media (max-width:980px) { .performance-card .perf-grid { grid-template-columns:repeat(2, 1fr); } }
   /* Calibration progress panel (action #3 31/05) -- s'active a n>=30 */
   .calibcard .calib-progress { display:flex; align-items:center; gap:var(--s4); margin-top:var(--s35); }

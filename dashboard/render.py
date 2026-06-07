@@ -997,6 +997,72 @@ def _performance_panel() -> str:
     dd_now = float(dd_series.iloc[-1]) if len(dd_series) else 0.0
     n_days = len(prices)
 
+    # === Charts SVG inline : equity curve + drawdown area ===
+    # Pattern coherent avec _macro_sparkline et autres SVG inline. Pas de
+    # dep externe. Adaptatif au theme via var(--ink) / var(--bear) / etc.
+
+    def _build_equity_sparkline(price_series, width=720, height=60, pad=4) -> str:
+        """Polyline equity curve full width. Couleur acc si up, bear si down."""
+        vals = list(price_series.values)
+        n = len(vals)
+        if n < 2:
+            return ""
+        lo, hi = min(vals), max(vals)
+        rng = (hi - lo) or 1.0
+        pts = []
+        for i, v in enumerate(vals):
+            x = pad + (i / max(1, n - 1)) * (width - 2 * pad)
+            y = pad + (height - 2 * pad) - ((v - lo) / rng) * (height - 2 * pad)
+            pts.append(f"{x:.1f},{y:.1f}")
+        last_x, last_y = pts[-1].split(",")
+        color = "var(--acc)" if vals[-1] >= vals[0] else "var(--bear)"
+        # area fill subtle pour gradient effect
+        area_pts = " ".join(pts) + f" {width-pad:.1f},{height-pad:.1f} {pad:.1f},{height-pad:.1f}"
+        return (
+            f'<svg class="perf-equity-svg" viewBox="0 0 {width} {height}" '
+            f'preserveAspectRatio="none" width="100%" height="{height}">'
+            f'<polygon points="{area_pts}" fill="{color}" opacity="0.08"/>'
+            f'<polyline points="{" ".join(pts)}" fill="none" stroke="{color}" '
+            f'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+            f'<circle cx="{last_x}" cy="{last_y}" r="2.5" fill="{color}"/>'
+            f'</svg>'
+        )
+
+    def _build_drawdown_chart(dd_series, days=30, width=720, height=50, pad=4) -> str:
+        """Drawdown area chart sur les `days` derniers points. Toujours rouge
+        car DD est negatif. Area fill = severite visible."""
+        vals = list(dd_series.tail(days).values)
+        n = len(vals)
+        if n < 2:
+            return ""
+        # DD est en [-1, 0] approximativement, on cale sur le min observe
+        lo = min(min(vals), -0.01)  # min 1% pour graph
+        hi = 0.0
+        rng = (hi - lo) or 1.0
+        pts = []
+        for i, v in enumerate(vals):
+            x = pad + (i / max(1, n - 1)) * (width - 2 * pad)
+            # DD 0 en haut, DD -X en bas
+            y = pad + ((hi - v) / rng) * (height - 2 * pad)
+            pts.append(f"{x:.1f},{y:.1f}")
+        # Area : ligne + ferme par les coins bas droite/gauche
+        area_pts = " ".join(pts) + f" {width-pad:.1f},{height-pad:.1f} {pad:.1f},{height-pad:.1f}"
+        return (
+            f'<svg class="perf-dd-svg" viewBox="0 0 {width} {height}" '
+            f'preserveAspectRatio="none" width="100%" height="{height}">'
+            f'<polygon points="{area_pts}" fill="var(--bear)" opacity="0.18"/>'
+            f'<polyline points="{" ".join(pts)}" fill="none" stroke="var(--bear)" '
+            f'stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>'
+            f'</svg>'
+        )
+
+    try:
+        equity_chart = _build_equity_sparkline(prices)
+        dd_chart = _build_drawdown_chart(dd_series, days=30)
+    except Exception:
+        equity_chart = ""
+        dd_chart = ""
+
     return (
         '<div class="card performance-card">'
         '<div class="card-h">Performance · ffn analytics (1y rolling)</div>'
@@ -1011,7 +1077,19 @@ def _performance_panel() -> str:
         f'<div class="perf-kpi"><div class="k">Sortino</div><div class="v mono">{sortino}</div></div>'
         f'<div class="perf-kpi"><div class="k">Calmar</div><div class="v mono">{calmar}</div></div>'
         '</div>'
-        '</div>'
+        + (
+            '<div class="perf-chart-block">'
+            '<div class="perf-chart-h">Equity curve (1y)</div>'
+            f'{equity_chart}'
+            '</div>' if equity_chart else ""
+        )
+        + (
+            '<div class="perf-chart-block">'
+            '<div class="perf-chart-h">Drawdown 30j</div>'
+            f'{dd_chart}'
+            '</div>' if dd_chart else ""
+        )
+        + '</div>'
     )
 
 
