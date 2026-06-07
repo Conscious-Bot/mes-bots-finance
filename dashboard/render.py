@@ -2393,17 +2393,133 @@ def _position_card(inputs, steer_v2) -> str:
             '</div>'
         )
 
-    # Invalidation triggers list
+    # Invalidation triggers list (count fired depuis erosion)
     inv_html = ""
     if invals:
         inv_html = (
             '<div class="pc-section">'
-            f'<div class="pc-section-h">INVALIDATION TRIGGERS (0/{len(invals)} fired)</div>'
+            f'<div class="pc-section-h">INVALIDATION TRIGGERS '
+            f'({inputs.erosion_n_invalidation_hit}/{len(invals)} fired)</div>'
             + "".join(
                 f'<div class="pc-inv">&#9675; {(t if isinstance(t, str) else str(t))[:160]}</div>'
                 for t in invals
             )
             + '</div>'
+        )
+
+    # ── Section WHAT CHANGED SINCE ENTRY (etape 6) ────────────────────────
+    # Source : inputs.erosion_classifications (persistees couche 1).
+    # Top-5 par materiality * confidence (signaux les plus impactants).
+    what_changed_html = ""
+    if inputs.erosion_classifications:
+        scored = sorted(
+            inputs.erosion_classifications,
+            key=lambda c: float(c.get("materiality") or 0) * float(c.get("confidence") or 0),
+            reverse=True,
+        )[:5]
+        rows = []
+        for c in scored:
+            rel = c.get("relation") or "neutral"
+            bears = c.get("bears_on") or "none"
+            mat = float(c.get("materiality") or 0)
+            conf = float(c.get("confidence") or 0)
+            idx = c.get("target_index")
+            quote = (c.get("evidence_quote") or "")[:120]
+            rationale = (c.get("rationale") or "")[:120]
+            rel_cls = {
+                "confirms": "ok", "erodes": "warn",
+                "triggers": "neg", "neutral": "neu",
+            }.get(rel, "neu")
+            target_label = (
+                f"{bears.upper()[0:3]}[{idx}]"
+                if idx is not None and bears in ("driver", "invalidation")
+                else "—"
+            )
+            rows.append(
+                '<div class="pc-changed-row">'
+                f'<span class="pc-changed-rel {rel_cls} mono">{rel}</span>'
+                f'<span class="pc-changed-target mono">{target_label}</span>'
+                f'<span class="pc-changed-conf mono" style="opacity:0.7">'
+                f'mat {mat:.1f} · conf {conf:.2f}</span>'
+                f'<span class="pc-changed-quote" style="font-size:11px">'
+                f'{rationale or quote or "—"}</span>'
+                '</div>'
+            )
+        what_changed_html = (
+            '<div class="pc-section">'
+            f'<div class="pc-section-h">WHAT CHANGED SINCE ENTRY '
+            f'(top-{len(scored)}/{len(inputs.erosion_classifications)} classifications)</div>'
+            + "".join(rows)
+            + '</div>'
+        )
+    elif inputs.erosion_verdict is None:
+        what_changed_html = (
+            '<div class="pc-section">'
+            '<div class="pc-section-h">WHAT CHANGED SINCE ENTRY</div>'
+            '<div class="pc-empty" style="font-style:italic;opacity:0.7">'
+            'aucune classification persistee (cron erosion pas encore wire ; '
+            'compute_all_active_theses produira la timeline post-1er run)</div>'
+            '</div>'
+        )
+
+    # ── Section DISCIPLINE FLAGS (etape 6) ────────────────────────────────
+    # Compose les monitors existants par ticker (pas duplication).
+    flags = []
+    if inputs.kill_status and inputs.kill_status != "dormant":
+        kc = "neg" if inputs.kill_status == "triggered" else "warn"
+        flags.append(("KILL_CRITERIA", inputs.kill_status, kc))
+    if inputs.over_cap_status == "over":
+        op_pct = f"{inputs.over_cap_pct:.1f}%" if inputs.over_cap_pct else "?"
+        flags.append(("OVER_CAP", f"weight {op_pct}", "warn"))
+    if inputs.bias_events_open:
+        bias_names = ", ".join(
+            sorted({(b.get("bias") or "?") for b in inputs.bias_events_open})
+        )
+        flags.append(("BIAS_OPEN", f"{len(inputs.bias_events_open)} ({bias_names})", "warn"))
+    if inputs.ballast_membership:
+        flags.append(("BALLAST", "membre ballast_strict", "ok"))
+    if inputs.conviction_n_drifts > 0:
+        flags.append(
+            ("CONV_DRIFT", f"{inputs.conviction_n_drifts} drift(s) historiques", "neu")
+        )
+
+    discipline_html = ""
+    if flags:
+        rows = []
+        for label, value, cls in flags:
+            rows.append(
+                '<div class="pc-flag-row">'
+                f'<span class="pc-flag-label {cls} mono">{label}</span>'
+                f'<span class="pc-flag-value">{value}</span>'
+                '</div>'
+            )
+        discipline_html = (
+            '<div class="pc-section">'
+            f'<div class="pc-section-h">DISCIPLINE FLAGS ({len(flags)} actifs)</div>'
+            + "".join(rows)
+            + '</div>'
+        )
+
+    # ── Section COUNTER-ARGUMENT (etape 6) ────────────────────────────────
+    # Source : bot_copilot_interventions latest (decision_copilot pressure).
+    counter_html = ""
+    if inputs.counter_argument_brief:
+        ca_at = (inputs.counter_argument_at or "")[:10]
+        ps = inputs.counter_argument_pressure_score
+        ps_chip = ""
+        if ps is not None:
+            ps_cls = "neg" if ps >= 7 else "warn" if ps >= 4 else "neu"
+            ps_chip = (
+                f'<span class="pc-ca-pressure {ps_cls} mono" style="margin-left:8px">'
+                f'pressure {ps}/10</span>'
+            )
+        counter_html = (
+            '<div class="pc-section">'
+            f'<div class="pc-section-h">CONTRE-ARGUMENT (decision_copilot {ca_at})'
+            f'{ps_chip}</div>'
+            f'<div class="pc-ca-brief" style="font-style:italic">'
+            f'« {inputs.counter_argument_brief[:400]} »</div>'
+            '</div>'
         )
 
     # Steer block (Catch 2 : EXIT et SIZE separes)
@@ -2521,7 +2637,10 @@ def _position_card(inputs, steer_v2) -> str:
         '</div>'
         + slider_html
         + verdict_html
+        + what_changed_html
         + inv_html
+        + discipline_html
+        + counter_html
         + justif_html
         + steer_html
         + '</div>'
