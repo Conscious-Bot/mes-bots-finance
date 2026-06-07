@@ -121,6 +121,50 @@ Doctrine 07/06 : les principes des mentors ≠ persona LLM agents. On encode en 
 8. **Model zoo SOTA papers tournée best-of-N** (qlib HIST/TRA/TFT/ADD…) — signature plateforme qui empile sans valider.
 9. **RD-Agent intégration** (microsoft qlib partenaire NeurIPS 2025) — LLM factor mining boucle fermée = overfitting industrialisé. Casserait l'auditabilité Brier ledger PRESAGE. **DON'T INTEGRATE**.
 
+### 📥 PATTERNS DIGEST 07/06 soir — Bloomberg-killer feedback + Heimdall UX review
+
+Doctrine accumulation : tout ce qui est potentiellement amélioration on prend, on tag, on note source + verdict L14/doctrine.
+
+#### 📡 Data APIs externes à évaluer (broadening data sources, post J-day)
+| API | Coût | Potentiel PRESAGE | Verdict L14 | Effort |
+|---|---|---|---|---|
+| **FMP (Financial Modeling Prep)** | free tier généreux | fundamentals (P/E, EPS, ratios, DCF), enrich thesis création + M9 Damodaran gate | ✅ pas L14 (data déterministe pas predictive) | ~3h wire `shared/fundamentals.py` + cache TTL daily |
+| **Polygon.io** | free limité | real-time US stocks/options/forex, complète yfinance pour intraday | ✅ pas L14 | ~2h si on étend `_cached_price_eur` |
+| **Finnhub** | free 60 calls/min | news sentiment (déjà flagged anti-doctrine post 30/05 mais utile en data lookup) | 🟡 OK pour news, ❌ pour sentiment-as-signal | ~1h news endpoint |
+| **Alpha Vantage** | free 5 calls/min | historical, low rate | 🟡 redondant yfinance | skip |
+| Finviz | gratuit screener visuel | inspiration UX screener, pas API | ✅ design ref | inspiration only |
+| Investing.com / TradingView eco calendar | gratuit | économique calendar enrich `seed_macro_events` | ✅ pas L14 | ~2h scrape ou JSON public |
+| CoinGecko / CMC | gratuit | **drop — stock-only doctrine** | ❌ hors scope | skip |
+| Streamlit | OSS | **drop — anti-doctrine "minimal moving parts" + on a serve.py** | ❌ frontend churn | skip |
+| Twitter/X sentiment | API payante | **drop — sentiment-as-signal mis L14 30/05** | ❌ anti-doctrine | skip |
+
+#### 🎯 Features candidates (catalyst + shadow)
+- **Catalyst Probability & Magnitude surface** : panel dédié qui agrège proba+magnitude par catalyseur futur (earnings, FOMC, presentation produit). On a déjà la data via `signal_scorer_v2` (prob_3m/12m) + thesis `target_pct`/horizon. Manque : surface UI qui groupe par catalyst et chip "magnitude attendu". ~3h render.py + 1 query SQL. ✅ pas L14 (lit data existante, ne génère pas alpha). Priorité **MOYENNE**.
+- **Shadow Portfolio "discipline-100%"** : track record alternatif simulant ce qu'aurait fait le book si toutes recos bot exécutées 100%. Différent de `shadow_scoring` (qui compare V1 vs V2). Permet quantifier le gap user-execution vs bot-pure. ~6h : table `shadow_executions`, daily cron qui réplique decision_copilot trades en virtuel, surface chip "écart-discipline" sur grade panel. ✅ pas L14 (audit de discipline, pas alpha). Priorité **HAUTE** post J-day (gros gain track-record vs réalité broker).
+
+#### 🎨 Heimdall UX feedback (decision cockpit upgrade)
+Audit qualitatif externe sur dashboard 07/06. Patterns à digérer post J-day :
+- **True decision header** : 4-5 KPI cards (P&L 1D/YTD toggle, max DD, vol, hit ratio, cash %) + risk dial agrégé (STRESS+SURCHAUFFE+régime → CALME/NEUTRE/TENDU/CRITIQUE) + "Next action" tile auto-generated. ~4h render.py refonte top. ✅ pas L14. Priorité **HAUTE** (transforme monitoring → decision support).
+- **Performance & regime panel** : equity curve vs benchmark + drawdown band + regime shading (bull/range/risk-off) + rolling vol/Sharpe + heatmap daily P&L 3 derniers mois. ~6h render.py + benchmark data (FMP). ✅ pas L14. **HAUTE**.
+- **Concentration → fragility map** : top N positions by risk contribution (weight × volatility × correlation) au lieu de juste weight. Scenario stress (rate shock, semi -10%, KRW -5%). Correlation clusters (semi, AI infra, domestic KR). ~4h calcul + render. ✅ pas L14 (déterministe sur returns historiques). Priorité **MOYENNE**.
+- **Signals → playbook** : catégorisation Entry/Trim/Exit/Watch + micro-context inline (P&L courant, distance stop, distance target, rank book) + filtres click-to-filter. ~3h. ✅ pas L14. Priorité **MOYENNE**.
+- **Time & change dimension** : "Since last login" strip (positions opened/closed, stops moved, signals fired, top risk delta), Δ vs previous period toggle 1D/1W, "top deltas" tile. ~4h instrumentation `last_seen_ts` + diff query. ✅ pas L14. Priorité **MOYENNE**.
+- **Click-to-filter cross-panel** : click ticker/secteur → tout dashboard se filtre. Pattern interaction. ~3h JS state. ✅ pas L14. Priorité **BASSE** (gros JS, ROI incertain).
+- **Ticker slide-over fact sheet** : click ticker → panel droit avec mini chart (lightweight-charts) + EPS trend + ratios + news + inline notes. ~6h fact sheet renderer. ✅ pas L14 (data déterministe). Priorité **MOYENNE**.
+
+#### 🟡 Indicateurs TA (RSI/MACD/SMA cross) — verdict spécial
+- **NE PAS** utiliser comme decision signal (anti-doctrine "discipline mécanisée pas alpha prédictif"). L14 catch.
+- **OK** afficher dans ticker slide-over comme CONTEXT visuel (lecture, pas trigger). User sait que c'est descriptif.
+- RSI <30 / SMA 50>200 / MACD cross = pas dans gate de trade ni dans scorer. Strictly UI context.
+
+#### ⚖️ Verdict global du digest
+~10 patterns retenus, 4 drop (crypto/Streamlit/X-sentiment/AlphaVantage). Ordre suggéré post J-day :
+1. Phase 1.2-1.5 d'abord (M-A Calibration contract — déjà sequencé)
+2. True decision header + Performance panel (M-D Active monitoring upgrade)
+3. Shadow Portfolio (orthogonal — gros gain track-record audit)
+4. FMP fundamentals wire (M-B Thesis creation enrichment + M9 Damodaran gate)
+5. Catalyst surface + slide-over fact sheet (UX polish, ROI moyen)
+
 ### Scores comparatifs
 
 | Repo | Utilité PRESAGE | Verdict 1-line |
