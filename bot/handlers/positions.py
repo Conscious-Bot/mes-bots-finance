@@ -153,11 +153,14 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("No active positions.\n\nUse /position_buy <TICKER> <qty> <price> to open one.")
         return
 
+    # Cap absolu pour display fallback (utilise quand conviction unknown
+    # ou pour threshold uniforme dans le header). Cap fin par-ligne lu via
+    # cap_for_conviction(theses_map[ticker]) dans la boucle d'enrichment.
+    from shared.sizing_caps import absolute_max_cap
     try:
-        cfg = cfg_mod.load()
-        max_pct = float(cfg.get("style", {}).get("position_max_pct", 0.05))
+        max_pct = absolute_max_cap()
     except Exception:
-        max_pct = 0.05
+        max_pct = 0.06
     max_pct_threshold = max_pct * 100
 
     # Fetch conviction from active theses

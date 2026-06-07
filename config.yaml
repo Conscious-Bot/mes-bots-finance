@@ -361,12 +361,10 @@ universe:
 style:
   default_horizon: 6m
   conviction_min: 3
-  # Plafond ABSOLU = cap c5 (= ancre line_cap_by_conviction sommet bride).
-  # Knob legacy lu par risk/sizing.py + risk/risk_engine.py + bot/handlers/positions.py
-  # comme cap uniforme. Aligne sur c5 pour ne pas laisser une c3 atteindre 6% via
-  # cap legacy. Le cap fin (par conviction) reste concentration.line_cap_by_conviction.
-  # TODO #73 : retirer ce knob et router tous les enforcers vers le cap fin.
-  position_max_pct: 0.06
+  # position_max_pct LEGACY RETIRE 07/06 (TODO #73 partie 1 done).
+  # Source unique du cap par ligne = concentration.line_cap_by_conviction
+  # via shared/sizing_caps.cap_for_conviction(conv). Plafond absolu disponible
+  # via absolute_max_cap() = cap c5. Aucun reader n'utilise plus style.position_max_pct.
   sector_max_pct: 0.2
   narrative_max_pct: 0.3
 risk:

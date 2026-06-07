@@ -12,6 +12,7 @@ Reference: tennis-bot AUDIT.md (Quarter Kelly + drawdown gates).
 from dataclasses import dataclass
 
 from shared import config, storage
+from shared.sizing_caps import cap_for_conviction
 
 
 @dataclass
@@ -27,18 +28,22 @@ def validate(decision: dict) -> ValidationResult:
     cfg = config.load()
     state = storage.load_state()
 
+    # Cap fin par conviction (source unique : line_cap_by_conviction).
+    # Fallback c5 si conviction absente (defense conservative).
+    max_pct = cap_for_conviction(decision.get("conviction"))
+
     dd = state["drawdown_pct"]
     if dd >= cfg["risk"]["drawdown_stop_pct"]:
         return ValidationResult(False, [f"Drawdown STOP ({dd:.1%})"], "block")
     if (
         dd >= cfg["risk"]["drawdown_reduce_pct"]
-        and decision.get("size_pct", 0) > cfg["style"]["position_max_pct"] * 0.5
+        and decision.get("size_pct", 0) > max_pct * 0.5
     ):
         reasons.append(f"Drawdown reduce: size halved (current {dd:.1%})")
         decision["size_pct"] *= 0.5
 
-    if decision.get("size_pct", 0) > cfg["style"]["position_max_pct"]:
-        reasons.append(f"Size > max_pct {cfg['style']['position_max_pct']}")
+    if decision.get("size_pct", 0) > max_pct:
+        reasons.append(f"Size > max_pct {max_pct}")
         return ValidationResult(False, reasons, "block")
 
     if decision.get("conviction", 0) < cfg["style"]["conviction_min"]:

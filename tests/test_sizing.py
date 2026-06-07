@@ -30,12 +30,38 @@ def test_positive_edge_returns_positive_size():
 
 
 def test_hard_cap_respected():
-    """Even with huge edge, size capped at position_max_pct (lu depuis config, pas hardcode)."""
-    from shared import config
+    """Even with huge edge, size capped at cap_for_conviction (lu depuis config, pas hardcode).
+    Sans conviction fournie -> defense conservative cap c5 (sommet bride)."""
+    from shared.sizing_caps import absolute_max_cap
 
-    max_pct = config.load()["style"]["position_max_pct"]
-    s = position_size(10.0, 0.01, 10000, 1.0)  # Massive Kelly
+    max_pct = absolute_max_cap()
+    s = position_size(10.0, 0.01, 10000, 1.0)  # Massive Kelly, conviction None
     assert s <= 10000 * max_pct + 1e-6, f"Sizing {s} viole le cap {max_pct:.0%}"
+
+
+def test_cap_varies_by_conviction():
+    """Cap fin decroit monotone par conviction (pente compressee)."""
+    sizes = [
+        position_size(10.0, 0.01, 10000, 1.0, conviction=c)
+        for c in (5, 4, 3, 2, 1)
+    ]
+    # Strictly decreasing
+    assert all(sizes[i] > sizes[i + 1] for i in range(4)), \
+        f"Cap doit decroitre monotone: {sizes}"
+    # Ratios inter-tiers consecutifs ~0.80 (forme compressee sub-Kelly)
+    for i in range(4):
+        ratio = sizes[i + 1] / sizes[i]
+        assert 0.70 < ratio < 0.90, \
+            f"Ratio c{4-i}/c{5-i} = {ratio:.2f} hors plage compressee [0.70, 0.90]"
+
+
+def test_cap_unknown_conviction_falls_back_c5():
+    """conviction inconnue (99) -> cap c5 fallback (defense conservative)."""
+    from shared.sizing_caps import absolute_max_cap
+    s_unknown = position_size(10.0, 0.01, 10000, 1.0, conviction=99)
+    s_c5 = position_size(10.0, 0.01, 10000, 1.0, conviction=5)
+    assert s_unknown == s_c5, "Cap unknown doit fallback sur c5"
+    assert s_unknown <= 10000 * absolute_max_cap() + 1e-6
 
 
 def test_regime_factor_scales_linearly():

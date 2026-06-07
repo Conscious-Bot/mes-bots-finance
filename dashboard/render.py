@@ -48,7 +48,11 @@ def _cfg() -> dict:
 
 
 _CFG = _cfg()
-POS_CAP = float(_CFG.get("style", {}).get("position_max_pct", 0.05)) * 100
+# Plafond ABSOLU pour markers display "above cap" (uniforme).
+# Source unique : shared.sizing_caps.absolute_max_cap = cap c5 (sommet bride).
+# Cap fin par conviction utilise dans panels qui ont la donnee theses.
+from shared.sizing_caps import absolute_max_cap as _absolute_max_cap
+POS_CAP = _absolute_max_cap() * 100
 NARRATIVE_CAP = float(_CFG.get("style", {}).get("narrative_max_pct", 0.30)) * 100
 DD_REDUCE = float(_CFG.get("risk", {}).get("drawdown_reduce_pct", 0.08)) * 100
 DD_STOP = float(_CFG.get("risk", {}).get("drawdown_stop_pct", 0.20)) * 100
