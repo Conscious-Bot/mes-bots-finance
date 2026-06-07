@@ -1,0 +1,144 @@
+# config/risk_watch.yaml
+#
+# Risques majeurs declares par l'user, surveilles first-class sur Overview.
+# Source de verite DECLARATIVE pour les risques + signals + mitigations.
+# Live state (current_status, last_eval_*) est en table SQLite
+# `risk_signal_evaluations` (append-only, cron-written).
+#
+# Phase 1.5 stage 2 absorption_roadmap : migration depuis scripts/risk_watch.json
+# (qui melangeait declaratif + live state -- violation L17).
+# Pattern canonique : docs/templates/workflow_yaml_pattern.md.
+# Doctrine : docs/LESSONS.md L17 (declarative en YAML, live state en DB).
+
+_meta:
+  schema_version: 1
+  declared_at: '2026-05-29'
+  last_modified: '2026-06-07'  # migration JSON -> YAML + DB split
+  next_review_due: '2026-09-30'  # aligne sur next_oos_window calibration
+  doctrine_refs:
+    - 'docs/LESSONS.md L17 (declarative YAML / live state DB)'
+    - 'docs/templates/workflow_yaml_pattern.md'
+  schema_module: 'intelligence.risk_watch_schema'
+  description: 'Major risks declared by user, first-class monitored on Overview. The bot monitors signal indicators daily and persists evaluations in risk_signal_evaluations table.'
+
+risks:
+  - id: 'surchauffe_tech_ai'
+    rank: 1
+    name: 'Tech overheat / AI capex'
+    severity: 'critical'
+    declared_at: '2026-05-29'
+    exposure:
+      cluster: 'Compute AI'
+      pct_book: 78.0
+      factor: 'AI capex'
+    drawdown_estimates:
+      mild_derating_minus30: -23.0
+      capex_pause_minus40: -31.0
+      thesis_break_minus50: -39.0
+    ballast_strict_pct: 14.0
+    ballast_strict_tickers:
+      - 'MP'
+      - 'SAF.PA'
+      - 'HO.PA'
+      - 'CCJ'
+    scenarios:
+      - 'Multiple de-rating without fundamental break (summer 2024 style): -25 to -35% on premium names, fundamentals intact'
+      - 'Hyperscaler capex pause (META/MSFT/GOOGL/AMZN slowdown 2026-2027): entire pass-through chain (ASML/TSM/4063/BESI/KLAC/6857/7011/SU/AVGO/ALAB) re-prices together, -35 to -45% factor'
+      - 'Deeper AI thesis break (ROI disappoints end customers): -50%+ scenario on factor'
+
+    # === Signals a surveiller ===
+    # Pas de current_status / last_eval_* ici : ces champs sont en DB
+    # (table risk_signal_evaluations). Render.py merge YAML declaratif + DB live state.
+    surveillance_signals:
+      - id: 'capex_hyperscaler'
+        label: 'Hyperscaler capex guidance (next earnings)'
+        weight: 'major'
+        trigger: 'Bearish revision of 2026 capex / cautious commentary'
+        tickers_to_watch: ['MSFT', 'META', 'GOOGL', 'AMZN']
+
+      - id: 'asml_bookings'
+        label: 'ASML annual bookings'
+        weight: 'major'
+        trigger: 'Miss on 2 consecutive quarters'
+        threshold: '>=50B EUR annual'
+
+      - id: 'tsm_monthly_rev'
+        label: 'TSM monthly revenue + utilization N3/N2'
+        weight: 'leading'
+        trigger: '2 consecutive months decline or cautious guidance'
+
+      - id: 'hbm_pricing'
+        label: 'HBM pricing (SK Hynix / Micron commentary)'
+        weight: 'major'
+        trigger: 'Pricing power cracks despite Blackwell ramp support'
+
+      - id: 'vix_credit'
+        label: 'VIX + IG spreads (risk-off macro)'
+        weight: 'amplifier'
+        trigger: 'Risk-off amplifier on long-duration tech'
+        threshold: 'VIX >25 sustained, IG spreads widening'
+
+      - id: 'wafer_pricing'
+        label: 'Wafer pricing (4063.T Shin-Etsu commentary)'
+        weight: 'leading'
+        trigger: 'Pricing softening while demand should support = early signal pass-through chain breaks from below'
+
+      - id: 'insider_selling_cluster'
+        label: 'Insider selling cluster (smart money out)'
+        weight: 'leading'
+        trigger: 'Net insider sells > $50M over 30d without compensating buys on 2+ strategic tickers'
+        data_source: 'insider_snapshots (dedicated table, not signals)'
+        tickers_to_watch: ['TSM', 'ASML', 'AMD', 'AVGO', 'MU', 'ALAB', 'COHR', 'ENTG', 'KLAC', 'SNOW', 'GOOGL', 'AMZN', 'TSLA']
+
+      - id: 'order_intake_softening'
+        label: 'Order books running out of steam'
+        weight: 'leading'
+        trigger: 'Order intake/bookings decline, lead times shrinking, soft demand commentary at fabless/foundry/equipment'
+
+      - id: 'inventory_buildup'
+        label: 'Inventory buildup at customers (channel destocking)'
+        weight: 'leading'
+        trigger: 'Days inventory rising at hyperscalers/distributors, channel stuffing warnings, destocking risk'
+
+      - id: 'earnings_revisions'
+        label: 'Bearish earnings revisions (Sell-side estimates)'
+        weight: 'major'
+        trigger: 'Consensus estimates revised downward 2 consecutive times on Compute AI tickers'
+        tickers_to_watch: ['TSM', 'ASML', 'AMD', 'AVGO', 'MU', 'ALAB']
+
+    # === Plan de mitigation ===
+    mitigation_plan:
+      - id: 'A_trim_doublons'
+        label: 'A. Continue pruning memory overlaps'
+        action: 'Exit SK Hynix (~1500-2000€) toward strict ballast. MU stays memory anchor.'
+        status: 'started'
+        progress_pct: 25
+        notes: 'Trim 499€ done on 05-29, ~1500€ remaining'
+
+      - id: 'B_renforcer_ballast'
+        label: 'B. Strengthen strict ballast'
+        action: 'Bump SAF.PA (priority PEA reinforcement), MP (magnets ramp to execute), HO.PA, CCJ pure uranium'
+        status: 'in_progress'
+        progress_pct: 30
+        notes: 'CCJ bump +1000€ done on 05-29, SAF still under-sized (606€)'
+
+      - id: 'C_trim_valos_premium'
+        label: 'C. Trim on valos > bull case (if signal #1 triggered)'
+        action: 'Priority exits: AMD (P/E ~92x), ALAB (valo>bull+fade), TSLA (valo>bull). To free defensive cash quickly.'
+        status: 'pending'
+        progress_pct: 0
+        notes: 'Activate ONLY if bearish capex revision signal'
+
+    # === Targets metric (current vs cible) ===
+    target:
+      current_ballast_strict_pct: 14.0
+      target_ballast_strict_pct: 20.0
+      current_estimated_drawdown_stress: -31.0
+      target_estimated_drawdown_stress: -25.0
+      note: 'Do not reduce deliberate concentration, but maximize decorrelated ballast within accepted budget.'
+
+    # === Historique des arbitrages user explicites ===
+    user_arbitrage_history:
+      - date: '2026-05-29'
+        decision: 'cluster_cap_target 75 -> 70 to tolerate -21% drawdown instead of -23%'
+        rationale: 'explicit validation: tolerates -16k€ on 70k target (-11k€ today) with discipline'

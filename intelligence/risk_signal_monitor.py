@@ -1,32 +1,34 @@
-"""Sprint 20.b — Daily risk signal monitor.
+"""Sprint 20.b — Daily risk signal monitor (Phase 1.5 stage 2 refactor).
 
 Scan signals table pour pattern matching avec les surveillance_signals
-declarees dans risk_watch.json. Update current_status (monitoring -> at_risk
--> triggered) + notify Telegram sur transition.
+declarees dans config/risk_watch.yaml. Persiste l'evaluation dans la table
+SQLite risk_signal_evaluations (append-only), notify Telegram sur transition.
+
+Refactor 07/06 (doctrine L17 LESSONS) :
+  - AVANT : lit + ecrit scripts/risk_watch.json (declaratif + live state melange)
+  - APRES : lit config/risk_watch.yaml (declaratif via Pydantic-valide
+    shared/risk_watch.load_risk_watch) + ecrit table DB
+    (shared/storage.insert_risk_signal_evaluation)
 
 Approche hybride :
   1. SQL filter : narrow aux signaux mentionnant tickers/keywords pertinents
   2. Haiku eval : interprete le corpus filtre vs le surveillance_signal context
-  3. Persist current_status + last_checked_at directement dans risk_watch.json
+  3. Persist evaluation dans table risk_signal_evaluations (append-only)
+  4. Notify Telegram sur transition status
 
 Pas une opinion bot, une evaluation de pattern. Si signaux disent
-"Hyperscaler capex revision -10% 2026", -> capex_hyperscaler.current_status
-passe a "at_risk" automatiquement.
+"Hyperscaler capex revision -10% 2026", -> capex_hyperscaler.status
+passe a "at_risk" dans la table append-only.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from datetime import UTC, datetime
-from pathlib import Path
 
 from shared import llm, notify, storage
 
 log = logging.getLogger(__name__)
-
-
-_RISK_WATCH_PATH = Path("scripts/risk_watch.json")
 
 # Keywords par surveillance_signal id (SQL filter heuristique)
 _KEYWORDS_BY_SIGNAL = {
@@ -275,37 +277,63 @@ def evaluate_one_signal(surveillance_signal: dict) -> dict:
 
 
 def check_all_risks() -> dict:
-    """Iterate all risks x all surveillance_signals, update statuses + notify."""
-    if not _RISK_WATCH_PATH.exists():
-        log.info("risk_watch.json absent, skip")
-        return {"error": "no_risk_watch"}
-    try:
-        data = json.loads(_RISK_WATCH_PATH.read_text())
-    except Exception as e:
-        log.error(f"risk_watch.json parse failed: {e}")
-        return {"error": str(e)}
+    """Iterate all risks x all surveillance_signals.
 
+    Lit declaratif YAML (shared.risk_watch.load_risk_watch_with_live_state pour
+    avoir prev_status depuis DB), evalue chaque signal via Haiku, append nouvelle
+    evaluation en DB (risk_signal_evaluations), notify sur transition.
+
+    Plus de write-back JSON (L17 doctrine)."""
     from typing import Any
-    out: dict[str, Any] = {"n_signals_evaluated": 0, "transitions": [], "current_statuses": {}}
+
+    from shared.risk_watch import load_risk_watch_with_live_state
+
+    data = load_risk_watch_with_live_state()
+    if data is None:
+        log.info("risk_watch absent (YAML + JSON fallback), skip")
+        return {"error": "no_risk_watch"}
+
+    out: dict[str, Any] = {
+        "n_signals_evaluated": 0,
+        "transitions": [],
+        "current_statuses": {},
+    }
     for risk in data.get("risks") or []:
+        risk_id = risk.get("id") or "?"
         for sig in risk.get("surveillance_signals") or []:
+            sig_id = sig.get("id") or "?"
             prev_status = sig.get("current_status", "monitoring")
             result = evaluate_one_signal(sig)
             new_status = result.get("status", "monitoring")
-            sig["current_status"] = new_status
-            sig["last_evaluated_at"] = datetime.now(UTC).isoformat()
-            sig["last_eval_reason"] = result.get("reason", "")
-            sig["last_eval_confidence"] = result.get("confidence", 0)
-            sig["last_eval_evidence_ids"] = result.get("evidence_signal_ids", [])
+            transition = "changed" if new_status != prev_status else "no_change"
+
+            # Persist en DB (append-only, plus de write-back JSON)
+            evidence_ids = result.get("evidence_signal_ids", []) or []
+            try:
+                storage.insert_risk_signal_evaluation(
+                    risk_id=risk_id,
+                    signal_id=sig_id,
+                    status=new_status,
+                    reason=result.get("reason") or None,
+                    confidence=result.get("confidence"),
+                    evidence_ids_json=json.dumps(evidence_ids),
+                    transition=transition,
+                )
+            except Exception as e:
+                log.warning(
+                    f"insert_risk_signal_evaluation failed risk={risk_id} "
+                    f"sig={sig_id}: {e}"
+                )
+
             out["n_signals_evaluated"] += 1
-            out["current_statuses"][sig.get("id", "?")] = new_status
+            out["current_statuses"][sig_id] = new_status
 
             # Notify on transition to at_risk or triggered
-            if new_status != prev_status and new_status in ("at_risk", "triggered"):
+            if transition == "changed" and new_status in ("at_risk", "triggered"):
                 msg = (
                     f"{'⚡' if new_status == 'at_risk' else '⚠️'} "
-                    f"RISQUE {risk.get('name', '?')} — Signal {sig.get('label', '?')} "
-                    f"passe {prev_status} → {new_status}\n\n"
+                    f"RISQUE {risk.get('name', '?')} — Signal "
+                    f"{sig.get('label', '?')} passe {prev_status} → {new_status}\n\n"
                     f"Raison : {result.get('reason', '')}\n"
                     f"Confidence : {result.get('confidence', '?')}/100"
                 )
@@ -315,19 +343,13 @@ def check_all_risks() -> dict:
                     log.warning(f"risk transition notify failed: {e}")
                 out["transitions"].append({
                     "risk": risk.get("name"),
-                    "signal": sig.get("id"),
+                    "signal": sig_id,
                     "from": prev_status,
                     "to": new_status,
                 })
 
-    try:
-        _RISK_WATCH_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2))
-    except Exception as e:
-        log.error(f"risk_watch.json write failed: {e}")
-        return {"error": f"write_failed: {e}"}
-
     log.info(
         f"risk_signal_monitor : {out['n_signals_evaluated']} signaux evalues, "
-        f"{len(out['transitions'])} transitions"
+        f"{len(out['transitions'])} transitions persistees en DB"
     )
     return out

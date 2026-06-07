@@ -713,10 +713,13 @@ def _risk_watch_panel() -> str:
     mitigations + signals surveillance. Pas une opinion bot, juste tracking
     de ce que l'user a explicitement designe comme risque #1.
     """
+    # Phase 1.5 stage 2 (L17 doctrine) : YAML declaratif + DB live state.
+    # load_risk_watch_with_live_state hydrate chaque signal avec son current_status
+    # depuis table risk_signal_evaluations -- format dict compat ancien JSON.
     try:
-        from pathlib import Path
+        from shared.risk_watch import load_risk_watch_with_live_state
 
-        risks = json.loads(Path("scripts/risk_watch.json").read_text())
+        risks = load_risk_watch_with_live_state() or {}
         risks_list = risks.get("risks") or []
     except Exception:
         risks_list = []
@@ -1718,11 +1721,10 @@ def _user_strategy_panel() -> str:
     cta_html = ""
     if not tol_validated:
         try:
-            from pathlib import Path
-
             from intelligence.portfolio_grade import _fetch_state
+            from shared.risk_watch import load_risk_watch
 
-            rw = json.loads(Path("scripts/risk_watch.json").read_text())
+            rw = load_risk_watch() or {}
             r0 = (rw.get("risks") or [{}])[0]
             de = r0.get("drawdown_estimates") or {}
             dd_mild = de.get("mild_derating_minus30")

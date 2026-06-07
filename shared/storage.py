@@ -3767,6 +3767,108 @@ def get_latest_macro_regime() -> dict | None:
         return None
 
 
+# === risk_signal_evaluations (Phase 1.5 stage 2 absorption_roadmap) ===
+# Pattern miroir macro_regime_alerts : append-only, latest via ORDER BY.
+# Doctrine L17 LESSONS : live state cron-written ici, declarative en
+# config/risk_watch.yaml. Plus de write-back sur le YAML.
+
+def insert_risk_signal_evaluation(
+    risk_id: str,
+    signal_id: str,
+    status: str,
+    reason: str | None = None,
+    confidence: int | None = None,
+    evidence_ids_json: str | None = None,
+    transition: str | None = None,
+) -> int | None:
+    """Insert 1 evaluation cron pour (risk_id, signal_id).
+
+    status ∈ {monitoring, at_risk, triggered, resolved}.
+    confidence ∈ [0, 100] ou None.
+    transition ∈ {no_change, changed, NULL}.
+
+    Retourne lastrowid ou None sur exception (fail-safe : la cron continue
+    son loop sans crash sur 1 evaluation perdue)."""
+    if status not in ("monitoring", "at_risk", "triggered", "resolved"):
+        _copilot_log.warning(
+            f"insert_risk_signal_evaluation : status {status!r} invalide"
+        )
+        return None
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO risk_signal_evaluations "
+                "(risk_id, signal_id, status, reason, confidence, "
+                " evidence_ids_json, transition) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    risk_id, signal_id, status, reason,
+                    int(confidence) if confidence is not None else None,
+                    evidence_ids_json, transition,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_risk_signal_evaluation failed: {e}")
+        return None
+
+
+def get_latest_risk_signal_evaluation(
+    risk_id: str, signal_id: str
+) -> dict | None:
+    """Derniere evaluation pour (risk_id, signal_id). None si jamais evalue."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT id, evaluated_at, risk_id, signal_id, status, "
+                "       reason, confidence, evidence_ids_json, transition "
+                "FROM risk_signal_evaluations "
+                "WHERE risk_id = ? AND signal_id = ? "
+                "ORDER BY evaluated_at DESC, id DESC LIMIT 1",
+                (risk_id, signal_id),
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["id", "evaluated_at", "risk_id", "signal_id", "status",
+                    "reason", "confidence", "evidence_ids_json", "transition"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_risk_signal_evaluation failed: {e}")
+        return None
+
+
+def get_all_latest_risk_signal_evaluations() -> dict[tuple[str, str], dict]:
+    """Map {(risk_id, signal_id): latest_evaluation_dict} pour TOUTES les paires
+    deja evaluees au moins une fois.
+
+    Pattern SQL : window function ROW_NUMBER() partitionne par (risk_id, signal_id)
+    + ORDER BY evaluated_at DESC + filter rn=1. Permet render.py de hydrater
+    la vue declarative avec un seul query DB."""
+    try:
+        with db() as cx:
+            rows = cx.execute("""
+                SELECT id, evaluated_at, risk_id, signal_id, status,
+                       reason, confidence, evidence_ids_json, transition
+                FROM (
+                    SELECT *, ROW_NUMBER() OVER (
+                        PARTITION BY risk_id, signal_id
+                        ORDER BY evaluated_at DESC, id DESC
+                    ) AS rn
+                    FROM risk_signal_evaluations
+                )
+                WHERE rn = 1
+            """).fetchall()
+            cols = ["id", "evaluated_at", "risk_id", "signal_id", "status",
+                    "reason", "confidence", "evidence_ids_json", "transition"]
+            return {
+                (row[2], row[3]): dict(zip(cols, row, strict=False))
+                for row in rows
+            }
+    except Exception as e:
+        _copilot_log.warning(f"get_all_latest_risk_signal_evaluations failed: {e}")
+        return {}
+
+
 # === data_clusters_snapshots (Sprint 17) =====================================
 
 _DC_DDL = (
