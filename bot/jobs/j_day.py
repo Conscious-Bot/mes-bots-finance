@@ -170,10 +170,11 @@ async def j_day_batch_close_job():
     # grace 4h), copier la ping URL dans .env HEALTHCHECKS_J_DAY_URL.
     # Fail-safe : si l'URL absent ou ping fail, on ne casse pas le job.
     try:
-        import os
         import urllib.request
 
-        ping_url = os.environ.get("HEALTHCHECKS_J_DAY_URL", "").strip()
+        from shared.env import env
+
+        ping_url = env.healthchecks_j_day_url
         if ping_url:
             req = urllib.request.Request(ping_url, method="GET")
             with urllib.request.urlopen(req, timeout=10) as resp:

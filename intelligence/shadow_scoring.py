@@ -36,20 +36,20 @@ le wire prod n'est pas valide.
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass
 from typing import Any
 
 from intelligence.scorers import LLMScorer, RuleScorer, Scorer, ScorerInput
+from shared.env import env
 
 log = logging.getLogger(__name__)
 
-# Env flag. Default OFF. Reconnait '1', 'true', 'yes', 'on' (insensitive).
-_ENV_FLAG = "RESILIENCE_SHADOW_ENABLED"
-
 
 def _flag_enabled_from_env() -> bool:
-    return os.environ.get(_ENV_FLAG, "").strip().lower() in ("1", "true", "yes", "on")
+    # KNOWN-GAP : env.* cache. from_env() est appele au boot ou en test ->
+    # reset_cache() garantit lecture fresh.
+    env.reset_cache()
+    return env.resilience_shadow_enabled
 
 
 @dataclass(frozen=True, slots=True)

@@ -11,7 +11,6 @@ Lancer depuis la racine du repo:  python3 -m dashboard.serve
 import functools
 import http.server
 import importlib
-import os
 import socketserver
 import sys
 import threading
@@ -19,9 +18,10 @@ import time
 from pathlib import Path
 
 import dashboard.render as render_mod
+from shared.env import env
 
-PORT = int(os.environ.get("PRESAGE_PORT", "8000"))
-INTERVAL = int(os.environ.get("PRESAGE_REFRESH", "60"))
+PORT = env.presage_port
+INTERVAL = env.presage_refresh_seconds
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 # Modules dont les changements doivent declencher un reload.

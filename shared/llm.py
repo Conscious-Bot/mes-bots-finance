@@ -1,7 +1,6 @@
 """Wrapper Claude. Phase A2 — tier routing + cost logging + prefix caching."""
 
 import json
-import os
 import sqlite3
 import time
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Any, cast
 from anthropic import Anthropic
 
 from shared import config
+from shared.env import env
 
 _client = None
 _DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "bot.db")
@@ -25,7 +25,7 @@ _TASK_TO_TIER = {
 def client() -> Any:  # anthropic.Anthropic
     global _client
     if _client is None:
-        _client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        _client = Anthropic(api_key=env.anthropic_api_key)
     return _client
 
 
@@ -305,13 +305,14 @@ def _model_short_name(model_id: str | None) -> str | None:
 
 
 def _cost_cap_config() -> tuple[float, bool]:
-    """Returns (cap_usd_24h, disabled). disabled=True -> bypass."""
-    if os.environ.get("LLM_COST_CAP_DISABLE") == "1":
+    """Returns (cap_usd_24h, disabled). disabled=True -> bypass.
+
+    Reset cache au call : permet tests qui monkeypatch LLM_COST_CAP_DISABLE
+    de voir l'override sans avoir a reload le module."""
+    env.reset_cache()
+    if env.llm_cost_cap_disable:
         return 0.0, True
-    try:
-        cap = float(os.environ.get("LLM_COST_CAP_USD_24H", "10.0"))
-    except ValueError:
-        cap = 10.0
+    cap = env.llm_cost_cap_usd_24h
     return cap, cap <= 0
 
 

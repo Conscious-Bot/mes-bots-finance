@@ -26,10 +26,10 @@ substance_predictions_filter() (ADR 014).
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
 from intelligence.scorers import LLMScorer, RuleScorer, Scorer, ScorerInput
+from shared.env import env
 
 log = logging.getLogger(__name__)
 
@@ -38,11 +38,13 @@ log = logging.getLogger(__name__)
 # Doc d'usage : exporter RESILIENCE_FALLBACK_ENABLED=1 avant de lancer le bot
 # (ou dans le launchd plist, ou dans .env). OFF en CI tant que la calibration
 # rule_v1_fallback n'est pas validee.
-_ENV_FLAG = "RESILIENCE_FALLBACK_ENABLED"
 
 
 def _flag_enabled_from_env() -> bool:
-    return os.environ.get(_ENV_FLAG, "").strip() in ("1", "true", "yes", "on")
+    # KNOWN-GAP : env.resilience_fallback_enabled est cache (lecture une fois
+    # au boot). Tests qui togglent l'env var doivent appeler env.reset_cache().
+    env.reset_cache()
+    return env.resilience_fallback_enabled
 
 
 class ScoringOrchestrator:

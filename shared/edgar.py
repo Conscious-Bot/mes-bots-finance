@@ -6,7 +6,6 @@ Rate limit ~10 req/s, we use ~1 req/s to be conservative.
 Future v2: persist to insider_trades table, daily refresh, big-sell alerts.
 """
 
-import os
 import time
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime, timedelta
@@ -15,8 +14,9 @@ from typing import Any
 import requests
 
 from shared.data_source_base import RateLimiter, retry_with_backoff
+from shared.env import env
 
-EDGAR_UA = os.environ.get("EDGAR_USER_AGENT", "Olivier Legendre olegendre@gmail.com")
+EDGAR_UA = env.edgar_user_agent
 EDGAR_HEADERS = {
     "User-Agent": EDGAR_UA,
     "Accept-Encoding": "gzip, deflate",

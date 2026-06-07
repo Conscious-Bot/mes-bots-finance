@@ -223,8 +223,9 @@ async def post_init(app):
     # job_defaults: coalesce=True ensures missed instances on laptop sleep
     # don't catch-up storm post-wake; misfire_grace_time=3600s = run if <1h late.
     # Critical cron jobs (backup, digest) override with larger grace below.
+    from shared.env import env as _env_singleton
     sched = AsyncIOScheduler(
-        timezone=os.environ.get("TZ", "Europe/Paris"),
+        timezone=_env_singleton.timezone,
         job_defaults={"coalesce": True, "misfire_grace_time": 3600},
     )
     # === JOBS AUTONOMES (intervals + cron sans dependance fonctionnelle) ===

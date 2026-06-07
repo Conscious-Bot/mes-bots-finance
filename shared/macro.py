@@ -7,16 +7,12 @@
 Degrade gracefully when keys missing.
 """
 
-import os
-from pathlib import Path as _MacPath
-
 import requests
 import yfinance as yf
-from dotenv import load_dotenv as _load_dotenv
 
-_load_dotenv(str(_MacPath(__file__).parent.parent / ".env"))
+from shared.env import env
 
-FRED_KEY = os.environ.get("FRED_API_KEY", "").strip()
+FRED_KEY = env.fred_api_key
 FRED_BASE = "https://api.stlouisfed.org/fred/series/observations"
 
 
@@ -161,11 +157,9 @@ if __name__ == "__main__":
 
 
 def _fetch_fred_credit_series(series_id, limit=30):
-    import os
-
     import requests
 
-    key = os.environ.get("FRED_API_KEY", "").strip()
+    key = env.fred_api_key
     if not key:
         return None, "FRED_API_KEY missing"
     try:
