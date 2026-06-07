@@ -180,6 +180,66 @@ Audit qualitatif externe sur dashboard 07/06. Patterns à digérer post J-day :
 4. FMP fundamentals wire (M-B Thesis creation enrichment + M9 Damodaran gate)
 5. Catalyst surface + slide-over fact sheet (UX polish, ROI moyen)
 
+### 📥 PATTERNS DIGEST 07/06 nuit — 5 repos audités (anthropics + ffn + prediction-market + agentmemory + daily_stock)
+
+Doctrine accumulation maintenue. 4 retenus / 1 drop (ZhuLinsen signals). Sécurité : `/tmp/` clones supprimés, `requirements.txt` non touché, aucun code wiré, audits read-only.
+
+| Repo | L14 | Score | License | Verdict |
+|---|---|---|---|---|
+| **anthropics/financial-services** | ✅ | 9.5/10 | Apache 2.0 | Patterns gold orchestration LLM sécurisée |
+| **pmorissette/ffn** | ✅ | 9/10 | MIT | Analytics pandas-native, gap Heimdall ×80% couvert |
+| **jon-becker/prediction-market-analysis** | ✅ | 7.5/10 | MIT | Calibration buckets Brier prêts à fork |
+| **rohitg00/agentmemory** | ✅ | 7/10 | Apache 2.0 | Temporal-graph + audit-before-delete utiles |
+| **ZhuLinsen/daily_stock_analysis** | ❌ | 3/10 | MIT | DROP signals (anti-doctrine LLM BUY/SELL), salvage data_provider |
+
+#### 🔴 P1 post J-day — Top 3 wires concrets
+
+1. **`ffn` adoption immédiate** → `pip install ffn==1.1.5` + wrapper 5 fonctions dans `shared/portfolio_analytics.py` :
+   - `to_price_index()` → equity curve (Heimdall True decision header)
+   - `to_drawdown_series()` + `drawdown_details()` → DD chart + event catalog
+   - `calc_perf_stats()` → CAGR/Sharpe/Sortino/Calmar bloc unique
+   - `rollapply(20, vol_annual)` → rolling vol 20D/60D
+   - `calc_information_ratio(returns, bench)` → IR vs benchmark
+   - **Effort** : ~3h (wrapper + tests + integration render.py Performance panel). **Couvre 80% gap Heimdall**.
+
+2. **`anthropics/financial-services` output_schema strict pattern** → si on étend `/trade` ou `/buy` Telegram un jour :
+   - Reader (lit non-fiable) → Orchestrator (allowlist + validate JSON schema) → Writer (final)
+   - Handoff allowlist : jamais laisser LLM output déclencher action directe sans validation Pydantic + ALLOWED_TARGETS check
+   - **Effort** : MOYENNE (~4h). **P1 sécurité** si on monte un trade-bot Telegram.
+
+3. **`prediction-market-analysis` Brier calibration buckets** → fork `src/analysis/polymarket/polymarket_calibration_by_bucket.py` :
+   - SQL DuckDB pattern pour bucketing décile + ECE/MCE/Brier
+   - **Pertinence** : exact pattern PRESAGE Brier ledger. Soit en source data externe (PolyMarket = base-rates marché), soit en analytics module pour notre propre ledger.
+   - **Effort** : ~2h adapt SQL + Pydantic ScoringDecision integration.
+
+#### 🟠 P2 — follow-up
+
+4. **`agentmemory` temporal-graph versioning** → enrichit decision_audit avec causalité :
+   - GraphEdge avec valid_from/valid_to + reasoning + supersededBy
+   - Ex : `moved_stop → fixes(previous_breakeven_fail)` reasoning "vol spike", confidence 0.85
+   - Linker GraphEdge IDs à `predictions.id` (FK)
+   - **Effort** : MOYENNE (~6h). Complète Brier ledger sans le remplacer.
+
+5. **`agentmemory` audit-before-delete pattern** → wrapper `recordAudit(operation, function_id, target_ids, details, quality_score)` AVANT toute mutation structurelle :
+   - Force pattern recording-before-deletion (vs post-mortem)
+   - Compatible audit table existante PRESAGE
+   - **Effort** : BASSE (~1h). Foundational pour intégrité ledger.
+
+6. **`daily_stock_analysis` data_provider/base.py** → multi-source fallback robuste :
+   - Pattern abstraction efinance/akshare/tushare/yfinance avec retry/timeout/cache
+   - Utile si on étend univers data au-delà yfinance
+   - **Effort** : MOYENNE (~3h). NE PAS toucher agents/ ni decision/.
+
+#### 🚫 Drop explicite
+
+- **`daily_stock_analysis/src/agent/agents/decision_agent.py`** + `technical_agent.py` → LLM produit `signal: strong_buy|buy|hold|sell|strong_sell` + `confidence: 0-1` direct. **Anti-doctrine L14 #5 pur**. C'est encore un clone de TradingAgents amélioré côté infra mais avec le même cœur cassé. Ne pas auditer plus loin.
+- **`agentmemory` chat-memory layer** → on n'est pas ChatGPT, on est ledger d'investissement. Skip embedding-heavy chat recall, garder seulement audit + graph.
+- **`prediction-market-analysis` resolution detection heuristique** (price > 0.99 / < 0.01) → fragile, ne pas réutiliser tel quel pour production.
+
+#### Verdict global digest
+
+5 audits, 3 wires concrets P1 identifiés (ffn immédiat le plus gros gain), 3 patterns P2 follow-up, 1 drop signals. ffn = trouvaille majeure de la session — couvre direct le Performance panel Heimdall que je notais comme HAUTE priorité dans le digest précédent.
+
 ### Scores comparatifs
 
 | Repo | Utilité PRESAGE | Verdict 1-line |
