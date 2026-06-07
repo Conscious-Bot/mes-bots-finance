@@ -1891,3 +1891,117 @@ Session pivot massive : after-meta sweep des 5 axes QUALITY_BAR (4 shippes, Axe 
 - **OTS install + cron daily anchor** : prediction_integrity_log + thesis_integrity_log ont bootstrap mais cron anchor pas wire. Faible urgence (chain coherente, anchor = belt-and-suspenders).
 - **Sondes 7j calibration** : module reference_class.base_rate stub raise NotImplementedError (L15). Wire reel quand N>=50 sur cohortes V2.
 - **Dashboard reload** : open http://127.0.0.1:8000/dashboard.html?nocache=1 pour voir chip "97% narrative / 1% orthogonal" + stress-gate tags + data health M1.
+
+---
+
+## Close 2026-06-07 ter+ (red-team Axe 4 user + base layer finition)
+
+4 commits supplementaires apres la close 008e0b3 (session continue user red-team).
+
+### Livre (commits 38322ab -> 2f66187)
+
+**Pente conviction compressee sub-Kelly (commit 38322ab)**
+User red-team : 8/6/4.5/3/2 hardcode = construction + style.position_max_pct=0.08
+orphelin laisse les enforcers (sizing.py, risk_engine.py, positions handler)
+appliquer 8% UNIFORME quelle que soit la conviction. 2 verites concurrentes.
+Doctrine : "le cap par conviction est un resultat MESURE, pas un parametre
+CHOISI". Forme adoptee : pente concave compressee, ratio inter-tiers stable
+~0.80, ancre c5=6% (sommet bride vs 8% historique).
+- line_cap_by_conviction : c5=6.0 / c4=4.8 / c3=3.8 / c2=3.0 / c1=2.4
+- style.position_max_pct aligne 0.08 -> 0.06 (sinon c3 grimperait a 6% via cap legacy uniforme alors que cap fin la limite a 3.8%)
+- TODO #73 : retirer knob legacy + router tous enforcers vers cap fin unique +
+  remplacer pente par hit-rates empiriques post N>=30 J+90
+
+**Axe 4 red-team : 4 fixes verite/defaut freeze-safe (commit 34d8d0a)**
+Ordre de bataille user : #1 (now) > #2 (now) > #3 (diagnostic) > #4 (defere).
+
+#1 - Mensonge cluster UI : dashboard/_cluster_health lisait
+concentration.cluster_max_pct=0.35 brut. User strategy override (archetype
+concentrator_thematic, target=70%). Affichait "Compute AI 67% breached cap
+35% over +17k" alors que cap operatoire = 70% -> tu es SOUS avec marge 1.4k.
+Le mensonge poussait au trim biais sell-too-early. Fix : si archetype
+concentrator_thematic -> utiliser target_cluster_cap_pct.
+
+#2 - Defuser 4 stops-prix chokepoint : ASML/TSM/SNPS/Lasertec. Erreur
+categorie : stop-prix sur monopole structurel = humeur de marche decide la
+sortie, pas la condition de falsification. UPDATE theses SET stop_price=NULL.
+price_monitor court-circuite proprement sur NULL. Lasertec : ajout trigger
+"Concurrent viable en inspection masque EUV actinique livre en volume".
+test_book_invariants accepted_blind etend aux 4 avec commentaire doctrinal.
+DB backup : data/bot.db.backup_chokepoint_20260607_174015.
+
+#3 - Diagnostic AMD/STMPA stop > entry : FAUX POSITIF cote mon flag.
+Aucune logique trailing auto dans le code. Notes des 2 theses disent
+explicitement "[REVIEW 06/06] trailing stop bumped : -15% from current
+466.38 USD" (AMD) / "62.82 EUR" (STMPA). Calcul : x0.85 = 396.42 / 53.40 =
+MATCH exact. C'est un trailing MANUEL review-driven que user a bumped
+lui-meme. Coherent statut tactique. Caveat : trailing non auto, re-bump
+manuel au prochain review.
+
+#4 - Drawdown gate 8/20% portfolio : TODO #74 cree, defere post-10-juin.
+Decoupler par cluster = bonne reponse, pas bricoler 5/12 (calibre aveugle)
+ni 20/35 (bruit). Gate pas wired runtime donc urgence nulle.
+
+**Performance + Data health migrent en Method (commit 17c021d)**
+User pref : pas de verite-du-jour, instrumentation methodologique.
+- Performance ffn = retro-test pro-forma (sum(qty_actuelle x prix_historique)),
+  pas track record reel. Badge "PRO-FORMA · PAS TRACK RECORD" rouge inline +
+  sub-meta explicative + migration vers section Method.
+- Data health = M1 freshness inputs (price/fx asof + chip diversite sources),
+  audience methodologique -> Method.
+- Vue d'ensemble reste : urgence + risk_watch + blind positions. Pur.
+
+**Axe 4 (b) ballast live derive + retention DB + L23 doctrine (commit 2f66187)**
+Finition base layer per QUALITY_BAR Axe 4 "fait quand" item (b) "ligne ballast
+definie + factor_exposures exige le ballast". Decouverte M1 frappante : YAML
+declarait current_ballast_strict_pct=14% (mai), realite live calculee = 10.1%.
+Le YAML mentait de 4pp. Pattern identique founding bug eur_value-dans-notes.
+
+- intelligence/ballast_compute.compute_ballast_strict(positions) source unique
+  du live. Retourne {current_pct, target_pct, gap_pp, severity (ok/warn/breach),
+  tickers_held, tickers_missing, declared_pct metadata historique}.
+- _render_ballast_cell consomme live, severite couleur, surface declared_pct si
+  divergence > 1pp + tickers_missing structurels.
+- 12 tests dont divergence YAML/live + boundaries severity + ticker missing.
+- Etat live actuel : current 10.1% (severite breach) / target 20% / gap -9.9pp
+  (~2x sous cible). Decl YAML 14% surface comme metadata mai vieille.
+
+Bonus base layer cleanup (Axe 3 item "17 backups -> 1 politique") : 19 backups
+data/ -> 6 anchors gardes (~89 MB vs 270 MB, -165 MB liberes). scripts/backup.sh
+existe deja avec rotation 14j. Les ad-hoc cp data/bot.db data/.. de session
+etaient le probleme (pollution discipline).
+
+L23 LESSONS : "toute valeur derivable est derivee live, jamais figee en
+YAML/DB". Generalise M1 du cas eur_value (Axe 3) a tout YAML declaratif.
+
+### Doctrines verrouillees ce sub-cycle
+
+- **L23 valeur derivable = live** (generalise M1 a tout YAML declaratif)
+
+### Base layer fini per QUALITY_BAR "fait quand"
+
+| Item | Statut |
+|---|---|
+| Axe 3 eur_value dans notes mort + colonnes typees + valeur derivee live | OK |
+| Axe 3 17 backups -> 1 politique retention | OK (19->6 anchors) |
+| Axe 5 gate CI yfinance + triple M1 prices.get() + data health + SLA | OK |
+| Axe 4 (a) sizing-regime construction (pente compressee) | OK |
+| Axe 4 (b) ligne ballast definie + flag < cible | OK |
+| Axe 4 (c) stress-test gate dure + alerte | OK |
+| Axe 2 signaux portent source + asof + chip honnete | OK |
+| Axe 1 calibration | gated invariant N<100 (ne PAS forcer) |
+
+### Tests
+
+- 1236 verts (+12 ballast), 1 skip
+- Ruff clean partout
+- alembic head 0038
+
+### Entry next session (mise a jour)
+
+- **J-day 10/06 09:30** : observer Telegram (job dira "aucune V1 resolue, archive close"). Pas de ceremonie. post_03 deja aligne.
+- **Ballast 10% vs cible 20%** : chip dashboard maintenant honnete. Si decision strategique de remonter -> bumper MP/SAF.PA/HO.PA/CCJ vers ~5%/ticker chacun (4 x 5% = 20%). Mais decision post-10-juin.
+- **Axe 2 Phase 2** : wire downweight materiality scoring quand calibration N=>50 (gating L19/L21).
+- **TODO #73** : remplacer pente conviction par hit-rates empiriques post N>=30 J+90 + retirer style.position_max_pct legacy.
+- **TODO #74** : drawdown gate decouplee par cluster post-J-day design.
+- **Polygon / OTS / sondes 7j** : DEFER documente, aucun ne fire actuellement.

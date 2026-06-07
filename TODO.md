@@ -1,6 +1,6 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 07 juin 2026 quater (QUALITY_BAR sweep : 4 axes shippes + post_03 reecrit + J-day prep)
+**Refresh** : 07 juin 2026 quinquies (red-team Axe 4 user + base layer fini : ballast live + L23 + retention DB)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
@@ -237,8 +237,18 @@ Si N_resolu > 100 avec spread Brier multi-buckets -> "continue enrichir calibrat
 - **Post_03 J-3 réécrit** : découverte cohort fantôme (0 V1 ont target=10/06 vs 40 dans le post J-11). Réel : 173 V1 étalées 27/05→28/07, 35 résolues, Brier 0.316 (PIRE que prévu). Narratif amende honorable plus fort.
 - **J-day 10/06 09:30 wired** : APScheduler date-trigger + grace 12h. Mécanique testée (dry-run + script post_resolution_brier_report).
 - **L21 + L22 doctrines verrouillées** : L21 QUALITY_BAR M1/M2/M3 + fail-closed généralisé. L22 N_effective ≠ N_brute (cohorte narrative corrélée).
-- **1224 tests verts** (+83 vs close bis). Ruff clean. alembic head 0038.
-- **DB backups pre-migration** : `data/bot.db.backup_axe2_*`, `data/bot.db.backup_session_close_*`.
+- **1236 tests verts** (+95 vs close bis). Ruff clean. alembic head 0038.
+- **DB backups : 19 -> 6 anchors** (~89 MB vs 270 MB, -165 MB) : axe2 + chokepoint + predint (anchors 07/06) + 2 session_close + pre_migration_20260531 baseline.
+
+### Red-team Axe 4 user + base layer fini (sub-cycle 07/06 quinquies)
+
+- **Pente conviction compressee** : c5=6% (sommet bride) + ratio inter-tiers stable ~0.80. Doctrine "cap mesure, pas choisi" - pente TRANSITOIRE remplacee par hit-rates empiriques post N>=30 J+90. style.position_max_pct aligne a 6% pour kill knob orphelin.
+- **Cluster mensonge UI fixe** : _cluster_health lit user_strategy si concentrator_thematic. Compute AI 67% / cap 70% / NOT breached (au lieu de "cap 35% / breached / over+17k" qui poussait au trim biais sell-too-early).
+- **4 stops-prix chokepoint defuses** : ASML/TSM/SNPS/Lasertec UPDATE stop_price=NULL. Erreur categorie = stop-prix sur monopole structurel laisse l'humeur de marche decider la sortie au lieu de la condition de falsification. invalidation_triggers restent structurels.
+- **AMD/STMPA "bug" = faux positif** : trailing manuel review-driven que user a bumped lui-meme le 06/06. Pas de logique auto-trailing dans le code.
+- **Performance + Data health migrent en Method** : ce sont de l'instrumentation methodologique pas verite-du-jour. Performance ffn affiche maintenant badge rouge "PRO-FORMA · PAS TRACK RECORD".
+- **Ballast live (Axe 4 (b))** : intelligence/ballast_compute.compute_ballast_strict source unique. Live 10.1% vs cible 20% vs declared YAML 14% (mai). Severite breach (gap -9.9pp). Chip dashboard surface live + divergence YAML.
+- **L23 doctrine** : "toute valeur derivable est derivee live, jamais figee en YAML/DB". Generalise M1 du cas eur_value (Axe 3) a tout YAML declaratif.
 
 - **M-A Calibration contract pillar COMPLET 5/5** : env singleton + L15 fail-closed + Pydantic ScoringDecision + L16 temporal splits + L17 declarative YAML/live DB.
 - **M-B Thesis creation gates 11/16** : M1 Buffett + M2 Taleb + M5 Lynch + M6 Fisher + M9 Damodaran + M11 Ackman + M12 Pabrai (gates) + M7 Druckenmiller + M10 Taleb barbell + M14 Jhunjhunwala (health metrics) + M16 Munger doctrine. **5 mentors defer documente** (M3/M4/M8/M13/M15 -- effort > valeur immediate ou besoin infra additionnelle).
@@ -789,7 +799,16 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 - **Axe 4 stress-gate** : `ac0f53e` migration 0037 + Pydantic StressGateConfig + config seuils + intelligence/stress_gate_monitor + 3 storage helpers + APScheduler daily 7:00 + dashboard chip + 8 tests dont CRITIQUE L4
 - **Axe 2 sources** : `68f5998` migration 0038 sources.family + backfill 76 sources + intelligence/source_diversity (effective_n_signals + book_source_composition) + chip "97% narrative / 1% orthogonal" + L22 LESSONS doctrine + 10 tests + 2 fixtures schema MAJ
 - **J-day prep post_03** : `591795b` réécriture post_03 (cohort fantôme révélée J-3) + healthchecks J-day vérifiés (APScheduler date-trigger 09:30, dry-run message OK, post_resolution_brier_report tested)
-- **Tests** : 1224 verts (+83 vs close bis), ruff clean, alembic head 0038
+- **Tests** : 1236 verts (+95 vs close bis), ruff clean, alembic head 0038
+
+### 07/06 quinquies — Red-team Axe 4 user + base layer fini : ballast live + L23 + retention
+
+- `38322ab` line_cap_by_conviction pente compressee sub-Kelly c5=6% ratio 0.80 + align style.position_max_pct legacy
+- `34d8d0a` Axe 4 red-team #1+#2+#3 : mensonge cluster UI fix + 4 stops chokepoint defuses + diagnostic AMD/STMPA = faux positif trailing manuel
+- `17c021d` Performance + Data health migrent en Method (instrumentation pas verite-du-jour)
+- `2f66187` Axe 4 (b) ballast live derive + retention DB 19->6 (~165 MB) + L23 doctrine "valeur derivable = live"
+- TODO #73 cap = mesure post N>=30 J+90 (transitoire en place)
+- TODO #74 drawdown gate decouplee par cluster (post-J-day design)
 
 ### 07/06 bis — Session ultra-marathon : M-B finition + bt wrapper + ffn V3 + tech debt cleanup
 
