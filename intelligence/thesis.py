@@ -26,14 +26,48 @@ def add_thesis(
     triggers_profit_take=None,
     target_price=None,
     notes=None,
+    stop_price=None,           # M2 Taleb gate complet (asymmetry ratio)
+    variant_perception=None,    # A0 : ou tu differes du consensus
+    driver_epic=None,            # A0 : EpicDriver {kpi, direction, magnitude, price_channel}
+    benchmark=None,              # A0 : benchmark canonique pre-engaged
 ):
-    """Add a new thesis with discipline checks. Returns dict with thesis_id + warnings."""
+    """Add a new thesis with discipline checks. Returns dict with thesis_id + warnings.
+
+    A0-A3 DECISION_QUALITY_ENGINE (07/06 nuit pivot) :
+    - variant_perception : declare l'edge vs consensus. Warning si vide et conviction >= 4.
+    - driver_epic : KPI mesurable + direction + magnitude + price_channel. Required pour
+      attribution 2x2 (sans driver structure = attribution impossible = LUCK indistinct
+      de SKILL).
+    - benchmark : canonique pre-engaged (cf config/calibration.yaml benchmark_canonical).
+      Sans benchmark fige, excess return calcul cherry-pickable post-hoc.
+    """
     warnings = []
 
     if direction not in ("long", "short", "watch"):
         raise ValueError(f"direction must be long/short/watch, got: {direction}")
     if not isinstance(conviction, int) or conviction < 1 or conviction > 5:
         raise ValueError(f"conviction must be int 1-5, got: {conviction}")
+
+    # A0 warnings : conviction >= 4 SANS pre-engagement structure
+    if conviction >= 4:
+        if not variant_perception:
+            warnings.append(
+                "A0 WARNING : conviction >= 4 sans variant_perception declare. "
+                "Sans edge vs consensus exprime, attribution causale impossible. "
+                "Cf docs/DECISION_QUALITY_ENGINE.md."
+            )
+        if not driver_epic:
+            warnings.append(
+                "A0 WARNING : conviction >= 4 sans driver_epic (KPI structure). "
+                "Sans KPI mesurable, le quadrant LUCK est indistinguable de SKILL. "
+                "Format attendu : {kpi, direction, magnitude, price_channel}."
+            )
+        if not benchmark:
+            warnings.append(
+                "A0 WARNING : conviction >= 4 sans benchmark pre-engaged. "
+                "Excess return cherry-pickable post-hoc. "
+                "Default = config/calibration.yaml benchmark_canonical."
+            )
 
     if isinstance(key_drivers, str):
         key_drivers = [d.strip() for d in key_drivers.split(";") if d.strip()]
@@ -93,8 +127,45 @@ def add_thesis(
         target_partial=target_partial,
         target_full=target_full,
         triggers_profit_take=triggers_profit_take,
+        stop_price=stop_price,
         notes=notes,
+        variant_perception=variant_perception,
+        driver_epic=driver_epic,
+        benchmark=benchmark,
     )
+
+    # A3 hook : append thesis_integrity_log apres commit (L7 post-commit pattern).
+    # Style miroir lock_in_detector hook positions.add_sell. Fail-safe : si hook
+    # crash, la these est deja inseree, l'integrity row peut etre rejouee.
+    try:
+        from shared import storage as _stor
+        pit_payload = {
+            "thesis_id": thesis_id,
+            "ticker": ticker.upper(),
+            "direction": direction,
+            "horizon_days": horizon,
+            "conviction": int(conviction),
+            "key_drivers": key_drivers,
+            "invalidation_triggers": invalidation_triggers,
+            "variant_perception": variant_perception,
+            "driver_epic": driver_epic if isinstance(driver_epic, dict)
+                else (driver_epic or None),
+            "benchmark": benchmark,
+            "entry_price": float(entry_price) if entry_price is not None else None,
+            "target_partial": float(target_partial) if target_partial is not None else None,
+            "target_full": float(target_full) if target_full is not None else None,
+            "stop_price": float(stop_price) if stop_price is not None else None,
+            "target_price": float(target_price) if target_price is not None else None,
+        }
+        _integ = _stor.insert_thesis_integrity_row(thesis_id, pit_payload)
+        if _integ is None:
+            warnings.append(
+                "A3 WARNING : thesis_integrity_log append failed. "
+                "Cf shared.integrity / verify_chain post-hoc. La these est "
+                "creee mais tamper-evidence chain compromise."
+            )
+    except Exception as _e:
+        warnings.append(f"A3 hook integrity crashed (these creee OK): {_e}")
 
     # Phase B7 — Pre-mortem auto-generation (Opus call, blocks ~5-15s)
     pre_mortem_display = None

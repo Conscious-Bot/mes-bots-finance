@@ -495,6 +495,9 @@ def insert_thesis(
     triggers_profit_take=None,
     stop_price=None,
     notes=None,
+    variant_perception=None,  # A0 : ou tu differes du consensus (None = pas declare)
+    driver_epic=None,          # A0 : EpicDriver JSON (kpi, direction, magnitude, price_channel)
+    benchmark=None,            # A0 : benchmark canonique pre-engaged
 ):
     """Insert a new thesis. Returns thesis_id."""
     now = datetime.now(UTC).isoformat()
@@ -506,6 +509,10 @@ def insert_thesis(
             return v
         return [v]
 
+    # A0 : serialiser driver_epic en JSON si dict
+    if isinstance(driver_epic, dict):
+        driver_epic = json.dumps(driver_epic, sort_keys=True)
+
     conn = _sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
@@ -514,8 +521,9 @@ def insert_thesis(
              key_drivers, invalidation_triggers,
              entry_price, target_price, target_partial, target_full,
              triggers_profit_take, stop_price, notes,
+             variant_perception, driver_epic, benchmark,
              opened_at, status, last_reviewed, last_revisit_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)""",
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)""",
             (
                 ticker.upper(),
                 direction,
@@ -530,6 +538,9 @@ def insert_thesis(
                 json.dumps(_to_list(triggers_profit_take)),
                 float(stop_price) if stop_price is not None else None,
                 notes,
+                variant_perception,
+                driver_epic,
+                benchmark,
                 now,
                 now,
                 now,
@@ -3835,6 +3846,78 @@ def get_latest_risk_signal_evaluation(
     except Exception as e:
         _copilot_log.warning(f"get_latest_risk_signal_evaluation failed: {e}")
         return None
+
+
+def insert_thesis_integrity_row(
+    thesis_id: int,
+    payload: dict,
+) -> dict | None:
+    """A3 hook helper : append thesis_integrity_log apres add_thesis commit.
+
+    Compute chain_hash via shared.integrity (canonical 6-decimal floats).
+    Reads previous chain_hash via MAX(seq) order. Genesis = 64x'0'.
+
+    Returns dict {seq, chain_hash} ou None si exception.
+    Idempotence : chain_hash UNIQUE -> double-insert proteged au DB level."""
+    import json as _json
+
+    from shared.integrity import GENESIS_HASH, compute_hash
+    try:
+        with db() as cx:
+            # Find previous head
+            prev = cx.execute(
+                "SELECT chain_hash, seq FROM thesis_integrity_log "
+                "ORDER BY seq DESC LIMIT 1"
+            ).fetchone()
+            prev_hash = prev[0] if prev else GENESIS_HASH
+            next_seq = (prev[1] + 1) if prev else 1
+            # Compute chain
+            new_hash = compute_hash(payload, prev_hash)
+            # Insert
+            payload_json = _json.dumps(payload, sort_keys=True, default=str)
+            cx.execute(
+                "INSERT INTO thesis_integrity_log "
+                "(seq, thesis_id, payload_json, prev_hash, chain_hash) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (next_seq, thesis_id, payload_json, prev_hash, new_hash),
+            )
+            return {"seq": next_seq, "chain_hash": new_hash}
+    except Exception as e:
+        _copilot_log.warning(f"insert_thesis_integrity_row failed: {e}")
+        return None
+
+
+def get_thesis_integrity_chain() -> list[dict]:
+    """A5 verify support : retourne toutes les rows ordonnees par seq.
+    Format dict pour shared.integrity.verify_chain consumption."""
+    try:
+        with db() as cx:
+            rows = cx.execute(
+                "SELECT seq, thesis_id, captured_at, payload_json, "
+                "       prev_hash, chain_hash, anchor_ref "
+                "FROM thesis_integrity_log ORDER BY seq"
+            ).fetchall()
+            cols = ["seq", "thesis_id", "captured_at", "payload_json",
+                    "prev_hash", "chain_hash", "anchor_ref"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_thesis_integrity_chain failed: {e}")
+        return []
+
+
+def update_thesis_integrity_anchor(seq: int, anchor_ref: str) -> bool:
+    """A4 support : ecrit anchor_ref (git tag signe / OpenTimestamps proof)
+    apres anchor externe daily. NULL accepte pour rows pre-anchor."""
+    try:
+        with db() as cx:
+            cx.execute(
+                "UPDATE thesis_integrity_log SET anchor_ref = ? WHERE seq = ?",
+                (anchor_ref, seq),
+            )
+            return True
+    except Exception as e:
+        _copilot_log.warning(f"update_thesis_integrity_anchor failed: {e}")
+        return False
 
 
 def get_all_latest_risk_signal_evaluations() -> dict[tuple[str, str], dict]:
