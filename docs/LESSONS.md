@@ -373,3 +373,52 @@ Les 9 anti-patterns ont en commun : **prédire l'avenir au lieu de mesurer le pa
 ### Référencer
 
 Depuis `CLAUDE.md` § "À retenir sans chercher" + `TODO.md` section TECH DEBT AUDIT OSS. Pas de re-formulation ailleurs.
+
+## L15 — Fail-closed scoring : pas de score arbitraire en mode dégradé
+
+Phase 1.2 absorption_roadmap (07/06 soir). Doctrine héritée de l'audit `agentic-inbox` (workers/lib/ai.ts) + spec user 03/06 `degraded_restitution_contract`.
+
+### La règle
+
+Tout scorer LLM (`signal_scorer_v2`, `materiality_v2`, futurs) qui n'aboutit pas à un output structuré valide doit retourner `None` ou `raise LLMUnavailableError`, **jamais un score par défaut, jamais un fallback formule, jamais 0.5 "par sûreté"**. Le caller (orchestrator / `learning`) traite `None` comme `skip ce signal proprement, sans entrée au Brier ledger`.
+
+### Les 4 chemins de sortie autorisés du scorer
+
+| Cas | Sortie | Raison |
+|---|---|---|
+| LLM call OK + JSON parse OK + validation OK + direction ≠ watch | `dict` complet | scoring abouti, ledger consigne |
+| LLM call OK + JSON parse OK + direction == watch (evidence none/weak) | `dict` avec `direction='watch'` | abouti mais non-falsifiable, caller skip ledger |
+| LLM call OK + parse FAIL (JSONDecodeError / no JSON in text / prob hors [0,1]) | `None` + `log.warning` structuré | scoring crashé, JAMAIS de prob fabriquée |
+| LLM call FAIL (rate_limit / credit_exhausted / overloaded) | `raise LLMUnavailableError` | upstream KO, caller marque `pending_llm` ou route vers `rule_v1_fallback` si flag ON |
+
+### Ce qui est interdit (jamais à réintroduire)
+
+- `prob = 0.5 if json_decode_fail else parsed_prob` — divine sous prétexte de robustesse, pollue le ledger
+- `direction = "watch"` comme défaut quand parse échoue — masque le crash en non-action, perd l'audit
+- `try / except: return default_dict` — fabriquer un dict "valide-en-apparence" pour ne pas casser la pipeline
+- Score V1 (estimate_probability formule) en fallback de V2 — bug fondateur 30/05 : 40 predictions toutes [0.608, 0.658], mono-bucket. **V1 est demote, pas fallback.**
+
+### Test contre soi-même
+
+Si tu touches un scorer LLM et qu'un `return ...` en `except:` te tente : c'est un piège L15. Le bon réflexe : `log.warning` + `return None` + laisse le caller décider (`learning.py` skip propre, `orchestrator` route vers RuleScorer si flag ON).
+
+### Test verrouillé
+
+`tests/test_fail_closed_scorer.py` — vérifie pour `signal_scorer_v2.score_directional_probability` :
+1. JSON malformed → `None`, jamais de dict avec `probability` arbitraire
+2. JSON sans clé `probability` → `None`
+3. `probability` hors `[0, 1]` → `None` (pas de clamp silencieux)
+4. LLM call retourne `""` ou texte sans `{` → `None`
+5. `LLMUnavailableError` → propage (pas swallow)
+
+Si un de ces 5 cas régresse, c'est une violation L15.
+
+### Pourquoi cette doctrine est dure
+
+Tentation 1 : "Si je return None systématiquement, je perds 5-10% du batch — un fallback formule serait mieux." → Non. Un batch incomplet est honnête ; un batch complet avec 5-10% de scores fabriqués détruit la calibration Brier sur des centaines de buckets.
+
+Tentation 2 : "Au moins logger en `info` la valeur fabriquée pour audit, c'est traçable." → Non. La règle anti-double-instrumentation (L4) interdit ça : l'audit n'a pas à reconstruire la prédiction post-hoc, le ledger doit être complet ou vide, jamais partiel-fabriqué.
+
+### Référencer
+
+Depuis `CLAUDE.md` § "À retenir sans chercher" (doctrine fail-closed). Test verrouillé `tests/test_fail_closed_scorer.py`. Pas de re-formulation ailleurs.
