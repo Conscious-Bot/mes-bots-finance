@@ -1,6 +1,6 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 07 juin 2026 quinquies (red-team Axe 4 user + base layer fini : ballast live + L23 + retention DB)
+**Refresh** : 07 juin 2026 sexies (Carte-decision #1 sequence complete + moteur #2 thesis_erosion + BookLine canonique amont)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
@@ -249,6 +249,26 @@ Si N_resolu > 100 avec spread Brier multi-buckets -> "continue enrichir calibrat
 - **Performance + Data health migrent en Method** : ce sont de l'instrumentation methodologique pas verite-du-jour. Performance ffn affiche maintenant badge rouge "PRO-FORMA · PAS TRACK RECORD".
 - **Ballast live (Axe 4 (b))** : intelligence/ballast_compute.compute_ballast_strict source unique. Live 10.1% vs cible 20% vs declared YAML 14% (mai). Severite breach (gap -9.9pp). Chip dashboard surface live + divergence YAML.
 - **L23 doctrine** : "toute valeur derivable est derivee live, jamais figee en YAML/DB". Generalise M1 du cas eur_value (Axe 3) a tout YAML declaratif.
+
+### Carte-decision #1 + moteur #2 + BookLine canonique (sub-cycle 07/06 sexies)
+
+- **Moteur #2 thesis_erosion (anti-entetement)** : confronte signaux post-opened_at aux key_drivers/invalidation_triggers via LLM Haiku. 5 verdicts dont REVIEW_DUE_DEGRADED L15 fail-closed strict. Complementaire thesis_track_record + M14. 9 tests.
+- **Carte-decision #1 SEQUENCE COMPLETE (7 etapes)** :
+  - Etape 1 : conviction_at_entry PIT immuable + hook drift tamper-evident (event=conviction_drift dans chain hash)
+  - Etape 2 : assemble_card_inputs source unique 12 sources composees frozen
+  - Etape 3 : derive_card_steer SteerVerdict 5-state + 5 regles fail-closed transverses (prix stale / these 90j+ / LLM degraded / cours absent / structural sans justif)
+  - Etape 4 : ruin_budget_per_name_pct=0.015 + allow_add_steer=false config (anti-FOMO)
+  - Etape 5 : refactor _position_card pour CardInputs + SteerOutput (zero re-query, badge verdict + bandeau fail-closed en tete)
+  - Etape 6 : sections what-changed + discipline-flags + counter-argument depuis inputs
+  - Etape 7 : 21 tests render assembly + matrice fail-closed visuelle verrouillee
+- **Position-card #1 couches 1-3 (base)** :
+  - Couche 1 : position_type enum (structural/priced/tactical) + tags + structural_justification REQUIS + hook tamper-evident integrity chain. Backfill 4 chokepoints (ASML/TSM/SNPS/6920.T) seq 27-30. Catch 1 user verrouille.
+  - Couche 2 : position_steer ExitPolicy + SizeAction SEPARES (Catch 2 axes orthogonaux). 40 tests dont CRITIQUE Catch 2.
+  - Couche 3 : render page deep-linkable + nav item "Cards". Catch 3 (structural non-borne par prix).
+- **BookLine canonique amont (L23 generalisee)** : shared.book.BookLine expose 5 colonnes M1 (last_price_native, currency, price_asof, fx_rate_to_eur, fx_asof). Plus aucun reader downstream ne re-query positions. Test invariant verrouille.
+- **Knob legacy style.position_max_pct retire** : TODO #73 partie 1 done. 4 enforcers routes vers cap_for_conviction. Footgun "c3 grimpe a 6%" elimine.
+- **Tests : 1354 verts** (+50 cette sub-session). Ruff clean. alembic head 0042.
+- **Live dimanche soir** : 26 cards / 26 REVIEW (PRIX STALE > 4h SLA) - le systeme refuse de steer dans le noir. Lundi a l'ouverture : verdicts reels.
 
 - **M-A Calibration contract pillar COMPLET 5/5** : env singleton + L15 fail-closed + Pydantic ScoringDecision + L16 temporal splits + L17 declarative YAML/live DB.
 - **M-B Thesis creation gates 11/16** : M1 Buffett + M2 Taleb + M5 Lynch + M6 Fisher + M9 Damodaran + M11 Ackman + M12 Pabrai (gates) + M7 Druckenmiller + M10 Taleb barbell + M14 Jhunjhunwala (health metrics) + M16 Munger doctrine. **5 mentors defer documente** (M3/M4/M8/M13/M15 -- effort > valeur immediate ou besoin infra additionnelle).
@@ -800,6 +820,21 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 - **Axe 2 sources** : `68f5998` migration 0038 sources.family + backfill 76 sources + intelligence/source_diversity (effective_n_signals + book_source_composition) + chip "97% narrative / 1% orthogonal" + L22 LESSONS doctrine + 10 tests + 2 fixtures schema MAJ
 - **J-day prep post_03** : `591795b` réécriture post_03 (cohort fantôme révélée J-3) + healthchecks J-day vérifiés (APScheduler date-trigger 09:30, dry-run message OK, post_resolution_brier_report tested)
 - **Tests** : 1236 verts (+95 vs close bis), ruff clean, alembic head 0038
+
+### 07/06 sexies — Carte-decision #1 + moteur #2 thesis_erosion + BookLine canonique amont
+
+- `ab273ae` Kill style.position_max_pct legacy : source unique cap_for_conviction (TODO #73 part 1)
+- `c61dc1f` Moteur #2 thesis_erosion : aiguillage anti-entetement driver-level (5 verdicts L15)
+- `a201eae` Position-card #1 couche 1 : position_type + classifications + hook tamper-evident
+- `4fd7ea0` Position-card #1 couche 2 : position_steer ExitPolicy + SizeAction separes (Catch 2)
+- `99ba73b` Position-card #1 couche 3 render + BookLine canonique amont (5 colonnes M1 exposees)
+- `41e4b5a` Carte-decision #1 etape 1 : conviction_at_entry PIT + hook drift tamper-evident
+- `1104209` Carte-decision #1 etape 2 : assemble_card_inputs source unique 12 sources composees
+- `e521251` Carte-decision #1 etape 3 : derive_card_steer + 5 regles fail-closed transverses
+- `7c184f6` Carte-decision #1 etape 5 : refactor _position_card pour CardInputs + SteerOutput
+- `f841b46` Carte-decision #1 etape 6 : sections what-changed + discipline-flags + counter-argument
+- `bf55cd1` Carte-decision #1 etape 7 : 21 tests render assembly + matrice fail-closed visuelle
+- 1354 verts (+50). Catch 1/2/3 user verrouilles par tests. alembic head 0042.
 
 ### 07/06 quinquies — Red-team Axe 4 user + base layer fini : ballast live + L23 + retention
 

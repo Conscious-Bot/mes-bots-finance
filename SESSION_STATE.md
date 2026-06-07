@@ -2005,3 +2005,195 @@ YAML/DB". Generalise M1 du cas eur_value (Axe 3) a tout YAML declaratif.
 - **TODO #73** : remplacer pente conviction par hit-rates empiriques post N>=30 J+90 + retirer style.position_max_pct legacy.
 - **TODO #74** : drawdown gate decouplee par cluster post-J-day design.
 - **Polygon / OTS / sondes 7j** : DEFER documente, aucun ne fire actuellement.
+
+---
+
+## Close 2026-06-07 quater (Carte-decision #1 assembly + moteur #2 thesis_erosion + base layer canonique amont)
+
+11 commits supplementaires apres close 8811c28 ter+. Session marathon focus :
+chantier-#2 anti-entetement (moteur erosion driver-level) + Carte-decision #1
+sequence complete (7 etapes) + fix canonique amont BookLine M1 columns.
+
+### Livre (commits ab273ae -> bf55cd1)
+
+**Sizing canonique - kill knob legacy (commit ab273ae)**
+TODO #73 partie 1 done. style.position_max_pct (uniforme 0.06) retire de
+config.yaml. 4 enforcers (risk/sizing, risk/risk_engine, bot/handlers/positions,
+dashboard POS_CAP) routes vers shared/sizing_caps.cap_for_conviction(conv)
++ absolute_max_cap(). Footgun "c3 grimpe a 6% via cap uniforme" elimine.
+- shared/sizing_caps.py source unique
+- 2 nouveaux tests sizing (test_cap_varies_by_conviction monotone +
+  test_cap_unknown_conviction_falls_back_c5)
+- TODO #73 sub-partie 2 reste : remplacer pente par hit-rates empiriques post J+90
+
+**Moteur #2 thesis_erosion -- aiguillage anti-entetement (commit c61dc1f)**
+Spec user 07/06 carte-decision : confronter signaux post-opened_at aux
+key_drivers / invalidation_triggers via LLM Haiku. Complementaire (anti-
+double-instrumentation L4) :
+- thesis_track_record : empirique Brier predictions
+- M14 thesis_health_metrics : staleness temporelle
+- ICI : erosion CONTENU au niveau driver
+5 verdicts dont CRITIQUE L15 REVIEW_DUE_DEGRADED (LLM down majorite >=50% ->
+refuse verdict, jamais fabrique evidence partielle).
+- migration 0039 thesis_erosion_log append-only
+- intelligence/thesis_erosion.py : classify_signal_vs_thesis + compute + 
+  compute_all_active_theses batch cron-ready
+- 3 storage helpers (insert_thesis_erosion + get_latest_erosion_per_thesis +
+  get_material_signals_since combine signals.entities + chat_extracted_signals)
+- 9 tests dont CRITIQUE L15 fail-closed strict
+- Bug subtil resolve : _safe_json_load tolere list deja deserialise par
+  storage._parse_thesis_row + str raw
+
+**Position-card #1 couches 1-3 (commits a201eae / 4fd7ea0 / 99ba73b)**
+
+Couche 1 : position_type enum + classifications + hook integrity (a201eae)
+- Migration 0040 : position_type enum (structural/priced/tactical) + tags
+  orthogonaux + structural_justification + idx
+- Migration 0041 : thesis_erosion_classifications FK erosion_log_id + signal_id
+- shared/storage.set_position_type : REFUSE structural sans justification
+  (StructuralJustificationRequired) + hook tamper-evident append au
+  thesis_integrity_log si assignation a structural. Garde anti-Catch1.
+- intelligence/thesis_erosion._persist : persiste classifications LLM
+  (auparavant volatile in-memory perdues).
+- Backfill 4 chokepoints (ASML.AS, TSM, SNPS, 6920.T Lasertec) en structural
+  avec justifications criteres objectifs verifiables -> integrity seq 27-30.
+- 8 tests dont CRITIQUE Catch 1 (raise sans justif + chain append).
+
+Couche 2 : position_steer ExitPolicy + SizeAction separes (4fd7ea0)
+- Spec user red-team Catch 2 : type gouverne EXIT, cap gouverne SIZE.
+  Deux axes orthogonaux jamais fusionnes.
+- intelligence/position_steer.py :
+  - Matrice ExitPolicy.action 3 types x 6 etats (5 verdicts + None)
+  - SizeAction independante (weight vs cap) -- no_action / rightsize / urgent_rightsize
+  - Forbidden par type (structural : no full_exit_on_price_drop)
+  - Steer.display() montre les 2 axes SEPAREMENT
+- 40 tests dont CRITIQUE Catch 2 (structural intact 11% over-cap -> HOLD+TRIM,
+  jamais l'un n'exempte l'autre).
+- Smoke ASML.AS live : structural / intact / 8.31% / c5 -> EXIT:HOLD +
+  SIZE:RIGHTSIZE (8.3% vs cap 6%, 1.39x cap).
+
+Couche 3 : render position-card page deep-linkable + BookLine canonique fix (99ba73b)
+- DECOUVERTE user question "si tout est canonique comment des bugs cosmetiques" :
+  reponse honnete -- ce n'etait PAS canonique. get_held_lines anterieur a
+  Axe 3 n'exposait PAS les colonnes M1 typees -> readers re-queryaient
+  positions -> 2 sources de verite -> bugs.
+- FIX CANONIQUE AMONT (pas pansement local) :
+  - shared/book.BookLine ajoute 5 champs M1 : last_price_native,
+    last_price_currency, price_asof, fx_rate_to_eur, fx_asof
+  - _load_db_positions SELECT etendu
+  - get_canonical_book propage
+  - dashboard/_positions() expose les 5 cles
+  - Test invariant test_held_lines_expose_m1_typed_columns verrouille L23
+- Render section data-page="position-card" : stack toutes les cards, 
+  deep-link #card-TICKER, nav item "Cards", Catch 3 resolu (downside structurel
+  non-borne par prix).
+
+**Carte-decision #1 sequence 7 etapes (commits 41e4b5a / 1104209 / e521251 /
+7c184f6 / f841b46 / bf55cd1)**
+
+Etape 1 (41e4b5a) : conviction_at_entry PIT + hook drift tamper-evident
+- Migration 0042 + backfill 26 actives snapshot J0
+- Hook drift dans update_thesis_field : conviction change -> append
+  thesis_integrity_log event=conviction_drift {old, new, delta, asof}
+- conviction_at_entry IMMUABLE (test verrouille)
+- get_conviction_drift(thesis_id) helper
+- 8 tests dont CRITIQUE PIT immuable + chain coherent
+
+Etape 2 (1104209) : assemble_card_inputs source unique
+- intelligence/card_inputs.py CardInputs frozen avec 12 sources composees
+  (thesis, position_type, BookLine, erosion, classifications, kill, over_cap,
+  bias_open, ballast, counter_argument, ruin_budget, drift)
+- Read-only, aucune ecriture, champs None si source absente
+- Config etape 4 livree : ruin_budget_per_name_pct=0.015 + allow_add_steer=false
+- 10 tests dont frozen + ballast lookup + discipline flags surface
+
+Etape 3 (e521251) : derive_card_steer + 5 regles fail-closed transverses
+- intelligence/card_steer.py SteerVerdict 5-state StrEnum
+- 5 regles : prix stale rouge / these non-revue 90j+ / LLM degraded /
+  cours absent / structural sans justification
+- Matrice reduction (ExitPolicy x SizeAction) -> SteerVerdict avec
+  priorities (EXIT > REVIEW > TRIM > HOLD)
+- ADD desactive par defaut (anti-FOMO red-team user (a))
+- 19 tests dont CRITIQUES Catch 2 + matrice fail-closed exhaustive
+
+Etape 5 (7c184f6) : refactor _position_card pour CardInputs + SteerOutput
+- Signature : (inputs: CardInputs, steer_v2: SteerOutput) -> str
+- Zero re-query interne (source unique)
+- Tete : badge verdict 5-state + bandeau fail-closed rouge si declenche
+  + drift conviction inline si delta != 0
+- Summary panel : "X HOLD · Y TRIM · Z EXIT · N REVIEW (fail-closed L15)"
+- Smoke live dimanche soir : 26 cards / 26 REVIEW (PRIX STALE)
+
+Etape 6 (f841b46) : sections what-changed + discipline-flags + counter-argument
+- WHAT CHANGED : top-5 classifications par materiality*confidence + relation
+  chip + rationale (ou "non compute" si cron erosion pas wire)
+- DISCIPLINE FLAGS : compose monitors par ticker (kill / over_cap / bias_open /
+  ballast / conv_drift) -- masque si 0 flag actif
+- CONTRE-ARGUMENT : bot_copilot_interventions latest brief + pressure score
+- Inv triggers count fired upgrade : inputs.erosion_n_invalidation_hit
+- Sections conditionnelles : invisibles si donnees absentes (zero section vide)
+
+Etape 7 (bf55cd1) : tests render assembly + matrice fail-closed visuelle
+- 21 tests render direct avec inputs/steer factices frozen
+- Matrice bandeau visible/masque + verdict badge couleurs 4-cas (HOLD vert /
+  TRIM ambre / EXIT rouge / REVIEW gris) + drift conditional + sections
+  conditionnelles + invalidation count + Catch 3 verrouille (pas ratio infini)
+
+### Doctrines verrouillees ce sub-cycle
+
+- **L15 fail-closed transverse generalise** : 5 regles cartes-decision +
+  REVIEW_DUE_DEGRADED erosion + bandeau rouge prioritaire visible
+- **Catch 1 (red-team user)** : structural assignment requires structural_justification
+  + tamper-evident integrity chain append (test verrouille +
+  StructuralJustificationRequired raise)
+- **Catch 2 (red-team user)** : EXIT (type) + SIZE (cap) sont 2 axes
+  orthogonaux jamais l'un n'exempte l'autre (matrice 40 tests +
+  derive_steer Steer composition)
+- **Catch 3 (red-team user)** : "ratio infini" replace par "STRUCTUREL
+  non-borne par prix" pour structural (test explicit verrouille)
+- **L23 canonique amont** : BookLine expose colonnes M1 typees (Axe 3/5),
+  zero re-query downstream pour acceder asof/native/ccy
+- **Anti-entetement L4** : thesis_erosion (driver-level CONTENU) complementaire
+  thesis_track_record (Brier outcomes) et M14 (staleness temporelle)
+
+### Tests + infra
+
+- 1354 verts (+50 cette sub-session : +9 thesis_erosion, +8 position_type +
+  +40 position_steer, +1 invariant L23 BookLine, +8 conviction_drift, +10
+  card_inputs, +19 card_steer, +21 position_card_render)
+- Ruff clean partout
+- alembic head 0042
+- 11 commits architecturaux + 0 commit de close (ce commit-ci sera le 12e)
+
+### Sequence Carte-decision #1 livree integralement
+
+L'unite d'aiguillage est en place. Le contrat est :
+1. INPUTS : CardInputs frozen (12 sources composees, lecture unique)
+2. STEER : SteerOutput frozen (5-state + bandeau + actions detaillees)
+3. RENDER : _position_card(inputs, steer) -> HTML deep-linkable
+4. PANEL : _position_card_panel summary global X HOLD / Y TRIM / Z EXIT / N REVIEW
+
+Live dimanche soir : 26 cards / 26 REVIEW (PRIX STALE > 4h SLA). Le systeme
+refuse de steer dans le noir. Lundi a l'ouverture (cron reconcile 15min),
+green -> les verdicts reels reviennent et la carte aiguille.
+
+### Entry next session (lundi 08/06)
+
+- **OUVRIR le dashboard a l'ouverture marche** : http://127.0.0.1:8000/dashboard.html?nocache=1#card-ASML-AS
+  pour voir la carte-decision en action avec prix frais + verdicts reels
+  (les 26 REVIEW vont passer en mix HOLD/TRIM/EXIT selon position_type x verdict).
+- **WIRE cron event-driven thesis_erosion (couche 4 chantier #2)** :
+  trigger sur arrivee signal materiel par ticker + weekly floor sweep ;
+  apres 1er run, la section "WHAT CHANGED SINCE ENTRY" devient reelle
+  (classifications LLM Haiku surfaces par card). Cost estime ~$0.60/run plein.
+- **J-day 10/06 09:30** : J-2 -- cron j_day_batch_close_job armed, post_03
+  reecrit aligne sur la realite ("aucune V1 resolue, archive close").
+  Observation Telegram seulement.
+- **5 leviers steer user 07/06** : la carte-decision (#1) est posee.
+  Reste les 4 autres -- moteur what-changed event-driven (#2 wiring final),
+  steer book-level marginal trade (#3), sizing asymetrie-first (#4 -- la
+  3e colonne sizing existe via cap_for_conviction + ruin_budget mais pas
+  encore renderee), watchlist entry (#5).
+- **Test critique** : ouvrir 1 these random + drift manuellement la conviction
+  (update_thesis_field conviction X) + verifier que le chain hash s'incremente
+  et que la card affiche le drift inline en header.
