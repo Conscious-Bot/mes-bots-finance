@@ -3889,6 +3889,47 @@ def insert_price_observation(
         return None
 
 
+def insert_price_observations_bulk(
+    rows: list[tuple[str, str, float, str, str]],
+) -> int:
+    """Bulk insert price_history. Skip si (ticker, asof, source) deja present.
+
+    Args:
+        rows : list de (ticker, asof_iso, price_native, currency, source)
+
+    Returns:
+        Nombre de rows effectivement inseres (apres dedup).
+
+    Use case : backfill 5y x 26 tickers ~ 33k rows. Single transaction = ~100x
+    plus rapide que insert_price_observation en boucle.
+    """
+    if not rows:
+        return 0
+    inserted = 0
+    try:
+        with db() as cx:
+            for ticker, asof, price, currency, source in rows:
+                # Dedup defensive : skip si exact match deja la
+                existing = cx.execute(
+                    "SELECT 1 FROM price_history "
+                    "WHERE ticker=? AND asof=? AND source=? LIMIT 1",
+                    (ticker.upper(), asof, source),
+                ).fetchone()
+                if existing:
+                    continue
+                cx.execute(
+                    "INSERT INTO price_history "
+                    "(ticker, asof, price_native, currency, source) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (ticker.upper(), asof, float(price),
+                     currency.upper(), source),
+                )
+                inserted += 1
+    except Exception as e:
+        _copilot_log.warning(f"insert_price_observations_bulk failed: {e}")
+    return inserted
+
+
 def insert_fx_observation(
     base: str,
     quote: str,

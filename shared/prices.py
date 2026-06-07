@@ -403,6 +403,131 @@ if __name__ == "__main__":
         )
 
 
+def ensure_price_history(
+    ticker: str,
+    start: str | datetime,
+    end: str | datetime,
+    min_coverage_pct: float = 0.7,
+) -> Any:  # pd.DataFrame
+    """Garantit que price_history a des observations pour ticker dans [start, end].
+
+    Doctrine Axe 5 QUALITY_BAR : source unique de verite = price_history.
+    Au lieu de yfinance live a chaque query (ban risk + lent), on backfill
+    one-shot puis on lit DB ensuite.
+
+    Strategie :
+    1. Query existing observations dans la fenetre
+    2. Coverage = N_obs / N_business_days_expected
+    3. Si coverage < min_coverage_pct -> fetch yfinance batch + persist
+    4. Returns DataFrame complet (index=date, colonnes=[price_native, currency])
+
+    Args:
+        ticker, start, end : fenetre
+        min_coverage_pct : seuil declenchant le backfill (default 0.7 = 70%)
+
+    Returns:
+        pd.DataFrame avec index DatetimeIndex, colonnes ['price_native', 'currency'].
+        DataFrame vide si fetch fail + DB vide.
+
+    Examples:
+        # First call backfills, persistent thereafter
+        df = ensure_price_history('NVDA', '2020-01-01', '2026-06-07')
+    """
+    try:
+        import pandas as pd
+
+        from shared import storage
+    except ImportError as e:
+        _log.warning(f"ensure_price_history deps missing: {e}")
+        return None
+
+    # Normalize dates
+    if isinstance(start, datetime):
+        start_str = start.strftime("%Y-%m-%d")
+        start_dt = start
+    else:
+        start_str = str(start)[:10]
+        start_dt = datetime.fromisoformat(start_str)
+    if isinstance(end, datetime):
+        end_str = end.strftime("%Y-%m-%d")
+        end_dt = end
+    else:
+        end_str = str(end)[:10]
+        end_dt = datetime.fromisoformat(end_str)
+
+    # Query existing observations in window
+    try:
+        with storage.db() as cx:
+            rows = cx.execute(
+                "SELECT asof, price_native, currency FROM price_history "
+                "WHERE ticker = ? AND asof >= ? AND asof <= ? "
+                "ORDER BY asof",
+                (ticker.upper(), start_str, end_str + "T23:59:59"),
+            ).fetchall()
+    except Exception as e:
+        _log.warning(f"ensure_price_history DB read failed for {ticker}: {e}")
+        rows = []
+
+    # Business days expected (rough : 252 / year)
+    n_days = (end_dt - start_dt).days
+    n_business_days_expected = max(1, int(n_days * 252 / 365))
+    n_obs = len(rows)
+    coverage = n_obs / n_business_days_expected if n_business_days_expected else 0.0
+
+    # Backfill if coverage low
+    if coverage < min_coverage_pct:
+        _log.info(
+            f"ensure_price_history {ticker}: coverage {coverage:.0%} "
+            f"({n_obs}/{n_business_days_expected}j) < {min_coverage_pct:.0%}, "
+            "backfill yfinance"
+        )
+        try:
+            t = yf.Ticker(ticker)
+            hist = t.history(start=start_str, end=end_str, interval="1d", auto_adjust=False)
+            if not hist.empty:
+                currency = get_currency_for_ticker(ticker)
+                # Build bulk batch + route via storage.insert_price_observations_bulk
+                # (L1 single passerelle DB, discipline test_db_write_surface_is_frozen)
+                bulk_rows = [
+                    (
+                        ticker.upper(),
+                        date_idx.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+                        float(close),
+                        currency,
+                        "yfinance_backfill",
+                    )
+                    for date_idx, close in hist["Close"].dropna().items()
+                ]
+                if bulk_rows:
+                    storage.insert_price_observations_bulk(bulk_rows)
+        except Exception as e:
+            _log.warning(f"ensure_price_history backfill failed for {ticker}: {e}")
+
+        # Re-query post-backfill
+        try:
+            with storage.db() as cx:
+                rows = cx.execute(
+                    "SELECT asof, price_native, currency FROM price_history "
+                    "WHERE ticker = ? AND asof >= ? AND asof <= ? "
+                    "ORDER BY asof",
+                    (ticker.upper(), start_str, end_str + "T23:59:59"),
+                ).fetchall()
+        except Exception:
+            pass
+
+    # Build DataFrame
+    if not rows:
+        return pd.DataFrame(columns=["price_native", "currency"])
+    df = pd.DataFrame(
+        [{"asof": r[0], "price_native": r[1], "currency": r[2]} for r in rows]
+    )
+    # ISO8601 format=mixed gere les obs avec microsecondes (reconcile live) ET
+    # sans (backfill yfinance) sans warning.
+    df["asof"] = pd.to_datetime(df["asof"], format="ISO8601")
+    df = df.set_index("asof").sort_index()
+    return df
+
+
 def get_price_window(ticker: str, start_date: str | datetime, end_date: str | datetime) -> Any:  # pd.DataFrame | None
     """Phase A4 — Daily closes between start and end (inclusive).
     Returns list of (date_str_YYYYMMDD, close_float). Empty list on failure.

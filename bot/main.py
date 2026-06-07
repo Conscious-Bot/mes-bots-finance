@@ -232,6 +232,12 @@ async def post_init(app):
     sched.add_job(heartbeat, "interval", hours=1)
     sched.add_job(ingest_gmail_job, "interval", hours=1)
     sched.add_job(price_monitor_job, "cron", hour="14-22", minute="*/15", day_of_week="mon-fri")
+    # Axe 5 QUALITY_BAR : reconcile M1 columns 15min business hours.
+    # Maintient data health panel en green sans intervention.
+    sched.add_job(
+        _reconcile_positions_prices_job,
+        "cron", hour="14-22", minute="*/15", day_of_week="mon-fri",
+    )
     sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
     sched.add_job(daily_crypto_zone_job, "cron", hour=10, minute=0)
@@ -333,6 +339,19 @@ async def error_handler(update, ctx):
 
 _LOCK_PATH = Path(__file__).resolve().parent.parent / "data" / "bot.pid"
 _LOCK_FH = None
+
+
+def _reconcile_positions_prices_job() -> None:
+    """Axe 5 QUALITY_BAR : reconcile positions M1 columns via single gateway.
+
+    Wrap scripts/reconcile_positions_prices.main() pour APScheduler. Pas
+    d'exception remontee a APScheduler (sinon job stoppe), log + silence.
+    """
+    try:
+        from scripts.reconcile_positions_prices import main as reconcile_main
+        reconcile_main()
+    except Exception as e:
+        log.warning(f"reconcile_positions_prices_job failed: {e}")
 
 
 def _acquire_mono_instance_lock() -> None:

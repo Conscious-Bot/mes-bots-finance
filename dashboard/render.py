@@ -851,12 +851,13 @@ def _risk_watch_panel() -> str:
 
 
 def _fetch_portfolio_equity_curve():
-    """Cache 1h : fetch yfinance batch des positions ouvertes, compute equity
-    curve EUR (somme poids * prix historique). Returns pd.Series ou None si
-    impossible (<30j d'historique, yfinance down, etc.).
+    """Build equity curve depuis price_history (Axe 5 closing, M1 source unique).
 
-    Pattern : monolithe single-process, donc on cache globalement. Le bot a
-    son propre fetch (price_monitor) qui partage pas ce cache.
+    Avant : yfinance batch live a chaque regen 60s (lent + ban risk).
+    Apres : SELECT depuis price_history persisted (instantane, single gateway).
+    Si gap dans price_history -> ensure_price_history backfill automatique.
+
+    Cache 1h pour eviter compute repete (concat 26 series).
     """
     import time as _t
 
@@ -869,13 +870,12 @@ def _fetch_portfolio_equity_curve():
 
     try:
         import pandas as pd
-        import yfinance as yf
 
         from shared import storage
+        from shared.prices import ensure_price_history
     except Exception:
         return None
 
-    # Lit positions ouvertes + qty (avg_cost pas requis pour equity curve)
     try:
         with storage.db() as cx:
             rows = cx.execute(
@@ -888,50 +888,47 @@ def _fetch_portfolio_equity_curve():
     if not rows:
         return None
 
-    tickers = [r[0] for r in rows]
     qtys = {r[0]: float(r[1]) for r in rows}
 
-    # Batch download 1y daily prices via yfinance. Si certains failent,
-    # on les drop -- impossibilite porte sur le ticker, pas global.
-    try:
-        df = yf.download(
-            tickers=" ".join(tickers),
-            period="1y",
-            interval="1d",
-            auto_adjust=True,
-            progress=False,
-            threads=True,
-        )
-        if df is None or df.empty:
-            return None
-        # Si plusieurs tickers, df est MultiIndex ; si seul, df est plat
-        if len(tickers) > 1:
-            close = df["Close"] if "Close" in df.columns.get_level_values(0) else df
-        else:
-            close = df["Close"].to_frame(tickers[0]) if "Close" in df.columns else df
-    except Exception:
+    # Fenetre = 1y. ensure_price_history backfill on-demand si gap.
+    from datetime import UTC as _UTC, datetime as _dt, timedelta as _td
+    end_dt = _dt.now(_UTC)
+    start_dt = end_dt - _td(days=365)
+
+    # Build close DataFrame multi-ticker depuis price_history
+    series_per_ticker = {}
+    for ticker in qtys:
+        try:
+            df = ensure_price_history(ticker, start_dt, end_dt)
+            if df is not None and not df.empty:
+                s = df["price_native"]
+                s.index = s.index.normalize()
+                s = s.groupby(s.index).last()
+                series_per_ticker[ticker] = s
+        except Exception:
+            continue
+
+    if not series_per_ticker:
         return None
 
+    close = pd.DataFrame(series_per_ticker)
     if close.empty:
         return None
 
-    # Equity curve = sum(qty * prix) en devise native par ticker
-    # NOTE : la conversion FX EUR per ticker n'est pas faite ici -- on assume
-    # une approximation suffisante pour les metriques relatives. Pour une
-    # equity curve EUR-exact, il faudrait fetcher les fx aussi. KNOWN-GAP.
+    # Equity curve = sum(qty * prix native). KNOWN-GAP : mix devises
+    # native (cf docstring _performance_panel). Ratios CAGR/Sharpe/DD valides relatifs.
     try:
         portfolio_values = pd.Series(0.0, index=close.index)
         for ticker in close.columns:
             if ticker in qtys:
                 prices = close[ticker].ffill()
                 portfolio_values = portfolio_values + (prices * qtys[ticker])
-        # Drop des points NaN (debut serie quand certains tickers manquent)
         portfolio_values = portfolio_values.dropna()
     except Exception:
         return None
 
     if len(portfolio_values) < 30:
-        return None  # < 30j -> stats trop bruitees
+        return None
 
     _PORTFOLIO_HISTORY_CACHE = (portfolio_values, now)
     return portfolio_values
