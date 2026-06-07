@@ -1,0 +1,6 @@
+# PRESAGE thesis_integrity_log anchor
+date: 2026-06-07
+timestamp_iso: 2026-06-07T05:06:03.544523+00:00
+head_seq: 26
+head_chain_hash: e30cb9af229a520e4e9a810b52ba621b34a2a2c073b6fca9a46d105876bc7c56
+# Recompute via shared.integrity.verify_chain on rows up to seq=26

@@ -97,7 +97,7 @@ def chain_append(
 def anchor_chain_head(
     head_hash: str,
     head_seq: int,
-    anchor_dir: str = "data/integrity_anchors",
+    anchor_dir: str = "integrity_anchors",  # repo root (data/ gitignored)
 ) -> dict:
     """A4 : anchor externe du head chain (PASSE A1-A3 du theater au reel).
 
