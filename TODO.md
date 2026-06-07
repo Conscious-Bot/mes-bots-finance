@@ -1,8 +1,73 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 07 juin 2026 bis (session ultra-marathon : M-A complet + M-B 11/16 + bt wrapper + ffn V3 + tech debt)
-**Mode** : Phase construction (book 44k cost -> 52k valeur live) + J-day 10/06 J-3
+**Refresh** : 07 juin 2026 bis (session ultra-marathon + RED-TEAM pivot corrective)
+**Mode** : **STOP SOPHISTICATION, FOUNDATION FIRST.** Apres red-team 07/06 nuit.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
+
+---
+
+## 🔴 P0 CORRECTIVE QUEUE (red-team 07/06 nuit, doctrine pivot)
+
+Le red-team a identifie que la session du jour a livre 23 commits sur l'etage META pendant que la FONDATION (lock_in hook, predictions resolver, yfinance throttle reel, eur_value canonique, render.py decomposition) n'est pas posee. **STOP** d'ajouter de la sophistication tant que ces P0 ne sont pas livres.
+
+Chiffres verifies (commit pre-pivot 0042956) :
+- render.py : **6348 lignes** (CLAUDE.md doctrine ligne 34 dit "~1860 l", drift ×3.4)
+- Predictions : 184/219 **non resolues = 84%**. Calibration Brier/isotonic/Wilson/bootstrap calcule sur N=35. **Bruit**.
+- yfinance : **20 modules** importent directement, throttle prices.py contourne. Dashboard SPOF avec mitigation fantome.
+- sqlite3 : **101 fichiers** hors storage.py (red-team disait 48, **pire**)
+- eur_value : dans champ texte `notes`, parse regex (`refresh_positions_2026_05_23.py:77`). Snapshot 23/05 obsolete 15j. Source-unique-de-verite **violee**.
+- lock_in_detector : module + 9 tests OK MAIS `shared/positions.add_sell` NE CALL PAS `detect_winner_sell`. Pas de table `lock_in_events`. CLAUDE.md ment ("Hook dans shared.positions.add_sell apres cx.commit()" = aspiration).
+- 20 backup files data/bot.db.backup_* (216M data + 8.9M backups) = backup-by-panic.
+
+### P0.1 — 2 CI grep gates (~30min, **levier maximal/effort**)
+- Gate 1 : `yfinance hors prices.py` import = build rouge.
+- Gate 2 : `sqlite3.connect` litteral hors storage.py = build rouge.
+- Transforme 2 doctrines fictives ("single-gateway prices", "storage.py = passerelle") en invariants reels.
+- File : `scripts/ci_doctrine_grep_gates.sh` + add to pytest fixture ou CI step.
+
+### P0.2 — Lock_in_detector hook reel + table persist (~2h, **RAISON D'ETRE**)
+- Alembic migration `lock_in_events` table (event_id, position_id, ticker, sold_at, pnl_pct, conviction_at_sell, resolution_at, resolved_outcome, created_at).
+- Hook dans `shared/positions.add_sell` apres `cx.commit()` (L7 LESSONS post-commit pattern) : `intelligence.lock_in_detector.detect_winner_sell(...)` -> insert si gate fire (pnl_pct >= 15% AND conviction_at_sell >= 3).
+- Test live wire : sell test ticker -> verifier event en DB.
+- Le mecanisme central de PRESAGE doit exister avant tout autre ajout.
+
+### P0.3 — Predictions resolver (~2h, **flux outcomes**)
+- 184 predictions avec `outcome IS NULL` et `target_date < today`. Cron a creer (ou debug existant) qui ferme via `_cached_price_eur` + `outcome = correct/incorrect/neutral` + `brier_score` compute.
+- Sans flux outcomes, l'asset central (track record verifiable) est vide.
+
+### P0.4 — Colonne `eur_value` typee + refresh prix unifie (~3h)
+- Alembic migration : `positions.eur_value REAL NULL` + `eur_value_as_of TEXT NULL`.
+- Refresh job qui calcule `qty * _cached_price_eur(ticker)` quotidien.
+- Migrer le data text `notes` regex parsing -> colonne typee.
+- Drop des regex parsers downstream.
+
+### P0.5 — Factor-concentration warning mecanise (~1h)
+- `intelligence/factor_exposures.py` cron : si `top_factor_pct > 60%` (compute AI-capex aggregate) -> alerte Telegram + chip dashboard.
+- Tail risk #1 actuel (~78% AI-capex factor concentre) non instrumente.
+
+### P0.6 — Fix CLAUDE.md drift (~15min, **arret du mensonge documentaire**)
+- Update ligne 34 : `render.py ~1860 l` -> `~6350 l` + tag "god-file P1 decomposition pending"
+- Update ligne 34 "lock_in mecanise via v2.c.6 (hook positions.add_sell post-commit...)" : actuellement **aspiration documentaire**, pas reel. Soit livrer P0.2 immediatement, soit retiquer la formulation jusqu'a livraison.
+- Toute autre drift CLAUDE.md vs realite (verifier avec un sweep).
+
+### P1 (apres P0 livre) — Bloquants doctrine
+- Thesis intake gate **bloquant** (pas warning) si conviction >= 4 + violations M-B gates. Actuel = warning ignorable -> garbage collection en aval. Inverser.
+- `render.py` decomposition par panel (god-file 6348 l = ~30 panels). Sortir 5-10 panels/sprint vers modules dedies.
+- Backup rotation : keep latest N (3-5) + drop old. Script + cron weekly.
+
+### DEFER (apres tous P0 + P1) — Sophistication justifiee
+- M-B 5 mentors restants (M3/M4/M8/M13/M15) -- attendre P0.2 puis P0.3 livres pour avoir base statistique.
+- ffn V4 (rolling vol panel, drawdown events catalog UI)
+- skfolio + FinanceToolkit + FinanceDatabase wire
+- Continue les patterns digest si nouveaux repos audites
+
+### Doctrine pivot consequence
+La doctrine "discipline mecanisee pas alpha predictif" est **valide en theorie, fausse en pratique** tant que :
+- Le biais #1 n'est pas mecanise (P0.2)
+- Le flux d'outcomes ne suit pas (P0.3)
+- La source unique de verite est violee (P0.4)
+
+L'effort doit aller vers **ce qui decide**, pas vers **ce qui se demontre**. Le red-team formule ca proprement. L'inscrire dans LESSONS comme **L19 doctrine "sophistication justifiable par fondation"** apres P0.1-P0.6 livres.
 
 ---
 
