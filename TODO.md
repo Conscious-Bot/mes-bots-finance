@@ -1,6 +1,6 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 07 juin 2026 ter (DECISION_QUALITY_ENGINE A+B+C livre, capstone VISION_PRO active)
+**Refresh** : 07 juin 2026 quater (QUALITY_BAR sweep : 4 axes shippes + post_03 reecrit + J-day prep)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
@@ -224,7 +224,21 @@ Si N_resolu > 100 avec spread Brier multi-buckets -> "continue enrichir calibrat
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (07/06 fin de session bis)
+## 🟢 ÉTAT SYSTÈME (07/06 ter — QUALITY_BAR sweep 4/5 axes shippés)
+
+- **QUALITY_BAR 4 axes shippés en séquence** (per spec docs/QUALITY_BAR.md) :
+  - **Axe 3 fondationnel** ✅ positions M1 typed columns + reconcile + drop eur_value/notes
+  - **Axe 5 metriques** ✅ data health + price_history backfill 5y + cron 15min reconcile
+  - **Axe 4 stress-gate** ✅ seuils warn -25/breach -30 + monitor pattern + cron daily 7:00
+  - **Axe 2 sources** ✅ family taxonomy + N_effective helper + chip honnête monoculture
+  - **Axe 1 calibration** ⏸️ gated invariant N<100 (warmup en cours, ne PAS forcer)
+- **Diagnostic monoculture live** : 74/76 sources = narrative_newsletter (97%), 1 EDGAR primary, 1 manual. Chip data health affiche honnêtement.
+- **Smoke stress-gate live** : 8 scenarios évalués, tous OK, AI capex -30% → -21.4% drawdown (sous warn -25%). NB : déclaration mai disait -31%, suggère désintensification book pendant construction.
+- **Post_03 J-3 réécrit** : découverte cohort fantôme (0 V1 ont target=10/06 vs 40 dans le post J-11). Réel : 173 V1 étalées 27/05→28/07, 35 résolues, Brier 0.316 (PIRE que prévu). Narratif amende honorable plus fort.
+- **J-day 10/06 09:30 wired** : APScheduler date-trigger + grace 12h. Mécanique testée (dry-run + script post_resolution_brier_report).
+- **L21 + L22 doctrines verrouillées** : L21 QUALITY_BAR M1/M2/M3 + fail-closed généralisé. L22 N_effective ≠ N_brute (cohorte narrative corrélée).
+- **1224 tests verts** (+83 vs close bis). Ruff clean. alembic head 0038.
+- **DB backups pre-migration** : `data/bot.db.backup_axe2_*`, `data/bot.db.backup_session_close_*`.
 
 - **M-A Calibration contract pillar COMPLET 5/5** : env singleton + L15 fail-closed + Pydantic ScoringDecision + L16 temporal splits + L17 declarative YAML/live DB.
 - **M-B Thesis creation gates 11/16** : M1 Buffett + M2 Taleb + M5 Lynch + M6 Fisher + M9 Damodaran + M11 Ackman + M12 Pabrai (gates) + M7 Druckenmiller + M10 Taleb barbell + M14 Jhunjhunwala (health metrics) + M16 Munger doctrine. **5 mentors defer documente** (M3/M4/M8/M13/M15 -- effort > valeur immediate ou besoin infra additionnelle).
@@ -762,6 +776,20 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 ---
 
 ## ✅ DÉJÀ FAIT (29/05 + 30/05 matin)
+
+### 07/06 ter — QUALITY_BAR sweep : 4 axes shippés + J-day prep + post_03 amende honorable
+
+- **Doctrine non-négociable + navigation canonique** :
+  - `eb38f1d` M1 doctrine premier-principe (inputs datés persistés, outputs dérivés live)
+  - `4fb74c5` QUALITY_BAR.md base + L21 LESSONS M1/M2/M3 + fail-closed
+  - `591885f` CANONICAL_MAP.md navigation 10 sections (4 abstraction levels, 3 substrats, 5 axes, decision tree, chantiers, doctrines L1-L21)
+  - `b6abdb3` CANONICAL_MAP §5bis triggers de bascule + Polygon defer-with-triggers (3 conditions)
+- **Axe 3 fondationnel** : `3851059` positions M1 typed columns + reconcile job unique + valuation live, `9d8a50b` (partie) regex strip eur_value/notes + test verrouille
+- **Axe 5 metriques** : `9d8a50b` (partie) data health panel M1 freshness + chips distribution, `d4aa155` Axe 5 closing : ensure_price_history + bulk helper + Performance panel ex-yfinance + backfill 5y x 26 positions (33 654 obs) + cron 15min reconcile
+- **Axe 4 stress-gate** : `ac0f53e` migration 0037 + Pydantic StressGateConfig + config seuils + intelligence/stress_gate_monitor + 3 storage helpers + APScheduler daily 7:00 + dashboard chip + 8 tests dont CRITIQUE L4
+- **Axe 2 sources** : `68f5998` migration 0038 sources.family + backfill 76 sources + intelligence/source_diversity (effective_n_signals + book_source_composition) + chip "97% narrative / 1% orthogonal" + L22 LESSONS doctrine + 10 tests + 2 fixtures schema MAJ
+- **J-day prep post_03** : `591795b` réécriture post_03 (cohort fantôme révélée J-3) + healthchecks J-day vérifiés (APScheduler date-trigger 09:30, dry-run message OK, post_resolution_brier_report tested)
+- **Tests** : 1224 verts (+83 vs close bis), ruff clean, alembic head 0038
 
 ### 07/06 bis — Session ultra-marathon : M-B finition + bt wrapper + ffn V3 + tech debt cleanup
 

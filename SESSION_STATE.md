@@ -1809,3 +1809,85 @@ Defer explicite (effort > valeur immediate) :
 - **M-B 5 mentors defer** : revisiter quand contexte declenche -- M4 Graham apres FinanceToolkit wire, M8 Buffett competence quand tagging YAML ready.
 - **Stack analytics 3 libs prets a wire post J-day** : FinanceToolkit P1 (M9 Damodaran DCF), skfolio P2 (optim weights), FinanceDatabase P2 (universe metadata).
 - **Telegram /thesis_add live test** : creer une nouvelle these avec conviction 5 + Fragile + low ratio + drivers vagues + notes vides -> 5+ warnings M-B inline attendus. Valide UX retroactif.
+
+---
+
+## Close 2026-06-07 ter (QUALITY_BAR sweep : 4 axes shippes + J-day prep)
+
+Session pivot massive : after-meta sweep des 5 axes QUALITY_BAR (4 shippes, Axe 1 gated invariant N<100) + J-day prep avec decouverte cohort fantome. 1224 verts (+83 vs close precedente bis), 7 commits architecturaux + 1 doc.
+
+### Livre
+
+**Doctrine non-negociable + navigation canonique (commits eb38f1d / 4fb74c5 / 591885f / b6abdb3)**
+- `eb38f1d` M1 doctrine premier-principe : stocke inputs dates persistes, derive outputs live. Encode comme principe ante-axe.
+- `4fb74c5` QUALITY_BAR.md base non-negociable + L21 LESSONS (M1 triple, M2 pre-registration, M3 sizing edge prouve + meta fail-closed). Invariant transverse "le systeme a le droit de dire 'je ne sais pas'".
+- `591885f` CANONICAL_MAP.md navigation 10 sections : abstraction levels, substrats, axes, decision tree, chantiers, doctrines L1-L21, patterns canoniques, tests verrouilles, workflow standard.
+- `b6abdb3` CANONICAL_MAP §5bis triggers de bascule : Polygon defer-with-triggers (3 conditions : yfinance ban >4h sur 5+ tickers, multi-user SaaS, ou N>100 + spread <15min empiriquement prouve).
+
+**Axe 3 - Positions M1 typed columns (commit 3851059 + 9d8a50b partie)**
+- Migration 0036 : positions.last_price_native/price_asof/fx_rate_to_eur/etc typed columns. Aucune colonne eur_value (denormalisation derive interdite).
+- shared/valuation.py : position_valuation(id) live, fail-closed retourne None si severite=rouge.
+- scripts/reconcile_positions_prices.py : job unique via shared/prices.get(). Refresh M1 columns.
+- 9d8a50b regex strip eur_value/notes du refresh_positions (founding bug). Test test_positions_schema_has_no_eur_value_column verrouille.
+
+**Axe 5 - Data health + price_history backfill (commit 9d8a50b partie + d4aa155)**
+- Migration 0035 : price_history + fx_history append-only.
+- shared/freshness.py + config/freshness.yaml : SLA classify (green<15min/amber<1h/rouge>1h sur prix).
+- dashboard/_data_health_panel : 6 KPIs M1 freshness + 4 chips distribution (green/amber/rouge/inconnu).
+- `d4aa155` Axe 5 closing : ensure_price_history(ticker, start, end) backfill on-demand + bulk helper storage.insert_price_observations_bulk + Performance panel REWRITTEN to SELECT price_history (plus de yfinance live au render-time). Backfill execute 5y x 26 positions : 33 654 obs / 33 tickers. APScheduler 15min reconcile business-hours.
+
+**Axe 4 - Stress-gate seuils + alerte (commit ac0f53e)**
+- Migration 0037 stress_gate_alerts append-only.
+- Pydantic StressGateConfig (validator breach <= warn) dans risk_watch_schema.
+- config/risk_watch.yaml section stress_gate (default warn -25 / breach -30, overrides per-scenario, notify_on_breach toggle).
+- intelligence/stress_gate_monitor.py : classify pur + check_all_stress_transitions (2-pass classify-then-transition pour message coherent all_breaches). Pattern monitor canonique.
+- 3 helpers storage + APScheduler daily 7:00 + dashboard chip breach/warn/ok par scenario.
+- Smoke live : 8 scenarios, tous OK, AI capex -30% -> -21.4% drawdown (sous warn -25). NB : declaration mai disait -31%, suggere desintensification book.
+- 8 tests dont CRITIQUE L4 (3 cycles breach -> 1 notify seulement).
+
+**Axe 2 - Sources family taxonomy + N_effective (commit 68f5998)**
+- Migration 0038 sources.family TEXT NOT NULL DEFAULT narrative_newsletter + backfill deterministe par type.
+- intelligence/source_diversity.py : effective_n_signals(signals) = familles distinctes + book_source_composition().
+- shared/storage.get_or_create_source_typed parametre family avec deduction par type.
+- Dashboard _data_health_panel chip "X% narrative / Y% orthogonal" (severite warn>=70% / neg>=90%).
+- docs/LESSONS.md L22 monoculture narrative encodee + test verrouille test_monoculture_5_newsletters.
+- Diagnostic live : 74/76 newsletters (97%), 1 EDGAR, 1 manual. **Monoculture narrative confirmee.**
+- 10 tests + 2 fixtures sources schema mis a jour (test_edgar_signal_wire + test_v2_vigilance).
+
+**J-day prep + post_03 reecriture (commit 591795b)**
+- Diagnostic J-3 verification DB : 0 V1 ont target_date=2026-06-10. Le batch 40 du post J-11 etait une cohorte fantome modelisee.
+- Reel : 173 V1 etales 27/05 -> 28/07. 35 deja resolues : 9c/16ic/10n. Brier 0.316 (PIRE que prevu 0.295).
+- Mecanique J-day verifiee : APScheduler date-trigger 09:30 + grace 12h + _build_brier_telegram_msg renvoie "aucune V1 resolue" honest + script post_resolution_brier_report OK.
+- Post_03 reecrit : aveu honnete sur cohort fantome. Plus fort narrativement (calibration appliquee a sa propre calibration).
+
+### Doctrines verrouillees ce jour
+
+- **L21 QUALITY_BAR M1/M2/M3 + fail-closed generalise** (base non-negociable, source unique docs/QUALITY_BAR.md)
+- **L22 N_effective != N_brute** (cohorte narrative correlee, taxonomy family, source canonique source_diversity.effective_n_signals)
+- M1 doctrine premier-principe (inputs dates stockes, outputs derives live -- pre-axe)
+
+### Tests + infra
+
+- 1224 passed + 1 skipped (vs 1141 close bis = +83 nouveaux)
+- Ruff clean partout
+- alembic head 0038
+- Backups DB pre-migration 0036/0038 conserves
+- DECISION_QUALITY_ENGINE.md spec drafte (A integrite hash chain + B attribution 2x2 + C base-rate stub)
+
+### Sequence QUALITY_BAR completee (per spec docs/QUALITY_BAR.md)
+
+1. Axe 3 fondationnel ✅ (positions M1 propre + reconcile)
+2. Axe 5 metriques ✅ (data health + price_history + cron 15min)
+3. Axe 4 stress-gate ✅ (seuils + monitor pattern + daily cron)
+4. Axe 2 sources ✅ (family taxonomy + N_eff helper + chip honnete)
+5. Axe 1 calibration ⏸️ gated invariant N<100 (warmup en cours, ne PAS forcer)
+
+### Entry next session
+
+- **J-day 10/06 09:30** : observer Telegram (job dira "aucune V1 resolue, archive close"). Pas de ceremonie publique, post_03 deja aligne. Bot.log check apres fire pour confirmation.
+- **Axe 4 Phase 2** : definir cible ballast (15-20% decorrele) + sizing-regime construction yaml. Phase 1 ferme avec stress-gate, Phase 2 = ballast operationnel.
+- **Axe 2 Phase 2** : wire downweight materiality scoring quand calibration N=>50 (gating L19). Pour l'instant N_effective rendu visible (Phase 1).
+- **Polygon DEFER** : 3 triggers a observer (yfinance ban >4h sur 5+ tickers, multi-user SaaS, N>100+spread<15min prouve). Aucun ne fire actuellement.
+- **OTS install + cron daily anchor** : prediction_integrity_log + thesis_integrity_log ont bootstrap mais cron anchor pas wire. Faible urgence (chain coherente, anchor = belt-and-suspenders).
+- **Sondes 7j calibration** : module reference_class.base_rate stub raise NotImplementedError (L15). Wire reel quand N>=50 sur cohortes V2.
+- **Dashboard reload** : open http://127.0.0.1:8000/dashboard.html?nocache=1 pour voir chip "97% narrative / 1% orthogonal" + stress-gate tags + data health M1.
