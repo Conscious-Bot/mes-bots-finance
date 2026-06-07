@@ -81,6 +81,32 @@ Arbre de décision séquentiel :
 | **Ballast cible** | Axe 4 | ❌ pas défini | définir % cible + flag si < |
 | **Sondes monoculture sources** | Axe 2 | ❌ pas wire | corrélation inter-sources |
 | **OTS install + cron daily anchor** | Axe 1 (A4 trustless) | ❌ scripts livrés, pas opérationnel | pip install opentimestamps-client |
+| **Polygon (ou Tiingo) wire** | Axe 5 redundancy | ⏸ **DEFER-with-triggers** (cf §5bis) | ~2h wire quand 1 des 3 triggers fire |
+
+### 5bis. Triggers de bascule (chantiers gated par événement, pas par séquence)
+
+Certains chantiers ne sont **pas séquencés** dans la roadmap — ils attendent un événement spécifique. Tant que le trigger ne fire pas, l'effort va ailleurs. Quand il fire, on bascule immédiatement (architecture déjà prête).
+
+#### Polygon (ou Tiingo) — feed prix payant en fallback / redundancy
+
+**Verdict actuel** (07/06/2026, single-user solo book 50k) : **pas maintenant**. Doctrine QUALITY_BAR Axe 5 explicite : « assumer near-live tant que single-user ; payer quand pro/multi-tenant ».
+
+**Wire immédiat si UN de ces 3 événements arrive** :
+
+1. **Incident yfinance ban concret** : un fetch fail prolongé (>4h sur 5+ tickers simultanés). Preuve que single-source = risque réel matérialisé, pas hypothétique.
+2. **Passage multi-user / SaaS** (Phase 5 VISION_PRO §5.1-5.2) : la vérité doit être indépendante du compte gratuit d'un opérateur. La tolérance solo (« mon yfinance suffit ») ne tient pas quand on facture des clients.
+3. **N_resolu > 100 + besoin spread freshness <15min prouvé** : seulement si la calibration prouve empiriquement qu'un edge dépend de freshness sub-15min. **Très improbable sur horizon long terme** (PRESAGE = 30-90j horizons), à ne pas activer en spéculation.
+
+**Architecture déjà prête** (commit 9d8a50b et avant) : `price_history.source` field, `shared/prices.py` single gateway, data health panel affiche `Sources: yfinance×26` → affichera automatiquement `yfinance×20 polygon×6` quand wire fait.
+
+**Effort de bascule estimé** : ~2h
+- `shared/prices_polygon.py` adapter même API que `prices.py`
+- `shared/prices.py::get_current_price` essaie polygon d'abord (si configuré), fallback yfinance
+- Persist avec `source="polygon"` (schéma déjà supporté)
+- Allowlist polygon import dans CI gate (`tests/test_doctrine_grep_gates.py`)
+- Test cross-source consistency : delta >0.5% entre 2 sources → warning au panel
+
+**Anti-pattern à refuser** : wire Polygon **proactivement** sans trigger. C'est exactement L19 violation (« sophistication tant que N<100 »).
 
 ## 6. Catalogue des doctrines (L1 - L21)
 
