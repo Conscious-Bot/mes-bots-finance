@@ -540,3 +540,107 @@ Aucun gate ne peut mesurer "cross-disciplinary depth of reasoning" — c'est une
 ### Référencer
 
 CLAUDE.md "Catches recurrents" L18 pointer doctrine M16. Pas de test verrouillé (non-encodable). Pas de re-formulation ailleurs.
+
+## L19 — Sophistication doit être justifiée par fondation, pas la précéder
+
+Pivot 07/06 nuit (red-team auto-correction). Catch identifié après 27+ commits sur étage META (M-B mentor gates, Heimdall V3, ffn/bt wrappers) pendant que la fondation (pre-engagement integrity, attribution causale, base-rate externe) restait inexistante.
+
+### La règle
+
+**Aucune nouvelle couche scoring / calibration / monitoring tant que les 3 conditions suivantes ne sont pas remplies :**
+1. **N_resolu >= 100** sur le bucket cible (sinon : calibration sur bruit)
+2. **Pre-engagement tamper-evident** en place (sinon : revisions post-hoc indétectables, doctrine illusoire)
+3. **Source-de-vérité figée** à l'entrée (driver structuré, benchmark, conviction PIT, kill_criteria)
+
+Si une de ces conditions manque, l'effort doit aller vers la combler, pas vers une nouvelle couche de scoring.
+
+### Symptômes de violation L19
+
+- Ajouter un Nème gate / scorer / dashboard panel alors que le N statistique reste à 35
+- Calibrer un modèle (isotonic / Platt / Beta shrinkage) avec n < 100 sur 1 bucket
+- Construire une métrique 2ème ordre (Brier conditionnel au régime, IR rolling) avant que la métrique 1er ordre ait du signal
+- Documenter une doctrine ("hook posté", "throttle single-gateway", "factor monitor wired") qui n'est pas réelle dans le code
+
+### Pourquoi cette doctrine est dure
+
+Tentation 1 : "le code est propre, ajoutons encore une couche pour le démontrer." → Mais le code propre sans fondation = instrument de mesure d'orfèvre pour une table dont les pieds porteurs ne sont pas posés.
+
+Tentation 2 : "N atteindra 100 dans 18 mois, autant préparer la machinerie maintenant." → Non. La machinerie qui attend 18 mois de data accumule de la dette et drifte loin du besoin réel. Construis quand le N le justifie.
+
+### Test contre soi-même
+
+Avant chaque nouveau commit qui ajoute :
+- Un scoring layer, calibration formula, Brier metric
+- Un panel dashboard, chart, KPI
+- Un gate de validation, monitor, alerte
+
+**Pose-toi** : *"Cette couche calcule sur quel N ? Le N suffit pour qu'elle ne soit pas du bruit ? Si non — vais-je nourrir N en priorité ou ajouter cette couche en priorité ?"*
+
+Si la réponse est "ajouter la couche", **stop**.
+
+### Application pratique
+
+- L19 surface dans `/audit` (TBD) : metric "doctrine sophistication ratio" = (nb_couches_scoring / log(N_resolu)). Si > seuil, alerte.
+- CI gate possible : count fichiers `intelligence/*scoring*.py` + `intelligence/*calibration*.py`. Si croît sans N_resolu correspondant, fail.
+
+### Référencer
+
+CLAUDE.md "Catches récurrents" L19. Cf docs/DECISION_QUALITY_ENGINE.md pour la fondation requise. Pas de re-formulation ailleurs.
+
+## L20 — Outcome-graded ne suffit pas, scorer la décision (attribution 2x2)
+
+Pivot 07/06 nuit. Le mode d'échec central d'une machine à discipline calibrée sur outcomes seuls = **quadrant raison-fausse / outcome-juste = chance déguisée en talent**. Invisible à un Brier sur outcomes, indistinguable de SKILL.
+
+### La règle
+
+**Scorer une décision se fait en 2 axes orthogonaux, pas 1 :**
+- Axe 1 : outcome (le résultat) — connu (excess return vs benchmark)
+- Axe 2 : process / attribution causale — la **raison** déclarée à l'entrée correspond-elle au moteur dominant du return réalisé ?
+
+|  | Outcome juste | Outcome faux |
+|---|---|---|
+| **Raison juste** | SKILL répétable (size ça) | SOUND_PROCESS (process sain, ne pas désapprendre) |
+| **Raison fausse** | **LUCK** (chance déguisée — le quadrant qui ruine) | LEARNING (vrai apprentissage) |
+
++ 5ᵉ quadrant **UNATTRIBUTABLE** : si le résidu domine la décomposition (≥ 50% du sum abs), L15 fail-closed — pas de cause fabriquée.
+
+### Mécanisation de "raison juste" (cf track_record/attribution.py)
+
+Triple condition :
+1. **Driver-hit test** : le KPI nommé dans `epic_driver` a bougé dans direction + magnitude prédites
+2. **Channel dominant matche** : la décomposition return montre le canal nommé (`fundamental` vs `multiple`) comme dominant
+3. **Kill-criteria respectés** : booléen depuis le journal monitoring (lecture, pas re-implémentation — L4)
+
+Si une seule condition manque → reason_right = False → LUCK ou LEARNING selon outcome.
+
+### Symptômes de violation L20
+
+- Conclure "j'ai du skill" sur une série de outcomes positifs sans vérifier attribution
+- Désapprendre une thèse après un outcome négatif sans vérifier si reason_right
+- Réviser une conviction post-hoc en disant "je savais que..." (anti-L16 et anti-L20)
+- Présenter un Brier impeccable sans présenter `luck_share` (= part LUCK / (SKILL + LUCK))
+
+### Pourquoi cette doctrine est dure
+
+Tentation 1 : "Mon Brier est à 0.18, c'est largement mieux que 0.25 baseline." → Mais sans attribution 2x2, tu ne sais pas combien de tes outcomes positifs sont LUCK. Si luck_share = 60%, ton "skill apparent" est 40% de ce que tu crois.
+
+Tentation 2 : "Trop compliqué de structurer epic_driver à l'entrée, c'est friction." → Sans driver structuré (KPI + magnitude + price_channel), B est impossible. La friction à l'entrée *est* la doctrine. Sans elle, tu calibres l'aléa.
+
+### Application pratique
+
+- À chaque création thèse conviction ≥ 4 : `driver_epic` requis (warning A0 si vide).
+- À résolution +30j : tracer attribution 2x2 + UNATTRIBUTABLE rate.
+- À audit `/audit` : `luck_share` est le verdict clé quand N ≥ 30 sur cohorte SKILL+LUCK. En dessous : gating L15 → None ("puissance insuffisante").
+- Render.py panel decision_quality (TBD) : grille 2x2 + part LUCK + UNATTRIBUTABLE count.
+
+### Test verrouillé
+
+`tests/test_attribution_2x2.py` :
+- `test_luck_quadrant_outcome_good_but_wrong_reason` — LUCK distinct de SKILL malgré outcome identique
+- `test_unattributable_blocks_fabricated_skill` — résidu domine → refus de fabriquer cause
+
+Si un de ces tests régresse, on a perdu L20.
+
+### Référencer
+
+CLAUDE.md "Catches récurrents" L20. Cf `docs/DECISION_QUALITY_ENGINE.md` spec complète. Pas de re-formulation ailleurs.
