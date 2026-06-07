@@ -870,11 +870,11 @@ def _fetch_portfolio_equity_curve():
     except Exception:
         return None
 
-    # Lit positions ouvertes + qty
+    # Lit positions ouvertes + qty (avg_cost pas requis pour equity curve)
     try:
         with storage.db() as cx:
             rows = cx.execute(
-                "SELECT ticker, qty, avg_cost_eur FROM positions "
+                "SELECT ticker, qty FROM positions "
                 "WHERE status='open' AND qty > 0"
             ).fetchall()
     except Exception:
