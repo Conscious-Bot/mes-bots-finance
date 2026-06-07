@@ -298,6 +298,70 @@ Effort : ~6h P1 (wrapper + cache statements SQLite + integration tests + Heimdal
 #### Verdict 2-audits JerBouma
 Pas de doublon avec stack PRESAGE actuel ni avec ffn. FinanceToolkit = building block crucial pour M9 Damodaran gate et `/review` enrichi avec DCF déterministe. FinanceDatabase = lookup pour ticker validation + universe filtering (P2). Stack ffn + FinanceToolkit + FinanceDatabase = trio analytics complet (perf + fundamentals + metadata) compatible doctrine PRESAGE.
 
+### 📥 PATTERNS DIGEST 07/06 fin de soirée bis — 6 audits express (gh CLI metadata + README)
+
+Doctrine accumulation maintenue. 1 retenu P2 (skfolio), 4 drops dont 2 license-bloquantes, 1 P3 framework heavy.
+
+| Repo | ★ | License | L14 | Verdict |
+|---|---|---|---|---|
+| **skfolio/skfolio** | 2.0k | BSD-3 | ✅ | sklearn-style portfolio opt, P2 |
+| **nautechsystems/nautilus_trader** | 23k | **LGPL-3.0** | ❌ | Rust HFT engine, drop |
+| **dcajasn/Riskfolio-Lib** | 4.2k | BSD-3 | ✅ | CVXPY 26 risk measures, P2 backup skfolio |
+| **man-group/ArcticDB** | 2.4k | **paid commercial** | ⚠️ | DataFrame DB Man Group, drop |
+| **finos/perspective** | 11k | Apache 2.0 | ✅ | WebAssembly viz framework, P3 |
+| **finos/FDC3** | 254 | CSL+Apache | ✅ | Standard desktop interop, drop |
+
+#### skfolio (P2 post J-day, ~4h wrapper)
+- sklearn-compatible portfolio optimization (BSD-3, py3.10-3.13, py3.14 likely OK, JupyterLite tutorials)
+- CVXPY-backed solver, Clarabel default
+- Objectifs : Min Risk / Max Return / Max Utility / Max Risk-Adjusted Return
+- Risk measures (subset complet) : variance, MAD, semi-deviation, CVaR, EVaR, RLVaR, CDaR, EDaR, ULCER, max DD
+- HRP (Hierarchical Risk Parity), Black-Litterman, Risk Budgeting
+- **Compat PRESAGE doctrine** : output `weights` = peut être proposition de rebalance OU input pour seasoning vs conviction-normalisé. Ne PAS auto-override sizing manuel, mais surfacer "MV optimum vs ta cible" dans `/audit` enrichi
+- Wire potentiel : `shared/portfolio_optimizer.py` + chip "optimum vs ta cible" dans Concentration panel Heimdall
+- Doublon partiel Riskfolio-Lib : préférer **skfolio** (sklearn-style + py >=3.10 OK + plus actif récent + Discord communauté)
+
+#### nautilus_trader (DROP)
+- 23k stars mais **LGPL-3.0** = contagion potentielle si on link en SaaS Phase 2 (faut shipper le source modifié)
+- Production-grade Rust core + Python control plane + multi-venue (CEX/DEX/FX/equities/futures/options)
+- Optional Redis-backed state persistence (signature L14 #7 stack complexity vs SQLite WAL solo)
+- **ANTI-doctrine PRESAGE** : automated live trading exécution ≠ friction décision (`/trade` 2-step confirm). Stack écrasante pour monolithe Python solo.
+- Pattern event-driven message bus intéressant **conceptuellement** mais pas adoptable tel quel. Si on veut event sourcing un jour, on l'implémente à plat sur SQLite, pas via nautilus.
+
+#### Riskfolio-Lib (P2 backup uniquement)
+- 4.2k stars, BSD-3, CVXPY-based, accent académique
+- 26 convex risk measures (variance, MAD, semi-deviation, FLPM/SLPM, CVaR, EVaR, RLVaR, CDaR, EDaR, UCI, ULCER)
+- 4 objectifs Mean Risk : Min Risk / Max Return / Max Utility / Max Risk-Adjusted Return
+- Kelly Criterion log mean-risk
+- HRP/HERC/NCO Hierarchical Risk Parity variants
+- **Verdict** : excellent mais skfolio choisi comme primary. Garde Riskfolio en backup si on hit limitation skfolio.
+
+#### ArcticDB (DROP, license bloquante)
+- Man Group commercial product (March 2023 successor to Arctic). **PAID license requise en production**. Open-source non-commercial seulement.
+- DataFrame DB time-series billion-rows, S3/LMDB backends, columnar C++ engine
+- **Over-engineering** pour PRESAGE solo (SQLite WAL ~50k rows actuels, ~500k à 5 ans = pas le profil ArcticDB)
+- Si Phase 2 SaaS multi-tenant un jour : re-évaluer mais probable rester sur SQLite WAL + Postgres si vraiment massive scale
+- L14 #7 stack complexity HIT + license commerciale → drop double
+
+#### finos/perspective (P3 nice-to-have)
+- 11k stars Apache 2.0, framework FINOS sponsor JPMorgan
+- WebAssembly + Apache Arrow + Python + JS + Rust SDK
+- 10+ chart types : line, bar, area, scatter, heatmap, treemap, sunburst, **candlestick** + grid
+- Jupyter widget + standalone web component
+- **Trade-off** : remplace sparklines SVG par charts pro mais lock-in framework + dépendance WASM. Vs `tradingview/lightweight-charts` déjà en TODO BONUS UX (~2-3h wire), perspective est ~10× plus lourd
+- **Verdict** : si on étend à dashboards complexes interactifs (filters + drill-down click), perspective devient meilleur que lightweight-charts. Pour candlestick pur, lightweight-charts gagne (plus léger). Décision dépend de l'ambition cockpit Heimdall.
+
+#### finos/FDC3 (DROP)
+- 254 stars, CSL 1.0 standard + Apache 2.0 code
+- Spec desktop interop pour Bloomberg/Refinitiv/IB qui discutent via "Intents" + "Context types" (Instrument, Position, Date, Contact)
+- Patterns **conceptuellement** intéressants pour MCP discovery futur (Intent registry = allowlist Telegram commands)
+- **Pas pertinent solo Telegram bot Python aujourd'hui**. Re-visite si PRESAGE expose en MCP Claude Desktop / Cowork un jour.
+
+#### Verdict 6-audits express
+1 win solide (skfolio P2 portfolio optimization sklearn-style), 5 drops/P3 propres. ffn + skfolio = stack analytics + optimization complet pour Heimdall + audit enrichi. JerBouma FinanceToolkit ajoute fundamentals. Trio cohérent.
+
+Doctrine "accumulate broadly + drop useless only" respectée : 16 audits total cette session (11 + 5 + 2 + 6 - duplicates) = ~30 patterns extractés. Le filtre L14 a tenu sur 100% des cas.
+
 ### Scores comparatifs
 
 | Repo | Utilité PRESAGE | Verdict 1-line |
