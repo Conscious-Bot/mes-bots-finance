@@ -378,20 +378,36 @@ def get_or_create_source(sender: str) -> int:
         conn.close()
 
 
-def get_or_create_source_typed(name: str, type_: str, credibility: float) -> int:
+def get_or_create_source_typed(
+    name: str, type_: str, credibility: float, family: str | None = None,
+) -> int:
     """Resolve name to source_id, cree avec type+credibility specifies si absente.
 
     Pour sources primaires (sec_filing, regulatory, etc.) qui ont une credibility
     de base != 0.50. Utilise par intelligence/edgar_signal_wire.py (8-K SEC).
+
+    family : Axe 2 QUALITY_BAR taxonomy. Si None, deduction par type_ :
+      sec_filing -> primary_filing, insider -> insider, manual -> manual,
+      autres -> narrative_newsletter (default DB).
     """
+    if family is None:
+        family = {
+            "sec_filing": "primary_filing",
+            "insider": "insider",
+            "manual": "manual",
+            "broker_research": "broker_research",
+            "social": "social",
+            "chat": "chat",
+        }.get(type_, "narrative_newsletter")
     conn: _sqlite3.Connection = _sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT id FROM sources WHERE name = ?", (name,)).fetchone()
         if row:
             return int(row[0])
         cur = conn.execute(
-            "INSERT INTO sources (name, type, credibility, n_signals) VALUES (?, ?, ?, ?)",
-            (name, type_, credibility, 0),
+            "INSERT INTO sources (name, type, credibility, n_signals, family) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (name, type_, credibility, 0, family),
         )
         conn.commit()
         return cur.lastrowid or 0

@@ -25,7 +25,8 @@ def _setup_db(tmp_path, monkeypatch):
         name TEXT NOT NULL UNIQUE,
         type TEXT NOT NULL,
         credibility REAL,
-        n_signals INTEGER DEFAULT 0
+        n_signals INTEGER DEFAULT 0,
+        family TEXT NOT NULL DEFAULT 'narrative_newsletter'
     );
     CREATE TABLE signals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

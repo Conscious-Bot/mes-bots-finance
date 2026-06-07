@@ -1061,6 +1061,29 @@ def _data_health_panel() -> str:
 
     sources_str = ", ".join(f"{s}x{n}" for s, n in sources.items()) if sources else "—"
 
+    # Axe 2 QUALITY_BAR : composition orthogonal/narrative des sources (chip honnete).
+    # Si 97% narrative_newsletter et 3% orthogonal -> on l'affiche, on ne masque pas.
+    try:
+        from intelligence.source_diversity import book_source_composition
+        comp = book_source_composition()
+        n_total_src = comp["total"]
+        ortho_pct = comp["orthogonal_pct"]
+        narr_pct = comp["narrative_pct"]
+        # Severite : narrative > 80% = mono-culture confirmee (warn)
+        narr_sev = "neg" if narr_pct >= 90 else ("warn" if narr_pct >= 70 else "ok")
+        diversity_html = (
+            '<div class="dh-distrib" style="margin-top:6px">'
+            f'<span class="dh-chip {narr_sev}">'
+            f'sources : {narr_pct:.0f}% narrative / {ortho_pct:.0f}% orthogonal · '
+            f'n={n_total_src}</span>'
+            '<span class="dh-chip neu" style="font-size:10px;opacity:0.7">'
+            'Axe 2 garde-fou : 2 narratifs corrélés ≠ 2 lectures du marché'
+            '</span>'
+            '</div>'
+        )
+    except Exception:
+        diversity_html = ""
+
     return (
         '<div class="card data-health-card">'
         f'<div class="card-h">Data health · M1 freshness ({_sev_class(overall_sev)})</div>'
@@ -1079,6 +1102,7 @@ def _data_health_panel() -> str:
         f'<span class="dh-chip neg">rouge {price_severities["rouge"]}</span>'
         f'<span class="dh-chip neu">inconnu {price_severities["unknown"]}</span>'
         '</div>'
+        + diversity_html +
         '</div>'
     )
 

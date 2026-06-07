@@ -707,3 +707,38 @@ Le système affiche **dégradé** ou **refuse**, jamais ne **fabrique**.
 ### Référencer
 
 Source canonique : `docs/QUALITY_BAR.md` (figé 07/06 nuit++). L21 ici = doctrine encodée pour grep transversal. CLAUDE.md "Catches récurrents" pointe L21. Pas de re-formulation ailleurs.
+
+---
+
+## L22 — Diversité des sources : N_effective ≠ N_brute (cohorte narrative)
+
+**Catch** : compter 8 newsletters substack comme "8 signaux indépendants" est une violation de M2/M3 — une cohorte narrative macro corrélée n'est pas une lecture du marché, c'est UNE lecture (avec 8 voix). Le système doit afficher N_effective (familles distinctes), pas N_brute.
+
+**Diagnostic au 07/06** : 74/76 sources = `narrative_newsletter` (97.4%), 1 = `primary_filing` (EDGAR), 1 = `manual`. Monoculture confirmée.
+
+**Taxonomie canonique** (migration 0038 `sources.family`) :
+- `primary_filing` : EDGAR 8-K/10-Q/10-K (orthogonal structurel)
+- `insider` : Form 4, insider clusters (orthogonal comportemental)
+- `narrative_newsletter` : substacks, beehiiv (cohorte narrative)
+- `broker_research` : Goldman/Morgan/Jefferies
+- `social` : reddit, twitter, WSB
+- `chat` : user Telegram taps
+- `manual` : ajouts manuels user
+- `other` : fallback
+
+**Famille orthogonale** = `{primary_filing, insider, broker_research}`. Les autres sont supposées corrélées entre elles (narrative drift commun, social drift commun).
+
+**Symptôme de violation** : afficher "5 sources confirment X" sans expliciter qu'elles sont toutes du même substack circuit.
+
+**Application** :
+- `intelligence/source_diversity.effective_n_signals(signals)` = source canonique du calcul N_effective.
+- Dashboard `_data_health_panel` chip "X% narrative / Y% orthogonal" — affiche honnêtement la monoculture.
+- **Pas de wire scoring action** tant que calibration N<100 (gating L19/L21).
+
+### Test verrouillé
+
+`tests/test_source_diversity.py::test_monoculture_5_newsletters` — 5 signaux narrative → N_effective=1, is_monoculture=True. Le test prouve qu'on ne tombe pas dans le piège du comptage brut.
+
+### Référencer
+
+Source canonique : `docs/QUALITY_BAR.md` Axe 2 garde-fou (figé 07/06). L22 ici = encodage doctrine. CLAUDE.md "Catches récurrents" : ajouter L22 dans la liste compactée si la prochaine session en a besoin.
