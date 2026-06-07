@@ -240,6 +240,64 @@ Doctrine accumulation maintenue. 4 retenus / 1 drop (ZhuLinsen signals). Sécuri
 
 5 audits, 3 wires concrets P1 identifiés (ffn immédiat le plus gros gain), 3 patterns P2 follow-up, 1 drop signals. ffn = trouvaille majeure de la session — couvre direct le Performance panel Heimdall que je notais comme HAUTE priorité dans le digest précédent.
 
+### 📥 PATTERNS DIGEST 07/06 fin de soiree — 2 audits JerBouma
+
+| Repo | L14 | Score | License | Verdict |
+|---|---|---|---|---|
+| **JerBouma/FinanceDatabase** | ✅ | 8.5/10 | MIT | DB statique 353k instruments, complement config/sectors.yaml |
+| **JerBouma/FinanceToolkit** | ✅ | 8.5/10 | MIT | 150+ ratios fundamentals deterministes, COMPLEMENT ffn (zero overlap) |
+
+#### FinanceDatabase (P2 post J-day)
+
+- **160k equities** avec sector/industry/country/exchange/market_cap (GICS standard)
+- **36k ETFs + 57k funds + 91k indices + 3k cryptos + 2.5k currencies + 1.4k money markets**
+- 21 fields equities (symbol, isin, cusip, figi, sector, industry_group, industry, country, MIC, market_cap tier, delisted bool)
+- API : `equities.select(country='X', sector='Y', industry='Z', market_cap=['Large', 'Mid'])` + `.search(summary=['Robotics', 'AI'])`
+- **PAS de doublon avec `config/sectors.yaml`** (PRESAGE custom = thematic groups + cycle phase, FinanceDatabase = GICS lookup). Complement pour :
+  1. Validation ticker existe + metadata enrichment thèses
+  2. Universe discovery ("semis Europe Large Cap" → 922 equities)
+  3. Standardisation sector/industry pour reports interop
+- Effort : ~2h wrapper + cache local. **Priorité P2** (nice-to-have, pas critique J-day).
+
+#### FinanceToolkit (P1 post J-day, gate M9 Damodaran)
+
+**Couverture fundamentals (150+ fonctions structurées) :**
+- 23 ratios Valuation : P/E, EPS, P/B, EV/EBITDA, EV/Sales, PEG, P/CF, P/FCF, dividend_yield, earnings_yield, enterprise_value, market_cap
+- 18 ratios Profitability : gross/operating/net margin, ROA, ROE, ROIC, interest_coverage, ROCE
+- 10 ratios Solvency : debt/equity, debt/assets, interest_coverage, net_debt/EBITDA, FCF yield
+- 21 ratios Efficiency : asset_turnover, inventory_turnover, DSO/DIO, cash_conversion_cycle
+- **9 models specialisés** : Extended DuPont, **DCF intrinsic_value** (FCF projection + terminal + WACC discount), Gordon Growth, WACC, Altman Z-Score, Piotroski F-Score, Enterprise Value breakdown
+- Risk (en plus de ffn) : VaR Historic/Gaussian/Student-t/Cornish-Fisher (vs ffn historique seul), CVaR variants, GARCH
+- 30+ technicals : RSI, MACD, Bollinger, Ichimoku
+
+**Zero overlap vs ffn 1.1.5** :
+- ffn = portfolio analytics (equity curve, Sharpe sur returns, drawdown)
+- FinanceToolkit = company fundamentals (P/E, ROE sur statements)
+- Domains disjoints — adoption parallèle propre
+
+**Source data** : FMP API primary, yfinance fallback, FRED treasury, OECD macro. Wrapper `Toolkit(api_key=fmp_api_key)`.
+
+**Wire P1 pour M9 Damodaran gate** :
+```python
+# shared/fundamentals_toolkit.py
+class FundamentalsAnalyzer:
+    def __init__(self, fmp_api_key: str):
+        from financetoolkit import Toolkit
+        self.toolkit = Toolkit(api_key=fmp_api_key)
+    def compute_damodaran_metrics(self, ticker: str) -> dict:
+        # P/E + Extended DuPont (ROE → 5 facteurs) + Altman Z + WACC + intrinsic_value
+        # Output : dict pour gate M9 validation thesis
+```
+
+Effort : ~6h P1 (wrapper + cache statements SQLite + integration tests + Heimdall card). FMP API key requise (free tier généreux mentionné dans digest précédent).
+
+#### Drops
+- `.to_toolkit()` chaining FinanceDatabase → FinanceToolkit : pattern doublon, on appelle Toolkit directement.
+- FinanceToolkit Sharpe/Sortino/Calmar/drawdown : doublon ffn déjà wiré. Garder ffn comme canonical pour ces metrics.
+
+#### Verdict 2-audits JerBouma
+Pas de doublon avec stack PRESAGE actuel ni avec ffn. FinanceToolkit = building block crucial pour M9 Damodaran gate et `/review` enrichi avec DCF déterministe. FinanceDatabase = lookup pour ticker validation + universe filtering (P2). Stack ffn + FinanceToolkit + FinanceDatabase = trio analytics complet (perf + fundamentals + metadata) compatible doctrine PRESAGE.
+
 ### Scores comparatifs
 
 | Repo | Utilité PRESAGE | Verdict 1-line |
