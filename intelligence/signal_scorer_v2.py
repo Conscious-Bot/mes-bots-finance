@@ -193,7 +193,12 @@ def score_directional_probability(
             )
             direction = "watch"
 
-        return {
+        # Phase 1.3 absorption_roadmap : Pydantic validation finale.
+        # ScoringDecision gate catche typo champ, drift LLM (extra=forbid),
+        # bornes hors [0,1], horizon hors [1,365]. L15 doctrine : si la
+        # validation echoue, return None (jamais coercion silencieuse).
+        from intelligence.scoring_types import validate_scoring_dict
+        return validate_scoring_dict({
             "version": SCORER_VERSION,
             "ticker": ticker,
             "horizon_days": horizon_days,
@@ -204,7 +209,7 @@ def score_directional_probability(
             "probability": round(prob, 3),
             "direction": direction,
             "reasoning": (data.get("reasoning") or "")[:500],
-        }
+        })
     except llm.LLMUnavailableError:
         # #93 Composant A : LLM upstream indisponible -- laisse remonter pour
         # que le caller marque scoring_status='pending_llm' sur le signal.
