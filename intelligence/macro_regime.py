@@ -15,6 +15,26 @@ exploratoire). Detection par confluence d'indicateurs + dot classification
 - STRESS     : VIX > 22 ou HY_OAS > 400 ou unwind carry actif.
   -> risk-off declare, posture defensive obligatoire.
 
+Invariants (style Fincept BacktestEngine.h, doctrine Phase 0 07/06)
+------------------------------------------------------------------
+- Bias model : classifier pur deterministe. Pas de LLM, pas de hyperparams
+  appris. Tous les thresholds sont LISIBLES depuis config/calibration.yaml
+  (source unique evolutive, refresh audit 10j).
+- Idempotence : L4 critique. classify_regime(readings) avec meme input
+  produit meme output. Test verrouille (cf test_macro_regime_l4_idempotent).
+- Currency invariant : valeurs indicateurs lues en NATIVE currency du ticker
+  / index (VIX en pts, USDJPY en yen, etc.). PAS de conversion FX dans le
+  classifier. La comparaison vs thresholds est native.
+- Threat model : protege contre regime detection biaise par single indicator
+  (single VIX spike != STRESS). Demande confluence 3+ dangers OU specific
+  triggers (VIX>22 / HY>400 / USDJPY>161+multi-danger).
+  NE protege PAS contre : (a) data feed corrupt (degrade silencieusement
+  via mute dot), (b) tail event hors calibration (par ex flash crash 100x
+  qui n'a aucun precedent dans bands actuels).
+- Failure mode : si bands ou tooltips indisponibles (shared.calibration
+  load failed), fallback regime = RISK_ON + triggers=['fallback']. Surface
+  visible via chip regime-steel (steel color).
+
 API publique :
 - classify_regime(readings) -> dict
 - store_regime_reading(...) -> int | None

@@ -101,9 +101,13 @@ def _reload_changed(prev: dict, curr: dict) -> list[str]:
     return reloaded
 
 
+# Phase 0 doctrine 07/06 : last regen timestamp pour endpoint /readyz.
+_last_regen_ts: float = 0.0
+
+
 def _fresh_render():
     """Recharge tout module surveille qui a change sur disque, puis rend."""
-    global _LAST_MTIMES
+    global _LAST_MTIMES, _last_regen_ts
     curr = _mtimes()
     reloaded = _reload_changed(_LAST_MTIMES, curr)
     if reloaded:
@@ -113,15 +117,92 @@ def _fresh_render():
         print(f"[serve] reload : {', '.join(reloaded)}", flush=True)
     _LAST_MTIMES = curr
     render_mod.render()
+    _last_regen_ts = time.time()
 
 
 class NoCache(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
+        # CSP + security headers minimaux (Phase 0 doctrine 07/06, source nango).
+        # default-src 'self' : pas de mixed content. script-src 'self' + 'unsafe-inline'
+        # car render.py injecte des constantes JS inline (_SORT_JS etc.). Si on migre
+        # vers script externalise un jour -> retirer 'unsafe-inline'. KNOWN-GAP: inline JS.
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Frame-Options", "DENY")
         super().end_headers()
 
     def log_message(self, *args):
         pass
+
+    def do_GET(self):
+        """Phase 0 doctrine 07/06 : health endpoints (source LibreChat api/server/index.js).
+        /healthz : 200 always tant que process responds (load balancer).
+        /livez   : process up + render module loaded.
+        /readyz  : DB accessible + render module + last regen < 5min.
+        Sinon delegue a SimpleHTTPRequestHandler (static file serving).
+        """
+        if self.path in ("/healthz", "/livez", "/readyz"):
+            return self._serve_health(self.path)
+        return super().do_GET()
+
+    def _serve_health(self, path: str) -> None:
+        """Surface JSON status. Codes : 200 OK, 503 not ready."""
+        import json as _json
+        import time as _t
+        try:
+            if path == "/healthz":
+                # Always 200 if we can answer.
+                body = {"status": "ok", "endpoint": "healthz"}
+                code = 200
+            elif path == "/livez":
+                # Process up + render module loaded.
+                render_loaded = "dashboard.render" in sys.modules
+                body = {
+                    "status": "ok" if render_loaded else "not_ready",
+                    "endpoint": "livez",
+                    "render_loaded": render_loaded,
+                }
+                code = 200 if render_loaded else 503
+            elif path == "/readyz":
+                # DB accessible + render + last regen < 5min.
+                checks: dict = {}
+                # DB check
+                try:
+                    from shared import storage
+                    with storage.db() as cx:
+                        cx.execute("SELECT 1").fetchone()
+                    checks["db"] = True
+                except Exception as e:
+                    checks["db"] = False
+                    checks["db_error"] = f"{type(e).__name__}: {e}"
+                # Render module check
+                checks["render_loaded"] = "dashboard.render" in sys.modules
+                # Last regen age check
+                global _last_regen_ts
+                try:
+                    age_sec = _t.time() - _last_regen_ts if _last_regen_ts else 99999
+                    checks["regen_age_sec"] = int(age_sec)
+                    checks["regen_fresh"] = age_sec < 300  # 5 min
+                except Exception:
+                    checks["regen_age_sec"] = -1
+                    checks["regen_fresh"] = False
+                all_ok = checks["db"] and checks["render_loaded"] and checks["regen_fresh"]
+                body = {"status": "ok" if all_ok else "not_ready", "endpoint": "readyz", "checks": checks}
+                code = 200 if all_ok else 503
+            else:
+                body = {"status": "unknown_endpoint", "endpoint": path}
+                code = 404
+        except Exception as e:
+            body = {"status": "error", "error": f"{type(e).__name__}: {e}"}
+            code = 500
+        payload = _json.dumps(body).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
 
     def do_POST(self):
         """Sprint 7 — /chat endpoint : RAG sur DB + Opus."""

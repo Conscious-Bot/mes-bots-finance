@@ -9,6 +9,7 @@
 - **Leçons canal-paste (heredoc/zsh)** : blocs multi-lignes en chaîne raw `r"""…"""` (raw → gère le `\` de `/!\`), le paste arrive en bytes bruts (wrap cosmétique) ; édits courts = une ligne physique avec `\n` échappés OU regex tolérant-whitespace `re.escape(start)+r'.*?'+re.escape(end)` ; matcher seulement le texte HTML interne (entre `>` et `<`, sans quotes) ; zsh `--include="*.py"` TOUJOURS quoté ; pas de tags parasites dans les blocs bash.
 - **Feedback** : `serve.py` sert en live + auto-reload ≤60s → patch visible vite, pas de regen manuel.
 - **Préfs Olivier (partout)** : vérité > déférence, ZÉRO flagornerie (red-team Claude inclus), premier-principes + structure causale, second-ordre + tail risks, taste/minimal-moving-parts, appeler la médiocrité (même celle de Claude). Français, droit au but, jargon pro. Défaut aux points d'arrêt = clôture complète la plus propre, PAS de matrices γ/δ/ε.
+- **Convention `# KNOWN-GAP:`** (Phase 0 doctrine 07/06) : distincte de `# TODO`. Marque une dette technique CONNUE et acceptée à ce point dans le code (ex : `# KNOWN-GAP: tenant filter pas applique sur cette query, OK tant que single-user`). Grep target dédié `rg "KNOWN-GAP:"` distinct de `rg "TODO"`. Permet d'auditer la dette consciente vs work-not-yet-done. Source : agentic-inbox style.
 
 ## 2. Le dashboard (carte mentale)
 

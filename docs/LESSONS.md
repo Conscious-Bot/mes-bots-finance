@@ -335,3 +335,41 @@ Toute nouvelle leçon (catch récurrent qu'on attrape pour la 2ème fois) **doit
 - éventuel red flag détectable à l'instant 0
 
 Référencer depuis `CLAUDE.md` § "À retenir sans chercher" — pas de re-formulation ailleurs.
+
+---
+
+## L14 — Anti-patterns frameworks LLM-trading 2026 (synthèse audit OSS 07/06)
+
+Audit comparatif 19 repos OSS (qlib, TradingAgents, ai-hedge-fund, FinRL, QuantDinger, Kronos, OpenBB, FinceptTerminal, etc.). 9 anti-patterns confirmés. À reconnaître + rejeter lorsqu'ils reviennent te tenter sous une autre forme.
+
+### Les 9
+
+1. **Multi-agent persona debate** (TradingAgents, ai-hedge-fund 19 mentors, QuantDinger fast_analysis) → Bull/Bear/Aggressive personas qui débattent, judge LLM arbitre. **Zéro base rate, zéro calibration, le judge décide sur la rhétorique.** Antithèse de `signal_scorer_v2` base-rate-first. Si tu vois "AI agents that imitate Buffett/Druckenmiller" → fuir.
+
+2. **Foundation model autoregressif sur OHLC seul** (Kronos) → transformer pré-entraîné sur K-line de 45 exchanges, prédit next bars. **Zéro causalité, ignore earnings/FDA/macro, overfit régime de pré-entraînement.** L'autoregression sur OHLC n'est pas un "langage des marchés", c'est de la projection de patterns sans cause.
+
+3. **RL agent qui apprend la policy de trading** (FinRL : DRL on DOW30 2014-2025 → live 2026) → reward = pnl scaled, agent maximise pnl sans contrainte DD/lock_in/position size. **Reward hacking inévitable + survivorship bias DOW30 absolu.** Opposé de "discipline mécanisée prédéfinie".
+
+4. **Backtest sans walk-forward + sans transaction costs réalistes + sans CI** (FinRL exemple 2026 : 2 mois OOS, 5 agents → pick best ; TradingAgents : N=3 tickers cherry-picked, T=3 mois bull-run, SR>5 flaggé par auteurs comme anomalie) → **overfitting déguisé en validation**. Bench réaliste = walk-forward sur ≥5 ans + transaction costs adversariaux + multi-seed + CI bootstrap sur Sharpe/Brier.
+
+5. **LLM trend prediction multi-horizon** (QuantDinger `fast_analysis.py` : next_24h / 3d / 1w / 1m → BUY/SELL/HOLD avec strength) → **persona prediction LLM à plusieurs échelles temporelles simultanément**. Antithèse scorer V2 base-rate-first. Le LLM produit des outputs structurés mais le contenu est de la divination.
+
+6. **Schema `z.any()` / type permissif sur champs LLM** (agentic-inbox confessait `// unvalidated — settings goes straight to AI`) → prompt injection trivial. **Tout champ utilisateur qui finit dans un system prompt doit traverser un schema strict + sanitization.**
+
+7. **Stack multi-DB + Datadog/Sentry/ES** (nango : Postgres + ES + Redis + KvStore + DD-trace) → over-engineering. **Pour PRESAGE solo lifestyle, ce stack est ingérable.** Conserver SQLite WAL + APScheduler tant que < 100 users.
+
+8. **Model zoo SOTA papers tournée best-of-N** (qlib HIST/TRA/TFT/ADD/ADARNN/TCTS…) → ~25 modèles "state-of-the-art" empilés. **Signature d'une plateforme qui empile sans valider rigoureusement chaque ajout.** Picking le meilleur modèle ex post sur le même test set = overfit garanti.
+
+9. **RD-Agent intégration** (microsoft qlib partenaire, NeurIPS 2025, arxiv 2505.15155) → LLM-driven autonomous factor mining + model optimization en boucle fermée. Claims 2× ARR vs benchmark factor libs. **C'est de l'overfitting industrialisé** : un LLM cherche des factors qui ont marché in-sample, valide sur backtest peu profond, itère. Pour PRESAGE : **casserait la propriété auditable du Brier ledger** (mélange signal humain-typé + signal LLM-mined = impossible de séparer la contribution). **Ne PAS intégrer.**
+
+### Règle pratique
+
+Quand un repo OSS se présente comme "AI trading framework / multi-agent / foundation model / RL", appliquer le filtre L14 AVANT de lancer un audit code. Économise 4h de research par repo.
+
+### Test contre soi-même
+
+Les 9 anti-patterns ont en commun : **prédire l'avenir au lieu de mesurer le passé**. PRESAGE doctrine "discipline mécanisée, pas alpha prédictif" (`[[business-path-6-acted]]`) est l'antidote structurel. Toute proposition d'ajout au système doit passer le test : *"Est-ce que ça mesure une décision passée, ou est-ce que ça prédit un futur ?"* Si prédiction, refuser ou démote en exploratoire taggé.
+
+### Référencer
+
+Depuis `CLAUDE.md` § "À retenir sans chercher" + `TODO.md` section TECH DEBT AUDIT OSS. Pas de re-formulation ailleurs.

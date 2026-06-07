@@ -3,6 +3,24 @@
 Biais #1 de PRESAGE (vendre les gagnants trop tot), raison d'etre de
 l'instrument. ADR-010 §2 ; spec finale user 02/06/2026.
 
+Invariants (style Fincept BacktestEngine.h, doctrine Phase 0 07/06)
+------------------------------------------------------------------
+- Bias model : pas de look-ahead. classify_lock_in() ne consulte JAMAIS
+  les prix futurs (px_90j). Le futur n'est lu qu'a la resolution +90j
+  par la machinerie bias_events, jamais a la classification T0.
+- Currency invariant : delta_signed est calcule en EUR (avg_cost EUR
+  canonical per ADR 005). px_90j fetched via _cached_price_eur, jamais
+  native, pour eviter pollution FX (cf [[currency-native-invariant]]).
+- Threat model : protege contre la sur-vente prematuree de winners
+  conviction haute. NE protege PAS contre : (a) achats fomo (canal
+  separe), (b) holds-too-long de losers (kill_criteria_monitor), (c)
+  liquidite forcee (separate concern).
+- Failure mode : si LLM down ou prices stale, classify_lock_in() reste
+  fonctionnel (calcul deterministe pur). Resolution +90j seule peut
+  echouer silencieusement si prices unavailable -> retry via cron.
+- N requis = 20 candidats resolus pour ajustement data-driven des seuils.
+  En dessous : priors figes ci-dessous, revision manuelle uniquement.
+
 Architecture
 ------------
 - Hook dans shared.positions.add_sell apres cx.commit() (cf LESSONS L7).

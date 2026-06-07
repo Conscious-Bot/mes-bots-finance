@@ -13,6 +13,30 @@ push Telegram si transition status notable (INSUFFICIENT_DATA -> verdict, OK -> 
 Dashboard surface : dashboard/render.py _calibration_progress_panel() dans Bloc 4 vigie.
 
 S'active automatiquement quand on a >= MIN_N_TOTAL predictions resolved non-neutral.
+
+Invariants (style Fincept BacktestEngine.h, doctrine Phase 0 07/06)
+------------------------------------------------------------------
+- Bias model : pas de look-ahead. Brier per bucket et reliability diagram
+  utilisent UNIQUEMENT les predictions resolved (target_date <= today).
+  canonical_predictions_filter() exclut V1/v0/rule_v1_shadow/fallback du
+  scoring canonique (ADR 014). Donc le Brier reporte = Brier V2 pur.
+- Source de verite UNIQUE : `predictions` table avec `outcome` column.
+  outcome ∈ {'correct', 'incorrect', 'neutral'}. Neutral non-comptabilise
+  pour Brier (cf doctrine "skill metrics distinguent neutral").
+- Currency invariant : Brier est sans-unite (probability vs binary outcome).
+  Pas de FX concern. EUR / USD / KRW indifferent.
+- Threat model : protege contre overfitting silent du scorer. Mono-bucket
+  warning + spread test + Spearman rank correlation rendent visible si le
+  scorer "perd la granularite" (tous les outputs convergent vers 0.5 ou un
+  point fixe).
+  NE protege PAS contre : (a) selection bias dans les signaux ingest
+  upstream (mauvaises sources pollueront), (b) outcome resolution biaisee
+  si target_date imprecis, (c) survivorship si on retire des predictions
+  pre-resolution.
+- Failure mode : INSUFFICIENT_DATA verdict si N < MIN_N_TOTAL (default 20).
+  Surface explicite dans dashboard + Telegram, pas de score arbitraire.
+- N requis pour verdict definitif : >= 20 resolutions + spread CI >= 3pts.
+  En dessous : tag exploratoire / dont-act.
 Trigger = DATA, pas DATE : pas de calendrier arbitraire, juste accumulation cohorte.
 
 Logique :
