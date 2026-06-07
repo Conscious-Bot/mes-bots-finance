@@ -3586,6 +3586,88 @@ def get_latest_oca_per_ticker(ticker: str) -> dict | None:
         return None
 
 
+# === stress_gate_alerts (Axe 4 QUALITY_BAR v2.c.6) ===========================
+# Journal incremental par evaluation stress-test, miroir over_cap_alerts.
+# Table cree via migration alembic 0037. Voir intelligence/stress_gate_monitor
+# pour la sequence classify -> transition -> notify.
+
+
+def insert_stress_gate_alert(
+    scenario_name: str,
+    status: str,
+    drawdown_pct: float,
+    warn_pct: float,
+    breach_pct: float,
+    notified: bool = False,
+    transition: str | None = None,
+) -> int | None:
+    """Insert row d'evaluation stress-gate. status in {ok, warn, breach}.
+    Append-only ; prev_status = derniere row (cf get_latest_stress_gate_per_scenario).
+    transition in {enter_breach, enter_warn, recover_ok, recover_warn, no_change, NULL}."""
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO stress_gate_alerts "
+                "(scenario_name, status, drawdown_pct, warn_pct, breach_pct, "
+                " notified, transition) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    scenario_name, status, float(drawdown_pct),
+                    float(warn_pct), float(breach_pct),
+                    1 if notified else 0, transition,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_stress_gate_alert failed: {e}")
+        return None
+
+
+def get_latest_stress_gate_per_scenario(scenario_name: str) -> dict | None:
+    """Last evaluation row pour scenario, ou None si jamais evalue."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT id, created_at, status, drawdown_pct, warn_pct, "
+                "       breach_pct, notified, transition "
+                "FROM stress_gate_alerts WHERE scenario_name=? "
+                "ORDER BY id DESC LIMIT 1",
+                (scenario_name,),
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["id", "created_at", "status", "drawdown_pct", "warn_pct",
+                    "breach_pct", "notified", "transition"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_stress_gate_per_scenario failed: {e}")
+        return None
+
+
+def get_latest_stress_gate_all() -> list[dict]:
+    """Latest row per scenario (1 ligne par scenario distinct). Pour dashboard surface."""
+    try:
+        with db() as cx:
+            rows = cx.execute(
+                "SELECT s.id, s.created_at, s.scenario_name, s.status, "
+                "       s.drawdown_pct, s.warn_pct, s.breach_pct, s.notified, "
+                "       s.transition "
+                "FROM stress_gate_alerts s "
+                "INNER JOIN ("
+                "  SELECT scenario_name, MAX(id) AS max_id "
+                "  FROM stress_gate_alerts GROUP BY scenario_name"
+                ") m ON s.id = m.max_id "
+                "ORDER BY s.drawdown_pct ASC"
+            ).fetchall()
+            cols = ["id", "created_at", "scenario_name", "status",
+                    "drawdown_pct", "warn_pct", "breach_pct", "notified",
+                    "transition"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_stress_gate_all failed: {e}")
+        return []
+
+
 # === position_decisions_context (Friction décision #2) ======================
 # Snapshot canonique du contexte au moment de chaque /trade confirm.
 # Cron retrospective +30j/+90j ecrit les verdicts (cf cron_retrospective_decisions).

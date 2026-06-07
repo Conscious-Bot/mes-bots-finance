@@ -2092,13 +2092,49 @@ def _factor_exposures_panel() -> str:
 
 
 def _stress_tests_panel() -> str:
-    """Sprint 13 — scenarios deterministes appliques sur les factor exposures."""
+    """Sprint 13 + Axe 4 QUALITY_BAR — scenarios deterministes appliques sur les
+    factor exposures, taggues par gate status (ok/warn/breach) lu depuis le
+    journal append-only stress_gate_alerts.
+    """
     try:
         from intelligence import factor_exposures as _fe
 
         results = _fe.run_all_stress_tests()
     except Exception as e:
         return f'<div class="card pad"><div class="empty">stress indispo: {type(e).__name__}</div></div>'
+
+    # Charge gate status par scenario depuis le journal (Axe 4 L17).
+    # Source unique : stress_gate_alerts. Si vide -> tag absent (rien fabrique).
+    from shared import storage
+    gate_by_scenario: dict[str, dict] = {}
+    try:
+        for row in storage.get_latest_stress_gate_all():
+            gate_by_scenario[row["scenario_name"]] = row
+    except Exception:
+        pass
+
+    n_breach = sum(1 for g in gate_by_scenario.values() if g["status"] == "breach")
+    n_warn = sum(1 for g in gate_by_scenario.values() if g["status"] == "warn")
+
+    # Header gate-aware : badge global etat (utilitaires existants pos/danger/warn)
+    _bdg = ("display:inline-block;padding:2px 8px;border-radius:4px;"
+            "font-weight:600;font-size:11px;margin-left:6px;")
+    if n_breach > 0:
+        gate_header = (
+            f'<span style="{_bdg}background:#7a1f1f;color:#fff;">'
+            f'BREACH&nbsp;x{n_breach}</span>'
+        )
+    elif n_warn > 0:
+        gate_header = (
+            f'<span style="{_bdg}background:#6e5410;color:#fff;">'
+            f'WARN&nbsp;x{n_warn}</span>'
+        )
+    else:
+        gate_header = (
+            f'<span style="{_bdg}background:transparent;color:var(--ink-2,#888);'
+            'border:1px solid var(--line,#3a3a3a);">gate ok</span>'
+        )
+
     rows = []
     for s in results:
         if "error" in s:
@@ -2107,17 +2143,40 @@ def _stress_tests_panel() -> str:
         dd_pct = s["total_drawdown_pct"]
         dd_eur = s["total_drawdown_eur"]
         n = s.get("n_positions_affected", 0)
-        dcls = "pos" if dd_pct > 0 else ("danger" if dd_pct < -5 else "warn" if dd_pct < 0 else "neu")
+        # Couleur lue depuis le journal (pas re-calculee ici -> source unique L17).
+        gate = gate_by_scenario.get(scenario)
+        _tag_base = ("display:inline-block;padding:1px 6px;border-radius:3px;"
+                     "font-size:10px;margin-left:4px;font-weight:500;")
+        if gate and gate["status"] == "breach":
+            dcls = "danger"
+            gate_tag = (
+                f'<span style="{_tag_base}background:#7a1f1f;color:#fff;">breach</span>'
+            )
+        elif gate and gate["status"] == "warn":
+            dcls = "warn"
+            gate_tag = (
+                f'<span style="{_tag_base}background:#6e5410;color:#fff;">warn</span>'
+            )
+        else:
+            # ok ou gate absent (jamais evalue) : fallback fine couleur draw
+            dcls = "pos" if dd_pct > 0 else ("warn" if dd_pct < -10 else "neu")
+            if gate:
+                gate_tag = (
+                    f'<span style="{_tag_base}background:transparent;'
+                    'color:var(--ink-3,#666);border:1px solid var(--line,#3a3a3a);">ok</span>'
+                )
+            else:
+                gate_tag = ""
         rows.append(
             f'<div class="st-row">'
-            f'<div class="st-name">{scenario}</div>'
+            f'<div class="st-name">{scenario} {gate_tag}</div>'
             f'<div class="st-impact"><span class="st-pct {dcls} mono">{dd_pct:+.1f}%</span>'
             f'<span class="st-eur mono">{dd_eur:+,.0f}€</span>'
             f'<span class="st-n">n={n}</span></div></div>'
         )
     return (
         '<div class="colhead"><span class="t">Si tel pari rate</span>'
-        '<span class="a">drawdown estime par scenario macro &middot; transforme le 73% en chiffre concret</span></div>'
+        f'<span class="a">drawdown estime par scenario macro · gate Axe 4 {gate_header}</span></div>'
         '<div class="card pad stresscard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + "</div>"

@@ -142,3 +142,19 @@ risks:
       - date: '2026-05-29'
         decision: 'cluster_cap_target 75 -> 70 to tolerate -21% drawdown instead of -23%'
         rationale: 'explicit validation: tolerates -16k€ on 70k target (-11k€ today) with discipline'
+
+# === Axe 4 QUALITY_BAR : stress-gate seuils + alerte ===
+# Source unique seuils warn/breach pour stress_gate_monitor.
+# Cf docs/QUALITY_BAR.md Axe 4 1er geste : "cabler le stress-test existant
+# a un seuil + une alerte (la machinerie existe, l'alerte non)".
+# Architecture monitor : docs/templates/monitor_pattern.md.
+stress_gate:
+  default_thresholds:
+    # warn : zone vigilance, drawdown estime serieux mais pas catastrophe
+    warn_pct: -25.0
+    # breach : zone alerte, sur-concentration confirmee (cf target.target_estimated_drawdown_stress)
+    breach_pct: -30.0
+  # Overrides par scenario quand l'asymetrie justifie un seuil different.
+  # Ex : "AI capex -30%" deja modelise comme cas central -> seuil moins strict.
+  per_scenario_overrides: {}
+  notify_on_breach: true

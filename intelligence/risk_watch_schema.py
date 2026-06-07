@@ -174,6 +174,34 @@ class Risk(BaseModel):
         return v
 
 
+class StressGateThresholds(BaseModel):
+    """Seuils warn/breach pour stress-gate monitor (Axe 4 QUALITY_BAR)."""
+
+    model_config = {"extra": "forbid"}
+
+    warn_pct: float = Field(le=0.0, description="Drawdown <= warn_pct -> warn")
+    breach_pct: float = Field(le=0.0, description="Drawdown <= breach_pct -> breach (notify)")
+
+    @field_validator("breach_pct")
+    @classmethod
+    def _breach_below_warn(cls, v: float, info) -> float:
+        # breach_pct DOIT etre plus negatif que warn_pct (warn -25 puis breach -30)
+        warn = info.data.get("warn_pct")
+        if warn is not None and v > warn:
+            raise ValueError(f"breach_pct ({v}) doit etre <= warn_pct ({warn})")
+        return v
+
+
+class StressGateConfig(BaseModel):
+    """Config stress-gate (Axe 4 1er geste : seuils + alerte sur stress-test existant)."""
+
+    model_config = {"extra": "forbid"}
+
+    default_thresholds: StressGateThresholds
+    per_scenario_overrides: dict[str, StressGateThresholds] = Field(default_factory=dict)
+    notify_on_breach: bool = True
+
+
 class RiskWatchConfig(BaseModel):
     """Top-level container du fichier YAML."""
 
@@ -181,6 +209,7 @@ class RiskWatchConfig(BaseModel):
 
     meta: RiskWatchMeta = Field(alias="_meta")
     risks: list[Risk] = Field(min_length=1, max_length=20)
+    stress_gate: StressGateConfig | None = None
 
     @field_validator("risks")
     @classmethod

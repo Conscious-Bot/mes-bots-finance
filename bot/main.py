@@ -238,6 +238,9 @@ async def post_init(app):
         _reconcile_positions_prices_job,
         "cron", hour="14-22", minute="*/15", day_of_week="mon-fri",
     )
+    # Axe 4 QUALITY_BAR : stress-gate daily check + notify si breach.
+    # Daily 7:00 : le book bouge lentement, in-session not needed.
+    sched.add_job(_stress_gate_check_job, "cron", hour=7, minute=0)
     sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
     sched.add_job(daily_crypto_zone_job, "cron", hour=10, minute=0)
@@ -352,6 +355,20 @@ def _reconcile_positions_prices_job() -> None:
         reconcile_main()
     except Exception as e:
         log.warning(f"reconcile_positions_prices_job failed: {e}")
+
+
+def _stress_gate_check_job() -> None:
+    """Axe 4 QUALITY_BAR : stress-gate daily check + notify si breach.
+
+    Wrap intelligence.stress_gate_monitor.check_all_stress_transitions().
+    Daily car le book bouge lentement ; in-session pas necessaire.
+    """
+    try:
+        from intelligence import stress_gate_monitor
+        out = stress_gate_monitor.check_all_stress_transitions()
+        log.info(f"stress_gate_check : {out}")
+    except Exception as e:
+        log.warning(f"stress_gate_check_job failed: {e}")
 
 
 def _acquire_mono_instance_lock() -> None:
