@@ -30,3 +30,10 @@ statsmodels>=0.14.6
 # Sortino/Calmar, rolling vol, IR vs benchmark, VaR/CVaR. Pandas-native.
 # License MIT, 2.6k stars, py 3.9-3.13 officiel + works on 3.14 (smoke-tested).
 ffn>=1.1.5
+
+# Backtest framework deterministe (audit 07/06 nuit, pmorissette/bt MIT).
+# Built on top of ffn. Tree structure (Nodes+Algos+AlgoStacks) pour
+# composer strategies/regles testables. Wrappe dans shared/backtest.py.
+# USAGE PRESAGE : valider regles existantes (lock_in/over_cap/kill_criteria)
+# sur historique walk-forward. PAS pour grid search "best alpha" (L14 #4).
+bt>=1.2.0
