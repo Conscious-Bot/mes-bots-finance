@@ -468,3 +468,46 @@ Tentation 2 : « Je vais juste ajuster ce seuil de 15 à 16, c'est rien. » → 
 ### Référencer
 
 Depuis `CLAUDE.md` § "À retenir sans chercher" (splits temporels). Helper `shared.calibration.get_temporal_splits()`. Test verrouillé `tests/test_calibration_temporal_splits.py`. Pas de re-formulation ailleurs.
+
+## L17 — Declarative en YAML versionné, live state en DB, jamais mélanger
+
+Phase 1.5 absorption_roadmap (07/06 soir). Découle de l'analyse de `scripts/risk_watch.json` : le fichier mélange (a) la déclaration user des risques (rang, ballast cible, tickers à surveiller, scénarios, mitigation plan) et (b) l'état live mis à jour par cron (`current_status`, `last_evaluated_at`, `last_eval_reason`, `last_eval_confidence`, `last_eval_evidence_ids`). Mélanger les deux casse plusieurs propriétés.
+
+### Le piège
+
+Un fichier qui sert à la fois de source-de-vérité-déclarative ET de scratchpad-cron a ces problèmes :
+- **Git blame inutilisable** : chaque run cron modifie le fichier, le diff utile (« quand le user a changé le rang d'un risque ») est noyé.
+- **Pas de comments YAML** : si tu veux comments inline pour audit humain, tu dois utiliser ruamel.yaml round-trip qui n'est pas robuste sur les structures profondes.
+- **Conflits de concurrence** : si le user édite pendant un run cron, l'un des deux écrase l'autre. Pas de transaction.
+- **Audit trail perdu** : la valeur `current_status='at_risk'` au moment T n'est plus consultable une fois écrasée par T+1.
+
+### La règle
+
+**Séparer dur les deux natures de données :**
+
+| Nature | Storage | Mutation | Schema | Exemple |
+|---|---|---|---|---|
+| Déclarative (user-edited) | `config/<nom>.yaml` | User uniquement (jamais cron) | Pydantic strict, `_meta` block obligatoire | `config/target_allocation.yaml`, `config/calibration.yaml` |
+| Live state (cron-edited) | Table SQLite append-only | Cron uniquement (jamais user direct) | Migration Alembic, indexes (ticker, timestamp) | `risk_signal_evaluations`, `macro_regime_alerts` |
+
+Le déclaratif charge à boot et au reload. Le live state s'append à chaque évaluation cron, jamais d'UPDATE in-place. Pour le « current status », on fait `SELECT … ORDER BY created_at DESC LIMIT 1`.
+
+### Anti-patterns
+
+- **YAML que le cron écrit** : si la cron doit muter un YAML, c'est qu'on s'est trompé de couche. Soit on déplace la mutation côté DB, soit c'est en réalité du JSON live (pas du YAML déclaratif).
+- **`current_status` dans le YAML déclaratif** : drift garanti. Le déclaratif dit « ce risque existe, voici sa cible ». Le live state dit « voici son évaluation à T ».
+- **JSON sans `_meta` versionné** : pas de schema_version → impossible de faire une migration de format propre plus tard.
+- **Lecture du YAML à chaque render** : le coût parse + valide n'est pas négligeable. Cache au boot, reset_cache pour les tests.
+
+### Test contre soi-même
+
+Si tu te retrouves à écrire `_RISK_WATCH_PATH.write_text(json.dumps(updated_data))` quelque part dans un cron : c'est une violation L17. La cron doit écrire dans une table DB append-only. Le fichier déclaratif est read-only par le bot, write-only par le user.
+
+### Cas border-line : ce qui est légitime
+
+- **Fichiers de catalog statique** (sectors.yaml, GLOSSARY refs) : pas de live state, pas besoin de `_meta` complet, juste un commit user à l'évolution.
+- **DB lookup tables** (ex `ticker_meta` pré-rempli batch) : OK même si « écrites », tant que ce sont des batch loads explicites, pas des mutations cron implicites.
+
+### Référencer
+
+Depuis `CLAUDE.md` § "Catches récurrents" (pointage vers L17). Template canonical `docs/templates/workflow_yaml_pattern.md`. Test verrouillé `tests/test_target_allocation_yaml_schema.py`. Pas de re-formulation ailleurs.

@@ -48,7 +48,13 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).parent.parent
 _CANONICAL_PATH = _REPO_ROOT / "scripts" / "canonical_perimeter.json"
-_TARGET_PATH = _REPO_ROOT / "scripts" / "target_allocation.json"
+
+# Phase 1.5 absorption_roadmap : target migre vers YAML versionne avec _meta block.
+# YAML canonical, JSON gardé en fallback transitoire (suppression Phase 2 si propre).
+# Lecture : YAML d'abord, JSON ensuite. Si YAML present + valide via Pydantic,
+# c'est lui qui gagne. cf docs/templates/workflow_yaml_pattern.md + L17 LESSONS.
+_TARGET_YAML_PATH = _REPO_ROOT / "config" / "target_allocation.yaml"
+_TARGET_JSON_PATH = _REPO_ROOT / "scripts" / "target_allocation.json"
 
 # Cache (cleared via clear_cache() if needed -- rare, files change at user gesture)
 _CANONICAL_CACHE: dict | None = None
@@ -160,12 +166,42 @@ def _load_canonical() -> dict:
 
 
 def _load_target() -> dict:
+    """Lit la cible book. YAML canonique (Phase 1.5), JSON fallback transitoire.
+
+    Returns dict en forme JSON legacy (keys: positions, phantoms_in_db_not_in_target,
+    _meta). Les callers downstream n'ont pas a changer leur acces.
+
+    YAML est valide via Pydantic TargetAllocationConfig au load. Validation echec
+    -> log.warning + fallback JSON (preserve disponibilite, le YAML est WIP).
+    Si JSON aussi absent -> dict vide (legacy behavior).
+    """
     global _TARGET_CACHE
-    if _TARGET_CACHE is None:
+    if _TARGET_CACHE is not None:
+        return _TARGET_CACHE
+
+    # Try YAML first (canonical)
+    if _TARGET_YAML_PATH.exists():
         try:
-            _TARGET_CACHE = json.loads(_TARGET_PATH.read_text())
-        except Exception:
-            _TARGET_CACHE = {"positions": []}
+            import yaml
+
+            from intelligence.target_allocation_schema import TargetAllocationConfig
+            raw = yaml.safe_load(_TARGET_YAML_PATH.read_text())
+            # Valide via Pydantic. by_alias=True garde _meta avec son nom.
+            cfg = TargetAllocationConfig.model_validate(raw)
+            _TARGET_CACHE = cfg.model_dump(by_alias=True, mode="json")
+            return _TARGET_CACHE
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"target_allocation.yaml invalide ({type(e).__name__}: {e}). "
+                f"Fallback JSON. cf L17 LESSONS."
+            )
+
+    # Fallback JSON
+    try:
+        _TARGET_CACHE = json.loads(_TARGET_JSON_PATH.read_text())
+    except Exception:
+        _TARGET_CACHE = {"positions": []}
     return _TARGET_CACHE
 
 

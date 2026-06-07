@@ -51,6 +51,21 @@ Monolithe Python + SQLite WAL + APScheduler + Telegram bot est plus simple que n
 4. **CSP + security headers minimaux** → `dashboard/serve.py` + `site_public/track.html`. Source : nango `security.ts`. **15 min**.
 5. **Env singleton typed** → consolider `shared/env.py`. Source : OpenBB `core/env.py`. **~1h**.
 
+### 🆕 Phase 1.5 Stage 2 — risk_watch declarative/live separation (~3h, follow-up)
+
+Phase 1.5 stage 1 a livré le pattern workflow YAML sur `target_allocation` (déclaratif pur, pas de cron writes). Reste à appliquer à `risk_watch.json` qui mélange déclaratif (rangs, ballast cibles, tickers à surveiller, scénarios, mitigation plan) et live state (current_status, last_eval_reason, last_eval_confidence cron-written).
+
+**Architecture cible** (cf L17 LESSONS) :
+- `config/risk_watch.yaml` (déclaratif uniquement, user-edited)
+- Table SQLite `risk_signal_evaluations` (append-only, cron-written) — colonnes : `(id, risk_id, signal_id, status, evaluated_at, reason, confidence, evidence_ids)`
+
+**Migration en 3 commits** :
+1. Alembic migration créer table `risk_signal_evaluations` + index `(risk_id, signal_id, evaluated_at DESC)`
+2. Refactor `intelligence/risk_signal_monitor.py` : lire YAML déclaratif, écrire DB. Conserver fallback JSON 1 mois.
+3. Update `dashboard/render.py` lecture du current_status via `SELECT … ORDER BY evaluated_at DESC LIMIT 1`. Drop JSON après validation.
+
+**Risque** : 3 callers actuels (`bot/jobs/daily.py`, `dashboard/render.py`, `intelligence/risk_signal_monitor.py`) — refactor coordonné requis. Tester live sur Hetzner avant drop JSON.
+
 ### 🟠 MOYENNE priorité — généralisations infra (post J-day, ~3-4h chacun)
 6. **Reflection service cyclique** → généraliser `j_day_batch_close_job` en cron N-jours qui revalide auto toutes décisions âgées >7j contre outcome. `was_correct / actual_return_pct` en table. Source : QuantDinger `services/reflection.py` + `RESOLUTION_RULES registry` (commit #110) déjà à mi-chemin. **~3h**.
 7. **Convention `# KNOWN-GAP:`** distincte de TODO → doc dans `CLAUDE.md` + adopter prochain commit. Source : agentic-inbox style. **5 min**.
