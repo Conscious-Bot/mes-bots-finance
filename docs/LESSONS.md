@@ -644,3 +644,66 @@ Si un de ces tests régresse, on a perdu L20.
 ### Référencer
 
 CLAUDE.md "Catches récurrents" L20. Cf `docs/DECISION_QUALITY_ENGINE.md` spec complète. Pas de re-formulation ailleurs.
+
+## L21 — QUALITY_BAR : les 3 mécanismes d'exécution (M1, M2, M3) + meta fail-closed
+
+Pivot 07/06 nuit++ (red-team meta-doctrine). Source de vérité unique : `docs/QUALITY_BAR.md`. **Base non-négociable**.
+
+### La base en une phrase
+
+Un hedge fund ne pas raison plus souvent — il ne se ment jamais sur son edge, sa data, ou son risque. PRESAGE copie ça, pas la perfection.
+
+### M1 — Triple (valeur, as_of, provenance), jamais scalaire
+
+Un prix nu est interdit. `prices.get()` retourne `(price, asof, source)`. Toute query positions retourne son `price_asof`. Toute surface UI affiche la fraîcheur.
+
+**Symptôme de violation** : un nombre présenté sans son `asof`. Ex : `position.eur_value=4336.32` dans `notes` = bug fondateur (valeur dérivée figée à l'instant T → morte à T+1).
+
+**Application** :
+- `shared/prices.py` get_current_price + get_fx_rate persistent `price_history` + `fx_history` append-only avec triple
+- `shared/freshness.py` classifier SLA green/amber/rouge
+- `shared/valuation.py` position_valuation() = fonction calcule live, jamais persistée
+
+### M2 — Pre-registration tamper-evident des claims
+
+Toute claim est `(direction, proba, horizon, baseline)` figé tamper-evident. Pas d'opinion sans ces 4 champs ancrés dans un ledger d'intégrité (hash chain + OTS anchor).
+
+**Symptôme de violation** : conviction révisée post-hoc, kill-criteria flou, benchmark cherry-pické.
+
+**Application** :
+- `thesis_integrity_log` + `prediction_integrity_log` chain hash sha256
+- `scripts/integrity_anchor.sh` OTS stamp Bitcoin trustless
+- `commit-reveal hiding` sur predictions (payload+nonce privé, hash public)
+
+### M3 — Sizing respecte l'edge prouvé, pas la conviction affirmée
+
+À `N_resolu < 100`, l'edge est inconnu → **sous-Kelly** (compresser spread de conviction vers quasi-équipondéré), ballast obligatoire (cash / décorrélé / hedge de queue), stress-test = gate dure.
+
+**Symptôme de violation** : sizing-cible 5.6% c5 vs 0.7% c1 alors qu'on n'a pas prouvé que c5 surperforme c1. Concentration single-factor sans ballast.
+
+**Application** :
+- `config/target_allocation.yaml` sizing-régime construction
+- `intelligence/factor_exposures.py` exige ballast + flag < cible
+- Stress-test monitor à transition (drawdown > seuil NAV → alerte)
+- L19 invariant : aucune nouvelle calibration tant que `N < 100`
+
+### Méta — Fail-closed (L15 généralisé)
+
+Quand M1, M2 OU M3 ne peuvent être satisfaits :
+- Data stale au-delà SLA → `position_valuation.value_eur = None` + `value_eur_fail_reason`
+- Edge non-prouvé (N<100) → sizing sous-Kelly forcé, pas de boost conviction
+- Chaîne intégrité cassée → scoring downstream refuse
+
+Le système affiche **dégradé** ou **refuse**, jamais ne **fabrique**.
+
+### Invariant transverse à graver
+
+> Le système a le droit de dire « je ne sais pas / c'est stale / mon edge n'est pas prouvé ». Il n'a jamais le droit de présenter un nombre plus confiant que son évidence. La volonté de montrer sa propre ignorance est la qualité hedge-fund-worth — et c'est la seule qui convainc un adversaire.
+
+### Test verrouillé
+
+`tests/test_m1_inputs_dated.py::test_positions_schema_has_no_eur_value_column` — catch the founding bug si quelqu'un re-introduit `eur_value` en colonne. Plus largement : tout test qui présent un nombre sans asof est une violation M1.
+
+### Référencer
+
+Source canonique : `docs/QUALITY_BAR.md` (figé 07/06 nuit++). L21 ici = doctrine encodée pour grep transversal. CLAUDE.md "Catches récurrents" pointe L21. Pas de re-formulation ailleurs.
