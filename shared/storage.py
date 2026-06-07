@@ -929,7 +929,18 @@ def insert_prediction(
              target_date, prob, scoring_trace_json, source_metadata_json, methodology_version),
         )
         conn.commit()
-        return cur.lastrowid
+        _pred_id = cur.lastrowid
+        # Integrity chain commit-reveal -- post-commit, silent-miss (L7 pattern
+        # cf lock_in hook). payload+nonce restent prives dans bot.db ; le ledger
+        # public (integrity_anchor.sh) exporte hash chain seul.
+        try:
+            record_prediction_integrity(conn, _pred_id)
+        except Exception as _e:
+            _logging.getLogger(__name__).warning(
+                f"prediction_integrity silent miss for {_pred_id}: {_e}",
+                exc_info=True,
+            )
+        return _pred_id
     finally:
         conn.close()
 
@@ -3846,6 +3857,86 @@ def get_latest_risk_signal_evaluation(
     except Exception as e:
         _copilot_log.warning(f"get_latest_risk_signal_evaluation failed: {e}")
         return None
+
+
+def record_prediction_integrity(conn, prediction_id: int) -> str | None:
+    """Append 1 maille a la chaine integrity PREDICTIONS (commit-reveal).
+
+    payload_json (incl nonce 256 bits) reste PRIVE dans bot.db (gitignored).
+    Le ledger public exporte hash chain SEUL, payload revele a la resolution
+    de la prediction (catch hiding red-team 07/06 nuit++).
+
+    Idempotent par prediction_id (UNIQUE INDEX). Appele post-commit
+    insert_prediction, silent-miss tolere (L7 pattern).
+
+    Args:
+        conn : sqlite3 connection (reuse caller's tx)
+        prediction_id : id de la prediction qu'on vient d'inserer
+
+    Returns:
+        chain_hash hex string ou None si deja chained / prediction introuvable.
+    """
+    import json as _json
+    import secrets as _secrets
+
+    from shared import integrity
+    if conn.execute(
+        "SELECT 1 FROM prediction_integrity_log WHERE prediction_id=?",
+        (prediction_id,),
+    ).fetchone():
+        return None
+    cols = (
+        "id", "signal_id", "ticker", "direction", "horizon_days",
+        "baseline_price", "baseline_date", "target_date",
+        "probability_at_creation", "methodology_version", "created_at",
+    )
+    row = conn.execute(
+        f"SELECT {','.join(cols)} FROM predictions WHERE id=?",
+        (prediction_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    payload = dict(zip(cols, row, strict=True))
+    payload["nonce"] = _secrets.token_hex(32)  # commit-reveal hiding 256 bits
+    last = conn.execute(
+        "SELECT chain_hash FROM prediction_integrity_log "
+        "ORDER BY seq DESC LIMIT 1"
+    ).fetchone()
+    prev_in = last[0] if last else integrity.GENESIS_HASH
+    prev_used, chain_hash = integrity.chain_append(prev_in, payload)
+    conn.execute(
+        "INSERT INTO prediction_integrity_log "
+        "(prediction_id, payload_json, prev_hash, chain_hash) "
+        "VALUES (?,?,?,?)",
+        (
+            prediction_id,
+            _json.dumps(payload, sort_keys=True),
+            prev_used,
+            chain_hash,
+        ),
+    )
+    conn.commit()
+    return chain_hash
+
+
+def get_prediction_integrity_chain() -> list[dict]:
+    """Chain ordonnee pour verify_chain / export ledger.
+
+    Lit la table PRIVEE. L'export public (integrity_anchor.sh) STRIPPE
+    payload_json apres lecture pour preserver le hiding commit-reveal.
+    """
+    conn = _sqlite3.connect(DB_PATH)
+    conn.row_factory = _sqlite3.Row
+    try:
+        return [
+            dict(r) for r in conn.execute(
+                "SELECT seq, prediction_id, captured_at, payload_json, "
+                "       prev_hash, chain_hash "
+                "FROM prediction_integrity_log ORDER BY seq ASC"
+            )
+        ]
+    finally:
+        conn.close()
 
 
 def insert_thesis_integrity_row(
