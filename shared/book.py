@@ -94,6 +94,16 @@ class BookLine:
     fade_rate_score: int | None = None
     moat_durability_years: int | None = None
     valo_above_bull_case: bool = False
+    # M1 typed columns (Axe 3 / Axe 5 QUALITY_BAR) -- propage depuis positions row.
+    # Source canonique du triple (valeur, asof, source) per ligne du book.
+    # Avant : get_held_lines exposait current_price_eur converti mais pas le native
+    # ni l'asof ni le ccy -> les readers devaient re-query positions -> 2 sources
+    # de verite -> bugs cosmetiques. Maintenant : propage tout.
+    last_price_native: float | None = None
+    last_price_currency: str | None = None
+    price_asof: str | None = None
+    fx_rate_to_eur: float | None = None
+    fx_asof: str | None = None
     # Computed
     in_db: bool = False
     in_canonical: bool = False
@@ -210,18 +220,34 @@ def clear_cache() -> None:
 
 
 def _load_db_positions() -> dict[str, dict]:
-    """ticker -> {qty, avg_cost_eur} pour les positions ouvertes."""
+    """ticker -> {qty, avg_cost_eur, last_price_native, last_price_currency,
+    price_asof, fx_rate_to_eur, fx_asof} pour les positions ouvertes.
+
+    Expose les colonnes M1 typees (Axe 3 / Axe 5) en plus du legacy qty+avg_cost.
+    Avant : seul qty + avg_cost -> les readers devaient re-query positions
+    pour avoir asof/native/ccy. Maintenant single-source via shared.book.
+    """
     from shared import storage
 
     out: dict[str, dict] = {}
     try:
         with storage.db() as cx:
             rows = cx.execute(
-                "SELECT ticker, qty, avg_cost FROM positions "
-                "WHERE status='open' AND qty > 0"
+                "SELECT ticker, qty, avg_cost, "
+                "       last_price_native, last_price_currency, price_asof, "
+                "       fx_rate_to_eur, fx_asof "
+                "FROM positions WHERE status='open' AND qty > 0"
             ).fetchall()
             for r in rows:
-                out[r[0]] = {"qty": r[1], "avg_cost_eur": r[2]}
+                out[r[0]] = {
+                    "qty": r[1],
+                    "avg_cost_eur": r[2],
+                    "last_price_native": r[3],
+                    "last_price_currency": r[4],
+                    "price_asof": r[5],
+                    "fx_rate_to_eur": r[6],
+                    "fx_asof": r[7],
+                }
     except Exception:
         pass
     return out
@@ -353,6 +379,12 @@ def get_canonical_book(*, with_prices: bool = True) -> list[BookLine]:
             fade_rate_score=mt_row.get("fade_rate_score"),
             moat_durability_years=mt_row.get("moat_durability_years"),
             valo_above_bull_case=bool(mt_row.get("valo_above_bull_case")),
+            # M1 typed columns propagees (Axe 3 / Axe 5).
+            last_price_native=(db_row or {}).get("last_price_native"),
+            last_price_currency=(db_row or {}).get("last_price_currency"),
+            price_asof=(db_row or {}).get("price_asof"),
+            fx_rate_to_eur=(db_row or {}).get("fx_rate_to_eur"),
+            fx_asof=(db_row or {}).get("fx_asof"),
             in_db=db_row is not None,
             in_canonical=can_row is not None,
             in_target_70k=tgt_row is not None,

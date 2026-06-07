@@ -238,3 +238,34 @@ def test_phantom_lifecycle_consistent_with_canonical(held_positions):
     expected = {"AMD", "TSLA"}  # GOOGL retire des exit_planned (these reecrite)
     surprises = set(phantoms) - expected
     assert not surprises, f"phantom surprise : {surprises}"
+
+
+def test_held_lines_expose_m1_typed_columns(held_lines):
+    """L23 doctrine : shared.book.BookLine est la SOURCE UNIQUE des donnees
+    de book. Les colonnes M1 typees (Axe 3 / Axe 5 : last_price_native,
+    last_price_currency, price_asof, fx_rate_to_eur, fx_asof) DOIVENT etre
+    exposees par get_held_lines() -- les readers downstream ne doivent
+    JAMAIS avoir besoin de re-query positions pour acceder a ces champs
+    (sinon 2 sources de verite -> bugs cosmetiques -> retour au pattern
+    eur_value-dans-notes que l'Axe 3 a tue).
+
+    Verifie qu'au moins une position du book expose ces champs (ils sont
+    populés via reconcile_positions_prices cron Axe 5). Si TOUS sont None
+    -> regression (helper ne propage plus).
+    """
+    fields = [
+        "last_price_native", "last_price_currency", "price_asof",
+        "fx_rate_to_eur", "fx_asof",
+    ]
+    first_line = next(iter(held_lines), None)
+    for fld in fields:
+        assert hasattr(first_line, fld), \
+            f"BookLine n'expose pas {fld} -- regression L23 doctrine"
+    # Au moins une ligne doit avoir des donnees M1 reelles (post-reconcile)
+    if held_lines:
+        for fld in ("last_price_native", "price_asof", "last_price_currency"):
+            non_null = [getattr(ln, fld) for ln in held_lines if getattr(ln, fld) is not None]
+            assert non_null, (
+                f"AUCUNE position n'a {fld} -- cron reconcile_positions_prices "
+                "n'a jamais tourne OU helper get_held_lines ne propage pas"
+            )

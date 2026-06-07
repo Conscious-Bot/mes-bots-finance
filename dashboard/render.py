@@ -4,6 +4,7 @@ Perf as ratio % (currency-invariant). DB read-only; per-panel try/except. Leafle
 
 # Sprint 3 logos tickers : import + force-reload pour bypass cache sys.modules
 # tant que serve.py n'est pas restart pour activer le nouveau watch.
+import contextlib
 import importlib
 import json
 import re
@@ -52,6 +53,7 @@ _CFG = _cfg()
 # Source unique : shared.sizing_caps.absolute_max_cap = cap c5 (sommet bride).
 # Cap fin par conviction utilise dans panels qui ont la donnee theses.
 from shared.sizing_caps import absolute_max_cap as _absolute_max_cap
+
 POS_CAP = _absolute_max_cap() * 100
 NARRATIVE_CAP = float(_CFG.get("style", {}).get("narrative_max_pct", 0.30)) * 100
 DD_REDUCE = float(_CFG.get("risk", {}).get("drawdown_reduce_pct", 0.08)) * 100
@@ -2164,6 +2166,376 @@ def _factor_exposures_panel() -> str:
     )
 
 
+# ============================================================================
+# Position-card #1 (couche 3 render, spec user red-team 07/06)
+# ----------------------------------------------------------------------------
+# Vue plein-ecran d'UNE position. Spec corrigee (3 catches absorbes) :
+# - Catch 1 : position_type assigne via hook tamper-evident (couche 1)
+# - Catch 2 : exit_policy != size_action (couche 2 derive_steer)
+# - Catch 3 : "ratio infini" remplace par "downside structurel non-borne par prix"
+# Deep-link : section data-page="position-card", chaque card id="card-TICKER"
+# ============================================================================
+
+
+def _slug_ticker(ticker: str) -> str:
+    """Convert ticker -> URL-safe id (ASML.AS -> ASML-AS)."""
+    return ticker.replace(".", "-").upper()
+
+
+def _position_card(thesis: dict, position: dict | None) -> str:
+    """Rendre une seule position-card."""
+    from intelligence.position_steer import derive_steer
+    from shared import storage as _stg
+
+    ticker = thesis["ticker"]
+    slug = _slug_ticker(ticker)
+    conv = thesis.get("conviction") or "?"
+    direction = thesis.get("direction") or "long"
+    horizon = thesis.get("horizon") or "?"
+    opened = (thesis.get("opened_at") or "")[:10]
+    reviewed = (thesis.get("last_reviewed") or "")[:10] or "never"
+
+    # Couche 1 : position_type + tags + justification
+    pt_info = _stg.get_position_type(thesis["id"]) or {
+        "position_type": "priced", "position_tags": [], "structural_justification": None,
+    }
+    ptype = pt_info["position_type"]
+    tags = pt_info["position_tags"] or []
+    justif = pt_info.get("structural_justification")
+
+    # Couche 2 : verdict erosion (or None si jamais compute)
+    erosion = _stg.get_latest_erosion_per_thesis(thesis["id"])
+    verdict = erosion["verdict"] if erosion else None
+    erosion_computed_at = (erosion["computed_at"][:16] if erosion else None)
+    driver_status = []
+    if erosion and erosion.get("driver_status_json"):
+        with contextlib.suppress(json.JSONDecodeError, TypeError):
+            driver_status = json.loads(erosion["driver_status_json"])
+
+    # Position live (peut etre None si these sans position ouverte).
+    # Source UNIQUE : shared.book.BookLine via _positions() qui propage
+    # toutes les colonnes M1 typees (Axe 3/5). Plus aucune re-query.
+    qty = position.get("qty") if position else 0
+    # Affichage : prefere native si dispo (Axe 3 M1 honnete), fallback EUR
+    current_price = (
+        position.get("last_price_native") if position else None
+    ) or (position.get("current_price_eur") if position else None)
+    ccy = (position.get("last_price_currency") if position else None) or "EUR"
+    price_asof = position.get("price_asof") if position else None
+    weight_eur = position.get("weight") if position else 0
+    total_book = position.get("_total_book") if position else 0
+    weight_pct = (weight_eur / total_book * 100) if total_book else 0
+    cost_basis = position.get("cost_basis_eur") if position else 0
+    pnl_eur = (weight_eur - cost_basis) if (weight_eur and cost_basis) else 0
+    pnl_pct = ((weight_eur / cost_basis - 1) * 100) if (weight_eur and cost_basis) else 0
+
+    # Theses entry/partial/full/stop
+    entry = thesis.get("entry_price")
+    partial = thesis.get("target_partial")
+    full = thesis.get("target_full")
+    stop = thesis.get("stop_price")
+    invals = thesis.get("invalidation_triggers") or []
+    if isinstance(invals, str):
+        try:
+            invals = json.loads(invals)
+        except (json.JSONDecodeError, TypeError):
+            invals = []
+
+    # Couche 2 : derive steer (combine exit + size)
+    try:
+        steer = derive_steer(
+            position_type=ptype,
+            erosion_verdict=verdict,
+            current_weight_pct=weight_pct,
+            conviction=conv if isinstance(conv, int) else 5,
+        )
+    except Exception:
+        steer = None
+
+    # Asymétrie : pour structural, downside non-borne par prix (Catch 3)
+    if ptype == "structural":
+        asym_html = (
+            '<div class="pc-asym-line"><span class="pc-asym-k">upside</span>'
+            f'<span class="pc-asym-v mono">+{((full/entry-1)*100):.1f}%</span></div>'
+            if (full and entry) else ""
+        )
+        asym_html += (
+            '<div class="pc-asym-line"><span class="pc-asym-k">downside</span>'
+            '<span class="pc-asym-v">STRUCTUREL non-borne par prix</span></div>'
+            '<div class="pc-asym-line"><span class="pc-asym-k">ratio</span>'
+            '<span class="pc-asym-v" style="opacity:0.7">n/a (axe structural &ne; axe prix)</span></div>'
+        )
+    else:
+        # Priced/tactical : asymetrie classique avec stop
+        if entry and stop and full and entry != stop:
+            ratio = (full - entry) / (entry - stop) if direction == "long" else (entry - full) / (stop - entry)
+            up_pct = (full / entry - 1) * 100
+            dn_pct = (stop / entry - 1) * 100
+            asym_html = (
+                '<div class="pc-asym-line"><span class="pc-asym-k">upside</span>'
+                f'<span class="pc-asym-v mono">{up_pct:+.1f}%</span></div>'
+                '<div class="pc-asym-line"><span class="pc-asym-k">downside</span>'
+                f'<span class="pc-asym-v mono">{dn_pct:+.1f}%</span></div>'
+                '<div class="pc-asym-line"><span class="pc-asym-k">ratio</span>'
+                f'<span class="pc-asym-v mono">{ratio:.2f}&times;</span></div>'
+            )
+        else:
+            asym_html = '<div class="pc-empty">stop/target non definis</div>'
+
+    # Slider : si stop dispo, position_axis canonique ; sinon stop=null bar
+    if stop and entry and full and current_price:
+        slider_html = _position_axis(entry, stop, full, current_price)
+    elif entry and full and current_price:
+        # No stop (structural) : montre seulement entry-current-target
+        cur_pct = (current_price / entry - 1) * 100
+        tgt_pct = (full / entry - 1) * 100
+        ax = max(abs(tgt_pct), abs(cur_pct), 10.0)
+        cur_v = max(0.0, min(100.0, 50.0 + (cur_pct / ax) * 50.0))
+        tgt_v = max(0.0, min(100.0, 50.0 + (tgt_pct / ax) * 50.0))
+        slider_html = (
+            '<div class="pc-slider" style="position:relative;height:8px;'
+            'background:linear-gradient(90deg, var(--bg-2) 0%, var(--bg-2) 50%, '
+            'rgba(56,142,60,0.18) 50%, rgba(56,142,60,0.32) 100%);'
+            'border-radius:2px;margin:14px 0;">'
+            f'<div style="position:absolute;left:50%;width:1px;height:14px;'
+            'top:-3px;background:var(--ink-3);" title="entry"></div>'
+            f'<div style="position:absolute;left:{tgt_v:.1f}%;width:1px;height:14px;'
+            'top:-3px;background:#3a9d4e;" title="target"></div>'
+            f'<div style="position:absolute;left:{cur_v:.1f}%;width:9px;height:9px;'
+            'top:-1px;border-radius:50%;background:var(--ink-1);transform:translate(-50%,0);"></div>'
+            '</div>'
+            '<div class="pc-slider-l" style="display:flex;justify-content:space-between;'
+            'font-size:10px;color:var(--ink-3);">'
+            '<span>downside structurel</span><span>entry</span>'
+            f'<span>+{tgt_pct:.0f}% target</span></div>'
+        )
+    else:
+        slider_html = ""
+
+    # Driver-status block (V1 : si erosion compute)
+    if driver_status:
+        drv_rows = ""
+        for d in driver_status:
+            st = d.get("status", "?")
+            st_cls = {"intact": "ok", "eroding": "warn", "broken": "neg"}.get(st, "neu")
+            net = d.get("net", 0)
+            drv_rows += (
+                '<div class="pc-driver">'
+                f'<span class="pc-driver-name">{d.get("driver", "?")[:80]}</span>'
+                f'<span class="pc-driver-st {st_cls}">{st}</span>'
+                f'<span class="pc-driver-net mono">net {net:+.2f}</span>'
+                '</div>'
+            )
+        n_conf = erosion.get("n_confirm", 0)
+        n_ero = erosion.get("n_erode", 0)
+        n_inv = erosion.get("n_invalidation_hit", 0)
+        verdict_cls = {
+            "INTACT": "ok", "EROSION_DETECTED": "warn",
+            "INVALIDATION_HIT": "neg", "STALE_UNUPDATED": "warn",
+            "REVIEW_DUE_DEGRADED": "neu",
+        }.get(verdict, "neu")
+        verdict_html = (
+            '<div class="pc-section">'
+            '<div class="pc-section-h">THESE -- VERDICT MOTEUR #2</div>'
+            f'<div class="pc-verdict {verdict_cls}">{verdict or "?"} '
+            f'<span style="font-size:10px;opacity:0.7">'
+            f'computed {erosion_computed_at} &middot; '
+            f'{n_conf} confirms / {n_ero} erodes / {n_inv} invalidations'
+            '</span></div>'
+            + drv_rows
+            + '</div>'
+        )
+    else:
+        verdict_html = (
+            '<div class="pc-section">'
+            '<div class="pc-section-h">THESE -- VERDICT MOTEUR #2</div>'
+            '<div class="pc-verdict neu" style="font-style:italic">non compute '
+            '(cron erosion pas encore wire) &middot; verdict sera disponible '
+            'apres 1er run compute_all_active_theses</div>'
+            '</div>'
+        )
+
+    # Invalidation triggers list
+    inv_html = ""
+    if invals:
+        inv_html = (
+            '<div class="pc-section">'
+            f'<div class="pc-section-h">INVALIDATION TRIGGERS (0/{len(invals)} fired)</div>'
+            + "".join(
+                f'<div class="pc-inv">&#9675; {(t if isinstance(t, str) else str(t))[:160]}</div>'
+                for t in invals
+            )
+            + '</div>'
+        )
+
+    # Steer block (Catch 2 : EXIT et SIZE separes)
+    if steer:
+        ep = steer.exit_policy
+        sa = steer.size_action
+        size_cls = {"no_action": "ok", "rightsize": "warn", "urgent_rightsize": "neg"}.get(sa.action, "neu")
+        exit_cls = {"hold": "ok", "review": "warn", "review_due_degraded": "neu",
+                    "exit_now": "neg", "tighten_stop": "warn", "trim_aggressive": "warn"}.get(ep.action, "neu")
+        forbidden_html = ""
+        if ep.forbidden:
+            forbidden_html = (
+                '<div class="pc-steer-list-h">INTERDIT (anti-pattern type ' + ptype + ') :</div>'
+                + "".join(f'<div class="pc-steer-li neg">&#10007; {x}</div>' for x in ep.forbidden)
+            )
+        allowed_html = ""
+        if ep.allowed:
+            allowed_html = (
+                '<div class="pc-steer-list-h">AUTORISE :</div>'
+                + "".join(f'<div class="pc-steer-li ok">&#10003; {x}</div>' for x in ep.allowed)
+            )
+        size_extra = ""
+        if sa.action != "no_action":
+            size_extra = (
+                f' &middot; trim qty {sa.target_qty_delta_pct:+.1f}% pour ramener au cap'
+            )
+        steer_html = (
+            '<div class="pc-section">'
+            '<div class="pc-section-h">STEER (Catch 2 : type &amp; cap = 2 axes orthogonaux)</div>'
+            f'<div class="pc-steer-line"><span class="pc-steer-k {exit_cls}">EXIT</span>'
+            f'<span class="pc-steer-action mono">{ep.action.upper()}</span></div>'
+            f'<div class="pc-steer-reason">{ep.reason}</div>'
+            f'<div class="pc-steer-line"><span class="pc-steer-k {size_cls}">SIZE</span>'
+            f'<span class="pc-steer-action mono">{sa.action.upper()}</span></div>'
+            f'<div class="pc-steer-reason">{sa.reason}{size_extra}</div>'
+            + forbidden_html + allowed_html
+            + '</div>'
+        )
+    else:
+        steer_html = ""
+
+    # Justification structural (si applicable)
+    justif_html = ""
+    if ptype == "structural" and justif:
+        justif_html = (
+            '<div class="pc-section">'
+            '<div class="pc-section-h">STRUCTURAL JUSTIFICATION (tamper-evident ledger)</div>'
+            f'<div class="pc-justif">{justif}</div>'
+            '</div>'
+        )
+
+    # Tags
+    tags_html = ""
+    if tags:
+        tags_html = " ".join(
+            f'<span class="pc-tag">{t}</span>' for t in tags
+        )
+
+    # Cours + as-of
+    asof_html = ""
+    if price_asof:
+        try:
+            from shared.freshness import classify_asof
+            sev, age = classify_asof("price", price_asof)
+            sev_emoji = {"green": "✓", "amber": "🟠", "rouge": "✗", "unknown": "?"}.get(sev, "?")
+            age_str = (
+                f"{int(age)}s" if age < 60 else
+                f"{int(age/60)}min" if age < 3600 else
+                f"{int(age/3600)}h" if age < 86400 else
+                f"{int(age/86400)}j"
+            )
+            asof_html = f' <span class="pc-asof">{sev_emoji} as-of {age_str}</span>'
+        except Exception:
+            asof_html = ""
+
+    type_chip = f'<span class="pc-typechip {ptype}">{ptype}</span>'
+    pnl_cls = "ok" if pnl_eur > 0 else "neg" if pnl_eur < 0 else "neu"
+    cours_str = f"{current_price:.2f}" if current_price else "?"
+
+    return (
+        f'<div class="pc-card" id="card-{slug}">'
+        # Header
+        '<div class="pc-head">'
+        f'<span class="pc-tk mono">{ticker}</span>'
+        f'<span class="pc-conv">c{conv} {direction}</span>'
+        f'{type_chip}'
+        f'{tags_html}'
+        f'<span class="pc-meta">horizon {horizon} &middot; opened {opened} &middot; reviewed {reviewed}</span>'
+        '</div>'
+        # Row 1 : Position + Asymetrie + Factor
+        '<div class="pc-row3">'
+        '<div class="pc-cell"><div class="pc-cell-h">POSITION</div>'
+        f'<div class="pc-line"><span>qty</span><span class="mono">{qty}</span></div>'
+        f'<div class="pc-line"><span>MV</span><span class="mono">{weight_pct:.1f}% ({weight_eur:,.0f}€)</span></div>'
+        f'<div class="pc-line"><span>P&amp;L</span><span class="mono {pnl_cls}">{pnl_eur:+,.0f}€ ({pnl_pct:+.1f}%)</span></div>'
+        f'<div class="pc-line"><span>cours</span><span class="mono">{cours_str} {ccy}{asof_html}</span></div>'
+        '</div>'
+        '<div class="pc-cell"><div class="pc-cell-h">ASYMETRIE</div>'
+        f'{asym_html}'
+        f'<div class="pc-line"><span>entry</span><span class="mono">{entry or "?"}</span></div>'
+        f'<div class="pc-line"><span>partial</span><span class="mono">{partial or "?"}</span></div>'
+        f'<div class="pc-line"><span>full</span><span class="mono">{full or "?"}</span></div>'
+        f'<div class="pc-line"><span>stop</span><span class="mono">{stop if stop else "&empty; (structural)"}</span></div>'
+        '</div>'
+        '<div class="pc-cell"><div class="pc-cell-h">TYPE &amp; FACTOR</div>'
+        f'<div class="pc-line"><span>type</span><span>{ptype}</span></div>'
+        f'<div class="pc-line"><span>conv</span><span class="mono">c{conv}</span></div>'
+        '<div class="pc-line"><span>tags</span><span style="font-size:11px">'
+        + (", ".join(tags) if tags else "&mdash;") + '</span></div>'
+        '</div>'
+        '</div>'
+        + slider_html
+        + verdict_html
+        + inv_html
+        + justif_html
+        + steer_html
+        + '</div>'
+    )
+
+
+def _position_card_panel() -> str:
+    """Section data-page='position-card' : stack toutes les cards actives."""
+    from shared import storage as _stg
+
+    try:
+        with _stg.db() as cx:
+            thesis_rows = cx.execute(
+                "SELECT id, ticker, conviction, direction, horizon, "
+                "       opened_at, last_reviewed, "
+                "       entry_price, target_partial, target_full, stop_price, "
+                "       key_drivers, invalidation_triggers "
+                "FROM theses WHERE status='active' "
+                "ORDER BY conviction DESC, ticker"
+            ).fetchall()
+    except Exception as e:
+        return (
+            '<section data-page="position-card" role="region" aria-label="Position cards">'
+            f'<div class="phead"><h2>Position cards</h2></div>'
+            f'<div class="pc-error">Indisponible : {type(e).__name__}: {e}</div>'
+            '</section>'
+        )
+
+    positions = _positions()
+    total_book = sum(p["weight"] for p in positions) or 1
+    pos_by_ticker = {}
+    for p in positions:
+        p["_total_book"] = total_book
+        pos_by_ticker[p["ticker"].upper()] = p
+
+    cards = []
+    cols = ["id", "ticker", "conviction", "direction", "horizon", "opened_at",
+            "last_reviewed", "entry_price", "target_partial", "target_full",
+            "stop_price", "key_drivers", "invalidation_triggers"]
+    for row in thesis_rows:
+        thesis = dict(zip(cols, row, strict=False))
+        ticker = thesis["ticker"].upper()
+        position = pos_by_ticker.get(ticker)
+        cards.append(_position_card(thesis, position))
+
+    n = len(cards)
+    return (
+        '<section data-page="position-card" role="region" aria-label="Position cards">'
+        '<div class="phead"><h2>Position cards</h2>'
+        f'<div class="sub">Vue plein-ecran par position &middot; {n} active &middot; '
+        'EXIT &amp; SIZE separes (Catch 2) &middot; deep-link #card-TICKER</div></div>'
+        + "".join(cards)
+        + '</section>'
+    )
+
+
 def _stress_tests_panel() -> str:
     """Sprint 13 + Axe 4 QUALITY_BAR — scenarios deterministes appliques sur les
     factor exposures, taggues par gate status (ok/warn/breach) lu depuis le
@@ -3118,6 +3490,15 @@ def _positions() -> list[dict]:
             "qty": float(ln.qty or 0),
             "current_price_eur": ln.current_price_eur,
             "cost_basis_eur": cost_basis,
+            # M1 typed columns canoniques (Axe 3 / Axe 5).
+            # Avant : les readers re-queryaient positions pour avoir asof/native/ccy
+            # -> 2 sources de verite -> bugs cosmetiques.
+            # Maintenant : single-source via shared.book.BookLine.
+            "last_price_native": ln.last_price_native,
+            "last_price_currency": ln.last_price_currency,
+            "price_asof": ln.price_asof,
+            "fx_rate_to_eur": ln.fx_rate_to_eur,
+            "fx_asof": ln.fx_asof,
         })
     return out
 
@@ -6541,6 +6922,9 @@ def render() -> Path:
         + _signaux()
         + _urgence(watch, near, positions, pnl, elan, near_t)
         + _copilot()
+        # Position-card #1 couche 3 : section deep-linkable par ticker.
+        # Acces via nav (a ajouter dans _NAV) OU via hash #card-TICKER deep-link.
+        + _position_card_panel()
         + "</main></div>"
         + _LOUPE_HTML
     )

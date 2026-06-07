@@ -18,6 +18,9 @@ _NAV = (
     '<div class="nitem" data-nav="strategie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="3.2" r="0.9"/><path d="M12 4.5 C 8.5 4.5, 7.5 9, 9.5 13 L 14.5 13 C 16.5 9, 15.5 4.5, 12 4.5 Z"/><path d="M10.5 7.5 L 13.5 9.5"/><line x1="9" y1="13" x2="15" y2="13"/><path d="M9.5 13 L 8.5 18 L 15.5 18 L 14.5 13"/><path d="M6 18 L 18 18 L 19.5 22 L 4.5 22 Z"/></svg><span class="nlab">Strategy</span></div>'
     '<div class="nitem" data-nav="urgence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Alerts</span></div>'
     '<div class="nitem" data-nav="copilot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
+    # Position-card #1 nav. Deep-link via #card-TICKER. Click ticker dans
+    # /positions ou /theses navigue ici (a wire couche 4).
+    '<div class="nitem" data-nav="position-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="16" x2="13" y2="16"/></svg><span class="nlab">Cards</span></div>'
     '</nav>'
 )
 
