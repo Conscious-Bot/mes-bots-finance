@@ -361,7 +361,12 @@ universe:
 style:
   default_horizon: 6m
   conviction_min: 3
-  position_max_pct: 0.08  # plafond absolu (= cap c5); cap fin -> concentration.line_cap_by_conviction
+  # Plafond ABSOLU = cap c5 (= ancre line_cap_by_conviction sommet bride).
+  # Knob legacy lu par risk/sizing.py + risk/risk_engine.py + bot/handlers/positions.py
+  # comme cap uniforme. Aligne sur c5 pour ne pas laisser une c3 atteindre 6% via
+  # cap legacy. Le cap fin (par conviction) reste concentration.line_cap_by_conviction.
+  # TODO #73 : retirer ce knob et router tous les enforcers vers le cap fin.
+  position_max_pct: 0.06
   sector_max_pct: 0.2
   narrative_max_pct: 0.3
 risk:
@@ -424,12 +429,20 @@ concentration:
   # Gouverneur = cap de CLUSTER correle, pas le cap par ligne.
   assumed_cluster_shock: 0.57
   cluster_max_pct: 0.35
+  # Pente compressee sub-Kelly tant que N<100 (M3 QUALITY_BAR + L19).
+  # Ce n'est PAS la pente "vraie" : les hit-rates par conviction ne sont pas
+  # mesures. La pente sera REMPLACEE par les hit-rates empiriques mesures
+  # post N>=30 J+90 (cf TODO #73, doctrine "cap = resultat mesure, pas
+  # parametre choisi"). Aujourd'hui :
+  #   - Forme : concave compressee (ratio inter-tiers stable ~0.80)
+  #   - Ancre : c5 = 6% (sommet bride vs 8% historique, sub-Kelly transitoire)
+  #   - Les % absolus sont du second ordre ; la FORME (ratios) est l'invariant.
   line_cap_by_conviction:   # taille max par ligne = f(conviction); remplace style.position_max_pct
-    5: 0.08
-    4: 0.06
-    3: 0.045
-    2: 0.03
-    1: 0.02
+    5: 0.060   # ancre courante
+    4: 0.048   # x0.80
+    3: 0.038   # x0.79
+    2: 0.030   # x0.79
+    1: 0.024   # x0.80
   clusters:
     # semis_ai = correles sur le capex AI / cycle semi (foundry, litho, EDA, memoire,
     # equipement, materiaux, connectivite). Hyperscalers (AMZN/GOOGL) et power-for-AI
