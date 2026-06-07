@@ -1299,7 +1299,17 @@ def _performance_panel() -> str:
 
     return (
         '<div class="card performance-card">'
-        '<div class="card-h">Performance · ffn analytics (1y rolling)</div>'
+        '<div class="card-h">'
+        'Performance · ffn analytics (1y rolling) '
+        '<span style="display:inline-block;padding:2px 8px;border-radius:4px;'
+        'font-size:10px;font-weight:600;background:#7a1f1f;color:#fff;'
+        'margin-left:8px;letter-spacing:0.5px;">PRO-FORMA · PAS TRACK RECORD</span>'
+        '</div>'
+        '<div class="card-meta" style="margin-bottom:4px;color:#a06;font-weight:500;">'
+        'Calcul = sum(qty_actuelle x prix_historique) sur 1y. Allocation d\'aujourd\'hui '
+        'projetee retroactivement. Survivorship + construction-phase ignorees. '
+        'Pas une mesure publishable de performance reelle.'
+        '</div>'
         f'<div class="card-meta">N={n_days}j · rf=2.5%{bench_meta} · KNOWN-GAP: FX exact non applique</div>'
         '<div class="perf-grid">'
         f'<div class="perf-kpi"><div class="k">CAGR</div><div class="v mono">{cagr}</div></div>'
@@ -4142,11 +4152,20 @@ def _signaux() -> str:
     # Track record + sante distribution remontes ici (depuis vue d'ensemble)
     # 01/06 user pref : la page signaux groupe le pilotage qualite des signaux
     # (track record + 6 vigilances + 8-K + insider flux).
+    # Performance + data_health deplaces ici 07/06 user pref :
+    # - Performance ffn = retro-test pro-forma (sum(qty_actuelle x prix_historique)),
+    #   pas track record reel -> a sa place en Method, pas Vue d'ensemble.
+    # - Data health = M1 freshness des inputs (instrumentation), audience
+    #   methodologique -> Method, pas verite-du-jour.
+    performance_html_method = _performance_panel()
+    data_health_html_method = _data_health_panel()
     return (
         f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h2>Method</h2>'
         f'<div class="sub">How the bot reads signals + how it monitors your biases &middot; track record &middot; insider flow &middot; loop provenance</div></div>'
         f"{star_signaux}{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}"
         f"{_discipline_biais_panel()}"
+        f"{data_health_html_method}"
+        f"{performance_html_method}"
         f"{_loop()}"
         f"</section>"
     )
@@ -6045,8 +6064,11 @@ def render() -> Path:
     # cockpit_html (Cockpit discipline panel) retire 31/05 user feedback
     # _cockpit() helper toujours dispo si reactivation future
     grade_html = _grade_panel()
-    performance_html = _performance_panel()
-    data_health_html = _data_health_panel()
+    # performance_html + data_health_html retires 07/06 user :
+    # - performance = pro-forma retro-fictif, pas track record reel
+    # - data_health = inputs M1 freshness (instrumentation), pas verite-du-jour
+    # Les deux migrent vers page Method ou ils sont plus honnetes
+    # (audience methodologique vs lecture operationnelle).
     blind_html = _blind_positions_panel()
     # chat_html + conceptions_html + copilot_html retires 31/05 wave 5 :
     # migration vers section Copilot dediee (_copilot() entre Positions et
@@ -6269,8 +6291,6 @@ def render() -> Path:
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         '<div class="vigie-sh" data-tip="Book positions to review first: critical margins (stop &lt; 10%), at_risk kill_criteria zones, blind vol."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
         f'{_risk_watch_panel()}'
-        f"{data_health_html}"
-        f"{performance_html}"
         f"{blind_html}"
         # Journal & deadlines retire 02/06 user (useless boards :
         # TEST_E2E_DEC pollue + deadlines disponibles ailleurs).
