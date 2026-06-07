@@ -27,7 +27,6 @@ log = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _YAML_PATH = _REPO_ROOT / "config" / "risk_watch.yaml"
-_JSON_FALLBACK_PATH = _REPO_ROOT / "scripts" / "risk_watch.json"
 _CACHE: dict | None = None
 
 
@@ -35,44 +34,34 @@ def load_risk_watch() -> dict | None:
     """Charge le YAML declaratif + valide via Pydantic.
 
     Returns:
-        Dict en forme JSON legacy (keys: _meta, risks), avec by_alias=True
-        pour preserver `_meta`. None si fichier absent ET fallback JSON absent.
+        Dict en forme legacy (keys: _meta, risks), avec by_alias=True
+        pour preserver `_meta`. None si fichier absent ou invalide.
 
-    Fallback : si le YAML est invalide ou absent, retombe sur l'ancien
-    scripts/risk_watch.json (period transitoire). Log warning explicite."""
+    JSON legacy droppé 07/06 (tech debt cleanup post-verification). YAML
+    canonique = config/risk_watch.yaml (cf docs/templates/workflow_yaml_pattern).
+    """
     global _CACHE
     if _CACHE is not None:
         return _CACHE
 
-    if _YAML_PATH.exists():
-        try:
-            import yaml
+    if not _YAML_PATH.exists():
+        log.warning(f"risk_watch.yaml absent : {_YAML_PATH}")
+        return None
 
-            from intelligence.risk_watch_schema import RiskWatchConfig
-            raw = yaml.safe_load(_YAML_PATH.read_text())
-            cfg = RiskWatchConfig.model_validate(raw)
-            _CACHE = cfg.model_dump(by_alias=True, mode="json")
-            return _CACHE
-        except Exception as e:
-            log.warning(
-                f"risk_watch.yaml invalide ({type(e).__name__}: {e}). "
-                "Fallback JSON legacy. cf L17 LESSONS."
-            )
+    try:
+        import yaml
 
-    # Fallback JSON (transitoire post-migration)
-    if _JSON_FALLBACK_PATH.exists():
-        try:
-            _CACHE = json.loads(_JSON_FALLBACK_PATH.read_text())
-            log.info(
-                "risk_watch loaded from legacy JSON fallback "
-                "(scripts/risk_watch.json). Migrate to config/risk_watch.yaml."
-            )
-            return _CACHE
-        except Exception as e:
-            log.error(f"risk_watch.json parse failed: {e}")
-            return None
-
-    return None
+        from intelligence.risk_watch_schema import RiskWatchConfig
+        raw = yaml.safe_load(_YAML_PATH.read_text())
+        cfg = RiskWatchConfig.model_validate(raw)
+        _CACHE = cfg.model_dump(by_alias=True, mode="json")
+        return _CACHE
+    except Exception as e:
+        log.warning(
+            f"risk_watch.yaml invalide ({type(e).__name__}: {e}). "
+            "Cf L17 LESSONS, schema strict Pydantic."
+        )
+        return None
 
 
 def load_risk_watch_with_live_state() -> dict | None:
