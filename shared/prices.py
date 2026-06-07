@@ -21,14 +21,30 @@ import yfinance as yf
 
 
 def get_current_price(ticker: str) -> float | None:
-    """Latest close price. Returns float or None."""
+    """Latest close price. Returns float or None.
+
+    M1 doctrine (07/06 nuit++) : apres fetch live success, persist
+    append-only dans price_history (asof + source). Permet freshness
+    queryable + serie historique pour attribution causale 2x2.
+    """
     try:
         t = yf.Ticker(ticker)
         hist = t.history(period="5d", interval="1d")
         closes = hist["Close"].dropna()
         if closes.empty:
             return None
-        return float(closes.iloc[-1])
+        price = float(closes.iloc[-1])
+        # M1 persist append-only (silent-miss L7 si DB down -- ne casse pas fetch)
+        try:
+            from shared.storage import insert_price_observation
+            currency = get_currency_for_ticker(ticker)
+            insert_price_observation(
+                ticker=ticker, price_native=price, currency=currency,
+                source="yfinance",
+            )
+        except Exception:
+            pass
+        return price
     except Exception as e:
         print(f"price fetch error for {ticker}: {e}")
         return None
@@ -265,6 +281,14 @@ def get_fx_rate(from_cur: str, to_cur: str = "EUR") -> float | None:
     if live is not None:
         _FX_CACHE[key] = (live, now)
         _FX_LIVE_LAST_SUCCESS[key] = now
+        # M1 persist append-only (silent-miss L7)
+        try:
+            from shared.storage import insert_fx_observation
+            insert_fx_observation(
+                base=from_cur, quote=to_cur, rate=live, source="yfinance",
+            )
+        except Exception:
+            pass
         return live
 
     _log.warning(f"FX live fetch failed for {from_cur}->{to_cur}, fallback hardcoded")

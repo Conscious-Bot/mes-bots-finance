@@ -1,0 +1,46 @@
+# config/freshness.yaml -- SLA fraicheur des inputs dates (M1 doctrine).
+#
+# Premier-principe red-team 07/06 nuit++ : on stocke les inputs dates,
+# on derive les outputs live. Chaque input observe porte (valeur, asof,
+# source). Au-dela de ces seuils :
+# - green : present comme frais sans warning
+# - amber : warning explicite "stale Ns" badge dashboard
+# - rouge implicite (au-dela amber) : fail-closed L15 sur calculs derives
+#   (refuse de produire eur_value, refuse de scorer, etc)
+#
+# Lecteurs : shared/freshness.py loader + base_health endpoint /readyz +
+# scoring orchestrator (refuse mode degrade au-dela amber sur prix).
+
+_meta:
+  schema_version: 1
+  declared_at: '2026-06-07'
+  last_modified: '2026-06-07'
+  next_review_due: '2026-09-30'
+  doctrine_refs:
+    - 'docs/LESSONS.md L15 (fail-closed scoring sur input stale)'
+    - 'docs/LESSONS.md L17 (declarative YAML)'
+    - 'M1 doctrine : triple (valeur, asof, source) partout'
+
+# SLA par categorie d'input. Tous les seuils en secondes.
+slas:
+  price:
+    # Prix actif intraday : refresh tous les ~15min de cron, ban risk yfinance =
+    # accept 1h before amber (~30min interval ban-safe TTL existant)
+    green_sec: 900       # 15min
+    amber_sec: 3600      # 1h
+    rouge_sec: 14400     # 4h -> fail-closed
+  fx:
+    # FX bouge lentement intraday, 4h ban-safe
+    green_sec: 3600      # 1h
+    amber_sec: 14400     # 4h
+    rouge_sec: 86400     # 24h -> fail-closed
+  fundamentals:
+    # EPS / margin / etc -- daily refresh suffisant
+    green_sec: 86400     # 1j
+    amber_sec: 259200    # 3j
+    rouge_sec: 604800    # 7j -> fail-closed
+  macro:
+    # VIX / DXY / HY_OAS / etc -- 4 x daily refresh cible
+    green_sec: 21600     # 6h
+    amber_sec: 86400     # 24h
+    rouge_sec: 172800    # 48h -> fail-closed

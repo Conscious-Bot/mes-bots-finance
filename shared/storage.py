@@ -3859,6 +3859,106 @@ def get_latest_risk_signal_evaluation(
         return None
 
 
+def insert_price_observation(
+    ticker: str,
+    price_native: float,
+    currency: str,
+    source: str = "yfinance",
+    asof: str | None = None,
+) -> int | None:
+    """Append-only price observation (M1 doctrine : triple value+asof+source).
+
+    Pattern : ecrit par shared/prices.py apres live fetch success.
+    asof default = datetime.now(UTC).isoformat().
+
+    Returns lastrowid ou None sur exception (silent-miss L7 si DB down).
+    """
+    from datetime import UTC as _UTC, datetime as _dt
+    if asof is None:
+        asof = _dt.now(_UTC).isoformat()
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO price_history (ticker, asof, price_native, currency, source) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (ticker.upper(), asof, float(price_native), currency.upper(), source),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_price_observation {ticker} failed: {e}")
+        return None
+
+
+def insert_fx_observation(
+    base: str,
+    quote: str,
+    rate: float,
+    source: str = "yfinance",
+    asof: str | None = None,
+) -> int | None:
+    """Append-only FX observation. Pattern miroir insert_price_observation."""
+    from datetime import UTC as _UTC, datetime as _dt
+    if asof is None:
+        asof = _dt.now(_UTC).isoformat()
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO fx_history (base, quote, rate, asof, source) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (base.upper(), quote.upper(), float(rate), asof, source),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_fx_observation {base}/{quote} failed: {e}")
+        return None
+
+
+def get_latest_price(ticker: str) -> dict | None:
+    """Dernier prix observe pour ticker. None si aucune observation.
+
+    Returns dict {ticker, asof, price_native, currency, source} ou None.
+    Pas de fallback : caller (valuation) classifie freshness via SLA.
+    """
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT ticker, asof, price_native, currency, source "
+                "FROM price_history WHERE ticker = ? "
+                "ORDER BY asof DESC LIMIT 1",
+                (ticker.upper(),),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "ticker": row[0], "asof": row[1], "price_native": row[2],
+                "currency": row[3], "source": row[4],
+            }
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_price {ticker} failed: {e}")
+        return None
+
+
+def get_latest_fx_rate(base: str, quote: str) -> dict | None:
+    """Dernier FX observe pour (base, quote). None si aucune observation."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT base, quote, rate, asof, source "
+                "FROM fx_history WHERE base = ? AND quote = ? "
+                "ORDER BY asof DESC LIMIT 1",
+                (base.upper(), quote.upper()),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "base": row[0], "quote": row[1], "rate": row[2],
+                "asof": row[3], "source": row[4],
+            }
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_fx_rate {base}/{quote} failed: {e}")
+        return None
+
+
 def record_prediction_integrity(conn, prediction_id: int) -> str | None:
     """Append 1 maille a la chaine integrity PREDICTIONS (commit-reveal).
 
