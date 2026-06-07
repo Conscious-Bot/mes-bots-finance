@@ -76,7 +76,19 @@ def test_active_thesis_has_complete_inputs(held_lines):
     blind_tk = sorted(ln.ticker for ln in blind)
     # SNOW etoffe 2026-05-29 (P1 decision) -- plus d'exemption documente.
     # Toute position blind future = regression a investiguer.
-    accepted_blind: set[str] = set()
+    #
+    # Exception doctrinale 07/06 (red-team user QUALITY_BAR Axe 4) : chokepoint
+    # structurel = stop-prix volontairement absent. Un monopole/duopoly s'invalide
+    # par CONDITION STRUCTURELLE (capex guide, market share, spreads), pas par un
+    # mouvement de cours. Laisser un stop-prix = laisser l'humeur du marche, et
+    # non la condition de falsification, decider de la sortie. Erreur de categorie.
+    # invalidation_triggers restent renseignes et structurels pour ces 4 lignes.
+    accepted_blind: set[str] = {
+        "ASML.AS",  # monopole EUV litho -- invalidation = bookings/export/capex hyperscaler
+        "TSM",      # quasi-monopole foundry leading-edge -- invalidation = Samsung 2nm / Intel 18A / gross margin
+        "SNPS",     # duopoly EDA -- invalidation = Ansys merger / ASP / open-source EDA
+        "6920.T",   # Lasertec EUV inspection masque actinique -- invalidation = concurrent volume-livre
+    }
     unexpected = sorted(set(blind_tk) - accepted_blind)
     assert not unexpected, (
         f"vol aveugle non documente : {unexpected}. "

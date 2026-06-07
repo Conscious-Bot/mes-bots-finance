@@ -3271,8 +3271,18 @@ def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:  # noqa: AR
         return float(p["weight"])
 
     total = sum(_v(p) for p in positions) or 1
-    _conc = yaml.safe_load(Path("config.yaml").read_text()).get("concentration", {})
-    ccap = float(_conc.get("cluster_max_pct", 0)) * 100
+    _cfg = yaml.safe_load(Path("config.yaml").read_text())
+    _conc = _cfg.get("concentration", {})
+    # Axe 4 fix mensonge cluster : afficher le cap OPERATOIRE, pas le default
+    # conservateur 35% (ADR 010) qui est OVERRIDE par user_strategy quand
+    # archetype="concentrator_thematic". Le default 35 disait "tu es a 2x ton
+    # cap" alors que le cap effectif est 70 -> ca poussait au trim biais
+    # sell-too-early. Source de verite unique : user_strategy.
+    _us = _cfg.get("user_strategy") or {}
+    if _us.get("archetype") == "concentrator_thematic":
+        ccap = float(_us.get("target_cluster_cap_pct", 35))
+    else:
+        ccap = float(_conc.get("cluster_max_pct", 0)) * 100
     out: list[dict] = []
     for cn, mem in (_conc.get("clusters") or {}).items():
         ms = set(mem)
