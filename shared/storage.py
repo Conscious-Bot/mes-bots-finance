@@ -3602,6 +3602,111 @@ def get_latest_oca_per_ticker(ticker: str) -> dict | None:
         return None
 
 
+# === thesis_erosion_log (aiguillage anti-entetement, migration 0039) =========
+# Journal append-only verdict erosion contenu these vs evidence post-opened_at.
+# Complementaire de thesis_track_record (Brier) + M14 (staleness temporelle).
+
+
+def insert_thesis_erosion(
+    thesis_id: int,
+    ticker: str,
+    verdict: str,
+    n_confirm: int = 0,
+    n_erode: int = 0,
+    n_invalidation_hit: int = 0,
+    driver_status_json: str = "[]",
+    signals_considered_json: str = "[]",
+    degraded: bool = False,
+    steer: str | None = None,
+) -> int | None:
+    """Insert verdict erosion. Append-only.
+
+    verdict in {INTACT, EROSION_DETECTED, INVALIDATION_HIT, STALE_UNUPDATED,
+    REVIEW_DUE_DEGRADED}."""
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO thesis_erosion_log "
+                "(thesis_id, ticker, verdict, n_confirm, n_erode, "
+                " n_invalidation_hit, driver_status_json, signals_considered_json, "
+                " degraded, steer) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    thesis_id, ticker.upper(), verdict,
+                    int(n_confirm), int(n_erode), int(n_invalidation_hit),
+                    driver_status_json, signals_considered_json,
+                    1 if degraded else 0, steer,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_thesis_erosion failed: {e}")
+        return None
+
+
+def get_latest_erosion_per_thesis(thesis_id: int) -> dict | None:
+    """Dernier verdict erosion pour une these, ou None."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT id, computed_at, verdict, n_confirm, n_erode, "
+                "       n_invalidation_hit, driver_status_json, "
+                "       signals_considered_json, degraded, steer "
+                "FROM thesis_erosion_log WHERE thesis_id=? "
+                "ORDER BY id DESC LIMIT 1",
+                (thesis_id,),
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["id", "computed_at", "verdict", "n_confirm", "n_erode",
+                    "n_invalidation_hit", "driver_status_json",
+                    "signals_considered_json", "degraded", "steer"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_erosion_per_thesis failed: {e}")
+        return None
+
+
+def get_material_signals_since(
+    ticker: str, since_iso: str, limit: int = 12,
+) -> list[dict]:
+    """Signals materiels referencant ticker depuis since_iso, tries par materialite desc.
+
+    Deux sources :
+    - signals : entities LIKE '%"TICKER"%' + materiality = impact_magnitude * materiality_boost
+    - chat_extracted_signals : ticker = TICKER + materiality = confidence * 3
+    """
+    try:
+        with db() as cx:
+            out: list[dict] = []
+            for r in cx.execute(
+                "SELECT id, timestamp AS asof, title, summary, "
+                "COALESCE(impact_magnitude, 1) * COALESCE(materiality_boost, 1) AS materiality "
+                "FROM signals WHERE timestamp > ? AND entities LIKE ? "
+                "ORDER BY materiality DESC LIMIT ?",
+                (since_iso, f'%"{ticker.upper()}"%', limit),
+            ).fetchall():
+                cols = ["id", "asof", "title", "summary", "materiality"]
+                out.append(dict(zip(cols, r, strict=False)))
+            for r in cx.execute(
+                "SELECT id, created_at AS asof, "
+                "COALESCE(note, '') AS title, "
+                "COALESCE(evidence_quote, '') AS summary, "
+                "COALESCE(confidence, 0.5) * 3 AS materiality "
+                "FROM chat_extracted_signals "
+                "WHERE created_at > ? AND ticker = ? "
+                "ORDER BY materiality DESC LIMIT ?",
+                (since_iso, ticker.upper(), limit),
+            ).fetchall():
+                cols = ["id", "asof", "title", "summary", "materiality"]
+                out.append(dict(zip(cols, r, strict=False)))
+            out.sort(key=lambda x: x["materiality"], reverse=True)
+            return out[:limit]
+    except Exception as e:
+        _copilot_log.warning(f"get_material_signals_since failed: {e}")
+        return []
+
+
 # === stress_gate_alerts (Axe 4 QUALITY_BAR v2.c.6) ===========================
 # Journal incremental par evaluation stress-test, miroir over_cap_alerts.
 # Table cree via migration alembic 0037. Voir intelligence/stress_gate_monitor
