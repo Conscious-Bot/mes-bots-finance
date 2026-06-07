@@ -94,6 +94,98 @@ def chain_append(
     return prev, new_hash
 
 
+def anchor_chain_head(
+    head_hash: str,
+    head_seq: int,
+    anchor_dir: str = "data/integrity_anchors",
+) -> dict:
+    """A4 : anchor externe du head chain (PASSE A1-A3 du theater au reel).
+
+    Sans A4, un attaquant local peut reecrire toute la chain (recalculer
+    tous les chain_hash + payload_json) car aucune preuve externe ne fixe
+    l'etat de la chain a T0. A4 ecrit le head dans un fichier git-trackable
+    + (optionnel) tag signe pour push origin.
+
+    Args:
+        head_hash : chain_hash de la derniere row inseree
+        head_seq : seq correspondant (pour update anchor_ref en DB)
+        anchor_dir : dossier ou ecrire le fichier anchor
+
+    Returns:
+        dict {anchor_file, head_hash, head_seq, anchor_ref, git_tag_attempted}
+
+    Strategy minimale (V0, sans git config) :
+    1. Ecrire data/integrity_anchors/<YYYY-MM-DD>.txt avec head + ts
+    2. Git tag (-s si gpg key configuree, sinon -a unsigned) integrity/<date>-<short>
+    3. anchor_ref = format 'file:<path>' ou 'git_tag:integrity/...'
+
+    Cron daily : scripts/anchor_chain_head_daily.py invoque cette fonction.
+    """
+    import os
+    import subprocess
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC)
+    date_str = now.strftime("%Y-%m-%d")
+    ts_iso = now.isoformat()
+
+    # Step 1 : ecrire fichier anchor
+    os.makedirs(anchor_dir, exist_ok=True)
+    anchor_file = os.path.join(anchor_dir, f"{date_str}.txt")
+    content = (
+        f"# PRESAGE thesis_integrity_log anchor\n"
+        f"date: {date_str}\n"
+        f"timestamp_iso: {ts_iso}\n"
+        f"head_seq: {head_seq}\n"
+        f"head_chain_hash: {head_hash}\n"
+        f"# Recompute via shared.integrity.verify_chain on rows up to seq={head_seq}\n"
+    )
+    try:
+        with open(anchor_file, "w") as f:
+            f.write(content)
+        wrote_file = True
+    except Exception:
+        wrote_file = False
+
+    # Step 2 : git tag (best-effort)
+    git_tag_attempted = False
+    git_tag_success = False
+    tag_name = f"integrity/{date_str}-{head_hash[:8]}"
+    try:
+        # Try signed first, fall back to annotated unsigned
+        result_signed = subprocess.run(
+            ["git", "tag", "-s", "-m", f"integrity anchor {date_str}", tag_name],
+            capture_output=True, text=True, timeout=10,
+        )
+        git_tag_attempted = True
+        if result_signed.returncode == 0:
+            git_tag_success = True
+        else:
+            # Fall back unsigned annotated
+            result_annot = subprocess.run(
+                ["git", "tag", "-a", "-m", f"integrity anchor {date_str}", tag_name],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result_annot.returncode == 0:
+                git_tag_success = True
+    except Exception:
+        pass
+
+    anchor_ref = (
+        f"git_tag:{tag_name}" if git_tag_success
+        else (f"file:{anchor_file}" if wrote_file else "")
+    )
+    return {
+        "anchor_file": anchor_file if wrote_file else None,
+        "head_hash": head_hash,
+        "head_seq": head_seq,
+        "anchor_ref": anchor_ref,
+        "git_tag_attempted": git_tag_attempted,
+        "git_tag_success": git_tag_success,
+        "wrote_file": wrote_file,
+    }
+
+
 def verify_chain(rows: list[dict[str, Any]]) -> tuple[bool, int | None]:
     """Verifie integrite chaine ordonnee par seq.
 
