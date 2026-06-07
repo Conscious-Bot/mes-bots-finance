@@ -3602,6 +3602,178 @@ def get_latest_oca_per_ticker(ticker: str) -> dict | None:
         return None
 
 
+# === thesis position_type (axe EXIT POLICY, migration 0040) ==================
+# Hook tamper-evident : assignation a 'structural' append au thesis_integrity_log.
+# Garde anti-Catch1 (red-team user 07/06) : tu ne peux pas re-tagger un loser
+# en structural sans laisser de trace dans la chain d'integrite.
+
+
+class StructuralJustificationRequired(ValueError):
+    """Raised quand on tente d'assigner position_type='structural' sans
+    structural_justification (Catch 1 red-team user)."""
+
+
+def set_position_type(
+    thesis_id: int,
+    position_type: str,
+    structural_justification: str | None = None,
+    position_tags: list[str] | None = None,
+) -> dict | None:
+    """Set position_type sur une these, avec hook tamper-evident si structural.
+
+    Args:
+        thesis_id: id these.
+        position_type: 'structural' | 'priced' | 'tactical'.
+        structural_justification: REQUIS si position_type=='structural'.
+            Texte libre justifiant l'assignation (critere objectif verifiable).
+        position_tags: optional liste de tags orthogonaux (mega_cap, commodity,
+            satellite, ...). Non-canonical pour decision.
+
+    Returns:
+        dict {thesis_id, position_type, integrity_seq, integrity_hash} ou None
+        si erreur. integrity_seq/hash uniquement si structural.
+
+    Raises:
+        StructuralJustificationRequired si structural sans justification.
+        ValueError si position_type invalide.
+    """
+    import json as _json
+    from datetime import UTC as _UTC, datetime as _datetime
+
+    if position_type not in ("structural", "priced", "tactical"):
+        raise ValueError(f"position_type invalide : {position_type!r}")
+    if position_type == "structural" and not structural_justification:
+        raise StructuralJustificationRequired(
+            "position_type='structural' requires structural_justification "
+            "(Catch 1 garde : critere objectif verifiable). "
+            "Cf docs/QUALITY_BAR.md doctrine M2 pre-registration."
+        )
+    tags_json = _json.dumps(position_tags or [], ensure_ascii=False)
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT ticker, position_type, structural_justification "
+                "FROM theses WHERE id=?",
+                (thesis_id,),
+            ).fetchone()
+            if not row:
+                _copilot_log.warning(f"set_position_type: thesis_id {thesis_id} not found")
+                return None
+            ticker, old_type, _old_justif = row
+            cx.execute(
+                "UPDATE theses SET position_type=?, position_tags_json=?, "
+                "structural_justification=? WHERE id=?",
+                (position_type, tags_json, structural_justification, thesis_id),
+            )
+        # Hook tamper-evident : si on ASSIGNE structural (changement ou
+        # confirmation) -> append au thesis_integrity_log.
+        result = {"thesis_id": thesis_id, "position_type": position_type}
+        if position_type == "structural":
+            payload = {
+                "event": "position_type_assigned",
+                "thesis_id": thesis_id,
+                "ticker": ticker,
+                "position_type": "structural",
+                "structural_justification": structural_justification,
+                "tags": position_tags or [],
+                "previous_type": old_type or "priced",
+                "asof": _datetime.now(_UTC).isoformat(timespec="seconds"),
+            }
+            anchor = insert_thesis_integrity_row(thesis_id, payload)
+            if anchor:
+                result["integrity_seq"] = anchor["seq"]
+                result["integrity_hash"] = anchor["chain_hash"]
+        return result
+    except StructuralJustificationRequired:
+        raise
+    except Exception as e:
+        _copilot_log.warning(f"set_position_type failed: {e}")
+        return None
+
+
+def get_position_type(thesis_id: int) -> dict | None:
+    """Lit position_type + tags + justification d'une these."""
+    import json as _json
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT position_type, position_tags_json, structural_justification "
+                "FROM theses WHERE id=?",
+                (thesis_id,),
+            ).fetchone()
+            if not row:
+                return None
+            tags = []
+            with suppress(json.JSONDecodeError, TypeError):
+                tags = _json.loads(row[1] or "[]")
+            return {
+                "position_type": row[0],
+                "position_tags": tags,
+                "structural_justification": row[2],
+            }
+    except Exception as e:
+        _copilot_log.warning(f"get_position_type failed: {e}")
+        return None
+
+
+# === thesis_erosion_classifications (migration 0041) =========================
+
+
+def insert_erosion_classification(
+    erosion_log_id: int,
+    signal_id: int,
+    signal_source: str,
+    bears_on: str | None,
+    target_index: int | None,
+    relation: str | None,
+    confidence: float | None,
+    materiality: float | None,
+    rationale: str | None,
+    evidence_quote: str | None,
+) -> int | None:
+    """Persiste une classification LLM signal vs these. Append-only.
+
+    signal_source in {signals, chat} (distinguer les 2 sources)."""
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO thesis_erosion_classifications "
+                "(erosion_log_id, signal_id, signal_source, bears_on, "
+                " target_index, relation, confidence, materiality, "
+                " rationale, evidence_quote) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    erosion_log_id, signal_id, signal_source,
+                    bears_on, target_index, relation,
+                    confidence, materiality, rationale, evidence_quote,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_erosion_classification failed: {e}")
+        return None
+
+
+def get_classifications_for_erosion(erosion_log_id: int) -> list[dict]:
+    """Lit les classifications associees a un erosion_log (pour position-card)."""
+    try:
+        with db() as cx:
+            rows = cx.execute(
+                "SELECT id, signal_id, signal_source, bears_on, target_index, "
+                "       relation, confidence, materiality, rationale, evidence_quote "
+                "FROM thesis_erosion_classifications WHERE erosion_log_id=? "
+                "ORDER BY confidence DESC NULLS LAST, materiality DESC NULLS LAST",
+                (erosion_log_id,),
+            ).fetchall()
+            cols = ["id", "signal_id", "signal_source", "bears_on",
+                    "target_index", "relation", "confidence", "materiality",
+                    "rationale", "evidence_quote"]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+    except Exception as e:
+        _copilot_log.warning(f"get_classifications_for_erosion failed: {e}")
+        return []
+
+
 # === thesis_erosion_log (aiguillage anti-entetement, migration 0039) =========
 # Journal append-only verdict erosion contenu these vs evidence post-opened_at.
 # Complementaire de thesis_track_record (Brier) + M14 (staleness temporelle).

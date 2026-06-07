@@ -240,22 +240,42 @@ def compute_thesis_erosion(thesis_id: int) -> dict:
 def _persist(
     thesis: dict, verdict: str,
     *,
-    classified: list[dict], signals: list[dict],  # noqa: ARG001 -- classified reserve futur audit
+    classified: list[dict], signals: list[dict],
     degraded: bool, steer: str,
     driver_status: list | None = None,
     n_conf: int = 0, n_ero: int = 0, n_inval: int = 0,
 ) -> dict:
-    storage.insert_thesis_erosion(
+    erosion_log_id = storage.insert_thesis_erosion(
         thesis_id=thesis["id"], ticker=thesis["ticker"], verdict=verdict,
         n_confirm=n_conf, n_erode=n_ero, n_invalidation_hit=n_inval,
         driver_status_json=json.dumps(driver_status or [], ensure_ascii=False),
         signals_considered_json=json.dumps([s.get("id") for s in signals]),
         degraded=degraded, steer=steer,
     )
+    # Persiste per-signal classifications pour position-card (Couche 1
+    # spec user red-team 07/06). Avant : volatile in-memory, perdues.
+    if erosion_log_id and classified:
+        for c in classified:
+            storage.insert_erosion_classification(
+                erosion_log_id=erosion_log_id,
+                signal_id=int(c.get("signal_id") or 0),
+                # Source heuristique : signal_id retrouvable dans signals
+                # ou chat_extracted_signals -- pour MVP on default 'signals'
+                # (la 2e source distinguee si schema enrichit le retour).
+                signal_source="signals",
+                bears_on=c.get("bears_on"),
+                target_index=c.get("target_index") if isinstance(c.get("target_index"), int) else None,
+                relation=c.get("relation"),
+                confidence=float(c["confidence"]) if c.get("confidence") is not None else None,
+                materiality=float(c["materiality"]) if c.get("materiality") is not None else None,
+                rationale=c.get("rationale"),
+                evidence_quote=c.get("evidence_quote"),
+            )
     return {
         "thesis_id": thesis["id"],
         "ticker": thesis["ticker"],
         "verdict": verdict,
+        "erosion_log_id": erosion_log_id,
         "steer": steer,
         "driver_status": driver_status or [],
         "n_confirm": n_conf,
