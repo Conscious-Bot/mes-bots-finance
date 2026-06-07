@@ -96,6 +96,12 @@ SUFFIX = {
 _PX_CACHE: dict[str, tuple[float, float]] = {}
 _PX_TTL = 1800.0  # 30 min: throttle yfinance (partage IP/lib avec price_monitor, evite le ban)
 
+# Phase post-audit 07/06 : cache historique portfolio pour Performance panel.
+# yfinance batch download ~2-4 sec, donc TTL 1h suffit (regen toutes 60s sinon
+# crippling). Format : (pd.Series equity_curve, monotonic_timestamp).
+_PORTFOLIO_HISTORY_CACHE: tuple | None = None
+_PORTFOLIO_HISTORY_TTL = 3600.0  # 1h
+
 
 def _pct(x: float) -> str:
     """Autorite unique de format des poids de ligne (1 decimale)."""
@@ -836,6 +842,176 @@ def _risk_watch_panel() -> str:
         f'{construction_lens}'
         + "".join(out)
         + "</div>"
+    )
+
+
+def _fetch_portfolio_equity_curve():
+    """Cache 1h : fetch yfinance batch des positions ouvertes, compute equity
+    curve EUR (somme poids * prix historique). Returns pd.Series ou None si
+    impossible (<30j d'historique, yfinance down, etc.).
+
+    Pattern : monolithe single-process, donc on cache globalement. Le bot a
+    son propre fetch (price_monitor) qui partage pas ce cache.
+    """
+    import time as _t
+
+    global _PORTFOLIO_HISTORY_CACHE
+    now = _t.monotonic()
+    if _PORTFOLIO_HISTORY_CACHE is not None:
+        curve, ts = _PORTFOLIO_HISTORY_CACHE
+        if now - ts < _PORTFOLIO_HISTORY_TTL:
+            return curve
+
+    try:
+        import pandas as pd
+        import yfinance as yf
+
+        from shared import storage
+    except Exception:
+        return None
+
+    # Lit positions ouvertes + qty
+    try:
+        with storage.db() as cx:
+            rows = cx.execute(
+                "SELECT ticker, qty, avg_cost_eur FROM positions "
+                "WHERE status='open' AND qty > 0"
+            ).fetchall()
+    except Exception:
+        return None
+
+    if not rows:
+        return None
+
+    tickers = [r[0] for r in rows]
+    qtys = {r[0]: float(r[1]) for r in rows}
+
+    # Batch download 1y daily prices via yfinance. Si certains failent,
+    # on les drop -- impossibilite porte sur le ticker, pas global.
+    try:
+        df = yf.download(
+            tickers=" ".join(tickers),
+            period="1y",
+            interval="1d",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+        if df is None or df.empty:
+            return None
+        # Si plusieurs tickers, df est MultiIndex ; si seul, df est plat
+        if len(tickers) > 1:
+            close = df["Close"] if "Close" in df.columns.get_level_values(0) else df
+        else:
+            close = df["Close"].to_frame(tickers[0]) if "Close" in df.columns else df
+    except Exception:
+        return None
+
+    if close.empty:
+        return None
+
+    # Equity curve = sum(qty * prix) en devise native par ticker
+    # NOTE : la conversion FX EUR per ticker n'est pas faite ici -- on assume
+    # une approximation suffisante pour les metriques relatives. Pour une
+    # equity curve EUR-exact, il faudrait fetcher les fx aussi. KNOWN-GAP.
+    try:
+        portfolio_values = pd.Series(0.0, index=close.index)
+        for ticker in close.columns:
+            if ticker in qtys:
+                prices = close[ticker].ffill()
+                portfolio_values = portfolio_values + (prices * qtys[ticker])
+        # Drop des points NaN (debut serie quand certains tickers manquent)
+        portfolio_values = portfolio_values.dropna()
+    except Exception:
+        return None
+
+    if len(portfolio_values) < 30:
+        return None  # < 30j -> stats trop bruitees
+
+    _PORTFOLIO_HISTORY_CACHE = (portfolio_values, now)
+    return portfolio_values
+
+
+def _performance_panel() -> str:
+    """Performance panel Heimdall (post-audit 07/06, ffn integration).
+
+    KPI cards : CAGR / Sharpe / Sortino / Calmar / Max DD / Volatility annuelle.
+    Source : shared.portfolio_analytics wrappant ffn 1.1.5.
+
+    Affiche "Pas encore assez d'historique" si <30j de positions ouvertes.
+    KNOWN-GAP : pas de conversion FX exacte (cf docstring _fetch_portfolio_equity_curve).
+    """
+    try:
+        prices = _fetch_portfolio_equity_curve()
+    except Exception as e:
+        return (
+            '<div class="card performance-card">'
+            '<div class="card-h">Performance</div>'
+            f'<div class="card-b">Indisponible : {type(e).__name__}</div>'
+            '</div>'
+        )
+
+    if prices is None:
+        return (
+            '<div class="card performance-card">'
+            '<div class="card-h">Performance</div>'
+            '<div class="card-b">Historique insuffisant (>30j requis) ou yfinance indisponible.</div>'
+            '</div>'
+        )
+
+    try:
+        from shared.portfolio_analytics import (
+            compute_drawdown_series,
+            compute_perf_metrics,
+        )
+        metrics = compute_perf_metrics(prices, rf_annual=0.025)
+        dd_series = compute_drawdown_series(prices)
+    except Exception as e:
+        return (
+            '<div class="card performance-card">'
+            '<div class="card-h">Performance</div>'
+            f'<div class="card-b">Compute echec : {type(e).__name__}</div>'
+            '</div>'
+        )
+
+    def _fmt_pct(v):
+        return f"{v*100:.1f}%" if v is not None else "—"
+
+    def _fmt_num(v):
+        return f"{v:.2f}" if v is not None else "—"
+
+    def _fmt_sign(v):
+        if v is None:
+            return "—"
+        sign = "+" if v >= 0 else ""
+        return f"{sign}{v*100:.1f}%"
+
+    cagr = _fmt_sign(metrics.get("cagr"))
+    tot_ret = _fmt_sign(metrics.get("total_return"))
+    max_dd = _fmt_pct(metrics.get("max_drawdown"))
+    vol = _fmt_pct(metrics.get("volatility_annual"))
+    sharpe = _fmt_num(metrics.get("sharpe"))
+    sortino = _fmt_num(metrics.get("sortino"))
+    calmar = _fmt_num(metrics.get("calmar"))
+
+    dd_now = float(dd_series.iloc[-1]) if len(dd_series) else 0.0
+    n_days = len(prices)
+
+    return (
+        '<div class="card performance-card">'
+        '<div class="card-h">Performance · ffn analytics (1y rolling)</div>'
+        f'<div class="card-meta">N={n_days}j · rf=2.5% · KNOWN-GAP: FX exact non applique</div>'
+        '<div class="perf-grid">'
+        f'<div class="perf-kpi"><div class="k">CAGR</div><div class="v mono">{cagr}</div></div>'
+        f'<div class="perf-kpi"><div class="k">Total return</div><div class="v mono">{tot_ret}</div></div>'
+        f'<div class="perf-kpi"><div class="k">Max DD</div><div class="v mono neg">{max_dd}</div></div>'
+        f'<div class="perf-kpi"><div class="k">DD courant</div><div class="v mono">{dd_now*100:.1f}%</div></div>'
+        f'<div class="perf-kpi"><div class="k">Vol ann.</div><div class="v mono">{vol}</div></div>'
+        f'<div class="perf-kpi"><div class="k">Sharpe</div><div class="v mono">{sharpe}</div></div>'
+        f'<div class="perf-kpi"><div class="k">Sortino</div><div class="v mono">{sortino}</div></div>'
+        f'<div class="perf-kpi"><div class="k">Calmar</div><div class="v mono">{calmar}</div></div>'
+        '</div>'
+        '</div>'
     )
 
 
@@ -5487,6 +5663,7 @@ def render() -> Path:
     # cockpit_html (Cockpit discipline panel) retire 31/05 user feedback
     # _cockpit() helper toujours dispo si reactivation future
     grade_html = _grade_panel()
+    performance_html = _performance_panel()
     blind_html = _blind_positions_panel()
     # chat_html + conceptions_html + copilot_html retires 31/05 wave 5 :
     # migration vers section Copilot dediee (_copilot() entre Positions et
@@ -5709,6 +5886,7 @@ def render() -> Path:
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         '<div class="vigie-sh" data-tip="Book positions to review first: critical margins (stop &lt; 10%), at_risk kill_criteria zones, blind vol."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
         f'{_risk_watch_panel()}'
+        f"{performance_html}"
         f"{blind_html}"
         # Journal & deadlines retire 02/06 user (useless boards :
         # TEST_E2E_DEC pollue + deadlines disponibles ailleurs).

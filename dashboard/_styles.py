@@ -891,6 +891,17 @@ _CSS = """
   .riskwatchcard .rw-mit-a { font-family:var(--fm); font-size:15px; color:var(--ink); opacity:.85; line-height:1.5; margin-bottom:3px; }
   .riskwatchcard .rw-mit-n { font-family:var(--fm); font-size:14px; color:var(--steel); font-style:italic; }
   @media (max-width:980px) { .riskwatchcard .rw-grid { grid-template-columns:1fr; } .riskwatchcard .rw-sig { grid-template-columns:1fr; } }
+  /* Performance panel (Heimdall ffn analytics, post-audit 07/06) */
+  .performance-card { padding:var(--s4); margin-top:var(--s4); border:1px solid var(--line); border-radius:var(--r2); background:var(--surface); }
+  .performance-card .card-h { font-family:var(--fb); font-size:16px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); margin-bottom:var(--s2); }
+  .performance-card .card-meta { font-family:var(--fm); font-size:12px; color:var(--steel); margin-bottom:var(--s35); font-style:italic; }
+  .performance-card .card-b { font-family:var(--fm); font-size:14px; color:var(--steel); padding:var(--s3) 0; }
+  .performance-card .perf-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:var(--s3); }
+  .performance-card .perf-kpi { padding:var(--s3); background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r1); }
+  .performance-card .perf-kpi .k { font-family:var(--fb); font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s15); }
+  .performance-card .perf-kpi .v { font-family:var(--fm); font-size:22px; font-weight:500; color:var(--ink); line-height:1; }
+  .performance-card .perf-kpi .v.neg { color:var(--bear); }
+  @media (max-width:980px) { .performance-card .perf-grid { grid-template-columns:repeat(2, 1fr); } }
   /* Calibration progress panel (action #3 31/05) -- s'active a n>=30 */
   .calibcard .calib-progress { display:flex; align-items:center; gap:var(--s4); margin-top:var(--s35); }
   .calibcard .calib-bar { flex:1; height:8px; background:color-mix(in srgb, var(--steel) 12%, transparent); border-radius:2px; overflow:hidden; position:relative; }
