@@ -1,23 +1,25 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 07 juin 2026 (session marathon : M-A complet + audits massifs + M-B start + ffn Performance panel)
+**Refresh** : 07 juin 2026 bis (session ultra-marathon : M-A complet + M-B 11/16 + bt wrapper + ffn V3 + tech debt)
 **Mode** : Phase construction (book 44k cost -> 52k valeur live) + J-day 10/06 J-3
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (07/06 fin de session)
+## 🟢 ÉTAT SYSTÈME (07/06 fin de session bis)
 
-- **M-A Calibration contract pillar COMPLET 5/5** : env singleton typed + L15 fail-closed scorer + Pydantic ScoringDecision + L16 temporal splits in-file + L17 declarative YAML/live state DB pattern (target_allocation + risk_watch migrés).
-- **M-B Thesis creation gates amorce 2/16** : M1 Buffett quality + M2 Taleb asymmetry gates non-bloquant wires dans `add_thesis`. M3-M16 restants (cf mentor_patterns table).
-- **M-D Active monitoring building block** : `shared/portfolio_analytics.py` wrappant ffn 1.1.5 + `_performance_panel()` dans render.py (8 KPI cards live Heimdall : CAGR / Sharpe / Sortino / Calmar / MaxDD / DD courant / vol annuelle / total return). Cache yfinance batch 1h.
-- **Doctrines verrouillees** : L14 anti-patterns OSS (9), **L15 fail-closed scoring**, **L16 temporal splits**, **L17 declarative YAML/live DB**.
-- **16 patterns audites** dans TODO library : 11 Phase 0 audit + 5 nuit + 2 JerBouma + 6 express. 1 wire fait (ffn). FinanceToolkit + skfolio en P1/P2 post J-day.
-- **1094 tests verts** (+218 vs début session 06/06 soir). Ruff clean. 0 regression suite existante.
-- **alembic head 0031** (risk_signal_evaluations table append-only).
-- **requirements.txt** +ffn>=1.1.5 (smoke install Py3.14 OK).
+- **M-A Calibration contract pillar COMPLET 5/5** : env singleton + L15 fail-closed + Pydantic ScoringDecision + L16 temporal splits + L17 declarative YAML/live DB.
+- **M-B Thesis creation gates 11/16** : M1 Buffett + M2 Taleb + M5 Lynch + M6 Fisher + M9 Damodaran + M11 Ackman + M12 Pabrai (gates) + M7 Druckenmiller + M10 Taleb barbell + M14 Jhunjhunwala (health metrics) + M16 Munger doctrine. **5 mentors defer documente** (M3/M4/M8/M13/M15 -- effort > valeur immediate ou besoin infra additionnelle).
+- **M-D Heimdall Performance V3** : 9 KPI cards (CAGR/total_return/MaxDD/DD courant/vol/Sharpe/Sortino/Calmar/**IR vs SPY**) + sparkline equity 1y avec SPY benchmark dashed overlay + drawdown chart 30j. Cache yfinance 1h portfolio + SPY.
+- **Backtest framework bt 1.2.0 wire** : shared/backtest.py wrapper L16-compliant + 1er audit live `docs/backtest_audits/buy_and_hold_2026-06-07.md` (book Sharpe 1.73 ± 1.09 vs EW 1.80 ± 1.38).
+- **Doctrines verrouillees** : L14-L18 (L15 fail-closed, L16 splits, L17 YAML/DB, **L18 Munger latticework**).
+- **18 patterns audites** dans TODO library (11 Phase 0 + 5 nuit + 2 JerBouma + 6 express + 2 backtest). 2 libs wires (ffn + bt). FinanceToolkit + skfolio + FinanceDatabase P1/P2 post J-day.
+- **1141 tests verts** (+265 vs début session 06/06 soir). Ruff clean. 0 regression.
+- **alembic head 0031** (risk_signal_evaluations append-only).
+- **requirements.txt** +ffn>=1.1.5 +bt>=1.2.0 (smoke install Py3.14 OK).
+- **Tech debt** : scripts/risk_watch.json + scripts/target_allocation.json supprimés (YAML canonique L17). -360 lignes.
 - **VM Hetzner H24 actif** : presage-bot + presage-serve.
-- **DB backup pre-session** : `data/bot.db.backup_session_close_20260606_192531` (07/06 a creer si refactor lourd next session).
+- **Dashboard Performance panel fix** : bug colonne inexistante `avg_cost_eur` fixé (était `avg_cost`).
 
 ## 🟢 ÉTAT SYSTÈME (06/06 soir) [PREVIOUS REFRESH]
 
@@ -542,6 +544,23 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 ---
 
 ## ✅ DÉJÀ FAIT (29/05 + 30/05 matin)
+
+### 07/06 bis — Session ultra-marathon : M-B finition + bt wrapper + ffn V3 + tech debt cleanup
+
+- **M-B Pillar 2/16 -> 11/16** :
+  - `623ca54` M11 Ackman concentration : conviction 5 + rang>5 book = FAIL
+  - `b03e123` M5 Lynch clarity + M9 Damodaran quantitative + M12 Pabrai downside (24 tests)
+  - `36033f7` M6 Fisher sources count + M7 Druckenmiller cut-fast + M10 Taleb barbell + M14 Jhunjhunwala age + M16 Munger doctrine L18
+- **Heimdall Performance panel evolution** :
+  - `8bae7b2` V2 : equity curve sparkline + drawdown chart 30j
+  - `fb8db7f` V2 fix BUG : SELECT colonne inexistante avg_cost_eur tuait fetch
+  - `0042956` V3 : SPY benchmark dashed overlay + IR vs SPY KPI (9 KPI cards 3x3)
+- **Backtest framework bt 1.2.0 wire complete** :
+  - `989a0bf` digest 2 audits (vectorbt drop, pmorissette/bt adopt)
+  - `e2b64d8` shared/backtest.py wrapper (8 tests)
+  - `8373ae3` 1er audit live `docs/backtest_audits/buy_and_hold_2026-06-07.md` : book Sharpe 1.73 ± 1.09 vs EW 1.80 ± 1.38 (book = stabilite, EW = upside extreme)
+- **Tech debt cleanup** :
+  - `94e9bb0` drop scripts/risk_watch.json + scripts/target_allocation.json (YAML canonique). -360 lignes nettes.
 
 ### 07/06 — Session marathon : M-A complet + audits massifs + M-B start + ffn Performance panel
 

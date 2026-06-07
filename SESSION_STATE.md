@@ -1750,3 +1750,62 @@ Session enorme : 14+ commits utiles (apres 5 Phase 0 du matin), 1094 tests verts
 - **Heimdall Performance panel V2** : ajouter (a) sparkline equity curve sous KPIs, (b) drawdown chart 30j, (c) benchmark vs SPY/ACWI (IR metric en plus). ~3-4h.
 - **Stack analytics complet a wirer post J-day** : ffn deja done, FinanceToolkit P1 M9 gate (6h), FinanceDatabase P2 universe (~2h), skfolio P2 portfolio opt suggestion (~4h).
 - **Backup DB pre-session** : data/bot.db.backup_session_close_20260607_*.db a creer en preventif avant prochaine session si refactor lourd.
+
+## Close 2026-06-07 bis (session ultra-marathon : M-B finition + bt wrapper + ffn V3 + tech debt)
+
+10 commits supplementaires apres 5260cf7 (premiere close 07/06). Session totale 23+ commits, 1141 verts (+47 vs derniere close).
+
+### Livre (commits 5260cf7 -> 0042956)
+
+**M-B Thesis creation gates : 6/16 -> 11/16 wires**
+- `623ca54` M11 Ackman concentration : conviction 5 + rang>5 book = FAIL "sizing incoherent" (~5 tests)
+- `b03e123` M-B batch M5+M9+M12 : Lynch clarity (because/->/ten_x patterns) + Damodaran quantitative (regex %, $, €, x, P/E N, bps, CAGR) + Pabrai downside floor (notes pattern recherche) (~24 tests)
+- `36033f7` M-B ship batch : M6 Fisher sources count (>= 3 sources distinctes 90j) + M7 Druckenmiller cut-fast metric + M10 Taleb barbell score metric + M14 Jhunjhunwala conviction_age metric + M16 Munger doctrine L18 LESSONS
+
+**Heimdall Performance panel V2 + V3**
+- `8bae7b2` V2 : equity curve sparkline (full width 60px area subtle 8%) + drawdown chart 30j (full width 50px area bear 18%). Pattern coherent _macro_sparkline existant.
+- `fb8db7f` V2 FIX BUG : SELECT colonne inexistante `avg_cost_eur` (col reelle `avg_cost`). Tuait fetch silencieusement -> fallback "Historique insuffisant" permanent. User reportait "dashboard mort". Fix : drop avg_cost de SELECT (pas requis pour equity curve sum(qty*price)).
+- `0042956` V3 : SPY benchmark dashed gris overlay + KPI "IR vs SPY" + bench Sharpe/total return dans meta. grid 4col -> 3col pour 9 KPIs (3x3 equilibre).
+
+**Backtest framework bt 1.2.0**
+- `989a0bf` digest 2 audits backtest libs : vectorbt drop (Fair Code restrictif + grid search L14 #4) + pmorissette/bt P2 adopt (MIT, built on ffn deja wired)
+- `e2b64d8` shared/backtest.py wrapper : _ensure_bt lazy + WalkForwardWindow/BacktestResult dataclass frozen + load_yfinance_history + build_walk_forward_windows (deterministe, L16 splits) + run_walk_forward (factory per window, etat propre) + aggregate_walk_forward (mean/std/min/max/n, L9 doctrine). 8 tests verrouilles.
+- `8373ae3` 1er backtest concret : scripts/backtest_buy_and_hold_book.py compare book pondere qty vs equal-weight buy-and-hold sur 26 positions / 4y / 5 fenetres WF. Output docs/backtest_audits/buy_and_hold_2026-06-07.md versionne. Resultats live : book Sharpe 1.73 ± 1.09, EW 1.80 ± 1.38. EW marginal mean superieur mais variance 27% plus grande. Book = stabilite, EW = upside extreme.
+
+**Tech debt cleanup**
+- `94e9bb0` drop scripts/risk_watch.json + scripts/target_allocation.json (YAML canonique L17). shared/book.py et shared/risk_watch.py loaders simplifies (JSON fallback supprime). -360 lignes net.
+
+### Doctrines verrouillees ce jour (cumul session complete 07/06)
+
+- L15 fail-closed scoring
+- L16 splits temporels in-file
+- L17 declarative YAML + live state DB
+- **L18 Munger latticework cross-disciplinaire** (M16 doctrine, non-encodable mais critere qualite raisonnement)
+
+### Tests + infra
+
+- 1141 passed + 1 skipped (vs 1094 close precedente = +47 nouveaux)
+- Ruff clean partout
+- alembic head 0031
+- requirements.txt +bt>=1.2.0 (smoke install Py3.14 OK)
+- backups/ dir untracked (DB snapshot pre-session 29/05, gitignore .backups/ different)
+
+### M-B progression finale 11/16 + defer documente
+
+Wires : M1 Buffett + M2 Taleb + M5 Lynch + M6 Fisher + M9 Damodaran + M11 Ackman + M12 Pabrai (gates creation) + M7 Druckenmiller + M10 Taleb barbell + M14 Jhunjhunwala (health metrics) + M16 Munger doctrine.
+
+Defer explicite (effort > valeur immediate) :
+- M3 Burry consensus_check (deja encode doctrine L14 anti-consensus)
+- M4 Graham margin of safety (needs FinanceToolkit DCF wire ~6h)
+- M8 Buffett competence zone (besoin tagging structure)
+- M13 Wood disruption stays (plus recommandation que gate)
+- M15 Fisher 15 points (refonte axes massive ~3h)
+
+### Entry next session
+
+- **J-day 10/06 J-3** : cron j_day_batch_close_job arme 09:30. Verifier Brier report Telegram + force snapshot 2026-06 + re-render public.
+- **Performance panel V3 live first impression** : ouvrir dashboard browser, verifier SPY ligne dashed visible + IR vs SPY KPI affiche. Si IR positif persistant -> ton edge vs benchmark mecanique mesure. Si IR ~ 0 -> ta concentration ne rapporte pas vs basket SPY.
+- **Backtest pattern reusable** : `scripts/backtest_buy_and_hold_book.py` re-run mensuel pour tracking. Future : scripts/backtest_<rule>.py par regle PRESAGE (lock_in / over_cap / kill_criteria). bt wrapper pret.
+- **M-B 5 mentors defer** : revisiter quand contexte declenche -- M4 Graham apres FinanceToolkit wire, M8 Buffett competence quand tagging YAML ready.
+- **Stack analytics 3 libs prets a wire post J-day** : FinanceToolkit P1 (M9 Damodaran DCF), skfolio P2 (optim weights), FinanceDatabase P2 (universe metadata).
+- **Telegram /thesis_add live test** : creer une nouvelle these avec conviction 5 + Fragile + low ratio + drivers vagues + notes vides -> 5+ warnings M-B inline attendus. Valide UX retroactif.
