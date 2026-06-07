@@ -1691,3 +1691,62 @@ et detecte ses propres signaux qui ratent (audit_calibration sanity check).
   separement, non-bloquant fonctionnellement.
 - **FX-aware tooltip** : verifier visuellement sur le dashboard que
   l'enrichissement apparait bien pour SK Hynix sur "Closest to target".
+
+## Close 2026-06-07 (session marathon : M-A pillar + audits massifs + M-B start + ffn wire)
+
+Session enorme : 14+ commits utiles (apres 5 Phase 0 du matin), 1094 tests verts (+219 vs debut session), 3 doctrines L verrouillees, 1 lib externe wiree end-to-end (ffn), 16 patterns audites au total.
+
+### Livre
+
+**Phase 0 absorption_roadmap foundations** (5 sous-livrables 91965a5) :
+- KNOWN-GAP convention vs TODO documentation
+- Invariant header doc style C++ sur lock_in / macro_regime / calibration_audit
+- L14 LESSONS 9 anti-patterns frameworks LLM-trading 2026
+- /healthz /livez /readyz triplet serve.py (security headers + CSP)
+- Module level _last_regen_ts pour readyz
+
+**Pillar M-A Calibration contract 5/5 complet** (Phase 1.1 -> 1.5 stage 2) :
+- 4e51f39 1.1 shared/env.py singleton typed (+10 tests). 7 callers migres (llm/edgar/macro/main/j_day/serve/scoring_orchestrator/shadow_scoring).
+- b79b0ae 1.2 L15 fail-closed scorer doctrine + 7 tests verrouillent JSON malformed -> None (jamais score arbitraire).
+- 7ac63f6 1.3 Pydantic ScoringDecision + 28 tests. signal_scorer_v2 passe par validate_scoring_dict au retour (extra='forbid' catche drift LLM).
+- caafa41 1.4 L16 splits temporels stricts + audit_metadata.temporal_splits dans calibration.yaml + 8 tests. Freeze policy jusqu'au 2026-09-30.
+- 297b7b9 1.5 stage 1 L17 workflow YAML pattern + target_allocation migration JSON->YAML + Pydantic strict + 12 tests.
+- 467540e 1.5 stage 2 risk_watch declarative/live separation : alembic 0031 risk_signal_evaluations table append-only + Pydantic schema + config/risk_watch.yaml extraction declaratif + refactor risk_signal_monitor (lit YAML, ecrit DB, plus de write-back JSON) + render.py utilise load_with_live_state + 14 tests.
+
+**Pillar M-B Thesis creation gates amorce** (1/16) :
+- d2eeafc M-B start M1 Buffett quality (conviction>=4 exige solidite Incontournable/Solide) + M2 Taleb asymmetry (ratio>=2.0) gates determinist non-bloquant + 17 tests + wire dans add_thesis.
+
+**Pillar M-D Active monitoring building block** :
+- dbca43f shared/portfolio_analytics.py wrapper ffn 1.1.5 (7 fonctions equity_curve/drawdown/perf_metrics/rolling_vol/IR/VaR/CVaR) + 23 tests. PyPI ffn>=1.1.5 ajoute requirements.
+- d0af5b8 Performance panel ffn analytics wired dans dashboard render.py : 8 KPI cards live (CAGR/Sharpe/Sortino/Calmar/MaxDD/DD courant/Vol annuelle/Total return). Cache yfinance 1h. Affichage post regen 60s sur Vue d'ensemble entre risk_watch et blind.
+
+**16 audits OSS digest TODO patterns library** :
+- 9e3f3af patterns 07/06 soir (Bloomberg-killer feedback + Heimdall UX review)
+- 39a9fd4 5 audits nuit (anthropics-fs 9.5/10, ffn 9/10, prediction-market 7.5/10, agentmemory 7/10, daily_stock 3/10 drop signals)
+- 1e6940c 2 JerBouma (FinanceToolkit 8.5/10 P1 pour M9 Damodaran, FinanceDatabase 8.5/10 P2 metadata 353k instruments)
+- f77c8b6 6 audits express (skfolio 8/10 P2, nautilus drop LGPL+stack, Riskfolio P2 backup, ArcticDB drop license commerciale, perspective P3 framework heavy, FDC3 drop hors-scope)
+
+### Doctrines verrouillees ce jour (docs/LESSONS.md)
+
+- **L14** anti-patterns frameworks LLM-trading 2026 (9 confirmes)
+- **L15** fail-closed scoring : jamais score arbitraire en mode degrade
+- **L16** splits temporels in-file : tout tuning dates train/val/oos AVANT
+- **L17** declarative YAML versionne + Pydantic, live state en DB append-only, jamais melanger
+
+### Tests + infra
+
+- 1094 passed + 1 skipped (vs 876 au debut session = +218 nouveaux tests)
+- Ruff clean sur tous fichiers touches
+- alembic head 0031 (risk_signal_evaluations)
+- requirements.txt +ffn>=1.1.5 (smoke install Py3.14 OK malgre support officiel 3.13)
+- ZERO regression sur suite existante
+
+### Entry next session
+
+- **J-day 10/06 imminent (J-3)** : cron j_day_batch_close_job arme 09:30 (Brier report Telegram + force snapshot 2026-06 + re-render public site_public/track.html). Verifier post-run.
+- **Performance panel live first impression** : ouvrir http://127.0.0.1:8000/dashboard.html, ssh presage-bot pour verifier yfinance batch fetch reussit sur 33 positions ouvertes + ratios coherents. Si "Historique insuffisant" alors que <30j est faux, c'est probablement un bug ticker non-resolvable (suffix .PA/.AS/.T en input yfinance).
+- **Telegram /thesis_add nouvelle these** : test live des warnings M1 Buffett + M2 Taleb. Si conviction 4 + Fragile -> warning visible inline.
+- **M-B continuation** : M3 Burry consensus_check (POPULAR_BET chip), M4 Graham margin of safety, M5 Lynch thesis clarity, M6 Fisher scuttlebutt, M7 Druckenmiller cut-fast metric, M8 Buffett circle of competence, M9 Damodaran story->numbers (wire FinanceToolkit DCF), M10 Taleb barbell, M11 Ackman concentration, M12 Pabrai downside_eur, M13 Wood disruption stays-through-DD, M14 Jhunjhunwala conviction_age, M15 Fisher 15 points etendu. 14 restants sur 16.
+- **Heimdall Performance panel V2** : ajouter (a) sparkline equity curve sous KPIs, (b) drawdown chart 30j, (c) benchmark vs SPY/ACWI (IR metric en plus). ~3-4h.
+- **Stack analytics complet a wirer post J-day** : ffn deja done, FinanceToolkit P1 M9 gate (6h), FinanceDatabase P2 universe (~2h), skfolio P2 portfolio opt suggestion (~4h).
+- **Backup DB pre-session** : data/bot.db.backup_session_close_20260607_*.db a creer en preventif avant prochaine session si refactor lourd.

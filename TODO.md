@@ -1,12 +1,25 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 06 juin 2026 (soirée : calibration v5 canonique + friction décision + audit positions truth)
-**Mode** : Phase construction (book 44k cost -> 52k valeur live) + J-day 10/06 J-4
+**Refresh** : 07 juin 2026 (session marathon : M-A complet + audits massifs + M-B start + ffn Performance panel)
+**Mode** : Phase construction (book 44k cost -> 52k valeur live) + J-day 10/06 J-3
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (06/06 soir)
+## 🟢 ÉTAT SYSTÈME (07/06 fin de session)
+
+- **M-A Calibration contract pillar COMPLET 5/5** : env singleton typed + L15 fail-closed scorer + Pydantic ScoringDecision + L16 temporal splits in-file + L17 declarative YAML/live state DB pattern (target_allocation + risk_watch migrés).
+- **M-B Thesis creation gates amorce 2/16** : M1 Buffett quality + M2 Taleb asymmetry gates non-bloquant wires dans `add_thesis`. M3-M16 restants (cf mentor_patterns table).
+- **M-D Active monitoring building block** : `shared/portfolio_analytics.py` wrappant ffn 1.1.5 + `_performance_panel()` dans render.py (8 KPI cards live Heimdall : CAGR / Sharpe / Sortino / Calmar / MaxDD / DD courant / vol annuelle / total return). Cache yfinance batch 1h.
+- **Doctrines verrouillees** : L14 anti-patterns OSS (9), **L15 fail-closed scoring**, **L16 temporal splits**, **L17 declarative YAML/live DB**.
+- **16 patterns audites** dans TODO library : 11 Phase 0 audit + 5 nuit + 2 JerBouma + 6 express. 1 wire fait (ffn). FinanceToolkit + skfolio en P1/P2 post J-day.
+- **1094 tests verts** (+218 vs début session 06/06 soir). Ruff clean. 0 regression suite existante.
+- **alembic head 0031** (risk_signal_evaluations table append-only).
+- **requirements.txt** +ffn>=1.1.5 (smoke install Py3.14 OK).
+- **VM Hetzner H24 actif** : presage-bot + presage-serve.
+- **DB backup pre-session** : `data/bot.db.backup_session_close_20260606_192531` (07/06 a creer si refactor lourd next session).
+
+## 🟢 ÉTAT SYSTÈME (06/06 soir) [PREVIOUS REFRESH]
 
 - **Calibration v5 canonique evolutive** : `config/calibration.yaml` source unique pour tous seuils + tooltips + classifier + rules + audit_metadata. Tous lecteurs (render.py / macro_regime / macro_book_warnings) délèguent à `shared/calibration.py`. Chip "calib v5 · 2026-06-06" dans panel header. Cron audit 10j tournera demain matin.
 - **Friction décision active** : `/trade` 2-step confirm avec 4 contextes (régime macro + warnings ticker + cluster delta + bias + signaux 30j). Token 6-hex TTL 60s.
@@ -497,6 +510,28 @@ L'item "hygiène secrets faite une fois" du PLAN_ACQUIHIRE est validé binaireme
 ---
 
 ## ✅ DÉJÀ FAIT (29/05 + 30/05 matin)
+
+### 07/06 — Session marathon : M-A complet + audits massifs + M-B start + ffn Performance panel
+
+- **Phase 0 absorption_roadmap foundations** (`91965a5`) : KNOWN-GAP convention + invariant header doc (3 modules) + L14 LESSONS 9 anti-patterns + /healthz /livez /readyz triplet serve.py + CSP headers. 5 sub-tasks.
+- **M-A pillar Calibration contract COMPLET 5/5** :
+  - Phase 1.1 env singleton typed (`4e51f39`) : shared/env.py + 7 callers migres + 10 tests
+  - Phase 1.2 fail-closed L15 (`b79b0ae`) : docs/LESSONS L15 + 7 tests verrouillent signal_scorer_v2 None sur JSON malformed (jamais score arbitraire)
+  - Phase 1.3 Pydantic ScoringDecision (`7ac63f6`) : intelligence/scoring_types + 28 tests + signal_scorer_v2 passe par validate_scoring_dict
+  - Phase 1.4 splits temporels L16 (`caafa41`) : config/calibration.yaml audit_metadata.temporal_splits + 8 tests + freeze policy 2026-09-30
+  - Phase 1.5 stage 1 workflow YAML L17 (`297b7b9`) : docs/templates/workflow_yaml_pattern + target_allocation.json -> config/target_allocation.yaml + Pydantic strict + 12 tests
+  - Phase 1.5 stage 2 risk_watch declarative/live (`467540e`) : alembic 0031 risk_signal_evaluations + intelligence/risk_watch_schema Pydantic + config/risk_watch.yaml + shared/risk_watch loader + refactor risk_signal_monitor (lit YAML / ecrit DB) + render.py utilise load_with_live_state + 14 tests
+- **M-B pillar amorce** (`d2eeafc`) : intelligence/thesis_creation_gates.py + check_m1_buffett_quality (conviction>=4 exige solidite Incontournable/Solide) + check_m2_taleb_asymmetry (ratio>=2.0) + 17 tests + wire dans add_thesis (warnings non-bloquant).
+- **M-D building block + wire** :
+  - ffn wrapper (`dbca43f`) : shared/portfolio_analytics.py (7 fonctions equity_curve/drawdown/perf_metrics/rolling_vol/IR/VaR/CVaR) + 23 tests + requirements.txt ffn>=1.1.5
+  - Performance panel live (`d0af5b8`) : _performance_panel() dashboard render.py + 8 KPI cards (CAGR/Sharpe/Sortino/Calmar/MaxDD/DD courant/vol/total return). Cache yfinance 1h. CSS minimal _styles.py. Wire Vue d'ensemble entre risk_watch et blind.
+- **16 audits OSS digest TODO patterns library** :
+  - `9e3f3af` 5 patterns digest (Bloomberg-killer feedback + Heimdall UX review)
+  - `39a9fd4` 5 audits nuit (anthropics-fs 9.5, ffn 9, prediction-market 7.5, agentmemory 7, daily_stock 3 drop signals)
+  - `1e6940c` 2 JerBouma (FinanceToolkit 8.5 P1 M9 Damodaran, FinanceDatabase 8.5 P2 metadata)
+  - `f77c8b6` 6 express (skfolio 8 P2, nautilus drop LGPL, Riskfolio P2 backup, ArcticDB drop license, perspective P3 framework, FDC3 drop hors-scope)
+- **Doctrines L verrouillees** : L14 + L15 + L16 + L17 dans `docs/LESSONS.md`. CLAUDE.md "Catches recurrents" reference.
+- **Tests + infra** : 1094 verts (+218 vs début session), ruff clean, alembic head 0031.
 
 ### 06/06 soir — Calibration v5 canonique + friction décision + audit positions truth
 
