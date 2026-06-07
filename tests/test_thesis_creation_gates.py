@@ -17,7 +17,10 @@ import pytest
 from intelligence.thesis_creation_gates import (
     check_m1_buffett_quality,
     check_m2_taleb_asymmetry,
+    check_m5_lynch_clarity,
+    check_m9_damodaran_quantitative,
     check_m11_ackman_concentration,
+    check_m12_pabrai_downside,
     run_creation_gates,
 )
 
@@ -185,21 +188,149 @@ def test_m11_book_ranks_none_tries_fetch():
     assert r.passed
 
 
+# --- M5 Lynch clarity -----------------------------------------------------
+
+
+def test_m5_low_conviction_does_not_fire():
+    for conv in (1, 2, 3, 4):
+        r = check_m5_lynch_clarity("ANY", conv, key_drivers=None, notes=None)
+        assert r.passed
+
+
+def test_m5_conviction_5_no_clarity_fails():
+    """Conviction 5 + drivers vagues + notes vide -> FAIL Lynch."""
+    r = check_m5_lynch_clarity(
+        "ANY", 5, key_drivers=["drivers vagues sans pattern"], notes=""
+    )
+    assert not r.passed
+    assert "M5 Lynch FAIL" in r.message
+
+
+def test_m5_conviction_5_with_because_passes():
+    r = check_m5_lynch_clarity(
+        "NVDA", 5,
+        key_drivers=["because AI capex compounds"],
+        notes=None,
+    )
+    assert r.passed
+    assert "clarity OK" in r.message
+
+
+def test_m5_conviction_5_with_arrow_passes():
+    r = check_m5_lynch_clarity(
+        "NVDA", 5,
+        key_drivers=["compute scarcity -> margin expansion"],
+        notes=None,
+    )
+    assert r.passed
+
+
+def test_m5_pattern_in_notes_also_works():
+    r = check_m5_lynch_clarity(
+        "NVDA", 5, key_drivers=None,
+        notes="ten_x_path : Q1 beat -> Q2 raise -> 10x in 5y",
+    )
+    assert r.passed
+
+
+# --- M9 Damodaran quantitative --------------------------------------------
+
+
+def test_m9_low_conviction_does_not_fire():
+    for conv in (1, 2, 3):
+        r = check_m9_damodaran_quantitative("ANY", conv, key_drivers=None)
+        assert r.passed
+
+
+def test_m9_no_quantitative_drivers_fails():
+    """Conviction 4+ + drivers narratifs purs -> FAIL."""
+    r = check_m9_damodaran_quantitative(
+        "ANY", 4, key_drivers=["narrative story without numbers"]
+    )
+    assert not r.passed
+    assert "M9 Damodaran FAIL" in r.message
+
+
+@pytest.mark.parametrize("driver", [
+    "EPS growth 30%",
+    "$15B FCF in 3y",
+    "P/E 25 below sector",
+    "10x return path",
+    "ROIC 18 sustained",
+    "Revenue 50B by 2028",
+    "margin expansion 350 bps",
+    "CAGR 25 expected",
+])
+def test_m9_quantitative_patterns_pass(driver):
+    r = check_m9_damodaran_quantitative("ANY", 5, key_drivers=[driver])
+    assert r.passed, f"driver {driver!r} doit matcher pattern : {r.message}"
+
+
+def test_m9_at_least_one_quantitative_enough():
+    """Plusieurs drivers narratifs + 1 chiffre -> pass."""
+    r = check_m9_damodaran_quantitative(
+        "ANY", 4,
+        key_drivers=["narrative driver", "another vague claim", "EPS growth 30%"],
+    )
+    assert r.passed
+
+
+# --- M12 Pabrai downside floor --------------------------------------------
+
+
+def test_m12_low_conviction_does_not_fire():
+    for conv in (1, 2, 3):
+        r = check_m12_pabrai_downside("ANY", conv, notes=None)
+        assert r.passed
+
+
+def test_m12_no_notes_fails():
+    """Conviction 4+ + notes None -> FAIL Pabrai."""
+    r = check_m12_pabrai_downside("ANY", 4, notes=None)
+    assert not r.passed
+    assert "M12 Pabrai FAIL" in r.message
+    assert "notes vide" in r.message
+
+
+def test_m12_notes_without_downside_fails():
+    r = check_m12_pabrai_downside(
+        "ANY", 5, notes="just a generic comment without downside info"
+    )
+    assert not r.passed
+    assert "M12 Pabrai FAIL" in r.message
+
+
+@pytest.mark.parametrize("note", [
+    "downside: 5000€ acceptable",
+    "max_loss: -25%",
+    "worst_case = -3000",
+    "floor: $2000",
+    "perte max : 1500€",
+])
+def test_m12_downside_patterns_pass(note):
+    r = check_m12_pabrai_downside("ANY", 4, notes=note)
+    assert r.passed, f"note {note!r} doit matcher : {r.message}"
+
+
 # --- Aggregator ------------------------------------------------------------
 
 
-def test_run_creation_gates_returns_all_three():
-    """run_creation_gates lance les 3 gates (M1+M2+M11) et retourne les 3."""
+def test_run_creation_gates_returns_six():
+    """run_creation_gates lance les 6 gates (M1+M2+M5+M9+M11+M12)."""
     results = run_creation_gates(
         ticker="NVDA", direction="long", conviction=4,
         solidite="Solide",
         entry=100.0, target_full=120.0, stop_price=95.0,
         book_ranks={"NVDA": 2},
+        key_drivers=["EPS growth 30% drives 10x path"],
+        notes="downside: 2000€ acceptable",
     )
-    assert len(results) == 3
+    assert len(results) == 6
     names = {r.gate_name for r in results}
     assert names == {
-        "M1_buffett_quality", "M2_taleb_asymmetry", "M11_ackman_concentration"
+        "M1_buffett_quality", "M2_taleb_asymmetry", "M5_lynch_clarity",
+        "M9_damodaran_quantitative", "M11_ackman_concentration",
+        "M12_pabrai_downside",
     }
     assert all(r.passed for r in results)
 
@@ -214,16 +345,29 @@ def test_run_creation_gates_low_conviction_all_pass():
     assert all(r.passed for r in results)
 
 
-def test_run_creation_gates_high_conviction_mixed_fail():
-    """conviction 5 + Fragile + low ratio + rank>5 -> 3 gates fail simultanement."""
+def test_run_creation_gates_full_disaster():
+    """Conviction 5 + Fragile + low ratio + rank>5 + drivers vagues + notes
+    vide -> 5 gates fail simultanement (tout sauf M5 si pas vraiment ride)."""
     results = run_creation_gates(
         ticker="LOWPOS", direction="long", conviction=5,
         solidite="Fragile",
         entry=100.0, target_full=105.0, stop_price=90.0,  # ratio=0.5
         book_ranks={"LOWPOS": 10},
+        key_drivers=["vague narrative"],
+        notes="",
     )
     failed = [r for r in results if not r.passed]
-    assert len(failed) == 3
-    assert {r.gate_name for r in failed} == {
-        "M1_buffett_quality", "M2_taleb_asymmetry", "M11_ackman_concentration"
+    # Tous les gates fire car conviction 5 + violations partout
+    failed_names = {r.gate_name for r in failed}
+    expected_fail = {
+        "M1_buffett_quality",
+        "M2_taleb_asymmetry",
+        "M5_lynch_clarity",
+        "M9_damodaran_quantitative",
+        "M11_ackman_concentration",
+        "M12_pabrai_downside",
     }
+    assert failed_names == expected_fail, (
+        f"Tous les 6 gates doivent FAIL ; manquent {expected_fail - failed_names}, "
+        f"faux positifs {failed_names - expected_fail}"
+    )
