@@ -24,3 +24,9 @@ plotly>=6.7.0
 scipy>=1.17.0
 scikit-learn>=1.8.0
 statsmodels>=0.14.6
+
+# Portfolio analytics deterministe (Phase 1.6 absorption_roadmap, audit 07/06).
+# Wrappe dans shared/portfolio_analytics.py : equity curve, drawdown, Sharpe/
+# Sortino/Calmar, rolling vol, IR vs benchmark, VaR/CVaR. Pandas-native.
+# License MIT, 2.6k stars, py 3.9-3.13 officiel + works on 3.14 (smoke-tested).
+ffn>=1.1.5
