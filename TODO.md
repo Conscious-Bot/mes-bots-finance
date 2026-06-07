@@ -375,6 +375,38 @@ Doctrine accumulation maintenue. 1 retenu P2 (skfolio), 4 drops dont 2 license-b
 
 Doctrine "accumulate broadly + drop useless only" respectée : 16 audits total cette session (11 + 5 + 2 + 6 - duplicates) = ~30 patterns extractés. Le filtre L14 a tenu sur 100% des cas.
 
+### 📥 PATTERNS DIGEST 07/06 nuit++ — 2 audits backtest libs (vectorbt + bt)
+
+| Repo | ★ | License | L14 | Verdict |
+|---|---|---|---|---|
+| **polakowo/vectorbt** | 7.8k | **Fair Code** | ⚠️ #4 | Grid search "thousands of strategies" piège overfit, Fair Code restrictif SaaS. **DROP** sauf R&D. 5/10 |
+| **pmorissette/bt** | 2.9k | MIT | ✅ | Built on ffn (déjà wired), Tree+Algo composition, MIT, ALPHA stage. P2 backtest règles PRESAGE existantes. 7.5/10 |
+
+#### vectorbt (DROP)
+- Numba + Rust accelerated, vectorized backtesting au scale ("thousands of configurations in NumPy arrays")
+- Design intention = grid search massif → directement L14 anti-pattern #4 (FinRL/TradingAgents "5 agents → pick best" déjà rejeté)
+- **Fair Code license** : commercial use requires paid VectorBT PRO. SaaS Phase 2 = problème licensing.
+- Doctrine break : "explore thousands of trading ideas" = antithèse "discipline mécanisée prédéfinie" (business_path_6_acted)
+- Skip sauf R&D pure isolée (jamais en wire prod)
+
+#### bt (P2 post J-day, ~4-6h wire)
+- 2.9k stars MIT, built on top of ffn qu'on a déjà wired
+- Tree structure : Nodes + Algos + AlgoStacks pour composition propre de stratégies déterministes
+- ALPHA stage déclaré README (use with rigueur)
+- **Cas d'usage PRESAGE-aligné** : backtester nos règles **existantes** (lock_in detector, over_cap monitor, kill_criteria) sur historique 5y. Walk-forward strict (cf L16 splits temporels figés).
+- Doctrine fit L9 LESSONS : "aucun comportement prod sur modèle non backtesté" → bt = outil légitime pour valider une nouvelle règle AVANT wire prod
+- **PAS pour** : "découvrir la meilleure stratégie alpha" (anti-doctrine). PRESAGE backteste pour VALIDER discipline, pas pour MAXIMISER returns.
+
+#### Wire plan suggéré (P2 post J-day)
+1. `pip install bt` (BSD MIT clean)
+2. `scripts/backtest_lock_in_detector.py` : test règle lock_in sur fenêtres 2020-2024 walk-forward (cf L16). Output : Brier ledger des "what if we'd sold at +15% pnl + conviction ≥3" vs actual.
+3. `scripts/backtest_over_cap.py` : pareil pour over_cap.
+4. `scripts/backtest_kill_criteria.py` : pareil pour kill_criteria.
+5. Doc résultat dans `docs/backtest_audits/<rule>_<date>.md` versionnés.
+
+#### Anti-pattern vectorbt à ne pas reproduire
+Si tentation "lancer 1000 configs de lock_in_detector params" → c'est exactly L14 #4. Le bon usage = 1 config FIGÉE (la nôtre), backtest WF sur 5 fenêtres, check si discipline robuste. Pas multi-config tournée best-of-N.
+
 ### Scores comparatifs
 
 | Repo | Utilité PRESAGE | Verdict 1-line |
