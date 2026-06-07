@@ -896,7 +896,7 @@ _CSS = """
   .performance-card .card-h { font-family:var(--fb); font-size:16px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); margin-bottom:var(--s2); }
   .performance-card .card-meta { font-family:var(--fm); font-size:12px; color:var(--steel); margin-bottom:var(--s35); font-style:italic; }
   .performance-card .card-b { font-family:var(--fm); font-size:14px; color:var(--steel); padding:var(--s3) 0; }
-  .performance-card .perf-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:var(--s3); }
+  .performance-card .perf-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:var(--s3); }
   .performance-card .perf-kpi { padding:var(--s3); background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r1); }
   .performance-card .perf-kpi .k { font-family:var(--fb); font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s15); }
   .performance-card .perf-kpi .v { font-family:var(--fm); font-size:22px; font-weight:500; color:var(--ink); line-height:1; }

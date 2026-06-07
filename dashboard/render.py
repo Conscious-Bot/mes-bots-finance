@@ -102,6 +102,11 @@ _PX_TTL = 1800.0  # 30 min: throttle yfinance (partage IP/lib avec price_monitor
 _PORTFOLIO_HISTORY_CACHE: tuple | None = None
 _PORTFOLIO_HISTORY_TTL = 3600.0  # 1h
 
+# V3 07/06 : cache benchmark SPY pour comparaison Heimdall.
+# Meme TTL que portfolio.
+_BENCHMARK_HISTORY_CACHE: tuple | None = None
+_BENCHMARK_TICKER = "SPY"
+
 
 def _pct(x: float) -> str:
     """Autorite unique de format des poids de ligne (1 decimale)."""
@@ -932,6 +937,40 @@ def _fetch_portfolio_equity_curve():
     return portfolio_values
 
 
+def _fetch_benchmark_equity_curve():
+    """Cache 1h SPY 1y daily. Pour comparaison Heimdall Performance panel V3."""
+    import time as _t
+
+    global _BENCHMARK_HISTORY_CACHE
+    now = _t.monotonic()
+    if _BENCHMARK_HISTORY_CACHE is not None:
+        curve, ts = _BENCHMARK_HISTORY_CACHE
+        if now - ts < _PORTFOLIO_HISTORY_TTL:
+            return curve
+
+    try:
+        import yfinance as yf
+        df = yf.download(
+            tickers=_BENCHMARK_TICKER, period="1y", interval="1d",
+            auto_adjust=True, progress=False, threads=False,
+        )
+        if df is None or df.empty:
+            return None
+        if "Close" in df.columns:
+            close = df["Close"]
+        else:
+            close = df.iloc[:, 0]
+        # Si MultiIndex, take Close column
+        if hasattr(close, "columns"):
+            close = close.iloc[:, 0] if len(close.columns) > 0 else None
+        if close is None or len(close) < 30:
+            return None
+        _BENCHMARK_HISTORY_CACHE = (close, now)
+        return close
+    except Exception:
+        return None
+
+
 def _performance_panel() -> str:
     """Performance panel Heimdall (post-audit 07/06, ffn integration).
 
@@ -962,6 +1001,7 @@ def _performance_panel() -> str:
     try:
         from shared.portfolio_analytics import (
             compute_drawdown_series,
+            compute_information_ratio,
             compute_perf_metrics,
         )
         metrics = compute_perf_metrics(prices, rf_annual=0.025)
@@ -973,6 +1013,22 @@ def _performance_panel() -> str:
             f'<div class="card-b">Compute echec : {type(e).__name__}</div>'
             '</div>'
         )
+
+    # V3 : SPY benchmark + IR
+    bench_prices = _fetch_benchmark_equity_curve()
+    bench_metrics: dict[str, float | None] = {}
+    ir_value = None
+    if bench_prices is not None:
+        try:
+            bench_metrics = compute_perf_metrics(bench_prices, rf_annual=0.025)
+            # Align dates inner-join puis compute returns
+            aligned_p, aligned_b = prices.align(bench_prices, join="inner")
+            if len(aligned_p) >= 30:
+                p_rets = aligned_p.pct_change().dropna()
+                b_rets = aligned_b.pct_change().dropna()
+                ir_value = compute_information_ratio(p_rets, b_rets)
+        except Exception:
+            pass
 
     def _fmt_pct(v):
         return f"{v*100:.1f}%" if v is not None else "—"
@@ -1001,8 +1057,22 @@ def _performance_panel() -> str:
     # Pattern coherent avec _macro_sparkline et autres SVG inline. Pas de
     # dep externe. Adaptatif au theme via var(--ink) / var(--bear) / etc.
 
-    def _build_equity_sparkline(price_series, width=720, height=60, pad=4) -> str:
-        """Polyline equity curve full width. Couleur acc si up, bear si down."""
+    def _normalize_to_first(series, lo, hi):
+        """Rebase une serie pour qu'elle partage le meme range lo/hi (overlay)."""
+        s_lo, s_hi = min(series), max(series)
+        s_rng = (s_hi - s_lo) or 1.0
+        rng = (hi - lo) or 1.0
+        # Map series[t] from [s_lo, s_hi] to [lo, hi]
+        return [(v - s_lo) / s_rng * rng + lo for v in series]
+
+    def _build_equity_sparkline(
+        price_series, bench_series=None, width=720, height=60, pad=4
+    ) -> str:
+        """Polyline equity curve + optionnel bench SPY line gris.
+
+        Overlay : SPY est NORMALISE sur le range de prices pour overlay visuel
+        (les 2 series partent visuellement du meme niveau, on compare la pente).
+        """
         vals = list(price_series.values)
         n = len(vals)
         if n < 2:
@@ -1016,12 +1086,30 @@ def _performance_panel() -> str:
             pts.append(f"{x:.1f},{y:.1f}")
         last_x, last_y = pts[-1].split(",")
         color = "var(--acc)" if vals[-1] >= vals[0] else "var(--bear)"
-        # area fill subtle pour gradient effect
         area_pts = " ".join(pts) + f" {width-pad:.1f},{height-pad:.1f} {pad:.1f},{height-pad:.1f}"
+
+        # Optionnel : bench line
+        bench_svg = ""
+        if bench_series is not None and len(bench_series) >= 2:
+            b_vals = list(bench_series.values)
+            b_norm = _normalize_to_first(b_vals, lo, hi)
+            b_n = len(b_norm)
+            b_pts = []
+            for i, v in enumerate(b_norm):
+                x = pad + (i / max(1, b_n - 1)) * (width - 2 * pad)
+                y = pad + (height - 2 * pad) - ((v - lo) / rng) * (height - 2 * pad)
+                b_pts.append(f"{x:.1f},{y:.1f}")
+            bench_svg = (
+                f'<polyline points="{" ".join(b_pts)}" fill="none" '
+                f'stroke="var(--steel)" stroke-width="1.2" stroke-dasharray="3,3" '
+                f'opacity="0.7"/>'
+            )
+
         return (
             f'<svg class="perf-equity-svg" viewBox="0 0 {width} {height}" '
             f'preserveAspectRatio="none" width="100%" height="{height}">'
             f'<polygon points="{area_pts}" fill="{color}" opacity="0.08"/>'
+            f'{bench_svg}'
             f'<polyline points="{" ".join(pts)}" fill="none" stroke="{color}" '
             f'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
             f'<circle cx="{last_x}" cy="{last_y}" r="2.5" fill="{color}"/>'
@@ -1057,16 +1145,26 @@ def _performance_panel() -> str:
         )
 
     try:
-        equity_chart = _build_equity_sparkline(prices)
+        equity_chart = _build_equity_sparkline(prices, bench_series=bench_prices)
         dd_chart = _build_drawdown_chart(dd_series, days=30)
     except Exception:
         equity_chart = ""
         dd_chart = ""
 
+    ir_fmt = _fmt_num(ir_value)
+    bench_sharpe = _fmt_num(bench_metrics.get("sharpe"))
+    bench_total = _fmt_sign(bench_metrics.get("total_return"))
+    equity_label = "Equity curve (1y) vs SPY" if bench_prices is not None else "Equity curve (1y)"
+    bench_meta = ""
+    if bench_prices is not None:
+        bench_meta = (
+            f' · SPY Sharpe {bench_sharpe} · SPY total {bench_total}'
+        )
+
     return (
         '<div class="card performance-card">'
         '<div class="card-h">Performance · ffn analytics (1y rolling)</div>'
-        f'<div class="card-meta">N={n_days}j · rf=2.5% · KNOWN-GAP: FX exact non applique</div>'
+        f'<div class="card-meta">N={n_days}j · rf=2.5%{bench_meta} · KNOWN-GAP: FX exact non applique</div>'
         '<div class="perf-grid">'
         f'<div class="perf-kpi"><div class="k">CAGR</div><div class="v mono">{cagr}</div></div>'
         f'<div class="perf-kpi"><div class="k">Total return</div><div class="v mono">{tot_ret}</div></div>'
@@ -1076,10 +1174,11 @@ def _performance_panel() -> str:
         f'<div class="perf-kpi"><div class="k">Sharpe</div><div class="v mono">{sharpe}</div></div>'
         f'<div class="perf-kpi"><div class="k">Sortino</div><div class="v mono">{sortino}</div></div>'
         f'<div class="perf-kpi"><div class="k">Calmar</div><div class="v mono">{calmar}</div></div>'
+        f'<div class="perf-kpi"><div class="k">IR vs SPY</div><div class="v mono">{ir_fmt}</div></div>'
         '</div>'
         + (
             '<div class="perf-chart-block">'
-            '<div class="perf-chart-h">Equity curve (1y)</div>'
+            f'<div class="perf-chart-h">{equity_label}</div>'
             f'{equity_chart}'
             '</div>' if equity_chart else ""
         )
