@@ -511,3 +511,32 @@ Si tu te retrouves à écrire `_RISK_WATCH_PATH.write_text(json.dumps(updated_da
 ### Référencer
 
 Depuis `CLAUDE.md` § "Catches récurrents" (pointage vers L17). Template canonical `docs/templates/workflow_yaml_pattern.md`. Test verrouillé `tests/test_target_allocation_yaml_schema.py`. Pas de re-formulation ailleurs.
+
+## L18 — Munger latticework : meta-pattern cross-disciplinaire (M16 doctrine)
+
+Phase M-B pillar (07/06). Doctrine pure : non-encodable en gate déterministe, mais critère explicite de qualité du raisonnement.
+
+### Le pattern
+
+Munger : "you have to have models in your head, and you have to array your experience — both vicarious and direct — onto this latticework of models". Une décision investissement de qualité s'appuie sur **plusieurs disciplines** (finance + biologie + psychologie + physique + histoire + ingénierie), pas une seule.
+
+### Symptômes de violation L18
+
+- Raisonnement mono-discipline (juste "P/E < 15 donc undervalued")
+- Aucun reach pour analogies hors-finance (effet réseau biologique, théorie des jeux pour pricing, etc.)
+- Décisions qui dépendent uniquement de l'expertise sectorielle sans cross-check structurel
+- Conviction haute sur un secteur unique sans modèles d'évolution adjacents
+
+### Pourquoi non-encodable
+
+Aucun gate ne peut mesurer "cross-disciplinary depth of reasoning" — c'est une qualité du raisonnement, pas un fait observable. Encoder serait inventer une métrique fausse (compter mots-clés "psychology" / "biology" dans key_drivers = théâtre, pas signal).
+
+### Application pratique
+
+- Avant conviction 5 sur un secteur : forcer self-check "quelles disciplines ai-je consultées ?". Si la réponse est "juste finance + memo analyste", alarme.
+- Dans `key_drivers` : encourager (pas enforcer) des drivers cross-disciplinaires explicites. Ex M5 Lynch clarity pattern peut implicitement capturer ça si le user formule en termes de "network effect" / "regulatory cycle" / "compounding returns to scale".
+- En audit `/audit` : surface ratio drivers-secteur vs drivers-cross-discipline. Métrique optionnelle, pas gate.
+
+### Référencer
+
+CLAUDE.md "Catches recurrents" L18 pointer doctrine M16. Pas de test verrouillé (non-encodable). Pas de re-formulation ailleurs.

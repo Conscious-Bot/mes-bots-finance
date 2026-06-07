@@ -79,6 +79,13 @@ _DAMODARAN_PATTERNS = (
 )
 _DAMODARAN_RE = None  # lazy init
 
+# M6 Fisher scuttlebutt count : conviction >= 4 attend au moins 3 sources
+# distinctes ayant mentionne le ticker dans les 90 derniers jours. Une thèse
+# c4-c5 sur 1 seule source = rumeur, pas these structuree.
+FISHER_CONVICTION_THRESHOLD = 4
+FISHER_MIN_SOURCES = 3
+FISHER_WINDOW_DAYS = 90
+
 # M12 Pabrai downside floor : conviction 4 attend une mention explicite du
 # downside chiffre dans notes (Pabrai Dhandho : "heads I win, tails I don't
 # lose much" -- "much" doit etre quantifie).
@@ -386,6 +393,81 @@ def check_m5_lynch_clarity(
     )
 
 
+# === M6 Fisher scuttlebutt count ==========================================
+
+
+def check_m6_fisher_sources(
+    ticker: str,
+    conviction: int,
+    sources_count: int | None = None,
+) -> GateResult:
+    """Conviction >= 4 EXIGE >= 3 sources distinctes sur 90j.
+
+    Fisher catch : "1 source = pas une these, c'est une rumeur". Force
+    cross-source verification avant haute conviction.
+
+    Args:
+        ticker, conviction
+        sources_count : nombre de sources distinctes ayant mentionne ce
+          ticker dans les 90 derniers jours. Si None, fetch via storage.
+
+    Returns:
+        Pass si conviction < 4 OU sources_count >= 3.
+        FAIL sinon. None -> warning (impossible de verifier).
+    """
+    if conviction < FISHER_CONVICTION_THRESHOLD:
+        return GateResult(
+            gate_name="M6_fisher_sources",
+            passed=True,
+            message=f"conviction {conviction} < {FISHER_CONVICTION_THRESHOLD} -- gate ne fire pas",
+        )
+    if sources_count is None:
+        try:
+            sources_count = _fetch_distinct_sources_90d(ticker)
+        except Exception as e:
+            return GateResult(
+                gate_name="M6_fisher_sources",
+                passed=True,
+                message=f"warning : sources_count fetch failed ({type(e).__name__}: {e})",
+            )
+    if sources_count >= FISHER_MIN_SOURCES:
+        return GateResult(
+            gate_name="M6_fisher_sources",
+            passed=True,
+            message=(
+                f"{ticker} {sources_count} sources distinctes sur "
+                f"{FISHER_WINDOW_DAYS}j (>= {FISHER_MIN_SOURCES} Fisher compat)"
+            ),
+        )
+    return GateResult(
+        gate_name="M6_fisher_sources",
+        passed=False,
+        message=(
+            f"M6 Fisher FAIL : {ticker} conviction {conviction} mais seulement "
+            f"{sources_count} source(s) distincte(s) sur {FISHER_WINDOW_DAYS}j "
+            f"(>= {FISHER_MIN_SOURCES} attendues). Catch Fisher : '1 source "
+            "= rumeur, pas une these structuree'."
+        ),
+    )
+
+
+def _fetch_distinct_sources_90d(ticker: str) -> int:
+    """Count DISTINCT source_name sur signals where ticker matches 90j."""
+    from shared import storage
+    with storage.db() as cx:
+        row = cx.execute("""
+            SELECT COUNT(DISTINCT source_name)
+            FROM signals
+            WHERE (
+                tickers_extracted LIKE ?
+                OR title LIKE ?
+                OR summary LIKE ?
+            )
+            AND received_at >= datetime('now', '-90 days')
+        """, (f"%{ticker}%", f"%{ticker}%", f"%{ticker}%")).fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+
 # === M9 Damodaran story -> numbers =========================================
 
 
@@ -527,6 +609,7 @@ def run_creation_gates(
             ticker, conviction, direction, entry, target_full, stop_price
         ),
         check_m5_lynch_clarity(ticker, conviction, key_drivers, notes),
+        check_m6_fisher_sources(ticker, conviction, sources_count=None),
         check_m9_damodaran_quantitative(ticker, conviction, key_drivers),
         check_m11_ackman_concentration(ticker, conviction, book_ranks),
         check_m12_pabrai_downside(ticker, conviction, notes),
