@@ -971,6 +971,121 @@ def _fetch_benchmark_equity_curve():
         return None
 
 
+def _data_health_panel() -> str:
+    """Axe 5 QUALITY_BAR : data health = as-of le plus vieux + source + # stale.
+
+    Surface M1 triple (valeur, asof, source) visible. Doctrine : aucun nombre
+    rendu sans son as-of. Stale -> flag. SLA : config/freshness.yaml.
+    """
+    try:
+        from shared import storage
+        from shared.freshness import classify_asof
+    except Exception as e:
+        return (
+            '<div class="card data-health-card">'
+            '<div class="card-h">Data health</div>'
+            f'<div class="card-b">Indisponible : {type(e).__name__}</div>'
+            '</div>'
+        )
+
+    try:
+        with storage.db() as cx:
+            rows = cx.execute(
+                "SELECT ticker, price_asof, price_source, fx_asof, fx_source, "
+                "       last_price_currency "
+                "FROM positions WHERE status='open' AND qty > 0"
+            ).fetchall()
+    except Exception as e:
+        return (
+            '<div class="card data-health-card">'
+            '<div class="card-h">Data health</div>'
+            f'<div class="card-b">DB erreur : {e}</div>'
+            '</div>'
+        )
+
+    if not rows:
+        return (
+            '<div class="card data-health-card">'
+            '<div class="card-h">Data health</div>'
+            '<div class="card-b">Aucune position ouverte.</div>'
+            '</div>'
+        )
+
+    price_severities = {"green": 0, "amber": 0, "rouge": 0, "unknown": 0}
+    fx_severities = {"green": 0, "amber": 0, "rouge": 0, "unknown": 0}
+    oldest_price_age = -1.0
+    oldest_price_ticker = None
+    oldest_fx_age = -1.0
+    oldest_fx_pair = None
+    sources = {}
+
+    for r in rows:
+        ticker, price_asof, price_source, fx_asof, _fx_source, currency = r
+        if price_asof:
+            sev, age = classify_asof("price", price_asof)
+            price_severities[sev] = price_severities.get(sev, 0) + 1
+            if age > oldest_price_age:
+                oldest_price_age = age
+                oldest_price_ticker = ticker
+            if price_source:
+                sources[price_source] = sources.get(price_source, 0) + 1
+        else:
+            price_severities["unknown"] += 1
+        if fx_asof and currency and currency != "EUR":
+            sev_fx, age_fx = classify_asof("fx", fx_asof)
+            fx_severities[sev_fx] = fx_severities.get(sev_fx, 0) + 1
+            if age_fx > oldest_fx_age:
+                oldest_fx_age = age_fx
+                oldest_fx_pair = f"{currency}->EUR"
+
+    n_total = len(rows)
+    n_stale_price = price_severities["amber"] + price_severities["rouge"]
+    n_unknown = price_severities["unknown"]
+
+    def _fmt_age(sec):
+        if sec < 0:
+            return "—"
+        if sec < 60:
+            return f"{int(sec)}s"
+        if sec < 3600:
+            return f"{int(sec/60)}min"
+        if sec < 86400:
+            return f"{int(sec/3600)}h"
+        return f"{int(sec/86400)}j"
+
+    def _sev_class(sev):
+        return {"green": "ok", "amber": "warn", "rouge": "neg", "unknown": "neu"}.get(sev, "neu")
+
+    overall_sev = "green"
+    for sev in ("rouge", "amber", "unknown"):
+        if price_severities.get(sev, 0) > 0 or fx_severities.get(sev, 0) > 0:
+            overall_sev = sev
+            break
+
+    sources_str = ", ".join(f"{s}x{n}" for s, n in sources.items()) if sources else "—"
+
+    return (
+        '<div class="card data-health-card">'
+        f'<div class="card-h">Data health · M1 freshness ({_sev_class(overall_sev)})</div>'
+        '<div class="card-meta">cf config/freshness.yaml SLA · L21 doctrine M1 triple</div>'
+        '<div class="dh-grid">'
+        f'<div class="dh-kpi"><div class="k">Book</div><div class="v mono">{n_total} pos</div></div>'
+        f'<div class="dh-kpi"><div class="k">Stale prix</div><div class="v mono {_sev_class("amber" if n_stale_price else "green")}">{n_stale_price}/{n_total}</div></div>'
+        f'<div class="dh-kpi"><div class="k">Inconnu</div><div class="v mono {_sev_class("unknown" if n_unknown else "green")}">{n_unknown}</div></div>'
+        f'<div class="dh-kpi"><div class="k">Prix le + vieux</div><div class="v mono">{_fmt_age(oldest_price_age)}</div><div class="dh-tip">{oldest_price_ticker or "—"}</div></div>'
+        f'<div class="dh-kpi"><div class="k">FX le + vieux</div><div class="v mono">{_fmt_age(oldest_fx_age)}</div><div class="dh-tip">{oldest_fx_pair or "—"}</div></div>'
+        f'<div class="dh-kpi"><div class="k">Sources</div><div class="v mono" style="font-size:13px">{sources_str}</div></div>'
+        '</div>'
+        '<div class="dh-distrib">'
+        f'<span class="dh-chip ok">green {price_severities["green"]}</span>'
+        f'<span class="dh-chip warn">amber {price_severities["amber"]}</span>'
+        f'<span class="dh-chip neg">rouge {price_severities["rouge"]}</span>'
+        f'<span class="dh-chip neu">inconnu {price_severities["unknown"]}</span>'
+        '</div>'
+        '</div>'
+    )
+
+
 def _performance_panel() -> str:
     """Performance panel Heimdall (post-audit 07/06, ffn integration).
 
@@ -5841,6 +5956,7 @@ def render() -> Path:
     # _cockpit() helper toujours dispo si reactivation future
     grade_html = _grade_panel()
     performance_html = _performance_panel()
+    data_health_html = _data_health_panel()
     blind_html = _blind_positions_panel()
     # chat_html + conceptions_html + copilot_html retires 31/05 wave 5 :
     # migration vers section Copilot dediee (_copilot() entre Positions et
@@ -6063,6 +6179,7 @@ def render() -> Path:
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         '<div class="vigie-sh" data-tip="Book positions to review first: critical margins (stop &lt; 10%), at_risk kill_criteria zones, blind vol."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
         f'{_risk_watch_panel()}'
+        f"{data_health_html}"
         f"{performance_html}"
         f"{blind_html}"
         # Journal & deadlines retire 02/06 user (useless boards :

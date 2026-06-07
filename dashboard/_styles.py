@@ -891,6 +891,27 @@ _CSS = """
   .riskwatchcard .rw-mit-a { font-family:var(--fm); font-size:15px; color:var(--ink); opacity:.85; line-height:1.5; margin-bottom:3px; }
   .riskwatchcard .rw-mit-n { font-family:var(--fm); font-size:14px; color:var(--steel); font-style:italic; }
   @media (max-width:980px) { .riskwatchcard .rw-grid { grid-template-columns:1fr; } .riskwatchcard .rw-sig { grid-template-columns:1fr; } }
+  /* Data health panel (Axe 5 QUALITY_BAR, M1 freshness, 07/06 nuit++) */
+  .data-health-card { padding:var(--s4); margin-top:var(--s4); border:1px solid var(--line); border-radius:var(--r2); background:var(--surface); }
+  .data-health-card .card-h { font-family:var(--fb); font-size:16px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); margin-bottom:var(--s2); }
+  .data-health-card .card-meta { font-family:var(--fm); font-size:12px; color:var(--steel); margin-bottom:var(--s35); font-style:italic; }
+  .data-health-card .card-b { font-family:var(--fm); font-size:14px; color:var(--steel); padding:var(--s3) 0; }
+  .data-health-card .dh-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:var(--s3); margin-bottom:var(--s35); }
+  .data-health-card .dh-kpi { padding:var(--s3); background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r1); }
+  .data-health-card .dh-kpi .k { font-family:var(--fb); font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s15); }
+  .data-health-card .dh-kpi .v { font-family:var(--fm); font-size:22px; font-weight:500; color:var(--ink); line-height:1; }
+  .data-health-card .dh-kpi .v.ok { color:var(--acc); }
+  .data-health-card .dh-kpi .v.warn { color:var(--warn); }
+  .data-health-card .dh-kpi .v.neg { color:var(--bear); }
+  .data-health-card .dh-kpi .v.neu { color:var(--steel); }
+  .data-health-card .dh-tip { font-family:var(--fm); font-size:12px; color:var(--steel); margin-top:var(--s1); }
+  .data-health-card .dh-distrib { display:flex; gap:var(--s2); flex-wrap:wrap; }
+  .data-health-card .dh-chip { font-family:var(--fm); font-size:13px; padding:2px 8px; border-radius:var(--r1); font-variant-numeric:tabular-nums; }
+  .data-health-card .dh-chip.ok { background:color-mix(in srgb,var(--acc) 12%,transparent); color:var(--acc); }
+  .data-health-card .dh-chip.warn { background:color-mix(in srgb,var(--warn) 12%,transparent); color:var(--warn); }
+  .data-health-card .dh-chip.neg { background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
+  .data-health-card .dh-chip.neu { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
+  @media (max-width:980px) { .data-health-card .dh-grid { grid-template-columns:repeat(2, 1fr); } }
   /* Performance panel (Heimdall ffn analytics, post-audit 07/06) */
   .performance-card { padding:var(--s4); margin-top:var(--s4); border:1px solid var(--line); border-radius:var(--r2); background:var(--surface); }
   .performance-card .card-h { font-family:var(--fb); font-size:16px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); margin-bottom:var(--s2); }

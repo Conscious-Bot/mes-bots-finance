@@ -74,7 +74,12 @@ def main():
         cost = value - pnl
         qty = value / price
         avg_cost = cost / qty
-        note = "refresh_2026_05_23 | account=TR | eur_value=" + str(value) + " | pnl=" + str(pnl)
+        # M1 doctrine (cf docs/QUALITY_BAR.md + L21 LESSONS) : ne plus stocker
+        # eur_value en clair dans notes. La valeur EUR est derivee live via
+        # shared.valuation.position_valuation a partir de qty * last_price_native
+        # * fx_rate_to_eur (colonnes typees ajoutees en migration 0036).
+        # Notes redevient texte libre (audit trail context user-provided).
+        note = "refresh_2026_05_23 | account=TR | pnl=" + str(pnl)
         positions_mod.set_position(ticker, qty, avg_cost, note)
         done.append(("TR", ticker, round(cost, 2), round(avg_cost, 4), round(qty, 4)))
 
