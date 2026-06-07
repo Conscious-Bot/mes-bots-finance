@@ -6,68 +6,119 @@
 
 ---
 
-## 🔴 P0 CORRECTIVE QUEUE (red-team 07/06 nuit, doctrine pivot)
+## 🔴 P0 CORRECTIVE QUEUE v2 (red-team 07/06 nuit, refine apres correction 3 faux positifs)
 
-Le red-team a identifie que la session du jour a livre 23 commits sur l'etage META pendant que la FONDATION (lock_in hook, predictions resolver, yfinance throttle reel, eur_value canonique, render.py decomposition) n'est pas posee. **STOP** d'ajouter de la sophistication tant que ces P0 ne sont pas livres.
+**Pivot framework (red-team analysis 2)** :
 
-Chiffres verifies (commit pre-pivot 0042956) :
-- render.py : **6348 lignes** (CLAUDE.md doctrine ligne 34 dit "~1860 l", drift ×3.4)
-- Predictions : 184/219 **non resolues = 84%**. Calibration Brier/isotonic/Wilson/bootstrap calcule sur N=35. **Bruit**.
-- yfinance : **20 modules** importent directement, throttle prices.py contourne. Dashboard SPOF avec mitigation fantome.
-- sqlite3 : **101 fichiers** hors storage.py (red-team disait 48, **pire**)
-- eur_value : dans champ texte `notes`, parse regex (`refresh_positions_2026_05_23.py:77`). Snapshot 23/05 obsolete 15j. Source-unique-de-verite **violee**.
-- lock_in_detector : module + 9 tests OK MAIS `shared/positions.add_sell` NE CALL PAS `detect_winner_sell`. Pas de table `lock_in_events`. CLAUDE.md ment ("Hook dans shared.positions.add_sell apres cx.commit()" = aspiration).
-- 20 backup files data/bot.db.backup_* (216M data + 8.9M backups) = backup-by-panic.
+| Boucle-marche (commoditisable) | Boucle-de-soi (Path 6 asset) |
+|---|---|
+| « ma these etait-elle juste ? » | « ma discipline a-t-elle aide ou nui ? » |
+| sortie : calibration / Brier | sortie : quantification de biais |
+| defendabilite : commoditisable | defendabilite : unique a l'utilisateur |
+| presque 100% effort recent | encore V0 (CLI seul, J+30 seul) |
 
-### P0.1 — 2 CI grep gates (~30min, **levier maximal/effort**)
-- Gate 1 : `yfinance hors prices.py` import = build rouge.
-- Gate 2 : `sqlite3.connect` litteral hors storage.py = build rouge.
-- Transforme 2 doctrines fictives ("single-gateway prices", "storage.py = passerelle") en invariants reels.
-- File : `scripts/ci_doctrine_grep_gates.sh` + add to pytest fixture ou CI step.
+**Mouvement a plus haut levier** : inverser ce ratio. Effort va vers ce qui DECIDE (boucle-de-soi + ingestion + latence), pas vers ce qui SE DEMONTRE (M-B gates, V3 panels).
 
-### P0.2 — Lock_in_detector hook reel + table persist (~2h, **RAISON D'ETRE**)
-- Alembic migration `lock_in_events` table (event_id, position_id, ticker, sold_at, pnl_pct, conviction_at_sell, resolution_at, resolved_outcome, created_at).
-- Hook dans `shared/positions.add_sell` apres `cx.commit()` (L7 LESSONS post-commit pattern) : `intelligence.lock_in_detector.detect_winner_sell(...)` -> insert si gate fire (pnl_pct >= 15% AND conviction_at_sell >= 3).
-- Test live wire : sell test ticker -> verifier event en DB.
-- Le mecanisme central de PRESAGE doit exister avant tout autre ajout.
+### Corrections confirmees vs P0 v1 (3 faux positifs droppes)
+- ✅ factor_exposures EST mecanise + branche render.py (P0.5 v1 = faux)
+- ✅ lock_in_detector EST wire `shared/positions.py:216` post-commit + a fire (bias_events id=5 SNOW vente 03/06) (P0.2 v1 = faux)
+- ✅ Predictions 184 NULL = legitimes en vol (0 overdue, target_date future, systeme 26j + horizon 30j arithmetique). Resolver pas casse. (P0.3 v1 = faux)
 
-### P0.3 — Predictions resolver (~2h, **flux outcomes**)
-- 184 predictions avec `outcome IS NULL` et `target_date < today`. Cron a creer (ou debug existant) qui ferme via `_cached_price_eur` + `outcome = correct/incorrect/neutral` + `brier_score` compute.
-- Sans flux outcomes, l'asset central (track record verifiable) est vide.
+### Vraies fondations restantes (chiffres verifies)
+- render.py = **6348 lignes** (CLAUDE.md ligne 34 dit "~1860", drift ×3.4)
+- AGENT_HANDOFF.md & CLAUDE.md ment sur 4+ faits materiels (414 tests / 1141, render LOC, lock_in "non instrumente", factor-exposure "absent")
+- yfinance bypass : **20 fichiers** importent direct (throttle prices.py contourne, SPOF reel)
+- sqlite3 hors storage.py : **101 fichiers** (9 paths `data/bot.db` hardcodes = vrais bugs override DB_PATH)
+- N_resolu = 35 sur 1 bucket -> sophistication actuelle (isotonic/Platt/Wilson/bootstrap) calcule sur bruit
+- self_loop V0 : J+30 seul, contrefactuel "hold strict" seul, CLI seul (l'asset Path 6 est invisible)
+- 76 sources scores credibility mais ZERO metrique de correlation inter-sources (monoculture macro-penseur)
 
-### P0.4 — Colonne `eur_value` typee + refresh prix unifie (~3h)
-- Alembic migration : `positions.eur_value REAL NULL` + `eur_value_as_of TEXT NULL`.
-- Refresh job qui calcule `qty * _cached_price_eur(ticker)` quotidien.
-- Migrer le data text `notes` regex parsing -> colonne typee.
-- Drop des regex parsers downstream.
+### Sequence corrective 90j (red-team)
 
-### P0.5 — Factor-concentration warning mecanise (~1h)
-- `intelligence/factor_exposures.py` cron : si `top_factor_pct > 60%` (compute AI-capex aggregate) -> alerte Telegram + chip dashboard.
-- Tail risk #1 actuel (~78% AI-capex factor concentre) non instrumente.
+**Semaine 1 — Fondations honnetes (~3h total)**
+- **Intra-1** : 2 CI grep gates (~30min, levier maximal/effort)
+  - `yfinance hors shared/prices.py` import = build rouge
+  - `sqlite3.connect("data/bot.db")` litteral hors storage.py = build rouge
+  - File : `scripts/ci_doctrine_grep_gates.sh` + pytest fixture/CI step
+- **Intra-3** : doc drift check pre-commit (~45min)
+  - `scripts/doc_drift_check.py` : regenere chiffres volatils (count tests, LOC fichiers cites, etat modules "non instrumentes")
+  - Echec si CLAUDE.md/AGENT_HANDOFF.md diverge. Doctrine "type quand tu touches" appliquee a la doc.
+- **New-1** : pre-registration cryptographique (~1h)
+  - Hash chaque prediction a creation (probability_at_creation + target_date + baseline_price)
+  - Commit hash horodate-tamper-evident (git tag signe ou OpenTimestamps)
+  - Difference "je l'avais dit" vs "prouvablement dit a T0"
+  - Path 5/6 asset narratif majeur (verifiable track-record)
 
-### P0.6 — Fix CLAUDE.md drift (~15min, **arret du mensonge documentaire**)
-- Update ligne 34 : `render.py ~1860 l` -> `~6350 l` + tag "god-file P1 decomposition pending"
-- Update ligne 34 "lock_in mecanise via v2.c.6 (hook positions.add_sell post-commit...)" : actuellement **aspiration documentaire**, pas reel. Soit livrer P0.2 immediatement, soit retiquer la formulation jusqu'a livraison.
-- Toute autre drift CLAUDE.md vs realite (verifier avec un sweep).
+**Semaines 2-4 — Demarrer l'horloge statistique (~2-3h)**
+- **Feature-1** : sondes calibration 7j (~2h)
+  - Emettre predictions-sondes 7j decouplees des theses conviction (qui restent 18-24m)
+  - Tag `probe` pour ne pas polluer track-record conviction
+  - 8 semaines -> N=35 -> N~100+. Calibration cesse d'etre bruit.
+  - Debloque P0 statistique de tout le reste (M3-M16 mentors etc)
 
-### P1 (apres P0 livre) — Bloquants doctrine
-- Thesis intake gate **bloquant** (pas warning) si conviction >= 4 + violations M-B gates. Actuel = warning ignorable -> garbage collection en aval. Inverser.
-- `render.py` decomposition par panel (god-file 6348 l = ~30 panels). Sortir 5-10 panels/sprint vers modules dedies.
-- Backup rotation : keep latest N (3-5) + drop old. Script + cron weekly.
+**Semaines 4-8 — Asset Path 6 visible (~6-8h)**
+- **New-2** : shadow book = € cout cumule biais (~4h)
+  - Portefeuille parallele "si j'avais suivi chaque signal discipline" vs reel
+  - Trace € cumule que les biais ont coute + ce que PRESAGE a rattrape
+  - Matiere existe : bias_events.counterfactual_json + decision_counterfactual (214 lignes)
+  - Ressuscite `intelligence/shadow_decisions.py` (zero import actuel)
+  - **Slide unique deck acquereur / post lancement** : "voici ce que mes biais m'ont coute, voici ce que l'instrument a sauve"
+- **Feature-2** : self_loop V0 -> V1 (~2-3h)
+  - Roadmap ecrite dans docstring : horizons 60/90/180, contrefactuels rotate_to_X (pas seulement "hold strict"), panneau dashboard
+  - Aujourd'hui la boucle-de-soi est invisible (CLI). La rendre visible = transformer asset unique en chose montrable
 
-### DEFER (apres tous P0 + P1) — Sophistication justifiee
-- M-B 5 mentors restants (M3/M4/M8/M13/M15) -- attendre P0.2 puis P0.3 livres pour avoir base statistique.
+**Semaines 8-12 — Connexion distribution + decomposition**
+- **New-3** : calibration-as-content (~3h)
+  - posts/ existe deja. Auto-generer mensuel "voici predit / arrive / Brier / biais rattrapes"
+  - Connecte instrument (boucle) -> asset Path 6 (audience) sans travail editorial recurrent
+- **Intra-2** : render.py decomposition (~6h+, tache de fond)
+  - 6348 l / 121 fns / 306 commits 14j = surface regression max
+  - Extraire render_data.py + render_html.py + svg_paths.py (pure, testable, property-tests gratuits)
+
+### Backlog Intra (apres semaine 1, prioriser selon contexte)
+- **Intra-4** : tuer ou ressusciter code mort (`probabilistic.py`, `reconcile.py`, `shadow_decisions.py` = 0 import). shadow_decisions = coquille de New-2 vraisemblablement.
+- **Intra-5** : `except Exception` × 644 cible jobs cron + scoring_orchestrator + resolver (catch large dans resolver pourrait avaler echec prix et laisser prediction NULL forever)
+
+### Backlog Feature (apres semaine 4, N suffisant)
+- **Feature-3** : factor concentration -> monitor a transition (~2h)
+  - factor_exposures calcule mais alerte pas. Pattern monitor (docs/templates/monitor_pattern.md) figé
+  - Seuil "AI-broad > 75%" -> evenement journalise + notif Telegram a la transition
+  - 3e monitor = 3x plus rapide que 1er (pattern figé). Ferme trou panneau-statique vs garde-active.
+- **Feature-4** : calibration conditionnelle au regime (~2h)
+  - macro_regime existe (22 fichiers le referencent). Slicer Brier par regime.
+  - "Bien calibre en risk-on, surconfiant en risk-off" = insight 2e ordre.
+  - Manque le N (debloque par Feature-1)
+- **Feature-5** : anti-monoculture sources (~3h)
+  - 76 sources massivement Substack macro (Tooze, Macro Compass, Coin Metrics, StL Fed)
+  - Input narratif correle = faux sentiment diversite signal
+  - Ajouter metrique correlation inter-sources. Anti-double-comptage signal (coherent doctrine anti-double-instrumentation L4)
+
+### Backlog New (apres semaine 8, asset visible)
+- **New-4** : panel adversarial nomme au moment decision (~3h)
+  - decision_copilot fait deja un contre-argument Claude unique
+  - 16 mentor-gates existent mais servent qu'a l'intake. Re-utiliser comme voix dissidentes nommees au moment du geste.
+  - Taleb sur tail, Lynch sur prix-vs-croissance, 2-3 one-liners en desaccord, chacun cite sur evidence DB
+  - Zero nouveau modele, UX a forte taste, usage decisionnel aux gates
+- **New-5** : backtest des regles de discipline elles-memes (~4h)
+  - shared/backtest.py wirable bt/ffn -- aujourd'hui seulement 2 fichiers touchent "backtest"
+  - Question = "mes regles de discipline auraient-elles ajoute de l'alpha sur 5y de mes propres patterns", pas "mon book bat-il SPY"
+  - Validation de l'instrument, pas du portefeuille -- ce qu'un acquereur audit
+
+### Meta-regle a graver (L19 LESSONS apres semaine 1)
+**"Aucune nouvelle couche scoring/calibration tant que N_resolu < 100."**
+
+D'ici la, l'effort va a l'ingestion (Feature-1) et a la reduction de latence de boucle (sondes 7j), pas a de nouveaux etages. La sophistication actuelle calcule sur bruit (N=35 sur 1 bucket).
+
+### Ce qui changerait la conclusion
+Si N_resolu > 100 avec spread Brier multi-buckets -> "continue enrichir calibration" deviendrait valide. Aujourd'hui N=35 sur 1 bucket -> "gele meta, nourris la boucle" tient.
+
+### DEFER explicite (apres P0 + ressources statistiques debloquees)
+- M-B 5 mentors restants (M3 Burry / M4 Graham / M8 Buffett competence / M13 Wood / M15 Fisher 15) -- attendre N suffisant
 - ffn V4 (rolling vol panel, drawdown events catalog UI)
 - skfolio + FinanceToolkit + FinanceDatabase wire
-- Continue les patterns digest si nouveaux repos audites
+- Patterns digest nouveaux repos audites
 
-### Doctrine pivot consequence
-La doctrine "discipline mecanisee pas alpha predictif" est **valide en theorie, fausse en pratique** tant que :
-- Le biais #1 n'est pas mecanise (P0.2)
-- Le flux d'outcomes ne suit pas (P0.3)
-- La source unique de verite est violee (P0.4)
-
-L'effort doit aller vers **ce qui decide**, pas vers **ce qui se demontre**. Le red-team formule ca proprement. L'inscrire dans LESSONS comme **L19 doctrine "sophistication justifiable par fondation"** apres P0.1-P0.6 livres.
+---
 
 ---
 
