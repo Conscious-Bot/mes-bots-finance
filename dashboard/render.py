@@ -2182,66 +2182,61 @@ def _slug_ticker(ticker: str) -> str:
     return ticker.replace(".", "-").upper()
 
 
-def _position_card(thesis: dict, position: dict | None) -> str:
-    """Rendre une seule position-card."""
-    from intelligence.position_steer import derive_steer
-    from shared import storage as _stg
+def _position_card(inputs, steer_v2) -> str:
+    """Rendre une seule position-card depuis CardInputs (etape 2) + SteerOutput
+    (etape 3). Source UNIQUE -- aucune re-query, lis tout depuis inputs.
 
-    ticker = thesis["ticker"]
+    Inputs :
+      inputs   : intelligence.card_inputs.CardInputs (frozen, etape 2)
+      steer_v2 : intelligence.card_steer.SteerOutput (frozen, etape 3)
+    """
+    from intelligence.position_steer import derive_steer
+
+    thesis = inputs.thesis
+    ticker = inputs.ticker
     slug = _slug_ticker(ticker)
-    conv = thesis.get("conviction") or "?"
+    conv = inputs.conviction_current or "?"
     direction = thesis.get("direction") or "long"
     horizon = thesis.get("horizon") or "?"
     opened = (thesis.get("opened_at") or "")[:10]
     reviewed = (thesis.get("last_reviewed") or "")[:10] or "never"
 
-    # Couche 1 : position_type + tags + justification
-    pt_info = _stg.get_position_type(thesis["id"]) or {
-        "position_type": "priced", "position_tags": [], "structural_justification": None,
-    }
-    ptype = pt_info["position_type"]
-    tags = pt_info["position_tags"] or []
-    justif = pt_info.get("structural_justification")
+    # Couche 1 lue depuis inputs
+    ptype = inputs.position_type or "priced"
+    tags = inputs.position_tags or []
+    justif = inputs.structural_justification
 
-    # Couche 2 : verdict erosion (or None si jamais compute)
-    erosion = _stg.get_latest_erosion_per_thesis(thesis["id"])
-    verdict = erosion["verdict"] if erosion else None
-    erosion_computed_at = (erosion["computed_at"][:16] if erosion else None)
-    driver_status = []
-    if erosion and erosion.get("driver_status_json"):
-        with contextlib.suppress(json.JSONDecodeError, TypeError):
-            driver_status = json.loads(erosion["driver_status_json"])
+    # Couche 2 verdict erosion + driver_status (depuis inputs)
+    verdict = inputs.erosion_verdict
+    erosion_computed_at = (inputs.erosion_computed_at or "")[:16] or None
+    driver_status = inputs.erosion_driver_status or []
 
-    # Position live (peut etre None si these sans position ouverte).
-    # Source UNIQUE : shared.book.BookLine via _positions() qui propage
-    # toutes les colonnes M1 typees (Axe 3/5). Plus aucune re-query.
-    qty = position.get("qty") if position else 0
-    # Affichage : prefere native si dispo (Axe 3 M1 honnete), fallback EUR
+    # Position M1 depuis BookLine canonique (inputs.book_line)
+    bl = inputs.book_line
+    qty = (getattr(bl, "qty", 0) or 0) if bl else 0
     current_price = (
-        position.get("last_price_native") if position else None
-    ) or (position.get("current_price_eur") if position else None)
-    ccy = (position.get("last_price_currency") if position else None) or "EUR"
-    price_asof = position.get("price_asof") if position else None
-    weight_eur = position.get("weight") if position else 0
-    total_book = position.get("_total_book") if position else 0
-    weight_pct = (weight_eur / total_book * 100) if total_book else 0
-    cost_basis = position.get("cost_basis_eur") if position else 0
+        getattr(bl, "last_price_native", None) if bl else None
+    ) or (getattr(bl, "current_price_eur", None) if bl else None)
+    ccy = (getattr(bl, "last_price_currency", None) if bl else None) or "EUR"
+    price_asof = getattr(bl, "price_asof", None) if bl else None
+    weight_eur = (getattr(bl, "weight_market_eur", 0) or 0) if bl else 0
+    weight_pct = inputs.weight_pct
+    cost_basis = (qty * (getattr(bl, "avg_cost_eur", 0) or 0)) if bl else 0
     pnl_eur = (weight_eur - cost_basis) if (weight_eur and cost_basis) else 0
     pnl_pct = ((weight_eur / cost_basis - 1) * 100) if (weight_eur and cost_basis) else 0
 
-    # Theses entry/partial/full/stop
+    # Theses entry/partial/full/stop depuis thesis dict (inputs.thesis)
     entry = thesis.get("entry_price")
     partial = thesis.get("target_partial")
     full = thesis.get("target_full")
     stop = thesis.get("stop_price")
     invals = thesis.get("invalidation_triggers") or []
     if isinstance(invals, str):
-        try:
+        with contextlib.suppress(json.JSONDecodeError, TypeError):
             invals = json.loads(invals)
-        except (json.JSONDecodeError, TypeError):
-            invals = []
 
-    # Couche 2 : derive steer (combine exit + size)
+    # Couche 2 (legacy) : derive_steer pour les sous-details (forbidden/allowed).
+    # Le verdict UNIFIE 5-state est steer_v2 (etape 3).
     try:
         steer = derive_steer(
             position_type=ptype,
@@ -2251,6 +2246,49 @@ def _position_card(thesis: dict, position: dict | None) -> str:
         )
     except Exception:
         steer = None
+
+    # Bandeau fail-closed (etape 3) -- en tete si declenche
+    bandeau_html = ""
+    if steer_v2 and steer_v2.bandeau:
+        items = "".join(f"<span>{b}</span>" for b in steer_v2.bandeau)
+        bandeau_html = (
+            '<div class="pc-bandeau" style="background:#7a1f1f;color:#fff;'
+            'padding:8px 12px;border-radius:4px;margin:-2px -2px 12px -2px;'
+            'font-size:11px;font-weight:600;display:flex;gap:14px;align-items:center;">'
+            '<span>⚠ FAIL-CLOSED L15</span>'
+            f'<span style="opacity:0.9;font-weight:500;">{items}</span>'
+            '</div>'
+        )
+
+    # Verdict 5-state badge en tete
+    verdict_v2_html = ""
+    if steer_v2:
+        v_color = {
+            "HOLD": ("#3a9d4e", "#e8f5e9"),
+            "TRIM_TO_X": ("#b8860b", "#fff8e1"),
+            "ADD_TO_X": ("#1976d2", "#e3f2fd"),
+            "EXIT": ("#7a1f1f", "#ffebee"),
+            "REVIEW": ("#666", "#f5f5f5"),
+        }.get(steer_v2.verdict.value, ("#666", "#f5f5f5"))
+        verdict_v2_html = (
+            f'<span style="display:inline-block;padding:3px 10px;border-radius:3px;'
+            f'font-size:11px;font-weight:700;background:{v_color[0]};color:#fff;'
+            f'margin-left:8px;letter-spacing:0.5px;">▶ {steer_v2.verdict.value}</span>'
+        )
+
+    # Drift conviction surface si delta != 0
+    drift_html = ""
+    if inputs.conviction_drift_delta != 0:
+        sign = "+" if inputs.conviction_drift_delta > 0 else ""
+        drift_cls = "ok" if inputs.conviction_drift_delta > 0 else "warn"
+        drift_html = (
+            f'<span class="pc-drift {drift_cls}" style="margin-left:8px;'
+            'font-size:10px;opacity:0.85">'
+            f'drift {sign}{inputs.conviction_drift_delta} '
+            f'(PIT c{inputs.conviction_at_entry} → now c{inputs.conviction_current}, '
+            f'{inputs.conviction_n_drifts} change(s))'
+            '</span>'
+        )
 
     # Asymétrie : pour structural, downside non-borne par prix (Catch 3)
     if ptype == "structural":
@@ -2326,9 +2364,9 @@ def _position_card(thesis: dict, position: dict | None) -> str:
                 f'<span class="pc-driver-net mono">net {net:+.2f}</span>'
                 '</div>'
             )
-        n_conf = erosion.get("n_confirm", 0)
-        n_ero = erosion.get("n_erode", 0)
-        n_inv = erosion.get("n_invalidation_hit", 0)
+        n_conf = inputs.erosion_n_confirm
+        n_ero = inputs.erosion_n_erode
+        n_inv = inputs.erosion_n_invalidation_hit
         verdict_cls = {
             "INTACT": "ok", "EROSION_DETECTED": "warn",
             "INVALIDATION_HIT": "neg", "STALE_UNUPDATED": "warn",
@@ -2447,10 +2485,14 @@ def _position_card(thesis: dict, position: dict | None) -> str:
 
     return (
         f'<div class="pc-card" id="card-{slug}">'
-        # Header
-        '<div class="pc-head">'
+        # Bandeau fail-closed (en tete prioritaire si declenche)
+        + bandeau_html
+        # Header avec verdict badge + drift conviction
+        + '<div class="pc-head">'
         f'<span class="pc-tk mono">{ticker}</span>'
+        f'{verdict_v2_html}'
         f'<span class="pc-conv">c{conv} {direction}</span>'
+        f'{drift_html}'
         f'{type_chip}'
         f'{tags_html}'
         f'<span class="pc-meta">horizon {horizon} &middot; opened {opened} &middot; reviewed {reviewed}</span>'
@@ -2487,19 +2529,21 @@ def _position_card(thesis: dict, position: dict | None) -> str:
 
 
 def _position_card_panel() -> str:
-    """Section data-page='position-card' : stack toutes les cards actives."""
+    """Section data-page='position-card' : stack toutes les cards actives.
+
+    Etape 5 (refactor) : assemble CardInputs + SteerOutput par these via
+    helpers canoniques. Aucune re-query dans les cards individuelles.
+    """
+    from intelligence.card_inputs import assemble_card_inputs
+    from intelligence.card_steer import derive_card_steer
     from shared import storage as _stg
 
     try:
         with _stg.db() as cx:
-            thesis_rows = cx.execute(
-                "SELECT id, ticker, conviction, direction, horizon, "
-                "       opened_at, last_reviewed, "
-                "       entry_price, target_partial, target_full, stop_price, "
-                "       key_drivers, invalidation_triggers "
-                "FROM theses WHERE status='active' "
-                "ORDER BY conviction DESC, ticker"
-            ).fetchall()
+            thesis_ids = [r[0] for r in cx.execute(
+                "SELECT id FROM theses WHERE status='active' "
+                "ORDER BY conviction DESC, ticker",
+            ).fetchall()]
     except Exception as e:
         return (
             '<section data-page="position-card" role="region" aria-label="Position cards">'
@@ -2508,29 +2552,44 @@ def _position_card_panel() -> str:
             '</section>'
         )
 
-    positions = _positions()
-    total_book = sum(p["weight"] for p in positions) or 1
-    pos_by_ticker = {}
-    for p in positions:
-        p["_total_book"] = total_book
-        pos_by_ticker[p["ticker"].upper()] = p
-
     cards = []
-    cols = ["id", "ticker", "conviction", "direction", "horizon", "opened_at",
-            "last_reviewed", "entry_price", "target_partial", "target_full",
-            "stop_price", "key_drivers", "invalidation_triggers"]
-    for row in thesis_rows:
-        thesis = dict(zip(cols, row, strict=False))
-        ticker = thesis["ticker"].upper()
-        position = pos_by_ticker.get(ticker)
-        cards.append(_position_card(thesis, position))
+    n_review = 0
+    n_exit = 0
+    n_trim = 0
+    n_hold = 0
+    for tid in thesis_ids:
+        inputs = assemble_card_inputs(tid)
+        if inputs is None:
+            continue
+        steer_v2 = derive_card_steer(inputs)
+        if steer_v2.verdict.value == "REVIEW":
+            n_review += 1
+        elif steer_v2.verdict.value == "EXIT":
+            n_exit += 1
+        elif steer_v2.verdict.value == "TRIM_TO_X":
+            n_trim += 1
+        else:
+            n_hold += 1
+        cards.append(_position_card(inputs, steer_v2))
 
     n = len(cards)
+    # Resume verdicts en tete (steer global aiguilleur)
+    summary_html = (
+        '<div class="pc-summary" style="display:flex;gap:14px;padding:10px 0;'
+        'font-size:12px;border-bottom:1px solid var(--line,#3a3a3a);'
+        'margin-bottom:16px;">'
+        f'<span><b>{n_hold}</b> HOLD</span>'
+        f'<span><b>{n_trim}</b> TRIM</span>'
+        f'<span><b>{n_exit}</b> EXIT</span>'
+        f'<span style="color:#888"><b>{n_review}</b> REVIEW (fail-closed L15)</span>'
+        '</div>'
+    )
     return (
         '<section data-page="position-card" role="region" aria-label="Position cards">'
         '<div class="phead"><h2>Position cards</h2>'
         f'<div class="sub">Vue plein-ecran par position &middot; {n} active &middot; '
         'EXIT &amp; SIZE separes (Catch 2) &middot; deep-link #card-TICKER</div></div>'
+        + summary_html
         + "".join(cards)
         + '</section>'
     )
