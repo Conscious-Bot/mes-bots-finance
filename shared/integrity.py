@@ -34,19 +34,48 @@ from typing import Any
 GENESIS_HASH = "0" * 64  # canonical genesis null
 
 
+class NonCanonicalTypeError(TypeError):
+    """Type non-canonicalisable dans le payload (datetime, Decimal, etc).
+
+    Catch #1 red-team 07/06 nuit++ : default=str dans canonical_payload
+    etait un footgun de repro. Un payload contenant datetime / Decimal
+    se stringifie d'une facon qu'un tiers ne reproduit pas sans connaitre
+    le type d'origine. Pour de la prouvabilite, on INTERDIT explicitement
+    (raise) plutot que de stringifier en douce.
+
+    Convention : le caller doit normaliser les types AVANT canonical_payload
+    (isoformat() pour datetime, str(Decimal(...)) pour Decimal, etc).
+    """
+
+
+_ALLOWED_PRIMITIVES = (str, int, bool, type(None))
+
+
 def _format_floats(obj: Any) -> Any:
     """Recursive : convertit tous les floats en str fixed 6 decimales.
 
     Garantit que json.dumps(canonical) est bit-identique cross-build.
     Pas de fall-thru sur dict/list -> deep walk.
+
+    RAISE NonCanonicalTypeError sur tout type non-primitive (catch repro).
     """
     if isinstance(obj, float):
         return f"{obj:.6f}"
+    if isinstance(obj, bool):
+        # bool est sous-classe de int en Python, traiter avant int
+        return obj
+    if isinstance(obj, _ALLOWED_PRIMITIVES):
+        return obj
     if isinstance(obj, dict):
         return {k: _format_floats(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_format_floats(v) for v in obj]
-    return obj
+    # Catch repro : tout autre type = footgun
+    raise NonCanonicalTypeError(
+        f"Type {type(obj).__name__!r} non canonicalisable. Normaliser AVANT "
+        "canonical_payload (datetime.isoformat() / str(Decimal) / etc). "
+        "Cf catch red-team 07/06 nuit++ : default=str interdit pour prouvabilite."
+    )
 
 
 def canonical_payload(payload: dict[str, Any]) -> str:
@@ -55,14 +84,18 @@ def canonical_payload(payload: dict[str, Any]) -> str:
     Order : sort_keys=True deterministe.
     Format : separators=(',', ':') = no whitespace cross-build.
     Floats : str 6 decimales -> bit-identique.
+    Types interdits : tout sauf str/int/bool/None/float/dict/list/tuple
+      -> raise NonCanonicalTypeError.
 
     Garantie : 2 appels avec meme dict -> meme str byte-for-byte.
     """
+    formatted = _format_floats(payload)
     return json.dumps(
-        _format_floats(payload),
+        formatted,
         sort_keys=True,
         separators=(",", ":"),
-        default=str,
+        # PAS de default=str : footgun repro. Tout type non-JSON-primitive
+        # doit etre normalise AVANT par le caller.
         ensure_ascii=True,
     )
 
@@ -94,44 +127,63 @@ def chain_append(
     return prev, new_hash
 
 
+class AnchorFailedError(RuntimeError):
+    """Anchor externe n'a pas reussi -> chain non-prouvable a T0.
+
+    Catch #2 red-team 07/06 nuit++ : silent fallback to file: violait L15.
+    Une chain non-ancree externe = exactement le moment ou le downstream
+    doit REFUSER de scorer. L15 fail-closed loud, pas swallow.
+
+    L'absence d'OTS receipt = absence de preuve trustless (operateur solo +
+    repo prive = pas de tiers contraint).
+    """
+
+
 def anchor_chain_head(
     head_hash: str,
     head_seq: int,
-    anchor_dir: str = "integrity_anchors",  # repo root (data/ gitignored)
+    anchor_dir: str = "integrity_anchors",
+    require_ots: bool = True,
 ) -> dict:
-    """A4 : anchor externe du head chain (PASSE A1-A3 du theater au reel).
+    """A4 : anchor externe trustless du head chain.
 
-    Sans A4, un attaquant local peut reecrire toute la chain (recalculer
-    tous les chain_hash + payload_json) car aucune preuve externe ne fixe
-    l'etat de la chain a T0. A4 ecrit le head dans un fichier git-trackable
-    + (optionnel) tag signe pour push origin.
+    Catch #1 red-team : git tag privé != trustless. L'operateur solo
+    controle le repo, peut git tag -d + push --force. La seule preuve
+    trustless dans cette position = OpenTimestamps (Bitcoin anchor) ou
+    publish dans audience tierce.
+
+    Strategy V1 (post-catch) :
+    1. Ecrire integrity_anchors/<date>.txt (git-trackable, audit local)
+    2. OTS stamp file (preuve Bitcoin trustless, async ~confirmation)
+    3. git tag annotated (audit secondaire, pas preuve)
+    4. Si require_ots=True : RAISE AnchorFailedError si ots non dispo
+       (L15 fail-closed loud : chain non-ancree -> downstream refuse)
 
     Args:
-        head_hash : chain_hash de la derniere row inseree
-        head_seq : seq correspondant (pour update anchor_ref en DB)
-        anchor_dir : dossier ou ecrire le fichier anchor
+        head_hash, head_seq : head courant chain
+        anchor_dir : git-trackable
+        require_ots : si True, raise si ots absent (default). False =
+          best-effort pour environnements dev sans ots wire.
 
     Returns:
-        dict {anchor_file, head_hash, head_seq, anchor_ref, git_tag_attempted}
+        dict avec anchor_file + ots_file + git_tag + anchor_ref classifie
 
-    Strategy minimale (V0, sans git config) :
-    1. Ecrire data/integrity_anchors/<YYYY-MM-DD>.txt avec head + ts
-    2. Git tag (-s si gpg key configuree, sinon -a unsigned) integrity/<date>-<short>
-    3. anchor_ref = format 'file:<path>' ou 'git_tag:integrity/...'
-
-    Cron daily : scripts/anchor_chain_head_daily.py invoque cette fonction.
+    Raises:
+        AnchorFailedError si require_ots=True ET ots non dispo / fail.
     """
-    import os
+    import shutil
     import subprocess
     from datetime import UTC, datetime
+    from pathlib import Path
 
     now = datetime.now(UTC)
     date_str = now.strftime("%Y-%m-%d")
     ts_iso = now.isoformat()
 
-    # Step 1 : ecrire fichier anchor
-    os.makedirs(anchor_dir, exist_ok=True)
-    anchor_file = os.path.join(anchor_dir, f"{date_str}.txt")
+    # Step 1 : ecrire fichier anchor (echec = fail-closed loud)
+    anchor_path = Path(anchor_dir)
+    anchor_path.mkdir(parents=True, exist_ok=True)
+    anchor_file = str(anchor_path / f"{date_str}.txt")
     content = (
         f"# PRESAGE thesis_integrity_log anchor\n"
         f"date: {date_str}\n"
@@ -140,49 +192,66 @@ def anchor_chain_head(
         f"head_chain_hash: {head_hash}\n"
         f"# Recompute via shared.integrity.verify_chain on rows up to seq={head_seq}\n"
     )
-    try:
-        with open(anchor_file, "w") as f:
-            f.write(content)
-        wrote_file = True
-    except Exception:
-        wrote_file = False
+    with open(anchor_file, "w") as f:
+        f.write(content)
 
-    # Step 2 : git tag (best-effort)
+    # Step 2 : OTS stamp (preuve trustless Bitcoin) -- catch #1 fix
+    ots_available = shutil.which("ots") is not None
+    ots_file = None
+    if ots_available:
+        result_ots = subprocess.run(
+            ["ots", "stamp", anchor_file],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result_ots.returncode == 0:
+            ots_file = anchor_file + ".ots"
+        else:
+            if require_ots:
+                raise AnchorFailedError(
+                    f"ots stamp failed (rc={result_ots.returncode}): "
+                    f"{result_ots.stderr[:200]}. Chain NON-prouvable a T0."
+                )
+    elif require_ots:
+        # L15 loud : pas d'OTS = pas de preuve trustless
+        raise AnchorFailedError(
+            "opentimestamps-client (ots) non installe. Sans OTS, "
+            "git tag prive seul = THEATER (operateur solo controle repo). "
+            "Install : pip install opentimestamps-client. "
+            "Bypass dev (NON-PROUVABLE) : require_ots=False."
+        )
+
+    # Step 3 : git tag annotated (audit secondaire, PAS preuve trustless)
     git_tag_attempted = False
     git_tag_success = False
     tag_name = f"integrity/{date_str}-{head_hash[:8]}"
     try:
-        # Try signed first, fall back to annotated unsigned
-        result_signed = subprocess.run(
-            ["git", "tag", "-s", "-m", f"integrity anchor {date_str}", tag_name],
+        result_annot = subprocess.run(
+            ["git", "tag", "-a", "-m", f"integrity anchor {date_str}", tag_name],
             capture_output=True, text=True, timeout=10,
         )
         git_tag_attempted = True
-        if result_signed.returncode == 0:
-            git_tag_success = True
-        else:
-            # Fall back unsigned annotated
-            result_annot = subprocess.run(
-                ["git", "tag", "-a", "-m", f"integrity anchor {date_str}", tag_name],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result_annot.returncode == 0:
-                git_tag_success = True
+        git_tag_success = (result_annot.returncode == 0)
     except Exception:
         pass
 
-    anchor_ref = (
-        f"git_tag:{tag_name}" if git_tag_success
-        else (f"file:{anchor_file}" if wrote_file else "")
-    )
+    # anchor_ref classification : OTS > git_tag > file
+    if ots_file:
+        anchor_ref = f"ots:{ots_file}"
+    elif git_tag_success:
+        anchor_ref = f"git_tag:{tag_name}"  # WEAKER : pas trustless
+    else:
+        anchor_ref = f"file:{anchor_file}"  # WEAKEST : local-only
+
     return {
-        "anchor_file": anchor_file if wrote_file else None,
+        "anchor_file": anchor_file,
+        "ots_file": ots_file,
+        "ots_attempted": ots_available,
         "head_hash": head_hash,
         "head_seq": head_seq,
         "anchor_ref": anchor_ref,
         "git_tag_attempted": git_tag_attempted,
         "git_tag_success": git_tag_success,
-        "wrote_file": wrote_file,
+        "trustless": ots_file is not None,  # bool clair pour caller
     }
 
 

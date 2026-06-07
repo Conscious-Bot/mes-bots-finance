@@ -16,11 +16,75 @@ import pytest
 
 from shared.integrity import (
     GENESIS_HASH,
+    AnchorFailedError,
+    NonCanonicalTypeError,
+    anchor_chain_head,
     canonical_payload,
     chain_append,
     compute_hash,
     verify_chain,
 )
+
+# === Catch fixes 07/06 nuit++ : footgun + fail-closed ===
+
+
+def test_canonical_raises_on_datetime_not_str_default():
+    """Catch #1 red-team : default=str etait footgun repro. datetime doit
+    raise NonCanonicalTypeError (caller doit normaliser AVANT)."""
+    from datetime import datetime
+    with pytest.raises(NonCanonicalTypeError):
+        canonical_payload({"ts": datetime(2026, 6, 7)})
+
+
+def test_canonical_raises_on_decimal():
+    """Decimal idem datetime : repro impossible si stringifie en douce."""
+    from decimal import Decimal
+    with pytest.raises(NonCanonicalTypeError):
+        canonical_payload({"amount": Decimal("3.14")})
+
+
+def test_canonical_accepts_primitives_only():
+    """Types primitives JSON-natifs OK : str / int / float / bool / None / dict / list / tuple."""
+    payload = {
+        "s": "hello", "i": 42, "f": 3.14, "b": True, "n": None,
+        "lst": [1, 2.0, "three"], "dct": {"nested": True},
+    }
+    # Doit pas raise
+    result = canonical_payload(payload)
+    assert isinstance(result, str)
+
+
+def test_anchor_require_ots_raises_when_unavailable():
+    """Catch #2 red-team : sans OTS, require_ots=True doit RAISE
+    AnchorFailedError (L15 fail-closed loud, pas silent fallback)."""
+    import shutil
+    if shutil.which("ots") is not None:
+        pytest.skip("ots installe, ne peut pas tester le raise")
+    with pytest.raises(AnchorFailedError, match="ots"):
+        anchor_chain_head(
+            head_hash="a" * 64, head_seq=1,
+            anchor_dir="/tmp/test_anchor_dir",
+            require_ots=True,
+        )
+
+
+def test_anchor_require_ots_false_allows_dev_bypass():
+    """require_ots=False = dev mode explicit, returns dict avec trustless=False."""
+    result = anchor_chain_head(
+        head_hash="b" * 64, head_seq=2,
+        anchor_dir="/tmp/test_anchor_dir_bypass",
+        require_ots=False,
+    )
+    assert result["trustless"] is False
+    assert result["anchor_file"] is not None
+    # anchor_ref classifie : ots / git_tag / file selon dispo
+    assert result["anchor_ref"].startswith(("file:", "git_tag:", "ots:"))
+    # Cleanup
+    import os
+    for f in os.listdir("/tmp/test_anchor_dir_bypass"):
+        os.remove(os.path.join("/tmp/test_anchor_dir_bypass", f))
+    os.rmdir("/tmp/test_anchor_dir_bypass")
+
 
 # === Test 1 : canonical reproducibility (float format strict) ===
 
