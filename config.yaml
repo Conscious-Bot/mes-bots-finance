@@ -375,6 +375,14 @@ risk:
   vol_scaling_threshold_vix: 21
   vol_scaling_factor: 0.7
   validate_enabled: false
+  # Carte-decision #1 etape 4 : budget-ruine NAV-at-risk par nom.
+  # Sub-Kelly N<100 : sizing honnete bride par asymetrie x evitement-de-ruine,
+  # PAS conviction-only. Sur 53k€ book : 1.5% = ~795€ downside max par nom.
+  # Target-edge-adjusted = min(target-conv, ruin_budget / |downside_pct|).
+  ruin_budget_per_name_pct: 0.015
+  # ADD steer par defaut DESACTIVE (anti-FOMO red-team user 07/06 (a) :
+  # ne construis aucun signal d'alpha/prediction). ADD requiert opt-in explicite.
+  allow_add_steer: false
 
 # =============================================================================
 # STRATEGIE UTILISATEUR DECLAREE (Sprint 19, 29/05/2026)

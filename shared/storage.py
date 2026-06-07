@@ -3661,12 +3661,21 @@ def get_conviction_drift(thesis_id: int) -> dict | None:
                 int(current) - int(at_entry)
                 if (current is not None and at_entry is not None) else 0
             )
-            # Compte drifts dans chain
-            drift_rows = cx.execute(
-                "SELECT payload_json, created_at FROM thesis_integrity_log "
-                "WHERE thesis_id=? ORDER BY seq DESC",
-                (thesis_id,),
-            ).fetchall()
+            # Compte drifts dans chain. Colonne canonique = captured_at
+            # (cf migration 0033). Tests utilisent created_at en alias.
+            try:
+                drift_rows = cx.execute(
+                    "SELECT payload_json, captured_at FROM thesis_integrity_log "
+                    "WHERE thesis_id=? ORDER BY seq DESC",
+                    (thesis_id,),
+                ).fetchall()
+            except Exception:
+                # Fallback test schemas qui utilisent created_at
+                drift_rows = cx.execute(
+                    "SELECT payload_json, created_at FROM thesis_integrity_log "
+                    "WHERE thesis_id=? ORDER BY seq DESC",
+                    (thesis_id,),
+                ).fetchall()
             n_drifts = 0
             last_drift_at = None
             for pr in drift_rows:
