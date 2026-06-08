@@ -808,3 +808,39 @@ Source canonique : `docs/QUALITY_BAR.md` M1 doctrine (figé 07/06). L23 ici gén
 ### Référencer
 
 Source de l'incident : commit `b8ef1b4` cornerstone C6 (08/06). La formule corrigée est documentée dans `intelligence/divergence_engine.py` docstring + `SPEC_CORNERSTONE.md` note d'erratum. CLAUDE.md "Catches récurrents" : avant toute abstraction nouvelle, demander **"quel est mon tracer-bullet ?"** — si la réponse est "des mocks", la doctrine n'est pas respectée.
+
+
+## L25 — Suivi du canonique (gravé ≠ appliqué)
+
+**Catch** : un SPEC gravé sans mécanisme de suivi devient un objet mort. Au mieux il dort, au pire il invite la dérive : un autre agent (ou moi-même) le ré-écrit en doublon parce que personne ne vérifie l'existant ; ses contrats ne sont jamais wired ; le canonique se fragmente silencieusement. La gouvernance d'une doctrine n'est pas son écriture — c'est son suivi.
+
+**Le cas fondateur (08/06/2026, session doctrine post-cornerstone)** :
+- Olivier signale "il y a beaucoup à enrichir, aussi si elle existe déjà pourquoi n'est-elle pas appliquée".
+- Audit immédiat : 8 SPECs gravés dans le repo (`SPEC_*.md`), **un seul** (`SPEC_CORNERSTONE.md`) référencé par du code Python (4 fichiers). 7/8 = orphelins doctrinaux.
+- Pire : dans la session courante, j'ai créé **2 doublons** en 30 minutes :
+  - `SPEC_POSITIONS_CARD_LIAISON.md` alors que `SPEC_POSITIONS_CARD_LINK.md` existait déjà (mot synonyme — j'aurais dû `ls SPEC_*.md` avant de toucher).
+  - `SPEC_TAXONOMY_PROFILES.md` alors que `SPEC_SECTOR_TAXONOMY.md` existait déjà.
+- Pendant ce temps, la **fondation** (étape A du master §5) reste cassée : `eur_value` figé à J-15, incohérence 0,5×/1,80×, deux chemins de valorisation divergents. **Le goulot du projet n'est plus la doctrine, c'est l'absence de fondation honnête sur laquelle elle peut atterrir.** L'anti-pattern original (méta-étage qui court devant un socle cassé) que l'audit pivotal a diagnostiqué — je l'ai reproduit cette session.
+
+**Règle générale** : graver un canonique implique trois engagements indissociables :
+1. **Anti-doublon** : avant tout nouveau SPEC, `ls SPEC_*.md` + scan titres sur synonymes (link/liaison, taxonomy/profiles, etc.) puis grep du concept clé. Doublon créé = build rouge.
+2. **Implementation Status footer** dans chaque SPEC : date gravage, date enrichissement, fichiers cibles (chemins concrets), état (`NOT_STARTED` / `IN_PROGRESS` / `IMPLEMENTED` / `DRIFTED`), prochain step (référence TODO).
+3. **Audit drift automatisé** : script qui scanne tous les `SPEC_*.md`, vérifie le footer + l'existence des fichiers cibles, et compte les références code → reporte les orphelins. Intégré au `/close` rituel.
+
+**Anti-pattern à bannir** :
+- Graver un SPEC pour "se débarrasser de l'idée" et passer à autre chose. Un SPEC sans plan d'implémentation visible = dette doctrinale.
+- Empiler de la doctrine quand la fondation est cassée. **Goulot d'abord, doctrine ensuite** — la doctrine sur fondation cassée est performative.
+- Reformuler un canonique existant dans un nouveau SPEC. Si une SPEC mérite réécriture, elle se réécrit en place (avec note d'erratum traçable, cf L24).
+
+**Application** :
+- Pour chaque SPEC en cours/à venir : ajouter footer Implementation Status + créer la tâche TODO de référence + lier au CANONICAL_MAP.
+- Pour chaque session : `scripts/audit_canonical_drift.py` en sortie du `/close`.
+- Avant tout nouveau SPEC : `ls SPEC_*.md && rg -l "<concept>" SPEC_*.md` — **vérification obligatoire**, pas optionnelle.
+
+### Test verrouillé
+
+`scripts/audit_canonical_drift.py` (à wirer, cf TODO #104) : reporte par SPEC le ratio référence-code / orphelin. Build rouge si un SPEC sans footer Implementation Status, ou si un orphelin reste > N jours après gravage sans plan TODO de référence.
+
+### Référencer
+
+CLAUDE.md "Catches récurrents" : avant toute nouvelle SPEC, demander **"existe-t-il déjà un SPEC sur ce concept ? Quel est le plan d'implémentation ?"** — si la réponse est "non" ou "on verra plus tard", la doctrine n'est pas respectée. La règle voisine de [[L24]] (walking skeleton catches formule wrong) est : un SPEC gravé sans implémentation présuppose une formule qu'aucun tracer-bullet n'a vérifiée — double risque.

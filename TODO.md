@@ -1,8 +1,72 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 07 juin 2026 sexies (Carte-decision #1 sequence complete + moteur #2 thesis_erosion + BookLine canonique amont)
+**Refresh** : 08 juin 2026 (PIVOT FONDATION — session doctrine en suspens, base d'abord)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
+
+---
+
+## 🚨 PIVOT FONDATION (08/06/2026) — RECONSTRUCTION DOCTRINE EN SUSPENS
+
+**Constat méta d'Olivier (08/06)** : « le goulot a changé de place. La session a produit ~15 docs de doctrine d'une cohérence rare et le build est à C6. L'urgent n'est PLUS de penser ou de spécifier — c'est devenu abondant. L'urgent c'est de poser la fondation que toute cette doctrine présuppose. Si je continue à empiler des specs pendant que la base reste fissurée, je reproduis exactement l'anti-pattern que l'audit d'origine a diagnostiqué : un méta-étage brillant qui court devant un socle cassé. »
+
+**Symptômes visibles dans le repo** :
+- `eur_value` figé à J-15 (stocké dans notes, pas une colonne typée live)
+- Incohérence 0,5× rouge (page positions) vs 1,80× favorable (card) sur le **même ticker** → deux chemins de valorisation divergents
+- 14+ imports `yfinance` hors `prices.py` (audit cornerstone seams), donc M1 (triple val/asof/source) n'est jamais honnête
+- `base_health.py` (master §5 étape A3) jamais construit — pas de scoreboard, donc pas de signal binaire « base OK / base cassée »
+- OTS ancrage prédictions : script existe (`scripts/integrity_anchor.sh`) mais pas wire opérationnel → chaque jour de prédictions sans ancrage = un jour de track-record improuvable après coup (irréversible, gaté par le temps)
+
+**Verdict** : le poids du cornerstone (gouverneur, position-card, fragilité, micro v0) est sur le point d'atterrir DESSUS. Chaque feature cornerstone bâtie sur base cassée mentira en silence. Fenêtre pour corriger à pas cher = MAINTENANT, avant que le poids tombe.
+
+### 🟢 SOCLE — la racine porteuse (masterpiece) + exécution
+
+**Sources canoniques** :
+- `SPEC_SOCLE.md` — la **masterpiece** : Datum + propagation + Gateways. M1 + fail-closed + confiance deviennent des **propriétés structurelles** de l'étage au-dessus, pas de la discipline répétée.
+- `HANDOFF_SOCLE.md` — exécution ordonnée (S0-S3) + schémas SQL + gates CI + tests + DoD.
+
+**Insight masterpiece** : tout nombre du système est un `Datum[T]` (`value, asof, source, confidence` → `staleness/degraded` calculés). Une seule règle `derive(fn, *inputs)` propage `asof=min`, `confidence=combine`, `degraded=any`. **Tout l'étage compose des Datums passés par des gateways → hérite gratuitement de M1, du fail-closed et de la confiance.**
+
+**Résumé exécutable** :
+
+| Stage | Tâche | Dépend | DoD |
+|---|---|---|---|
+| **S0** (parallèle, immédiat, IRRÉVERSIBLE) | #108 OTS anchor cron live | — | `.ots` pour ledger courant + committé |
+| **S1a** (Datum primitif — la matière) | #109 `shared/datum.py` + `derive()` propagation | — | Datum frozen + derive testé |
+| **S1b** (gateways prix/fx) | #106 `prices.get()/fx()` retournent `Datum[T]` + history + gate yfinance | S1a | triple partout + gate active |
+| **S2** | #105 migration positions + `value_eur()` dérivé via `derive()` | S1b | `eur_value`-in-notes mort + dérivé partout |
+| **S3** | #107 `base_health.py` vert | S1+S2 | GREEN sur Positions vérité + Fraîcheur + Chaîne intègre |
+
+**Invariants porteurs** (cf `SPEC_SOCLE.md` §7) :
+
+1. Pas de float nu au-dessus du socle (gate sur les retours non-typés).
+2. Pas de bypass de gateway (gates CI prix/fx/db).
+3. `degraded` jamais décidé à la main en haut — il se propage.
+4. `base_health` vert = pré-condition de ship book-facing.
+5. `Datum` frozen — l'étage **compose**, ne **mute pas**.
+
+**Tant que les 4 DoD ne sont pas verts, AUCUNE partie book-facing du cornerstone (gouverneur, position-card, fragilité) ne ship.** Elles liraient une base cassée et steeraient faux avec assurance. **Le socle d'abord, le poids ensuite.**
+
+### 🟡 EN SUSPENS (reprise après base au vert)
+
+Tâches doctrine/refonte mises **explicitement** en suspens par décision 08/06 :
+
+- **#99** Update 00_HANDOFF_MASTER pile §2 + séquence §5 (insérer 3 SPECs enrichis + L25 dans contrat §7)
+- **#100** C7a-1 `config/alert_vocabulary.yaml` + gate CI (aucune alerte hard-codée hors registre)
+- **#101** C7a-2 `config/sector_profiles.yaml` + `taxonomy.yaml` (semis tier-S d'abord)
+- **#102** C7a-3 Liaison positions↔card refactor (PositionView source unique) — **doublement bloqué** : (a) demande base prix honnête, (b) résout par construction l'incohérence 0,5×/1,80× QUI VIENT DE LA BASE CASSÉE
+- **#104** `scripts/audit_canonical_drift.py` + intégration `/close` (mécanisme L25)
+- **#88** FUTURE : M2 self-application — Brier-scorer le moteur thesis_erosion
+- **#92** FUTURE post-cornerstone-macro : build consensus micro projection per SPEC_CONSENSUS_MICRO
+- Reste de C7 (wire 7 autres macro inputs + backtest historique 2015-2024) — pas reprogrammé tant que C7a non démarré
+
+**Doctrine livrée cette session (intacte, attend implémentation)** :
+- `SPEC_CORNERSTONE.md` §1 erratum (formule D corrigée via tracer-bullet C6)
+- `SPEC_POSITIONS_CARD_LINK.md` enrichi (§7 archi + §8 build + §9 seams + §10 status)
+- `SPEC_SECTOR_TAXONOMY.md` enrichi (§7 tests shrinkage + tier-S exclusif + §8 build + §9 seams + §10 status)
+- `SPEC_ALERT_VOCABULARY.md` enrichi (§6 archi + §7 gate CI + §8 build sequence)
+- `docs/LESSONS.md` L24 (walking skeleton catches formule-wrong) + L25 (suivi du canonique)
+- 2 doublons SPEC créés par moi (08/06) supprimés : `SPEC_POSITIONS_CARD_LIAISON.md` + `SPEC_TAXONOMY_PROFILES.md`
 
 ---
 
