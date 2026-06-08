@@ -2396,3 +2396,72 @@ d0e5fdd [PRIMITIF UNIQUE] shared/book.value_eur() — cœur partagé
 11dfa48 [CURE RACINE] SPEC_MONEY_INVARIANT + M1 + write-once + tests verrouillants
 e1db756 [doc] SPEC_POSITIONS_CARD_LINK §7.bis : PositionView = objet UNIQUE
 ```
+
+---
+
+## Close 2026-06-09 (nuit) — désynchro broker↔DB découverte + SK Hynix réaligné, cure racine partial_close en TODO
+
+### Contexte d'enchaînement
+
+Suite immédiate de la cure money_invariant (panneau SK Hynix "retarded"). Olivier signale `+14,3%` côté broker mais le panneau affiche curseur à 36% (native KRW). Investigation pousse plus loin que la cure money de la nuit précédente : la cure architecturale (Datum[Monetary], 6/6 serrures, primitif `book.value_eur`) était correcte **mais s'appuyait sur un state DB déjà désynchronisé du broker**.
+
+### Découverte structurelle (le vrai diagnostic)
+
+Olivier fournit ground truth SK Hynix : achat 15-mai 1.886792 actions @ 1060€, vente partielle 0.371212 @ 1325€, reste 1.515580 actions @ 1060€ avg, P&L réalisé +98.37€.
+
+**DB SK Hynix avant** : qty 1.4809 (-2.3%), avg_cost_eur 1085 (vs 1060 réel), avg_cost_currency "KRW" (faux : achat exécuté EUR via TR), realized_pnl 77.88 (incohérent), entry_value 1,512,443 KRW (= clobber inverse arbitraire fait par migration "P0 dette KNOWN_DEBT" du 30/05 avec fx=1450 sur entry pre-bug 1043€, pas 1060€).
+
+**Insight Olivier (le tournant)** : *« j'ai l'impression que toutes les ventes partielles et resizing, re-placement sur gauge n'ont jamais été faits. Par contre la valeur a bien été réduite et la valeur actuelle est réelle. »* → c'est ÇA le bug structurel, pas la corruption monetary seule. Le **pipeline broker import** fait du **qty alignment cosmétique** mais ne déclenche AUCUN `partial_close handler` (cost basis, realized_pnl, re-target gauge jamais re-calculés).
+
+### Audit portée réelle
+
+Inventory positions avec signes de désynchro (realized_pnl ≠ 0 OU notes "qty_aligned" OU avg ≠ avg_eur quand cur=EUR) :
+
+| Position | qty | avg | avg_eur | realized_pnl | Signe |
+|---|---|---|---|---|---|
+| **000660.KS** (SK Hynix) | 1.4809 | 1060.00 | 1084.83 | +77.88 | qty_aligned + ground truth fournie ✓ |
+| **6920.T** (Lasertec) | 6.6038 | 214.00 | 230.51 | -2.79 | qty_aligned, petite vente |
+| **ALAB** (Astera Labs) | 5.0913 | 188.25 | 184.92 | **+228.49** | vente partielle significative |
+| **CCJ** (Cameco) | 18.4836 | 94.86 | 93.62 | -7.72 | petite vente perdante |
+| **MU** (Micron) | 1.2969 | 449.51 | 431.23 | **+425.33** | vente partielle TRÈS significative |
+| SU.PA | 6.0000 | 220.00 | 219.49 | 0 | Δ 0.51€ — artefact mineur, skippé |
+
+**5 positions** où le pipeline broker import a réduit qty silencieusement sans recalcul propre. 4 attendent ground truth Olivier (ALAB et MU prioritaires).
+
+### Livré ce soir
+
+**SK Hynix réaligné atomiquement** (DB) :
+- Backup `data/bot.db.backup_skhynix_realign_20260609_020506` (31.8 MB)
+- UPDATE positions : qty 1.480917 → **1.515580**, avg_cost_eur 1085 → **1060**, avg_cost_native 1085 → 1060, avg_cost_currency "KRW" → **"EUR"** (achat EUR via TR), realized_pnl 77.88 → **98.37**, fx_at_purchase 1.0 (cohérent achat EUR).
+- INSERT `position_audit_log` id=83 (`event_type=input_correction`, source `session_2026-06-09_night`, payload JSON complet avec trade history reconstructed + rationale + before/after + rappel des 4 autres positions à reconciler).
+- Invariant **cost_remaining = qty × avg_cost_eur = 1.515580 × 1060.00 = 1606.51€** ✓ ground truth exact.
+- Dashboard re-rendered : panneau SK Hynix affiche maintenant P&L correct depuis 1060€.
+
+**NON touché délibérément** :
+- Niveaux thèse SK Hynix (`stop_value`, `target_partial_value`, `target_full_value`) en KRW restent — re-target à froid demain, par nom, comme BESI/ENTG.
+- 4 autres positions (6920.T, ALAB, CCJ, MU) — attendent ground truth Olivier.
+
+### Verdict honnête
+
+La cure money de cette nuit a été **correctement implémentée mais s'appuyait sur des données DB déjà fausses**. Le système avait :
+- **Lane architecturale** money (corrigée hier : Datum[Monetary], write-once, primitif partagé) ✓
+- **Lane comptable** broker↔DB (DÉCOUVERTE cette nuit : pas de `partial_close handler`, qty cosmétique sans propagation cost basis / P&L / niveaux) → cure racine pending.
+
+Le "panneau retarded" n'était ni un bug d'affichage ni une target dépassée — c'était la **DB qui ne reflétait pas la réalité broker** sur 5 positions.
+
+### Entry next session (à froid)
+
+1. **Ground truth ALAB + MU + 6920.T + CCJ** : Olivier dicte timeline trades par nom (date, qty, price, partial vs full). Update positions + audit_log même pattern que SK Hynix.
+2. **Cure racine `partial_close handler`** (Sprint dédié — bug structurel, pas patch) : quand le broker import détecte qty réduite, déclencher recalc cost basis (FIFO ou avg proportionnel selon choix méthode comptable), recalc realized_pnl, prompt re-target gauge thèse (= acte délibéré loggué position_audit_log). Couvre les 5 positions ET prévient le bug pour les futures ventes partielles.
+3. **Re-target SK Hynix par nom** : Olivier dicte nouveaux stop / target_partial / target_full en EUR-broker convention. UPDATE theses + audit. Le panneau gauge SK Hynix restera bizarre tant que niveaux thèse pas re-dictés (entry_value KRW reste là, current_price_eur dérivé OK, mais gauge calcule sur entry_native).
+4. **Audit broader** : checker les positions historiquement closes (status='closed') pour voir si le bug a aussi affecté la comptabilité réalized des positions sorties.
+
+### Tag
+
+`session_close_2026-06-09_night` — backup `data/bot.db.backup_skhynix_realign_20260609_020506`. Audit log id=83.
+
+### Commits session 09/06 nuit
+
+```
+[à venir]  [DB realign] SK Hynix qty/avg/realized_pnl ground truth + audit log
+```

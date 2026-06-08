@@ -1,8 +1,31 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 09 juin 2026 nuit (saga corruption monetary close, lane yfinance render fermée, lane dispersion en cours)
+**Refresh** : 09 juin 2026 nuit++ (désynchro broker↔DB découverte sur 5 positions, SK Hynix réaligné, cure racine `partial_close handler` ouverte)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
+
+---
+
+## 🔴 P0 IMMÉDIAT (09/06 nuit++) — Désynchro broker↔DB + cure `partial_close handler`
+
+**Découverte cette nuit** : la cure money de la session précédente (Datum[Monetary], 6/6 serrures, primitif `book.value_eur`) était architecturalement correcte mais s'appuyait sur un state DB déjà désynchronisé du broker. Le pipeline broker import fait du `qty alignment` cosmétique mais ne déclenche AUCUN `partial_close handler` — donc `avg_cost_eur`, `realized_pnl`, et niveaux thèse jamais recalculés post-vente partielle.
+
+**Portée constatée** : 5 positions avec signes de désynchro (audit `position_audit_log` id=83 SK Hynix + inventory). SK Hynix réaligné cette nuit (qty 1.4809 → 1.515580, avg_eur 1085 → 1060, rPnL 77.88 → 98.37, audit log). **4 positions attendent ground truth Olivier** :
+
+| Ticker | qty DB | avg_eur DB | realized_pnl DB | Hypothèse |
+|---|---|---|---|---|
+| **ALAB** | 5.0913 | 184.92 | **+228.49** | vente partielle significative non-réconciliée |
+| **MU** | 1.2969 | 431.23 | **+425.33** | vente partielle TRÈS significative |
+| **CCJ** | 18.4836 | 93.62 | -7.72 | petite vente perdante |
+| **6920.T** | 6.6038 | 230.51 | -2.79 | petite vente |
+
+**Tâche #121 (P0 immédiat à froid)** — Reconciliation 4 positions : Olivier dicte timeline trades par nom (date, qty, price, partial vs full). UPDATE positions + INSERT `position_audit_log event_type=input_correction` même pattern que SK Hynix id=83.
+
+**Tâche #122 (P0 — Sprint dédié, cure racine)** — `partial_close handler` proper : quand `broker_import` détecte qty réduite, déclencher recalc `cost_basis` (FIFO vs avg proportionnel — choix méthode comptable explicite), recalc `realized_pnl`, prompt re-target gauge thèse via `position_audit_log`. Tests : 5 invariants (cost_remaining = qty × avg_cost_eur ; realized_pnl = Σ((price_sell - avg_cost_eur_at_sell) × qty_sell) ; etc). Couvre les 5 cas ET prévient pour futures ventes partielles.
+
+**Tâche #123** — Re-target SK Hynix par nom : Olivier dicte nouveaux stop / target_partial / target_full en EUR-broker convention. UPDATE theses + audit. Le panneau gauge SK Hynix reste bizarre tant que niveaux thèse pas re-dictés (entry_value KRW reste, current_price_eur dérivé OK, mais gauge calcule sur entry_native vs current_native).
+
+**Tâche #124** — Audit broader : checker positions historiquement closes (status='closed') pour voir si bug a affecté la comptabilité realized des positions sorties. Si désynchro = `realized_pnl` global mensonger → fix puis re-calcul Brier closes.
 
 ---
 
