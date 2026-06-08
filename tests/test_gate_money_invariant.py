@@ -90,6 +90,50 @@ def test_gate_detects_baseline_arithmetic_violation():
         VIOLATION_PATH.unlink(missing_ok=True)
 
 
+def test_stop_value_is_mutable_not_writeonce():
+    """Substrat CANONICAL_MAP §2 : stop/target = décisions VIVANTES (trailing
+    stop, re-target), pas faits immuables. Si quelqu'un re-pose un write-once
+    sur stop/target, ce test casse — garde anti-régression doctrine.
+
+    Sans ce test : un futur commit pourrait re-introduire write-once sur stop
+    « par symétrie avec entry », ce qui ramène la friction §3 sur chaque
+    ajustement de gestion. Le test verrouille la doctrine mutable.
+    """
+    import sqlite3
+    from shared import storage
+
+    with storage.db() as cx:
+        cx.row_factory = None
+        row = cx.execute(
+            "SELECT id, stop_value FROM theses "
+            "WHERE status='active' AND stop_value IS NOT NULL LIMIT 1"
+        ).fetchone()
+    if row is None:
+        pytest.skip("No active thesis with stop_value to test mutability")
+    thesis_id, current_stop = row
+    new_stop = current_stop * 1.05  # +5% trailing stop simulation
+
+    # UPDATE doit PASSER (pas de RAISE) -- stop est mutable
+    try:
+        with storage.db() as cx:
+            cx.execute(
+                "UPDATE theses SET stop_value = ? WHERE id = ?",
+                (new_stop, thesis_id),
+            )
+        # Restore valeur originale (pour ne pas polluer prod)
+        with storage.db() as cx:
+            cx.execute(
+                "UPDATE theses SET stop_value = ? WHERE id = ?",
+                (current_stop, thesis_id),
+            )
+    except sqlite3.IntegrityError as e:
+        pytest.fail(
+            f"stop_value n'est PAS mutable (UPDATE rejeté : {e}). "
+            "Doctrine : stop = décision vivante (trailing stop, re-target), "
+            "jamais write-once. Cf CANONICAL_MAP §2 état-mutable."
+        )
+
+
 def test_writeonce_trigger_rejects_entry_value_update():
     """Serrure D (Olivier) : write-once trigger sur entry_value doit RAISE
     quand un UPDATE post-INSERT tente de changer la valeur.

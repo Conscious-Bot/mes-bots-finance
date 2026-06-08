@@ -74,23 +74,27 @@ def upgrade() -> None:
     # Cette migration est portable : fresh test DB, CI, futur clone, tous la
     # rejouent sans dépendre d'un fichier backup local.
 
-    # 4. CREATE TRIGGER write-once sur les baselines de theses (§3 spec)
-    # Settable une fois (INSERT initial), tout UPDATE qui change la valeur après = ABORT.
-    # Note : on autorise NULL -> valeur (set initial post-INSERT) ; on rejette valeur -> autre valeur.
-    for col_base in ("entry", "stop", "target_partial", "target_full"):
-        for col_suffix in ("value", "currency", "asof"):
-            full_col = f"{col_base}_{col_suffix}"
-            op.execute(f"""
-                CREATE TRIGGER theses_{full_col}_writeonce
-                BEFORE UPDATE OF {full_col} ON theses
-                FOR EACH ROW
-                WHEN OLD.{full_col} IS NOT NULL AND OLD.{full_col} != NEW.{full_col}
-                BEGIN
-                    SELECT RAISE(ABORT,
-                        '{full_col} is write-once post-open (cf SPEC_MONEY_INVARIANT §3 + L28)'
-                    );
-                END;
-            """)
+    # 4. CREATE TRIGGER write-once UNIQUEMENT sur entry_* (immuable, fait historique).
+    # stop/target_partial/target_full sont des DÉCISIONS VIVANTES (trailing stop,
+    # re-target sur news) — substrat mutable + history (cf CANONICAL_MAP §2,
+    # red-team Olivier 08/06 nuit). Les figer write-once = friction §3 à chaque
+    # ajustement de gestion = absurde.
+    #
+    # entry_price = prix à l'appel de la thèse, FIGÉ pour le track-record du jugement.
+    # Le UPDATE entry := avg_cost (vecteur du clobber 06/06) reste fermé.
+    for col_suffix in ("value", "currency", "asof"):
+        full_col = f"entry_{col_suffix}"
+        op.execute(f"""
+            CREATE TRIGGER theses_{full_col}_writeonce
+            BEFORE UPDATE OF {full_col} ON theses
+            FOR EACH ROW
+            WHEN OLD.{full_col} IS NOT NULL AND OLD.{full_col} != NEW.{full_col}
+            BEGIN
+                SELECT RAISE(ABORT,
+                    '{full_col} is write-once post-open (cf SPEC_MONEY_INVARIANT §3 + L28)'
+                );
+            END;
+        """)
 
 
 def downgrade() -> None:
