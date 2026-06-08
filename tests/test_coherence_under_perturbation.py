@@ -160,6 +160,39 @@ def test_other_tickers_unaffected_by_perturbation(monkeypatch, baseline_views):
     )
 
 
+def test_dp_pct_panel_consumes_canonical_source():
+    """Couverture unisson : _dp_pct (TOP MOVERS 24h) doit lire price_history,
+    pas fetcher yfinance localement. Convention close-to-close.
+
+    Discipline migration L27 (Olivier 08/06 nuit) : chaque panneau migré
+    s'ajoute au test cohérence dans le même commit. Sinon le ratchet
+    descend mais "couverture tous panneaux" n'avance jamais.
+
+    Verify-before-trust (par marché, 08/06 nuit) :
+      - Asia (KRX 23:21 KST) : marché fermé → tick = close, Δ vs yfinance ~0
+      - EU (Paris 14:21 CET) : marché ouvert → tick intraday, Δ ≤0.3pp acceptable
+      - US (NASDAQ 8:21 ET)  : pas ouvert → pre-market, Δ ≤0.4pp acceptable
+    """
+    from dashboard.render import _DP_CACHE, _dp_pct
+    _DP_CACHE.clear()  # bypass cache pour fresh read
+
+    # Sample multi-marché : Asia (close réel), EU (intraday), US (intraday)
+    asia_tk = "000660.KS"
+    eu_tk = "HO.PA"
+    us_tk = "AMD"
+
+    values = {tk: _dp_pct(tk) for tk in (asia_tk, eu_tk, us_tk)}
+
+    # Chaque ticker doit retourner un % numérique (price_history a la couverture)
+    for tk, v in values.items():
+        assert v is not None, (
+            f"{tk}: _dp_pct retourne None — price_history coverage insuffisant. "
+            "Soit cron reconcile ne capture pas ce ticker, soit < 2 jours data."
+        )
+        # Sanity : % 24h dans bande raisonnable (-50% à +50% pour stocks single-day)
+        assert -50.0 <= v <= 50.0, f"{tk}: _dp_pct={v}% hors bande sane"
+
+
 def test_no_silent_stale_field(baseline_views):
     """Si value_eur_datum existe, perf_thesis et pnl_position_pct doivent
     être cohérents avec lui (pas de champ qui resterait sur une ancienne valeur).

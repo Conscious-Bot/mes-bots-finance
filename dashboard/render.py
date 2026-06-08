@@ -195,22 +195,57 @@ _DP_TTL = 840.0
 
 
 def _dp_pct(ticker: str) -> float | None:
-    # Variation % du jour (cloture veille -> dernier close). Invariant en devise: none conversion FX.
+    """Variation % 24h : close-to-close officiel via gateway prices canonique.
+
+    Convention décidée 08/06 nuit (red-team Olivier) :
+      - Source price_history (L1, alimentée par cron). NON yfinance local
+        (bypass éliminé du callsite render.py).
+      - Convention close-to-close : matche broker / Yahoo. Le ratio rolling-live
+        (dernier tick intraday vs close veille) diverge selon timezone du marché :
+          * Asia (KRX/TSE) à 14:21 FR : marchés fermés, dernier tick = close, diff ~0
+          * EU (Paris/Amsterdam) à 14:21 CET : marchés ouverts, tick intraday, diff ≤0.3pp
+          * US (NASDAQ) à 8:21 ET : pas ouvert, tick = pre-market, diff ≤0.4pp
+        On REFUSE cette divergence convention-broker pour un panel "% 24h".
+      - Fallback : si close du jour pas dispo (marché ouvert), prend dernier tick
+        intraday (pour Asie c'est = close, pour EU/US c'est intraday accepté
+        comme "best available" jusqu'au close réel à 22h+ FR).
+
+    Returns None si moins de 2 jours de données (fail-closed L15).
+    """
     import time as _t
+    from datetime import UTC, datetime, timedelta
 
     now = _t.monotonic()
     hit = _DP_CACHE.get(ticker)
     if hit is not None and now - hit[1] < _DP_TTL:
         return hit[0]
+
     v: float | None = hit[0] if hit is not None else None
     try:
-        import yfinance as yf
-
-        closes = yf.Ticker(ticker).history(period="5d", interval="1d")["Close"].dropna()
-        if len(closes) >= 2:
-            v = round((float(closes.iloc[-1]) / float(closes.iloc[-2]) - 1.0) * 100.0, 1)
+        from shared import storage
+        with storage.db() as cx:
+            cx.row_factory = None
+            # 2 derniers jours de close (dernier tick par jour). Si marché Asia
+            # déjà clos → tick = close réel. Si marché US/EU encore ouvert →
+            # tick intraday, accepté comme best-available pour panel temps réel.
+            rows = cx.execute("""
+                WITH day_lasts AS (
+                    SELECT price_native,
+                           substr(asof, 1, 10) AS day,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY substr(asof, 1, 10)
+                               ORDER BY asof DESC
+                           ) AS rn
+                    FROM price_history WHERE ticker = ?
+                )
+                SELECT price_native, day FROM day_lasts WHERE rn = 1
+                ORDER BY day DESC LIMIT 2
+            """, (ticker,)).fetchall()
+        if len(rows) >= 2 and rows[0][0] and rows[1][0]:
+            v = round((rows[0][0] / rows[1][0] - 1.0) * 100.0, 1)
     except Exception:
         pass
+
     _DP_CACHE[ticker] = (v, now)
     return v
 
