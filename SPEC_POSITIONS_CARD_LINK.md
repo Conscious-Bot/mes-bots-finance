@@ -90,6 +90,14 @@ dashboard/render.py
 - `position_steer.compute` consommé **une fois** dans `compute_position`, écrit dans `PositionView.steer`. Réutilise `CardInputs` / `SteerOutput` extraits en carte-décision étape 2/3 (PositionView = leur fusion + extension qty/mv/pnl).
 - **Vocabulary discipline** (cf `SPEC_ALERT_VOCABULARY`) : `view.steer.chip ∈ enum STEER-act du registre`, jamais string libre.
 
+### 7.bis Généralisation — PositionView = objet unique de TOUS les panels position
+
+`PositionView` n'est pas réservé à card+row. C'est l'objet **unique** que **tout panel** touchant une position consomme — closest-to-target, cluster health, sizing overcap, performance, urgence, P&L tape, etc. Aucun panel ne re-fetch un prix, ne re-dérive un P&L, ne re-calcule un ratio. Tout panel reçoit un (ou un dict de) `PositionView` et **lit** ses champs.
+
+Le point d'entrée render-level du socle est `get_all_positions_views() -> dict[ticker, PositionView]` : appelé **une fois** au début de `render()`, ce dict est passé en argument à tous les panels. C'est la généralisation de §6 SPEC_SOCLE à l'altitude render — aucune couche ne fabrique de nombre nu, ne bypass un gateway, ni ne décide son propre degraded. Render obéit, comme le reste de la pile.
+
+Migration étagée (jamais big-bang) : seam additif d'abord (`get_all_positions_views()` testé en isolation), puis panel-par-panel par visibilité décroissante avec byte-identité asserted contre l'ancien helper local — chaque diff est un finding (souvent le vieux mensonge). Gate CI ratchet sur grep `_cached_price_*|fx_rate_to_eur|(current - entry)` au compte courant, decreasing-only — chaque commit baisse, aucun remonte. Référence : pattern yfinance bypasses §S1c.
+
 ## 8. Build sequence
 
 1. Définir `PositionView` Pydantic frozen + `RowView` (projection).
