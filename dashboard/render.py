@@ -1033,22 +1033,28 @@ def _fetch_benchmark_equity_curve():
             return curve
 
     try:
-        import yfinance as yf
-        df = yf.download(
-            tickers=_BENCHMARK_TICKER, period="1y", interval="1d",
-            auto_adjust=True, progress=False, threads=False,
+        # Phase 4 #6 (dernier bypass yfinance render.py) : gateway canonique.
+        # period="1y" yfinance = ~365j calendaires via relativedelta(years=1).
+        # end=today+1 cf finding #3 end-exclusive.
+        from datetime import UTC, datetime, timedelta
+
+        import pandas as pd
+        from dateutil.relativedelta import relativedelta
+
+        from shared.prices import get_price_window
+
+        today = datetime.now(UTC).date()
+        end = today + timedelta(days=1)
+        start = today - relativedelta(years=1)
+        window = get_price_window(_BENCHMARK_TICKER, start, end)
+        if len(window) < 30:
+            return None
+        # Reconstitue Series pandas indexée par Timestamp (contrat consumers
+        # Heimdall Performance panel inchangé).
+        close = pd.Series(
+            [c for _, c in window],
+            index=pd.DatetimeIndex([d for d, _ in window]),
         )
-        if df is None or df.empty:
-            return None
-        if "Close" in df.columns:
-            close = df["Close"]
-        else:
-            close = df.iloc[:, 0]
-        # Si MultiIndex, take Close column
-        if hasattr(close, "columns"):
-            close = close.iloc[:, 0] if len(close.columns) > 0 else None
-        if close is None or len(close) < 30:
-            return None
         _BENCHMARK_HISTORY_CACHE = (close, now)
         return close
     except Exception:
