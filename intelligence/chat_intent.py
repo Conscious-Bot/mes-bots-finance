@@ -282,9 +282,9 @@ def _exec_buy_sell(intent: dict, reasoning_fallback: str) -> dict:
     # Get price (live cached) if not specified
     if not price:
         try:
-            from dashboard.render import _cached_price_eur
+            from shared.prices import get_current_price_in_eur
 
-            price = _cached_price_eur(ticker) or 0
+            price = get_current_price_in_eur(ticker) or 0
         except Exception:
             price = 0
     if not price:
@@ -556,9 +556,9 @@ def _exec_simulate_trade(intent: dict, _: str) -> dict:
         return {"executed": False, "summary": "ticker/action/qty manquant", "error": "incomplete"}
     if not price:
         try:
-            from dashboard.render import _cached_price_eur
+            from shared.prices import get_current_price_in_eur
 
-            price = _cached_price_eur(ticker) or 0
+            price = get_current_price_in_eur(ticker) or 0
         except Exception:
             price = 0
     sim = _grade.simulate_grade(
