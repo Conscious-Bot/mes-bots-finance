@@ -78,22 +78,26 @@ def fetch_benchmark_return(months: int = 6) -> dict | None:
 
 
 def compute_book_return_proxy() -> dict:
-    """Approximate book return : weighted (current - cost) / cost per position."""
-    from dashboard.render import _cached_price_eur, _positions
+    """Approximate book return : weighted (current - cost) / cost per position.
 
-    positions = _positions()
+    Migration Lane 2 #9 : shared.book direct, anti-pattern intelligence/→dashboard éliminé.
+    qty depuis BookLine.qty (pas dérivé via weight/avg_cost). Weight live via seam
+    book.value_eur canonique, fallback get_current_price_in_eur si view degraded.
+    """
+    from shared import book as _bk
+    from shared.prices import get_current_price_in_eur
+
     book_value = 0.0
     invested = 0.0
     n_valid = 0
-    for p in positions:
-        ac = p.get("avg_cost", 0) or 0
-        w = p.get("weight", 0) or 0  # = qty * avg_cost (cost basis eur)
-        if not ac or not w:
+    for ln in _bk.get_held_lines():
+        ac = float(ln.avg_cost_eur or 0)
+        qty = float(ln.qty or 0)
+        if not ac or qty <= 0:
             continue
-        qty = w / ac
-        cur = _cached_price_eur(p["ticker"]) or ac
+        cur = get_current_price_in_eur(ln.ticker) or ac
         book_value += qty * cur
-        invested += w
+        invested += qty * ac  # cost basis EUR canonical
         n_valid += 1
     if not invested:
         return {}
