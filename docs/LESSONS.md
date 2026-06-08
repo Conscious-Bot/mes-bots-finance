@@ -844,3 +844,48 @@ Source de l'incident : commit `b8ef1b4` cornerstone C6 (08/06). La formule corri
 ### Référencer
 
 CLAUDE.md "Catches récurrents" : avant toute nouvelle SPEC, demander **"existe-t-il déjà un SPEC sur ce concept ? Quel est le plan d'implémentation ?"** — si la réponse est "non" ou "on verra plus tard", la doctrine n'est pas respectée. La règle voisine de [[L24]] (walking skeleton catches formule wrong) est : un SPEC gravé sans implémentation présuppose une formule qu'aucun tracer-bullet n'a vérifiée — double risque.
+
+
+## L26 — Positions broker = YAML déclaratif (la racine définitive)
+
+**Catch** : tant que les positions sont calculées au runtime depuis une source live (yfinance, FX courant, prix au moment d'un script daté), elles dérivent silencieusement. Le pattern fondateur "script refresh one-shot daté qui calcule qty depuis yfinance" est structurellement fragile : il fige une réalité d'un instant qui devient fausse dès que les prix bougent. Apparu **10× récurrent** sur cette session avant qu'on accepte de remonter à la racine.
+
+**Le cas fondateur (08/06/2026)** :
+- `scripts/refresh_positions_2026_05_23.py` (script daté) calculait pour TR : `qty = value_broker / price_eur_yfinance_au_2305`, `avg_cost = cost / qty`. Bonne intention, formule juste pour 1 instant.
+- 16 jours après : USD a baissé ~10%, yfinance prices ont bougé, qty stockée ≠ qty broker, avg_cost ≠ PRU broker. Tous les P&L dashboard divergent du broker.
+- Migrations 0043/0044 ont essayé de patcher avec des heuristiques (avg_cost × fx_now) qui ont AGGRAVÉ le bug (double conversion sur USD).
+- Plusieurs rondes de corrections manuelles user-fournies (P&L par ticker) → tout patche, jamais racine.
+
+**Règle générale** : pour toute donnée user-source (positions broker, configs déclarées, capacités saisies), graver une **SOURCE DÉCLARATIVE CANONIQUE** (YAML versionné git) que l'user édite, et un **script de sync idempotent + verify** qui propage vers la table DB cache.
+
+**Pattern canonique** (cf `config/broker_positions.yaml` + `scripts/sync_positions_from_broker.py`) :
+
+1. **YAML = vérité** : positions broker en EUR, qty entière ou snapshot value+pnl%, versionnée git, éditée par user.
+2. **Séparation stricte des fields** dans la table DB :
+   - **user-input** (qty, avg_cost_eur, account, status) : écrits SEULEMENT par le sync script
+   - **market-derived** (last_price_native, fx_rate_to_eur, price_asof) : écrits SEULEMENT par le cron reconcile yfinance
+   - Pas de race condition, pas d'override croisé.
+3. **Sync idempotent + verify** : re-run = no-op si déjà sync. Post-sync, vérifie que `dashboard.pnl == yaml.snapshot ± 0.5%` pour chaque ticker.
+4. **EUR partout, aucune conversion** : le user voit son broker en EUR, le YAML est en EUR, le DB cache `avg_cost_eur` est en EUR. Les `fx_at_purchase` futurs deviennent 1.0 partout (synthetic mais cohérent).
+
+**Symptômes de violation** :
+- Un script daté one-shot est l'unique source d'une donnée user
+- Les valeurs dérivent avec le temps sans intervention
+- Plusieurs codes écrivent dans les mêmes colonnes (user-input ET market-derived mélangés)
+- Le user doit re-fournir manuellement des chiffres après chaque incident
+
+**Application** :
+- Toute donnée user-fournie → YAML déclaratif canonique, jamais script daté.
+- Script sync idempotent + verify post-sync obligatoires.
+- Test verrouillant : grep `UPDATE positions SET qty\|avg_cost` hors `sync_positions_from_broker.py` = build rouge.
+
+### Test verrouillé
+
+`python3 scripts/sync_positions_from_broker.py --verify` → exit 0 si DB en sync avec YAML, exit 1 sinon. À hooker dans le rituel `/close` + au démarrage du bot.
+
+### Référencer
+
+- `config/broker_positions.yaml` : la source canonique
+- `scripts/sync_positions_from_broker.py` : le seul écrivain des fields user-input
+- `scripts/reconcile_positions_prices.py` : le seul écrivain des fields market-derived
+- Cf [[L17]] declarative YAML + [[L23]] derived live + [[L25]] suivi du canonique

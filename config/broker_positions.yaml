@@ -1,0 +1,87 @@
+# Positions broker -- SOURCE CANONIQUE DECLARATIVE (L17 YAML).
+#
+# CETTE LISTE EST LA VÉRITÉ. La table SQLite positions = cache derive via
+# scripts/sync_positions_from_broker.py. Quand le broker change, on edite
+# CE FICHIER (pas le DB), puis on re-run le script.
+#
+# Pourquoi : avant ce pattern, refresh_positions_2026_05_23.py etait un
+# script daté one-shot qui calculait qty depuis yfinance au moment de l'exec.
+# Les valeurs dérivaient avec le temps (FX, prix), et le DB devenait incoherent
+# avec le broker en quelques jours. Apparu 10x recurrent, frustration legitime.
+#
+# Cure canonique : YAML versionne git = source unique. Toute discrepance
+# dashboard vs broker se resoud en editant CE FICHIER et re-running le sync.
+# Pas de devine-la-qty depuis yfinance. Pas de double conversion FX. Pas de
+# stale cache.
+#
+# Convention :
+#   - avg_cost_eur : prix unitaire EN EUR/share (PRU broker, deja en EUR
+#     coherent avec ce que le user voit dans son broker).
+#   - qty : qty native broker (ex. 3 actions ASML.AS, 4.212 fractional AMD).
+#     Si qty fractionnaire et value+pnl% suffisent, on peut omettre qty et
+#     le sync derivera : qty = value_eur / (current_price_eur).
+#   - value_eur_snapshot + pnl_pct_snapshot : OPTIONNELS, sert de check
+#     verrouillant (sync verifie que dashboard.value_eur == value_eur_snapshot
+#     a +/- 0.5% sinon flag).
+#
+# Tous les champs en EUR (devise base). Pas de native USD/JPY/KRW ici --
+# le broker fait deja la conversion et nous montre EUR.
+#
+# Source de ces valeurs (08/06 19:37 + 19:54) :
+#   - PEA : Boursorama screenshot
+#   - TR  : Trade Republic screenshots
+
+schema_version: "1.0"
+last_updated: "2026-06-08T19:54:00+00:00"
+last_updated_source: "Boursorama PEA + Trade Republic 08/06/2026 19:37-19:54"
+
+accounts:
+
+  PEA:
+    broker: "Boursorama"
+    base_currency: "EUR"
+    positions:
+      - {ticker: ASML.AS,  qty: 3,  avg_cost_eur:  820.95, value_eur_snapshot: 4390.20, pnl_pct_snapshot:  +78.26}
+      - {ticker: BESI.AS,  qty: 6,  avg_cost_eur:  262.71, value_eur_snapshot: 1652.40, pnl_pct_snapshot:   +4.83}
+      - {ticker: SAF.PA,   qty: 2,  avg_cost_eur:  213.75, value_eur_snapshot:  590.20, pnl_pct_snapshot:  +38.06}
+      - {ticker: SU.PA,    qty: 6,  avg_cost_eur:  219.49, value_eur_snapshot: 1606.20, pnl_pct_snapshot:  +21.96}
+      - {ticker: STMPA.PA, qty: 42, avg_cost_eur:   22.84, value_eur_snapshot: 2645.58, pnl_pct_snapshot: +175.79}
+      - {ticker: HO.PA,    qty: 7,  avg_cost_eur:   81.59, value_eur_snapshot: 1636.60, pnl_pct_snapshot: +186.55}
+
+  TR:
+    broker: "Trade Republic"
+    base_currency: "EUR"
+    # Pour TR : qty fractionnaires, screenshot ne montre que value_eur + pnl_pct.
+    # Le sync derive qty = value_eur / (current_native × fx_rate_to_eur) et
+    # avg_cost_eur = value_eur / (qty × (1 + pnl_pct/100)).
+    # Si l'user veut figer la qty exacte broker, ajouter le champ qty.
+    positions:
+      - {ticker: "4063.T",     value_eur_snapshot: 4278.69, pnl_pct_snapshot:   -4.92}   # Shin-Etsu
+      - {ticker: TSM,          value_eur_snapshot: 4212.20, pnl_pct_snapshot:  +62.05}   # TSMC
+      - {ticker: SNPS,         value_eur_snapshot: 3238.98, pnl_pct_snapshot:   -7.17}   # Synopsys
+      - {ticker: "7011.T",     value_eur_snapshot: 2250.73, pnl_pct_snapshot:   -9.97}   # Mitsubishi Heavy
+      - {ticker: GOOGL,        value_eur_snapshot: 2139.06, pnl_pct_snapshot:  +22.70}   # Alphabet A
+      - {ticker: KLAC,         value_eur_snapshot: 2128.71, pnl_pct_snapshot:   +6.44}   # KLA
+      - {ticker: LNG,          value_eur_snapshot: 2117.14, pnl_pct_snapshot:   +4.48}   # Cheniere
+      - {ticker: AMZN,         value_eur_snapshot: 2105.14, pnl_pct_snapshot:   -4.31}   # Amazon
+      - {ticker: "6857.T",     value_eur_snapshot: 1753.81, pnl_pct_snapshot:   -3.26}   # Advantest
+      - {ticker: "000660.KS",  value_eur_snapshot: 1705.03, pnl_pct_snapshot:   +6.13}   # SK Hynix
+      - {ticker: AMD,          value_eur_snapshot: 1704.01, pnl_pct_snapshot: +181.86}   # AMD
+      - {ticker: TSLA,         value_eur_snapshot: 1664.78, pnl_pct_snapshot:   -3.89}   # Tesla
+      - {ticker: CCJ,          value_eur_snapshot: 1658.61, pnl_pct_snapshot:   -4.15}   # Cameco
+      - {ticker: "6920.T",     value_eur_snapshot: 1508.09, pnl_pct_snapshot:   -0.93}   # Lasertec
+      - {ticker: MP,           value_eur_snapshot: 1462.16, pnl_pct_snapshot:   -1.34}   # MP Materials
+      - {ticker: ALAB,         value_eur_snapshot: 1400.35, pnl_pct_snapshot:  +48.74}   # Astera Labs
+      - {ticker: ENTG,         value_eur_snapshot: 1331.48, pnl_pct_snapshot:   -4.35}   # Entegris
+      - {ticker: AVGO,         value_eur_snapshot: 1249.27, pnl_pct_snapshot:   -8.01}   # Broadcom
+      - {ticker: COHR,         value_eur_snapshot: 1143.97, pnl_pct_snapshot:   -0.35}   # Coherent
+      - {ticker: MU,           value_eur_snapshot:  972.06, pnl_pct_snapshot:  +73.81}   # Micron
+
+# Note future : si broker fournit qty exact native (US fractional shares,
+# JPY rounded), ajouter le champ `qty: X.YZ` -- le sync l'utilisera tel quel
+# au lieu de deriver.
+#
+# Note PEA Boursorama : screenshot montre AUSSI le cours actuel par ticker
+# (1463.40 ASML, 275.40 BESI, etc.). On peut figer ces snapshots dans la DB
+# pour matcher exactement le broker au moment du sync, OU laisser yfinance
+# fournir le courant (qui peut diverger de 0.1-2% selon source).
