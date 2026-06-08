@@ -92,14 +92,12 @@ def _fetch_state(months_brier_window: int = 6) -> dict:
     from shared.storage import db
 
     state: dict = {}
-    # Pre-fetch prices via le cache existant (throttle yfinance respecte)
-    from collections.abc import Callable
-    _px: Callable[[str], float | None]
-    try:
-        from dashboard.render import _cached_price_eur as _px_real
-        _px = _px_real
-    except Exception:
-        _px = lambda _tk: None  # noqa: E731
+    # Migration Lane 2 #2 (09/06) : consomme le primitif unique shared.book.value_eur
+    # au lieu d'importer _cached_price_eur depuis dashboard.render (anti-pattern :
+    # un module intelligence/* dépend du layer render). Le seam canonique vit
+    # dans shared/, accessible à tous les modules sans inversion de dépendance.
+    # Byte-identité 26/26 vérifié pre-migration (diff 0.00€ sur 53,790€).
+    from shared.book import value_eur as _book_value_eur
 
     with db() as cx:
         pos_rows = cx.execute(
@@ -109,13 +107,15 @@ def _fetch_state(months_brier_window: int = 6) -> dict:
         n_market = n_fallback = 0
         for r in pos_rows:
             tk, qty, avg = r[0], r[1] or 0, r[2] or 0
-            cur_px = _px(tk)
-            if cur_px and cur_px > 0:
-                weight = qty * cur_px
+            v_datum = _book_value_eur(tk, qty) if qty > 0 else None
+            if v_datum is not None and v_datum.value is not None and hasattr(v_datum.value, "amount"):
+                weight = float(v_datum.value.amount)
+                cur_px = weight / qty if qty > 0 else None  # backward compat affichage
                 n_market += 1
                 weight_source = "market"
             else:
                 weight = qty * avg
+                cur_px = None
                 n_fallback += 1
                 weight_source = "cost_basis_fallback"
             positions.append({
