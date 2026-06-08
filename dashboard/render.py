@@ -6031,18 +6031,22 @@ _PERF_TTL = 840
 
 
 def _perf_dwm(ticker: str) -> dict:
-    """% sur dernieres 24h / semaine / mois.
+    """% sur dernieres 24h / semaine / mois via gateway canonique.
 
-    "d" = rolling 24h change (user 03/06 : "last 24 hours" pour Top movers).
-    Pour CRYPTO (24/7) : intraday 1h, derniere bougie vs ~24h en arriere.
-    Pour STOCKS : marche ferme nuit/WE, intraday 1h donne quand meme la
-    derniere session close vs ~24h calendar ago si dispo, sinon fallback
-    daily session change (close[-1] vs close[-2]) qui est l'approximation
-    canonique "Today" sur Yahoo/Robinhood.
+    Migration Phase 4 #5 : daily close-to-close via prices.get_price_window
+    (gateway unique). Simplification convention-wide : "d" devient daily
+    close-to-close (close[-1] vs close[-2]) aligné avec _dp_pct (panneau
+    voisin TOP MOVERS). Plus de fetch intraday 1h yfinance — la part
+    intraday "24h rolling vrai" est sacrifiée pour la cohérence convention
+    (matche broker/Yahoo daily%, cf finding _dp_pct).
 
-    "w" / "m" : daily closes, inchanges.
+    "d" = close jour J vs close jour J-1 (daily approximation canonique
+    Yahoo/Robinhood "Today").
+    "w" = close[-1] vs close[-6] (~5 jours business)
+    "m" = close[-1] vs close[0] (~21 jours business sur 1mo window)
     """
     import time
+    from datetime import UTC, datetime, timedelta
 
     now = time.monotonic()
     hit = _PERF_CACHE.get(ticker)
@@ -6050,31 +6054,25 @@ def _perf_dwm(ticker: str) -> dict:
         return dict(hit[1])
     out: dict = {"d": None, "w": None, "m": None}
     try:
-        import yfinance as yf
+        from shared.prices import get_price_window
 
-        tk = yf.Ticker(ticker)
-        # Rolling 24h via intraday 1h (2 jours de donnees pour couvrir gap WE).
-        try:
-            ih = tk.history(period="2d", interval="1h")["Close"].dropna()
-            if len(ih) >= 2:
-                last_ts = ih.index[-1]
-                cutoff = last_ts - timedelta(hours=24)
-                # Plus ancien point >= cutoff (closest to 24h ago).
-                older = ih[ih.index <= cutoff]
-                ref = older.iloc[-1] if len(older) > 0 else ih.iloc[0]
-                last = float(ih.iloc[-1])
-                out["d"] = round((last / float(ref) - 1) * 100, 1)
-        except Exception:
-            pass
-        # Daily closes pour w / m + fallback "d" si intraday a echoue.
-        c = tk.history(period="1mo", interval="1d")["Close"].dropna()
-        if len(c) >= 2:
-            last = float(c.iloc[-1])
-            if out["d"] is None:
-                out["d"] = round((last / float(c.iloc[-2]) - 1) * 100, 1)
-            out["m"] = round((last / float(c.iloc[0]) - 1) * 100, 1)
-            if len(c) >= 6:
-                out["w"] = round((last / float(c.iloc[-6]) - 1) * 100, 1)
+        today = datetime.now(UTC).date()
+        end = today + timedelta(days=1)  # end-exclusive cf finding #3
+        # period="1mo" yfinance utilise relativedelta(months=1) :
+        # 2026-06-08 - 1mo = 2026-05-08 (pas 2026-05-07). Pour matcher exactement
+        # cette sémantique calendar-month, on utilise dateutil.relativedelta.
+        # Finding #5 iter 3 : today-32d donnait 2026-05-07 (1 jour de trop) →
+        # closes[0] inclut un close supplémentaire → "m" diverge ×2.5.
+        from dateutil.relativedelta import relativedelta
+        start = today - relativedelta(months=1)
+        window = get_price_window(ticker, start, end)
+        if len(window) >= 2:
+            closes = [c for _, c in window]
+            last = float(closes[-1])
+            out["d"] = round((last / float(closes[-2]) - 1) * 100, 1)
+            out["m"] = round((last / float(closes[0]) - 1) * 100, 1)
+            if len(closes) >= 6:
+                out["w"] = round((last / float(closes[-6]) - 1) * 100, 1)
     except Exception:
         pass
     _PERF_CACHE[ticker] = (now, out)
