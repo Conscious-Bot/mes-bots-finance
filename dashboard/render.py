@@ -2751,7 +2751,7 @@ def _position_card(inputs, steer_v2) -> str:
         '<div class="pc-cell"><div class="pc-cell-h">POSITION</div>'
         # qty : 3 decimales max (avant : 15 décimales du float synthetic)
         + f'<div class="pc-line"><span>qty</span><span class="mono">{qty:.3f}</span></div>'
-        + f'<div class="pc-line"><span>MV</span><span class="mono">{weight_pct:.1f}% ({weight_eur:,.0f}€)</span></div>'
+        + f'<div class="pc-line"><span>MV</span><span class="mono">{weight_eur:,.0f}€ <span style="opacity:0.65">({weight_pct:.1f}% du book)</span></span></div>'
         + f'<div class="pc-line"><span>P&amp;L</span><span class="mono {pnl_cls}">{pnl_eur:+,.0f}€ ({pnl_pct:+.1f}%)</span></div>'
         # cours : format espaces de milliers pour KRW/JPY (lisible)
         + f'<div class="pc-line"><span>cours</span><span class="mono">{(f"{current_price:,.0f}".replace(",", " ") if current_price and current_price >= 1000 else cours_str)} {ccy}{asof_html}</span></div>'
@@ -5725,12 +5725,13 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             ratio = d_tgt / d_stop if d_stop else None
             frac = max(0.0, min(100.0, (current - stop) / (tgt - stop) * 100))
             entry_frac = max(0.0, min(100.0, (entry - stop) / (tgt - stop) * 100))
-            # SOCLE Phase 3 #114 : perf these depuis primitive canonique (REMPLACEMENT).
-            # Le calc local "(current - entry) / entry * 100" supprime -- consomme
-            # la primitive partagee. Discipline : grep gate verrouille (cf
-            # tests/test_position_view_no_recompute.py).
-            from shared.position_view import compute_perf_thesis_pct
-            pnl_e = compute_perf_thesis_pct(entry, current)
+            # Fix "tout d'un bloc" 08/06 : remplacer compute_perf_thesis_pct
+            # (perf vs entry native -- divergeait du P&L broker car FX historique
+            # different du fx_now) par le P&L canonique broker (pnl.get(tk) =
+            # pnl_position_pct_eur via avg_cost_eur). UNE SEULE source de verite
+            # partout dans le dashboard. Plus de "perf depuis entry" qui creait
+            # confusion avec le P&L broker.
+            pnl_e = pnl.get(tk)
             if d_tgt is not None and d_tgt < 12:
                 n_near_tgt += 1
             if d_stop < 10:
