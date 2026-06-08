@@ -83,6 +83,44 @@ async def score_pending_signals_job():
         log.exception(f"score_pending_signals_job crashed: {e}")
 
 
+async def event_driven_erosion_check_job():
+    """Etape 3 chantier #2 anti-entetement : event-driven trigger.
+
+    Toutes les 30min, scan signaux post-cutoff avec entities primary ticker
+    dans une these active. Si fresh signal materiel arrive sur AAPL et qu'on
+    a une these active AAPL -> recompute_thesis_erosion(AAPL) immediat.
+
+    Diff verdict avec precedent -> push Telegram si changement notable :
+    INTACT -> EROSION_DETECTED OR
+    INTACT -> INVALIDATION_HIT OR
+    EROSION_DETECTED -> INVALIDATION_HIT.
+
+    Complemente le weekly floor (lundi 6h) avec latence reduite quand
+    evidence arrive en cours de semaine. Cout estime ~$0.20/jour si flow
+    normal de signaux materiels (~10/jour).
+    """
+    try:
+        from intelligence import thesis_erosion
+
+        stats = thesis_erosion.recompute_for_tickers_with_fresh_signals(
+            since_minutes=30,
+        )
+        if stats["triggered"] > 0:
+            n_changes = len(stats["verdict_changes"])
+            log.info(
+                f"event_driven_erosion : {stats['triggered']} theses recomputed, "
+                f"{n_changes} verdict notable changes, "
+                f"errors={stats['errors']}",
+            )
+            for c in stats["verdict_changes"]:
+                log.info(
+                    f"  {c['ticker']} : {c['prev']} -> {c['new']} "
+                    f"(erode={c['n_erode']} inval={c['n_inval']})",
+                )
+    except Exception as e:
+        log.warning(f"event_driven_erosion_check_job error: {e}")
+
+
 async def scheduled_classify_signal_types_job():
     """Phase Digestion 3a — Classify signals with signal_type=NULL every 30min."""
     try:

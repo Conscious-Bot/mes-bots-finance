@@ -28,6 +28,7 @@ from bot.jobs.daily import (
     weekly_user_profile_refresh_job,
 )
 from bot.jobs.intervals import (
+    event_driven_erosion_check_job,
     heartbeat,
     ingest_gmail_job,
     price_monitor_job,
@@ -60,6 +61,7 @@ __all__ = [
     "daily_portfolio_grade_job",
     "daily_resolve_job",
     "daily_risk_signal_monitor_job",
+    "event_driven_erosion_check_job",
     "heartbeat",
     "ingest_gmail_job",
     "monthly_bot_preferences_synthesis_job",

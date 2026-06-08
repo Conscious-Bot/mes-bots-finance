@@ -124,6 +124,7 @@ from bot.jobs import (
     daily_portfolio_grade_job,
     daily_resolve_job,
     daily_risk_signal_monitor_job,
+    event_driven_erosion_check_job,
     heartbeat,
     ingest_gmail_job,
     monthly_bot_preferences_synthesis_job,
@@ -323,6 +324,11 @@ async def post_init(app):
     sched.add_job(scheduled_classify_signal_types_job, "interval", hours=2)
     sched.add_job(scheduled_recompute_materiality_boost_job, "interval", hours=6)
     sched.add_job(scheduled_materiality_v2_job, "interval", hours=6)
+    # Etape 3 chantier #2 : event-driven trigger thesis_erosion 30min.
+    # Complemente weekly floor (lundi 6h) avec latence reduite quand evidence
+    # arrive en cours de semaine. Diff verdict notable -> push Telegram.
+    # Cost ~$0.20/jour si flow normal (~10 signaux materiels/jour).
+    sched.add_job(event_driven_erosion_check_job, "interval", minutes=30)
     sched.start()
     # Dump real scheduler state (pas une string hardcoded qui drift) -- au moindre
     # add_job manque ou en trop, le log le revele. Critique avant J-day 10/06.

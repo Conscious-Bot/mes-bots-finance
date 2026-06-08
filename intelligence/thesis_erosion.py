@@ -300,6 +300,131 @@ def _persist(
     }
 
 
+def recompute_for_tickers_with_fresh_signals(
+    since_minutes: int = 30,
+) -> dict:
+    """Event-driven trigger : recompute erosion pour theses dont un signal
+    materiel primary-entity a ete recemment ingere.
+
+    Spec user 07/06 : "recompute une these quand un nouveau signal materiel
+    sur son ticker arrive (l'ingestion tourne deja)".
+
+    Filtre :
+    - Signal timestamp > now - since_minutes
+    - Signal a un entities JSON non-vide
+    - Ticker en TOP-N primaire (cf get_material_signals_since calibration)
+    - Une these active existe pour ce ticker
+
+    Pour chaque thes concernee :
+    - Lit le VERDICT precedent (avant recompute)
+    - Trigger compute_thesis_erosion (qui persiste classifications + nouveau verdict)
+    - Si verdict CHANGE de maniere notable (INTACT->EROSION_DETECTED ou
+      EROSION->INVALIDATION_HIT), envoie push Telegram + log.
+
+    Returns dict {checked, triggered, verdict_changes, errors}.
+    """
+    import json as _json
+    from datetime import UTC, datetime, timedelta
+
+    from shared import notify, storage
+
+    cutoff = (datetime.now(UTC) - timedelta(minutes=since_minutes)).isoformat()
+    stats = {
+        "checked": 0,
+        "triggered": 0,
+        "verdict_changes": [],
+        "errors": 0,
+    }
+
+    # Collect tickers from fresh signals (primary entity top-3)
+    fresh_tickers: set[str] = set()
+    try:
+        with storage.db() as cx:
+            rows = cx.execute(
+                "SELECT entities FROM signals "
+                "WHERE timestamp > ? AND entities IS NOT NULL",
+                (cutoff,),
+            ).fetchall()
+            for r in rows:
+                try:
+                    ents = _json.loads(r[0] or "[]")
+                    if isinstance(ents, list):
+                        for e in ents[:3]:  # top-3 primary
+                            fresh_tickers.add(str(e).upper())
+                except (_json.JSONDecodeError, TypeError):
+                    continue
+    except Exception as e:
+        log.warning(f"recompute_for_tickers fresh signals fetch failed: {e}")
+        return stats
+
+    if not fresh_tickers:
+        return stats
+
+    # Map ticker -> active thesis_id
+    try:
+        with storage.db() as cx:
+            rows = cx.execute(
+                "SELECT id, UPPER(ticker) FROM theses WHERE status='active'"
+            ).fetchall()
+            active = {r[1]: r[0] for r in rows}
+    except Exception as e:
+        log.warning(f"recompute_for_tickers active theses fetch failed: {e}")
+        return stats
+
+    to_recompute = [
+        (tid, tk) for tk, tid in active.items() if tk in fresh_tickers
+    ]
+    stats["checked"] = len(to_recompute)
+
+    for tid, ticker in to_recompute:
+        try:
+            # Lit verdict precedent AVANT recompute
+            prev = storage.get_latest_erosion_per_thesis(tid)
+            prev_verdict = prev["verdict"] if prev else None
+
+            # Trigger recompute (persiste nouveau verdict + classifications)
+            result = compute_thesis_erosion(tid)
+            new_verdict = result.get("verdict")
+            stats["triggered"] += 1
+
+            # Diff verdict pour push Telegram
+            notable_changes = {
+                ("INTACT", "EROSION_DETECTED"),
+                ("INTACT", "INVALIDATION_HIT"),
+                ("EROSION_DETECTED", "INVALIDATION_HIT"),
+                (None, "EROSION_DETECTED"),
+                (None, "INVALIDATION_HIT"),
+            }
+            if (prev_verdict, new_verdict) in notable_changes:
+                stats["verdict_changes"].append({
+                    "ticker": ticker,
+                    "prev": prev_verdict,
+                    "new": new_verdict,
+                    "n_inval": result.get("n_invalidation_hit", 0),
+                    "n_erode": result.get("n_erode", 0),
+                })
+                # Push Telegram immediate -- l'event-driven justifie son existence
+                # par cette latence reduite (vs weekly floor).
+                emoji = "🚨" if new_verdict == "INVALIDATION_HIT" else "⚠"
+                msg = (
+                    f"{emoji} EROSION TRIGGER -- {ticker}\n"
+                    f"Verdict : {prev_verdict or 'N/A'} -> {new_verdict}\n"
+                    f"Driver erode={result.get('n_erode', 0)} "
+                    f"invalidation_hit={result.get('n_invalidation_hit', 0)}\n"
+                    f"Revue carte-decision recommandee."
+                )
+                try:
+                    notify.send_text(msg)
+                except Exception as e:
+                    log.warning(f"erosion notify {ticker} failed: {e}")
+        except Exception as e:
+            log.warning(f"recompute_for_tickers {ticker}: {e}")
+            stats["errors"] += 1
+            continue
+
+    return stats
+
+
 def compute_all_active_theses() -> dict:
     """Run erosion compute sur toutes les theses actives.
 
