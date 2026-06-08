@@ -156,6 +156,34 @@ def project_row(view: PositionView) -> RowView:
     )
 
 
+def compute_asym_ratio_thesis_level(
+    entry: float | None,
+    target_full: float | None,
+    stop: float | None,
+    direction: str = "long",
+) -> float | None:
+    """Primitive PUBLIQUE : asym_ratio THESIS-LEVEL (depuis entry, stable).
+
+    asym_ratio = (target_full - entry) / (entry - stop)  pour long
+                = (entry - target_full) / (stop - entry)  pour short
+
+    NE PAS confondre avec le "asym dynamique" historique (depuis current_price)
+    qui faisait diverger card vs book row (le bug fondateur 0,5x/1,80x).
+    La convention canonique du SOCLE est THESIS-LEVEL : ratio stable tant que
+    la these tient, ne depend pas du prix actuel.
+
+    Exposee comme primitive pour que les panneaux qui iterent sur N theses
+    (notamment _theses + intelligence/asymmetry) puissent l'appeler DIRECTEMENT
+    sans construire un PositionView complet. Une seule formule canonique
+    partagee. Le calc local "d_tgt / d_stop" ou "(tgt - cur) / (cur - stop)"
+    DOIT etre remplace par cet appel partout -- grep gate verrouille.
+
+    Retourne None si inputs manquants/invalides (fail-closed L15).
+    """
+    _, _, ratio = _compute_asym_ratio(entry, None, target_full, stop, direction=direction)
+    return ratio
+
+
 def compute_perf_thesis_pct(entry: float | None, current_native: float | None) -> float | None:
     """Primitive PUBLIQUE : perf thesis-level NATIVE vs NATIVE (FX-invariant).
 
