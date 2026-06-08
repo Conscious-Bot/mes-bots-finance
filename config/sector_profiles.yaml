@@ -1,0 +1,273 @@
+# Sector profiles canoniques (substrat agnosticité au book)
+# Cf SPEC_SECTOR_TAXONOMY.md §2-3.
+#
+# Objet : pour tout ticker entrant, après classification (ticker_classifier.py
+# détermine sous-secteur), hériter d'un PROFIL canonique qui dit au moteur
+# COMMENT LIRE ce ticker -- deliverable_kpis sectoriels, crowding_proxies,
+# cyclicality cycle-beta, criticality moat, invalidation_template, etc.
+#
+# Le profil EST la clé qui rend cornerstone agnostique au book.
+#
+# Schéma de chaque profil :
+#   cyclicality          : defensive | moderate | cyclical | deep_cyclical
+#   criticality          : commodity | moat | chokepoint
+#   macro_factor         : AI capex | Memory cycle | Defense | ... (cf classifier)
+#   deliverable_kpis     : liste des KPI à lire pour mesurer "réalité livrable"
+#                          du secteur (semis: bookings/ASP/util ;
+#                          banks: NIM/credit-loss ; pharma: pipeline/patent-cliff)
+#   crowding_proxies     : ETFs qui crowdent ce secteur (-> consensus)
+#   invalidation_template: kill-criteria types du secteur
+#   cycle_role           : early | mid | late | defensive (rotation sectorielle)
+#   evidence_tier        : S (validé sur holdings) | A (prior littérature, pas tenu) | B (générique)
+#   audit_metadata       : pour tier=S, holdings_validated + dates (anti-affirmation)
+#
+# Discipline :
+# - Pas de profil sans evidence_tier (validator)
+# - Tier S exclusif : nécessite audit_metadata.holdings_validated
+# - Shrinkage au mérite : B->A->S quand n_holdings_resolved >= N_min validation
+# - Fail-closed : ticker non-classable -> UNCLASSIFIED, pas de profil fabriqué
+
+vocabulary_version: "1.0"
+schema_version: "1.0"
+
+# ════════════════════════ TIER S (validé sur holdings) ════════════════════════
+
+semiconductors.equipment:
+  cyclicality: deep_cyclical
+  criticality: chokepoint
+  macro_factor: "AI capex"
+  deliverable_kpis:
+    - bookings_yoy
+    - book_to_bill
+    - utilization
+    - asp_trend
+    - capex_foundry
+    - lead_times
+  crowding_proxies:
+    - SMH
+    - SOXX
+  invalidation_template:
+    - "capex foundry révisé >15% sur 1 trimestre"
+    - "ASP down >10% sur 2 trimestres"
+    - "book-to-bill < 0.8 sur 2 trimestres"
+  cycle_role: late_cyclical
+  evidence_tier: S
+  audit_metadata:
+    holdings_validated:
+      - ticker: "ASML.AS"
+        validated_at: "2026-06-08"
+      - ticker: "AMAT"
+        validated_at: "2026-06-08"
+      - ticker: "LRCX"
+        validated_at: "2026-06-08"
+      - ticker: "ALAB"
+        validated_at: "2026-06-08"
+    notes: "Profil validé sur 4+ holdings actifs, expertise user established."
+
+semiconductors.foundry:
+  cyclicality: cyclical
+  criticality: chokepoint
+  macro_factor: "AI capex"
+  deliverable_kpis:
+    - revenue_yoy
+    - leading_edge_mix_pct  # % rev des nodes N3/N2
+    - utilization
+    - asp_trend
+    - capex_intensity
+  crowding_proxies:
+    - SMH
+    - SOXX
+  invalidation_template:
+    - "capex révisé en baisse >10%"
+    - "utilization < 80% sur 2 trimestres"
+    - "leading-edge mix qui stagne >2 trimestres"
+  cycle_role: late_cyclical
+  evidence_tier: S
+  audit_metadata:
+    holdings_validated:
+      - ticker: "TSM"
+        validated_at: "2026-06-08"
+    notes: "TSM seul holding, mais expertise documentée. Tier S accepté."
+
+semiconductors.memory:
+  cyclicality: deep_cyclical
+  criticality: commodity   # DRAM = commodity, NAND = commodity
+  macro_factor: "Memory cycle"
+  deliverable_kpis:
+    - asp_yoy
+    - bit_growth_yoy
+    - inventory_weeks
+    - hbm_mix_pct
+    - capex_intensity
+  crowding_proxies:
+    - SMH
+    - SOXX
+  invalidation_template:
+    - "ASP down >20% sur 1 trimestre"
+    - "inventory > 12 semaines"
+    - "HBM mix qui décroît"
+  cycle_role: late_cyclical
+  evidence_tier: S
+  audit_metadata:
+    holdings_validated:
+      - ticker: "MU"
+        validated_at: "2026-06-08"
+    notes: "MU holding documenté, expertise memory cycle established."
+
+semiconductors.fabless:
+  cyclicality: cyclical
+  criticality: moat
+  macro_factor: "AI inference/compute demand"
+  deliverable_kpis:
+    - revenue_yoy
+    - gross_margin_pct
+    - design_win_share
+    - product_roadmap_cadence
+  crowding_proxies:
+    - SMH
+    - SOXX
+  invalidation_template:
+    - "gross margin compress >300bp"
+    - "design loss matériel (compétitor switch)"
+    - "guidance ratée 2 quarters consécutifs"
+  cycle_role: late_cyclical
+  evidence_tier: S
+  audit_metadata:
+    holdings_validated:
+      - ticker: "AMD"
+        validated_at: "2026-06-08"
+      - ticker: "NVDA"
+        validated_at: "2026-06-08"
+      - ticker: "AVGO"
+        validated_at: "2026-06-08"
+    notes: "3 holdings actifs, expertise fabless GPU/ASIC documentée."
+
+# ════════════════════════ TIER A (prior littérature, secteur connu mais pas tenu) ══
+
+banks.commercial:
+  cyclicality: cyclical
+  criticality: moat              # license bancaire, deposit franchise
+  macro_factor: "Rates / financials"
+  deliverable_kpis:
+    - net_interest_margin
+    - credit_loss_provisions
+    - tier1_capital_ratio
+    - deposit_growth
+    - loan_growth
+  crowding_proxies:
+    - XLF
+    - KBE
+  invalidation_template:
+    - "credit_loss_provisions spike >50bp"
+    - "NIM compression >100bp"
+    - "Tier1 < 10%"
+  cycle_role: early_cyclical
+  evidence_tier: A
+  audit_metadata:
+    holdings_validated: []
+    notes: "Aucun holding bancaire actif. Prior littérature (Damodaran, Marks). Shrinker quand position prise."
+
+energy.upstream:
+  cyclicality: deep_cyclical
+  criticality: commodity         # producteur de baril, no moat
+  macro_factor: "Energy commodities"
+  deliverable_kpis:
+    - production_boepd
+    - opex_per_boe
+    - breakeven_price
+    - capex_intensity
+    - reserves_replacement_ratio
+  crowding_proxies:
+    - XLE
+    - OIH
+  invalidation_template:
+    - "breakeven > spot price sur 2 trimestres"
+    - "reserves_replacement < 100%"
+    - "production miss > 5% sur guidance"
+  cycle_role: mid_cyclical
+  evidence_tier: A
+  audit_metadata:
+    holdings_validated: []
+    notes: "Pas de holding upstream actif. Prior littérature."
+
+healthcare.pharma:
+  cyclicality: defensive
+  criticality: moat              # patents + regulatory
+  macro_factor: "Healthcare innovation"
+  deliverable_kpis:
+    - pipeline_phase3_count
+    - patent_cliff_revenue_at_risk
+    - rd_intensity
+    - approval_rate_fda
+  crowding_proxies:
+    - XLV
+    - XBI
+  invalidation_template:
+    - "FDA rejection sur asset core"
+    - "patent cliff > 30% rev dans 3 ans"
+    - "pipeline phase3 vide"
+  cycle_role: defensive
+  evidence_tier: A
+  audit_metadata:
+    holdings_validated: []
+    notes: "Pas de pharma holding. Prior littérature."
+
+industrials.defense:
+  cyclicality: moderate          # commande publique stable
+  criticality: moat              # barrières d'entrée + national security
+  macro_factor: "Defense rearmament"
+  deliverable_kpis:
+    - backlog_book_to_bill
+    - defense_budget_yoy
+    - export_authorizations
+    - program_milestones
+  crowding_proxies:
+    - ITA
+    - PPA
+  invalidation_template:
+    - "backlog stagne >2 trimestres"
+    - "défense budget cut >5%"
+    - "program canceled"
+  cycle_role: defensive
+  evidence_tier: A
+  audit_metadata:
+    holdings_validated: []
+    notes: "MHI dans book (Industrials/Defense thème). Prior tier-A, à migrer S si MHI résolvé."
+
+consumer.staples:
+  cyclicality: defensive
+  criticality: moat              # brand + distribution
+  macro_factor: "Consumer cyclical"   # paradoxe : staples mais sensible aux taux
+  deliverable_kpis:
+    - organic_growth
+    - gross_margin
+    - market_share
+    - input_costs_yoy
+  crowding_proxies:
+    - XLP
+    - VDC
+  invalidation_template:
+    - "organic growth négatif 2 quarters"
+    - "market share loss matériel"
+    - "margin compression >200bp"
+  cycle_role: defensive
+  evidence_tier: A
+  audit_metadata:
+    holdings_validated: []
+    notes: "Pas de staples holding. Prior littérature."
+
+# ════════════════════════ TIER B (défaut générique, sous-industrie obscure) ══
+
+GENERIC_UNCLASSIFIED:
+  cyclicality: moderate          # défaut neutre
+  criticality: commodity         # défaut neutre (no moat assumed)
+  macro_factor: "Other"
+  deliverable_kpis: []           # vide -> moteur micro flag "no_kpis"
+  crowding_proxies: []
+  invalidation_template:
+    - "thèse non-falsifiable (pas de KPIs sectoriels définis)"
+  cycle_role: unknown
+  evidence_tier: B
+  audit_metadata:
+    holdings_validated: []
+    notes: "Profil défaut quand sous-industrie non-mappée. Le moteur micro ne peut PAS lire ce ticker -- flag UNCLASSIFIED."
