@@ -152,20 +152,32 @@ def run_stress_test(scenario_name: str) -> dict:
 
     Returns {scenario, total_drawdown_pct, total_drawdown_eur, by_position: [...]}.
     """
-    from dashboard.render import _positions
+    # Migration Lane 2 #8 : shared.book direct.
+    from shared import book as _bk
 
-    positions = _positions()
+    held = list(_bk.get_held_lines())
+    if not held:
+        return {"scenario": scenario_name, "error": "empty_book"}
     scenario = _STRESS_SCENARIOS.get(scenario_name)
-    if not scenario or not positions:
-        return {"scenario": scenario_name, "error": "unknown_scenario_or_empty_book"}
+    if not scenario:
+        return {"scenario": scenario_name, "error": "unknown_scenario"}
     axes = {a["ticker"]: a for a in storage.get_all_latest_ticker_axes()}
-    total = sum(p.get("weight", 0) for p in positions) or 1
+    # Weight depuis seam canonique book.value_eur
+    weights = {}
+    for ln in held:
+        qty = float(ln.qty or 0)
+        if qty <= 0:
+            continue
+        v = _bk.value_eur(ln.ticker, qty)
+        if v is not None and v.value is not None and hasattr(v.value, "amount"):
+            weights[ln.ticker] = float(v.value.amount)
+        else:
+            weights[ln.ticker] = ln.weight_market_eur or 0
+    total = sum(weights.values()) or 1
 
     by_position: list = []
     total_impact_eur = 0.0
-    for p in positions:
-        tk = p["ticker"]
-        w = p.get("weight", 0)
+    for tk, w in weights.items():
         a = axes.get(tk)
         impact_pct = 0.0
         # Macro factor impact
@@ -279,21 +291,24 @@ def compute_price_vs_trade_drift(n_days: int = 30) -> dict:
             "type": etype, "qty_delta": qd, "price": px,
         })
     # Sum trade-driven delta : qty_delta * (current_price - trade_price)
-    from dashboard.render import _cached_price_eur, _positions
+    # Migration Lane 2 #8 : shared direct.
+    from shared import book as _bk
+    from shared.prices import get_current_price_in_eur
 
-    positions = _positions()
     total_drift_eur = 0.0
     price_drift_eur = 0.0
     trade_drift_eur = 0.0
-    for p in positions:
-        tk = p["ticker"]
-        cur = _cached_price_eur(tk) or 0
+    for ln in _bk.get_held_lines():
+        tk = ln.ticker
+        qty = float(ln.qty or 0)
+        if qty <= 0:
+            continue
+        cur = get_current_price_in_eur(tk) or 0
         if not cur:
             continue
-        # Post-migration 29/05 : p["weight"] est maintenant MARKET VALUE.
-        # On veut explicitement cost basis ici (drift = current - cost).
-        cost_basis = p.get("cost_basis_eur", p["weight"])  # fallback compat
-        current_value = p["qty"] * cur
+        # cost basis = qty * avg_cost_eur (canonique)
+        cost_basis = qty * float(ln.avg_cost_eur or 0)
+        current_value = qty * cur
         total_drift = current_value - cost_basis
         # Trade-driven : qty added in window * (current - avg_buy_in_window)
         ev = trades_by_tk.get(tk) or []
