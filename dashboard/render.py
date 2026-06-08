@@ -5010,16 +5010,35 @@ _RSI_TTL = 1800.0
 
 
 def _rsi_14(ticker: str) -> float | None:
-    """RSI(14) daily via simple rolling mean. Cache 30min (anti-ban yfinance)."""
+    """RSI(14) daily via gateway canonique prices.get_price_window.
+
+    Migration 08/06 (Phase 4 bypass yfinance) : ne fetche plus yfinance
+    localement, consomme le gateway unique shared.prices.get_price_window.
+    Cache 30min conservé (le gateway throttle via _PRICE_CACHE de prices.py).
+
+    Algorithme RSI(14) inchangé : rolling mean gain/loss sur 14 closes.
+    """
     import time as _t
+    from datetime import UTC, datetime, timedelta
 
     now = _t.time()
     if ticker in _RSI_CACHE and now - _RSI_CACHE_TS.get(ticker, 0) < _RSI_TTL:
         return _RSI_CACHE[ticker]
     try:
-        import yfinance as yf
-
-        closes = yf.Ticker(ticker).history(period="2mo", interval="1d")["Close"].dropna()
+        from shared.prices import get_price_window
+        # yfinance history(start, end) est END-EXCLUSIVE -> on passe today+1
+        # pour inclure le close du jour, comme period="2mo" l'ancien comportement.
+        today = datetime.now(UTC).date()
+        end = today + timedelta(days=1)
+        start = today - timedelta(days=70)
+        window = get_price_window(ticker, start, end)
+        if len(window) < 15:
+            _RSI_CACHE[ticker] = None
+            _RSI_CACHE_TS[ticker] = now
+            return None
+        # window est list[(date_str, close_float)] -> extraire closes en pd.Series
+        import pandas as pd
+        closes = pd.Series([c for _, c in window]).dropna()
         if len(closes) < 15:
             _RSI_CACHE[ticker] = None
             _RSI_CACHE_TS[ticker] = now
