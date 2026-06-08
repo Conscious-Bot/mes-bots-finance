@@ -1,0 +1,330 @@
+# config/divergence.yaml
+#
+# Contrat declaratif du MOTEUR PARTAGE divergence-reflexivite (cornerstone C5).
+# Hérite de QUALITY_BAR (M1/M2/M3) + CALIBRATION_DOCTRINE (poids gagnés) +
+# PLAN_REFONTE_ALERTES (alarme rare et meritée) + SPEC_CORNERSTONE (primitive
+# D = croyance pricée − réalité livrable ; Φ = phase réflexive ; F = fragilité).
+#
+# Source unique pour compute_divergence('macro'|'micro') -> mêmes primitives,
+# deux projections. Inputs DISJOINTS entre les deux échelles (zero champ
+# partagé) -- c'est un test verrouillant (cf §10 SPEC_CORNERSTONE).
+#
+# Pattern : docs/templates/workflow_yaml_pattern.md
+# Doctrine L17 : declaratif ici (signes-théorie figés, prior-tiers, splits),
+# live state (lectures + self-scoring) en table cycle_readings/divergence_readings.
+
+_meta:
+  schema_version: 1
+  declared_at: '2026-06-08'
+  last_modified: '2026-06-08'
+  next_review_due: '2026-09-30'   # aligne sur next_oos_window calibration.yaml
+  doctrine_refs:
+    - 'docs/QUALITY_BAR.md (M1 triple + M2 pré-enregistré + M3 sub-Kelly)'
+    - 'CALIBRATION_DOCTRINE.md (poids gagnés, jamais tapés)'
+    - 'PLAN_REFONTE_ALERTES.md (le droit d''alarmer se gagne, défaut calme)'
+    - 'SPEC_CORNERSTONE.md (primitive D/Φ/F, projections macro/micro)'
+    - 'METHODE_CALIBRATION_CORNERSTONE.md (purged walk-forward + ECE + asymétrie de perte)'
+    - 'docs/LESSONS.md L15 (fail-closed), L16 (splits temporels), L17 (decl YAML / live DB)'
+  schema_module: 'intelligence.divergence_schema'   # Pydantic gate (à créer en C6)
+  description: >
+    Moteur partage divergence-reflexivite (cornerstone). Mesure la tension
+    croyance-vs-realite a 2 echelles (macro / micro) via 3 buckets disjoints
+    (croyance pricee / realite livrable / phase reflexive). Sortie =
+    probabilité calibrée + bande + trajectoire (jamais R/J/V). Gouverneur du
+    book, pas oracle. Self-scoring pre-enregistre via insert_prediction.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Splits temporels (L16 anti-look-ahead) -- mirror calibration.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+temporal_splits:
+  train_window: '2015-01-01 .. 2024-12-31'
+  val_window:   '2025-01-01 .. 2025-12-31'
+  oos_window:   '2026-01-01 .. 2026-06-06'
+  next_oos_window: '2026-06-07 .. 2026-09-30'
+  rule: |
+    Tout tuning de magnitude DATÉ avant le tuning. Le label "regime late à T"
+    n'utilise aucune donnée > T (pas de hindsight). Re-tune = NOUVEAU split
+    committé AVANT modif des magnitudes (pas le même commit, et pas avant
+    validation OOS du split en cours). Verifiable post-hoc : `git log -p
+    config/divergence.yaml` doit montrer split-update -> magnitudes-update.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Methodology versions par projection (self-scoring funnel)
+# Chaque lecture non-degradee pre-enregistre 1 prediction falsifiable via
+# storage.insert_prediction(methodology_version=...). Resolue par le resolver
+# existant -> Brier du moteur. Sans ca, le moteur redevient un oracle.
+# ─────────────────────────────────────────────────────────────────────────────
+methodology_versions:
+  macro: 'divergence_macro_v0'   # crisis gauge / cycle = projection macro
+  micro: 'consensus_v0'           # par ticker = projection micro
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Priors par tier (cible du shrinkage CALIBRATION_DOCTRINE §4)
+# ─────────────────────────────────────────────────────────────────────────────
+# A N=10-15 episodes macro, les poids partent proches du prior par tier
+# (S>A>B fixe par theorie). Au fil du track-record, le poids migre du prior
+# vers le gagne. Test verrouillant : si les poids appris ne battent pas
+# l'equipondere OOS -> fallback 1/k (cf CALIBRATION_DOCTRINE §5).
+priors:
+  S: 0.40   # tier-S = high-skill, robuste literature -> prior fort
+  A: 0.25   # tier-A = good but secondary
+  B: 0.10   # tier-B = ancre mais faible timing
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fail-closed thresholds (L15 doctrine M0 fail-closed)
+# Si fresh inputs < min -> p_outcome = None, phase = "insufficient".
+# Jamais une aiguille fabriquee sur donnees insuffisantes.
+# ─────────────────────────────────────────────────────────────────────────────
+fail_closed:
+  min_fresh_inputs_macro: 2     # au moins 2 inputs frais (tier-S idealement)
+  min_fresh_inputs_micro: 2
+  max_age_days_macro: 7         # input > 7j = stale (Axe 5 SLA)
+  max_age_days_micro: 30        # micro plus tolerant (revisions trimestrielles)
+  ece_alarm_threshold: 0.10     # ECE OOS > 10% -> calibration cassee, refuse aiguille
+  alarm_rate_alarm_threshold: 0.20  # >20% en alarme = doctrine cassee (PLAN_REFONTE_ALERTES §3)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INPUTS MACRO (projection cycle / crisis gauge)
+# Taxonomie 3 buckets (croyance pricée / réalité livrable / phase réflexive).
+# Cf SPEC_CORNERSTONE §2 -- chaque input avec son signe figé + tier + source.
+# Tier-S = high-skill, A = secondary, B = anchor.
+# ─────────────────────────────────────────────────────────────────────────────
+inputs:
+  macro:
+    croyance_pricee:
+      - name: 'HY_OAS'
+        label: 'Spread crédit HY (OAS bp)'
+        tier: 'S'
+        sign: 'negative'        # tight -> etire (divergence croyance >> realite)
+        source: 'FRED:BAMLH0A0HYM2'
+        data_quality: 'free'
+        max_age_days: 1
+        rationale: 'Meilleur gauge de complaisance late-cycle. Tier-S literature.'
+
+      - name: 'T10Y2Y_curve'
+        label: 'Courbe 2s10s (pp)'
+        tier: 'A'
+        sign: 'negative'        # inversion -> etire
+        source: 'FRED:T10Y2Y'
+        data_quality: 'free'
+        max_age_days: 1
+        stability_caveat: 'Post-QE = stabilite reduite -> down-weighte automatique par stabilite_i'
+        rationale: 'Classique fin-de-cycle ; mais skill reduit post-QE.'
+
+      - name: 'ERP_proxy'
+        label: 'Earnings yield − 10Y (proxy ERP)'
+        tier: 'B'
+        sign: 'negative'        # ERP comprime -> etire
+        source: 'derived:sp500_eps / sp500_price - 10Y_yield'
+        data_quality: 'free'
+        max_age_days: 7
+        rationale: 'Ancre magnitude valorisation, faible en timing.'
+
+    realite_livrable:
+      - name: 'credit_impulse'
+        label: 'Impulsion crédit (delta crédit aux entreprises NF, %YoY)'
+        tier: 'S'
+        sign: 'negative'        # resserrement -> divergence (manque carburant)
+        source: 'FRED:BUSLOANS YoY'
+        data_quality: 'free'
+        max_age_days: 7
+        rationale: 'Variable-maitre. Le carburant qui se vide.'
+
+      - name: 'eps_revisions_breadth'
+        label: 'Largeur révisions BPA agrégée (% hausses − % baisses)'
+        tier: 'A'
+        sign: 'negative'        # decelere -> divergence
+        source: 'data-constrained:revisions_aggregator'
+        data_quality: 'paid_or_proxy'
+        max_age_days: 14
+        rationale: 'Pouls de l''economie reelle. S-tier mais data-constrained.'
+        v0_fallback: 'proxy: yoy_change(SP500_EPS_TTM)'
+
+      - name: 'growth_nowcast'
+        label: 'Nowcast croissance composite (Atlanta Fed GDPNow)'
+        tier: 'B'
+        sign: 'negative'        # ralentit -> divergence
+        source: 'FRED:GDPNOW'
+        data_quality: 'free'
+        max_age_days: 7
+        rationale: 'Composite seul (prints isoles trop bruites).'
+
+    phase_reflexive:
+      - name: 'breadth_pct_above_200dma'
+        label: 'Largeur marché (% S&P >200dma)'
+        tier: 'A'
+        sign: 'negative'        # narrowing -> auto-defaisant
+        source: 'derived:sp500_constituents_above_200dma'
+        data_quality: 'free'
+        max_age_days: 1
+        rationale: 'Retrecissement participation = epuisement.'
+
+      - name: 'credit_impulse_delta'
+        label: 'Delta impulsion crédit (sign change)'
+        tier: 'S'
+        sign: 'negative'        # delta<0 -> bascule
+        source: 'derived:diff(credit_impulse, 30d)'
+        data_quality: 'free'
+        max_age_days: 7
+        rationale: 'Carburant qui se vide = retournement. Tier-S phase.'
+
+    rejected:
+      # Explicit rejets per SPEC_CORNERSTONE §2 + diagnostic audit 08/06
+      - name: 'BTC_drawdown180'
+        reason: 'Stock-only + bruit. 64% du score actuel CRISE 4/4 vient de la, alors que tiers-S calmes. Drop per doctrine.'
+      - name: 'VIX_level'
+        reason: 'Symptome reactif, skill faible. La crise c''est 35-80, pas 21.'
+      - name: 'AAII_sentiment'
+        reason: 'Sondage = bruit.'
+      - name: 'Gold'
+        reason: 'Redondant risk-appetite avec DXY/copper. Orthogonalite le tue.'
+      - name: 'DXY'
+        reason: 'Idem Gold, redondant. Conserve seul si single best.'
+      - name: 'CopperGold_ratio'
+        reason: 'Idem.'
+      - name: 'USDJPY_level'
+        reason: 'Book-specific (23% Japon book), pas crise macro systemique. Demote -> book risk.'
+      - name: 'TYX_level'
+        reason: 'Niveau != stress. Le stress c''est la vitesse/vol des taux. Remplacer par MOVE (vol bonds).'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INPUTS MICRO (projection consensus par ticker)
+# Cf SPEC_CONSENSUS_MICRO.md (archivee 08/06) -- N-riche cross-sectionnel.
+# DISJOINTS de inputs.macro (test verrouillant).
+# ─────────────────────────────────────────────────────────────────────────────
+  micro:
+    croyance_pricee:
+      - name: 'crowding_passive_etf'
+        label: '% float détenu en ETF passifs (SMH/SOXX/QQQ)'
+        tier: 'S'
+        sign: 'positive'        # float passif eleve -> etire
+        source: 'derived:etf_holdings_aggregator'
+        data_quality: 'free_fiddly'
+        max_age_days: 30
+        rationale: 'Mecanique, invisible, pertinent au book semis 77%.'
+
+      - name: 'borrow_fee'
+        label: 'Borrow fee (annualised %)'
+        tier: 'A'
+        sign: 'positive'        # eleve -> short crowde
+        source: 'data-constrained:borrow_feed'
+        data_quality: 'paid_or_proxy'
+        max_age_days: 7
+        v0_fallback: 'proxy: short_interest_pct * utilization'
+        rationale: 'Prix de la conviction de la foule. Pas SI brut.'
+
+      - name: 'multiple_vs_history'
+        label: 'P/E (or EV/EBITDA) vs propre median 5y'
+        tier: 'B'
+        sign: 'positive'        # eleve -> etire
+        source: 'yfinance:trailingPE + historic_median'
+        data_quality: 'free'
+        max_age_days: 7
+        rationale: 'Ancre magnitude valorisation.'
+
+      - name: 'analyst_dispersion'
+        label: 'Dispersion analystes (std target_price / mean)'
+        tier: 'B'
+        sign: 'negative'        # serre+bullish -> chambre echo
+        source: 'yfinance:recommendationKey + std targetPrice'
+        data_quality: 'free_partial'
+        max_age_days: 30
+        rationale: 'Unanimite = chambre d''echo crowdee.'
+
+    realite_livrable:
+      - name: 'eps_revisions_breadth_name'
+        label: 'Révisions BPA forward (% up − % down sur 90j)'
+        tier: 'S'
+        sign: 'negative'        # roule -> divergence
+        source: 'data-constrained:revisions_per_ticker'
+        data_quality: 'paid_or_proxy'
+        max_age_days: 14
+        v0_fallback: 'proxy: yoy_change forward EPS estimate'
+        rationale: 'Facteur public le plus robuste de la litterature.'
+
+      - name: 'thesis_drivers_momentum'
+        label: 'Momentum drivers de thèse (lit thesis_erosion)'
+        tier: 'A'
+        sign: 'negative'        # degrade -> divergence
+        source: 'derived:thesis_erosion_log.driver_status'
+        data_quality: 'free'
+        max_age_days: 7
+        rationale: 'Branche le moteur d''erosion existant comme input. Composition.'
+
+    phase_reflexive:
+      - name: 'crowding_delta'
+        label: 'Delta crowding 30j (accel vs decel)'
+        tier: 'S'
+        sign: 'positive'        # accelere -> renforce ; ralentit -> epuise (signe = magnitude du delta)
+        source: 'derived:diff(crowding_passive_etf, 30d) ; needs consensus_snapshots'
+        data_quality: 'free_fiddly'
+        max_age_days: 30
+        rationale: 'Tier-S phase. Sans consensus_snapshots historique, phase=unknown.'
+
+      - name: 'price_vs_belief_divergence'
+        label: 'Prix vs croyance (drift prix - drift consensus EPS)'
+        tier: 'A'
+        sign: 'negative'        # prix ne confirme plus consensus -> bascule
+        source: 'derived:price_returns - eps_estimate_changes'
+        data_quality: 'free'
+        max_age_days: 7
+        rationale: 'Prix decroche du recit = retournement reflexif.'
+
+    rejected:
+      - name: 'social_sentiment'
+        reason: 'Bruit. Pas de skill OOS documente.'
+      - name: 'google_trends'
+        reason: 'Bruit. Trop bruite intra-day.'
+      - name: 'gamma_exposure'
+        reason: 'Trop tactique pour horizon 18-24m du book.'
+      - name: 'short_interest_raw'
+        reason: 'Remplace par borrow_fee (prix vs quantite).'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Calibration metadata (cf METHODE_CALIBRATION_CORNERSTONE)
+# ─────────────────────────────────────────────────────────────────────────────
+calibration:
+  labels:
+    # Cible primaire : SMH (semis ETF) -- match facteur du book + 15y historique
+    primary_target: 'SMH'
+    secondary_target: 'SPY'      # macro large pour comparer crise-specifique vs crise-large
+    skip_book_target: true        # Pas le book direct (26j historique = pas calibrable)
+    drawdown_thresholds_pct: [-10.0, -20.0]  # multi-label (correction / bear)
+    forward_horizon_months: 3     # H=3M actionnable (le 12M = horloge cycle separe)
+  metrics:
+    primary: 'PR-AUC'             # robuste imbalance, pas ROC-AUC
+    composite_baseline: 'brier_skill_vs_base_rate'
+    baselines_to_beat:
+      - 'base_rate'                # toujours predire P(crisis) inconditionnel
+      - 'equal_weighted'           # equipondere bete (Markowitz vs 1/N gate)
+      - 'single_best_indicator'    # le meilleur indicateur seul (HY_OAS typiquement)
+    fallback_rule: 'Si composite ne bat AUCUN baseline OOS -> fallback single_best_indicator'
+  splits:
+    method: 'purged_walk_forward'  # PAS k-fold (anti-leakage L16)
+    embargo_days: 90                # >= horizon de label pour eviter overlap
+    n_effective_unit: 'episode'     # N = episodes ~10-20, PAS jours
+  recalibration:
+    method: 'isotonic'              # ou platt (sklearn dispo)
+    ece_target: 0.05                # ECE OOS < 5%
+    conformal_coverage: 0.90        # bande 90% couverture
+  meta:
+    # Honnetete : N petit + crises rares -> on FALSIFIE le bruit, pas certifier prescience
+    posture: 'falsification_not_certification'
+    cross_panel_borrow: true        # emprunter du N en largeur (cross-pays / cross-actifs)
+    confidence_floor_n_below: 30    # N<30 -> presenter comme "prior faiblement valide"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Output schema (ce que compute_divergence retourne -- contrat figé)
+# ─────────────────────────────────────────────────────────────────────────────
+output_schema:
+  fields:
+    D: 'divergence magnitude (signed float, scale-dependent)'
+    phase: 'reflexive phase (continuous: auto-renforcant > 0 > auto-defaisant)'
+    fragility: 'g(|D|, phase) -- composite anti-tendance'
+    p_outcome: 'probability calibrated (None si fail-closed)'
+    band_lo: 'conformal lower bound'
+    band_hi: 'conformal upper bound'
+    drivers: 'list of {name, percentile, delta, weight, asof, source}'
+    confidence: 'derived from band width (None si fail-closed)'
+    effective_asof: 'as-of de l''input le plus vieux contributeur (M1 honnete)'
+    degraded: 'True si <min_fresh_inputs ou ECE OOS au-dessus seuil'
