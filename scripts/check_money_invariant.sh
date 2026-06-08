@@ -22,21 +22,28 @@ set -euo pipefail
 BASELINE_FILE="scripts/check_money_invariant.baseline"
 ROOTS="bot shared intelligence dashboard"
 
-# Gate 1 : × fx ad-hoc
+# Gate 1 : × fx ad-hoc (capture aussi line.fx_rate_to_eur, p.fx_rate_to_eur, etc.)
 count_fx() {
-    grep -rnE "\* fx_rate_to_eur|fx_rate_to_eur \*|\* fx_at_purchase|fx_at_purchase \*" \
+    grep -rnE "[*/][[:space:]]*([a-zA-Z_][a-zA-Z0-9_]*\.)?fx_rate_to_eur|([a-zA-Z_][a-zA-Z0-9_]*\.)?fx_rate_to_eur[[:space:]]*[*/]|[*/][[:space:]]*([a-zA-Z_][a-zA-Z0-9_]*\.)?fx_at_purchase|([a-zA-Z_][a-zA-Z0-9_]*\.)?fx_at_purchase[[:space:]]*[*/]" \
         --include="*.py" -- $ROOTS 2>/dev/null \
         | grep -v __pycache__ \
         | grep -v "shared/money.py" \
+        | grep -v "shared/book.py" \
         | wc -l | awk '{print $1}'
 }
 
-# Gate 2 : arithmétique ad-hoc sur baselines monétaires
+# Gate 2 : arithmétique ad-hoc sur baselines monétaires.
+# Capture les 3 patterns réels d'accès :
+#   - var.entry_price   (attribut)
+#   - dict["entry_price"] / dict['entry_price']  (subscript)
+#   - entry_price (variable locale)
+# suivi/precédé d'un opérateur arithmétique *, /, +, -
 count_baselines() {
-    grep -rnE "\b(entry_price|avg_cost|stop_price|target_full|target_partial)\b[[:space:]]*[*/+-]" \
+    grep -rnE "(\.|\[['\"])?\b(entry_price|avg_cost|stop_price|target_full|target_partial)\b(['\"]\])?[[:space:]]*[*/+-]|[*/+-][[:space:]]*(\.|\[['\"])?\b(entry_price|avg_cost|stop_price|target_full|target_partial)\b" \
         --include="*.py" -- $ROOTS 2>/dev/null \
         | grep -v __pycache__ \
         | grep -v "shared/money.py" \
+        | grep -v "shared/book.py" \
         | grep -v "pct_change" \
         | wc -l | awk '{print $1}'
 }
