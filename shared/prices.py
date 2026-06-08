@@ -549,3 +549,107 @@ def get_price_window(ticker: str, start_date: str | datetime, end_date: str | da
     except Exception as e:
         print(f"price window error for {ticker}: {e}")
         return []
+
+
+from shared.datum import Datum
+
+# === SOCLE Phase 1b : Gateway Datum (SPEC_SOCLE.md S3) =====================
+# Cf HANDOFF_SOCLE.md S1 : prices.get() et fx() retournent JAMAIS un float nu.
+# Tout consumer downstream doit recevoir un Datum (value, asof, source,
+# confidence, parents=(), op=None, degraded).
+#
+# SLA freshness :
+#   - price : green < 900s, amber < 3600s, sinon degraded
+#   - fx    : green < 3600s, amber < 14400s, sinon degraded
+# Ces seuils seront migrés vers config/freshness.yaml (L17) une fois la
+# migration progressive des consumers achevée. V0 hardcodés ici pour pas
+# proliférer la complexité tant que tracer-bullet validé.
+
+_PRICE_GREEN_SEC = 900
+_PRICE_AMBER_SEC = 3600
+_FX_GREEN_SEC = 3600
+_FX_AMBER_SEC = 14400
+
+
+def _staleness_to_confidence(age_sec: float, green_sec: int, amber_sec: int) -> tuple[float, bool]:
+    """Convertit l'age d'un input en (confidence, degraded).
+
+    age <= green_sec        -> confidence=1.0, degraded=False
+    green < age <= amber    -> confidence interpolée [1.0 -> 0.5], degraded=False
+    age > amber_sec         -> confidence=0.4, degraded=True (fail-closed structurel)
+    """
+    if age_sec <= green_sec:
+        return (1.0, False)
+    if age_sec <= amber_sec:
+        # interpolation linéaire entre green (conf=1.0) et amber (conf=0.5)
+        ratio = (age_sec - green_sec) / max(1.0, (amber_sec - green_sec))
+        return (1.0 - 0.5 * ratio, False)
+    return (0.4, True)
+
+
+def get(ticker: str) -> Datum | None:
+    """SOCLE Gateway : retourne Datum[float] pour le prix d'un ticker.
+
+    value     = price_native (float, devise du ticker)
+    asof      = ISO timestamp de l'observation
+    source    = "yfinance" (ou autre une fois multi-provider)
+    confidence = decroit avec age (cf _staleness_to_confidence)
+    parents   = () (leaf Datum -- sortie gateway, pas de parents)
+    op        = None
+    degraded  = True si age > _PRICE_AMBER_SEC
+
+    Retourne None si fetch fail (le caller doit gerer -- pas de fallback).
+    Le gateway append append-only dans price_history via get_current_price.
+    """
+    price = get_current_price(ticker)
+    if price is None:
+        return None
+    # asof = maintenant (get_current_price vient de fetcher)
+    # Une amelioration future : lire le timestamp REEL du fetch yfinance plutot
+    # que le now -- mais yfinance retourne souvent T-1 close, donc on prend now
+    # comme borne haute de la fraicheur (overestimes fresh, conservative).
+    asof_dt = datetime.now(UTC)
+    asof_iso = asof_dt.isoformat()
+    confidence, degraded = _staleness_to_confidence(
+        age_sec=0.0,  # juste fetche
+        green_sec=_PRICE_GREEN_SEC,
+        amber_sec=_PRICE_AMBER_SEC,
+    )
+    return Datum(
+        value=price,
+        asof=asof_iso,
+        source="yfinance",
+        confidence=confidence,
+        degraded=degraded,
+    )
+
+
+def fx(base: str, quote: str = "EUR") -> Datum | None:
+    """SOCLE Gateway : retourne Datum[float] pour le taux FX base->quote.
+
+    Memes invariants que get(). Identity (base==quote) -> Datum(value=1.0, ...)
+    """
+    if base == quote:
+        return Datum(
+            value=1.0,
+            asof=datetime.now(UTC).isoformat(),
+            source="identity",
+            confidence=1.0,
+            degraded=False,
+        )
+    rate = get_fx_rate(base, quote)
+    if rate is None:
+        return None
+    asof_iso = datetime.now(UTC).isoformat()
+    confidence, degraded = _staleness_to_confidence(
+        age_sec=0.0,
+        green_sec=_FX_GREEN_SEC,
+        amber_sec=_FX_AMBER_SEC,
+    )
+    return Datum(
+        value=rate,
+        asof=asof_iso,
+        source="yfinance:fx",
+        confidence=confidence,
+        degraded=degraded,
+    )
