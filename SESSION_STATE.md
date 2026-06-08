@@ -2350,6 +2350,13 @@ Origine : panneau « CLOSEST TO TARGET » affichait `+184590% beyond` pour SK Hy
 
 ### Entry next session
 
+⚠️ **Note critique pour toi-de-demain (Olivier 00:30)** : ne SOUS-DIMENSIONNE PAS la lane 2. « Dispersion money » n'est pas que les 3 agrégateurs render — c'est AUSSI les consumers `intelligence/*` (≥10 fichiers : `over_cap_monitor`, `portfolio_grade`, `lock_in_detector`, `kill_criteria_monitor`, `factor_exposures`, `wrapper_tax`, `retrospective_decisions`, `card_inputs`…) qui font leur propre `_cached_price_eur` ou arithmétique `× fx_rate_to_eur` ad-hoc. **Le ratchet ne tombe à 0/0 que quand le model ET le render lisent tous `book.value_eur`**. Scope = model + render, pas juste render.
+
+Re-onboarding 2 minutes :
+- `docs/CANONICAL_MAP.md` §0 (principe porteur, 6 primitifs, 3 mesures de "bon")
+- Cette section SESSION_STATE (lanes 1/2, "for good" status)
+- Premier geste à froid = **Performance**, invariant somme-égale-parties câblé d'abord (avant tout fix), puis migration helper.
+
 1. **PRIORITÉ 0 — agrégateurs monétaires Performance / Risk / Concentration** (tête reposée obligatoire). Catégorie silencieux-sévère : un diff sur un total agrégé est dur à repérer (vs un %position visible). Discipline pour chaque commit :
    - **Invariant somme-égale-parties** (Olivier 09/06 00:30, plus fort que byte-identité historique) : `assert agrégat_nouveau == Σ(component_views)`. Si l'agrégat ne matche pas la somme des parties → l'ancien total mentait (agrégeait du dispersé), la somme-des-views est la vérité.
    - `assert ancien == nouveau` OU diff → **STOP dur, zéro tolérance** (pas de « ≤0.4pp histoire plausible »). Sur un total, 0.00 ou investigue.
