@@ -57,46 +57,54 @@ def pnl_position_pct_eur(position: dict[str, Any] | Any) -> float | None:
     if not qty or not ticker or qty <= 0:
         return None
 
-    # ROOT canonique unique (#118+0044) : avg_cost_eur EST DERIVE de
-    # avg_cost_native × fx_at_purchase. fx_at_purchase FIGÉ au moment de
-    # l'achat -> cost_basis_eur ne change pas avec FX subsequent. Coherent
-    # avec le P&L broker que l'user voit (cost basis EUR effectif paye).
+    # === cost_basis_eur : priorité simple > legacy native×fx ===
     #
-    # PAS de fallback sur avg_cost_eur stocké : on force la racine canonique.
-    # Si avg_cost_native ou fx_at_purchase manque -> fail-closed (None).
-    # Ainsi un consumer qui voit None sait qu'il faut completer la migration
-    # 0044 pour ce ticker (pas un nombre fabriqué via ancien fallback).
-    avg_cost_native = _g("avg_cost_native")
-    fx_at_purchase = _g("fx_at_purchase")
-    if not avg_cost_native or not fx_at_purchase:
-        return None
-    if avg_cost_native <= 0 or fx_at_purchase <= 0:
-        return None
+    # Vérité hand-checked AMD (cf garde Olivier R) :
+    #   qty 4.12 × avg_cost_eur 127.20 = cost_basis 524.06 EUR
+    #   qty × last_price_native × fx_rate_to_eur = value_eur 1666.84 EUR
+    #   pnl_pct = +218.0%  (la vrai P&L Olivier)
+    #
+    # Priorité 1 : avg_cost_eur direct (post-M1 simple, contrat clair).
+    # Priorité 2 : avg_cost_native × fx_at_purchase (legacy 0044, conservée
+    #              pour positions migrées avec triple Monetary natif).
+    avg_cost_eur = _g("avg_cost_eur")
+    if not avg_cost_eur or avg_cost_eur <= 0:
+        # Fallback legacy : derive depuis native × fx_at_purchase
+        avg_cost_native = _g("avg_cost_native")
+        fx_at_purchase = _g("fx_at_purchase")
+        if not avg_cost_native or not fx_at_purchase:
+            return None
+        if avg_cost_native <= 0 or fx_at_purchase <= 0:
+            return None
+        avg_cost_eur = avg_cost_native * fx_at_purchase
 
-    avg_cost_eur = avg_cost_native * fx_at_purchase  # DERIVE depuis la racine
-
-    # cost_basis_eur cohérent
     cost_basis_eur = qty * avg_cost_eur
 
-    # value_eur_now via position_valuation (Datum compose, fx-correct)
-    # Si position est un row dict avec id -> on peut appeler position_valuation
-    position_id = _g("id")
-    if position_id is not None:
-        try:
-            from shared.valuation import position_valuation
-            pv = position_valuation(int(position_id))
-            if pv is not None and pv.value_eur is not None:
-                value_eur_now = pv.value_eur
-                return (value_eur_now / cost_basis_eur - 1) * 100.0
-        except Exception as e:
-            log.warning(f"position_valuation fallback for {ticker}: {e}")
-
-    # Fallback : calculer value_eur_now depuis attributs du position dict
+    # === value_eur_now : priorité inputs du dict > Datum canonique live ===
+    #
+    # Priorité 1 : inputs du position dict (last_price_native + fx_rate_to_eur).
+    #              C'est la vérité passée par le caller (test unit fixture OU
+    #              BookLine canonique pré-chargé avec snapshot DB). Respecter
+    #              les inputs garantit déterminisme et tests reproductibles.
+    # Priorité 2 : book.value_eur(ticker, qty) -> Datum[Monetary(EUR)] live
+    #              via prices.get + prices.fx. Utilisé si le dict ne porte pas
+    #              les fields ; le caller veut donc du live frais.
     last_price_native = _g("last_price_native")
     fx_rate = _g("fx_rate_to_eur")
-    if not last_price_native or not fx_rate or last_price_native <= 0 or fx_rate <= 0:
-        return None
-    value_eur_now = qty * last_price_native * fx_rate
+    if last_price_native and fx_rate and last_price_native > 0 and fx_rate > 0:
+        value_eur_now = qty * last_price_native * fx_rate
+    else:
+        value_eur_now = None
+        try:
+            from shared.book import value_eur as book_value_eur
+            bv = book_value_eur(ticker, qty)
+            if bv is not None and bv.value is not None and hasattr(bv.value, "amount"):
+                value_eur_now = float(bv.value.amount)
+        except Exception as e:
+            log.warning(f"book.value_eur fallback for {ticker}: {e}")
+        if value_eur_now is None or value_eur_now <= 0:
+            return None
+
     return (value_eur_now / cost_basis_eur - 1) * 100.0
 
 
