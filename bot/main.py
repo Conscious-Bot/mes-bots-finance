@@ -245,6 +245,11 @@ async def post_init(app):
     sched.add_job(_stress_gate_check_job, "cron", hour=7, minute=0)
     sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
+    # SOCLE S0 : OTS anchor chain-head daily 6h. Cf SPEC_SOCLE.md S5 + HANDOFF_SOCLE.md.
+    # Lignage = integrite (Merkle-DAG). Track-record provable -- chaque jour compte.
+    from bot.jobs.integrity_anchor import integrity_anchor_daily_job
+    sched.add_job(integrity_anchor_daily_job, "cron", hour=6, minute=0,
+                  misfire_grace_time=7200)
     sched.add_job(daily_crypto_zone_job, "cron", hour=10, minute=0)
     sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=0)
     # #89 cadence mensuelle : snapshot JSON + recal credibility V2 + digest Telegram

@@ -68,8 +68,16 @@ def test_anchor_require_ots_raises_when_unavailable():
         )
 
 
-def test_anchor_require_ots_false_allows_dev_bypass():
-    """require_ots=False = dev mode explicit, returns dict avec trustless=False."""
+def test_anchor_require_ots_false_allows_dev_bypass(monkeypatch):
+    """require_ots=False sans ots installe = dev mode, trustless=False.
+
+    Note 08/06 : test rendu independant de l'install systeme via mock de
+    shutil.which("ots"). Avant : assumait silencieusement ots absent ; cassait
+    des qu'ots installe (cf SOCLE S0 cron live). Le test doit verifier le
+    comportement du code, pas l'etat du systeme.
+    """
+    import shutil
+    monkeypatch.setattr(shutil, "which", lambda name: None if name == "ots" else shutil.which(name))
     result = anchor_chain_head(
         head_hash="b" * 64, head_seq=2,
         anchor_dir="/tmp/test_anchor_dir_bypass",
