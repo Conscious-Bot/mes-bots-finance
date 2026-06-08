@@ -486,6 +486,76 @@ def validate_all_positions() -> dict:
     }
 
 
+# =============================================================================
+# SOCLE — primitif partagé value_eur (CANONICAL_MAP §0 + SPEC_MONEY_INVARIANT §8)
+# =============================================================================
+#
+# Source UNIQUE de la valeur EUR d'une position. Consommé par :
+#   - shared/valuation.position_valuation_datum (compose qty × price × fx)
+#   - shared/position_view.assemble_position_view (via valuation_datum)
+#   - intelligence/* monitors (over_cap, lock_in, kill_criteria, factor_exposures)
+#   - dashboard/render.py panneaux (via get_all_positions_views)
+#
+# Élimine la double-source révélée par le test cohérence-perturbation : avant,
+# `prices.get(ticker)` (live yfinance) et `positions.last_price_native` (DB cron)
+# pouvaient diverger pour le même ticker, produisant value_eur et price_native
+# incohérents dans une même PositionView. Maintenant : un seul appel,
+# un seul Datum[Monetary(EUR)] tagué Merkle-DAG.
+
+
+def value_eur(ticker: str, qty: float) -> "Datum | None":
+    """Valeur position EUR canonique : Datum[Monetary(EUR)] avec lignage.
+
+    Pipeline (composition pure de gateways canoniques) :
+      1. prices.get(ticker)         → Datum[float] price_native
+      2. prices.fx(currency, "EUR") → Datum[float] fx_rate
+      3. derive(qty × price × fx)   → Datum[Monetary(EUR)]
+
+    Le Datum résultat porte :
+      - value : Monetary(amount, currency="EUR")
+      - asof  : min(price.asof, fx.asof) -- M1 honnête
+      - confidence : min(price.confidence, fx.confidence)
+      - degraded : any(stale) -- fail-closed propage
+      - parents : (price.id, fx.id) -- Merkle-DAG seed
+
+    Returns None si fetch fail (L15 strict, jamais nombre fabriqué). Le
+    caller affiche "n/a" / DEGRADED, pas un faux confiant.
+
+    Source unique : tout consumer (model + render) appelle cette fonction.
+    Aucun calcul `qty × price × fx` ad-hoc ailleurs (gate ratchet enforce).
+    """
+    from shared import prices
+    from shared.datum import derive
+    from shared.money import Monetary
+
+    if not qty or qty <= 0 or not ticker:
+        return None
+
+    price_datum = prices.get(ticker)
+    if price_datum is None or price_datum.value is None:
+        return None
+
+    try:
+        currency = prices.get_currency_for_ticker(ticker)
+    except Exception:
+        return None
+
+    fx_datum = prices.fx(currency, "EUR")
+    if fx_datum is None or fx_datum.value is None:
+        return None
+
+    # Compose qty × price × fx → Monetary(EUR). derive() propage asof/confidence/
+    # degraded/parents automatiquement (lignage Merkle-DAG).
+    return derive(
+        lambda px, fx: Monetary(
+            amount=float(qty) * float(px) * float(fx),
+            currency="EUR",
+        ),
+        price_datum, fx_datum,
+        op="qty_mul_price_mul_fx_eur",
+    )
+
+
 def book_summary() -> dict:
     """Resume du book : totaux + brackets etat. Utile pour diagnostiquer
     instantanement la coherence des 3 sources."""

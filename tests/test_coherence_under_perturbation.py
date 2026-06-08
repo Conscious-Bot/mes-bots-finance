@@ -35,31 +35,18 @@ def test_baseline_views_built(baseline_views):
     if "000660.KS" in baseline_views:
         v = baseline_views["000660.KS"]
         assert v.value_eur_datum is not None, "value_eur_datum None pour 000660.KS"
-        assert v.value_eur_datum.value > 0
+        # value_eur_datum.value = Monetary(amount, currency="EUR")
+        assert v.value_eur_datum.value.amount > 0
+        assert v.value_eur_datum.value.currency == "EUR"
         assert v.price_native is not None
 
 
-@pytest.mark.xfail(
-    reason=(
-        "FINDING SEAM 08/06 : view.price_native (prices.get live yfinance) "
-        "diverge de view.value_eur_datum (positions.last_price_native DB). "
-        "Le seam consomme 2 sources de prix pour le même ticker — pas l'unisson. "
-        "Fix : refactor position_valuation_datum pour consommer prices.get() "
-        "(comme view.price_native) OU view.price_native = positions.last_price_native "
-        "(comme value_eur). Cf SPEC_MONEY_INVARIANT §8 + CANONICAL_MAP §0 "
-        "(primitif partagé shared/book.value_eur). Le test devient vert quand "
-        "le primitif unique est en place."
-    ),
-    strict=True,  # Si le test passe sans fix, c'est un warning -> on saura.
-)
-def test_perturbation_source_propagates_to_value_eur(baseline_views):
-    """Perturbation prix d'un ticker dans la DB → value_eur_datum reflète.
+def test_perturbation_source_propagates_to_value_eur(monkeypatch, baseline_views):
+    """Perturbation prices.get(ticker) → value_eur_datum reflète + view.price_native aussi.
 
-    La source des panneaux = `positions.last_price_native` (DB, alimentée par
-    le cron `reconcile_positions_prices`). On perturbe directement la DB pour
-    simuler un tick cron, puis on rebuild le seam — value_eur doit suivre.
-
-    Backup + restore atomique pour ne pas polluer la prod.
+    Le primitif unique book.value_eur consomme prices.get pour le price native ET
+    la composition value_eur. Donc une perturbation de prices.get propage à TOUT.
+    C'est ça l'unisson : une source, tout bouge ensemble dans le seam.
     """
     target_ticker = next(
         (tk for tk in ("000660.KS", "AMD", "4063.T", "ASML.AS") if tk in baseline_views),
@@ -68,63 +55,66 @@ def test_perturbation_source_propagates_to_value_eur(baseline_views):
     if target_ticker is None:
         pytest.skip("No priority ticker in baseline_views")
 
-    from shared import storage
+    baseline_value = baseline_views[target_ticker].value_eur_datum.value.amount
+    baseline_price = baseline_views[target_ticker].price_native
 
-    # Lecture valeur originale
-    with storage.db() as cx:
-        cx.row_factory = None
-        orig_row = cx.execute(
-            "SELECT last_price_native FROM positions WHERE ticker=? AND status='open'",
-            (target_ticker,),
-        ).fetchone()
-    if orig_row is None or orig_row[0] is None:
-        pytest.skip(f"{target_ticker} no last_price_native — can't perturb")
-    orig_price = orig_row[0]
-    baseline_value = baseline_views[target_ticker].value_eur_datum.value
+    # Patch prices.get pour ce ticker. Tous les autres tickers passent par real_get.
+    import shared.prices as prices_mod
+    real_get = prices_mod.get
 
-    try:
-        # Perturbe +10% dans la DB
-        with storage.db() as cx:
-            cx.execute(
-                "UPDATE positions SET last_price_native = ? WHERE ticker=? AND status='open'",
-                (orig_price * 1.10, target_ticker),
+    def perturbed_get(ticker: str):
+        if ticker == target_ticker:
+            base = real_get(ticker)
+            if base is None:
+                return None
+            from datetime import UTC, datetime
+            return Datum(
+                value=base.value * 1.10,
+                asof=datetime.now(UTC).isoformat(),
+                source="test:perturbation",
+                confidence=base.confidence,
+                degraded=base.degraded,
             )
-        perturbed_views = get_all_positions_views()
-        perturbed_value = perturbed_views[target_ticker].value_eur_datum.value
+        return real_get(ticker)
 
-        # Le value_eur doit refléter la perturbation +10% exactement
-        # (qty et fx_rate inchangés, seul price_native bouge)
-        actual_ratio = perturbed_value / baseline_value
-        assert abs(actual_ratio - 1.10) < 0.001, (
-            f"{target_ticker} value_eur ne suit pas la perturbation. "
-            f"Baseline {baseline_value:.2f} -> Perturbed {perturbed_value:.2f} "
-            f"(ratio {actual_ratio:.4f}, expected 1.10 exact)"
-        )
+    # Patch dans prices ET dans shared.book (l'import a déjà fait shared.prices.get)
+    monkeypatch.setattr(prices_mod, "get", perturbed_get)
 
-        # Lignage Merkle-DAG : content-hash change
-        assert (
-            perturbed_views[target_ticker].value_eur_datum.id
-            != baseline_views[target_ticker].value_eur_datum.id
-        ), "Content-hash inchangé — lignage cassé"
-    finally:
-        # Restore atomique (jamais polluer prod, même en cas d'échec assert)
-        with storage.db() as cx:
-            cx.execute(
-                "UPDATE positions SET last_price_native = ? WHERE ticker=? AND status='open'",
-                (orig_price, target_ticker),
-            )
+    perturbed_views = get_all_positions_views()
+    perturbed_value = perturbed_views[target_ticker].value_eur_datum.value.amount
+    perturbed_price = perturbed_views[target_ticker].price_native
+
+    # value_eur doit suivre exactement +10% (qty et fx inchangés, seul price bouge)
+    actual_ratio = perturbed_value / baseline_value
+    assert abs(actual_ratio - 1.10) < 0.001, (
+        f"{target_ticker} value_eur ne suit pas la perturbation source. "
+        f"Baseline {baseline_value:.2f} -> Perturbed {perturbed_value:.2f} "
+        f"(ratio {actual_ratio:.4f}, expected 1.10 exact)"
+    )
+
+    # view.price_native doit aussi suivre +10% (UNISSON : même source que value_eur)
+    price_ratio = perturbed_price / baseline_price
+    assert abs(price_ratio - 1.10) < 0.001, (
+        f"{target_ticker} view.price_native ne suit pas la perturbation : "
+        f"{baseline_price} -> {perturbed_price} (ratio {price_ratio:.4f}, expected 1.10). "
+        "DIVERGENCE entre value_eur et price_native -- double source détectée."
+    )
+
+    # Lignage Merkle-DAG : content-hash change
+    assert (
+        perturbed_views[target_ticker].value_eur_datum.id
+        != baseline_views[target_ticker].value_eur_datum.id
+    ), "Content-hash inchangé malgré perturbation -- lignage cassé"
 
 
-def test_other_tickers_unaffected_by_perturbation(baseline_views):
-    """Perturbation d'UN ticker dans la DB → les autres tickers inchangés.
+def test_other_tickers_unaffected_by_perturbation(monkeypatch, baseline_views):
+    """Perturbation d'UN ticker → les autres tickers inchangés (isolation).
 
-    Isolation garantie : chaque PositionView est composé indépendamment.
-    Aucun partage d'état mutable entre tickers.
+    Garanti par construction : chaque PositionView composé indépendamment via
+    book.value_eur(ticker, qty) qui ne partage aucun état mutable cross-ticker.
     """
     if len(baseline_views) < 2:
         pytest.skip("Need at least 2 tickers")
-
-    from shared import storage
 
     target = next(
         (tk for tk in baseline_views if baseline_views[tk].value_eur_datum is not None),
@@ -139,38 +129,35 @@ def test_other_tickers_unaffected_by_perturbation(baseline_views):
     )
     if other is None:
         pytest.skip("Need 2nd ticker with value_eur_datum")
-    other_baseline_value = baseline_views[other].value_eur_datum.value
+    other_baseline_value = baseline_views[other].value_eur_datum.value.amount
 
-    with storage.db() as cx:
-        cx.row_factory = None
-        orig = cx.execute(
-            "SELECT last_price_native FROM positions WHERE ticker=? AND status='open'",
-            (target,),
-        ).fetchone()
-    if orig is None or orig[0] is None:
-        pytest.skip(f"{target} no last_price_native")
-    orig_price = orig[0]
+    import shared.prices as prices_mod
+    real_get = prices_mod.get
 
-    try:
-        with storage.db() as cx:
-            cx.execute(
-                "UPDATE positions SET last_price_native = ? WHERE ticker=? AND status='open'",
-                (orig_price * 1.50, target),
+    def perturbed_get(ticker: str):
+        if ticker == target:
+            base = real_get(ticker)
+            if base is None:
+                return None
+            from datetime import UTC, datetime
+            return Datum(
+                value=base.value * 1.50,  # +50% gros choc
+                asof=datetime.now(UTC).isoformat(),
+                source="test:perturbation",
+                confidence=base.confidence,
+                degraded=base.degraded,
             )
-        perturbed = get_all_positions_views()
-        other_after = perturbed[other].value_eur_datum.value
+        return real_get(ticker)
 
-        assert abs(other_after - other_baseline_value) / other_baseline_value < 0.001, (
-            f"{other} bouge alors que seul {target} perturbé "
-            f"({other_baseline_value:.2f} -> {other_after:.2f}). "
-            "Partage d'état mutable entre tickers — BUG."
-        )
-    finally:
-        with storage.db() as cx:
-            cx.execute(
-                "UPDATE positions SET last_price_native = ? WHERE ticker=? AND status='open'",
-                (orig_price, target),
-            )
+    monkeypatch.setattr(prices_mod, "get", perturbed_get)
+    perturbed = get_all_positions_views()
+    other_after = perturbed[other].value_eur_datum.value.amount
+
+    assert abs(other_after - other_baseline_value) / other_baseline_value < 0.001, (
+        f"{other} bouge alors que seul {target} perturbé "
+        f"({other_baseline_value:.2f} -> {other_after:.2f}). "
+        "Partage d'état mutable entre tickers — BUG."
+    )
 
 
 def test_no_silent_stale_field(baseline_views):

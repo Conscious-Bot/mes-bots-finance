@@ -145,7 +145,12 @@ def project_row(view: PositionView) -> RowView:
         ticker=view.ticker,
         name=view.name,
         position_type=view.position_type,
-        value_eur=view.value_eur_datum.value if view.value_eur_datum else None,
+        # value_eur_datum.value est Monetary(amount, currency="EUR") -- extract amount
+        value_eur=(
+            view.value_eur_datum.value.amount
+            if view.value_eur_datum and hasattr(view.value_eur_datum.value, "amount")
+            else view.value_eur_datum.value if view.value_eur_datum else None
+        ),
         price_native=view.price_native,
         asym_ratio=view.asym_ratio,
         steer_chip=view.steer_chip,
@@ -338,7 +343,10 @@ def compute_position(
         avg_cost_eur = getattr(bl, "avg_cost_eur", None)
         if qty and avg_cost_eur and qty > 0 and avg_cost_eur > 0:
             cost_basis_eur = qty * avg_cost_eur
-            value_eur_now = value_eur_datum.value
+            # value est Monetary(amount, "EUR") via book.value_eur — extract amount.
+            # Compat back : si value est encore float (legacy path), accept tel quel.
+            _v = value_eur_datum.value
+            value_eur_now = _v.amount if hasattr(_v, "amount") else _v
             pnl_position_eur = value_eur_now - cost_basis_eur
             pnl_position_pct = (value_eur_now / cost_basis_eur - 1) * 100.0
 

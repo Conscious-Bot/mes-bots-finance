@@ -183,14 +183,52 @@ def position_valuation(position_id: int) -> PositionValuation | None:
 def position_valuation_datum(position_id: int):  # -> Datum | None
     """SOCLE compose : retourne value_eur en Datum avec lignage capture.
 
-    Wrap chaque input (qty, price_native, fx_rate) en leaf Datum puis derive()
-    compose la value_eur en propageant asof=min, confidence=min, degraded=any,
-    parents=(qty.id, price.id, fx.id).
+    SPEC_MONEY_INVARIANT §8 + CANONICAL_MAP §0 : route via le primitif unique
+    shared.book.value_eur() qui consomme prices.get + prices.fx. Garantit
+    que view.price_native (depuis prices.get) et value_eur sortent du MEME
+    Datum source -- plus de double-source (DB cron vs yfinance live qui
+    pouvaient diverger).
 
-    Returns None si position introuvable ou fail-closed (severity rouge).
+    Returns None si position introuvable, qty<=0, ou fetch prix/fx fail.
 
     Lien Phase 2 S0 : le content-hash du Datum produit (`.id`) est un noeud
     Merkle-DAG qui sera ancrable OTS (le lignage EST l'integrite).
+    """
+    from shared import storage
+    from shared.book import value_eur as book_value_eur
+
+    # Lookup ticker + qty depuis positions
+    try:
+        with storage.db() as cx:
+            cx.row_factory = None
+            row = cx.execute(
+                "SELECT ticker, qty FROM positions WHERE id = ? AND status = 'open'",
+                (position_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        ticker, qty = row
+        if not qty or qty <= 0:
+            return None
+    except Exception as e:
+        log.warning(f"position_valuation_datum lookup failed for pid={position_id}: {e}")
+        return None
+
+    # Source unique : book.value_eur(ticker, qty) -> Datum[Monetary(EUR)]
+    datum = book_value_eur(ticker, qty)
+    if datum is None:
+        return None
+    # Pour compat avec les consumers qui lisent .value comme float scalaire (legacy),
+    # on extrait l'amount de Monetary. Les nouveaux consumers lisent .value.amount.
+    # Note : on garde le Datum tel quel (value=Monetary), c'est le contrat canonique.
+    return datum
+
+
+def _position_valuation_datum_legacy(position_id: int):
+    """Legacy path conservé pour audit. Remplacé par routage book.value_eur.
+
+    Cette fonction ne devrait plus etre appelee en prod (cf gate ratchet).
+    Conservée pour bisection si une régression apparait post-routage.
     """
     from shared.datum import Datum, derive
     pv = position_valuation(position_id)

@@ -88,7 +88,9 @@ def test_seam_value_eur_coherent_with_qty_price_fx(ticker: str):
         pytest.skip(f"{ticker} : value_eur_datum None (degraded) -- skipped")
 
     known = BROKER_KNOWN[ticker]
-    value_eur = v.value_eur_datum.value
+    # value_eur_datum.value = Monetary(amount, currency="EUR") (book.value_eur primitif)
+    _v = v.value_eur_datum.value
+    value_eur = _v.amount if hasattr(_v, "amount") else _v
     qty = known["qty"]
     price_native = v.price_native
     fx_rate = v.fx_rate
