@@ -165,3 +165,77 @@ def position_valuation(position_id: int) -> PositionValuation | None:
         value_eur=value_eur, value_eur_fail_reason=fail_reason,
         effective_asof=effective_asof, overall_severity=overall_severity,
     )
+
+
+# === SOCLE Phase 2 S2 : position_valuation_datum (compose via derive) =====
+# Cf SPEC_SOCLE.md S1 ("tout nombre est un Datum") + HANDOFF_SOCLE.md S2.
+#
+# position_valuation() retourne une PositionValuation dataclass (legacy compatible).
+# position_valuation_datum() retourne un Datum compose via derive() -- la version
+# Datum capture le LIGNAGE (parents = qty_id, price_id, fx_id) qui amorce le
+# graphe vivant (post-socle living_graph).
+#
+# Migration consumers : nouveaux callers (cornerstone, governor, PositionView)
+# devraient consommer la version Datum pour beneficier de la propagation gratuite
+# de degraded/confidence. Legacy callers gardent PositionValuation (status quo).
+
+
+def position_valuation_datum(position_id: int):  # -> Datum | None
+    """SOCLE compose : retourne value_eur en Datum avec lignage capture.
+
+    Wrap chaque input (qty, price_native, fx_rate) en leaf Datum puis derive()
+    compose la value_eur en propageant asof=min, confidence=min, degraded=any,
+    parents=(qty.id, price.id, fx.id).
+
+    Returns None si position introuvable ou fail-closed (severity rouge).
+
+    Lien Phase 2 S0 : le content-hash du Datum produit (`.id`) est un noeud
+    Merkle-DAG qui sera ancrable OTS (le lignage EST l'integrite).
+    """
+    from shared.datum import Datum, derive
+    pv = position_valuation(position_id)
+    if pv is None:
+        return None
+    if pv.value_eur is None:
+        # L15 fail-closed propage : retourne Datum degraded sans value calculee.
+        # Mais Datum exige value -- on retourne None ici (cohesion avec
+        # legacy PositionValuation.value_eur=None pattern). Le caller checke None.
+        return None
+
+    # Severity -> confidence palier (green=1.0, amber=0.7, rouge handled above)
+    _severity_to_confidence = {"green": 1.0, "amber": 0.7, "unknown": 0.5}
+
+    # Leaf Datum : qty (latest-wins, source positions table)
+    qty_datum = Datum(
+        value=pv.qty,
+        asof=pv.price_asof or "1970-01-01T00:00:00Z",  # qty n'a pas d'asof propre,
+        # on prend price_asof comme baseline minimum (qty.asof <= price.asof toujours)
+        source=f"positions:{pv.ticker}",
+        confidence=1.0,  # qty est ground-truth user
+        degraded=False,
+    )
+
+    # Leaf Datum : prix natif
+    price_datum = Datum(
+        value=pv.price_native,
+        asof=pv.price_asof or "1970-01-01T00:00:00Z",
+        source=f"price_history:{pv.ticker}:{pv.price_source}",
+        confidence=_severity_to_confidence.get(pv.price_severity, 0.5),
+        degraded=(pv.price_severity == "rouge"),
+    )
+
+    # Leaf Datum : FX rate (identity si EUR natif)
+    fx_datum = Datum(
+        value=pv.fx_rate,
+        asof=pv.fx_asof or pv.price_asof or "1970-01-01T00:00:00Z",
+        source=f"fx_history:{pv.fx_from}->{pv.fx_to}:{pv.fx_source}",
+        confidence=_severity_to_confidence.get(pv.fx_severity, 0.5),
+        degraded=(pv.fx_severity == "rouge"),
+    )
+
+    # Compose : value_eur = qty * price_native * fx_rate
+    return derive(
+        lambda q, p, f: q * p * f,
+        qty_datum, price_datum, fx_datum,
+        op="qty_mul_price_mul_fx",
+    )
