@@ -34,12 +34,13 @@ count_fx() {
 
 # Gate 2 : arithmétique ad-hoc sur baselines monétaires.
 # Capture les 3 patterns réels d'accès :
-#   - var.entry_price   (attribut)
+#   - var.entry_price                  (attribut)
 #   - dict["entry_price"] / dict['entry_price']  (subscript)
 #   - entry_price (variable locale)
-# suivi/precédé d'un opérateur arithmétique *, /, +, -
+# suivi/precédé d'un opérateur arithmétique *, /, +, -,
+# en autorisant des chars de fermeture entre (ex: p['entry_price']) * 100).
 count_baselines() {
-    grep -rnE "(\.|\[['\"])?\b(entry_price|avg_cost|stop_price|target_full|target_partial)\b(['\"]\])?[[:space:]]*[*/+-]|[*/+-][[:space:]]*(\.|\[['\"])?\b(entry_price|avg_cost|stop_price|target_full|target_partial)\b" \
+    grep -rnE "(\.|\[['\"])?\b(entry_price|avg_cost|stop_price|target_full|target_partial)\b(['\"]\])?[)[:space:]]*[*/+-]|[*/+-][)[:space:]]*(\.|\[['\"])?\b(entry_price|avg_cost|stop_price|target_full|target_partial)\b" \
         --include="*.py" -- $ROOTS 2>/dev/null \
         | grep -v __pycache__ \
         | grep -v "shared/money.py" \
