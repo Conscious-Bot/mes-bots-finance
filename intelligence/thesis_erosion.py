@@ -25,7 +25,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from shared import llm, storage
+from shared import llm, notify, storage
 
 log = logging.getLogger(__name__)
 
@@ -286,7 +286,7 @@ def _persist(
                 rationale=c.get("rationale"),
                 evidence_quote=c.get("evidence_quote"),
             )
-    return {
+    result = {
         "thesis_id": thesis["id"],
         "ticker": thesis["ticker"],
         "verdict": verdict,
@@ -297,7 +297,47 @@ def _persist(
         "n_erode": n_ero,
         "n_invalidation_hit": n_inval,
         "degraded": degraded,
+        "demoted": None,
     }
+
+    # Q3 master : auto-demote_from_structural si INVALIDATION_HIT.
+    # Symetrique a l'assignation structural (couche 1) : le privilege
+    # "structural" (pas de stop-prix) est merite par la premise. Si
+    # invalidation fire -> premise cassee -> privilege revoque automatique.
+    # Tamper-evident dans thesis_integrity_log + notify Telegram + steer
+    # "pose un stop" (priced sans stop est incoherent).
+    if verdict == "INVALIDATION_HIT":
+        try:
+            pt = storage.get_position_type(thesis["id"]) or {}
+            if pt.get("position_type") == "structural":
+                reason = (
+                    f"INVALIDATION_HIT detected by thesis_erosion : "
+                    f"{n_inval} trigger(s) fired, {n_ero} driver(s) eroded. "
+                    f"Steer : {steer[:150]}"
+                )
+                demote = storage.demote_from_structural(
+                    thesis_id=thesis["id"], reason=reason, demoted_to="priced",
+                )
+                if demote:
+                    result["demoted"] = demote
+                    # Notify Telegram immediat -- anti-lock-in priorite
+                    try:
+                        msg = (
+                            f"🔴 AUTO-DEMOTE {thesis['ticker']} : structural -> priced\n"
+                            f"Invalidation declenchee ({n_inval} trigger(s)) -- "
+                            f"premise structurelle cassee.\n"
+                            f"Discipline maintenant priced (stop/target normal).\n"
+                            f"⚠ AUCUN stop_price defini (etait structural) -- "
+                            f"POSE-EN UN avant l'ouverture marche.\n"
+                            f"Trace integrity_seq {demote.get('integrity_seq', '?')}"
+                        )
+                        notify.send_text(msg)
+                    except Exception as e:
+                        log.warning(f"demote notify {thesis['ticker']} failed: {e}")
+        except Exception as e:
+            log.warning(f"auto-demote check failed for {thesis.get('ticker')}: {e}")
+
+    return result
 
 
 def recompute_for_tickers_with_fresh_signals(

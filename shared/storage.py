@@ -3785,6 +3785,94 @@ def set_position_type(
         return None
 
 
+def demote_from_structural(
+    thesis_id: int, reason: str, demoted_to: str = "priced",
+) -> dict | None:
+    """Auto-demote_from_structural -- Q3 master decision.
+
+    Symetrique a set_position_type structural : le privilege "structural"
+    (pas de stop-prix, exit reserve invalidation) est merite par la premise.
+    Si l'invalidation fire (compute_thesis_erosion verdict=INVALIDATION_HIT),
+    la premise est cassee par definition -> privilege revoque automatiquement,
+    position passe a 'priced' (discipline stop/target normale).
+
+    Tamper-evident : append thesis_integrity_log event=auto_demote_from_structural
+    avec reason + old_type + new_type + asof. Anti-rationalisation : l'auto-demote
+    laisse une trace immuable -- impossible d'effacer.
+
+    Args:
+        thesis_id : id these.
+        reason : raison textuelle (typiquement le verdict INVALIDATION_HIT detail).
+        demoted_to : 'priced' (defaut, recommande) ou 'tactical' (sur-reaction,
+            cf master Q3 option C rejetee).
+
+    Returns:
+        dict {thesis_id, ticker, old_type, new_type, integrity_seq, integrity_hash}
+        ou None si these introuvable ou pas structural (pas de demote a faire).
+
+    Raises:
+        ValueError si demoted_to invalide ou reason vide.
+    """
+    from datetime import UTC as _UTC, datetime as _datetime
+
+    if demoted_to not in ("priced", "tactical"):
+        raise ValueError(f"demoted_to invalide : {demoted_to!r}")
+    if not reason or not reason.strip():
+        raise ValueError("reason ne peut etre vide (anti-rationalisation tamper-evident)")
+
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT ticker, position_type, structural_justification "
+                "FROM theses WHERE id=?",
+                (thesis_id,),
+            ).fetchone()
+            if not row:
+                _copilot_log.warning(f"demote_from_structural: thesis {thesis_id} not found")
+                return None
+            ticker, old_type, old_justif = row
+            if old_type != "structural":
+                # No-op : si pas structural, rien a demoter
+                _copilot_log.info(
+                    f"demote_from_structural noop: thesis {thesis_id} type={old_type}",
+                )
+                return None
+            # Demote : update position_type, preserve old structural_justification
+            # comme metadata historique (mais le knob ne l'enforce plus -- ce n'est
+            # plus required pour priced).
+            cx.execute(
+                "UPDATE theses SET position_type=? WHERE id=?",
+                (demoted_to, thesis_id),
+            )
+        # Append integrity log tamper-evident (en dehors du with db() pour
+        # eviter double-with). insert_thesis_integrity_row ouvre sa propre cx.
+        payload = {
+            "event": "auto_demote_from_structural",
+            "thesis_id": thesis_id,
+            "ticker": ticker,
+            "old_type": "structural",
+            "new_type": demoted_to,
+            "old_structural_justification": old_justif,
+            "reason": reason[:500],
+            "asof": _datetime.now(_UTC).isoformat(timespec="seconds"),
+        }
+        anchor = insert_thesis_integrity_row(thesis_id, payload)
+        result = {
+            "thesis_id": thesis_id,
+            "ticker": ticker,
+            "old_type": "structural",
+            "new_type": demoted_to,
+            "reason": reason,
+        }
+        if anchor:
+            result["integrity_seq"] = anchor["seq"]
+            result["integrity_hash"] = anchor["chain_hash"]
+        return result
+    except Exception as e:
+        _copilot_log.warning(f"demote_from_structural failed: {e}")
+        return None
+
+
 def get_position_type(thesis_id: int) -> dict | None:
     """Lit position_type + tags + justification d'une these."""
     import json as _json
