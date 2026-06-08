@@ -134,11 +134,10 @@ def resolve_due_anchors(horizon_days: int = 30) -> dict:
                 out["skipped"] += 1
                 out["details"].append({"dcf_id": dcf_id, "ticker": ticker, "reason": "no_price"})
                 continue
-            # Convert to EUR via le ratio direct anchor_price_eur / anchor_price_native si dispo
-            # sinon, on suppose que prices.get_current_price retourne deja en EUR
-            # (cf chat_intent.py qui fonctionne deja avec cette assumption)
-            from dashboard.render import _cached_price_eur
-            cur_eur = _cached_price_eur(ticker) or cur_native
+            # Convert to EUR via gateway canonique shared.prices.
+            # Migration Lane 2 #5 : élimine dépendance intelligence/→dashboard.render.
+            from shared.prices import get_current_price_in_eur
+            cur_eur = get_current_price_in_eur(ticker) or cur_native
 
             # Qty actuelle (post-decision)
             pos = positions_mod.get_position(ticker)
