@@ -544,14 +544,26 @@ def value_eur(ticker: str, qty: float) -> "Datum | None":
     if fx_datum is None or fx_datum.value is None:
         return None
 
+    # Wrapper qty en leaf Datum : qty fait partie du lineage Merkle-DAG.
+    # Si qty mute (achat additionnel), le content-hash du value_eur change.
+    # qty n'a pas son propre asof -- on prend price.asof comme baseline.
+    from shared.datum import Datum
+    qty_datum = Datum(
+        value=float(qty),
+        asof=price_datum.asof,
+        source=f"positions:{ticker}:qty",
+        confidence=1.0,
+        degraded=False,
+    )
+
     # Compose qty × price × fx → Monetary(EUR). derive() propage asof/confidence/
-    # degraded/parents automatiquement (lignage Merkle-DAG).
+    # degraded/parents automatiquement (3 parents = qty + price + fx).
     return derive(
-        lambda px, fx: Monetary(
-            amount=float(qty) * float(px) * float(fx),
+        lambda q, px, fx: Monetary(
+            amount=float(q) * float(px) * float(fx),
             currency="EUR",
         ),
-        price_datum, fx_datum,
+        qty_datum, price_datum, fx_datum,
         op="qty_mul_price_mul_fx_eur",
     )
 
