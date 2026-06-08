@@ -6688,6 +6688,13 @@ def _discipline_biais_panel() -> str:
 
 
 def render() -> Path:
+    # === COEUR UNIQUE (SPEC_MONEY_INVARIANT §8 + SPEC_POSITIONS_CARD_LINK §7.bis) ===
+    # Battement unique : appele 1x/regen au top, tous les panneaux projettent.
+    # Pour l'instant additif zero-diff -- les panneaux ne le consomment pas encore.
+    # Migration etagee panel-par-panel par visibilite decroissante (L27, byte-identite).
+    from shared.position_view import get_all_positions_views
+    _views = get_all_positions_views()  # dict[ticker -> PositionView]
+
     # Bug fix 31/05 wave 9b : asymmetry compare current vs stop_price/target_full.
     # Comme ces derniers sont stockes NATIVE (cf currency_native_invariant),
     # current doit etre NATIVE aussi pour des ratios FX-invariants. Ancien
