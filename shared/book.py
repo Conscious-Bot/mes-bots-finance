@@ -232,11 +232,19 @@ def _load_db_positions() -> dict[str, dict]:
     out: dict[str, dict] = {}
     try:
         with storage.db() as cx:
-            # Fix canonique #118 (08/06) : lit avg_cost_eur (colonne backfillee migration 0043)
-            # PAS avg_cost (legacy incoherent native pour USD, EUR pour autres).
-            # Fallback sur avg_cost si avg_cost_eur null pour compat (ne devrait pas arriver post-backfill).
+            # ROOT canonique (#118 + migration 0044) : avg_cost_eur EST DERIVE de
+            # avg_cost_native × fx_at_purchase. La colonne avg_cost_eur n'est plus la
+            # source -- elle peut etre stale. La VRAIE source = (avg_cost_native, fx_at_purchase)
+            # M1 triple, fx FIGE au moment de l'achat.
+            #
+            # Si avg_cost_native ou fx_at_purchase manque -> avg_cost_eur reste NULL
+            # (fail-closed visible plutot qu'un nombre fabrique via fallback ancien).
             rows = cx.execute(
-                "SELECT ticker, qty, COALESCE(avg_cost_eur, avg_cost), "
+                "SELECT ticker, qty, "
+                "       CASE WHEN avg_cost_native IS NOT NULL AND fx_at_purchase IS NOT NULL "
+                "            THEN avg_cost_native * fx_at_purchase "
+                "            ELSE NULL END AS avg_cost_eur_derived, "
+                "       avg_cost_native, fx_at_purchase, "
                 "       last_price_native, last_price_currency, price_asof, "
                 "       fx_rate_to_eur, fx_asof "
                 "FROM positions WHERE status='open' AND qty > 0"
@@ -244,12 +252,14 @@ def _load_db_positions() -> dict[str, dict]:
             for r in rows:
                 out[r[0]] = {
                     "qty": r[1],
-                    "avg_cost_eur": r[2],   # canonique EUR via avg_cost_eur (backfilled)
-                    "last_price_native": r[3],
-                    "last_price_currency": r[4],
-                    "price_asof": r[5],
-                    "fx_rate_to_eur": r[6],
-                    "fx_asof": r[7],
+                    "avg_cost_eur": r[2],   # DERIVE : avg_cost_native × fx_at_purchase
+                    "avg_cost_native": r[3],
+                    "fx_at_purchase": r[4],
+                    "last_price_native": r[5],
+                    "last_price_currency": r[6],
+                    "price_asof": r[7],
+                    "fx_rate_to_eur": r[8],
+                    "fx_asof": r[9],
                 }
     except Exception:
         pass

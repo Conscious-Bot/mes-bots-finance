@@ -53,14 +53,27 @@ def pnl_position_pct_eur(position: dict[str, Any] | Any) -> float | None:
         return getattr(position, key, None)
 
     qty = _g("qty")
-    avg_cost_eur = _g("avg_cost_eur")
     ticker = _g("ticker")
+    if not qty or not ticker or qty <= 0:
+        return None
 
-    # Fail-closed : inputs critiques manquants
-    if not qty or not avg_cost_eur or not ticker:
+    # ROOT canonique unique (#118+0044) : avg_cost_eur EST DERIVE de
+    # avg_cost_native × fx_at_purchase. fx_at_purchase FIGÉ au moment de
+    # l'achat -> cost_basis_eur ne change pas avec FX subsequent. Coherent
+    # avec le P&L broker que l'user voit (cost basis EUR effectif paye).
+    #
+    # PAS de fallback sur avg_cost_eur stocké : on force la racine canonique.
+    # Si avg_cost_native ou fx_at_purchase manque -> fail-closed (None).
+    # Ainsi un consumer qui voit None sait qu'il faut completer la migration
+    # 0044 pour ce ticker (pas un nombre fabriqué via ancien fallback).
+    avg_cost_native = _g("avg_cost_native")
+    fx_at_purchase = _g("fx_at_purchase")
+    if not avg_cost_native or not fx_at_purchase:
         return None
-    if qty <= 0 or avg_cost_eur <= 0:
+    if avg_cost_native <= 0 or fx_at_purchase <= 0:
         return None
+
+    avg_cost_eur = avg_cost_native * fx_at_purchase  # DERIVE depuis la racine
 
     # cost_basis_eur cohérent
     cost_basis_eur = qty * avg_cost_eur
