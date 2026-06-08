@@ -2219,11 +2219,29 @@ def _position_card(inputs, steer_v2) -> str:
     ) or (getattr(bl, "current_price_eur", None) if bl else None)
     ccy = (getattr(bl, "last_price_currency", None) if bl else None) or "EUR"
     price_asof = getattr(bl, "price_asof", None) if bl else None
-    weight_eur = (getattr(bl, "weight_market_eur", 0) or 0) if bl else 0
     weight_pct = inputs.weight_pct
     cost_basis = (qty * (getattr(bl, "avg_cost_eur", 0) or 0)) if bl else 0
-    pnl_eur = (weight_eur - cost_basis) if (weight_eur and cost_basis) else 0
-    pnl_pct = ((weight_eur / cost_basis - 1) * 100) if (weight_eur and cost_basis) else 0
+    # P&L canonique via helper #118 (avg_cost_eur + value_eur Datum fx-correct).
+    # Avant : pnl_pct = (weight_market_eur / cost_basis - 1) * 100 -- mais
+    # weight_market_eur derive de current_price_eur (calc separe potentiellement
+    # avec un FX different de positions.fx_rate_to_eur) -> divergence ~7% sur
+    # SK Hynix. Maintenant : value_eur recompute = qty * last_price_native * fx
+    # cohérent dans la meme row positions.
+    if bl and qty > 0 and cost_basis > 0:
+        _last_native = getattr(bl, "last_price_native", None)
+        _fx = getattr(bl, "fx_rate_to_eur", None)
+        if _last_native and _fx:
+            weight_eur = qty * _last_native * _fx  # value_eur canonique cohérent
+            pnl_eur = weight_eur - cost_basis
+            pnl_pct = (weight_eur / cost_basis - 1) * 100
+        else:
+            weight_eur = (getattr(bl, "weight_market_eur", 0) or 0)
+            pnl_eur = (weight_eur - cost_basis) if weight_eur else 0
+            pnl_pct = ((weight_eur / cost_basis - 1) * 100) if weight_eur else 0
+    else:
+        weight_eur = (getattr(bl, "weight_market_eur", 0) or 0) if bl else 0
+        pnl_eur = 0
+        pnl_pct = 0
 
     # Theses entry/partial/full/stop depuis thesis dict (inputs.thesis)
     entry = thesis.get("entry_price")
