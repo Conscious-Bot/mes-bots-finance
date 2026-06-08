@@ -30,7 +30,12 @@ from shared import llm, storage
 log = logging.getLogger(__name__)
 
 _TOP_N = 12          # plafond cout : top N signaux par materialite depuis opened_at
-_TRIGGER_CONF = 0.60  # seuil confidence pour acter un invalidation_trigger
+# Calibration 08/06 audit live : _TRIGGER_CONF passe de 0.60 a 0.80 apres
+# observation que Haiku activait "triggers" sur conditions INFEREES (insider
+# dumping + bubble warning -> "valuation cycle confirme" sans que la condition
+# specifique "<30x P/E" soit factuellement remplie). 0.80 = exige conviction
+# Haiku quasi-certitude pour acter un trigger structurel (= EXIT verdict).
+_TRIGGER_CONF = 0.80
 _EROSION_NET = -1.5  # seuil net (somme ponderee erode-confirm) pour driver erode
 _STALE_DAYS = 45      # 0 signal materiel depuis Nj = angle mort potentiel
 
@@ -54,9 +59,19 @@ Reponds en JSON strict :
   "confidence": <0.0-1.0>,
   "rationale": "<=20 mots, cite la proposition ET le signal>",
   "evidence_quote": "<extrait litteral du signal, ou ''>"}}
-Regles : 'triggers' UNIQUEMENT si bears_on='invalidation' et la condition est factuellement remplie.
-Si le signal ne touche aucune proposition -> bears_on='none', relation='neutral'.
-Si pas d'evidence specifique -> confidence basse. Pas de relation forte 'par impression'."""
+
+REGLES STRICTES :
+- 'triggers' UNIQUEMENT si la condition LITTERALE de l'invalidation_trigger
+  est REMPLIE par une citation factuelle du signal (l'evidence_quote doit
+  contenir le fait specifique de la condition, pas une inference). Si tu
+  dois INFERER ou EXTRAPOLER pour relier signal et condition -> utilise
+  bears_on='invalidation' + relation='erodes' (pas 'triggers').
+  Exemple : trigger "bookings <35B 2Q consec." -- 'triggers' SEULEMENT si
+  le signal cite explicitement "bookings of 32B Q2 and 30B Q3". Sinon
+  'erodes' au mieux.
+- Si le signal ne touche aucune proposition -> bears_on='none', relation='neutral'.
+- Si pas d'evidence specifique a la proposition concernee -> confidence basse.
+- Pas de relation forte 'par impression' ou via chaine logique tordue."""
 
 
 def _today_iso() -> str:

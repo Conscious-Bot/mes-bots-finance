@@ -3933,27 +3933,58 @@ def get_latest_erosion_per_thesis(thesis_id: int) -> dict | None:
         return None
 
 
+_PRIMARY_ENTITY_TOP_N = 3  # ticker in top-N entities = vraie cible (pas cross-mention)
+
+
 def get_material_signals_since(
     ticker: str, since_iso: str, limit: int = 12,
 ) -> list[dict]:
-    """Signals materiels referencant ticker depuis since_iso, tries par materialite desc.
+    """Signals materiels referencant ticker comme TARGET PRIMAIRE depuis since_iso.
+
+    Calibration 08/06 (audit thesis_erosion 1er run) : filter laxiste
+    entities LIKE '%"TICKER"%' capturait des signaux ou le ticker etait mention
+    secondaire dans une liste de 7+ entities (ex : "Retatrutide weight-loss"
+    avec entities=[LLY, NVDA, AVGO, TSM, AMD, MSFT, GOOGL, META, AMZN] -- LLY
+    est la cible, GOOGL est mention macro secondaire). Le LLM Haiku, force
+    de classifier ce signal pour GOOGL, sur-interpretait en "erodes" via une
+    chaine logique tordue (capital reshuffling -> compute concurrent -> margins).
+
+    Fix : prend SEULEMENT les signaux ou ticker est dans les TOP_N premieres
+    entities (heuristique = mention primaire, pas secondaire).
 
     Deux sources :
-    - signals : entities LIKE '%"TICKER"%' + materiality = impact_magnitude * materiality_boost
+    - signals : entities[0:N] contient ticker + materiality = impact * boost
     - chat_extracted_signals : ticker = TICKER + materiality = confidence * 3
     """
+    import json as _json
+
+    ticker_u = ticker.upper()
     try:
         with db() as cx:
             out: list[dict] = []
+            # Sur-fetch pour filtrer cote Python sur position dans entities.
+            # Le LIKE garde un pre-filtre cheap, le post-filtre Python verifie
+            # que le ticker est dans top-N entities = mention primaire.
             for r in cx.execute(
-                "SELECT id, timestamp AS asof, title, summary, "
+                "SELECT id, timestamp AS asof, title, summary, entities, "
                 "COALESCE(impact_magnitude, 1) * COALESCE(materiality_boost, 1) AS materiality "
                 "FROM signals WHERE timestamp > ? AND entities LIKE ? "
                 "ORDER BY materiality DESC LIMIT ?",
-                (since_iso, f'%"{ticker.upper()}"%', limit),
+                # Sur-fetch 5x pour avoir marge apres filtre primary
+                (since_iso, f'%"{ticker_u}"%', limit * 5),
             ).fetchall():
+                # Parse entities JSON, garde seulement si ticker in top-N
+                try:
+                    ents = _json.loads(r[4] or "[]")
+                    if not isinstance(ents, list):
+                        continue
+                    top_n = [str(e).upper() for e in ents[:_PRIMARY_ENTITY_TOP_N]]
+                    if ticker_u not in top_n:
+                        continue  # mention secondaire, skip
+                except (_json.JSONDecodeError, TypeError):
+                    continue
                 cols = ["id", "asof", "title", "summary", "materiality"]
-                out.append(dict(zip(cols, r, strict=False)))
+                out.append(dict(zip(cols, (r[0], r[1], r[2], r[3], r[5]), strict=False)))
             for r in cx.execute(
                 "SELECT id, created_at AS asof, "
                 "COALESCE(note, '') AS title, "
@@ -3962,7 +3993,7 @@ def get_material_signals_since(
                 "FROM chat_extracted_signals "
                 "WHERE created_at > ? AND ticker = ? "
                 "ORDER BY materiality DESC LIMIT ?",
-                (since_iso, ticker.upper(), limit),
+                (since_iso, ticker_u, limit),
             ).fetchall():
                 cols = ["id", "asof", "title", "summary", "materiality"]
                 out.append(dict(zip(cols, r, strict=False)))
