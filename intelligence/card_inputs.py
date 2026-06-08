@@ -168,13 +168,37 @@ def _fetch_risk_config() -> dict:
 
 
 def _classify_price_asof(book_line) -> str | None:
-    """Classify staleness depuis BookLine.price_asof via Axe 5 SLA."""
-    if not book_line or not getattr(book_line, "price_asof", None):
+    """Classify staleness depuis price_history (source live), pas positions.price_asof (cache stale).
+
+    Bug fix 08/06/2026 -- contradiction base_health/card stale :
+    Diagnostic : positions.price_asof figé à la migration alembic 07/06 06:22
+    (jamais updaté par le cron yfinance qui fait juste INSERT price_history).
+    Donc 26/26 cards disaient FAIL-CLOSED PRIX STALE alors que price_history
+    avait des fresh prices (0h) -- base_health vert, cards rouge = incoherence.
+
+    Source canonique : price_history (append-only, fresh via cron yfinance).
+    On lit la latest entry pour le ticker, on classify_asof, on retourne sev.
+    Fallback book_line.price_asof si price_history vide pour ce ticker.
+
+    Cf [[L23]] valeur dérivable = live (jamais figée DB).
+    """
+    if not book_line:
         return "unknown"
     try:
         from shared.freshness import classify_asof
-        sev, _age = classify_asof("price", book_line.price_asof)
-        return sev
+        from shared import storage
+        ticker = getattr(book_line, "ticker", None)
+        if ticker:
+            latest = storage.get_latest_price(ticker)
+            if latest and latest.get("asof"):
+                sev, _age = classify_asof("price", latest["asof"])
+                return sev
+        # Fallback : si pas dispo dans price_history, retombe sur cache positions.price_asof
+        legacy_asof = getattr(book_line, "price_asof", None)
+        if legacy_asof:
+            sev, _age = classify_asof("price", legacy_asof)
+            return sev
+        return "unknown"
     except Exception:
         return "unknown"
 
