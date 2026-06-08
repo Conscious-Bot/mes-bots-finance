@@ -1,28 +1,27 @@
 #!/usr/bin/env bash
 # SOCLE Phase 1b : gate CI yfinance hors shared/prices.py.
 #
-# But : tuer le SPOF des 14+ bypass yfinance hors du gateway canonique.
-# Mode CURRENT (08/06) : SOFT. Report les violations sans build rouge,
-# tant que la migration progressive des consumers n'est pas achevee.
-# Mode FINAL (post-migration) : HARD. Build rouge sur violation.
+# But : tuer le SPOF des bypass yfinance hors du gateway canonique.
 #
-# Pour basculer en hard : changer `exit 0` -> `exit 1` ligne finale.
+# Mode RATCHET (08/06) : le compteur ne peut que DECROITRE. Build rouge si
+#   un 20e bypass apparait alors qu'on en avait 19. Permet migration progressive
+#   sans sweep tout-en-une-fois (la doctrine "type-quand-tu-touches" de GLOSSARY).
 #
-# Cf SPEC_SOCLE.md S3 + HANDOFF_SOCLE.md S1 :
-# "yfinance / yf. hors shared/prices.py = build rouge"
+# Mode HARD (automatique quand count atteint 0) : build rouge sur toute violation.
 #
-# Note : grep POSIX au lieu de rg pour portabilite CI/headless shell.
+# Etat persistant : .yfinance_bypass_count.txt (versionne git, audit trail).
+#
+# Cf SPEC_SOCLE.md S3 + HANDOFF_SOCLE.md S1.
 
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
-echo "=== SOCLE gate yfinance (Phase 1b, SOFT mode) ==="
+STATE_FILE=".yfinance_bypass_count.txt"
 
-# grep recursif avec excludes -- les chemins legitimes sont prices.py + tests.
-# --include="*.py" : restrict aux python files
-# --exclude-dir : skip venv / .venv / __pycache__
-# --exclude : skip shared/prices.py (gateway canonique)
+echo "=== SOCLE gate yfinance (Phase 1b, RATCHET mode) ==="
+
+# Count current violations
 VIOLATIONS=$(grep -rn -E 'import yfinance|from yfinance|yfinance\.|\byf\.' \
     --include="*.py" \
     --exclude-dir=venv --exclude-dir=.venv --exclude-dir=__pycache__ --exclude-dir=tests \
@@ -31,21 +30,59 @@ VIOLATIONS=$(grep -rn -E 'import yfinance|from yfinance|yfinance\.|\byf\.' \
 
 if [ -n "$VIOLATIONS" ]; then
     NB=$(echo "$VIOLATIONS" | wc -l | tr -d ' ')
-    echo ""
-    echo "WARNING ($NB violations) -- yfinance directement importe hors shared/prices.py."
-    echo "Cible (HARD mode post-migration) : 0 violation."
-    echo ""
-    echo "$VIOLATIONS" | head -20
-    if [ "$NB" -gt 20 ]; then
-        echo "..."
-        echo "(+ $((NB - 20)) violations supplementaires non affichees)"
-    fi
-    echo ""
-    echo "Migration progressive : remplacer par prices.get() / prices.fx() qui retournent Datum."
-    echo "Le gate restera SOFT (warning) jusqu'a migration finie -- puis HARD (build rouge)."
 else
-    echo "OK : aucune violation. Tu peux basculer en HARD mode (exit 1)."
+    NB=0
 fi
 
-# Mode SOFT : exit 0 meme avec violations. A basculer en exit 1 post-migration.
+# Read previous ratchet state (or initialize if missing)
+if [ -f "$STATE_FILE" ]; then
+    PREV=$(cat "$STATE_FILE" | tr -d '[:space:]')
+    # Sanity check : valid integer
+    if ! [[ "$PREV" =~ ^[0-9]+$ ]]; then
+        echo "WARN : $STATE_FILE corrompu ('$PREV'), reinitialisation a $NB"
+        PREV=$NB
+    fi
+else
+    echo "INFO : premiere execution, initialisation ratchet a $NB"
+    PREV=$NB
+    echo "$NB" > "$STATE_FILE"
+fi
+
+# Ratchet : le count ne peut que decroitre. Si NB > PREV -> regression = build rouge.
+if [ "$NB" -gt "$PREV" ]; then
+    DELTA=$((NB - PREV))
+    echo ""
+    echo "ERROR : RATCHET BROKEN -- $DELTA nouvelle(s) violation(s) yfinance apparue(s)."
+    echo "  Count precedent : $PREV"
+    echo "  Count actuel    : $NB"
+    echo ""
+    echo "Le ratchet decroissant-only interdit la regression. Migrer les nouveaux"
+    echo "bypass vers prices.get() / prices.fx() AVANT de commiter."
+    echo ""
+    echo "Echantillon des violations (head 20) :"
+    echo "$VIOLATIONS" | head -20
+    exit 1
+fi
+
+# Count <= PREV : on accepte. Update state si decroissance.
+if [ "$NB" -lt "$PREV" ]; then
+    echo "OK : $((PREV - NB)) violation(s) eliminee(s) depuis dernier run (${PREV} -> ${NB})."
+    echo "$NB" > "$STATE_FILE"
+fi
+
+if [ "$NB" -eq 0 ]; then
+    echo "SUCCESS : aucune violation. Gate peut basculer en HARD definitif."
+    exit 0
+fi
+
+# Compte stable
+if [ "$NB" -eq "$PREV" ]; then
+    echo "INFO : $NB violations (stable depuis dernier run)."
+    if [ "$NB" -gt 0 ]; then
+        echo "      $NB bypass yfinance hors prices.py a migrer (type-quand-tu-touches)."
+    fi
+fi
+
+# Mode HARD automatique si count = 0 (deja exit 0 ci-dessus).
+# Mode RATCHET : exit 0 tant que NB <= PREV.
 exit 0
