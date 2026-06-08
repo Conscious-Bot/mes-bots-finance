@@ -89,3 +89,41 @@ def test_no_local_up_pct_dn_pct_calc_in_card(position_card_source: str) -> None:
     for pat in forbidden:
         m = re.search(pat, position_card_source)
         assert m is None, f"Recompute locale interdite : {pat} -- consomme view.upside_pct / view.downside_pct"
+
+
+# === #114 etendu : grep gate sur _theses (panneau theses) ================
+
+
+@pytest.fixture(scope="module")
+def theses_panel_source(render_source: str) -> str:
+    """Extrait le bloc _theses entre 'def _theses' et le def suivant."""
+    m = re.search(r"^def _theses\b.*?(?=^def \w)", render_source, re.MULTILINE | re.DOTALL)
+    assert m is not None, "_theses introuvable"
+    return m.group(0)
+
+
+def test_theses_panel_does_not_recompute_perf_locally(theses_panel_source: str) -> None:
+    """LE TEST QUI TUE le bug "panneau theses recompute pnl_e localement".
+
+    Aucun "(current - entry) / entry * 100" dans _theses -- la primitive
+    canonique compute_perf_thesis_pct est la source unique.
+    """
+    # Pattern interdit : assignment direct depuis formule literal
+    forbidden_patterns = [
+        r"pnl_e\s*=\s*\(\s*current\s*-\s*entry\s*\)\s*/\s*entry",
+        r"=\s*\(\s*current\s*-\s*entry\s*\)\s*/\s*entry\s*\*\s*100",
+    ]
+    for pat in forbidden_patterns:
+        m = re.search(pat, theses_panel_source)
+        assert m is None, (
+            f"Calc local interdit dans _theses : {pat} -- "
+            "consomme compute_perf_thesis_pct(entry, current) depuis shared.position_view"
+        )
+
+
+def test_theses_panel_uses_compute_perf_thesis_pct(theses_panel_source: str) -> None:
+    """_theses DOIT consommer compute_perf_thesis_pct (preuve positive du wiring)."""
+    assert "compute_perf_thesis_pct" in theses_panel_source, (
+        "_theses ne consomme PAS compute_perf_thesis_pct -- "
+        "le wiring #114 (primitive canonique perf these) n'est pas applique"
+    )

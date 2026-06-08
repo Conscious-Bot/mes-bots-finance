@@ -5602,7 +5602,12 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             ratio = d_tgt / d_stop if d_stop else None
             frac = max(0.0, min(100.0, (current - stop) / (tgt - stop) * 100))
             entry_frac = max(0.0, min(100.0, (entry - stop) / (tgt - stop) * 100))
-            pnl_e = (current - entry) / entry * 100  # signed PnL %
+            # SOCLE Phase 3 #114 : perf these depuis primitive canonique (REMPLACEMENT).
+            # Le calc local "(current - entry) / entry * 100" supprime -- consomme
+            # la primitive partagee. Discipline : grep gate verrouille (cf
+            # tests/test_position_view_no_recompute.py).
+            from shared.position_view import compute_perf_thesis_pct
+            pnl_e = compute_perf_thesis_pct(entry, current)
             if d_tgt is not None and d_tgt < 12:
                 n_near_tgt += 1
             if d_stop < 10:
@@ -5710,9 +5715,16 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             else:
                 bar = '<div class="th-na">incomplete price data</div>'
             anchor = ""
-            if t["has_bar"] and t["pnl_e"] is not None:
+            # #114 fix : "Position in profit" doit utiliser le P&L POSITION reel
+            # (pnl.get(tk) = pnl_position_pct depuis avg_cost EUR, fx-correct),
+            # PAS la perf these (t["pnl_e"] depuis entry_price native). Les
+            # deux baselines divergent enormement sur les winners tenus avant
+            # formalisation de la these (AMD: perf these +21% vs pnl position +218%).
+            # Le message parle de la POSITION -> utiliser le PnL position.
+            _pnl_position_pct = pnl.get(t["tk"])
+            if t["has_bar"] and _pnl_position_pct is not None:
                 _crypto = t["tk"] in crypto_tk
-                if t["pnl_e"] >= 12 and not _crypto:
+                if _pnl_position_pct >= 12 and not _crypto:
                     _acls = "acc"
                     _amsg = "Position in profit, upside margin remaining."
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'

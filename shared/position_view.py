@@ -67,6 +67,25 @@ class PositionView:
     stop_native: float | None = None
     entry_native: float | None = None
 
+    # === DEUX metriques de perf etiquetees distinctement (SOCLE Phase 3 #114) ===
+    # Le panneau theses confondait jusqu'ici "perf these" et "P&L position".
+    # Solution : porter LES DEUX, jamais conflated. Le caller affiche separement.
+    #
+    # perf_thesis_pct : depuis entry_price NATIVE vs price NATIVE -- FX-invariant
+    #   par construction (native vs native, pas de mismatch EUR/devise). Mesure
+    #   "ma call" depuis le prix ou j'ai forme la vue. Stable tant que these tient.
+    #
+    # pnl_position_pct : depuis avg_cost_eur vs value_eur (Datum) -- FX-CORRECT
+    #   parce que value_eur passe par derive(qty x price x fx). Tue le +18726%
+    #   bug fondateur quand avg_cost EUR mixe avec price native. Mesure "mon
+    #   argent" depuis ce que j'ai paye. Dynamique avec le marche.
+    #
+    # Sur un ticker entre tard apres le winner, perf_thesis << pnl_position
+    # (entry > avg_cost). C'est NORMAL, pas un bug -- d'ou l'etiquetage strict.
+    perf_thesis_pct: float | None = None    # (last_native / entry_native - 1) * 100
+    pnl_position_pct: float | None = None    # (value_eur - cost_basis_eur) / cost_basis_eur * 100
+    pnl_position_eur: float | None = None    # value_eur - cost_basis_eur
+
     # === Steer (la chip / l'action -- decide UNE fois, lue partout) ===
     # Ces champs sont consommes IDENTIQUES par card (detail) et row (chip).
     steer_verdict: str | None = None        # de SteerOutput.verdict.value
@@ -90,7 +109,7 @@ class PositionView:
 
 @dataclass(frozen=True)
 class RowView:
-    """Projection ligne -- ce que render_row consomme.
+    """Projection ligne -- ce que render_row + panneau theses consomment.
 
     Strictement un SUBSET de PositionView. Aucun champ calcule, aucune
     derivation locale. Construit via project_row(view).
@@ -109,6 +128,10 @@ class RowView:
     # Etats visibles a la ligne
     erosion_verdict: str | None
     degraded: bool
+    # DEUX metriques de perf etiquetees distinctement (#114) -- jamais conflated.
+    # Le caller AFFICHE separement "perf these" vs "P&L position".
+    perf_thesis_pct: float | None
+    pnl_position_pct: float | None
 
 
 def project_row(view: PositionView) -> RowView:
@@ -128,7 +151,30 @@ def project_row(view: PositionView) -> RowView:
         steer_chip=view.steer_chip,
         erosion_verdict=view.erosion_verdict,
         degraded=view.degraded,
+        perf_thesis_pct=view.perf_thesis_pct,
+        pnl_position_pct=view.pnl_position_pct,
     )
+
+
+def compute_perf_thesis_pct(entry: float | None, current_native: float | None) -> float | None:
+    """Primitive PUBLIQUE : perf thesis-level NATIVE vs NATIVE (FX-invariant).
+
+    perf_thesis_pct = (current / entry - 1) * 100
+
+    C'est "ma call" -- mesure le mouvement du prix depuis le point ou la
+    these a ete formee. NATIVE vs NATIVE par construction (pas de mismatch
+    FX si entry et current sont tous deux en devise native du ticker).
+
+    Exposee comme primitive pour que les panneaux (theses, book row) puissent
+    l'appeler DIRECTEMENT sans construire un PositionView complet quand ils
+    iterent sur N theses/positions. Le calc local "(current - entry) / entry"
+    DOIT etre remplace par cet appel partout -- grep gate verrouille.
+
+    Retourne None si inputs manquants/invalides (fail-closed L15).
+    """
+    if entry is None or current_native is None or entry == 0:
+        return None
+    return (current_native / entry - 1) * 100.0
 
 
 def _compute_asym_ratio(
@@ -248,6 +294,26 @@ def compute_position(
             entry, target_partial, target_full, stop, direction=direction
         )
 
+    # === DEUX metriques etiquetees distinctement (anti-conflation) ===
+    # perf_thesis_pct : NATIVE vs NATIVE (FX-invariant par construction)
+    perf_thesis_pct: float | None = None
+    if entry is not None and price_native is not None and entry != 0:
+        perf_thesis_pct = (price_native / entry - 1) * 100.0
+
+    # pnl_position_pct : value_eur vs cost_basis_eur (FX-CORRECT via value_eur Datum)
+    # Source du cost_basis : card_inputs.book_line (BookLine canonique).
+    pnl_position_pct: float | None = None
+    pnl_position_eur: float | None = None
+    if card_inputs and card_inputs.book_line and value_eur_datum is not None:
+        bl = card_inputs.book_line
+        qty = getattr(bl, "qty", None)
+        avg_cost_eur = getattr(bl, "avg_cost_eur", None)
+        if qty and avg_cost_eur and qty > 0 and avg_cost_eur > 0:
+            cost_basis_eur = qty * avg_cost_eur
+            value_eur_now = value_eur_datum.value
+            pnl_position_eur = value_eur_now - cost_basis_eur
+            pnl_position_pct = (value_eur_now / cost_basis_eur - 1) * 100.0
+
     # Steer (decision unique consomme par card + row)
     steer_verdict = steer_output.verdict.value if (steer_output and steer_output.verdict) else None
     # Chip : on ne l'expose en ligne que si le steer est "act-class" (TRIM/EXIT/RIGHTSIZE/...)
@@ -308,6 +374,9 @@ def compute_position(
         target_full_native=target_full,
         stop_native=stop,
         entry_native=entry,
+        perf_thesis_pct=perf_thesis_pct,
+        pnl_position_pct=pnl_position_pct,
+        pnl_position_eur=pnl_position_eur,
         steer_verdict=steer_verdict,
         steer_chip=chip,
         steer_dominant_reason=steer_output.dominant_reason if steer_output else None,

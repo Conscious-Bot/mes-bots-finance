@@ -63,6 +63,7 @@ class FakeCardInputs:
     erosion_verdict: str | None = "intact"
     over_cap_status: str | None = None
     bias_events_open: list = None  # type: ignore[assignment]
+    book_line: object | None = None  # FakeBookLine ou None
 
 
 def _shin_etsu_thesis() -> dict:
@@ -408,6 +409,129 @@ def test_row_view_is_frozen() -> None:
     row = project_row(view)
     with pytest.raises((AttributeError, TypeError)):
         row.asym_ratio = 999.99  # type: ignore[misc]
+
+
+# === Test #114 ELARGI : DEUX metriques etiquetees distinctement ==========
+
+
+@dataclass
+class FakeBookLine:
+    qty: float = 10.0
+    avg_cost_eur: float = 30.0  # EUR par action (legacy storage)
+    last_price_native: float = 6800.0
+    last_price_currency: str = "JPY"
+
+
+def test_perf_thesis_native_invariant_under_fx_mismatch() -> None:
+    """Test bug fondateur : avg_cost EUR (39) + price_native (7350 JPY) sur 4063.T.
+
+    perf_thesis_pct doit etre NATIVE vs NATIVE (entry vs last) -- pas
+    melanger EUR et JPY. Si on a entry_native=5800 et price_native=6800,
+    perf = (6800/5800 - 1) * 100 = +17.24% (raisonnable).
+
+    Le BUG fondateur : si on confondait avg_cost (39 EUR) avec price (7350 JPY),
+    on aurait +18723% (le +18726% du diagnostic). perf_thesis_pct est SAIN
+    parce qu'il ne touche jamais avg_cost.
+    """
+    ci = _build_ci()
+    steer = FakeSteer(bandeau=[])
+    view = compute_position(
+        thesis_id=1,
+        card_inputs=ci,
+        steer_output=steer,
+        price_datum=_build_price_datum(value=6800.0),  # JPY natif
+        fx_datum=_build_fx_datum(),
+        value_eur_datum=_build_value_eur_datum(),
+    )
+    # perf_thesis depuis entry=5800 (these dict) vs price=6800
+    assert view.perf_thesis_pct is not None
+    assert view.perf_thesis_pct == pytest.approx(17.24, abs=0.5)
+    # JAMAIS +18000% (bug FX serait avg_cost EUR / price JPY)
+    assert view.perf_thesis_pct < 100  # raisonnable, pas explosion
+
+
+def test_pnl_position_pct_uses_value_eur_datum_fx_correct() -> None:
+    """pnl_position_pct doit passer par value_eur_datum (FX-correct via Datum).
+
+    Setup AMD-style : avg_cost=146 EUR, qty=10 -> cost_basis=1460 EUR.
+    value_eur_datum=4660 EUR (qty * price_native * fx).
+    pnl_position_pct = (4660 - 1460) / 1460 * 100 = +219% (le vrai PnL).
+
+    Pas conflated avec perf_thesis (depuis entry=386, native).
+    """
+    ci = _build_ci()
+    ci.book_line = FakeBookLine(qty=10.0, avg_cost_eur=146.0)
+    # Override these pour ressembler a AMD : entry 386 USD, current 466 USD
+    ci.thesis = {
+        "name": "AMD", "entry_price": 386.0, "target_partial_price": 500.0,
+        "target_full_price": 600.0, "stop_price": 350.0,
+    }
+    steer = FakeSteer(bandeau=[])
+    view = compute_position(
+        thesis_id=1,
+        card_inputs=ci,
+        steer_output=steer,
+        price_datum=_build_price_datum(value=466.0),
+        fx_datum=_build_fx_datum(value=0.92),
+        value_eur_datum=_build_value_eur_datum(value=4660.0),  # 10 * 466 * 0.92 approx
+    )
+    # perf_thesis : depuis entry 386 vs price 466 native = +20.7% (la call-perf)
+    assert view.perf_thesis_pct == pytest.approx(20.73, abs=0.5)
+    # pnl_position : depuis avg_cost 146 EUR vs value 4660 EUR = +219%
+    assert view.pnl_position_pct is not None
+    assert view.pnl_position_pct == pytest.approx(219.18, abs=1.0)
+    assert view.pnl_position_eur == pytest.approx(4660.0 - 1460.0)
+    # Les DEUX sont distincts -- jamais conflated
+    assert view.perf_thesis_pct != view.pnl_position_pct
+    assert abs(view.pnl_position_pct - view.perf_thesis_pct) > 100  # gap enorme normal
+
+
+def test_perf_thesis_and_pnl_position_in_row_view() -> None:
+    """RowView (book row + panneau theses) projette les DEUX metriques."""
+    ci = _build_ci()
+    ci.book_line = FakeBookLine(qty=10.0, avg_cost_eur=30.0)
+    steer = FakeSteer(bandeau=[])
+    view = compute_position(
+        thesis_id=1,
+        card_inputs=ci,
+        steer_output=steer,
+        price_datum=_build_price_datum(value=6800.0),
+        fx_datum=_build_fx_datum(),
+        value_eur_datum=_build_value_eur_datum(value=414.8),
+    )
+    row = project_row(view)
+    # Byte-identite des deux metriques entre view et row
+    assert row.perf_thesis_pct == view.perf_thesis_pct
+    assert row.pnl_position_pct == view.pnl_position_pct
+
+
+def test_pnl_position_none_if_book_line_missing() -> None:
+    """Pas de book_line -> pnl_position = None (fail-closed, pas de fabrication)."""
+    ci = _build_ci()
+    ci.book_line = None  # pas de book line
+    steer = FakeSteer(bandeau=[])
+    view = compute_position(
+        thesis_id=1, card_inputs=ci, steer_output=steer,
+        price_datum=_build_price_datum(), fx_datum=_build_fx_datum(),
+        value_eur_datum=_build_value_eur_datum(),
+    )
+    assert view.pnl_position_pct is None
+    assert view.pnl_position_eur is None
+    # Mais perf_thesis reste calculable (depuis entry + price natifs)
+    assert view.perf_thesis_pct is not None
+
+
+def test_pnl_position_none_if_value_eur_unavailable() -> None:
+    """Pas de value_eur_datum -> pnl_position = None (besoin du Datum fx-correct)."""
+    ci = _build_ci()
+    ci.book_line = FakeBookLine()
+    steer = FakeSteer(bandeau=[])
+    view = compute_position(
+        thesis_id=1, card_inputs=ci, steer_output=steer,
+        price_datum=_build_price_datum(), fx_datum=_build_fx_datum(),
+        value_eur_datum=None,  # pas dispo
+    )
+    assert view.pnl_position_pct is None
 
 
 # === Test 8 : lineage capture (Merkle-DAG seed) =========================
