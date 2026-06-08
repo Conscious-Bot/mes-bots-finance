@@ -2463,5 +2463,7 @@ Le "panneau retarded" n'était ni un bug d'affichage ni une target dépassée �
 ### Commits session 09/06 nuit
 
 ```
-[à venir]  [DB realign] SK Hynix qty/avg/realized_pnl ground truth + audit log
+ef40a8b [session close 09/06 nuit++] désynchro broker↔DB découverte + SK Hynix réaligné
 ```
+
+(Le UPDATE positions SK Hynix vit en DB, hors git ; audit complet dans `position_audit_log` id=83 + payload JSON ground truth Olivier ; backup `data/bot.db.backup_skhynix_realign_20260609_020506`.)
