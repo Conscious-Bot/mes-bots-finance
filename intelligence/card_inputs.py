@@ -86,8 +86,11 @@ class CardInputs:
     counter_argument_pressure_score: int | None = None
     counter_argument_at: str | None = None
 
-    # Sizing 3-way (etape 4 config)
-    cap_for_conviction_pct: float | None = None  # target-conv
+    # Sizing 3-way (levier #4 user 07/06)
+    cap_for_conviction_pct: float | None = None  # target-conv (cap conviction)
+    target_edge_pct: float | None = None          # target-edge-adjusted (ruin budget / downside)
+    binding_target_pct: float | None = None       # min(cap_for_conviction, target_edge) = vrai plafond honnete
+    sizing_binding: str | None = None             # "conv" | "edge" | "structural" -- quel axe contraint
     ruin_budget_per_name_pct: float = 1.5         # default 1.5%
     allow_add_steer: bool = False
 
@@ -268,6 +271,36 @@ def assemble_card_inputs(thesis_id: int) -> CardInputs | None:
         except Exception:
             pass
 
+    # Target-edge-adjusted (levier #4 sizing asymetrie-first)
+    # Honnete sub-Kelly N<100 : bride par budget-ruine par nom plutot que
+    # conviction seule. Structural (stop=None) -> target_edge None.
+    target_edge = None
+    sizing_binding = None
+    binding_target = cap_pct
+    try:
+        from shared.sizing_caps import target_edge_pct
+        current_px = getattr(book_line, "current_price_eur", None) if book_line else None
+        target_edge = target_edge_pct(
+            entry=thesis.get("entry_price"),
+            stop=thesis.get("stop_price"),
+            current=current_px,
+            ruin_budget_pct=risk_cfg["ruin_budget_per_name_pct"],
+            direction=thesis.get("direction", "long"),
+        )
+        # Determine binding axis : min(cap_conv, target_edge) si les 2 dispos,
+        # sinon le seul disponible. Structural = pas de target_edge -> binding="structural".
+        if pt.get("position_type") == "structural" or target_edge is None:
+            sizing_binding = "structural" if pt.get("position_type") == "structural" else "conv"
+            binding_target = cap_pct
+        elif cap_pct is not None and target_edge < cap_pct:
+            sizing_binding = "edge"
+            binding_target = target_edge
+        else:
+            sizing_binding = "conv"
+            binding_target = cap_pct
+    except Exception as e:
+        log.warning(f"target_edge_pct compute failed: {e}")
+
     # Freshness pour fail-closed
     price_sev = _classify_price_asof(book_line)
     review_age = _thesis_review_age_days(thesis)
@@ -305,6 +338,9 @@ def assemble_card_inputs(thesis_id: int) -> CardInputs | None:
         counter_argument_pressure_score=(ca or {}).get("pressure_score"),
         counter_argument_at=(ca or {}).get("created_at"),
         cap_for_conviction_pct=cap_pct,
+        target_edge_pct=round(target_edge, 2) if target_edge is not None else None,
+        binding_target_pct=round(binding_target, 2) if binding_target is not None else None,
+        sizing_binding=sizing_binding,
         ruin_budget_per_name_pct=risk_cfg["ruin_budget_per_name_pct"],
         allow_add_steer=risk_cfg["allow_add_steer"],
         price_asof_severity=price_sev,

@@ -2522,6 +2522,54 @@ def _position_card(inputs, steer_v2) -> str:
             '</div>'
         )
 
+    # ── Section SIZING 3-WAY (levier #4 sizing asymetrie-first) ────────────
+    # real (weight live) / target-conv (cap_for_conviction) / target-edge
+    # (ruin_budget / |downside|). Le BINDING = min des 2 targets contraint.
+    # Structural -> target_edge n/a (downside non-borne par prix).
+    sizing_3way_html = ""
+    if inputs.cap_for_conviction_pct is not None:
+        # Determine couleur pour chaque cell
+        cap_cls = "ok" if inputs.weight_pct <= inputs.cap_for_conviction_pct else "warn"
+        if inputs.target_edge_pct is not None:
+            edge_cls = "ok" if inputs.weight_pct <= inputs.target_edge_pct else "warn"
+            edge_value = f"{inputs.target_edge_pct:.2f}%"
+        else:
+            edge_cls = "neu"
+            edge_value = "structural" if inputs.position_type == "structural" else "n/a"
+        real_cls = "ok" if (inputs.binding_target_pct and inputs.weight_pct <= inputs.binding_target_pct) else "neg"
+        binding_label = {
+            "conv": "cap_conviction (sub-Kelly N<100)",
+            "edge": "target_edge (asymetrie-first, ruin_budget contraint)",
+            "structural": "structural (downside non-borne par prix, cap conv prime)",
+        }.get(inputs.sizing_binding or "", "?")
+        binding_value = (
+            f"{inputs.binding_target_pct:.2f}%"
+            if inputs.binding_target_pct is not None else "?"
+        )
+        sizing_3way_html = (
+            '<div class="pc-section">'
+            '<div class="pc-section-h">SIZING 3-WAY (levier #4 asymetrie-first)</div>'
+            '<div class="pc-sizing-grid" style="display:grid;'
+            'grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px">'
+            '<div class="pc-sizing-cell">'
+            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:10px">REAL (live)</div>'
+            f'<div class="pc-sizing-v mono {real_cls}">{inputs.weight_pct:.2f}%</div>'
+            '</div>'
+            '<div class="pc-sizing-cell">'
+            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:10px">target-conv (cap c{inputs.conviction_current or "?"})</div>'
+            f'<div class="pc-sizing-v mono {cap_cls}">{inputs.cap_for_conviction_pct:.2f}%</div>'
+            '</div>'
+            '<div class="pc-sizing-cell">'
+            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:10px">target-edge (ruin {inputs.ruin_budget_per_name_pct:.2f}%/NAV)</div>'
+            f'<div class="pc-sizing-v mono {edge_cls}">{edge_value}</div>'
+            '</div>'
+            '</div>'
+            f'<div class="pc-sizing-binding" style="margin-top:6px;font-size:11px">'
+            f'<b>BINDING = {binding_value}</b> &middot; <span style="opacity:0.75">{binding_label}</span>'
+            '</div>'
+            '</div>'
+        )
+
     # Steer block (Catch 2 : EXIT et SIZE separes)
     if steer:
         ep = steer.exit_policy
@@ -2642,6 +2690,7 @@ def _position_card(inputs, steer_v2) -> str:
         + discipline_html
         + counter_html
         + justif_html
+        + sizing_3way_html
         + steer_html
         + '</div>'
     )

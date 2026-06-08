@@ -69,3 +69,42 @@ def absolute_max_cap() -> float:
     uniformes ou la conviction n'est pas disponible (ex : dashboard global
     cap marker)."""
     return cap_for_conviction(5)
+
+
+def target_edge_pct(
+    entry: float | None,
+    stop: float | None,
+    current: float | None,
+    ruin_budget_pct: float,
+    direction: str = "long",
+) -> float | None:
+    """Levier #4 sizing asymetrie-first : taille honnete bride par budget-ruine
+    par nom plutot que par conviction seule. Doctrine sub-Kelly N<100.
+
+    Formule : target_edge_pct = ruin_budget_pct / |downside_pct|
+    ou downside_pct = (current - stop) / current * 100 (long)
+                    = (stop - current) / current * 100 (short)
+
+    Si downside large -> target-edge plus restrictif que cap conviction.
+    Si downside etroit -> target-edge plus large que cap conviction (mais
+    le cap conviction prime in fine, voir consumer derive_card_steer).
+
+    Returns:
+        target_edge_pct : taille max en % du book honnete vs budget-ruine.
+        None si :
+        - stop is None (structural -- downside non-borne par prix, target-edge n/a)
+        - downside <= 0 (deja stop-breached ou price > stop equivalent)
+        - inputs manquants
+    """
+    if not entry or not stop or not current:
+        return None
+    if direction == "long":
+        downside = (current - stop) / current * 100
+    else:
+        downside = (stop - current) / current * 100
+    if downside <= 0:
+        return None
+    abs_downside = abs(downside)
+    if abs_downside < 0.01:
+        return None  # degenere
+    return ruin_budget_pct / abs_downside * 100  # both in %
