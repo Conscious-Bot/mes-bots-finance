@@ -1,6 +1,6 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 08 juin 2026 (PIVOT FONDATION — session doctrine en suspens, base d'abord)
+**Refresh** : 09 juin 2026 nuit (saga corruption monetary close, lane yfinance render fermée, lane dispersion en cours)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 

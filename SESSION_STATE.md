@@ -2267,3 +2267,119 @@ c1a7378 [SOCLE Phase 2 S2] position_valuation_datum (lignage capture)
 b812369 [SOCLE Phase 2 S3] base_health VERT (3/3 dims)
 ```
 
+
+---
+
+## Close 2026-06-08 (saga corruption → cure racine money_invariant + 6 panneaux migrés)
+
+### Livre
+
+**Cure racine corruption monetary (16 commits)** — la classe de bug "+176056%" rendue impossible
+
+Origine : panneau « CLOSEST TO TARGET » affichait `+184590% beyond` pour SK Hynix (entry EUR clobberé vs price KRW). Investigation rétrograde a révélé corruption universelle : 26/53 thèses avec `entry_price = avg_cost_eur` (clobber pré-31/05 par UPDATE ad-hoc). Backups tous contaminés.
+
+**Phase 1 — Source canonique** (`11dfa48`) :
+- SPEC_MONEY_INVARIANT.md gravée (Olivier, amendée 4× sur la nuit)
+- Migration 0045 : 5 baselines (`entry/stop/target_partial/target_full/avg_cost`) en triple Datum[Monetary] `(value, currency, asof)` — colonnes `*_value/*_currency/*_asof` portables
+- Migration séparée du restore (red-team Olivier) : 0045 = schéma SEULEMENT, portable test/CI/clone ; `scripts/restore_native_baselines.py` one-shot lit le backup propre 06/06 (`f0c42ee`)
+- 132 errors éliminées à la source (l'ATTACH backup local dans la migration cassait les fresh DB)
+
+**Phase 2 — Primitif unique** (`d0e5fdd`) :
+- `shared/book.value_eur(ticker, qty) -> Datum[Monetary(EUR)]` consommé par `position_valuation_datum` ET tous les panneaux. Élimine la double-source (live yfinance vs DB cron) révélée par le xfail. Lignage Merkle-DAG 3-parents (qty + price + fx).
+
+**Phase 3 — Seam + cœur unique** (`3071bb7`, `9a2d4f5`) :
+- `get_all_positions_views()` au top de `render()` (battement unique 1×/regen, additif zero-diff)
+- Panneau CLOSEST TO TARGET migré (`_axis` lit `_views` au lieu de re-fetch via `asym_mod`). Byte-identité 6/6 ✓
+
+**Phase 4 — 6 panneaux migrés (zéro bypass yfinance dans render.py)** :
+- `_dp_pct` TOP MOVERS 24h (`62f6508`) — convention close-to-close décidée
+- `_rsi_14` (`6676672`) — finding #3 end-exclusive yfinance révélé
+- `_breadth_rsp_spy` (`c1f213b`)
+- `_perf_dwm` (`68cc17d`) — 3 findings findings #5a/b/c (period="1mo" = relativedelta(months=1) pas timedelta)
+- `_fetch_benchmark_equity_curve` (`3fff9d7`) — dernier bypass éliminé
+
+**Phase 5 — Test cohérence + gates** (`55736bb`, `59e575d`) :
+- `scripts/check_money_invariant.sh` ratchet decreasing-only (gate B câblée pre-commit via pytest)
+- 6/6 serrures testées sous attaque (B fx + B baseline + D write-once entry + D pct_change cross-devise + C unisson + nouveau stop mutable)
+- `test_coherence_under_perturbation.py` : perturbe `prices.get(ticker)×1.10` → `view.value_eur ET view.price_native ×1.10` exactement, mêmes 4 décimales
+
+**Phase R+O+F — 11 failures triées et résolues** :
+- **R** (`97b535f`) Helper `pnl_position_pct_eur` migré avec garde hand-check (AMD : 4.12 × 127.20 = 524.06 cost / 1666.84 value = +218% exact)
+- **O** (`db638e3`) `test_position_valuation_datum` migré (lineage 3 parents préservé, asof min, confidence min, hash deterministic — pas affaibli)
+- **F** (`9dea701`) Re-décision stop/target BESI.AS + ENTG délibérée (stop -19%/-13%, partial +17.5%, full +30%). Correction architecture critique : write-once **uniquement** sur `entry_*` (immuable). `stop/target` = décisions vivantes mutables (trailing stop, re-target). 9 triggers stop/target droppés + test `test_stop_value_is_mutable_not_writeonce` posé
+
+### 5 findings byte-identité révélés (jamais ratifiés silencieusement)
+1. **xfail seam initial** : `view.value_eur` (DB cron) divergeait de `view.price_native` (live yfinance) → finding piloté la création de `book.value_eur` primitif
+2. **end-exclusive yfinance** : `get_price_window(start, end)` exclut today → `end=today+1` fix
+3. **timezones mixed book** : mon "after-hours US" était faux pour Tokyo/Séoul/Amsterdam. Cause : heure FR × timezones marchés → ticks "today" intraday vs close officiel selon marché
+4. **period="1mo" ≠ today-30d** : yfinance retourne ~32j calendaires
+5. **period="1mo" = relativedelta(months=1)** pas timedelta(days=N) — fix `today - relativedelta(months=1)` exact match
+
+### Doctrine ajoutée
+- **L27** (cohérence mécanique > vigilance — couche d'exécution de L1, gate empêche violation par construction)
+- **L28** (montant = Datum[Monetary] jamais float nu)
+- Note collision : L25 et L26 existaient déjà (suivi canonique + broker YAML), renumérotés L27/L28
+
+### État système (vérifié 00:15 — suite confirmée AVANT cette gravure)
+- **Tests** : **1593 passed, 0 failed, 0 errors, 2 skipped** (vs 13 failed + 132 errors hier matin)
+- **DB** : 26 positions active, entry_value restauré natif, write-once entry posé, stop/target mutable (vivants)
+- **Backups atomiques** : `bot.db.backup_pre_m1_20260608_211720`, `bot.db.backup_pre_degraded_20260608_214951`, `bot.db.backup_pre_f_stoptarget_20260608_230529`
+- **Spec gravées** : `SPEC_MONEY_INVARIANT.md` (8 sections, amendée 4× dans la nuit), `docs/CANONICAL_MAP.md` (navigation canonique 6 primitifs)
+
+### État honnête des deux lanes — distinction critique
+
+**Lane 1 — yfinance bypass dans `dashboard/render.py`** : ✅ **FERMÉE**
+- 6 callsites éliminés (Phase 4 #1-#6) + monkeypatch `asym_mod._get_current_price` redirigé
+- 5 findings byte-identité révélés et corrigés (jamais ratifiés silencieusement)
+- Gate `test_no_new_yfinance_bypass` force le ratchet decreasing-only : `dashboard/render.py` SORTI de `_YFINANCE_LEGACY_ALLOWLIST` (20 → 19 fichiers tech-debt)
+
+**Lane 2 — dispersion monétaire (gate `check_money_invariant.sh`)** : ⏳ **OUVERTE**
+- Ratchet : `fx=2 baselines=48` — decreasing-only, gate câblée pytest
+- ~50 chemins de code consomment encore `× fx_rate_to_eur` ou arithmétique baseline ad-hoc hors `shared/money.pct_change`
+- **Agrégateurs monétaires non-migrés** : Performance / Risk / Concentration. Catégorie silencieux-sévère, byte-identité critique sur les totaux. Reportés délibérément de la nuit (fatigue → erreur invisible)
+- **Test unisson couvre 1 panneau** (`_dp_pct` + value_eur via `book.value_eur`). Pas tous les panneaux
+
+**"For good" status — 4 critères Olivier** :
+- ✅ Lock-tests **6/6** (B fx + B baseline + D write-once entry + D pct_change cross + C unisson + stop mutable)
+- ✅ Suite complète verte (1593 passed, 0 failed, 0 errors — vérifié 00:15 AVANT cette gravure)
+- ⏳ Findings byte-identité listés ET résolus (5 findings sur lane 1, tous documentés en commit messages — pas de finding latent non traité)
+- ❌ **Ratchet 0/0** : NON atteint (`fx=2 baselines=48` reste à descendre)
+- ❌ **Test unisson énumère TOUS panneaux** : NON atteint (couvre panneaux migrés seulement, pas Performance/Risk/Concentration)
+
+**Verdict** : saga corruption monetary CLOSE (entry restauré, niveaux d'invalidation re-décidés). Cure racine money posée (Datum[Monetary], 6/6 serrures testées, write-once correctement scopé entry-only, primitif `book.value_eur` partagé model+render, seam `get_all_positions_views`). Lane yfinance render FERMÉE. **Lane dispersion fx/baselines + agrégateurs : EN COURS, pas finie. "For good" pas encore atteint** — la prochaine session ferme le reste.
+
+### Entry next session
+
+1. **PRIORITÉ 0 — agrégateurs monétaires Performance / Risk / Concentration** (tête reposée obligatoire). Catégorie silencieux-sévère : un diff sur un total agrégé est dur à repérer (vs un %position visible). Discipline pour chaque commit :
+   - **Invariant somme-égale-parties** (Olivier 09/06 00:30, plus fort que byte-identité historique) : `assert agrégat_nouveau == Σ(component_views)`. Si l'agrégat ne matche pas la somme des parties → l'ancien total mentait (agrégeait du dispersé), la somme-des-views est la vérité.
+   - `assert ancien == nouveau` OU diff → **STOP dur, zéro tolérance** (pas de « ≤0.4pp histoire plausible »). Sur un total, 0.00 ou investigue.
+   - Ajout au test unisson dans le même commit.
+   - **Ordre** : Performance (total P&L) d'abord, puis Concentration (poids = MV/ΣMV), puis Risk.
+
+2. **Ratchet `fx=2 baselines=48` → 0/0** : descendre panneau par panneau. Chaque agrégateur migré baisse le compteur. Quand 0/0 ET test unisson énumère tous panneaux → **« for good »** atteint.
+
+3. **Suppression legacy** (déclenchée par compteurs) : quand `rg -c _cached_price_eur` = 0 ET `rg current_price_eur|fx_rate_to_eur` (hors money) = 0 → commit dédié de DROP des helpers `_cached_price_eur`/`_cached_price_native`. Migration 0046 pour DROP les colonnes legacy `entry_price`/`stop_price`/`target_*`/`avg_cost`/etc (garder write-once entry côté `entry_value`).
+
+4. **Autres bypasses yfinance** (lane 1 étendue) : 19 fichiers restants dans `_YFINANCE_LEGACY_ALLOWLIST` (intelligence/, shared/, bot/). Pas prioritaire sur agrégateurs monétaires — gate `check_yfinance_gate.sh` reste SOFT mode jusqu'à migration progressive.
+
+### Commits session 08/06 (chronologique, plus récent en haut)
+
+```
+dbdf18d [gate L27] dashboard/render.py retiré de _YFINANCE_LEGACY_ALLOWLIST — ratchet descend
+3fff9d7 [Phase 4 #6] _fetch_benchmark_equity_curve migré — ZERO bypass yfinance
+68cc17d [Phase 4 #5] _perf_dwm migré + 3 findings révélés
+c1f213b [Phase 4 #4] _breadth_rsp_spy migré (-2 bypasses)
+6676672 [Phase 4 #3] _rsi_14 migré + finding end-exclusive
+62f6508 [Phase 4 #2] _dp_pct (TOP MOVERS 24h) migré
+9dea701 [F] Re-décision stop/target BESI.AS+ENTG + correction write-once
+db638e3 [O] test_position_valuation_datum migré, garde anti-affaiblissement
+97b535f [R] pnl_position_pct_eur : priorité simple + book.value_eur fallback
+f0c42ee [FIX STRUCTUREL] Séparation migration/restore — 132 errors éliminées
+59e575d [SERRURES TESTÉES] B+D+C verrouillées sous test
+d0e5fdd [PRIMITIF UNIQUE] shared/book.value_eur() — cœur partagé
+55736bb [Phase 2 + 5] Gate ratchet + test cohérence + spec amendée
+9a2d4f5 [Phase 4 #1] CLOSEST TO TARGET migré — byte-identité
+3071bb7 [Phase 3 SEAM] get_all_positions_views() additif
+11dfa48 [CURE RACINE] SPEC_MONEY_INVARIANT + M1 + write-once + tests verrouillants
+e1db756 [doc] SPEC_POSITIONS_CARD_LINK §7.bis : PositionView = objet UNIQUE
+```
