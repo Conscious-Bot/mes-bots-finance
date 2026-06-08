@@ -306,6 +306,7 @@ def _position_axis(
     target: float | None,
     current: float | None,
     extra_class: str = "",
+    pnl_position_pct: float | None = None,
 ) -> str:
     """Canonical position gauge (#91 unifie 03/06/2026).
 
@@ -344,6 +345,16 @@ def _position_axis(
     else:
         dot_cls = ""
     cls_full = ("sig-ent0 " + extra_class).strip()
+    # Tooltip : SEULEMENT le P&L broker (perf depuis l'achat broker, canonical EUR).
+    # Olivier 08/06 : "perf depuis l'achat broker EST la même que perf depuis entry".
+    # Vrai dans son modele mental, mais nos calculs divergent a cause du FX
+    # (entry_these stored native, avg_cost en EUR avec fx_at_purchase).
+    # Decision : on n'affiche QUE le P&L broker -- pas de stop/target/perf_these
+    # qui peuvent contredire. Le dot visuel position suffit pour stop/target.
+    if pnl_position_pct is not None:
+        title_str = f"P&L {pnl_position_pct:+.1f}%"
+    else:
+        title_str = "(P&L position non disponible)"
     return _tbar(
         dot_v,
         ticks=[
@@ -352,7 +363,7 @@ def _position_axis(
             (tgt_v, "target", "target"),
         ],
         dot_color=dot_cls,
-        title=f"PnL {cur_pct:+.1f}% (stop {stop_pct:+.1f}% / target {tgt_pct:+.1f}%)",
+        title=title_str,
         extra_class=cls_full,
         data_attrs={"axmin": f"{-ax:.1f}", "axmax": f"{ax:.1f}"},
     )
@@ -2392,7 +2403,9 @@ def _position_card(inputs, steer_v2) -> str:
 
     # Slider : si stop dispo, position_axis canonique ; sinon stop=null bar
     if stop and entry and full and current_price:
-        slider_html = _position_axis(entry, stop, full, current_price)
+        # Passer le pnl_pct (P&L position EUR, depuis avg_cost broker) au gauge
+        # pour que le tooltip affiche le vrai P&L user, pas perf-thèse native.
+        slider_html = _position_axis(entry, stop, full, current_price, pnl_position_pct=pnl_pct)
     elif entry and full and current_price:
         # No stop (structural) : montre seulement entry-current-target
         cur_pct = (current_price / entry - 1) * 100
@@ -2736,18 +2749,21 @@ def _position_card(inputs, steer_v2) -> str:
         # Row 1 : Position + Asymetrie + Factor
         + '<div class="pc-row3">'
         '<div class="pc-cell"><div class="pc-cell-h">POSITION</div>'
-        f'<div class="pc-line"><span>qty</span><span class="mono">{qty}</span></div>'
-        f'<div class="pc-line"><span>MV</span><span class="mono">{weight_pct:.1f}% ({weight_eur:,.0f}€)</span></div>'
-        f'<div class="pc-line"><span>P&amp;L</span><span class="mono {pnl_cls}">{pnl_eur:+,.0f}€ ({pnl_pct:+.1f}%)</span></div>'
-        f'<div class="pc-line"><span>cours</span><span class="mono">{cours_str} {ccy}{asof_html}</span></div>'
-        '</div>'
+        # qty : 3 decimales max (avant : 15 décimales du float synthetic)
+        + f'<div class="pc-line"><span>qty</span><span class="mono">{qty:.3f}</span></div>'
+        + f'<div class="pc-line"><span>MV</span><span class="mono">{weight_pct:.1f}% ({weight_eur:,.0f}€)</span></div>'
+        + f'<div class="pc-line"><span>P&amp;L</span><span class="mono {pnl_cls}">{pnl_eur:+,.0f}€ ({pnl_pct:+.1f}%)</span></div>'
+        # cours : format espaces de milliers pour KRW/JPY (lisible)
+        + f'<div class="pc-line"><span>cours</span><span class="mono">{(f"{current_price:,.0f}".replace(",", " ") if current_price and current_price >= 1000 else cours_str)} {ccy}{asof_html}</span></div>'
+        + '</div>'
         '<div class="pc-cell"><div class="pc-cell-h">ASYMETRIE</div>'
         f'{asym_html}'
-        f'<div class="pc-line"><span>entry</span><span class="mono">{entry or "?"}</span></div>'
-        f'<div class="pc-line"><span>partial</span><span class="mono">{partial or "?"}</span></div>'
-        f'<div class="pc-line"><span>full</span><span class="mono">{full or "?"}</span></div>'
-        f'<div class="pc-line"><span>stop</span><span class="mono">{stop if stop else "&empty; (structural)"}</span></div>'
-        '</div>'
+        # entry/partial/full/stop : format espaces de milliers pour devise native lisible
+        + f'<div class="pc-line"><span>entry</span><span class="mono">{(f"{entry:,.0f}".replace(",", " ") if entry and entry >= 1000 else (f"{entry:.2f}" if entry else "?"))}</span></div>'
+        + f'<div class="pc-line"><span>partial</span><span class="mono">{(f"{partial:,.0f}".replace(",", " ") if partial and partial >= 1000 else (f"{partial:.2f}" if partial else "?"))}</span></div>'
+        + f'<div class="pc-line"><span>full</span><span class="mono">{(f"{full:,.0f}".replace(",", " ") if full and full >= 1000 else (f"{full:.2f}" if full else "?"))}</span></div>'
+        + f'<div class="pc-line"><span>stop</span><span class="mono">{(f"{stop:,.0f}".replace(",", " ") if stop and stop >= 1000 else (f"{stop:.2f}" if stop else "&empty; (structural)"))}</span></div>'
+        + '</div>'
         '<div class="pc-cell"><div class="pc-cell-h">TYPE &amp; FACTOR</div>'
         f'<div class="pc-line"><span>type</span><span>{ptype}</span></div>'
         f'<div class="pc-line"><span>conv</span><span class="mono">c{conv}</span></div>'
@@ -5817,7 +5833,10 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 # Canonical position gauge (#91) via _position_axis :
                 # stop red gauche, entry grey centre (0), target green droite,
                 # dot noir = current. Distance proportionnelle au 0 central.
-                _pa = _position_axis(t["_entry"], t["_stop"], t["_tgt"], t["_cur"])
+                # Tooltip distingue P&L position vs perf depuis entry (#fix retarded).
+                _pnl_pos = pnl.get(t["tk"])
+                _pa = _position_axis(t["_entry"], t["_stop"], t["_tgt"], t["_cur"],
+                                     pnl_position_pct=_pnl_pos)
                 bar = f'<div class="th-bar">{_pa}</div>' if _pa else '<div class="th-na">incomplete price data</div>'
             else:
                 bar = '<div class="th-na">incomplete price data</div>'
@@ -6227,8 +6246,10 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         asym_cls, asym_str = _asym_format(asym.get(tk))
         g = gauges.get(tk)
         if g:
+            _pnl_pos_row = pnl.get(tk)
             gauge_html = _position_axis(
-                g["_entry"], g["_stop"], g["_tgt"], g["_cur"], extra_class="row-bar"
+                g["_entry"], g["_stop"], g["_tgt"], g["_cur"], extra_class="row-bar",
+                pnl_position_pct=_pnl_pos_row,
             ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         else:
             gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'

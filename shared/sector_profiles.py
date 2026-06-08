@@ -215,10 +215,18 @@ def _classify_ticker_to_subsector(ticker: str) -> str | None:
     """
     # V0 mapping basique sur les sub_sectors tier-S
     # (en attendant l'extension de config/sectors.yaml en V1)
-    EQUIPMENT = {"ASML.AS", "AMAT", "LRCX", "KLAC", "TER", "ALAB"}
+    EQUIPMENT = {"ASML.AS", "AMAT", "LRCX", "KLAC", "TER", "ALAB", "BESI.AS",
+                 "6920.T",  # Lasertec (Japan, EUV inspection equipment)
+                 "6857.T",  # Advantest (Japan, ATE test equipment)
+                 "4063.T",  # Shin-Etsu Chemical (Japan, wafer/photoresist materials)
+                 "ENTG",    # Entegris (materials/equipment hybrid)
+                 "COHR",    # Coherent (lasers / EUV components)
+                 }
     FOUNDRY = {"TSM"}
-    MEMORY = {"MU", "WDC", "STX"}
-    FABLESS = {"AMD", "NVDA", "AVGO", "QCOM", "MRVL"}
+    MEMORY = {"MU", "WDC", "STX",
+              "000660.KS",  # SK Hynix (Korea, DRAM/NAND/HBM)
+              }
+    FABLESS = {"AMD", "NVDA", "AVGO", "QCOM", "MRVL", "SNPS"}
 
     t = ticker.upper()
     if t in EQUIPMENT:
