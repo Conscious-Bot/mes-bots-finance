@@ -5094,12 +5094,29 @@ def _breadth_rsp_spy() -> str:
 
     fallback = '<div class="drow"><span class="ddot mute"></span><span class="dname">RSP / SPY ratio</span><span class="dval mute">n/a</span><span class="dp"></span></div>'
     try:
-        import yfinance as yf
+        # Migration Phase 4 #4 : gateway canonique prices.get_price_window
+        # au lieu de yfinance.Ticker direct. -2 bypasses yfinance.
+        # Note end-exclusive : end=today+1 pour inclure today (cf finding #3).
+        from datetime import UTC, datetime, timedelta
 
-        rsp = yf.Ticker("RSP").history(period="3mo", interval="1d")["Close"].dropna()
-        spy = yf.Ticker("SPY").history(period="3mo", interval="1d")["Close"].dropna()
+        import pandas as pd
+
+        from shared.prices import get_price_window
+
+        today = datetime.now(UTC).date()
+        end = today + timedelta(days=1)
+        start = today - timedelta(days=100)  # ~3mo en daily (équiv period="3mo")
+        rsp_window = get_price_window("RSP", start, end)
+        spy_window = get_price_window("SPY", start, end)
+        rsp = pd.Series([c for _, c in rsp_window]).dropna()
+        spy = pd.Series([c for _, c in spy_window]).dropna()
         if len(rsp) < 50 or len(spy) < 50:
             return fallback
+        # Aligner par taille : prend la plus petite des deux (closes alignées
+        # ordre chronologique sur même calendrier de trading)
+        n = min(len(rsp), len(spy))
+        rsp = rsp.iloc[-n:].reset_index(drop=True)
+        spy = spy.iloc[-n:].reset_index(drop=True)
         ratio = (rsp / spy).dropna()
         if len(ratio) < 50:
             return fallback
