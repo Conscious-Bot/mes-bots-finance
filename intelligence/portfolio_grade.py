@@ -97,7 +97,9 @@ def _fetch_state(months_brier_window: int = 6) -> dict:
     # un module intelligence/* dépend du layer render). Le seam canonique vit
     # dans shared/, accessible à tous les modules sans inversion de dépendance.
     # Byte-identité 26/26 vérifié pre-migration (diff 0.00€ sur 53,790€).
-    from shared.book import value_eur as _book_value_eur
+    # Convention call-time resolve (cf Lane 2 #3) : `_bk.value_eur(...)` au lieu
+    # d'un alias import-time, pour que monkeypatch côté tests prenne effet.
+    from shared import book as _bk
 
     with db() as cx:
         pos_rows = cx.execute(
@@ -107,7 +109,7 @@ def _fetch_state(months_brier_window: int = 6) -> dict:
         n_market = n_fallback = 0
         for r in pos_rows:
             tk, qty, avg = r[0], r[1] or 0, r[2] or 0
-            v_datum = _book_value_eur(tk, qty) if qty > 0 else None
+            v_datum = _bk.value_eur(tk, qty) if qty > 0 else None
             if v_datum is not None and v_datum.value is not None and hasattr(v_datum.value, "amount"):
                 weight = float(v_datum.value.amount)
                 cur_px = weight / qty if qty > 0 else None  # backward compat affichage
