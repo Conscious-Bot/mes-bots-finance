@@ -1,0 +1,401 @@
+# Vocabulaire d'alerte canonique (substrat sémantique)
+# Cf SPEC_ALERT_VOCABULARY.md
+#
+# 4 classes orthogonales :
+#   STATE   : décrit OÙ une chose est (contexte). earns_attention=false TOUJOURS.
+#   STEER   : conclut QUOI faire. act-class earns_attention=true ; calm-class false.
+#   FLAG    : condition qui contraint. earns_attention=true quand actif.
+#   EVENT   : delta -- quelque chose vient de changer. earns_attention=true.
+#
+# Règle structurelle : l'attention provient UNIQUEMENT de
+#   {EVENT} ∪ {FLAG actif} ∪ {STEER act-class}.
+# STATE n'attire JAMAIS -- gravé dans le validator Pydantic.
+#
+# Schéma de chaque mot :
+#   class                : state | steer | flag | event   (discriminator Pydantic)
+#   earns_attention      : bool                            (forcé selon class)
+#   meaning              : str (description user-readable)
+#   calibration_contract : dict obligatoire si class=event ; optionnel sinon
+#     trigger              : str (condition qui le tire)
+#     delta_based          : bool (event = delta toujours true)
+#     outcome_validated    : str (comment l'event prouve sa pertinence)
+#   render               : dict
+#     color    : token sémantique (calm | info | warning | danger | critical | neutral)
+#     icon     : nom (trending-down, alert-triangle, ...)
+#     weight   : low | medium | high (poids visuel)
+#   action_hint          : str (suggestion d'action pour le user)
+#
+# Note 08/06 : aucun panel ne hardcode de couleur d'alarme. Gate CI verrouille.
+
+vocabulary_version: "1.0"
+schema_version: "1.0"
+
+# === STATE (descriptif, calme, earns_attention=false TOUJOURS) ==================
+
+CYCLE_EARLY:
+  class: state
+  earns_attention: false
+  meaning: "phase cycle économique : early (sortie de récession, accélération)"
+  render: {color: neutral, icon: arrow-up, weight: low}
+  action_hint: ""
+
+CYCLE_MID:
+  class: state
+  earns_attention: false
+  meaning: "phase cycle économique : mid (expansion soutenue)"
+  render: {color: neutral, icon: minus, weight: low}
+  action_hint: ""
+
+CYCLE_LATE:
+  class: state
+  earns_attention: false
+  meaning: "phase cycle économique : late (croissance qui ralentit, valos étirées)"
+  render: {color: neutral, icon: arrow-down, weight: low}
+  action_hint: ""
+
+CYCLE_CONTRACTION:
+  class: state
+  earns_attention: false
+  meaning: "phase cycle économique : contraction (récession en cours)"
+  render: {color: neutral, icon: trending-down, weight: low}
+  action_hint: ""
+
+CYCLE_TROUGH:
+  class: state
+  earns_attention: false
+  meaning: "phase cycle économique : trough (point bas, retournement)"
+  render: {color: neutral, icon: circle, weight: low}
+  action_hint: ""
+
+CYCLE_RECOVERY:
+  class: state
+  earns_attention: false
+  meaning: "phase cycle économique : recovery (sortie de récession)"
+  render: {color: neutral, icon: trending-up, weight: low}
+  action_hint: ""
+
+THESIS_INTACT:
+  class: state
+  earns_attention: false
+  meaning: "thèse intacte : drivers confirmés, pas de signal d'érosion"
+  render: {color: neutral, icon: check, weight: low}
+  action_hint: ""
+
+THESIS_ERODING:
+  class: state
+  earns_attention: false
+  meaning: "thèse en érosion : 1+ driver dégrade (état descriptif, l'EVENT EROSION_DETECTED a déjà alarmé)"
+  render: {color: info, icon: trending-down, weight: low}
+  action_hint: ""
+
+THESIS_BROKEN:
+  class: state
+  earns_attention: false
+  meaning: "thèse cassée : invalidation passée (état descriptif, EVENT INVALIDATION_HIT a alarmé)"
+  render: {color: info, icon: x-circle, weight: low}
+  action_hint: ""
+
+THESIS_UNREVIEWED:
+  class: state
+  earns_attention: false
+  meaning: "thèse pas revue depuis horizon : état descriptif, pas urgence"
+  render: {color: neutral, icon: clock, weight: low}
+  action_hint: ""
+
+FRESH_LIVE:
+  class: state
+  earns_attention: false
+  meaning: "fraîcheur data : live (as-of < SLA green)"
+  render: {color: neutral, icon: circle, weight: low}
+  action_hint: ""
+
+FRESH_NEAR:
+  class: state
+  earns_attention: false
+  meaning: "fraîcheur data : near (entre green et amber SLA)"
+  render: {color: neutral, icon: circle, weight: low}
+  action_hint: ""
+
+FRESH_STALE:
+  class: state
+  earns_attention: false
+  meaning: "fraîcheur data : stale (>SLA amber). State descriptif ; FAIL_CLOSED flag tire si critique."
+  render: {color: info, icon: clock, weight: low}
+  action_hint: ""
+
+TYPE_STRUCTURAL:
+  class: state
+  earns_attention: false
+  meaning: "position structural : monopole/chokepoint, downside non-borné par prix"
+  render: {color: neutral, icon: anchor, weight: low}
+  action_hint: ""
+
+TYPE_PRICED:
+  class: state
+  earns_attention: false
+  meaning: "position priced : asymétrie classique stop/target"
+  render: {color: neutral, icon: target, weight: low}
+  action_hint: ""
+
+TYPE_TACTICAL:
+  class: state
+  earns_attention: false
+  meaning: "position tactical : court terme, horizon défini"
+  render: {color: neutral, icon: zap, weight: low}
+  action_hint: ""
+
+CONV_C1:
+  class: state
+  earns_attention: false
+  meaning: "conviction 1 (faible)"
+  render: {color: neutral, icon: bar-chart, weight: low}
+  action_hint: ""
+
+CONV_C2:
+  class: state
+  earns_attention: false
+  meaning: "conviction 2"
+  render: {color: neutral, icon: bar-chart, weight: low}
+  action_hint: ""
+
+CONV_C3:
+  class: state
+  earns_attention: false
+  meaning: "conviction 3 (médiane)"
+  render: {color: neutral, icon: bar-chart, weight: low}
+  action_hint: ""
+
+CONV_C4:
+  class: state
+  earns_attention: false
+  meaning: "conviction 4"
+  render: {color: neutral, icon: bar-chart, weight: low}
+  action_hint: ""
+
+CONV_C5:
+  class: state
+  earns_attention: false
+  meaning: "conviction 5 (highest)"
+  render: {color: neutral, icon: bar-chart, weight: low}
+  action_hint: ""
+
+# === STEER (conclusion ; act-class earns_attention=true) ========================
+
+TRIM:
+  class: steer
+  earns_attention: true   # act-class
+  meaning: "réduire la position (over-cap ou risque)"
+  render: {color: warning, icon: minus-square, weight: high}
+  action_hint: "Réduire qty vers cap conviction"
+
+RIGHTSIZE:
+  class: steer
+  earns_attention: true   # act-class
+  meaning: "ajuster la taille au juste poids (weight vs cap)"
+  render: {color: warning, icon: minimize, weight: high}
+  action_hint: "Ajuster qty vers target conviction"
+
+EXIT:
+  class: steer
+  earns_attention: true   # act-class
+  meaning: "sortir totalement (thèse cassée ou invalidation)"
+  render: {color: danger, icon: log-out, weight: high}
+  action_hint: "Liquider la position"
+
+REVIEW:
+  class: steer
+  earns_attention: true   # act-class
+  meaning: "revoir la thèse (érosion, signal matériel, drift conviction)"
+  render: {color: warning, icon: search, weight: high}
+  action_hint: "Re-justifier ou alléger"
+
+SET_TARGET:
+  class: steer
+  earns_attention: true   # act-class
+  meaning: "définir target/stop manquants (NO_TARGET flag actif)"
+  render: {color: warning, icon: crosshair, weight: high}
+  action_hint: "Renseigner target_partial / target_full / stop"
+
+ADD:
+  class: steer
+  earns_attention: true   # act-class
+  meaning: "renforcer la position (under-cap ou opportunité)"
+  render: {color: info, icon: plus-square, weight: high}
+  action_hint: "Augmenter qty vers cap"
+
+HOLD:
+  class: steer
+  earns_attention: false  # calm-class
+  meaning: "tenir la position (thèse intacte, weight aligné)"
+  render: {color: neutral, icon: pause, weight: low}
+  action_hint: ""
+
+WATCH:
+  class: steer
+  earns_attention: false  # calm-class
+  meaning: "surveiller (signal en formation, pas encore actionnable)"
+  render: {color: info, icon: eye, weight: low}
+  action_hint: ""
+
+# === FLAG (condition, earns_attention=true quand active) ========================
+
+OVER_CAP:
+  class: flag
+  earns_attention: true
+  meaning: "position dépasse le cap par conviction"
+  render: {color: warning, icon: alert-triangle, weight: medium}
+  action_hint: "TRIM vers cap"
+
+UNDER_CAP:
+  class: flag
+  earns_attention: true
+  meaning: "position sous le cap target (sous-allocation)"
+  render: {color: info, icon: arrow-up, weight: medium}
+  action_hint: "ADD vers cap si conviction soutenue"
+
+BIAS_OPEN:
+  class: flag
+  earns_attention: true
+  meaning: "événement biais (lock_in, fomo_greed) ouvert sur ce ticker"
+  render: {color: warning, icon: alert-circle, weight: medium}
+  action_hint: "REVIEW résolution biais"
+
+FAIL_CLOSED:
+  class: flag
+  earns_attention: true
+  meaning: "L15 fail-closed actif : données critiques manquantes, pas de lecture confiante"
+  render: {color: danger, icon: shield-off, weight: high}
+  action_hint: "Attendre données fraîches OU re-fetch"
+
+DEGRADED:
+  class: flag
+  earns_attention: true
+  meaning: "Datum degraded (stale au-delà SLA OU source en échec OU confidence<seuil)"
+  render: {color: warning, icon: wifi-off, weight: medium}
+  action_hint: "Nombres affichés provisoires, vérifier sources"
+
+NO_STOP:
+  class: flag
+  earns_attention: true
+  meaning: "stop_price non défini sur cette thèse"
+  render: {color: warning, icon: alert-triangle, weight: medium}
+  action_hint: "SET_TARGET (définir stop)"
+
+NO_TARGET:
+  class: flag
+  earns_attention: true
+  meaning: "target_full / target_partial non défini sur cette thèse"
+  render: {color: warning, icon: alert-triangle, weight: medium}
+  action_hint: "SET_TARGET (définir target)"
+
+UNVALIDATED:
+  class: flag
+  earns_attention: true
+  meaning: "thèse pas pré-enregistrée (commit-reveal manquant, non-prouvable)"
+  render: {color: warning, icon: shield, weight: medium}
+  action_hint: "Bootstrap commit-reveal pour audit trail"
+
+NO_EDGE:
+  class: flag
+  earns_attention: true
+  meaning: "consensus indique pas d'edge clair (post-cornerstone micro)"
+  render: {color: info, icon: minus-circle, weight: medium}
+  action_hint: "Reconsidérer si pas de skill différencié"
+
+# === EVENT (delta, earns_attention=true, calibration_contract OBLIGATOIRE) ======
+
+INVALIDATION_HIT:
+  class: event
+  earns_attention: true
+  meaning: "un trigger d'invalidation pré-enregistré vient de fire (delta -> hit)"
+  calibration_contract:
+    trigger: "thesis_invariants.compute_thesis_erosion : trigger fired (LLM Haiku, confidence >= 0.80, primary entity in top-3)"
+    delta_based: true
+    outcome_validated: "invalidation -> sous-perf forward materielle ? (Brier resolved on outcome)"
+    min_n_for_threshold: 10
+  render: {color: critical, icon: x-octagon, weight: high}
+  action_hint: "EXIT immédiat OU auto-demote_from_structural (Q3 master)"
+
+TARGET_HIT:
+  class: event
+  earns_attention: true
+  meaning: "prix a atteint target_partial OU target_full (delta -> hit)"
+  calibration_contract:
+    trigger: "current_price >= target_partial (partial) OU >= target_full (full)"
+    delta_based: true
+    outcome_validated: "hit -> mean-reversion ou continuation ? (trailing post-hit)"
+    min_n_for_threshold: 15
+  render: {color: info, icon: target, weight: high}
+  action_hint: "TRIM partial si target_partial, EXIT full si target_full"
+
+EROSION_DETECTED:
+  class: event
+  earns_attention: true
+  meaning: "un driver de thèse s'érode au-delà du seuil (delta -> erosion materielle)"
+  calibration_contract:
+    trigger: "moteur érosion : net driver_status <= seuil (CONFIRMED < N_neg)"
+    delta_based: true
+    outcome_validated: "érosion -> sous-perf forward ? (Brier 30j+)"
+    min_n_for_threshold: 30
+  render: {color: warning, icon: trending-down, weight: high}
+  action_hint: "REVIEW : re-justifie ou allège"
+
+ASYM_COMPRESSION:
+  class: event
+  earns_attention: true
+  meaning: "asymétrie target/stop s'est compressée matériellement (delta ratio)"
+  calibration_contract:
+    trigger: "asym_ratio_now / asym_ratio_at_entry < 0.5 (compression > 50%)"
+    delta_based: true
+    outcome_validated: "compression -> exit-window manquée ? (Brier 60j sur winners)"
+    min_n_for_threshold: 20
+  render: {color: warning, icon: minimize-2, weight: medium}
+  action_hint: "Considérer TRIM partial pour locker le gain"
+
+CROWDING_SPIKE:
+  class: event
+  earns_attention: true
+  meaning: "spike de crowding (positionnement) sur ce nom -- mean-reversion risk (delta)"
+  calibration_contract:
+    trigger: "crowding_delta > 2 sigma sur window 30j (post-cornerstone micro consensus)"
+    delta_based: true
+    outcome_validated: "crowding spike -> mean-reversion 90j ? (PR-AUC)"
+    min_n_for_threshold: 25
+  render: {color: warning, icon: users, weight: medium}
+  action_hint: "WATCH ou TRIM si conviction faible"
+
+REGIME_SHIFT:
+  class: event
+  earns_attention: true
+  meaning: "régime macro a changé (delta cycle phase ou stress level)"
+  calibration_contract:
+    trigger: "cycle phase transition OU stress monitor delta > seuil"
+    delta_based: true
+    outcome_validated: "shift -> book impact materielle ? (book-level Brier)"
+    min_n_for_threshold: 5
+  render: {color: warning, icon: refresh-cw, weight: high}
+  action_hint: "Re-évaluer expositions sectorielles + cycle-betas"
+
+STRESS_RISING:
+  class: event
+  earns_attention: true
+  meaning: "indicateurs stress macro (HY spreads, MOVE, banks) en hausse matérielle (delta)"
+  calibration_contract:
+    trigger: "HY_OAS delta > +50bp/30j OU MOVE delta > +30pts/30j OU bank-spreads spike"
+    delta_based: true
+    outcome_validated: "stress -> crisis materialise dans 90j ? (Brier sur crisis_resolved)"
+    min_n_for_threshold: 10
+  render: {color: warning, icon: alert-triangle, weight: high}
+  action_hint: "REVIEW expositions cycliques + cash level"
+
+DEMOTED:
+  class: event
+  earns_attention: true
+  meaning: "auto-demote_from_structural a fire sur cette thèse (delta structural->priced)"
+  calibration_contract:
+    trigger: "INVALIDATION_HIT sur thèse structural -> auto-demote storage.demote_from_structural()"
+    delta_based: true
+    outcome_validated: "demote -> next-step decision suit ? (REVIEW dans 7j)"
+    min_n_for_threshold: 5
+  render: {color: warning, icon: arrow-down-circle, weight: high}
+  action_hint: "Pose stop strict, REVIEW dans 7j"
