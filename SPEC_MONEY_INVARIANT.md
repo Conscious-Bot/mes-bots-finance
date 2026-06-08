@@ -55,7 +55,7 @@ def pct_change(frm: Datum, to: Datum) -> Datum:
 
 - **La SEULE voie** pour calculer un ratio/P&L monétaire. Tout `(a/b - 1)` à la main sur des variables d'argent = build-rouge (ratchet).
 - Comparer `price(KRW)` à `entry(EUR)` ⟹ **convertis d'abord** : `to_eur = fx_convert(price_krw)` (chaque conversion est elle-même un `Datum`, traçable), PUIS `pct_change(entry_eur, to_eur)`. **mais espace-de-calcul ≠ fusion-des-baselines**.
-- **Espace-devise canonique par métrique (raffiné 08/06)** : `perf_thesis_pct` se calcule en **NATIVE-space** (`price_native / entry_native − 1`) — la thèse claime l'actif dans son marché natif ; scorer le jugement en EUR injecterait un pari de change non-prédit dans la note du skill. Avantage second-ordre : zéro dépendance FX → immune au gap de backfill `fx_history`. `pnl_position_pct` se calcule en **EUR-space** (le capital réellement vécu). Les deux métriques sont ainsi distinctes en **baseline ET en espace-devise** — doublement non-fusionnables. L'EUR-view de perf_thesis (« perf incl. change ») est un *dérivé secondaire* qui sort `degraded` si `entry_fx_at_call` manque (jamais backfillé).
+- **EUR canonique pour l'affichage (décidé 08/06 — exigence utilisateur)** : on **STOCKE natif** (input devise étrangère sans perte, fait historique préservé) et on **AFFICHE EUR partout**. Toute valeur du dashboard = `Money.in_eur(fx)`, via l'unique convertisseur. `perf_thesis_pct` et `pnl_position_pct` se calculent tous deux en **EUR-space**, **baselines distincts** : `entry_eur = entry_native × fx_figé-à-l'appel`, `avg_cost_eur = avg_cost_native × fx_figé-à-l'achat`. **Les FX des baselines sont FIGÉS** (sinon la perf dérive avec l'EUR du jour = bruit) ; seul `price_eur` utilise le FX live. La distinction `entry ≠ avg_cost` survit en EUR → le veto §5 tient. Comme natif + fx-figé restent stockés, la `perf_thesis` **native-space** (skill isolé du change) reste un *dérivé calculable à la demande* — choisie EUR par défaut, jamais perdue.
 - L'`assert` transforme le `+176056%` en **erreur bruyante** au lieu d'un nombre faux confiant. C'est ça, fail-closed structurel.
 - Baseline irrécupérable (entry clobberé, non recouvrable) ⟹ `pct_change` retourne `degraded` / `None` (L15), **jamais** un nombre fabriqué.
 
@@ -128,7 +128,7 @@ Datum[Monetary] natif (entry/avg_cost/stop/target)          ← LA SOURCE (§1)
         │  prices.get()/fx() → Datum[Monetary]
         ▼
 compute_position(ticker) → PositionView                      ← UN calcul / position
-        │  (perf_thesis NATIVE-space, pnl EUR-space, via pct_change §2)
+        │  (perf_thesis + pnl en EUR-space, baselines figés, via pct_change §2)
         ▼
 get_all_positions_views() → dict[ticker, PositionView]       ← LE CŒUR (battement unique, 1×/regen)
         ▼

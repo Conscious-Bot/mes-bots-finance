@@ -12,6 +12,26 @@ PRESAGE accumule des doctrines (L1-L21), des mécanismes (M1/M2/M3), des axes (1
 - Quel est son substrat (record / état / cache) ?
 - Quels invariants doivent tenir ?
 
+## 0. Le principe porteur — pourquoi le système est bon, et le reste en grandissant
+
+> À relire avant **chaque** nouveau chantier. Tout le reste de cette carte n'est que l'application de cette seule idée.
+
+Un système reste cohérent *en grandissant* uniquement si la cohérence est **structurelle** (imposée par les types + les gates + une source unique), jamais **comportementale** (tenue par la discipline). La discipline échoue — la preuve : `L1` (source unique) existe depuis le 01/06 et s'est violée quand même, sur 15 fichiers. **Un problème récurrent = une gate manquante, pas un manque de rigueur** (cf L27).
+
+**L'image juste : une grammaire.** Règles fixes et peu nombreuses → phrases infinies, sans dérive. C'est la résolution de la tension *évolutif vs cohérent* : ce ne sont pas des opposés, **la contrainte en bas est ce qui donne la liberté en haut**.
+
+- **Substrat rigide (la grammaire — 6 primitifs, pas 50)** : `Datum[Monetary]` (un type d'argent) · `Money.in_eur` (un convertisseur) · `book.value_eur → get_all_positions_views` (une source par fait, model + render) · `alert_vocabulary` (un vocabulaire) · `sector_profiles` (une taxonomie) · les **gates** qui rendent la violation non-compilable.
+- **Surface fluide (les phrases — infinies)** : un nouveau stock JP/KR s'auto-classe et naît en Money natif qui se convertit proprement ; un nouveau panneau *compose* le vocabulaire et *projette* le cœur ; une nouvelle métrique dérive de Datums et hérite gratuitement du fail-closed + confiance. **Rien de neuf n'étend le langage ; tout compose le substrat.** La croissance ne dilue jamais la cohérence parce que chaque pierre ajoutée est faite de la même pierre (cf SPEC_SOCLE).
+
+**Ce qui garantit que ça *reste* bon, pas seulement que ça le devienne une fois : la gate.** Sans elle, chaque feature suivante re-disperse (on rejoue le bug). Avec elle, le système **défend sa propre cohérence** — indépendamment de toute vigilance humaine ou agent.
+
+**Les 3 mesures de « bon » (des tests, pas une impression)** :
+1. **Minimal moving parts** — compte les primitifs. Si c'est 50 et pas 6, il dérive. Un fait = un endroit.
+2. **Fail-closed** — droit de dire « je ne sais pas / stale / N insuffisant », jamais d'afficher un nombre plus confiant que son évidence. Un système qui ment poliment n'est pas bon, même joli.
+3. **Self-defending** — l'incohérence ne *compile pas*. Si tu peux la casser sans build rouge, la gate manque.
+
+Quand les trois tiennent, le système est bon — et le reste en grandissant, parce que la grammaire ne bouge pas pendant que les phrases se multiplient. Références : `SPEC_MONEY_INVARIANT` (§8 cœur unique) · `SPEC_ALERT_VOCABULARY` · `SPEC_SECTOR_TAXONOMY` · `SPEC_SOCLE` · LESSONS L1/L27/L28.
+
 ## 1. Les 4 niveaux d'abstraction
 
 Du plus haut au plus opérationnel :
