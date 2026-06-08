@@ -14,19 +14,27 @@ log = logging.getLogger(__name__)
 
 
 def _get_current_price(ticker: str) -> float | None:
-    """Latest close in EUR (user base currency, ADR 005 canonical storage).
+    """Latest close en NATIVE currency du ticker.
 
-    Delegates to shared.prices.get_current_price_in_eur which handles
-    currency conversion for tickers quoted in JPY (.T), KRW (.KS), USD,
-    etc. This ensures asymmetry MATH compares like-for-like with
-    entry_price stored in EUR (broker avg_cost). DISPLAY layer
-    converts EUR → USD via _fx_eur_to_usd() before showing values
-    (post 21/05/2026 alignment with /portfolio and /brief which display USD).
+    Bug fix 08/06/2026 (#115 fondu) -- ADR 005 obsolète : la doctrine
+    currency_native_invariant (memory user) dit que TOUS les prix thèses
+    (entry, target_full, target_partial, stop) sont stockés en NATIVE
+    currency du ticker. Donc `current` DOIT aussi être NATIVE pour que
+    l'asymétrie soit FX-invariante (native vs native).
+
+    Cas révélateur SK Hynix (000660.KS, KRW) :
+      Avant : current_in_eur ≈ 1150 EUR vs entry 1512443 KRW -> calcul absurde
+      Apres : current_native = 2070000 KRW vs entry 1512443 KRW
+              -> perf = +36.86% (correcte, native vs native)
+
+    Cf [[currency_native_invariant]] memory : "tous prix theses
+    (entry/target/stop) en NATIVE currency du ticker. Banni EUR sur
+    USD/JPY/KRW. Kill-criteria price-only banni. Gate position_invariants
+    enforce."
     """
     try:
-        from shared.prices import get_current_price_in_eur
-
-        return get_current_price_in_eur(ticker)
+        from shared.prices import get_current_price
+        return get_current_price(ticker)
     except Exception as e:
         log.warning(f"price fetch {ticker}: {e}")
         return None
@@ -180,12 +188,11 @@ def format_asymmetry_single(r: dict[str, Any]) -> str:
         return "No data"
     if "error" in r:
         return f"{r.get('ticker', '?')}: ERROR {r['error']}"
-    # Convert EUR-canonical compute output → USD for display (shallow copy, safe)
-    fx = _fx_eur_to_usd()
+    # Fix 08/06/2026 (#115 fondu) : current/entry/stop/target sont NATIVE
+    # depuis le _get_current_price native + entry_price native en DB.
+    # Plus de conversion EUR->USD ici (ADR 005 obsolete vs currency-native-invariant).
+    # Le display reste en native -- coherent avec dashboard.
     r = {**r}
-    for k in ("current_price", "entry", "stop", "target_full", "target_partial"):
-        if r.get(k) is not None:
-            r[k] = r[k] * fx
     if "note" in r and "asymmetry_ratio" not in r:
         return f"{r.get('ticker', '?')} @ ${r.get('current_price', 0):.2f} — {r['note']}"
 

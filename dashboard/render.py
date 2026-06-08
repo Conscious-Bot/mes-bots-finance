@@ -6139,24 +6139,38 @@ def _sector_donut(segs: list) -> str:
 
 
 def _asym_format(ratio):
-    """Format asymmetry_ratio avec class de coloration parchemin.
+    """Format asymmetry_ratio avec class de coloration via doctrine vocabulary.
 
-    Convention Taleb barbell :
-    - ratio >= 999   -> sentinel TARGET_HIT (current >= target_full) -> 'target' badge
-    - ratio >= 3.0   -> 'barbell' (asymetrie favorable, laisser courir) -> .acc (olive)
-    - 1.0 <= r < 3.0 -> 'modere' (neutre) -> .num (ink2)
-    - r < 1.0        -> 'inverse' (downside > upside, candidate trim) -> .neg (oxblood)
+    Migration 08/06 (#115 fondu) : appliquer la regle d'attention canonique.
+    Le ratio asymetrie est un STATE descriptif (sa valeur courante), pas un
+    EVENT delta. Donc par doctrine il NE doit PAS crier (cf SPEC_ALERT_VOCABULARY §1).
+
+    Mais l'EVENT TARGET_HIT (current >= target_full) est un DELTA (crossing) -- il
+    crie legitiment (earns_attention=True dans vocabulary).
+
+    Convention apres migration :
+    - ratio >= 999   -> EVENT TARGET_HIT  -> 'num acc' (vert, attire l'oeil legitime)
+    - ratio >= 3.0   -> STATE favorable    -> 'num' (calme, descriptif)
+    - 1.0 <= r < 3.0 -> STATE neutre       -> 'num' (calme, descriptif)
+    - r < 1.0        -> STATE defavorable  -> 'num steel-mute' (calme, descriptif)
     - None           -> '—'
+
+    Le rouge / vert criant ('acc' favorable, 'neg' rouge defavorable) est
+    REMPLACE par calme par defaut. Quand on detectera ASYM_COMPRESSION
+    (EVENT delta vs t-1 dans vocabulary), CELUI-LA criera -- pas le state.
     """
     if ratio is None:
         return ('num', '&mdash;')
     if ratio >= 999:
+        # TARGET_HIT : EVENT delta legitime (cross-over) -- doit crier
         return ('num acc', 'target &check;')
-    if ratio >= 3.0:
-        return ('num acc', f'{ratio:.1f}&times;')
+    # STATE descriptif -- ne crie pas, neutre/calme partout
     if ratio >= 1.0:
         return ('num', f'{ratio:.1f}&times;')
-    return ('num neg', f'{ratio:.1f}&times;')
+    # r < 1.0 : STATE defavorable -- AVANT rouge ('num neg'), MAINTENANT calme.
+    # L'alarme sur asym defavorable viendra via EVENT ASYM_COMPRESSION
+    # (delta materiel vs t-1), pas via le state actuel.
+    return ('num steel-mute', f'{ratio:.1f}&times;')
 
 
 def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict, asym: dict, gauges: dict | None = None, ticker_warnings: dict | None = None) -> str:
