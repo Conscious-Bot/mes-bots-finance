@@ -2247,14 +2247,33 @@ def _position_card(inputs, steer_v2) -> str:
     except Exception:
         steer = None
 
-    # Bandeau fail-closed (etape 3) -- en tete si declenche
+    # Bandeau fail-closed (etape 3) -- adoption substrat alert_vocabulary :
+    # consomme render_token(get_word("FAIL_CLOSED")) au lieu de hardcode #7a1f1f.
+    # Premiere adoption REELLE en prod du vocabulary (cf #116, geste 2 Olivier).
     bandeau_html = ""
     if steer_v2 and steer_v2.bandeau:
+        from shared.alert_vocabulary import get_word, render_token
+        _fc_word = get_word("FAIL_CLOSED")
+        _fc_rt = render_token(_fc_word)
+        # Mapping token couleur -> CSS var existante du dashboard
+        # (theme oklch ; les var sont definies dans le CSS global du dashboard).
+        _color_bg = {
+            "calm": "var(--steel-mute, #4a5560)",
+            "neutral": "var(--steel, #5a6470)",
+            "info": "var(--steel, #5a6470)",
+            "warning": "var(--warn, #c08838)",
+            "danger": "var(--bear, #7a1f1f)",
+            "critical": "var(--bear, #7a1f1f)",
+        }.get(_fc_rt.color, "var(--bear, #7a1f1f)")
         items = "".join(f"<span>{b}</span>" for b in steer_v2.bandeau)
+        # Le LABEL "FAIL-CLOSED L15" reste user-facing (court, distinctif).
+        # Le SUBSTRAT vocabulary fournit la COULEUR canonique (token "danger" -> var--bear)
+        # et le tooltip enrichi via word.meaning -- pas un sweep du label.
         bandeau_html = (
-            '<div class="pc-bandeau" style="background:#7a1f1f;color:#fff;'
+            f'<div class="pc-bandeau" style="background:{_color_bg};color:#fff;'
             'padding:8px 12px;border-radius:4px;margin:-2px -2px 12px -2px;'
-            'font-size:11px;font-weight:600;display:flex;gap:14px;align-items:center;">'
+            'font-size:11px;font-weight:600;display:flex;gap:14px;align-items:center;" '
+            f'data-vocab="FAIL_CLOSED" title="{_fc_word.meaning}">'
             '<span>⚠ FAIL-CLOSED L15</span>'
             f'<span style="opacity:0.9;font-weight:500;">{items}</span>'
             '</div>'
@@ -2275,6 +2294,33 @@ def _position_card(inputs, steer_v2) -> str:
             f'font-size:11px;font-weight:700;background:{v_color[0]};color:#fff;'
             f'margin-left:8px;letter-spacing:0.5px;">▶ {steer_v2.verdict.value}</span>'
         )
+
+    # Adoption substrat sector_profiles : afficher tier d'evidence + sous-secteur.
+    # Premiere adoption REELLE en prod du profile_for_ticker (cf #116, geste 2).
+    # Tier S = expertise validee sur holdings ; tier B = UNCLASSIFIED fail-closed.
+    sector_profile_html = ""
+    try:
+        from shared.sector_profiles import profile_for_ticker
+        _sp, _sp_unc = profile_for_ticker(ticker)
+        _tier_color = {"S": "var(--acc, #3a9d4e)", "A": "var(--steel, #5a6470)", "B": "var(--steel-mute, #888)"}.get(
+            _sp.evidence_tier, "var(--steel-mute, #888)"
+        )
+        _tier_label = "validé holdings" if _sp.evidence_tier == "S" else ("prior littérature" if _sp.evidence_tier == "A" else "non-classé fail-closed")
+        _kpis_n = len(_sp.deliverable_kpis)
+        _kpis_label = f"{_kpis_n} KPIs mesurables" if _kpis_n else "aucun KPI (no_read)"
+        _sp_data = "unclassified" if _sp_unc else _sp.name
+        sector_profile_html = (
+            f'<div class="pc-sector-profile" '
+            f'data-profile="{_sp_data}" data-tier="{_sp.evidence_tier}" '
+            f'style="font-size:10px;color:{_tier_color};opacity:0.85;margin:2px 0 6px 0;'
+            'letter-spacing:0.3px;">'
+            f'sector : <b>{_sp.name}</b> &middot; tier <b>{_sp.evidence_tier}</b> ({_tier_label}) '
+            f'&middot; {_kpis_label}'
+            '</div>'
+        )
+    except Exception as e:
+        # render.py n'a pas de logger module ; silent-miss L7 (la card s'affiche sans le tag profile)
+        print(f"[render] sector_profile_html for {ticker} failed: {e}")
 
     # Drift conviction surface si delta != 0
     drift_html = ""
@@ -2667,8 +2713,10 @@ def _position_card(inputs, steer_v2) -> str:
         f'{tags_html}'
         f'<span class="pc-meta">horizon {horizon} &middot; opened {opened} &middot; reviewed {reviewed}</span>'
         '</div>'
+        # Sector profile : adoption substrat (cf #116)
+        + sector_profile_html
         # Row 1 : Position + Asymetrie + Factor
-        '<div class="pc-row3">'
+        + '<div class="pc-row3">'
         '<div class="pc-cell"><div class="pc-cell-h">POSITION</div>'
         f'<div class="pc-line"><span>qty</span><span class="mono">{qty}</span></div>'
         f'<div class="pc-line"><span>MV</span><span class="mono">{weight_pct:.1f}% ({weight_eur:,.0f}€)</span></div>'
