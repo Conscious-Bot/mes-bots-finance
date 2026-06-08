@@ -3828,17 +3828,26 @@ def _pnl_map(computed: list[dict]) -> dict:
 
 
 def _pnl_cost_map(positions: list[dict]) -> dict:
+    """P&L map canonique EUR -- route via shared.position_pnl (#118 fix FX).
+
+    AVANT le fix 08/06 : mélangeait `avg_cost` (incohérent : native USD pour US,
+    EUR pour autres) avec `current_eur` -> P&L FAUX sur tickers USD (AMD montrait
+    +175% au lieu du vrai +218%).
+
+    APRES migration 0043 : positions.avg_cost_eur est canonique EUR coherent.
+    Le helper pnl_position_pct_eur applique la convention unique.
+    """
+    from shared.position_pnl import pnl_position_pct_eur
     out: dict = {}
     for p in positions:
-        ac = p.get("avg_cost") or 0
-        if ac <= 0:
-            continue
-        try:
-            c = _cached_price_eur(p["ticker"])
-        except Exception:
-            c = None
-        if c:
-            out[p["ticker"]] = (c - ac) / ac * 100
+        # Fallback legacy : si avg_cost_eur pas encore backfille pour cette ligne,
+        # tomber sur avg_cost (signal degraded plutot que silently faux)
+        if not p.get("avg_cost_eur") and p.get("avg_cost"):
+            p = dict(p)
+            p["avg_cost_eur"] = p["avg_cost"]  # legacy fallback (sera incohérent pour USD)
+        pct = pnl_position_pct_eur(p)
+        if pct is not None:
+            out[p["ticker"]] = pct
     return out
 
 

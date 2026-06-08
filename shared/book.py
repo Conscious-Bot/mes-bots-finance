@@ -232,8 +232,11 @@ def _load_db_positions() -> dict[str, dict]:
     out: dict[str, dict] = {}
     try:
         with storage.db() as cx:
+            # Fix canonique #118 (08/06) : lit avg_cost_eur (colonne backfillee migration 0043)
+            # PAS avg_cost (legacy incoherent native pour USD, EUR pour autres).
+            # Fallback sur avg_cost si avg_cost_eur null pour compat (ne devrait pas arriver post-backfill).
             rows = cx.execute(
-                "SELECT ticker, qty, avg_cost, "
+                "SELECT ticker, qty, COALESCE(avg_cost_eur, avg_cost), "
                 "       last_price_native, last_price_currency, price_asof, "
                 "       fx_rate_to_eur, fx_asof "
                 "FROM positions WHERE status='open' AND qty > 0"
@@ -241,7 +244,7 @@ def _load_db_positions() -> dict[str, dict]:
             for r in rows:
                 out[r[0]] = {
                     "qty": r[1],
-                    "avg_cost_eur": r[2],
+                    "avg_cost_eur": r[2],   # canonique EUR via avg_cost_eur (backfilled)
                     "last_price_native": r[3],
                     "last_price_currency": r[4],
                     "price_asof": r[5],
