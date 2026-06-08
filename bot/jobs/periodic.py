@@ -86,6 +86,56 @@ async def refresh_source_half_lives_job():
         log.exception(f"refresh_source_half_lives_job crashed: {e}")
 
 
+async def weekly_thesis_erosion_floor_job():
+    """Cron weekly lundi 6h : compute thesis_erosion floor sweep sur theses actives.
+
+    Couche 4 chantier #2 anti-entetement. Wire APScheduler floor hebdo qui
+    garantit que chaque these active a son verdict erosion (+ classifications
+    LLM persistees) frais 1x/semaine. Plus tard : event-driven sur arrivee
+    signal materiel permettra recompute plus rapide.
+
+    Cout : ~$0.60/run (26 theses x 12 signaux x Haiku) -> ~$2.40/mois.
+    Push Telegram UNIQUEMENT si verdicts notables (EROSION_DETECTED OU
+    INVALIDATION_HIT) -- pas de spam si tout INTACT.
+
+    Cf intelligence/thesis_erosion.compute_all_active_theses + table
+    thesis_erosion_log (migration 0039) + classifications (0041).
+    """
+    log.info("Weekly thesis_erosion floor sweep starting")
+    try:
+        from intelligence import thesis_erosion
+
+        stats = thesis_erosion.compute_all_active_theses()
+        log.info(f"thesis_erosion floor : {stats}")
+
+        # Push Telegram seulement si verdicts notables
+        n_notable = stats.get("erosion_detected", 0) + stats.get("invalidation_hit", 0)
+        if n_notable > 0:
+            n_inv = stats.get("invalidation_hit", 0)
+            n_ero = stats.get("erosion_detected", 0)
+            n_stale = stats.get("stale_unupdated", 0)
+            n_degraded = stats.get("review_due_degraded", 0)
+            msg_lines = [
+                "Thesis erosion weekly floor",
+                f"Checked {stats.get('checked', 0)} theses :",
+                f"  INVALIDATION_HIT : {n_inv}",
+                f"  EROSION_DETECTED : {n_ero}",
+                f"  STALE_UNUPDATED  : {n_stale}",
+                f"  REVIEW_DEGRADED  : {n_degraded} (L15)",
+                "",
+                "Revue carte-decision recommandee pour les positions affectees.",
+            ]
+            try:
+                notify.send_text("\n".join(msg_lines))
+                log.info("Thesis erosion alert envoyee Telegram")
+            except Exception as e:
+                log.warning(f"thesis_erosion : telegram send failed: {e}")
+        else:
+            log.info("Thesis erosion : tout INTACT/STALE, pas de push")
+    except Exception as e:
+        log.exception(f"weekly_thesis_erosion_floor_job crashed: {e}")
+
+
 async def weekly_v2_vigilance_check_job():
     """Cron weekly : check les 3 vigilances V2 (watch-rate, prob spread, insider clusters alive).
 
