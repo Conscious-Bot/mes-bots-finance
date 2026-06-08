@@ -773,3 +773,38 @@ La **valeur courante** est calculée par un helper dédié qui lit les positions
 ### Référencer
 
 Source canonique : `docs/QUALITY_BAR.md` M1 doctrine (figé 07/06). L23 ici généralise M1 du cas eur_value (Axe 3) à tout YAML déclaratif. CLAUDE.md "Catches récurrents" : avant tout ajout de `current_*` dans un YAML, demander "ai-je un helper qui dérive ça live ?". Si oui → garder seulement target/seuil/identifiants, pas la valeur courante.
+
+---
+
+## L24 — Walking skeleton bat squelette pur (chasse à la formule wrong)
+
+**Catch** : quand une abstraction est neuve et que sa forme est incertaine, un squelette testé sur des mocks propres passe tous ses tests et reste **faux** — parce que la réalité n'est pas propre. Les bugs d'abstraction se découvrent **seulement** quand un vrai input la traverse. Reporter cette découverte à la phase d'intégration (calibration / backtest) = la payer au pire moment.
+
+**Le cas fondateur (08/06/2026, cornerstone C6)** :
+- `SPEC_CORNERSTONE.md §1` postulait `D = (croyance pricée) − (réalité livrable)` (soustraction de buckets).
+- L'engine pur sur mocks aurait validé cette formule (les tests synthétiques tapent des valeurs déjà conformes).
+- En implémentant le tracer-bullet HY_OAS via `macro_inputs.py`, l'examen du sign-theory canonique a révélé : tous les `z_signed` du YAML pointent **déjà** vers "divergence haute" (sign-théorie figé). Soustraire deux buckets dont les inputs sont déjà alignés vers la même direction = **compter le signal en double**.
+- Formule correcte : `D = weighted_mean(z_signed)` agrégé globalement sur croyance_pricée + réalité_livrable. Le bucket sert à organiser/auditer, pas à inverser la sommation.
+- **Si on avait shippé le squelette pur, on aurait wire 8 inputs en C7 sur une formule cassée**, et découvert le bug pendant le backtest historique (le moment le plus cher).
+
+**Règle générale** : pour toute abstraction neuve (engine, primitive, contrat), faire un walking skeleton = primitive pure + UN vrai slice (interface → engine) **avant** d'investir dans le reste. La fixture (snapshot d'un vrai input messy) tue la flakiness sans tuer le réalisme.
+
+**Pas un test bonus — c'est la phase de découverte de l'abstraction.** Le squelette pur seul est une dette de découverte.
+
+**Symptômes de violation** :
+- L'engine compile, tous les tests purs passent, mais la première intégration révèle un bug structurel.
+- Une formule de la spec ne survit pas au premier vrai input.
+- Le backtest historique trouve un bug qui n'est pas un bug de calibration mais de primitive.
+
+**Application** :
+- Sur toute nouvelle primitive : 1 fixture réelle (snapshot externe), 1 resolver, 1 tracer-bullet end-to-end. Avant les tests purs supplémentaires.
+- Si le tracer-bullet révèle une formule wrong, **mettre à jour la spec doctrinale** avec la traçabilité (`Note tracer-bullet 08/06 : formule corrigée parce que ...`). La doctrine vit, elle ne se fige pas avant la première traversée réelle.
+- En revue de spec : exiger explicitement "quel est le tracer-bullet ?" avant validation.
+
+### Test verrouillé
+
+`tests/test_macro_inputs_hy_oas.py::test_tracer_bullet_engine_consumes_hy_oas_real_input` — le tracer-bullet qui a découvert le formule-wrong. Verrouille pour l'avenir : un vrai input FRED (fixture deterministe) traverse `resolve_macro_inputs` → `compute_divergence`, et la sortie est honnête (degraded si fail-closed, ou D cohérent si forcé fresh).
+
+### Référencer
+
+Source de l'incident : commit `b8ef1b4` cornerstone C6 (08/06). La formule corrigée est documentée dans `intelligence/divergence_engine.py` docstring + `SPEC_CORNERSTONE.md` note d'erratum. CLAUDE.md "Catches récurrents" : avant toute abstraction nouvelle, demander **"quel est mon tracer-bullet ?"** — si la réponse est "des mocks", la doctrine n'est pas respectée.
