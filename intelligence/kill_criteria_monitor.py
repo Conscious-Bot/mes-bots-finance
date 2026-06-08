@@ -130,9 +130,11 @@ def _fetch_recent_signals(ticker: str) -> str:
 def _compute_current_state(thesis: dict) -> dict:
     """Get prices + ages."""
     try:
-        from dashboard.render import _cached_price_eur
+        # Migration Lane 2 #4 : gateway canonique shared.prices au lieu de
+        # cache render. Élimine dépendance intelligence→dashboard.render.
+        from shared.prices import get_current_price_in_eur
 
-        current = _cached_price_eur(thesis["ticker"]) or 0
+        current = get_current_price_in_eur(thesis["ticker"]) or 0
     except Exception:
         current = 0
     entry = thesis.get("entry_price") or 0
