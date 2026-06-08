@@ -2197,3 +2197,73 @@ green -> les verdicts reels reviennent et la carte aiguille.
 - **Test critique** : ouvrir 1 these random + drift manuellement la conviction
   (update_thesis_field conviction X) + verifier que le chain hash s'incremente
   et que la card affiche le drift inline en header.
+
+
+---
+
+## Close 2026-06-08 (SOCLE complet -- pile doctrine commitée + 4 phases SOCLE livrées et vertes)
+
+### Livre
+
+**Doctrine (matin/après-midi)** :
+- L24 walking skeleton (`e1bd0fe`) -- chasse à la formule wrong via tracer-bullet
+- L25 suivi du canonique (`834b6d8`) -- gravé ≠ appliqué, 17 docs canoniques enfin trackés, 2 doublons SPEC supprimés (POSITIONS_CARD_LIAISON, TAXONOMY_PROFILES)
+- 3 SPECs enrichis : POSITIONS_CARD_LINK §7-10, SECTOR_TAXONOMY §7-10, ALERT_VOCABULARY §6-8
+
+**Pivot fondation (fin journée Seoul)** :
+- HANDOFF_SOCLE.md (S0-S3 ordonné par dépendance) -- exécution stricte
+- SPEC_SOCLE.md (masterpiece) -- Datum + propagation = M1+fail-closed+confiance structurels
+- Geste 1 : graph-seed dans Datum (parents/op/id content-hash = Merkle-DAG = chaîne intégrité unifiés)
+
+**Phases SOCLE livrées (4/4 DoD atteints)** :
+- **S0** (`420f95f` manual + `55ce5d5` cron) -- OTS anchor live. 219 prédictions + 30 thèses ancrés Bitcoin via 4 calendars OTS. APScheduler daily 6h wire.
+- **Phase 0** (`15ff62b`) -- `shared/datum.py` : Datum frozen (value, asof, source, confidence, parents, op, degraded, id content-hash) + `derive()` propage asof=min, confidence=min, parents=tuple ids, degraded=any. 20/20 tests dont walking-skeleton HY_OAS FRED.
+- **Phase 1b** (`b0f971d`) -- `shared/prices.get()/fx()` retournent Datum[float] | None. Gate CI `scripts/check_yfinance_gate.sh` SOFT mode (61 violations identifiées). 10/10 tests.
+- **Phase 2 S2** (`c1a7378`) -- `position_valuation_datum()` compose value_eur via derive() avec lignage capturé (parents=qty_id,price_id,fx_id). 8/8 tests dont content-hash deterministe.
+- **Phase 2 S3** (`b812369`) -- `scripts/base_health.py` scoreboard 3 dims. RUN ACTUEL : **OVERALL GREEN**. 12/12 tests verrouillants. GATE DUR exit non-zero si red/unknown.
+
+### Audit drift L25 (cas fondateur)
+
+8 SPECs gravés au début de session, 1 seul (CORNERSTONE) référencé par code. 7/8 orphelins. 2 doublons créés par moi en 30 min sans audit. → L25 doctrine gravée + audit_canonical_drift.py prévu post-socle.
+
+### Memory persistée
+
+- `feedback_walking_skeleton` (L24 doctrine durable)
+- `c7_sequence_decision` (PARTIELLEMENT INVALIDÉ par pivot)
+- `foundation_pivot_8june` (base d'abord, doctrine en suspens)
+- `living_graph_post_socle` (idée graphe bidirectionnel, NE PAS graver avant base vert)
+
+### État système (08/06 fin session autonome)
+
+- **Tests** : 1482 verts / 2 skip / 0 fail
+- **Alembic** : head 0042
+- **Bot** : APScheduler integrity_anchor_daily wired (daily 6h)
+- **OTS** : ots-cli 0.7.2 dans venv, .ots receipts en `integrity_anchors/` < 3h
+- **base_health** : **GREEN** sur Positions vérité + Fraîcheur + Chaîne intègre
+- **DB** : 26 positions open avec last_price_currency renseigné
+- **Gate yfinance** : SOFT mode, 61 violations à migrer (#111)
+
+### Entry next session
+
+1. **PRIORITÉ** : tu reviens, `python3 scripts/base_health.py` confirme socle toujours vert. Si red/amber, fix avant tout.
+2. **Choix d'attaque post-socle vert** (tu décides, le spine défrostse) :
+   - (A) #111 migration progressive 61 yfinance bypass → gate HARD. Mécanique, valeur immédiate sur la cohérence M1.
+   - (B) #110 graver SPEC_LIVING_GRAPH (DAG Datums → boucle vivante) puisque condition base vert atteinte. Doctrine d'élévation.
+   - (C) C7a-1/2/3 (vocabulary + sector_profiles + positions↔card refactor) suspendus par pivot, peuvent reprendre. Substrat sémantique des panels.
+   - (D) Cornerstone macro inputs restants (7 sur 8) + backtest historique (différé per c7_sequence_decision).
+3. **Mécanique** : J-day 10/06 cron date-trigger toujours actif. base_health-gate doit être checked dans le sprint pre-J-day.
+4. **Discipline gravée cette session** : 1 piece in-progress, walking-skeleton, vert avant suivant. Continuer ce pattern.
+
+### Commits session 08/06 (chronologique)
+
+```
+e1bd0fe [doctrine] L24 LESSONS walking skeleton
+834b6d8 [doctrine] Pile canonique + L25 + pivot SOCLE
+420f95f [integrity] OTS anchor manual (predictions+theses 4 calendars)
+55ce5d5 [SOCLE S0] OTS cron daily wire + test fix
+15ff62b [SOCLE Phase 0] Datum + derive (brique-zero non-rétrofittable)
+b0f971d [SOCLE Phase 1b] Gateway prices.get/fx → Datum + gate SOFT
+c1a7378 [SOCLE Phase 2 S2] position_valuation_datum (lignage capture)
+b812369 [SOCLE Phase 2 S3] base_health VERT (3/3 dims)
+```
+
