@@ -87,7 +87,16 @@ def isolated_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _mock_book_lines(monkeypatch: pytest.MonkeyPatch, lines: list[dict]) -> None:
-    """Stub shared.book.get_held_lines (function-level patch, pas module)."""
+    """Stub shared.book.get_held_lines + shared.book.value_eur (Lane 2 #3).
+
+    Post-migration over_cap_monitor → book.value_eur (commit bb06571 family),
+    le test doit mocker AUSSI value_eur sinon il hit le réseau yfinance réel.
+    On simule l'environnement seam complet : pour chaque ticker mocké, retourne
+    un Datum[Monetary] cohérent avec qty × price_eur de la fixture.
+    """
+    from shared.datum import Datum
+    from shared.money import Monetary
+
     class _Line:
         def __init__(self, d):
             self.ticker = d["ticker"]
@@ -95,11 +104,34 @@ def _mock_book_lines(monkeypatch: pytest.MonkeyPatch, lines: list[dict]) -> None
             self.qty = d.get("qty", 100.0)
             self.current_price_eur = d.get("price_eur", 150.0)
 
+    lookup = {ln["ticker"]: ln for ln in lines}
+
+    def _mock_value_eur(ticker: str, qty: float):
+        ln = lookup.get(ticker)
+        if ln is None or not qty or qty <= 0:
+            return None
+        # Retourne le weight DÉCLARÉ par la fixture (pas qty*price_eur reconstruit) :
+        # certaines fixtures expriment une discrepancy intentionnelle (weight=8000
+        # mais qty=100 × price_eur=150 = 15000). Le book canonique RETOURNE le
+        # weight tel que défini par le book state mock — c'est l'autorité.
+        return Datum(
+            value=Monetary(amount=float(ln["weight"]), currency="EUR"),
+            asof="2026-06-09T00:00:00Z",
+            source="mock:test_over_cap",
+            confidence=1.0,
+            degraded=False,
+        )
+
     import shared.book
     monkeypatch.setattr(
         shared.book, "get_held_lines",
         lambda: [_Line(ln) for ln in lines],
     )
+    monkeypatch.setattr(shared.book, "value_eur", _mock_value_eur)
+    # over_cap_monitor importe `from shared.book import value_eur as _book_value_eur`
+    # → la symbol resolution se fait à l'import time. Le monkeypatch sur l'attribut
+    # du module suffit si l'import est fait dans la fonction (lazy), ce qui est
+    # le cas dans check_all_overcap_transitions (import local).
 
 
 def _mock_config(monkeypatch: pytest.MonkeyPatch, caps: dict[int, float]) -> None:

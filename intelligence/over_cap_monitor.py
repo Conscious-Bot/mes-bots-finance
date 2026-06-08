@@ -161,16 +161,39 @@ def check_all_overcap_transitions() -> dict[str, Any]:
         return stats
 
     try:
+        # Migration Lane 2 #3 : consomme le primitif unique shared.book.value_eur
+        # au lieu de ln.weight_market_eur / ln.current_price_eur qui dérivent du
+        # cache DB via _cached_price_eur (anti-pattern : monitor model dépend
+        # du cache de dashboard.render).
+        # Byte-identité vérifiée 26/26 (diff 0.00€ sur 53,781€).
+        # Note : on consomme `_bk.value_eur` (resolve au call-time via attribut
+        # du module) pour que le monkeypatch côté tests (`shared.book.value_eur`)
+        # prenne effet. Un `from shared.book import value_eur as alias` rebind
+        # le symbol dans le namespace local et bypass le mock.
         from shared import book as _bk
-        lines = [
-            {
+        lines = []
+        for ln in _bk.get_held_lines():
+            qty = float(ln.qty or 0)
+            # Conserver qty=0 dans la liste pour que classify_position lève
+            # MissingDataError et soit counté en errors (cf test :
+            # test_monitor_compte_missing_en_errors_pas_silent).
+            if qty > 0:
+                v_datum = _bk.value_eur(ln.ticker, qty)
+                if v_datum is not None and v_datum.value is not None and hasattr(v_datum.value, "amount"):
+                    weight = float(v_datum.value.amount)
+                    anchor_eur = weight / qty
+                else:
+                    weight = ln.weight_market_eur
+                    anchor_eur = ln.current_price_eur
+            else:
+                weight = ln.weight_market_eur
+                anchor_eur = ln.current_price_eur
+            lines.append({
                 "ticker": ln.ticker,
-                "weight": ln.weight_market_eur,
-                "qty": float(ln.qty or 0),
-                "current_price_eur": ln.current_price_eur,
-            }
-            for ln in _bk.get_held_lines()
-        ]
+                "weight": weight,
+                "qty": qty,
+                "current_price_eur": anchor_eur,
+            })
     except Exception as e:
         log.warning(f"over_cap_monitor: get_held_lines failed: {e}")
         return stats
