@@ -41,7 +41,7 @@ _YFINANCE_LEGACY_ALLOWLIST: set[str] = {
     "bot/handlers/review.py",
     "bot/handlers/trade_context.py",
     "bot/jobs/daily.py",
-    "dashboard/render.py",
+    # dashboard/render.py SORTI 08/06 nuit (Phase 4 #1-#6 : 6 bypasses migrés)
     "intelligence/analyze.py",
     "intelligence/benchmark.py",
     "intelligence/calendar.py",
