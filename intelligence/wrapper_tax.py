@@ -35,21 +35,36 @@ def compute_wrapper_allocation() -> dict:
     to 'CTO' (default). Identifies tickers PEA-eligible currently in CTO
     (placement sous-optimal).
     """
-    from dashboard.render import _positions
+    # Migration Lane 2 #7 : shared.book direct, élimine intelligence/→dashboard.render.
+    # Weight via book.value_eur(tk, qty) canonique (seam unique model+render).
+    from shared import book as _bk
 
-    positions = _positions()
-    total = sum(p.get("weight", 0) for p in positions) or 1
+    held = list(_bk.get_held_lines())
+    weights = {}
+    for ln in held:
+        qty = float(ln.qty or 0)
+        if qty <= 0:
+            continue
+        v = _bk.value_eur(ln.ticker, qty)
+        if v is not None and v.value is not None and hasattr(v.value, "amount"):
+            weights[ln.ticker] = float(v.value.amount)
+        else:
+            weights[ln.ticker] = ln.weight_market_eur or 0
+    total = sum(weights.values()) or 1
 
     alloc: dict = {"PEA": 0.0, "CTO": 0.0, "unknown": 0.0}
     misallocated = []  # PEA-eligible in CTO
-    for p in positions:
-        wrapper = (p.get("wrapper") or "CTO").upper()
-        alloc[wrapper if wrapper in alloc else "unknown"] += p["weight"]
-        if wrapper == "CTO" and _is_pea_eligible(p["ticker"]):
+    for ln in held:
+        if ln.ticker not in weights:
+            continue
+        w = weights[ln.ticker]
+        wrapper = (ln.wrapper or "CTO").upper()
+        alloc[wrapper if wrapper in alloc else "unknown"] += w
+        if wrapper == "CTO" and _is_pea_eligible(ln.ticker):
             misallocated.append({
-                "ticker": p["ticker"],
-                "weight_eur": round(p["weight"], 0),
-                "weight_pct": round(p["weight"] / total * 100, 1),
+                "ticker": ln.ticker,
+                "weight_eur": round(w, 0),
+                "weight_pct": round(w / total * 100, 1),
             })
 
     for k in alloc:
@@ -64,21 +79,27 @@ def compute_wrapper_allocation() -> dict:
 
 
 def compute_tax_loss_harvest_candidates(min_loss_pct: float = -5.0) -> list[dict]:
-    """Liste les positions CTO en moins-value > seuil (mobilisable contre PV)."""
-    from dashboard.render import _cached_price_eur, _positions
+    """Liste les positions CTO en moins-value > seuil (mobilisable contre PV).
 
-    positions = _positions()
+    Migration Lane 2 #7 : élimine anti-pattern intelligence/→dashboard.render.
+    Consomme directement shared.book.get_held_lines (BookLine canonique) et
+    shared.prices.get_current_price_in_eur (gateway prix unique). Bonus :
+    qty direct depuis BookLine.qty (pas dérivé via weight/avg_cost qui
+    était inexact sur qty fractionnée).
+    """
+    from shared.book import get_held_lines
+    from shared.prices import get_current_price_in_eur
+
     candidates = []
-    for p in positions:
-        wrapper = (p.get("wrapper") or "CTO").upper()
+    for ln in get_held_lines():
+        wrapper = (ln.wrapper or "CTO").upper()
         if wrapper != "CTO":
             continue
-        ac = p.get("avg_cost", 0) or 0
-        w = p.get("weight", 0) or 0
-        if not ac or not w:
+        ac = float(ln.avg_cost_eur or 0)
+        qty = float(ln.qty or 0)
+        if not ac or qty <= 0:
             continue
-        qty = w / ac  # derived from cost basis
-        cur = _cached_price_eur(p["ticker"]) or 0
+        cur = get_current_price_in_eur(ln.ticker) or 0
         if not cur:
             continue
         pnl_pct = (cur - ac) / ac * 100
@@ -86,7 +107,7 @@ def compute_tax_loss_harvest_candidates(min_loss_pct: float = -5.0) -> list[dict
             continue
         moins_value_eur = (cur - ac) * qty
         candidates.append({
-            "ticker": p["ticker"],
+            "ticker": ln.ticker,
             "qty": qty,
             "avg_cost": ac,
             "current_price_eur": round(cur, 2),
@@ -127,16 +148,27 @@ def compute_fx_exposure() -> dict:
       - tickers (list[str]) : tickers (triés desc par poids EUR)
       - holdings (list[dict]) : {tk, eur, pct_of_cur} pour accordeon UI
     """
-    from dashboard.render import _positions
+    # Migration Lane 2 #7 : shared.book direct, élimine intelligence/→dashboard.render.
+    from shared import book as _bk
 
-    positions = _positions()
-    total = sum(p.get("weight", 0) for p in positions) or 1
+    held = list(_bk.get_held_lines())
+    weights = {}
+    for ln in held:
+        qty = float(ln.qty or 0)
+        if qty <= 0:
+            continue
+        v = _bk.value_eur(ln.ticker, qty)
+        if v is not None and v.value is not None and hasattr(v.value, "amount"):
+            weights[ln.ticker] = float(v.value.amount)
+        else:
+            weights[ln.ticker] = ln.weight_market_eur or 0
+    total = sum(weights.values()) or 1
     by_cur: dict = {}
-    for p in positions:
-        cur = _ticker_currency(p["ticker"])
+    for tk, w in weights.items():
+        cur = _ticker_currency(tk)
         by_cur.setdefault(cur, {"eur": 0.0, "holdings": []})
-        by_cur[cur]["eur"] += p["weight"]
-        by_cur[cur]["holdings"].append({"tk": p["ticker"], "eur": p["weight"]})
+        by_cur[cur]["eur"] += w
+        by_cur[cur]["holdings"].append({"tk": tk, "eur": w})
     for d in by_cur.values():
         d["pct"] = round(d["eur"] / total * 100, 1)
         d["holdings"].sort(key=lambda h: -h["eur"])
