@@ -2428,18 +2428,25 @@ Inventory positions avec signes de désynchro (realized_pnl ≠ 0 OU notes "qty_
 
 **5 positions** où le pipeline broker import a réduit qty silencieusement sans recalcul propre. 4 attendent ground truth Olivier (ALAB et MU prioritaires).
 
-### Livré ce soir
+### Livré ce soir (puis ROLLBACK loyal — veto Olivier post-update)
 
-**SK Hynix réaligné atomiquement** (DB) :
+**Tentative SK Hynix realign + ROLLBACK** :
 - Backup `data/bot.db.backup_skhynix_realign_20260609_020506` (31.8 MB)
-- UPDATE positions : qty 1.480917 → **1.515580**, avg_cost_eur 1085 → **1060**, avg_cost_native 1085 → 1060, avg_cost_currency "KRW" → **"EUR"** (achat EUR via TR), realized_pnl 77.88 → **98.37**, fx_at_purchase 1.0 (cohérent achat EUR).
-- INSERT `position_audit_log` id=83 (`event_type=input_correction`, source `session_2026-06-09_night`, payload JSON complet avec trade history reconstructed + rationale + before/after + rappel des 4 autres positions à reconciler).
-- Invariant **cost_remaining = qty × avg_cost_eur = 1.515580 × 1060.00 = 1606.51€** ✓ ground truth exact.
-- Dashboard re-rendered : panneau SK Hynix affiche maintenant P&L correct depuis 1060€.
+- UPDATE positions tentative : qty 1.4809 → 1.515580, avg_cost_eur 1085 → 1060, avg_cost_currency KRW → EUR, realized_pnl 77.88 → 98.37. INSERT audit_log id=83.
+- **Red-team Olivier post-update** : *« le realized_pnl=98.37 n'est pas un fait, c'est une reconstruction de Claude. Sans le relevé broker réel (prix/qty/date de la vente partielle), 98.37 est une inférence, pas la vérité. Reconstruire 1 historique par inférence à 2h du matin = exactement le risque refusé pour les 26. Si tu as le relevé broker maintenant → autoritatif. Sinon → défère avec les 4 autres. »* Olivier n'a fourni les chiffres que **de mémoire**, pas de relevé broker.
+- **ROLLBACK chirurgical** : UPDATE positions restauré à état pré-realign (cf `audit_log id=83 payload.from`) + INSERT `audit_log id=84` documentant rollback + rationale + cure for-good profonde.
+
+**État final DB SK Hynix** = identique à avant cette session. Aucune réécriture de qty/avg/rPnL n'a survécu. **5 positions restent en KNOWN-GAP (L3 état honnête)** : SK Hynix, ALAB, MU, CCJ, 6920.T — panneau affiche données dérivées potentiellement stale post-vente partielle, réconciliation en attente de relevés broker autoritatifs.
 
 **NON touché délibérément** :
-- Niveaux thèse SK Hynix (`stop_value`, `target_partial_value`, `target_full_value`) en KRW restent — re-target à froid demain, par nom, comme BESI/ENTG.
-- 4 autres positions (6920.T, ALAB, CCJ, MU) — attendent ground truth Olivier.
+- Niveaux thèse SK Hynix (`stop_value`, `target_partial_value`, `target_full_value`) en KRW intacts — re-target à froid quand niveaux re-dictés en EUR-broker convention.
+- 4 autres positions (6920.T, ALAB, CCJ, MU) — attendent relevés broker autoritatifs.
+
+### Cure for-good (gravée — pas exécutée cette nuit)
+
+Le `partial_close handler` (#122) = **pansement** (recalcule sur événement — facile à oublier, donc fragile). La cure structurelle est plus profonde :
+
+**Positions / realized_pnl DÉRIVÉS d'un ledger de transactions append-only** (buys/sells avec prix/qty/date — record immuable). Alors `qty` / `avg_cost_eur` / `realized_pnl` deviennent des **vues recalculées du ledger** — impossibles à désynchroniser parce que la dérivation EST la source unique. C'est exactement le pattern store-inputs-derive-outputs déjà appliqué à `eur_value` (tué) et `price_asof` (tué) — appliqué à la couche transaction. Cf `CANONICAL_MAP.md` §2 : transactions = record immuable, positions = état dérivé. L27 socle. À construire à froid (#125 nouveau TODO).
 
 ### Verdict honnête
 
@@ -2449,16 +2456,23 @@ La cure money de cette nuit a été **correctement implémentée mais s'appuyait
 
 Le "panneau retarded" n'était ni un bug d'affichage ni une target dépassée — c'était la **DB qui ne reflétait pas la réalité broker** sur 5 positions.
 
-### Entry next session (à froid)
+### Entry next session (à froid — avec relevés broker)
 
-1. **Ground truth ALAB + MU + 6920.T + CCJ** : Olivier dicte timeline trades par nom (date, qty, price, partial vs full). Update positions + audit_log même pattern que SK Hynix.
-2. **Cure racine `partial_close handler`** (Sprint dédié — bug structurel, pas patch) : quand le broker import détecte qty réduite, déclencher recalc cost basis (FIFO ou avg proportionnel selon choix méthode comptable), recalc realized_pnl, prompt re-target gauge thèse (= acte délibéré loggué position_audit_log). Couvre les 5 positions ET prévient le bug pour les futures ventes partielles.
-3. **Re-target SK Hynix par nom** : Olivier dicte nouveaux stop / target_partial / target_full en EUR-broker convention. UPDATE theses + audit. Le panneau gauge SK Hynix restera bizarre tant que niveaux thèse pas re-dictés (entry_value KRW reste là, current_price_eur dérivé OK, mais gauge calcule sur entry_native).
-4. **Audit broader** : checker les positions historiquement closes (status='closed') pour voir si le bug a aussi affecté la comptabilité réalized des positions sorties.
+1. **Relevés broker autoritatifs requis** (PAS de reconstruction) : Olivier exporte/screenshote TR pour les 5 positions (SK Hynix, ALAB, MU, CCJ, 6920.T) — pour chaque vente partielle : date, qty exacte, prix exact. Source unique autoritative.
+
+2. **Réconciliation un par un avec relevé broker** : UPDATE positions + INSERT `position_audit_log event_type=input_correction` même pattern que tentative #83/#84 mais avec **vraie source autoritative** dans `ground_truth_source`. Pas de tête. Pas à 2h.
+
+3. **Cure structurelle ledger append-only** (#125 — la VRAIE cure for-good) : nouvelle table `transactions` (buys/sells avec prix/qty/date, record immuable) + `positions` devient une VIEW recalculée du ledger (qty = Σ(buys.qty) - Σ(sells.qty) ; avg_cost = depend de méthode comptable choisie explicitement ; realized_pnl = Σ((sell.price - cost_basis_at_sell) × sell.qty)). Impossibles à désynchroniser parce que la dérivation EST la source unique. Pattern L27 socle appliqué à la couche transaction. Cf CANONICAL_MAP §2.
+
+4. **`partial_close handler`** (#122 — pansement, à reléguer derrière #125) : pertinent **seulement si on garde positions comme état stocké** (vs vue dérivée). Si #125 livré, #122 devient caduc. Réévaluer après #125.
+
+5. **Re-target SK Hynix + thèses post-réconciliation** (#123) : Olivier dicte nouveaux stop / target_partial / target_full en EUR-broker convention, par nom, comme BESI/ENTG. UPDATE theses + audit. Panneau gauge se re-aligne.
+
+6. **Audit broader closes** (#124) : checker positions historiquement closes pour voir si bug a affecté la comptabilité realized des positions sorties. Re-calcul Brier closes si désynchro confirmée.
 
 ### Tag
 
-`session_close_2026-06-09_night` — backup `data/bot.db.backup_skhynix_realign_20260609_020506`. Audit log id=83.
+`session_close_2026-06-09_night_rollback` — backup `data/bot.db.backup_skhynix_realign_20260609_020506` (état pré-tentative, restauré). Audit log id=83 (tentative) + id=84 (rollback). DB état net = pré-session.
 
 ### Commits session 09/06 nuit
 

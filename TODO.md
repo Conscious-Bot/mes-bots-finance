@@ -1,31 +1,41 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 09 juin 2026 nuit++ (désynchro broker↔DB découverte sur 5 positions, SK Hynix réaligné, cure racine `partial_close handler` ouverte)
+**Refresh** : 09 juin 2026 nuit++ (désynchro broker↔DB découverte sur 5 positions — KNOWN-GAP L3 honnête, attente relevés broker autoritatifs ; cure for-good = ledger transactions append-only, pas un handler-pansement)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🔴 P0 IMMÉDIAT (09/06 nuit++) — Désynchro broker↔DB + cure `partial_close handler`
+## 🔴 P0 IMMÉDIAT (09/06 nuit++) — KNOWN-GAP 5 positions + cure structurelle ledger append-only
 
 **Découverte cette nuit** : la cure money de la session précédente (Datum[Monetary], 6/6 serrures, primitif `book.value_eur`) était architecturalement correcte mais s'appuyait sur un state DB déjà désynchronisé du broker. Le pipeline broker import fait du `qty alignment` cosmétique mais ne déclenche AUCUN `partial_close handler` — donc `avg_cost_eur`, `realized_pnl`, et niveaux thèse jamais recalculés post-vente partielle.
 
-**Portée constatée** : 5 positions avec signes de désynchro (audit `position_audit_log` id=83 SK Hynix + inventory). SK Hynix réaligné cette nuit (qty 1.4809 → 1.515580, avg_eur 1085 → 1060, rPnL 77.88 → 98.37, audit log). **4 positions attendent ground truth Olivier** :
+**Tentative SK Hynix realign à 2h cette nuit → ROLLBACK loyal** : red-team Olivier post-update a (correctement) refusé la reconstruction. *« Le realized_pnl=98.37 calculé n'est pas un fait, c'est une reconstruction de Claude. Sans le relevé broker réel, c'est une inférence, pas la vérité. Reconstruire 1 historique par inférence à 2h = exactement le risque refusé pour les 26. »* DB SK Hynix restaurée à l'état pré-tentative. Audit log id=83 (tentative) + id=84 (rollback + rationale). L3 état honnête.
+
+**Portée constatée — 5 positions en KNOWN-GAP** (panneau affiche L3 honnête : "données dérivées potentiellement stale post-vente partielle, réconciliation en attente de relevés broker") :
 
 | Ticker | qty DB | avg_eur DB | realized_pnl DB | Hypothèse |
 |---|---|---|---|---|
-| **ALAB** | 5.0913 | 184.92 | **+228.49** | vente partielle significative non-réconciliée |
+| **000660.KS** (SK Hynix) | 1.4809 | 1084.83 | +77.88 | vente partielle non-réconciliée |
+| **ALAB** | 5.0913 | 184.92 | **+228.49** | vente partielle significative |
 | **MU** | 1.2969 | 431.23 | **+425.33** | vente partielle TRÈS significative |
 | **CCJ** | 18.4836 | 93.62 | -7.72 | petite vente perdante |
 | **6920.T** | 6.6038 | 230.51 | -2.79 | petite vente |
 
-**Tâche #121 (P0 immédiat à froid)** — Reconciliation 4 positions : Olivier dicte timeline trades par nom (date, qty, price, partial vs full). UPDATE positions + INSERT `position_audit_log event_type=input_correction` même pattern que SK Hynix id=83.
+**Tâche #121 (P0 — à froid avec relevés)** — Réconciliation 5 positions avec relevés broker autoritatifs (TR export CSV ou screenshots — PAS de mémoire) : pour chaque vente partielle date/qty/prix exact. UPDATE positions + INSERT `position_audit_log event_type=input_correction` avec `ground_truth_source = "TR_releve_<date>"` (pas "olivier_manual"). Pattern cf audit_log id=83 + id=84 comme modèle (sans la reconstruction inférée).
 
-**Tâche #122 (P0 — Sprint dédié, cure racine)** — `partial_close handler` proper : quand `broker_import` détecte qty réduite, déclencher recalc `cost_basis` (FIFO vs avg proportionnel — choix méthode comptable explicite), recalc `realized_pnl`, prompt re-target gauge thèse via `position_audit_log`. Tests : 5 invariants (cost_remaining = qty × avg_cost_eur ; realized_pnl = Σ((price_sell - avg_cost_eur_at_sell) × qty_sell) ; etc). Couvre les 5 cas ET prévient pour futures ventes partielles.
+**Tâche #125 (P0 — vraie cure for-good, structurelle)** — **Ledger transactions append-only + positions VIEW dérivée** : nouvelle table `transactions` (id, ticker, side {BUY,SELL}, qty, price_native, price_eur, fx_at_trade, traded_at, source, notes — record immuable, write-once). `positions` devient une VIEW recalculée :
+- `qty = Σ(buys.qty) - Σ(sells.qty)`
+- `avg_cost_eur` = dépend méthode comptable choisie explicitement (FIFO vs avg-pondéré-proportionnel — décision Olivier)
+- `realized_pnl = Σ((sell.price - cost_basis_at_sell) × sell.qty)` selon même méthode
 
-**Tâche #123** — Re-target SK Hynix par nom : Olivier dicte nouveaux stop / target_partial / target_full en EUR-broker convention. UPDATE theses + audit. Le panneau gauge SK Hynix reste bizarre tant que niveaux thèse pas re-dictés (entry_value KRW reste, current_price_eur dérivé OK, mais gauge calcule sur entry_native vs current_native).
+Impossibles à désynchroniser parce que la dérivation **EST** la source unique. Store-inputs-derive-outputs, L27 socle appliqué à la couche transaction. Cf `CANONICAL_MAP.md` §2 (transactions = record immuable, positions = état dérivé). Migration : back-fill `transactions` depuis broker historique (TR export complet), puis switch positions vers VIEW. Test invariant : `Σ(transactions) ≡ positions.state` à tout instant.
 
-**Tâche #124** — Audit broader : checker positions historiquement closes (status='closed') pour voir si bug a affecté la comptabilité realized des positions sorties. Si désynchro = `realized_pnl` global mensonger → fix puis re-calcul Brier closes.
+**Tâche #122 (PANSEMENT — caduc si #125 livré)** — `partial_close handler` : pertinent **seulement si** on garde positions comme état stocké (vs vue dérivée). Si #125 livré, #122 devient caduc. Réévaluer après #125. **Ne pas implémenter avant #125** — sinon pansement qui dispense de la cure.
+
+**Tâche #123** — Re-target par nom (5 positions + autres si Olivier décide) : Olivier dicte nouveaux stop / target_partial / target_full en EUR-broker convention. UPDATE theses + audit. Le panneau gauge se re-aligne automatiquement.
+
+**Tâche #124** — Audit broader closes : checker positions historiquement closes (status='closed') pour voir si bug a affecté comptabilité realized des positions sorties. Si désynchro = `realized_pnl` global mensonger → re-calcul Brier closes après #125.
 
 ---
 
