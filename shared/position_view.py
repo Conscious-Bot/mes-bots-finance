@@ -132,31 +132,46 @@ def project_row(view: PositionView) -> RowView:
 
 
 def _compute_asym_ratio(
-    price_native: float | None,
+    entry: float | None,
     target_partial: float | None,
     target_full: float | None,
     stop: float | None,
+    direction: str = "long",
 ) -> tuple[float | None, float | None, float | None]:
-    """Calcule (upside_pct, downside_pct, asym_ratio) depuis prix natifs.
+    """Calcule (upside_pct, downside_pct, asym_ratio) depuis ENTRY (PRU), pas
+    depuis price_native -- aligne sur la convention de dashboard/render.py:2309.
+
+    Convention canonique (verrouillee, ne pas modifier sans coordination spec) :
+      upside   = (target_full / entry - 1) * 100      ; depuis PRU
+      downside = (stop / entry - 1) * 100             ; depuis PRU (negatif)
+      ratio    = (target_full - entry) / (entry - stop)   ; thesis-level, stable
 
     target_full prioritaire pour upside (la cible long). target_partial fallback.
     Tous en MEME devise native (cf currency_native_invariant memory) :
-    interdiction de melanger EUR target et USD price.
+    interdiction de melanger EUR target et USD entry.
+
+    Le ratio est THESIS-LEVEL (depuis le PRU figé), donc stable tant que la
+    thèse tient -- il ne dépend pas du prix actuel. La position-dans-range
+    (slider) qui depend du prix vit ailleurs (compute_position).
 
     Returns (None, None, None) si donnees manquantes (fail-closed L15).
     """
-    if price_native is None or stop is None:
+    if entry is None or stop is None or entry == stop:
         return (None, None, None)
     target = target_full or target_partial
     if target is None:
         return (None, None, None)
-    # %.upside = (target - price) / price ; downside = (price - stop) / price
-    upside = (target - price_native) / price_native * 100.0
-    downside = (price_native - stop) / price_native * 100.0
-    if downside <= 0:
-        # Prix sous le stop -> downside negatif, ratio non-defini
-        return (upside, downside, None)
-    ratio = upside / downside
+    upside = (target / entry - 1) * 100.0
+    downside = (stop / entry - 1) * 100.0
+    if direction == "long":
+        # entry - stop doit etre > 0 (stop < entry pour long)
+        if entry - stop <= 0:
+            return (upside, downside, None)
+        ratio = (target - entry) / (entry - stop)
+    else:  # short
+        if stop - entry <= 0:
+            return (upside, downside, None)
+        ratio = (entry - target) / (stop - entry)
     return (upside, downside, ratio)
 
 
@@ -199,15 +214,39 @@ def compute_position(
     fx_rate = fx_datum.value if fx_datum else None
     fx_asof = fx_datum.asof if fx_datum else None
 
-    # Asymetrie : derive UNE fois (le bug 0,5x vs 1,80x venait de 2 derivations)
+    # Asymetrie : derive UNE fois (le bug 0,5x vs 1,80x venait de 2 derivations).
+    # Convention DB actuelle (theses table) : entry_price / target_partial / target_full /
+    # stop_price -- tous en devise native du ticker (cf currency_native_invariant).
+    # Les *_native suffixes sont des futurs (compat ascendante), *_price aussi.
     thesis_dict = card_inputs.thesis if card_inputs else {}
-    target_partial = thesis_dict.get("target_partial_native") or thesis_dict.get("target_partial_price")
-    target_full = thesis_dict.get("target_full_native") or thesis_dict.get("target_full_price")
-    stop = thesis_dict.get("stop_native") or thesis_dict.get("stop_price")
-    entry = thesis_dict.get("entry_native") or thesis_dict.get("entry_price")
-    upside_pct, downside_pct, asym_ratio = _compute_asym_ratio(
-        price_native, target_partial, target_full, stop
+    target_partial = (
+        thesis_dict.get("target_partial_native")
+        or thesis_dict.get("target_partial_price")
+        or thesis_dict.get("target_partial")
     )
+    target_full = (
+        thesis_dict.get("target_full_native")
+        or thesis_dict.get("target_full_price")
+        or thesis_dict.get("target_full")
+    )
+    stop = (
+        thesis_dict.get("stop_native")
+        or thesis_dict.get("stop_price")
+    )
+    entry = (
+        thesis_dict.get("entry_native")
+        or thesis_dict.get("entry_price")
+    )
+    direction = thesis_dict.get("direction", "long")
+    # Pour structural : downside non-borne par prix -> ratio n/a (cf render.py:2295)
+    if position_type == "structural":
+        upside_pct = ((target_full / entry - 1) * 100.0) if (target_full and entry) else None
+        downside_pct = None  # structurel non-borne par prix
+        asym_ratio = None
+    else:
+        upside_pct, downside_pct, asym_ratio = _compute_asym_ratio(
+            entry, target_partial, target_full, stop, direction=direction
+        )
 
     # Steer (decision unique consomme par card + row)
     steer_verdict = steer_output.verdict.value if (steer_output and steer_output.verdict) else None

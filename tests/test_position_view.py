@@ -53,9 +53,11 @@ class FakeCardInputs:
     thesis_id: int = 1
     ticker: str = "4063.T"
     thesis: dict = None  # type: ignore[assignment]
-    position_type: str = "structural"
+    # Note : 4063.T (Shin-Etsu) est priced/tactical ici pour exercer le ratio
+    # chiffre. La position structural exception est testee separement.
+    position_type: str = "priced"
     position_tags: list[str] = None  # type: ignore[assignment]
-    structural_justification: str | None = "monopole photoresist semis"
+    structural_justification: str | None = None
     conviction_current: int = 4
     conviction_at_entry: int = 4
     erosion_verdict: str | None = "intact"
@@ -119,34 +121,37 @@ def _build_value_eur_datum(value: float = 414800.0, degraded: bool = False) -> D
 # === Test 1 : _compute_asym_ratio (la primitive du ratio canonique) ====
 
 
-def test_asym_ratio_favorable_target_above_price() -> None:
-    """4063.T 6800 JPY, target_full 8500, stop 4900.
+def test_asym_ratio_favorable_thesis_from_entry() -> None:
+    """4063.T thesis : entry 5800 JPY, target_full 8500, stop 4900.
 
-    upside = (8500-6800)/6800 *100 = 25%
-    downside = (6800-4900)/6800 *100 = 27.94%
-    ratio = 25 / 27.94 = 0.895 (legerement defavorable, pas 1.80x !)
+    Convention canonique (depuis ENTRY, pas price actuel) :
+      upside = (8500/5800 - 1) * 100 = 46.55%
+      downside = (4900/5800 - 1) * 100 = -15.52%
+      ratio = (8500-5800) / (5800-4900) = 2700/900 = 3.0x (favorable)
+
+    C'est le ratio thesis-level (stable tant que la these tient).
+    Pas le ratio "asymetrie de position actuelle depuis prix".
     """
     upside, downside, ratio = _compute_asym_ratio(
-        price_native=6800.0, target_partial=7000.0, target_full=8500.0, stop=4900.0
+        entry=5800.0, target_partial=7000.0, target_full=8500.0, stop=4900.0
     )
-    assert upside == pytest.approx(25.0, abs=0.5)
-    assert downside == pytest.approx(27.94, abs=0.5)
-    assert ratio == pytest.approx(0.895, abs=0.05)
+    assert upside == pytest.approx(46.55, abs=0.5)
+    assert downside == pytest.approx(-15.52, abs=0.5)
+    assert ratio == pytest.approx(3.0, abs=0.05)
 
 
 def test_asym_ratio_returns_none_if_missing_inputs() -> None:
-    """price/stop/target manquants -> (None, None, None) (fail-closed)."""
+    """entry/stop/target manquants -> (None, None, None) (fail-closed)."""
     assert _compute_asym_ratio(None, 10.0, 20.0, 5.0) == (None, None, None)
     assert _compute_asym_ratio(15.0, None, None, 5.0) == (None, None, None)
     assert _compute_asym_ratio(15.0, 20.0, None, None) == (None, None, None)
 
 
-def test_asym_ratio_none_if_price_below_stop() -> None:
-    """Prix sous stop -> downside negatif, ratio non-defini."""
-    _upside, downside, ratio = _compute_asym_ratio(
-        price_native=4500.0, target_partial=7000.0, target_full=8500.0, stop=4900.0
+def test_asym_ratio_none_if_entry_equals_stop() -> None:
+    """entry == stop -> denominateur 0 -> ratio non-defini."""
+    _upside, _downside, ratio = _compute_asym_ratio(
+        entry=5000.0, target_partial=7000.0, target_full=8500.0, stop=5000.0
     )
-    assert downside < 0
     assert ratio is None
 
 
@@ -177,18 +182,46 @@ def test_compute_position_builds_view_from_4063t_walking_skeleton() -> None:
     )
     assert view.ticker == "4063.T"
     assert view.name == "Shin-Etsu Chemical"
-    assert view.position_type == "structural"
+    assert view.position_type == "priced"
     assert view.conviction == 4
     assert view.price_native == 6800.0
     assert view.fx_rate == 0.0061
-    # Asymetrie : ratio derive UNE fois et propage
+    # Asymetrie thesis-level : ratio depuis entry (5800), pas price (6800)
+    # entry=5800, target_full=8500, stop=4900 -> ratio = 2700/900 = 3.0x favorable
     assert view.asym_ratio is not None
-    assert view.asym_ratio == pytest.approx(0.895, abs=0.05)
+    assert view.asym_ratio == pytest.approx(3.0, abs=0.05)
     # Steer
     assert view.steer_verdict == "hold"
     # Lineage capture (Merkle-DAG seed)
     assert len(view.inputs_lineage_ids) == 3  # value_eur + price + fx ids
     assert view.degraded is False
+
+
+# === Test 2.5 : position structural -> ratio n/a (downside non-borne par prix) ===
+
+
+def test_structural_position_has_no_ratio() -> None:
+    """Catch 3 render.py:2293 : structural -> downside non-borne par prix.
+
+    Convention canonique : pour structural, asym_ratio = None ; upside_pct
+    est calcule depuis target_full/entry, mais downside_pct = None (axe
+    structural != axe prix). Le caller affiche "n/a" sur le ratio.
+    """
+    ci = _build_ci(position_type="structural")
+    steer = FakeSteer(bandeau=[])
+    view = compute_position(
+        thesis_id=1,
+        card_inputs=ci,
+        steer_output=steer,
+        price_datum=_build_price_datum(),
+        fx_datum=_build_fx_datum(),
+        value_eur_datum=_build_value_eur_datum(),
+    )
+    assert view.position_type == "structural"
+    assert view.asym_ratio is None  # ratio n/a pour structural
+    assert view.downside_pct is None  # non-borne par prix
+    # upside_pct existe (depuis target/entry, sans axe prix)
+    assert view.upside_pct is not None
 
 
 # === Test 3 : LE TEST QUI TUE LE BUG (byte-identite ligne/card) =========

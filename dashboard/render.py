@@ -2290,35 +2290,41 @@ def _position_card(inputs, steer_v2) -> str:
             '</span>'
         )
 
-    # Asymétrie : pour structural, downside non-borne par prix (Catch 3)
+    # Asymetrie : DERIVE UNE SEULE FOIS via PositionView (SPEC Phase 3).
+    # Le calc local entry/full/stop est SUPPRIME -- toute la card consomme view.asym_ratio.
+    # Test verrouillant : grep "ratio = (full" hors position_view = build rouge.
+    from shared.position_view import compute_position
+    _view = compute_position(
+        thesis_id=inputs.thesis_id,
+        card_inputs=inputs,
+        steer_output=steer_v2,
+        price_datum=None, fx_datum=None, value_eur_datum=None,
+    )
     if ptype == "structural":
-        asym_html = (
+        # Catch 3 render.py:2293 -- downside non-borne par prix.
+        # view.upside_pct est rempli (depuis target/entry), downside/ratio = None.
+        up_html = (
             '<div class="pc-asym-line"><span class="pc-asym-k">upside</span>'
-            f'<span class="pc-asym-v mono">+{((full/entry-1)*100):.1f}%</span></div>'
-            if (full and entry) else ""
-        )
-        asym_html += (
+            f'<span class="pc-asym-v mono">+{_view.upside_pct:.1f}%</span></div>'
+        ) if _view.upside_pct is not None else ""
+        asym_html = up_html + (
             '<div class="pc-asym-line"><span class="pc-asym-k">downside</span>'
             '<span class="pc-asym-v">STRUCTUREL non-borne par prix</span></div>'
             '<div class="pc-asym-line"><span class="pc-asym-k">ratio</span>'
             '<span class="pc-asym-v" style="opacity:0.7">n/a (axe structural &ne; axe prix)</span></div>'
         )
+    elif _view.asym_ratio is not None and _view.upside_pct is not None and _view.downside_pct is not None:
+        # Priced/tactical : asym_ratio thesis-level via view (entry/target/stop)
+        asym_html = (
+            '<div class="pc-asym-line"><span class="pc-asym-k">upside</span>'
+            f'<span class="pc-asym-v mono">{_view.upside_pct:+.1f}%</span></div>'
+            '<div class="pc-asym-line"><span class="pc-asym-k">downside</span>'
+            f'<span class="pc-asym-v mono">{_view.downside_pct:+.1f}%</span></div>'
+            '<div class="pc-asym-line"><span class="pc-asym-k">ratio</span>'
+            f'<span class="pc-asym-v mono">{_view.asym_ratio:.2f}&times;</span></div>'
+        )
     else:
-        # Priced/tactical : asymetrie classique avec stop
-        if entry and stop and full and entry != stop:
-            ratio = (full - entry) / (entry - stop) if direction == "long" else (entry - full) / (stop - entry)
-            up_pct = (full / entry - 1) * 100
-            dn_pct = (stop / entry - 1) * 100
-            asym_html = (
-                '<div class="pc-asym-line"><span class="pc-asym-k">upside</span>'
-                f'<span class="pc-asym-v mono">{up_pct:+.1f}%</span></div>'
-                '<div class="pc-asym-line"><span class="pc-asym-k">downside</span>'
-                f'<span class="pc-asym-v mono">{dn_pct:+.1f}%</span></div>'
-                '<div class="pc-asym-line"><span class="pc-asym-k">ratio</span>'
-                f'<span class="pc-asym-v mono">{ratio:.2f}&times;</span></div>'
-            )
-        else:
-            asym_html = '<div class="pc-empty">stop/target non definis</div>'
+        asym_html = '<div class="pc-empty">stop/target non definis</div>'
 
     # Slider : si stop dispo, position_axis canonique ; sinon stop=null bar
     if stop and entry and full and current_price:
