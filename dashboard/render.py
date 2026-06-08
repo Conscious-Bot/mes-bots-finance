@@ -5592,6 +5592,38 @@ def _journal() -> str:
 # Source = dashboard/static/brand/presage_symbol.svg (user-provided 01/06).
 
 
+def _cycle_chip_cls_via_vocab(phase: str) -> str:
+    """Adoption vocabulary canonique : retourne la CSS class pour un cycle chip.
+
+    Doctrine : CYCLE_EARLY/MID/LATE/CONTRACTION sont tous STATE dans le
+    vocabulary -> earns_attention=False TOUJOURS. Un STATE n'attire JAMAIS
+    l'oeil (cf SPEC_ALERT_VOCABULARY §1). Donc tous les phases cycle ->
+    classe calme (steel-mute), pas warn/bear/acc qui crient.
+
+    C'est la cure du "mur de rouge" : avant, "late" -> warn (orange criant),
+    "contraction" -> bear (rouge alarme) -- alors que ces phases sont du
+    CONTEXTE, pas des alarmes. La doctrine delta-pas-etat exige que l'oeil
+    n'accroche que sur EVENT (delta) + FLAG actif + STEER act-class.
+
+    Fallback "steel-mute" si phase non-mappee (cf STATE non-declare = pas
+    de fabrication panel-locale, mais ici fallback safe pour pas casser
+    l'affichage sur phases legacy).
+    """
+    from shared.alert_vocabulary import attention_earning, get_word
+    phase_norm = phase.upper().replace("-", "_")
+    try:
+        word = get_word(f"CYCLE_{phase_norm}")
+        if not attention_earning(word):
+            # STATE -> calme, contexte (cf SPEC §1 regle d'attention)
+            return "steel-mute"
+        # Safety : si un cycle chip etait declaré attention-earning, fallback warn
+        # (mais le yaml force false pour tous CYCLE_*)
+        return "warn"
+    except KeyError:
+        # Phase non-mappee (legacy ou faute frappe) -> calme par défaut
+        return "steel-mute"
+
+
 _TIER_LABEL = {
     5: "Conviction 5 &middot; highest",
     4: "Conviction 4",
@@ -5612,7 +5644,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         def _cp_for(_t: str) -> str:
             return "unknown"
     _th_warnings = _ticker_warnings_map(positions)
-    _CP_CLS_TH = {"early": "acc", "mid": "steel", "late": "warn", "contraction": "bear"}
+    # _CP_CLS_TH mort -- remplace par _cycle_chip_cls_via_vocab (#117 vocabulary)
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
         "target_partial, last_price FROM theses WHERE status='active' "
@@ -5823,9 +5855,12 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     adj = '<div class="th-adj ok">&check; on weight</div>'
             else:
                 wtxt = f"{wv:.1f}%"
-            # Cycle phase chip + warnings chips (06/06 wire).
+            # Cycle phase chip via vocabulary canonique (#117 -- adoption STATE calme).
+            # Avant : _CP_CLS_TH mappait late->warn / contraction->bear, faisant
+            # CRIER des STATE (mur de rouge). Maintenant via vocabulary : un
+            # STATE n'attire jamais l'oeil -> classe calme partout.
             _cp_th = _cp_for(t["tk"])
-            _cp_cls_th = _CP_CLS_TH.get(_cp_th, "steel-mute")
+            _cp_cls_th = _cycle_chip_cls_via_vocab(_cp_th)
             _cp_chip_th = (
                 f'<span class="cycle-chip cycle-{_cp_cls_th}" '
                 f'data-tip="Cycle phase {_cp_th} (config/sectors.yaml).">{_cp_th}</span>'
@@ -6156,10 +6191,12 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         else:
             gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
-        # Cycle phase chip : late=warn / contraction=bear / early=acc / mid=steel
+        # Cycle phase chip via vocabulary canonique (#117 -- adoption STATE calme).
+        # Avant : _CP_CLS mappait late->warn / contraction->bear, faisant CRIER
+        # des STATE (mur de rouge dans le book). Maintenant via vocabulary :
+        # un STATE n'attire jamais l'oeil -> classe calme partout.
         _cp = cycle_phase_for_ticker(tk)
-        _CP_CLS = {"early": "acc", "mid": "steel", "late": "warn", "contraction": "bear"}
-        _cp_cls = _CP_CLS.get(_cp, "steel-mute")
+        _cp_cls = _cycle_chip_cls_via_vocab(_cp)
         _cp_chip = (
             f'<span class="cycle-chip cycle-{_cp_cls}" '
             f'data-tip="Cycle phase {_cp} (source config/sectors.yaml).">{_cp}</span>'
