@@ -71,10 +71,17 @@ class Datum(BaseModel):
 
 
 def _stable_repr(v: Any) -> Any:
-    """Serialisation stable pour le content-hash. Floats -> repr Python deterministe."""
+    """Serialisation stable pour le content-hash. Floats -> repr Python deterministe.
+
+    Supporte Pydantic BaseModel (e.g. Monetary cf SPEC_MONEY_INVARIANT) via
+    model_dump() recursif -- la devise voyage dans le value et reste hashable.
+    """
     if isinstance(v, float):
         # repr Python est stable cross-platform pour les floats binary64 IEEE 754.
         return repr(v)
+    if isinstance(v, BaseModel):
+        # Datum[Monetary] et toute autre BaseModel imbriquee. Recurse sur le dump.
+        return _stable_repr(v.model_dump())
     if isinstance(v, (list, tuple)):
         return [_stable_repr(x) for x in v]
     if isinstance(v, dict):

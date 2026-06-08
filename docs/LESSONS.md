@@ -889,3 +889,43 @@ CLAUDE.md "Catches récurrents" : avant toute nouvelle SPEC, demander **"existe-
 - `scripts/sync_positions_from_broker.py` : le seul écrivain des fields user-input
 - `scripts/reconcile_positions_prices.py` : le seul écrivain des fields market-derived
 - Cf [[L17]] declarative YAML + [[L23]] derived live + [[L25]] suivi du canonique
+
+---
+
+## L27 — Cohérence mécanique > vigilance (la couche d'exécution de L1)
+
+**Règle** : un fait est calculé à **un seul endroit**, et tout affichage le **projette** — jamais ne le re-calcule. Cette discipline n'est pas tenue par vigilance mais par **gate** : un module de rendu qui fetch une source (`prices`/`fx`/`storage`) ou fait de l'arithmétique métier (ratio, conversion devise, P&L) = **build rouge**. Le rendu lit un objet déjà calculé (`get_all_positions_views()` et frères), point.
+
+**Pourquoi (l'insight qui rend ça non-négociable)** : `L1` (source unique) existe depuis le 01/06 et se viole **quand même**, répétitivement. Preuve directe que la doctrine seule ne suffit pas. Chaque nouveau panneau qui fetch+calcule+affiche viole L1 **par défaut, pas par erreur** — l'architecture *invite* la divergence. Et la divergence ne se voit pas au fork : elle apparaît 3 semaines plus tard sur un screenshot. On patche le panneau visible → whack-a-mole → nouveau fork. **Un problème récurrent = un gate manquant, pas un manque de discipline.** Le gate déplace la détection de « screenshot à J+21 » à « build rouge à J+0 ». C'est la seule chose qui termine la récurrence.
+
+**Cas concrets de PRESAGE (tous = L1 violé par compute dispersé)** :
+- `0,5×` (page positions) vs `1,80×` (card) — deux baselines, deux conventions, même nom.
+- `FAIL_CLOSED 26/26` : base_health vert sur Fraîcheur **pendant que** les 26 cards rouges — contradiction cross-composant qu'aucun test ne gardait (découverte à l'œil).
+- `perf_thesis +176056%` : entry(EUR) ÷ price(KRW), parce que le calcul vivait à l'edge sans type commensurable.
+- Le « mur de rouge » : 15 panneaux prenant chacun leur pouls au lieu d'un battement unique.
+
+**La cure, classée par levier** :
+1. **Gate (empêche la création)** — rendu = projection pure ; import source/arithmétique métier dans un module render = rouge. Levier max : le panneau divergent devient **non-écrivable**.
+2. **Test byte-identité (attrape la régression)** — tout fait en ≥2 endroits → assert identique ; fixture réutilisable (coût d'ajout ≈ 2 lignes).
+3. **Coherence-checker #110 (attrape l'émergent cross-domaine)** — invariants cross-composants vérifiés à chaque regen ; aurait chopé FAIL_CLOSED à l'instant de la contradiction.
+4. **Doctrine (explique)** — ce L27.
+
+**Red flag à repérer immédiatement** :
+- Un module `dashboard/render*.py` (ou un panneau) qui `import prices`/`fx`/`storage` ou écrit `* fx_rate`, `(a/b-1)`, `price_eur` → **STOP**, il doit lire la view, pas calculer.
+- Le même fait (MV, P&L, perf, ratio) apparaît dans 2 panneaux par 2 chemins de calcul → **STOP**, un seul builder, l'autre projette.
+- Tu « répares » un panneau visiblement faux par un calcul local → **STOP**, c'est le whack-a-mole ; remonte au builder partagé.
+
+**Référencer** :
+- Exécution end-to-end : `SPEC_MONEY_INVARIANT.md` §8 (le cœur unique : `Datum[Monetary]` → `compute_position` → `get_all_positions_views()` → panneaux projettent).
+- `SPEC_POSITIONS_CARD_LINK.md` (une compute, deux rendus — le cas fondateur, généralisé ici à *tous* les panneaux).
+- Couche d'exécution de [[L1]] ; détection émergente via #110 (living-graph coherence-checker).
+
+---
+
+## L28 — Un montant monétaire est un `Datum[Monetary]`, jamais un float nu
+
+**Règle** : tout baseline monétaire (`entry_price`, `avg_cost`, `stop_price`, `target_*`) porte son triplet `(amount, currency, asof)`. Tout ratio/P&L passe par `shared/money.pct_change`, qui **assert la commensurabilité** (même devise) avant de diviser. Aucune migration n'écrase un baseline avec un autre (`entry := avg_cost` interdit) ; `entry_price` est **write-once** post-ouverture (trigger/guard). Spec : `SPEC_MONEY_INVARIANT.md`.
+
+**Pourquoi** : un nombre d'argent sans sa devise est une bombe à retardement — un ratio le divisera un jour contre une autre devise et sortira `+176056%` avec aplomb. L'`assert` transforme le mensonge silencieux en erreur bruyante (fail-closed). La corruption du 06/08 (`UPDATE all theses.entry_price = avg_cost_eur`, 26/26 thèses, track-record du jugement détruit) est précisément cette classe ; le write-once ferme le vecteur exact.
+
+**Référencer** : `SPEC_MONEY_INVARIANT.md` (les 4 cures + frontière d'ingestion §1.5 + cœur unique §8) ; couche monétaire de [[L27]] ; étend le socle (`shared/datum.py`) aux baselines, pas seulement aux prix.

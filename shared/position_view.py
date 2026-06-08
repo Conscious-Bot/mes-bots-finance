@@ -417,3 +417,113 @@ def compute_position(
         computed_at=datetime.now(UTC).isoformat(),
         inputs_lineage_ids=tuple(lineage),
     )
+
+
+# =============================================================================
+# SEAM render-level (SPEC §7.bis, 08/06 soir)
+# =============================================================================
+#
+# assemble_position_view + get_all_positions_views : point d'entree unique que
+# render.py doit consommer pour TOUS ses panels position. Construit le
+# PositionView en orchestrant les sources reelles (assemble_card_inputs +
+# derive_card_steer + prices.get/fx + position_valuation_datum).
+#
+# Discipline : aucun panel render.py ne re-fetche, ne re-derive, ne re-calcule.
+# Migration etagee panel-par-panel (cf SPEC_POSITIONS_CARD_LINK §7.bis).
+
+
+def assemble_position_view(thesis_id: int):
+    """Orchestre l'assemblage d'un PositionView pour 1 these (production).
+
+    Pipeline (toutes briques canoniques existantes, on les compose) :
+      1. assemble_card_inputs(thesis_id)  -> CardInputs (BookLine + drift + erosion + ...)
+      2. derive_card_steer(card_inputs)   -> SteerOutput (chip / exit_action / ...)
+      3. prices.get(ticker)               -> Datum[price_native]
+      4. prices.fx(currency, EUR)         -> Datum[fx_rate]
+      5. position_valuation_datum(pos_id) -> Datum[value_eur] (compose qty*price*fx)
+      6. compute_position(...)            -> PositionView (assemble + invariants)
+
+    Returns None si la these n'existe pas. Sinon PositionView complet avec
+    degraded=True si une source est stale/manquante (L15 fail-closed propage).
+    """
+    from intelligence.card_inputs import assemble_card_inputs
+    from intelligence.card_steer import derive_card_steer
+    from shared import prices, storage
+    from shared.valuation import position_valuation_datum
+
+    inputs = assemble_card_inputs(thesis_id)
+    if inputs is None:
+        return None
+    steer = derive_card_steer(inputs)
+
+    ticker = (inputs.ticker or "").upper()
+    price_datum = prices.get(ticker) if ticker else None
+
+    fx_datum = None
+    if ticker:
+        try:
+            currency = prices.get_currency_for_ticker(ticker)
+            fx_datum = prices.fx(currency, "EUR")
+        except Exception as e:
+            log.warning(f"assemble_position_view fx fetch failed for {ticker}: {e}")
+
+    # value_eur_datum requiert le position_id (ouverte) -- lookup via ticker
+    value_eur_datum = None
+    if ticker:
+        try:
+            pos = storage.get_position_by_ticker(ticker)
+            if pos and pos.get("id") and pos.get("status") == "open":
+                value_eur_datum = position_valuation_datum(int(pos["id"]))
+        except Exception as e:
+            log.warning(f"assemble_position_view valuation failed for {ticker}: {e}")
+
+    return compute_position(
+        thesis_id=thesis_id,
+        card_inputs=inputs,
+        steer_output=steer,
+        price_datum=price_datum,
+        fx_datum=fx_datum,
+        value_eur_datum=value_eur_datum,
+    )
+
+
+def get_all_positions_views() -> dict[str, PositionView]:
+    """Point d'entree render-level (SPEC §7.bis) : ticker -> PositionView.
+
+    Itere sur les theses active dont le ticker correspond a une position
+    ouverte (qty > 0). C'est le dict que render() construit UNE fois en
+    debut, puis passe a tous les panels position.
+
+    Returns : dict trie par ticker. Cles upper-case. Les theses sans position
+    ouverte sont omises (le panel "blind disclosure" est un autre concern).
+    """
+    from shared import storage
+
+    out: dict[str, PositionView] = {}
+    try:
+        active_theses = storage.list_theses(status="active") or []
+    except Exception as e:
+        log.warning(f"get_all_positions_views theses fetch failed: {e}")
+        return out
+
+    held_tickers: set[str] = set()
+    try:
+        for p in storage.get_open_positions() or []:
+            tk = (p.get("ticker") or "").upper()
+            if tk and (p.get("qty") or 0) > 0:
+                held_tickers.add(tk)
+    except Exception as e:
+        log.warning(f"get_all_positions_views open positions fetch failed: {e}")
+        return out
+
+    for t in active_theses:
+        tk = (t.get("ticker") or "").upper()
+        if not tk or tk not in held_tickers:
+            continue
+        tid = t.get("id")
+        if tid is None:
+            continue
+        view = assemble_position_view(int(tid))
+        if view is not None:
+            out[tk] = view
+    return dict(sorted(out.items()))
