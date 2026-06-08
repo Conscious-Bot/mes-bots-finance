@@ -86,7 +86,7 @@ def _count_chain(db: Path) -> int:
 
 
 def test_same_value_no_drift(db: Path) -> None:
-    ok, msg, old = storage.update_thesis_field("ASML.AS", "conviction", 4)
+    ok, _msg, _old = storage.update_thesis_field("ASML.AS", "conviction", 4)
     assert ok
     assert _count_chain(db) == 0
     drift = storage.get_conviction_drift(1)
@@ -99,7 +99,7 @@ def test_same_value_no_drift(db: Path) -> None:
 
 
 def test_conviction_change_appends_chain_entry(db: Path) -> None:
-    ok, msg, old = storage.update_thesis_field("ASML.AS", "conviction", 3)
+    ok, _msg, old = storage.update_thesis_field("ASML.AS", "conviction", 3)
     assert ok
     assert int(old) == 4
     assert _count_chain(db) == 1

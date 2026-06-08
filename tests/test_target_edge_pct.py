@@ -16,7 +16,6 @@ import pytest
 
 from shared.sizing_caps import target_edge_pct
 
-
 # ─── Test 1 : long position downside calculation ─────────────────────────
 
 

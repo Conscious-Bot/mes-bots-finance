@@ -159,7 +159,7 @@ def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def test_unknown_thesis_returns_none(db) -> None:
-    p, cx = db
+    _p, cx = db
     cx.close()
     assert assemble_card_inputs(999) is None
 
@@ -168,7 +168,7 @@ def test_unknown_thesis_returns_none(db) -> None:
 
 
 def test_minimal_thesis_returns_card_inputs(db, monkeypatch) -> None:
-    p, cx = db
+    _p, cx = db
     tid = _seed_minimal(cx)
     cx.close()
     # Stub risk_watch loader (pour ballast_membership)
@@ -200,7 +200,7 @@ def test_minimal_thesis_returns_card_inputs(db, monkeypatch) -> None:
 
 
 def test_conviction_drift_propagates(db, monkeypatch) -> None:
-    p, cx = db
+    _p, cx = db
     tid = _seed_minimal(cx)
     # Drift conviction 5 -> 3 via storage helper
     cx.close()
@@ -218,7 +218,7 @@ def test_conviction_drift_propagates(db, monkeypatch) -> None:
 
 
 def test_erosion_verdict_surfaces(db, monkeypatch) -> None:
-    p, cx = db
+    _p, cx = db
     tid = _seed_minimal(cx)
     # Seed un verdict erosion + 1 classification
     driver_status = [{"driver": "Duopoly EUV", "net": 1.5, "status": "intact"}]
@@ -250,7 +250,7 @@ def test_erosion_verdict_surfaces(db, monkeypatch) -> None:
 
 
 def test_discipline_flags_surface(db, monkeypatch) -> None:
-    p, cx = db
+    _p, cx = db
     tid = _seed_minimal(cx)
     cx.execute(
         "INSERT INTO kill_criteria_alerts (thesis_id, ticker, status, confidence) "
@@ -276,7 +276,7 @@ def test_discipline_flags_surface(db, monkeypatch) -> None:
 
 
 def test_bias_events_open_surface(db, monkeypatch) -> None:
-    p, cx = db
+    _p, cx = db
     tid = _seed_minimal(cx)
     cx.execute(
         "INSERT INTO bias_events (created_at, ticker, bias, action, decision_json, "
@@ -298,7 +298,7 @@ def test_bias_events_open_surface(db, monkeypatch) -> None:
 
 
 def test_counter_argument_surface(db, monkeypatch) -> None:
-    p, cx = db
+    _p, cx = db
     tid = _seed_minimal(cx)
     cx.execute(
         "INSERT INTO bot_copilot_interventions (ticker, decision_type, brief, "
@@ -318,7 +318,7 @@ def test_counter_argument_surface(db, monkeypatch) -> None:
 
 
 def test_ballast_membership_via_risk_watch(db, monkeypatch) -> None:
-    p, cx = db
+    _p, cx = db
     tid = _seed_minimal(cx, "CCJ")  # CCJ est dans ballast typique
     cx.close()
     # Stub risk_watch avec CCJ in ballast_strict_tickers
@@ -338,7 +338,7 @@ def test_ballast_membership_via_risk_watch(db, monkeypatch) -> None:
 
 
 def test_non_ballast_ticker(db, monkeypatch) -> None:
-    p, cx = db
+    _p, cx = db
     tid = _seed_minimal(cx, "ASML.AS")
     cx.close()
     monkeypatch.setattr(
@@ -353,7 +353,7 @@ def test_non_ballast_ticker(db, monkeypatch) -> None:
 
 
 def test_card_inputs_frozen(db, monkeypatch) -> None:
-    p, cx = db
+    _p, cx = db
     tid = _seed_minimal(cx)
     cx.close()
     monkeypatch.setattr("shared.risk_watch.load_risk_watch", lambda: None)

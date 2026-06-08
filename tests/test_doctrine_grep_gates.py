@@ -219,7 +219,7 @@ def test_doctrine_metrics_track():
     # Update ces numeros quand un refactor sort un fichier de l'allowlist.
     REFERENCE_YF = 19
     REFERENCE_SQ = 48
-    print(f"\nDoctrine tech debt snapshot :")
+    print("\nDoctrine tech debt snapshot :")
     print(f"  yfinance allowlist : {yf_n} (reference 07/06 nuit : {REFERENCE_YF})")
     print(f"  sqlite3 allowlist  : {sq_n} (reference 07/06 nuit : {REFERENCE_SQ})")
     # Assert pour catch les insertions silencieuses

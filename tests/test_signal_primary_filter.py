@@ -65,26 +65,29 @@ def _seed_signal(cx, title, entities, days_ago=10, impact=4.0, mat_boost=1.7):
 
 
 def test_primary_entity_top1_captured(db) -> None:
-    p, cx = db
+    _p, cx = db
     _seed_signal(cx, "NVDA earnings beat", ["NVDA", "AMD", "AVGO"])
-    cx.commit(); cx.close()
+    cx.commit()
+    cx.close()
     out = storage.get_material_signals_since("NVDA", "2020-01-01", 12)
     assert len(out) == 1
 
 
 def test_primary_entity_top2_captured(db) -> None:
-    p, cx = db
+    _p, cx = db
     _seed_signal(cx, "TSM Q3", ["TSM", "NVDA", "AMD"])
-    cx.commit(); cx.close()
+    cx.commit()
+    cx.close()
     out = storage.get_material_signals_since("NVDA", "2020-01-01", 12)
     assert len(out) == 1
 
 
 def test_primary_entity_top3_boundary_captured(db) -> None:
     """Ticker exactement en position 3 (top_N=3 inclusif) -> capture."""
-    p, cx = db
+    _p, cx = db
     _seed_signal(cx, "Semis update", ["ASML", "TSM", "NVDA"])
-    cx.commit(); cx.close()
+    cx.commit()
+    cx.close()
     out = storage.get_material_signals_since("NVDA", "2020-01-01", 12)
     assert len(out) == 1
 
@@ -94,9 +97,10 @@ def test_primary_entity_top3_boundary_captured(db) -> None:
 
 def test_secondary_entity_position4_filtered_out(db) -> None:
     """LE TEST CALIBRATION : ticker en 4e position = mention secondaire = SKIP."""
-    p, cx = db
+    _p, cx = db
     _seed_signal(cx, "Macro", ["LLY", "NVDA", "AMD", "GOOGL"])
-    cx.commit(); cx.close()
+    cx.commit()
+    cx.close()
     out = storage.get_material_signals_since("GOOGL", "2020-01-01", 12)
     assert out == []
 
@@ -104,14 +108,15 @@ def test_secondary_entity_position4_filtered_out(db) -> None:
 def test_retatrutide_case_real_world(db) -> None:
     """Le cas reel decouvert par audit : Retatrutide entities=[LLY+8 mega-caps].
     GOOGL en 7e position = mention macro secondaire, doit etre SKIPPED."""
-    p, cx = db
+    _p, cx = db
     _seed_signal(
         cx,
         "Retatrutide hits 28% weight loss in Phase 3",
         ["LLY", "NVDA", "AVGO", "TSM", "AMD", "MSFT", "GOOGL", "META", "AMZN"],
         impact=4.0, mat_boost=1.7,
     )
-    cx.commit(); cx.close()
+    cx.commit()
+    cx.close()
     # LLY (position 0) = capture
     assert len(storage.get_material_signals_since("LLY", "2020-01-01", 12)) == 1
     # NVDA (position 1) = capture
@@ -129,21 +134,23 @@ def test_retatrutide_case_real_world(db) -> None:
 
 
 def test_malformed_entities_skipped(db) -> None:
-    p, cx = db
+    _p, cx = db
     cx.execute(
         "INSERT INTO signals (timestamp, title, entities, impact_magnitude) "
         "VALUES (?, ?, ?, ?)",
         ("2026-06-01", "broken json", "{bad}", 1.0),
     )
-    cx.commit(); cx.close()
+    cx.commit()
+    cx.close()
     out = storage.get_material_signals_since("ANY", "2020-01-01", 12)
     assert out == []
 
 
 def test_empty_entities_skipped(db) -> None:
-    p, cx = db
+    _p, cx = db
     _seed_signal(cx, "no entities", [])
-    cx.commit(); cx.close()
+    cx.commit()
+    cx.close()
     out = storage.get_material_signals_since("ANY", "2020-01-01", 12)
     assert out == []
 
@@ -155,13 +162,14 @@ def test_chat_extracted_captured_regardless(db) -> None:
     """chat_extracted_signals filtre par ticker= (pas par entities), donc
     toujours capture si match exact. Le filtre primary_entity ne s'applique
     qu'aux signals avec JSON entities."""
-    p, cx = db
+    _p, cx = db
     cx.execute(
         "INSERT INTO chat_extracted_signals (created_at, ticker, confidence, "
         "evidence_quote, note) VALUES (?, ?, ?, ?, ?)",
         ("2026-06-01", "GOOGL", 0.7, "quote", "note"),
     )
-    cx.commit(); cx.close()
+    cx.commit()
+    cx.close()
     out = storage.get_material_signals_since("GOOGL", "2020-01-01", 12)
     assert len(out) == 1
 
@@ -170,11 +178,12 @@ def test_chat_extracted_captured_regardless(db) -> None:
 
 
 def test_order_by_materiality_preserved(db) -> None:
-    p, cx = db
+    _p, cx = db
     _seed_signal(cx, "low", ["NVDA"], impact=1.0, mat_boost=1.0)        # 1.0
     _seed_signal(cx, "high", ["NVDA"], impact=4.0, mat_boost=2.0)       # 8.0
     _seed_signal(cx, "mid", ["NVDA"], impact=2.0, mat_boost=1.5)        # 3.0
-    cx.commit(); cx.close()
+    cx.commit()
+    cx.close()
     out = storage.get_material_signals_since("NVDA", "2020-01-01", 12)
     assert len(out) == 3
     assert out[0]["materiality"] == 8.0

@@ -105,8 +105,8 @@ def test_methodology_versions_per_projection(cfg) -> None:
     non-falsifiable = le defaut qu'on bannit depuis le debut."""
     assert "methodology_versions" in cfg
     mv = cfg["methodology_versions"]
-    assert "macro" in mv and mv["macro"], "methodology_versions.macro requis"
-    assert "micro" in mv and mv["micro"], "methodology_versions.micro requis"
+    assert mv.get("macro"), "methodology_versions.macro requis"
+    assert mv.get("micro"), "methodology_versions.micro requis"
     assert mv["macro"] != mv["micro"], (
         "macro et micro doivent avoir des methodology_version distincts "
         "(self-scoring separe par projection)"

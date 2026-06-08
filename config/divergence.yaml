@@ -3,7 +3,7 @@
 # Contrat declaratif du MOTEUR PARTAGE divergence-reflexivite (cornerstone C5).
 # Hérite de QUALITY_BAR (M1/M2/M3) + CALIBRATION_DOCTRINE (poids gagnés) +
 # PLAN_REFONTE_ALERTES (alarme rare et meritée) + SPEC_CORNERSTONE (primitive
-# D = croyance pricée − réalité livrable ; Φ = phase réflexive ; F = fragilité).
+# D = croyance pricée - réalité livrable ; Phi = phase réflexive ; F = fragilité).
 #
 # Source unique pour compute_divergence('macro'|'micro') -> mêmes primitives,
 # deux projections. Inputs DISJOINTS entre les deux échelles (zero champ
@@ -22,7 +22,7 @@ _meta:
     - 'docs/QUALITY_BAR.md (M1 triple + M2 pré-enregistré + M3 sub-Kelly)'
     - 'CALIBRATION_DOCTRINE.md (poids gagnés, jamais tapés)'
     - 'PLAN_REFONTE_ALERTES.md (le droit d''alarmer se gagne, défaut calme)'
-    - 'SPEC_CORNERSTONE.md (primitive D/Φ/F, projections macro/micro)'
+    - 'SPEC_CORNERSTONE.md (primitive D/Phi/F, projections macro/micro)'
     - 'METHODE_CALIBRATION_CORNERSTONE.md (purged walk-forward + ECE + asymétrie de perte)'
     - 'docs/LESSONS.md L15 (fail-closed), L16 (splits temporels), L17 (decl YAML / live DB)'
   schema_module: 'intelligence.divergence_schema'   # Pydantic gate (à créer en C6)
@@ -112,7 +112,7 @@ inputs:
         rationale: 'Classique fin-de-cycle ; mais skill reduit post-QE.'
 
       - name: 'ERP_proxy'
-        label: 'Earnings yield − 10Y (proxy ERP)'
+        label: 'Earnings yield - 10Y (proxy ERP)'
         tier: 'B'
         sign: 'negative'        # ERP comprime -> etire
         source: 'derived:sp500_eps / sp500_price - 10Y_yield'
@@ -131,7 +131,7 @@ inputs:
         rationale: 'Variable-maitre. Le carburant qui se vide.'
 
       - name: 'eps_revisions_breadth'
-        label: 'Largeur révisions BPA agrégée (% hausses − % baisses)'
+        label: 'Largeur révisions BPA agrégée (% hausses - % baisses)'
         tier: 'A'
         sign: 'negative'        # decelere -> divergence
         source: 'data-constrained:revisions_aggregator'
@@ -233,7 +233,7 @@ inputs:
 
     realite_livrable:
       - name: 'eps_revisions_breadth_name'
-        label: 'Révisions BPA forward (% up − % down sur 90j)'
+        label: 'Révisions BPA forward (% up - % down sur 90j)'
         tier: 'S'
         sign: 'negative'        # roule -> divergence
         source: 'data-constrained:revisions_per_ticker'

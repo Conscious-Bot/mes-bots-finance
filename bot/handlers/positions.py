@@ -143,7 +143,7 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     import sqlite3
     from datetime import datetime as _dt
 
-    from shared import config as cfg_mod, storage as storage_mod
+    from shared import storage as storage_mod
     from shared.display import Currency
     from shared.prices import get_current_price_in_usd
     from shared.ticker_names import get_short_name
