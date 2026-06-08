@@ -6797,14 +6797,23 @@ def render() -> Path:
 
     # Journal block retire 02/06 Vigie -- compute conserve pour reactivation eventuelle.
     _journal_html = _journal()
+    # === Phase 4 migration L27 : _axis projete depuis _views (coeur unique) ===
+    # Avant : reconstruit depuis computed (asym_mod.compute_portfolio_asymmetry qui
+    # re-fetche yfinance localement -- violation L27). Apres : projection pure
+    # depuis _views[tk] qui sont les Datums canoniques deja calcules une fois.
+    # Byte-identite garantie tant que asym_mod produit les memes (stop, target_full,
+    # current, upside_pct, downside_pct) que PositionView -- ce sont les memes
+    # sources DB. Tout diff = finding (au moins un des deux est faux).
     _axis: dict[str, dict[str, float]] = {}
-    for r in computed:
-        st, tg, c = r.get("stop") or 0, r.get("target_full") or 0, r.get("current_price") or 0
-        up, dn = r.get("upside_pct"), r.get("downside_pct")
+    for tk, view in _views.items():
+        st = view.stop_native or 0
+        tg = view.target_full_native or 0
+        c = view.price_native or 0
+        up = view.upside_pct
+        dn = view.downside_pct
         if st and tg and tg != st and c and up is not None and dn is not None:
-            # frac_raw : 0 = at stop, 100 = at target, >100 = beyond target.
             frac_raw = (c - st) / (tg - st) * 100
-            _axis[r["ticker"]] = {
+            _axis[tk] = {
                 "frac": max(0.0, min(100.0, frac_raw)),
                 "frac_raw": frac_raw,
                 "up": up,
