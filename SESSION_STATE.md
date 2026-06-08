@@ -2369,6 +2369,12 @@ Re-onboarding 2 minutes :
 
 4. **Autres bypasses yfinance** (lane 1 étendue) : 19 fichiers restants dans `_YFINANCE_LEGACY_ALLOWLIST` (intelligence/, shared/, bot/). Pas prioritaire sur agrégateurs monétaires — gate `check_yfinance_gate.sh` reste SOFT mode jusqu'à migration progressive.
 
+5. **TODO important — gate baseline regex → AST** : la gate `check_money_invariant.sh` est un **tripwire fuyant**, pas une preuve de cohérence. Finding révélé Lane 2 #1 : le regex ne matchait pas `dict['key']) * N` (subscript+paren-close). Fix posé, mais l'espace des patterns "arithmétique monétaire" est grand (obj.attr*fx, func()['k']-x, multi-lignes, variables intermédiaires). La regex couvrira jamais entièrement. **Hiérarchie défense réelle, à assumer** :
+   1. Invariant somme-parties (`Σ weight == Σ view.value_eur`) — **garde forte**, compare à vérité reconstruite
+   2. Byte-identité (ancien==nouveau migration) — **garde forte** sur valeurs
+   3. Gate regex — **tripwire utile mais fuyant**, pas self-defending L27 complet
+   → Pour vraie "self-defending L27" : migrer gate baseline vers AST (parse arithmétique sur variables typées Money/baseline). Pas urgent — l'invariant somme-parties est la garde réelle.
+
 ### Commits session 08/06 (chronologique, plus récent en haut)
 
 ```
