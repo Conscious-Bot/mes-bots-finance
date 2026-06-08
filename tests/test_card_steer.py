@@ -255,3 +255,56 @@ def test_returns_steer_output_type() -> None:
     inputs = _make_inputs()
     out = derive_card_steer(inputs)
     assert isinstance(out, SteerOutput)
+
+
+# ──── Amelioration 08/06 : dominant_reason compose 2 axes ────────────────
+
+
+def test_trim_with_erosion_AND_over_cap_mentions_both() -> None:
+    """TRIM avec OVER_CAP + EROSION_DETECTED -> dominant_reason mentionne LES 2.
+    Sinon user lit 'trim over-cap' et manque 'these aussi erodee'."""
+    inputs = _make_inputs(
+        position_type="priced",
+        erosion_verdict="EROSION_DETECTED",
+        weight_pct=10.0,
+        conviction_current=5,
+        cap_for_conviction_pct=6.0,
+    )
+    out = derive_card_steer(inputs)
+    assert out.verdict == SteerVerdict.TRIM_TO_X
+    # Mentionne over-cap
+    assert "over-cap" in out.dominant_reason
+    # ET mentionne erosion
+    assert "erosion" in out.dominant_reason.lower()
+
+
+def test_trim_over_cap_only_no_erosion_mentions_only_cap() -> None:
+    """OVER_CAP seul (intact) -> dominant_reason mentionne cap, PAS erosion."""
+    inputs = _make_inputs(
+        position_type="priced",
+        erosion_verdict="INTACT",
+        weight_pct=10.0,
+        conviction_current=5,
+        cap_for_conviction_pct=6.0,
+    )
+    out = derive_card_steer(inputs)
+    assert out.verdict == SteerVerdict.TRIM_TO_X
+    assert "over-cap" in out.dominant_reason
+    assert "erosion" not in out.dominant_reason.lower()
+
+
+def test_review_structural_with_erosion_surfaces_erosion() -> None:
+    """structural + EROSION_DETECTED -> REVIEW (mapping derive_steer).
+    dominant_reason doit dire que c'est structural + erosion (pas juste 'review')."""
+    inputs = _make_inputs(
+        position_type="structural",
+        structural_justification="Monopole EUV verified",
+        erosion_verdict="EROSION_DETECTED",
+        weight_pct=4.0,
+        conviction_current=5,
+        cap_for_conviction_pct=6.0,
+    )
+    out = derive_card_steer(inputs)
+    assert out.verdict == SteerVerdict.REVIEW
+    assert "structural" in out.dominant_reason.lower()
+    assert "erosion" in out.dominant_reason.lower()

@@ -169,12 +169,26 @@ def derive_card_steer(inputs: CardInputs) -> SteerOutput:
     sa_action = steer.size_action.action
     verdict = _map_to_verdict(ep_action, sa_action, inputs.allow_add_steer)
 
-    # Etape 5 : raison dominante (1-liner)
+    # Etape 5 : raison dominante (1-liner) -- compose les 2 axes quand actifs.
+    # Amelioration 08/06 : avant ce fix, TRIM + over-cap masquait l'erosion
+    # eventuelle ("over-cap X%" sans mentionner that the thesis is also eroding).
+    # User pouvait lire "trim pour over-cap" et manquer "+ these erode aussi".
+    # Fix : si EROSION detectee EN PLUS de over-cap, mentionner les 2 axes.
+    is_erosion = inputs.erosion_verdict == "EROSION_DETECTED"
+    is_over_cap = sa_action in ("rightsize", "urgent_rightsize")
+
     if verdict == SteerVerdict.EXIT:
         dom = steer.exit_policy.reason
     elif verdict == SteerVerdict.TRIM_TO_X:
-        # Catch 2 : si SIZE prime (HOLD exit + RIGHTSIZE size), raison size
-        if sa_action in ("rightsize", "urgent_rightsize"):
+        # Composition selon axes actifs
+        if is_over_cap and is_erosion:
+            # Les DEUX axes parlent : on doit mentionner les 2 sinon user manque info
+            dom = (
+                f"over-cap {inputs.weight_pct:.1f}% vs cap {steer.size_action.cap_pct:.1f}% "
+                f"(trim {steer.size_action.target_qty_delta_pct:+.1f}%) "
+                f"+ erosion driver detectee (these en cours de revision)"
+            )
+        elif is_over_cap:
             dom = (
                 f"over-cap : {inputs.weight_pct:.1f}% vs cap {steer.size_action.cap_pct:.1f}% "
                 f"(trim qty {steer.size_action.target_qty_delta_pct:+.1f}%)"
@@ -186,7 +200,14 @@ def derive_card_steer(inputs: CardInputs) -> SteerOutput:
     elif verdict == SteerVerdict.ADD_TO_X:
         dom = "under-cap + these intact + asym favorable"
     else:  # REVIEW
-        dom = steer.exit_policy.reason
+        # Si erosion verdict en jeu pour structural (mapping -> review), surface
+        if inputs.position_type == "structural" and is_erosion:
+            dom = (
+                "structural + erosion driver detectee -- revue manuelle "
+                "(structural protege exit sur prix, mais drivers contestes)"
+            )
+        else:
+            dom = steer.exit_policy.reason
 
     return SteerOutput(
         verdict=verdict,
