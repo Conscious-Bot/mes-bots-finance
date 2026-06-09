@@ -53,6 +53,8 @@
 
 ## 🔴 P0 ACTIONNABLES NEXT SESSION (réveil demain — 3 actions ordonnées)
 
+0. **#133 Revoir + redéterminer les targets partial/full sur toutes les positions tenues** (cf [[L30]] LESSONS gravée 10/06 + diagnostic visuel asym panneau). Le caret cost SPEC_GAUGE a révélé que plusieurs partiels sont morts par construction : **AMZN, 6857.T** (caret nettement au-delà du jaune), **CCJ** (en train de basculer), **LNG, 4063.T** (ratio symbolique). Le cost a rattrapé/dépassé le partial via renforcements, sans révision de la cible. Pattern : ouvrir chaque thèse, projeter cost_native actuel, comparer à target_partial_native, soit annuler (cost > partial = pas de demi-cible), soit remonter proportionnellement avec asof + raison tracée. ~1h sweep complet. Effet : restaurer la sémantique "partial = vraie prise de profit", pas "coupe à perte déguisée".
+
 1. **Finir le seam L29 gauge — 4e caller : theses panel L5936** (TODO #121, fresh-head required). Pattern : récupérer `book_idx` (pas en scope actuellement vs les 3 autres callers déjà migrés), adapter construction `t["_entry"]/t["_stop"]/t["_tgt"]/t["_cur"]` pour lire BookLine EUR (`avg_cost_eur`, `stop_eur`, `target_full_eur`, `current_price_eur`). Diff = finding. Ferme la fenêtre temporaire de désaccord inter-panneaux (le theses panel affiche encore entry-thèse pendant que les 3 autres sont sur avg_cost). ~30min.
 
 2. **#128 Banner SK Hynix proxy** (UI confiance réduite). Surface visible : `"prix = ligne coréenne KRW × fx, GDR EUR yfinance indispo"`. Coût et realized restent EUR-corrects via ledger. ~30min.

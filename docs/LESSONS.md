@@ -929,3 +929,52 @@ CLAUDE.md "Catches récurrents" : avant toute nouvelle SPEC, demander **"existe-
 **Pourquoi** : un nombre d'argent sans sa devise est une bombe à retardement — un ratio le divisera un jour contre une autre devise et sortira `+176056%` avec aplomb. L'`assert` transforme le mensonge silencieux en erreur bruyante (fail-closed). La corruption du 06/08 (`UPDATE all theses.entry_price = avg_cost_eur`, 26/26 thèses, track-record du jugement détruit) est précisément cette classe ; le write-once ferme le vecteur exact.
 
 **Référencer** : `SPEC_MONEY_INVARIANT.md` (les 4 cures + frontière d'ingestion §1.5 + cœur unique §8) ; couche monétaire de [[L27]] ; étend le socle (`shared/datum.py`) aux baselines, pas seulement aux prix.
+
+---
+
+## L29 — Corriger le calcul ne suffit pas : vérifier la DIFFUSION (chaque source qui sert le nombre)
+
+**Règle** : un fix n'est pas fini quand le calcul est juste à **un** endroit — il est fini quand **chaque chemin qui sert le nombre** est corrigé **ou fail-closed**. Après avoir corrigé une dérivation, grep tous les chemins qui produisent la même grandeur ; chacun doit être (a) corrigé, ou (b) NULLé/raise (fail-closed, L15). Un calcul corrigé + un chemin de diffusion resté faux = **le fork** (deux valeurs pour un fait) = la violation [[L27]] ré-introduite par un demi-fix.
+
+**Pourquoi** : corriger le calcul soulage — on *croit* avoir fini. Mais un nombre vit dans plusieurs chemins de lecture (VUE SQL, helper Python, cache, panneau). En corriger un et laisser les autres servir l'ancien, c'est masquer un mensonge derrière « le calcul est juste maintenant ». La discipline du calcul ne se transfère pas automatiquement à la diffusion : il faut la vérifier **explicitement, chemin par chemin**.
+
+**Cas concrets de PRESAGE (le pattern attrapé DEUX fois en une session, 09/06)** :
+- **Tesla PMP** : `all-buys-avg` faux étiqueté « convention comptable à documenter ». Le calcul *paraissait* défendable → masquait un vrai bug (PMP fiscal FR = roulant, reset du pool sur clôture). *Corriger le label ≠ corriger le calcul.*
+- **VUE vs BookLine** : PMP roulant corrigé dans `BookLine`/`ledger_pmp.py`, **mais la VUE SQL gardait la sous-requête all-buys faux** — servi en prod à tout consumer SQL-direct. *Corriger le calcul (BookLine) ≠ corriger la diffusion (la VUE servait encore le faux).* Fix : NULL des colonnes dérivées dans la VUE (fail-closed) + `test_no_pmp_calculation_resurrects_in_view_sql`.
+
+**Red flag à repérer immédiatement** :
+- Tu corriges une dérivation dans un module et tu te déclares fini → **STOP**, grep les autres chemins (`VUE SQL`, helper, cache) qui produisent le même nombre. Chacun corrigé ou fail-closed.
+- Un fix « calcul juste » coexiste avec un chemin qui sert l'ancienne valeur → **mensonge-en-prod différé**, pas « différable ». NULL-le maintenant (fail-closed > faux).
+- Tu rationalises un écart broker/ledger en « convention » → vérifie d'abord que c'en est *vraiment* une (cause nommée, ex. fee-inclusive CGI) et pas un bug déguisé.
+
+**Référencer** : couche « diffusion » de [[L27]] (cohérence single-source) ; fail-closed [[L15]] (NULL/raise > faux) ; `shared/ledger_pmp.py` (source unique PMP/realized) + `test_no_pmp_calculation_resurrects_in_view_sql` (le verrou anti-résurrection).
+
+---
+
+## L30 — Une target figée + un cost qui roule = un mensonge en formation
+
+**Règle** : `target_partial` et `target_full` sont posées à la naissance de la thèse et **figées** ; `avg_cost_native` (= `avg_cost_eur / fx_now`) **roule** à chaque renforcement. Quand un renforcement pousse `cost ≥ target_partial`, le partiel est **mort par construction** : "prendre partiel à `target_partial`" devient "vendre à perte vs ton cost actuel", pas une prise de profit. Un partial non révisé après renforcement = un point de coupe à perte déguisé en point de profit. **Discipline** : tout renforcement qui projette le cost au-dessus d'une cible doit déclencher la révision de cette cible — soit annulation (cost > partial = pas de demi-cible possible), soit remontée proportionnelle. Sinon la cible ment.
+
+**Pourquoi** : la cible est une **promesse à l'instrument** ("je sortirai partiellement ici parce que c'est un vrai profit"). Le renforcement modifie le baseline contre lequel cette promesse est mesurée. Sans révision, le visuel garde le tick jaune en place, le caret cost le rattrape silencieusement, et tu finis par "exécuter le partial" qui est en fait une coupe sèche. La discipline-signal `.tbar-cost-caret.stale` (cost > full) attrape le cas extrême ; le cas intermédiaire (cost > partial mais cost < full) passe sous le radar tant que la doctrine de révision n'est pas explicite.
+
+**Diagnostic visuel canonique (instrument SPEC_GAUGE rend la dissonance lisible)** :
+- **caret à droite du tick jaune partial** → partial déjà mort, à réviser
+- **caret ≈ tick jaune** → partial pile au cost, ratio risk/reward symbolique
+- **caret à gauche du tick jaune** → partial encore vif (cas sain : cost en dessous de la cible)
+
+Cas concrets relevés le 10/06 (panneau asym `CLOSEST_TO_TARGET`) :
+- **AMZN, 6857.T** : caret nettement au-delà du jaune → partiel obsolète, dépassé par les renforcements
+- **CCJ** : caret juste à droite du jaune → en train de basculer
+- **LNG, 4063.T** : caret ≈ jaune → ratio symbolique
+- **AMD** : caret hors bande gauche (cost très bas via gains protégés) → partiel encore vif
+
+**Red flag à repérer immédiatement** :
+- Tu renforces au-dessus d'une cible existante sans réviser cette cible → la cible devient un mensonge silencieux. La révision n'est pas optionnelle, elle est **causée** par le renforcement.
+- Tu poses un partial juste au-dessus du cost-au-moment-T0 sans tenir compte des renforcements anticipés → le premier renfort suffira à le tuer.
+- Tu lis "partial atteint, je trim" sans regarder le caret cost → tu peux être en train de coupe ta position à perte en pensant prendre du profit.
+
+**Remède méthode** :
+1. **Règle de révision à la pose de renforcement** : si le renforcement projeté pousse `cost_native ≥ target_partial_native`, soit annule le partial (note explicite "obsolète post-renforcement N"), soit remonte le partial proportionnellement (avec asof + raison tracée dans la thèse).
+2. **Règle de pose initiale** : le partial doit être posé strictement au-dessus du cost projeté APRÈS renforcements anticipés, pas au-dessus du cost-au-moment-T0.
+
+**Référencer** : SPEC_GAUGE §3 (caret cost canonique) ; [[L27]] couche temporelle (figé vs roulant doivent être traités différemment) ; [[L29]] couche diffusion (la cible diffusée dans le visuel ment si le cost roule sans qu'on révise) ; helper `_gauge_prices_native()` (le triple natif qui rend la dissonance lisible).
