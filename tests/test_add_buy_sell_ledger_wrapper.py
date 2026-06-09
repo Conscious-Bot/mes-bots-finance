@@ -261,22 +261,107 @@ def test_add_sell_no_open_position_raises(ledger_db_with_view, monkeypatch):
 # ============================================================================
 
 
-def test_e2e_replay_sk_hynix_pattern(ledger_db_with_view, monkeypatch):
-    """Reproduit le pattern SK Hynix #121 (BUY puis SELL partielle) — vérifie
-    que add_buy + add_sell donnent qty et realized cohérents."""
+def test_e2e_replay_sk_hynix_fee_less(ledger_db_with_view, monkeypatch):
+    """Pattern SK Hynix #121 SANS frais : realized = 98.37 (= gross)."""
     _no_classify(monkeypatch)
     monkeypatch.setattr("intelligence.lock_in_detector.detect_winner_sell",
                        lambda **kwargs: None)
     from shared.positions import add_buy, add_sell, get_position
 
-    # SK Hynix réel : buy 1.886792@1060, sell 0.371212@1325, reste 1.515580
-    add_buy("FAKESKH", qty=1.886792, price=1060.0, currency="EUR", fx_at_trade=1.0,
-            broker_trade_id="SKH-B1", source="test", trade_date="2026-05-15T17:56")
-    add_sell("FAKESKH", qty=0.371212, price=1325.0, currency="EUR", fx_at_trade=1.0,
-             broker_trade_id="SKH-S1", source="test", trade_date="2026-05-29T14:55")
+    add_buy("FAKESKH_NOFEE", qty=1.886792, price=1060.0, currency="EUR",
+            fx_at_trade=1.0, broker_trade_id="SKH-NF-B1", source="test",
+            trade_date="2026-05-15T17:56")
+    add_sell("FAKESKH_NOFEE", qty=0.371212, price=1325.0, currency="EUR",
+             fx_at_trade=1.0, broker_trade_id="SKH-NF-S1", source="test",
+             trade_date="2026-05-29T14:55")
 
-    pos = get_position("FAKESKH")
+    pos = get_position("FAKESKH_NOFEE")
     assert pos["qty"] == pytest.approx(1.515580, abs=1e-6)
     assert pos["avg_cost_eur"] == pytest.approx(1060.0, abs=0.01)
-    # realized = 0.371212 * (1325 - 1060) = 98.3712  (pas de fees ici)
+    # realized = 0.371212 × (1325 − 1060) = 98.3712 (gross, pas de fees)
     assert pos["realized_pnl"] == pytest.approx(98.3712, abs=0.01)
+
+
+def test_e2e_replay_sk_hynix_with_fees_enforces_net_tax_fr(ledger_db_with_view, monkeypatch):
+    """Pattern SK Hynix #121 AVEC frais 1€/trade : realized = 97.17 (net tax-FR).
+
+    Convention SPEC_LEDGER §2.4 : realized_pnl = NET de frais (plus-value
+    fiscale FR). Le wrapper add_buy/add_sell doit propager les fees côté ledger
+    pour que :
+      - PRU pondéré inclut buy fees (capitalisés)
+      - realized_pnl déduit sell fees (proceeds - fees - cost basis)
+      - réplique le Δ −1€/sell observé dans le back-fill #121 (TR convention
+        gross-of-sell-fee vs ledger net)
+
+    Si ce test échoue → le wrapper ne porte pas les frais correctement, et
+    manuel/broker divergent sur le realized. Régression structurelle.
+
+    Calcul attendu (1€/trade = SK Hynix back-fill convention) :
+      PRU_eur = (1.886792 × 1060 + 1) / 1.886792 = 2000.99952 / 1.886792 ≈ 1060.5303
+      realized = 0.371212 × 1325 − 1 − 0.371212 × 1060.5303
+               = 491.8559 − 1 − 393.6824
+               = 97.1735 EUR (= TR_gross 98.18 − 1€ sell fee − 0.01€ buy fee allocation)
+    """
+    _no_classify(monkeypatch)
+    monkeypatch.setattr("intelligence.lock_in_detector.detect_winner_sell",
+                       lambda **kwargs: None)
+    from shared.positions import add_buy, add_sell, get_position
+
+    add_buy("FAKESKH_FEE", qty=1.886792, price=1060.0, fees=1.0, currency="EUR",
+            fx_at_trade=1.0, broker_trade_id="SKH-F-B1", source="test",
+            trade_date="2026-05-15T17:56")
+    add_sell("FAKESKH_FEE", qty=0.371212, price=1325.0, fees=1.0, currency="EUR",
+             fx_at_trade=1.0, broker_trade_id="SKH-F-S1", source="test",
+             trade_date="2026-05-29T14:55")
+
+    pos = get_position("FAKESKH_FEE")
+    assert pos["qty"] == pytest.approx(1.515580, abs=1e-6)
+    # PRU = (1.886792 × 1060 + 1) / 1.886792 ≈ 1060.5303 (frais BUY capitalisés)
+    assert pos["avg_cost_eur"] == pytest.approx(1060.5303, abs=0.01)
+    # realized net = 97.174 (gross 98.371 − 1€ sell fee − 0.197€ buy fee allocation)
+    assert pos["realized_pnl"] == pytest.approx(97.174, abs=0.01)
+    # Vérification du Δ ≈ −1.20€ vs TR_gross (1€ sell fee + 0.20€ buy fee proportionnel)
+    tr_gross_gain = 0.371212 * (1325.0 - 1060.0)  # 98.371
+    delta_vs_tr_gross = tr_gross_gain - pos["realized_pnl"]
+    assert delta_vs_tr_gross == pytest.approx(1.197, abs=0.05)
+
+
+def test_e2e_pru_with_buy_fees_capitalized(ledger_db_with_view, monkeypatch):
+    """Frais BUY capitalisés au PRU (convention FR cf SPEC §2.4).
+
+    Fixture : BUY 100@10 + fees 5 → PRU = (100×10 + 5) / 100 = 10.05
+    (pas 10 ; les frais sont dans le coût de revient).
+    """
+    _no_classify(monkeypatch)
+    from shared.positions import add_buy, get_position
+
+    add_buy("FEECAP", qty=100.0, price=10.0, fees=5.0, currency="EUR",
+            fx_at_trade=1.0, broker_trade_id="FC-B1", source="test")
+    pos = get_position("FEECAP")
+    assert pos["qty"] == 100.0
+    assert pos["avg_cost_eur"] == pytest.approx(10.05, abs=1e-6)
+
+
+def test_idempotence_manual_entry_no_dedup_asymmetric(ledger_db_with_view, monkeypatch):
+    """Asymétrie idempotence documentée : broker_trade_id=NULL → pas de dedup.
+
+    SQLite permet plusieurs NULL sur colonne UNIQUE. C'est délibéré : les
+    anchors back-fill et les saisies manuelles ont broker_trade_id=NULL.
+
+    Conséquence : un double-tap d'add_buy manuel crée 2 transactions. Pour
+    corriger, l'utilisateur doit faire un SELL compensatoire (pattern
+    append-only honoré, jamais DELETE).
+
+    Ce test documente l'asymétrie en l'asserrant : pas de surprise au runtime.
+    """
+    _no_classify(monkeypatch)
+    from shared.positions import add_buy, get_position
+
+    # 2 add_buy identiques SANS broker_trade_id → tous les 2 acceptés
+    add_buy("MANUAL_DUP", qty=10.0, price=100.0, currency="EUR", fx_at_trade=1.0,
+            source="chat_manual_tap_1")
+    add_buy("MANUAL_DUP", qty=10.0, price=100.0, currency="EUR", fx_at_trade=1.0,
+            source="chat_manual_tap_2")
+
+    pos = get_position("MANUAL_DUP")
+    assert pos["qty"] == 20.0  # les 2 ont été comptés (asymétrie acceptée)
