@@ -2644,3 +2644,61 @@ fa3ad63 [session rollback]     veto Olivier reconstruction inférée + cure for-
 ef40a8b [session close nuit]   désynchro broker↔DB découverte + SK Hynix réaligné
 ```
 
+
+---
+
+## Close 2026-06-09 (soir — #111 SOCLE S1c HARD mode + L29 OTS fail-loud + #104 audit canonical drift)
+
+### Livré (8 commits soir, ~17h-19h)
+
+**#111 SOCLE S1c migration yfinance → gateway prices.py (5 salves cumul)** :
+- `20f600b` salve 1 : 4 fichiers (return_clustering, debt_monitor, portfolio_metrics, macro), ratchet 51 → 45
+- `6486f65` salve 2 : 7 fichiers (benchmark, insider_buy_cluster, crypto, trade_context, backtest, review price, daily.resolve_journal), 45 → 38
+- `afe7738` salve 3 : 4 fichiers (thesis_invariants, morning_brief, import_positions_legacy, backtest_macro_composite), 38 → 34
+- `b521fd3` salve 4 : helpers `get_info()/get_calendar()` + migrations ticker_names/review_valo/calendar, allowlist 19→1
+- `d469b47` salve 5 HARD : helpers `get_financials()/get_balance_sheet()/get_cashflow()` + analyze.py migré, allowlist 1→0
+- Cumul : **51 → 0 imports yfinance hors `shared/prices.py`** (100% migration achevée)
+- Bonus : ratchet shell `check_yfinance_gate.sh` réécrit en AST Python (filtre proprement commentaires/docstrings, plus de faux positifs grep). Gate exit code 0 = HARD mode confirmé.
+
+**L29 OTS fail-loud (root cause base_health RED découvert en milieu de session)** :
+- `2d3a4e4` : OTS anchor chain-head manuel — rattrapage du silent-fail 27h+
+- `3359f07` fix script : `rm -f .ots` avant `ots stamp` (le script ne nettoyait pas → `[Errno 17] File exists` quotidien depuis 08/06 13h53)
+- `f3289c5` fix wrapper Python : `notify.send_text("[OPS] integrity_anchor FAIL ...")` sur returncode/timeout/exception. Plus de silent-fail dans bot.log noyé.
+
+**#104 L25 audit canonical drift** :
+- `cf24ef6` `scripts/audit_canonical_drift.py` : scan SPEC_*.md, footer Implementation Status, refs code, drift, doublons synonymes. Exit codes 0/1/2.
+- `.claude/commands/close.md` étape 6 ajoutée : audit en sortie de session.
+
+### KNOWN-GAP acté (à documenter — pas blocker, mais ne pas mentir par omission)
+
+**Granularité dates OTS perdue fenêtre 08/06 13h53 → 09/06 17h22** : pendant 27h le cron OTS anchor a silent-failé. La chain-head re-prouvée aujourd'hui (commit `2d3a4e4`) **re-prouve toute la chaîne jusqu'à présent** — l'intégrité cumulative tient (verify_chain OK avant stamp). En revanche, **on ne peut pas prouver après-coup qu'une prédiction de la fenêtre 08-09/06 existait à sa date passée**, seulement qu'elle existait *au plus tard le 09/06 17h22*. Perte bornée et auditable (la chaîne est honnête), mais à ne pas oublier si jamais Olivier doit produire une preuve granulaire à la date pour des résolutions Brier de cette fenêtre.
+
+### État système 09/06 soir
+
+- Bot PRESAGE relancé (PID 10313 dans bot.pid), polling Telegram OK, crons schedulés (next OTS = demain 6h00)
+- SOCLE base_health : **GREEN** (positions verite + fraicheur 0h + chaîne intègre + OTS 0h)
+- Tests : 1690 passed, 2 skipped (post-salve 5)
+- Gate yfinance : HARD mode (0 violation, AST-based) + gate pytest test_no_new_yfinance_bypass vert
+- Audit canonical drift baseline : 9 SPECs / 7 sans footer Implementation Status (dette doctrinale visible, non-blocker)
+- alembic head : 0050 (inchangé)
+
+### Entry next session
+
+1. **Demain 6h00 vérifier que le cron OTS daily a fired** : `tail -30 bot.log | grep integrity` → devrait voir `integrity_anchor OK : ...`. Si fail, Telegram OPS alert sera arrivée. Si pas d'alerte ET pas de log OK → bot crashé entre temps, restart manuel.
+2. **#110 SPEC_LIVING_GRAPH** : base_health vert acquis, condition levée. Graver le SPEC DAG coherence-checker. Bon next chantier conceptuel post-marathon.
+3. **Dette doctrinale L25** : 7 SPECs sans footer (ALERT_VOCABULARY, CONSENSUS_FRAGILITE, CONSENSUS_MICRO, CORNERSTONE, LEDGER, MONEY_INVARIANT, SOCLE). Ajouter section "Implementation Status" à chacun — geste mécanique 5min/SPEC. CONSENSUS_FRAGILITE + CONSENSUS_MICRO sont orphelins (refs=0) à comprendre/wirer ou marquer FUTURE.
+4. **#120 CURE RACINE positions seam** : NE PAS attaquer fatigué (marathon 3 jours). Garde pour tête reposée, c'est le chantier seam-not-big-bang.
+
+### Commits session 09/06 soir (chronologique, plus récent en haut)
+
+```
+f3289c5 [fix]                  integrity_anchor wrapper Telegram alert sur fail (L29 fail-loud)
+cf24ef6 [L25]                  audit_canonical_drift.py + integration /close étape 6
+3359f07 [fix]                  integrity_anchor.sh rm -f .ots avant re-stamp (silent-fail 27h+)
+2d3a4e4 [integrity]            anchor chain-head 2026-06-09T08:23 (rattrapage manuel)
+d469b47 [P1] SOCLE S1c HARD    analyze.py migré + gate AST-based 0 violation (allowlist vidée)
+b521fd3 [P1] SOCLE S1c salve 4 prices.get_info()/get_calendar() + 3 derniers, allowlist 1
+afe7738 [#111] salve 3         4 fichiers, ratchet 38 → 34
+6486f65 [#111] salve 2         7 fichiers, ratchet 45 → 38
+20f600b [#111] salve 1         4 fichiers, ratchet 51 → 45
+```

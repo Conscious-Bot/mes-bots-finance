@@ -1,26 +1,35 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 09 juin 2026 soir (session marathon 3 jours close — ledger transactions append-only en prod, write-path restauré, 1631/1633 vert, single-source ledger→VUE→book opérationnel)
+**Refresh** : 09 juin 2026 soir tard (session marathon 3 jours suite — SOCLE S1c HARD mode 100%, L29 OTS fail-loud, audit canonical drift wire /close)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (09/06 soir — session ledger close)
+## 🟢 ÉTAT SYSTÈME (09/06 soir tard — session #111 SOCLE S1c HARD close)
 
-- **alembic_version** : 0048 (positions = VUE dérivée)
-- **Tests** : 1631 passed, 0 failed, 2 skipped (full-suite 09/06 12:39 + 58 targeted refactor post-#126/#3)
-- **Bot status** : opérationnel. Write-path restauré via `add_buy/add_sell` wrappers INSERT transactions.
-- **Crons sains** :
-  - `price_monitor_job` (15min mon-fri 14h-22h) ✓ alimente price_history → VUE
-  - `_reconcile_positions_prices_job` DÉSACTIVÉ (obsolète depuis 0048, fields viennent de la VUE)
-  - autres crons inchangés (gmail/stress_gate/calendar/backup/integrity_anchor/crypto_zone/credibility_brier/monthly_track_record/j_day)
-- **Ledger state** : 42 transactions ingérées (21 anchors + 21 trades TR back-fill), 30 positions_meta (26 open + 4 closed), gate `check_ledger_view_equivalence` EXIT 0 GREEN
-- **Backups DB** : 5 snapshots conservés pour rollback (pre-realign, pre-#121, pre-0048, pre-#126, pre-0047b)
-- **Livrables clés session** : SPEC_LEDGER.md gravée, ledger transactions append-only, write-path restauré (add_buy/sell wrappers), filtre canonique real-tickers L27
-- **Backlog ouvert** : feed broker auto (P0 différable, prochaine session), banner SK Hynix proxy (P1), drop positions_legacy_snapshot (P1)
+- **alembic_version** : 0050 (positions VUE + colonnes dérivées NULL fail-closed L29)
+- **Tests** : 1690 passed, 0 failed, 2 skipped (full-suite 09/06 post-salve 5)
+- **Bot status** : relancé PID 10313, polling Telegram OK, crons schedulés (next OTS = 10/06 6h00)
+- **SOCLE base_health** : **GREEN** (positions verite + fraicheur 0h + chaîne intègre + OTS 0h)
+- **Gates verts** :
+  - `test_no_new_yfinance_bypass` : HARD mode (allowlist vidée, 0 violation)
+  - `check_yfinance_gate.sh` : AST-based, exit 0 (filtre proprement commentaires/docstrings)
+  - `test_no_pmp_calculation_resurrects_in_view_sql` : VUE fail-closed verrou
+  - `check_ledger_view_equivalence` : EXIT 0 GREEN
+- **Crons sains** : price_monitor / gmail / stress_gate / calendar / backup / integrity_anchor (FAIL-LOUD désormais) / crypto_zone / credibility_brier / monthly_track_record / j_day
+- **OTS anchors** : chain-head re-prouvée 09/06 17h22 (commit 2d3a4e4). KNOWN-GAP granularité dates fenêtre 08-09/06 documentée dans SESSION_STATE.
+- **Livrables clés session** : #111 SOCLE S1c HARD mode (51→0 imports), L29 OTS fail-loud (script + wrapper Telegram), #104 audit_canonical_drift.py + /close hook
+- **Dette doctrinale visible** : 7 SPECs sans footer Implementation Status (cf audit_canonical_drift exit 1) — ajouter footer geste mécanique 5min/SPEC
+- **Backlog ouvert** : feed broker auto (P0 différable), #110 SPEC_LIVING_GRAPH (condition base_health vert acquise), #120 CURE RACINE positions seam (NE PAS attaquer fatigué)
 
 ---
+
+## ✅ DÉJÀ FAIT (09/06 soir tard — #111 SOCLE S1c HARD + L29 fail-loud + #104 L25 audit)
+
+- **#111 SOCLE S1c HARD mode** : 5 salves, 51 → 0 imports yfinance hors `shared/prices.py`. Helpers gateway ajoutés : `get_info()` `get_calendar()` `get_financials()` `get_balance_sheet()` `get_cashflow()`. Allowlist vidée. Gate AST Python remplace grep large (commits 20f600b, 6486f65, afe7738, b521fd3, d469b47)
+- **L29 OTS fail-loud** : root cause silent-fail 27h+ découvert via base_health manuel. Fix script `rm -f .ots` avant re-stamp + wrapper Python `notify.send_text("[OPS] integrity_anchor FAIL")` sur returncode/timeout/exception. Tout silent-fail surface désormais Telegram (commits 3359f07, f3289c5). OTS chain-head rattrapée commit 2d3a4e4.
+- **#104 L25 audit_canonical_drift** : `scripts/audit_canonical_drift.py` scan SPEC_*.md (footer Implementation Status + refs code + drift + doublons synonymes). Exit codes 0/1/2. Étape 6 du `/close` rituel (commit cf24ef6)
 
 ## ✅ DÉJÀ FAIT (09/06 — session marathon ledger)
 
