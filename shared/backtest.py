@@ -95,32 +95,26 @@ def load_yfinance_history(
         DataFrame indexe par date, colonnes = tickers, valeurs = close.
         Tickers qui fail au fetch sont silencieusement droppes (logged).
     """
-    try:
-        import yfinance as yf
-    except ImportError as e:
-        raise RuntimeError("yfinance manquant") from e
+    # SOCLE S1c (#111) : migré yf.download batch → loop ensure_price_history.
+    # Le gateway shared.prices porte le throttle anti-ban + cache DB partagé.
+    # Trade-off : perd le batch parallelism yf, mais cache DB rend ça négligeable
+    # pour usage répétés (backtest re-runs).
+    from shared.prices import ensure_price_history
 
-    df = yf.download(
-        tickers=" ".join(tickers) if isinstance(tickers, list) else tickers,
-        start=str(start),
-        end=str(end),
-        interval="1d",
-        auto_adjust=auto_adjust,
-        progress=False,
-        threads=True,
-    )
-    if df is None or df.empty:
+    tk_list = tickers if isinstance(tickers, list) else [tickers]
+    closes: dict = {}
+    for tk in tk_list:
+        try:
+            h = ensure_price_history(tk, str(start), str(end))
+            if h is not None and not h.empty:
+                price_col = "price_native" if "price_native" in h.columns else "Close"
+                closes[tk] = h.set_index("asof")[price_col] if "asof" in h.columns else h[price_col]
+        except Exception:
+            pass
+
+    if not closes:
         return pd.DataFrame()
-
-    # df multi-index si len(tickers) > 1
-    if isinstance(df.columns, pd.MultiIndex):
-        close = df["Close"] if "Close" in df.columns.get_level_values(0) else df
-    else:
-        if "Close" in df.columns:
-            close = df[["Close"]].rename(columns={"Close": tickers[0]})
-        else:
-            close = df
-
+    close = pd.DataFrame(closes)
     # Forward fill puis drop rows entierement NaN
     close = close.ffill().dropna(how="all")
     return close

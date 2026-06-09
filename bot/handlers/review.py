@@ -40,24 +40,23 @@ def _compute_returns(ticker: str, sector_index: str | None) -> dict:
     Plus precis que interval='1mo' qui agrege par mois et peut donner des
     deltas mensuels au lieu de point-in-time.
     """
-    try:
-        import math
+    # SOCLE S1c (#111) : migré yf.Ticker → prices.ensure_price_history gateway.
+    import math
+    from datetime import UTC, datetime, timedelta
 
-        import yfinance as yf
-    except Exception:
-        return {}
+    from shared.prices import ensure_price_history
     out = {}
+    end_dt = datetime.now(UTC)
+    start_dt = end_dt - timedelta(days=3 * 365)
     for symbol, prefix in [(ticker, "t"), (sector_index, "idx")]:
         if not symbol:
             continue
         try:
-            t_obj = yf.Ticker(symbol)
-            # auto_adjust=True : split + dividend adjusted (SOXX 3:1 split mars 2024
-            # sinon donne +151% YoY au lieu de +30-40% realiste).
-            hist = t_obj.history(period="3y", interval="1d", auto_adjust=True)
-            if hist.empty:
+            hist = ensure_price_history(symbol, start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d"))
+            if hist is None or hist.empty:
                 continue
-            close = hist["Close"].dropna()
+            price_col = "price_native" if "price_native" in hist.columns else "Close"
+            close = hist[price_col].dropna()
             n = len(close)
             if n < 30:
                 continue

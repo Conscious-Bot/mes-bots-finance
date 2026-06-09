@@ -127,10 +127,11 @@ async def resolve_journal_decisions_job():
     try:
         import sqlite3 as _sql
 
-        import yfinance as yf
-
+        # SOCLE S1c (#111) : migré yf.Ticker(t).info.regularMarketPrice
+        # → prices.get_current_price (gateway canonique, same source).
         from intelligence import journal as journal_mod
         from shared import storage as storage_mod
+        from shared.prices import get_current_price
 
         total_30 = 0
         total_90 = 0
@@ -141,10 +142,9 @@ async def resolve_journal_decisions_job():
             for d in unres:
                 ticker = d["ticker"]
                 try:
-                    info = yf.Ticker(ticker).info or {}
-                    price_now = info.get("regularMarketPrice") or info.get("currentPrice")
+                    price_now = get_current_price(ticker)
                 except Exception as e:
-                    log.warning(f"resolve_journal: yfinance failed for {ticker}: {e}")
+                    log.warning(f"resolve_journal: gateway failed for {ticker}: {e}")
                     continue
 
                 if not price_now or not d.get("price_at_decision"):

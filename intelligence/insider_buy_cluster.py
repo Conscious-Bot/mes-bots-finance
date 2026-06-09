@@ -19,19 +19,14 @@ log = logging.getLogger(__name__)
 
 
 def _close_at_or_after(ticker, target_date):
-    """Return close price on or just after target_date (handles weekends/holidays)."""
-    try:
-        import yfinance as yf
+    """Return close price on or just after target_date (handles weekends/holidays).
 
-        start = (target_date - timedelta(days=2)).strftime("%Y-%m-%d")
-        end = (target_date + timedelta(days=10)).strftime("%Y-%m-%d")
-        hist = yf.Ticker(ticker).history(start=start, end=end)
-        if hist.empty:
-            return None
-        for idx, row in hist.iterrows():
-            if idx.date() >= target_date.date():
-                return float(row["Close"])
-        return None
+    SOCLE S1c (#111) : migré yf.Ticker → prices.get_close_on (gateway canonique
+    qui auto-aligne weekend/holiday via 7j forward window).
+    """
+    from shared.prices import get_close_on
+    try:
+        return get_close_on(ticker, target_date.strftime("%Y-%m-%d"))
     except Exception as e:
         log.warning(f"price fetch failed {ticker} @ {target_date}: {e}")
         return None

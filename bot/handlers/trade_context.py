@@ -224,11 +224,18 @@ def compute_trade_context(action: str, ticker: str, qty: float, price: float) ->
         # FOMO check pour buy : ticker en hausse +15% sur 7d ?
         if action == "buy":
             try:
-                import yfinance as yf
+                # SOCLE S1c (#111) : migré yf.Ticker → prices.ensure_price_history.
+                from datetime import UTC, datetime, timedelta
 
-                from shared.prices import get_current_price_in_eur  # noqa: F401
-                h = yf.Ticker(ticker.upper()).history(period="10d", interval="1d")["Close"].dropna()
-                if len(h) >= 6:
+                from shared.prices import ensure_price_history
+                end_dt = datetime.now(UTC)
+                start_dt = end_dt - timedelta(days=10)
+                h_df = ensure_price_history(
+                    ticker.upper(), start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d"),
+                )
+                price_col = "price_native" if (h_df is not None and "price_native" in h_df.columns) else "Close"
+                h = h_df[price_col].dropna() if (h_df is not None and not h_df.empty) else None
+                if h is not None and len(h) >= 6:
                     perf_7d = (float(h.iloc[-1]) - float(h.iloc[-6])) / float(h.iloc[-6]) * 100
                     if perf_7d >= 15.0:
                         bias_warnings.append(

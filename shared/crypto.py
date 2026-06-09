@@ -81,13 +81,18 @@ def get_open_interest_ratio(symbol: str = "BTCUSDT", days: int = 14) -> dict | N
 
 def get_mayer_multiple() -> dict | None:
     """BTC price / 200d MA. Historically >2.4 = top, <0.8 = capitulation."""
-    try:
-        import yfinance as yf
+    # SOCLE S1c (#111) : migré yf.Ticker → prices.ensure_price_history gateway.
+    from datetime import UTC, datetime, timedelta
 
-        hist = yf.Ticker("BTC-USD").history(period="1y", interval="1d")
-        if hist.empty or len(hist) < 200:
+    from shared.prices import ensure_price_history
+    try:
+        end = datetime.now(UTC)
+        start = end - timedelta(days=365)
+        hist = ensure_price_history("BTC-USD", start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+        if hist is None or hist.empty or len(hist) < 200:
             return None
-        close = hist["Close"]
+        price_col = "price_native" if "price_native" in hist.columns else "Close"
+        close = hist[price_col]
         ma200 = float(close.tail(200).mean())
         current = float(close.iloc[-1])
         mm = current / ma200 if ma200 > 0 else 1.0

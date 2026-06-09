@@ -44,23 +44,23 @@ def fetch_benchmark_return(months: int = 6) -> dict | None:
     Semiconductor ETF, plus pertinent qu'un large-cap pour un concentrator
     semis). Fallback ^SOX si SOXX indispo.
     """
-    try:
-        import yfinance as yf
-    except ImportError:
-        return None
+    # SOCLE S1c (#111) : migré yf.Ticker → prices.ensure_price_history gateway.
+    from datetime import timedelta
+
+    from shared.prices import ensure_price_history
     primary, fallback = _get_user_benchmark()
     for ticker in (primary, fallback):
         try:
-            from datetime import timedelta
-
             end = datetime.now(UTC)
             start = end - timedelta(days=months * 30)
-            t = yf.Ticker(ticker)
-            hist = t.history(start=start, end=end)
+            hist = ensure_price_history(
+                ticker, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"),
+            )
             if hist is None or hist.empty:
                 continue
-            first = float(hist["Close"].iloc[0])
-            last = float(hist["Close"].iloc[-1])
+            price_col = "price_native" if "price_native" in hist.columns else "Close"
+            first = float(hist[price_col].iloc[0])
+            last = float(hist[price_col].iloc[-1])
             pct = (last - first) / first * 100 if first else 0
             return {
                 "ticker": ticker,
