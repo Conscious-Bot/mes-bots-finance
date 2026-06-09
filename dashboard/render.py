@@ -5802,6 +5802,15 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         def _cp_for(_t: str) -> str:
             return "unknown"
     _th_warnings = _ticker_warnings_map(positions)
+    # Fix L29 (4e caller seam, ferme la fenetre désaccord inter-panneaux) :
+    # récupère book_idx pour ancrer la gauge sur avg_cost_eur via BookLine EUR
+    # (single source L27, money-invariant L28). Sans ça, ce panneau désaccorde
+    # des 3 autres déjà migrés (position card / book row / asym panel).
+    try:
+        from shared import book as _bk_th
+        _book_idx_th = _bk_th.get_book_index()
+    except Exception:
+        _book_idx_th = {}
     # _CP_CLS_TH mort -- remplace par _cycle_chip_cls_via_vocab (#117 vocabulary)
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
@@ -5860,6 +5869,18 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             pnl_real = pnl.get(tk)
             if pnl_real is not None and pnl_real >= 0:
                 n_profit += 1
+        # Fix L29 : override les 4 valeurs natives par EUR (avg_cost_eur ancré)
+        # si BookLine présente. Les ratios KPI ci-dessus (d_stop/d_tgt/ratio/frac)
+        # CONTINUENT d'utiliser natives (FX-invariants) -- l'override ne touche
+        # QUE les 4 valeurs stockées dans t["_entry"/_stop/_tgt/_cur"] qui feedent
+        # la gauge canonique. Single source L27 : aucun fx local ici.
+        _ln_th = _book_idx_th.get(tk)
+        if has_bar and _ln_th and _ln_th.avg_cost_eur and _ln_th.stop_eur and _ln_th.target_full_eur and _ln_th.current_price_eur:
+            _entry_g, _stop_g, _tgt_g, _cur_g = (
+                _ln_th.avg_cost_eur, _ln_th.stop_eur, _ln_th.target_full_eur, _ln_th.current_price_eur
+            )
+        else:
+            _entry_g, _stop_g, _tgt_g, _cur_g = entry, stop, tgt, current
         ths.append(
             {
                 "tk": tk,
@@ -5875,10 +5896,10 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 "has_bar": has_bar,
                 "cat": sectors.get(tk, ""),
                 "tpart": tpart,
-                "_entry": entry if has_bar else None,
-                "_stop": stop if has_bar else None,
-                "_tgt": tgt if has_bar else None,
-                "_cur": current if has_bar else None,
+                "_entry": _entry_g if has_bar else None,
+                "_stop": _stop_g if has_bar else None,
+                "_tgt": _tgt_g if has_bar else None,
+                "_cur": _cur_g if has_bar else None,
             }
         )
     n = len(ths)
