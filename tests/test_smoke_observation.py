@@ -147,7 +147,8 @@ def test_db_schema_critical_tables_exist(tmp_path):
     tables = {
         r[0]
         for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            # Inclut VIEWs depuis migration 0048 (positions = VUE dérivée)
+            "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'"
         ).fetchall()
     }
     conn.close()

@@ -29,10 +29,11 @@ def _columns(db: Path, table: str) -> set[str]:
 
 
 def _tables(db: Path) -> set[str]:
+    """Returns table AND view names. Depuis migration 0048, positions est une VUE."""
     cx = sqlite3.connect(db)
     try:
         rows = cx.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
+            "SELECT name FROM sqlite_master WHERE type IN ('table','view')"
         ).fetchall()
     finally:
         cx.close()

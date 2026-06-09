@@ -67,7 +67,17 @@ def cost_in(avg_cost_eur: float | None, target_cur: str = "USD") -> float | None
 
 
 def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = None) -> dict:
-    """Set/replace position. Use for bootstrap of existing holdings."""
+    """Set/replace position. Use for bootstrap of existing holdings.
+
+    OBSOLÈTE depuis migration 0048 : positions est une VUE dérivée de transactions.
+    Tout UPDATE/INSERT direct est refusé par SQLite. Pour modifier une position,
+    INSERT dans transactions (cf SPEC_LEDGER §1 + scripts/backfill_5_stale_from_tr_export.py
+    comme modèle).
+    """
+    raise NotImplementedError(
+        "set_position: positions est une VUE (migration 0048). "
+        "INSERT dans transactions à la place. Cf SPEC_LEDGER §1."
+    )
     ticker = ticker.upper()
     with db() as cx:
         _ensure_tables(cx)
@@ -101,10 +111,15 @@ def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = N
 def add_buy(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
     """Add buy; weighted-avg cost recalc on existing position, or create new.
 
-    Sprint 19 : si entry sur ticker SANS ticker_axes/meta, declenche auto-
-    classification en background pour qu'il rentre dans factor_exposures,
-    Mauboussin sizing, SPOF, T2_redondant, decorrelation_star.
+    OBSOLÈTE depuis migration 0048 : positions est une VUE. Voir SPEC_LEDGER §1.
+    Pour ingérer un buy : INSERT INTO transactions (side='BUY', ...).
+    TODO refactor #126 : transformer cette fonction en wrapper INSERT transaction
+    + side effects (lock_in_detector hook, auto_classify) préservés.
     """
+    raise NotImplementedError(
+        "add_buy: positions est une VUE (migration 0048). "
+        "INSERT INTO transactions (side='BUY', ...) à la place. Cf SPEC_LEDGER §1."
+    )
     ticker = ticker.upper()
     was_new_entry = False
     with db() as cx:
@@ -176,7 +191,17 @@ def _auto_classify_new_ticker(ticker: str) -> None:
 
 
 def add_sell(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
-    """Sell shares. Computes realized P&L. Auto-closes if qty → 0."""
+    """Sell shares. Computes realized P&L. Auto-closes if qty → 0.
+
+    OBSOLÈTE depuis migration 0048 : positions est une VUE. Voir SPEC_LEDGER §1.
+    Pour ingérer une vente : INSERT INTO transactions (side='SELL', ...).
+    TODO refactor #126 : transformer en wrapper INSERT transaction + side effects
+    (lock_in_detector hook L1 confirmé câblé, audit log) préservés.
+    """
+    raise NotImplementedError(
+        "add_sell: positions est une VUE (migration 0048). "
+        "INSERT INTO transactions (side='SELL', ...) à la place. Cf SPEC_LEDGER §1."
+    )
     ticker = ticker.upper()
     with db() as cx:
         _ensure_tables(cx)

@@ -234,12 +234,10 @@ async def post_init(app):
     sched.add_job(heartbeat, "interval", hours=1)
     sched.add_job(ingest_gmail_job, "interval", hours=1)
     sched.add_job(price_monitor_job, "cron", hour="14-22", minute="*/15", day_of_week="mon-fri")
-    # Axe 5 QUALITY_BAR : reconcile M1 columns 15min business hours.
-    # Maintient data health panel en green sans intervention.
-    sched.add_job(
-        _reconcile_positions_prices_job,
-        "cron", hour="14-22", minute="*/15", day_of_week="mon-fri",
-    )
+    # OBSOLÈTE depuis migration 0048 : positions est une VUE, last_price_*/fx_* viennent
+    # de price_history + fx_history via JOIN. Le cron qui populait ces champs en UPDATE
+    # positions n'a plus de raison d'être ET échouerait sur la VUE. Désactivé.
+    # sched.add_job(_reconcile_positions_prices_job, "cron", ...)  # cf SPEC_LEDGER §2.2
     # Axe 4 QUALITY_BAR : stress-gate daily check + notify si breach.
     # Daily 7:00 : le book bouge lentement, in-session not needed.
     sched.add_job(_stress_gate_check_job, "cron", hour=7, minute=0)

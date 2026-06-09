@@ -1588,9 +1588,14 @@ def get_all_sources_with_half_life():
 
 def create_or_update_position_on_buy(ticker, qty, price, notes=None):
     """Phase B5 — Record buy. Returns (position_id, decision_type, new_avg, new_qty).
-    decision_type = 'entry' if first buy, 'scale_in' otherwise.
-    Uses existing schema: qty / avg_cost / status='open'/'closed'.
+
+    OBSOLÈTE depuis migration 0048 : positions est une VUE dérivée. Voir SPEC_LEDGER §1.
+    Pour ingérer un buy : INSERT INTO transactions (side='BUY', ...).
     """
+    raise NotImplementedError(
+        "create_or_update_position_on_buy: positions est une VUE (migration 0048). "
+        "INSERT INTO transactions (side='BUY', ...) à la place. Cf SPEC_LEDGER §1."
+    )
     if qty <= 0 or price <= 0:
         raise ValueError(f"qty and price must be positive, got qty={qty} price={price}")
     ticker = ticker.upper()
@@ -1623,7 +1628,15 @@ def create_or_update_position_on_buy(ticker, qty, price, notes=None):
 
 
 def record_position_sell(ticker, qty, price):
-    """Phase B5 — Record sell. Returns (position_id, decision_type, realized_pnl_delta, new_qty)."""
+    """Phase B5 — Record sell. Returns (position_id, decision_type, realized_pnl_delta, new_qty).
+
+    OBSOLÈTE depuis migration 0048 : positions est une VUE. Voir SPEC_LEDGER §1.
+    Pour ingérer une vente : INSERT INTO transactions (side='SELL', ...).
+    """
+    raise NotImplementedError(
+        "record_position_sell: positions est une VUE (migration 0048). "
+        "INSERT INTO transactions (side='SELL', ...) à la place. Cf SPEC_LEDGER §1."
+    )
     if qty <= 0 or price <= 0:
         raise ValueError(f"qty and price must be positive, got qty={qty} price={price}")
     ticker = ticker.upper()

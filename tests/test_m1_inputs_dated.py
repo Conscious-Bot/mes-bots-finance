@@ -117,13 +117,13 @@ def test_position_valuation_returns_none_without_observation(migrated_db):
     from shared import storage
     from shared.valuation import position_valuation
 
-    # Create test position
+    # Create test position via ledger pattern (migration 0048 : positions est une VUE)
     with storage.db() as cx:
-        cx.execute(
-            "INSERT INTO positions (ticker, qty, avg_cost, status, opened_at, last_updated) "
-            "VALUES (?, ?, ?, 'open', ?, ?)",
-            ("TESTV", 10.0, 100.0, "2026-06-07", "2026-06-07"),
-        )
+        cx.execute("INSERT INTO positions_meta (ticker, status, account, wrapper) "
+                   "VALUES (?, 'open', 'TR', 'CTO')", ("TESTV",))
+        cx.execute("INSERT INTO transactions (ticker, side, qty, price_native, fees_native, "
+                   "currency, fx_at_trade, trade_date, source) "
+                   "VALUES ('TESTV', 'BUY', 10.0, 100.0, 0, 'EUR', 1.0, '2026-06-07', 'test')")
         pid = cx.execute("SELECT id FROM positions WHERE ticker='TESTV'").fetchone()[0]
 
     val = position_valuation(pid)
@@ -141,13 +141,13 @@ def test_position_valuation_computes_eur_when_fresh(migrated_db):
     from shared import storage
     from shared.valuation import position_valuation
 
-    # Setup position + fresh observations
+    # Setup position via ledger pattern (migration 0048) + fresh observations
     with storage.db() as cx:
-        cx.execute(
-            "INSERT INTO positions (ticker, qty, avg_cost, status, opened_at, last_updated) "
-            "VALUES (?, ?, ?, 'open', ?, ?)",
-            ("FRESH", 5.0, 100.0, "2026-06-07", "2026-06-07"),
-        )
+        cx.execute("INSERT INTO positions_meta (ticker, status, account, wrapper) "
+                   "VALUES (?, 'open', 'TR', 'CTO')", ("FRESH",))
+        cx.execute("INSERT INTO transactions (ticker, side, qty, price_native, fees_native, "
+                   "currency, fx_at_trade, trade_date, source) "
+                   "VALUES ('FRESH', 'BUY', 5.0, 100.0, 0, 'USD', 0.92, '2026-06-07', 'test')")
         pid = cx.execute("SELECT id FROM positions WHERE ticker='FRESH'").fetchone()[0]
     storage.insert_price_observation("FRESH", 200.0, "USD", source="test")
     storage.insert_fx_observation("USD", "EUR", 0.92, source="test")
@@ -167,11 +167,11 @@ def test_position_valuation_fail_closed_on_stale_inputs(migrated_db):
     from shared.valuation import position_valuation
 
     with storage.db() as cx:
-        cx.execute(
-            "INSERT INTO positions (ticker, qty, avg_cost, status, opened_at, last_updated) "
-            "VALUES (?, ?, ?, 'open', ?, ?)",
-            ("STALE", 5.0, 100.0, "2026-06-07", "2026-06-07"),
-        )
+        cx.execute("INSERT INTO positions_meta (ticker, status, account, wrapper) "
+                   "VALUES (?, 'open', 'TR', 'CTO')", ("STALE",))
+        cx.execute("INSERT INTO transactions (ticker, side, qty, price_native, fees_native, "
+                   "currency, fx_at_trade, trade_date, source) "
+                   "VALUES ('STALE', 'BUY', 5.0, 100.0, 0, 'USD', 0.92, '2026-06-07', 'test')")
         pid = cx.execute("SELECT id FROM positions WHERE ticker='STALE'").fetchone()[0]
 
     # Inserer observation TRES vieille (>= rouge SLA price)
