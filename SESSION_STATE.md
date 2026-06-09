@@ -2702,3 +2702,28 @@ afe7738 [#111] salve 3         4 fichiers, ratchet 38 → 34
 6486f65 [#111] salve 2         7 fichiers, ratchet 45 → 38
 20f600b [#111] salve 1         4 fichiers, ratchet 51 → 45
 ```
+
+---
+
+### Addendum 09/06 22h+ (post-close intermédiaire ae239de — 5 commits supplémentaires)
+
+**L25 dette doctrinale fermée + doublon résolu** :
+- `a28d2b6` : footer Implementation Status ajouté sur 7 SPECs (ALERT_VOCABULARY, CONSENSUS_FRAGILITE, CONSENSUS_MICRO, CORNERSTONE, LEDGER, MONEY_INVARIANT, SOCLE). audit_canonical_drift baseline 7→0 sans footer.
+- `a66aa58` : verify-before-delete sur SPEC_CONSENSUS_MICRO vs FRAGILITE → diff confirme strict superset doctrinal (contenu identique mot pour mot, différences formatage uniquement). MICRO supprimé (`git rm`), provenance migrée dans footer FRAGILITE, TODO #92 re-pointé. Audit final : 8 SPECs, 0 sans footer, 0 drift, exit 0.
+- **Boucle L25 complète en une session** : SPEC gravée 08/06 → outil audit_canonical_drift né (cf90...) → outil détecte 7 dettes + 2 orphelins → sweep footers → verify-before-delete → suppression propre → audit confirme exit 0. L'outil a payé son écot le jour de sa naissance.
+
+**L29 gauge ancrée sur avg_cost_eur (3/4 callers migrés via seam additif)** :
+- `ffc3286` : position card (L2449) migrée. BookLine properties EUR ajoutées (`stop_eur`, `target_full_eur`, `target_partial_eur`, `entry_eur`) = single source FX-correcte L27, aucun fx local dans les callers. `_position_axis` docstring clarifie anchor-agnostique (le param `entry` = ANCRE du zéro). Workaround tooltip l.383-388 retiré (les chiffres EUR sont vrais maintenant). Dot=pnl_position EUR = tooltip (byte-identité info).
+- `a5fc770` : book row (L6484) migré via _book_idx (pattern frais reproduit).
+- `d716298` : asym panel (L7024) migré (3e caller, pattern identique).
+
+**KNOWN-GAP migration étagée (à acter avant lecture demain)** :
+- **Theses panel L5936 PAS migré** (4e caller, dernier restant). Il affiche encore la gauge ancrée sur entry_thèse → désaccord temporaire avec les 3 autres panneaux migrés. **Fenêtre normale d'une migration étagée**, se ferme avec le 4e caller demain (TODO #121). Si tu vois la gauge "différente" sur le panneau Thèses ce soir/demain matin, c'est attendu, pas un nouveau bug. Le theses panel nécessite récupérer `book_idx` (pas en scope actuel, vs les autres) = fresh-head required.
+
+**État final 09/06 soir tard** :
+- 15 commits cette portion (5 supplémentaires post-close ae239de)
+- 184 tests targeted verts (commits a5fc770/ffc3286)
+- SOCLE GREEN (vérifié 17h23)
+- Bot up (PID 10313, polling Telegram, cron OTS demain 6h00)
+- Audit canonical_drift : 8 SPECs, exit 0
+- Plainte initiale gauge AMD/4063.T : résolue (position card affiche dot=tooltip cohérents)

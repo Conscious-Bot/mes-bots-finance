@@ -44,34 +44,36 @@
 
 ---
 
-## 🟡 P0 DIFFÉRABLE — Feed broker auto (prochaine session)
+## 🔴 P0 ACTIONNABLES NEXT SESSION (réveil demain — 3 actions ordonnées)
 
-Le **write-path est restauré** (le bot peut enregistrer un trade via wrappers `add_buy/add_sell`). Mais le ledger reste **alimenté manuellement** : chaque vente partielle TR exige une saisie ou un INSERT script. La saga des 5 stale a démontré que le rituel manuel marche mais consomme.
+1. **Finir le seam L29 gauge — 4e caller : theses panel L5936** (TODO #121, fresh-head required). Pattern : récupérer `book_idx` (pas en scope actuellement vs les 3 autres callers déjà migrés), adapter construction `t["_entry"]/t["_stop"]/t["_tgt"]/t["_cur"]` pour lire BookLine EUR (`avg_cost_eur`, `stop_eur`, `target_full_eur`, `current_price_eur`). Diff = finding. Ferme la fenêtre temporaire de désaccord inter-panneaux (le theses panel affiche encore entry-thèse pendant que les 3 autres sont sur avg_cost). ~30min.
 
-**Tâche #127** — Refactor `sync_positions_from_broker.py` (mort depuis 0048 car UPDATE positions = VUE) en **pipeline `TR CSV → INSERT transactions`** :
-  - Idempotent via `broker_trade_id UNIQUE` (déjà testé)
-  - Convention cohérence : appelle `add_buy/add_sell` wrappers, pas INSERT direct (pour préserver side effects)
-  - Fees TR au prix du marché (1€/trade convention #121)
-  - Currency dérivée du ticker via `prices.get_currency_for_ticker`
-  - fx_at_trade = back-out depuis EUR débité TR (SPEC §1.5 §3) ou fallback fx_history@trade_date avec flag fx_is_derived=1
-  - source = `'TR_CSV_export_<date>'`
-  - Tests : ingestion idempotente, dedup composite si broker_trade_id absent, gestion partial close
+2. **#128 Banner SK Hynix proxy** (UI confiance réduite). Surface visible : `"prix = ligne coréenne KRW × fx, GDR EUR yfinance indispo"`. Coût et realized restent EUR-corrects via ledger. ~30min.
 
-Une pierre deux oiseaux : (a) automatise ce qu'on a fait manuellement pour les 5 stale, (b) ferme la dette opérationnelle. Différable parce que la saisie manuelle marche pour V0, mais devient nécessaire dès que le rythme d'opération augmente.
+3. **#110 SPEC_LIVING_GRAPH** (condition base_health vert ACQUISE 09/06 soir). Graver le DAG Datums → boucle vivante (coherence-checker self-applying). ~1h30 SPEC. Pattern fresh-head, low-fatigue (design > code).
+
+**À ne PAS attaquer fatigué** :
+- **#120 CURE RACINE positions seam additif render.py** — c'est le chantier seam-not-big-bang substantiel (multi-panneaux, ~2h). Mérite tête reposée pleine vigilance.
 
 ---
 
-## 🟡 P1 DIFFÉRABLE — UI & cleanup
+## 🟡 P0 DIFFÉRABLE archivé (#127 fait via back-fill 09/06)
 
-**Tâche #128** — **Banner SK Hynix proxy** (UI confiance réduite). Le système valorise SK Hynix via yfinance `000660.KS` (cote coréenne KRW) × fx → proxy GDR EUR détenu. Affichage type : `"prix = ligne coréenne KRW × fx, GDR EUR yfinance indispo"`. Le coût et le realized restent EUR-corrects via ledger.
+Refactor `sync_positions_from_broker.py` en pipeline `TR CSV → INSERT transactions` — partiellement fait via back-fill #121 + `scripts/rebuild_tr_ledger_from_csv.py`. Cure complète (idempotence broker_trade_id + fees automatique + flag fx_is_derived) reste différable selon rythme opération.
 
-**Tâche #129** — **Drop `positions_legacy_snapshot`** après quelques jours de confiance que la VUE fonctionne en prod (transitoire ; rollback runtime devient impossible mais le ledger est immuable, pas besoin).
+---
 
-**Tâche #130** — **Perf watch** : regen 45s / refresh 60s = marge fine. Profile la VUE si refresh perd la course quand le ledger grossit (10× transactions = test à 6.6min/regen possible).
+## 🟡 P1 DIFFÉRABLE — UI & cleanup résiduel
 
-**Tâche #131** — **Cleanup `_legacy_*_dead_code`** dans `shared/positions.py` (passe de propreté, non-urgent).
+**Tâche #128** — Banner SK Hynix proxy (cf P0 actionnable #2 ci-dessus). Reste à wirer dans dashboard.
 
-**Tâche #132** — **Sweep modules `intelligence/*` + `bot/`** pour SELECT directs sur positions (legacy) → migrer vers `book.get_held_lines()` ou VUE direct. Pas urgent — la VUE est read-compatible — mais cohérence L27 voudrait éviter les SELECT raw.
+**Tâche #129** — Drop `positions_legacy_snapshot` — **FAIT** via migration 0050 (`d469b47` antérieur).
+
+**Tâche #130** — Perf watch : regen 45s / refresh 60s = marge fine. `scripts/perf_watch.py` livré ; surveiller croissance ledger.
+
+**Tâche #131** — Cleanup `_legacy_*_dead_code` dans `shared/positions.py` — **FAIT** (commit `2acc1e7`).
+
+**Tâche #132** — Sweep modules `intelligence/*` + `bot/` pour SELECT directs sur positions → migrer vers `book.get_held_lines()` ou VUE direct. Non-urgent.
 
 ---
 
