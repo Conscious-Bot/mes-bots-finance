@@ -343,17 +343,23 @@ def _position_axis(
     extra_class: str = "",
     pnl_position_pct: float | None = None,
 ) -> str:
-    """Canonical position gauge (#91 unifie 03/06/2026).
+    """Canonical position gauge (#91 unifie 03/06/2026, anchor-agnostique).
 
     Quatre repères, lecture immediate, zero second-guess :
-    - LIMIT (stop) -> tick rouge a sa vraie distance neg vs entry
+    - LIMIT (stop) -> tick rouge a sa vraie distance neg vs `entry`
     - 0 (entry)    -> centre de l'axe, reference zero PnL
-    - TARGET       -> tick vert a sa vraie distance pos vs entry
-    - DOT          -> current price = signed PnL % vs entry
+    - TARGET       -> tick vert a sa vraie distance pos vs `entry`
+    - DOT          -> current price = signed PnL % vs `entry`
 
-    Geometrie : axis symetrique = max(|stop|, |target|, |cur|, 10%) autour
-    de entry. data-axmin/axmax injectes pour que le hover tooltip affiche
-    le signed % a la position du curseur (pas le % visuel brut).
+    SÉMANTIQUE DE `entry` (cf L29 09/06) : ce paramètre est l'ANCRE du zéro,
+    pas le prix d'appel de thèse en tant que tel. La fonction est anchor-
+    agnostique : passe ce que tu veux comme "zéro de la lecture". Pour la
+    gauge canonique post-fix L29, les callers passent avg_cost_eur (le vrai
+    coût utilisateur) et stop/target/current TOUS en EUR depuis BookLine →
+    dot et tooltip racontent alors la même chose (pnl_position).
+
+    Money-invariant (L28) : tous les 4 chiffres doivent vivre dans la MÊME
+    devise. Caller responsable -- la fonction ne convertit pas.
 
     Returns "" si donnees insuffisantes (caller affiche son fallback).
     """
@@ -380,12 +386,11 @@ def _position_axis(
     else:
         dot_cls = ""
     cls_full = ("sig-ent0 " + extra_class).strip()
-    # Tooltip : SEULEMENT le P&L broker (perf depuis l'achat broker, canonical EUR).
-    # Olivier 08/06 : "perf depuis l'achat broker EST la même que perf depuis entry".
-    # Vrai dans son modele mental, mais nos calculs divergent a cause du FX
-    # (entry_these stored native, avg_cost en EUR avec fx_at_purchase).
-    # Decision : on n'affiche QUE le P&L broker -- pas de stop/target/perf_these
-    # qui peuvent contredire. Le dot visuel position suffit pour stop/target.
+    # Tooltip : pnl_position_pct (P&L EUR depuis avg_cost broker).
+    # Post-fix L29 09/06 : quand le caller ancre la gauge sur avg_cost_eur en
+    # passant aussi stop_eur/target_eur/current_eur (tout EUR depuis BookLine),
+    # le dot calculé ci-dessus représente exactement pnl_position. Dot et
+    # tooltip racontent alors LA MÊME chose (byte-identité de l'info).
     if pnl_position_pct is not None:
         title_str = f"P&L {pnl_position_pct:+.1f}%"
     else:
@@ -2442,10 +2447,23 @@ def _position_card(inputs, steer_v2) -> str:
     else:
         asym_html = '<div class="pc-empty">stop/target non definis</div>'
 
-    # Slider : si stop dispo, position_axis canonique ; sinon stop=null bar
-    if stop and entry and full and current_price:
-        # Passer le pnl_pct (P&L position EUR, depuis avg_cost broker) au gauge
-        # pour que le tooltip affiche le vrai P&L user, pas perf-thèse native.
+    # Slider : si stop dispo, position_axis canonique ; sinon stop=null bar.
+    # Fix L29 09/06 : ancre la gauge sur avg_cost_eur (le vrai coût user), PAS
+    # entry_thèse. Tous les chiffres viennent de BookLine en EUR (single source
+    # L27, money-invariant L28). Le dot devient pnl_position EUR, le tooltip lit
+    # le même pnl_position -> dot et nombre racontent enfin la même chose
+    # (avant : dot=perf-depuis-appel-thèse, tooltip=perf-depuis-achat, divergeait
+    # franchement quand entry_thèse ≠ avg_cost comme AMD 386 vs 146).
+    _cost_eur = getattr(bl, "avg_cost_eur", None) if bl else None
+    _stop_eur = getattr(bl, "stop_eur", None) if bl else None
+    _tgt_eur = getattr(bl, "target_full_eur", None) if bl else None
+    _cur_eur = getattr(bl, "current_price_eur", None) if bl else None
+    if _cost_eur and _stop_eur and _tgt_eur and _cur_eur:
+        slider_html = _position_axis(_cost_eur, _stop_eur, _tgt_eur, _cur_eur, pnl_position_pct=pnl_pct)
+    elif stop and entry and full and current_price:
+        # Fallback : thèse sans avg_cost broker (rare — positions sans entry réel),
+        # garde l'ancien comportement entry-thèse native. KNOWN-GAP : tooltip
+        # peut diverger du dot dans ce cas (workaround antérieur).
         slider_html = _position_axis(entry, stop, full, current_price, pnl_position_pct=pnl_pct)
     elif entry and full and current_price:
         # No stop (structural) : montre seulement entry-current-target

@@ -223,6 +223,47 @@ class BookLine:
         return (self.current_price_eur - self.avg_cost_eur) / self.avg_cost_eur * 100
 
     @property
+    def stop_eur(self) -> float | None:
+        """stop_price (native) converti en EUR via fx_rate_to_eur (source unique L27).
+
+        Pour la gauge canonique _position_axis ancrée sur avg_cost (L29) : tous
+        les chiffres (avg_cost_eur, stop_eur, target_eur, current_price_eur)
+        doivent vivre dans la même devise sinon money-invariant L28 cassé
+        (ex : 4063.T native JPY → stop_eur juste, pas +176056% en mix). None
+        si stop_price ou fx_rate_to_eur absent (fail-closed).
+        """
+        if not self.stop_price or not self.fx_rate_to_eur:
+            return None
+        return self.stop_price * self.fx_rate_to_eur
+
+    @property
+    def target_full_eur(self) -> float | None:
+        """target_full (native) converti en EUR via fx_rate_to_eur (source unique L27).
+        Idem stop_eur — single source FX-correcte pour rendering EUR cohérent.
+        """
+        if not self.target_full or not self.fx_rate_to_eur:
+            return None
+        return self.target_full * self.fx_rate_to_eur
+
+    @property
+    def target_partial_eur(self) -> float | None:
+        """target_partial (native) converti en EUR via fx_rate_to_eur (single source)."""
+        if not self.target_partial or not self.fx_rate_to_eur:
+            return None
+        return self.target_partial * self.fx_rate_to_eur
+
+    @property
+    def entry_eur(self) -> float | None:
+        """entry_price (native, prix d'appel de thèse) converti en EUR.
+        Note : pour la gauge canonique on ancre sur avg_cost_eur (le vrai coût),
+        PAS sur entry_eur. Cette property existe pour les consumers qui veulent
+        l'appel converti (ex. badge "entry thèse vs achat").
+        """
+        if not self.entry_price or not self.fx_rate_to_eur:
+            return None
+        return self.entry_price * self.fx_rate_to_eur
+
+    @property
     def weight_market_eur(self) -> float:
         """Poids en MARKET VALUE (= current_eur). Fallback cost basis si current
         price indispo. C'est l'unique definition de 'poids' apres la migration."""
