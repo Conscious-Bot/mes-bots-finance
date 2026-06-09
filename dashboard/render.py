@@ -2354,6 +2354,27 @@ def _position_card(inputs, steer_v2) -> str:
             '</div>'
         )
 
+    # #128 banner proxy price discret -- cohérent avec chip book row L6431.
+    # SK Hynix : GDR EUR détenu, valo via cote KRW × fx (yfinance ne sert pas
+    # le GDR EUR). Coût + realized restent EUR-corrects via ledger -- juste
+    # info, pas alarme.
+    proxy_banner_html = ""
+    try:
+        from shared.book import is_proxy_price as _ipp
+        _proxy_reason = _ipp(ticker)
+        if _proxy_reason:
+            proxy_banner_html = (
+                f'<div class="pc-proxy-banner" style="background:var(--bg-2);'
+                'border-left:3px solid var(--steel);padding:6px 12px;margin:-2px -2px 12px -2px;'
+                'font-size:11px;color:var(--steel);" '
+                f'title="{_proxy_reason}">'
+                '<span style="font-weight:600;">·proxy</span>'
+                f'<span style="opacity:0.85;margin-left:8px;">{_proxy_reason}</span>'
+                '</div>'
+            )
+    except Exception:
+        pass
+
     # Verdict 5-state badge en tete
     verdict_v2_html = ""
     if steer_v2:
@@ -2793,6 +2814,8 @@ def _position_card(inputs, steer_v2) -> str:
         f'<div class="pc-card" id="card-{slug}">'
         # Bandeau fail-closed (en tete prioritaire si declenche)
         + bandeau_html
+        # #128 banner proxy price discret (e.g. SK Hynix GDR EUR via cote KRW)
+        + proxy_banner_html
         # Header avec verdict badge + drift conviction
         + '<div class="pc-head">'
         f'<span class="pc-tk mono">{ticker}</span>'
@@ -3941,26 +3964,52 @@ def _pnl_map(computed: list[dict]) -> dict:
 
 
 def _pnl_cost_map(positions: list[dict]) -> dict:
-    """P&L map canonique EUR -- route via shared.position_pnl (#118 fix FX).
+    """P&L map canonique EUR -- SINGLE SOURCE via book.value_eur (L29 09/06).
 
-    AVANT le fix 08/06 : mélangeait `avg_cost` (incohérent : native USD pour US,
-    EUR pour autres) avec `current_eur` -> P&L FAUX sur tickers USD (AMD montrait
-    +175% au lieu du vrai +218%).
+    Fix L29 (checker a pointé : helper lisait positions.last_price_native = cache
+    DB cron 15min, alors que position_view lisait book.value_eur = prices.get
+    live → DEUX sources de prix pour le même fait, fork latent sub-ε aujourd'hui
+    mais explose un jour volatil avant refresh cron). Migration vers la même
+    source que l'assembly : tous les producteurs pnl_position lisent désormais
+    book.value_eur. Bit-identiques toujours, fork latent fermé.
 
-    APRES migration 0043 : positions.avg_cost_eur est canonique EUR coherent.
-    Le helper pnl_position_pct_eur applique la convention unique.
+    AVANT fix 08/06 : mélangeait avg_cost (native USD/EUR mixte) avec
+    current_eur -> P&L FAUX sur tickers USD.
+    APRES 0043 : avg_cost_eur canonique EUR cohérent via ledger.
+    APRES L29 09/06 : current_price aussi via book.value_eur (live), pas cache DB.
     """
-    from shared.position_pnl import pnl_position_pct_eur
+    from shared.book import value_eur as bve
     out: dict = {}
     for p in positions:
-        # Fallback legacy : si avg_cost_eur pas encore backfille pour cette ligne,
-        # tomber sur avg_cost (signal degraded plutot que silently faux)
-        if not p.get("avg_cost_eur") and p.get("avg_cost"):
-            p = dict(p)
-            p["avg_cost_eur"] = p["avg_cost"]  # legacy fallback (sera incohérent pour USD)
-        pct = pnl_position_pct_eur(p)
-        if pct is not None:
-            out[p["ticker"]] = pct
+        tk = p.get("ticker")
+        qty = p.get("qty")
+        # avg_cost vient déjà de BookLine.avg_cost_eur (cf _positions() L3885)
+        avg_cost_eur = p.get("avg_cost_eur") or p.get("avg_cost")
+        if not (tk and qty and avg_cost_eur and qty > 0 and avg_cost_eur > 0):
+            continue
+        # SINGLE SOURCE : value_eur depuis le gateway canonique (live prices.get + fx)
+        bv = bve(tk, qty)
+        if bv is None or bv.value is None:
+            continue
+        value_eur_now = bv.value.amount if hasattr(bv.value, "amount") else bv.value
+        if not value_eur_now or value_eur_now <= 0:
+            continue
+        cost_basis_eur = qty * avg_cost_eur
+        pct = (value_eur_now / cost_basis_eur - 1) * 100.0
+        out[tk] = pct
+        # Republie dans concept_index avec source="render._pnl_cost_map"
+        # pour que detect_forks puisse confirmer bit-identité avec position_view.
+        try:
+            from shared.living_graph import register_concept
+            register_concept(
+                concept_key="pnl_position",
+                value=pct,
+                source="render._pnl_cost_map",
+                ticker=tk,
+                op="book_value_eur_div_cost_basis_eur",
+            )
+        except Exception:
+            pass
     return out
 
 
