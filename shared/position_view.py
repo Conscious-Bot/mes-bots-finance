@@ -349,22 +349,12 @@ def compute_position(
             value_eur_now = _v.amount if hasattr(_v, "amount") else _v
             pnl_position_eur = value_eur_now - cost_basis_eur
             pnl_position_pct = (value_eur_now / cost_basis_eur - 1) * 100.0
-            # LIVING GRAPH W1 (#110) : publie pnl_position depuis ce 2e producteur
-            # (assembly PositionView inline, distinct du helper canonique
-            # position_pnl.pnl_position_pct_eur). Si divergence au-delà ε=0.005
-            # avec "position_pnl.helper" -> fork chopé au regen-end. La divergence
-            # gauge dot-vs-tooltip historique = exactement ce que ce checker chope.
-            try:
-                from shared.living_graph import register_concept
-                register_concept(
-                    concept_key="pnl_position",
-                    value=pnl_position_pct,
-                    source="position_view.assembly",
-                    ticker=ticker,
-                    op="value_eur_datum_div_cost_basis_eur",
-                )
-            except Exception:
-                pass
+            # NOTE #123 compute-once-project : le register_concept ne se fait
+            # PAS ici (compute_position est appelée plusieurs fois par regen :
+            # une par card panel + une par _views central). Register ici
+            # → multiple writes avec valeurs micro-différentes (yfinance ticks
+            # entre les appels) → faux fork. Le register a été déplacé au point
+            # UNIQUE qui consomme _views (cf dashboard/render.py post-_views).
 
     # Steer (decision unique consomme par card + row)
     steer_verdict = steer_output.verdict.value if (steer_output and steer_output.verdict) else None

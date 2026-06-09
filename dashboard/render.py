@@ -4054,31 +4054,57 @@ def _pnl_map(computed: list[dict]) -> dict:
     return out
 
 
-def _pnl_cost_map(positions: list[dict]) -> dict:
-    """P&L map canonique EUR -- SINGLE SOURCE via book.value_eur (L29 09/06).
+def _pnl_cost_map(positions: list[dict], views: dict | None = None) -> dict:
+    """P&L map canonique EUR -- COMPUTE-ONCE-PROJECT (L29 #123 fix complet).
 
-    Fix L29 (checker a pointé : helper lisait positions.last_price_native = cache
-    DB cron 15min, alors que position_view lisait book.value_eur = prices.get
-    live → DEUX sources de prix pour le même fait, fork latent sub-ε aujourd'hui
-    mais explose un jour volatil avant refresh cron). Migration vers la même
-    source que l'assembly : tous les producteurs pnl_position lisent désormais
-    book.value_eur. Bit-identiques toujours, fork latent fermé.
+    HISTORIQUE des cures L29 :
+    - efb3c59 (1ère cure) : SOURCE unifiée vers book.value_eur (cache→live)
+    - Finding live checker post-W0 : Δ=0.658% > ε=0.5% sur BESI.AS (a GROSSI
+      après cure). Diagnostic Olivier : source unifiée ≠ calcul unique.
+      pnl_position est re-CALCULÉ par 2 producteurs (PositionView + ici) →
+      2 fetches book.value_eur dans le même regen peuvent micro-diverger.
+    - THIS FIX (#123) : compute-once-project canonique L27. Le pnl_position
+      est calculé UNE FOIS dans shared.position_view.compute_position()
+      (cf L351). _pnl_cost_map ne re-calcule plus -- il LIT view.pnl_position_pct
+      depuis le dict views passé. Byte-identique garanti, fork mort pour de bon.
 
-    AVANT fix 08/06 : mélangeait avg_cost (native USD/EUR mixte) avec
-    current_eur -> P&L FAUX sur tickers USD.
-    APRES 0043 : avg_cost_eur canonique EUR cohérent via ledger.
-    APRES L29 09/06 : current_price aussi via book.value_eur (live), pas cache DB.
+    Args:
+        positions : liste dict positions (cf _positions() shape)
+        views : dict {ticker: PositionView} pré-calculé (source canonique).
+                Si None ou un ticker absent : fallback book.value_eur direct
+                (KNOWN-GAP transitoire — divergence possible vs assembly).
     """
-    from shared.book import value_eur as bve
     out: dict = {}
     for p in positions:
         tk = p.get("ticker")
-        qty = p.get("qty")
-        # avg_cost vient déjà de BookLine.avg_cost_eur (cf _positions() L3885)
-        avg_cost_eur = p.get("avg_cost_eur") or p.get("avg_cost")
-        if not (tk and qty and avg_cost_eur and qty > 0 and avg_cost_eur > 0):
+        if not tk:
             continue
-        # SINGLE SOURCE : value_eur depuis le gateway canonique (live prices.get + fx)
+        # COMPUTE-ONCE-PROJECT : lis pnl_position depuis PositionView (canonique)
+        v = views.get(tk) if views else None
+        if v is not None and getattr(v, "pnl_position_pct", None) is not None:
+            pct = float(v.pnl_position_pct)
+            out[tk] = pct
+            # Republie dans concept_index avec source="render._pnl_cost_map.read"
+            # — byte-identique avec "position_view" (même _views, même value lue).
+            try:
+                from shared.living_graph import register_concept
+                register_concept(
+                    concept_key="pnl_position",
+                    value=pct,
+                    source="render._pnl_cost_map.read",
+                    ticker=tk,
+                    op="read_from_position_view",
+                )
+            except Exception:
+                pass
+            continue
+        # Fallback : pas de PositionView -- re-calcule (KNOWN-GAP transitoire,
+        # divergence possible vs assembly si appelé sans views).
+        qty = p.get("qty")
+        avg_cost_eur = p.get("avg_cost_eur") or p.get("avg_cost")
+        if not (qty and avg_cost_eur and qty > 0 and avg_cost_eur > 0):
+            continue
+        from shared.book import value_eur as bve
         bv = bve(tk, qty)
         if bv is None or bv.value is None:
             continue
@@ -4088,14 +4114,12 @@ def _pnl_cost_map(positions: list[dict]) -> dict:
         cost_basis_eur = qty * avg_cost_eur
         pct = (value_eur_now / cost_basis_eur - 1) * 100.0
         out[tk] = pct
-        # Republie dans concept_index avec source="render._pnl_cost_map"
-        # pour que detect_forks puisse confirmer bit-identité avec position_view.
         try:
             from shared.living_graph import register_concept
             register_concept(
                 concept_key="pnl_position",
                 value=pct,
-                source="render._pnl_cost_map",
+                source="render._pnl_cost_map.fallback",
                 ticker=tk,
                 op="book_value_eur_div_cost_basis_eur",
             )
@@ -6980,6 +7004,23 @@ def render() -> Path:
     # Migration etagee panel-par-panel par visibilite decroissante (L27, byte-identite).
     from shared.position_view import get_all_positions_views
     _views = get_all_positions_views()  # dict[ticker -> PositionView]
+    # #123 compute-once-project : register pnl_position UNE FOIS par ticker depuis
+    # le point unique _views. Le register a été retiré de compute_position()
+    # (sinon multiple writes = faux forks). Source canonique "position_view".
+    try:
+        from shared.living_graph import register_concept
+        for _tk, _v in _views.items():
+            _pnl = getattr(_v, "pnl_position_pct", None)
+            if _pnl is not None:
+                register_concept(
+                    concept_key="pnl_position",
+                    value=float(_pnl),
+                    source="position_view",
+                    ticker=_tk,
+                    op="value_eur_datum_div_cost_basis_eur",
+                )
+    except Exception:
+        pass
 
     # Bug fix 31/05 wave 9b : asymmetry compare current vs stop_price/target_full.
     # Comme ces derniers sont stockes NATIVE (cf currency_native_invariant),
@@ -6997,7 +7038,7 @@ def render() -> Path:
     held = {p["ticker"] for p in positions}
     planned = _planned(held)
     names = _names()
-    pnl = _pnl_cost_map(positions)
+    pnl = _pnl_cost_map(positions, views=_views)
     perf = {p["ticker"]: _perf_dwm(p["ticker"]) for p in positions}
     daily = {tk: v.get("d") for tk, v in perf.items()}
     loupe_data = _loupe_data(positions, sectors, names, pnl, computed, perf)
