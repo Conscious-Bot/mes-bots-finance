@@ -25,3 +25,8 @@ concepts:
     description: "Valeur position EUR (qty x price x fx) -- canonique book.value_eur()"
     asof_bucket: day
     epsilon_rel: 0.005  # 0.5% — tolère micro-jitter FX/price intra-jour entre producteurs
+
+  pnl_position:
+    description: "P&L position % EUR ((value_now - cost_basis) / cost_basis) -- la divergence gauge dot-vs-tooltip"
+    asof_bucket: day
+    epsilon_rel: 0.005  # 0.5% — même tolérance que value_eur (dérivé direct)

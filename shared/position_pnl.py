@@ -105,7 +105,25 @@ def pnl_position_pct_eur(position: dict[str, Any] | Any) -> float | None:
         if value_eur_now is None or value_eur_now <= 0:
             return None
 
-    return (value_eur_now / cost_basis_eur - 1) * 100.0
+    pnl_pct = (value_eur_now / cost_basis_eur - 1) * 100.0
+
+    # LIVING GRAPH W1 (#110) : publie pnl_position dans concept_index.
+    # Source = "position_pnl.helper" (canonique #118). 2e producteur attendu :
+    # position_view.py:351 (inline assembly). Si divergence au-delà ε=0.005 ->
+    # fork chopé au regen-end (la divergence gauge dot-vs-tooltip mécanisée).
+    try:
+        from shared.living_graph import register_concept
+        register_concept(
+            concept_key="pnl_position",
+            value=pnl_pct,
+            source="position_pnl.helper",
+            ticker=ticker,
+            op="value_eur_minus_cost_basis_eur",
+        )
+    except Exception:
+        pass
+
+    return pnl_pct
 
 
 def pnl_position_eur(position: dict[str, Any] | Any) -> float | None:
