@@ -107,6 +107,24 @@ def compute_pmp_realized(cx: Any, ticker: str) -> PositionPMP:
     pmp_native_final = (cost_pool_native / qty_pool) if qty_pool > 0 else None
     pmp_eur_final = (cost_pool_eur / qty_pool) if qty_pool > 0 else None
 
+    # LIVING GRAPH W0 (#110, SPEC §4) : publie pmp_eur dans concept_index pour
+    # fork-detection au regen-end. Source canonique = "ledger_pmp" (ce helper).
+    # Si une autre source (VUE SQL ex-helper, autre chemin) publie une valeur
+    # différente au-delà de ε=0.001 pour ce ticker/jour → fork détecté = L29
+    # mécanisé. Silent-miss L7 si living_graph DB indispo.
+    if pmp_eur_final is not None:
+        try:
+            from shared.living_graph import register_concept
+            register_concept(
+                concept_key="pmp_eur",
+                value=pmp_eur_final,
+                source="ledger_pmp",
+                ticker=ticker,
+                op="rolling_fifo_french_cgi",
+            )
+        except Exception:
+            pass  # silent-miss L7
+
     return PositionPMP(
         ticker=ticker,
         qty=qty_pool,

@@ -1,0 +1,22 @@
+# LIVING GRAPH W0 — registre des concepts sémantiques + tolérance ε par concept.
+#
+# Cf SPEC_LIVING_GRAPH.md §2 (tolérance ε) :
+# - Anti-cry-wolf : fork = |a−b|/|a| > epsilon_rel ; sinon = jitter, pas fork
+# - PMP doit être exact (calcul déterministe sur ledger), ε strict 0.001
+# - value_eur/pnl tolèrent micro-jitter FX intra-regen (ε 0.005)
+# - signaux qualitatifs (fragility) tolèrent 5%
+#
+# asof_bucket : granularité temporelle pour regrouper les "candidats" d'un même fait.
+# - day : default, idéal pour PMP/value qui ne devraient pas changer intra-jour
+# - hour : pour signaux temps-réel (futur, pas en V0)
+#
+# V0 = pmp_eur uniquement (tracer-bullet PMP sur le cas L29).
+# W1 étendra à value_eur, weight_pct, pnl_position, current_price_eur.
+
+version: 1
+
+concepts:
+  pmp_eur:
+    description: "PMP roulant fiscal FR en EUR (cf shared/ledger_pmp.py)"
+    asof_bucket: day
+    epsilon_rel: 0.001  # 0.1% — PMP est un calcul exact, micro-diff = fork

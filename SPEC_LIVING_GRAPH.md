@@ -180,7 +180,7 @@ En écrivant cette spec, j'observe que `shared/integrity.py` (chaîne prediction
 ## 9. Implementation Status
 
 - **Gravé** : 2026-06-09 (cf TODO #110, condition base_health vert acquise commit `2d3a4e4` + fail-loud `f3289c5`)
-- **Implémentation** : NOT_STARTED (SPEC posé, walking-skeleton W0 à venir)
+- **Implémentation** : IN_PROGRESS — W0 LIVRÉ 09/06 soir tard : `concept_index` table (migration 0051) + `register_concept`/`detect_forks` minimal + wire `ledger_pmp.py` (9 tickers publient `pmp_eur`) + hook regen-end `dashboard/render.py` + 5 tests (fork>ε / no-fork<ε / UPSERT idempotent / default ε / silent-miss L7). Reste W1-W4 (extension concepts, datum_log V1+, base_health 4e dim, feedback arrière).
 - **Fichiers cibles V0** : `shared/living_graph.py` (à créer — `register_concept` + `detect_forks` SEULS), `scripts/alembic/versions/0051_concept_index.py` (à créer — table `concept_index` valeurs inline, PAS `datum_log`), `config/concept_keys.yaml` (à créer — pmp_eur min + ε par concept), `tests/test_living_graph.py` (à créer — fork_detection + anti-cry-wolf vérifié)
 - **Fichiers cibles V1+** (différé jusqu'au besoin) : `datum_log` table + `log_datum` + `trace_parents` helpers
 - **Audit drift** : `scripts/audit_canonical_drift.py`

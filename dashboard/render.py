@@ -7570,6 +7570,35 @@ def render() -> Path:
     except OSError:
         pass
     OUTPUT.write_text(html)
+
+    # LIVING GRAPH W0 (#110, SPEC §3.3+§4) : detect_forks au regen-end.
+    # Le regen EST le battement -- les producteurs canoniques (ledger_pmp,
+    # BookLine helpers...) viennent de tourner et register_concept'd leurs
+    # valeurs. Si fork détecté au-delà ε du concept (concept_keys.yaml) ->
+    # log WARN + Telegram alert OPS analogue L29 fail-loud. Silent-miss L7
+    # si living_graph indispo (n'impacte pas le render).
+    try:
+        from shared.living_graph import detect_forks
+        _forks = detect_forks()
+        if _forks:
+            import logging as _lg
+            _lg.getLogger("dashboard").warning("LIVING_GRAPH forks detected (n=%d): %s",
+                                                len(_forks), _forks)
+            try:
+                from shared import notify
+                _lines = [f"[OPS] LIVING_GRAPH fork détecté ({len(_forks)} concept(s))"]
+                for f in _forks[:5]:
+                    cands = ", ".join(f"{c['source']}={c['value']:.6g}" for c in f["candidates"])
+                    _lines.append(
+                        f"- {f['concept_key']} {f['ticker'] or 'global'} {f['bucket']} "
+                        f"| Δ={f['max_div_rel']:.3%} > ε={f['epsilon_rel']:.3%} | {cands}"
+                    )
+                notify.send_text("\n".join(_lines))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     return OUTPUT
 
 
