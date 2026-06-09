@@ -13,34 +13,23 @@ log = logging.getLogger(__name__)
 
 
 def _ensure_tables(cx) -> None:
-    cx.execute("""
-        CREATE TABLE IF NOT EXISTS positions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticker TEXT NOT NULL,
-            qty REAL NOT NULL,
-            avg_cost REAL NOT NULL,
-            realized_pnl REAL DEFAULT 0,
-            opened_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
-            notes TEXT,
-            status TEXT DEFAULT 'open'
-        )
-    """)
+    """No-op depuis migration 0048.
+
+    positions est une VUE (créée par alembic), positions_meta + transactions
+    sont créés par migration 0046. Le legacy CREATE INDEX positions ne fonctionne
+    plus (SQLite refuse d'indexer une VUE).
+    """
+    # Conserve uniquement position_events qui est encore une table (audit legacy)
     cx.execute("""
         CREATE TABLE IF NOT EXISTS position_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            position_id INTEGER,
-            ticker TEXT NOT NULL,
-            event_type TEXT NOT NULL,
-            qty REAL NOT NULL,
-            price REAL,
-            pnl REAL,
-            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
-            notes TEXT
+            position_id INTEGER, ticker TEXT NOT NULL, event_type TEXT NOT NULL,
+            qty REAL NOT NULL, price REAL, pnl REAL,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP, notes TEXT
         )
     """)
-    cx.execute("CREATE INDEX IF NOT EXISTS idx_positions_ticker_status ON positions(ticker, status)")
-    cx.execute("CREATE INDEX IF NOT EXISTS idx_position_events_ticker ON position_events(ticker, timestamp)")
+    cx.execute("CREATE INDEX IF NOT EXISTS idx_position_events_ticker "
+               "ON position_events(ticker, timestamp)")
 
 
 def _now() -> str:
@@ -66,60 +55,139 @@ def cost_in(avg_cost_eur: float | None, target_cur: str = "USD") -> float | None
     return avg_cost_eur * fx
 
 
-def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = None) -> dict:
-    """Set/replace position. Use for bootstrap of existing holdings.
+def _get_currency_and_fx(ticker: str) -> tuple[str, float, int]:
+    """Resolve (currency, fx_at_trade, fx_is_derived) pour l'ingestion ledger.
 
-    OBSOLÈTE depuis migration 0048 : positions est une VUE dérivée de transactions.
-    Tout UPDATE/INSERT direct est refusé par SQLite. Pour modifier une position,
-    INSERT dans transactions (cf SPEC_LEDGER §1 + scripts/backfill_5_stale_from_tr_export.py
-    comme modèle).
+    Convention SPEC_LEDGER §1.5 : currency dérivée du ticker via prices.get,
+    fx_at_trade depuis le gateway fx_history. Si EUR → 1.0 figé.
+
+    Retourne (currency, fx, fx_is_derived) — fx_is_derived=1 si fallback
+    fx_history (pas un EUR débité TR autoritatif).
     """
-    raise NotImplementedError(
-        "set_position: positions est une VUE (migration 0048). "
-        "INSERT dans transactions à la place. Cf SPEC_LEDGER §1."
-    )
+    currency = prices.get_currency_for_ticker(ticker)
+    if currency == "EUR":
+        return "EUR", 1.0, 0
+    fx_datum = prices.fx(currency, "EUR")
+    if fx_datum is None or fx_datum.value is None:
+        # Fallback : impossible de calculer le fx → ne pas insérer un trade
+        # avec fx fabriqué (fail-closed L15)
+        raise ValueError(
+            f"Cannot resolve fx_at_trade for {currency}→EUR. "
+            f"fx_history indispo → ingestion refusée (fail-closed)."
+        )
+    return currency, float(fx_datum.value), 1  # fx_is_derived=1 (pas TR EUR débité)
+
+
+def set_position(ticker: str, qty: float, avg_cost: float, notes: str | None = None) -> dict:
+    """Bootstrap d'une position existante via INSERT transaction BUY synthétique.
+
+    Cf SPEC_LEDGER §3.1 (anchor pattern). Utilise l'astuce fx pour reproduire
+    avg_cost en EUR exactement. À utiliser pour ré-anchorer une position
+    connue-bonne (pas pour ingérer un trade réel — préférer add_buy pour ça).
+    """
     ticker = ticker.upper()
+    currency, fx_at_trade, fx_is_derived = _get_currency_and_fx(ticker)
+    # Convention bootstrap : si l'appelant fournit avg_cost en EUR (canonical), on
+    # stocke price_native = avg_cost EUR avec fx=1, currency=EUR. Le bootstrap est
+    # EUR-only par convention (cf SPEC_LEDGER §3.1 anchor pattern).
+    if currency != "EUR" and avg_cost > 0:
+        currency, fx_at_trade, fx_is_derived = "EUR", 1.0, 0
+
     with db() as cx:
-        _ensure_tables(cx)
-        existing = cx.execute("SELECT id FROM positions WHERE ticker=? AND status='open'", (ticker,)).fetchone()
-        if existing:
-            cx.execute(
-                "UPDATE positions SET qty=?, avg_cost=?, last_updated=?, notes=? WHERE id=?",
-                (qty, avg_cost, _now(), notes, existing["id"]),
-            )
-            pid = existing["id"]
-            cx.execute(
-                "INSERT INTO position_events (position_id, ticker, event_type, qty, price, notes) VALUES (?, ?, 'adjust', ?, ?, ?)",
-                (pid, ticker, qty, avg_cost, notes or "set_position override"),
-            )
-        else:
-            cur = cx.execute(
-                "INSERT INTO positions (ticker, qty, avg_cost, notes) VALUES (?, ?, ?, ?)",
-                (ticker, qty, avg_cost, notes),
-            )
-            pid = cur.lastrowid
-            cx.execute(
-                "INSERT INTO position_events (position_id, ticker, event_type, qty, price, notes) VALUES (?, ?, 'buy', ?, ?, ?)",
-                (pid, ticker, qty, avg_cost, notes or "initial position"),
-            )
+        cx.execute(
+            "INSERT OR IGNORE INTO positions_meta (ticker, status, account, wrapper) "
+            "VALUES (?, 'open', 'TR', 'CTO')",
+            (ticker,),
+        )
+        cx.execute(
+            "INSERT INTO transactions (ticker, side, qty, price_native, fees_native, "
+            "currency, fx_at_trade, fx_is_derived, trade_date, broker_trade_id, "
+            "source, is_anchor, notes) "
+            "VALUES (?, 'BUY', ?, ?, 0, ?, ?, ?, ?, NULL, ?, 1, ?)",
+            (ticker, qty, avg_cost, currency, fx_at_trade, fx_is_derived,
+             _now(), f"set_position_bootstrap_{_now()[:10]}",
+             notes or "set_position bootstrap (is_anchor=1, SPEC_LEDGER §3.1)"),
+        )
         cx.commit()
     result = get_position(ticker)
-    assert result is not None, "position lookup after upsert failed"
+    assert result is not None, "position lookup after set_position failed"
     return result
 
 
-def add_buy(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
-    """Add buy; weighted-avg cost recalc on existing position, or create new.
+def add_buy(
+    ticker: str, qty: float, price: float, notes: str | None = None,
+    *, fees: float = 0.0, currency: str | None = None,
+    fx_at_trade: float | None = None, broker_trade_id: str | None = None,
+    source: str = "manual_add_buy", trade_date: str | None = None,
+) -> dict:
+    """Ingest a BUY trade into the immutable ledger (transactions table).
 
-    OBSOLÈTE depuis migration 0048 : positions est une VUE. Voir SPEC_LEDGER §1.
-    Pour ingérer un buy : INSERT INTO transactions (side='BUY', ...).
-    TODO refactor #126 : transformer cette fonction en wrapper INSERT transaction
-    + side effects (lock_in_detector hook, auto_classify) préservés.
+    #126 refactor : ce wrapper INSERT dans `transactions` (side='BUY') au lieu de
+    UPDATE positions (qui est maintenant une VUE, SPEC_LEDGER §1). La VUE
+    recalcule qty/PRU/realized_pnl automatiquement à la lecture.
+
+    Side effects préservés :
+      - auto_classify_new_ticker si premier BUY pour ce ticker
+      - positions_meta créée si nouveau ticker
+
+    Args:
+      ticker, qty, price : identifiants minimaux du trade.
+      notes : libre.
+      fees : frais broker en devise native (défaut 0).
+      currency : devise du prix. Si None, dérivée du ticker via prices.get.
+      fx_at_trade : fx native→EUR. Si None, dérivé via fx_history (fx_is_derived=1).
+      broker_trade_id : TR ID si dispo. UNIQUE constraint → idempotence DB.
+      source : trace audit (chat / TR_export / etc).
+      trade_date : ISO timestamp. Défaut now.
     """
-    raise NotImplementedError(
-        "add_buy: positions est une VUE (migration 0048). "
-        "INSERT INTO transactions (side='BUY', ...) à la place. Cf SPEC_LEDGER §1."
-    )
+    ticker = ticker.upper()
+    if qty <= 0 or price <= 0:
+        raise ValueError(f"qty and price must be positive, got qty={qty} price={price}")
+
+    if currency is None or fx_at_trade is None:
+        cur, fx, fx_derived = _get_currency_and_fx(ticker)
+        currency = currency or cur
+        if fx_at_trade is None:
+            fx_at_trade = fx
+            fx_is_derived = fx_derived
+        else:
+            fx_is_derived = 0
+    else:
+        fx_is_derived = 0
+
+    trade_date = trade_date or _now()
+    with db() as cx:
+        # Detect new entry for auto_classify hook (avant INSERT)
+        was_new_entry = cx.execute(
+            "SELECT 1 FROM transactions WHERE ticker = ? AND side = 'BUY' LIMIT 1",
+            (ticker,),
+        ).fetchone() is None
+
+        cx.execute(
+            "INSERT OR IGNORE INTO positions_meta (ticker, status, account, wrapper) "
+            "VALUES (?, 'open', 'TR', 'CTO')",
+            (ticker,),
+        )
+        cx.execute(
+            "INSERT INTO transactions (ticker, side, qty, price_native, fees_native, "
+            "currency, fx_at_trade, fx_is_derived, trade_date, broker_trade_id, "
+            "source, is_anchor, notes) "
+            "VALUES (?, 'BUY', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+            (ticker, qty, price, fees, currency, fx_at_trade, fx_is_derived,
+             trade_date, broker_trade_id, source, notes),
+        )
+        cx.commit()
+
+    if was_new_entry:
+        _auto_classify_new_ticker(ticker)
+
+    result = get_position(ticker)
+    assert result is not None, "position lookup after add_buy failed"
+    return result
+
+
+def _legacy_add_buy_dead_code(ticker, qty, price, notes):  # pragma: no cover
+    """Garde le legacy unreachable au cas-où — going clean dans une future passe."""
     ticker = ticker.upper()
     was_new_entry = False
     with db() as cx:
@@ -190,18 +258,96 @@ def _auto_classify_new_ticker(ticker: str) -> None:
         logger.warning(f"_auto_classify_new_ticker {ticker} failed: {e}")
 
 
-def add_sell(ticker: str, qty: float, price: float, notes: str | None = None) -> dict:
-    """Sell shares. Computes realized P&L. Auto-closes if qty → 0.
+def add_sell(
+    ticker: str, qty: float, price: float, notes: str | None = None,
+    *, fees: float = 0.0, currency: str | None = None,
+    fx_at_trade: float | None = None, broker_trade_id: str | None = None,
+    source: str = "manual_add_sell", trade_date: str | None = None,
+) -> dict:
+    """Ingest a SELL trade into the immutable ledger (transactions table).
 
-    OBSOLÈTE depuis migration 0048 : positions est une VUE. Voir SPEC_LEDGER §1.
-    Pour ingérer une vente : INSERT INTO transactions (side='SELL', ...).
-    TODO refactor #126 : transformer en wrapper INSERT transaction + side effects
-    (lock_in_detector hook L1 confirmé câblé, audit log) préservés.
+    #126 refactor : INSERT side='SELL' au lieu de UPDATE positions. La VUE
+    recalcule qty/realized_pnl automatiquement via la sous-requête corrélée
+    PRU-pré-vente (SPEC_LEDGER §2.2).
+
+    Side effects préservés :
+      - Validation : position ouverte, qty ≤ current qty (depuis VUE)
+      - lock_in_detector.detect_winner_sell hook (L7 silent miss)
+
+    Returns:
+        dict avec realized_pnl_event (P&L event-level), remaining_qty (depuis VUE),
+        closed (True si remaining_qty ≈ 0).
     """
-    raise NotImplementedError(
-        "add_sell: positions est une VUE (migration 0048). "
-        "INSERT INTO transactions (side='SELL', ...) à la place. Cf SPEC_LEDGER §1."
-    )
+    ticker = ticker.upper()
+    if qty <= 0 or price <= 0:
+        raise ValueError(f"qty and price must be positive, got qty={qty} price={price}")
+
+    # Validation pré-vente depuis la VUE
+    current = get_position(ticker)
+    if not current or (current.get("qty") or 0) <= 0:
+        raise ValueError(f"No open position for {ticker}")
+    qty_before = float(current["qty"])
+    if qty > qty_before + 1e-9:
+        raise ValueError(f"Sell qty {qty} > position qty {qty_before}")
+    avg_cost_pre = float(current.get("avg_cost_eur") or current.get("avg_cost") or 0)
+
+    if currency is None or fx_at_trade is None:
+        cur, fx, fx_derived = _get_currency_and_fx(ticker)
+        currency = currency or cur
+        if fx_at_trade is None:
+            fx_at_trade = fx
+            fx_is_derived = fx_derived
+        else:
+            fx_is_derived = 0
+    else:
+        fx_is_derived = 0
+
+    trade_date = trade_date or _now()
+    with db() as cx:
+        cx.execute(
+            "INSERT INTO transactions (ticker, side, qty, price_native, fees_native, "
+            "currency, fx_at_trade, fx_is_derived, trade_date, broker_trade_id, "
+            "source, is_anchor, notes) "
+            "VALUES (?, 'SELL', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+            (ticker, qty, price, fees, currency, fx_at_trade, fx_is_derived,
+             trade_date, broker_trade_id, source, notes),
+        )
+        cx.commit()
+
+    # P&L event-level (en EUR via fx_at_trade) pour le hook + return
+    # PRU pre-sell est en EUR (current["avg_cost_eur"]). price * fx = sell EUR per share.
+    sell_eur_per_share = price * fx_at_trade
+    pnl_event = qty * (sell_eur_per_share - avg_cost_pre) - fees * fx_at_trade
+    new_qty = qty_before - qty
+    closed = new_qty <= 1e-6
+
+    # lock_in_detector hook (post-commit, L7 silent miss accepté)
+    try:
+        from intelligence.lock_in_detector import detect_winner_sell
+        # Note : detect_winner_sell signature legacy attend position_id (int).
+        # Maintenant que positions est une VUE, l'id est m.rowid de positions_meta.
+        position_id = current.get("id") if isinstance(current.get("id"), int) else None
+        detect_winner_sell(
+            position_id=position_id, ticker=ticker,
+            qty_sold=qty, sold_price_native=price,
+            qty_before=qty_before, avg_cost=avg_cost_pre,
+        )
+    except Exception as e:
+        log.warning(f"lock_in_detector silent miss for {ticker}: {e}", exc_info=True)
+
+    return {
+        "ticker": ticker,
+        "sold_qty": qty,
+        "sold_price": price,
+        "avg_cost": avg_cost_pre,
+        "realized_pnl_event": pnl_event,
+        "remaining_qty": max(new_qty, 0),
+        "closed": closed,
+    }
+
+
+def _legacy_add_sell_dead_code(ticker, qty, price, notes):  # pragma: no cover
+    """Garde le legacy unreachable au cas-où."""
     ticker = ticker.upper()
     with db() as cx:
         _ensure_tables(cx)
