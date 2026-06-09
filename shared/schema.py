@@ -36,11 +36,17 @@ class SchemaError(LookupError):
 
 @lru_cache(maxsize=4)
 def _schema_cache(db_path: str) -> dict[str, tuple[str, ...]]:
-    """table_name -> tuple of column names. Cached per db_path."""
+    """{table_or_view_name -> tuple of column names}. Cached per db_path.
+
+    Inclut tables ET views (depuis migration 0048, `positions` est une VIEW
+    dérivée). PRAGMA table_info supporte les deux types sans distinction.
+    """
     conn = sqlite3.connect(db_path)
     try:
         tables = [
-            r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+            r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'"
+            )
         ]
         return {t: tuple(r[1] for r in conn.execute(f"PRAGMA table_info({t})")) for t in tables}
     finally:
