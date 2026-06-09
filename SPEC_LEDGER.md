@@ -135,6 +135,36 @@ Subtilité **`realized_pnl` temporellement ordonné** : sous-requête corrélée
 - **`pru_eur` frozen-at-buy** : pondère le `fx_at_trade` de chaque BUY (figé au jour de l'achat), jamais le `fx` du jour. Cohérent `entry_fx_at_call` (SPEC_MONEY_INVARIANT §2). Tax-correct (plus-value FR) + invariant : `pru_eur` ne dérive pas dans le temps.
 - **`pru_native`** : pondère sur les prix natifs, indépendant du fx. Permet panneau native-space (skill isolé du change) en parallèle.
 
+### 2.4 `realized_pnl` = NET de frais (plus-value fiscale FR, ≠ affichage TR gross)
+
+Formule canonique (cf §2.2) :
+
+```
+realized_pnl_eur = Σ_sell ( sell.qty × sell.price × sell.fx
+                          − sell.fees × sell.fx
+                          − sell.qty × PRU_eur_at_sell )
+```
+
+avec `PRU_eur_at_sell` incluant les frais d'achat capitalisés (cf §2.2 sous-requête corrélée).
+
+**Conséquence : ledger.realized_pnl = TR.gain − sell_fees**. C'est **par design**, pas une erreur. Convention fiscale française :
+
+> Plus-value = prix de cession **net** (après frais de vente) − **PRU** (frais d'achat inclus)
+
+Validation back-fill #121 (sur les 5 stale) : Δ = exactement `−1.00€ × N_sells` par ticker (frais TR = 1€/trade), confirmant la formule.
+
+| Ticker | TR gain | Ledger | Δ | N_sells |
+|---|---|---|---|---|
+| 6920.T | +22.08 | +21.08 | −1.00 | 1 |
+| ALAB | +228.89 | +227.88 | −1.01 | 1 |
+| CCJ | −11.27 | −12.27 | −1.00 | 1 |
+| SK Hynix | +98.18 | +97.17 | −1.01 | 1 |
+| MU | +910.19 | +904.19 | −6.00 | 6 |
+
+**Le ledger est plus juste que l'affichage TR**. TR affiche le gain gross-of-sell-fee (proceeds bruts − coût). Le ledger calcule la vraie plus-value fiscale. **Ne pas re-paniquer sur un futur hand-check** qui verrait ce −1€ par sell : c'est la convention nette qu'on veut.
+
+Garde de régression : tout futur consumer qui compare `realized_pnl` au "gain TR brut" doit ajouter `Σ sell.fees_native × fx` pour convertir en convention TR. Documenter en commentaire de code à chaque comparaison.
+
 ## 3. Cure #3 — back-fill couvre les 26, pas les 5 (Catch 1)
 
 > Dès que `positions` devient VUE (étape 0048), toute position sans `transactions` sort à `qty=0`/`PRU=NULL` dans la VUE. Les 21 « propres » disparaîtraient. Donc **back-fill = 26**, pas 5.
