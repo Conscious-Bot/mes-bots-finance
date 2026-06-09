@@ -181,13 +181,11 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tole
 
     Best-effort : si yfinance indispo, skip ce check pour ce ticker.
     """
-    violations: list[str] = []
-    try:
-        import math
+    # SOCLE S1c (#111) : migré yf.Ticker.history → prices.get_current_price.
+    import math
 
-        import yfinance as yf
-    except Exception:
-        return violations  # yfinance pas dispo
+    from shared.prices import get_current_price
+    violations: list[str] = []
 
     rows = conn.execute("""
         SELECT t.ticker, t.stop_price, t.entry_price, t.target_price,
@@ -199,19 +197,15 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tole
 
     for tk, stop_price, entry_price, target_price, target_partial, target_full in rows:
         expected_cur = expected_native_currency(tk)
-        # Get current price natif (yfinance retourne native)
+        # Get current price natif via gateway canonique
         try:
-            t_obj = yf.Ticker(tk)
-            hist = t_obj.history(period="5d")
-            if hist.empty:
+            cur_native = get_current_price(tk)
+            if cur_native is None:
                 continue
-            cur_native = float(hist["Close"].iloc[-1])
         except Exception:
             continue
 
-        # Skip gracieusement si yfinance retourne NaN (rate limit / ticker
-        # info incomplete sur small caps -- different d un mismatch devise).
-        # NaN <= 0 est False donc le check naif laissait passer NaN.
+        # Skip gracieusement si retour NaN / 0 (rate limit / small caps)
         if math.isnan(cur_native) or cur_native <= 0:
             continue
 

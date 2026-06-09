@@ -168,19 +168,29 @@ HOLDOUT_DATES = [
 
 
 def fetch_yf_history(ticker: str, start: str = START, end: str = END):
-    """Daily close. Returns dict[date_iso -> float]."""
-    import yfinance as yf
+    """Daily close via gateway. Returns dict[date_iso -> float].
+
+    SOCLE S1c (#111) : migré yf.Ticker → prices.ensure_price_history.
+    """
+    from shared.prices import ensure_price_history
     try:
-        df = yf.Ticker(ticker).history(start=start, end=end, interval="1d", auto_adjust=False)
-        if df.empty or "Close" not in df.columns:
+        df = ensure_price_history(ticker, start, end)
+        if df is None or df.empty:
             return {}
+        price_col = "price_native" if "price_native" in df.columns else "Close"
+        date_col = "asof" if "asof" in df.columns else None
         out = {}
-        for ts, val in df["Close"].dropna().items():
-            d = ts.strftime("%Y-%m-%d")
-            out[d] = float(val)
+        if date_col:
+            for _, row in df.iterrows():
+                d = str(row[date_col])[:10]
+                out[d] = float(row[price_col])
+        else:
+            for ts, val in df[price_col].dropna().items():
+                d = ts.strftime("%Y-%m-%d") if hasattr(ts, "strftime") else str(ts)[:10]
+                out[d] = float(val)
         return out
     except Exception as e:
-        print(f"  yf {ticker} fail: {e}", file=sys.stderr)
+        print(f"  prices.ensure_price_history {ticker} fail: {e}", file=sys.stderr)
         return {}
 
 

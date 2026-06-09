@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import yfinance as yf
+# yfinance import retiré (SOCLE S1c #111) — fetches via shared.prices gateway
 
 from shared import positions as positions_mod, storage
 
@@ -75,12 +75,13 @@ def fetch_fx_rates() -> dict:
         "HKD": "EURHKD=X",
         "GBP": "EURGBP=X",
     }
+    # SOCLE S1c (#111) : migré yf.Ticker → prices.get_current_price gateway.
+    from shared.prices import get_current_price
     rates = {"EUR": 1.0}
     for currency, pair in pairs.items():
         try:
-            hist = yf.Ticker(pair).history(period="1d")
-            if not hist.empty:
-                eur_per_native_inverse = hist["Close"].iloc[-1]
+            eur_per_native_inverse = get_current_price(pair)
+            if eur_per_native_inverse and eur_per_native_inverse > 0:
                 rates[currency] = 1.0 / eur_per_native_inverse  # 1 native = X EUR
             else:
                 print(f"  WARN: FX {pair} empty, using 1.0 fallback (POISON DATA)")
@@ -92,11 +93,12 @@ def fetch_fx_rates() -> dict:
 
 
 def fetch_price_eur(ticker: str, fx_rates: dict) -> float | None:
+    # SOCLE S1c (#111) : migré yf.Ticker → prices.get_current_price gateway.
+    from shared.prices import get_current_price
     try:
-        hist = yf.Ticker(ticker).history(period="1d")
-        if hist.empty:
+        price_native = get_current_price(ticker)
+        if price_native is None:
             return None
-        price_native = float(hist["Close"].iloc[-1])
         currency = ticker_currency(ticker)
         return price_native * fx_rates[currency]
     except Exception as e:

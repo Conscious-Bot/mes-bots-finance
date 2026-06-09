@@ -377,24 +377,30 @@ def _movers_24h_section() -> dict | None:
     tickers = [r["ticker"] for r in rows]
     conviction_map = {r["ticker"]: r["conviction"] for r in rows}
 
-    try:
-        import yfinance as yf
+    # SOCLE S1c (#111) : migré yf.download batch → loop ensure_price_history.
+    from datetime import UTC, datetime, timedelta
 
-        hist = yf.download(tickers, period="2d", interval="1d", progress=False, group_by="ticker")
-    except Exception as e:
-        log.warning(f"movers 24h yfinance batch fail: {e}")
-        return None
+    from shared.prices import ensure_price_history, get_current_price_in_usd  # noqa: F401
 
-    try:
-        from shared.prices import get_current_price_in_usd
-    except Exception:
-        return None
+    end_dt = datetime.now(UTC)
+    start_dt = end_dt - timedelta(days=5)  # marge weekend
+    hist_by_tk: dict = {}
+    for tk in tickers:
+        try:
+            h = ensure_price_history(tk, start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d"))
+            if h is not None and not h.empty:
+                hist_by_tk[tk] = h
+        except Exception:
+            pass
 
     movers: list[dict] = []
     for ticker in tickers:
         try:
-            ticker_data = hist[ticker] if len(tickers) > 1 else hist
-            closes = ticker_data["Close"].dropna()
+            ticker_data = hist_by_tk.get(ticker)
+            if ticker_data is None or ticker_data.empty:
+                continue
+            price_col = "price_native" if "price_native" in ticker_data.columns else "Close"
+            closes = ticker_data[price_col].dropna()
             if len(closes) < 2:
                 continue
             prev_native = float(closes.iloc[-2])
