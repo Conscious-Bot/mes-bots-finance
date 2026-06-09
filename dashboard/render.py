@@ -335,80 +335,6 @@ def _tbar(
     return "".join(parts)
 
 
-def _position_axis(
-    entry: float | None,
-    stop: float | None,
-    target: float | None,
-    current: float | None,
-    extra_class: str = "",
-    pnl_position_pct: float | None = None,
-) -> str:
-    """Canonical position gauge (#91 unifie 03/06/2026, anchor-agnostique).
-
-    Quatre repères, lecture immediate, zero second-guess :
-    - LIMIT (stop) -> tick rouge a sa vraie distance neg vs `entry`
-    - 0 (entry)    -> centre de l'axe, reference zero PnL
-    - TARGET       -> tick vert a sa vraie distance pos vs `entry`
-    - DOT          -> current price = signed PnL % vs `entry`
-
-    SÉMANTIQUE DE `entry` (cf L29 09/06) : ce paramètre est l'ANCRE du zéro,
-    pas le prix d'appel de thèse en tant que tel. La fonction est anchor-
-    agnostique : passe ce que tu veux comme "zéro de la lecture". Pour la
-    gauge canonique post-fix L29, les callers passent avg_cost_eur (le vrai
-    coût utilisateur) et stop/target/current TOUS en EUR depuis BookLine →
-    dot et tooltip racontent alors la même chose (pnl_position).
-
-    Money-invariant (L28) : tous les 4 chiffres doivent vivre dans la MÊME
-    devise. Caller responsable -- la fonction ne convertit pas.
-
-    Returns "" si donnees insuffisantes (caller affiche son fallback).
-    """
-    if not (entry and stop and target and current and target != stop):
-        return ""
-    cur_pct = (current - entry) / entry * 100
-    stop_pct = (stop - entry) / entry * 100
-    tgt_pct = (target - entry) / entry * 100
-    # Axis symetrique = max distance from entry. Floor 10% pour eviter
-    # un axis micro si tout est tres pres d'entry.
-    ax = max(abs(stop_pct), abs(tgt_pct), abs(cur_pct), 10.0)
-    # Distance proportionnelle depuis le 0 central (50% visuel = entry).
-    dot_v = max(0.0, min(100.0, 50.0 + (cur_pct / ax) * 50.0))
-    stop_v = max(0.0, min(100.0, 50.0 + (stop_pct / ax) * 50.0))
-    tgt_v = max(0.0, min(100.0, 50.0 + (tgt_pct / ax) * 50.0))
-    # Repères : stop rouge gauche, entry gris centre, target vert droite.
-    # Dot noir par defaut ; rouge si current < stop (limite cassee), vert si
-    # current > target (signal complete). La couleur ne s'allume qu'aux
-    # boundary crossings, sinon la position seule porte l'info.
-    if current <= stop:
-        dot_cls = "bear"
-    elif current >= target:
-        dot_cls = "acc"
-    else:
-        dot_cls = ""
-    cls_full = ("sig-ent0 " + extra_class).strip()
-    # Tooltip : pnl_position_pct (P&L EUR depuis avg_cost broker).
-    # Post-fix L29 09/06 : quand le caller ancre la gauge sur avg_cost_eur en
-    # passant aussi stop_eur/target_eur/current_eur (tout EUR depuis BookLine),
-    # le dot calculé ci-dessus représente exactement pnl_position. Dot et
-    # tooltip racontent alors LA MÊME chose (byte-identité de l'info).
-    if pnl_position_pct is not None:
-        title_str = f"P&L {pnl_position_pct:+.1f}%"
-    else:
-        title_str = "(P&L position non disponible)"
-    return _tbar(
-        dot_v,
-        ticks=[
-            (stop_v, "stop", "stop"),
-            (50.0, "entry", "entry"),
-            (tgt_v, "target", "target"),
-        ],
-        dot_color=dot_cls,
-        title=title_str,
-        extra_class=cls_full,
-        data_attrs={"axmin": f"{-ax:.1f}", "axmax": f"{ax:.1f}"},
-    )
-
-
 def _gauge_prices_native(bl: object | None) -> dict | None:
     """5 prix natifs canoniques + meta (SPEC_GAUGE §2.1).
 
@@ -2581,50 +2507,11 @@ def _position_card(inputs, steer_v2) -> str:
     else:
         asym_html = '<div class="pc-empty">stop/target non definis</div>'
 
-    # Slider : UN SEUL MÈTRE — % depuis ton coût (cost_native via fx_now).
-    # cf principe Olivier 09/06 23h+ : 0 = avg_cost (point de départ), stop/target
-    # à leurs % depuis cost, dot à perf actuelle depuis cost (≡ P&L EUR). Tous
-    # comparables sur le même axe signed. SK Hynix : target_pct ≈ -0.7% (cost
-    # rattrapé via renforcements) → target sous 0 honnête, le split Closest/Beyond
-    # le range correctement via cur_native ≥ target_native.
-    _gp = _gauge_pcts_from_cost(bl)
-    if _gp and _gp.get("dot_pct") is not None:
-        slider_html = _position_axis_pct(
-            _gp.get("stop_pct"),
-            _gp.get("target_pct"),
-            _gp.get("dot_pct"),
-            target_partial_pct=_gp.get("target_partial_pct"),
-            pnl_position_pct=pnl_pct,
-        )
-    elif stop and entry and full and current_price:
-        # Fallback ancien comportement entry-natif si BookLine EUR incomplet.
-        slider_html = _position_axis(entry, stop, full, current_price, pnl_position_pct=pnl_pct)
-    elif entry and full and current_price:
-        # No stop (structural) : montre seulement entry-current-target
-        cur_pct = (current_price / entry - 1) * 100
-        tgt_pct = (full / entry - 1) * 100
-        ax = max(abs(tgt_pct), abs(cur_pct), 10.0)
-        cur_v = max(0.0, min(100.0, 50.0 + (cur_pct / ax) * 50.0))
-        tgt_v = max(0.0, min(100.0, 50.0 + (tgt_pct / ax) * 50.0))
-        slider_html = (
-            '<div class="pc-slider" style="position:relative;height:8px;'
-            'background:linear-gradient(90deg, var(--bg-2) 0%, var(--bg-2) 50%, '
-            'rgba(56,142,60,0.18) 50%, rgba(56,142,60,0.32) 100%);'
-            'border-radius:2px;margin:14px 0;">'
-            f'<div style="position:absolute;left:50%;width:1px;height:14px;'
-            'top:-3px;background:var(--ink-3);" title="entry"></div>'
-            f'<div style="position:absolute;left:{tgt_v:.1f}%;width:1px;height:14px;'
-            'top:-3px;background:#3a9d4e;" title="target"></div>'
-            f'<div style="position:absolute;left:{cur_v:.1f}%;width:9px;height:9px;'
-            'top:-1px;border-radius:50%;background:var(--ink-1);transform:translate(-50%,0);"></div>'
-            '</div>'
-            '<div class="pc-slider-l" style="display:flex;justify-content:space-between;'
-            'font-size:10px;color:var(--ink-3);">'
-            '<span>downside structurel</span><span>entry</span>'
-            f'<span>+{tgt_pct:.0f}% target</span></div>'
-        )
-    else:
-        slider_html = ""
+    # Gauge canonique SPEC_GAUGE : axe-prix natif via _gauge_prices_native.
+    # Fail-closed L15 dégradé interne au helper (has_band=False → cost+dot seuls).
+    # KNOWN-GAP: degraded binaire — SPEC §4 rows 2-3 (borne unique partiel/full sans
+    # stop) non rendues, anchor géométrique indéfini sans bande. Cas rare.
+    slider_html = _position_axis_price(_gauge_prices_native(bl))
 
     # Driver-status block (V1 : si erosion compute)
     if driver_status:
@@ -6145,23 +6032,9 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                # Theses panel : UN SEUL MÈTRE — % depuis cost (cf _position_axis_pct).
+                # Gauge canonique SPEC_GAUGE : axe-prix natif via BookLine.
                 _tk_th = t["tk"]
-                _gp_th = _gauge_pcts_from_cost(_book_idx_th_inner.get(_tk_th)) if _book_idx_th_inner else {}
-                if _gp_th and _gp_th.get("dot_pct") is not None:
-                    _pa = _position_axis_pct(
-                        _gp_th.get("stop_pct"),
-                        _gp_th.get("target_pct"),
-                        _gp_th.get("dot_pct"),
-                        target_partial_pct=_gp_th.get("target_partial_pct"),
-                        pnl_position_pct=_gp_th.get("dot_pct"),
-                    )
-                else:
-                    # Fallback legacy natif
-                    _entry_v, _cur_v = t["_entry"], t["_cur"]
-                    _perf_e = ((_cur_v / _entry_v - 1) * 100.0) if (_entry_v and _cur_v and _entry_v != 0) else None
-                    _pa = _position_axis(_entry_v, t["_stop"], t["_tgt"], _cur_v,
-                                         pnl_position_pct=_perf_e)
+                _pa = _position_axis_price(_gauge_prices_native(_book_idx_th_inner.get(_tk_th)) if _book_idx_th_inner else None)
                 bar = f'<div class="th-bar">{_pa}</div>' if _pa else '<div class="th-na">incomplete price data</div>'
             else:
                 bar = '<div class="th-na">incomplete price data</div>'
@@ -6578,29 +6451,8 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         asym_cls, asym_str = _asym_format(asym.get(tk))
         g = gauges.get(tk)
         if g:
-            # Thesis-frame tooltip : perf depuis entry (cohérent dot), pas pnl_position
-            # cost-frame (qui vit dans la col "P&L" séparée de la table).
-            # Book row Progress : UN SEUL MÈTRE — % depuis cost (cf principe
-            # Olivier 09/06 23h+, _position_axis_pct). Stop/target/dot tous
-            # calculés depuis cost_native via fx_now → cohérents, comparables.
-            _gp_row = _gauge_pcts_from_cost(_book_idx.get(tk))
-            if _gp_row and _gp_row.get("dot_pct") is not None:
-                gauge_html = _position_axis_pct(
-                    _gp_row.get("stop_pct"),
-                    _gp_row.get("target_pct"),
-                    _gp_row.get("dot_pct"),
-                    target_partial_pct=_gp_row.get("target_partial_pct"),
-                    extra_class="row-bar",
-                    pnl_position_pct=_gp_row.get("dot_pct"),
-                ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
-            else:
-                # Fallback legacy native si BookLine EUR absente (rare)
-                _e_g, _c_g = g["_entry"], g["_cur"]
-                _perf_e_row_n = ((_c_g / _e_g - 1) * 100.0) if (_e_g and _c_g and _e_g != 0) else None
-                gauge_html = _position_axis(
-                    g["_entry"], g["_stop"], g["_tgt"], g["_cur"], extra_class="row-bar",
-                    pnl_position_pct=_perf_e_row_n,
-                ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
+            # Gauge canonique SPEC_GAUGE : axe-prix natif via BookLine.
+            gauge_html = _position_axis_price(_gauge_prices_native(_book_idx.get(tk)), extra_class="row-bar") or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         else:
             gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         # Cycle phase chip via vocabulary canonique (#117 -- adoption STATE calme).
@@ -7186,31 +7038,36 @@ def render() -> Path:
     # Journal block retire 02/06 Vigie -- compute conserve pour reactivation eventuelle.
     _journal_html = _journal()
     # === Phase 4 migration L27 : _axis projete depuis _views (coeur unique) ===
-    # Avant : reconstruit depuis computed (asym_mod.compute_portfolio_asymmetry qui
-    # re-fetche yfinance localement -- violation L27). Apres : projection pure
-    # depuis _views[tk] qui sont les Datums canoniques deja calcules une fois.
-    # Byte-identite garantie tant que asym_mod produit les memes (stop, target_full,
-    # current, upside_pct, downside_pct) que PositionView -- ce sont les memes
-    # sources DB. Tout diff = finding (au moins un des deux est faux).
-    _axis: dict[str, dict[str, float]] = {}
+    # Phase 4 migration L27 : _axis projeté depuis BookLine (cron, même source
+    # que la gauge dessine via _gauge_prices_native) → split ≡ visuel par construction.
+    # asymmetry_ratio (up/dn) reste live via view (orthogonal au prix gauge).
+    # _pr stocké dans _axis pour réutilisation _axisrow (identité littérale, pas
+    # juste égalité de valeur → impossibilité de fork par construction).
+    try:
+        from shared import book as _bk
+
+        _book_idx = _bk.get_book_index()
+    except Exception:
+        _book_idx = {}
+
+    _axis: dict[str, dict] = {}
     for tk, view in _views.items():
-        st = view.stop_native or 0
-        tg = view.target_full_native or 0
-        c = view.price_native or 0
-        up = view.upside_pct
-        dn = view.downside_pct
-        if st and tg and tg != st and c and up is not None and dn is not None:
-            frac_raw = (c - st) / (tg - st) * 100
-            _axis[tk] = {
-                "frac": max(0.0, min(100.0, frac_raw)),
-                "frac_raw": frac_raw,
-                "up": up,
-                "dn": dn,
-                "tg_pct": (c / tg - 1) * 100 if tg else 0,
-                "_stop": st,
-                "_tgt": tg,
-                "_cur": c,
-            }
+        pr = _gauge_prices_native(_book_idx.get(tk))
+        if not pr or not pr.get("has_band"):
+            continue
+        up, dn = view.upside_pct, view.downside_pct
+        if up is None or dn is None:
+            continue
+        st, tg, c = pr["stop_native"], pr["full_native"], pr["cur_native"]
+        frac_raw = (c - st) / (tg - st) * 100
+        _axis[tk] = {
+            "frac": max(0.0, min(100.0, frac_raw)),
+            "frac_raw": frac_raw,
+            "up": up, "dn": dn,
+            "tg_pct": (c / tg - 1) * 100 if tg else 0,
+            "_stop": st, "_tgt": tg, "_cur": c,
+            "_pr": pr,  # réutilisé par _axisrow → identité littérale split↔gauge
+        }
     # Split Closest/Beyond — test correct = cur_native >= target_native
     # (FX-invariant, pas de piège de signe). Cf catch Olivier 09/06 23h+ :
     # frac_raw >= 100 misclassifie SK Hynix (target_pct=-0.7% via cost rattrapé
@@ -7229,12 +7086,6 @@ def render() -> Path:
     # position est aussi fragile / valo > bull / solidite faible, atteindre
     # la target = signal de prendre profit, pas la these qui marche. On surface
     # ce tag explicite sur chaque row qui meriterait un trim.
-    try:
-        from shared import book as _bk
-
-        _book_idx = _bk.get_book_index()
-    except Exception:
-        _book_idx = {}
 
     def _axisrow(tk: str) -> str:
         a = _axis[tk]
@@ -7276,28 +7127,11 @@ def render() -> Path:
             if risky:
                 chip_tip_attr = f' data-tip="{fx_tip}"' if fx_tip else ""
                 profit_chip = f'<span class="th-pt"{chip_tip_attr}>target hit</span>'
-        # Asym CLOSEST_TO_TARGET : UN SEUL MÈTRE — % depuis cost. Le panneau est
-        # rangé via cur_native >= target_native, donc Closest = approche legitime,
-        # Beyond = passé. La gauge montre l'avancement sans mélange.
-        _gp_ar = _gauge_pcts_from_cost(ln)
-        if _gp_ar and _gp_ar.get("dot_pct") is not None:
-            bar = _position_axis_pct(
-                _gp_ar.get("stop_pct"),
-                _gp_ar.get("target_pct"),
-                _gp_ar.get("dot_pct"),
-                target_partial_pct=_gp_ar.get("target_partial_pct"),
-                pnl_position_pct=_gp_ar.get("dot_pct"),
-            ) or (
-                f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
-            )
-        else:
-            # Fallback legacy natif
-            _e = ln.entry_price if ln else None
-            _s, _t, _c = a["_stop"], a["_tgt"], a["_cur"]
-            _pnl_p = (_c / _e - 1) * 100.0 if (_e and _c and _e != 0) else None
-            bar = _position_axis(_e, _s, _t, _c, pnl_position_pct=_pnl_p) or (
-                f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
-            )
+        # Asym CLOSEST_TO_TARGET : gauge canonique SPEC_GAUGE — réutilise _pr stocké
+        # dans _axis (identité littérale split↔gauge, pas juste égalité de valeur).
+        bar = _position_axis_price(a["_pr"]) or (
+            f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
+        )
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
             f'{bar}</div>'
@@ -7812,28 +7646,17 @@ def render() -> Path:
         + _CTA_JS
         + "</script>"
         + "<script>(function(){var b=null;function isTyping(){var ta=document.getElementById('chat-input');if(ta&&ta.value.trim().length>0)return true;if(ta&&document.activeElement===ta)return true;return false;}function c(){if(isTyping())return;fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,1000);})();</script>"
-        # Hover continuous sur les .tbar : displays valeur under cursor.
-        # MODES :
-        #   - axis-mode="price" (axe-prix EUR) : affiche "€X.XX" (prix interpolé)
-        #   - axis-mode absent (axe-perf legacy, data-axmin/axmax = % signed) :
-        #     affiche "+X.X%" / "-X.X%" signed depuis 0 logique
-        #   - sinon : affiche position % visuelle
-        # Cure 09/06 23h+ : le mode "price" résout le bug "+1820%" au hover
-        # quand axmax=1820 EUR (bornes prix interprétées comme %).
         # Hover JS canonique (cf SPEC_GAUGE §2.7 + §0-B verrou anti +1820%).
         # Modes :
         #   - axis-mode="price-native" (canon SPEC_GAUGE) : axmin/axmax = prix
         #     en native currency (KRW/USD/EUR...), data-currency = code ISO.
-        #     Affiche "1,234.56 KRW" — prix natif, jamais de % nu.
-        #   - axis-mode="price" (legacy EUR, à supprimer post-bascule) : prix EUR
+        #     Géométrie inverse [10,90] → bande, lanes <10/>90 = "hors bande".
         #   - axis-mode absent (axe-perf legacy signed %) : "+X.X%" / "-X.X%"
-        #   - sinon : position % visuelle
         # Le natif sur l'axe + EUR uniquement dans le `title` text = séparation
         # invariante (§0-3). Pas de % nu dans le hover de la gauge prix-natif.
         + "<script>(function(){"
           "function fmtNative(v,ccy){return v.toLocaleString('fr-FR',{maximumFractionDigits:2})+(ccy?' '+ccy:'');}"
           "function fmtPct(v){var s=v>=0?'+':'\\u2212';return s+Math.abs(v).toFixed(1)+'%';}"
-          "function fmtEur(v){return v.toLocaleString('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2});}"
           "function wire(){document.querySelectorAll('.tbar').forEach(function(bar){"
           "var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;"
           "bar.dataset.tbarWired='1';"
@@ -7845,10 +7668,14 @@ def render() -> Path:
           "var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));"
           "tip.style.left=p.toFixed(1)+'%';"
           "if(hasAxis){"
-          "var v=axmin+(axmax-axmin)*(p/100);"
-          "if(mode==='price-native'){tip.textContent=fmtNative(v,ccy);tip.classList.remove('pos','neg');}"
-          "else if(mode==='price'){tip.textContent=fmtEur(v);tip.classList.remove('pos','neg');}"
-          "else{tip.textContent=fmtPct(v);tip.classList.toggle('pos',v>0.05);tip.classList.toggle('neg',v<-0.05);}"
+          # Geometrie inverse SPEC_GAUGE : bande [stop,full] -> [10,90].
+          # Lanes <10 / >90 = overflow rationnel -> "hors bande", pas de prix.
+          "if(mode==='price-native'){"
+          "if(p<10){tip.textContent='\\u2039 hors bande';}"
+          "else if(p>90){tip.textContent='hors bande \\u203A';}"
+          "else{var span=axmax-axmin;var price=axmin+(p-10)/80*span;tip.textContent=fmtNative(price,ccy);}"
+          "tip.classList.remove('pos','neg');"
+          "}else{var v=axmin+(axmax-axmin)*(p/100);tip.textContent=fmtPct(v);tip.classList.toggle('pos',v>0.05);tip.classList.toggle('neg',v<-0.05);}"
           "}else{tip.textContent=p.toFixed(0)+'%';tip.classList.remove('pos','neg');}"
           "});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});"
           "})();</script>"
