@@ -171,7 +171,7 @@ Tâches doctrine/refonte mises **explicitement** en suspens par décision 08/06 
 - **#102** C7a-3 Liaison positions↔card refactor (PositionView source unique) — **doublement bloqué** : (a) demande base prix honnête, (b) résout par construction l'incohérence 0,5×/1,80× QUI VIENT DE LA BASE CASSÉE
 - **#104** `scripts/audit_canonical_drift.py` + intégration `/close` (mécanisme L25)
 - **#88** FUTURE : M2 self-application — Brier-scorer le moteur thesis_erosion
-- **#92** FUTURE post-cornerstone-macro : build consensus micro projection per SPEC_CONSENSUS_MICRO
+- **#92** FUTURE post-cornerstone-macro : build consensus micro projection per SPEC_CONSENSUS_FRAGILITE
 - Reste de C7 (wire 7 autres macro inputs + backtest historique 2015-2024) — pas reprogrammé tant que C7a non démarré
 
 **Doctrine livrée cette session (intacte, attend implémentation)** :

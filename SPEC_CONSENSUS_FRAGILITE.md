@@ -95,12 +95,12 @@ table consensus_snapshots (append-only) -> trajectoire + delta + self-scoring
 
 ## 9. Implementation Status
 
-- **Gravé** : 2026-06-08 (date approximée — version enrichie markdown)
+- **Gravé** : 2026-06-08 (doc reçu, archivé pour build futur post-cornerstone macro)
 - **Implémentation** : NOT_STARTED — orphelin (0 refs code 09/06)
-- **DOUBLON L25 DÉTECTÉ** : `SPEC_CONSENSUS_MICRO.md` a la même structure (10 sections identiques) — il s'agit de deux versions du même SPEC (FRAGILITE = enrichie markdown ; MICRO = version archivée "08/06 archivé pour build futur"). À TRANCHER : garder un seul, marquer l'autre `[ARCHIVÉ — voir <le gardé>]` ou supprimer. Décision Olivier requise (cf TODO #92 FUTURE).
-- **Fichiers cibles** : `config/divergence.yaml` (à créer, partagé avec macro), `intelligence/consensus_fragilite.py` (à créer), `tests/test_consensus_fragilite.py` (à créer)
+- **Doublon résolu** : `SPEC_CONSENSUS_MICRO.md` était une version brute du même SPEC (10 sections identiques), supprimé 09/06 après verify-before-delete (zéro contenu doctrinal unique perdu). FRAGILITE conservée car master-référencée + markdown enrichi.
+- **Fichiers cibles** : `config/divergence.yaml` (à créer, partagé avec macro), `intelligence/consensus_fragilite.py` (à créer ; nom final tranché à la création selon vocabulaire canonique), `tests/test_consensus_fragilite.py` (à créer)
 - **Audit drift** : `scripts/audit_canonical_drift.py`
-- **Prochain step** : FUTURE post-cornerstone-macro (cf TODO #92). Bloqué tant que doublon non tranché.
+- **Prochain step** : FUTURE post-cornerstone-macro (cf TODO #92).
 
 ## 10. Le fil
 
