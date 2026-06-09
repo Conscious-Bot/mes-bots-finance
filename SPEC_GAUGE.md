@@ -1,3 +1,5 @@
+> ⚠️ SUPERSEDED 2026-06-09 (minuit) — Ce document (canon 2-références) ET le code committé `ee4c6f6` (interp 1) sont DEUX étapes rejetées qui se contredisent. Décision tranchée : **AXE PRIX NATIF PUR** (stop/partial/full = prix décidés fixes, axe ancré sur la bande [stop, full], cost+current = marqueurs, P&L EUR en label, zéro EUR sur l'axe). NE PAS « corriger » le code vers ce canon. Réécriture complète + implémentation en attente (demain, reposé).
+
 # Spec GAUGE — le principe canonique des jauges de position
 
 > **Une jauge de position raconte deux questions sur la même ligne** : *« où tu visais »* (les niveaux décidés en amont — stop rouge, target_partial jaune, target_full vert) et *« où tu en es »* (ta perf actuelle depuis ton coût réel). Le 0 central gris = ton coût. Les ticks racontent ta décision, le dot raconte ton argent. Le split Closest/Beyond range les positions selon la vérité FX-invariante (`cur_native ≥ target_full_native`), pas selon l'apparence visuelle. **Ce mélange de référentiels est assumé, justifié et nommé** — c'est l'unique manière de présenter les deux questions sans mentir sur aucune.
