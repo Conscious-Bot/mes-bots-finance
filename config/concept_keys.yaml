@@ -20,3 +20,8 @@ concepts:
     description: "PMP roulant fiscal FR en EUR (cf shared/ledger_pmp.py)"
     asof_bucket: day
     epsilon_rel: 0.001  # 0.1% — PMP est un calcul exact, micro-diff = fork
+
+  value_eur:
+    description: "Valeur position EUR (qty x price x fx) -- canonique book.value_eur()"
+    asof_bucket: day
+    epsilon_rel: 0.005  # 0.5% — tolère micro-jitter FX/price intra-jour entre producteurs

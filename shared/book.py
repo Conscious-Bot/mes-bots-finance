@@ -703,7 +703,7 @@ def value_eur(ticker: str, qty: float) -> Datum | None:
 
     # Compose qty x price x fx → Monetary(EUR). derive() propage asof/confidence/
     # degraded/parents automatiquement (3 parents = qty + price + fx).
-    return derive(
+    result = derive(
         lambda q, px, fx: Monetary(
             amount=float(q) * float(px) * float(fx),
             currency="EUR",
@@ -711,6 +711,29 @@ def value_eur(ticker: str, qty: float) -> Datum | None:
         qty_datum, price_datum, fx_datum,
         op="qty_mul_price_mul_fx_eur",
     )
+
+    # LIVING GRAPH W1 (#110) : publie value_eur dans concept_index pour
+    # fork-detection au regen-end. Source canonique = "book.value_eur".
+    # Si un futur producteur (panneau non-migré, helper dispersé) re-calcule
+    # value_eur autrement et register_concept aussi -> detect_forks chope
+    # la divergence au-delà ε=0.005. Single-source aujourd'hui (vérifié
+    # 09/06), garde-avenir. Silent-miss L7 si living_graph indispo.
+    try:
+        from shared.living_graph import register_concept
+        register_concept(
+            concept_key="value_eur",
+            value=result.value.amount,
+            source="book.value_eur",
+            ticker=ticker,
+            op="qty_mul_price_mul_fx_eur",
+            degraded=result.degraded,
+            confidence=result.confidence,
+            asof=result.asof,
+        )
+    except Exception:
+        pass
+
+    return result
 
 
 def book_summary() -> dict:
