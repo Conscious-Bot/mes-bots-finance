@@ -31,6 +31,8 @@ description: Rituel de clôture de session (5 min) — handoff vivant pour la se
 
 5. **Sanity check final** : full test suite (`source venv/bin/activate && pytest -q --tb=no | tail -3`). Si rouge, fix avant de fermer.
 
+6. **Audit canonical drift** (L25) : `python3 scripts/audit_canonical_drift.py | tail -20`. Reporte par SPEC le ratio référence-code / orphelin + doublons candidats. Si exit code 1 (SPEC sans footer Implementation Status) → noter dans SESSION_STATE comme dette doctrinale (pas blocker du close, mais visible pour la session suivante).
+
 ## Anti-pattern à éviter
 
 - Skipper le rituel "parce que la session est courte" → 2 sessions plus tard, le SESSION_STATE est stale et la friction de re-onboarding revient.
