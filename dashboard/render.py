@@ -414,44 +414,58 @@ def _position_axis_pct(
     target_pct: float | None,
     dot_pct: float | None,
     *,
+    target_partial_pct: float | None = None,
     extra_class: str = "",
     pnl_position_pct: float | None = None,
 ) -> str:
-    """Canonical position gauge — UN SEUL MÈTRE depuis le coût (% depuis 0=cost).
+    """Canonical position gauge — UN SEUL MÈTRE depuis le coût (cf SPEC_GAUGE).
 
-    Cf principe Olivier 09/06 23h+ : 0 = avg_cost (point de départ). stop/target
-    posés à leurs % depuis cost (peuvent être négatifs). dot à la perf actuelle
-    depuis cost (≡ P&L EUR si cost_native via fx_now).
+    - 0 (gris central) = cost (avg_cost via fx_now)
+    - Tous les % (stop, partial, target, dot) depuis cost — visuel ET
+      classement cohérents : dot ≥ target_pct ⇔ cur_native ≥ target_native ⇔ Beyond
+    - dot_pct ≡ P&L EUR
 
-    Tous les paramètres sont DÉJÀ des % (pas des prix) — pas de division par
-    une entry, pas de mélange de mètres. Axe symétrique ax = max(|...|, 10),
-    50% visuel = 0 (le coût). Returns "" si dot_pct None.
+    Légende couleur canonique (feu tricolore) :
+      🔴 stop rouge   — sortie en perte
+      ⚫ cost gris    — point de départ (0)
+      🟡 partial jaune — première prise de profit
+      🟢 target vert  — cible pleine
+
+    Returns "" si dot_pct None.
     """
     if dot_pct is None:
         return ""
     sp = stop_pct if stop_pct is not None else 0.0
     tp = target_pct if target_pct is not None else 0.0
-    ax = max(abs(sp), abs(tp), abs(dot_pct), 10.0)
+    tpart = target_partial_pct if target_partial_pct is not None else 0.0
+    ax = max(abs(sp), abs(tp), abs(tpart), abs(dot_pct), 10.0)
     dot_v = max(0.0, min(100.0, 50.0 + (dot_pct / ax) * 50.0))
     stop_v = max(0.0, min(100.0, 50.0 + (sp / ax) * 50.0)) if stop_pct is not None else None
     tgt_v = max(0.0, min(100.0, 50.0 + (tp / ax) * 50.0)) if target_pct is not None else None
-    # Dot color : bear sous stop, acc au-dessus target, neutre entre
-    dot_color = ""
+    tpart_v = (
+        max(0.0, min(100.0, 50.0 + (tpart / ax) * 50.0))
+        if target_partial_pct is not None and target_partial_pct != 0.0
+        else None
+    )
+    # Dot color : bear sous stop, acc au-dessus target, neutre entre. Cohérent
+    # avec le classement Beyond/Closest (un seul mètre, pas de divergence).
     if stop_pct is not None and dot_pct <= stop_pct:
         dot_color = "bear"
     elif target_pct is not None and dot_pct >= target_pct:
         dot_color = "acc"
-    # Tooltip simple : P&L EUR (dot_pct ≡ P&L EUR quand fx_now cohérent)
-    if pnl_position_pct is not None:
-        title_str = f"P&L {pnl_position_pct:+.1f}%"
     else:
-        title_str = f"P&L {dot_pct:+.1f}%"
+        dot_color = ""
+    # Tooltip simple : P&L EUR (dot_pct ≡ P&L EUR quand fx_now cohérent)
+    pnl_eur = pnl_position_pct if pnl_position_pct is not None else dot_pct
+    title_str = f"P&L {pnl_eur:+.1f}%"
     ticks = []
     if stop_v is not None:
         ticks.append((stop_v, "stop", "stop"))
-    ticks.append((50.0, "cost", "entry"))  # 0 central = cost (style "entry" gris)
+    ticks.append((50.0, "cost", "entry"))  # 0 central = cost (CSS class "entry" = gris, label legacy)
+    if tpart_v is not None:
+        ticks.append((tpart_v, "partial target", "partial"))  # CSS class "partial" = jaune
     if tgt_v is not None:
-        ticks.append((tgt_v, "target", "target"))
+        ticks.append((tgt_v, "target", "target"))  # CSS class "target" = vert
     cls_full = ("sig-pct " + extra_class).strip()
     return _tbar(
         dot_v,
@@ -464,46 +478,38 @@ def _position_axis_pct(
 
 
 def _gauge_pcts_from_cost(bl: object | None) -> dict[str, float | None]:
-    """Calcule les % de la gauge — principe Olivier 09/06 23h+ :
+    """Calcule les % de la gauge — UN SEUL MÈTRE depuis le coût.
 
-    - 0 (gris central) = ton coût actuel (cost_native)
-    - dot_pct = perf actuelle DEPUIS COÛT (≡ P&L EUR via cost_native = avg_cost_eur / fx_now)
-    - stop_pct, target_pct = % DÉCIDÉS EN AMONT (depuis entry de thèse, le point
-      de décision original). Stables vs renforcements (le PMP qui bouge ne fait
-      pas bouger les ticks décidés).
+    Conception finale (cf SPEC_GAUGE §1) :
+    - 0 (gris central) = ton coût actuel (cost_native = avg_cost_eur / fx_now)
+    - Tous les ticks ET le dot mesurés DEPUIS COÛT, en native (FX-invariant)
+    - dot_pct ≡ P&L EUR (cost_native via fx_now garantit l'identité algébrique)
+    - Visuel ET classement disent la même chose : dot ≥ target tic ⇔ Beyond
 
-    Le mélange "dot depuis cost / ticks depuis entry" est ASSUMÉ et justifié :
-    dot raconte "où tu en es maintenant", ticks racontent "où tu visais quand
-    tu as posé la thèse". Deux questions, une seule gauge.
+    Conséquence assumée : les ticks BOUGENT quand tu renforces (le PMP grimpe,
+    target_native fixe → target_pct depuis cost change). Sur SK Hynix renforcé
+    au-delà du target initial : target_pct ≈ -0.7% (target sous le 0 gris,
+    honnête : tu as moyenné jusqu'à dépasser ta cible). Le visuel le montre
+    et le panneau Beyond le range — les deux disent la même chose.
 
-    Le split Closest/Beyond utilise cur_native >= target_native (FX-invariant)
-    pour ranger les positions selon la VÉRITÉ du dépassement, pas l'apparence
-    visuelle. SK Hynix : dot visuellement sous target tic (ticks depuis entry),
-    mais cur_native > target_native → rangé en Beyond.
-
-    Returns dict avec stop_pct, target_pct, target_partial_pct (depuis entry),
-    dot_pct (depuis cost), + cur_native + target_native bruts.
+    Returns dict {cost_native, cur_native, target_native, stop_pct, target_pct,
+    target_partial_pct, dot_pct} — tous les % depuis cost_native.
     """
     if not bl:
         return {}
     avg_cost_eur = getattr(bl, "avg_cost_eur", None)
     fx = getattr(bl, "fx_rate_to_eur", None)
     cur_n = getattr(bl, "last_price_native", None)
-    entry_n = getattr(bl, "entry_price", None)
     if not avg_cost_eur or not fx or not cur_n or fx <= 0 or avg_cost_eur <= 0:
         return {}
-    cost_n = avg_cost_eur / fx  # cost_native via fx_now live
+    cost_n = avg_cost_eur / fx  # cost_native via fx_now live (un seul fx par position)
     if cost_n <= 0:
         return {}
 
-    # dot_pct : perf depuis cost (≡ P&L EUR)
-    dot_pct = (cur_n - cost_n) / cost_n * 100.0
-
-    # ticks (stop/target) : % décidés depuis entry de thèse (le point posé en amont)
-    def pct_from_entry(level: float | None) -> float | None:
-        if level is None or level <= 0 or not entry_n or entry_n <= 0:
+    def pct(level: float | None) -> float | None:
+        if level is None or level <= 0:
             return None
-        return (level - entry_n) / entry_n * 100.0
+        return (level - cost_n) / cost_n * 100.0
 
     stop_n = getattr(bl, "stop_price", None)
     tgt_n = getattr(bl, "target_full", None)
@@ -512,11 +518,10 @@ def _gauge_pcts_from_cost(bl: object | None) -> dict[str, float | None]:
         "cost_native": cost_n,
         "cur_native": cur_n,
         "target_native": tgt_n,
-        "entry_native": entry_n,
-        "stop_pct": pct_from_entry(stop_n),
-        "target_pct": pct_from_entry(tgt_n),
-        "target_partial_pct": pct_from_entry(tpart_n),
-        "dot_pct": dot_pct,
+        "stop_pct": pct(stop_n),
+        "target_pct": pct(tgt_n),
+        "target_partial_pct": pct(tpart_n),
+        "dot_pct": pct(cur_n),  # ≡ P&L EUR (fx_now s'annule)
     }
 
 
@@ -2682,6 +2687,7 @@ def _position_card(inputs, steer_v2) -> str:
             _gp.get("stop_pct"),
             _gp.get("target_pct"),
             _gp.get("dot_pct"),
+            target_partial_pct=_gp.get("target_partial_pct"),
             pnl_position_pct=pnl_pct,
         )
     elif stop and entry and full and current_price:
@@ -6241,6 +6247,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                         _gp_th.get("stop_pct"),
                         _gp_th.get("target_pct"),
                         _gp_th.get("dot_pct"),
+                        target_partial_pct=_gp_th.get("target_partial_pct"),
                         pnl_position_pct=_gp_th.get("dot_pct"),
                     )
                 else:
@@ -6676,6 +6683,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
                     _gp_row.get("stop_pct"),
                     _gp_row.get("target_pct"),
                     _gp_row.get("dot_pct"),
+                    target_partial_pct=_gp_row.get("target_partial_pct"),
                     extra_class="row-bar",
                     pnl_position_pct=_gp_row.get("dot_pct"),
                 ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
@@ -7371,6 +7379,7 @@ def render() -> Path:
                 _gp_ar.get("stop_pct"),
                 _gp_ar.get("target_pct"),
                 _gp_ar.get("dot_pct"),
+                target_partial_pct=_gp_ar.get("target_partial_pct"),
                 pnl_position_pct=_gp_ar.get("dot_pct"),
             ) or (
                 f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
@@ -7614,9 +7623,13 @@ def render() -> Path:
         # positions approchant) ; positions DÉPASSÉES vont dans panneau séparé
         # "Beyond target" (take-profit zone). Sémantiquement juste, plus de dot
         # "toujours au-dessus du target" dans le mauvais panneau.
-        f'<div class="colhead"><span class="t">Closest to target</span><span class="a">approche &mdash; dot &lt; tick vert</span></div>'
+        # Attribution juste : le critère de classement est cur_native vs
+        # target_full_native (FX-invariant), pas l'apparence visuelle du dot.
+        # AMD peut avoir dot visuellement > tick vert (mélange mètres dot/cost
+        # vs ticks/entry) tout en restant Closest si cur < target en native.
+        f'<div class="colhead"><span class="t">Closest to target</span><span class="a">cible pas encore atteinte (cur &lt; target_full)</span></div>'
         f'<div class="card pad">{gain}</div>'
-        f'<div class="colhead"><span class="t">Beyond target</span><span class="a">prise de profit &mdash; dot &gt; tick vert</span></div>'
+        f'<div class="colhead"><span class="t">Beyond target</span><span class="a">cible dépassée (cur &ge; target_full)</span></div>'
         f'<div class="card pad">{beyond}</div>'
         # ── BLOC 2 : MOUVEMENT DU JOUR -- restaure 02/06 user (winners/losers %) ──
         '<div class="vigie-sh" data-tip="Biggest movers over the last 24 hours (rolling, intraday-based when available)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>Last 24h movers</div>'

@@ -28,11 +28,17 @@ _TH_CSS = """
   .tbar-tick.dash { background:transparent; border-left:1px dashed var(--steel); opacity:.55; width:0; }
   /* Ticks colores axes signature position (limit/zero/target) :
      - stop = red (limit gauche)
-     - entry = grey (zero central, reference PnL)
-     - target = green (droite)
-     Dot noir par defaut ; rouge si dot <= stop, vert si dot >= target. */
+     - entry/cost = grey (zero central, ton coût = point de départ)
+     - partial = jaune (première prise de profit decidée, feu tricolore)
+     - target = green (cible pleine decidée)
+     Dot noir par defaut ; rouge si dot <= stop, vert si dot >= target OU
+     beyond (cur_native >= target_native, cf SPEC_GAUGE §1.4). */
   .tbar-tick.stop { background:var(--bear); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; }
   .tbar-tick.entry { background:var(--steel); opacity:.75; height:11px; top:-3px; width:1.5px; }
+  /* tbar-tick.partial : jaune-or vif (#e0b200), distinct du --warn (orange-brun
+     trop proche du --bear rouge stop) et clairement entre le stop et le target.
+     Convention feu tricolore : rouge / jaune / vert visuellement contrastés. */
+  .tbar-tick.partial { background:#e0b200; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; }
   .tbar-tick.target { background:var(--acc); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; }
   .tbar-dot { position:absolute; top:50%; width:9px; height:9px; border-radius:50%; background:var(--ink); transform:translate(-50%,-50%); z-index:2; box-shadow:0 0 0 1.5px var(--bg), 0 1px 3px rgba(0,0,0,.18); transition:left .25s ease-out; }
   .tbar-dot.acc { background:var(--acc); }
@@ -55,7 +61,7 @@ _TH_CSS = """
      auto -> pas besoin d'override. */
   body.midnight .tbar { background:rgba(255,255,255,.05); }
   body.midnight .tbar-fill { background:color-mix(in srgb,var(--ink) 70%,transparent); }
-  body.midnight .tbar-tick:not(.stop):not(.entry):not(.target):not(.dash) { background:rgba(255,255,255,.55); }
+  body.midnight .tbar-tick:not(.stop):not(.entry):not(.partial):not(.target):not(.dash) { background:rgba(255,255,255,.55); }
   body.midnight .tbar-tick.entry { background:var(--steel); opacity:.7; }
   body.midnight .tbar-hover-tip { box-shadow:0 4px 14px -4px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.25); }
   /* Section headers unifies (Polish 01/06) : meme pattern visuel pour
