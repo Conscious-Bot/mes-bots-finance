@@ -409,6 +409,102 @@ def _position_axis(
     )
 
 
+def _position_axis_pct(
+    stop_pct: float | None,
+    target_pct: float | None,
+    dot_pct: float | None,
+    *,
+    extra_class: str = "",
+    pnl_position_pct: float | None = None,
+) -> str:
+    """Canonical position gauge — UN SEUL MÈTRE depuis le coût (% depuis 0=cost).
+
+    Cf principe Olivier 09/06 23h+ : 0 = avg_cost (point de départ). stop/target
+    posés à leurs % depuis cost (peuvent être négatifs). dot à la perf actuelle
+    depuis cost (≡ P&L EUR si cost_native via fx_now).
+
+    Tous les paramètres sont DÉJÀ des % (pas des prix) — pas de division par
+    une entry, pas de mélange de mètres. Axe symétrique ax = max(|...|, 10),
+    50% visuel = 0 (le coût). Returns "" si dot_pct None.
+    """
+    if dot_pct is None:
+        return ""
+    sp = stop_pct if stop_pct is not None else 0.0
+    tp = target_pct if target_pct is not None else 0.0
+    ax = max(abs(sp), abs(tp), abs(dot_pct), 10.0)
+    dot_v = max(0.0, min(100.0, 50.0 + (dot_pct / ax) * 50.0))
+    stop_v = max(0.0, min(100.0, 50.0 + (sp / ax) * 50.0)) if stop_pct is not None else None
+    tgt_v = max(0.0, min(100.0, 50.0 + (tp / ax) * 50.0)) if target_pct is not None else None
+    # Dot color : bear sous stop, acc au-dessus target, neutre entre
+    dot_color = ""
+    if stop_pct is not None and dot_pct <= stop_pct:
+        dot_color = "bear"
+    elif target_pct is not None and dot_pct >= target_pct:
+        dot_color = "acc"
+    # Tooltip simple : P&L EUR (dot_pct ≡ P&L EUR quand fx_now cohérent)
+    if pnl_position_pct is not None:
+        title_str = f"P&L {pnl_position_pct:+.1f}%"
+    else:
+        title_str = f"P&L {dot_pct:+.1f}%"
+    ticks = []
+    if stop_v is not None:
+        ticks.append((stop_v, "stop", "stop"))
+    ticks.append((50.0, "cost", "entry"))  # 0 central = cost (style "entry" gris)
+    if tgt_v is not None:
+        ticks.append((tgt_v, "target", "target"))
+    cls_full = ("sig-pct " + extra_class).strip()
+    return _tbar(
+        dot_v,
+        ticks=ticks,
+        dot_color=dot_color,
+        title=title_str,
+        extra_class=cls_full,
+        data_attrs={"axmin": f"{-ax:.1f}", "axmax": f"{ax:.1f}"},
+    )
+
+
+def _gauge_pcts_from_cost(bl: object | None) -> dict[str, float | None]:
+    """Calcule les % canoniques de la gauge depuis ton COÛT (cost_native).
+
+    UN SEUL MÈTRE — depuis le coût, en native (FX-invariant).
+    cost_native = avg_cost_eur / fx_rate_to_eur (fx_now live).
+    Avec un seul fx_now pour les 4 valeurs (cost/stop/target/cur), les % en
+    native équivalent au P&L EUR pour le dot.
+
+    Returns dict avec stop_pct, target_pct, target_partial_pct, dot_pct
+    (chacun = (level_native − cost_native) / cost_native × 100, None si manquant)
+    + cur_native + target_native bruts (pour test Beyond FX-invariant).
+    """
+    if not bl:
+        return {}
+    avg_cost_eur = getattr(bl, "avg_cost_eur", None)
+    fx = getattr(bl, "fx_rate_to_eur", None)
+    cur_n = getattr(bl, "last_price_native", None)
+    if not avg_cost_eur or not fx or not cur_n or fx <= 0 or avg_cost_eur <= 0:
+        return {}
+    cost_n = avg_cost_eur / fx  # cost_native via fx_now live (un seul fx par position)
+    if cost_n <= 0:
+        return {}
+
+    def pct(level: float | None) -> float | None:
+        if level is None or level <= 0:
+            return None
+        return (level - cost_n) / cost_n * 100.0
+
+    stop_n = getattr(bl, "stop_price", None)
+    tgt_n = getattr(bl, "target_full", None)
+    tpart_n = getattr(bl, "target_partial", None)
+    return {
+        "cost_native": cost_n,
+        "cur_native": cur_n,
+        "target_native": tgt_n,
+        "stop_pct": pct(stop_n),
+        "target_pct": pct(tgt_n),
+        "target_partial_pct": pct(tpart_n),
+        "dot_pct": pct(cur_n),  # ≡ P&L EUR depuis avg_cost_eur (fx_now s'annule)
+    }
+
+
 def _position_axis_price(
     stop_eur: float | None,
     cost_eur: float | None,
@@ -2559,33 +2655,22 @@ def _position_card(inputs, steer_v2) -> str:
     else:
         asym_html = '<div class="pc-empty">stop/target non definis</div>'
 
-    # Slider : axe-PRIX EUR (cf SPEC_GAUGE_PRICE_AXIS #122 W0). 5 repères à leur
-    # vraie position de prix EUR. Plus d'anchor à choisir entre cost et entry --
-    # les deux sont des points distincts sur l'axe. Tooltip enrichi 2 frames :
-    # "P&L X% depuis coût · thèse Y% depuis entry · beyond Z%". Décision contre-
-    # doctrinale assumée (fresh-head ignoré 22h tard 09/06, refacto structurel
-    # attaqué quand même -- mais lean : seam additif, 1 caller migré, 3 autres
-    # gardent _position_axis legacy.
-    _cost_eur = getattr(bl, "avg_cost_eur", None) if bl else None
-    _stop_eur = getattr(bl, "stop_eur", None) if bl else None
-    _entry_eur_bl = getattr(bl, "entry_eur", None) if bl else None
-    _tgt_eur = getattr(bl, "target_full_eur", None) if bl else None
-    _cur_eur = getattr(bl, "current_price_eur", None) if bl else None
-    # Annotations textuelles (les 2 frames)
-    _pnl_cost = pnl_pct if pnl_pct else None  # P&L depuis avg_cost (déjà calculé L2287)
-    _perf_entry = (
-        (_cur_eur / _entry_eur_bl - 1) * 100.0
-        if (_entry_eur_bl and _cur_eur and _entry_eur_bl > 0)
-        else None
-    )
-    if _cur_eur and (_cost_eur or _stop_eur or _entry_eur_bl or _tgt_eur):
-        slider_html = _position_axis_price(
-            _stop_eur, _cost_eur, _entry_eur_bl, _tgt_eur, _cur_eur,
-            pnl_pct_cost=_pnl_cost, perf_pct_entry=_perf_entry,
+    # Slider : UN SEUL MÈTRE — % depuis ton coût (cost_native via fx_now).
+    # cf principe Olivier 09/06 23h+ : 0 = avg_cost (point de départ), stop/target
+    # à leurs % depuis cost, dot à perf actuelle depuis cost (≡ P&L EUR). Tous
+    # comparables sur le même axe signed. SK Hynix : target_pct ≈ -0.7% (cost
+    # rattrapé via renforcements) → target sous 0 honnête, le split Closest/Beyond
+    # le range correctement via cur_native ≥ target_native.
+    _gp = _gauge_pcts_from_cost(bl)
+    if _gp and _gp.get("dot_pct") is not None:
+        slider_html = _position_axis_pct(
+            _gp.get("stop_pct"),
+            _gp.get("target_pct"),
+            _gp.get("dot_pct"),
+            pnl_position_pct=pnl_pct,
         )
     elif stop and entry and full and current_price:
-        # Fallback : pas de BookLine EUR (rare). Garde l'ancien _position_axis
-        # natif (avant axe-prix W0). Migration totale demain à tête reposée.
+        # Fallback ancien comportement entry-natif si BookLine EUR incomplet.
         slider_html = _position_axis(entry, stop, full, current_price, pnl_position_pct=pnl_pct)
     elif entry and full and current_price:
         # No stop (structural) : montre seulement entry-current-target
@@ -6133,25 +6218,15 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                # Cure racine 09/06 : migration theses panel vers _position_axis_price
-                # (5 repères EUR axe-ouvert). Tue le bug visuel dot collé bord droit
-                # sur BEYOND. Source canonique BookLine EUR.
+                # Theses panel : UN SEUL MÈTRE — % depuis cost (cf _position_axis_pct).
                 _tk_th = t["tk"]
-                _ln_th = _book_idx_th_inner.get(_tk_th) if _book_idx_th_inner else None
-                if _ln_th and _ln_th.current_price_eur:
-                    _cost_e = _ln_th.avg_cost_eur
-                    _stop_e = _ln_th.stop_eur
-                    _entry_e = _ln_th.entry_eur
-                    _tgt_e = _ln_th.target_full_eur
-                    _cur_e = _ln_th.current_price_eur
-                    _pnl_c = _ln_th.pnl_pct
-                    _perf_e = (
-                        (_cur_e / _entry_e - 1) * 100.0
-                        if (_entry_e and _cur_e and _entry_e > 0) else None
-                    )
-                    _pa = _position_axis_price(
-                        _stop_e, _cost_e, _entry_e, _tgt_e, _cur_e,
-                        pnl_pct_cost=_pnl_c, perf_pct_entry=_perf_e,
+                _gp_th = _gauge_pcts_from_cost(_book_idx_th_inner.get(_tk_th)) if _book_idx_th_inner else {}
+                if _gp_th and _gp_th.get("dot_pct") is not None:
+                    _pa = _position_axis_pct(
+                        _gp_th.get("stop_pct"),
+                        _gp_th.get("target_pct"),
+                        _gp_th.get("dot_pct"),
+                        pnl_position_pct=_gp_th.get("dot_pct"),
                     )
                 else:
                     # Fallback legacy natif
@@ -6577,28 +6652,17 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         if g:
             # Thesis-frame tooltip : perf depuis entry (cohérent dot), pas pnl_position
             # cost-frame (qui vit dans la col "P&L" séparée de la table).
-            # Cure racine 09/06 : migration book row vers _position_axis_price
-            # (5 repères EUR axe-ouvert proportionnel). Tue le bug visuel "dot
-            # au-delà du target tick" sur positions BEYOND : la gauge symétrique
-            # legacy forçait dot=100% quand cur_pct était max. Axe-prix place
-            # les 5 points à leur vraie position de prix → dot lisible toujours.
-            ln_for_gauge = _book_idx.get(tk)
-            if ln_for_gauge and ln_for_gauge.current_price_eur:
-                _cost = ln_for_gauge.avg_cost_eur
-                _stop_e = ln_for_gauge.stop_eur
-                _entry_e = ln_for_gauge.entry_eur
-                _tgt_e = ln_for_gauge.target_full_eur
-                _cur_e = ln_for_gauge.current_price_eur
-                _pnl_c = ln_for_gauge.pnl_pct
-                _perf_e_row = (
-                    (_cur_e / _entry_e - 1) * 100.0
-                    if (_entry_e and _cur_e and _entry_e > 0)
-                    else None
-                )
-                gauge_html = _position_axis_price(
-                    _stop_e, _cost, _entry_e, _tgt_e, _cur_e,
+            # Book row Progress : UN SEUL MÈTRE — % depuis cost (cf principe
+            # Olivier 09/06 23h+, _position_axis_pct). Stop/target/dot tous
+            # calculés depuis cost_native via fx_now → cohérents, comparables.
+            _gp_row = _gauge_pcts_from_cost(_book_idx.get(tk))
+            if _gp_row and _gp_row.get("dot_pct") is not None:
+                gauge_html = _position_axis_pct(
+                    _gp_row.get("stop_pct"),
+                    _gp_row.get("target_pct"),
+                    _gp_row.get("dot_pct"),
                     extra_class="row-bar",
-                    pnl_pct_cost=_pnl_c, perf_pct_entry=_perf_e_row,
+                    pnl_position_pct=_gp_row.get("dot_pct"),
                 ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
             else:
                 # Fallback legacy native si BookLine EUR absente (rare)
@@ -7218,19 +7282,17 @@ def render() -> Path:
                 "_tgt": tg,
                 "_cur": c,
             }
-    # Cure racine 09/06 : "CLOSEST TO TARGET" doit montrer positions APPROCHANT
-    # target (dot SOUS target tick), PAS les positions BEYOND (dot AU-DESSUS).
-    # Le visuel "dot toujours au-dessus du target" était la conséquence de tri
-    # par frac_raw décroissant sans filtre : les positions DÉPASSÉES (frac_raw>100)
-    # remontaient en tête. Cure : sépare APPROACHING (< 100) vs BEYOND (>= 100),
-    # chacun dans son panneau sémantiquement juste.
-    _targets = sorted(
-        [tk for tk in _axis if 0 <= _axis[tk]["frac_raw"] < 100],
-        key=lambda tk: -_axis[tk]["frac_raw"],
-    )[:6]
+    # Split Closest/Beyond — test correct = cur_native >= target_native
+    # (FX-invariant, pas de piège de signe). Cf catch Olivier 09/06 23h+ :
+    # frac_raw >= 100 misclassifie SK Hynix (target_pct=-0.7% via cost rattrapé
+    # → frac_raw=-2571% < 100 → wrongly Closest). cur >= target s'en moque.
     _beyond = sorted(
-        [tk for tk in _axis if _axis[tk]["frac_raw"] >= 100],
-        key=lambda tk: -_axis[tk]["frac_raw"],
+        [tk for tk in _axis if _axis[tk]["_cur"] >= _axis[tk]["_tgt"]],
+        key=lambda tk: -(_axis[tk]["_cur"] / _axis[tk]["_tgt"] if _axis[tk]["_tgt"] else 0),
+    )[:6]
+    _targets = sorted(
+        [tk for tk in _axis if _axis[tk]["_cur"] < _axis[tk]["_tgt"]],
+        key=lambda tk: -(_axis[tk]["_cur"] / _axis[tk]["_tgt"] if _axis[tk]["_tgt"] else 0),
     )[:6]
     _stops = sorted(_axis, key=lambda tk: _axis[tk]["frac_raw"])[:6]
 
@@ -7285,23 +7347,16 @@ def render() -> Path:
             if risky:
                 chip_tip_attr = f' data-tip="{fx_tip}"' if fx_tip else ""
                 profit_chip = f'<span class="th-pt"{chip_tip_attr}>target hit</span>'
-        # Cure racine 09/06 : asym CLOSEST_TO_TARGET migré vers _position_axis_price
-        # (5 repères EUR axe-ouvert). Tue le bug visuel dot collé bord droit sur
-        # BEYOND. Source canonique BookLine EUR.
-        if ln and ln.current_price_eur:
-            _cost_e = ln.avg_cost_eur
-            _stop_e = ln.stop_eur
-            _entry_e = ln.entry_eur
-            _tgt_e = ln.target_full_eur
-            _cur_e = ln.current_price_eur
-            _pnl_c = ln.pnl_pct
-            _perf_e = (
-                (_cur_e / _entry_e - 1) * 100.0
-                if (_entry_e and _cur_e and _entry_e > 0) else None
-            )
-            bar = _position_axis_price(
-                _stop_e, _cost_e, _entry_e, _tgt_e, _cur_e,
-                pnl_pct_cost=_pnl_c, perf_pct_entry=_perf_e,
+        # Asym CLOSEST_TO_TARGET : UN SEUL MÈTRE — % depuis cost. Le panneau est
+        # rangé via cur_native >= target_native, donc Closest = approche legitime,
+        # Beyond = passé. La gauge montre l'avancement sans mélange.
+        _gp_ar = _gauge_pcts_from_cost(ln)
+        if _gp_ar and _gp_ar.get("dot_pct") is not None:
+            bar = _position_axis_pct(
+                _gp_ar.get("stop_pct"),
+                _gp_ar.get("target_pct"),
+                _gp_ar.get("dot_pct"),
+                pnl_position_pct=_gp_ar.get("dot_pct"),
             ) or (
                 f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
             )
