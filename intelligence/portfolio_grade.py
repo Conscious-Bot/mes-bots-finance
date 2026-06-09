@@ -101,14 +101,17 @@ def _fetch_state(months_brier_window: int = 6) -> dict:
     # d'un alias import-time, pour que monkeypatch côté tests prenne effet.
     from shared import book as _bk
 
+    # Post-0049 : positions.avg_cost = NULL (VUE fail-closed). PMP rolling via
+    # BookLine.avg_cost_eur (cf shared.book._load_db_positions + ledger_pmp).
+    lines = _bk.get_held_lines()
     with db() as cx:
-        pos_rows = cx.execute(
-            "SELECT ticker, qty, avg_cost FROM positions WHERE qty > 0 AND status='open'"
-        ).fetchall()
         positions = []
         n_market = n_fallback = 0
-        for r in pos_rows:
-            tk, qty, avg = r[0], r[1] or 0, r[2] or 0
+        for ln in lines:
+            if not ln.qty or ln.qty <= 0:
+                continue
+            tk, qty = ln.ticker, ln.qty
+            avg = ln.avg_cost_eur or 0  # rolling fee-inclusive depuis helper
             v_datum = _bk.value_eur(tk, qty) if qty > 0 else None
             if v_datum is not None and v_datum.value is not None and hasattr(v_datum.value, "amount"):
                 weight = float(v_datum.value.amount)

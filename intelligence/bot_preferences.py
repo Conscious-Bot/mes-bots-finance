@@ -162,20 +162,22 @@ def _extract_sizing_outcome() -> dict:
 
     Uses size implied by position deltas. Deterministic — no opinion.
     """
-    # Best-effort: position_events join with decisions ; fallback to decisions only
+    # Post-0049 : positions.avg_cost = NULL. PMP rolling via BookLine.
+    from shared import book as _bk
+    lines_by_tk = {ln.ticker: ln for ln in _bk.get_held_lines()}
     with storage.db() as cx:
         rows = cx.execute(
-            "SELECT d.id, d.ticker, d.return_30d_pct, p.qty, p.avg_cost "
+            "SELECT d.id, d.ticker, d.return_30d_pct "
             "FROM decisions d "
-            "LEFT JOIN positions p ON p.ticker = d.ticker "
-            "WHERE d.return_30d_pct IS NOT NULL AND p.qty > 0"
+            "WHERE d.return_30d_pct IS NOT NULL"
         ).fetchall()
     bucket: dict = {"small_<3%": [], "mid_3-6%": [], "large_>6%": []}
-    for _, _, ret, qty, ac in rows:
-        if ret is None or not qty or not ac:
+    for _, ticker, ret in rows:
+        ln = lines_by_tk.get(ticker)
+        if ret is None or not ln or not ln.qty or not ln.avg_cost_eur:
             continue
         # approximate weight ; needs capital reference but we use proportional buckets
-        wcost = float(qty) * float(ac)
+        wcost = float(ln.qty) * float(ln.avg_cost_eur)
         # Heuristic bucketing on absolute eur (proxy)
         if wcost < 1500:
             bucket["small_<3%"].append(float(ret))

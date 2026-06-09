@@ -273,9 +273,13 @@ def _positions_top5_section():
     conn.row_factory = sqlite3.Row
     top5 = []
     try:
+        # Post-0049 : positions.avg_cost = NULL. Récupère avg_cost_eur rolling
+        # depuis BookLine. Conviction reste un JOIN SQL séparé.
+        from shared import book as _bk
+        lines_by_tk = {ln.ticker: ln for ln in _bk.get_held_lines()}
         rows = query(
             conn,
-            "SELECT p.ticker, p.qty, p.avg_cost, "
+            "SELECT p.ticker, p.qty, "
             "       t.conviction, t.direction "
             "FROM positions p "
             "LEFT JOIN theses t ON t.ticker = p.ticker AND t.status='active' "
@@ -287,6 +291,8 @@ def _positions_top5_section():
         )
         for r in rows:
             ticker = r["ticker"]
+            ln = lines_by_tk.get(ticker)
+            avg_cost_eur_rolling = ln.avg_cost_eur if ln else None
             try:
                 from shared.ticker_names import get_short_name
 
@@ -309,7 +315,7 @@ def _positions_top5_section():
                 last_price = get_current_price_in_usd(ticker)
             except Exception:
                 last_price = None
-            avg_cost_usd = r["avg_cost"] * fx_eur_to_usd if r["avg_cost"] else None
+            avg_cost_usd = avg_cost_eur_rolling * fx_eur_to_usd if avg_cost_eur_rolling else None
             pnl_pct = None
             if last_price and avg_cost_usd:
                 pnl_pct = (last_price / avg_cost_usd - 1) * 100

@@ -339,11 +339,18 @@ def assemble_synthesis_context(months_window: int = 6) -> tuple[dict, dict]:
     counts: dict[str, Any] = {"window_start": window_start, "window_end": window_end}
 
     with db() as conn:
-        # Positions
-        positions = [dict(zip(["ticker", "qty", "avg_cost"], r, strict=False))
-                     for r in conn.execute(
-                         "SELECT ticker, qty, avg_cost FROM positions WHERE qty > 0 AND status='open' ORDER BY qty * avg_cost DESC"
-                     ).fetchall()]
+        # Positions — Post-0049 : avg_cost rolling depuis BookLine (VUE retourne
+        # NULL fail-closed). ORDER BY weight = qty x avg_cost calc en Python.
+        from shared import book as _bk
+        positions = sorted(
+            (
+                {"ticker": ln.ticker, "qty": ln.qty, "avg_cost": ln.avg_cost_eur or 0}
+                for ln in _bk.get_held_lines()
+                if ln.qty and ln.qty > 0
+            ),
+            key=lambda p: (p["qty"] or 0) * (p["avg_cost"] or 0),
+            reverse=True,
+        )
         # Theses
         theses_rows = conn.execute(
             "SELECT id, ticker, conviction, direction, opened_at, key_drivers, status "

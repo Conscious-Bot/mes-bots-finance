@@ -23,23 +23,32 @@ log = logging.getLogger(__name__)
 
 
 def assemble_narrative_context() -> dict:
-    """Snapshot of active positions + theses + key drivers for LLM analysis."""
+    """Snapshot of active positions + theses + key drivers for LLM analysis.
+
+    Post-0049 : weight = qty × PMP rolling EUR depuis BookLine (helper
+    ledger_pmp, fiscal FR correct), pas l'ancien SQL `qty × avg_cost` qui
+    retourne NULL depuis que la VUE est fail-closed.
+    """
+    from shared import book as _bk
+    lines = _bk.get_held_lines()
     with storage.db() as cx:
-        pos_rows = cx.execute(
-            "SELECT p.ticker, p.qty * p.avg_cost AS weight, t.conviction, t.key_drivers, t.notes "
-            "FROM positions p LEFT JOIN theses t ON t.ticker = p.ticker AND t.status='active' "
-            "WHERE p.qty > 0 AND p.status='open'"
+        thesis_rows = cx.execute(
+            "SELECT ticker, conviction, key_drivers, notes FROM theses WHERE status='active'"
         ).fetchall()
-    positions = [
-        {
-            "ticker": r[0],
-            "weight_eur": float(r[1] or 0),
-            "conviction": r[2],
-            "key_drivers": (r[3] or "")[:400],
-            "notes": (r[4] or "")[:300],
-        }
-        for r in pos_rows
-    ]
+    thesis_by_ticker = {r[0]: r for r in thesis_rows}
+    positions = []
+    for ln in lines:
+        if not ln.qty or ln.qty <= 0:
+            continue
+        weight = (ln.qty * ln.avg_cost_eur) if ln.avg_cost_eur else 0
+        t = thesis_by_ticker.get(ln.ticker)
+        positions.append({
+            "ticker": ln.ticker,
+            "weight_eur": float(weight),
+            "conviction": t[1] if t else None,
+            "key_drivers": (t[2] or "")[:400] if t else "",
+            "notes": (t[3] or "")[:300] if t else "",
+        })
     total = sum(p["weight_eur"] for p in positions) or 1
     for p in positions:
         p["weight_pct"] = round(p["weight_eur"] / total * 100, 1)
