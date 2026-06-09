@@ -1,8 +1,80 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 09 juin 2026 nuit++ (désynchro broker↔DB découverte sur 5 positions — KNOWN-GAP L3 honnête, attente relevés broker autoritatifs ; cure for-good = ledger transactions append-only, pas un handler-pansement)
+**Refresh** : 09 juin 2026 soir (session marathon 3 jours close — ledger transactions append-only en prod, write-path restauré, 1631/1633 vert, single-source ledger→VUE→book opérationnel)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
+
+---
+
+## 🟢 ÉTAT SYSTÈME (09/06 soir — session ledger close)
+
+- **alembic_version** : 0048 (positions = VUE dérivée)
+- **Tests** : 1631 passed, 0 failed, 2 skipped (full-suite 09/06 12:39 + 58 targeted refactor post-#126/#3)
+- **Bot status** : opérationnel. Write-path restauré via `add_buy/add_sell` wrappers INSERT transactions.
+- **Crons sains** :
+  - `price_monitor_job` (15min mon-fri 14h-22h) ✓ alimente price_history → VUE
+  - `_reconcile_positions_prices_job` DÉSACTIVÉ (obsolète depuis 0048, fields viennent de la VUE)
+  - autres crons inchangés (gmail/stress_gate/calendar/backup/integrity_anchor/crypto_zone/credibility_brier/monthly_track_record/j_day)
+- **Ledger state** : 42 transactions ingérées (21 anchors + 21 trades TR back-fill), 30 positions_meta (26 open + 4 closed), gate `check_ledger_view_equivalence` EXIT 0 GREEN
+- **Backups DB** : 5 snapshots conservés pour rollback (pre-realign, pre-#121, pre-0048, pre-#126, pre-0047b)
+- **Livrables clés session** : SPEC_LEDGER.md gravée, ledger transactions append-only, write-path restauré (add_buy/sell wrappers), filtre canonique real-tickers L27
+- **Backlog ouvert** : feed broker auto (P0 différable, prochaine session), banner SK Hynix proxy (P1), drop positions_legacy_snapshot (P1)
+
+---
+
+## ✅ DÉJÀ FAIT (09/06 — session marathon ledger)
+
+- **SPEC_LEDGER.md** gravée (9 sections canoniques) + `docs/SWAP_0048_PREREQUIS.md`
+- **Migration 0046** : transactions append-only + positions_meta + 3 triggers structurels + 14 tests serrures
+- **Back-fill #121** : 21 trades TR ingérés (6920.T/ALAB/CCJ/SK Hynix/MU) + 21 anchors propres (astuce fx) — Δ realized = exactement −1€/SELL convention net tax-FR confirmée
+- **Migration 0048** : swap positions → VUE dérivée (JOIN price_history/fx_history) + index perf fix (MAX(asof) 150× speedup)
+- **Hot-paths neutralisés** : `_reconcile_positions_prices_job` cron désactivé + 5 fonctions write protégées par `RAISE NotImplementedError` (pas silent)
+- **#126** : `add_buy/add_sell/set_position` refactor → wrappers INSERT transactions, side effects préservés (auto_classify, lock_in_detector L7), 14 tests dont E2E SK Hynix fee/fee-less
+- **#3** : filtre canonique `shared/book.is_test_ticker()` + `EXCLUDE_TEST_TICKERS_SQL` (L27 single source for "what counts"), 44 tests, landmine ~187€ realized fantôme désamorcée
+- **Findings DB révélés** : 6920.T qty −7% sous-comptée, MU realized cachait +485€, SK Hynix qty 1.515580 confirmée (testimony nuit ratifiée)
+
+---
+
+## 🟡 P0 DIFFÉRABLE — Feed broker auto (prochaine session)
+
+Le **write-path est restauré** (le bot peut enregistrer un trade via wrappers `add_buy/add_sell`). Mais le ledger reste **alimenté manuellement** : chaque vente partielle TR exige une saisie ou un INSERT script. La saga des 5 stale a démontré que le rituel manuel marche mais consomme.
+
+**Tâche #127** — Refactor `sync_positions_from_broker.py` (mort depuis 0048 car UPDATE positions = VUE) en **pipeline `TR CSV → INSERT transactions`** :
+  - Idempotent via `broker_trade_id UNIQUE` (déjà testé)
+  - Convention cohérence : appelle `add_buy/add_sell` wrappers, pas INSERT direct (pour préserver side effects)
+  - Fees TR au prix du marché (1€/trade convention #121)
+  - Currency dérivée du ticker via `prices.get_currency_for_ticker`
+  - fx_at_trade = back-out depuis EUR débité TR (SPEC §1.5 §3) ou fallback fx_history@trade_date avec flag fx_is_derived=1
+  - source = `'TR_CSV_export_<date>'`
+  - Tests : ingestion idempotente, dedup composite si broker_trade_id absent, gestion partial close
+
+Une pierre deux oiseaux : (a) automatise ce qu'on a fait manuellement pour les 5 stale, (b) ferme la dette opérationnelle. Différable parce que la saisie manuelle marche pour V0, mais devient nécessaire dès que le rythme d'opération augmente.
+
+---
+
+## 🟡 P1 DIFFÉRABLE — UI & cleanup
+
+**Tâche #128** — **Banner SK Hynix proxy** (UI confiance réduite). Le système valorise SK Hynix via yfinance `000660.KS` (cote coréenne KRW) × fx → proxy GDR EUR détenu. Affichage type : `"prix = ligne coréenne KRW × fx, GDR EUR yfinance indispo"`. Le coût et le realized restent EUR-corrects via ledger.
+
+**Tâche #129** — **Drop `positions_legacy_snapshot`** après quelques jours de confiance que la VUE fonctionne en prod (transitoire ; rollback runtime devient impossible mais le ledger est immuable, pas besoin).
+
+**Tâche #130** — **Perf watch** : regen 45s / refresh 60s = marge fine. Profile la VUE si refresh perd la course quand le ledger grossit (10× transactions = test à 6.6min/regen possible).
+
+**Tâche #131** — **Cleanup `_legacy_*_dead_code`** dans `shared/positions.py` (passe de propreté, non-urgent).
+
+**Tâche #132** — **Sweep modules `intelligence/*` + `bot/`** pour SELECT directs sur positions (legacy) → migrer vers `book.get_held_lines()` ou VUE direct. Pas urgent — la VUE est read-compatible — mais cohérence L27 voudrait éviter les SELECT raw.
+
+---
+
+## ⛔ DETTE STRUCTURELLE FERMÉE (09/06 close)
+
+| Item | Status |
+|---|---|
+| `partial_close handler` (avg_cost_eur stale post-vente partielle) | **CADUC** : ledger transactions append-only rend la classe impossible |
+| 5 positions stale (SK Hynix, ALAB, MU, CCJ, 6920.T) | **RÉCONCILIÉES** via #121 back-fill TR + gate green |
+| Write-path bot mort post-0048 (raise NotImplementedError) | **RESTAURÉ** via #126 wrappers add_buy/add_sell |
+| Landmine 187€ realized fantôme | **DÉSAMORCÉE** via filtre canonique L27 #3 |
+| Currency convention (TR gross vs ledger net) | **CONVERGÉE** : ledger = plus-value tax-FR (net de frais), TR = gross-of-sell-fee. Δ = exactement fees_sell, documenté SPEC §2.4 |
 
 ---
 

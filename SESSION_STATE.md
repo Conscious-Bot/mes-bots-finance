@@ -2545,3 +2545,102 @@ Reprise après rollback nocturne. Olivier acte la cure for-good : **ledger trans
 3. **Olivier** : exporter TR pour les 5 stale (SK Hynix, ALAB, MU, CCJ, 6920.T) — date/qty/prix exact des ventes partielles.
 4. **Gate `check_ledger_view_equivalence.py`** : implémentable dès que `positions_meta` + anchor 21 sont en place (5 stale exclues du must-match).
 5. **0048 swap** : bloqué tant que TR pas fourni, coexistence maintenue, KNOWN-GAP honnête.
+
+---
+
+## Close 2026-06-09 (session marathon 3 jours — cure for-good ledger transactions + write-path restauré)
+
+### Verdict d'ensemble
+
+Partis d'une corruption à 2h du matin (SK Hynix panneau "+184590% beyond" → désync broker/DB sur 5 positions), atterris sur un **ledger immuable single-source dont tout dérive**. La maladie *store-derived-stale* (avg_cost_eur stale post-vente partielle) est **structurellement morte** sur la couche coût. Le write-path est restauré (le bot peut ré-enregistrer un trade). Pas un fix de 5 nombres : la couche qui rend le faux-nombre impossible.
+
+### Livre
+
+**Saga ledger transactions (10 commits)** — la cure for-good store-derived-stale
+
+- `521d520` `[SPEC_LEDGER + 0046]` Ledger transactions append-only — 9 sections gravées, migration CREATE TABLE transactions + positions_meta + 3 triggers (UPDATE/DELETE write-once + UNIQUE broker_trade_id), 14 tests serrures.
+- `adc440a` `[0047 + 0047b]` back-fill positions_meta 30 rows + anchor 21 propres (astuce fx `avg_eur/avg_native` reproduit pru_native ET pru_eur exactement, Δ = 0.0e+00 sauf ASML 1.4e-16 epsilon).
+- `122b938` `[GATE]` `check_ledger_view_equivalence.py` — garde-régression 5 modes d'exit, 11 tests, EXIT 0 GREEN après #121.
+- `ee00c08` `[#121]` back-fill 5 stale depuis TR screenshots — 21 trades ingérés (6920.T/ALAB/CCJ/SK Hynix/MU), convention net tax-FR Δ = exactement −1€/SELL = fee_sell, gate green hand-checkable.
+- `c9ba701` `[SPEC + audit]` realized_pnl convention net tax-FR documentée (§2.4 SPEC_LEDGER) + audit pré-swap (~50 refs colonnes market-live identifiées).
+- `0a1af01` `[0048]` swap positions → VIEW dérivée + JOIN price_history/fx_history pour market live + helper schema VIEW-aware. Catch perf MAX(id) → MAX(asof) (150× speedup).
+- `9cf847a` `[POST-0048 guards]` bot writers neutralisés (RAISE pas silent) — cron `_reconcile_positions_prices_job` désactivé + 5 fonctions write protégées + 3 tests m1 refactorés vers ledger pattern.
+- `99d2a96` `[#126]` add_buy/add_sell/set_position refactor → wrappers INSERT INTO transactions + side effects préservés (auto_classify_new_ticker 1er BUY uniquement, lock_in_detector.detect_winner_sell L7 silent miss). 11 tests dont E2E SK Hynix replay.
+- `ead75fa` `[#126b]` tests fee path enforced (realized 97.174 net tax-FR avec fees=1€) + asymétrie idempotence documentée (broker_trade_id NULL = saisie manuelle assumée). 3 tests additionnels → 14/14.
+- `4c4f6b6` `[#3 fix]` filtre canonique real-tickers (L27) `shared/book.is_test_ticker()` + `EXCLUDE_TEST_TICKERS_SQL` — landmine ~187€ realized fantôme désamorcée. 44 tests.
+
+**Saga rollback nocturne (3 commits, antérieurs au pivot ledger)**
+
+- `ef40a8b` `[session close 09/06 nuit++]` désynchro broker↔DB découverte + tentative realign SK Hynix
+- `1e2fc93` `[session 09/06 nuit++]` backfill commit hash
+- `fa3ad63` `[session 09/06 nuit++ rollback]` veto Olivier sur reconstruction inférée à 2h (rollback chirurgical, audit log id=84) + cure for-good ledger gravée comme direction
+
+### Audit
+
+**Catches d'application capturés en commit** (jamais masqués) :
+1. `op.execute()` alembic split sur strings Python multi-lignes adjacents → fix string simple-ligne explicit (0046)
+2. Test schema_drift regex matche "UPDATE interdit" dans message trigger → reformulation "modification interdite" (0046)
+3. VIEW `MAX(id) WHERE ticker=...` non-indexé → 9.2s/query. Switch `MAX(asof)` utilise `idx_px_ticker_asof` existant → 0.058s (150× speedup) (0048)
+4. Smoke résidus (SMOKE126, SMK126_*) attrapés par invariants book → cleanup par entrée compensatoire SELL (pas DELETE), pattern append-only honoré (#126)
+5. SELL compensatoire au "PRU exact" laisse realized fantôme 86.69€ → désamorcé par filtre canonique L27 (#3)
+
+**Findings DB stale révélés par la VUE** (impossibles à voir sans le ledger) :
+- 6920.T qty : DB 6.604 vs TR 7.114 (**+0.51 actions ~7% sous-comptées**)
+- MU realized_pnl : DB +425€ vs TR **+910€** (DB cachait **485€ de gains**)
+- SK Hynix qty 1.515580 confirmée vs DB 1.4809 (testimony nuit ratifiée par ledger)
+
+**Findings non-résolus documentés** :
+- **SK Hynix proxy KRW** : système utilise yfinance `000660.KS` (cote coréenne KRW) × fx au lieu du GDR EUR détenu via TR. 4 alternatives yfinance testées (HXSCL.IL/HYUH.F/HYUH.DE/HXSCY) → toutes fail. Coût et realized EUR-corrects (ledger), valo MtM dépend du proxy. À banner-er côté UI.
+
+**P0 différable (next session)** :
+- Feed broker auto : refactor `sync_positions_from_broker.py` en `TR CSV → INSERT transactions` (idempotent via broker_trade_id UNIQUE). Ferme la dette du *latent landmine* manuel.
+
+**P1 différable** :
+- Banner SK Hynix proxy en confiance réduite côté UI
+- Drop `positions_legacy_snapshot` après quelques jours de confiance (transitoire)
+- Watch perf : regen 45s / refresh 60s = marge fine quand ledger grossit
+- `_legacy_*_dead_code` dans shared/positions.py à supprimer dans une passe de cleanup
+
+### Outils ajoutés
+
+- `SPEC_LEDGER.md` (canonique 9 sections, gravée)
+- `docs/SWAP_0048_PREREQUIS.md` (audit + 3 options de stratégie + 5 décisions pendantes)
+- `scripts/migrate_positions_meta_from_positions.py` (one-shot idempotent)
+- `scripts/anchor_clean_positions.py` (back-fill 21 propres avec astuce fx)
+- `scripts/backfill_5_stale_from_tr_export.py` (back-fill 5 stale, data figée audit-trail)
+- `scripts/check_ledger_view_equivalence.py` (gate byte-identité)
+- 6 nouveaux test files (transactions_ledger, gate, m1 refactor, ledger_wrapper, real_tickers_filter)
+- Memory : `partial_close_handler_missing.md` updated avec cure for-good
+
+### Tag
+
+`session_close_2026-06-09` — backups conservés (étapes pre-realign, pre-#121, pre-0048, pre-#126) ; audit log id=83 (tentative realign) + id=84 (rollback) ; ledger 42 transactions ingérées ; gate EXIT 0 GREEN.
+
+### Entry next session
+
+1. **Feed broker auto (P0 différable)** — la cure n'est pas complète sans feed. Refactor `sync_positions_from_broker.py` (qui était cassé sur VUE post-0048, mort comme sync) en pipeline `TR CSV → INSERT transactions`, idempotent via broker_trade_id UNIQUE. **Convention cohérence : add_buy/add_sell wrapper EUR-net** (mêmes paramètres `fees`, `broker_trade_id`, `source`). Une pierre deux oiseaux : (a) automatise ce qu'on a fait manuellement pour les 5 stale, (b) ferme la dette opérationnelle #3.
+
+2. **Banner SK Hynix proxy** (P1, UI) — afficher confiance réduite sur la valo SK Hynix (prix = proxy GDR-via-KRW, peut diverger). Texte type : `"prix = ligne coréenne KRW × fx, GDR EUR yfinance indispo"`. Pas urgent (coût/realized corrects en EUR).
+
+3. **Drop `positions_legacy_snapshot`** (P1, dette transitoire) — après quelques jours de confiance que la VUE fonctionne en prod. Pas urgent.
+
+4. **Surveiller `regen 45s / refresh 60s`** — marge fine quand le ledger grossit. Si refresh perd la course, profile la VUE pour identifier le goulot.
+
+### Commits session 09/06 (chronologique, plus récent en haut)
+
+```
+4c4f6b6 [#3 fix]               filtre canonique real-tickers (L27)
+ead75fa [#126b]                tests fee path + asymétrie idempotence
+99d2a96 [#126]                 add_buy/add_sell wrappers INSERT transactions
+9cf847a [POST-0048 guards]     bot writers neutralisés + tests m1 refactor
+0a1af01 [0048]                 swap positions → VIEW dérivée
+c9ba701 [SPEC + audit]         realized_pnl net tax-FR + audit prérequis swap
+ee00c08 [#121]                 back-fill 5 stale depuis TR — gate green
+122b938 [GATE]                 check_ledger_view_equivalence + 11 tests
+adc440a [0047 + 0047b]         positions_meta + anchor 21 propres
+521d520 [SPEC_LEDGER + 0046]   Ledger transactions append-only — cure for-good
+fa3ad63 [session rollback]     veto Olivier reconstruction inférée + cure for-good gravée
+1e2fc93 [session backfill]     hash dans SESSION_STATE
+ef40a8b [session close nuit]   désynchro broker↔DB découverte + SK Hynix réaligné
+```
+
