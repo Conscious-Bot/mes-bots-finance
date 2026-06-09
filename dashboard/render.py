@@ -2468,13 +2468,11 @@ def _position_card(inputs, steer_v2) -> str:
     else:
         asym_html = '<div class="pc-empty">stop/target non definis</div>'
 
-    # Slider : si stop dispo, position_axis canonique ; sinon stop=null bar.
-    # Fix L29 09/06 : ancre la gauge sur avg_cost_eur (le vrai coût user), PAS
-    # entry_thèse. Tous les chiffres viennent de BookLine en EUR (single source
-    # L27, money-invariant L28). Le dot devient pnl_position EUR, le tooltip lit
-    # le même pnl_position -> dot et nombre racontent enfin la même chose
-    # (avant : dot=perf-depuis-appel-thèse, tooltip=perf-depuis-achat, divergeait
-    # franchement quand entry_thèse ≠ avg_cost comme AMD 386 vs 146).
+    # Slider : ancrage spécifique au JOB du panneau (per-panneau, pas binaire global).
+    # Position card = "comment va mon argent" → ancré avg_cost (P&L cost-frame).
+    # Les autres panneaux (theses, closest-to-target) ancrent sur entry (proximité-
+    # cible, thesis-frame). Tooltip cohérent avec dot = pnl_position EUR (depuis
+    # ton coût réel). Décision matin Olivier 09/06 verifiée vs SK Hynix/CCJ.
     _cost_eur = getattr(bl, "avg_cost_eur", None) if bl else None
     _stop_eur = getattr(bl, "stop_eur", None) if bl else None
     _tgt_eur = getattr(bl, "target_full_eur", None) if bl else None
@@ -2482,9 +2480,7 @@ def _position_card(inputs, steer_v2) -> str:
     if _cost_eur and _stop_eur and _tgt_eur and _cur_eur:
         slider_html = _position_axis(_cost_eur, _stop_eur, _tgt_eur, _cur_eur, pnl_position_pct=pnl_pct)
     elif stop and entry and full and current_price:
-        # Fallback : thèse sans avg_cost broker (rare — positions sans entry réel),
-        # garde l'ancien comportement entry-thèse native. KNOWN-GAP : tooltip
-        # peut diverger du dot dans ce cas (workaround antérieur).
+        # Fallback : pas de BookLine EUR (rare). Garde natives + pnl_pct broker.
         slider_html = _position_axis(entry, stop, full, current_price, pnl_position_pct=pnl_pct)
     elif entry and full and current_price:
         # No stop (structural) : montre seulement entry-current-target
@@ -5918,15 +5914,15 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             pnl_real = pnl.get(tk)
             if pnl_real is not None and pnl_real >= 0:
                 n_profit += 1
-        # Fix L29 : override les 4 valeurs natives par EUR (avg_cost_eur ancré)
-        # si BookLine présente. Les ratios KPI ci-dessus (d_stop/d_tgt/ratio/frac)
-        # CONTINUENT d'utiliser natives (FX-invariants) -- l'override ne touche
-        # QUE les 4 valeurs stockées dans t["_entry"/_stop/_tgt/_cur"] qui feedent
-        # la gauge canonique. Single source L27 : aucun fx local ici.
+        # Retour spec canonique 03/06 : override les 4 valeurs natives par EUR
+        # depuis BookLine, ancré sur entry_eur (prix d'appel thèse), pas avg_cost.
+        # Les ratios KPI ci-dessus (d_stop/d_tgt/ratio/frac) CONTINUENT d'utiliser
+        # natives (FX-invariants) -- l'override ne touche QUE les 4 valeurs
+        # stockées dans t["_entry"/_stop/_tgt/_cur"] qui feedent la gauge.
         _ln_th = _book_idx_th.get(tk)
-        if has_bar and _ln_th and _ln_th.avg_cost_eur and _ln_th.stop_eur and _ln_th.target_full_eur and _ln_th.current_price_eur:
+        if has_bar and _ln_th and _ln_th.entry_eur and _ln_th.stop_eur and _ln_th.target_full_eur and _ln_th.current_price_eur:
             _entry_g, _stop_g, _tgt_g, _cur_g = (
-                _ln_th.avg_cost_eur, _ln_th.stop_eur, _ln_th.target_full_eur, _ln_th.current_price_eur
+                _ln_th.entry_eur, _ln_th.stop_eur, _ln_th.target_full_eur, _ln_th.current_price_eur
             )
         else:
             _entry_g, _stop_g, _tgt_g, _cur_g = entry, stop, tgt, current
@@ -6019,10 +6015,11 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 # Canonical position gauge (#91) via _position_axis :
                 # stop red gauche, entry grey centre (0), target green droite,
                 # dot noir = current. Distance proportionnelle au 0 central.
-                # Tooltip distingue P&L position vs perf depuis entry (#fix retarded).
-                _pnl_pos = pnl.get(t["tk"])
-                _pa = _position_axis(t["_entry"], t["_stop"], t["_tgt"], t["_cur"],
-                                     pnl_position_pct=_pnl_pos)
+                # Tooltip = perf depuis entry (cohérent avec le dot, single number).
+                _entry_v, _cur_v = t["_entry"], t["_cur"]
+                _perf_e = ((_cur_v / _entry_v - 1) * 100.0) if (_entry_v and _cur_v and _entry_v != 0) else None
+                _pa = _position_axis(_entry_v, t["_stop"], t["_tgt"], _cur_v,
+                                     pnl_position_pct=_perf_e)
                 bar = f'<div class="th-bar">{_pa}</div>' if _pa else '<div class="th-na">incomplete price data</div>'
             else:
                 bar = '<div class="th-na">incomplete price data</div>'
@@ -6432,10 +6429,13 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         asym_cls, asym_str = _asym_format(asym.get(tk))
         g = gauges.get(tk)
         if g:
-            _pnl_pos_row = pnl.get(tk)
+            # Thesis-frame tooltip : perf depuis entry (cohérent dot), pas pnl_position
+            # cost-frame (qui vit dans la col "P&L" séparée de la table).
+            _e_g, _c_g = g["_entry"], g["_cur"]
+            _perf_e_row = ((_c_g / _e_g - 1) * 100.0) if (_e_g and _c_g and _e_g != 0) else None
             gauge_html = _position_axis(
                 g["_entry"], g["_stop"], g["_tgt"], g["_cur"], extra_class="row-bar",
-                pnl_position_pct=_pnl_pos_row,
+                pnl_position_pct=_perf_e_row,
             ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         else:
             gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
@@ -6552,11 +6552,12 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
             st, tg, c = r.get("stop") or 0, r.get("target_full") or 0, r.get("current_price") or 0
             up, dn = r.get("upside_pct"), r.get("downside_pct")
             ln = _book_idx.get(tk)
-            # Fix L29 (suite seam position card) : ancre la gauge sur avg_cost_eur
-            # via BookLine EUR (single source L27). Tous les chiffres EUR cohérents
-            # -> dot=pnl_position=tooltip. Fallback natifs si BookLine absente.
-            if ln and ln.avg_cost_eur and ln.stop_eur and ln.target_full_eur and ln.current_price_eur:
-                _entry_g = ln.avg_cost_eur
+            # Book row col "Progress" = stop->target progress (proximité-cible)
+            # → thesis-frame : ancre la gauge sur entry_eur (prix d'appel),
+            # PAS avg_cost. Le P&L cost-frame vit dans la col "P&L" séparée.
+            # Dot = position du cours dans l'arc stop-entry-target.
+            if ln and ln.entry_eur and ln.stop_eur and ln.target_full_eur and ln.current_price_eur:
+                _entry_g = ln.entry_eur
                 _stop_g = ln.stop_eur
                 _tgt_g = ln.target_full_eur
                 _cur_g = ln.current_price_eur
@@ -7088,18 +7089,17 @@ def render() -> Path:
             if risky:
                 chip_tip_attr = f' data-tip="{fx_tip}"' if fx_tip else ""
                 profit_chip = f'<span class="th-pt"{chip_tip_attr}>target hit</span>'
-        # Canonical position gauge : stop red / entry grey / target green / dot.
-        # Fix L29 (suite seam position card + book row) : ancre sur avg_cost_eur
-        # via BookLine EUR (single source L27). Tooltip = pnl_pct depuis BookLine
-        # (P&L EUR depuis avg_cost) -> dot=pnl_position=tooltip. Fallback natifs si
-        # BookLine absente (rare).
-        if ln and ln.avg_cost_eur and ln.stop_eur and ln.target_full_eur and ln.current_price_eur:
-            _e, _s, _t, _c = ln.avg_cost_eur, ln.stop_eur, ln.target_full_eur, ln.current_price_eur
-            _pnl_p = ln.pnl_pct
+        # CLOSEST TO TARGET = panneau proximité-cible → thesis-frame :
+        # ancre sur entry_eur (prix d'appel), pas avg_cost. Le dot raconte
+        # "position du cours dans l'arc stop-entry-target". Tooltip = perf
+        # depuis entry (cohérent avec dot), pas pnl_position cost-frame.
+        if ln and ln.entry_eur and ln.stop_eur and ln.target_full_eur and ln.current_price_eur:
+            _e, _s, _t, _c = ln.entry_eur, ln.stop_eur, ln.target_full_eur, ln.current_price_eur
+            _pnl_p = (_c / _e - 1) * 100.0 if _e else None
         else:
             _e = ln.entry_price if ln else None
             _s, _t, _c = a["_stop"], a["_tgt"], a["_cur"]
-            _pnl_p = None
+            _pnl_p = (_c / _e - 1) * 100.0 if (_e and _c) else None
         bar = _position_axis(_e, _s, _t, _c, pnl_position_pct=_pnl_p) or (
             f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
         )
