@@ -39,7 +39,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
-import yfinance as yf
+# yfinance import retiré (SOCLE S1c #111) — toutes les fetches via shared.prices gateway
 
 from shared.positions import list_positions
 from shared.prices import get_current_price_in, get_fx_rate
@@ -174,14 +174,22 @@ def fetch_benchmark_return(ticker: str, days: int, target_cur: str = "USD") -> f
     EUR returns fx-adjusted via EURUSD=X spot at window endpoints
     (preserves Day 7 EUR-investor algorithm).
     """
+    # SOCLE S1c (#111) : migré yf.Ticker direct → prices.ensure_price_history
+    # (gateway canonique, throttle anti-ban + cache DB partagé).
+    from datetime import UTC, datetime, timedelta
+
+    from shared.prices import ensure_price_history
     try:
         period_days = max(days + 5, 7)
-        h = yf.Ticker(ticker).history(period=f"{period_days}d")
-        if h.empty or len(h) < 2:
-            log.warning(f"kpi6: {ticker} yfinance empty/short ({len(h)} rows)")
+        end = datetime.now(UTC)
+        start = end - timedelta(days=period_days)
+        h = ensure_price_history(ticker, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+        if h is None or h.empty or len(h) < 2:
+            log.warning(f"kpi6: {ticker} prices.ensure_price_history empty/short ({len(h) if h is not None else 0} rows)")
             return None
-        usd_start = float(h["Close"].iloc[0])
-        usd_end = float(h["Close"].iloc[-1])
+        price_col = "price_native" if "price_native" in h.columns else "Close"
+        usd_start = float(h[price_col].iloc[0])
+        usd_end = float(h[price_col].iloc[-1])
         if usd_start <= 0:
             return None
 
@@ -189,12 +197,13 @@ def fetch_benchmark_return(ticker: str, days: int, target_cur: str = "USD") -> f
             return (usd_end / usd_start - 1) * 100
 
         if target_cur == "EUR":
-            fx_h = yf.Ticker("EURUSD=X").history(period=f"{period_days}d")
-            if fx_h.empty or len(fx_h) < 2:
-                log.warning(f"kpi6: EURUSD=X yfinance empty/short ({len(fx_h)} rows)")
+            fx_h = ensure_price_history("EURUSD=X", start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+            if fx_h is None or fx_h.empty or len(fx_h) < 2:
+                log.warning(f"kpi6: EURUSD=X gateway empty/short ({len(fx_h) if fx_h is not None else 0} rows)")
                 return None
-            fx_start = float(fx_h["Close"].iloc[0])
-            fx_end = float(fx_h["Close"].iloc[-1])
+            fx_col = "price_native" if "price_native" in fx_h.columns else "Close"
+            fx_start = float(fx_h[fx_col].iloc[0])
+            fx_end = float(fx_h[fx_col].iloc[-1])
             if fx_start <= 0:
                 return None
             eur_start = usd_start / fx_start

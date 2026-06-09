@@ -23,7 +23,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 
@@ -33,31 +32,31 @@ log = logging.getLogger(__name__)
 
 
 def fetch_price_history(tickers: list[str], days: int = 120) -> pd.DataFrame:
-    """Fetch daily Close prices for tickers. Returns DataFrame with cols=tickers."""
+    """Fetch daily Close prices for tickers via shared.prices gateway.
+
+    SOCLE S1c (#111) : migré de yf.download() direct vers
+    prices.ensure_price_history() + read price_history table. Le gateway
+    canonique gère le throttle anti-ban yfinance + cache DB partagé.
+    """
+    from datetime import UTC, datetime, timedelta
+    from shared.prices import ensure_price_history
+
     if not tickers:
         return pd.DataFrame()
-    try:
-        df = yf.download(
-            tickers=tickers,
-            period=f"{days}d",
-            interval="1d",
-            group_by="ticker",
-            auto_adjust=True,
-            progress=False,
-            threads=True,
-        )
-    except Exception as e:
-        log.warning(f"yfinance download failed: {e}")
-        return pd.DataFrame()
+    end = datetime.now(UTC)
+    start = end - timedelta(days=days)
     closes: dict = {}
     for tk in tickers:
         try:
-            if (tk,) in df.columns or tk in df.columns:
-                closes[tk] = df[tk]["Close"] if (tk in df.columns) else df[(tk,)]["Close"]
-            elif len(tickers) == 1:
-                closes[tk] = df["Close"]
+            df = ensure_price_history(tk, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+            if df is not None and not df.empty:
+                # ensure_price_history retourne DataFrame avec colonnes incluant price_native
+                if "price_native" in df.columns:
+                    closes[tk] = df.set_index("asof")["price_native"] if "asof" in df.columns else df["price_native"]
+                elif "Close" in df.columns:
+                    closes[tk] = df["Close"]
         except Exception as e:
-            log.warning(f"price extract {tk} failed: {e}")
+            log.warning(f"price fetch {tk} failed via gateway: {e}")
     if not closes:
         return pd.DataFrame()
     return pd.DataFrame(closes).dropna(how="all")

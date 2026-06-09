@@ -8,7 +8,7 @@ Degrade gracefully when keys missing.
 """
 
 import requests
-import yfinance as yf
+# yfinance import retiré (SOCLE S1c #111) — fetches via shared.prices gateway
 
 from shared.env import env
 
@@ -47,23 +47,18 @@ def _fred_series(series_id, limit=1):
 
 
 def get_vix():
+    # SOCLE S1c (#111) : migré yf.Ticker → prices.get() (gateway canonique).
+    from shared.prices import get_current_price
     try:
-        t = yf.Ticker("^VIX")
-        h = t.history(period="5d", interval="1d")
-        if h.empty:
-            return None
-        return float(h["Close"].iloc[-1])
+        return get_current_price("^VIX")
     except Exception:
         return None
 
 
 def get_dxy():
+    from shared.prices import get_current_price
     try:
-        t = yf.Ticker("DX-Y.NYB")
-        h = t.history(period="5d", interval="1d")
-        if h.empty:
-            return None
-        return float(h["Close"].iloc[-1])
+        return get_current_price("DX-Y.NYB")
     except Exception:
         return None
 

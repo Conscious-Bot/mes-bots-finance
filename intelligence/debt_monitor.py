@@ -33,8 +33,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-import yfinance as yf
-
+# yfinance import retiré (SOCLE S1c #111) — fetches via shared.prices gateway
 from shared import macro
 from shared.storage import db
 
@@ -311,14 +310,12 @@ def _ensure_tables() -> None:
 
 
 def _fetch_yfinance(ticker: str) -> float | None:
+    # SOCLE S1c (#111) : migré yf.Ticker direct → prices.get_current_price gateway.
+    from shared.prices import get_current_price
     try:
-        t = yf.Ticker(ticker)
-        h = t.history(period="5d", interval="1d")
-        if h.empty:
-            return None
-        return float(h["Close"].iloc[-1])
+        return get_current_price(ticker)
     except Exception as e:
-        log.warning(f"yfinance {ticker}: {e}")
+        log.warning(f"prices.get_current_price {ticker}: {e}")
         return None
 
 
@@ -354,11 +351,18 @@ def _fetch_btc_drawdown180() -> float | None:
 
     Pull yfinance period='200d' pour avoir marge, garde les 180 derniers points.
     """
+    # SOCLE S1c (#111) : migré yf.Ticker → prices.ensure_price_history gateway.
+    from datetime import UTC, datetime, timedelta
+
+    from shared.prices import ensure_price_history
     try:
-        h = yf.Ticker("BTC-USD").history(period="200d", interval="1d")
-        if h.empty:
+        end = datetime.now(UTC)
+        start = end - timedelta(days=200)
+        h = ensure_price_history("BTC-USD", start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+        if h is None or h.empty:
             return None
-        closes = h["Close"].dropna().tolist()[-180:]
+        price_col = "price_native" if "price_native" in h.columns else "Close"
+        closes = h[price_col].dropna().tolist()[-180:]
         if len(closes) < 30 or max(closes) <= 0:
             return None
         max_180 = max(closes)

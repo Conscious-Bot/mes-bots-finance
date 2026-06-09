@@ -267,16 +267,18 @@ class TestFetchBenchmarkReturnEur:
     """Benchmark fetch tests via yfinance Ticker mocks."""
 
     def test_returns_none_on_yfinance_exception(self, monkeypatch):
-        def raise_exc(ticker):
+        # SOCLE S1c (#111) : mock via gateway
+        def raise_exc(ticker, *args, **kwargs):
             raise RuntimeError("yfinance API down")
 
-        monkeypatch.setattr("yfinance.Ticker", raise_exc)
+        monkeypatch.setattr("shared.prices.ensure_price_history", raise_exc)
         assert fetch_benchmark_return_eur("SPY", 30) is None
 
     def test_returns_none_on_empty_history(self, monkeypatch):
-        empty_mock = MagicMock()
-        empty_mock.history.return_value = pd.DataFrame()
-        monkeypatch.setattr("yfinance.Ticker", lambda t: empty_mock)
+        monkeypatch.setattr(
+            "shared.prices.ensure_price_history",
+            lambda ticker, *a, **kw: pd.DataFrame(),
+        )
         assert fetch_benchmark_return_eur("SPY", 30) is None
 
     def test_eur_return_with_fx_change(self, monkeypatch):
@@ -284,12 +286,12 @@ class TestFetchBenchmarkReturnEur:
         spy_hist = pd.DataFrame({"Close": [100.0, 105.0, 110.0]})
         fx_hist = pd.DataFrame({"Close": [1.10, 1.15, 1.20]})
 
-        def mock_ticker(t):
-            m = MagicMock()
-            m.history.return_value = fx_hist if t == "EURUSD=X" else spy_hist
-            return m
+        # SOCLE S1c (#111) : mock via gateway prices.ensure_price_history
+        # (au lieu de yf.Ticker direct qui n'est plus appelé par portfolio_metrics).
+        def mock_ensure(ticker, *args, **kwargs):
+            return fx_hist if ticker == "EURUSD=X" else spy_hist
 
-        monkeypatch.setattr("yfinance.Ticker", mock_ticker)
+        monkeypatch.setattr("shared.prices.ensure_price_history", mock_ensure)
         ret = fetch_benchmark_return_eur("SPY", 30)
         assert ret is not None
         expected = ((110.0 / 1.20) / (100.0 / 1.10) - 1) * 100
@@ -300,12 +302,12 @@ class TestFetchBenchmarkReturnEur:
         spy_hist = pd.DataFrame({"Close": [100.0, 110.0]})
         fx_hist = pd.DataFrame({"Close": [1.10, 1.10]})
 
-        def mock_ticker(t):
-            m = MagicMock()
-            m.history.return_value = fx_hist if t == "EURUSD=X" else spy_hist
-            return m
+        # SOCLE S1c (#111) : mock via gateway prices.ensure_price_history
+        # (au lieu de yf.Ticker direct qui n'est plus appelé par portfolio_metrics).
+        def mock_ensure(ticker, *args, **kwargs):
+            return fx_hist if ticker == "EURUSD=X" else spy_hist
 
-        monkeypatch.setattr("yfinance.Ticker", mock_ticker)
+        monkeypatch.setattr("shared.prices.ensure_price_history", mock_ensure)
         ret = fetch_benchmark_return_eur("SPY", 30)
         assert ret is not None
         assert abs(ret - 10.0) < 0.01
@@ -314,12 +316,12 @@ class TestFetchBenchmarkReturnEur:
         spy_hist = pd.DataFrame({"Close": [100.0, 110.0]})
         fx_hist = pd.DataFrame()
 
-        def mock_ticker(t):
-            m = MagicMock()
-            m.history.return_value = fx_hist if t == "EURUSD=X" else spy_hist
-            return m
+        # SOCLE S1c (#111) : mock via gateway prices.ensure_price_history
+        # (au lieu de yf.Ticker direct qui n'est plus appelé par portfolio_metrics).
+        def mock_ensure(ticker, *args, **kwargs):
+            return fx_hist if ticker == "EURUSD=X" else spy_hist
 
-        monkeypatch.setattr("yfinance.Ticker", mock_ticker)
+        monkeypatch.setattr("shared.prices.ensure_price_history", mock_ensure)
         assert fetch_benchmark_return_eur("SPY", 30) is None
 
     def test_returns_none_on_zero_start_price(self, monkeypatch):
@@ -327,10 +329,10 @@ class TestFetchBenchmarkReturnEur:
         spy_hist = pd.DataFrame({"Close": [0.0, 110.0]})
         fx_hist = pd.DataFrame({"Close": [1.10, 1.10]})
 
-        def mock_ticker(t):
-            m = MagicMock()
-            m.history.return_value = fx_hist if t == "EURUSD=X" else spy_hist
-            return m
+        # SOCLE S1c (#111) : mock via gateway prices.ensure_price_history
+        # (au lieu de yf.Ticker direct qui n'est plus appelé par portfolio_metrics).
+        def mock_ensure(ticker, *args, **kwargs):
+            return fx_hist if ticker == "EURUSD=X" else spy_hist
 
-        monkeypatch.setattr("yfinance.Ticker", mock_ticker)
+        monkeypatch.setattr("shared.prices.ensure_price_history", mock_ensure)
         assert fetch_benchmark_return_eur("SPY", 30) is None
