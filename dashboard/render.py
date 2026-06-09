@@ -5847,15 +5847,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         def _cp_for(_t: str) -> str:
             return "unknown"
     _th_warnings = _ticker_warnings_map(positions)
-    # Fix L29 (4e caller seam, ferme la fenetre désaccord inter-panneaux) :
-    # récupère book_idx pour ancrer la gauge sur avg_cost_eur via BookLine EUR
-    # (single source L27, money-invariant L28). Sans ça, ce panneau désaccorde
-    # des 3 autres déjà migrés (position card / book row / asym panel).
-    try:
-        from shared import book as _bk_th
-        _book_idx_th = _bk_th.get_book_index()
-    except Exception:
-        _book_idx_th = {}
+    # Thesis-frame natif : ce panneau garde entry/stop/target/current natifs
+    # (target posé en natif, FX-clean). Pas besoin de book_idx pour conversion EUR.
     # _CP_CLS_TH mort -- remplace par _cycle_chip_cls_via_vocab (#117 vocabulary)
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
@@ -5914,18 +5907,12 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             pnl_real = pnl.get(tk)
             if pnl_real is not None and pnl_real >= 0:
                 n_profit += 1
-        # Retour spec canonique 03/06 : override les 4 valeurs natives par EUR
-        # depuis BookLine, ancré sur entry_eur (prix d'appel thèse), pas avg_cost.
-        # Les ratios KPI ci-dessus (d_stop/d_tgt/ratio/frac) CONTINUENT d'utiliser
-        # natives (FX-invariants) -- l'override ne touche QUE les 4 valeurs
-        # stockées dans t["_entry"/_stop/_tgt/_cur"] qui feedent la gauge.
-        _ln_th = _book_idx_th.get(tk)
-        if has_bar and _ln_th and _ln_th.entry_eur and _ln_th.stop_eur and _ln_th.target_full_eur and _ln_th.current_price_eur:
-            _entry_g, _stop_g, _tgt_g, _cur_g = (
-                _ln_th.entry_eur, _ln_th.stop_eur, _ln_th.target_full_eur, _ln_th.current_price_eur
-            )
-        else:
-            _entry_g, _stop_g, _tgt_g, _cur_g = entry, stop, tgt, current
+        # Thesis-frame natif (target posé en natif, FX-clean) : les 4 valeurs
+        # entry/stop/target/current restent en native currency du ticker.
+        # Money-invariant L28 : JAMAIS mix entry_native + current_eur (= +176056%
+        # SK Hynix natif KRW). Les ratios KPI d_stop/d_tgt/ratio/frac (calculés
+        # ci-dessus en native) restent FX-invariants. Aucune conversion ici.
+        _entry_g, _stop_g, _tgt_g, _cur_g = entry, stop, tgt, current
         ths.append(
             {
                 "tk": tk,
@@ -6553,19 +6540,14 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
             up, dn = r.get("upside_pct"), r.get("downside_pct")
             ln = _book_idx.get(tk)
             # Book row col "Progress" = stop->target progress (proximité-cible)
-            # → thesis-frame : ancre la gauge sur entry_eur (prix d'appel),
-            # PAS avg_cost. Le P&L cost-frame vit dans la col "P&L" séparée.
-            # Dot = position du cours dans l'arc stop-entry-target.
-            if ln and ln.entry_eur and ln.stop_eur and ln.target_full_eur and ln.current_price_eur:
-                _entry_g = ln.entry_eur
-                _stop_g = ln.stop_eur
-                _tgt_g = ln.target_full_eur
-                _cur_g = ln.current_price_eur
-            else:
-                _entry_g = ln.entry_price if ln else None
-                _stop_g = st
-                _tgt_g = tg
-                _cur_g = c
+            # → thesis-frame natif : target posé en natif, FX-clean.
+            # Money-invariant L28 : JAMAIS mix entry_native + current_eur.
+            # entry/stop/target/current TOUS natifs même devise (KRW/JPY/EUR
+            # selon le titre). Le P&L cost-frame vit dans la col "P&L" séparée.
+            _entry_g = ln.entry_price if ln else None
+            _stop_g = st
+            _tgt_g = tg
+            _cur_g = c
             if _stop_g and _tgt_g and _tgt_g != _stop_g and _cur_g and up is not None and dn is not None:
                 gauges[tk] = {
                     "_entry": _entry_g,
@@ -7089,17 +7071,14 @@ def render() -> Path:
             if risky:
                 chip_tip_attr = f' data-tip="{fx_tip}"' if fx_tip else ""
                 profit_chip = f'<span class="th-pt"{chip_tip_attr}>target hit</span>'
-        # CLOSEST TO TARGET = panneau proximité-cible → thesis-frame :
-        # ancre sur entry_eur (prix d'appel), pas avg_cost. Le dot raconte
-        # "position du cours dans l'arc stop-entry-target". Tooltip = perf
-        # depuis entry (cohérent avec dot), pas pnl_position cost-frame.
-        if ln and ln.entry_eur and ln.stop_eur and ln.target_full_eur and ln.current_price_eur:
-            _e, _s, _t, _c = ln.entry_eur, ln.stop_eur, ln.target_full_eur, ln.current_price_eur
-            _pnl_p = (_c / _e - 1) * 100.0 if _e else None
-        else:
-            _e = ln.entry_price if ln else None
-            _s, _t, _c = a["_stop"], a["_tgt"], a["_cur"]
-            _pnl_p = (_c / _e - 1) * 100.0 if (_e and _c) else None
+        # CLOSEST TO TARGET = proximité-cible → thesis-frame NATIF (target
+        # posé en natif, FX-clean). Money-invariant L28 : JAMAIS mix
+        # entry_native + current_eur (= +176056% SK Hynix KRW). Les 4 valeurs
+        # entry/stop/target/current TOUS natifs même devise. Tooltip = perf
+        # depuis entry en natif (FX-invariant, cohérent avec dot).
+        _e = ln.entry_price if ln else None
+        _s, _t, _c = a["_stop"], a["_tgt"], a["_cur"]
+        _pnl_p = (_c / _e - 1) * 100.0 if (_e and _c and _e != 0) else None
         bar = _position_axis(_e, _s, _t, _c, pnl_position_pct=_pnl_p) or (
             f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
         )
