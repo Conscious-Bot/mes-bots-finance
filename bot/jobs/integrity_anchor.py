@@ -34,8 +34,21 @@ def integrity_anchor_daily_job() -> None:
     - chain verify fail (L15) : ERROR log + abort sans commit (le script
       lui-meme abort via SystemExit dans le block python embarque)
     """
+    # FAIL-LOUD discipline (L29 appliquee aux crons) : tout silent-fail de
+    # provabilite surface en Telegram OPS, jamais juste log.error dans bot.log.
+    # Le cas fondateur 09/06 a re-prouve le besoin : silent-fail 27h+ decouvert
+    # uniquement parce qu'on a tire base_health a la main.
+    from shared import notify
+
+    def _alert(msg: str) -> None:
+        try:
+            notify.send_text(f"[OPS] {msg}")
+        except Exception:
+            log.exception("integrity_anchor alert send fail")
+
     if not _SCRIPT.exists():
         log.error("integrity_anchor.sh missing at %s", _SCRIPT)
+        _alert(f"integrity_anchor.sh MISSING at {_SCRIPT}")
         return
     try:
         result = subprocess.run(
@@ -46,10 +59,15 @@ def integrity_anchor_daily_job() -> None:
             timeout=600,
         )
         if result.returncode == 0:
-            log.info("integrity_anchor OK : %s", result.stdout.strip().splitlines()[-1] if result.stdout else "")
+            tail = result.stdout.strip().splitlines()[-1] if result.stdout else ""
+            log.info("integrity_anchor OK : %s", tail)
         else:
-            log.error("integrity_anchor failed rc=%d : %s", result.returncode, result.stderr.strip())
+            stderr_tail = result.stderr.strip()[-500:]
+            log.error("integrity_anchor failed rc=%d : %s", result.returncode, stderr_tail)
+            _alert(f"integrity_anchor FAIL rc={result.returncode}\n```\n{stderr_tail}\n```")
     except subprocess.TimeoutExpired:
         log.error("integrity_anchor timeout (600s) -- calendars OTS injoignables ?")
+        _alert("integrity_anchor TIMEOUT 600s — calendars OTS injoignables ?")
     except Exception as e:
         log.exception("integrity_anchor unexpected error : %s", e)
+        _alert(f"integrity_anchor EXCEPTION {type(e).__name__} : {e}")
