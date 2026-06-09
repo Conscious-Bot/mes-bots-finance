@@ -1,14 +1,12 @@
 """
 Company analysis fiche generator.
-Stocks: yfinance + EDGAR insiders + regime → LLM synthesis (Claude)
-Crypto (BTC-USD etc): partial — yfinance price + macro, LLM adapts
+Stocks: prices gateway (info+fundamentals) + EDGAR insiders + regime → LLM synthesis (Claude)
+Crypto (BTC-USD etc): partial — price + macro, LLM adapts
 """
 
 import contextlib
 import logging
 from datetime import UTC, date, datetime
-
-import yfinance as yf
 
 from shared import edgar
 from shared.storage import build_signals_context_block, db
@@ -92,9 +90,10 @@ def _phase25_enrich(info, fin):
 
 
 def fetch_stock_data(ticker: str) -> dict:
-    """Pull all structured data via yfinance + EDGAR + regime."""
-    t = yf.Ticker(ticker)
-    info = t.info or {}
+    """Pull all structured data via prices gateway + EDGAR + regime."""
+    # SOCLE S1c (#111) : migré yf.Ticker → prices gateway (cache info 1h, fundamentals 24h).
+    from shared.prices import get_balance_sheet, get_cashflow, get_financials, get_info
+    info = get_info(ticker)
 
     def _safe_df(df, row, col=0):
         try:
@@ -104,9 +103,9 @@ def fetch_stock_data(ticker: str) -> dict:
             pass
         return None
 
-    fin = t.financials
-    bs = t.balance_sheet
-    cf = t.cashflow
+    fin = get_financials(ticker)
+    bs = get_balance_sheet(ticker)
+    cf = get_cashflow(ticker)
 
     revenue = _safe_df(fin, "Total Revenue")
     revenue_prev = _safe_df(fin, "Total Revenue", col=1)

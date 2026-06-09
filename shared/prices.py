@@ -71,6 +71,42 @@ def get_calendar(ticker: str) -> Any:
     return cal
 
 
+# Cache fundamentals DataFrames (financials, balance_sheet, cashflow).
+# TTL 24h — publiés trimestriellement, refresh intraday inutile.
+_FUNDAMENTALS_CACHE: dict[tuple[str, str], tuple[Any, float]] = {}
+_FUNDAMENTALS_TTL_SEC = 86400.0
+
+
+def _get_fundamental_df(ticker: str, attr: str) -> Any:
+    import time as _t
+    now = _t.monotonic()
+    key = (ticker, attr)
+    cached = _FUNDAMENTALS_CACHE.get(key)
+    if cached is not None and now - cached[1] < _FUNDAMENTALS_TTL_SEC:
+        return cached[0]
+    try:
+        df = getattr(yf.Ticker(ticker), attr)
+    except Exception:
+        df = None
+    _FUNDAMENTALS_CACHE[key] = (df, now)
+    return df
+
+
+def get_financials(ticker: str) -> Any:
+    """yfinance Ticker.financials (annual income statement DataFrame). Cache 24h."""
+    return _get_fundamental_df(ticker, "financials")
+
+
+def get_balance_sheet(ticker: str) -> Any:
+    """yfinance Ticker.balance_sheet (annual DataFrame). Cache 24h."""
+    return _get_fundamental_df(ticker, "balance_sheet")
+
+
+def get_cashflow(ticker: str) -> Any:
+    """yfinance Ticker.cashflow (annual DataFrame). Cache 24h."""
+    return _get_fundamental_df(ticker, "cashflow")
+
+
 def get_current_price(ticker: str) -> float | None:
     """Latest close price. Returns float or None.
 

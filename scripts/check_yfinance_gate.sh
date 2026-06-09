@@ -3,11 +3,9 @@
 #
 # But : tuer le SPOF des bypass yfinance hors du gateway canonique.
 #
-# Mode RATCHET (08/06) : le compteur ne peut que DECROITRE. Build rouge si
-#   un 20e bypass apparait alors qu'on en avait 19. Permet migration progressive
-#   sans sweep tout-en-une-fois (la doctrine "type-quand-tu-touches" de GLOSSARY).
-#
-# Mode HARD (automatique quand count atteint 0) : build rouge sur toute violation.
+# Mode HARD (09/06) : aucune violation toleree. Migration #111 SOCLE S1c achevee.
+#   Le pattern matche les VRAIS bypass code-actif via AST Python (filtre proprement
+#   commentaires + docstrings + strings). C'est la suite du mode RATCHET 08/06.
 #
 # Etat persistant : .yfinance_bypass_count.txt (versionne git, audit trail).
 #
@@ -19,14 +17,41 @@ cd "$(dirname "$0")/.."
 
 STATE_FILE=".yfinance_bypass_count.txt"
 
-echo "=== SOCLE gate yfinance (Phase 1b, RATCHET mode) ==="
+echo "=== SOCLE gate yfinance (HARD mode, AST-based) ==="
 
-# Count current violations
-VIOLATIONS=$(grep -rn -E 'import yfinance|from yfinance|yfinance\.|\byf\.' \
-    --include="*.py" \
-    --exclude-dir=venv --exclude-dir=.venv --exclude-dir=__pycache__ --exclude-dir=tests \
-    --exclude=prices.py \
-    bot shared intelligence dashboard scripts 2>/dev/null) || true
+# AST scan : compte les vrais bypass (imports + appels yfinance) hors prices.py.
+# Ignore commentaires + docstrings + strings (faux positifs du grep large).
+VIOLATIONS=$(python3 - <<'PY'
+import ast, pathlib
+
+EXCLUDE_DIRS = {"venv", ".venv", "__pycache__", "tests", "alembic"}
+ROOT = pathlib.Path(".")
+out = []
+
+for p in ROOT.rglob("*.py"):
+    rel = p.relative_to(ROOT)
+    parts = set(rel.parts)
+    if parts & EXCLUDE_DIRS:
+        continue
+    if rel.as_posix() == "shared/prices.py":
+        continue
+    try:
+        tree = ast.parse(p.read_text(encoding="utf-8", errors="ignore"))
+    except SyntaxError:
+        continue
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "yfinance" or alias.name.startswith("yfinance."):
+                    out.append(f"{rel}:{node.lineno}:import {alias.name}")
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "yfinance" or (node.module or "").startswith("yfinance."):
+                out.append(f"{rel}:{node.lineno}:from {node.module}")
+
+for line in out:
+    print(line)
+PY
+) || true
 
 if [ -n "$VIOLATIONS" ]; then
     NB=$(echo "$VIOLATIONS" | wc -l | tr -d ' ')
@@ -34,55 +59,42 @@ else
     NB=0
 fi
 
-# Read previous ratchet state (or initialize if missing)
+# Read previous ratchet state (HARD mode = doit rester a 0).
 if [ -f "$STATE_FILE" ]; then
     PREV=$(cat "$STATE_FILE" | tr -d '[:space:]')
-    # Sanity check : valid integer
     if ! [[ "$PREV" =~ ^[0-9]+$ ]]; then
         echo "WARN : $STATE_FILE corrompu ('$PREV'), reinitialisation a $NB"
         PREV=$NB
     fi
 else
-    echo "INFO : premiere execution, initialisation ratchet a $NB"
+    echo "INFO : premiere execution, initialisation a $NB"
     PREV=$NB
     echo "$NB" > "$STATE_FILE"
 fi
 
-# Ratchet : le count ne peut que decroitre. Si NB > PREV -> regression = build rouge.
-if [ "$NB" -gt "$PREV" ]; then
-    DELTA=$((NB - PREV))
+# HARD mode : toute violation = build rouge.
+if [ "$NB" -gt 0 ]; then
     echo ""
-    echo "ERROR : RATCHET BROKEN -- $DELTA nouvelle(s) violation(s) yfinance apparue(s)."
-    echo "  Count precedent : $PREV"
-    echo "  Count actuel    : $NB"
+    echo "ERROR : HARD GATE VIOLATED -- $NB import(s) yfinance hors shared/prices.py."
     echo ""
-    echo "Le ratchet decroissant-only interdit la regression. Migrer les nouveaux"
-    echo "bypass vers prices.get() / prices.fx() AVANT de commiter."
+    echo "Migrer ces imports vers prices.get_current_price / ensure_price_history /"
+    echo "get_info / get_calendar / get_financials / get_balance_sheet / get_cashflow"
+    echo "AVANT de commiter."
     echo ""
-    echo "Echantillon des violations (head 20) :"
-    echo "$VIOLATIONS" | head -20
+    echo "Violations :"
+    echo "$VIOLATIONS"
+    echo "$NB" > "$STATE_FILE"
     exit 1
 fi
 
-# Count <= PREV : on accepte. Update state si decroissance.
+# Decrease : on update le state si on revient a 0 apres avoir ete > 0.
 if [ "$NB" -lt "$PREV" ]; then
-    echo "OK : $((PREV - NB)) violation(s) eliminee(s) depuis dernier run (${PREV} -> ${NB})."
+    echo "OK : $((PREV - NB)) violation(s) eliminee(s) (${PREV} -> ${NB})."
     echo "$NB" > "$STATE_FILE"
 fi
 
 if [ "$NB" -eq 0 ]; then
-    echo "SUCCESS : aucune violation. Gate peut basculer en HARD definitif."
-    exit 0
+    echo "SUCCESS : aucune violation yfinance hors gateway. Mode HARD vert."
 fi
 
-# Compte stable
-if [ "$NB" -eq "$PREV" ]; then
-    echo "INFO : $NB violations (stable depuis dernier run)."
-    if [ "$NB" -gt 0 ]; then
-        echo "      $NB bypass yfinance hors prices.py a migrer (type-quand-tu-touches)."
-    fi
-fi
-
-# Mode HARD automatique si count = 0 (deja exit 0 ci-dessus).
-# Mode RATCHET : exit 0 tant que NB <= PREV.
 exit 0

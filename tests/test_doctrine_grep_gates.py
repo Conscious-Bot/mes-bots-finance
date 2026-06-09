@@ -34,15 +34,10 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).parent.parent
 
-# === ALLOWLIST yfinance (snapshot fige 07/06 nuit pivot, doctrine red-team) ===
-# Reste : 1 fichier (fundamentals batch — .financials/.balance_sheet/.cashflow,
-# scope hors gateway prices). Migration #111 SOCLE S1c (09/06) a sorti 18 fichiers.
-_YFINANCE_LEGACY_ALLOWLIST: set[str] = {
-    # intelligence/analyze.py : fundamentals DataFrames (financials, balance_sheet,
-    # cashflow) — pas dans scope gateway prices (price/info/calendar). Accepted
-    # scope limit : single consumer, batch annuel/trimestriel, pas throttle-critical.
-    "intelligence/analyze.py",
-}
+# === ALLOWLIST yfinance (vidée 09/06 — HARD mode) ===
+# Plus aucun fichier ne contourne shared/prices.py. Toute nouvelle violation
+# = build rouge (gate strict, plus de ratchet decroissant).
+_YFINANCE_LEGACY_ALLOWLIST: set[str] = set()
 
 # === ALLOWLIST sqlite3 imports (snapshot fige 07/06 nuit) ===
 # 48 fichiers hors scripts/ contournent storage.py.
