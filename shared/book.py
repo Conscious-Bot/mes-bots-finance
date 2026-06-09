@@ -117,6 +117,37 @@ EXCLUDE_TEST_TICKERS_SQL = "(" + " AND ".join(
     f"ticker NOT LIKE '{p}%'" for p in TEST_TICKER_PREFIXES
 ) + ")"
 
+
+# ============================================================================
+# Proxy price tickers (#128 cf SPEC §X — affichage confiance réduite UI)
+# ============================================================================
+#
+# Olivier détient certains titres via instruments dont le yfinance feed direct
+# n'existe pas. Le système utilise alors un PROXY (e.g. cote primaire x fx au
+# lieu du GDR EUR). Le coût et le realized restent EUR-corrects via ledger,
+# mais la valo MtM dépend du proxy → peut diverger légèrement.
+#
+# Convention UI : afficher confiance réduite sur la valo de ces tickers
+# (banner, opacity réduite, ou tooltip explicite). À implémenter dans une
+# session UI dédiée. Le helper `is_proxy_price()` est le substrate canonique.
+
+PROXY_PRICE_TICKERS: dict[str, str] = {
+    "000660.KS": (
+        "Olivier détient le GDR EUR via TR ; yfinance 000660.KS retourne la "
+        "cote coréenne KRW x fx. Premium GDR vs cote coréenne peut diverger. "
+        "Coût et realized EUR-corrects via ledger ; valo MtM = proxy."
+    ),
+}
+
+
+def is_proxy_price(ticker: str) -> str | None:
+    """Retourne la raison du proxy si le prix yfinance n'est pas direct
+    (e.g. GDR EUR détenu mais cote primaire KRW utilisée). None sinon.
+
+    Usage UI : affecter banner / opacity / tooltip si retour non-None.
+    """
+    return PROXY_PRICE_TICKERS.get(ticker)
+
 # Phase 1.5 absorption_roadmap : target via YAML versionne avec _meta block.
 # JSON legacy droppé 07/06 (tech debt cleanup post-verification).
 # cf docs/templates/workflow_yaml_pattern.md + L17 LESSONS.
@@ -564,7 +595,7 @@ def validate_all_positions() -> dict:
 # =============================================================================
 #
 # Source UNIQUE de la valeur EUR d'une position. Consommé par :
-#   - shared/valuation.position_valuation_datum (compose qty × price × fx)
+#   - shared/valuation.position_valuation_datum (compose qty x price x fx)
 #   - shared/position_view.assemble_position_view (via valuation_datum)
 #   - intelligence/* monitors (over_cap, lock_in, kill_criteria, factor_exposures)
 #   - dashboard/render.py panneaux (via get_all_positions_views)
@@ -582,7 +613,7 @@ def value_eur(ticker: str, qty: float) -> Datum | None:
     Pipeline (composition pure de gateways canoniques) :
       1. prices.get(ticker)         → Datum[float] price_native
       2. prices.fx(currency, "EUR") → Datum[float] fx_rate
-      3. derive(qty × price × fx)   → Datum[Monetary(EUR)]
+      3. derive(qty x price x fx)   → Datum[Monetary(EUR)]
 
     Le Datum résultat porte :
       - value : Monetary(amount, currency="EUR")
@@ -595,7 +626,7 @@ def value_eur(ticker: str, qty: float) -> Datum | None:
     caller affiche "n/a" / DEGRADED, pas un faux confiant.
 
     Source unique : tout consumer (model + render) appelle cette fonction.
-    Aucun calcul `qty × price × fx` ad-hoc ailleurs (gate ratchet enforce).
+    Aucun calcul `qty x price x fx` ad-hoc ailleurs (gate ratchet enforce).
     """
     from shared import prices
     from shared.datum import derive
@@ -629,7 +660,7 @@ def value_eur(ticker: str, qty: float) -> Datum | None:
         degraded=False,
     )
 
-    # Compose qty × price × fx → Monetary(EUR). derive() propage asof/confidence/
+    # Compose qty x price x fx → Monetary(EUR). derive() propage asof/confidence/
     # degraded/parents automatiquement (3 parents = qty + price + fx).
     return derive(
         lambda q, px, fx: Monetary(
