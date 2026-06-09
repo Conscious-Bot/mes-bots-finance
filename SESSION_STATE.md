@@ -2727,3 +2727,33 @@ afe7738 [#111] salve 3         4 fichiers, ratchet 38 → 34
 - Bot up (PID 10313, polling Telegram, cron OTS demain 6h00)
 - Audit canonical_drift : 8 SPECs, exit 0
 - Plainte initiale gauge AMD/4063.T : résolue (position card affiche dot=tooltip cohérents)
+
+---
+
+### KNOWN-GAP gravé 09/06 23h+ — finding LIVE du checker (3e fois aujourd'hui)
+
+**Le checker a tiré une 3e fois pendant le render de W0** :
+```
+LIVING_GRAPH forks detected (n=1):
+  pnl_position BESI.AS bucket=2026-06-09
+    Δ=0.658% > ε=0.5%
+    - position_view.assembly: 11.5679% (op=value_eur_datum_div_cost_basis_eur)
+    - render._pnl_cost_map:   11.4918% (op=book_value_eur_div_cost_basis_eur)
+```
+
+**Pas du jitter** — le fork a **GROSSI après ma cure** :
+- Avant cure efb3c59 (cache vs live) : Δ=0.337%
+- Après cure (source unifiée book.value_eur) : Δ=0.658% — **doublé**
+- Si les 2 lisaient vraiment le cache `_PX_TTL=1800` identique, Δ serait ~0
+- Donc la cure n'a PAS atteint l'identité
+
+**Cause nommée (pas hand-wave)** : la cure efb3c59 a unifié la **SOURCE** prix (les 2 lisent `book.value_eur`) mais pnl_position est re-**CALCULÉ** par 2 producteurs distincts (chacun fait `(value_eur / cost_basis_eur - 1) × 100` de son côté). Source unifiée n'implique pas calcul unique. C'est L29 *in vivo* : corriger calcul ≠ vérifier diffusion, et le checker EST le vérificateur de diffusion.
+
+**Vrai fix (TODO #123, demain à tête reposée)** : compute-once-project canonique (L27 / SPEC_POSITIONS_CARD_LINK) — pnl_position calculé UNE fois (dans `PositionView`), tous consumers (render._pnl_cost_map et autres) le **LISENT** au lieu de re-calculer. Byte-identique garanti, fork mort pour de bon.
+
+**Le checker a gagné son écot une 3e fois aujourd'hui** :
+1. Premier finding : cure _pnl_cost_map cache → migrate vers gateway live (efb3c59) ✓
+2. Diagnostic ε structurel-vs-circonstanciel : "jitter borné" wave-through évité (red-team)
+3. **3e finding** : la cure « for-good » de ce soir ne l'était pas — calcul dupliqué reste un fork latent. Le checker l'a chopé en LIVE pendant W0.
+
+**Bonne nuit** — la maison veille sur elle-même, et ce soir elle t'a même dit où elle ment encore. Prochaine session : #123 compute-once-project pnl_position, et le 3e fork meurt pour de bon.
