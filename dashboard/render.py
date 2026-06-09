@@ -6317,6 +6317,8 @@ def _asym_format(ratio):
 
 def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl: dict, sectors: dict, asym: dict, gauges: dict | None = None, ticker_warnings: dict | None = None) -> str:
     import html as _h_esc
+
+    from shared.book import is_proxy_price  # #128 chip valo proxy (SK Hynix KRW→EUR)
     gauges = gauges or {}
     ticker_warnings = ticker_warnings or {}
     ps = sorted(ps, key=lambda p: -_broker_value(p, pnl))
@@ -6383,9 +6385,20 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
                 f'<span class="warn-chip warn-chip-{_sev_cls}" '
                 f'data-tip="{_h_esc.escape(_tw_tip, quote=True)}">{_label}</span>'
             )
+        # #128 : badge "proxy" discret si valo MtM passe par une cote ≠ instrument détenu
+        # (e.g. SK Hynix GDR EUR détenu mais yfinance retourne cote coréenne KRW × fx).
+        # Affichage : petit "·proxy" steel-muted avec tooltip explicite. Pas d'alerte
+        # (cost/realized restent EUR-corrects via ledger) — juste informer.
+        _proxy_reason = is_proxy_price(tk)
+        _proxy_chip = (
+            f'<span class="proxy-chip" style="font-size:9px;opacity:.55;margin-left:4px;'
+            f'color:var(--steel);font-weight:500" '
+            f'data-tip="{_h_esc.escape(_proxy_reason, quote=True)}">&middot;proxy</span>'
+            if _proxy_reason else ""
+        )
         rows += (
             f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}{tk}<span class="nm">{nm}</span>{_cp_chip}{_tw_chips}</td>'
-            f'<td class="num mono">{vstr}&nbsp;&euro;</td><td class="num">{w:.1f}%</td>'
+            f'<td class="num mono">{vstr}&nbsp;&euro;{_proxy_chip}</td><td class="num">{w:.1f}%</td>'
             f'<td class="num {pcls}">{pstr}</td>'
             f'<td class="{asym_cls}">{asym_str}</td>'
             f'<td class="row-gauge">{gauge_html}</td></tr>'
