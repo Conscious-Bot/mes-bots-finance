@@ -409,6 +409,87 @@ def _position_axis(
     )
 
 
+def _position_axis_price(
+    stop_eur: float | None,
+    cost_eur: float | None,
+    entry_eur: float | None,
+    target_eur: float | None,
+    cur_eur: float | None,
+    *,
+    extra_class: str = "",
+    pnl_pct_cost: float | None = None,
+    perf_pct_entry: float | None = None,
+) -> str:
+    """Canonical position gauge V2 (axe-PRIX EUR, cf SPEC_GAUGE_PRICE_AXIS #122).
+
+    5 repères à leur vraie position de prix EUR sur un axe ouvert
+    proportionnel. Pas d'anchor à choisir, pas de "0" centré -- les
+    repères SONT les références, le dot raconte par sa position entre eux.
+
+    Money-invariant L28 STRICT : tous params en EUR (jamais mix natif/EUR).
+    cost_eur = PMP gelé (BookLine.avg_cost_eur, frozen-at-buy).
+    stop/entry/target/cur_eur = niveaux × fx_now (live).
+    Asymétrie nommée honnête : cost gelé, autres flottants.
+
+    Tooltip enrichi 2 frames : "P&L X% depuis coût · Thèse Y% depuis entry
+    · beyond Z%". Le dot ne raconte plus un %, juste sa position visuelle.
+
+    Returns "" si < 2 repères présents + cur (insuffisant pour rendu utile).
+    """
+    if cur_eur is None or cur_eur <= 0:
+        return ""
+    # Refs disponibles (cur exclu, c'est le dot)
+    refs_raw = [
+        (stop_eur, "stop", "stop"),
+        (cost_eur, "cost", "cost"),
+        (entry_eur, "entry", "dash"),
+        (target_eur, "target", "target"),
+    ]
+    refs = [(p, lbl, style) for p, lbl, style in refs_raw if p is not None and p > 0]
+    if len(refs) < 2:
+        return ""
+
+    all_prices = [cur_eur] + [r[0] for r in refs]
+    p_min, p_max = min(all_prices), max(all_prices)
+    if p_max == p_min:
+        return ""
+    pad = (p_max - p_min) * 0.05
+    p_min -= pad
+    p_max += pad
+
+    def to_v(p: float) -> float:
+        return (p - p_min) / (p_max - p_min) * 100.0
+
+    # Dot color : bear sous stop, acc au-dessus target, neutre entre
+    dot_color = ""
+    if stop_eur is not None and cur_eur <= stop_eur:
+        dot_color = "bear"
+    elif target_eur is not None and cur_eur >= target_eur:
+        dot_color = "acc"
+
+    # Tooltip : annotations 2 frames + beyond chip
+    tip_parts: list[str] = []
+    if pnl_pct_cost is not None:
+        tip_parts.append(f"P&L {pnl_pct_cost:+.1f}% depuis coût")
+    if perf_pct_entry is not None:
+        tip_parts.append(f"thèse {perf_pct_entry:+.1f}% depuis entry")
+    if target_eur is not None and cur_eur > target_eur > 0:
+        beyond = (cur_eur / target_eur - 1) * 100.0
+        tip_parts.append(f"beyond +{beyond:.1f}%")
+    title_str = " · ".join(tip_parts)
+
+    ticks = [(to_v(p), lbl, style) for p, lbl, style in refs]
+    cls_full = ("sig-price " + extra_class).strip()
+    return _tbar(
+        to_v(cur_eur),
+        ticks=ticks,
+        dot_color=dot_color,
+        title=title_str,
+        extra_class=cls_full,
+        data_attrs={"axmin": f"{p_min:.2f}", "axmax": f"{p_max:.2f}"},
+    )
+
+
 def _llm_status_badge() -> str:
     """Phase B (#93) : surface llm_status comme chip flottant bottom-right.
 
@@ -2468,19 +2549,33 @@ def _position_card(inputs, steer_v2) -> str:
     else:
         asym_html = '<div class="pc-empty">stop/target non definis</div>'
 
-    # Slider : ancrage spécifique au JOB du panneau (per-panneau, pas binaire global).
-    # Position card = "comment va mon argent" → ancré avg_cost (P&L cost-frame).
-    # Les autres panneaux (theses, closest-to-target) ancrent sur entry (proximité-
-    # cible, thesis-frame). Tooltip cohérent avec dot = pnl_position EUR (depuis
-    # ton coût réel). Décision matin Olivier 09/06 verifiée vs SK Hynix/CCJ.
+    # Slider : axe-PRIX EUR (cf SPEC_GAUGE_PRICE_AXIS #122 W0). 5 repères à leur
+    # vraie position de prix EUR. Plus d'anchor à choisir entre cost et entry --
+    # les deux sont des points distincts sur l'axe. Tooltip enrichi 2 frames :
+    # "P&L X% depuis coût · thèse Y% depuis entry · beyond Z%". Décision contre-
+    # doctrinale assumée (fresh-head ignoré 22h tard 09/06, refacto structurel
+    # attaqué quand même -- mais lean : seam additif, 1 caller migré, 3 autres
+    # gardent _position_axis legacy.
     _cost_eur = getattr(bl, "avg_cost_eur", None) if bl else None
     _stop_eur = getattr(bl, "stop_eur", None) if bl else None
+    _entry_eur_bl = getattr(bl, "entry_eur", None) if bl else None
     _tgt_eur = getattr(bl, "target_full_eur", None) if bl else None
     _cur_eur = getattr(bl, "current_price_eur", None) if bl else None
-    if _cost_eur and _stop_eur and _tgt_eur and _cur_eur:
-        slider_html = _position_axis(_cost_eur, _stop_eur, _tgt_eur, _cur_eur, pnl_position_pct=pnl_pct)
+    # Annotations textuelles (les 2 frames)
+    _pnl_cost = pnl_pct if pnl_pct else None  # P&L depuis avg_cost (déjà calculé L2287)
+    _perf_entry = (
+        (_cur_eur / _entry_eur_bl - 1) * 100.0
+        if (_entry_eur_bl and _cur_eur and _entry_eur_bl > 0)
+        else None
+    )
+    if _cur_eur and (_cost_eur or _stop_eur or _entry_eur_bl or _tgt_eur):
+        slider_html = _position_axis_price(
+            _stop_eur, _cost_eur, _entry_eur_bl, _tgt_eur, _cur_eur,
+            pnl_pct_cost=_pnl_cost, perf_pct_entry=_perf_entry,
+        )
     elif stop and entry and full and current_price:
-        # Fallback : pas de BookLine EUR (rare). Garde natives + pnl_pct broker.
+        # Fallback : pas de BookLine EUR (rare). Garde l'ancien _position_axis
+        # natif (avant axe-prix W0). Migration totale demain à tête reposée.
         slider_html = _position_axis(entry, stop, full, current_price, pnl_position_pct=pnl_pct)
     elif entry and full and current_price:
         # No stop (structural) : montre seulement entry-current-target
