@@ -480,13 +480,23 @@ def _position_axis_price(
 
     ticks = [(to_v(p), lbl, style) for p, lbl, style in refs]
     cls_full = ("sig-price " + extra_class).strip()
+    # data-axis-mode="price" : enseigne au JS hover que axmin/axmax sont des
+    # PRIX EUR (pas des % signed). Le JS formatte le hover en "€XXXX.XX" au
+    # lieu de "+XXXX%" (bug 09/06 23h+ : axe-perf legacy assumait axmin/axmax=%
+    # systématiquement → KLAC montrait +1821.1% au hover car axmax=1820 EUR
+    # interprété comme %). Cure réelle : le JS distingue les 2 modes, chacun
+    # honnête à son cadre. Tooltip riche `title` reste pour 2-frames info.
     return _tbar(
         to_v(cur_eur),
         ticks=ticks,
         dot_color=dot_color,
         title=title_str,
         extra_class=cls_full,
-        data_attrs={"axmin": f"{p_min:.2f}", "axmax": f"{p_max:.2f}"},
+        data_attrs={
+            "axmin": f"{p_min:.2f}",
+            "axmax": f"{p_max:.2f}",
+            "axis-mode": "price",
+        },
     )
 
 
@@ -7813,10 +7823,15 @@ def render() -> Path:
         + _CTA_JS
         + "</script>"
         + "<script>(function(){var b=null;function isTyping(){var ta=document.getElementById('chat-input');if(ta&&ta.value.trim().length>0)return true;if(ta&&document.activeElement===ta)return true;return false;}function c(){if(isTyping())return;fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){var m=r.headers.get('Last-Modified');if(m){if(b===null)b=m;else if(m!==b)location.reload();}}).catch(function(){});}setInterval(c,1000);})();</script>"
-        # Hover continuous % sur les .tbar : displays % under cursor. Si
-        # data-axmin/data-axmax presents (axes centres sur target), la valeur
-        # affichee est signed % depuis le 0 logique (e.g. "-13.4%" / "+5.2%").
-        + "<script>(function(){function fmt(v){var s=v>=0?'+':'\\u2212';return s+Math.abs(v).toFixed(1)+'%';}function wire(){document.querySelectorAll('.tbar').forEach(function(bar){var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;bar.dataset.tbarWired='1';var axmin=parseFloat(bar.dataset.axmin);var axmax=parseFloat(bar.dataset.axmax);var signed=!isNaN(axmin)&&!isNaN(axmax);bar.addEventListener('mousemove',function(e){var r=bar.getBoundingClientRect();if(r.width<=0)return;var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));tip.style.left=p.toFixed(1)+'%';if(signed){var v=axmin+(axmax-axmin)*(p/100);tip.textContent=fmt(v);tip.classList.toggle('pos',v>0.05);tip.classList.toggle('neg',v<-0.05);}else{tip.textContent=p.toFixed(0)+'%';tip.classList.remove('pos','neg');}});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});})();</script>"
+        # Hover continuous sur les .tbar : displays valeur under cursor.
+        # MODES :
+        #   - axis-mode="price" (axe-prix EUR) : affiche "€X.XX" (prix interpolé)
+        #   - axis-mode absent (axe-perf legacy, data-axmin/axmax = % signed) :
+        #     affiche "+X.X%" / "-X.X%" signed depuis 0 logique
+        #   - sinon : affiche position % visuelle
+        # Cure 09/06 23h+ : le mode "price" résout le bug "+1820%" au hover
+        # quand axmax=1820 EUR (bornes prix interprétées comme %).
+        + "<script>(function(){function fmtPct(v){var s=v>=0?'+':'\\u2212';return s+Math.abs(v).toFixed(1)+'%';}function fmtEur(v){return v.toLocaleString('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2});}function wire(){document.querySelectorAll('.tbar').forEach(function(bar){var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;bar.dataset.tbarWired='1';var axmin=parseFloat(bar.dataset.axmin);var axmax=parseFloat(bar.dataset.axmax);var mode=bar.dataset.axisMode||'';var hasAxis=!isNaN(axmin)&&!isNaN(axmax);bar.addEventListener('mousemove',function(e){var r=bar.getBoundingClientRect();if(r.width<=0)return;var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));tip.style.left=p.toFixed(1)+'%';if(hasAxis){var v=axmin+(axmax-axmin)*(p/100);if(mode==='price'){tip.textContent=fmtEur(v);tip.classList.remove('pos','neg');}else{tip.textContent=fmtPct(v);tip.classList.toggle('pos',v>0.05);tip.classList.toggle('neg',v<-0.05);}}else{tip.textContent=p.toFixed(0)+'%';tip.classList.remove('pos','neg');}});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});})();</script>"
         + "</body></html>"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
