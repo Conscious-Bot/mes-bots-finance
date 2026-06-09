@@ -19,6 +19,57 @@ with contextlib.suppress(Exception):
 
 import yfinance as yf
 
+# ============================================================================
+# Cache info/calendar pour réduire les appels yfinance lourds (SOCLE S1c #111).
+# TTL court (1h) — les fundamentals bougent rarement intraday.
+# ============================================================================
+_INFO_CACHE: dict[str, tuple[dict, float]] = {}
+_INFO_TTL_SEC = 3600.0
+_CALENDAR_CACHE: dict[str, tuple[Any, float]] = {}
+_CALENDAR_TTL_SEC = 21600.0  # 6h (earnings annoncés rarement updated intraday)
+
+
+def get_info(ticker: str) -> dict:
+    """Gateway canonique pour yfinance Ticker.info (fundamentals + métadonnées).
+
+    Cache mémoire avec TTL 1h. Throttle anti-ban yfinance partagé avec
+    get_current_price (même module). Consumers : ticker_names (shortName),
+    review._fetch_valuation (PE/marketCap), analyze.fetch_stock_data
+    (revenueGrowth + fallbacks), bot/jobs/daily.resolve_journal (price now).
+
+    Retourne dict vide si fetch fail (jamais None — consumers utilisent .get()).
+    """
+    import time as _t
+    now = _t.monotonic()
+    cached = _INFO_CACHE.get(ticker)
+    if cached is not None and now - cached[1] < _INFO_TTL_SEC:
+        return cached[0]
+    try:
+        info = yf.Ticker(ticker).info or {}
+    except Exception:
+        info = {}
+    _INFO_CACHE[ticker] = (info, now)
+    return info
+
+
+def get_calendar(ticker: str) -> Any:
+    """Gateway canonique pour yfinance Ticker.calendar (earnings dates).
+
+    Cache 6h. Earnings dates publiés à fréquence trimestrielle, refresh
+    rare intraday justifié.
+    """
+    import time as _t
+    now = _t.monotonic()
+    cached = _CALENDAR_CACHE.get(ticker)
+    if cached is not None and now - cached[1] < _CALENDAR_TTL_SEC:
+        return cached[0]
+    try:
+        cal = yf.Ticker(ticker).calendar
+    except Exception:
+        cal = None
+    _CALENDAR_CACHE[ticker] = (cal, now)
+    return cal
+
 
 def get_current_price(ticker: str) -> float | None:
     """Latest close price. Returns float or None.

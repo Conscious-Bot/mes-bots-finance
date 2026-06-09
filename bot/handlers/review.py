@@ -83,8 +83,9 @@ def _compute_returns(ticker: str, sector_index: str | None) -> dict:
 def _fetch_valuation(ticker: str) -> dict:
     """Returns dict with trailingPE, forwardPE, priceToSales, marketCap (or None)."""
     try:
-        import yfinance as yf
-        info = yf.Ticker(ticker).info or {}
+        # SOCLE S1c (#111) : migré yf.Ticker.info → prices.get_info gateway (cache 1h).
+        from shared.prices import get_info
+        info = get_info(ticker)
         return {
             "trailingPE": info.get("trailingPE"),
             "forwardPE": info.get("forwardPE"),

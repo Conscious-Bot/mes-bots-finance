@@ -41,13 +41,13 @@ def get_short_name(ticker: str) -> str | None:
     finally:
         conn.close()
 
-    # Cache miss: fetch yfinance
+    # Cache miss: fetch via gateway canonique (SOCLE S1c #111)
     short_name = None
     long_name = None
     try:
-        import yfinance as yf
+        from shared.prices import get_info
 
-        info = yf.Ticker(ticker).info
+        info = get_info(ticker)
         short_name = info.get("shortName")
         long_name = info.get("longName")
     except Exception as e:

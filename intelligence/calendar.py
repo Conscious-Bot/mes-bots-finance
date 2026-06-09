@@ -8,16 +8,15 @@ Future v2: macro events hardcoded (FOMC/CPI/NFP), thesis cross-ref alerts.
 
 from datetime import UTC, date, datetime, timedelta
 
-import yfinance as yf
-
 from shared import storage
 
 
 def get_ticker_next_earnings(ticker):
     """Returns dict {date, description} for next earnings or None."""
     try:
-        t = yf.Ticker(ticker)
-        cal = t.calendar
+        # SOCLE S1c (#111) : migré yf.Ticker.calendar → prices.get_calendar gateway (cache 6h).
+        from shared.prices import get_calendar
+        cal = get_calendar(ticker)
         if cal is None:
             return None
         ed = None

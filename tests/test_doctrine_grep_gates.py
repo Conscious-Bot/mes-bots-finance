@@ -35,28 +35,13 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).parent.parent
 
 # === ALLOWLIST yfinance (snapshot fige 07/06 nuit pivot, doctrine red-team) ===
-# 19 fichiers actuellement contournent shared/prices.py throttle.
-# Generated par scan reel. Chaque retire = decrease tech debt.
+# Reste : 1 fichier (fundamentals batch — .financials/.balance_sheet/.cashflow,
+# scope hors gateway prices). Migration #111 SOCLE S1c (09/06) a sorti 18 fichiers.
 _YFINANCE_LEGACY_ALLOWLIST: set[str] = {
-    "bot/handlers/review.py",
-    "bot/handlers/trade_context.py",
-    "bot/jobs/daily.py",
-    # dashboard/render.py SORTI 08/06 nuit (Phase 4 #1-#6 : 6 bypasses migrés)
+    # intelligence/analyze.py : fundamentals DataFrames (financials, balance_sheet,
+    # cashflow) — pas dans scope gateway prices (price/info/calendar). Accepted
+    # scope limit : single consumer, batch annuel/trimestriel, pas throttle-critical.
     "intelligence/analyze.py",
-    "intelligence/benchmark.py",
-    "intelligence/calendar.py",
-    "intelligence/debt_monitor.py",
-    "intelligence/insider_buy_cluster.py",
-    "intelligence/morning_brief.py",
-    "intelligence/return_clustering.py",
-    "scripts/backtest_macro_composite.py",
-    "scripts/import_positions_legacy.py",
-    "shared/backtest.py",
-    "shared/crypto.py",
-    "shared/macro.py",
-    "shared/portfolio_metrics.py",
-    "shared/thesis_invariants.py",
-    "shared/ticker_names.py",
 }
 
 # === ALLOWLIST sqlite3 imports (snapshot fige 07/06 nuit) ===
