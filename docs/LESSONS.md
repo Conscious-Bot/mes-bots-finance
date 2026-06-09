@@ -951,30 +951,24 @@ CLAUDE.md "Catches récurrents" : avant toute nouvelle SPEC, demander **"existe-
 
 ---
 
-## L30 — Une target figée + un cost qui roule = un mensonge en formation
+## L30 — Cible figée + cost roulant = mensonge en formation (STUB — doctrine complète à graver tête fraîche 11/06)
 
-**Règle** : `target_partial` et `target_full` sont posées à la naissance de la thèse et **figées** ; `avg_cost_native` (= `avg_cost_eur / fx_now`) **roule** à chaque renforcement. Quand un renforcement pousse `cost ≥ target_partial`, le partiel est **mort par construction** : "prendre partiel à `target_partial`" devient "vendre à perte vs ton cost actuel", pas une prise de profit. Un partial non révisé après renforcement = un point de coupe à perte déguisé en point de profit. **Discipline** : tout renforcement qui projette le cost au-dessus d'une cible doit déclencher la révision de cette cible — soit annulation (cost > partial = pas de demi-cible possible), soit remontée proportionnelle. Sinon la cible ment.
+**STUB léger 10/06 minuit, à compléter session 11/06 AVEC l'étape 4 SPEC_GAUGE tests verrouillants.** Le mécanisme a été attrapé 2× en quelques heures (full SK Hynix à −0.7%, partiels AMZN/6857.T morts) → passe la barre LESSONS « catch attrapé 2× → engraver ». MAIS le cadrage exact a un piège qui peut défaire la nuit du 09/06 s'il est botché fatigué. Donc stub maintenant pour ne rien perdre, expansion complète demain.
 
-**Pourquoi** : la cible est une **promesse à l'instrument** ("je sortirai partiellement ici parce que c'est un vrai profit"). Le renforcement modifie le baseline contre lequel cette promesse est mesurée. Sans révision, le visuel garde le tick jaune en place, le caret cost le rattrape silencieusement, et tu finis par "exécuter le partial" qui est en fait une coupe sèche. La discipline-signal `.tbar-cost-caret.stale` (cost > full) attrape le cas extrême ; le cas intermédiaire (cost > partial mais cost < full) passe sous le radar tant que la doctrine de révision n'est pas explicite.
+**Le mécanisme (à conserver)** : `target_partial` et `target_full` sont **figées à la pose de thèse** ; `cost_native = avg_cost_eur / fx_now` **roule** avec les renforcements et le FX. Quand le cost rattrape ou dépasse une cible figée, la cible devient un mensonge silencieux (un "partial" à exécuter qui est en fait une coupe à perte vs cost). Le partial est juste le **canari** — la cible la plus basse, touchée en premier. Le full SK Hynix à −0.7% est le **même** mécanisme à un niveau plus extrême. Doctrine au niveau "cible-figée-rattrapée-par-le-cost", pas au niveau des partiels seuls.
+
+**⚠️ ANTI-PIÈGE (gras, à ne PAS rater demain)** : le remède n'est **PAS** "recalculer la cible depuis le cost" (ex. `target = cost × (1+x%)`). Ça ferait rouler la cible avec le cost = **interp 1 qu'on a passé la nuit du 09/06 à bannir** ; ça détruit le signal car une cible auto-cost-relative ne peut **jamais** révéler "tu as dépassé ta décision". **La cible reste FIGÉE. C'est l'HUMAIN qui révise la thèse (annule, retire, ou pose une NOUVELLE cible figée par jugement) quand l'instrument signale.** "Instrument révèle, humain décide." Tout remède qui rend la cible auto-cost-relative annule le gauge prix-natif.
 
 **Diagnostic visuel canonique (instrument SPEC_GAUGE rend la dissonance lisible)** :
-- **caret à droite du tick jaune partial** → partial déjà mort, à réviser
-- **caret ≈ tick jaune** → partial pile au cost, ratio risk/reward symbolique
-- **caret à gauche du tick jaune** → partial encore vif (cas sain : cost en dessous de la cible)
+- **caret à droite du tick jaune partial** → partial déjà mort, à réviser (humain)
+- **caret ≈ tick jaune** → ratio R/R symbolique (mourant), pas encore mort
+- **caret à gauche du tick jaune** → partial encore vif (sain : cost en dessous de la cible)
 
-Cas concrets relevés le 10/06 (panneau asym `CLOSEST_TO_TARGET`) :
-- **AMZN, 6857.T** : caret nettement au-delà du jaune → partiel obsolète, dépassé par les renforcements
-- **CCJ** : caret juste à droite du jaune → en train de basculer
-- **LNG, 4063.T** : caret ≈ jaune → ratio symbolique
-- **AMD** : caret hors bande gauche (cost très bas via gains protégés) → partiel encore vif
+Cas relevés 10/06 panneau asym `CLOSEST_TO_TARGET` : AMZN/6857.T morts, CCJ en bascule, LNG/4063.T symboliques, AMD sain. Cf TODO #133 sweep complet.
 
-**Red flag à repérer immédiatement** :
-- Tu renforces au-dessus d'une cible existante sans réviser cette cible → la cible devient un mensonge silencieux. La révision n'est pas optionnelle, elle est **causée** par le renforcement.
-- Tu poses un partial juste au-dessus du cost-au-moment-T0 sans tenir compte des renforcements anticipés → le premier renfort suffira à le tuer.
-- Tu lis "partial atteint, je trim" sans regarder le caret cost → tu peux être en train de coupe ta position à perte en pensant prendre du profit.
+**Raffinements à figer 11/06 tête fraîche** (à conserver comme dette de doctrine, ne PAS pré-décider) :
+- **Trigger sur dégradation, pas sur sign-flip** : `(target − cost)/cost < seuil_edge` chope le mourant (LNG/4063.T) ; `cost ≥ target` ne chope que le mort. Seuil à calibrer.
+- **Révision-au-renfort > pose-prédictive-post-renforts** : exiger de prédire les renforts à T0 sur-gonfle les partiels des positions jamais renforcées. Préfère réaction au fait : à chaque add, l'instrument re-signale, l'humain révise ou retire explicitement.
+- **Mécanisation naturelle** : monitor `stale_target` via `docs/templates/monitor_pattern.md` (table journal append-only + classify pur + check_all_transitions). Le 3e monitor du gabarit, cas d'usage exact. Cf TODO #134.
 
-**Remède méthode** :
-1. **Règle de révision à la pose de renforcement** : si le renforcement projeté pousse `cost_native ≥ target_partial_native`, soit annule le partial (note explicite "obsolète post-renforcement N"), soit remonte le partial proportionnellement (avec asof + raison tracée dans la thèse).
-2. **Règle de pose initiale** : le partial doit être posé strictement au-dessus du cost projeté APRÈS renforcements anticipés, pas au-dessus du cost-au-moment-T0.
-
-**Référencer** : SPEC_GAUGE §3 (caret cost canonique) ; [[L27]] couche temporelle (figé vs roulant doivent être traités différemment) ; [[L29]] couche diffusion (la cible diffusée dans le visuel ment si le cost roule sans qu'on révise) ; helper `_gauge_prices_native()` (le triple natif qui rend la dissonance lisible).
+**Référencer** : SPEC_GAUGE §3 (caret cost canonique) ; [[L27]] couche temporelle (figé vs roulant traités différemment) ; [[L29]] couche diffusion (la cible diffusée dans le visuel ment si le cost roule sans révision humaine) ; helper `_gauge_prices_native()` (le triple natif qui rend la dissonance lisible) ; conversation 10/06 minuit (red-team Olivier sur ce stub, source canonique de l'anti-piège).
