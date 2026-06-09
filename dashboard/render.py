@@ -464,32 +464,46 @@ def _position_axis_pct(
 
 
 def _gauge_pcts_from_cost(bl: object | None) -> dict[str, float | None]:
-    """Calcule les % canoniques de la gauge depuis ton COÛT (cost_native).
+    """Calcule les % de la gauge — principe Olivier 09/06 23h+ :
 
-    UN SEUL MÈTRE — depuis le coût, en native (FX-invariant).
-    cost_native = avg_cost_eur / fx_rate_to_eur (fx_now live).
-    Avec un seul fx_now pour les 4 valeurs (cost/stop/target/cur), les % en
-    native équivalent au P&L EUR pour le dot.
+    - 0 (gris central) = ton coût actuel (cost_native)
+    - dot_pct = perf actuelle DEPUIS COÛT (≡ P&L EUR via cost_native = avg_cost_eur / fx_now)
+    - stop_pct, target_pct = % DÉCIDÉS EN AMONT (depuis entry de thèse, le point
+      de décision original). Stables vs renforcements (le PMP qui bouge ne fait
+      pas bouger les ticks décidés).
 
-    Returns dict avec stop_pct, target_pct, target_partial_pct, dot_pct
-    (chacun = (level_native − cost_native) / cost_native × 100, None si manquant)
-    + cur_native + target_native bruts (pour test Beyond FX-invariant).
+    Le mélange "dot depuis cost / ticks depuis entry" est ASSUMÉ et justifié :
+    dot raconte "où tu en es maintenant", ticks racontent "où tu visais quand
+    tu as posé la thèse". Deux questions, une seule gauge.
+
+    Le split Closest/Beyond utilise cur_native >= target_native (FX-invariant)
+    pour ranger les positions selon la VÉRITÉ du dépassement, pas l'apparence
+    visuelle. SK Hynix : dot visuellement sous target tic (ticks depuis entry),
+    mais cur_native > target_native → rangé en Beyond.
+
+    Returns dict avec stop_pct, target_pct, target_partial_pct (depuis entry),
+    dot_pct (depuis cost), + cur_native + target_native bruts.
     """
     if not bl:
         return {}
     avg_cost_eur = getattr(bl, "avg_cost_eur", None)
     fx = getattr(bl, "fx_rate_to_eur", None)
     cur_n = getattr(bl, "last_price_native", None)
+    entry_n = getattr(bl, "entry_price", None)
     if not avg_cost_eur or not fx or not cur_n or fx <= 0 or avg_cost_eur <= 0:
         return {}
-    cost_n = avg_cost_eur / fx  # cost_native via fx_now live (un seul fx par position)
+    cost_n = avg_cost_eur / fx  # cost_native via fx_now live
     if cost_n <= 0:
         return {}
 
-    def pct(level: float | None) -> float | None:
-        if level is None or level <= 0:
+    # dot_pct : perf depuis cost (≡ P&L EUR)
+    dot_pct = (cur_n - cost_n) / cost_n * 100.0
+
+    # ticks (stop/target) : % décidés depuis entry de thèse (le point posé en amont)
+    def pct_from_entry(level: float | None) -> float | None:
+        if level is None or level <= 0 or not entry_n or entry_n <= 0:
             return None
-        return (level - cost_n) / cost_n * 100.0
+        return (level - entry_n) / entry_n * 100.0
 
     stop_n = getattr(bl, "stop_price", None)
     tgt_n = getattr(bl, "target_full", None)
@@ -498,10 +512,11 @@ def _gauge_pcts_from_cost(bl: object | None) -> dict[str, float | None]:
         "cost_native": cost_n,
         "cur_native": cur_n,
         "target_native": tgt_n,
-        "stop_pct": pct(stop_n),
-        "target_pct": pct(tgt_n),
-        "target_partial_pct": pct(tpart_n),
-        "dot_pct": pct(cur_n),  # ≡ P&L EUR depuis avg_cost_eur (fx_now s'annule)
+        "entry_native": entry_n,
+        "stop_pct": pct_from_entry(stop_n),
+        "target_pct": pct_from_entry(tgt_n),
+        "target_partial_pct": pct_from_entry(tpart_n),
+        "dot_pct": dot_pct,
     }
 
 
