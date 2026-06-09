@@ -93,6 +93,15 @@ table consensus_snapshots (append-only) -> trajectoire + delta + self-scoring
 - **self-scoring wired** : lecture → ligne `predictions` `consensus_v0`.
 - **baseline single-factor** : le pipeline logge l'IC du meilleur facteur seul ; si le cocktail ne bat pas → fallback (assert).
 
-## 9. Le fil
+## 9. Implementation Status
+
+- **Gravé** : 2026-06-08 (version brute, note "archivé pour build futur post-cornerstone macro")
+- **Implémentation** : NOT_STARTED — orphelin (0 refs code 09/06)
+- **DOUBLON L25 DÉTECTÉ** : `SPEC_CONSENSUS_FRAGILITE.md` a la même structure (10 sections identiques) — il s'agit de deux versions du même SPEC (MICRO = version archivée brute ; FRAGILITE = version enrichie markdown). À TRANCHER : garder un seul, supprimer ou archiver l'autre. Décision Olivier requise (cf TODO #92 FUTURE).
+- **Fichiers cibles** : `config/divergence.yaml` (à créer, partagé avec macro), `intelligence/consensus_micro.py` (à créer), `tests/test_consensus_micro.py` (à créer)
+- **Audit drift** : `scripts/audit_canonical_drift.py`
+- **Prochain step** : FUTURE post-cornerstone-macro (cf TODO #92). Bloqué tant que doublon non tranché.
+
+## 10. Le fil
 
 La crisis gauge est **spéculative et N-starved** : on la falsifie, on l'humilie, on l'affiche faible. Le consensus est **N-riche et validable** : c'est là que la calibration du projet prouve qu'elle marche, vite. La fragilité est leur produit — et elle ne ment jamais sur le fait qu'elle est forte d'un côté (micro) et faible de l'autre (cycle). Construire le consensus brillamment, c'est exploiter sa richesse statistique sans la confondre avec la pauvreté de la macro.

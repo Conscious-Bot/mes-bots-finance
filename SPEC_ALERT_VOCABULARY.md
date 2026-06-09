@@ -98,7 +98,15 @@ Au même niveau que la gate « `yfinance` hors `prices.py` » (cf master §5 fon
 4. **Migration progressive** (type-quand-tu-touches, cf GLOSSARY) : remplacer dans `render.py` les littéraux d'alerte par `render_token(get_word("EROSION_DETECTED"))`. Pas de grand sweep — conforme le code neuf systématiquement, corrige l'ancien quand tu le touches.
 5. Plug le compteur `attention_earning_ratio` per-panel + global → build rouge >20%.
 
-## 9. Le fil
+## 9. Implementation Status
+
+- **Gravé** : 2026-06-08 (commit `97e8a59`, TODO #97)
+- **Implémentation** : IMPLEMENTED (C7a-1 livré, #100 completed 08/06)
+- **Fichiers cibles** : `config/alert_vocabulary.yaml` (registre déclaratif canonique), `shared/alert_vocabulary.py` (loader + helpers), `tests/test_alert_vocabulary.py` (gate CI aucune alerte hors registre)
+- **Audit drift** : `scripts/audit_canonical_drift.py`
+- **Prochain step** : adoption dans panels (cf TODO #116, #117 completed) — wirage en cours, surveiller via `attention_earning_ratio` per-panel
+
+## 10. Le fil
 
 > Avant : des panels qui accrètent chacun leur langue → entropie, incohérence, crying-wolf ingérable. Après : un **substrat sémantique canonique** que les panels *rendent*. Le vocabulaire est la couche où vivent la cohérence, la calibration et la doctrine d'alarme — définies une fois, héritées partout. Les panels évoluent à l'infini parce qu'ils **composent le substrat, ils n'étendent pas le langage.**
 

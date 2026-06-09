@@ -109,6 +109,19 @@ Voir `HANDOFF_SOCLE.md` (ordonné par dépendance) : S0 OTS (irréversible, imm�
 
 **Ajout masterpiece à cet ordre** : S1 *est* l'instanciation du `Datum` + des gateways. Donc S1 devient : poser `shared/datum.py` (le type + propagation) **d'abord**, puis `prices.get()` qui le retourne. Le `Datum` est la première brique — tout le reste du socle, et tout l'étage, en dépend.
 
-## 9. Le fil
+## 9. Implementation Status
+
+- **Gravé** : 2026-06-08 (date approximée — session SOCLE complet)
+- **Implémentation** : IMPLEMENTED — les 5 primitifs sont en prod (S0 OTS anchor, S1a Datum, S1b gateways, S1c HARD mode yfinance, S2 positions VUE, S3 base_health vert)
+- **Fichiers cibles** :
+  - `shared/datum.py` (S1a primitif Datum + propagation derive) — TODO #109
+  - `shared/prices.py` (S1b gateway canonique yfinance + helpers info/calendar/financials/balance_sheet/cashflow) — TODO #106 + #111
+  - `scripts/base_health.py` (S3 scoreboard 3 dimensions positions+fraîcheur+chaîne) — TODO #107
+  - `scripts/integrity_anchor.sh` + `bot/jobs/integrity_anchor.py` (S5 OTS substrat provabilité + L29 fail-loud Telegram) — TODO #108
+  - `tests/test_doctrine_grep_gates.py` + `scripts/check_yfinance_gate.sh` (gate HARD mode AST-based) — TODO #112
+- **Audit drift** : `scripts/audit_canonical_drift.py`
+- **Prochain step** : `SPEC_LIVING_GRAPH` post-socle — graver DAG Datums boucle vivante (cf TODO #110 pending, condition base_health vert ACQUISE)
+
+## 10. Le fil
 
 > Une masterpiece de socle n'est pas grosse — elle est **petite et porteuse** : un type (`Datum`), une règle (propagation), quatre portes (gateways), un scoreboard (base_health), un ancrage (OTS). Cinq primitifs. Et parce que tout l'étage au-dessus *compose des Datums passés par des gateways*, il hérite de M1, du fail-closed et de la confiance **gratuitement, structurellement, partout**. Le socle ne soutient pas l'édifice par sa masse — il le soutient parce que **chaque pierre au-dessus est faite de sa matière.**

@@ -145,14 +145,15 @@ Vue d'ensemble (distline) · Positions (lignes + donut secteurs) · Risque (jaug
 
 **Séquence d'union (étagée, pas big-bang — même discipline que le seam) :** la source (§6) d'abord ; puis `PositionView` porte du `Monetary` (perf native / pnl EUR) ; puis `get_all_positions_views()` devient le cœur ; puis les membres migrent **un par un**, byte-identité assertée à chaque (tout diff = finding) ; le test de cohérence §8 ferme l'arc. Le cœur bat juste avant que le premier membre en dépende (walking-skeleton).
 
-## 7. Le fil
+## 7. Implementation Status
+
+- **Gravé** : 2026-06-08 (date approximée — session ledger marathon)
+- **Implémentation** : IN_PROGRESS — Datum primitif + helpers livrés via socle (cf SPEC_SOCLE), pnl_position_pct_eur helper canonique livré (TODO #118 completed), migration M1 colonnes en cours, panneaux dashboard pas tous migrés (cf TODO #120 CURE RACINE positions seam — NOT big-bang)
+- **Fichiers cibles** : `shared/datum.py` (Datum[Monetary] livré via S1a), `shared/position_pnl.py` (pnl_position_pct_eur helper unique), `scripts/check_money_invariant.sh`, `tests/test_money_invariant.py`
+- **Doctrine ajoutée** : LESSONS **L28** (montant = `Datum[Monetary]`, jamais float nu : no-baseline-overwrite + write-once + `pct_change` asserte la commensurabilité). Exécution end-to-end (cœur unique) = **L27** (cohérence mécanique > vigilance). Diffusion vérifiée (calcul ≠ source servie) = **L29**.
+- **Audit drift** : `scripts/audit_canonical_drift.py`
+- **Prochain step** : CURE RACINE positions seam additif (TODO #120) — migration étagée render.py par visibilité décroissante. NE PAS big-bang.
+
+## 8. Le fil
 
 > Avant : chaque table re-jouait le même bug parce que l'argent y vivait en float nu, et chaque ratio devinait la devise. Après : un baseline monétaire **EST** un Datum `(valeur, devise, asof)`, et **une seule** primitive calcule les ratios — qui refuse de diviser des nombres incommensurables. Le `+176056%` ne se patche pas, il devient **impossible** : soit l'assert lève, soit la métrique sort `degraded`. Et `perf_thesis ≠ pnl_position` est verrouillé par test — l'asset central (track-record du jugement) ne peut plus être fusionné par une migration distraite. Réglé une bonne fois = la racine est un type + une règle + un veto, pas une vigilance répétée.
-
----
-
-- **Gravé** : 2026-06-08 (commit `__TBD__`)
-- **Statut** : SPEC posée — implémentation étagée §6, non commencée
-- **Fichiers cibles** : `shared/money.py` (à créer), migration M1 des 4 colonnes, `scripts/check_money_invariant.sh` (à wirer), `tests/test_money_invariant.py` (à créer)
-- **Doctrine ajoutée** : LESSONS **L28** (montant = `Datum[Monetary]`, jamais float nu : no-baseline-overwrite + write-once + `pct_change` asserte la commensurabilité). Exécution end-to-end (cœur unique) = **L27** (cohérence mécanique > vigilance).
-- **Note collision évitée** : L25/L26 existaient déjà (suivi canonique / broker YAML) — drift attrapé, renuméroté L27/L28.

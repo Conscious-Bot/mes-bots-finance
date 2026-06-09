@@ -132,6 +132,15 @@ intelligence/divergence_engine.py
 - **ECE** : fixture calibré → ECE≈0 ; fixture surconfiant → détecté.
 - **gouverneur cohérent** : le book-impact dérive de la lecture, pas d'un seuil indépendant.
 
-## 11. Le fil (à ne jamais perdre)
+## 11. Implementation Status
+
+- **Gravé** : 2026-06-07 (date approximée — session post-cornerstone)
+- **Enrichi** : 2026-06-08 (architecture code + build sequence)
+- **Implémentation** : IN_PROGRESS — engine D/Φ/F livré (TODO #95 completed, tracer-bullet HY_OAS via fixture FRED), consensus_micro non-wire (TODO #92 FUTURE)
+- **Fichiers cibles** : `intelligence/divergence_engine.py` (engine D/Φ/F), `intelligence/divergence_schema.py`, `intelligence/macro_inputs.py` (FRED), `config/divergence.yaml`
+- **Audit drift** : `scripts/audit_canonical_drift.py`
+- **Prochain step** : Cornerstone C5 — `config/divergence.yaml` moteur PARTAGÉ macro+micro (cf TODO #94 pending)
+
+## 12. Le fil (à ne jamais perdre)
 
 > La pierre angulaire n'est pas un prédicteur — c'est un mesureur de la tension croyance↔réalité, conscient de sa phase réflexive, qui **gouverne ton comportement** au lieu de prétendre voir l'avenir, **se méfie le plus de lui-même quand les deux échelles hurlent la même chose**, et dont le rouge est **rare et mérité**. Construire ça brillamment, c'est graver l'humilité dans le marbre de l'indicateur le plus important.

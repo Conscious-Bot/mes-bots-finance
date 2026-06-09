@@ -259,10 +259,19 @@ GATE    scripts/check_ledger_view_equivalence.py — bloque tant que 21/21+5/5 K
 - ❌ DELETE silencieux d'une transaction « pour corriger » → impossible, trigger RAISE. Correction = ADJUST loggué.
 - ❌ Re-introduction de `partial_close handler` pansement → caduc, dérivation automatique.
 
-## 9. Liens
+## 9. Implementation Status
+
+- **Gravé** : 2026-06-09 (commit `521d520`, cure for-good ledger transactions append-only)
+- **Implémentation** : IMPLEMENTED (migrations 0046-0050, write-path restauré via add_buy/add_sell wrappers)
+- **Fichiers cibles** : `scripts/alembic/versions/0046_transactions_ledger_append_only.py`, `scripts/alembic/versions/0048_positions_to_view.py`, `scripts/alembic/versions/0050_drop_positions_legacy_snapshot.py`, `shared/storage.py` (transactions API), `shared/ledger_pmp.py` (PMP roulant fiscal FR), `shared/positions.py` (add_buy/add_sell wrappers #126), `tests/test_transactions_ledger.py` + `tests/test_ledger_view_equivalence_gate.py`
+- **Audit drift** : `scripts/audit_canonical_drift.py`
+- **Prochain step** : feed broker auto pipeline TR CSV → INSERT transactions (cf TODO #127, P0 différable). Le write-path est restauré, l'alimentation reste manuelle.
+
+## 10. Liens
 
 - `SPEC_SOCLE` — Datum primitif + derive (les briques de base de ce ledger)
 - `SPEC_MONEY_INVARIANT` — baselines monétaires Datum[Monetary] + write-once entry (couche au-dessus)
 - `CANONICAL_MAP.md` §2 — *transactions = record immuable, positions = état dérivé* (principe directeur)
 - `LESSONS` L27 — cohérence mécanique > vigilance humaine (la doctrine qui rend les pansements caducs)
+- `LESSONS` L29 — corriger calcul ≠ vérifier diffusion (la VUE doit fail-closed cohérence avec ledger_pmp)
 - Audit log `position_audit_log` id=83 (tentative realign SK Hynix) + id=84 (rollback + rationale cure for-good) — l'origine vivante de cette spec
