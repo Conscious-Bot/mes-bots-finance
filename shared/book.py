@@ -288,46 +288,51 @@ def clear_cache() -> None:
 
 
 def _load_db_positions() -> dict[str, dict]:
-    """ticker -> {qty, avg_cost_eur, last_price_native, last_price_currency,
-    price_asof, fx_rate_to_eur, fx_asof} pour les positions ouvertes.
+    """ticker -> {qty, avg_cost_eur, realized_pnl, last_price_native, ...}.
 
-    Expose les colonnes M1 typees (Axe 3 / Axe 5) en plus du legacy qty+avg_cost.
-    Avant : seul qty + avg_cost -> les readers devaient re-query positions
-    pour avoir asof/native/ccy. Maintenant single-source via shared.book.
+    Source canonique des positions ouvertes pour BookLine.
+
+    PMP + realized_pnl sont calculés via le helper rolling stateful
+    (`shared.ledger_pmp.compute_pmp_realized`) qui implémente le PMP fiscal
+    français (CGI : reset du pool sur close complète, recalc à chaque BUY/SELL
+    en ordre temporel). La VUE positions SQL utilise une sous-requête
+    corrélée Σ(buy.cost)/Σ(buy.qty) qui est exacte UNIQUEMENT en BUY-only
+    puis SELLs (sans re-BUY après SELL) — 8 tickers (TSLA, MP, TSM, AMZN,
+    GOOGL, AVGO, MU, AMD) ont des cycles partial-SELL → re-BUY qui faussent
+    la VUE. Le helper rolling est tax-FR-correct sur tous les cas.
+
+    Convention fee-inclusive : PMP capitalise les frais d'acquisition (CGI),
+    diverge de l'affichage TR "prix pur" (cf SPEC §2.4). Tesla : ledger
+    358.65€ (fee-inc) vs TR 358.04€ (no-fee), Δ exact = 7 fees × 1€ / qty.
     """
     from shared import storage
+    from shared.ledger_pmp import compute_pmp_realized
 
     out: dict[str, dict] = {}
     try:
         with storage.db() as cx:
-            # ROOT canonique (#118 + migration 0044) : avg_cost_eur EST DERIVE de
-            # avg_cost_native × fx_at_purchase. La colonne avg_cost_eur n'est plus la
-            # source -- elle peut etre stale. La VRAIE source = (avg_cost_native, fx_at_purchase)
-            # M1 triple, fx FIGE au moment de l'achat.
-            #
-            # Si avg_cost_native ou fx_at_purchase manque -> avg_cost_eur reste NULL
-            # (fail-closed visible plutot qu'un nombre fabrique via fallback ancien).
+            # Récupère qty + market live depuis la VUE (qty correct, market live JOIN)
             rows = cx.execute(
-                "SELECT ticker, qty, "
-                "       CASE WHEN avg_cost_native IS NOT NULL AND fx_at_purchase IS NOT NULL "
-                "            THEN avg_cost_native * fx_at_purchase "
-                "            ELSE NULL END AS avg_cost_eur_derived, "
-                "       avg_cost_native, fx_at_purchase, "
-                "       last_price_native, last_price_currency, price_asof, "
-                "       fx_rate_to_eur, fx_asof "
+                "SELECT ticker, qty, last_price_native, last_price_currency, "
+                "       price_asof, fx_rate_to_eur, fx_asof "
                 "FROM positions WHERE status='open' AND qty > 0"
             ).fetchall()
             for r in rows:
-                out[r[0]] = {
+                ticker = r[0]
+                # PMP + realized via helper rolling (tax-FR correct)
+                pmp = compute_pmp_realized(cx, ticker)
+                out[ticker] = {
                     "qty": r[1],
-                    "avg_cost_eur": r[2],   # DERIVE : avg_cost_native × fx_at_purchase
-                    "avg_cost_native": r[3],
-                    "fx_at_purchase": r[4],
-                    "last_price_native": r[5],
-                    "last_price_currency": r[6],
-                    "price_asof": r[7],
-                    "fx_rate_to_eur": r[8],
-                    "fx_asof": r[9],
+                    "avg_cost_eur": pmp.pmp_eur,      # rolling, fee-inclusive
+                    "avg_cost_native": pmp.pmp_native,
+                    "fx_at_purchase": 1.0,             # déprécié post-rolling
+                    "realized_pnl": pmp.realized_pnl_eur,
+                    "n_closures": pmp.n_closures,      # audit : combien de close-rebuy
+                    "last_price_native": r[2],
+                    "last_price_currency": r[3],
+                    "price_asof": r[4],
+                    "fx_rate_to_eur": r[5],
+                    "fx_asof": r[6],
                 }
     except Exception:
         pass
