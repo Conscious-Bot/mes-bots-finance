@@ -1587,89 +1587,27 @@ def get_all_sources_with_half_life():
 
 
 def create_or_update_position_on_buy(ticker, qty, price, notes=None):
-    """Phase B5 — Record buy. Returns (position_id, decision_type, new_avg, new_qty).
+    """OBSOLÈTE depuis migration 0048 : positions est une VUE dérivée.
 
-    OBSOLÈTE depuis migration 0048 : positions est une VUE dérivée. Voir SPEC_LEDGER §1.
-    Pour ingérer un buy : INSERT INTO transactions (side='BUY', ...).
+    Cf SPEC_LEDGER §1 : pour ingérer un buy, INSERT INTO transactions
+    (side='BUY', ...) via shared.positions.add_buy().
     """
     raise NotImplementedError(
         "create_or_update_position_on_buy: positions est une VUE (migration 0048). "
         "INSERT INTO transactions (side='BUY', ...) à la place. Cf SPEC_LEDGER §1."
     )
-    if qty <= 0 or price <= 0:
-        raise ValueError(f"qty and price must be positive, got qty={qty} price={price}")
-    ticker = ticker.upper()
-    conn = _sqlite3.connect(DB_PATH)
-    conn.row_factory = _sqlite3.Row
-    try:
-        active = conn.execute(
-            "SELECT * FROM positions WHERE ticker=? AND status='open' ORDER BY opened_at DESC LIMIT 1", (ticker,)
-        ).fetchone()
-        if active:
-            old_qty = active["qty"]
-            old_avg = active["avg_cost"]
-            new_qty = old_qty + qty
-            new_avg = (old_qty * old_avg + qty * price) / new_qty
-            conn.execute(
-                "UPDATE positions SET qty=?, avg_cost=?, last_updated=CURRENT_TIMESTAMP WHERE id=?",
-                (new_qty, new_avg, active["id"]),
-            )
-            conn.commit()
-            return active["id"], "scale_in", new_avg, new_qty
-        else:
-            cur = conn.execute(
-                "INSERT INTO positions (ticker, qty, avg_cost, notes, status) VALUES (?, ?, ?, ?, 'open')",
-                (ticker, qty, price, notes),
-            )
-            conn.commit()
-            return cur.lastrowid, "entry", price, qty
-    finally:
-        conn.close()
 
 
 def record_position_sell(ticker, qty, price):
-    """Phase B5 — Record sell. Returns (position_id, decision_type, realized_pnl_delta, new_qty).
+    """OBSOLÈTE depuis migration 0048 : positions est une VUE.
 
-    OBSOLÈTE depuis migration 0048 : positions est une VUE. Voir SPEC_LEDGER §1.
-    Pour ingérer une vente : INSERT INTO transactions (side='SELL', ...).
+    Cf SPEC_LEDGER §1 : pour ingérer une vente, INSERT INTO transactions
+    (side='SELL', ...) via shared.positions.add_sell().
     """
     raise NotImplementedError(
         "record_position_sell: positions est une VUE (migration 0048). "
         "INSERT INTO transactions (side='SELL', ...) à la place. Cf SPEC_LEDGER §1."
     )
-    if qty <= 0 or price <= 0:
-        raise ValueError(f"qty and price must be positive, got qty={qty} price={price}")
-    ticker = ticker.upper()
-    conn = _sqlite3.connect(DB_PATH)
-    conn.row_factory = _sqlite3.Row
-    try:
-        active = conn.execute(
-            "SELECT * FROM positions WHERE ticker=? AND status='open' ORDER BY opened_at DESC LIMIT 1", (ticker,)
-        ).fetchone()
-        if not active:
-            raise ValueError(f"No active position for {ticker}")
-        if qty > active["qty"]:
-            raise ValueError(f"Sell qty {qty} > current qty {active['qty']} for {ticker}")
-        avg = active["avg_cost"]
-        realized_delta = qty * (price - avg)
-        new_qty = active["qty"] - qty
-        new_total_pnl = (active["realized_pnl"] or 0) + realized_delta
-        if new_qty <= 1e-9:
-            conn.execute(
-                "UPDATE positions SET qty=0, realized_pnl=?, status='closed', last_updated=CURRENT_TIMESTAMP WHERE id=?",
-                (new_total_pnl, active["id"]),
-            )
-            dtype = "full_exit"
-        else:
-            conn.execute(
-                "UPDATE positions SET qty=?, realized_pnl=?, last_updated=CURRENT_TIMESTAMP WHERE id=?",
-                (new_qty, new_total_pnl, active["id"]),
-            )
-            dtype = "partial_exit"
-        conn.commit()
-        return active["id"], dtype, realized_delta, new_qty
-    finally:
-        conn.close()
 
 
 def get_active_positions():

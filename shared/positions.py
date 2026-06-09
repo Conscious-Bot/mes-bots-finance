@@ -186,45 +186,6 @@ def add_buy(
     return result
 
 
-def _legacy_add_buy_dead_code(ticker, qty, price, notes):  # pragma: no cover
-    """Garde le legacy unreachable au cas-où — going clean dans une future passe."""
-    ticker = ticker.upper()
-    was_new_entry = False
-    with db() as cx:
-        _ensure_tables(cx)
-        existing = cx.execute(
-            "SELECT id, qty, avg_cost FROM positions WHERE ticker=? AND status='open'", (ticker,)
-        ).fetchone()
-        if existing:
-            old_qty, old_avg = existing["qty"], existing["avg_cost"]
-            new_qty = old_qty + qty
-            new_avg = ((old_qty * old_avg) + (qty * price)) / new_qty if new_qty > 0 else 0
-            cx.execute(
-                "UPDATE positions SET qty=?, avg_cost=?, last_updated=? WHERE id=?",
-                (new_qty, new_avg, _now(), existing["id"]),
-            )
-            pid = existing["id"]
-        else:
-            cur = cx.execute(
-                "INSERT INTO positions (ticker, qty, avg_cost, notes) VALUES (?, ?, ?, ?)", (ticker, qty, price, notes)
-            )
-            pid = cur.lastrowid
-            was_new_entry = True
-        cx.execute(
-            "INSERT INTO position_events (position_id, ticker, event_type, qty, price, notes) VALUES (?, ?, 'buy', ?, ?, ?)",
-            (pid, ticker, qty, price, notes),
-        )
-        cx.commit()
-
-    # Sprint 19 : hook auto-classification pour les nouvelles entries
-    if was_new_entry:
-        _auto_classify_new_ticker(ticker)
-
-    result = get_position(ticker)
-    assert result is not None, "position lookup after upsert failed"
-    return result
-
-
 def _auto_classify_new_ticker(ticker: str) -> None:
     """Best-effort auto-classification pour nouveaux tickers (axes + meta).
 
@@ -341,67 +302,6 @@ def add_sell(
         "sold_price": price,
         "avg_cost": avg_cost_pre,
         "realized_pnl_event": pnl_event,
-        "remaining_qty": max(new_qty, 0),
-        "closed": closed,
-    }
-
-
-def _legacy_add_sell_dead_code(ticker, qty, price, notes):  # pragma: no cover
-    """Garde le legacy unreachable au cas-où."""
-    ticker = ticker.upper()
-    with db() as cx:
-        _ensure_tables(cx)
-        existing = cx.execute(
-            "SELECT id, qty, avg_cost, realized_pnl FROM positions WHERE ticker=? AND status='open'", (ticker,)
-        ).fetchone()
-        if not existing:
-            raise ValueError(f"No open position for {ticker}")
-        if qty > existing["qty"] + 1e-9:
-            raise ValueError(f"Sell qty {qty} > position qty {existing['qty']}")
-        new_qty = existing["qty"] - qty
-        pnl = qty * (price - existing["avg_cost"])
-        new_realized = (existing["realized_pnl"] or 0) + pnl
-        if new_qty <= 1e-6:
-            cx.execute(
-                "UPDATE positions SET qty=0, realized_pnl=?, status='closed', last_updated=? WHERE id=?",
-                (new_realized, _now(), existing["id"]),
-            )
-            closed = True
-        else:
-            cx.execute(
-                "UPDATE positions SET qty=?, realized_pnl=?, last_updated=? WHERE id=?",
-                (new_qty, new_realized, _now(), existing["id"]),
-            )
-            closed = False
-        cx.execute(
-            "INSERT INTO position_events (position_id, ticker, event_type, qty, price, pnl, notes) VALUES (?, ?, 'sell', ?, ?, ?, ?)",
-            (existing["id"], ticker, qty, price, pnl, notes),
-        )
-        cx.commit()
-    # Pile 2.1 v2.c.6 -- Surface 2 lock_in detector (biais #1 PRESAGE).
-    # Hook APRES cx.commit() (cf docs/LESSONS.md L7) : silent miss accepte,
-    # la vente reste valide quoi qu'il arrive. Pas de raise vers caller.
-    try:
-        import logging
-
-        from intelligence.lock_in_detector import detect_winner_sell
-
-        detect_winner_sell(
-            position_id=existing["id"], ticker=ticker,
-            qty_sold=qty, sold_price_native=price,
-            qty_before=existing["qty"], avg_cost=existing["avg_cost"],
-        )
-    except Exception as e:
-        logging.getLogger(__name__).warning(
-            f"lock_in_detector silent miss for {ticker}: {e}", exc_info=True,
-        )
-    return {
-        "ticker": ticker,
-        "sold_qty": qty,
-        "sold_price": price,
-        "avg_cost": existing["avg_cost"],
-        "realized_pnl_event": pnl,
-        "realized_pnl_total": new_realized,
         "remaining_qty": max(new_qty, 0),
         "closed": closed,
     }
