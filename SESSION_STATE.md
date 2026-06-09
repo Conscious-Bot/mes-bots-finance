@@ -2481,3 +2481,67 @@ ef40a8b [session close 09/06 nuit++] désynchro broker↔DB découverte + SK Hyn
 ```
 
 (Le UPDATE positions SK Hynix vit en DB, hors git ; audit complet dans `position_audit_log` id=83 + payload JSON ground truth Olivier ; backup `data/bot.db.backup_skhynix_realign_20260609_020506`.)
+
+---
+
+## Continuation 2026-06-09 matinée — SPEC_LEDGER gravée + migration 0046 livrée
+
+### Contexte d'enchaînement
+
+Reprise après rollback nocturne. Olivier acte la cure for-good : **ledger transactions append-only + positions VIEW dérivée**, store-inputs-derive-outputs L27 socle appliqué à la couche transaction. Design itéré 3 tours (v1 → v2 → v3 mûr) avec red-team Olivier à chaque tour. Catches structurels identifiés et fermés :
+- **Catch 1** : back-fill couvre les **26**, pas 5 (les 21 propres reçoivent un anchor BUY synthétique, sinon disparaissent au swap VUE)
+- **Catch 2** : gate byte-identité VIEW==positions avant DROP TABLE
+- **Astuce anchor** : `fx_at_trade = avg_cost_eur / avg_cost_native` reproduit `pru_native` ET `pru_eur` exactement (gate vert sur les 21)
+- **Ordre figé** : back-fill #121 (5 stale) **AVANT** 0048, jamais après. N'anchorer JAMAIS les 5 stale (coulerait valeur fausse dans immuable irréversible).
+- **PRU pondéré frozen-at-buy** (fisc FR + cohérence `entry_fx_at_call`) — décision fermée, pas FIFO.
+- **Splits clean** sur les 5 (vérifié yfinance : tous pré-2020). Hook `side TEXT` extensible réservé futur.
+
+### Livré
+
+**`SPEC_LEDGER.md`** (source canonique unique, 9 sections) :
+- §0 maladie nommée • §1 transactions append-only + 3 gardes • §1.5 frontière ingestion (broker_trade_id UNIQUE) • §2 positions VIEW + positions_meta + PRU pondéré frozen-at-buy
+- §3 back-fill 26 (anchor 21 propres + relevés réels 5 stale) • §4 gate byte-identité • §5 ordre figé • §6 KNOWN-GAPs • §7 invariants • §8 classe morte • §9 liens
+
+**Migration `0046_transactions_ledger_append_only.py`** (additive, coexistence, ne touche pas `positions`) :
+- CREATE TABLE `transactions` (15 colonnes, 4 CHECK constraints, UNIQUE broker_trade_id)
+- CREATE INDEX `idx_transactions_ticker_side_date` (pour sous-requêtes corrélées du PRU temporel)
+- 2 triggers RAISE structurels : `transactions_writeonce_update`, `transactions_writeonce_delete`
+- CREATE TABLE `positions_meta` (5 colonnes déclarées : ticker, notes, status, account, wrapper)
+- Downgrade complète et inverse propre.
+
+**Tests `test_transactions_ledger.py`** — 14 serrures vertes :
+- Append-only (4) : UPDATE qty/price/notes/DELETE → RAISE
+- Idempotence (2) : duplicate `broker_trade_id` → UNIQUE ; multiple NULL OK pour anchors/manual
+- qty strict (2) : qty<0 et qty=0 → CHECK RAISE
+- fx NOT NULL (2) : `fx_at_trade` NULL → RAISE ; EUR avec fx=1.0 explicite OK
+- PRU temporel (3) : pondéré simple ; sous-requête corrélée temporellement ordonnée (vente ne se mange pas elle-même) ; frais capitalisés BUY / déduits SELL convention FR
+- Anchor astuce (1) : `fx_at_trade = avg_eur/avg_native` reproduit pru_native ET pru_eur exactement
+
+**Live DB state** : `alembic_version = 0046`, transactions/positions_meta vides, 2 triggers actifs, smoke test live confirmé (INSERT OK, UPDATE RAISE, INSERT compensatoire OK).
+
+### Catch livré pendant l'application
+
+`op.execute()` alembic split sur strings Python multi-lignes adjacents (lecture `' ... '` `' ... '` comme 2 statements DDL séparés). Fix : trigger en string simple-ligne concaténée explicit. Findings :
+- Backup DB pris avant tentative : `data/bot.db.backup_pre_0046_20260609_102227`
+- Premier upgrade : table+index créés, triggers échoués → état zombie partiel
+- Cleanup chirurgical DROP IF EXISTS + retry → 1 cycle downgrade/upgrade final pour clean smoke test data
+
+### Reste à livrer (séquence figée — cf SPEC_LEDGER §5)
+
+| Étape | Description | Statut |
+|---|---|---|
+| **0046** | CREATE transactions + meta + triggers + 14 tests serrures | ✅ LIVRÉ |
+| 0047 | back-fill `positions_meta` (5 cols × 26 depuis positions) | PENDING |
+| 0047b | anchor BUY × 21 propres (script idempotent) | PENDING |
+| #121 | back-fill réel × 5 stale (relevés TR autoritatifs) | **ATTENTE Olivier** |
+| GATE | `check_ledger_view_equivalence.py` (byte-identité VIEW==positions) | PENDING |
+| 0048 | DROP TABLE positions + CREATE VIEW (gaté) | bloqué tant que #121 KO |
+| 0049 | sweep code legacy refs colonnes mortes | post-0048 |
+
+### Entry next session
+
+1. **#125 étape suivante** : script `migrate_positions_meta_from_positions.py` (5 cols × 26, one-shot idempotent NOT EXISTS).
+2. **#125 anchor 21** : script `anchor_clean_positions.py` (INSERT BUY synthétique avec astuce fx, NOT EXISTS guard pour idempotence).
+3. **Olivier** : exporter TR pour les 5 stale (SK Hynix, ALAB, MU, CCJ, 6920.T) — date/qty/prix exact des ventes partielles.
+4. **Gate `check_ledger_view_equivalence.py`** : implémentable dès que `positions_meta` + anchor 21 sont en place (5 stale exclues du must-match).
+5. **0048 swap** : bloqué tant que TR pas fourni, coexistence maintenue, KNOWN-GAP honnête.
