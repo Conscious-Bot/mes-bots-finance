@@ -5966,8 +5966,13 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         def _cp_for(_t: str) -> str:
             return "unknown"
     _th_warnings = _ticker_warnings_map(positions)
-    # Thesis-frame natif : ce panneau garde entry/stop/target/current natifs
-    # (target posé en natif, FX-clean). Pas besoin de book_idx pour conversion EUR.
+    # Cure racine 09/06 : book_idx pour migration _position_axis_price (5 repères
+    # EUR axe-ouvert). Tue le bug visuel dot collé bord droit sur BEYOND.
+    try:
+        from shared import book as _bk_th
+        _book_idx_th_inner = _bk_th.get_book_index()
+    except Exception:
+        _book_idx_th_inner = {}
     # _CP_CLS_TH mort -- remplace par _cycle_chip_cls_via_vocab (#117 vocabulary)
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
@@ -6118,14 +6123,32 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += f'<div class="th-grp">{_TIER_LABEL.get(c, "Conviction " + str(c))} &middot; {len(grp)}{_tgt_lab}</div><div class="th-grid">'
         for t in grp:
             if t["has_bar"]:
-                # Canonical position gauge (#91) via _position_axis :
-                # stop red gauche, entry grey centre (0), target green droite,
-                # dot noir = current. Distance proportionnelle au 0 central.
-                # Tooltip = perf depuis entry (cohérent avec le dot, single number).
-                _entry_v, _cur_v = t["_entry"], t["_cur"]
-                _perf_e = ((_cur_v / _entry_v - 1) * 100.0) if (_entry_v and _cur_v and _entry_v != 0) else None
-                _pa = _position_axis(_entry_v, t["_stop"], t["_tgt"], _cur_v,
-                                     pnl_position_pct=_perf_e)
+                # Cure racine 09/06 : migration theses panel vers _position_axis_price
+                # (5 repères EUR axe-ouvert). Tue le bug visuel dot collé bord droit
+                # sur BEYOND. Source canonique BookLine EUR.
+                _tk_th = t["tk"]
+                _ln_th = _book_idx_th_inner.get(_tk_th) if _book_idx_th_inner else None
+                if _ln_th and _ln_th.current_price_eur:
+                    _cost_e = _ln_th.avg_cost_eur
+                    _stop_e = _ln_th.stop_eur
+                    _entry_e = _ln_th.entry_eur
+                    _tgt_e = _ln_th.target_full_eur
+                    _cur_e = _ln_th.current_price_eur
+                    _pnl_c = _ln_th.pnl_pct
+                    _perf_e = (
+                        (_cur_e / _entry_e - 1) * 100.0
+                        if (_entry_e and _cur_e and _entry_e > 0) else None
+                    )
+                    _pa = _position_axis_price(
+                        _stop_e, _cost_e, _entry_e, _tgt_e, _cur_e,
+                        pnl_pct_cost=_pnl_c, perf_pct_entry=_perf_e,
+                    )
+                else:
+                    # Fallback legacy natif
+                    _entry_v, _cur_v = t["_entry"], t["_cur"]
+                    _perf_e = ((_cur_v / _entry_v - 1) * 100.0) if (_entry_v and _cur_v and _entry_v != 0) else None
+                    _pa = _position_axis(_entry_v, t["_stop"], t["_tgt"], _cur_v,
+                                         pnl_position_pct=_perf_e)
                 bar = f'<div class="th-bar">{_pa}</div>' if _pa else '<div class="th-na">incomplete price data</div>'
             else:
                 bar = '<div class="th-na">incomplete price data</div>'
@@ -6510,6 +6533,13 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     import html as _h_esc
 
     from shared.book import is_proxy_price  # #128 chip valo proxy (SK Hynix KRW→EUR)
+    # Cure racine 09/06 : book_idx pour migration gauge book row vers
+    # _position_axis_price (5 repères EUR axe-ouvert).
+    try:
+        from shared import book as _bk_one
+        _book_idx = _bk_one.get_book_index()
+    except Exception:
+        _book_idx = {}
     gauges = gauges or {}
     ticker_warnings = ticker_warnings or {}
     ps = sorted(ps, key=lambda p: -_broker_value(p, pnl))
@@ -6537,12 +6567,37 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         if g:
             # Thesis-frame tooltip : perf depuis entry (cohérent dot), pas pnl_position
             # cost-frame (qui vit dans la col "P&L" séparée de la table).
-            _e_g, _c_g = g["_entry"], g["_cur"]
-            _perf_e_row = ((_c_g / _e_g - 1) * 100.0) if (_e_g and _c_g and _e_g != 0) else None
-            gauge_html = _position_axis(
-                g["_entry"], g["_stop"], g["_tgt"], g["_cur"], extra_class="row-bar",
-                pnl_position_pct=_perf_e_row,
-            ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
+            # Cure racine 09/06 : migration book row vers _position_axis_price
+            # (5 repères EUR axe-ouvert proportionnel). Tue le bug visuel "dot
+            # au-delà du target tick" sur positions BEYOND : la gauge symétrique
+            # legacy forçait dot=100% quand cur_pct était max. Axe-prix place
+            # les 5 points à leur vraie position de prix → dot lisible toujours.
+            ln_for_gauge = _book_idx.get(tk)
+            if ln_for_gauge and ln_for_gauge.current_price_eur:
+                _cost = ln_for_gauge.avg_cost_eur
+                _stop_e = ln_for_gauge.stop_eur
+                _entry_e = ln_for_gauge.entry_eur
+                _tgt_e = ln_for_gauge.target_full_eur
+                _cur_e = ln_for_gauge.current_price_eur
+                _pnl_c = ln_for_gauge.pnl_pct
+                _perf_e_row = (
+                    (_cur_e / _entry_e - 1) * 100.0
+                    if (_entry_e and _cur_e and _entry_e > 0)
+                    else None
+                )
+                gauge_html = _position_axis_price(
+                    _stop_e, _cost, _entry_e, _tgt_e, _cur_e,
+                    extra_class="row-bar",
+                    pnl_pct_cost=_pnl_c, perf_pct_entry=_perf_e_row,
+                ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
+            else:
+                # Fallback legacy native si BookLine EUR absente (rare)
+                _e_g, _c_g = g["_entry"], g["_cur"]
+                _perf_e_row_n = ((_c_g / _e_g - 1) * 100.0) if (_e_g and _c_g and _e_g != 0) else None
+                gauge_html = _position_axis(
+                    g["_entry"], g["_stop"], g["_tgt"], g["_cur"], extra_class="row-bar",
+                    pnl_position_pct=_perf_e_row_n,
+                ) or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         else:
             gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
         # Cycle phase chip via vocabulary canonique (#117 -- adoption STATE calme).
@@ -7153,7 +7208,20 @@ def render() -> Path:
                 "_tgt": tg,
                 "_cur": c,
             }
-    _targets = sorted(_axis, key=lambda tk: -_axis[tk]["frac_raw"])[:6]
+    # Cure racine 09/06 : "CLOSEST TO TARGET" doit montrer positions APPROCHANT
+    # target (dot SOUS target tick), PAS les positions BEYOND (dot AU-DESSUS).
+    # Le visuel "dot toujours au-dessus du target" était la conséquence de tri
+    # par frac_raw décroissant sans filtre : les positions DÉPASSÉES (frac_raw>100)
+    # remontaient en tête. Cure : sépare APPROACHING (< 100) vs BEYOND (>= 100),
+    # chacun dans son panneau sémantiquement juste.
+    _targets = sorted(
+        [tk for tk in _axis if 0 <= _axis[tk]["frac_raw"] < 100],
+        key=lambda tk: -_axis[tk]["frac_raw"],
+    )[:6]
+    _beyond = sorted(
+        [tk for tk in _axis if _axis[tk]["frac_raw"] >= 100],
+        key=lambda tk: -_axis[tk]["frac_raw"],
+    )[:6]
     _stops = sorted(_axis, key=lambda tk: _axis[tk]["frac_raw"])[:6]
 
     # F13 fix : "proche de la target" n'est PAS une victoire mecanique. Si la
@@ -7207,23 +7275,41 @@ def render() -> Path:
             if risky:
                 chip_tip_attr = f' data-tip="{fx_tip}"' if fx_tip else ""
                 profit_chip = f'<span class="th-pt"{chip_tip_attr}>target hit</span>'
-        # CLOSEST TO TARGET = proximité-cible → thesis-frame NATIF (target
-        # posé en natif, FX-clean). Money-invariant L28 : JAMAIS mix
-        # entry_native + current_eur (= +176056% SK Hynix KRW). Les 4 valeurs
-        # entry/stop/target/current TOUS natifs même devise. Tooltip = perf
-        # depuis entry en natif (FX-invariant, cohérent avec dot).
-        _e = ln.entry_price if ln else None
-        _s, _t, _c = a["_stop"], a["_tgt"], a["_cur"]
-        _pnl_p = (_c / _e - 1) * 100.0 if (_e and _c and _e != 0) else None
-        bar = _position_axis(_e, _s, _t, _c, pnl_position_pct=_pnl_p) or (
-            f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
-        )
+        # Cure racine 09/06 : asym CLOSEST_TO_TARGET migré vers _position_axis_price
+        # (5 repères EUR axe-ouvert). Tue le bug visuel dot collé bord droit sur
+        # BEYOND. Source canonique BookLine EUR.
+        if ln and ln.current_price_eur:
+            _cost_e = ln.avg_cost_eur
+            _stop_e = ln.stop_eur
+            _entry_e = ln.entry_eur
+            _tgt_e = ln.target_full_eur
+            _cur_e = ln.current_price_eur
+            _pnl_c = ln.pnl_pct
+            _perf_e = (
+                (_cur_e / _entry_e - 1) * 100.0
+                if (_entry_e and _cur_e and _entry_e > 0) else None
+            )
+            bar = _position_axis_price(
+                _stop_e, _cost_e, _entry_e, _tgt_e, _cur_e,
+                pnl_pct_cost=_pnl_c, perf_pct_entry=_perf_e,
+            ) or (
+                f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
+            )
+        else:
+            # Fallback legacy natif
+            _e = ln.entry_price if ln else None
+            _s, _t, _c = a["_stop"], a["_tgt"], a["_cur"]
+            _pnl_p = (_c / _e - 1) * 100.0 if (_e and _c and _e != 0) else None
+            bar = _position_axis(_e, _s, _t, _c, pnl_position_pct=_pnl_p) or (
+                f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
+            )
         return (
             f'<div class="row" data-tk="{tk}"><div class="rt"><span class="tk">{tk}</span>{profit_chip}</div>'
             f'{bar}</div>'
         )
 
     gain = "".join(_axisrow(tk) for tk in _targets) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
+    beyond = "".join(_axisrow(tk) for tk in _beyond) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'
     _lose_stops = "".join(_axisrow(tk) for tk in _stops) or '<div class="empty" style="padding:var(--s4) 0">&mdash;</div>'  # D1 retire Vigie, compute conserve
     # cockpit_html (Cockpit discipline panel) retire 31/05 user feedback
     # _cockpit() helper toujours dispo si reactivation future
@@ -7444,8 +7530,14 @@ def render() -> Path:
         # demande surveillance approfondie.
         # ── BLOC 1 : OPPORTUNITES -- proches target (winners en realisation) ──
         # D1 retire 02/06 : "Marges les plus faibles" duplique avec page Urgence.
-        f'<div class="colhead"><span class="t">Closest to target</span></div>'
+        # Cure racine 09/06 : "Closest to target" filtre frac_raw < 100 (vraies
+        # positions approchant) ; positions DÉPASSÉES vont dans panneau séparé
+        # "Beyond target" (take-profit zone). Sémantiquement juste, plus de dot
+        # "toujours au-dessus du target" dans le mauvais panneau.
+        f'<div class="colhead"><span class="t">Closest to target</span><span class="a">approche &mdash; dot &lt; tick vert</span></div>'
         f'<div class="card pad">{gain}</div>'
+        f'<div class="colhead"><span class="t">Beyond target</span><span class="a">prise de profit &mdash; dot &gt; tick vert</span></div>'
+        f'<div class="card pad">{beyond}</div>'
         # ── BLOC 2 : MOUVEMENT DU JOUR -- restaure 02/06 user (winners/losers %) ──
         '<div class="vigie-sh" data-tip="Biggest movers over the last 24 hours (rolling, intraday-based when available)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>Last 24h movers</div>'
         f'<div class="cols">'
