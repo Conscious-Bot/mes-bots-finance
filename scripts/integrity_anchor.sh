@@ -88,8 +88,18 @@ else:
 "
 
 # 2. OTS stamp les ledgers (preuve trustless Bitcoin)
-[ -f "$LEDGER_PREDICTIONS" ] && ots stamp "$LEDGER_PREDICTIONS"
-[ -f "$LEDGER_THESES" ] && ots stamp "$LEDGER_THESES"
+# Note : ots stamp refuse si .ots existe deja -- on retire l'ancien d'abord.
+# L'attestation precedente reste valide dans le git log + reste verifiable via
+# `git show <commit>:<ledger>.ots` ; ce n'est pas une perte de preuve, c'est le
+# remplacement de l'attestation chain-head du jour par celle d'aujourd'hui.
+if [ -f "$LEDGER_PREDICTIONS" ]; then
+    rm -f "${LEDGER_PREDICTIONS}.ots"
+    ots stamp "$LEDGER_PREDICTIONS"
+fi
+if [ -f "$LEDGER_THESES" ]; then
+    rm -f "${LEDGER_THESES}.ots"
+    ots stamp "$LEDGER_THESES"
+fi
 
 # 3. commit ledgers + receipts OTS (1ere couche audit history)
 git add integrity_anchors/*.jsonl integrity_anchors/*.ots 2>/dev/null || true
