@@ -7019,9 +7019,18 @@ def render() -> Path:
                 chip_tip_attr = f' data-tip="{fx_tip}"' if fx_tip else ""
                 profit_chip = f'<span class="th-pt"{chip_tip_attr}>target hit</span>'
         # Canonical position gauge : stop red / entry grey / target green / dot.
-        # Entry vient du book line (entry_price de la these).
-        entry = ln.entry_price if ln else None
-        bar = _position_axis(entry, a["_stop"], a["_tgt"], a["_cur"]) or (
+        # Fix L29 (suite seam position card + book row) : ancre sur avg_cost_eur
+        # via BookLine EUR (single source L27). Tooltip = pnl_pct depuis BookLine
+        # (P&L EUR depuis avg_cost) -> dot=pnl_position=tooltip. Fallback natifs si
+        # BookLine absente (rare).
+        if ln and ln.avg_cost_eur and ln.stop_eur and ln.target_full_eur and ln.current_price_eur:
+            _e, _s, _t, _c = ln.avg_cost_eur, ln.stop_eur, ln.target_full_eur, ln.current_price_eur
+            _pnl_p = ln.pnl_pct
+        else:
+            _e = ln.entry_price if ln else None
+            _s, _t, _c = a["_stop"], a["_tgt"], a["_cur"]
+            _pnl_p = None
+        bar = _position_axis(_e, _s, _t, _c, pnl_position_pct=_pnl_p) or (
             f'{_tbar(max(0.0, min(100.0, frac_raw / 150.0 * 100)), ticks=[(0.0, "stop", "stop"), (66.67, "target", "target")], title=f"progress {frac_raw:.0f}%")}'
         )
         return (
