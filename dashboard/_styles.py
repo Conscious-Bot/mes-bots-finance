@@ -43,6 +43,12 @@ _TH_CSS = """
   .tbar-tick.entry   { background:var(--steel); opacity:.75; height:11px; top:-3px; width:1.5px; }
   .tbar-tick.partial { background:#ffd400; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; box-shadow:0 0 4px rgba(255,212,0,.55); }
   .tbar-tick.target  { background:#00e676; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; box-shadow:0 0 4px rgba(0,230,118,.55); }
+  /* axe-prix natif (SPEC_GAUGE §3) : caret cost sous-ligne + chevrons overflow */
+  .tbar-cost-caret { position:absolute; bottom:-5px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:6px solid var(--steel); transform:translateX(-50%); pointer-events:none; z-index:2; }
+  .tbar-cost-caret.stale { opacity:.5; border-bottom-color:var(--warn); }
+  .tbar-chevron-left, .tbar-chevron-right { position:absolute; top:50%; transform:translateY(-50%); color:var(--steel); font-size:10px; line-height:1; opacity:.7; pointer-events:none; z-index:2; }
+  .tbar-chevron-left { left:1px; }
+  .tbar-chevron-right { right:1px; }
   .tbar-dot { position:absolute; top:50%; width:9px; height:9px; border-radius:50%; background:var(--ink); transform:translate(-50%,-50%); z-index:2; box-shadow:0 0 0 1.5px var(--bg), 0 1px 3px rgba(0,0,0,.18); transition:left .25s ease-out; }
   .tbar-dot.acc { background:var(--acc); }
   .tbar-dot.warn { background:var(--warn); }

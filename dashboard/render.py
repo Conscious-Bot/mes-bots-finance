@@ -409,211 +409,117 @@ def _position_axis(
     )
 
 
-def _position_axis_pct(
-    stop_pct: float | None,
-    target_pct: float | None,
-    dot_pct: float | None,
-    *,
-    target_partial_pct: float | None = None,
-    extra_class: str = "",
-    pnl_position_pct: float | None = None,
-) -> str:
-    """Canonical position gauge — UN SEUL MÈTRE depuis le coût (cf SPEC_GAUGE).
+def _gauge_prices_native(bl: object | None) -> dict | None:
+    """5 prix natifs canoniques + meta (SPEC_GAUGE §2.1).
 
-    - 0 (gris central) = cost (avg_cost via fx_now)
-    - Tous les % (stop, partial, target, dot) depuis cost — visuel ET
-      classement cohérents : dot ≥ target_pct ⇔ cur_native ≥ target_native ⇔ Beyond
-    - dot_pct ≡ P&L EUR
-
-    Légende couleur canonique (feu tricolore) :
-      🔴 stop rouge   — sortie en perte
-      ⚫ cost gris    — point de départ (0)
-      🟡 partial jaune — première prise de profit
-      🟢 target vert  — cible pleine
-
-    Returns "" si dot_pct None.
-    """
-    if dot_pct is None:
-        return ""
-    sp = stop_pct if stop_pct is not None else 0.0
-    tp = target_pct if target_pct is not None else 0.0
-    tpart = target_partial_pct if target_partial_pct is not None else 0.0
-    ax = max(abs(sp), abs(tp), abs(tpart), abs(dot_pct), 10.0)
-    dot_v = max(0.0, min(100.0, 50.0 + (dot_pct / ax) * 50.0))
-    stop_v = max(0.0, min(100.0, 50.0 + (sp / ax) * 50.0)) if stop_pct is not None else None
-    tgt_v = max(0.0, min(100.0, 50.0 + (tp / ax) * 50.0)) if target_pct is not None else None
-    tpart_v = (
-        max(0.0, min(100.0, 50.0 + (tpart / ax) * 50.0))
-        if target_partial_pct is not None and target_partial_pct != 0.0
-        else None
-    )
-    # Dot color : bear sous stop, acc au-dessus target, neutre entre. Cohérent
-    # avec le classement Beyond/Closest (un seul mètre, pas de divergence).
-    if stop_pct is not None and dot_pct <= stop_pct:
-        dot_color = "bear"
-    elif target_pct is not None and dot_pct >= target_pct:
-        dot_color = "acc"
-    else:
-        dot_color = ""
-    # Tooltip simple : P&L EUR (dot_pct ≡ P&L EUR quand fx_now cohérent)
-    pnl_eur = pnl_position_pct if pnl_position_pct is not None else dot_pct
-    title_str = f"P&L {pnl_eur:+.1f}%"
-    ticks = []
-    if stop_v is not None:
-        ticks.append((stop_v, "stop", "stop"))
-    ticks.append((50.0, "cost", "entry"))  # 0 central = cost (CSS class "entry" = gris, label legacy)
-    if tpart_v is not None:
-        ticks.append((tpart_v, "partial target", "partial"))  # CSS class "partial" = jaune
-    if tgt_v is not None:
-        ticks.append((tgt_v, "target", "target"))  # CSS class "target" = vert
-    cls_full = ("sig-pct " + extra_class).strip()
-    return _tbar(
-        dot_v,
-        ticks=ticks,
-        dot_color=dot_color,
-        title=title_str,
-        extra_class=cls_full,
-        data_attrs={"axmin": f"{-ax:.1f}", "axmax": f"{ax:.1f}"},
-    )
-
-
-def _gauge_pcts_from_cost(bl: object | None) -> dict[str, float | None]:
-    """Calcule les % de la gauge — UN SEUL MÈTRE depuis le coût.
-
-    Conception finale (cf SPEC_GAUGE §1) :
-    - 0 (gris central) = ton coût actuel (cost_native = avg_cost_eur / fx_now)
-    - Tous les ticks ET le dot mesurés DEPUIS COÛT, en native (FX-invariant)
-    - dot_pct ≡ P&L EUR (cost_native via fx_now garantit l'identité algébrique)
-    - Visuel ET classement disent la même chose : dot ≥ target tic ⇔ Beyond
-
-    Conséquence assumée : les ticks BOUGENT quand tu renforces (le PMP grimpe,
-    target_native fixe → target_pct depuis cost change). Sur SK Hynix renforcé
-    au-delà du target initial : target_pct ≈ -0.7% (target sous le 0 gris,
-    honnête : tu as moyenné jusqu'à dépasser ta cible). Le visuel le montre
-    et le panneau Beyond le range — les deux disent la même chose.
-
-    Returns dict {cost_native, cur_native, target_native, stop_pct, target_pct,
-    target_partial_pct, dot_pct} — tous les % depuis cost_native.
+    SINGLE-SOURCE (L27) : tout derive d'UN couple (last_price_native, fx).
+    cur_eur = cur_native*fx (jamais current_price_eur) -> axe natif et label
+    EUR portent le MEME prix, pas de fork. cost_native = avg_cost_eur/fx
+    (delibere, pas pmp_native : garde spatial dot-cost ≡ P&L EUR ; pmp_native
+    forkerait spatial=P&L natif vs label=P&L EUR sur mouvement fx). Fail-closed
+    L15 : None si data insuffisante ; has_band=False si stop ou full manque.
     """
     if not bl:
-        return {}
+        return None
     avg_cost_eur = getattr(bl, "avg_cost_eur", None)
     fx = getattr(bl, "fx_rate_to_eur", None)
     cur_n = getattr(bl, "last_price_native", None)
-    if not avg_cost_eur or not fx or not cur_n or fx <= 0 or avg_cost_eur <= 0:
-        return {}
-    cost_n = avg_cost_eur / fx  # cost_native via fx_now live (un seul fx par position)
+    if not avg_cost_eur or not fx or not cur_n or fx <= 0 or avg_cost_eur <= 0 or cur_n <= 0:
+        return None
+    cost_n = avg_cost_eur / fx
     if cost_n <= 0:
-        return {}
+        return None
+    cur_eur = cur_n * fx
+    cost_eur = float(avg_cost_eur)
+    pnl_eur_pct = (cur_eur - cost_eur) / cost_eur * 100.0
 
-    def pct(level: float | None) -> float | None:
-        if level is None or level <= 0:
+    def _pos(level: object) -> float | None:
+        try:
+            v = float(level)
+        except (TypeError, ValueError):
             return None
-        return (level - cost_n) / cost_n * 100.0
+        return v if v > 0 else None
 
-    stop_n = getattr(bl, "stop_price", None)
-    tgt_n = getattr(bl, "target_full", None)
-    tpart_n = getattr(bl, "target_partial", None)
+    stop_n = _pos(getattr(bl, "stop_price", None))
+    full_n = _pos(getattr(bl, "target_full", None))
+    partial_n = _pos(getattr(bl, "target_partial", None))
     return {
+        "currency": getattr(bl, "last_price_currency", None) or "",
+        "stop_native": stop_n,
+        "partial_native": partial_n,
+        "full_native": full_n,
         "cost_native": cost_n,
-        "cur_native": cur_n,
-        "target_native": tgt_n,
-        "stop_pct": pct(stop_n),
-        "target_pct": pct(tgt_n),
-        "target_partial_pct": pct(tpart_n),
-        "dot_pct": pct(cur_n),  # ≡ P&L EUR (fx_now s'annule)
+        "cur_native": float(cur_n),
+        "cost_eur": cost_eur,
+        "cur_eur": cur_eur,
+        "pnl_eur_pct": pnl_eur_pct,
+        "has_band": stop_n is not None and full_n is not None and full_n > stop_n,
     }
 
 
-def _position_axis_price(
-    stop_eur: float | None,
-    cost_eur: float | None,
-    entry_eur: float | None,
-    target_eur: float | None,
-    cur_eur: float | None,
-    *,
-    extra_class: str = "",
-    pnl_pct_cost: float | None = None,
-    perf_pct_entry: float | None = None,
-) -> str:
-    """Canonical position gauge V2 (axe-PRIX EUR, cf SPEC_GAUGE_PRICE_AXIS #122).
+def _position_axis_price(prices: dict | None, *, extra_class: str = "") -> str:
+    """Gauge axe-PRIX NATIF pur (canon SPEC_GAUGE §2.2). UN renderer.
 
-    5 repères à leur vraie position de prix EUR sur un axe ouvert
-    proportionnel. Pas d'anchor à choisir, pas de "0" centré -- les
-    repères SONT les références, le dot raconte par sa position entre eux.
-
-    Money-invariant L28 STRICT : tous params en EUR (jamais mix natif/EUR).
-    cost_eur = PMP gelé (BookLine.avg_cost_eur, frozen-at-buy).
-    stop/entry/target/cur_eur = niveaux × fx_now (live).
-    Asymétrie nommée honnête : cost gelé, autres flottants.
-
-    Tooltip enrichi 2 frames : "P&L X% depuis coût · Thèse Y% depuis entry
-    · beyond Z%". Le dot ne raconte plus un %, juste sa position visuelle.
-
-    Returns "" si < 2 repères présents + cur (insuffisant pour rendu utile).
+    Bande [stop_native, full_native] -> [10%, 90%] lineaire. Hors-bande :
+    overflow rationnel borne (pas de clamp, pas de log) + chevron. cost =
+    caret SOUS la ligne (stale si > full). € UNIQUEMENT dans le title, natif
+    sur l'axe (separation §0-3). Fail-closed si pas de bande.
     """
-    if cur_eur is None or cur_eur <= 0:
+    if not prices:
         return ""
-    # Refs disponibles (cur exclu, c'est le dot)
-    refs_raw = [
-        (stop_eur, "stop", "stop"),
-        (cost_eur, "cost", "cost"),
-        (entry_eur, "entry", "dash"),
-        (target_eur, "target", "target"),
-    ]
-    refs = [(p, lbl, style) for p, lbl, style in refs_raw if p is not None and p > 0]
-    if len(refs) < 2:
-        return ""
+    cur_n = prices["cur_native"]
+    cost_n = prices["cost_native"]
+    stop_n = prices["stop_native"]
+    full_n = prices["full_native"]
+    partial_n = prices["partial_native"]
+    title = (
+        f"P&L {prices['pnl_eur_pct']:+.1f}% EUR · "
+        f"cost {prices['cost_eur']:,.0f}€ · cur {prices['cur_eur']:,.0f}€"
+    ).replace(",", " ")
+    cls = ("tbar sig-pricenat " + extra_class).strip()
+    if not prices["has_band"]:
+        miss = "stop" if stop_n is None else "target"
+        body = (
+            '<div class="tbar-cost-caret" style="left:38.0%" title="cost"></div>'
+            '<div class="tbar-dot" style="left:62.0%"></div>'
+            '<div class="tbar-hover-tip"></div>'
+        )
+        return f'<div class="{cls} degraded" title="{title} · {miss} non défini">{body}</div>'
+    span = full_n - stop_n
 
-    all_prices = [cur_eur] + [r[0] for r in refs]
-    p_min, p_max = min(all_prices), max(all_prices)
-    if p_max == p_min:
-        return ""
-    pad = (p_max - p_min) * 0.05
-    p_min -= pad
-    p_max += pad
+    def to_v(p: float | None) -> float | None:
+        if p is None:
+            return None
+        frac = (p - stop_n) / span
+        if frac < 0.0:
+            return 10.0 / (1.0 + (-frac))
+        if frac > 1.0:
+            return 90.0 + 10.0 * (1.0 - 1.0 / (1.0 + (frac - 1.0)))
+        return 10.0 + frac * 80.0
 
-    def to_v(p: float) -> float:
-        return (p - p_min) / (p_max - p_min) * 100.0
-
-    # Dot color : bear sous stop, acc au-dessus target, neutre entre
-    dot_color = ""
-    if stop_eur is not None and cur_eur <= stop_eur:
-        dot_color = "bear"
-    elif target_eur is not None and cur_eur >= target_eur:
-        dot_color = "acc"
-
-    # Tooltip : annotations 2 frames + beyond chip
-    tip_parts: list[str] = []
-    if pnl_pct_cost is not None:
-        tip_parts.append(f"P&L {pnl_pct_cost:+.1f}% depuis coût")
-    if perf_pct_entry is not None:
-        tip_parts.append(f"thèse {perf_pct_entry:+.1f}% depuis entry")
-    if target_eur is not None and cur_eur > target_eur > 0:
-        beyond = (cur_eur / target_eur - 1) * 100.0
-        tip_parts.append(f"beyond +{beyond:.1f}%")
-    title_str = " · ".join(tip_parts)
-
-    ticks = [(to_v(p), lbl, style) for p, lbl, style in refs]
-    cls_full = ("sig-price " + extra_class).strip()
-    # data-axis-mode="price" : enseigne au JS hover que axmin/axmax sont des
-    # PRIX EUR (pas des % signed). Le JS formatte le hover en "€XXXX.XX" au
-    # lieu de "+XXXX%" (bug 09/06 23h+ : axe-perf legacy assumait axmin/axmax=%
-    # systématiquement → KLAC montrait +1821.1% au hover car axmax=1820 EUR
-    # interprété comme %). Cure réelle : le JS distingue les 2 modes, chacun
-    # honnête à son cadre. Tooltip riche `title` reste pour 2-frames info.
-    return _tbar(
-        to_v(cur_eur),
-        ticks=ticks,
-        dot_color=dot_color,
-        title=title_str,
-        extra_class=cls_full,
-        data_attrs={
-            "axmin": f"{p_min:.2f}",
-            "axmax": f"{p_max:.2f}",
-            "axis-mode": "price",
-        },
+    partial_v = to_v(partial_n)
+    cost_v = to_v(cost_n)
+    dot_v = to_v(cur_n)
+    dot_color = "bear" if cur_n <= stop_n else ("acc" if cur_n >= full_n else "")
+    caret_cls = "tbar-cost-caret stale" if cost_n > full_n else "tbar-cost-caret"
+    da = (
+        f' data-axmin="{stop_n:.4f}" data-axmax="{full_n:.4f}"'
+        f' data-currency="{prices["currency"]}" data-axis-mode="price-native"'
     )
+    body = [f'<div class="{cls}"{da} title="{title}">']
+    if cost_n < stop_n or cur_n < stop_n:
+        body.append('<div class="tbar-chevron-left">‹</div>')
+    if cost_n > full_n or cur_n > full_n:
+        body.append('<div class="tbar-chevron-right">›</div>')
+    body.append('<div class="tbar-tick stop" style="left:10.0%" title="stop"></div>')
+    if partial_v is not None:
+        body.append(f'<div class="tbar-tick partial" style="left:{partial_v:.1f}%" title="partial"></div>')
+    body.append('<div class="tbar-tick target" style="left:90.0%" title="target full"></div>')
+    body.append(f'<div class="{caret_cls}" style="left:{cost_v:.1f}%" title="cost"></div>')
+    body.append(f'<div class="{("tbar-dot " + dot_color).strip()}" style="left:{dot_v:.1f}%"></div>')
+    body.append('<div class="tbar-hover-tip"></div>')
+    body.append("</div>")
+    return "".join(body)
 
 
 def _llm_status_badge() -> str:
@@ -7914,7 +7820,38 @@ def render() -> Path:
         #   - sinon : affiche position % visuelle
         # Cure 09/06 23h+ : le mode "price" résout le bug "+1820%" au hover
         # quand axmax=1820 EUR (bornes prix interprétées comme %).
-        + "<script>(function(){function fmtPct(v){var s=v>=0?'+':'\\u2212';return s+Math.abs(v).toFixed(1)+'%';}function fmtEur(v){return v.toLocaleString('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2});}function wire(){document.querySelectorAll('.tbar').forEach(function(bar){var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;bar.dataset.tbarWired='1';var axmin=parseFloat(bar.dataset.axmin);var axmax=parseFloat(bar.dataset.axmax);var mode=bar.dataset.axisMode||'';var hasAxis=!isNaN(axmin)&&!isNaN(axmax);bar.addEventListener('mousemove',function(e){var r=bar.getBoundingClientRect();if(r.width<=0)return;var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));tip.style.left=p.toFixed(1)+'%';if(hasAxis){var v=axmin+(axmax-axmin)*(p/100);if(mode==='price'){tip.textContent=fmtEur(v);tip.classList.remove('pos','neg');}else{tip.textContent=fmtPct(v);tip.classList.toggle('pos',v>0.05);tip.classList.toggle('neg',v<-0.05);}}else{tip.textContent=p.toFixed(0)+'%';tip.classList.remove('pos','neg');}});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});})();</script>"
+        # Hover JS canonique (cf SPEC_GAUGE §2.7 + §0-B verrou anti +1820%).
+        # Modes :
+        #   - axis-mode="price-native" (canon SPEC_GAUGE) : axmin/axmax = prix
+        #     en native currency (KRW/USD/EUR...), data-currency = code ISO.
+        #     Affiche "1,234.56 KRW" — prix natif, jamais de % nu.
+        #   - axis-mode="price" (legacy EUR, à supprimer post-bascule) : prix EUR
+        #   - axis-mode absent (axe-perf legacy signed %) : "+X.X%" / "-X.X%"
+        #   - sinon : position % visuelle
+        # Le natif sur l'axe + EUR uniquement dans le `title` text = séparation
+        # invariante (§0-3). Pas de % nu dans le hover de la gauge prix-natif.
+        + "<script>(function(){"
+          "function fmtNative(v,ccy){return v.toLocaleString('fr-FR',{maximumFractionDigits:2})+(ccy?' '+ccy:'');}"
+          "function fmtPct(v){var s=v>=0?'+':'\\u2212';return s+Math.abs(v).toFixed(1)+'%';}"
+          "function fmtEur(v){return v.toLocaleString('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2});}"
+          "function wire(){document.querySelectorAll('.tbar').forEach(function(bar){"
+          "var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;"
+          "bar.dataset.tbarWired='1';"
+          "var axmin=parseFloat(bar.dataset.axmin);var axmax=parseFloat(bar.dataset.axmax);"
+          "var mode=bar.dataset.axisMode||'';var ccy=bar.dataset.currency||'';"
+          "var hasAxis=!isNaN(axmin)&&!isNaN(axmax);"
+          "bar.addEventListener('mousemove',function(e){"
+          "var r=bar.getBoundingClientRect();if(r.width<=0)return;"
+          "var p=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));"
+          "tip.style.left=p.toFixed(1)+'%';"
+          "if(hasAxis){"
+          "var v=axmin+(axmax-axmin)*(p/100);"
+          "if(mode==='price-native'){tip.textContent=fmtNative(v,ccy);tip.classList.remove('pos','neg');}"
+          "else if(mode==='price'){tip.textContent=fmtEur(v);tip.classList.remove('pos','neg');}"
+          "else{tip.textContent=fmtPct(v);tip.classList.toggle('pos',v>0.05);tip.classList.toggle('neg',v<-0.05);}"
+          "}else{tip.textContent=p.toFixed(0)+'%';tip.classList.remove('pos','neg');}"
+          "});});}wire();new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});"
+          "})();</script>"
         + "</body></html>"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
