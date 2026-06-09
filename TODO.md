@@ -21,7 +21,7 @@
 - **OTS anchors** : chain-head re-prouvée 09/06 17h22 (commit 2d3a4e4). KNOWN-GAP granularité dates fenêtre 08-09/06 documentée dans SESSION_STATE.
 - **Livrables clés session** : #111 SOCLE S1c HARD mode (51→0 imports), L29 OTS fail-loud (script + wrapper Telegram), #104 audit_canonical_drift.py + /close hook
 - **Dette doctrinale visible** : 7 SPECs sans footer Implementation Status (cf audit_canonical_drift exit 1) — ajouter footer geste mécanique 5min/SPEC
-- **Backlog ouvert** : feed broker auto (P0 différable), #110 SPEC_LIVING_GRAPH (condition base_health vert acquise), #120 CURE RACINE positions seam (NE PAS attaquer fatigué)
+- **Backlog ouvert** : voir § **P0 ACTIONNABLES NEXT SESSION** ci-dessous (gauge theses panel · #128 banner SK Hynix · #110 living-graph ; #120 render seam = fresh-head). **#127 feed broker = LIVRÉ** (TR CSV rebuild, cf DÉJÀ FAIT suite tardive).
 
 ---
 
@@ -30,6 +30,13 @@
 - **#111 SOCLE S1c HARD mode** : 5 salves, 51 → 0 imports yfinance hors `shared/prices.py`. Helpers gateway ajoutés : `get_info()` `get_calendar()` `get_financials()` `get_balance_sheet()` `get_cashflow()`. Allowlist vidée. Gate AST Python remplace grep large (commits 20f600b, 6486f65, afe7738, b521fd3, d469b47)
 - **L29 OTS fail-loud** : root cause silent-fail 27h+ découvert via base_health manuel. Fix script `rm -f .ots` avant re-stamp + wrapper Python `notify.send_text("[OPS] integrity_anchor FAIL")` sur returncode/timeout/exception. Tout silent-fail surface désormais Telegram (commits 3359f07, f3289c5). OTS chain-head rattrapée commit 2d3a4e4.
 - **#104 L25 audit_canonical_drift** : `scripts/audit_canonical_drift.py` scan SPEC_*.md (footer Implementation Status + refs code + drift + doublons synonymes). Exit codes 0/1/2. Étape 6 du `/close` rituel (commit cf24ef6)
+
+## ✅ DÉJÀ FAIT (09/06 suite tardive — TR CSV rebuild + PMP roulant + gauge avg_cost + doublon)
+
+- **#127 Feed broker LIVRÉ (TR CSV rebuild)** : `scripts/rebuild_tr_ledger_from_csv.py` ingère l'export TR complet (`data/broker_exports/TR_transactions_2026-06-09.csv`, gitignored PII) — 142 trades full-history depuis 2021, idempotent via `transaction_id` UNIQUE, anchor-free. 20 TR positions = CSV broker truth (Δ=0). Tesla SPLIT 3:1 backward-apply, Rocket Lab MERGER ISIN re-map, crypto+cash filtrés. PEA (6 Boursorama) reste anchoré (source séparée). Re-export+re-run = self-feed semi-manuel (TR sans API). **Finding : Cameco faux dans le ledger manuel** (le « +5€ » a exécuté : SELL 0.064336 → vrai net 18.242479) — le CSV bat les captures.
+- **#127b PMP roulant fiscal FR** : bug all-buys-avg démasqué par red-team (Tesla 350.99 vs broker 358 = faux, pas « convention à documenter »). Vrai sur 8 tickers re-buy (TSLA/GOOGL/AVGO/AMZN/TSM/MU/MP/AMD). Fix `shared/ledger_pmp.compute_pmp_realized()` (PMP roulant, reset-pool-sur-clôture CGI) = unique source PMP/realized. VUE NULLe `avg_cost*`/`realized_pnl` (fail-closed L15) + `test_no_pmp_calculation_resurrects_in_view_sql`. 5 consumers SQL-direct migrés BookLine. → **L29 gravé** (corriger le calcul ≠ vérifier la diffusion).
+- **Gauge ancrée avg_cost (3/4 callers)** : `_position_axis` sur `avg_cost_eur` (= « ton entry » broker — plainte gauge réglée) → dot = pnl_position, tooltip = même valeur (cohérents). EUR via BookLine properties (`stop_eur`/`target_eur`/`current_eur`, **pas de fx local**). Migrés : position card + book row + asym panel. Workaround FX obsolète (l.383-388) retiré. **Reste theses panel L5936** (fresh-head, cf P0 ACTIONNABLES).
+- **Doublon SPEC résolu (L25)** : `SPEC_CONSENSUS_MICRO.md` supprimé (verify-before-delete = strict superset de FRAGILITE, 0 perte doctrinale), refs re-pointées. `audit_canonical_drift` = **exit 0**, dette doctrinale fermée. L'outil #104 a trouvé un vrai doublon le jour de sa naissance.
 
 ## ✅ DÉJÀ FAIT (09/06 — session marathon ledger)
 
