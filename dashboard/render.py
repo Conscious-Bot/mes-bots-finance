@@ -6482,13 +6482,25 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
             st, tg, c = r.get("stop") or 0, r.get("target_full") or 0, r.get("current_price") or 0
             up, dn = r.get("upside_pct"), r.get("downside_pct")
             ln = _book_idx.get(tk)
-            entry = ln.entry_price if ln else None
-            if st and tg and tg != st and c and up is not None and dn is not None:
+            # Fix L29 (suite seam position card) : ancre la gauge sur avg_cost_eur
+            # via BookLine EUR (single source L27). Tous les chiffres EUR cohérents
+            # -> dot=pnl_position=tooltip. Fallback natifs si BookLine absente.
+            if ln and ln.avg_cost_eur and ln.stop_eur and ln.target_full_eur and ln.current_price_eur:
+                _entry_g = ln.avg_cost_eur
+                _stop_g = ln.stop_eur
+                _tgt_g = ln.target_full_eur
+                _cur_g = ln.current_price_eur
+            else:
+                _entry_g = ln.entry_price if ln else None
+                _stop_g = st
+                _tgt_g = tg
+                _cur_g = c
+            if _stop_g and _tgt_g and _tgt_g != _stop_g and _cur_g and up is not None and dn is not None:
                 gauges[tk] = {
-                    "_entry": entry,
-                    "_stop": st,
-                    "_tgt": tg,
-                    "_cur": c,
+                    "_entry": _entry_g,
+                    "_stop": _stop_g,
+                    "_tgt": _tgt_g,
+                    "_cur": _cur_g,
                     "up": up,
                     "dn": dn,
                 }
