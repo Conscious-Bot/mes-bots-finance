@@ -22,28 +22,30 @@ import pytest
 
 from shared.position_view import PositionView, get_all_positions_views
 
-# Valeurs broker connues au 2026-06-07 (price_asof 06:22 UTC, cf SQL).
+# Valeurs broker connues au 2026-06-09 (post-rebuild #127 depuis CSV TR truth).
 # Tolerance : prix bougent au cours du temps (cron 15min). On verifie
 # la coherence d'ordre, pas la valeur exacte instantanee.
+# UPDATED #127b : qty post-rebuild (CSV truth) — les avg_cost_eur sont maintenant
+# le PMP rolling fiscal FR (cf shared.ledger_pmp) qui diffère de l'all-buys-avg.
 BROKER_KNOWN = {
     "000660.KS": {
-        "qty": 1.4809,
-        "avg_cost_eur": 1084.83,
-        "expected_pnl_pct_at_snapshot": 6.13,   # +6.1% au 07/06
+        "qty": 1.515580,            # CSV truth (#121 réconcilié)
+        "avg_cost_eur": 1060.53,    # rolling fee-inc, was 1084.83 (stale yaml)
+        "expected_pnl_pct_at_snapshot": 8.5,
         "currency_native": "KRW",
-        "fx_band": (0.0004, 0.0008),           # KRW/EUR ~0.00056
+        "fx_band": (0.0004, 0.0008),
     },
     "6857.T": {
-        "qty": 12.1029,
-        "avg_cost_eur": 149.79,
-        "expected_pnl_pct_at_snapshot": -3.26,  # -3.3% au 07/06
+        "qty": 12.644612,            # CSV truth (was 12.1029 yaml stale)
+        "avg_cost_eur": 143.70,      # rolling fee-inc
+        "expected_pnl_pct_at_snapshot": -3.26,
         "currency_native": "JPY",
-        "fx_band": (0.004, 0.008),             # JPY/EUR ~0.0054
+        "fx_band": (0.004, 0.008),
     },
     "4063.T": {
-        "qty": 107.5220,
-        "avg_cost_eur": 41.85,
-        "expected_pnl_pct_at_snapshot": -4.92,  # -4.9% au 07/06
+        "qty": 115.266393,           # CSV truth (was 107.5220 yaml stale)
+        "avg_cost_eur": 39.05,       # rolling fee-inc
+        "expected_pnl_pct_at_snapshot": -4.92,
         "currency_native": "JPY",
         "fx_band": (0.004, 0.008),
     },

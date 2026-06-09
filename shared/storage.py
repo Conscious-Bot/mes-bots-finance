@@ -2269,12 +2269,21 @@ def compute_drift_report() -> dict:
             "FROM portfolio_targets WHERE active_to IS NULL ORDER BY account, target_eur DESC"
         ).fetchall()
 
-        positions_rows = cx.execute(
-            "SELECT ticker, account, SUM(qty * avg_cost) AS actual_eur "
-            "FROM positions WHERE status='open' GROUP BY ticker, account"
+        # Post-0049 : VUE.avg_cost = NULL fail-closed. Récupère qty + account
+        # depuis la VUE, PMP via helper rolling (PMP fiscal FR correct).
+        from shared.ledger_pmp import compute_pmp_realized
+        positions_meta_rows = cx.execute(
+            "SELECT ticker, account, qty FROM positions WHERE status='open' AND qty > 0"
         ).fetchall()
-
-    actual_by_key = {(r["ticker"], r["account"]): r["actual_eur"] for r in positions_rows}
+        actual_by_key: dict = {}
+        for r in positions_meta_rows:
+            ticker, account, qty = r["ticker"], r["account"], r["qty"]
+            if not (qty and account):
+                continue
+            pmp = compute_pmp_realized(cx, ticker)
+            if pmp.pmp_eur:
+                key = (ticker, account)
+                actual_by_key[key] = actual_by_key.get(key, 0.0) + (qty * pmp.pmp_eur)
 
     by_account: dict = {}
     for t in targets:

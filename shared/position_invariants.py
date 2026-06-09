@@ -122,14 +122,24 @@ def _check_no_thesis_active_blind(conn) -> list[str]:
 
 
 def _check_position_in_db_has_avg_cost(conn) -> list[str]:
-    """Point #10 : avg_cost > 0 sur position ouverte (sinon donnees corrompues)."""
+    """Point #10 : avg_cost > 0 sur position ouverte (sinon donnees corrompues).
+
+    Post-0049 (VUE NULL fail-closed) : la VUE positions retourne NULL sur
+    avg_cost. Le PMP fiscal correct vient maintenant de BookLine (qui
+    appelle ledger_pmp.compute_pmp_realized). On lit donc BookLine pour
+    valider l'invariant — la VUE NULL est attendue, pas une corruption.
+    """
     violations = []
-    rows = conn.execute("""
-        SELECT ticker, qty, avg_cost FROM positions
-        WHERE status='open' AND qty > 0 AND (avg_cost IS NULL OR avg_cost <= 0)
-    """).fetchall()
-    for r in rows:
-        violations.append(f"#10 {r[0]} qty={r[1]} avg_cost={r[2]} (donnees broker corrompues)")
+    try:
+        from shared.book import get_held_lines
+        for ln in get_held_lines():
+            if ln.qty and ln.qty > 0 and (ln.avg_cost_eur is None or ln.avg_cost_eur <= 0):
+                violations.append(
+                    f"#10 {ln.ticker} qty={ln.qty} avg_cost_eur={ln.avg_cost_eur} "
+                    f"(BookLine ledger_pmp donne None/0 — ticker absent de transactions ?)"
+                )
+    except Exception as e:
+        violations.append(f"#10 BookLine load failed: {e}")
     return violations
 
 

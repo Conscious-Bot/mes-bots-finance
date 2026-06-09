@@ -25,8 +25,8 @@ EXACTEMENT le même résultat que la sous-requête corrélée VUE (vérif par le
 """
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass
+from typing import Any  # cx = sqlite3.Connection mais pas importé (doctrine sqlite3 hors storage.py)
 
 
 @dataclass
@@ -42,7 +42,7 @@ class PositionPMP:
 _TOL_ZERO = 1e-6  # qty considérée nulle (close complète)
 
 
-def compute_pmp_realized(cx: sqlite3.Connection, ticker: str) -> PositionPMP:
+def compute_pmp_realized(cx: Any, ticker: str) -> PositionPMP:
     """Calcule PMP roulant + realized_pnl date-ordonné pour ce ticker.
 
     Itère TOUTES les transactions (BUYs + SELLs) ordonnées par trade_date.
