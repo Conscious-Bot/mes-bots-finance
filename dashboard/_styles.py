@@ -33,13 +33,16 @@ _TH_CSS = """
      - target = green (cible pleine decidée)
      Dot noir par defaut ; rouge si dot <= stop, vert si dot >= target OU
      beyond (cur_native >= target_native, cf SPEC_GAUGE §1.4). */
-  .tbar-tick.stop { background:var(--bear); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; }
-  .tbar-tick.entry { background:var(--steel); opacity:.75; height:11px; top:-3px; width:1.5px; }
-  /* tbar-tick.partial : jaune-or vif (#e0b200), distinct du --warn (orange-brun
-     trop proche du --bear rouge stop) et clairement entre le stop et le target.
-     Convention feu tricolore : rouge / jaune / vert visuellement contrastés. */
-  .tbar-tick.partial { background:#e0b200; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; }
-  .tbar-tick.target { background:var(--acc); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; }
+  /* Feu tricolore canonique de la gauge (cf SPEC_GAUGE §1.3) : couleurs FLUO
+     vives explicites, pour que stop/partial/target se distinguent d'un coup
+     d'œil. Les vars globales --bear/--warn/--acc restent sobres pour le reste
+     du dashboard (DNA parchemin/instrument). Ici, sur la gauge spécifiquement,
+     on assume le contraste vif — c'est l'unique surface où le feu tricolore
+     doit crier sa sémantique. */
+  .tbar-tick.stop    { background:#ff1744; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; box-shadow:0 0 4px rgba(255,23,68,.55); }
+  .tbar-tick.entry   { background:var(--steel); opacity:.75; height:11px; top:-3px; width:1.5px; }
+  .tbar-tick.partial { background:#ffd400; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; box-shadow:0 0 4px rgba(255,212,0,.55); }
+  .tbar-tick.target  { background:#00e676; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; box-shadow:0 0 4px rgba(0,230,118,.55); }
   .tbar-dot { position:absolute; top:50%; width:9px; height:9px; border-radius:50%; background:var(--ink); transform:translate(-50%,-50%); z-index:2; box-shadow:0 0 0 1.5px var(--bg), 0 1px 3px rgba(0,0,0,.18); transition:left .25s ease-out; }
   .tbar-dot.acc { background:var(--acc); }
   .tbar-dot.warn { background:var(--warn); }
