@@ -1,5 +1,21 @@
 """PRESAGE — Book canonique unifie. Source de verite UNIQUE sur les positions.
 
+## Filtre canonique real-tickers (L27, post #126b 09/06)
+
+Olivier red-team 09/06 : « Les fantômes (SMOKE126/SMK126_*) portent du realized
+réel-mais-faux ~187€ dans le ledger immuable. Mitigation incidente via
+status='open' filter → mais le realized vit dans les closed (positions soldées
+= où est le P&L). Donc « cacher en excluant closed » est exactement à l'envers.
+Latent landmine pour le 1er agrégat realized-over-closed (track-record, fiscal).
+
+Fix structural : filtre canonique « real-tickers-only » partagé par tous les
+agrégats realized, testé. Une source pour « quels tickers comptent » (L27),
+exclusion explicite à un seul endroit. »
+
+→ cf `TEST_TICKER_PREFIXES`, `is_test_ticker()`, `EXCLUDE_TEST_TICKERS_SQL`.
+
+## Historique du module
+
 Avant ce module (29/05/2026), 3 jeux flottaient :
 1. positions DB (qty>0, status='open') -- realite operationnelle
 2. canonical_perimeter.json -- table de reference user (solidite, driver, pari)
@@ -48,6 +64,58 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).parent.parent
 _CANONICAL_PATH = _REPO_ROOT / "scripts" / "canonical_perimeter.json"
+
+
+# ============================================================================
+# Filtre canonique real-tickers (L27) — cf docstring §"Filtre canonique"
+# ============================================================================
+#
+# Tickers réels du book Olivier (vérifié 09/06/2026 broker_positions.yaml) :
+#   - PEA : ASML.AS, BESI.AS, HO.PA, SAF.PA, STMPA.PA, SU.PA
+#   - TR  : 000660.KS, 4063.T, 6857.T, 6920.T, 7011.T, ALAB, AMD, AMZN, AVGO,
+#           CCJ, COHR, ENTG, GOOGL, KLAC, LNG, MP, MU, SNPS, TSLA, TSM
+#
+# AUCUN ticker réel ne commence par les préfixes ci-dessous. Liste figée et
+# conservatrice. Tout nouveau ticker test doit s'y conformer (préfixer SMOKE_/
+# SMK_/TEST_/FAKE_), sinon il polluerait les agrégats prod.
+
+TEST_TICKER_PREFIXES: tuple[str, ...] = (
+    "SMOKE",       # smoke tests directs ad-hoc
+    "SMK",         # convention smoke abréviée (SMK126_*)
+    "TEST",        # fixtures pytest (TESTV, TEST_*, etc.)
+    "FAKE",        # FAKESKH_*, etc.
+    "WAVG", "CLASSIFY", "DUP", "BAD", "SELLTEST", "OVER", "HOOK", "CRASH",
+    "NOPOS", "FEECAP", "MANUAL_DUP", "ANCHOR_",
+    "FRESH", "STALE", "AAA", "BBB", "CCC",  # fixture tickers historiques
+)
+
+
+def is_test_ticker(ticker: str) -> bool:
+    """True si ticker = artefact de test/fixture, à exclure des agrégats prod.
+
+    Filtre canonique L27 : une seule source de vérité pour « quels tickers
+    sont réels ». Tous les agrégats `SUM(realized_pnl)`, `SUM(value_eur)`,
+    `Σ(weight)` etc. doivent appeler cette fonction (ou utiliser
+    `EXCLUDE_TEST_TICKERS_SQL` en SQL) pour éviter les fantômes immuables.
+
+    Exemples :
+      is_test_ticker("000660.KS") → False  (SK Hynix réel)
+      is_test_ticker("SMOKE126")  → True
+      is_test_ticker("SMK126_X")  → True
+      is_test_ticker("FAKESKH")   → True
+    """
+    if not ticker:
+        return False
+    tk = ticker.upper()
+    return any(tk.startswith(p) for p in TEST_TICKER_PREFIXES)
+
+
+# SQL clause pour les agrégats côté DB. À append après un WHERE existant via
+#   AND {EXCLUDE_TEST_TICKERS_SQL}
+# (parens autour pour précédence safe).
+EXCLUDE_TEST_TICKERS_SQL = "(" + " AND ".join(
+    f"ticker NOT LIKE '{p}%'" for p in TEST_TICKER_PREFIXES
+) + ")"
 
 # Phase 1.5 absorption_roadmap : target via YAML versionne avec _meta block.
 # JSON legacy droppé 07/06 (tech debt cleanup post-verification).
@@ -503,7 +571,7 @@ def validate_all_positions() -> dict:
 # un seul Datum[Monetary(EUR)] tagué Merkle-DAG.
 
 
-def value_eur(ticker: str, qty: float) -> "Datum | None":
+def value_eur(ticker: str, qty: float) -> Datum | None:
     """Valeur position EUR canonique : Datum[Monetary(EUR)] avec lignage.
 
     Pipeline (composition pure de gateways canoniques) :
