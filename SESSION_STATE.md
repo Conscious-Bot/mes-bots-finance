@@ -2757,3 +2757,67 @@ LIVING_GRAPH forks detected (n=1):
 3. **3e finding** : la cure « for-good » de ce soir ne l'était pas — calcul dupliqué reste un fork latent. Le checker l'a chopé en LIVE pendant W0.
 
 **Bonne nuit** — la maison veille sur elle-même, et ce soir elle t'a même dit où elle ment encore. Prochaine session : #123 compute-once-project pnl_position, et le 3e fork meurt pour de bon.
+
+---
+
+## Close 2026-06-10 — SPEC_GAUGE finalisée + L30 gravée + sweep #133 démarré (2/12)
+
+### Livre (9 commits, 4 chantiers)
+
+**Chantier 1 — SPEC_GAUGE finalisation (étape 2 + 4.1 + canon-tidy)**
+- `99451bc` étape 2 : bascule atomique 4 callers vers `_position_axis_price(_gauge_prices_native(bl))` ; asym `_axis` re-sourcé BookLine cron (cure fork live↔cron tué par identité littérale `_pr`) ; JS hover géométrie inverse `(p-10)/80` ; suppression `_position_axis`, branche JS `mode==='price'` morte, `fmtEur` orphelin. **La prod levait NameError sur `_gauge_pcts_from_cost`/`_position_axis_pct` (helpers fantômes) — la bascule a remis le regen sur ses pieds.**
+- `8d9fd76` étape 4.1 : `tests/test_gauge_price_native.py` 21 tests verrouillants §5 — helper/renderer/scenarios/bonus séparés. **2 pivots** : H1 fork-rebirth via `current_price_eur=99999` ignoré par construction, C5 no-negative-left frontal sur 7 cas réalistes (CCJ/LNG/4063.T/AMZN/6857.T/AMD/SKHynix).
+- `e6c0075` canon-tidy : §7 NOT_STARTED→IMPLEMENTED avec hashes + fichiers livrés ; §3 CSS stale aligné code (`border-bottom-color:var(--warn)` + commentaire déviation) ; §4 ⚠ KNOWN-GAP rows 2-3 + note ; §5 réécrit en pointeur (anti-L1, source unique = docstrings).
+
+**Chantier 2 — Doctrine L30 (target figée + cost roulant = mensonge en formation)**
+- `8911499` L30 gravée : règle de révision humaine sur renforcement + remède méthode + références SPEC_GAUGE §3 caret cost.
+- `8aab30f` red-team Olivier : 3 corrections structurelles. Anti-piège fatal ajouté en gras : *la cible reste FIGÉE, l'HUMAIN révise par jugement, jamais auto-recompute (= interp 1 ressuscitée)*. Wording TODO #133 corrigé pour supprimer la porte ouverte à l'auto-recompute. TODO #134 monitor `stale_target` ajouté.
+- `1fc380c` nuance FX : `cost_native` roule sur 2 axes (renforcements + FX), distinction utile pour positions non-EUR (KRW/JPY).
+
+**Chantier 3 — Sweep #133 démarré (registre `docs/sweep_targets_2026-06.md` scorecard)**
+- `bf99026` SK Hynix posée : partial 2 650 000 KRW (+15.2% vs consensus médian), full 3 800 000 KRW (alignement bull brokers KB/KoreaInv/Mirae/Shinhan 3.8M), stop 1 209 954 KRW (-20% vs entry, élargissement assumé). UPDATE `WHERE rowid=28` (rowid 21 fantôme intacte).
+- `8de6fea` CCJ posée : partial 124 USD (+13% vs cost, trim atteignable), full 155 USD (+8% vs médiane consensus, sous bull-max 175, retenue assumée sur cher/near-high EV/EBITDA 37×), stop 71.9 USD no-op.
+
+**Chantier 4 — Cron auto**
+- `3c7cac5` integrity_anchor chain-head 04:00 UTC (cron auto, RAS).
+
+### Findings (P0/P1/P2)
+
+**P0 — Pattern méta : verify-before-patch sur faits marché/portefeuille, pas seulement code**
+Reproduit 2× dans la session : (1) SK Hynix matin — Olivier raisonnait sur magnitude mémorisée (~100-150 Md$ → "cost 1.87M KRW = corrompu ×8-10"), faux : la boîte est dans le club trillion en 2026 ; (2) 18 "aveugles" — Olivier supposait positions tenues, escalade à "42% du book sans protection", faux : 17/18 sont des candidats watchlist non-entrés (`get_position_by_ticker → None`), seul SNPS est réellement tenu sans bande (~3 290 EUR, ≈1-2% du book). Pattern unifié : fiabilité haute en lecture d'artefact (bug tests, drift §5, schéma registre), dérive sur supposition d'un fait externe. Méta-leçon nommée et tracée dans le registre du sweep : *toute affirmation à enjeu cite son artefact-source, pas la mémoire ou la supposition*. Parallèle direct avec L16/L19 anti-fabrication.
+
+**P1 — Doublon thèse SK Hynix `theses` (rowid 21 + 28)**
+SK Hynix a 2 lignes : rowid 28 peuplée (entry/partial/full/stop), rowid 21 fantôme (tout None). UPDATE `WHERE rowid=28` ciblé précisément pour ne pas toucher la 21. À nettoyer dans un sweep séparé.
+
+**P1 — Trous DB `positions` CCJ**
+CCJ id=29 : `avg_cost_eur=None`, `avg_cost_native=None`, `fx_at_purchase=1.0` (mécaniquement faux). BookLine compense via fallback compute (rend 94.98 EUR cohérent avec souvenir 94.86). Fragilité de cohérence : un consumer qui lirait `positions.avg_cost_eur` directement vs BookLine casserait. Probablement effet de bord #118 FIX CANONIQUE FX qui n'a pas back-fillé. Investiguer.
+
+**P2 — MP Materials partial lui-même mourant**
+Trouvaille croustillante du sweep full-book : MP edge_partial +2.8%, edge_full +11.9% → calque MP→CCJ qu'Olivier voulait initialement appliquer aurait propagé la staleness. **Cas canonique L30 "ne pas calquer sur un pair non vérifié"**, validé empiriquement chiffres en main.
+
+**P2 — `_blind_positions_panel()` confond candidat-watchlist et position-tenue-sans-bande**
+17 candidats watchlist + 1 SNPS tenu sont sous la même étiquette "aveugle". Classification à raffiner (basse priorité).
+
+### Outils ajoutés
+
+- `scripts/smoke_gauge_step2.py` — smoke gate runtime parse HTML rendu, 3 invariants split/visuel (réutilisable post-bascule future).
+- `docs/sweep_targets_2026-06.md` — registre scorecard humain-décide du sweep #133, schéma verrouillé (delta_vs_consensus_partial + _full + thèse_du_delta = champs explicites obligatoires par ligne, pas reconstruction post-hoc).
+
+### Entry next session (priorités ordonnées)
+
+1. **CCJ trous DB** : `UPDATE positions SET avg_cost_eur=..., avg_cost_native=89.88, fx_at_purchase=1.055 WHERE id=29` — back-fill cohérence pour ne pas laisser le fallback BookLine compenser silencieusement. Probable même classe de trou sur d'autres positions migrées avant #118.
+2. **Sweep #133 batch suivant** : 10 positions restantes (4063.T / AMZN / AVGO / KLAC / 7011.T / 6857.T morts + 6920.T / TSLA / LNG / MP mourants) + SNPS cas mineur. Méthode 3 colonnes (Instrument / Ancre externe / Ressenti → décision + delta + thèse + born-dead + asof). Ancres via WebSearch tant que feed structuré (lseg/daloopa/bigdata skills) pas câblé pour le book entier.
+3. **L30 expansion complète** post-sweep (anti-L16 : seuil = choix de politique, pas stat sur N=12). Intégrer les 6 raffinements actés : partial vs full = 2 fonctions, stop figé même mécanisme, échantillonner par cause pas symptôme, calque pair stale banni, méta-leçon verify-before-patch faits marché.
+4. **#134 monitor `stale_target`** : 3e monitor via `docs/templates/monitor_pattern.md` (gabarit canonique). Trigger sur dégradation (`alive → dying → dead`), NE déclenche pas d'action automatique (anti-piège L30).
+5. **Hors sweep mais accumulé** : #121 KPIs theses panel L5936 (dette two-source), #128 banner SK Hynix proxy KRW×fx (P0 ancien), #110 SPEC_LIVING_GRAPH, doublon thèse SK rowid 21 à supprimer.
+
+
+### Sanity check pytest final — 1713 passed, 3 failed, 2 skipped (466s)
+
+**3 fails identifiés comme orthogonaux aux commits du jour** :
+
+1. `tests/test_db_write_discipline::test_db_write_surface_is_frozen` — `shared/living_graph.py` hors ALLOWED_FILES. Pré-existant depuis `846965f` (#110 W0 LIVING GRAPH tracer-bullet). Documenté hier soir.
+2. `tests/test_schema_drift::test_no_orphan_table_refs` — `shared/living_graph.py:86` référence une table 'set' inconnue (probable false positive SQL parsing : `set` est une clause UPDATE, pas un nom de table). Même origine que (1).
+3. `tests/test_views_convergence::test_mauboussin_actual_pct_converges_with_book_view` — divergences `weight_pct` ALAB (2.7 vs 2.81, Δ 0.11pp) + SNPS (6.0 vs 6.15, Δ 0.15pp). **Bisect confirmé** : test passait à `8aab30f` (avant SK/CCJ writes), échoue à HEAD — mais ALAB/SNPS ne sont pas touchés par mes UPDATE (SK + CCJ uniquement). Cause probable : test live-data dépendant (compute_mauboussin_sizing lit prix live via cron price_monitor refresh), drift naturel d'arrondi 0.1pp juste au seuil. **Flaky par construction**, à fix dans une session dédiée (tolérance + ou snapshot-freeze).
+
+Décision : **ces 3 ne bloquent pas le close** — aucune n'est causée par les commits du jour, toutes sont des dettes pré-existantes ou flakiness live. À traiter en P2 dans une session ultérieure (typiquement quand on fera #110 SPEC_LIVING_GRAPH écriture complète, qui touchera living_graph.py et rouvrira les 2 premiers fails).

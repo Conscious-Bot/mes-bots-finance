@@ -1,29 +1,40 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 09 juin 2026 soir tard (session marathon 3 jours suite — SOCLE S1c HARD mode 100%, L29 OTS fail-loud, audit canonical drift wire /close)
+**Refresh** : 10 juin 2026 (SPEC_GAUGE finalisée — bascule + 21 tests + canon-tidy ; doctrine L30 gravée ; sweep #133 démarré SK+CCJ posés, 10 positions restantes)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (09/06 soir tard — session #111 SOCLE S1c HARD close)
+## 🟢 ÉTAT SYSTÈME (10/06 — SPEC_GAUGE finalisée + L30 doctrine + sweep #133 2/12)
 
 - **alembic_version** : 0050 (positions VUE + colonnes dérivées NULL fail-closed L29)
-- **Tests** : 1690 passed, 0 failed, 2 skipped (full-suite 09/06 post-salve 5)
-- **Bot status** : relancé PID 10313, polling Telegram OK, crons schedulés (next OTS = 10/06 6h00)
-- **SOCLE base_health** : **GREEN** (positions verite + fraicheur 0h + chaîne intègre + OTS 0h)
-- **Gates verts** :
-  - `test_no_new_yfinance_bypass` : HARD mode (allowlist vidée, 0 violation)
-  - `check_yfinance_gate.sh` : AST-based, exit 0 (filtre proprement commentaires/docstrings)
-  - `test_no_pmp_calculation_resurrects_in_view_sql` : VUE fail-closed verrou
-  - `check_ledger_view_equivalence` : EXIT 0 GREEN
-- **Crons sains** : price_monitor / gmail / stress_gate / calendar / backup / integrity_anchor (FAIL-LOUD désormais) / crypto_zone / credibility_brier / monthly_track_record / j_day
-- **OTS anchors** : chain-head re-prouvée 09/06 17h22 (commit 2d3a4e4). KNOWN-GAP granularité dates fenêtre 08-09/06 documentée dans SESSION_STATE.
-- **Livrables clés session** : #111 SOCLE S1c HARD mode (51→0 imports), L29 OTS fail-loud (script + wrapper Telegram), #104 audit_canonical_drift.py + /close hook
-- **Dette doctrinale visible** : 7 SPECs sans footer Implementation Status (cf audit_canonical_drift exit 1) — ajouter footer geste mécanique 5min/SPEC
-- **Backlog ouvert** : voir § **P0 ACTIONNABLES NEXT SESSION** ci-dessous (gauge theses panel · #128 banner SK Hynix · #110 living-graph ; #120 render seam = fresh-head). **#127 feed broker = LIVRÉ** (TR CSV rebuild, cf DÉJÀ FAIT suite tardive).
+- **Tests** : 1711 passed, 1 fail orthogonal (`test_db_write_discipline` sur `living_graph.py` hors allowlist, pré-existant non lié), 2 skipped — **+21 tests** ajoutés ce jour (`test_gauge_price_native.py` SPEC §5)
+- **Bot status** : relancé, polling Telegram OK
+- **SOCLE base_health** : **GREEN**
+- **SPEC_GAUGE** : **IMPLEMENTED** (canon-tidy `e6c0075`) — étape 4.1 verrouillée (21 tests qui mordent), reste étape 4.3 expansion L30 doctrine complète (post-sweep #133)
+- **Doctrine L30 gravée** : *cible figée + cost roulant = mensonge en formation*. Anti-piège fatal en gras : la cible reste FIGÉE, l'HUMAIN révise par jugement, JAMAIS auto-recompute (= interp 1 ressuscitée). Stub évolutif, expansion complète post-sweep.
+- **Sweep #133 démarré** : registre scorecard `docs/sweep_targets_2026-06.md` (schéma verrouillé delta+thèse explicites). SK Hynix posée (`bf99026`), CCJ posée (`8de6fea`). 10 positions restantes + SNPS.
+- **Gates verts** : tous préservés (yfinance HARD, VUE PMP fail-closed, ledger equivalence)
+- **Crons sains** : tous, dont integrity_anchor 04:00 UTC (cron auto `3c7cac5`)
+- **Findings collatéraux tracés** (cf SESSION_STATE Close 10/06) :
+  - P0 méta : verify-before-patch sur faits marché/portefeuille (Olivier reproduit 2× : SK magnitude mémoire, 18 "aveugles" supposés tenus)
+  - P1 : doublon thèse SK rowid 21 fantôme + 28 peuplée
+  - P1 : trous DB positions CCJ (`avg_cost_eur=None`, `fx_at_purchase=1.0` faux) — back-fill prio
+  - P2 : MP partial lui-même mourant (cas canonique "ne pas calquer sur pair stale")
+  - P2 : `_blind_positions_panel()` confond candidat-watchlist vs position-tenue-aveugle
+- **Backlog ouvert** : sweep #133 batch suivant + L30 expansion complète, voir § **P0 ACTIONNABLES NEXT SESSION** mis à jour.
 
 ---
+
+## ✅ DÉJÀ FAIT (10/06 — SPEC_GAUGE finalisée + L30 + sweep #133 2/12)
+
+- **SPEC_GAUGE étape 2** : bascule atomique 4 callers + asym `_axis` re-sourcé BookLine (cure fork live↔cron) + JS hover géométrie inverse + suppression code mort. **Avant cette bascule la prod levait NameError** sur helpers fantômes `_gauge_pcts_from_cost`/`_position_axis_pct` (commit `99451bc`)
+- **SPEC_GAUGE étape 4.1** : `tests/test_gauge_price_native.py` 21 tests verrouillants §5 (helper/renderer/scenarios/bonus séparés). 2 pivots : H1 fork-rebirth via `current_price_eur` ignoré par construction, C5 no-negative-left frontal sur 7 cas réalistes (commit `8d9fd76`)
+- **SPEC_GAUGE canon-tidy** : §7 IMPLEMENTED avec hashes ; §3 CSS stale aligné code + déviation documentée ; §4 ⚠ KNOWN-GAP rows 2-3 ; §5 réécrit en pointeur anti-L1 (commit `e6c0075`)
+- **L30 LESSONS gravée** : *cible figée + cost roulant = mensonge en formation*. 3 commits (`8911499`/`8aab30f`/`1fc380c`). Anti-piège auto-recompute en gras, 2 axes du cost (renforcements + FX) distingués
+- **Sweep #133 démarré (scorecard)** : registre `docs/sweep_targets_2026-06.md` schéma verrouillé (delta_vs_consensus_partial + _full + thèse_du_delta = champs explicites). SK Hynix posée `bf99026` (partial 2.65M / full 3.8M / stop 1.21M élargi -20%). CCJ posée `8de6fea` (partial 124 / full 155 / stop 71.9 no-op). Méthode 3 colonnes (Instrument / Ancre externe / Ressenti) actée, calque pair stale banni (MP partiel lui-même mourant validé empiriquement)
+- **Smoke gate `scripts/smoke_gauge_step2.py`** : runtime parse HTML rendu, 3 invariants split/visuel (réutilisable post-bascule future)
 
 ## ✅ DÉJÀ FAIT (09/06 soir tard — #111 SOCLE S1c HARD + L29 fail-loud + #104 L25 audit)
 
@@ -51,11 +62,24 @@
 
 ---
 
-## 🔴 P0 ACTIONNABLES NEXT SESSION (réveil demain — 3 actions ordonnées)
+## 🔴 P0 ACTIONNABLES NEXT SESSION (10/06 close — ordonnées)
 
-0. **#133 Revoir les cibles figées (partial + full) sur toutes les positions tenues** (cf [[L30]] LESSONS stub gravé 10/06 + diagnostic visuel asym panneau). Le caret cost SPEC_GAUGE a révélé plusieurs cibles mortes : **partiels AMZN/6857.T** (caret nettement au-delà du jaune), **CCJ** (en train de basculer), **LNG/4063.T** (ratio symbolique mourant), **full SK Hynix** (−0.7% vs cost il y a quelques heures, même mécanisme à niveau plus extrême). **⚠️ ANTI-PIÈGE** : NE PAS auto-recompute `target = cost × (1+x%)` — ça défait la nuit du 09/06 (interp 1 banni). La cible reste **figée** ; **l'humain** ouvre chaque thèse et décide par jugement : (a) annuler le partial/full (cost > cible = pas de demi-cible possible), (b) le retirer entièrement (la thèse a changé de forme), ou (c) poser une NOUVELLE cible figée à un niveau choisi par décision humaine (pas formule), avec asof + raison tracée. Instrument révèle, humain décide. ~1h sweep complet. Effet : restaurer "cible = vraie décision de sortie", pas "rattrapée par le cost".
+-1. **#133bis CCJ trous DB** (~15min, prio risque-cohérence) : back-fill `positions` id=29 — `avg_cost_eur` et `avg_cost_native` actuellement `None`, `fx_at_purchase=1.0` mécaniquement faux. BookLine compense via fallback compute (rend 94.98 EUR cohérent), mais c'est fragile : un consumer SQL-direct se mangerait le trou. Probable même classe de trou sur d'autres positions migrées pré-#118. Going aussi auditer le scope élargi.
+
+0. **#133 sweep cibles batch suivant** (~2-3h étalées) : 10 positions restantes sur les 12 stale + SNPS (tenu sans bande, cas mineur ~3290 EUR). Morts : 4063.T, AMZN, AVGO, KLAC, 7011.T, 6857.T. Mourants : 6920.T, TSLA, LNG, MP (lui-même mourant — calque banni). Méthode 3 colonnes (Instrument calculé / Ancre externe live recherchée / Ressenti = décision humaine) → scorecard `docs/sweep_targets_2026-06.md`. Born-dead-check obligatoire par ligne (cibles > cost ET > cur ; stop < cur). **⚠️ ANTI-PIÈGE L30** : NE PAS auto-recompute `target = cost × (1+x%)` (= interp 1 banni). **⚠️ ANTI-PIÈGE pair stale** : MP partiel mourant lui-même → ne pas calquer sur un pair non vérifié. Continuer en batch (8 morts d'abord puis 4 mourants), 1-2 lignes / session pour ancrer dans la routine sans batcher fatigué.
 
 0bis. **#134 Mécaniser le détecteur `stale_target`** (cf [[L30]] mécanisation naturelle). 3e monitor via `docs/templates/monitor_pattern.md` (gabarit canonique : table journal append-only + helpers storage + classify pur + check_all_transitions + 7 tests dont test critique L4). **Trigger sur dégradation, pas sign-flip** : classify retourne `dead` si `cost ≥ target`, `dying` si `(target − cost)/cost < seuil_edge` (seuil à calibrer), `alive` sinon. Surfaces : alerte sur transition `alive → dying` ou `dying → dead`. NE déclenche PAS d'action automatique sur la cible — l'humain décide depuis le panneau quoi en faire ([[L30]] anti-piège). Le 3e monitor doit être 3× plus rapide à monter que le 2e parce que le pattern est figé. ~1h30 dont 30min tests.
+
+0ter. **#135 CHANTIER REFONTE COMPLÈTE niveaux décidés (targets partial + full + stops) sur TOUTES les positions** (cf [[L30]] doctrine élargie 10/06 post-sweep #133, décision Olivier). Étend la méthode du sweep #133 au book entier. Méthode canonique par position :
+- **Ancre externe LIVE** : consensus analystes (avg / median / high / low), valuation multiples (fwd P/E, EV/EBITDA), 52w/ATH, news catalyseurs récents — tirée à la révision, pas mémoire.
+- **Décision humaine** : niveaux choisis par jugement, pas formule auto-calque. L'instrument et l'évidence externe **informent**, jamais ne décident.
+- **Born-check** : tout niveau posé doit être strictement (partial > cost ET > cur) ; (full > partial ET > cur) ; (stop < cost OU stop > cost si "protège-gain" assumé explicitement, avec raison).
+- **Trace** : `asof = date`, `raison = 1 ligne` (ex. "target initiale pré-rally HBM, révisée 10/06 post-sweep #133 sur consensus haut + bull case HBM gen5").
+- **Doctrine élargie** : la révision concerne **tous les niveaux figés** vs cost roulant — **stop inclus** (stop posé pré-rally peut devenir absurdement bas = ne protège plus rien, ou trop proche du cur = bruit). Le ratio R/R de la position doit rester cohérent après chaque révision (target up ⇒ stop reconsidéré aussi).
+- **Pas urgent** : projet structurel post-sweep #133, à étaler. Probablement 1 ticker / semaine pour ancrer dans la routine sans batcher fatigué.
+- **Pré-condition #134** : le monitor `stale_target` doit être livré d'abord — il surfaceriva les positions qui méritent la révision en priorité (alive → dying → dead), évitant de faire du sweep aveugle.
+
+~ étalé sur 2-3 mois. Effet : restaurer la sémantique "niveau décidé = vraie décision de sortie/protection ancrée sur évidence externe + jugement", supprimer définitivement les niveaux pré-rally devenus mensonges silencieux.
 
 1. **Finir le seam L29 gauge — 4e caller : theses panel L5936** (TODO #121, fresh-head required). Pattern : récupérer `book_idx` (pas en scope actuellement vs les 3 autres callers déjà migrés), adapter construction `t["_entry"]/t["_stop"]/t["_tgt"]/t["_cur"]` pour lire BookLine EUR (`avg_cost_eur`, `stop_eur`, `target_full_eur`, `current_price_eur`). Diff = finding. Ferme la fenêtre temporaire de désaccord inter-panneaux (le theses panel affiche encore entry-thèse pendant que les 3 autres sont sur avg_cost). ~30min.
 
