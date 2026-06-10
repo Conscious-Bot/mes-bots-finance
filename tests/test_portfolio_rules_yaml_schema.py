@@ -102,20 +102,80 @@ def test_partial_cap_none_allowed():
 
 
 def test_consensus_ref_dates_valid():
-    """ConsensusRef valide PT > 0, median > 0, date valide."""
+    """ConsensusRef valide PT > 0, median > 0, currency obligatoire, date valide."""
     ref = ConsensusRef.model_validate({
         "pt": 100.0,
         "median": 95.0,
+        "currency": "USD",
         "asof": date(2026, 6, 10),
     })
     assert ref.pt == 100.0
+    assert ref.currency == "USD"
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
         ConsensusRef.model_validate({
             "pt": -10.0,  # negatif interdit
             "median": 95.0,
+            "currency": "USD",
             "asof": date(2026, 6, 10),
         })
+
+
+def test_consensus_ref_currency_required():
+    """Verrou money-invariant L28 : currency obligatoire sur ConsensusRef.
+
+    Sans devise, un PT 1690 sur ASML.AS (cote EUR) vs spot EUR -> signe inverse
+    silencieux du delta consensus (USD vs EUR melange = +176056% du money-invariant).
+    """
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="currency"):
+        ConsensusRef.model_validate({
+            "pt": 1690.0,
+            "median": 1730.0,
+            "asof": date(2026, 6, 10),
+            # currency manquant
+        })
+
+
+def test_consensus_ref_currency_invalid_rejected():
+    """Devise hors enum (typo 'usd' minuscule, ou 'EURO') -> Pydantic catche."""
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        ConsensusRef.model_validate({
+            "pt": 1690.0,
+            "median": 1730.0,
+            "currency": "usd",  # minuscule = drift
+            "asof": date(2026, 6, 10),
+        })
+
+
+def test_sum_of_target_weights_within_cap():
+    """Garde-fou portefeuille : Sum target_weight_pct <= 105% (cap par defaut).
+
+    Sans ce validator un bump aveugle (+3% general) ferait sauter la somme
+    sans validation per-position.
+    """
+    from pydantic import ValidationError
+    bad_raw = {
+        "_meta": {
+            "schema_version": 1,
+            "declared_at": date(2026, 6, 10),
+            "last_modified": date(2026, 6, 10),
+            "next_review_due": date(2026, 9, 30),
+            "doctrine_refs": ["test"],
+            "schema_module": "intelligence.portfolio_rules_schema",
+            "description": "test",
+        },
+        "cluster_caps": {"ai_compute_max_pct": 70},
+        "positions": {
+            # Σ = 110% > 105% cap
+            "A": {"target_weight_pct": 50.0, "regime": "A", "invalidation": "x"},
+            "B": {"target_weight_pct": 40.0, "regime": "A", "invalidation": "x"},
+            "C": {"target_weight_pct": 20.0, "regime": "A", "invalidation": "x"},
+        },
+    }
+    with pytest.raises(ValidationError, match="Sum target_weight_pct"):
+        PortfolioRulesConfig.model_validate(bad_raw)
 
 
 def test_extra_field_rejected_on_position():

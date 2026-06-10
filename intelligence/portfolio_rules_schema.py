@@ -35,6 +35,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 Regime = Literal["A", "B"]
+ConsensusCurrency = Literal["USD", "EUR", "JPY", "KRW", "GBP", "CHF", "CAD"]
 
 
 class PortfolioRulesMeta(BaseModel):
@@ -73,15 +74,24 @@ class PortfolioRulesMeta(BaseModel):
 
 
 class ConsensusRef(BaseModel):
-    """Ancre externe analystes (PT consensus + median, capture datee).
+    """Ancre externe analystes (PT consensus + median + currency, capture datee).
 
     Pas de spot-delta ici : derivable live, L23 valeur derivable jamais figee.
+
+    Currency OBLIGATOIRE (pas optionnel). Le money-invariant est exact (cf
+    L28) : un PT 1690 sans devise est une bombe a retardement. Les PT
+    Bigdata/FMP viennent typiquement de la couverture ADR US (USD) meme sur
+    des tickers cotes localement (ASML.AS, STMPA.PA, etc.). Sans le tag, le
+    spot-delta calcule (spot - pt)/pt melange EUR et USD = signe inverse
+    silencieux (le +176056% du money-invariant). Le consumer (card, monitor)
+    est responsable de la conversion via fx.
     """
 
     model_config = {"extra": "forbid"}
 
     pt: float = Field(gt=0.0)
     median: float = Field(gt=0.0)
+    currency: ConsensusCurrency
     asof: date
     note: str | None = Field(default=None, max_length=200)
 
@@ -154,6 +164,9 @@ class PortfolioRulesConfig(BaseModel):
     meta: PortfolioRulesMeta = Field(alias="_meta")
     cluster_caps: ClusterCaps
     positions: dict[str, Position] = Field(min_length=1)
+    # Cap sum-of-weights : > 105% = bump aveugle non catche par les validators
+    # per-position. Garde-fou portefeuille-level.
+    max_total_weight_pct: float = Field(default=105.0, gt=0.0, le=200.0)
 
     @field_validator("positions")
     @classmethod
@@ -162,3 +175,16 @@ class PortfolioRulesConfig(BaseModel):
             if not tk or not tk.strip():
                 raise ValueError(f"ticker key vide ou whitespace : {tk!r}")
         return v
+
+    @model_validator(mode="after")
+    def _sum_of_weights_within_cap(self):
+        total = sum(p.target_weight_pct for p in self.positions.values())
+        if total > self.max_total_weight_pct:
+            raise ValueError(
+                f"Sum target_weight_pct ({total:.1f}%) depasse cap "
+                f"({self.max_total_weight_pct}%). Garde-fou portefeuille : "
+                f"un bump aveugle (+3% general) ferait sauter la somme sans "
+                f"validation per-position. Ajuste les targets ou bump le cap "
+                f"explicitement (decision documentee)."
+            )
+        return self

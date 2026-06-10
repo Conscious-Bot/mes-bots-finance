@@ -48,6 +48,7 @@ positions:
     consensus_ref:
       pt: 1690
       median: 1730
+      currency: USD
       asof: '2026-06-10'
 
   TSM:
@@ -66,6 +67,7 @@ positions:
     consensus_ref:
       pt: 554
       median: 569
+      currency: USD
       asof: '2026-06-10'
     note: 'Position aveugle dans theses (sans cibles prix DB) - YAML lui donne sizing/invalidation. theses.target_* a poser ulterieurement par sweep.'
 
@@ -85,6 +87,7 @@ positions:
     consensus_ref:
       pt: 1840
       median: 1860
+      currency: USD
       asof: '2026-06-10'
 
   '000660.KS':
@@ -119,6 +122,7 @@ positions:
     consensus_ref:
       pt: 490
       median: 495
+      currency: USD
       asof: '2026-06-10'
 
   MU:
@@ -129,6 +133,7 @@ positions:
     consensus_ref:
       pt: 821
       median: 550
+      currency: USD
       asof: '2026-06-10'
       note: 'Dispersion targets 1-5x ($330-$1620), sell-side en desagregation. Median peu fiable.'
 
@@ -155,6 +160,7 @@ positions:
     consensus_ref:
       pt: 412
       median: 420
+      currency: USD
       asof: '2026-06-10'
 
   AMZN:
@@ -165,6 +171,7 @@ positions:
     consensus_ref:
       pt: 307
       median: 315
+      currency: USD
       asof: '2026-06-10'
 
   SU.PA:
@@ -229,6 +236,7 @@ positions:
     consensus_ref:
       pt: 450
       median: 450
+      currency: USD
       asof: '2026-06-10'
     note: 'Orphan crystallisant dans consensus. 0 Sell + $775Md cap = consensus long paye d''avance.'
 
@@ -241,6 +249,7 @@ positions:
     consensus_ref:
       pt: 74.8
       median: 83.5
+      currency: USD
       asof: '2026-06-10'
     note: 'STMicroelectronics. Miss -31.6% BPA Q precedent, point fragilite. 23/07 = confirmation ou infirmation.'
 
@@ -253,6 +262,7 @@ positions:
     consensus_ref:
       pt: 240
       median: 260
+      currency: USD
       asof: '2026-06-10'
       note: 'Spot +43% au-dessus consensus, +15% au-dessus du PT le plus haut street ($297). Pire asymetrie spot/consensus du book.'
 
@@ -265,6 +275,7 @@ positions:
     consensus_ref:
       pt: 324
       median: 330
+      currency: USD
       asof: '2026-06-10'
     note: 'Sanction -11.4% le 10/06 sur surprise=0%. Profil priced-for-beat.'
 
