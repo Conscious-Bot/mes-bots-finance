@@ -95,23 +95,28 @@ MP        USD          60.78        57.58    +2.8%   +11.9%  mourant
 | **asof** | 2026-06-10 |
 | **DB write** | `UPDATE theses SET target_partial=2650000, target_full=3800000, stop_price=1209954 WHERE rowid=28` — exécuté, rowid 21 (doublon fantôme) intacte. |
 
-### CCJ (Cameco) — USD — MORT (partial -7.4%, full +0.8%)
+### CCJ (Cameco) — USD — ✅ POSÉ 2026-06-10
 
 | | |
 |---|---|
 | **cost** | 109.72 USD |
 | **cur** | 105.44 USD |
-| **old_partial / edge_p** | 101.56 / -7.4% |
-| **old_full / edge_f** | 110.55 / +0.8% |
+| **entry (vraie, native)** | 89.88 USD |
+| **52w high** | 135.24 USD |
+| **old_partial / edge_p** | 101.56 / -7.4% (mort) |
+| **old_full / edge_f** | 110.55 / +0.8% (mort) |
+| **old_stop** | 71.90 (entry × 0.80, -20% vs entry) — **conservé, no-op** |
 | **consensus_ancre** | médianes 137.86-148.62 USD (range 82.60-174.98) ; bull Scotiabank 175 (mai 2026) ; NAV/action 66 ; EV/EBITDA 37× (élevé) ; revenue CAGR +8%, EBITDA CAGR +12% (2025-28) ; 70+ réacteurs en construction |
 | **calque MP** | **BANNI** — MP partial lui-même mourant 10/06 (cas canonique L30 "pair stale propage la staleness") |
-| **new_partial** | *(à poser)* |
-| **new_full** | *(à poser)* |
-| **new_stop** | *(à poser, conserver, OU marquer explicitement "core compounder sans stop assumé")* |
-| **delta_vs_consensus_partial** | *(claim falsifiable : "+X% / -X% vs consensus médian")* |
-| **delta_vs_consensus_full** | *(claim falsifiable)* |
-| **thèse_du_delta** | *(pourquoi ta vue diverge de la foule, 1 ligne — mécanisme nommé : supercycle uranium long, catalyseur réacteurs, etc.)* |
+| **note réconciliation entry** | Mémoire initiale "entry = 94.86 EUR" était en fait le **cost EUR** (109.72 USD × fx 0.8657 ≈ 94.97). **Vraie entry native = 89.88 USD**. Distinction tracée pour ne pas reproduire la confusion. |
+| **new_partial** | **124.00 USD** (+13.0% vs cost, +17.6% vs cur, -8.3% vs 52w high — trim atteignable) |
+| **new_full** | **155.00 USD** (+41.3% vs cost, +47.0% vs cur, +14.6% vs 52w high) |
+| **new_stop** | **71.90 USD** (no-op vs actuel, entry × 0.80) |
+| **delta_vs_consensus_partial** | -13% vs médiane consensus (~143) — partial volontairement très en dessous du target unique consensus = échelle de prise atteignable, pas "tout ou rien sur la cible analyste" |
+| **delta_vs_consensus_full** | **+8% vs médiane (~143)** · SOUS Scotiabank/max-bull (175) — mesuré-bull, au-dessus de la foule mais pas au max |
+| **thèse_du_delta** | Full 155 = au-dessus du consensus médian, sous le max-bull (175). Pari : super-cycle uranium (70+ réacteurs en construction, NAV 66) price au-dessus de la moyenne — mais pas au max, le cher/near-high (EV/EBITDA 37×) justifie de ne pas viser 175. Si le supercycle cale, ce delta était faux. |
 | **asof** | 2026-06-10 |
+| **DB write** | `UPDATE theses SET target_partial=124.0, target_full=155.0 WHERE rowid=46` — exécuté, stop 71.9 inchangé, pas de doublon CCJ (vs SK rowid 21 fantôme). |
 
 ### Positions en attente d'ancres externes (batch à venir)
 
