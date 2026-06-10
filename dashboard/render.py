@@ -6193,12 +6193,28 @@ def _perf_dwm(ticker: str) -> dict:
         start = today - relativedelta(months=1)
         window = get_price_window(ticker, start, end)
         if len(window) >= 2:
+            import math
             closes = [c for _, c in window]
             last = float(closes[-1])
-            out["d"] = round((last / float(closes[-2]) - 1) * 100, 1)
-            out["m"] = round((last / float(closes[0]) - 1) * 100, 1)
+
+            def _roi(numer: float, denom: float) -> float | None:
+                """Fail-closed L15 : None plutot qu'une valeur fabriquee (NaN/Inf).
+
+                Cure bug 'NaN%' RECENT MOMENTUM 10/06 : un denom=0 ou close NaN
+                propageait silencieusement en NaN dans le cache, puis dans
+                json.dumps -> 'NaN' litteral non-JSON -> 'NaN%' rendu JS.
+                """
+                if not math.isfinite(numer) or not math.isfinite(denom) or denom == 0:
+                    return None
+                v = (numer / denom - 1) * 100
+                if not math.isfinite(v):
+                    return None
+                return round(v, 1)
+
+            out["d"] = _roi(last, float(closes[-2]))
+            out["m"] = _roi(last, float(closes[0]))
             if len(closes) >= 6:
-                out["w"] = round((last / float(closes[-6]) - 1) * 100, 1)
+                out["w"] = _roi(last, float(closes[-6]))
     except Exception:
         pass
     _PERF_CACHE[ticker] = (now, out)
@@ -7616,9 +7632,15 @@ def render() -> Path:
         + "</head><body>"
         + body
         + "<script>window.TK="
-        + json.dumps(loupe_data)
+        # allow_nan=False catche NaN/Inf qui pollueraient le HTML rendu
+        # (Python sinon serialise NaN comme litteral 'NaN' = non-JSON ->
+        # browser parse en NaN -> JS affiche 'NaN%'). Cure-frontiere L15
+        # fail-loud post bug RECENT MOMENTUM 10/06. Si NaN se glisse dans
+        # loupe_data malgre les fail-closed amont, on prefere une erreur
+        # visible au regen qu'un 'NaN%' silencieux user-facing.
+        + json.dumps(loupe_data, allow_nan=False)
         + ";window.SB_DATA="
-        + json.dumps(sb_data)
+        + json.dumps(sb_data, allow_nan=False)
         + ";</script>"
         + ""
         + "<script>"
