@@ -1,0 +1,278 @@
+# config/portfolio_rules.yaml — cadre sizing/invalidation/regime (L17)
+#
+# Source de verite declarative pour : target_weight_pct, partial_cap_pct,
+# regime (A core / B conteste), invalidation structurelle, ancre consensus
+# analystes (PT/median dates).
+#
+# Lecteurs : monitor cap/cluster/invalidation (#134, futur) + page cards +
+# audit drift consensus vs spot.
+#
+# NE CONTIENT PAS : poids actuel (BookView, qty x prix x fx), spot-delta
+# consensus (live, L23 derivable jamais fige), alertes (futur monitor #134).
+# Pour les prix natifs target_partial / target_full / stop, voir theses table
+# (la gauge consomme la, pas ce YAML).
+#
+# Mise a jour : sur decision user (sweep #133 ou autre), bump last_modified.
+
+_meta:
+  schema_version: 1
+  declared_at: '2026-06-10'
+  last_modified: '2026-06-10'
+  next_review_due: '2026-09-30'
+  doctrine_refs:
+    - 'docs/LESSONS.md L17 (declarative en YAML, live state en DB)'
+    - 'docs/LESSONS.md L30 (cible figee + cost roulant = mensonge en formation)'
+    - 'docs/LESSONS.md L23 (valeur derivable jamais figee)'
+    - 'docs/templates/workflow_yaml_pattern.md'
+  schema_module: 'intelligence.portfolio_rules_schema'
+  description: 'Cadre sizing/invalidation/regime du portefeuille. Mine d''or sweep #133 10/06.'
+  source: 'Bigdata.com/FMP tranches 1-4 (consensus PT/median) + decisions user'
+
+# Caps de concentration cluster.
+# > seuil ai_compute -> trim par le bas de pile (Astera/AMD/Coherent/KLA),
+# jamais ASML/TSMC/Synopsys (regle gouvernance bias #1).
+cluster_caps:
+  ai_compute_max_pct: 70
+
+positions:
+
+  # ============================================================
+  # Regime A — core (full_condition = aucune)
+  # ============================================================
+
+  ASML.AS:
+    target_weight_pct: 6.0
+    partial_cap_pct: 7.8
+    regime: A
+    invalidation: 'high-NA echoue / litho concurrente emerge'
+    consensus_ref:
+      pt: 1690
+      median: 1730
+      asof: '2026-06-10'
+
+  TSM:
+    target_weight_pct: 6.0
+    partial_cap_pct: 9.0
+    regime: A
+    invalidation: 'perte leading-edge node / materialisation risque Taiwan'
+    consensus_ref: null
+    note: 'Gap couverture FMP Taiwan, PT non pulle'
+
+  SNPS:
+    target_weight_pct: 5.5
+    partial_cap_pct: 8.25
+    regime: A
+    invalidation: 'duopole EDA casse / in-sourcing hyperscalers'
+    consensus_ref:
+      pt: 554
+      median: 569
+      asof: '2026-06-10'
+    note: 'Position aveugle dans theses (sans cibles prix DB) - YAML lui donne sizing/invalidation. theses.target_* a poser ulterieurement par sweep.'
+
+  '4063.T':
+    target_weight_pct: 5.0
+    partial_cap_pct: 7.5
+    regime: A
+    invalidation: 'near-duopole wafer 300mm casse'
+    consensus_ref: null
+    note: 'Shin-Etsu, gap couverture Japon, PT non pulle'
+
+  KLAC:
+    target_weight_pct: 4.0
+    partial_cap_pct: 6.0
+    regime: A
+    invalidation: 'process-control commoditise / concurrence emerge'
+    consensus_ref:
+      pt: 1840
+      median: 1860
+      asof: '2026-06-10'
+
+  '000660.KS':
+    target_weight_pct: 4.0
+    partial_cap_pct: 6.0
+    regime: A
+    invalidation: 'CXMT qualifie HBM en volume'
+    consensus_ref: null
+    note: 'SK Hynix, gap couverture Coree FMP. Proxy print MU 24/06.'
+
+  BESI.AS:
+    target_weight_pct: 3.5
+    partial_cap_pct: 4.55
+    regime: A
+    invalidation: 'hybrid bonding commoditise / rampe 2027 glisse'
+    consensus_ref: null
+    note: 'Gap couverture Europe, PT non pulle. Surveiller bookings print 23/07.'
+
+  '6857.T':
+    target_weight_pct: 3.0
+    partial_cap_pct: 4.5
+    regime: A
+    invalidation: 'Teradyne casse le monopole test HBM/SoC'
+    consensus_ref: null
+    note: 'Advantest, gap couverture Japon'
+
+  AVGO:
+    target_weight_pct: 3.0
+    partial_cap_pct: 4.5
+    regime: A
+    invalidation: 'douve ASIC/networking s''erode (hyperscalers in-sourcent)'
+    consensus_ref:
+      pt: 490
+      median: 495
+      asof: '2026-06-10'
+
+  MU:
+    target_weight_pct: 2.0
+    partial_cap_pct: 3.0
+    regime: A
+    invalidation: 'CXMT scale HBM + rupture cycle memoire'
+    consensus_ref:
+      pt: 821
+      median: 550
+      asof: '2026-06-10'
+      note: 'Dispersion targets 1-5x ($330-$1620), sell-side en desagregation. Median peu fiable.'
+
+  ENTG:
+    target_weight_pct: 2.0
+    partial_cap_pct: 3.0
+    regime: A
+    invalidation: 'goulot materiaux s''erode (substitutes industriels)'
+    consensus_ref: null
+
+  '6920.T':
+    target_weight_pct: 2.0
+    partial_cap_pct: 3.0
+    regime: A
+    invalidation: 'monopole inspection EUV casse'
+    consensus_ref: null
+    note: 'Lasertec, gap couverture Japon'
+
+  GOOGL:
+    target_weight_pct: 4.0
+    partial_cap_pct: 6.0
+    regime: A
+    invalidation: 'perd position leadership IA/cloud (Search disruption)'
+    consensus_ref:
+      pt: 412
+      median: 420
+      asof: '2026-06-10'
+
+  AMZN:
+    target_weight_pct: 3.5
+    partial_cap_pct: 5.25
+    regime: A
+    invalidation: 'perd position hyperscaler (AWS perte parts vs Azure/GCP)'
+    consensus_ref:
+      pt: 307
+      median: 315
+      asof: '2026-06-10'
+
+  SU.PA:
+    target_weight_pct: 4.0
+    partial_cap_pct: 5.2
+    regime: A
+    invalidation: 'goulot electrification s''erode (chinois sur datacenter power)'
+    consensus_ref: null
+    note: 'Schneider Electric, ballast non pulle Bigdata'
+
+  SAF.PA:
+    target_weight_pct: 4.0
+    partial_cap_pct: 5.2
+    regime: A
+    invalidation: 'rupture cycle aftermarket aero / LEAP problem'
+    consensus_ref: null
+    note: 'Safran, ballast non pulle Bigdata. Bump prevu 16/06 J+30.'
+
+  '7011.T':
+    target_weight_pct: 3.5
+    partial_cap_pct: 5.25
+    regime: A
+    invalidation: 'rupture power/defense / SMR nucleaire glisse'
+    consensus_ref: null
+    note: 'Mitsubishi Heavy Industries, gap couverture Japon'
+
+  HO.PA:
+    target_weight_pct: 3.0
+    partial_cap_pct: 3.9
+    regime: A
+    invalidation: 'cycle defense se retourne / budget EU contracte'
+    consensus_ref: null
+    note: 'Thales, ballast non pulle Bigdata'
+
+  MP:
+    target_weight_pct: 3.0
+    partial_cap_pct: 4.5
+    regime: A
+    invalidation: 'devient AI-correle (perd statut ballast) / refining capacity casse'
+    consensus_ref: null
+    note: 'MP Materials. Partial actuellement mourant (+2.8% edge cost) - cas canonique L30. Decision sweep #133 a venir.'
+
+  LNG:
+    target_weight_pct: 3.0
+    partial_cap_pct: 4.5
+    regime: A
+    invalidation: 'suroffre LNG mondiale / prime securite Europe tombe'
+    consensus_ref: null
+    note: 'Cheniere'
+
+  # ============================================================
+  # Regime B — conteste (full_condition expression textuelle,
+  #             target_full prix natif vit dans theses, gauge l'affiche)
+  # ============================================================
+
+  AMD:
+    target_weight_pct: 1.5
+    partial_cap_pct: 2.0
+    regime: B
+    invalidation: 'pas de gain de part vs NVDA/custom ASIC sur 2-3 trimestres'
+    full_condition: 'exit si these ne livre pas au 04/08 + 1 trimestre supplementaire'
+    consensus_ref:
+      pt: 450
+      median: 450
+      asof: '2026-06-10'
+    note: 'Orphan crystallisant dans consensus. 0 Sell + $775Md cap = consensus long paye d''avance.'
+
+  STMPA.PA:
+    target_weight_pct: 1.5
+    partial_cap_pct: null
+    regime: B
+    invalidation: 'fragilite confirmee (2e miss consecutif)'
+    full_condition: 'exit si 2e miss le 23/07'
+    consensus_ref:
+      pt: 74.8
+      median: 83.5
+      asof: '2026-06-10'
+    note: 'STMicroelectronics. Miss -31.6% BPA Q precedent, point fragilite. 23/07 = confirmation ou infirmation.'
+
+  ALAB:
+    target_weight_pct: 1.5
+    partial_cap_pct: null
+    regime: B
+    invalidation: 'perte design-win interconnect (Marvell / Astera in-source)'
+    full_condition: 'TRIM NOW partiel + exit si design-win perdu'
+    consensus_ref:
+      pt: 240
+      median: 260
+      asof: '2026-06-10'
+      note: 'Spot +43% au-dessus consensus, +15% au-dessus du PT le plus haut street ($297). Pire asymetrie spot/consensus du book.'
+
+  COHR:
+    target_weight_pct: 3.0
+    partial_cap_pct: 4.5
+    regime: B
+    invalidation: 'perte part transceiver/design (datacom)'
+    full_condition: 'partiel seulement (pas d''exit complet)'
+    consensus_ref:
+      pt: 324
+      median: 330
+      asof: '2026-06-10'
+    note: 'Sanction -11.4% le 10/06 sur surprise=0%. Profil priced-for-beat.'
+
+  # ============================================================
+  # Pseudo-ticker — dry powder
+  # ============================================================
+
+  CASH:
+    target_weight_pct: 4.0
+    regime: null
+    note: 'dry powder'
