@@ -138,7 +138,10 @@ Pas de format `+X.X%` sur les data-attrs prix. Le `%` reste dans le `title` (lab
     transform: translateX(-50%);
 }
 .tbar-cost-caret.stale {
-    opacity:.5; border-bottom-style:dashed;
+    /* DÉVIATION code : `border-bottom-style:dashed` ne rend pas sur un triangle
+       CSS border-bottom (la "bordure" est l'aire pleine du triangle, pas un
+       trait). Substitut équivalent en lisibilité : opacity .5 + warn color. */
+    opacity:.5; border-bottom-color:var(--warn);
 }
 
 /* Overflow chevrons */
@@ -154,24 +157,28 @@ Pas de format `+X.X%` sur les data-attrs prix. Le `%` reste dans le `title` (lab
 | `stop_native` | `full_native` | Rendu |
 |---|---|---|
 | ✓ | ✓ | Gauge complète avec bande [stop, full] |
-| ✗ | ✓ | Gauge dégradée : cur + cost + full visible, pas de bande, message hover « stop non défini » |
-| ✓ | ✗ | Gauge dégradée : cur + cost + stop visible, pas de bande, message hover « target non défini » |
+| ✗ | ✓ | ⚠ KNOWN-GAP (cf note) — *idéal SPEC* : cur + cost + full visible, message hover « stop non défini » |
+| ✓ | ✗ | ⚠ KNOWN-GAP (cf note) — *idéal SPEC* : cur + cost + stop visible, message hover « target non défini » |
 | ✗ | ✗ | Minimal : cur + cost seulement, label « pas de cibles définies » |
 
 **Jamais** synthétiser des bornes manquantes (pas de fallback à `cur ± 10%` ou autre). La gauge dit honnêtement ce qu'elle ne sait pas.
 
+**# KNOWN-GAP impl actuelle** : `_position_axis_price` rend la **bande complète** (row 1) OU le **degraded binaire** (cur + cost seuls, classe `.degraded`) — les **rows 2-3** (borne unique présente : full sans stop, ou stop sans full) ne sont **pas rendues distinctement**, elles retombent dans le même degraded binaire que row 4. Anchor géométrique indéfini sans bande [stop, full] : pas de mappage canonique de la borne unique sur l'axe. Cas rare en pratique (les thèses posent stop et full ensemble). Cf `# KNOWN-GAP:` du docstring helper. À traiter quand surface, verrouillé par `test_renderer_fail_closed_when_full_missing_degraded_html`.
+
 ## 5. Tests verrouillants
 
-- `test_axis_band_anchored_on_stop_full` : positions visuelles `stop@10%`, `full@90%` par construction, indépendant de cur_native.
-- `test_cost_above_full_goes_overflow_stale` : si cost_native > full_native, le marqueur cost est dans la lane droite + classe `stale`.
-- `test_dot_overflow_chevron_when_beyond` : si cur_native > full_native, le dot est dans la lane droite + chevron `›` visible.
-- `test_native_eur_separation_invariant` : grep dans le HTML produit — aucun symbole € dans les attributs `style` de position visuelle ; le € apparaît UNIQUEMENT dans le `title` attribute (tooltip texte).
-- `test_hover_payload_no_pct` : le data-axmin/axmax sont des nombres prix natifs (pas signed %), et le JS rendu contient `fmtNative` pas `fmtPct`.
-- `test_fail_closed_when_full_missing` : `full_native = None` → HTML rendu sans `class="tbar-tick target"`, tooltip contient « target non défini ».
-- `test_beyond_split_consistent_with_visual` : pour chaque position, `is_beyond_classification ≡ (cur_native ≥ full_native)` strict, jamais de divergence avec le rendu visuel.
-- `test_skhynix_beyond_visual_and_classified` : SK Hynix → dot dans lane droite + range dans panneau Beyond.
-- `test_amd_closest_visual_and_classified` : AMD (cur < full_native après renforcement) → dot dans la bande, à gauche du tick vert, range dans Closest.
-- `test_6857t_partial_not_negative` : 6857.T (renforcée) → partial tick reste à son **prix natif fixe**, pas en position négative ; cost se place où il est, même au-delà de partial si applicable.
+Implémentés dans `tests/test_gauge_price_native.py` (21 tests, commit `8d9fd76`) :
+
+- **H1-H4** helper (BL → dict) — fail-closed L15 + single-source L27
+- **R1-R9** renderer (dict → HTML) — géométrie bande [10,90], overflow rationnel, séparation EUR-natif, hover payload prix-natif
+- **C1-C6** scénarios end-to-end (BL → HTML) sur cas réalistes (SK Hynix KRW, AMD USD, 6857.T JPY, split Beyond/Closest)
+- **B1-B2** verrous structurels (JS hover inset `(p-10)/80` source-grep ; KNOWN-GAP §4 documenté en source)
+
+**Pivots** :
+- H1 `test_helper_single_source_cur_eur_from_native_x_fx_never_from_eur_attr` — verrouille la cure fork rebirth via attribut piège `current_price_eur=99999` ignoré par construction
+- C5 `test_no_negative_left_anywhere_on_realistic_cases` — verrouille frontalement le bug d'origine (partial négatif interp 1) sur 7 cas du book, couvre les 3 branches de `to_v` (in-band, overflow gauche AMD, overflow droit SK Hynix)
+
+**Contrat détaillé = docstrings des tests, source unique.** Cette section pointe ; elle ne duplique pas (anti-L1 : la SPEC ne peut pas dériver des noms réels).
 
 ## 6. Anti-patterns historiques (le chemin parcouru, à ne pas refaire)
 
@@ -210,14 +217,22 @@ Beyond = `cur ≥ full`, jamais `cur ≥ partial`. Atteindre partial ne range pa
 ## 7. Implementation Status
 
 - **Gravé** : 2026-06-09 (canon final post-7-pivots, décisions tranchées §0)
-- **Implémentation** : NOT_STARTED (banner SUPERSEDED retiré dès la première implémentation)
-- **Code en prod à remplacer** : `_position_axis`, `_position_axis_pct`, `_gauge_pcts_from_cost`, ancien `_position_axis_price` (5 ticks EUR mélangés) — tous à supprimer dans le commit d'implémentation
-- **Fichiers cibles** :
-  - `dashboard/render.py` : `_gauge_prices_native`, `_position_axis_price` (refonte), 4 callers basculés, JS hover canonique
-  - `dashboard/_styles.py` : CSS `.tbar-cost-caret`, `.tbar-chevron-{left,right}` ajoutées ; `.tbar-tick.{stop,partial,target}` conservées (fluo + glow)
-  - `tests/test_position_axis_price.py` : suite §5 réécrite complète
+- **Implémentation** : **IMPLEMENTED** (2026-06-10)
+- **Étapes livrées** :
+  - Étape 1 (`0e9258b`) : helper `_gauge_prices_native` + renderer `_position_axis_price` refonte + CSS caret/chevrons (non câblé)
+  - Étape 2 (`99451bc`) : bascule atomique 4 callers + asym `_axis` re-sourcé BookLine (cure fork live↔cron) + JS hover géométrie inverse + suppression code mort (`_position_axis`, `_position_axis_pct`, `_gauge_pcts_from_cost`, ancien renderer EUR, branche JS `mode==='price'` morte, `fmtEur` orphelin)
+  - Étape 4.1 (`8d9fd76`) : tests verrouillants §5 — 21 tests qui mordent, dont 2 pivots (H1 fork rebirth via `current_price_eur`, C5 no-negative-left frontal)
+- **Fichiers livrés** :
+  - `dashboard/render.py` : `_gauge_prices_native` (L338+), `_position_axis_price` (L386+), 4 callers basculés (position card / theses / book row / asym `_axisrow`), JS hover canonique géométrie inverse `(p-10)/80`
+  - `dashboard/_styles.py` : CSS `.tbar-cost-caret` (+ `.stale` déviation §3 documentée), `.tbar-chevron-{left,right}`, `.tbar-tick.{stop,partial,target}` fluo + glow
+  - `tests/test_gauge_price_native.py` : suite §5 complète (21 tests, helper/renderer séparés)
+  - `scripts/smoke_gauge_step2.py` : smoke gate runtime (parse HTML rendu, 3 invariants split/visuel)
 - **Audit drift** : `scripts/audit_canonical_drift.py`
-- **Prochain step** : implémenter en un commit atomique selon §0-4 (diffusion L29), retirer le banner SUPERSEDED en tête de la SPEC dans le même commit.
+- **Reste à boucler** :
+  - **#121** (re-source KPIs theses panel L5936 sur BookLine cron) — dette de cohérence two-source côté KPI (pas gauge), ~30min
+  - **#133** sweep humain cibles figées + full SK Hynix (cf [[L30]] LESSONS) — décisions a/b/c par jugement, jamais auto-recompute
+  - **#134** monitor `stale_target` via `docs/templates/monitor_pattern.md` (3e monitor du gabarit, trigger dégradation)
+  - **L30 expansion complète** doctrine (post-#133 pour les seuils proposés sur cas observés, pas inventés)
 
 ## 8. Le fil
 
