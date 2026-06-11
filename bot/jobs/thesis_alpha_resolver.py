@@ -30,13 +30,17 @@ Décisions §0 + §4 SPEC appliquées :
 - §3.2 : magnitude Brier-type, outcome=sign(alpha) (PAS direction_correct
   — sinon bear-correct scoré 0.81 au lieu de 0.01).
 
-Tests mockent shared.prices.get_price_on_date (pas de réseau).
+Tests passent un stub via le param `fetcher` (DI > monkeypatch global) :
+le resolver reste storage-only en transitif (pas de chaîne shared.prices
+tirée), runnable sur venv minimal sans google-auth/yfinance installés.
+En prod, fetcher=None → lazy import shared.prices.get_price_on_date.
 """
 
 from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -99,12 +103,15 @@ def resolve_due_thesis_predictions(
     grace_days: int = 5,
     epsilon_neutral_pct: float = 1.0,
     epsilon_delta_pct: float = 1.0,
+    fetcher: Callable[[str, str], tuple[str | None, float | None]] | None = None,
 ) -> dict[str, int]:
     """Résout les paris arrivés à maturité (cron daily).
 
     Pour chaque prediction dans get_due_thesis_predictions :
-    1. UN appel shared.prices.get_price_on_date(ticker, due_date).
-       (yfinance fallback interne +10j → garde explicite ci-dessous.)
+    1. UN appel fetcher(ticker, due_date.isoformat()) → (actual_date_str, price).
+       En prod : fetcher = shared.prices.get_price_on_date (lazy import si
+       fetcher None). Le yfinance fallback interne scanne +10j → garde §4.3
+       explicite ci-dessous.
     2. Validation prix : (non-None, math.isfinite, > 0). Non-fini = manquant.
     3. Garde §4.3 : actual_date ≤ due+grace_days. Si actual au-delà →
        traité comme manquant (le fallback yfinance ne peut pas violer la
@@ -121,6 +128,12 @@ def resolve_due_thesis_predictions(
         grace_days : fenêtre de grâce dure (SPEC §4.3, default 5)
         epsilon_neutral_pct : seuil neutral |alpha|<ε → exclu scoring
         epsilon_delta_pct : seuil no_bet (déjà gaté à la pose, défensif ici)
+        fetcher : injection de dépendance (DI > monkeypatch global). En prod
+            laisser None → lazy import shared.prices.get_price_on_date. En
+            tests passer un stub → ce module reste storage-only en transitif
+            (ne tire pas la chaîne lourde shared.prices → gmail → google-auth),
+            donc runnable sur venv minimal sans google-auth installé.
+            Signature : (ticker: str, date_str: str) -> (actual_date_str|None, price|None).
 
     Returns:
         Compteurs counter avec invariant garanti par construction (L27) :
@@ -136,9 +149,11 @@ def resolve_due_thesis_predictions(
     if today is None:
         today = datetime.now(UTC).date()
 
-    # Import différé : ce module est mockable par les tests via monkeypatch
-    # sur shared.prices.get_price_on_date sans qu'on déclenche d'import live.
-    from shared import prices as _prices
+    # DI : si pas de fetcher injecté, lazy import prod (la chaîne shared.prices
+    # → gmail → google-auth n'est tirée QUE si on est en prod, jamais en test).
+    if fetcher is None:
+        from shared import prices as _prices
+        fetcher = _prices.get_price_on_date
 
     counters = {
         "attempted": 0,
@@ -161,7 +176,7 @@ def resolve_due_thesis_predictions(
         # Étape 1+2+3 : un appel + validation + garde grâce
         valid_price, resolve_price = _fetch_price_in_grace(
             ticker=ticker, due_date=due_date, grace_deadline=grace_deadline,
-            fetcher=_prices.get_price_on_date,
+            fetcher=fetcher,
         )
 
         if not valid_price:
