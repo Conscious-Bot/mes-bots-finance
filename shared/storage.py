@@ -1,4 +1,9 @@
-"""SQLite accessors. Toute la mémoire passe par ici."""
+"""SQLite accessors. Toute la mémoire passe par ici.
+
+Re-exports L17 : la passerelle expose IntegrityError pour que les callers
+n'aient pas à importer sqlite3 directement (sinon test_no_new_sqlite3_bypass
+mord). Ajouter ici les autres exceptions sqlite3 utiles si besoin.
+"""
 
 import json
 import sqlite3
@@ -6,7 +11,10 @@ from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from sqlite3 import IntegrityError  # re-export passerelle L17
 from typing import Any
+
+__all__ = ["IntegrityError", "db", "DB_PATH"]  # extension possible
 
 ROOT = Path(__file__).parent.parent
 DB_PATH = ROOT / "data" / "bot.db"
