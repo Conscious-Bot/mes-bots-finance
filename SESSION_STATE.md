@@ -2821,3 +2821,74 @@ Trouvaille croustillante du sweep full-book : MP edge_partial +2.8%, edge_full +
 3. `tests/test_views_convergence::test_mauboussin_actual_pct_converges_with_book_view` — divergences `weight_pct` ALAB (2.7 vs 2.81, Δ 0.11pp) + SNPS (6.0 vs 6.15, Δ 0.15pp). **Bisect confirmé** : test passait à `8aab30f` (avant SK/CCJ writes), échoue à HEAD — mais ALAB/SNPS ne sont pas touchés par mes UPDATE (SK + CCJ uniquement). Cause probable : test live-data dépendant (compute_mauboussin_sizing lit prix live via cron price_monitor refresh), drift naturel d'arrondi 0.1pp juste au seuil. **Flaky par construction**, à fix dans une session dédiée (tolérance + ou snapshot-freeze).
 
 Décision : **ces 3 ne bloquent pas le close** — aucune n'est causée par les commits du jour, toutes sont des dettes pré-existantes ou flakiness live. À traiter en P2 dans une session ultérieure (typiquement quand on fera #110 SPEC_LIVING_GRAPH écriture complète, qui touchera living_graph.py et rouvrira les 2 premiers fails).
+
+
+## Pause 2026-06-11 — Chantier alpha resolver pièces 5+6 livrées + cure infra #128, EN PAUSE avant pièce 7
+
+Pas un /close (pause projet, pas fin de session). Checkpoint pour bootstrap propre de la conv pièce 7 (analyse-réelle SK PT consensus).
+
+### Livré (4 commits chronologiques)
+
+- `ead901d` **pièce 5 aggregator** — `scripts/aggregator_alpha_track_record.py` storage-only + 18 tests dont 2 critiques imposés red-team : T8 catch inversion baseline (`cluster_strategy='ticker'`, book parfait 20-bull-juste + 20-bear-juste DOIT être skill_detected, pas anti_skill) + T9 catch corrélation iid (40 preds 1-cluster Brier 0.10 DOIT être insufficient_n, pas skill). Cluster (block) bootstrap, baseline `p̄(1−p̄)` sur `sign(alpha)` (PAS direction_correct), verdict fail-closed L19 gaté sur pool BRIER. SQL `WHERE resolved_at IS NOT NULL` seul (§4.1 axes orthogonaux : la partition par colonnes d'outcome fait le travail, redondance `resolution_status='resolved' AND exclude_reason IS NULL` dissoute).
+- `db97b44` **pièce 4 DI fetcher** — `resolve_due_thesis_predictions(..., fetcher: Callable | None = None)` : prod = lazy import `shared.prices.get_price_on_date`, tests = stub injecté. DI > monkeypatch global. Débloque rétroactivement run-vérif côté venv minimal (mais le packaging leak `bot.jobs.__init__` empêchait encore la collection — voir #128).
+- `690702e` **pièce 6 E2E** — `tests/test_e2e_alpha_chain.py` 2 tests : (1) pose 3 preds via writers réels → resolver avec stub fetcher (1 correct + 1 incorrect + 1 abandon grace épuisée) → aggregator voit 2 dans pools, 1 abandon EXCLU. Couvre les DEUX états terminaux (resolve + abandon) — le piège silencieux qui dériverait sur 12 mois de latence. (2) Subprocess transitif lock storage-only.
+- `53ec915` **cure infra #128 (a+b+c)** — `bot/jobs/__init__.py` vidé (zéro ré-export, Option B sur red-team Olivier : map `_JOB_TO_MODULE` était un 2e référentiel drift-prone, supprimer les ré-exports plutôt que de les rendre lazy via `__getattr__`). `bot/main.py:116-156` migré : 1 import flat (38 jobs) → 3 imports groupés daily/intervals/periodic. Test E2E-T2 passe de bypass importlib → import normal subprocess. 18 tests pièce 4 migrés monkeypatch global → fetcher DI. Grep dynamique propre (0 `getattr(bot.jobs, ...)` ou `import_module`) avant la cure : Option B propre, aucun angle mort.
+
+### Doctrine acquise / red-team Olivier intégrés
+
+- **Anti-pattern « test == spec deux fois faux »** : T10 (skill clair) initial seedé all-bull-correct → baseline=0 (p̄=1.0) → anti_skill. Catch : un test qui satisfait sa propre erreur de définition est inutile. Corrigé mix bull/bear pour avoir baseline 0.25 réaliste.
+- **Inversion baseline catastrophique** : `_base_rate_brier` doit prendre `alpha_values` (outcomes `sign(alpha)`), JAMAIS `direction_correct_values`. Le book parfait 20-bull + 20-bear divise les deux : p_direction=1.0 → baseline=0 → book parfait classé anti_skill. Inversion totale chopée AVANT prod.
+- **Cluster bootstrap dissout les constantes L16** : `min_n_effective=30` et `min_n_for_ci=10` (fabriquées) supprimées. Seul plancher principielle : `n_clusters_brier >= 2`.
+- **2-référentiels drift-prone** (re-confirmé doctrine) : un registre code qui répète un fait défini ailleurs = drift garanti. Option B (supprimer la machinerie) > Option A (lazy + map). Pattern visible 3× sur cette session.
+- **Verify-before-patch sur faits transitifs (imports)** : `ast.parse` ne voit que les imports directs. Le packaging leak `bot.jobs.__init__` ne se trouvait QUE par subprocess interpréteur frais. Test T16 (aggregator) et test_resolver_module_is_storage_only (E2E) verrouillent ça pour de bon.
+
+### Couverture-run du chantier alpha — état réel après #128
+
+| Pièce | Mac Claude | Venv minimal Olivier 3.14.5 |
+|---|---|---|
+| 1 helpers, 2/3 writers, 5 aggregator | ✅ | ✅ (dès l'origine) |
+| 4 resolver | ✅ | ✅ (débloqué par #128) |
+| 6 E2E | ✅ | ✅ (débloqué par #128) |
+
+**Pièces 1-6 : deux vérifications indépendantes complètes.** Le maillon resolver+E2E — code qui tournera en silence 12 mois avant la résolution SK/CCJ — est run-vérifié des deux côtés. Mesuré, pas affirmé.
+
+Sanity venv minimal Olivier : 38/38 (18 pièce 4 + 18 pièce 5 + 2 E2E), zéro pandas/google chargé, pas de crash 3.14 + extensions C natives. Le test `test_resolver_module_is_storage_only` n'a pas mordu.
+
+### Reste : pièce 7 — backfill SK + CCJ — BLOQUÉE sur input business
+
+- Bloqueur explicite : task #13 = décision PT consensus SK Hynix blended (~2.3M KRW à valider), méthodo blend, asof concret.
+- Anti-piège L30 / `feedback_in_sample_tuning_validation` / `dna_instrument_v2` : input humain sourcé, pas de défaut deviné par Claude.
+- Flux décidé pour la conv pièce 7 (analyse-réelle, conv fraîche) : (1) Claude rassemble les vrais PT analystes SK Hynix actuels (web/bigdata — données réelles datées, pas inventées), (2) Olivier décide blend + asof, (3) backfill via `insert_thesis_pose(SK + CCJ)` + horloge track-record démarre, premières résolutions tomberont J+12mois.
+
+### Known-gaps ouverts
+
+- **Reproductibilité bootstrap petits N** : « seed différent → CI différent » non garanti sur distributions étroites (quantiles 2.5%/97.5% peuvent coïncider). Contrat principal « même seed → même CI » seul.
+- **Cluster (currency, sector)** : actuellement `currency` seul (table thesis_predictions n'a pas `sector`). Raffinement via JOIN `watchlist.sector` possible pour plus de granularité, conservateur de garder `currency` (sur-cluster KRW/semis + KRW/finance = CI plus large = fail-closed plus fort).
+- **Tests pré-existants flaky** (du close 10/06, non-touchés par cette session) : `test_db_write_surface_is_frozen`, `test_no_orphan_table_refs`, `test_mauboussin_actual_pct_converges_with_book_view`.
+
+### Entry next session pièce 7 (conv fraîche analyse-réelle)
+
+1. Bootstrap : lire `CLAUDE.md` + ce checkpoint + `MEMORY.md` (notamment `parallel_projects_tennis_bot`, `currency_native_invariant`, `niveau_2_adversary_and_proof`).
+2. Claude rassemble PT consensus SK Hynix analystes : sources sourcées datées (KB / KoreaInv / Mirae / Shinhan déjà identifiés sweep #133 — ré-update post-juin si new earnings), médiane + range + asof précis.
+3. Olivier décide blend (médiane vs equal-weighted vs autre), asof, confidence à la pose.
+4. Backfill SK + CCJ via `insert_thesis_pose(...)` direct. Vérif via `get_due_thesis_predictions(today=2027-06-10)` que ça remontera bien à maturité.
+5. Aucun code resolver/aggregator à toucher — tout est prêt. Pièce 7 = données + 2 appels writer.
+
+### Commits session 11/06 chantier alpha (chronologique, plus récent en bas)
+
+- `ead901d` pièce 5 aggregator + 18 tests
+- `db97b44` pièce 4 DI fetcher patch
+- `690702e` pièce 6 E2E + lock storage-only
+- `53ec915` #128 (a+b+c) cure packaging + tests pièce 4 DI + E2E import normal
+
+### Pièce 7 — ancrages consensus rassemblés 11/06 (sourcés, datés)
+
+- CCJ (NYSE, USD) : spot 95,03 (10/06, −21%/1M, gros pullback) ; consensus PT
+  140,25 moy / 139 méd / fourchette 108–175 ; rating Buy. Donnée PROPRE (Bigdata).
+- SK Hynix (KRX, KRW) : spot 2 101 000 (11/06, +775%/1A rally HBM) ; consensus
+  DISPERSÉ — moy 2,08M (le rally a DÉPASSÉ la moyenne des targets, stale) vs
+  2,52M autre agrégateur ; low 1,03M / high 4,0M ; 38 analystes Strong Buy.
+  Blend ~2,3M = milieu défendable MAIS trancher consciemment (lag de la moyenne
+  + asof). Sources : Investing.com, StockAnalysis, Yahoo.
+- EN ATTENTE OLIVIER (non-sourçable par Claude, anti-piège L30) : your_target_native
+  + confidence (c1–c5→[0,1]) pour SK et CCJ ; blend/asof SK final.
