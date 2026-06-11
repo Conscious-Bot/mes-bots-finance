@@ -99,8 +99,15 @@ SUFFIX = {
 }
 
 
-_PX_CACHE: dict[str, tuple[float, float]] = {}
-_PX_TTL = 1800.0  # 30 min: throttle yfinance (partage IP/lib avec price_monitor, evite le ban)
+# Cache prix EUR + native déplacé vers shared.prices (cure P0-1 audit (3) 12/06).
+# Ré-exporté ici pour rétro-compat des callers internes au render.py.
+from shared.prices import (
+    _PX_CACHE,
+    _PX_CACHE_NATIVE,
+    _PX_TTL,
+    _cached_price_eur,
+    _cached_price_native,
+)
 
 # Phase post-audit 07/06 : cache historique portfolio pour Performance panel.
 # yfinance batch download ~2-4 sec, donc TTL 1h suffit (regen toutes 60s sinon
@@ -119,56 +126,9 @@ def _pct(x: float) -> str:
     return f"{x:.1f}"
 
 
-def _cached_price_eur(ticker: str) -> float | None:
-    """Source de prix EUR du dashboard: throttle les fetchs live a un burst par TTL.
-
-    Monkeypatche sur asymmetry._get_current_price dans render() pour que le process
-    dashboard ne matraque pas yfinance (un ban toucherait aussi le price_monitor du
-    bot, meme IP / meme lib). Le process du bot n'est pas affecte.
-    """
-    import time as _t
-
-    now = _t.monotonic()
-    hit = _PX_CACHE.get(ticker)
-    if hit is not None and now - hit[1] < _PX_TTL:
-        return hit[0]
-    try:
-        from shared.prices import get_current_price_in_eur
-
-        px = get_current_price_in_eur(ticker)
-    except Exception:
-        px = None
-    if px is not None:
-        _PX_CACHE[ticker] = (float(px), now)
-        return float(px)
-    return hit[0] if hit is not None else None
-
-
-_PX_CACHE_NATIVE: dict[str, tuple[float, float]] = {}
-
-
-def _cached_price_native(ticker: str) -> float | None:
-    """Prix NATIVE currency (JPY pour .T, KRW pour .KS, USD pour US, etc.).
-    Pour comparer aux stop_price/target_full qui sont en NATIVE (cf memory
-    currency_native_invariant). Bug fix 31/05 : _theses() utilisait
-    _cached_price_eur pour comparer a stop/tgt native -> %.absurdes (4063.T
-    target +23876%, 000660.KS target +175408%)."""
-    import time as _t
-
-    now = _t.monotonic()
-    hit = _PX_CACHE_NATIVE.get(ticker)
-    if hit is not None and now - hit[1] < _PX_TTL:
-        return hit[0]
-    try:
-        from shared.prices import get_current_price
-
-        px = get_current_price(ticker)
-    except Exception:
-        px = None
-    if px is not None:
-        _PX_CACHE_NATIVE[ticker] = (float(px), now)
-        return float(px)
-    return hit[0] if hit is not None else None
+# Définitions _cached_price_eur + _cached_price_native + _PX_CACHE* + _PX_TTL
+# déplacées vers shared.prices (cure P0-1 audit (3) 12/06). Re-importés en
+# haut de ce fichier pour rétro-compat des callers internes.
 
 
 def _stop_distance_pct_native(ticker: str, stop_price: float | None) -> float | None:
@@ -5090,34 +5050,9 @@ _MACRO_BANDS: dict[str, tuple[float, float, bool]] = _calib_get_all_bands()
 _MACRO_TIPS: dict[str, str] = _calib_get_all_tooltips()
 
 
-def _macro_dot(ind: str, v: float, phase: int | None = None) -> str:
-    """Couleur du point macro -- TOUJOURS l'une des 3 : calm / warn / danger.
-
-    Pas de "mute" : user 02/06 "green yellow and red". Donnee absente
-    (no band + no phase) -> defaut WARN (yellow) car incertain = posture
-    prudente, jamais vert silencieux.
-
-    Priorite : (1) bands locales level-based (VIX/HY_OAS/...), (2) phase
-    stockee par composite V3 (Gold/BankReserves/...), (3) fallback warn.
-    """
-    band = _MACRO_BANDS.get(ind)
-    if band is not None:
-        warn, danger, hi_bad = band
-        if hi_bad:
-            return "danger" if v >= danger else ("warn" if v >= warn else "calm")
-        return "danger" if v <= danger else ("warn" if v <= warn else "calm")
-    if phase is not None:
-        try:
-            p = int(phase)
-        except Exception:
-            return "warn"
-        if p >= 4:
-            return "danger"
-        if p == 3:
-            return "warn"
-        if p in (1, 2):
-            return "calm"
-    return "warn"
+# _macro_dot déplacée vers shared.macro_state (cure P0-1 audit (3) 12/06).
+# Ré-export pour rétro-compat des callers internes au render.py.
+from shared.macro_state import _macro_dot  # noqa: E402
 
 
 # === Equity internals: RSI(14) + Breadth (RSP/SPY) — cache TTL 30min ===

@@ -28,6 +28,72 @@ _INFO_TTL_SEC = 3600.0
 _CALENDAR_CACHE: dict[str, tuple[Any, float]] = {}
 _CALENDAR_TTL_SEC = 21600.0  # 6h (earnings annoncés rarement updated intraday)
 
+# ============================================================================
+# Cache prix EUR + native (cure P0-1 audit (3) 12/06).
+# Déplacé depuis dashboard/render.py — un cache prix au-dessus de get_current_price*
+# n'a aucune raison de vivre dans la couche présentation (anti-pattern reconnu
+# dans 3 commentaires inline sans correction depuis plusieurs sessions :
+# shared/macro_state.py:92, intelligence/over_cap_monitor.py:166, intelligence/
+# portfolio_grade.py:96). Le test test_no_shared_dashboard_import enforce
+# désormais qu'aucun module shared/ ne peut importer dashboard.*.
+#
+# TTL 30 min : throttle yfinance partagé entre dashboard + price_monitor
+# (même IP / même lib → un ban toucherait les deux).
+# ============================================================================
+_PX_CACHE: dict[str, tuple[float, float]] = {}
+_PX_CACHE_NATIVE: dict[str, tuple[float, float]] = {}
+_PX_TTL = 1800.0
+
+
+def _cached_price_eur(ticker: str) -> float | None:
+    """Source de prix EUR throttlée (TTL 30 min) au-dessus de get_current_price_in_eur.
+
+    Le dashboard monkeypatche `asymmetry._get_current_price` sur cette fonction
+    dans `render()` pour que le process dashboard ne matraque pas yfinance.
+    Le process du bot (price_monitor) n'est pas affecté — ils partagent l'IP/lib
+    mais pas le cache (chacun son process).
+    """
+    import time as _t
+
+    now = _t.monotonic()
+    hit = _PX_CACHE.get(ticker)
+    if hit is not None and now - hit[1] < _PX_TTL:
+        return hit[0]
+    try:
+        px = get_current_price_in_eur(ticker)
+    except Exception:
+        px = None
+    if px is not None:
+        _PX_CACHE[ticker] = (float(px), now)
+        return float(px)
+    return hit[0] if hit is not None else None
+
+
+def _cached_price_native(ticker: str) -> float | None:
+    """Prix NATIVE currency throttlé (TTL 30 min). JPY pour .T, KRW pour .KS,
+    USD pour US, etc.
+
+    Pour comparer aux `stop_price`/`target_full`/`target_partial` qui sont
+    stockés en native currency (cf memory currency_native_invariant).
+    Bug fix 31/05 : `_theses()` utilisait `_cached_price_eur` pour comparer à
+    stop/tgt native → %.absurdes (4063.T target +23876%, 000660.KS target
+    +175408%). Solidified par décision Olivier currency-native-invariant.
+    """
+    import time as _t
+
+    now = _t.monotonic()
+    hit = _PX_CACHE_NATIVE.get(ticker)
+    if hit is not None and now - hit[1] < _PX_TTL:
+        return hit[0]
+    try:
+        px = get_current_price(ticker)
+    except Exception:
+        px = None
+    if px is not None:
+        _PX_CACHE_NATIVE[ticker] = (float(px), now)
+        return float(px)
+    return hit[0] if hit is not None else None
+
 
 def get_info(ticker: str) -> dict:
     """Gateway canonique pour yfinance Ticker.info (fundamentals + métadonnées).

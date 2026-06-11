@@ -461,9 +461,14 @@ def _load_ticker_meta() -> dict[str, dict]:
 
 
 def _current_price_eur(ticker: str) -> float | None:
-    """Reuse le cached price de render.py pour eviter de re-fetch yfinance."""
+    """Reuse le cached price de shared.prices pour eviter de re-fetch yfinance.
+
+    Cure P0-1 audit (3) 12/06 : import était `from dashboard.render` — couplage
+    inversé shared→dashboard, anti-pattern reconnu sans correction depuis
+    plusieurs sessions. Cache désormais source-de-vérité dans shared.prices.
+    """
     try:
-        from dashboard.render import _cached_price_eur
+        from shared.prices import _cached_price_eur
 
         return _cached_price_eur(ticker)
     except Exception:

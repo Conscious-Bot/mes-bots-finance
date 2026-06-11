@@ -61,6 +61,54 @@ _CACHE_TS = 0.0
 _TTL = 60.0
 
 
+# ============================================================================
+# Bands + classifier (cure P0-1 audit (3) 12/06).
+# Déplacé depuis dashboard/render.py — la classification calm/warn/danger est
+# de la pure logique macro qui n'a rien à faire dans la couche présentation.
+# Anti-pattern reconnu commentaire macro_state.py:92 "import lazy pour eviter
+# circular dep dashboard.render" sans correction depuis plusieurs sessions.
+# Source bands : shared.calibration.get_all_bands() (canonical, audit refresh
+# 10j via Phase B cron).
+# ============================================================================
+def _get_macro_bands() -> dict[str, tuple[float, float, bool]]:
+    """Bands canoniques chargées depuis shared.calibration. Wrapper léger
+    pour éviter top-level import (calibration tire intelligence/* → cycle
+    potentiel). Évaluation lazy une fois par appel _macro_dot."""
+    from shared.calibration import get_all_bands
+    return get_all_bands()
+
+
+def _macro_dot(ind: str, v: float, phase: int | None = None) -> str:
+    """Couleur du point macro — TOUJOURS l'une des 3 : calm / warn / danger.
+
+    Pas de "mute" : user 02/06 "green yellow and red". Donnee absente
+    (no band + no phase) → defaut WARN (yellow) car incertain = posture
+    prudente, jamais vert silencieux.
+
+    Priorite : (1) bands locales level-based (VIX/HY_OAS/...), (2) phase
+    stockee par composite V3 (Gold/BankReserves/...), (3) fallback warn.
+    """
+    bands = _get_macro_bands()
+    band = bands.get(ind)
+    if band is not None:
+        warn, danger, hi_bad = band
+        if hi_bad:
+            return "danger" if v >= danger else ("warn" if v >= warn else "calm")
+        return "danger" if v <= danger else ("warn" if v <= warn else "calm")
+    if phase is not None:
+        try:
+            p = int(phase)
+        except Exception:
+            return "warn"
+        if p >= 4:
+            return "danger"
+        if p == 3:
+            return "warn"
+        if p in (1, 2):
+            return "calm"
+    return "warn"
+
+
 def current_macro_state(force_refresh: bool = False) -> MacroState:
     """Snapshot canonique de l'etat macro courant.
 
@@ -89,11 +137,8 @@ def _compute_state() -> MacroState:
     readings_for_regime: dict[str, dict] = {}
     today = _dt.date.today()
 
-    # Bands import lazy pour eviter circular dep dashboard.render
-    try:
-        from dashboard.render import _MACRO_BANDS, _macro_dot
-    except Exception:
-        _MACRO_BANDS, _macro_dot = {}, None  # graceful degrade
+    # Bands + classifier : fonctions locales depuis cure P0-1 audit (3) 12/06.
+    # Plus d'import dashboard.render — anti-pattern shared/→dashboard/ tué.
 
     # Single source de verite pour debt_signals.
     try:
@@ -114,13 +159,12 @@ def _compute_state() -> MacroState:
         except Exception:
             age = 0
         v = float(val) if val is not None else None
-        # Dot via band (canonical visual classifier).
+        # Dot via band (canonical visual classifier). _macro_dot est local
+        # depuis cure P0-1 audit (3) — toujours défini, plus de None défensif.
         if v is None:
             dot = "mute"
-        elif _macro_dot is not None:
-            dot = _macro_dot(ind, v, phase)
         else:
-            dot = "calm"
+            dot = _macro_dot(ind, v, phase)
         indicators[ind] = IndicatorSnapshot(
             name=ind,
             value=v,
