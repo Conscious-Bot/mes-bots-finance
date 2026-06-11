@@ -773,16 +773,22 @@ def _vigilance_panel() -> str:
     )
 
 
-def _render_ballast_cell(target: dict) -> str:
+def _render_ballast_cell(target: dict, views: dict | None = None) -> str:
     """Axe 4 (b) M1 doctrine : ballast live derive, jamais YAML statique.
 
     Le YAML risk_watch declarait current_ballast_strict_pct=14% en mai (pollution
     M1, valeur figee). Source verite ici = compute_ballast_strict(positions actuelles).
     Si live diverge du YAML, surface les 2 avec live prominent.
+
+    Migration #120 étape 1 12/06 : accepte `views` opt depuis le seam
+    `get_all_positions_views()` (passé par `_risk_watch_panel` qui le reçoit
+    de `render()`). Si None, le builder `_positions()` fallback intérieur —
+    transitoire pour callsites encore non-migrés. À supprimer Étape 5
+    (single-source enforcement).
     """
     try:
         from intelligence.ballast_compute import compute_ballast_strict
-        positions = _positions()
+        positions = _positions(views)
         bs = compute_ballast_strict(positions)
     except Exception:
         bs = None
@@ -809,7 +815,7 @@ def _render_ballast_cell(target: dict) -> str:
     )
 
 
-def _risk_watch_panel() -> str:
+def _risk_watch_panel(views: dict | None = None) -> str:
     """Top Risks declares - first-class surveillance sur Vue d'ensemble.
 
     Lit scripts/risk_watch.json (declaration user) + status courant des
@@ -882,7 +888,7 @@ def _risk_watch_panel() -> str:
             for m in mitigations
         )
 
-        ballast_cell_html = _render_ballast_cell(target)
+        ballast_cell_html = _render_ballast_cell(target, views=views)
         out.append(
             '<div class="rw-card">'
             f'<div class="rw-head"><span class="rw-rank">#{r.get("rank", "?")}</span>'
@@ -7330,7 +7336,7 @@ def render() -> Path:
         f'</div>'
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         '<div class="vigie-sh" data-tip="Book positions to review first: critical margins (stop &lt; 10%), at_risk kill_criteria zones, blind vol."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
-        f'{_risk_watch_panel()}'
+        f'{_risk_watch_panel(views=_views)}'
         f"{blind_html}"
         # Journal & deadlines retire 02/06 user (useless boards :
         # TEST_E2E_DEC pollue + deadlines disponibles ailleurs).
