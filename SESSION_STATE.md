@@ -2892,3 +2892,62 @@ Sanity venv minimal Olivier : 38/38 (18 pièce 4 + 18 pièce 5 + 2 E2E), zéro p
   + asof). Sources : Investing.com, StockAnalysis, Yahoo.
 - EN ATTENTE OLIVIER (non-sourçable par Claude, anti-piège L30) : your_target_native
   + confidence (c1–c5→[0,1]) pour SK et CCJ ; blend/asof SK final.
+
+### Pièce 7 — POSE LIVRÉE 11/06 soir (track-record bootstrappé)
+
+- **SK Hynix posée ID 1** : `asof=2026-06-11`, `asof_price=2,101,000 KRW` (yfinance),
+  `pt=2,500,000 KRW` (agrégateur updated post-rally, choisi consciemment vs blend
+  mécanique 2,3M), `your_target=3,600,000`, `your_delta=+52.36%` (bull magnitude),
+  `confidence=0.8` (c4), `source="rv_micron_peg_2026-06"`. Invalidation : HBM ASP
+  rolling QoQ / Samsung gap fermé / hyperscaler capex guide-down. Resolve due
+  2027-06-11.
+- **Cameco (CCJ) posée ID 2** : `asof=2026-06-10` (NYSE pas encore clos au moment
+  de la pose 11/06, fail-loud assert `actual==ASOF` a mordu → décalage propre vers
+  dernière close réelle), `asof_price=95.03 USD`, `pt=139.0` (médiane robuste vs
+  moyenne 140.25 traînée par range 108-175), `your_target=130.0`, `your_delta=-9.47%`
+  (bear modéré, fade les analystes à la marge), `confidence=0.8` (c4 décoté depuis
+  c5 par Olivier), `source="fade_analyst_targets_2026-06"`. Invalidation : kazakh
+  supply surge / rally CCJ explosif >140 / utilities lock-in long-terme rapide.
+  Resolve due 2027-06-10.
+
+### Diversification du track-record (bootstrap)
+
+2 poses, 2 currencies distinctes (KRW + USD), 2 directions opposées (bull magnitude
++ bear directionnel). `n_clusters_brier=2` minimum atteint → l'aggregator passera
+de `insufficient_n` à un verdict statistique à la première résolution. Pas de
+diversification industrie (les deux sont resources/tech), à élargir au fil des
+poses futures.
+
+### Catches livrés en pose (verify-before-paste + verify-before-assert appliqués)
+
+- Asserts fail-loud par couches : `asof_price>0` (None/0/NaN/négatif) puis
+  magnitude range plausible (split/glitch) puis `actual==ASOF` (anti-fallback
+  yfinance +1j). Le 3e a mordu sur CCJ et a forcé un asof propre vers 10/06.
+- Guard `if pid is None` avec read-back par ticker (catch UNIQUE collision + skip
+  no_bet, dict(None) lèverait TypeError pas un silencieux — corrigé inline doctrine).
+- Read-back byte-correct 13 champs vs intention (single source SK ID 1 / CCJ ID 2).
+- Convention de fait c4 → confidence 0.8 (cohérente avec test_magnitude_bull_correct).
+  Pas gravée dans GLOSSARY ; à acter si on veut canon dur.
+
+### Cleanup post-pose
+
+- `pose_sk.py` + `pose_ccj.py` supprimés (jetables, jamais commités, anti-pollution
+  racine repo). Le code de pose vit dans `git log` via diff inverse si jamais
+  besoin de bisecter.
+
+### Commits session 11/06 chantier alpha (chronologique, ajout fin de session)
+
+- `ead901d` pièce 5 aggregator + 18 tests
+- `db97b44` pièce 4 DI fetcher patch
+- `690702e` pièce 6 E2E + lock storage-only
+- `53ec915` #128 (a+b+c) cure packaging + tests pièce 4 DI + E2E import normal
+- `1e90353` checkpoint SESSION_STATE pause pièce 7 (pré-pose)
+- (commit suivant) close SK ID 1 + CCJ ID 2 posées + cleanup
+
+### Doctrine ajoutée
+
+- [feedback-red-team-verify-before-assert](.claude/projects/-Users-olivierlegendre-mes-bots-finance/memory/feedback_red_team_verify_before_assert.md)
+  : claims de red-team se vérifient au standard verify-before-patch (run/lu,
+  jamais à l'intuition). Pris 11/06 sur dict(None) silencieux affirmé sans
+  vérif (en vrai TypeError). Multi-conv croisé justifié sur poses irréversibles,
+  single review sur réversible.
