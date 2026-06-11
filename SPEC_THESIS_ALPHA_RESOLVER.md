@@ -304,21 +304,25 @@ Sans benchmark, pas de variant-perception possible — c'est juste un return abs
 ## 7. Implementation Status
 
 - **Gravé** : 2026-06-11 (canon post-clôture Brier J+28 + red-team séparation régime/biais)
-- **Implémentation** : **NOT_STARTED** (banner SUPERSEDED retiré dès la première implémentation)
+- **Implémentation** : **IMPLEMENTED** (2026-06-11, session unique 7 pièces)
 - **Pré-conditions déjà acquises** :
   - `ConsensusRef.currency` obligatoire (e090bb9, 10/06)
   - `portfolio_rules.yaml` tagged `currency: USD` sur 11 lignes
   - Tests verrouillants currency : `test_consensus_ref_currency_required`, `_invalid_rejected`
-- **À livrer** :
-  - `shared/thesis_alpha.py` : helper convert + helpers Brier-type magnitude
-  - `migrations/0051_thesis_predictions.sql` : table append-only L26 + triggers immutabilité
-  - `shared/storage.py` : `insert_thesis_prediction()` + `get_due_thesis_predictions()` + `update_thesis_resolve_fields()` (writer-only sur colonnes resolve)
-  - `bot/jobs/thesis_alpha_resolver.py` : cron daily/weekly resolver
-  - `scripts/post_resolution_alpha_report.py` : aggregator avec N_effective + CI bootstrap + verdict fail-closed L19
-  - `tests/test_thesis_alpha_resolver.py` : suite §5 (~15 tests)
-- **Backfill SK + CCJ** : posées dans `docs/sweep_targets_2026-06.md` le 10/06. À ingérer dans `thesis_predictions` table en première écriture post-migration (asof=2026-06-10, resolve_due_date=2027-06-10).
-- **Prochain step** : implémenter dans cet ordre : (1) helper `convert_consensus_pt_to_native`, (2) migration table, (3) writer storage, (4) resolver job, (5) aggregator + tests. Retirer le banner SUPERSEDED en tête de SPEC dans le commit final.
-- **Timing attendu du premier verdict** : 2027-06-10 + ~30 paris accumulés = pas avant fin 2027 / début 2028. C'est L13 — patience instrumentée, pas gratification. L'instrument se monte maintenant pour qu'il accumule honnêtement.
+- **Livré (mapping fichiers réels)** :
+  - `shared/thesis_alpha.py` : `convert_consensus_pt_to_native` + `compute_your_delta_native_pct` + `compute_alpha_realized_pct` + `classify_direction` (pure helpers, fail-closed L15 sur inputs invalides)
+  - `scripts/alembic/versions/0052_thesis_predictions.py` : table append-only L26 + 3 triggers immutabilité (pose_writeonce, resolve_writeonce, no_delete). Note : numéro 0052 (Python alembic), pas 0051_*.sql.
+  - `scripts/alembic/versions/0053_thesis_predictions_add_resolution_status.py` : ADD COLUMN `resolution_status` (axe lifecycle 'resolved'/'abandoned' distinct de `exclude_reason`) + DROP/CREATE trigger 2 étendu.
+  - `shared/thesis_predictions_writer.py` (PAS `shared/storage.py`) : `insert_thesis_pose()` (gate no_bet à la pose, décision A 11/06) + `get_due_thesis_predictions()` + `update_thesis_resolve_fields()` (UN UPDATE atomique contrat trigger 2) + `mark_thesis_prediction_abandoned()` (lifecycle terminal §4.2).
+  - `bot/jobs/thesis_alpha_resolver.py` : `resolve_due_thesis_predictions(today, grace_days, ε_neutral, ε_delta, fetcher=None)` cron daily. DI fetcher (DI > monkeypatch global). Garde §4.3 fenêtre bornée. Magnitude `outcome=sign(alpha)` (PAS direction_correct). Invariant L27 garanti par construction (`attempted == Σ` via `write_failed` counter).
+  - `scripts/aggregator_alpha_track_record.py` (PAS `post_resolution_alpha_report.py`) : `compute_alpha_track_record(cluster_strategy)` — **cluster (block) bootstrap** (resample clusters, pas preds iid) + **baseline taux-de-base `p̄(1−p̄)` sur outcomes `sign(alpha)`** (PAS direction_correct, inversion catastrophique catchée pré-prod) + verdict fail-closed L19 gaté sur pool BRIER. Plancher principielle `n_clusters_brier ≥ 2`, **constantes L16 fabriquées dissoutes** (anciens `min_n_effective=30` et `min_n_for_ci=10` retirés post red-team Olivier).
+  - `tests/test_thesis_alpha_resolver.py` (18 tests) + `tests/test_aggregator_alpha_track_record.py` (18 tests dont T8/T9 critiques anti-inversion + anti-iid) + `tests/test_e2e_alpha_chain.py` (2 tests pose→resolver→aggregator + lock storage-only subprocess) + `tests/test_thesis_predictions_writer.py` + `tests/test_thesis_predictions_table.py`.
+- **Cure infra #128 (12/06/2026 cf [memory feedback-red-team-verify-before-assert](.claude/projects/-Users-olivierlegendre-mes-bots-finance/memory/feedback_red_team_verify_before_assert.md))** : `bot/jobs/__init__.py` vidé de ses ré-exports eager (Option B, supprimer la machinerie > la rendre lazy). `bot/main.py` migré vers imports par sous-module (daily/intervals/periodic). Sans cette cure, importer `bot.jobs.thesis_alpha_resolver` tirait pandas/yfinance/google/data_sources au package-level → tests pièce 4 + E2E non-runnables sur venv minimal. Post-#128 : module resolver run-vérifié storage-only sur 2 machines (Mac + venv minimal 3.14.5).
+- **Backfill SK + CCJ POSÉS** (session 11/06 soir) :
+  - SK Hynix ID 1 : `asof=2026-06-11`, `asof_price=2,101,000 KRW` (yfinance), `pt=2,500,000 KRW` (agrégateur updated post-rally, choisi consciemment vs blend mécanique 2,3M), `your_target=3,600,000`, `your_delta=+52.36%` (bull magnitude), `confidence=0.8` (c4), `source="rv_micron_peg_2026-06"`, resolve due 2027-06-11.
+  - Cameco (CCJ) ID 2 : `asof=2026-06-10` (NYSE pas clos au moment de la pose 11/06 — fail-loud assert `actual==ASOF` a forcé décalage propre vers dernière close réelle), `asof_price=95.03 USD`, `pt=139.0` (médiane robuste vs moyenne 140.25 traînée par range), `your_target=130.0`, `your_delta=-9.47%` (bear modéré, fade analystes à la marge), `confidence=0.8` (c4 décoté depuis c5 par Olivier), `source="fade_analyst_targets_2026-06"`, resolve due 2027-06-10.
+- **Timing attendu du premier verdict** : `resolve_due_date` de CCJ = 2027-06-10 (première résolution due) + `resolve_due_date` SK = 2027-06-11. Verdict statistique aggregator ne deviendra significatif qu'avec ~30+ paris accumulés sur plusieurs clusters distincts (pas avant fin 2027 / début 2028). C'est L13 — patience instrumentée, pas gratification.
+- **KNOWN-GAP doctrinale (audit 11/06)** : les constantes `ε_neutral_pct` et `ε_delta_pct` (défaut 1.0) sont hardcodées en 3 sites (`shared/thesis_alpha.py`, `shared/thesis_predictions_writer.py`, `bot/jobs/thesis_alpha_resolver.py`) ET ne sont PAS stockées dans la pose. Drift silencieux 12 mois garanti si une de ces constantes change avant la résolution des poses 1 et 2. Cure proposée : migration 0054 ADD COLUMN `epsilon_delta_pct_at_pose` + `epsilon_neutral_pct_at_resolve` + writer/resolver lisent les valeurs stockées (PAS les defaults code). Décision §0 B « Freeze PT à asof » a été appliquée sur `pt_consensus`, asymétrie incohérente sur les ε. À acter avant d'accumuler plus de paris.
 
 ## 8. Le fil
 
