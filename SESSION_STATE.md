@@ -2880,6 +2880,55 @@ Sanity venv minimal Olivier : 38/38 (18 pièce 4 + 18 pièce 5 + 2 E2E), zéro p
 - `db97b44` pièce 4 DI fetcher patch
 - `690702e` pièce 6 E2E + lock storage-only
 - `53ec915` #128 (a+b+c) cure packaging + tests pièce 4 DI + E2E import normal
+- `40787c5` close (SK ID 1 + CCJ ID 2 posées dans live DB)
+- `2861101` cure P1 audit (1) : SPEC §7 NOT_STARTED → IMPLEMENTED
+- `a9f4f07` cure P0 audit (2) : migration 0054 freeze ε at_pose + backfill SK + CCJ
+- `bb2b875` cure P1 audit (2) : notes SPEC §7 formules figées + grace KNOWN-GAP
+
+### Audit complet livré 11/06 soir (1) + (2)
+
+**Audit (1) chantier alpha livré** : 84/84 tests verts, audit canonical drift propre,
+3 triggers SQLite actifs, aucun KNOWN-GAP/TODO dans le code chantier, references
+dangling = 0. Finding P1 unique : SPEC §7 marqué NOT_STARTED alors que livré
++ chemins de fichiers obsolètes. Cure `2861101` : §7 → IMPLEMENTED + mapping
+réel (0051→0052+0053, post_resolution_alpha_report→aggregator_alpha_track_record,
+storage.insert_thesis_prediction→thesis_predictions_writer.insert_thesis_pose) +
+pivot doctrinal cluster bootstrap documenté.
+
+**Audit (2) maillon irréversible 12 mois** :
+- **🔴 P0 ε constantes** (`epsilon_neutral_pct` + `epsilon_delta_pct` hardcodés
+  3 sites + JAMAIS stockés dans la pose) : drift silencieux 12 mois garanti.
+  Cure `a9f4f07` : migration 0054 freeze-at-pose les DEUX ε + backfill SK ID 1
+  + CCJ ID 2 sous doctrine ε=1.0 (juin 2026). Writer stocke à l'INSERT, resolver
+  LIT les ε figés (fallback loggé défensif si NULL). Trigger 1 étend liste OF.
+- 🔴 Auto-correction : mon design initial était `_at_resolve` au lieu de
+  `_at_pose` — qui DOCUMENTE le drift sans l'empêcher. Catch fatal Olivier
+  (« ça enregistre le mensonge, pas l'empêche »). Application de la doctrine
+  feedback_red_team_verify_before_assert à ma propre cure : ma cure n'avait
+  pas été vérifiée contre son objectif.
+- **🟡 P1 formules scoring** : cure `bb2b875` note SPEC §7 — `compute_alpha_realized_pct`
+  et `_compute_magnitude_score` figées post-1re-pose. Modif doctrinale = migration
+  `scoring_doctrine_version` OU re-pose. Pas de modif silencieuse autorisée.
+- **🟡 P1 `grace_days`** : KNOWN-GAP conscient (note SPEC §7). Proba de drift ~0
+  (seul cas où grace change l'issue = halt ~1 semaine + reprise, quasi-nul sur
+  titres liquides). Migration `grace_days_at_resolve` initialement écrite puis
+  revertée — over-engineering rejeté par Olivier. Décision consciente, pas
+  négligence.
+
+**Procédure live durcie appliquée (Mac PRESAGE)** :
+1. `ps -p 10313 -o pid,command` → confirmé `python -m bot.main` (pas tennis bot.py PID 1435)
+2. `kill 10313` (SIGTERM, pas SIGKILL) + `sleep 3` + verify died
+3. Backup `data/backups/bot.db.backup_pre_0054_1781184753` (61M)
+4. `alembic upgrade head` → 0053 → 0054
+5. Verify : `head=0054` + SK + CCJ backfillés ε=1.0 + trigger 1 étend ε
+6. 84/84 tests verts post-migration
+7. `launchctl bootstrap` → PRESAGE relancé PID 48361 + caffeinate 48365 (pattern launcher préservé)
+
+### Audit (3) — large projet — REPORTÉ à demain
+
+Hors-chantier alpha (P0/P1/P2 sur le reste du repo). Scope vaste, ~1h+. Va
+trouver de la dette pré-existante (KNOWN-GAPs cumulés depuis socle, post-#128
+infra, dette tests flaky, etc.). À ouvrir en conv fraîche demain.
 
 ### Pièce 7 — ancrages consensus rassemblés 11/06 (sourcés, datés)
 
