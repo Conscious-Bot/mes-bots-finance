@@ -211,17 +211,43 @@ magnitude_score = NULL → contribue à hit_rate mais pas au Brier
 
 **Convention ε_neutre** : 1% en native. Adaptable par classe d'actif si nécessaire mais documenté.
 
-## 4. Fail-closed (cas-bord)
+## 4. Fail-closed (cas-bord) + axe lifecycle vs axe scoring
+
+### 4.1 Axes orthogonaux — ne PAS mélanger
+
+Deux questions distinctes sur une prédiction résolue :
+- **Lifecycle** : le pari a-t-il pu être résolu ? → `resolution_status TEXT IN ('resolved','abandoned')`
+- **Scoring** : si résolu, qu'est-ce qui le rend scorable ou non ? → `exclude_reason TEXT IN ('neutral','no_bet')` (NULL si scorable)
+
+Mélanger les deux dans une seule enum = bug 2-référentiels (gauge canonique 09/06). **Banni.**
+
+**Conséquence agrégateur** : filtre sur la chose que tu scores, pas sur les axes de diagnostic.
+- Accuracy directionnelle → `WHERE direction_correct IS NOT NULL` (NULL pour neutral, no_bet, abandoned — exclus par construction, peu importe la cause)
+- Brier/magnitude → `WHERE magnitude_score IS NOT NULL`
+- `resolution_status` et `exclude_reason` sont des diagnostics (pourquoi exclu), pas la porte de scoring
+
+### 4.2 Cas-bord
 
 | Cas | Comportement |
 |---|---|
-| PT consensus manquant à asof | **Ne pas poser la ligne.** Pas de pari sans benchmark. Log skip. |
+| PT consensus manquant à asof | **Ne pas poser la ligne.** Pas de pari sans benchmark. Log skip 'no_pt_consensus_at_pose'. |
 | fx_at_asof indisponible | Idem — fail-closed L15, jamais de fallback fx=1.0 silencieux (cf bug CCJ fx_at_purchase=1.0 du 10/06). |
-| `resolve_price_native` indisponible à resolve_due_date | Retry J+1 jusqu'à J+5. Ensuite log error, laisser `resolved_at=NULL`, surface dans monitor. |
-| Ticker delisted entre asof et resolve | `resolved_at=now`, `alpha_realized_pct=NULL`, `notes='delisted'`. Exclu agrégation. |
+| `resolve_price_native` indisponible — **fenêtre de grâce active** | Window `[due_date .. due_date + grace_days]` (default 5j calendaire). Tant que `today ≤ due_date + grace_days` ET fenêtre essayée vide → laisser `resolved_at=NULL` → re-pickup naturel par `get_due` au prochain cron quotidien. |
+| `resolve_price_native` indisponible — **grâce épuisée** | `today > due_date + grace_days` ET fenêtre `[due..due+grace]` toujours vide → **`mark_thesis_prediction_abandoned`** : `resolved_at=now`, `resolution_status='abandoned'`, prix/alpha/direction/magnitude/exclude_reason tous NULL. Sort du pool `get_due` ET du pool scoring. Log event 'thesis_resolve_abandoned'. |
+| Prix retourné non-fini (NaN, ≤0) | Traité comme "prix manquant à cette date" — continue la fenêtre. **Jamais propagé** à compute_alpha. Évite qu'un glitch transitoire yfinance tue un vrai pari. |
+| `classify_direction` retourne `None` malgré présence de prix | **Inatteignable** post-validation prix amont (compute_alpha sur prix fini retourne float fini). Si arrive = bug logique. Fail-loud : log error, laisse `resolved_at=NULL`, surface monitor. **Jamais abandon silencieux** (un bug ne tue pas un pari, un manquement de donnée si). |
+| Ticker delisted entre asof et resolve | Le ticker delisted retourne `None` partout dans la fenêtre → grâce s'épuise → abandon terminal via le même chemin que prix manquant. Pas de cas spécial nécessaire. |
 | Position vendue avant resolve_due_date | **Le pari reste résolu à 12m** — l'alpha mesure la prédiction, pas l'exécution P&L. Ne pas court-circuiter par l'event de vente. |
 | Re-pose d'une thèse identique (même target_native) à un asof+1 | Ligne SÉPARÉE (les datapoints sont des paris annuels séquentiels, décision C). |
 | Multi-target (partial + full) sur une même thèse | Lignes SÉPARÉES (1 par target_native). Évite la confusion "quel target a battu". |
+
+### 4.3 Fenêtre de grâce bornée — anti-downtime drift
+
+La fenêtre est **toujours `[due_date .. due_date + grace_days]`**, indépendamment de `today`. Conséquence : si le resolver est down 10 jours et reprend à `today = due_date + 10`, il essaie quand même `[due_date .. due_date + grace_days]` (pas `[due_date .. today]`).
+
+**Pourquoi** : prendre un prix à J+7 ou J+10 quand `grace_days=5` violerait le contrat de grâce (on accepte ≤5j de retard sur l'anniversaire 12m, au-delà on n'a plus confiance que c'est le bon point d'observation). La grâce est un seuil de confiance temporelle, pas une fenêtre opportuniste.
+
+**Robustesse downtime** : si `due_date` a un prix dispo, le resolver le récupère quel que soit `today` (cas normal). L'abandon ne déclenche que si la fenêtre `[due..due+grace]` est intégralement vide ET grâce expirée.
 
 ## 5. Tests verrouillants
 
