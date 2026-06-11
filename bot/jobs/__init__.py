@@ -1,93 +1,21 @@
-"""Cron jobs package — split by frequency Phase C (21/05/2026).
+"""Cron jobs package — split par fréquence Phase C (21/05/2026).
 
-Re-exports preserve the API: bot.jobs.heartbeat still works.
-Used by bot/main.py post_init() scheduler bootstrap.
+Sous-modules :
+- bot.jobs.daily : jobs daily/weekly/monthly (21 jobs)
+- bot.jobs.intervals : jobs interval/hourly + heartbeat (9 jobs)
+- bot.jobs.periodic : jobs weekly/monthly de track-record et calibration (9 jobs)
+- bot.jobs.thesis_alpha_resolver : resolver cron pour thesis_predictions (storage-only)
+- bot.jobs.j_day, integrity_anchor, sequences, etc. : modules individuels
+
+Pas de ré-exports au package-level (cure #128 12/06/2026) : les ré-exports
+eager tiraient pandas/yfinance/google/data_sources via le big import-tree
+de daily/intervals/periodic, cassant la storage-only-ness de tout sous-
+module storage-only (resolver pièce 4, aggregator pièce 5, E2E pièce 6).
+
+Tout consommateur importe son job DEPUIS LE SOUS-MODULE qui le définit :
+    from bot.jobs.daily import daily_backup_job
+    from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+
+Source de vérité unique = la définition. Pas de 2e registre nom→sous-module
+à maintenir.
 """
-
-from bot.jobs.daily import (
-    daily_backup_job,
-    daily_calendar_refresh_job,
-    daily_counterfactual_resolve_job,
-    daily_crypto_zone_job,
-    daily_decision_anniversary_job,
-    daily_digest_job,
-    daily_kill_criteria_check_job,
-    daily_portfolio_grade_job,
-    daily_resolve_job,
-    daily_risk_signal_monitor_job,
-    monthly_bot_preferences_synthesis_job,
-    resolve_copilot_interventions_30d_job,
-    resolve_journal_decisions_job,
-    scheduled_8k_scan_job,
-    scheduled_buy_cluster_scan_job,
-    scheduled_insider_refresh_job,
-    scheduled_resolve_buy_cluster_returns_job,
-    weekly_bot_conceptions_synthesis_job,
-    weekly_data_clusters_synthesis_job,
-    weekly_portfolio_narrative_synthesis_job,
-    weekly_user_profile_refresh_job,
-)
-from bot.jobs.intervals import (
-    event_driven_erosion_check_job,
-    heartbeat,
-    ingest_gmail_job,
-    price_monitor_job,
-    scheduled_classify_signal_types_job,
-    scheduled_materiality_v2_job,
-    scheduled_recompute_materiality_boost_job,
-    score_pending_signals_job,
-    update_echo_clusters_job,
-)
-from bot.jobs.periodic import (
-    monthly_track_record_snapshot_job,
-    recalibrate_credibility_brier_job,
-    refresh_source_half_lives_job,
-    weekly_calibration_audit_job,
-    weekly_cost_summary_job,
-    weekly_handler_stats_job,
-    weekly_kpi_status_job,
-    weekly_thesis_erosion_floor_job,
-    weekly_v2_vigilance_check_job,
-)
-
-__all__ = [
-    "daily_backup_job",
-    "daily_calendar_refresh_job",
-    "daily_counterfactual_resolve_job",
-    "daily_crypto_zone_job",
-    "daily_decision_anniversary_job",
-    "daily_digest_job",
-    "daily_kill_criteria_check_job",
-    "daily_portfolio_grade_job",
-    "daily_resolve_job",
-    "daily_risk_signal_monitor_job",
-    "event_driven_erosion_check_job",
-    "heartbeat",
-    "ingest_gmail_job",
-    "monthly_bot_preferences_synthesis_job",
-    "monthly_track_record_snapshot_job",
-    "price_monitor_job",
-    "recalibrate_credibility_brier_job",
-    "refresh_source_half_lives_job",
-    "resolve_copilot_interventions_30d_job",
-    "resolve_journal_decisions_job",
-    "scheduled_8k_scan_job",
-    "scheduled_buy_cluster_scan_job",
-    "scheduled_classify_signal_types_job",
-    "scheduled_insider_refresh_job",
-    "scheduled_materiality_v2_job",
-    "scheduled_recompute_materiality_boost_job",
-    "scheduled_resolve_buy_cluster_returns_job",
-    "score_pending_signals_job",
-    "update_echo_clusters_job",
-    "weekly_bot_conceptions_synthesis_job",
-    "weekly_calibration_audit_job",
-    "weekly_cost_summary_job",
-    "weekly_data_clusters_synthesis_job",
-    "weekly_handler_stats_job",
-    "weekly_kpi_status_job",
-    "weekly_portfolio_narrative_synthesis_job",
-    "weekly_thesis_erosion_floor_job",
-    "weekly_user_profile_refresh_job",
-    "weekly_v2_vigilance_check_job",
-]

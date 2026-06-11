@@ -112,8 +112,13 @@ log = logging.getLogger("bot")
 CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_tickers") else []
 
 
-# Cron jobs extracted to bot/jobs.py (Phase A refactor 21/05/2026)
-from bot.jobs import (
+# Cron jobs extracted to bot/jobs (Phase A 21/05/2026, split par fréquence Phase C).
+# Imports par sous-module : source de vérité = où le job est DÉFINI, pas un
+# 2e référentiel de ré-exports dans bot/jobs/__init__.py. Cure #128 (12/06/2026) :
+# les ré-exports eager dans __init__ tiraient pandas/yfinance/google/data_sources
+# au package-level, cassant la storage-only-ness de tout sous-module (resolver,
+# E2E pièce 6, etc.). Cure radicale : __init__ vidé, imports directs ici.
+from bot.jobs.daily import (
     daily_backup_job,
     daily_calendar_refresh_job,
     daily_counterfactual_resolve_job,
@@ -124,34 +129,38 @@ from bot.jobs import (
     daily_portfolio_grade_job,
     daily_resolve_job,
     daily_risk_signal_monitor_job,
-    event_driven_erosion_check_job,
-    heartbeat,
-    ingest_gmail_job,
     monthly_bot_preferences_synthesis_job,
-    monthly_track_record_snapshot_job,
-    price_monitor_job,
-    recalibrate_credibility_brier_job,
-    refresh_source_half_lives_job,
     resolve_copilot_interventions_30d_job,
     resolve_journal_decisions_job,
     scheduled_8k_scan_job,
     scheduled_buy_cluster_scan_job,
-    scheduled_classify_signal_types_job,
     scheduled_insider_refresh_job,
+    scheduled_resolve_buy_cluster_returns_job,
+    weekly_bot_conceptions_synthesis_job,
+    weekly_data_clusters_synthesis_job,
+    weekly_portfolio_narrative_synthesis_job,
+    weekly_user_profile_refresh_job,
+)
+from bot.jobs.intervals import (
+    event_driven_erosion_check_job,
+    heartbeat,
+    ingest_gmail_job,
+    price_monitor_job,
+    scheduled_classify_signal_types_job,
     scheduled_materiality_v2_job,
     scheduled_recompute_materiality_boost_job,
-    scheduled_resolve_buy_cluster_returns_job,
     score_pending_signals_job,
     update_echo_clusters_job,
-    weekly_bot_conceptions_synthesis_job,
+)
+from bot.jobs.periodic import (
+    monthly_track_record_snapshot_job,
+    recalibrate_credibility_brier_job,
+    refresh_source_half_lives_job,
     weekly_calibration_audit_job,
     weekly_cost_summary_job,
-    weekly_data_clusters_synthesis_job,
     weekly_handler_stats_job,
     weekly_kpi_status_job,
-    weekly_portfolio_narrative_synthesis_job,
     weekly_thesis_erosion_floor_job,
-    weekly_user_profile_refresh_job,
     weekly_v2_vigilance_check_job,
 )
 

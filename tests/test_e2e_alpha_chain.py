@@ -16,9 +16,11 @@ Le piège qui dérive en silence : un mark_abandoned dont la sémantique change
 mais que l'aggregator filtre encore. Cet E2E vérifie qu'abandon ⟹ exclusion
 en aval, pas juste qu'abandon est écrit correctement.
 
-Architecture lock préservée par DI : le resolver est appelé avec un stub
-`fetcher`, le module shared.prices n'est jamais tiré, l'E2E reste runnable
-sur venv minimal.
+Architecture lock préservée par DI + cure packaging #128 (12/06/2026) :
+le resolver est appelé avec un stub `fetcher`, le module shared.prices
+n'est jamais tiré, et bot/jobs/__init__.py est vidé de ses ré-exports
+eager (qui tiraient pandas/yfinance/google/data_sources au package-level).
+L'E2E reste runnable sur venv minimal.
 """
 
 from __future__ import annotations
@@ -171,52 +173,43 @@ def test_e2e_pose_resolve_abandon_aggregate(migrated_db):
     )
 
 
-def test_resolver_module_isolated_is_storage_only():
-    """Lock storage-only sur le MODULE resolver (pas le package bot.jobs).
+def test_resolver_module_is_storage_only():
+    """Lock storage-only sur le resolver — import normal subprocess.
 
-    KNOWN-GAP : `bot.jobs.__init__` ré-exporte tous les jobs daily/intervals/
-    periodic au package-level → `from bot.jobs import thesis_alpha_resolver`
-    exécute __init__ qui tire pandas/yfinance/google/data_sources. C'est un
-    bug de packaging (chantier découplage imports d'infra), pas du module
-    resolver. Ce test vérifie que le MODULE lui-même reste storage-only :
-    quand le packaging sera refactor lazy, le module passera direct.
+    Post-#128 (12/06/2026) : bot/jobs/__init__.py vidé (ré-exports eager
+    supprimés), bot/main.py migré vers imports groupés par sous-module. Le
+    package bot.jobs ne tire plus rien lourd. Donc un test « from bot.jobs.X
+    import Y » dans un interpréteur frais peut désormais vérifier le contrat
+    storage-only par import normal — pas besoin de bypass importlib.
 
-    Méthode : importlib.util charge le fichier .py SANS exécuter le package
-    parent — équivalent à ce qu'un `bot.jobs.__init__` lazy (PEP 562
-    __getattr__) ferait. Si quoi que ce soit dans le module RESOLVER (pas
-    le package) tire la chaîne lourde, le lock saute.
-
-    Symétrique du test T16 pièce 5 sur l'aggregator (lui n'a pas de package
-    parent lourd → import direct OK). Quand l'infra sera nettoyée, on
-    pourra remplacer ce test par un import normal subprocess comme T16.
+    Symétrique du test T16 sur l'aggregator. Si quelqu'un ré-introduit un
+    import lourd dans bot.jobs.__init__ (ou dans un sous-module imported
+    par cascade), ce test mord.
     """
     import subprocess
     import sys
     from pathlib import Path
 
     root = Path(__file__).parent.parent
-    resolver_path = root / "bot" / "jobs" / "thesis_alpha_resolver.py"
     script = (
-        "import sys, importlib.util, datetime; "
+        "import sys, datetime; "
         "sys.path.insert(0, %r); "
-        "spec = importlib.util.spec_from_file_location('_resolver_iso', %r); "
-        "m = importlib.util.module_from_spec(spec); "
-        "spec.loader.exec_module(m); "
+        "from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions; "
         "stub = lambda t, d: (None, None); "
-        "m.resolve_due_thesis_predictions("
+        "resolve_due_thesis_predictions("
         "today=datetime.date(2026,6,16), fetcher=stub); "
         "heavy = ('shared.prices', 'data_sources', 'google', "
         "'yfinance', 'telegram', 'pandas'); "
         "bad = [m for m in sys.modules if any(m == h or m.startswith(h + '.') "
         "for h in heavy)]; "
         "assert not bad, ('heavy modules pulled transitively: ' + repr(bad))"
-    ) % (str(root), str(resolver_path))
+    ) % str(root)
     r = subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True, text=True, timeout=30,
     )
     assert r.returncode == 0, (
-        f"Architecture lock violé sur le MODULE resolver (isolé du packaging) "
-        f"— le code de la pièce 4 tire shared.prices / chaîne lourde même avec "
-        f"fetcher stub injecté. stderr:\n{r.stderr}\nstdout:\n{r.stdout}"
+        f"Architecture lock violé — le resolver invoqué avec stub fetcher tire "
+        f"shared.prices / chaîne lourde. Vérifier que bot/jobs/__init__.py reste "
+        f"vide de ré-exports eager. stderr:\n{r.stderr}\nstdout:\n{r.stdout}"
     )
