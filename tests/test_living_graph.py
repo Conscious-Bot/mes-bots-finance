@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import tempfile
-from datetime import date
+from datetime import UTC, datetime
 
 import pytest
 
@@ -49,7 +49,9 @@ def lg_db(monkeypatch):
 def test_fork_detected_above_epsilon(lg_db):
     """Le cas L29 09/06 : 2 sources publient pmp_eur divergent > ε=0.001 → fork."""
     from shared.living_graph import detect_forks, register_concept
-    today = date.today().isoformat()
+    # UTC pour cohérence avec _default_bucket producer (sinon fail à minuit local
+    # UTC+N : producer écrit bucket UTC, consumer cherche bucket locale → 0 fork).
+    today = datetime.now(UTC).date().isoformat()
 
     # SK Hynix : BookLine dit 45.21, VUE SQL legacy dit 44.83 — divergence ~0.85%
     register_concept("pmp_eur", 45.21, source="ledger_pmp", ticker="000660.KS")
@@ -69,7 +71,9 @@ def test_fork_detected_above_epsilon(lg_db):
 def test_no_fork_below_epsilon(lg_db):
     """Anti-cry-wolf : 2 sources divergent < ε → 0 fork (jitter, pas fork)."""
     from shared.living_graph import detect_forks, register_concept
-    today = date.today().isoformat()
+    # UTC pour cohérence avec _default_bucket producer (sinon fail à minuit local
+    # UTC+N : producer écrit bucket UTC, consumer cherche bucket locale → 0 fork).
+    today = datetime.now(UTC).date().isoformat()
 
     # Diff 0.05% < ε=0.001 → pas un vrai fork, juste du jitter intra-regen
     register_concept("pmp_eur", 100.000, source="ledger_pmp", ticker="TSLA")
@@ -82,7 +86,9 @@ def test_no_fork_below_epsilon(lg_db):
 def test_idempotent_upsert_no_duplicate(lg_db):
     """Même source publié 2× même bucket = UPSERT idempotent, pas de 2e row."""
     from shared.living_graph import detect_forks, register_concept
-    today = date.today().isoformat()
+    # UTC pour cohérence avec _default_bucket producer (sinon fail à minuit local
+    # UTC+N : producer écrit bucket UTC, consumer cherche bucket locale → 0 fork).
+    today = datetime.now(UTC).date().isoformat()
 
     register_concept("pmp_eur", 100.0, source="ledger_pmp", ticker="NVDA")
     register_concept("pmp_eur", 100.0, source="ledger_pmp", ticker="NVDA")  # 2e publish
@@ -103,7 +109,9 @@ def test_idempotent_upsert_no_duplicate(lg_db):
 def test_unknown_concept_uses_default_epsilon(lg_db):
     """Concept hors registre yaml : default ε=0.001 (strict)."""
     from shared.living_graph import detect_forks, register_concept
-    today = date.today().isoformat()
+    # UTC pour cohérence avec _default_bucket producer (sinon fail à minuit local
+    # UTC+N : producer écrit bucket UTC, consumer cherche bucket locale → 0 fork).
+    today = datetime.now(UTC).date().isoformat()
 
     # 'unknown_concept' pas dans concept_keys.yaml → ε default 0.001
     register_concept("unknown_concept", 100.0, source="A", ticker="XX")
