@@ -30,22 +30,67 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 
+@pytest.fixture(scope="session")
+def _migrated_db_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Template DB migre UNE fois par session via bootstrap_schema (alembic
+    upgrade head). Consomme par migrated_db qui en fait un snapshot par test
+    via SQLite backup() API.
+
+    Optimisation 11/06 : migration coute ~1.2s, sans template chaque test
+    paye ce cout (N tests = N migrations). Avec template + N backups (~ms
+    chacun), on paye 1.2s une seule fois.
+
+    Checkpoint WAL post-bootstrap pour s'assurer que le .db principal est
+    complet (defensive — backup() est par-construction WAL-safe, mais
+    PRAGMA wal_checkpoint(TRUNCATE) garantit hygiene).
+    """
+    import sqlite3
+    from shared import storage
+
+    template_path = tmp_path_factory.mktemp("alembic_template") / "head.db"
+    storage.bootstrap_schema(db_path=str(template_path))
+    # Force WAL checkpoint : vide le sidecar -wal, garantit que .db principal
+    # contient l'état complet avant toute copie ultérieure.
+    cx = sqlite3.connect(str(template_path))
+    cx.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    cx.close()
+    return template_path
+
+
 @pytest.fixture
-def migrated_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def migrated_db(
+    _migrated_db_template: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Path:
     """DB sqlite temp avec schema head (alembic upgrade head).
 
     Resolve L8 : fixtures derivees de la migration courante, pas snapshots
     statiques. Toute colonne/index/trigger ajoute par une migration sera
     automatiquement present.
 
+    OPTIMISE 11/06 : copie via SQLite backup() API depuis un template
+    session-scoped (migre UNE fois) au lieu de relancer alembic.upgrade(head)
+    par test. Gain : ~1.2s/test → ~ms/test.
+
+    backup() API SQLite est by-construction WAL-safe — produit un snapshot
+    coherent quel que soit l'etat du -wal/-shm sidecars (contrairement a
+    shutil.copy qui ne touche que le .db principal et peut rater des
+    ecritures WAL non-checkpointees).
+
+    Contrat inchange : retourne Path + monkeypatch storage.DB_PATH.
+
     Returns:
         Path vers la DB temp. `shared.storage.DB_PATH` est patche vers
         cette DB pour la duree du test.
     """
+    import sqlite3
     from shared import storage
 
     db = tmp_path / "migrated.db"
-    storage.bootstrap_schema(db_path=str(db))
+    # SQLite backup API : snapshot coherent, WAL-safe par construction
+    with sqlite3.connect(str(_migrated_db_template)) as src, sqlite3.connect(str(db)) as dst:
+        src.backup(dst)
     monkeypatch.setattr(storage, "DB_PATH", db)
     return db
 
