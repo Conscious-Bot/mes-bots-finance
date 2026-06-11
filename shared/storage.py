@@ -2330,7 +2330,7 @@ def get_signals_for_ticker(ticker, days=30, limit=8):
                     d["materiality"] = mat
                     d["weighted_score"] = cred * mat
                     results.append(d)
-        except json.JSONDecodeError, TypeError:
+        except (json.JSONDecodeError, TypeError):
             continue
         if len(results) >= limit:
             break

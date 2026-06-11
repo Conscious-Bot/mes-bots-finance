@@ -65,7 +65,7 @@ def parse_eur_invested(notes: str | None) -> float | None:
         return None
     try:
         return float(m.group(1))
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
 
 

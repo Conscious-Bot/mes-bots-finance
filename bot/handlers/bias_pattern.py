@@ -45,7 +45,7 @@ def _parse_bias_tags(tags_json: str | None) -> list[str]:
         data = json.loads(tags_json)
         if isinstance(data, list):
             return [t for t in data if isinstance(t, str) and t in BIASES]
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):
         pass
     return []
 
@@ -207,7 +207,7 @@ async def cmd_bias_pattern(update, ctx):  # noqa: ARG001
     parts = update.message.text.split()
     try:
         window_days = int(parts[1]) if len(parts) > 1 else 90
-    except ValueError, IndexError:
+    except (ValueError, IndexError):
         await update.message.reply_text("Usage: /bias_pattern [window_days]\nDefault: 90 days")
         return
 

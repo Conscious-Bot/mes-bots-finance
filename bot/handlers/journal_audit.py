@@ -41,7 +41,7 @@ def _extract_tickers(entities_json: str | None) -> list[str]:
         return []
     try:
         data = json.loads(entities_json)
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):
         return []
     tickers: list[str] = []
     if isinstance(data, list):
@@ -182,7 +182,7 @@ async def cmd_journal_audit(update, ctx):  # noqa: ARG001
     try:
         window_days = int(parts[1]) if len(parts) > 1 else 30
         min_impact = float(parts[2]) if len(parts) > 2 else 3.0
-    except ValueError, IndexError:
+    except (ValueError, IndexError):
         await update.message.reply_text(
             "Usage: /journal_audit [window_days] [min_impact]\nDefaults: 30 days, impact 3.0"
         )

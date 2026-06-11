@@ -35,7 +35,7 @@ def _parse_breakdown(breakdown_json: str | None) -> dict:
     try:
         data = json.loads(breakdown_json)
         return data if isinstance(data, dict) else {}
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):
         return {}
 
 
@@ -50,7 +50,7 @@ def _ticker_in_entities(entities_json: str | None, ticker: str) -> bool:
         if isinstance(data, dict):
             tickers = data.get("tickers") or []
             return ticker in tickers
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):
         return False
     return False
 
@@ -185,7 +185,7 @@ async def cmd_signal_drilldown(update, ctx):  # noqa: ARG001
     try:
         window_days = int(parts[2]) if len(parts) > 2 else 30
         min_impact = float(parts[3]) if len(parts) > 3 else 2.0
-    except ValueError, IndexError:
+    except (ValueError, IndexError):
         await update.message.reply_text("Bad args. Usage: /signal_drilldown TICKER [days] [min_impact]")
         return
 

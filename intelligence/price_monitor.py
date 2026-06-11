@@ -156,7 +156,7 @@ def _maybe_update_clv(cx, thesis, current_price: float) -> None:
         return
     try:
         opened_date = datetime.fromisoformat(thesis["opened_at"][:10]).replace(tzinfo=UTC)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return
     days_since = (datetime.now(UTC) - opened_date).days
     entry = thesis["entry_price"]

@@ -359,7 +359,7 @@ def score_market_impact(signal, watchlist=None):
     raw = signal.get("score", 0.5)
     try:
         mag = max(0.1, min(1.0, float(raw)))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         mag = 0.5
     return ticker_score * 0.45 + type_w * 0.30 + mag * 0.25
 

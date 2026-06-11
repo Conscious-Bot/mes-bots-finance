@@ -673,7 +673,7 @@ async def cmd_bot_data(update, ctx):
     if action == "llm_costs" or action == "llm":
         try:
             hours = int(args[1]) if len(args) > 1 else 24
-        except ValueError, IndexError:
+        except (ValueError, IndexError):
             hours = 24
         await _llm_costs_impl(update, hours)
         return

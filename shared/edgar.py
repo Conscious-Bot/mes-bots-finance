@@ -360,7 +360,7 @@ def get_insider_cluster(ticker, days=14):
             continue
         try:
             td = datetime.strptime(td_str[:10], "%Y-%m-%d").replace(tzinfo=UTC)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             continue
         if td < cutoff:
             continue

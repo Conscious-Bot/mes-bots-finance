@@ -94,7 +94,7 @@ def _format_theses(conn: sqlite3.Connection, ticker: str) -> str:
                     drv_str = "; ".join(str(d) for d in drv_list[:3])
                 else:
                     drv_str = str(drivers)[:120]
-            except json.JSONDecodeError, TypeError:
+            except (json.JSONDecodeError, TypeError):
                 drv_str = str(drivers)[:120]
             lines.append(f"    Drivers: {drv_str}")
         if triggers:
@@ -104,7 +104,7 @@ def _format_theses(conn: sqlite3.Connection, ticker: str) -> str:
                     trg_str = " OR ".join(str(t) for t in trg_list[:2])
                 else:
                     trg_str = str(triggers)[:120]
-            except json.JSONDecodeError, TypeError:
+            except (json.JSONDecodeError, TypeError):
                 trg_str = str(triggers)[:120]
             lines.append(f"    Invalidation: {trg_str}")
         if notes and "sector_thesis_id" in notes:

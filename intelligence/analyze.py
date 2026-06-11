@@ -41,7 +41,7 @@ def _safe(v, fmt="", default="n/a"):
         return default
     try:
         return f"{v:{fmt}}"
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return str(v)
 
 
@@ -451,7 +451,7 @@ def _store_analysis(ticker, synthesis, data):
         try:
             json.dumps(v)
             return True
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             return False
 
     meta_dict = {k: v for k, v in data.items() if _safe(v)}

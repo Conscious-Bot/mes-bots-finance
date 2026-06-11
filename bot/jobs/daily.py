@@ -220,7 +220,7 @@ async def scheduled_buy_cluster_scan_job():
             mod = __import__("shared.config", fromlist=[name])
             insider_list = getattr(mod, name)
             break
-        except ImportError, AttributeError:
+        except (ImportError, AttributeError):
             pass
     if insider_list is None:
         from shared.config import WATCHLIST
@@ -274,7 +274,7 @@ async def scheduled_8k_scan_job():
             mod = __import__("shared.config", fromlist=[name])
             insider_list = getattr(mod, name)
             break
-        except ImportError, AttributeError:
+        except (ImportError, AttributeError):
             pass
     if insider_list is None:
         from shared.config import WATCHLIST

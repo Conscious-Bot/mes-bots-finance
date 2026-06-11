@@ -507,7 +507,7 @@ async def cmd_tiers(update, ctx):  # noqa: ARG001
             continue
         try:
             c = int(t.get("conviction") or 0)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             continue
         if c in caps:
             convs.append(c)

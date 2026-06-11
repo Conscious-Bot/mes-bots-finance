@@ -104,7 +104,7 @@ def get_pre_event_thesis_alerts(days_ahead=7):
     theses = []
     try:
         theses = storage.list_theses(status="active")
-    except TypeError, AttributeError:
+    except (TypeError, AttributeError):
         try:
             all_theses = storage.list_theses() if hasattr(storage, "list_theses") else []
             theses = [t for t in all_theses if t.get("status") == "active"]
