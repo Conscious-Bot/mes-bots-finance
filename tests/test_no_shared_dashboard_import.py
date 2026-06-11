@@ -49,8 +49,8 @@ INTELLIGENCE = ROOT / "intelligence"
 # par injection de dépendance). À faire dans une session dédiée post-#120.
 _INTELLIGENCE_LEGACY_WHITELIST: set[tuple[str, int, str]] = {
     ("intelligence/decision_copilot.py", 426, "dashboard.render"),  # TICKER_SECTOR
-    ("intelligence/spof_and_sizing.py", 35, "dashboard.render"),    # _positions
-    ("intelligence/spof_and_sizing.py", 103, "dashboard.render"),   # _positions
+    # spof_and_sizing.py × 2 : RÉSOLUS cure #120 étape 3 (12/06) — _positions
+    # déplacé vers shared/portfolio_view_builder.py, spof importe depuis shared/.
     ("intelligence/portfolio_grade.py", 184, "dashboard.render"),   # TICKER_SECTOR
     ("intelligence/portfolio_grade.py", 664, "dashboard.render"),   # _cluster_health, _pnl_cost_map
     ("intelligence/analyze.py", 534, "dashboard.restitution"),       # format_llm_unavailable_marker

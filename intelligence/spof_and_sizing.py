@@ -32,9 +32,13 @@ def compute_spof_graph() -> dict:
     Returns {node: {total_exposure_eur, pct_of_book, dependents: [...]}}
     sorted by pct_of_book desc.
     """
-    from dashboard.render import _positions
+    from shared.portfolio_view_builder import _positions  # cure #120 étape 3 — couche shared/, plus de dashboard/
+    from shared.position_view import get_all_positions_views
 
-    positions = _positions()
+    # Cure #120 étape 5 single-source : on tire le seam UNE FOIS au call-site,
+    # builder reçoit views explicite. Fallback intérieur supprimé pour empêcher
+    # le drift double-source silencieux entre callers.
+    positions = _positions(views=get_all_positions_views())
     if not positions:
         return {}
     total = sum(p.get("weight", 0) for p in positions) or 1
@@ -100,9 +104,13 @@ def compute_mauboussin_sizing() -> dict:
 
     Returns {ticker: {conviction, fade_rate, base_cap, target_pct, actual_pct, gap_pp, status}}.
     """
-    from dashboard.render import _positions
+    from shared.portfolio_view_builder import _positions  # cure #120 étape 3 — couche shared/, plus de dashboard/
+    from shared.position_view import get_all_positions_views
 
-    positions = _positions()
+    # Cure #120 étape 5 single-source : on tire le seam UNE FOIS au call-site,
+    # builder reçoit views explicite. Fallback intérieur supprimé pour empêcher
+    # le drift double-source silencieux entre callers.
+    positions = _positions(views=get_all_positions_views())
     total = sum(p.get("weight", 0) for p in positions) or 1
     meta = {m["ticker"]: m for m in storage.get_all_latest_ticker_meta()}
 

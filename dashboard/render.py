@@ -780,15 +780,15 @@ def _render_ballast_cell(target: dict, views: dict | None = None) -> str:
     M1, valeur figee). Source verite ici = compute_ballast_strict(positions actuelles).
     Si live diverge du YAML, surface les 2 avec live prominent.
 
-    Migration #120 étape 1 12/06 : accepte `views` opt depuis le seam
-    `get_all_positions_views()` (passé par `_risk_watch_panel` qui le reçoit
-    de `render()`). Si None, le builder `_positions()` fallback intérieur —
-    transitoire pour callsites encore non-migrés. À supprimer Étape 5
-    (single-source enforcement).
+    Migration #120 étapes 1+5 12/06 : reçoit `views` du seam
+    `get_all_positions_views()` (propagé par `_risk_watch_panel` ← `render()`).
+    Le builder `_positions(views)` REQUIERT views explicite (single-source
+    enforcement strict, plus de fallback intérieur). Le default None ici reste
+    pour compatibilité signature mais devient un dict vide passé au builder.
     """
     try:
         from intelligence.ballast_compute import compute_ballast_strict
-        positions = _positions(views)
+        positions = _positions(views if views is not None else {})
         bs = compute_ballast_strict(positions)
     except Exception:
         bs = None
@@ -3820,70 +3820,9 @@ def _clean_sector(sid: str | None) -> str:
     )
 
 
-def _positions(views: dict | None = None) -> list[dict]:
-    """Builder unique consommé par _concentration, _cluster_health, _risk_watch_panel.
-
-    MIGRATION 09/06 (Phase Lane 2 #1) — directive Olivier :
-      Le builder UNIQUE de positions doit lire le seam `book.value_eur` (Datum
-      canonique via prices.get + prices.fx live). Avant : weight = qty *
-      current_price_eur (cache DB). Maintenant : weight = view.value_eur_datum.
-      Trois panneaux deviennent cohérents d'un coup avec ce seul commit.
-
-    Si `views` n'est pas passé, le builder appelle get_all_positions_views()
-    lui-même (callsite hors render principal). Test invariant somme-parties
-    (`tests/test_aggregate_sum_equals_parts.py`) verrouille la cohérence
-    `Σ p["weight"] == Σ view.value_eur`.
-
-    Fallback BookLine.weight_market_eur si view manquante (position sans
-    thèse active OU view degraded fail-closed). Documente le degraded au
-    moment de la migration.
-
-    Shape backward-compat (inchangée vs avant) :
-        ticker (str) · weight (float, EUR market value) · avg_cost · wrapper
-        · qty · current_price_eur · cost_basis_eur
-        + M1 typed columns (last_price_native, last_price_currency, price_asof,
-          fx_rate_to_eur, fx_asof) -- TODO migration : ces colonnes legacy
-          deviennent obsolètes une fois consumers migrés vers view.* direct.
-    """
-    try:
-        from shared import book as _bk
-    except Exception:
-        return []
-
-    if views is None:
-        try:
-            from shared.position_view import get_all_positions_views
-            views = get_all_positions_views()
-        except Exception:
-            views = {}
-
-    out = []
-    for ln in _bk.get_held_lines():
-        cost_basis = (ln.qty or 0) * (ln.avg_cost_eur or 0)
-        # weight depuis le seam canonical (book.value_eur via prices.get/fx live).
-        # Fallback BookLine si view absente (thèse non-active / view degraded).
-        v = views.get(ln.ticker) if views else None
-        if v is not None and v.value_eur_datum is not None:
-            _v = v.value_eur_datum.value
-            weight = float(_v.amount if hasattr(_v, "amount") else _v)
-        else:
-            weight = ln.weight_market_eur or 0
-        out.append({
-            "ticker": ln.ticker,
-            "weight": weight,  # MARKET VALUE EUR via seam canonical (book.value_eur)
-            "avg_cost": float(ln.avg_cost_eur or 0),
-            "wrapper": (ln.wrapper or "CTO").upper(),
-            "qty": float(ln.qty or 0),
-            "current_price_eur": ln.current_price_eur,
-            "cost_basis_eur": cost_basis,
-            # M1 typed columns canoniques (Axe 3 / Axe 5).
-            "last_price_native": ln.last_price_native,
-            "last_price_currency": ln.last_price_currency,
-            "price_asof": ln.price_asof,
-            "fx_rate_to_eur": ln.fx_rate_to_eur,
-            "fx_asof": ln.fx_asof,
-        })
-    return out
+# Builder _positions déplacé vers shared/portfolio_view_builder.py (cure #120
+# étape 2 12/06). Ré-export pour rétro-compat des callers internes au render.py.
+from shared.portfolio_view_builder import _positions  # noqa: E402
 
 
 def _sectors() -> dict:
