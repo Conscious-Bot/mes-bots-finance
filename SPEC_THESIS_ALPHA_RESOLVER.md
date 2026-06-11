@@ -56,22 +56,33 @@ COUCHE 3 — P&L EUR (book réel)
 
 ## 2. Architecture canonique
 
-### 2.1 Helper convert : `convert_consensus_pt_to_native(consensus_ref, fx_at_asof) -> float`
+### 2.1 Helper convert : `convert_consensus_pt_to_native(consensus_ref, native_currency, fx_at_asof) -> dict`
 
 ```python
 # shared/thesis_alpha.py
 def convert_consensus_pt_to_native(
     consensus_ref: dict,      # {pt, median, currency, asof}
-    fx_at_asof: float,        # fx (consensus.currency → ticker.native_currency) at asof
-    asof: date,
-) -> dict:
+    native_currency: str,     # devise du ticker (EUR, USD, JPY, KRW, ...)
+    fx_at_asof: float,        # fx (consensus.currency → native_currency) at asof
+) -> dict | None:
     """Convert PT consensus → devise native du ticker, FIGÉE à asof.
 
     Décisions A + D : asof = moment de la pose, native = devise de l'action.
 
+    `native_currency` est obligatoire (pas implicite) pour permettre le check
+    A2 no-op : sans connaître la devise du ticker, on ne peut pas savoir si
+    la conversion est triviale ou non.
+
     Returns:
-        {pt_native: float, median_native: float, fx_at_asof: float, asof: date}
-        Si consensus_ref.currency == ticker.native_currency : fx_at_asof = 1.0, no-op.
+        {pt_native, median_native, fx_at_asof_used, asof, source_currency,
+         native_currency} si tout OK.
+        None si fail-closed L15 (consensus manquant / PT invalide / fx invalide /
+        NaN/Inf en input).
+
+    Invariant A2 : si consensus_ref.currency == native_currency, fx_at_asof
+    est forcé à 1.0 silencieusement (override contrat clair) — même si le
+    caller passe autre chose. La valeur retournée fx_at_asof_used reflète
+    le fx réellement utilisé pour la conversion.
     """
 ```
 
@@ -154,16 +165,32 @@ def compute_alpha_track_record(min_n: int = 30) -> dict:
 
 ## 3. Formule alpha + magnitude_score
 
-### 3.1 Alpha directionnel
+### 3.1 Alpha directionnel — deux seuils symétriques
 
 ```
 your_delta_native_pct  = (your_target_native − pt_native_asof) / asof_price_native × 100
 alpha_realized_pct     = (resolve_price_native − pt_native_asof) / asof_price_native × 100
 
-direction_correct = 1 si sign(alpha_realized) == sign(your_delta) et |alpha_realized| ≥ ε_neutre (typique 1%)
-                  = 0 si sign opposé et |alpha_realized| ≥ ε_neutre
-                  = NULL si |alpha_realized| < ε_neutre (zone neutre, exclu agrégation)
+classify_direction (deux ε symétriques, ordre de priorité no_bet > neutral > correct/incorrect) :
+  = 'no_bet'    si |your_delta| < ε_delta     (pendant symétrique §6.8 : your_target ≈ consensus = pas de pari)
+  = 'neutral'   si |alpha| < ε_neutre          (zone neutre alpha, exclu agrégation)
+  = 'correct'   si sign(alpha) == sign(your_delta) ET |alpha| ≥ ε_neutre ET |your_delta| ≥ ε_delta
+  = 'incorrect' si signes opposés (mêmes conditions de seuil)
+
+Mapping writer (pièce 3) :
+  direction_correct INTEGER :
+    'correct'    → 1
+    'incorrect'  → 0
+    'neutral'    → NULL  (exclu agrégation, mais ligne conservée pour audit)
+    'no_bet'     → NULL  (exclu agrégation, distinguable de neutral via colonne notes/flag)
 ```
+
+**Pourquoi deux ε et pas un seul** : sans ε_delta, une pose `your_target ≈ consensus` (delta minuscule) serait scorée sur le signe fragile d'un alpha large — `+0.1%` delta vs `-0.1%` delta donneraient verdicts opposés sur le même alpha, alors que les deux poses expriment "pas de variant view". C'est le pendant symétrique de §6.8 (pas de PT consensus = pas de pari) appliqué côté pose.
+
+**Diagnostic distinct** :
+- `no_bet` fréquent → poses molles (l'humain ne diverge pas vraiment de la foule)
+- `neutral` fréquent → régime plat (les actions ne bougent pas à 12m)
+- Les deux exclus de l'agrégation mais informatifs séparément.
 
 ### 3.2 Magnitude score (Brier-type pondéré confiance)
 
