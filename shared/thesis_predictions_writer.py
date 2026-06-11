@@ -198,7 +198,7 @@ def update_thesis_resolve_fields(
     classify_result: str,
     magnitude_score: float | None = None,
 ) -> bool:
-    """Update atomique des 6 resolve cols (contrat trigger 2).
+    """Update atomique des resolve cols (contrat trigger 2).
 
     UN seul UPDATE statement avec resolved_at + tous les autres resolve cols
     d'un coup. Si splitté en 2 statements, le 2e post-resolved_at se fait
