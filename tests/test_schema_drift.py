@@ -49,6 +49,8 @@ _WHITELIST = {
     "pragma_table_info",  # SQLite pragma (rarely used in FROM but possible)
     "before",  # SQL keyword in CREATE TRIGGER BEFORE INSERT/UPDATE/DELETE
     "on",  # SQL keyword in CREATE TRIGGER ... ON table_name
+    "of",  # SQL keyword in CREATE TRIGGER BEFORE UPDATE OF col_list (cf migrations 0052/0053/0054 thesis_predictions write-once triggers)
+    "set",  # SQL keyword in ON CONFLICT (...) DO UPDATE SET (upsert pattern, cf shared/living_graph.py concept_index, etc.)
     # Migration 0028 (ADR 014 hazard B) : temp tables transient pour SQLite
     # ALTER COLUMN recipe (rename swap). Existent uniquement le temps de la
     # migration upgrade()/downgrade(), pas dans le schema final.

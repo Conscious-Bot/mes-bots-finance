@@ -32,6 +32,8 @@ ALLOWED_FILES = {
     "intelligence/lock_in_detector.py",  # Surface 2 lock_in v2.c.6 (01/06) : detect_winner_sell hook positions.add_sell (L7 post-commit), update bias_events.position_event_id FK. Cron-equivalent (declenche par add_sell, pas par scheduler).
     "intelligence/calibration_audit.py",  # Calibration audit credibility recal (cron weekly) : UPDATE sources SET credibility=? -- pattern materiality_v2 / debt_monitor cron.
     "intelligence/learning.py",  # #93 Composant A2 (03/06) : UPDATE signals SET scoring_status='pending_llm' sur LLMUnavailableError dans la boucle V2 batch. Pattern materiality_v2 / debt_monitor cron.
+    "shared/living_graph.py",  # SPEC_LIVING_GRAPH W0 tracer-bullet (09/06) : INSERT INTO concept_index + ON CONFLICT DO UPDATE pour le DAG Datums. Table dediee au moteur living graph, ecriture pattern upsert append-friendly.
+    "shared/thesis_predictions_writer.py",  # SPEC_THESIS_ALPHA_RESOLVER pieces 3+4 (11/06) : insert_thesis_pose + update_thesis_resolve_fields + mark_thesis_prediction_abandoned. Table append-only thesis_predictions avec 3 triggers (pose_writeonce, resolve_writeonce, no_delete). Writer dedie au chantier alpha resolver, pattern identique self_loop / bias_events.
     "bot/main.py",  # telemetrie handler_calls
     "bot/handlers/misc.py",  # edition champs these
 }
