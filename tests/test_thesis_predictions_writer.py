@@ -175,6 +175,7 @@ def test_get_due_excludes_already_resolved(migrated_db):
 
 
 def test_resolve_atomic_writes_all_fields_at_once(migrated_db):
+    """UPDATE atomique inclut resolution_status='resolved' (SPEC §4.1 lifecycle)."""
     from shared import storage
     from shared.thesis_predictions_writer import insert_thesis_pose, update_thesis_resolve_fields
     pred_id = insert_thesis_pose(**_pose_kwargs())
@@ -186,7 +187,7 @@ def test_resolve_atomic_writes_all_fields_at_once(migrated_db):
     with storage.db() as cx:
         row = cx.execute(
             "SELECT resolved_at, resolve_price_native, alpha_realized_pct, "
-            "direction_correct, magnitude_score, exclude_reason "
+            "direction_correct, magnitude_score, exclude_reason, resolution_status "
             "FROM thesis_predictions WHERE id=?", (pred_id,)
         ).fetchone()
     assert row[0] is not None  # resolved_at set
@@ -194,10 +195,13 @@ def test_resolve_atomic_writes_all_fields_at_once(migrated_db):
     assert row[2] == 33.7
     assert row[3] == 1  # correct → 1
     assert row[4] == 0.117
-    assert row[5] is None  # no exclude
+    assert row[5] is None  # no scoring exclude
+    assert row[6] == "resolved"  # lifecycle = resolved (SPEC §4.1)
 
 
 def test_resolve_neutral_sets_exclude_reason(migrated_db):
+    """Neutral : direction_correct=NULL + exclude_reason='neutral' +
+    resolution_status='resolved' (le pari A été résolu, juste non-scorable)."""
     from shared import storage
     from shared.thesis_predictions_writer import insert_thesis_pose, update_thesis_resolve_fields
     pred_id = insert_thesis_pose(**_pose_kwargs())
@@ -207,11 +211,113 @@ def test_resolve_neutral_sets_exclude_reason(migrated_db):
     )
     with storage.db() as cx:
         row = cx.execute(
-            "SELECT direction_correct, exclude_reason FROM thesis_predictions WHERE id=?",
+            "SELECT direction_correct, exclude_reason, resolution_status "
+            "FROM thesis_predictions WHERE id=?",
             (pred_id,)
         ).fetchone()
-    assert row[0] is None  # neutral → direction_correct NULL
-    assert row[1] == "neutral"
+    assert row[0] is None  # neutral → direction_correct NULL (exclu scoring)
+    assert row[1] == "neutral"  # axe scoring
+    assert row[2] == "resolved"  # axe lifecycle — le pari A été résolu
+
+
+# ============================================================
+# mark_thesis_prediction_abandoned (pièce 3++)
+# ============================================================
+
+
+def test_mark_abandoned_sets_lifecycle_and_nulls_scoring_cols(migrated_db):
+    """Abandon terminal : resolution_status='abandoned', tous scoring cols NULL.
+
+    La ligne sort du pool get_due (resolved_at set) ET du pool scoring
+    (direction_correct=NULL → exclu par WHERE direction_correct IS NOT NULL
+    de l'agrégateur SPEC §4.1).
+    """
+    from shared import storage
+    from shared.thesis_predictions_writer import (
+        insert_thesis_pose, mark_thesis_prediction_abandoned,
+    )
+    pred_id = insert_thesis_pose(**_pose_kwargs())
+    ok = mark_thesis_prediction_abandoned(prediction_id=pred_id)
+    assert ok is True
+    with storage.db() as cx:
+        row = cx.execute(
+            "SELECT resolved_at, resolve_price_native, alpha_realized_pct, "
+            "direction_correct, magnitude_score, exclude_reason, resolution_status "
+            "FROM thesis_predictions WHERE id=?", (pred_id,)
+        ).fetchone()
+    assert row[0] is not None  # resolved_at set → sort de get_due
+    assert row[1] is None  # resolve_price_native NULL (jamais observé)
+    assert row[2] is None  # alpha_realized_pct NULL (jamais calculé)
+    assert row[3] is None  # direction_correct NULL → exclu scoring
+    assert row[4] is None  # magnitude_score NULL
+    assert row[5] is None  # pas un scoring exclude (lifecycle distinct)
+    assert row[6] == "abandoned"  # lifecycle terminal
+
+
+def test_mark_abandoned_removes_from_get_due_pool(migrated_db):
+    """Post-abandon, get_due ne re-pickup plus (resolved_at set)."""
+    from datetime import date as _date
+    from shared.thesis_predictions_writer import (
+        get_due_thesis_predictions, insert_thesis_pose, mark_thesis_prediction_abandoned,
+    )
+    pred_id = insert_thesis_pose(**_pose_kwargs(resolve_due_date=_date(2027, 1, 1)))
+    mark_thesis_prediction_abandoned(prediction_id=pred_id)
+    due = get_due_thesis_predictions(today=_date(2027, 6, 10))
+    assert all(r["id"] != pred_id for r in due)
+
+
+def test_mark_abandoned_logs_bot_event(migrated_db):
+    """Abandon logge un event 'thesis_resolve_abandoned' avec reason."""
+    from shared import storage
+    from shared.thesis_predictions_writer import (
+        insert_thesis_pose, mark_thesis_prediction_abandoned,
+    )
+    pred_id = insert_thesis_pose(**_pose_kwargs())
+    mark_thesis_prediction_abandoned(prediction_id=pred_id, reason="price_unavailable")
+    with storage.db() as cx:
+        rows = cx.execute(
+            "SELECT event_type, details FROM bot_events "
+            "WHERE event_type='thesis_resolve_abandoned'"
+        ).fetchall()
+    assert len(rows) == 1
+    assert "price_unavailable" in rows[0][1]
+    assert str(pred_id) in rows[0][1]
+
+
+def test_mark_abandoned_blocked_on_already_resolved(migrated_db):
+    """L'abandon ne peut PAS overwrite une résolution normale (trigger 2 mord)."""
+    from shared.thesis_predictions_writer import (
+        insert_thesis_pose, mark_thesis_prediction_abandoned, update_thesis_resolve_fields,
+    )
+    pred_id = insert_thesis_pose(**_pose_kwargs())
+    # Résolution normale d'abord
+    update_thesis_resolve_fields(
+        prediction_id=pred_id, resolve_price_native=3_000_000.0,
+        alpha_realized_pct=33.7, classify_result="correct",
+    )
+    # Tentative abandon post-résolution → trigger 2 mord
+    ok = mark_thesis_prediction_abandoned(prediction_id=pred_id)
+    assert ok is False
+
+
+def test_mark_abandoned_returns_false_on_unknown_pred_id(migrated_db):
+    from shared.thesis_predictions_writer import mark_thesis_prediction_abandoned
+    ok = mark_thesis_prediction_abandoned(prediction_id=99999)
+    assert ok is False
+
+
+def test_mark_abandoned_twice_blocked_idempotent_intent(migrated_db):
+    """Re-mark_abandoned sur même pred → trigger 2 mord (resolved_at déjà set).
+    Pas un crash — le 2e call retourne False. L'abandon est terminal,
+    idempotent par échec contrôlé."""
+    from shared.thesis_predictions_writer import (
+        insert_thesis_pose, mark_thesis_prediction_abandoned,
+    )
+    pred_id = insert_thesis_pose(**_pose_kwargs())
+    ok1 = mark_thesis_prediction_abandoned(prediction_id=pred_id)
+    ok2 = mark_thesis_prediction_abandoned(prediction_id=pred_id)
+    assert ok1 is True
+    assert ok2 is False  # trigger 2 mord (resolved_at set par 1er call)
 
 
 def test_resolve_raises_on_none_classify(migrated_db):

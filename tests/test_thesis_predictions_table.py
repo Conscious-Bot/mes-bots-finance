@@ -21,7 +21,7 @@ longs) = 2-référentiels infra test interdit par SPEC §4.1. Source unique
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -173,7 +173,7 @@ def test_trigger_resolve_first_pass_allowed_when_resolved_at_null(migrated_db):
                 direction_correct = ?, magnitude_score = ?, exclude_reason = NULL,
                 resolution_status = 'resolved'
             WHERE id = ?
-        """, (datetime.utcnow().isoformat(), 2_500_000.0, 20.5, 1, 0.125, pid))
+        """, (datetime.now(UTC).isoformat(), 2_500_000.0, 20.5, 1, 0.125, pid))
         row = cx.execute(
             "SELECT direction_correct, alpha_realized_pct, resolution_status "
             "FROM thesis_predictions WHERE id=?", (pid,)

@@ -233,7 +233,8 @@ def update_thesis_resolve_fields(
                     alpha_realized_pct = ?,
                     direction_correct = ?,
                     magnitude_score = ?,
-                    exclude_reason = ?
+                    exclude_reason = ?,
+                    resolution_status = 'resolved'
                   WHERE id = ?
                 """,
                 (
@@ -264,6 +265,86 @@ def update_thesis_resolve_fields(
     log.info(
         f"thesis_resolve id={prediction_id} classify={classify_result} "
         f"alpha={alpha_realized_pct:+.2f}% direction_correct={direction_correct}"
+    )
+    return True
+
+
+def mark_thesis_prediction_abandoned(
+    *,
+    prediction_id: int,
+    reason: str = "price_unavailable",
+) -> bool:
+    """Marque un pari comme TERMINAL-abandonné (price unavailable post-grace,
+    cf SPEC §4.2).
+
+    La ligne sort du pool `get_due` (resolved_at set) ET du pool scoring
+    (direction_correct=NULL, magnitude_score=NULL → exclus par construction
+    de l'agrégateur qui filtre sur ces colonnes IS NOT NULL, cf SPEC §4.1
+    axe lifecycle vs axe scoring).
+
+    UN seul UPDATE atomique (contrat trigger 2) avec :
+    - resolved_at = now (lifecycle terminal, sort de get_due)
+    - resolution_status = 'abandoned' (axe lifecycle SPEC §4.1)
+    - resolve_price_native = NULL (jamais observé)
+    - alpha_realized_pct = NULL (jamais calculé)
+    - direction_correct = NULL (auto-exclu scoring)
+    - magnitude_score = NULL (auto-exclu Brier)
+    - exclude_reason = NULL (axe scoring distinct — pas neutral/no_bet,
+      c'est lifecycle pas scoring)
+
+    Args:
+        prediction_id : id de la ligne à abandonner
+        reason : raison textuelle (loggée dans bot_events seulement, pas
+            en DB — la doctrine SPEC §4.1 est que resolution_status='abandoned'
+            suffit côté schéma, le contexte vit dans bot_events via log_event)
+
+    Returns:
+        True si update réussi (1 ligne touchée)
+        False si pred introuvable OU déjà résolue (trigger 2 mord)
+
+    Distingué de update_thesis_resolve_fields :
+    - update_resolve : alpha calculé → resolution_status='resolved' +
+      direction_correct in {0,1} OU exclude_reason in {'neutral','no_bet'}
+    - mark_abandoned : alpha non-calculable → resolution_status='abandoned',
+      tous les autres resolve cols NULL. Lifecycle distinct de scoring.
+    """
+    rowcount = 0
+    trigger_mord = False
+    with db() as cx:
+        try:
+            cur = cx.execute(
+                """
+                UPDATE thesis_predictions SET
+                    resolved_at = ?,
+                    resolve_price_native = NULL,
+                    alpha_realized_pct = NULL,
+                    direction_correct = NULL,
+                    magnitude_score = NULL,
+                    exclude_reason = NULL,
+                    resolution_status = 'abandoned'
+                  WHERE id = ?
+                """,
+                (datetime.now(UTC).isoformat(), prediction_id),
+            )
+            rowcount = cur.rowcount
+        except IntegrityError:
+            # Trigger 2 mord si déjà résolu (l'abandon ne re-résoud pas)
+            trigger_mord = True
+
+    # Hors du with : log après release des locks
+    if trigger_mord:
+        log.error(
+            f"mark_thesis_prediction_abandoned : pred_id={prediction_id} déjà résolu "
+            f"(trigger 2 mord). L'abandon n'overwrite pas une résolution normale."
+        )
+        return False
+    if rowcount == 0:
+        log.warning(f"mark_thesis_prediction_abandoned : pred_id={prediction_id} introuvable")
+        return False
+    log.info(f"thesis_abandoned id={prediction_id} reason={reason}")
+    log_event(
+        "thesis_resolve_abandoned",
+        {"prediction_id": prediction_id, "reason": reason},
     )
     return True
 
