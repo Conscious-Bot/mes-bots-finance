@@ -35,9 +35,13 @@ from shared.storage import IntegrityError, db, log_event
 
 log = logging.getLogger(__name__)
 
-# ε_delta par défaut : aligné classify_direction (1.0 = 1% native).
-# Override possible par config future si besoin.
+# ε par défaut : alignés classify_direction (1.0 = 1% native).
+# Cure P0 audit (2) 11/06 : ces defaults sont la DOCTRINE COURANTE — chaque
+# pose les stocke à l'INSERT pour figer la cible de mesure (cf SPEC §0 décision B
+# « Freeze à la pose » étendue aux ε). Modifier ces defaults n'affecte PAS les
+# poses existantes (resolver lit les valeurs stockées, pas ces defaults).
 DEFAULT_EPSILON_DELTA_PCT = 1.0
+DEFAULT_EPSILON_NEUTRAL_PCT = 1.0
 
 
 def insert_thesis_pose(
@@ -58,6 +62,7 @@ def insert_thesis_pose(
     source: str | None = None,
     notes: str | None = None,
     epsilon_delta_pct: float = DEFAULT_EPSILON_DELTA_PCT,
+    epsilon_neutral_pct: float = DEFAULT_EPSILON_NEUTRAL_PCT,
 ) -> int | None:
     """Insert une pose dans thesis_predictions, fail-closed sur 3 cas.
 
@@ -108,14 +113,18 @@ def insert_thesis_pose(
                     ticker, asof, asof_price_native, native_currency,
                     pt_consensus_raw, pt_consensus_currency, pt_native_asof, fx_at_asof,
                     your_target_native, your_delta_native_pct, confidence, thesis_summary,
-                    resolve_due_date, source, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    resolve_due_date, source, notes,
+                    epsilon_delta_pct_at_pose, epsilon_neutral_pct_at_pose
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ticker, str(asof), asof_price_native, native_currency,
                     pt_consensus_raw, pt_consensus_currency, pt_native_asof, fx_at_asof,
                     your_target_native, your_delta_native_pct, confidence, thesis_summary,
                     str(resolve_due_date), source, notes,
+                    # Cure P0 0054 : ε figés à la pose (doctrine du poseur).
+                    # Resolver lit ces valeurs à t+12m, pas les defaults code live.
+                    epsilon_delta_pct, epsilon_neutral_pct,
                 ),
             )
             new_id = cur.lastrowid

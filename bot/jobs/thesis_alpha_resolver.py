@@ -210,11 +210,38 @@ def resolve_due_thesis_predictions(
             pt_native_asof=pred["pt_native_asof"],
             asof_price_native=pred["asof_price_native"],
         )
+        # Cure P0 0054 : LIRE les ε figés à la POSE (doctrine du poseur),
+        # pas les defaults du resolver live à t+12m. Stocker au resolve
+        # documenterait le drift sans l'empêcher (red-team Olivier 11/06).
+        # Fall-back vers params seulement si NULL (poses ultra-legacy hors
+        # backfill 0054 — ne devrait jamais arriver en pratique).
+        eps_delta_pose = pred.get("epsilon_delta_pct_at_pose")
+        eps_neutral_pose = pred.get("epsilon_neutral_pct_at_pose")
+        if eps_delta_pose is None or eps_neutral_pose is None:
+            log_event(
+                "thesis_resolve_legacy_epsilon_fallback",
+                {
+                    "prediction_id": pid,
+                    "ticker": ticker,
+                    "eps_delta_stored": eps_delta_pose,
+                    "eps_neutral_stored": eps_neutral_pose,
+                    "eps_delta_fallback": epsilon_delta_pct,
+                    "eps_neutral_fallback": epsilon_neutral_pct,
+                },
+            )
+            log.warning(
+                f"thesis_resolver: pred_id={pid} sans ε stocké à la pose, "
+                f"fallback defaults (ε_delta={epsilon_delta_pct}, "
+                f"ε_neutral={epsilon_neutral_pct}). À auditer."
+            )
+        eps_delta_effective = eps_delta_pose if eps_delta_pose is not None else epsilon_delta_pct
+        eps_neutral_effective = eps_neutral_pose if eps_neutral_pose is not None else epsilon_neutral_pct
+
         classify = classify_direction(
             your_delta_native_pct=pred["your_delta_native_pct"],
             alpha_realized_pct=alpha,
-            epsilon_neutral_pct=epsilon_neutral_pct,
-            epsilon_delta_pct=epsilon_delta_pct,
+            epsilon_neutral_pct=eps_neutral_effective,
+            epsilon_delta_pct=eps_delta_effective,
         )
 
         # Garde classify=None défensif (SPEC §4.2) : fail-loud, defer
@@ -237,11 +264,13 @@ def resolve_due_thesis_predictions(
             continue
 
         # Compute magnitude (Brier-type, outcome=sign(alpha))
+        # Cure P0 0054 : utilise eps_neutral_effective (figé à la pose),
+        # pas le param resolver (qui serait la doctrine live à t+12m).
         magnitude = _compute_magnitude_score(
             your_delta_native_pct=pred["your_delta_native_pct"],
             alpha_realized_pct=alpha,
             confidence=pred.get("confidence"),
-            epsilon_neutral_pct=epsilon_neutral_pct,
+            epsilon_neutral_pct=eps_neutral_effective,
         )
 
         # Write atomique
