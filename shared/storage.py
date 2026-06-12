@@ -957,6 +957,10 @@ def insert_prediction(
         # Integrity chain commit-reveal -- post-commit, silent-miss (L7 pattern
         # cf lock_in hook). payload+nonce restent prives dans bot.db ; le ledger
         # public (integrity_anchor.sh) exporte hash chain seul.
+        if _pred_id is None:
+            # SQLite ne retourne lastrowid=None que sur INSERT echoue silencieux
+            # (constraint violation pre-commit etc) -- fail-loud avant integrity.
+            raise RuntimeError("insert_prediction: lastrowid is None (INSERT failed?)")
         try:
             record_prediction_integrity(conn, _pred_id)
         except Exception as _e:
