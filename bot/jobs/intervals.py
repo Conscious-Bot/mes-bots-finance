@@ -102,9 +102,10 @@ async def event_driven_erosion_check_job():
     try:
         from intelligence import thesis_erosion
 
-        stats = thesis_erosion.recompute_for_tickers_with_fresh_signals(
-            since_minutes=30,
-        )
+        # since_minutes=None -> per-thesis cutoff (max(last_compute, now-14j))
+        # Cure TODO #143 12/06/2026 : fenetre glissante 30min ratait les signaux
+        # ingeres pendant downtime du bot. Per-thesis rattrape automatiquement.
+        stats = thesis_erosion.recompute_for_tickers_with_fresh_signals()
         if stats["triggered"] > 0:
             n_changes = len(stats["verdict_changes"])
             log.info(

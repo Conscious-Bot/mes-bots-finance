@@ -341,21 +341,28 @@ def _persist(
 
 
 def recompute_for_tickers_with_fresh_signals(
-    since_minutes: int = 30,
+    since_minutes: int | None = None,
+    fallback_lookback_days: int = 14,
 ) -> dict:
     """Event-driven trigger : recompute erosion pour theses dont un signal
-    materiel primary-entity a ete recemment ingere.
+    materiel primary-entity est arrive DEPUIS LE DERNIER computed_at de la
+    these (per-thesis fenetre, pas fenetre glissante globale).
 
-    Spec user 07/06 : "recompute une these quand un nouveau signal materiel
-    sur son ticker arrive (l'ingestion tourne deja)".
+    Bug racine corrige 12/06 (cure structurelle, cf TODO #143) : avant, le
+    cron utilisait fenetre glissante `since_minutes=30`. Si le bot etait
+    down pendant des heures, les signaux ingeres pendant la pause etaient
+    permanently missed (le weekly floor rattrapait lundi). Cure : la cutoff
+    est calculee PER-THESE comme MAX(computed_at), pas globalement.
 
-    Filtre :
-    - Signal timestamp > now - since_minutes
-    - Signal a un entities JSON non-vide
-    - Ticker en TOP-N primaire (cf get_material_signals_since calibration)
-    - Une these active existe pour ce ticker
+    Logique :
+    - Pour chaque these active :
+      - last_compute = MAX(computed_at) WHERE thesis_id=tid (last erosion run)
+      - Si jamais computed -> fallback now - fallback_lookback_days
+      - cutoff = max(last_compute, now - fallback_lookback_days) (borne 14j)
+      - Si signaux WHERE timestamp > cutoff AND ticker IN entities[:3] -> recompute
+    - Sinon (legacy / tests) : si `since_minutes` non-None, fenetre glissante.
 
-    Pour chaque thes concernee :
+    Pour chaque these concernee :
     - Lit le VERDICT precedent (avant recompute)
     - Trigger compute_thesis_erosion (qui persiste classifications + nouveau verdict)
     - Si verdict CHANGE de maniere notable (INTACT->EROSION_DETECTED ou
@@ -368,7 +375,6 @@ def recompute_for_tickers_with_fresh_signals(
 
     from shared import notify, storage
 
-    cutoff = (datetime.now(UTC) - timedelta(minutes=since_minutes)).isoformat()
     stats = {
         "checked": 0,
         "triggered": 0,
@@ -376,44 +382,71 @@ def recompute_for_tickers_with_fresh_signals(
         "errors": 0,
     }
 
-    # Collect tickers from fresh signals (primary entity top-3)
-    fresh_tickers: set[str] = set()
-    try:
-        with storage.db() as cx:
-            rows = cx.execute(
-                "SELECT entities FROM signals "
-                "WHERE timestamp > ? AND entities IS NOT NULL",
-                (cutoff,),
-            ).fetchall()
-            for r in rows:
-                try:
-                    ents = _json.loads(r[0] or "[]")
-                    if isinstance(ents, list):
-                        for e in ents[:3]:  # top-3 primary
-                            fresh_tickers.add(str(e).upper())
-                except (_json.JSONDecodeError, TypeError):
-                    continue
-    except Exception as e:
-        log.warning(f"recompute_for_tickers fresh signals fetch failed: {e}")
-        return stats
-
-    if not fresh_tickers:
-        return stats
-
-    # Map ticker -> active thesis_id
+    # Map active theses (id, ticker)
     try:
         with storage.db() as cx:
             rows = cx.execute(
                 "SELECT id, UPPER(ticker) FROM theses WHERE status='active'"
             ).fetchall()
-            active = {r[1]: r[0] for r in rows}
+            active = [(r[0], r[1]) for r in rows]
     except Exception as e:
         log.warning(f"recompute_for_tickers active theses fetch failed: {e}")
         return stats
 
-    to_recompute = [
-        (tid, tk) for tk, tid in active.items() if tk in fresh_tickers
-    ]
+    if not active:
+        return stats
+
+    now_utc = datetime.now(UTC)
+    fallback_cutoff = (now_utc - timedelta(days=fallback_lookback_days)).isoformat()
+
+    # Legacy global window : since_minutes override (preserves prior test behavior)
+    if since_minutes is not None:
+        global_cutoff = (now_utc - timedelta(minutes=since_minutes)).isoformat()
+        per_thesis_cutoff = {tk: global_cutoff for _, tk in active}
+    else:
+        # Per-thesis cutoff = max(last computed_at, now - fallback_lookback_days)
+        per_thesis_cutoff = {}
+        try:
+            with storage.db() as cx:
+                for tid, tk in active:
+                    row = cx.execute(
+                        "SELECT MAX(computed_at) FROM thesis_erosion_log "
+                        "WHERE thesis_id=?",
+                        (tid,),
+                    ).fetchone()
+                    last_compute = row[0] if row and row[0] else None
+                    cutoff = max(last_compute, fallback_cutoff) if last_compute else fallback_cutoff
+                    per_thesis_cutoff[tk] = cutoff
+        except Exception as e:
+            log.warning(f"recompute_for_tickers per-thesis cutoff failed: {e}")
+            return stats
+
+    # Per-thesis : check signaux depuis cutoff touchant ce ticker
+    to_recompute: list[tuple[int, str]] = []
+    try:
+        with storage.db() as cx:
+            for tid, tk in active:
+                cutoff = per_thesis_cutoff[tk]
+                # Plus simple : fetch tous signaux depuis cutoff, on filtre cote Python
+                # (entities est un JSON, pas indexable cote SQL sans LIKE fragile).
+                sig_rows = cx.execute(
+                    "SELECT entities FROM signals "
+                    "WHERE timestamp > ? AND entities IS NOT NULL "
+                    "ORDER BY timestamp DESC LIMIT 200",
+                    (cutoff,),
+                ).fetchall()
+                for sr in sig_rows:
+                    try:
+                        ents = _json.loads(sr[0] or "[]")
+                        if isinstance(ents, list) and tk in {str(e).upper() for e in ents[:3]}:
+                            to_recompute.append((tid, tk))
+                            break  # 1 signal materiel suffit a trigger
+                    except (_json.JSONDecodeError, TypeError):
+                        continue
+    except Exception as e:
+        log.warning(f"recompute_for_tickers signal scan failed: {e}")
+        return stats
+
     stats["checked"] = len(to_recompute)
 
     for tid, ticker in to_recompute:
