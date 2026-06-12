@@ -286,8 +286,8 @@ def test_what_changed_empty_when_no_compute() -> None:
     steer = _mk_steer()
     html = _render(inputs, steer)
     assert "WHAT CHANGED SINCE ENTRY" in html
-    assert "aucune classification persistee" in html
-    # Chip PENDING dans le verdict header (cure visuelle 12/06)
+    assert "no classification persisted yet" in html
+    # PENDING chip in verdict header (cure visuelle 12/06 + EN-only 12/06)
     assert "pc-verdict-pending" in html
 
 

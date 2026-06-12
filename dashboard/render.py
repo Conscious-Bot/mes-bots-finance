@@ -793,13 +793,13 @@ def _render_ballast_cell(target: dict, views: dict | None = None) -> str:
         )
 
     sev_cls = {"breach": "neg", "warn": "warn", "ok": ""}.get(bs["severity"], "")
-    # Sub-text restructure pour lever ambiguite "decl(YAML)" : on libelle
-    # explicite cible doctrine / floor declare YAML / ecart current vs cible.
-    sub_parts = [f'cible {bs["target_pct"]}%', f'ecart {bs["gap_pp"]:+.1f}pp']
+    # Sub-text restructure pour lever ambiguite "decl(YAML)" : label
+    # explicite doctrine target / declared YAML floor / current-vs-target gap.
+    sub_parts = [f'target {bs["target_pct"]}%', f'gap {bs["gap_pp"]:+.1f}pp']
     if bs["declared_pct"] is not None and abs(bs["declared_pct"] - bs["current_pct"]) > 1.0:
-        sub_parts.append(f'floor YAML {bs["declared_pct"]}%')
+        sub_parts.append(f'YAML floor {bs["declared_pct"]}%')
     if bs["tickers_missing"]:
-        sub_parts.append(f'manque : {",".join(bs["tickers_missing"])}')
+        sub_parts.append(f'missing : {",".join(bs["tickers_missing"])}')
 
     return (
         f'<div class="rw-cell"><div class="rw-h">Strict decorrelated ballast</div>'
@@ -874,11 +874,11 @@ def _risk_watch_panel(views: dict | None = None) -> str:
         # 25% est amber-started et 30% est green-in_progress : ce n'est pas le
         # % qui colore, c'est le status).
         _mit_st_label = {
-            "started": "demarre",
-            "in_progress": "avance",
-            "pending": "a activer",
-            "done": "complete",
-            "blocked": "bloque",
+            "started": "started",
+            "in_progress": "in progress",
+            "pending": "to activate",
+            "done": "done",
+            "blocked": "blocked",
         }
         mit_html = "".join(
             f'<div class="rw-mit"><div class="rw-mit-h">'
@@ -907,7 +907,7 @@ def _risk_watch_panel(views: dict | None = None) -> str:
             + ballast_cell_html +
             f'<div class="rw-cell"><div class="rw-h">Mitigation plan</div>'
             f'<div class="rw-v mono">{avg_progress:.0f}%</div>'
-            f'<div class="rw-t">moyenne A+B+C &middot; details ci-dessous</div></div>'
+            f'<div class="rw-t">avg A+B+C &middot; details below</div></div>'
             '</div>'
             '<div class="rw-section">'
             '<div class="rw-sh">Signal watch</div>'
@@ -933,19 +933,19 @@ def _risk_watch_panel(views: dict | None = None) -> str:
         if (_cfg.get("user_strategy") or {}).get("construction_phase"):
             construction_lens = (
                 '<div class="rw-lens">'
-                'Phase de construction active &middot; '
-                "l'exposition se diluera mecaniquement vers la cible quand "
-                "les decorrelants (Energy-for-AI, Defense, Robotics) arriveront. "
-                '<b>Lecture : surveille, ne corrige pas.</b>'
+                'Active construction phase &middot; '
+                "exposure will mechanically dilute toward target "
+                "as decorrelators (Energy-for-AI, Defense, Robotics) come in. "
+                '<b>Reading: watch, do not correct.</b>'
                 '</div>'
             )
     except Exception:
         pass
     _n = len(risks_list)
-    _suffix = "risque declare" if _n == 1 else "risques declares"
+    _suffix = "declared risk" if _n == 1 else "declared risks"
     return (
         '<div class="colhead"><span class="t">Top Risks watch</span>'
-        f'<span class="a">{_n} {_suffix} &middot; revue thesis-anchored</span></div>'
+        f'<span class="a">{_n} {_suffix} &middot; thesis-anchored review</span></div>'
         '<div class="card pad riskwatchcard" style="margin-bottom:var(--s4)">'
         f'{construction_lens}'
         + "".join(out)
@@ -1677,16 +1677,18 @@ def _blind_positions_panel() -> str:
         f'<div class="ba-row">'
         f'<div class="ba-head"><span class="ba-tk">{b["ticker"]}</span>'
         f'<span class="ba-conv">c{b["conviction"]}</span>'
-        f'<span class="ba-since">depuis {b["opened_at"]}</span></div>'
-        f'<div class="ba-missing">manque : '
+        f'<span class="ba-since">since {b["opened_at"]}</span></div>'
+        f'<div class="ba-missing">missing : '
         + ", ".join(f'<b>{m}</b>' for m in b["missing"])
         + "</div></div>"
         for b in blind
     )
+    _n = len(blind)
+    _suffix = "position" if _n == 1 else "positions"
     return (
-        '<div class="colhead"><span class="t">Positions en vol disclosuregle</span>'
-        f'<span class="a">{len(blind)} position(s) sans entry / target / stop / kill-criteria '
-        '&middot; le bot ne peut RIEN evaluer dessus tant que ces champs sont creux</span></div>'
+        '<div class="colhead"><span class="t">Blind disclosure positions</span>'
+        f'<span class="a">{_n} {_suffix} without entry / target / stop / kill-criteria '
+        '&middot; the bot cannot evaluate them while these fields are empty</span></div>'
         '<div class="card pad blindcard" style="margin-bottom:var(--s4)">'
         + items
         + "</div>"
@@ -2570,10 +2572,10 @@ def _position_card(inputs, steer_v2) -> str:
         }.get(verdict, "neu")
         # action_hint canonique depuis SPEC_ALERT_VOCABULARY (YAML EROSION_DETECTED).
         action_hint = {
-            "EROSION_DETECTED": "REVIEW : re-justifie ou allege",
-            "INVALIDATION_HIT": "EXIT immediat OU auto-demote_from_structural",
-            "STALE_UNUPDATED": "verdict stale : relancer compute_thesis_erosion",
-            "REVIEW_DUE_DEGRADED": "LLM degrade : revue manuelle requise",
+            "EROSION_DETECTED": "REVIEW : re-justify or trim",
+            "INVALIDATION_HIT": "EXIT now OR auto-demote_from_structural",
+            "STALE_UNUPDATED": "stale verdict : re-run compute_thesis_erosion",
+            "REVIEW_DUE_DEGRADED": "LLM degraded : manual review required",
             "INTACT": "",
         }.get(verdict, "")
         # Chip stale si computed_at > 24h.
@@ -2636,7 +2638,7 @@ def _position_card(inputs, steer_v2) -> str:
             '<div class="pc-section-h">THESE &mdash; VERDICT MOTEUR #2 '
             '<span class="pc-verdict-pending">PENDING</span> '
             '<span style="font-size:9px;color:var(--steel);letter-spacing:0.05em;">'
-            'erosion compute pas encore wire</span></div>'
+            'erosion cron not wired yet</span></div>'
             '</div>'
         )
 
@@ -2704,8 +2706,8 @@ def _position_card(inputs, steer_v2) -> str:
             '<div class="pc-section">'
             '<div class="pc-section-h">WHAT CHANGED SINCE ENTRY</div>'
             '<div class="pc-empty" style="font-style:italic;opacity:0.7">'
-            'aucune classification persistee (cron erosion pas encore wire ; '
-            'compute_all_active_theses produira la timeline post-1er run)</div>'
+            'no classification persisted yet (erosion cron not wired ; '
+            'compute_all_active_theses will populate the timeline after 1st run)</div>'
             '</div>'
         )
 
@@ -7602,9 +7604,9 @@ def render() -> Path:
         # target_full_native (FX-invariant), pas l'apparence visuelle du dot.
         # AMD peut avoir dot visuellement > tick vert (mélange mètres dot/cost
         # vs ticks/entry) tout en restant Closest si cur < target en native.
-        f'<div class="colhead"><span class="t">Closest to target</span><span class="a">cible pas encore atteinte (cur &lt; target_full)</span></div>'
+        f'<div class="colhead"><span class="t">Closest to target</span><span class="a">target not reached yet (cur &lt; target_full)</span></div>'
         f'<div class="card pad">{gain}</div>'
-        f'<div class="colhead"><span class="t">Beyond target</span><span class="a">cible dépassée (cur &ge; target_full)</span></div>'
+        f'<div class="colhead"><span class="t">Beyond target</span><span class="a">target exceeded (cur &ge; target_full)</span></div>'
         f'<div class="card pad">{beyond}</div>'
         # ── BLOC 2 : MOUVEMENT DU JOUR -- restaure 02/06 user (winners/losers %) ──
         '<div class="vigie-sh" data-tip="Biggest movers over the last 24 hours (rolling, intraday-based when available)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>Last 24h movers</div>'
@@ -7730,7 +7732,7 @@ def render() -> Path:
         _post_cap = f"{n_tgt} position(s) near a level"
     else:
         _post_cls, _post_lbl = "acc", "AT&nbsp;REST"
-        _post_cap = "no position en zone critique &middot; surveiller la drift"
+        _post_cap = "no position in critical zone &middot; watch the drift"
     _star_stop_cls = "bear" if n_stop else "acc"
     _star_watch_cls = "warn" if n_watch else "acc"
     _star_tgt_cls = "warn" if n_tgt else "acc"
