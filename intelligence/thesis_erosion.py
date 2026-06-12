@@ -331,7 +331,9 @@ def _persist(
                             f"POSE-EN UN avant l'ouverture marche.\n"
                             f"Trace integrity_seq {demote.get('integrity_seq', '?')}"
                         )
-                        notify.send_text(msg)
+                        # parse_mode=None : msg contient stop_price, integrity
+                        # _seq, etc. avec _underscores_ qui cassent Markdown.
+                        notify.send_text(msg, parse_mode=None)
                     except Exception as e:
                         log.warning(f"demote notify {thesis['ticker']} failed: {e}")
         except Exception as e:
@@ -487,7 +489,11 @@ def recompute_for_tickers_with_fresh_signals(
                     f"Revue carte-decision recommandee."
                 )
                 try:
-                    notify.send_text(msg)
+                    # parse_mode=None : message contient _underscores_
+                    # (EROSION_DETECTED, INVALIDATION_HIT, n_erode, ...) qui
+                    # cassent Markdown italic parsing -> "Can't find end of
+                    # entity" (24x dans serve.log avant cure #146). Plain text.
+                    notify.send_text(msg, parse_mode=None)
                 except Exception as e:
                     log.warning(f"erosion notify {ticker} failed: {e}")
         except Exception as e:
