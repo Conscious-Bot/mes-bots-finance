@@ -282,8 +282,10 @@ async def post_init(app):
     sched.add_job(monthly_bot_preferences_synthesis_job, "cron", day=1, hour=4, minute=0, misfire_grace_time=86400)
     # Tier1 4x/jour 06h/12h/18h/22h (user 06/06 "accuracy = basic").
     # VIX/USDJPY/TYX/MOVE/HY_OAS/DXY/Gold/BTC reagissent intra-day.
-    sched.add_job(cron_tier1_daily, "cron", hour="6,12,18,22", minute=0)
-    sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)
+    sched.add_job(cron_tier1_daily, "cron", hour="6,12,18,22", minute=0,
+                  misfire_grace_time=10800)  # 3h catchup
+    sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30,
+                  misfire_grace_time=86400)  # 24h catchup (cf cure 12/06 : missed lundi -> 6j stale)
     # Tier3 monthly retry pattern : 1er + 5 + 10 + 15 du mois pour rattraper
     # les FRED-pas-encore-publies (CPI publish ~mid-month). persist_signal
     # ne stomp plus NULL = derniere valeur valide preserved.
@@ -323,8 +325,10 @@ async def post_init(app):
                   misfire_grace_time=86400)
     # Tier1 4x/jour 06h/12h/18h/22h (user 06/06 "accuracy = basic").
     # VIX/USDJPY/TYX/MOVE/HY_OAS/DXY/Gold/BTC reagissent intra-day.
-    sched.add_job(cron_tier1_daily, "cron", hour="6,12,18,22", minute=0)
-    sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30)
+    sched.add_job(cron_tier1_daily, "cron", hour="6,12,18,22", minute=0,
+                  misfire_grace_time=10800)  # 3h catchup
+    sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30,
+                  misfire_grace_time=86400)  # 24h catchup (cf cure 12/06 : missed lundi -> 6j stale)
     # Tier3 monthly retry pattern : 1er + 5 + 10 + 15 du mois pour rattraper
     # les FRED-pas-encore-publies (CPI publish ~mid-month). persist_signal
     # ne stomp plus NULL = derniere valeur valide preserved.
