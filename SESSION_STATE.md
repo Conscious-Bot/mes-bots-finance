@@ -3000,3 +3000,75 @@ poses futures.
   jamais à l'intuition). Pris 11/06 sur dict(None) silencieux affirmé sans
   vérif (en vrai TypeError). Multi-conv croisé justifié sur poses irréversibles,
   single review sur réversible.
+
+
+## Close 2026-06-12 (matin — audit (3) cures + #120 livré + 8 paris alpha ajoutés)
+
+### Livré (8 commits chronologiques)
+
+- `c83c39b` P1-1 + P1-2 audit (3) : baseline verte (test_db_write_discipline + test_schema_drift)
+- `fba2beb` P0-1 audit (3) : cure couplage inversé shared/ → dashboard/ + test import-guard
+- `3bcbecd` P0-2 audit (3) : registre append-only + meta-test + migration 0055 triggers per-classe
+- `fc0992c` P2 follow-up : cure timezone test_fork_detected + ratchet intelligence/→dashboard
+- `2804fa1` #120 étape 1 : `_risk_watch_panel` propage views opt (intra-render single-source)
+- `b52f9f4` #120 étapes 2-5 : `_positions` builder → `shared/portfolio_view_builder.py` + single-source enforcement
+- `29b878d` P2 reste whitelist : TICKER_SECTOR + `_clean_sector` + `_pnl_cost_map` + `_cluster_health` → shared/
+- `cb62054` P2 final : `format_llm_unavailable_marker` → `shared/llm_restitution.py` — WHITELIST VIDÉE (6→0)
+
+P0-2 cure migration 0055 VÉRIFIÉE à la source (pas juste commité, L25 absent) :
+- `alembic head = 0055` appliqué live (vs cure committée mais pas appliquée = L25)
+- Triggers per-classe corrects : signals + bias_events = no_delete SEUL (mutables, UPDATE légitimes préservés). Les 5 immuables (position_events, prediction_audit_log, prediction_integrity_log, thesis_erosion_log, thesis_erosion_classifications) = no_delete + no_update. Le red-team du blanket-no_update qui aurait cassé signals/bias_events a été incorporé avant apply, prod intacte.
+
+### Track-record alpha nourri — 10 paris posés (était 2, +8 ce matin)
+
+| ID | Ticker | dir | delta | conf | currency |
+|---|---|---|---|---|---|
+| 3 | ASML.AS | bull | +21.66% | 0.9 | EUR |
+| 4 | STMPA.PA | bull | +11.82% | 0.6 | EUR |
+| 5 | AMZN | bear | -15.47% | 0.8 | USD |
+| 6 | AVGO | bear | -11.45% | 0.6 | USD |
+| 7 | GOOGL | bull | +17.75% | 0.8 | USD |
+| 8 | ENTG | bull | +15.97% | 0.6 | USD |
+| 9 | MP | bear | -26.20% | 0.8 | USD |
+| 10 | LNG | bear | -5.88% | 0.6 | USD |
+
+Tous resolve_due 2027-06-11 sauf CCJ (2027-06-10).
+Cure 0054 vérifiée à la source : les 6 nouvelles ont ε figé natif (eps_d=eps_n=1.0), zéro fallback legacy. Les poses post-cure stockent leur doctrine ε au moment du pari = pas de trou noir 12 mois, exactement le but de la cure 0054.
+3 clusters currencies (KRW + USD + EUR) → l'aggregator sortira de `insufficient_n` dès la 1re résolution.
+5 bull / 5 bear → baseline `p̄(1−p̄) ≈ 0.25` attendu, pas de catastrophe all-bull.
+fx-strippé, ancré sur consensus daté, no_bet gate passé sur chacun.
+
+### Doctrines neuves gravées
+
+- `feedback_instrumentation_vs_decision.md` (NEW 12/06) : construire des instruments est procrastination productive quand l'instrument est en avance sur la donnée. Auto-red-team d'Olivier sur un moniteur d'invalidation thesis qu'il avait lui-même déterminé. Le levier = nourrir l'instrument (poser des paris), pas raffiner la mesure. Lié à `[[dna-instrument-v2]]` + `[[business-path-6-acted]]` (wedge = discipline mécanisée, pas alpha prédictif).
+- `feedback_red_team_verify_before_assert.md` ÉTENDU 12/06 : briefs et résumés que JE rédige sont AUSSI des claims à enjeu. Sub-agents que je dirige doivent citer leurs sources OU je dois re-vérifier leurs recommandations avant remontée. Cas 12/06 (brief audit (3) stale sur `test_views_convergence` + agent qui a halluciné une cure blanket `no_update` dangereuse sans grep les UPDATE réels — catch Olivier en 30 sec).
+
+### Architecture nettoyée
+
+- `_INTELLIGENCE_LEGACY_WHITELIST` : 6 sites → 0 (set() littéral). Ratchet decreasing-only ferme la dette pour de bon.
+- Nouveaux modules `shared/` (substrat propre) : `sector_taxonomy`, `portfolio_view_builder`, `llm_restitution` + extensions `portfolio_analytics` (`_pnl_cost_map`, `_cluster_health`) et `macro_state` (`_macro_dot`).
+- `dashboard/render.py` allégé d'environ ~200 lignes (helpers déplacés vers `shared/`).
+- 0 import `shared/` → `dashboard/` (zéro tolérance enforced par test). 0 import `intelligence/` → `dashboard/` (ratchet decreasing-only enforced).
+- 5 niveaux d'enforcement actifs : test_no_shared_dashboard_import (zéro-tol shared/), test_intelligence_dashboard_imports_ratchet (decreasing-only), test_append_only_enforced (registre vs triggers), test_db_write_discipline (writer allowlist), test_schema_drift (orphan tables).
+
+### Cleanup post-session
+
+- `pose_batch_cards_2026-06.py` supprimé (jetable, jamais commité, anti-pollution racine repo).
+
+### Entry next session
+
+1. **Track-record alpha tourne en silence**. 1re résolution due 2027-06-10 (CCJ). Pas d'action requise jusque-là côté instrument — l'horloge fait son travail.
+2. **Insight STMPA non-codé** : gate « consensus ≈ spot → return-call (pas variant-call), skip » à intégrer dans `insert_thesis_pose` si on pose plus de paris. À acter si on re-attaque les JP/EU restants.
+3. **Backlog mission** : seulement #88 (M2 Brier-scorer thesis_erosion auto-application) et #92 (consensus projection per SPEC_CONSENSUS_FRAGILITE) sont substantielles. Tout le reste = tidy bénin (cf doctrine instrumentation-vs-décision).
+4. **Si tu poses plus de paris** : la voie est rodée (bigdata + web → blend + asof → script jetable → verify-after-write). Cure date asof=2026-06-N (close N réelle) plutôt qu'asof=today si NYSE pas clos.
+
+### Commits session 12/06 chantier (chronologique, plus récent en bas)
+
+- `c83c39b` P1-1 + P1-2 audit (3) baseline verte
+- `fba2beb` P0-1 audit (3) cure couplage shared→dashboard + import-guard
+- `3bcbecd` P0-2 audit (3) registre append-only + 0055 triggers per-classe
+- `fc0992c` P2 follow-up timezone + ratchet intelligence
+- `2804fa1` #120 étape 1 single-source intra-render
+- `b52f9f4` #120 étapes 2-5 _positions → shared + enforcement
+- `29b878d` P2 reste whitelist TICKER_SECTOR + helpers → shared
+- `cb62054` P2 final WHITELIST VIDÉE
