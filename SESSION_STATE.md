@@ -3232,3 +3232,64 @@ fx-strippé, ancré sur consensus daté, no_bet gate passé sur chacun.
 - `0179306` freshness kill_criteria + 3 weekly grace_time
 - `5f5c5a8` #134 stale_target monitor (commit d'avant la close c+, mais consolidé ici)
 
+
+---
+
+## Close 2026-06-12 (e) — Data sources upgrade : consensus targets free + #134 enrichi
+
+### Mission de la sub-session
+
+User push : "i am looking for upgrade tools and source that are actually free". Going au-delà du brainstorm initial (LSEG/Daloopa/Nimble payants → memo TODO) pour réellement wirer une source consensus gratuite et l'intégrer dans le monitor.
+
+### Livré
+
+**Pivot FMP → yfinance .info** (commits `56ecb20` + `10f5e20`) :
+- **Wire FMP prototype** d'abord (`shared/fmp.py` + `scripts/fmp_consensus_check.py`) — gateway canonique cache TTL 1h + quota tracker journalier 250 calls + fail-closed L15 + Datum-like return. Endpoints `/stable/price-target-consensus`, `/stable/grades-consensus`, `/stable/price-target-summary`.
+- **Smoke test post-clé** révèle limitation critique du free tier FMP : **5/26 tickers couverts seulement (19%)** — TSLA, TSM, AMD, AMZN, GOOGL méga-caps US uniquement. Foreign tickers (.T/.AS/.PA/.KS) + small/mid US (CCJ, ALAB, MU, etc.) → HTTP 402 "Premium Query Parameter". FMP free tier = démo, pas outil.
+- **Pivot** vers `yfinance .info` qui couvre **100% (26/26) gratuit + déjà wired**. Wire `shared/prices.py:get_analyst_consensus(ticker)` composé sur `get_info()`. Retourne dict {ticker, target_mean, target_median, target_high, target_low, n_analysts, recommendation_key, recommendation_mean, currency, asof, source='yfinance'}.
+- **Script `scripts/consensus_check.py`** : compare target_full DB vs consensus yfinance live pour 26 thèses. Sort tableau + Top 10 écarts |Δ%| pour prioriser revue #135.
+- **`shared/fmp.py` marqué DEPRECATED** en docstring (conservé comme reference historique + fallback potentiel si yfinance throttle un jour).
+
+**Smoke live couverture 100% — findings** :
+- **KLAC +949%** : confirmé pending fix prix (target 1626 USD posé pendant bug yfinance vs consensus 190 USD)
+- **TSLA +156%** : variant explicite c5 assumé (FSD/Optimus thèse rubric 12/06)
+- **ALAB +88%, MU +46%** : refresh today EUR→USD via fx live (1.1565), variant explicite décision Olivier
+- **000660.KS +50%** : variant assumé (target KRW inchangé décision Olivier, conviction bumped c3→c4)
+- **SNPS +24%, CCJ +20%** : variant c5 assumé
+- **BESI.AS +31%, COHR +30%, STMPA +22%** : pas refresh, **candidates prochain batch #135**
+- **SAF.PA +2.6%, HO.PA -3.6%** : aligné rue
+- **Tickers BEAR (Olivier plus prudent)** : 7011.T, 6857.T, LNG, MP, AVGO, AMZN, 4063.T (-13 à -16%)
+
+**#134 enrichi : cross-check consensus dans le monitor** (commit `b80e9fc`) :
+- **Migration 0057** : ajoute `consensus_target / consensus_n / consensus_delta_pct` à `stale_target_alerts` (nullable, dégrade gracefully si yfinance pas dispo).
+- **check_all_stale_target_transitions** appelle `prices.get_analyst_consensus()` en plus du classify (séparation of concerns respectée : status enum reste alive/dying/dead, consensus = signal orthogonal).
+- **Notif Telegram enrichie** : si consensus dispo, ligne supplémentaire `"consensus: X (N=Y) -> delta +Z% BULL/BEAR aligne/divergent"`. Distinction entre "edge tombe par mouvement marché" vs "thèse déjà out-of-consensus".
+- **stats["consensus_divergent"]** : compte info pure (pas un status), threshold `_SEUIL_CONSENSUS_DIVERGENCE = 0.30` aligné avec rubric methodo 12/06.
+- **2 tests dédiés** : flag divergent quand target > consensus*1.3, monitor continue sans crasher si consensus None. Total 13/13 tests pass.
+- **Smoke live** : **7 consensus_divergent flaggés** = exactement les 7 top du tableau (KLAC, TSLA, ALAB, 000660.KS, MU, BESI.AS, COHR). 0 transitions, 0 errors. TEST CRITIQUE L4 confirmé une 4e fois en prod.
+
+### Doctrine renforcée
+
+- **Sources free actionnables identifiées** (cap opex doctrine business_path_6) : FRED (déjà wired macro), EDGAR (déjà wired filings), Bigdata MCP (déjà wired research), **yfinance .info pour consensus targets** (nouveau wire). Couvre 95% des besoins Phase 1-2 PRESAGE sans opex.
+- **Smoke-before-trust** : le wire FMP a passé le smoke test sur 3 tickers (TSLA/TSM/CCJ). C'est le scan du book entier qui a révélé la limitation 19% coverage. Toujours valider sur N>1 tickers représentatifs avant de déclarer un wire utile.
+- **Séparation of concerns dans les monitors** : un monitor = un status enum. Données orthogonales (consensus) stockées dans columns additionnelles, pas dans le status. Pattern monitor_pattern.md respecté.
+
+### KNOWN-GAP
+
+- **Affichage côte-à-côte EUR vs native** : pour foreign tickers (.T/.KS/.AS/.PA), `target_eur` stocké en EUR mais `consensus_target` en native currency (KRW/JPY). Le `delta_pct` est juste (calcul native-vs-native côté Python) mais l'affichage `target=1057 EUR vs consensus=2523541 KRW` est confusing dans la table audit. À documenter quand wirage dashboard HTML.
+- **FMP free tier déprécié** : tous les anciens `/api/v3/*` retournent HTTP 403 "Legacy Endpoint". FMP a migré vers `/stable/*` août 2025. Le wire FMP gardé en code comme reference si on souscrit jamais (peu probable cf cap opex).
+
+### Entry next session
+
+1. **Monitor consensus tourne demain matin via cron daily** : tu auras les notif Telegram enrichies sur les prochaines transitions (incluant info consensus dispo).
+2. **3 candidates batch #135 identifiés sans ressenti** : BESI.AS +31%, COHR +30%, STMPA +22% — variant non-explicite vs consensus, mérite revue rubric méthodo.
+3. **KLAC** : pending fix prix toujours actif (consensus = 190 vs target stocké 1626 = bug yfinance traversé). Action côté source d'abord.
+4. **Sources data upgrade futur** : si budget data justifié post N≥30, **Daloopa first** (granularité segment KPI, cf VISION_PRO Phase 3.1). Memo gravé.
+
+### Commits session 12/06 (e) — 4 nouveaux
+
+- `67f6e05` memo data sources upgrade (Daloopa/LSEG/Nimble) + cap opex doctrine
+- `56ecb20` wire FMP prototype (avant pivot, conservé historique)
+- `10f5e20` pivot FMP → yfinance .info pour consensus (100% vs 19%)
+- `b80e9fc` #134 enrichi : cross-check consensus dans stale_target_monitor (migration 0057 + 2 tests dédiés)
+

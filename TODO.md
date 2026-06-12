@@ -1,10 +1,18 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 12 juin 2026 close (d) — book figé 12 UPDATE par id · #134 stale_target monitor livré · freshness audit (kill_criteria + 3 weekly crons +grace_time) · tier1/tier2 cron grace_time · F3 scoring confirmé en prod
+**Refresh** : 12 juin 2026 close (e) — consensus targets gratuit wired (yfinance .info, 100% couverture) · #134 enrichi cross-check consensus (migration 0057 + notif Telegram enrichie) · 7 divergent flaggés en prod (KLAC, TSLA, ALAB, 000660.KS, MU, BESI.AS, COHR) · 3 candidates batch #135 identifiés (BESI/COHR/STMPA)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (12/06 close e)
+
+- **Consensus targets wire gratuit** : `shared/prices.py:get_analyst_consensus` via yfinance .info (100% couverture 26/26 vs FMP free tier 19%). Aucun opex data, dette F3 du scoring sortie.
+- **#134 monitor enrichi** : migration 0057 + cross-check consensus chaque évaluation. Notif Telegram affiche delta vs consensus avec flag aligné/divergent. 13 tests pass.
+- **7 consensus_divergent flaggés live** : KLAC (+949%, pending fix prix), TSLA/SNPS/CCJ/000660 (variant c5 assumé), ALAB/MU (refresh today EUR→USD), BESI.AS/COHR/STMPA (pas refresh → candidates #135 prochain).
+- **Script `consensus_check.py`** : audit tableau target_olv vs consensus + Top 10 écarts pour priorité revue, exécutable on-demand.
+- **Sources data triagées** : FMP free trop pauvre (19%), LSEG/Daloopa hors cap opex Path 6. yfinance .info couvre 95% des besoins. Memo TODO grave pour upgrade futur post N≥30.
 
 ## 🟢 ÉTAT SYSTÈME (12/06 close d)
 
