@@ -61,6 +61,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from shared.datum import Datum
 
 _REPO_ROOT = Path(__file__).parent.parent
 _CANONICAL_PATH = _REPO_ROOT / "scripts" / "canonical_perimeter.json"

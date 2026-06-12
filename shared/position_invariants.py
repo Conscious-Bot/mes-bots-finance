@@ -121,7 +121,7 @@ def _check_no_thesis_active_blind(conn) -> list[str]:
     return violations
 
 
-def _check_position_in_db_has_avg_cost(conn) -> list[str]:
+def _check_position_in_db_has_avg_cost(conn) -> list[str]:  # noqa: ARG001 -- interface signature compat
     """Point #10 : avg_cost > 0 sur position ouverte (sinon donnees corrompues).
 
     Post-0049 (VUE NULL fail-closed) : la VUE positions retourne NULL sur

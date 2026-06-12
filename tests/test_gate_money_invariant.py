@@ -100,6 +100,7 @@ def test_stop_value_is_mutable_not_writeonce():
     ajustement de gestion. Le test verrouille la doctrine mutable.
     """
     import sqlite3
+
     from shared import storage
 
     with storage.db() as cx:
@@ -141,6 +142,7 @@ def test_writeonce_trigger_rejects_entry_value_update():
     Sans ce test, le trigger est un 'espoir, pas une serrure'.
     """
     import sqlite3
+
     from shared import storage
 
     with storage.db() as cx:

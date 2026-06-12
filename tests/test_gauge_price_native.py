@@ -22,7 +22,6 @@ import pytest
 
 from dashboard.render import _gauge_prices_native, _position_axis_price
 
-
 # ============================================================
 # Helpers
 # ============================================================
@@ -38,15 +37,15 @@ def make_bl(
     **extra,
 ):
     """BookLine factice pour tests géométrie. extra propage les attrs piège."""
-    kwargs = dict(
-        avg_cost_eur=avg_cost_eur,
-        fx_rate_to_eur=fx_rate_to_eur,
-        last_price_native=last_price_native,
-        stop_price=stop_price,
-        target_full=target_full,
-        target_partial=target_partial,
-        last_price_currency=last_price_currency,
-    )
+    kwargs = {
+        "avg_cost_eur": avg_cost_eur,
+        "fx_rate_to_eur": fx_rate_to_eur,
+        "last_price_native": last_price_native,
+        "stop_price": stop_price,
+        "target_full": target_full,
+        "target_partial": target_partial,
+        "last_price_currency": last_price_currency,
+    }
     kwargs.update(extra)
     return SimpleNamespace(**kwargs)
 

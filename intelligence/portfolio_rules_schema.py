@@ -126,12 +126,11 @@ class Position(BaseModel):
 
     @model_validator(mode="after")
     def _cap_above_target(self):
-        if self.partial_cap_pct is not None:
-            if self.partial_cap_pct < self.target_weight_pct:
-                raise ValueError(
-                    f"partial_cap_pct ({self.partial_cap_pct}) doit etre >= "
-                    f"target_weight_pct ({self.target_weight_pct})"
-                )
+        if self.partial_cap_pct is not None and self.partial_cap_pct < self.target_weight_pct:
+            raise ValueError(
+                f"partial_cap_pct ({self.partial_cap_pct}) doit etre >= "
+                f"target_weight_pct ({self.target_weight_pct})"
+            )
         return self
 
     @model_validator(mode="after")

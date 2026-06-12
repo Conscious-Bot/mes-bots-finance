@@ -26,7 +26,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ============================================================
 # Helper INSERT (passe par la passerelle storage.db() = L17)
 # ============================================================

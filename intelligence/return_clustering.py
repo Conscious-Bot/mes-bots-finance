@@ -39,6 +39,7 @@ def fetch_price_history(tickers: list[str], days: int = 120) -> pd.DataFrame:
     canonique gère le throttle anti-ban yfinance + cache DB partagé.
     """
     from datetime import UTC, datetime, timedelta
+
     from shared.prices import ensure_price_history
 
     if not tickers:

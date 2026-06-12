@@ -81,7 +81,7 @@ def load_yfinance_history(
     tickers: list[str],
     start: str | date,
     end: str | date,
-    auto_adjust: bool = True,
+    auto_adjust: bool = True,  # noqa: ARG001 -- yfinance interface compat
 ) -> pd.DataFrame:
     """Charge prix daily yfinance batch pour la fenetre [start, end].
 

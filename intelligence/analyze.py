@@ -531,7 +531,9 @@ def analyze_stock(ticker: str, use_cache: bool = True) -> dict:
         # MARQUEUR SEC (degraded_restitution_contract) via source unique
         # dashboard.restitution. data brutes (COMPUTED) restent disponibles
         # pour le caller -- on n'efface QUE le slot SYNTHESIZED.
-        from shared.llm_restitution import format_llm_unavailable_marker  # cure P2 audit (3) — couche shared/, plus de dashboard/
+        from shared.llm_restitution import (
+            format_llm_unavailable_marker,  # cure P2 audit (3) — couche shared/, plus de dashboard/
+        )
 
         return {
             "ticker": data.get("ticker"),

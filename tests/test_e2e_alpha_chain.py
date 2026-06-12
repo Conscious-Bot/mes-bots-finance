@@ -193,7 +193,7 @@ def test_resolver_module_is_storage_only():
     root = Path(__file__).parent.parent
     script = (
         "import sys, datetime; "
-        "sys.path.insert(0, %r); "
+        f"sys.path.insert(0, {str(root)!r}); "
         "from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions; "
         "stub = lambda t, d: (None, None); "
         "resolve_due_thesis_predictions("
@@ -203,7 +203,7 @@ def test_resolver_module_is_storage_only():
         "bad = [m for m in sys.modules if any(m == h or m.startswith(h + '.') "
         "for h in heavy)]; "
         "assert not bad, ('heavy modules pulled transitively: ' + repr(bad))"
-    ) % str(root)
+    )
     r = subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True, text=True, timeout=30,

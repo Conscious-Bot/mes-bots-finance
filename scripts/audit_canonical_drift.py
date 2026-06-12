@@ -156,9 +156,10 @@ def audit() -> int:
             targets_status.append((path, exists, should_exist))
             if should_exist and not exists:
                 drifted = True
-        if "IMPLEMENTED" in state_norm or "IMPLÉMENTÉ" in state_norm:
-            if any(not e for _, e, should in targets_status if should):
-                drifted = True
+        if ("IMPLEMENTED" in state_norm or "IMPLÉMENTÉ" in state_norm) and any(
+            not e for _, e, should in targets_status if should
+        ):
+            drifted = True
         if drifted:
             n_drifted += 1
 
@@ -188,7 +189,7 @@ def audit() -> int:
         print("\nAucun doublon candidat detecte.")
 
     # Summary
-    print(f"\n=== Récap ===")
+    print("\n=== Récap ===")
     print(f"  SPECs total            : {len(specs)}")
     print(f"  Sans footer Impl Status: {n_missing_footer} (= dette doctrinale)")
     print(f"  Drift detecte          : {n_drifted}")
@@ -201,7 +202,7 @@ def audit() -> int:
     if n_drifted > 0:
         print(f"\nWARN : {n_drifted} SPEC(s) drifted (IMPLEMENTED declare mais cible absente).")
         return 2
-    print(f"\nOK : tous les SPECs ont footer + cibles consistantes.")
+    print("\nOK : tous les SPECs ont footer + cibles consistantes.")
     return 0
 
 

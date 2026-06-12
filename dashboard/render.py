@@ -102,9 +102,6 @@ SUFFIX = {
 # Cache prix EUR + native déplacé vers shared.prices (cure P0-1 audit (3) 12/06).
 # Ré-exporté ici pour rétro-compat des callers internes au render.py.
 from shared.prices import (
-    _PX_CACHE,
-    _PX_CACHE_NATIVE,
-    _PX_TTL,
     _cached_price_eur,
     _cached_price_native,
 )
@@ -173,7 +170,6 @@ def _dp_pct(ticker: str) -> float | None:
     Returns None si moins de 2 jours de données (fail-closed L15).
     """
     import time as _t
-    from datetime import UTC, datetime, timedelta
 
     now = _t.monotonic()
     hit = _DP_CACHE.get(ticker)
@@ -512,7 +508,6 @@ SECTOR_COLORS = {
 }
 # TICKER_SECTOR + SECTOR_ALIAS déplacés vers shared/sector_taxonomy.py
 # (cure P2 audit (3) reste whitelist 12/06). Ré-export pour rétro-compat.
-from shared.sector_taxonomy import SECTOR_ALIAS, TICKER_SECTOR  # noqa: E402
 
 
 # Glossaire canonique (FR). Mapping dim internal name -> (label affiche, sens target,
@@ -4246,12 +4241,10 @@ def _chat_panel() -> str:
 
 # _clean_sector déplacé vers shared/sector_taxonomy.py (cure P2 audit (3) reste
 # whitelist 12/06). Ré-export pour rétro-compat des callers internes.
-from shared.sector_taxonomy import _clean_sector  # noqa: E402
-
-
 # Builder _positions déplacé vers shared/portfolio_view_builder.py (cure #120
 # étape 2 12/06). Ré-export pour rétro-compat des callers internes au render.py.
-from shared.portfolio_view_builder import _positions  # noqa: E402
+from shared.portfolio_view_builder import _positions
+from shared.sector_taxonomy import _clean_sector
 
 
 def _sectors() -> dict:
@@ -4299,7 +4292,7 @@ def _pnl_map(computed: list[dict]) -> dict:
 
 # _pnl_cost_map déplacé vers shared/portfolio_analytics.py (cure P2 audit (3)
 # reste whitelist 12/06). Ré-export pour rétro-compat des callers internes.
-from shared.portfolio_analytics import _pnl_cost_map  # noqa: E402
+from shared.portfolio_analytics import _pnl_cost_map
 
 
 def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
@@ -4434,7 +4427,7 @@ def _compute_ai_set() -> set[str]:
 
 # _cluster_health déplacé vers shared/portfolio_analytics.py (cure P2 audit (3)
 # reste whitelist 12/06). Ré-export pour rétro-compat des callers internes.
-from shared.portfolio_analytics import _cluster_health  # noqa: E402
+from shared.portfolio_analytics import _cluster_health
 
 
 def _concentration(
@@ -4878,7 +4871,7 @@ def _loop() -> str:
 
     # Group by ticker (only those in universe)
     from collections import defaultdict
-    from datetime import date, timedelta
+    from datetime import date
     by_ticker: dict[str, dict] = defaultdict(lambda: {
         "preds": [], "audits": [], "sources": set(),
     })
@@ -5323,8 +5316,7 @@ _MACRO_TIPS: dict[str, str] = _calib_get_all_tooltips()
 
 # _macro_dot déplacée vers shared.macro_state (cure P0-1 audit (3) 12/06).
 # Ré-export pour rétro-compat des callers internes au render.py.
-from shared.macro_state import _macro_dot  # noqa: E402
-
+from shared.macro_state import _macro_dot
 
 # === Equity internals: RSI(14) + Breadth (RSP/SPY) — cache TTL 30min ===
 _RSI_CACHE: dict[str, float | None] = {}
@@ -5342,7 +5334,7 @@ def _rsi_14(ticker: str) -> float | None:
     Algorithme RSI(14) inchangé : rolling mean gain/loss sur 14 closes.
     """
     import time as _t
-    from datetime import UTC, datetime, timedelta
+    from datetime import UTC, datetime
 
     now = _t.time()
     if ticker in _RSI_CACHE and now - _RSI_CACHE_TS.get(ticker, 0) < _RSI_TTL:
@@ -6378,7 +6370,7 @@ def _perf_dwm(ticker: str) -> dict:
     "m" = close[-1] vs close[0] (~21 jours business sur 1mo window)
     """
     import time
-    from datetime import UTC, datetime, timedelta
+    from datetime import UTC, datetime
 
     now = time.monotonic()
     hit = _PERF_CACHE.get(ticker)

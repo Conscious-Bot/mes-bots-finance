@@ -42,7 +42,7 @@ def slugify(title: str) -> str:
     s = s.replace("î", "i").replace("ï", "i")
     s = s.replace("ù", "u").replace("û", "u").replace("ü", "u")
     s = s.replace("ç", "c")
-    s = s.replace("'", " ").replace("’", " ")  # noqa: RUF001 -- ASCII-fold intentionnel du U+2019
+    s = s.replace("'", " ").replace("’", " ")  # ASCII-fold intentionnel du U+2019
     # Keep alphanumerics + spaces, replace rest with spaces
     s = re.sub(r"[^a-z0-9\s_-]", " ", s)
     # Collapse whitespace, replace with underscore

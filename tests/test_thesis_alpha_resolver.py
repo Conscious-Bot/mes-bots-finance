@@ -27,21 +27,21 @@ import pytest
 def _pose_pred(**overrides):
     """Helper : insère une pose SK Hynix scenario par défaut, retourne pred_id."""
     from shared.thesis_predictions_writer import insert_thesis_pose
-    base = dict(
-        ticker="000660.KS",
-        asof=date(2026, 6, 10),
-        asof_price_native=2_077_000.0,
-        native_currency="KRW",
-        pt_consensus_raw=2_300_000.0,
-        pt_consensus_currency="KRW",
-        pt_native_asof=2_300_000.0,
-        fx_at_asof=1.0,
-        your_target_native=3_800_000.0,
-        your_delta_native_pct=72.2,
-        thesis_summary="SK Hynix HBM gen5 bull thesis",
-        resolve_due_date=date(2027, 6, 10),
-        source="sweep_133",
-    )
+    base = {
+        "ticker": "000660.KS",
+        "asof": date(2026, 6, 10),
+        "asof_price_native": 2_077_000.0,
+        "native_currency": "KRW",
+        "pt_consensus_raw": 2_300_000.0,
+        "pt_consensus_currency": "KRW",
+        "pt_native_asof": 2_300_000.0,
+        "fx_at_asof": 1.0,
+        "your_target_native": 3_800_000.0,
+        "your_delta_native_pct": 72.2,
+        "thesis_summary": "SK Hynix HBM gen5 bull thesis",
+        "resolve_due_date": date(2027, 6, 10),
+        "source": "sweep_133",
+    }
     base.update(overrides)
     return insert_thesis_pose(**base)
 
@@ -67,8 +67,8 @@ def _stub_fetcher(returns):
 
 def test_resolve_happy_path_price_at_due_date(migrated_db):
     """Prix dispo pile à due_date → resolve correct, counter resolved+=1."""
-    from shared import storage
     from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+    from shared import storage
     pid = _pose_pred()
     fetcher = _stub_fetcher(("2027-06-10", 2_500_000.0))
     counters = resolve_due_thesis_predictions(today=date(2027, 6, 10), fetcher=fetcher)
@@ -108,8 +108,8 @@ def test_resolver_rejects_price_beyond_grace_deadline_anti_downtime_drift(migrat
     due+7. SANS le garde, on prendrait ce prix (viol §4.3). AVEC le garde,
     on traite comme manquant → grâce expirée → abandon terminal.
     """
-    from shared import storage
     from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+    from shared import storage
     pid = _pose_pred()
     # Mock : fallback yfinance retourne due+7, hors grâce (deadline due+5)
     fetcher = _stub_fetcher(("2027-06-17", 2_500_000.0))
@@ -129,8 +129,8 @@ def test_resolver_rejects_price_beyond_grace_deadline_anti_downtime_drift(migrat
 
 def test_resolver_grace_active_with_no_price_defers(migrated_db):
     """In-grace + pas de prix valide (mock None) → defer (NULL, re-pickup demain)."""
-    from shared import storage
     from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+    from shared import storage
     pid = _pose_pred()
     fetcher = _stub_fetcher((None, None))
     counters = resolve_due_thesis_predictions(today=date(2027, 6, 12), fetcher=fetcher)  # in-grace
@@ -194,8 +194,8 @@ def test_resolver_treats_negative_price_as_missing(migrated_db):
 
 def test_magnitude_bull_correct(migrated_db):
     """δ>0, α>0, conf=0.8 → prob=0.9, outcome=1 → 0.01."""
-    from shared import storage
     from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+    from shared import storage
     pid = _pose_pred(confidence=0.8, your_delta_native_pct=10.0)
     fetcher = _stub_fetcher(("2027-06-10", 2_300_000.0))  # alpha = 0/asof*100 ... mais going voir
     # alpha = (2_300_000 - 2_300_000) / 2_077_000 * 100 = 0 = neutral
@@ -217,8 +217,8 @@ def test_magnitude_bear_correct(migrated_db):
     Catch red-team Olivier : si on codait outcome=direction_correct=1,
     le score serait (0.1-1)² = 0.81 = catastrophe sur un pari JUSTE.
     """
-    from shared import storage
     from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+    from shared import storage
     pid = _pose_pred(
         confidence=0.8,
         your_delta_native_pct=-10.0,  # bear thesis
@@ -238,8 +238,8 @@ def test_magnitude_bear_correct(migrated_db):
 
 def test_magnitude_bull_incorrect(migrated_db):
     """δ>0, α<0, conf=0.8 → prob=0.9, outcome=0 → 0.81."""
-    from shared import storage
     from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+    from shared import storage
     pid = _pose_pred(confidence=0.8, your_delta_native_pct=+10.0)
     fetcher = _stub_fetcher(("2027-06-10", 2_000_000.0))
     # alpha = -14.4% (bull incorrect)
@@ -254,8 +254,8 @@ def test_magnitude_bull_incorrect(migrated_db):
 
 def test_magnitude_bear_incorrect(migrated_db):
     """δ<0, α>0, conf=0.8 → prob=0.1, outcome=1 → 0.81."""
-    from shared import storage
     from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+    from shared import storage
     pid = _pose_pred(
         confidence=0.8, your_delta_native_pct=-10.0, your_target_native=1_600_000.0,
     )
@@ -271,8 +271,8 @@ def test_magnitude_bear_incorrect(migrated_db):
 
 def test_magnitude_null_when_no_confidence(migrated_db):
     """confidence=None → magnitude=NULL (pas de Brier sans calibration)."""
-    from shared import storage
     from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+    from shared import storage
     pid = _pose_pred(confidence=None)
     fetcher = _stub_fetcher(("2027-06-10", 2_500_000.0))
     resolve_due_thesis_predictions(today=date(2027, 6, 10), fetcher=fetcher)
@@ -285,8 +285,8 @@ def test_magnitude_null_when_no_confidence(migrated_db):
 
 def test_magnitude_null_when_neutral_alpha(migrated_db):
     """|alpha|<ε_neutre → magnitude=NULL (zone neutre, pas de Brier outcome)."""
-    from shared import storage
     from bot.jobs.thesis_alpha_resolver import resolve_due_thesis_predictions
+    from shared import storage
     pid = _pose_pred(confidence=0.8)
     # alpha=0.2% < ε_neutre=1.0% → neutral
     # asof=2_077_000, pt=2_300_000. Pour alpha=0.2%, price = pt + 0.2/100 * asof = 2_300_000 + 4_154 = 2_304_154
@@ -311,8 +311,8 @@ def test_classify_none_defensive_logs_and_defers(migrated_db, monkeypatch):
     """classify=None malgré prix valide = bug logique (inatteignable normalement).
     Resolver : log error + log_event + counter classify_none_bugs+=1 + defer
     (resolved_at reste NULL). JAMAIS abandon silencieux."""
-    from shared import storage
     from bot.jobs import thesis_alpha_resolver as resolver_module
+    from shared import storage
     pid = _pose_pred()
     fetcher = _stub_fetcher(("2027-06-10", 2_500_000.0))
     # Force classify_direction à retourner None (mock le helper dans le module resolver)

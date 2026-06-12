@@ -661,7 +661,10 @@ def _compute_cluster_cap(state: dict) -> dict:
     user_strat = _load_user_strategy()
     target_pct = float(user_strat.get("target_cluster_cap_pct", 35))
     try:
-        from shared.portfolio_analytics import _cluster_health, _pnl_cost_map  # cure P2 audit (3) — couche shared/, plus de dashboard/
+        from shared.portfolio_analytics import (  # cure P2 audit (3) — couche shared/, plus de dashboard/
+            _cluster_health,
+            _pnl_cost_map,
+        )
 
         pnl = _pnl_cost_map(state["positions"])
         clusters = _cluster_health(state["positions"], pnl)

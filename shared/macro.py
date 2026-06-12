@@ -8,8 +8,8 @@ Degrade gracefully when keys missing.
 """
 
 import requests
-# yfinance import retiré (SOCLE S1c #111) — fetches via shared.prices gateway
 
+# yfinance import retiré (SOCLE S1c #111) — fetches via shared.prices gateway
 from shared.env import env
 
 FRED_KEY = env.fred_api_key

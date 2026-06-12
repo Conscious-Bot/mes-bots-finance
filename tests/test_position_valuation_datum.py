@@ -154,10 +154,10 @@ def test_degraded_propagates_from_amber_price(monkeypatch) -> None:
 
 def test_returns_none_when_pv_value_eur_none(monkeypatch) -> None:
     """price fetch fail (None) -> book.value_eur retourne None -> datum=None."""
-    from shared.valuation import position_valuation_datum
     # Patch prices.get pour retourner None (fetch fail)
     import shared.prices as prices_mod
     from shared import storage
+    from shared.valuation import position_valuation_datum
 
     monkeypatch.setattr(prices_mod, "get", lambda tk: None)
 
@@ -180,8 +180,8 @@ def test_returns_none_when_pv_value_eur_none(monkeypatch) -> None:
 
 def test_returns_none_when_position_not_found(monkeypatch) -> None:
     """storage lookup retourne None -> datum=None (cohérent L15)."""
-    from shared.valuation import position_valuation_datum
     from shared import storage
+    from shared.valuation import position_valuation_datum
 
     class _FakeCursor:
         def execute(self, *a, **kw): return self

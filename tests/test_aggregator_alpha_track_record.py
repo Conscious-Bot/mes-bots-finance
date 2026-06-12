@@ -38,7 +38,6 @@ from scripts.aggregator_alpha_track_record import (
     compute_alpha_track_record,
 )
 
-
 # ============================================================================
 # HELPER : seed SQL direct respectant invariants writer
 # ============================================================================
@@ -71,6 +70,7 @@ def _seed_resolved_pred(
     asof_price=100 (dummy CHECK>0). your_target_native dérivé.
     """
     import sqlite3
+
     from shared import storage  # import juste-in-time pour capter monkeypatch
 
     asof_price = 100.0
@@ -625,14 +625,14 @@ def test_aggregator_does_not_pull_heavy_chain():
     root = Path(__file__).parent.parent
     script = (
         "import sys; "
-        "sys.path.insert(0, %r); "
+        f"sys.path.insert(0, {str(root)!r}); "
         "import scripts.aggregator_alpha_track_record; "
         "heavy = ('shared.prices', 'data_sources', 'google', "
         "'yfinance', 'telegram', 'pandas'); "
         "bad = [m for m in sys.modules if any(m == h or m.startswith(h + '.') "
         "for h in heavy)]; "
         "assert not bad, ('heavy modules pulled transitively: ' + repr(bad))"
-    ) % str(root)
+    )
     r = subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True, text=True, timeout=30,

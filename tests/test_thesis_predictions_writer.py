@@ -25,21 +25,21 @@ import pytest
 
 def _pose_kwargs(**overrides):
     """SK Hynix scenario par défaut, override possible."""
-    base = dict(
-        ticker="000660.KS",
-        asof=date(2026, 6, 10),
-        asof_price_native=2_077_000.0,
-        native_currency="KRW",
-        pt_consensus_raw=2_300_000.0,
-        pt_consensus_currency="KRW",
-        pt_native_asof=2_300_000.0,
-        fx_at_asof=1.0,
-        your_target_native=3_800_000.0,
-        your_delta_native_pct=72.2,
-        thesis_summary="SK Hynix HBM gen5 bull thesis",
-        resolve_due_date=date(2027, 6, 10),
-        source="sweep_133",
-    )
+    base = {
+        "ticker": "000660.KS",
+        "asof": date(2026, 6, 10),
+        "asof_price_native": 2_077_000.0,
+        "native_currency": "KRW",
+        "pt_consensus_raw": 2_300_000.0,
+        "pt_consensus_currency": "KRW",
+        "pt_native_asof": 2_300_000.0,
+        "fx_at_asof": 1.0,
+        "your_target_native": 3_800_000.0,
+        "your_delta_native_pct": 72.2,
+        "thesis_summary": "SK Hynix HBM gen5 bull thesis",
+        "resolve_due_date": date(2027, 6, 10),
+        "source": "sweep_133",
+    }
     base.update(overrides)
     return base
 
@@ -158,7 +158,9 @@ def test_get_due_returns_only_due_and_unresolved(migrated_db):
 
 def test_get_due_excludes_already_resolved(migrated_db):
     from shared.thesis_predictions_writer import (
-        get_due_thesis_predictions, insert_thesis_pose, update_thesis_resolve_fields,
+        get_due_thesis_predictions,
+        insert_thesis_pose,
+        update_thesis_resolve_fields,
     )
     id1 = insert_thesis_pose(**_pose_kwargs(resolve_due_date=date(2027, 1, 1)))
     update_thesis_resolve_fields(
@@ -234,7 +236,8 @@ def test_mark_abandoned_sets_lifecycle_and_nulls_scoring_cols(migrated_db):
     """
     from shared import storage
     from shared.thesis_predictions_writer import (
-        insert_thesis_pose, mark_thesis_prediction_abandoned,
+        insert_thesis_pose,
+        mark_thesis_prediction_abandoned,
     )
     pred_id = insert_thesis_pose(**_pose_kwargs())
     ok = mark_thesis_prediction_abandoned(prediction_id=pred_id)
@@ -257,8 +260,11 @@ def test_mark_abandoned_sets_lifecycle_and_nulls_scoring_cols(migrated_db):
 def test_mark_abandoned_removes_from_get_due_pool(migrated_db):
     """Post-abandon, get_due ne re-pickup plus (resolved_at set)."""
     from datetime import date as _date
+
     from shared.thesis_predictions_writer import (
-        get_due_thesis_predictions, insert_thesis_pose, mark_thesis_prediction_abandoned,
+        get_due_thesis_predictions,
+        insert_thesis_pose,
+        mark_thesis_prediction_abandoned,
     )
     pred_id = insert_thesis_pose(**_pose_kwargs(resolve_due_date=_date(2027, 1, 1)))
     mark_thesis_prediction_abandoned(prediction_id=pred_id)
@@ -270,7 +276,8 @@ def test_mark_abandoned_logs_bot_event(migrated_db):
     """Abandon logge un event 'thesis_resolve_abandoned' avec reason."""
     from shared import storage
     from shared.thesis_predictions_writer import (
-        insert_thesis_pose, mark_thesis_prediction_abandoned,
+        insert_thesis_pose,
+        mark_thesis_prediction_abandoned,
     )
     pred_id = insert_thesis_pose(**_pose_kwargs())
     mark_thesis_prediction_abandoned(prediction_id=pred_id, reason="price_unavailable")
@@ -287,7 +294,9 @@ def test_mark_abandoned_logs_bot_event(migrated_db):
 def test_mark_abandoned_blocked_on_already_resolved(migrated_db):
     """L'abandon ne peut PAS overwrite une résolution normale (trigger 2 mord)."""
     from shared.thesis_predictions_writer import (
-        insert_thesis_pose, mark_thesis_prediction_abandoned, update_thesis_resolve_fields,
+        insert_thesis_pose,
+        mark_thesis_prediction_abandoned,
+        update_thesis_resolve_fields,
     )
     pred_id = insert_thesis_pose(**_pose_kwargs())
     # Résolution normale d'abord
@@ -311,7 +320,8 @@ def test_mark_abandoned_twice_blocked_idempotent_intent(migrated_db):
     Pas un crash — le 2e call retourne False. L'abandon est terminal,
     idempotent par échec contrôlé."""
     from shared.thesis_predictions_writer import (
-        insert_thesis_pose, mark_thesis_prediction_abandoned,
+        insert_thesis_pose,
+        mark_thesis_prediction_abandoned,
     )
     pred_id = insert_thesis_pose(**_pose_kwargs())
     ok1 = mark_thesis_prediction_abandoned(prediction_id=pred_id)
@@ -365,7 +375,9 @@ def test_round_trip_pose_due_resolve_aggregate(migrated_db):
     """Workflow complet : pose SK + CCJ → get_due → resolve les deux."""
     from shared import storage
     from shared.thesis_predictions_writer import (
-        get_due_thesis_predictions, insert_thesis_pose, update_thesis_resolve_fields,
+        get_due_thesis_predictions,
+        insert_thesis_pose,
+        update_thesis_resolve_fields,
     )
     sk_id = insert_thesis_pose(**_pose_kwargs(resolve_due_date=date(2027, 1, 1)))
     ccj_id = insert_thesis_pose(**_pose_kwargs(

@@ -9,6 +9,7 @@ Si les 3 passent, le fork split/visuel est mort par construction (identité
 littérale via _axis[tk]["_pr"] partagé).
 """
 from __future__ import annotations
+
 import re
 import sys
 

@@ -19,7 +19,6 @@ import pytest
 from shared.datum import Datum
 from shared.money import Monetary, in_eur, monetary, pct_change
 
-
 # ============================================================================
 # 1. Commensurabilite : cross-devise => AssertionError
 # ============================================================================

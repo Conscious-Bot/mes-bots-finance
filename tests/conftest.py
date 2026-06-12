@@ -45,6 +45,7 @@ def _migrated_db_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
     PRAGMA wal_checkpoint(TRUNCATE) garantit hygiene).
     """
     import sqlite3
+
     from shared import storage
 
     template_path = tmp_path_factory.mktemp("alembic_template") / "head.db"
@@ -85,6 +86,7 @@ def migrated_db(
         cette DB pour la duree du test.
     """
     import sqlite3
+
     from shared import storage
 
     db = tmp_path / "migrated.db"

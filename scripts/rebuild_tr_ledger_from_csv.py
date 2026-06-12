@@ -216,7 +216,7 @@ def main() -> int:
             tr_tickers,
         ).fetchone()[0]
         print()
-        print(f"=== Pre-rebuild state ===")
+        print("=== Pre-rebuild state ===")
         print(f"  Transactions TR à supprimer : {n_to_delete}")
         print(f"  Transactions PEA à conserver : {n_pea_keep}")
 
@@ -255,7 +255,7 @@ def main() -> int:
 
         # Post-rebuild gate : VUE qty == CSV net
         print()
-        print(f"=== Post-rebuild gate : VUE qty vs CSV net ===")
+        print("=== Post-rebuild gate : VUE qty vs CSV net ===")
         all_match = True
         for ticker in sorted(ISIN_TO_TICKER.values()):
             row = cx.execute(
@@ -271,7 +271,7 @@ def main() -> int:
 
         # PEA preserved check
         print()
-        print(f"=== PEA anchors check (doivent rester intacts) ===")
+        print("=== PEA anchors check (doivent rester intacts) ===")
         pea_tickers = ("ASML.AS", "BESI.AS", "HO.PA", "SAF.PA", "STMPA.PA", "SU.PA")
         for tk in pea_tickers:
             row = cx.execute(

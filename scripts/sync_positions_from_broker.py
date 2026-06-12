@@ -230,7 +230,7 @@ def verify() -> dict:
     matches = 0
     with storage.db() as cx:
         cx.row_factory = None
-        for acct_name, acct_data in yaml_data["accounts"].items():
+        for _acct_name, acct_data in yaml_data["accounts"].items():
             for pos in acct_data["positions"]:
                 tk = pos["ticker"]
                 target_pnl_pct = pos.get("pnl_pct_snapshot")

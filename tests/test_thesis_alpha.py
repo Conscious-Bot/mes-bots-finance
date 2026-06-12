@@ -22,7 +22,6 @@ from shared.thesis_alpha import (
     convert_consensus_pt_to_native,
 )
 
-
 # ============================================================
 # A1 — Convert at asof freezes fx (décision A)
 # ============================================================

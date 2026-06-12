@@ -185,8 +185,8 @@ def _classify_price_asof(book_line) -> str | None:
     if not book_line:
         return "unknown"
     try:
-        from shared.freshness import classify_asof
         from shared import storage
+        from shared.freshness import classify_asof
         ticker = getattr(book_line, "ticker", None)
         if ticker:
             latest = storage.get_latest_price(ticker)

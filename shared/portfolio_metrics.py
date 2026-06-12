@@ -40,7 +40,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 # yfinance import retiré (SOCLE S1c #111) — toutes les fetches via shared.prices gateway
-
 from shared.positions import list_positions
 from shared.prices import get_current_price_in, get_fx_rate
 

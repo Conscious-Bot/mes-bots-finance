@@ -380,7 +380,7 @@ def _movers_24h_section() -> dict | None:
     # SOCLE S1c (#111) : migré yf.download batch → loop ensure_price_history.
     from datetime import UTC, datetime, timedelta
 
-    from shared.prices import ensure_price_history, get_current_price_in_usd  # noqa: F401
+    from shared.prices import ensure_price_history, get_current_price_in_usd
 
     end_dt = datetime.now(UTC)
     start_dt = end_dt - timedelta(days=5)  # marge weekend

@@ -36,7 +36,9 @@ select = [
     "TID",    # tidy imports
 ]
 ignore = [
+    "RUF001",   # ambiguous unicode char in string (we use ‹›≠ intentionally in HTML/labels)
     "RUF002",   # ambiguous unicode char in docstring (we use γ for Path γ refs intentionally)
+    "RUF003",   # ambiguous unicode char in comment (we use × − Δ for math notation)
     "E501",     # line-too-long (handled by formatter)
     "E402",     # module-level import not at top (legitimate lazy imports)
     "B008",     # function call in default arg (sometimes intentional)
@@ -55,11 +57,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["F401", "F811", "ARG", "B011", "PIE790", "PTH"]  # test setup boilerplate
+"tests/*" = ["F401", "F811", "ARG", "B011", "PIE790", "PTH", "RUF001", "RUF003", "UP031", "E741", "SIM115", "C408"]  # test setup boilerplate + math notation (× − Δ) in comments/strings
 "scripts/*" = ["ARG", "PTH"]
 "bot/main.py" = ["E402", "F401", "ARG001"]  # ARG: python-telegram-bot signature exige (update, ctx)
 "data_sources/*" = ["PTH"]
-"dashboard/*" = ["C408"]  # plotly dict() idiom
+"dashboard/*" = ["C408", "RUF001", "RUF003"]  # plotly dict() idiom + unicode chevrons (‹›) in HTML + math notation (×) in comments
 
 [tool.ruff.lint.isort]
 known-first-party = ["shared", "intelligence", "bot", "data_sources"]

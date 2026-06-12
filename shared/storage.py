@@ -14,7 +14,7 @@ from pathlib import Path
 from sqlite3 import IntegrityError  # re-export passerelle L17
 from typing import Any
 
-__all__ = ["IntegrityError", "db", "DB_PATH"]  # extension possible
+__all__ = ["DB_PATH", "IntegrityError", "db"]  # extension possible
 
 ROOT = Path(__file__).parent.parent
 DB_PATH = ROOT / "data" / "bot.db"
