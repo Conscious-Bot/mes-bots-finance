@@ -1,15 +1,22 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 10 juin 2026 (SPEC_GAUGE finalisée — bascule + 21 tests + canon-tidy ; doctrine L30 gravée ; sweep #133 démarré SK+CCJ posés, 10 positions restantes)
+**Refresh** : 12 juin 2026 close (b) — cure visuelle CARDS canonique (TRIM / EROSION_DETECTED / TYPE & FACTOR) + 2 cures racines (event-driven per-thesis cutoff #143 + sanity outlier yfinance au boundary `prices.get_current_price` #144)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepte.
 **Archives** : `/tmp/TODO_pre_refresh_*.md` (historique des refresh)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (10/06 — SPEC_GAUGE finalisée + L30 doctrine + sweep #133 2/12)
+## 🟢 ÉTAT SYSTÈME (12/06 close b — cure CARDS + 2 cures racines event-driven + outlier yfinance)
 
-- **alembic_version** : 0050 (positions VUE + colonnes dérivées NULL fail-closed L29)
-- **Tests** : 1711 passed, 1 fail orthogonal (`test_db_write_discipline` sur `living_graph.py` hors allowlist, pré-existant non lié), 2 skipped — **+21 tests** ajoutés ce jour (`test_gauge_price_native.py` SPEC §5)
+- **alembic_version** : 0055 (registre append-only per-classe — figé session 12/06 matin)
+- **Tests** : 54 passed sur `test_prices_gateway` + `test_datum` + `test_prices_fx` (sanity cure 2 source) ; `test_thesis_erosion_event_driven` 6 passed (rétro-compat cure 1 racine event-driven). Suite complète à re-runner si une session suivante touche shared/.
+- **Bot status** : tourne (PID 51942 depuis 12/06 08:13)
+- **Dashboard live** : `http://127.0.0.1:8000/dashboard.html` (PID 56352, regen 60s, [serve] reload : dashboard.render)
+- **SOCLE base_health** : GREEN (M1 désormais blindé contre outliers feed via cure 2)
+- **Doctrines actives session** : `feedback_instrumentation_vs_decision` (cure racine, pas instrumentation symptôme) · `feedback_source_direct_fix` (boundary, pas panel) · `feedback_red_team_verify_before_assert` (rétractation diagnostic "3 vocabs") · `SPEC_ALERT_VOCABULARY §1` (TRIM/ADD canoniques + STATE drivers calm)
+- **KLAC fail-closed actif** : yfinance feed cassé depuis 11/06 (2411 USD vs 213 USD réel). Tous nombres KLAC affichent `—` jusqu'à restauration yfinance ou correction manuelle
+- **Track-record alpha** : 10 paris posés (SK+CCJ+8 du matin), résolution 1re due 2027-06-10 (CCJ)
+- **Backlog substantiel ouvert** : seulement #88 (M2 Brier-scorer thesis_erosion) + #92 (consensus projection SPEC_CONSENSUS_FRAGILITE). Reste = tidy bénin.
 - **Bot status** : relancé, polling Telegram OK
 - **SOCLE base_health** : **GREEN**
 - **SPEC_GAUGE** : **IMPLEMENTED** (canon-tidy `e6c0075`) — étape 4.1 verrouillée (21 tests qui mordent), reste étape 4.3 expansion L30 doctrine complète (post-sweep #133)
@@ -26,6 +33,12 @@
 - **Backlog ouvert** : sweep #133 batch suivant + L30 expansion complète, voir § **P0 ACTIONNABLES NEXT SESSION** mis à jour.
 
 ---
+
+## ✅ DÉJÀ FAIT (12/06 close b — cure visuelle CARDS + 2 cures racines)
+
+- **Cure visuelle position-card canonique** (commit `8251afe`) : badge steer-v2 `TRIM_TO_X / ADD_TO_X` → `TRIM / ADD` (SPEC_ALERT_VOCABULARY §1) ; section EROSION_DETECTED enrichie (action_hint YAML + chip stale + niveaux agrégation explicites + STATE drivers calm) ; TYPE & FACTOR enrichi (`macro_factor` + `theme` depuis BookLine, aucun wiring).
+- **#143 cure racine event-driven erosion** (commit `e7f0210`) : `recompute_for_tickers_with_fresh_signals` migre de fenêtre glissante `now - 30min` (perdait signaux pendant downtime bot) à per-thèse `cutoff = max(MAX(computed_at), now - 14j)`. 29 signaux matériels ratés (AVGO×6, TSM, AMD, GOOGL, AMZN, ...) sur 4j. Dry-run confirme 5 candidats. Tests rétro-compat 6 passed.
+- **#144 cure racine sanity outlier yfinance** (commits `41dcef1` + `f9b33f2`) : KLAC feed cassé 11/06 (213 USD → 2411 USD x11 sans split). Cure 1 (`_perf_dwm` `_sane`) symptôme local panel momentum. Cure 2 (`get_current_price` `_last_clean_median` + `_is_outlier`) racine au boundary : outlier persisté avec `source="yfinance:outlier"` (audit) + retourne `None` → fail-closed propage à tous downstream (P&L, MV, weight, momentum). Vérifié live : KLAC ratio 10.35 → None ; TSM ratio 1.4% → pass. Tests 54 passed.
 
 ## ✅ DÉJÀ FAIT (10/06 — SPEC_GAUGE finalisée + L30 + sweep #133 2/12)
 

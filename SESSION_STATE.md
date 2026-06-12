@@ -3072,3 +3072,52 @@ fx-strippé, ancré sur consensus daté, no_bet gate passé sur chacun.
 - `b52f9f4` #120 étapes 2-5 _positions → shared + enforcement
 - `29b878d` P2 reste whitelist TICKER_SECTOR + helpers → shared
 - `cb62054` P2 final WHITELIST VIDÉE
+
+---
+
+## Close 2026-06-12 (b) — Cure visuelle CARDS + bug racines event-driven & feed yfinance
+
+### Livré
+
+**Cure visuelle position-card (rendu user-facing)** — commit `8251afe` :
+- Badge verdict steer-v2 : `TRIM_TO_X` / `ADD_TO_X` (enums Python qui fuient) → `TRIM` / `ADD` (vocab canonique SPEC_ALERT_VOCABULARY §1). La flèche `→ X%` porte déjà la cible.
+- Section EROSION_DETECTED retravaillée : action_hint sourcé du YAML, chip `stale Nj` quand `computed_at > 24h`, niveaux d'agrégation explicités (`N actionnables / M classifications total` + `DRIVERS (N) · seuil broken net ≤ -1.5`), status drivers alignés STATE-calme (info/neutral, weight low — doctrine §1 "STATE n'attire jamais l'attention"), `+0.00` gratuit → `0.00`.
+- Colonne TYPE & FACTOR enrichie (tient la promesse du titre) : `factor` = `bl.macro_factor` (AI capex, Energy commodities, ...), `theme` = `bl.theme` (Compute & semis, Defense, ...). Aucun nouveau wiring — champs déjà joints dans `BookLine`.
+
+**Cure racine #1 — event-driven erosion `per-thesis cutoff`** — commit `e7f0210` (TODO #143) :
+- Root cause identifié via investigation user "oui investigue" sur 14 verdicts `stale 4j` : `recompute_for_tickers_with_fresh_signals` utilisait fenêtre glissante globale `now - 30min`. Bot down quelques heures → tous les signaux ingérés pendant la pause étaient permanent missed. 29 signaux matériels ratés depuis le 09/06 (AVGO×6, TSM, AMD, GOOGL, AMZN, ...).
+- Cure : `since_minutes -> int | None`. `None` = nouveau mode per-thèse (`cutoff = max(MAX(computed_at), now - 14j)`). `bot/jobs/intervals.py` passe désormais `None`. Legacy `since_minutes` préservé pour rétro-compat tests (6 passent).
+- Dry-run confirme : 5 thèses candidates au recompute immédiat (TSM, AVGO, AMD, GOOGL, AMZN). Cron event-driven les rattrapera < 30min après commit.
+
+**Cure racine #2 — sanity outlier yfinance au boundary `prices.get_current_price`** — commits `41dcef1` + `f9b33f2` (TODO #144) :
+- Bug source : feed yfinance KLAC cassé depuis 2026-06-11, close passé de 213 USD à 2411 USD (x11) sans split annoncé. Visible dans RECENT MOMENTUM "+1029% jour / +1031% semaine / +1233% mois", mais contaminait aussi P&L + MV + weight + stop-margin.
+- Cure 1 (symptôme) : helper `_sane()` dans `_perf_dwm` avec seuils 50/100/200% — masque le panel momentum sans toucher P&L.
+- Cure 2 (source) : `_last_clean_median(ticker)` = median des 7 closes daily yfinance des jours **précédents** le fresh fetch. `_is_outlier(fresh, median)` trigger si `|fresh/median - 1| > 50%`. `get_current_price()` persiste l'outlier append-only avec `source="yfinance:outlier"` (audit) + retourne `None` → fail-closed propage à tous les downstream (P&L, MV, weight, momentum tous en `—` automatiquement).
+- Vérifié runtime live : KLAC ratio 10.35 → `None` ; TSM ratio 1.4% → pass.
+
+### Doctrines respectées
+
+- `feedback_instrumentation_vs_decision` : cure racine #1 = cible la donnée (per-thèse cutoff), pas une nouvelle instrumentation (pas de monitor cron-uptime supplémentaire). Cure racine #2 idem (boundary correct, pas double-instrumentation symptôme).
+- `feedback_source_direct_fix` : bug yfinance corrigé à la source (`prices.py`), pas au panel.
+- `SPEC_ALERT_VOCABULARY §1` : STEER act-class `TRIM` / `ADD` adopté à la place des enums Python ; STATE drivers rendus en calm color.
+- `feedback_red_team_verify_before_assert` : diagnostic initial "3 vocabs pour la même chose" rétracté après verify (en vrai 3 niveaux d'agrégation distincts : EVENT thèse / classifications atomiques / status drivers).
+
+### KNOWN-GAP / limites assumées
+
+- Cure 2 source rejette aussi les vrais splits annoncés (rares, à corriger manuellement à l'occasion). État honnête > nombre contaminé.
+- Le cron event-driven `interval, minutes=30` va rattraper les 5 thèses TSM/AVGO/AMD/GOOGL/AMZN dans les 30 prochaines minutes. Si pas le cas → diagnostic plus profond.
+- Bot uptime visible : démarré 12/06 08:13. Si fréquence des arrêts s'aggrave, envisager wrap par launchd auto-restart (style tennis-bot, cf `parallel_projects_tennis_bot`).
+
+### Entry next session
+
+1. **Si dashboard public/canonique encore en place** : vérifier que KLAC affiche bien `—` partout (P&L, MV, momentum) tant que yfinance ne se restaure pas. Si yfinance corrige → KLAC repasse vert sans intervention.
+2. **Verify visuel** des 4 cures CARDS sur le dashboard local (`http://127.0.0.1:8000/dashboard.html`) — étapes 1+3+4 livrées + cure EROSION_DETECTED + badge TRIM canonique. Pas encore fait par Olivier visuel cette session.
+3. **Étape 5 freshness asof par nombre dérivé** non commencée (en suspens dans plan original CARDS) : si tu reprends, c'est la suite logique (chip asof par MV / weight / P&L individuel).
+4. **Cron event-driven monitoring** : prochaine session, jeter un œil au log `intelligence/thesis_erosion : N theses recomputed` dans bot log pour confirmer que la cure racine #143 a effectivement rattrapé les 5 stales.
+
+### Commits session 12/06 (b)
+
+- `8251afe` cure visuelle CARDS (TRIM canonique + EROSION_DETECTED + TYPE & FACTOR)
+- `e7f0210` #143 event-driven erosion per-thesis cutoff
+- `41dcef1` #144 fail-closed _perf_dwm contre outliers
+- `f9b33f2` #144 v2 sanity outlier au boundary prices.get_current_price
