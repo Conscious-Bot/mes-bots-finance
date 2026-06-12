@@ -6373,10 +6373,25 @@ def _perf_dwm(ticker: str) -> dict:
                     return None
                 return round(v, 1)
 
-            out["d"] = _roi(last, float(closes[-2]))
-            out["m"] = _roi(last, float(closes[0]))
+            def _sane(v: float | None, max_pct: float) -> float | None:
+                """Fail-closed sanity contre outliers feed yfinance.
+
+                Cure bug 12/06 (#144) : KLAC yfinance feed broken 2026-06-11 sur
+                ratio x11 (213 USD -> 2411 USD sans split annonce). Resultait
+                en +1029% jour visible dans RECENT MOMENTUM. Seuils choisis pour
+                stopper outliers feed sans masquer mouvements legitimes (splits
+                annonces a >2-3x sont rares, et le panel momentum n'est pas la
+                bonne place pour les afficher de toute facon). Cf TODO #144 v2
+                pour cure source (sanity check shared/prices.py au boundary).
+                """
+                if v is None or abs(v) > max_pct:
+                    return None
+                return v
+
+            out["d"] = _sane(_roi(last, float(closes[-2])), 50)
+            out["m"] = _sane(_roi(last, float(closes[0])), 200)
             if len(closes) >= 6:
-                out["w"] = _roi(last, float(closes[-6]))
+                out["w"] = _sane(_roi(last, float(closes[-6])), 100)
     except Exception:
         pass
     _PERF_CACHE[ticker] = (now, out)
