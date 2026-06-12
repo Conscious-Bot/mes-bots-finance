@@ -272,13 +272,16 @@ async def post_init(app):
         misfire_grace_time=43200,  # 12h grace si bot down au moment fire
     )
     # V2 vigilances : check hebdo lundi 7h, push Telegram UNIQUEMENT si ALERT/WARN
-    sched.add_job(weekly_v2_vigilance_check_job, "cron", day_of_week="mon", hour=7, minute=0)
+    sched.add_job(weekly_v2_vigilance_check_job, "cron", day_of_week="mon", hour=7, minute=0,
+                  misfire_grace_time=86400)
     # Couche 4 chantier #2 : weekly floor thesis_erosion lundi 6h Paris
     # (avant ouverture marche, donne verdicts frais pour la carte-decision).
     # Cout ~$0.60/run x 4 runs/mois = ~$2.40/mois. Pas spam Telegram si tout INTACT.
-    sched.add_job(weekly_thesis_erosion_floor_job, "cron", day_of_week="mon", hour=6, minute=0)
+    sched.add_job(weekly_thesis_erosion_floor_job, "cron", day_of_week="mon", hour=6, minute=0,
+                  misfire_grace_time=86400)  # 24h catchup post-downtime (cure 12/06)
     # Calibration audit scorer V2 : check hebdo dimanche 22h, push Telegram si transition status notable
-    sched.add_job(weekly_calibration_audit_job, "cron", day_of_week="sun", hour=22, minute=0)
+    sched.add_job(weekly_calibration_audit_job, "cron", day_of_week="sun", hour=22, minute=0,
+                  misfire_grace_time=86400)
     sched.add_job(monthly_bot_preferences_synthesis_job, "cron", day=1, hour=4, minute=0, misfire_grace_time=86400)
     # Tier1 4x/jour 06h/12h/18h/22h (user 06/06 "accuracy = basic").
     # VIX/USDJPY/TYX/MOVE/HY_OAS/DXY/Gold/BTC reagissent intra-day.

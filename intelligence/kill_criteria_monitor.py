@@ -212,11 +212,14 @@ def check_one_thesis(thesis: dict) -> tuple[dict | None, int | None]:
         return None, None
 
     new_status = result.get("global_status", "dormant")
-    # Persist only if status changed from previous (avoid noise)
     prev = storage.get_latest_kca_per_thesis(thesis["id"])
-    if prev and prev.get("status") == new_status and new_status == "dormant":
-        # No change & dormant -> skip persistence (still useful for cron heartbeat)
-        return result, None
+    # Cure 12/06 (audit freshness) : INSERER chaque evaluation, no_change inclus.
+    # Pattern canonique monitor_pattern.md aligne avec over_cap + stale_target :
+    # le journal append-only EST la source de verite prev_status (cf L4 anti-
+    # refire spurieux) ET la source de freshness signal ("cron a tourne =
+    # je dois trouver une row recente"). Avant cette cure, le skip
+    # "no_change & dormant" cachait la fraicheur (13 jours sans row alors que
+    # cron tournait tous les jours mais skippait).
     aid = storage.insert_kill_criteria_alert(
         thesis_id=thesis["id"],
         ticker=ticker,
