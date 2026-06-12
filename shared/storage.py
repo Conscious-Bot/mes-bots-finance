@@ -3630,6 +3630,9 @@ def insert_stale_target_alert(
     edge_pct: float,
     notified: bool = False,
     transition: str | None = None,
+    consensus_target: float | None = None,
+    consensus_n: int | None = None,
+    consensus_delta_pct: float | None = None,
 ) -> int | None:
     """Insert un row d'evaluation stale_target. status in {alive, dying, dead}.
     Append-only ; prev_status = derniere row (cf get_latest_stale_target_per_thesis).
@@ -3637,18 +3640,25 @@ def insert_stale_target_alert(
                    dead_to_alive, alive_to_dead, no_change, NULL}.
 
     PAS de bias_event_id (signal pur, pas anti-bias wire).
+
+    Migration 0057 (12/06/2026) : colonnes consensus_* ajoutees pour cross-check
+    target Olivier vs consensus rue. Nullable si yfinance .info pas dispo.
     """
     try:
         with db() as cx:
             cur = cx.execute(
                 "INSERT INTO stale_target_alerts "
                 "(thesis_id, ticker, status, cost_eur, target_eur, edge_pct, "
-                " notified, transition) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                " notified, transition, consensus_target, consensus_n, "
+                " consensus_delta_pct) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     int(thesis_id), ticker.upper(), status,
                     float(cost_eur), float(target_eur), float(edge_pct),
                     1 if notified else 0, transition,
+                    float(consensus_target) if consensus_target is not None else None,
+                    int(consensus_n) if consensus_n is not None else None,
+                    float(consensus_delta_pct) if consensus_delta_pct is not None else None,
                 ),
             )
             return cur.lastrowid
@@ -3663,7 +3673,8 @@ def get_latest_stale_target_per_thesis(thesis_id: int) -> dict | None:
         with db() as cx:
             row = cx.execute(
                 "SELECT id, created_at, ticker, status, cost_eur, target_eur, "
-                "       edge_pct, notified, transition "
+                "       edge_pct, notified, transition, consensus_target, "
+                "       consensus_n, consensus_delta_pct "
                 "FROM stale_target_alerts WHERE thesis_id=? "
                 "ORDER BY id DESC LIMIT 1",
                 (int(thesis_id),),
@@ -3671,7 +3682,8 @@ def get_latest_stale_target_per_thesis(thesis_id: int) -> dict | None:
             if not row:
                 return None
             cols = ["id", "created_at", "ticker", "status", "cost_eur",
-                    "target_eur", "edge_pct", "notified", "transition"]
+                    "target_eur", "edge_pct", "notified", "transition",
+                    "consensus_target", "consensus_n", "consensus_delta_pct"]
             return dict(zip(cols, row, strict=False))
     except Exception as e:
         _copilot_log.warning(f"get_latest_stale_target_per_thesis failed: {e}")

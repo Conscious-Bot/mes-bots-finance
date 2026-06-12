@@ -48,6 +48,11 @@ log = logging.getLogger(__name__)
 
 # Seuil edge pour passer d'alive a dying : (target - cost) / cost < 5%
 _SEUIL_EDGE_DYING = 0.05
+# Seuil divergence consensus pour flagger dans la notif (signal pur, pas
+# changement de status). Olivier > consensus * 1.3 (ou < consensus * 0.77)
+# = divergence materielle a mentionner. Aligne avec scoring methodologique
+# 12/06 ou |delta| > 30% etait pris comme "explicitement variant".
+_SEUIL_CONSENSUS_DIVERGENCE = 0.30
 
 
 def _prev_status_for_stale_target(thesis_id: int) -> str:
@@ -161,11 +166,12 @@ def check_all_stale_target_transitions() -> dict[str, Any]:
     Returns:
         dict {checked, alive, dying, dead, transitions, notified, errors}
     """
-    from shared import book as _bk, notify as _notify, storage as _storage
+    from shared import book as _bk, notify as _notify, prices as _prices, storage as _storage
 
     stats: dict[str, Any] = {
         "checked": 0, "alive": 0, "dying": 0, "dead": 0,
         "transitions": 0, "notified": 0, "errors": 0,
+        "consensus_divergent": 0,  # info pure, pas un status
     }
 
     # Charge actives theses + book index
@@ -209,6 +215,28 @@ def check_all_stale_target_transitions() -> dict[str, Any]:
             prev_status = _prev_status_for_stale_target(thesis_id)
             transition = _classify_transition(prev_status, new_status)
 
+            # Cross-check consensus (yfinance .info live)
+            consensus_target: float | None = None
+            consensus_n: int | None = None
+            consensus_delta_pct: float | None = None
+            try:
+                cons = _prices.get_analyst_consensus(ticker)
+                if cons and cons.get("target_mean") and cons.get("n_analysts"):
+                    # consensus.target_mean en native currency du listing
+                    # target Olivier (t.target_full) aussi en native (doctrine
+                    # currency_native_invariant). On compare native vs native.
+                    target_olv_native = float(t.get("target_full") or 0)
+                    if target_olv_native > 0:
+                        consensus_target = float(cons["target_mean"])
+                        consensus_n = int(cons["n_analysts"])
+                        consensus_delta_pct = (
+                            target_olv_native / consensus_target - 1
+                        ) * 100
+                        if abs(consensus_delta_pct) > _SEUIL_CONSENSUS_DIVERGENCE * 100:
+                            stats["consensus_divergent"] += 1
+            except Exception as e:
+                log.warning(f"stale_target consensus {ticker} failed: {e}")
+
             notified_flag = False
             # Transitions actionables (notify Telegram)
             actionable = {
@@ -218,11 +246,24 @@ def check_all_stale_target_transitions() -> dict[str, Any]:
                 stats["transitions"] += 1
                 try:
                     emoji = "⚠" if new_status == "dying" else "🔴"
+                    consensus_line = ""
+                    if consensus_target is not None and consensus_delta_pct is not None:
+                        cons_dir = "BULL" if consensus_delta_pct > 0 else "BEAR"
+                        flag = (
+                            "  ⚠ divergent"
+                            if abs(consensus_delta_pct) > _SEUIL_CONSENSUS_DIVERGENCE * 100
+                            else "  aligne"
+                        )
+                        consensus_line = (
+                            f"consensus: {consensus_target:.2f} (N={consensus_n}) "
+                            f"-> delta {consensus_delta_pct:+.0f}% {cons_dir}{flag}\n"
+                        )
                     msg = (
                         f"{emoji} STALE TARGET -- {ticker}\n"
                         f"status : {prev_status} -> {new_status}\n"
                         f"cost {cls['cost_eur']:.2f} EUR vs target {cls['target_eur']:.2f} EUR\n"
                         f"edge {cls['edge_pct']:+.1f}%\n"
+                        f"{consensus_line}"
                         f"Action : repose le target (L30 anti-piege : "
                         f"humain decide, pas auto-recompute)"
                     )
@@ -241,6 +282,9 @@ def check_all_stale_target_transitions() -> dict[str, Any]:
                 cost_eur=cls["cost_eur"], target_eur=cls["target_eur"],
                 edge_pct=cls["edge_pct"], notified=notified_flag,
                 transition=transition,
+                consensus_target=consensus_target,
+                consensus_n=consensus_n,
+                consensus_delta_pct=consensus_delta_pct,
             )
         except Exception as e:
             log.warning(

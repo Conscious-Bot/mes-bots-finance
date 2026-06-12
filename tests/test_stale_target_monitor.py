@@ -199,6 +199,59 @@ def test_no_theses_in_perimeter_empty_stats(migrated_db):
     assert out["errors"] == 0
 
 
+def test_consensus_divergent_flagged_when_target_30pct_above_consensus(
+    _mocked_book_one_thesis, migrated_db,
+):
+    """Cross-check consensus : si target Olivier > consensus * 1.3, le row
+    audit doit avoir consensus_delta_pct > 30 et stats.consensus_divergent++.
+
+    Mock prices.get_analyst_consensus pour controler le scenario.
+    """
+    thesis, book = _mocked_book_one_thesis(thesis_target_eur=150.0, avg_cost_eur=100.0)
+    fake_consensus = {
+        "ticker": "ABC", "target_mean": 100.0, "n_analysts": 20,
+        "target_median": 100.0, "target_high": 120.0, "target_low": 80.0,
+        "recommendation_key": "buy", "recommendation_mean": 2.0,
+        "currency": "USD", "asof": "2026-06-12", "source": "yfinance",
+    }
+    with patch("shared.storage.active_theses", return_value=[thesis]), \
+         patch("shared.book.get_book_index", return_value=book), \
+         patch("shared.prices.get_analyst_consensus", return_value=fake_consensus), \
+         patch("shared.notify.send_text"):
+        out = _m.check_all_stale_target_transitions()
+
+    assert out["consensus_divergent"] == 1, "target 150 > consensus 100 * 1.3 -> divergent attendu"
+
+    from shared import storage as _s
+    last = _s.get_latest_stale_target_per_thesis(42)
+    assert last["consensus_target"] == 100.0
+    assert last["consensus_n"] == 20
+    # delta = (150/100 - 1)*100 = 50%
+    assert abs(last["consensus_delta_pct"] - 50.0) < 0.1
+
+
+def test_consensus_none_when_not_covered(_mocked_book_one_thesis, migrated_db):
+    """Si get_analyst_consensus retourne None (ticker pas couvert), les
+    colonnes consensus_* doivent etre NULL mais le monitor continue sans crasher."""
+    thesis, book = _mocked_book_one_thesis(thesis_target_eur=150.0, avg_cost_eur=100.0)
+    with patch("shared.storage.active_theses", return_value=[thesis]), \
+         patch("shared.book.get_book_index", return_value=book), \
+         patch("shared.prices.get_analyst_consensus", return_value=None), \
+         patch("shared.notify.send_text"):
+        out = _m.check_all_stale_target_transitions()
+
+    assert out["consensus_divergent"] == 0
+    assert out["alive"] == 1  # status normal computed
+    assert out["errors"] == 0  # pas d'erreur sur None consensus
+
+    from shared import storage as _s
+    last = _s.get_latest_stale_target_per_thesis(42)
+    assert last["status"] == "alive"
+    assert last.get("consensus_target") is None
+    assert last.get("consensus_n") is None
+    assert last.get("consensus_delta_pct") is None
+
+
 def test_fail_safe_one_thesis_missing_data_others_continue(
     _mocked_book_one_thesis, migrated_db,
 ):
