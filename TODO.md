@@ -22,17 +22,15 @@
 
 ### Quick wins (~15-30min chacun, fresh-head pas requis)
 
-1. **#133bis CCJ trous DB** (~15min) : back-fill positions.id=29 `avg_cost_eur` + `avg_cost_native` + `fx_at_purchase` (actuellement NULL/1.0). BookLine compense via fallback compute, mais SQL-direct consumers se mangeraient le trou. Audit scope élargi en passant (autres positions migrées pré-#118).
+~~1. ~~**#133bis CCJ trous DB**~~ — RÉSOLU 12/06 (commit `c91c364`) : NULL en DB est par construction depuis migration positions VUE. Vrai bug = `thesis_health_metrics.M10_Taleb_barbell` lisait SQL-direct et retournait toujours "book vide". Cure : migrer M10 vers `book.get_held_lines()`. M10 désormais vivant (33.4% mou).
 
-2. **#146 Telegram entities parsing** (~30min) : 24× `Bad Request: can't parse entities` dans serve.log sur push erosion. Probable `*` / `_` Markdown non échappé dans `notify.send_text`. Source : `intelligence/thesis_erosion.py:449-454` (formatage `f"{emoji} EROSION TRIGGER -- {ticker}\n..."` avec interpolation libre).
-
-3. **#128 SK Hynix banner proxy** (~30min) : surface UI confiance réduite — "prix = ligne coréenne KRW × fx, GDR EUR yfinance indispo". Helper `is_proxy_price()` existe `shared/book.py:143`, reste à wirer dans render position card + book row.
+~~2. ~~**#146 Telegram entities parsing**~~ — RÉSOLU 12/06 (commit `d50633b`) : 2 push erosion (`thesis_erosion.py:334+490`) passés en `parse_mode=None` plain text. Cause = `_underscores_` dans `EROSION_DETECTED`/`INVALIDATION_HIT`/`integrity_seq` que Telegram parsait comme italic non fermé.
 
 ### Fresh-head requis
 
-4. **#121 seam gauge 4e caller (theses panel L5936)** (~30min) : dernier caller `_position_axis` non migré. Récupère `book_idx`, adapte construction `t["_entry"]/t["_stop"]/t["_tgt"]/t["_cur"]` pour lire BookLine EUR. Diff = finding. Ferme la fenêtre d'incohérence inter-panneaux.
+3. **#121 seam gauge 4e caller (theses panel L5936)** (~30min) : dernier caller `_position_axis` non migré. Récupère `book_idx`, adapte construction `t["_entry"]/t["_stop"]/t["_tgt"]/t["_cur"]` pour lire BookLine EUR. Diff = finding. Ferme la fenêtre d'incohérence inter-panneaux.
 
-5. **#134 monitor `stale_target`** (~1h30) : 3e monitor via `docs/templates/monitor_pattern.md`. Trigger sur dégradation : `classify` retourne `dead` si `cost ≥ target`, `dying` si `(target − cost)/cost < seuil_edge`, `alive` sinon. Surface alerte sur transition. NE PAS auto-recompute target ([[L30]] anti-piège). Le 3e monitor doit être 3× plus rapide que le 2e parce que le pattern est figé.
+4. **#134 monitor `stale_target`** (~1h30) : 3e monitor via `docs/templates/monitor_pattern.md`. Trigger sur dégradation : `classify` retourne `dead` si `cost ≥ target`, `dying` si `(target − cost)/cost < seuil_edge`, `alive` sinon. Surface alerte sur transition. NE PAS auto-recompute target ([[L30]] anti-piège). Le 3e monitor doit être 3× plus rapide que le 2e parce que le pattern est figé.
 
 ---
 
