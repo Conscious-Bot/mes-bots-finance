@@ -19,7 +19,11 @@ pytestmark = pytest.mark.live_data
 # Apres batch fix : 0 violations. Sets vides = aucune exemption.
 # Toute NOUVELLE violation = fail (== le gate fonctionne strict).
 KNOWN_DEBT_TICKERS_KILL_CRITERIA: set[str] = set()
-KNOWN_DEBT_TICKERS_CURRENCY: set[str] = set()
+# KNOWN-GAP 12/06/2026 : KLAC entry/stop/targets posees pendant bug yfinance
+# 11/06 (prix gonfle x10). Action humaine pending = "fixer source prix
+# d'abord, target apres" (cf TODO close (d) P0 humain + SESSION_STATE).
+# A retirer quand Olivier repose les niveaux KLAC sur le prix reel.
+KNOWN_DEBT_TICKERS_CURRENCY: set[str] = {"KLAC"}
 
 
 @pytest.mark.live_book

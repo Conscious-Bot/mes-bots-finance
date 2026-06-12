@@ -36,8 +36,8 @@ BROKER_KNOWN = {
         "fx_band": (0.0004, 0.0008),
     },
     "6857.T": {
-        "qty": 12.644612,            # CSV truth (was 12.1029 yaml stale)
-        "avg_cost_eur": 143.70,      # rolling fee-inc
+        "qty": 14.00132,             # post bump manuel 200 EUR 12/06 17:22 (tx id=197)
+        "avg_cost_eur": 144.13,      # rolling fee-inc post bump (PMP +0.43 EUR)
         "expected_pnl_pct_at_snapshot": -3.26,
         "currency_native": "JPY",
         "fx_band": (0.004, 0.008),
