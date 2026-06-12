@@ -66,6 +66,12 @@ Roadmap chronologique complète : cf `docs/VISION_PRO.md` + `docs/DECISION_QUALI
 
 **FUTURE backlog vague** (réactivé si signal externe explicite) : #73 Cap par conviction post-N≥30 · #74 Drawdown gate cluster · #88 M2 Brier-scorer thesis_erosion · #89 Skip-already-classified · #92 consensus projection · #94 Cornerstone C5 divergence · #99 Update HANDOFF_MASTER · #119 switch currency UI
 
+**FUTURE — data sources upgrade** (memo 12/06) — triage si budget data justifié post N≥30 :
+- **Daloopa** ($5-15k/an) — priorité 1 quand track record justifie. NLP-extracted KPI/segment granularité fine. Fit direct scorer V2 + #88 Brier-scorer. Déjà dans VISION_PRO Phase 3.1.
+- **LSEG/Refinitiv** ($22-30k/an) — priorité 2, après tier paying customers B2B. I/B/E/S consensus gold standard. Substituts cheap : Tikr ($30/mois) ou Koyfin ($25/mois) = 80% valeur.
+- **Nimble** ($500-2k/mois) — skip sauf besoin spécifique scraping. Bigdata MCP + EDGAR couvrent 90%.
+- **Doctrine cap** [[business-path-6-acted]] : opex data < $300/mois tant que track-record non monétisé. Tooling actuel (Bigdata MCP + EDGAR + yfinance) suffit Phase 1-2.
+
 ---
 
 ## ⛔ HISTORIQUE FERMÉ (référence)
