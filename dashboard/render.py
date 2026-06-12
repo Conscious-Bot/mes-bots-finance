@@ -1589,12 +1589,25 @@ _VERDICT_LABEL = {
 
 def _blind_positions_panel() -> str:
     """F7 add 29/05 — surface positions en VOL AVEUGLE : these active sur
-    position ouverte, mais au moins UN input critique manquant (entry,
-    target_full, stop_price, invalidation_triggers). Self-disable si zero.
+    position ouverte, mais au moins UN input critique manquant. Self-disable
+    si zero.
 
-    Anti-pattern combattu : SNOW vivait en vol disclosuregle integral (tout NULL)
-    et affichait '*' sain dans les panels existants. Le bot accepte que ses
-    propres inputs soient creux.
+    Cure 12/06 (#143 follow-up red-team Olivier sur SNPS) : DISTINGUER
+    structural vs priced/tactical. SNPS structural avec justification +
+    drivers + invalidation_triggers etait flaggee "manque target/stop"
+    alors que par DOCTRINE structural n'a pas de stop/target prix
+    (asymetrie non-bornee par prix, cf SPEC_GAUGE). Le bot l'evalue sur
+    drivers + triggers (cron weekly_thesis_erosion_floor), pas sur prix.
+
+    Vrais aveugles :
+    - structural : structural_justification NULL OU invalidation_triggers vide
+    - priced/tactical : entry NULL OU target_full NULL OU stop NULL OU
+      invalidation_triggers vide
+
+    Anti-pattern combattu : SNOW vivait en vol disclosuregle integral (tout
+    NULL) et affichait '*' sain dans les panels existants. Le bot acceptait
+    que ses propres inputs soient creux. Mais SNPS structural equipee = pas
+    aveugle, juste different mode d'evaluation.
     """
     try:
         from shared import storage as _stg
@@ -1602,7 +1615,8 @@ def _blind_positions_panel() -> str:
         with _stg.db() as cx:
             rows = cx.execute(
                 "SELECT t.id, t.ticker, t.conviction, t.entry_price, "
-                "t.target_full, t.stop_price, t.invalidation_triggers, t.opened_at "
+                "t.target_full, t.stop_price, t.invalidation_triggers, t.opened_at, "
+                "t.position_type, t.structural_justification "
                 "FROM theses t INNER JOIN positions p ON p.ticker = t.ticker "
                 "WHERE t.status='active' AND p.qty > 0 AND p.status='open' "
                 "ORDER BY t.ticker"
@@ -1612,20 +1626,33 @@ def _blind_positions_panel() -> str:
 
     blind: list = []
     for r in rows:
+        position_type = (r[8] or "priced").lower()
+        struct_just = r[9]
+        triggers_empty = (not r[6]) or r[6] == "[]"
         missing = []
-        if r[3] is None:
-            missing.append("entry")
-        if r[4] is None:
-            missing.append("target")
-        if r[5] is None:
-            missing.append("stop")
-        if not r[6] or r[6] == "[]":
-            missing.append("triggers")
+        if position_type == "structural":
+            # Mode evaluation = drivers + invalidation_triggers, pas prix.
+            # target/stop NULL = par design, PAS missing.
+            if not struct_just:
+                missing.append("structural_justification")
+            if triggers_empty:
+                missing.append("invalidation_triggers")
+        else:
+            # priced/tactical : axe d'evaluation = prix (entry/target/stop).
+            if r[3] is None:
+                missing.append("entry")
+            if r[4] is None:
+                missing.append("target")
+            if r[5] is None:
+                missing.append("stop")
+            if triggers_empty:
+                missing.append("triggers")
         if missing:
             blind.append({
                 "id": r[0],
                 "ticker": r[1],
                 "conviction": r[2],
+                "position_type": position_type,
                 "missing": missing,
                 "opened_at": (r[7] or "")[:10],
             })
