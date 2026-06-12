@@ -118,6 +118,52 @@ def get_info(ticker: str) -> dict:
     return info
 
 
+def get_analyst_consensus(ticker: str) -> dict | None:
+    """Gateway canonique consensus analyst targets via yfinance .info.
+
+    Wire 12/06/2026 : substitut gratuit à LSEG/FMP (couverture FMP free
+    tier = 19% du book vs yfinance .info = 100% pour PRESAGE).
+
+    Returns dict ou None si pas couvert / fetch fail :
+    {
+        "ticker": str,
+        "target_mean": float,       # consensus moyen
+        "target_median": float | None,
+        "target_high": float,
+        "target_low": float,
+        "n_analysts": int,          # nombre d'opinions
+        "recommendation_key": str,  # "buy" / "hold" / "sell" / etc.
+        "recommendation_mean": float,  # 1=Strong Buy, 5=Strong Sell
+        "currency": str,            # devise native du listing
+        "asof": str,                # ISO timestamp fetch
+        "source": "yfinance",
+    }
+
+    Prix en native currency du ticker (USD pour US, JPY pour .T, etc.).
+    """
+    info = get_info(ticker)
+    if not info:
+        return None
+    tm = info.get("targetMeanPrice")
+    n = info.get("numberOfAnalystOpinions")
+    if not tm or not n:
+        return None
+    from datetime import UTC as _UTC, datetime as _dt
+    return {
+        "ticker": ticker.upper(),
+        "target_mean": float(tm),
+        "target_median": float(info["targetMedianPrice"]) if info.get("targetMedianPrice") else None,
+        "target_high": float(info.get("targetHighPrice") or 0) or None,
+        "target_low": float(info.get("targetLowPrice") or 0) or None,
+        "n_analysts": int(n),
+        "recommendation_key": str(info.get("recommendationKey") or ""),
+        "recommendation_mean": float(info.get("recommendationMean") or 0) or None,
+        "currency": str(info.get("currency") or ""),
+        "asof": _dt.now(_UTC).isoformat(),
+        "source": "yfinance",
+    }
+
+
 def get_calendar(ticker: str) -> Any:
     """Gateway canonique pour yfinance Ticker.calendar (earnings dates).
 

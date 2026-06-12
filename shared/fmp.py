@@ -1,4 +1,16 @@
-"""FinancialModelingPrep (FMP) — gateway canonique consensus targets / analyst ratings.
+"""DEPRECATED 12/06/2026 — FMP free tier ne couvre que 19% du book PRESAGE
+(5/26 tickers : TSLA, TSM, AMD, AMZN, GOOGL — méga-caps US seulement). Foreign
++ small/mid caps retournent HTTP 402 (Premium required).
+
+Substitut canonique : `shared/prices.py:get_analyst_consensus(ticker)` via
+yfinance .info qui couvre 100% du book (foreign tickers + small caps inclus).
+
+Ce module est conservé comme reference historique / fallback potentiel pour
+les méga-caps US si quota yfinance throttle un jour.
+
+----
+
+FinancialModelingPrep (FMP) — gateway canonique consensus targets / analyst ratings.
 
 Wire 12/06/2026 (post audit data sources : LSEG/Daloopa trop chers, FMP free
 tier 250 calls/jour avec consensus targets + ratings = bang/buck #1).
@@ -38,8 +50,9 @@ from shared import config
 
 log = logging.getLogger(__name__)
 
-_API_BASE_V3 = "https://financialmodelingprep.com/api/v3"
-_API_BASE_V4 = "https://financialmodelingprep.com/api/v4"
+_API_BASE_STABLE = "https://financialmodelingprep.com/stable"
+# Migration 12/06 (post-smoke FMP) : v3/v4 deprecates aout 2025, tout
+# migre vers /stable/*. v3 retourne HTTP 403 "Legacy Endpoint".
 _CACHE_TTL = 3600  # 1h cache memoire
 _TIMEOUT = 10
 
@@ -88,8 +101,8 @@ def quota_status() -> dict:
     }
 
 
-def _fetch(endpoint_v: str, path: str, params: dict | None = None) -> Any:
-    """GET FMP endpoint + cache + quota check. None si fail/quota/key absent."""
+def _fetch(path: str, params: dict | None = None) -> Any:
+    """GET FMP /stable/{path} + cache + quota check. None si fail/quota/key absent."""
     key = _get_api_key()
     if not key:
         log.warning("FMP_API_KEY not configured (.env vide). Skipping.")
@@ -104,12 +117,14 @@ def _fetch(endpoint_v: str, path: str, params: dict | None = None) -> Any:
     if hit and (now - hit[0]) < _CACHE_TTL:
         return hit[1]
 
-    base = _API_BASE_V3 if endpoint_v == "v3" else _API_BASE_V4
-    url = f"{base}/{path}"
+    url = f"{_API_BASE_STABLE}/{path}"
     full_params = {"apikey": key, **(params or {})}
     try:
         r = requests.get(url, params=full_params, timeout=_TIMEOUT)
         _quota_used()
+        if r.status_code == 402:
+            log.warning(f"FMP {path} 402: paid tier required")
+            return None
         if r.status_code != 200:
             log.warning(f"FMP {path} HTTP {r.status_code}: {r.text[:120]}")
             return None
@@ -157,7 +172,8 @@ class AnalystRatings:
 def get_price_target_consensus(ticker: str) -> PriceTargetConsensus | None:
     """Consensus analyst price target (mean/median/high/low + n_analysts).
 
-    Endpoint v3 /price-target-consensus.
+    Endpoint /stable/price-target-consensus + /stable/price-target-summary
+    (combo pour avoir n_analysts).
 
     Returns None si :
     - FMP_API_KEY absent (.env vide)
@@ -165,24 +181,31 @@ def get_price_target_consensus(ticker: str) -> PriceTargetConsensus | None:
     - Ticker pas couvert par analystes (e.g. small-cap rare)
     - Network error
     """
-    data = _fetch("v3", "price-target-consensus", {"symbol": ticker.upper()})
+    data = _fetch("price-target-consensus", {"symbol": ticker.upper()})
     if not data or not isinstance(data, list) or not data[0]:
         return None
     row = data[0]
+    # N analysts via price-target-summary (lastQuarterCount = window 90j)
+    n = None
+    summary = _fetch("price-target-summary", {"symbol": ticker.upper()})
+    if summary and isinstance(summary, list) and summary[0]:
+        n = _safe_int(summary[0].get("lastQuarterCount")) or _safe_int(
+            summary[0].get("lastYearCount"),
+        )
     return PriceTargetConsensus(
         ticker=ticker.upper(),
         target_mean=_safe_float(row.get("targetConsensus")),
         target_median=_safe_float(row.get("targetMedian")),
         target_high=_safe_float(row.get("targetHigh")),
         target_low=_safe_float(row.get("targetLow")),
-        n_analysts=_safe_int(row.get("targetCount")) or _safe_int(row.get("numAnalysts")),
+        n_analysts=n,
         asof=datetime.now(UTC).isoformat(),
     )
 
 
 def get_analyst_ratings(ticker: str) -> AnalystRatings | None:
-    """Consensus buy/hold/sell. Endpoint v4 /upgrades-downgrades-consensus."""
-    data = _fetch("v4", "upgrades-downgrades-consensus", {"symbol": ticker.upper()})
+    """Consensus buy/hold/sell. Endpoint /stable/grades-consensus."""
+    data = _fetch("grades-consensus", {"symbol": ticker.upper()})
     if not data or not isinstance(data, list) or not data[0]:
         return None
     row = data[0]
@@ -196,18 +219,6 @@ def get_analyst_ratings(ticker: str) -> AnalystRatings | None:
         consensus_label=str(row.get("consensus") or "?"),
         asof=datetime.now(UTC).isoformat(),
     )
-
-
-def get_analyst_estimates(ticker: str, limit: int = 4) -> list[dict] | None:
-    """Forward EPS/revenue estimates (4-8 quarters). Endpoint v3.
-
-    Returns list de dicts {date, estimatedRevenueAvg, estimatedEpsAvg, ...}
-    ou None si pas couvert / fail.
-    """
-    data = _fetch("v3", f"analyst-estimates/{ticker.upper()}", {"limit": limit})
-    if not data or not isinstance(data, list):
-        return None
-    return data
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
