@@ -258,12 +258,27 @@ def brier_by_methodology(methodology_version: str) -> dict:
 
 
 def get_open_positions() -> list[dict]:
-    "Positions detenues (qty > 0). avg_cost en EUR (ADR 005)."
-    with db() as conn:
-        rows = conn.execute(
-            "SELECT ticker, qty, avg_cost FROM positions WHERE qty > 0 AND status = 'open' ORDER BY ticker"
-        ).fetchall()
-    return [{"ticker": r[0], "qty": float(r[1] or 0), "avg_cost": float(r[2] or 0)} for r in rows]
+    """Positions detenues (qty > 0). avg_cost en EUR.
+
+    Cure 12/06 (#132 sweep) : SQL-direct lisait p.avg_cost qui est NULL par
+    construction depuis migration positions VUE (#105/#120). Resultait en
+    avg_cost=0 silencieux -> snapshots quotidiens avec total_cost_eur=0
+    (bug pre-existant) + meme classe de bug que M10 Taleb barbell #133bis.
+    Cure : passer par BookLine.avg_cost_eur (PMP roulant computed live).
+    Les 3 callers (compute_snapshot, position_view.get_all_positions_views,
+    portfolio_views handler) recoivent maintenant la vraie valeur.
+    """
+    from shared import book
+    held = book.get_held_lines()
+    return [
+        {
+            "ticker": ln.ticker,
+            "qty": float(ln.qty or 0),
+            "avg_cost": float(ln.avg_cost_eur or 0),
+        }
+        for ln in held
+        if (ln.qty or 0) > 0
+    ]
 
 
 _SNAPSHOT_DDL = (
