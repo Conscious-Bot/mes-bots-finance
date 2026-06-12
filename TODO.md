@@ -22,11 +22,11 @@
 
 ## 🔴 P0 ACTIONNABLES
 
-### Fresh-head requis
+### Action humaine (pas code)
 
-1. **#134 monitor `stale_target`** (~1h30) : 3e monitor via `docs/templates/monitor_pattern.md`. Trigger sur dégradation : `classify` retourne `dead` si `cost ≥ target`, `dying` si `(target − cost)/cost < seuil_edge`, `alive` sinon. Surface alerte sur transition. NE PAS auto-recompute target ([[L30]] anti-piège). Le 3e monitor doit être 3× plus rapide que le 2e parce que le pattern est figé.
+1. **KLAC + 5 dying + 1 dead à reposer** (cf #135 méthode) : le monitor `stale_target` livré aujourd'hui (#134, commit `5f5c5a8`) remonte 5 transitions `alive_to_dying` (CCJ +0.6%, AMZN +4.0%, 6857.T +4.5%, 4063.T +3.6%, AVGO +4.1%) + 1 `alive_to_dead` (000660.KS edge -0.3%) + KLAC currency_native hors-range. Action humaine = relire chaque thèse + reposer target+stop ancrés sur prix réel actuel (cf doctrine #135 : 3 colonnes Instrument/Ancre externe live/Ressenti).
 
-2. **KLAC niveaux à reposer** : entry/stop/targets posées pendant bug yfinance 11/06 (prix 1626 USD = 6× le réel 241). Le gate `currency_native` détecte hors-range [0.3, 3.0]. Action humaine, pas code — relit thèse + repose niveaux ancrés sur 241 USD réel. Cas-école pour la méthode #135.
+~~2. **#134 monitor `stale_target`**~~ — **RÉSOLU 12/06 (commit `5f5c5a8`)** : 3e monitor canonique livré + smoke live (19 alive, 5 dying, 1 dead, 6 notifs Telegram). Pattern figé du gabarit `monitor_pattern.md` validé une 3e fois.
 
 ---
 
