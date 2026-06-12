@@ -67,6 +67,7 @@ async def morning_chain():
         daily_over_cap_check_job,
         daily_resolve_job,
         daily_risk_signal_monitor_job,
+        daily_stale_target_check_job,
         resolve_copilot_interventions_30d_job,
         resolve_journal_decisions_job,
         scheduled_8k_scan_job,
@@ -98,6 +99,7 @@ async def morning_chain():
     # 4. Monitors (utilisent les signaux digérés et le book)
     await _safe_run("kill_criteria_check", daily_kill_criteria_check_job)
     await _safe_run("over_cap_check", daily_over_cap_check_job)
+    await _safe_run("stale_target_check", daily_stale_target_check_job)
     await _safe_run("risk_signal_monitor", daily_risk_signal_monitor_job)
     await _safe_run("decision_anniversary", daily_decision_anniversary_job)
 

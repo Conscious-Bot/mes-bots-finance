@@ -504,6 +504,27 @@ async def daily_over_cap_check_job():
         log.error(f"daily_over_cap_check failed: {e}")
 
 
+async def daily_stale_target_check_job():
+    """#134 -- detection transition alive/dying/dead par these active.
+
+    Le 3e monitor (pattern figé docs/templates/monitor_pattern.md). Signal
+    pur : notify sur transition alive_to_dying, dying_to_dead, alive_to_dead.
+    PAS de wire bias_event (humain décide la révision du target, cf L30
+    anti-piège "cible figée + cost roulant"). Tourne quotidien matin.
+    """
+    log.info("Daily stale_target check starting")
+    try:
+        from intelligence import stale_target_monitor as _stm
+        out = _stm.check_all_stale_target_transitions()
+        log.info(
+            f"stale_target_check : checked={out['checked']} alive={out['alive']} "
+            f"dying={out['dying']} dead={out['dead']} transitions={out['transitions']} "
+            f"notified={out['notified']} errors={out['errors']}"
+        )
+    except Exception as e:
+        log.error(f"daily_stale_target_check failed: {e}")
+
+
 async def weekly_bias_event_backfill_observations_job():
     """v2.c.6 -- backfill observations[] longs horizons (60j, 90j) sur les
     bias_events resolved canoniquement (a +30j).

@@ -3618,6 +3618,66 @@ def get_latest_oca_per_ticker(ticker: str) -> dict | None:
         return None
 
 
+# === stale_target monitor (#134 / migration 0056) ============================
+
+
+def insert_stale_target_alert(
+    thesis_id: int,
+    ticker: str,
+    status: str,
+    cost_eur: float,
+    target_eur: float,
+    edge_pct: float,
+    notified: bool = False,
+    transition: str | None = None,
+) -> int | None:
+    """Insert un row d'evaluation stale_target. status in {alive, dying, dead}.
+    Append-only ; prev_status = derniere row (cf get_latest_stale_target_per_thesis).
+    transition in {alive_to_dying, dying_to_dead, dying_to_alive, dead_to_dying,
+                   dead_to_alive, alive_to_dead, no_change, NULL}.
+
+    PAS de bias_event_id (signal pur, pas anti-bias wire).
+    """
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO stale_target_alerts "
+                "(thesis_id, ticker, status, cost_eur, target_eur, edge_pct, "
+                " notified, transition) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    int(thesis_id), ticker.upper(), status,
+                    float(cost_eur), float(target_eur), float(edge_pct),
+                    1 if notified else 0, transition,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_stale_target_alert failed: {e}")
+        return None
+
+
+def get_latest_stale_target_per_thesis(thesis_id: int) -> dict | None:
+    """Last evaluation row for thesis_id, ou None si jamais evalue."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT id, created_at, ticker, status, cost_eur, target_eur, "
+                "       edge_pct, notified, transition "
+                "FROM stale_target_alerts WHERE thesis_id=? "
+                "ORDER BY id DESC LIMIT 1",
+                (int(thesis_id),),
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["id", "created_at", "ticker", "status", "cost_eur",
+                    "target_eur", "edge_pct", "notified", "transition"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_stale_target_per_thesis failed: {e}")
+        return None
+
+
 # === conviction PIT + drift (migration 0042) =================================
 
 
