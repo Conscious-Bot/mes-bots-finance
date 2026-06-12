@@ -181,7 +181,7 @@ def _ticker_sector(ticker: str) -> str | None:
     if ticker in _CLUSTER_MAP_CACHE:
         return _CLUSTER_MAP_CACHE[ticker]
     try:
-        from dashboard.render import TICKER_SECTOR
+        from shared.sector_taxonomy import TICKER_SECTOR  # cure P2 audit (3) — couche shared/, plus de dashboard/
 
         return TICKER_SECTOR.get(ticker)
     except Exception:
@@ -661,7 +661,7 @@ def _compute_cluster_cap(state: dict) -> dict:
     user_strat = _load_user_strategy()
     target_pct = float(user_strat.get("target_cluster_cap_pct", 35))
     try:
-        from dashboard.render import _cluster_health, _pnl_cost_map
+        from shared.portfolio_analytics import _cluster_health, _pnl_cost_map  # cure P2 audit (3) — couche shared/, plus de dashboard/
 
         pnl = _pnl_cost_map(state["positions"])
         clusters = _cluster_health(state["positions"], pnl)

@@ -48,11 +48,12 @@ INTELLIGENCE = ROOT / "intelligence"
 # format_llm_unavailable_marker → garder dans dashboard/ mais inversion-corrigée
 # par injection de dépendance). À faire dans une session dédiée post-#120.
 _INTELLIGENCE_LEGACY_WHITELIST: set[tuple[str, int, str]] = {
-    ("intelligence/decision_copilot.py", 426, "dashboard.render"),  # TICKER_SECTOR
     # spof_and_sizing.py × 2 : RÉSOLUS cure #120 étape 3 (12/06) — _positions
     # déplacé vers shared/portfolio_view_builder.py, spof importe depuis shared/.
-    ("intelligence/portfolio_grade.py", 184, "dashboard.render"),   # TICKER_SECTOR
-    ("intelligence/portfolio_grade.py", 664, "dashboard.render"),   # _cluster_health, _pnl_cost_map
+    # decision_copilot.py + portfolio_grade.py:184 : RÉSOLUS cure P2 audit (3)
+    # reste whitelist (12/06) — TICKER_SECTOR déplacé vers shared/sector_taxonomy.py.
+    # portfolio_grade.py:664 : RÉSOLU cure P2 audit (3) reste whitelist (12/06) —
+    # _cluster_health + _pnl_cost_map déplacés vers shared/portfolio_analytics.py.
     ("intelligence/analyze.py", 534, "dashboard.restitution"),       # format_llm_unavailable_marker
 }
 

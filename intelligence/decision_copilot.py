@@ -423,7 +423,7 @@ def run_pre_trade_copilot(ticker: str, decision_type: str, reasoning: str, price
 
 def _fetch_signals_for_ticker(ticker: str) -> list:
     """Pull direct + adjacent (same sector) signals last 30d, materiality ≥ 4/8."""
-    from dashboard.render import TICKER_SECTOR
+    from shared.sector_taxonomy import TICKER_SECTOR  # cure P2 audit (3) — couche shared/, plus de dashboard/
     from shared.storage import db
 
     sector = TICKER_SECTOR.get(ticker)

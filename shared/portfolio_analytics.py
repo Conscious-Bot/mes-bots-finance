@@ -259,3 +259,138 @@ def compute_conditional_var(returns: pd.Series, alpha: float = 0.05) -> float | 
     if tail.empty:
         return None
     return float(tail.mean())
+
+
+# ============================================================================
+# Concentration & P&L map — cure P2 audit (3) reste whitelist 12/06/2026
+# ============================================================================
+# Helpers déplacés depuis dashboard/render.py (couplage inversé intelligence/
+# → dashboard/ tué pour portfolio_grade.py:664). Pure logique portfolio,
+# zéro rendu HTML. Lecteurs : Concentration panel + portfolio_grade
+# (_compute_cluster_cap). Ratchet decreasing-only : 1 entrée retirée de
+# _INTELLIGENCE_LEGACY_WHITELIST.
+
+
+def _pnl_cost_map(positions: list[dict], views: dict | None = None) -> dict:
+    """P&L map canonique EUR -- COMPUTE-ONCE-PROJECT (L29 #123 fix complet).
+
+    HISTORIQUE des cures L29 :
+    - efb3c59 (1ère cure) : SOURCE unifiée vers book.value_eur (cache→live)
+    - Finding live checker post-W0 : Δ=0.658% > ε=0.5% sur BESI.AS (a GROSSI
+      après cure). Diagnostic Olivier : source unifiée ≠ calcul unique.
+      pnl_position est re-CALCULÉ par 2 producteurs (PositionView + ici) →
+      2 fetches book.value_eur dans le même regen peuvent micro-diverger.
+    - THIS FIX (#123) : compute-once-project canonique L27. Le pnl_position
+      est calculé UNE FOIS dans shared.position_view.compute_position()
+      (cf L351). _pnl_cost_map ne re-calcule plus -- il LIT view.pnl_position_pct
+      depuis le dict views passé. Byte-identique garanti, fork mort pour de bon.
+
+    Args:
+        positions : liste dict positions (cf build_positions_view shape)
+        views : dict {ticker: PositionView} pré-calculé (source canonique).
+                Si None ou un ticker absent : fallback book.value_eur direct
+                (KNOWN-GAP transitoire — divergence possible vs assembly).
+    """
+    out: dict = {}
+    for p in positions:
+        tk = p.get("ticker")
+        if not tk:
+            continue
+        # COMPUTE-ONCE-PROJECT : lis pnl_position depuis PositionView (canonique)
+        v = views.get(tk) if views else None
+        if v is not None and getattr(v, "pnl_position_pct", None) is not None:
+            pct = float(v.pnl_position_pct)
+            out[tk] = pct
+            # Republie dans concept_index avec source="render._pnl_cost_map.read"
+            # — byte-identique avec "position_view" (même _views, même value lue).
+            try:
+                from shared.living_graph import register_concept
+                register_concept(
+                    concept_key="pnl_position",
+                    value=pct,
+                    source="render._pnl_cost_map.read",
+                    ticker=tk,
+                    op="read_from_position_view",
+                )
+            except Exception:
+                pass
+            continue
+        # Fallback : pas de PositionView -- re-calcule (KNOWN-GAP transitoire,
+        # divergence possible vs assembly si appelé sans views).
+        qty = p.get("qty")
+        avg_cost_eur = p.get("avg_cost_eur") or p.get("avg_cost")
+        if not (qty and avg_cost_eur and qty > 0 and avg_cost_eur > 0):
+            continue
+        from shared.book import value_eur as bve
+        bv = bve(tk, qty)
+        if bv is None or bv.value is None:
+            continue
+        value_eur_now = bv.value.amount if hasattr(bv.value, "amount") else bv.value
+        if not value_eur_now or value_eur_now <= 0:
+            continue
+        cost_basis_eur = qty * avg_cost_eur
+        pct = (value_eur_now / cost_basis_eur - 1) * 100.0
+        out[tk] = pct
+        try:
+            from shared.living_graph import register_concept
+            register_concept(
+                concept_key="pnl_position",
+                value=pct,
+                source="render._pnl_cost_map.fallback",
+                ticker=tk,
+                op="book_value_eur_div_cost_basis_eur",
+            )
+        except Exception:
+            pass
+    return out
+
+
+def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:  # noqa: ARG001
+    """Source unique des breaches de cluster correle (gouverneur de concentration).
+
+    Consomme par la page Concentration (detail) ET le bandeau d'ecart (resume,
+    haut de page). Une seule definition de la valeur EUR par ligne -> page et
+    bandeau ne peuvent plus se contredire (cf. ancienne jauge 0 calme vs verdict
+    ELEVEE).
+
+    Args:
+        positions : liste dict positions (cf build_positions_view shape)
+        pnl : dict pnl par ticker (présent en signature pour compat callers, pas utilisé)
+    """
+    from pathlib import Path
+
+    import yaml
+
+    from shared.sector_taxonomy import clean_sector
+
+    def _v(p: dict) -> float:
+        return float(p["weight"])
+
+    total = sum(_v(p) for p in positions) or 1
+    _cfg = yaml.safe_load(Path("config.yaml").read_text())
+    _conc = _cfg.get("concentration", {})
+    # Axe 4 fix mensonge cluster : afficher le cap OPERATOIRE, pas le default
+    # conservateur 35% (ADR 010) qui est OVERRIDE par user_strategy quand
+    # archetype="concentrator_thematic". Le default 35 disait "tu es a 2x ton
+    # cap" alors que le cap effectif est 70 -> ca poussait au trim biais
+    # sell-too-early. Source de verite unique : user_strategy.
+    _us = _cfg.get("user_strategy") or {}
+    if _us.get("archetype") == "concentrator_thematic":
+        ccap = float(_us.get("target_cluster_cap_pct", 35))
+    else:
+        ccap = float(_conc.get("cluster_max_pct", 0)) * 100
+    out: list[dict] = []
+    for cn, mem in (_conc.get("clusters") or {}).items():
+        ms = set(mem)
+        cv = sum(_v(p) for p in positions if p["ticker"] in ms)
+        cp = cv / total * 100
+        out.append(
+            {
+                "name": clean_sector(cn),
+                "pct": cp,
+                "cap": ccap,
+                "over_eur": cv - ccap / 100 * total,
+                "breached": cp >= ccap,
+            }
+        )
+    return out
