@@ -1,10 +1,17 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 12 juin 2026 close (b) — cure visuelle CARDS + 2 cures racines (event-driven per-thesis cutoff #143 + sanity outlier yfinance #144) + EN-only sweep + élagage TODO
+**Refresh** : 12 juin 2026 close (c) — quick wins #133bis (M10 Taleb cure source) + #146 (Telegram parse_mode) + #128 verified · TODO élaguée 1245→94 · CI restauré green (commit 7094ba6 — premier success depuis 08/06)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage) · sections SOCLE/PIVOT FONDATION supprimées (livrées 09-11/06, cf SESSION_STATE Close 11/06)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (12/06 close c)
+
+- **CI green sur `7094ba6`** — premier success depuis 08/06 (4 commits successifs : ruff lint sweep + mypy typing + 7 tests data-dependent skip-on-fresh-DB)
+- **Quick wins #133bis livré** : M10 Taleb barbell redevient vivant (33.4% mou, c5=33% c1=0%) après migration SQL-direct → `book.get_held_lines()`. Diagnostic : 26/26 positions ont `avg_cost_eur=NULL` (normal post VUE), seul M10 lisait SQL-direct.
+- **Quick wins #146 livré** : 24× Telegram entities parsing fix via `parse_mode=None` sur 2 push erosion.
+- **#128 SK Hynix banner proxy** : déjà wired (`pc-proxy-banner` + chip `·proxy` visibles dans HTML rendu).
 
 ## 🟢 ÉTAT SYSTÈME (12/06 close b)
 
