@@ -173,12 +173,65 @@ def get_cashflow(ticker: str) -> Any:
     return _get_fundamental_df(ticker, "cashflow")
 
 
+# Seuil sanity outlier price (#144 cure source 12/06/2026) : un fetch yfinance
+# qui devie de >50% du median des 7 derniers prix CLEAN historiques est suspect
+# (KLAC bug 11/06 : 213 USD -> 2411 USD x11 sans split). On audit append-only
+# avec source="yfinance:outlier" pour traçabilite, mais on REFUSE de retourner
+# l'outlier (le caller voit None -> fail-closed downstream). Splits annonces
+# legitimes seront aussi rejetes (rares, manuels a corriger), c'est le prix de
+# l'integrite. Cf TODO #144 v2 si false-positives observes en pratique.
+_OUTLIER_RATIO = 0.5  # 50% delta vs median (1.5x ou 0.67x = trigger)
+_OUTLIER_MIN_HISTORY = 3  # < 3 points clean -> trust (premiere ingestion)
+_OUTLIER_LOOKBACK = 7  # comparer au median des N derniers prix clean
+
+
+def _last_clean_median(ticker: str) -> float | None:
+    """Median des closes daily yfinance des _OUTLIER_LOOKBACK derniers jours.
+
+    Pourquoi pas price_history live : si le feed est casse depuis N polls,
+    price_history live est sature d'outliers et le median devient lui-meme
+    l'outlier. yfinance daily history (par appel separe period="N+5d") porte
+    la timeline calendaire ; median sur 7 points resiste a <=3 outliers
+    consecutifs ce qui couvre les cas typiques (1-2 jours de bug feed).
+
+    Returns None si <_OUTLIER_MIN_HISTORY closes valides.
+    """
+    try:
+        t = yf.Ticker(ticker)
+        # period suffisant : daily window N+5d pour absorber weekends/holidays
+        hist = t.history(period=f"{_OUTLIER_LOOKBACK + 5}d", interval="1d")
+        closes = [float(c) for c in hist["Close"].dropna()]
+        # On exclut le dernier point (= le candidat lui-meme si fetche en meme
+        # temps) pour comparer le fresh contre le passe propre, pas contre lui.
+        clean = closes[:-1][-_OUTLIER_LOOKBACK:]
+    except Exception:
+        return None
+    if len(clean) < _OUTLIER_MIN_HISTORY:
+        return None
+    s = sorted(clean)
+    n = len(s)
+    return s[n // 2] if n % 2 == 1 else (s[n // 2 - 1] + s[n // 2]) / 2
+
+
+def _is_outlier(candidate: float, median: float | None) -> bool:
+    if median is None or median <= 0:
+        return False
+    ratio = abs(candidate / median - 1)
+    return ratio > _OUTLIER_RATIO
+
+
 def get_current_price(ticker: str) -> float | None:
     """Latest close price. Returns float or None.
 
     M1 doctrine (07/06 nuit++) : apres fetch live success, persist
     append-only dans price_history (asof + source). Permet freshness
     queryable + serie historique pour attribution causale 2x2.
+
+    Cure source #144 (12/06) : sanity check contre outlier feed yfinance.
+    Si le fetch devie de >50% du median des 7 derniers prix clean, on
+    persiste l'observation avec source="yfinance:outlier" (audit append-only)
+    MAIS on retourne None pour que le caller passe en fail-closed downstream
+    (P&L, MV, perf "&mdash;" plutot que faux nombre confiant).
     """
     try:
         t = yf.Ticker(ticker)
@@ -187,16 +240,31 @@ def get_current_price(ticker: str) -> float | None:
         if closes.empty:
             return None
         price = float(closes.iloc[-1])
-        # M1 persist append-only (silent-miss L7 si DB down -- ne casse pas fetch)
+
+        # Sanity check pre-persist : compare au median des prix clean recents.
+        median = _last_clean_median(ticker)
+        outlier = _is_outlier(price, median)
+
+        # M1 persist append-only (silent-miss L7 si DB down -- ne casse pas fetch).
+        # Persiste TOUJOURS (audit), avec source distincte si outlier.
         try:
             from shared.storage import insert_price_observation
             currency = get_currency_for_ticker(ticker)
             insert_price_observation(
                 ticker=ticker, price_native=price, currency=currency,
-                source="yfinance",
+                source="yfinance:outlier" if outlier else "yfinance",
             )
         except Exception:
             pass
+
+        if outlier:
+            # Log warning pour audit live ; le caller verra None -> fail-closed.
+            import logging as _lg
+            _lg.getLogger(__name__).warning(
+                "price outlier suspect %s : fresh=%.4f median7=%.4f ratio=%.2f -- returned None",
+                ticker, price, median or 0.0, abs(price / (median or price) - 1),
+            )
+            return None
         return price
     except Exception as e:
         print(f"price fetch error for {ticker}: {e}")
