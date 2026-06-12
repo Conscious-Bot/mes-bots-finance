@@ -793,16 +793,18 @@ def _render_ballast_cell(target: dict, views: dict | None = None) -> str:
         )
 
     sev_cls = {"breach": "neg", "warn": "warn", "ok": ""}.get(bs["severity"], "")
-    sub_parts = [f'target: {bs["target_pct"]}%', f'gap {bs["gap_pp"]:+.1f}pp']
+    # Sub-text restructure pour lever ambiguite "decl(YAML)" : on libelle
+    # explicite cible doctrine / floor declare YAML / ecart current vs cible.
+    sub_parts = [f'cible {bs["target_pct"]}%', f'ecart {bs["gap_pp"]:+.1f}pp']
     if bs["declared_pct"] is not None and abs(bs["declared_pct"] - bs["current_pct"]) > 1.0:
-        sub_parts.append(f'decl(YAML): {bs["declared_pct"]}%')
+        sub_parts.append(f'floor YAML {bs["declared_pct"]}%')
     if bs["tickers_missing"]:
-        sub_parts.append(f'missing: {",".join(bs["tickers_missing"])}')
+        sub_parts.append(f'manque : {",".join(bs["tickers_missing"])}')
 
     return (
         f'<div class="rw-cell"><div class="rw-h">Strict decorrelated ballast</div>'
         f'<div class="rw-v mono {sev_cls}">{bs["current_pct"]}%</div>'
-        f'<div class="rw-t">{" · ".join(sub_parts)}</div></div>'
+        f'<div class="rw-t">{" &middot; ".join(sub_parts)}</div></div>'
     )
 
 
@@ -868,11 +870,22 @@ def _risk_watch_panel(views: dict | None = None) -> str:
             )
         signals_html = "".join(sig_rows)
 
+        # Label texte qualitatif aligne sur le status (pour expliciter pourquoi
+        # 25% est amber-started et 30% est green-in_progress : ce n'est pas le
+        # % qui colore, c'est le status).
+        _mit_st_label = {
+            "started": "demarre",
+            "in_progress": "avance",
+            "pending": "a activer",
+            "done": "complete",
+            "blocked": "bloque",
+        }
         mit_html = "".join(
             f'<div class="rw-mit"><div class="rw-mit-h">'
             f'<span class="rw-mit-l">{m.get("label", "?")}</span>'
             f'<span class="rw-mit-st {m.get("status", "?")}">'
-            f'{m.get("progress_pct", 0)}%</span></div>'
+            f'{_mit_st_label.get(m.get("status", ""), "")} '
+            f'<span style="opacity:0.7">{m.get("progress_pct", 0)}%</span></span></div>'
             f'<div class="rw-mit-a">{m.get("action", "")[:200]}</div>'
             + (f'<div class="rw-mit-n">{m.get("notes", "")[:160]}</div>' if m.get("notes") else "")
             + '</div>'
@@ -894,7 +907,7 @@ def _risk_watch_panel(views: dict | None = None) -> str:
             + ballast_cell_html +
             f'<div class="rw-cell"><div class="rw-h">Mitigation plan</div>'
             f'<div class="rw-v mono">{avg_progress:.0f}%</div>'
-            f'<div class="rw-t">A/B/C levers in progress</div></div>'
+            f'<div class="rw-t">moyenne A+B+C &middot; details ci-dessous</div></div>'
             '</div>'
             '<div class="rw-section">'
             '<div class="rw-sh">Signal watch</div>'
@@ -920,17 +933,19 @@ def _risk_watch_panel(views: dict | None = None) -> str:
         if (_cfg.get("user_strategy") or {}).get("construction_phase"):
             construction_lens = (
                 '<div class="rw-lens">'
-                'Active construction phase &middot; '
-                "current exposure will mechanically dilute toward target "
-                "as decorrelators (Energy-for-AI, Defense, Robotics) come in. "
-                '<b>Reading: watch, do not correct.</b>'
+                'Phase de construction active &middot; '
+                "l'exposition se diluera mecaniquement vers la cible quand "
+                "les decorrelants (Energy-for-AI, Defense, Robotics) arriveront. "
+                '<b>Lecture : surveille, ne corrige pas.</b>'
                 '</div>'
             )
     except Exception:
         pass
+    _n = len(risks_list)
+    _suffix = "risque declare" if _n == 1 else "risques declares"
     return (
         '<div class="colhead"><span class="t">Top Risks watch</span>'
-        f'<span class="a">{len(risks_list)} declared risk(s) &middot; thesis-level reflection</span></div>'
+        f'<span class="a">{_n} {_suffix} &middot; revue thesis-anchored</span></div>'
         '<div class="card pad riskwatchcard" style="margin-bottom:var(--s4)">'
         f'{construction_lens}'
         + "".join(out)
