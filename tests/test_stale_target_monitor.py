@@ -18,7 +18,6 @@ import pytest
 from intelligence import stale_target_monitor as _m
 from intelligence.bias_events import MissingDataError
 
-
 # ─── Tests 7 : classify pur (UNIT) ───────────────────────────────────────────
 
 
@@ -64,6 +63,41 @@ def test_classify_dead_cost_exceeds_target():
     out = _m.classify_thesis(thesis, avg_cost_eur=120.0, target_eur=100.0)
     assert out["status"] == "dead"
     assert out["edge_pct"] < 0
+
+
+# ─── Tests : _is_beyond_consensus_range (UNIT, parameter-free L16) ────────────
+
+
+def test_beyond_range_above_high_true():
+    """target > high -> plus bullish que l'analyste le plus bullish -> True."""
+    assert _m._is_beyond_consensus_range(115.0, high=110.0, low=90.0) is True
+
+
+def test_beyond_range_below_low_true():
+    """target < low -> plus bearish que l'analyste le plus bearish -> True."""
+    assert _m._is_beyond_consensus_range(85.0, high=110.0, low=90.0) is True
+
+
+def test_beyond_range_within_false():
+    """target dans [low, high] -> au moins un analyste y croit -> False."""
+    assert _m._is_beyond_consensus_range(100.0, high=110.0, low=90.0) is False
+    # bornes inclusives : pile sur high/low n'est PAS au-dela
+    assert _m._is_beyond_consensus_range(110.0, high=110.0, low=90.0) is False
+    assert _m._is_beyond_consensus_range(90.0, high=110.0, low=90.0) is False
+
+
+def test_beyond_range_missing_bounds_fail_closed():
+    """high/low absents -> False (fail-closed L15, on ne flag pas sur data
+    incomplete). Si seul high connu, on juge sur high seul."""
+    assert _m._is_beyond_consensus_range(150.0, high=None, low=None) is False
+    assert _m._is_beyond_consensus_range(150.0, high=120.0, low=None) is True
+    assert _m._is_beyond_consensus_range(50.0, high=None, low=80.0) is True
+
+
+def test_beyond_range_nonpositive_target_false():
+    """target <= 0 (pas de target pose) -> False, jamais flagge."""
+    assert _m._is_beyond_consensus_range(0.0, high=110.0, low=90.0) is False
+    assert _m._is_beyond_consensus_range(-5.0, high=110.0, low=90.0) is False
 
 
 # ─── Tests 1-6 : check_all_stale_target_transitions (INTEGRATION) ─────────────
@@ -199,11 +233,12 @@ def test_no_theses_in_perimeter_empty_stats(migrated_db):
     assert out["errors"] == 0
 
 
-def test_consensus_divergent_flagged_when_target_30pct_above_consensus(
+def test_consensus_divergent_when_target_above_analyst_high(
     _mocked_book_one_thesis, migrated_db,
 ):
-    """Cross-check consensus : si target Olivier > consensus * 1.3, le row
-    audit doit avoir consensus_delta_pct > 30 et stats.consensus_divergent++.
+    """Cross-check consensus : target Olivier HORS fourchette analyste
+    [low, high] -> stats.consensus_divergent++ (logique parameter-free L16,
+    pas de seuil 1.3 fabrique). Ici target 150 > target_high 120 -> divergent.
 
     Mock prices.get_analyst_consensus pour controler le scenario.
     """
@@ -220,14 +255,69 @@ def test_consensus_divergent_flagged_when_target_30pct_above_consensus(
          patch("shared.notify.send_text"):
         out = _m.check_all_stale_target_transitions()
 
-    assert out["consensus_divergent"] == 1, "target 150 > consensus 100 * 1.3 -> divergent attendu"
+    assert out["consensus_divergent"] == 1, "target 150 > high 120 -> divergent attendu"
 
     from shared import storage as _s
     last = _s.get_latest_stale_target_per_thesis(42)
     assert last["consensus_target"] == 100.0
     assert last["consensus_n"] == 20
-    # delta = (150/100 - 1)*100 = 50%
+    # delta = (150/100 - 1)*100 = 50% (affichage informatif, pas le critere)
     assert abs(last["consensus_delta_pct"] - 50.0) < 0.1
+
+
+def test_consensus_within_range_not_flagged_even_if_above_mean_band(
+    _mocked_book_one_thesis, migrated_db,
+):
+    """DISCRIMINANT (nouvelle logique vs ancienne) : target +40% au-dessus du
+    MEAN mais DANS la fourchette analyste -> PAS divergent.
+
+    Ancienne logique (|delta|>30%) aurait flagge a tort. Nouvelle logique :
+    140 in [80, 160] -> un analyste au moins y croit, ce n'est pas un variant
+    contre la rue. C'est tout l'interet du parameter-free.
+    """
+    thesis, book = _mocked_book_one_thesis(thesis_target_eur=140.0, avg_cost_eur=100.0)
+    fake_consensus = {
+        "ticker": "ABC", "target_mean": 100.0, "n_analysts": 20,
+        "target_median": 100.0, "target_high": 160.0, "target_low": 80.0,
+        "recommendation_key": "buy", "recommendation_mean": 2.0,
+        "currency": "USD", "asof": "2026-06-12", "source": "yfinance",
+    }
+    with patch("shared.storage.active_theses", return_value=[thesis]), \
+         patch("shared.book.get_book_index", return_value=book), \
+         patch("shared.prices.get_analyst_consensus", return_value=fake_consensus), \
+         patch("shared.notify.send_text"):
+        out = _m.check_all_stale_target_transitions()
+
+    assert out["consensus_divergent"] == 0, (
+        "target 140 dans [80,160] -> PAS divergent (ancienne logique 1.3 aurait flagge)"
+    )
+
+
+def test_consensus_above_high_flagged_even_if_small_delta(
+    _mocked_book_one_thesis, migrated_db,
+):
+    """DISCRIMINANT inverse : target seulement +15% au-dessus du MEAN mais
+    AU-DESSUS du high -> divergent.
+
+    Ancienne logique (|delta|>30%) aurait rate ce vrai variant (delta 15%).
+    Nouvelle logique : 115 > high 110 -> plus bullish que tout analyste.
+    """
+    thesis, book = _mocked_book_one_thesis(thesis_target_eur=115.0, avg_cost_eur=100.0)
+    fake_consensus = {
+        "ticker": "ABC", "target_mean": 100.0, "n_analysts": 20,
+        "target_median": 100.0, "target_high": 110.0, "target_low": 90.0,
+        "recommendation_key": "buy", "recommendation_mean": 2.0,
+        "currency": "USD", "asof": "2026-06-12", "source": "yfinance",
+    }
+    with patch("shared.storage.active_theses", return_value=[thesis]), \
+         patch("shared.book.get_book_index", return_value=book), \
+         patch("shared.prices.get_analyst_consensus", return_value=fake_consensus), \
+         patch("shared.notify.send_text"):
+        out = _m.check_all_stale_target_transitions()
+
+    assert out["consensus_divergent"] == 1, (
+        "target 115 > high 110 -> divergent (ancienne logique delta 15% aurait rate)"
+    )
 
 
 def test_consensus_none_when_not_covered(_mocked_book_one_thesis, migrated_db):

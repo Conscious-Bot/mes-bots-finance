@@ -48,11 +48,11 @@ log = logging.getLogger(__name__)
 
 # Seuil edge pour passer d'alive a dying : (target - cost) / cost < 5%
 _SEUIL_EDGE_DYING = 0.05
-# Seuil divergence consensus pour flagger dans la notif (signal pur, pas
-# changement de status). Olivier > consensus * 1.3 (ou < consensus * 0.77)
-# = divergence materielle a mentionner. Aligne avec scoring methodologique
-# 12/06 ou |delta| > 30% etait pris comme "explicitement variant".
-_SEUIL_CONSENSUS_DIVERGENCE = 0.30
+# Divergence consensus = PARAMETER-FREE (cf L16 : pas de seuil fabrique).
+# Olivier hors de la fourchette analyste reelle [target_low, target_high] =
+# plus bullish que l'analyste le plus bullish (ou plus bearish que le plus
+# bearish) => position qui EXIGE un variant explicite ecrit. Pas de nombre
+# magique : on lit la dispersion analyste deja fetchee par get_analyst_consensus.
 
 
 def _prev_status_for_stale_target(thesis_id: int) -> str:
@@ -72,6 +72,27 @@ def _classify_transition(prev: str, new: str) -> str:
     if prev == new:
         return "no_change"
     return f"{prev}_to_{new}"
+
+
+def _is_beyond_consensus_range(
+    target_olv: float, high: float | None, low: float | None
+) -> bool:
+    """Divergence MATERIELLE = target Olivier hors fourchette analyste [low, high].
+
+    Parameter-free (cf L16 : aucun seuil fabrique). Etre plus bullish que
+    l'analyste le PLUS bullish (target > high) ou plus bearish que le plus
+    bearish (target < low) = position qui exige un variant explicite ecrit.
+    On lit la dispersion analyste reelle, pas un multiplicateur invente.
+
+    Fail-closed (cf L15) : si high/low absents (yfinance partiel), retourne
+    False -- on ne flag pas sur donnee incomplete plutot que d'inventer une
+    divergence. La fourchette doit etre connue pour juger qu'on en sort.
+    """
+    if target_olv <= 0:
+        return False
+    if high is not None and target_olv > high:
+        return True
+    return low is not None and target_olv < low
 
 
 def classify_thesis(
@@ -219,6 +240,9 @@ def check_all_stale_target_transitions() -> dict[str, Any]:
             consensus_target: float | None = None
             consensus_n: int | None = None
             consensus_delta_pct: float | None = None
+            consensus_high: float | None = None
+            consensus_low: float | None = None
+            consensus_divergent: bool = False
             try:
                 cons = _prices.get_analyst_consensus(ticker)
                 if cons and cons.get("target_mean") and cons.get("n_analysts"):
@@ -229,10 +253,17 @@ def check_all_stale_target_transitions() -> dict[str, Any]:
                     if target_olv_native > 0:
                         consensus_target = float(cons["target_mean"])
                         consensus_n = int(cons["n_analysts"])
+                        consensus_high = cons.get("target_high")
+                        consensus_low = cons.get("target_low")
                         consensus_delta_pct = (
                             target_olv_native / consensus_target - 1
                         ) * 100
-                        if abs(consensus_delta_pct) > _SEUIL_CONSENSUS_DIVERGENCE * 100:
+                        # Divergence = hors fourchette analyste reelle (L16
+                        # parameter-free), pas un seuil % invente.
+                        consensus_divergent = _is_beyond_consensus_range(
+                            target_olv_native, consensus_high, consensus_low
+                        )
+                        if consensus_divergent:
                             stats["consensus_divergent"] += 1
             except Exception as e:
                 log.warning(f"stale_target consensus {ticker} failed: {e}")
@@ -249,13 +280,12 @@ def check_all_stale_target_transitions() -> dict[str, Any]:
                     consensus_line = ""
                     if consensus_target is not None and consensus_delta_pct is not None:
                         cons_dir = "BULL" if consensus_delta_pct > 0 else "BEAR"
-                        flag = (
-                            "  ⚠ divergent"
-                            if abs(consensus_delta_pct) > _SEUIL_CONSENSUS_DIVERGENCE * 100
-                            else "  aligne"
-                        )
+                        flag = "  ⚠ hors fourchette" if consensus_divergent else "  dans fourchette"
+                        rng = ""
+                        if consensus_low is not None and consensus_high is not None:
+                            rng = f" [{consensus_low:.2f}-{consensus_high:.2f}]"
                         consensus_line = (
-                            f"consensus: {consensus_target:.2f} (N={consensus_n}) "
+                            f"consensus: {consensus_target:.2f} (N={consensus_n}){rng} "
                             f"-> delta {consensus_delta_pct:+.0f}% {cons_dir}{flag}\n"
                         )
                     msg = (
