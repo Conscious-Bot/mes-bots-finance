@@ -3175,3 +3175,60 @@ fx-strippé, ancré sur consensus daté, no_bet gate passé sur chacun.
 - `531ac90` CI mypy fix
 - `a483dd5` CI 4 tests data-dependent
 - `7094ba6` CI 3 tests data-dependent (final green)
+
+---
+
+## Close 2026-06-12 (d) — Book figé + monitor stale_target + freshness audit
+
+### Livré (suite c+)
+
+**Book conviction-figé** (commit `511ccd6`) :
+- 12 UPDATE par id explicite (transaction atomique, rowcount=1, read-back byte-correct) — décision Olivier post scoring méthodologique 4 facteurs (moat/asymétrie/intacte/falsifiable).
+- A) 7 convictions seules : MHI 7011.T id=37 c4→c5 +target 4488 JPY +stop 3150, SK 000660.KS id=28 c3→c4, SAF.PA c4→c3, Advantest 6857.T c4→c3, COHR c4→c3, MP c4→c3, STMPA.PA c3→c2.
+- B) 3 C5 targets/stops : TSLA id=42 c4→c5 +target 1075 USD +stop 280 +4 invalidation_triggers JSON (FSD/Optimus/marges/dilution), SNPS id=29 target NULL→700 +stop 388, TSM id=27 stop 305→375.
+- C) 2 dead refraîchis EUR→USD live (fx 1.1565 via `get_fx_rate_on`, pas approximation user) : ALAB 400 EUR→462.59 USD +stop 340 EUR→393.20 USD, MU 1050 EUR→1214.29 USD +stop 920 EUR→1063.95 USD.
+- D) KLAC PENDING (prix DB cassé worldwide).
+- Multi-rows résolus par id (7011.T id=37 vs superseded id=6, 000660.KS id=28 vs id=21, 6920.T id=52 vs realized id=23, 4063.T id=26 vs superseded id=2).
+- DB backup `data/bot.db.backup_pre_persist_convictions_20260612_163232`.
+
+**#134 stale_target monitor livré** (commit `5f5c5a8`) :
+- 3e monitor canonique pattern figé (`docs/templates/monitor_pattern.md`). Migration 0056 (table append-only enum alive/dying/dead) + helpers storage + module classify pur + check_all_transitions + 11 tests dont TEST CRITIQUE L4.
+- Smoke live : 19 alive, 5 dying, 1 dead, 0 errors. 6 notifications Telegram pendant smoke (match exact F3 scoring user).
+- Side-finding L4 confirmé en prod : re-run après persist book → `transitions=0, notified=0`. Découplage prev_status via journal dédié valide jusqu'en prod, pas juste en unit.
+
+**Freshness audit complet** (commits `322b1e9` + `0179306`) :
+- 2 bugs masqués révélés via audit `MAX(timestamp)` par table source :
+  1. **kill_criteria_alerts STALE 13 jours** alors que le cron daily tournait. Root cause : code skippait l'insert si "no_change && dormant" pour "éviter le noise". Mais le journal append-only EST la source de fraîcheur signal. Cure : retirer le skip, aligner sur pattern over_cap + stale_target. Re-run manuel : 27 → 53 rows (+26).
+  2. **3 weekly crons sans `misfire_grace_time`** → si bot down lundi, skip silencieux toute la semaine. Cure : `misfire_grace_time=86400` sur `weekly_thesis_erosion_floor` + `weekly_v2_vigilance_check` + `weekly_calibration_audit`. Pattern aligne avec `cron_tier1/tier2` (commit `322b1e9` ce matin).
+- 7/15 indicateurs debt_signals étaient stale 6 jours (KRE/T10Y2Y/BankReserves/CopperGold tier2 weekly + 3 tier3 monthly). Tier2 re-run manuel : composite passe 120.8 → 115.5 phase 4 (mais inputs vivants — KRE+CopperGold reviennent en phase 1 risk-on).
+
+**Élagage TODO suite** (commit `2baa17c`) :
+- 6 tickets fermés dont 3 étaient déjà faits sans être marqués : #128 (banner proxy wired depuis avant), #121 (seam gauge migré _position_axis_price), #148 (launchd KeepAlive=true depuis 31/05). Audit périodique de l'état réel vs marquage TODO nécessaire.
+- #132 livré (`get_open_positions` SQL-direct → BookLine, fixe 3 callers d'un coup dont `compute_snapshot` quotidien qui avait `total_cost_eur=0` silencieux depuis migration VUE #105).
+
+### Doctrine renforcée
+
+- **Pattern récurrent identifié** : "cron fenêtre fixe + APScheduler default = pas robuste aux downtimes bot". 3 cures de cette famille dans la session : #143 event-driven erosion · `322b1e9` tier1/tier2 · `0179306` kill_criteria + 3 weekly. À ajouter à LESSONS si pas déjà.
+- **Pattern monitor_pattern.md validé une 3e fois** : 3e monitor (stale_target) construit en ~1h30 (vs ~3-4h pour le 2e, ~6-8h pour le 1er). Le gabarit canonique a fait son travail.
+
+### KNOWN-GAP
+
+- KLAC reste pending (prix DB cassé worldwide, à fixer côté source d'abord).
+- 5 dying restants (CCJ, 4063.T, AMZN, AVGO, 6857.T) à reposer manuellement quand Olivier décide (#135 méthode 1 ticker/sem).
+- 1 dead (000660.KS edge -0.4%) — target inchangé par décision Olivier, cost rolling l'a rattrapé.
+- Si bot down > 24h, les weeklies vont quand même skip (fenêtre acceptable car launchd auto-restart < 5min en pratique).
+
+### Entry next session
+
+1. **Notifications Telegram** : le cron daily_stale_target tourne maintenant 6h, va remonter les dying/dead aux transitions futures. Pas d'action requise.
+2. **5 dying restants** : laisser le rally se calmer ou poser nouveaux targets via méthode 3 colonnes (cf doctrine #135).
+3. **KLAC fix prix** : action côté source (yfinance ou alternatif) avant de re-poser les niveaux. Pas urgent (yfinance restauré ce midi).
+4. **CI status** : vert sur `7094ba6`. Si un push casse, le pattern de cure est connu (try/except + skip-on-fresh-DB).
+
+### Commits session 12/06 (d) — 4 nouveaux
+
+- `511ccd6` book persist 12 UPDATE par id
+- `322b1e9` macro tier1/tier2 grace_time
+- `0179306` freshness kill_criteria + 3 weekly grace_time
+- `5f5c5a8` #134 stale_target monitor (commit d'avant la close c+, mais consolidé ici)
+

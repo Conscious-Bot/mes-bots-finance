@@ -1,10 +1,17 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 12 juin 2026 close (c+) — élagage intelligent : #133bis + #146 + #132 + #128 + #121 + #148 tous fermés (la moitié étaient déjà faits, TODO périmée)
+**Refresh** : 12 juin 2026 close (d) — book figé 12 UPDATE par id · #134 stale_target monitor livré · freshness audit (kill_criteria + 3 weekly crons +grace_time) · tier1/tier2 cron grace_time · F3 scoring confirmé en prod
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (12/06 close d)
+
+- **Book figé conviction-rubric** : 12 UPDATE par id (commit `511ccd6`) — 7 convictions, 3 C5 targets/stops, 2 dead refraîchis EUR→USD live (fx 1.1565). KLAC pending (prix DB cassé worldwide).
+- **Stale_target monitor live** : 20 alive / 5 dying (CCJ +0.6%, 4063.T +3.5%, AMZN +4.0%, AVGO +4.1%, 6857.T +4.5%) / 1 dead (000660.KS edge -0.4% target inchangé décision). Notif Telegram auto sur futures transitions.
+- **Freshness 100%** sauf normal/on-demand : 2 bugs masqués révélés et fixés (kill_criteria persist no_change + 3 weekly crons +grace_time, commits `322b1e9` + `0179306`).
+- **Pattern récurrent (à graver L?)** : "cron fenêtre fixe + APScheduler default = pas robuste aux downtimes bot". 3 cures de cette famille cette session.
 
 ## 🟢 ÉTAT SYSTÈME (12/06 close c+)
 
