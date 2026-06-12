@@ -103,12 +103,15 @@ def test_stop_value_is_mutable_not_writeonce():
 
     from shared import storage
 
-    with storage.db() as cx:
-        cx.row_factory = None
-        row = cx.execute(
-            "SELECT id, stop_value FROM theses "
-            "WHERE status='active' AND stop_value IS NOT NULL LIMIT 1"
-        ).fetchone()
+    try:
+        with storage.db() as cx:
+            cx.row_factory = None
+            row = cx.execute(
+                "SELECT id, stop_value FROM theses "
+                "WHERE status='active' AND stop_value IS NOT NULL LIMIT 1"
+            ).fetchone()
+    except sqlite3.OperationalError as e:
+        pytest.skip(f"DB sans table theses (CI fresh) -- {e}")
     if row is None:
         pytest.skip("No active thesis with stop_value to test mutability")
     thesis_id, current_stop = row
@@ -145,12 +148,15 @@ def test_writeonce_trigger_rejects_entry_value_update():
 
     from shared import storage
 
-    with storage.db() as cx:
-        cx.row_factory = None
-        row = cx.execute(
-            "SELECT id, entry_value FROM theses "
-            "WHERE status='active' AND entry_value IS NOT NULL LIMIT 1"
-        ).fetchone()
+    try:
+        with storage.db() as cx:
+            cx.row_factory = None
+            row = cx.execute(
+                "SELECT id, entry_value FROM theses "
+                "WHERE status='active' AND entry_value IS NOT NULL LIMIT 1"
+            ).fetchone()
+    except sqlite3.OperationalError as e:
+        pytest.skip(f"DB sans table theses (CI fresh) -- {e}")
     if row is None:
         pytest.skip("No active thesis with entry_value to test trigger")
     thesis_id, current = row
