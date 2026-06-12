@@ -139,19 +139,29 @@ def compute_m10_barbell_score() -> HealthMetric:
         - 'warn' si 40-60 (milieu encore trop gros)
         - 'mou' si < 40 (zero barbell, tout au milieu)
     """
+    # Cure 12/06 (#133bis audit) : SQL-direct lisait p.avg_cost_eur qui est
+    # NULL par construction depuis migration positions VUE (#105/#120). La
+    # source de verite = BookLine.avg_cost_eur, computed live via PMP roulant
+    # ledger (shared.ledger_pmp.compute_pmp_realized). Avant cure : COALESCE(
+    # avg_cost_eur, 0) -> 0 -> total=0 -> "book vide" sur les 26 positions
+    # actives. Apres : BookLine + jointure conviction par ticker.
     try:
-        from shared import storage
+        from shared import book, storage
         with storage.db() as cx:
-            # Read positions ouvertes avec leur conviction (jointure theses)
-            rows = cx.execute("""
-                SELECT
-                    p.ticker,
-                    p.qty * COALESCE(p.avg_cost_eur, 0) AS pos_eur,
-                    t.conviction
-                FROM positions p
-                LEFT JOIN theses t ON t.ticker = p.ticker AND t.status='active'
-                WHERE p.status='open' AND p.qty > 0
-            """).fetchall()
+            conv_by_ticker = {
+                r[0]: r[1] for r in cx.execute(
+                    "SELECT ticker, conviction FROM theses WHERE status='active'",
+                ).fetchall()
+            }
+        held_lines = book.get_held_lines()
+        rows = [
+            (
+                ln.ticker,
+                float((ln.qty or 0) * (ln.avg_cost_eur or 0)),
+                conv_by_ticker.get(ln.ticker),
+            )
+            for ln in held_lines
+        ]
     except Exception as e:
         log.warning(f"compute_m10_barbell_score failed: {e}")
         return HealthMetric(
