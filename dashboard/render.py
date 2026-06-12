@@ -2272,6 +2272,8 @@ def _position_card(inputs, steer_v2) -> str:
     ) or (getattr(bl, "current_price_eur", None) if bl else None)
     ccy = (getattr(bl, "last_price_currency", None) if bl else None) or "EUR"
     price_asof = getattr(bl, "price_asof", None) if bl else None
+    macro_factor = (getattr(bl, "macro_factor", None) if bl else None) or None
+    theme = (getattr(bl, "theme", None) if bl else None) or None
     weight_pct = inputs.weight_pct
     cost_basis = (qty * (getattr(bl, "avg_cost_eur", 0) or 0)) if bl else 0
     # P&L canonique via helper #118 (avg_cost_eur + value_eur Datum fx-correct).
@@ -2371,7 +2373,11 @@ def _position_card(inputs, steer_v2) -> str:
     except Exception:
         pass
 
-    # Verdict 5-state badge en tete
+    # Verdict 5-state badge en tete (cure substance 12/06 : enrichir TRIM_TO_X /
+    # ADD_TO_X avec le concret -- delta qty% et cap cible). Le badge abstract
+    # "TRIM_TO_X" cachait le combien et le vers-quoi (qui vivaient seulement
+    # dans STEER 200px plus bas). Source = steer_v2.target_qty_delta_pct +
+    # inputs.binding_target_pct, deja computed, juste exposes au badge.
     verdict_v2_html = ""
     if steer_v2:
         v_color = {
@@ -2381,10 +2387,26 @@ def _position_card(inputs, steer_v2) -> str:
             "EXIT": ("#7a1f1f", "#ffebee"),
             "REVIEW": ("#666", "#f5f5f5"),
         }.get(steer_v2.verdict.value, ("#666", "#f5f5f5"))
+        # Concret = delta% qty + cap cible quand applicable
+        verdict_concrete = ""
+        if steer_v2.verdict.value in ("TRIM_TO_X", "ADD_TO_X"):
+            delta = steer_v2.target_qty_delta_pct
+            target = inputs.binding_target_pct
+            if delta is not None and abs(delta) > 0.05:
+                verdict_concrete = f" {delta:+.1f}%"
+                if target is not None:
+                    verdict_concrete += f" → {target:.1f}%"
+        # Label canonique SPEC_ALERT_VOCABULARY §1 : TRIM / ADD / EXIT / REVIEW / HOLD.
+        # Les enums Python TRIM_TO_X / ADD_TO_X fuitent — le "→ X%" porte deja la cible.
+        verdict_label = {
+            "TRIM_TO_X": "TRIM",
+            "ADD_TO_X": "ADD",
+        }.get(steer_v2.verdict.value, steer_v2.verdict.value)
         verdict_v2_html = (
             f'<span style="display:inline-block;padding:3px 10px;border-radius:3px;'
             f'font-size:11px;font-weight:700;background:{v_color[0]};color:#fff;'
-            f'margin-left:8px;letter-spacing:0.5px;">▶ {steer_v2.verdict.value}</span>'
+            f'margin-left:8px;letter-spacing:0.5px;">'
+            f'▶ {verdict_label}{verdict_concrete}</span>'
         )
 
     # Adoption substrat sector_profiles : afficher tier d'evidence + sous-secteur.
@@ -2472,44 +2494,107 @@ def _position_card(inputs, steer_v2) -> str:
 
     # Driver-status block (V1 : si erosion compute)
     if driver_status:
+        # Seuil broken du moteur (intelligence/thesis_erosion._EROSION_NET).
+        # Source de verite hardcoded ici pour eviter un import circulaire.
+        _NET_BROKEN = -1.5
         drv_rows = ""
         for d in driver_status:
             st = d.get("status", "?")
-            st_cls = {"intact": "ok", "eroding": "warn", "broken": "neg"}.get(st, "neu")
+            # Doctrine SPEC_ALERT_VOCABULARY : THESIS_INTACT/ERODING/BROKEN sont
+            # des STATE descriptifs CALMES (color: info/neutral, weight: low).
+            # L'attention est portee par l'EVENT EROSION_DETECTED en header, pas
+            # par le STATE des drivers individuels.
+            st_cls = {"intact": "ok", "eroding": "info", "broken": "info"}.get(st, "neu")
             net = d.get("net", 0)
+            # Format honnete : pas de "+0.00" gratuit sur un zero.
+            net_str = f"{net:+.2f}" if abs(net) > 0.005 else "0.00"
             drv_rows += (
                 '<div class="pc-driver">'
                 f'<span class="pc-driver-name">{d.get("driver", "?")[:80]}</span>'
                 f'<span class="pc-driver-st {st_cls}">{st}</span>'
-                f'<span class="pc-driver-net mono">net {net:+.2f}</span>'
+                f'<span class="pc-driver-net mono">net {net_str}</span>'
                 '</div>'
             )
         n_conf = inputs.erosion_n_confirm
         n_ero = inputs.erosion_n_erode
         n_inv = inputs.erosion_n_invalidation_hit
+        n_actionable = n_conf + n_ero + n_inv
+        n_total_classif = len(inputs.erosion_classifications or [])
+        n_drivers = len(driver_status)
         verdict_cls = {
             "INTACT": "ok", "EROSION_DETECTED": "warn",
             "INVALIDATION_HIT": "neg", "STALE_UNUPDATED": "warn",
             "REVIEW_DUE_DEGRADED": "neu",
         }.get(verdict, "neu")
+        # action_hint canonique depuis SPEC_ALERT_VOCABULARY (YAML EROSION_DETECTED).
+        action_hint = {
+            "EROSION_DETECTED": "REVIEW : re-justifie ou allege",
+            "INVALIDATION_HIT": "EXIT immediat OU auto-demote_from_structural",
+            "STALE_UNUPDATED": "verdict stale : relancer compute_thesis_erosion",
+            "REVIEW_DUE_DEGRADED": "LLM degrade : revue manuelle requise",
+            "INTACT": "",
+        }.get(verdict, "")
+        # Chip stale si computed_at > 24h.
+        stale_chip = ""
+        if erosion_computed_at:
+            try:
+                from datetime import UTC, datetime
+                _cpu = datetime.fromisoformat(
+                    erosion_computed_at.replace("Z", "+00:00")
+                )
+                if _cpu.tzinfo is None:
+                    _cpu = _cpu.replace(tzinfo=UTC)
+                _age_h = (datetime.now(UTC) - _cpu).total_seconds() / 3600
+                if _age_h >= 24:
+                    _age_d = int(_age_h / 24)
+                    stale_chip = (
+                        f' <span class="pc-verdict-pending" '
+                        f'title="verdict calcule il y a {_age_d}j — pas re-evalue depuis">'
+                        f'stale {_age_d}j</span>'
+                    )
+            except Exception:
+                pass
+        # Action hint discret (sous-ligne 11px italique).
+        action_html = (
+            f'<div class="pc-verdict-action" '
+            f'style="font-size:11px;opacity:0.75;font-style:italic;'
+            f'margin:2px 0 4px 0">&rarr; {action_hint}</div>'
+            if action_hint else ""
+        )
+        # Header drivers explicite (vs classifications atomiques).
+        drv_header = (
+            f'<div class="pc-section-h" style="margin-top:6px;font-size:10px">'
+            f'DRIVERS ({n_drivers}) &middot; '
+            f'<span style="opacity:0.7">seuil broken net &le; {_NET_BROKEN:.1f}</span>'
+            f'</div>'
+        )
         verdict_html = (
             '<div class="pc-section">'
             '<div class="pc-section-h">THESE -- VERDICT MOTEUR #2</div>'
-            f'<div class="pc-verdict {verdict_cls}">{verdict or "?"} '
-            f'<span style="font-size:10px;opacity:0.7">'
+            f'<div class="pc-verdict {verdict_cls}">{verdict or "?"}'
+            + stale_chip
+            + f' <span style="font-size:10px;opacity:0.7">'
             f'computed {erosion_computed_at} &middot; '
-            f'{n_conf} confirms / {n_ero} erodes / {n_inv} invalidations'
-            '</span></div>'
+            f'{n_conf} confirms &middot; {n_ero} erodes &middot; {n_inv} invalidations '
+            f'<span style="opacity:0.6">'
+            f'({n_actionable} actionnables / {n_total_classif} classifications total)'
+            f'</span></span></div>'
+            + action_html
+            + drv_header
             + drv_rows
             + '</div>'
         )
     else:
+        # Cure substance 12/06 : prose vide ("non compute (cron erosion pas
+        # encore wire) · verdict sera disponible apres 1er run...") remplacee
+        # par chip sec. La section etait 2 lignes pour dire PENDING. Source
+        # unique : driver_status absent OU erosion_verdict None -> pending.
         verdict_html = (
             '<div class="pc-section">'
-            '<div class="pc-section-h">THESE -- VERDICT MOTEUR #2</div>'
-            '<div class="pc-verdict neu" style="font-style:italic">non compute '
-            '(cron erosion pas encore wire) &middot; verdict sera disponible '
-            'apres 1er run compute_all_active_theses</div>'
+            '<div class="pc-section-h">THESE &mdash; VERDICT MOTEUR #2 '
+            '<span class="pc-verdict-pending">PENDING</span> '
+            '<span style="font-size:9px;color:var(--steel);letter-spacing:0.05em;">'
+            'erosion compute pas encore wire</span></div>'
             '</div>'
         )
 
@@ -2806,9 +2891,11 @@ def _position_card(inputs, steer_v2) -> str:
         '<div class="pc-cell"><div class="pc-cell-h">TYPE &amp; FACTOR</div>'
         f'<div class="pc-line"><span>type</span><span>{ptype}</span></div>'
         f'<div class="pc-line"><span>conv</span><span class="mono">c{conv}</span></div>'
-        '<div class="pc-line"><span>tags</span><span style="font-size:11px">'
+        + f'<div class="pc-line"><span>factor</span><span style="font-size:11px">{macro_factor or "&mdash;"}</span></div>'
+        + f'<div class="pc-line"><span>theme</span><span style="font-size:11px">{theme or "&mdash;"}</span></div>'
+        + '<div class="pc-line"><span>tags</span><span style="font-size:11px">'
         + (", ".join(tags) if tags else "&mdash;") + '</span></div>'
-        '</div>'
+        + '</div>'
         '</div>'
         + slider_html
         + verdict_html
@@ -2868,20 +2955,335 @@ def _position_card_panel() -> str:
         cards.append(_position_card(inputs, steer_v2))
 
     n = len(cards)
-    # Resume verdicts en tete (steer global aiguilleur)
+    # Resume verdicts en tete (steer global aiguilleur).
+    # Cure visuelle 12/06 : inline-styles retires, deleguent au CSS canonique
+    # ci-dessous (.pc-summary > span).
     summary_html = (
-        '<div class="pc-summary" style="display:flex;gap:14px;padding:10px 0;'
-        'font-size:12px;border-bottom:1px solid var(--line,#3a3a3a);'
-        'margin-bottom:16px;">'
-        f'<span><b>{n_hold}</b> HOLD</span>'
-        f'<span><b>{n_trim}</b> TRIM</span>'
-        f'<span><b>{n_exit}</b> EXIT</span>'
-        f'<span style="color:#888"><b>{n_review}</b> REVIEW (fail-closed L15)</span>'
+        '<div class="pc-summary">'
+        f'<span class="hold"><b>{n_hold}</b> HOLD</span>'
+        f'<span class="trim"><b>{n_trim}</b> TRIM</span>'
+        f'<span class="exit"><b>{n_exit}</b> EXIT</span>'
+        f'<span class="review"><b>{n_review}</b> REVIEW <em>(fail-closed L15)</em></span>'
         '</div>'
     )
+
+    # ============================================================
+    # CSS canonique position cards (cure visuelle 12/06/2026)
+    # ============================================================
+    # Avant : classes pc-* utilisees dans le HTML _position_card mais aucun
+    # CSS attache -> rendu plat default (pile verticale labels/valeurs).
+    # Cure : bloc CSS dedie qui style toutes les cards d'un coup, hybride
+    # TradingView Pro (dense data + STEER promu + axe signature stop->target).
+    # Cf dna_instrument_v2 (cold whites + bleu encre + axe signature) +
+    # brand_bloomberg_killer_moderne (Linear/Stripe/Vercel-Geist refs).
+    pc_css = """
+<style>
+  /* Tokens locaux POSITION CARDS — tailles reduites, typo mixte */
+  section[data-page="position-card"] {
+    --pc-fs-body:   13px;
+    --pc-fs-label:  10px;
+    --pc-fs-val:    14px;
+    --pc-fs-ticker: 22px;
+    --pc-fs-tiny:   11px;
+    --pc-gap:       12px;
+    font-family: var(--fdis, "Geist", ui-sans-serif, sans-serif);
+  }
+
+  /* SUMMARY pills HOLD/TRIM/EXIT/REVIEW */
+  .pc-summary {
+    display:flex; gap:8px; flex-wrap:wrap;
+    padding:10px 14px; margin-bottom:18px;
+    background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:8px;
+    font-size:var(--pc-fs-body);
+  }
+  .pc-summary > span {
+    padding:4px 10px; border-radius:4px; letter-spacing:.04em;
+    display:inline-flex; align-items:baseline; gap:5px;
+    background:color-mix(in srgb, var(--ink) 4%, transparent);
+    color:var(--ink);
+  }
+  .pc-summary > span b { font-weight:600; font-variant-numeric:tabular-nums; }
+  .pc-summary > span.hold   { background:color-mix(in srgb, var(--acc) 12%, transparent); color:color-mix(in srgb, var(--acc) 85%, var(--ink)); }
+  .pc-summary > span.trim   { background:color-mix(in srgb, var(--warn) 16%, transparent); color:color-mix(in srgb, var(--warn) 85%, var(--ink)); }
+  .pc-summary > span.exit   { background:color-mix(in srgb, var(--bear) 14%, transparent); color:var(--bear); }
+  .pc-summary > span.review { background:color-mix(in srgb, var(--steel) 14%, transparent); color:var(--steel); }
+  .pc-summary em { font-style:italic; opacity:.6; font-size:10px; }
+
+  /* CARD container : blanc, border, respiration mesuree */
+  .pc-card {
+    background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:8px;
+    padding:16px 18px; margin-bottom:18px;
+    font-size:var(--pc-fs-body);
+  }
+
+  /* HEAD : ticker mono dominant + badges + meta */
+  .pc-head {
+    display:flex; align-items:center; flex-wrap:wrap; gap:10px;
+    padding-bottom:10px; margin-bottom:12px;
+    border-bottom:1px solid var(--line,#e3e6eb);
+  }
+  .pc-head .pc-tk {
+    font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
+    font-size:var(--pc-fs-ticker); font-weight:600;
+    color:var(--ink); letter-spacing:.02em;
+  }
+  .pc-head .pc-conv {
+    font-size:var(--pc-fs-tiny); color:var(--steel); padding:2px 8px;
+    background:color-mix(in srgb, var(--steel) 8%, transparent);
+    border-radius:4px; font-weight:500;
+  }
+  .pc-head .pc-typechip {
+    font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    padding:3px 7px; border-radius:4px; font-weight:600;
+    background:color-mix(in srgb, var(--ink) 7%, transparent); color:var(--steel);
+  }
+  .pc-head .pc-tag {
+    font-size:10px; letter-spacing:.04em; padding:3px 7px;
+    background:color-mix(in srgb, var(--acc) 12%, transparent);
+    color:var(--acc); border-radius:4px;
+  }
+  .pc-head .pc-meta {
+    margin-left:auto; font-size:var(--pc-fs-tiny); color:var(--steel);
+    font-style:italic;
+  }
+
+  /* ROW3 : grid 3 colonnes POSITION / ASYMETRIE / TYPE & FACTOR */
+  .pc-row3 {
+    display:grid; grid-template-columns:1fr 1fr 1fr;
+    gap:var(--pc-gap); margin-bottom:12px;
+  }
+  @media (max-width:900px) { .pc-row3 { grid-template-columns:1fr; } }
+
+  /* CELL : border nette + bg tres clair */
+  .pc-cell {
+    padding:12px;
+    background:#fafbfc;
+    border:1px solid var(--line,#e3e6eb);
+    border-radius:6px;
+  }
+  .pc-cell-h {
+    font-size:var(--pc-fs-label); letter-spacing:.16em; text-transform:uppercase;
+    color:var(--steel); margin-bottom:8px; font-weight:600;
+  }
+
+  /* LINE : label gauche / valeur droite */
+  .pc-line {
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:3px 0; gap:14px;
+  }
+  .pc-line > span:first-child {
+    color:var(--steel); font-size:var(--pc-fs-tiny); flex-shrink:0;
+    letter-spacing:.02em;
+  }
+  .pc-line > span:last-child {
+    color:var(--ink); font-size:var(--pc-fs-val); font-weight:500;
+    text-align:right;
+  }
+  .pc-line .mono {
+    font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
+    font-variant-numeric:tabular-nums;
+  }
+  .pc-line .neg, .pc-line .mono.neg { color:var(--bear); font-weight:600; }
+  .pc-line .ok,  .pc-line .mono.ok  { color:var(--acc);  font-weight:600; }
+  .pc-line .neu, .pc-line .mono.neu { color:var(--steel); }
+  .pc-asof {
+    font-size:10px; color:var(--steel); margin-left:6px; opacity:.75;
+    font-style:italic;
+  }
+
+  /* ASYMETRIE : pareil que pc-line (gap garantit separation label/valeur) */
+  .pc-asym-line {
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:3px 0; gap:14px;
+  }
+  .pc-asym-k {
+    color:var(--steel); font-size:var(--pc-fs-tiny); flex-shrink:0;
+    letter-spacing:.02em;
+  }
+  .pc-asym-v {
+    color:var(--ink); font-size:var(--pc-fs-val); font-weight:500;
+    text-align:right;
+  }
+  .pc-asym-v.mono {
+    font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* SECTION generic (THESE / INVAL / DISCIPLINE / WHAT CHANGED / CONTRE / JUSTIF) */
+  .pc-section {
+    padding:12px 14px; margin-top:10px;
+    background:#fafbfc;
+    border:1px solid var(--line,#e3e6eb);
+    border-radius:6px;
+  }
+  .pc-section-h {
+    font-size:var(--pc-fs-label); letter-spacing:.16em; text-transform:uppercase;
+    color:var(--steel); margin-bottom:8px; font-weight:600;
+  }
+
+  /* VERDICT MOTEUR : badge */
+  .pc-verdict {
+    font-size:var(--pc-fs-body); font-weight:600; color:var(--ink);
+  }
+  .pc-verdict.ok   { color:var(--acc); }
+  .pc-verdict.warn { color:var(--warn); }
+  .pc-verdict.neg  { color:var(--bear); }
+  .pc-verdict.neu  { color:var(--steel); font-weight:400; font-style:italic; }
+  /* PENDING chip (state-non-computed compact, remplace la prose) */
+  .pc-verdict-pending {
+    font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    padding:2px 7px; border-radius:3px; font-weight:600;
+    background:color-mix(in srgb, var(--steel) 12%, transparent);
+    color:var(--steel); margin-left:6px;
+  }
+
+  /* DRIVER STATUS rows */
+  .pc-driver {
+    display:flex; gap:10px; align-items:baseline;
+    padding:3px 0; font-size:var(--pc-fs-tiny);
+  }
+  .pc-driver-name { flex:1; color:var(--ink); }
+  .pc-driver-st {
+    font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    padding:1px 6px; border-radius:3px; font-weight:600;
+  }
+  .pc-driver-st.ok   { background:color-mix(in srgb, var(--acc) 14%, transparent); color:var(--acc); }
+  .pc-driver-st.warn { background:color-mix(in srgb, var(--warn) 14%, transparent); color:var(--warn); }
+  .pc-driver-st.neg  { background:color-mix(in srgb, var(--bear) 14%, transparent); color:var(--bear); }
+  .pc-driver-st.neu  { background:color-mix(in srgb, var(--steel) 10%, transparent); color:var(--steel); }
+  .pc-driver-net {
+    font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
+    font-variant-numeric:tabular-nums; color:var(--steel); font-size:10px;
+  }
+
+  /* INVALIDATION TRIGGERS rows */
+  .pc-inv {
+    padding:4px 0; font-size:var(--pc-fs-body); color:var(--ink); line-height:1.5;
+  }
+
+  /* WHAT CHANGED rows */
+  .pc-changed-row {
+    display:grid; grid-template-columns:80px 60px 110px 1fr; gap:10px;
+    padding:4px 0; font-size:var(--pc-fs-tiny); align-items:baseline;
+  }
+  .pc-changed-rel {
+    font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    padding:1px 6px; border-radius:3px; font-weight:600;
+  }
+  .pc-changed-rel.ok   { background:color-mix(in srgb, var(--acc) 14%, transparent); color:var(--acc); }
+  .pc-changed-rel.warn { background:color-mix(in srgb, var(--warn) 14%, transparent); color:var(--warn); }
+  .pc-changed-rel.neg  { background:color-mix(in srgb, var(--bear) 14%, transparent); color:var(--bear); }
+  .pc-changed-rel.neu  { background:color-mix(in srgb, var(--steel) 10%, transparent); color:var(--steel); }
+  .pc-changed-target { color:var(--steel); font-family: var(--fm); }
+  .pc-changed-conf   { color:var(--steel); }
+  .pc-changed-quote  { color:var(--ink); }
+
+  /* DISCIPLINE FLAGS rows : label badge couleur + valeur */
+  .pc-flag-row {
+    display:flex; gap:12px; align-items:baseline; padding:4px 0;
+    font-size:var(--pc-fs-body);
+  }
+  .pc-flag-label {
+    font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    padding:3px 8px; border-radius:3px; font-weight:600; flex-shrink:0;
+    min-width:90px; text-align:center;
+  }
+  .pc-flag-label.ok   { background:color-mix(in srgb, var(--acc) 14%, transparent); color:var(--acc); }
+  .pc-flag-label.warn { background:color-mix(in srgb, var(--warn) 16%, transparent); color:var(--warn); }
+  .pc-flag-label.neg  { background:color-mix(in srgb, var(--bear) 14%, transparent); color:var(--bear); }
+  .pc-flag-label.neu  { background:color-mix(in srgb, var(--steel) 10%, transparent); color:var(--steel); }
+  .pc-flag-value { color:var(--ink); }
+
+  /* COUNTER ARG pressure chip */
+  .pc-ca-pressure {
+    font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+    padding:1px 6px; border-radius:3px; font-weight:600;
+  }
+  .pc-ca-pressure.neg  { background:color-mix(in srgb, var(--bear) 14%, transparent); color:var(--bear); }
+  .pc-ca-pressure.warn { background:color-mix(in srgb, var(--warn) 14%, transparent); color:var(--warn); }
+  .pc-ca-pressure.neu  { background:color-mix(in srgb, var(--steel) 10%, transparent); color:var(--steel); }
+
+  /* SIZING 3-WAY : 3 cells visibles + binding */
+  .pc-sizing-grid {
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;
+    font-size:var(--pc-fs-body);
+  }
+  .pc-sizing-cell {
+    padding:10px 12px;
+    background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:5px;
+  }
+  .pc-sizing-k {
+    font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--steel); margin-bottom:4px; font-weight:500;
+  }
+  .pc-sizing-v {
+    font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
+    font-size:17px; font-weight:600; font-variant-numeric:tabular-nums;
+    color:var(--ink);
+  }
+  .pc-sizing-v.neg { color:var(--bear); }
+  .pc-sizing-v.ok  { color:var(--acc); }
+  .pc-sizing-v.neu { color:var(--steel); }
+  .pc-sizing-binding {
+    margin-top:8px; font-size:var(--pc-fs-tiny); color:var(--steel);
+  }
+  .pc-sizing-binding b {
+    color:var(--ink); font-weight:600;
+    font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
+  }
+
+  /* STEER section PROMUE : background accent + border-left epaisse */
+  .pc-section:has(.pc-steer-line) {
+    background:color-mix(in srgb, var(--acc) 4%, #fafbfc);
+    border-left:3px solid var(--acc);
+  }
+  .pc-steer-line {
+    display:flex; gap:14px; align-items:baseline;
+    padding:6px 0;
+  }
+  .pc-steer-k {
+    font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+    padding:3px 10px; border-radius:4px; font-weight:600;
+    min-width:50px; text-align:center;
+  }
+  .pc-steer-k.ok   { background:color-mix(in srgb, var(--acc) 20%, transparent); color:var(--acc); }
+  .pc-steer-k.warn { background:color-mix(in srgb, var(--warn) 20%, transparent); color:var(--warn); }
+  .pc-steer-k.neg  { background:color-mix(in srgb, var(--bear) 20%, transparent); color:var(--bear); }
+  .pc-steer-k.neu  { background:color-mix(in srgb, var(--steel) 12%, transparent); color:var(--steel); }
+  .pc-steer-action {
+    font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
+    font-weight:700; color:var(--ink); font-size:15px; letter-spacing:.02em;
+  }
+  .pc-steer-reason {
+    margin-left:64px; font-size:var(--pc-fs-tiny);
+    color:var(--steel); font-style:italic; padding:2px 0 8px;
+  }
+  .pc-steer-list-h {
+    font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--steel); margin-top:10px; margin-bottom:4px; font-weight:600;
+  }
+  .pc-steer-li {
+    padding:2px 0; font-size:var(--pc-fs-tiny); color:var(--ink);
+    font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
+  }
+  .pc-steer-li.ok  { color:var(--acc); }
+  .pc-steer-li.neg { color:var(--bear); }
+
+  /* EMPTY placeholder + JUSTIF prose */
+  .pc-empty {
+    font-size:var(--pc-fs-tiny); color:var(--steel);
+    font-style:italic; opacity:.7;
+  }
+  .pc-justif {
+    font-size:var(--pc-fs-body); color:var(--ink); line-height:1.5;
+  }
+</style>
+"""
+
     return (
         '<section data-page="position-card" role="region" aria-label="Position cards">'
-        '<div class="phead"><h2>Position cards</h2>'
+        + pc_css
+        + '<div class="phead"><h2>Position cards</h2>'
         f'<div class="sub">Vue plein-ecran par position &middot; {n} active &middot; '
         'EXIT &amp; SIZE separes (Catch 2) &middot; deep-link #card-TICKER</div></div>'
         + summary_html
