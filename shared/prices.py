@@ -450,6 +450,21 @@ _FX_LIVE_LAST_SUCCESS: dict[tuple[str, str], datetime] = {}
 _log = _logging.getLogger(__name__)
 
 
+def reset_caches() -> None:
+    """Vide tous les caches in-process (prix natif/EUR, info, FX, last-success).
+
+    Source UNIQUE de reset (L1) : ne pas clear les dicts internes ailleurs.
+    Usage : fixture autouse de conftest pour l'isolation inter-tests. Sans ça,
+    un cache (FX surtout) porté d'un test a l'autre faisait diverger les
+    agregats somme-parties au-dela de la tolerance -> flaky ordre-dependant
+    (#147 : _FX_CACHE/_PX_CACHE non resetes entre tests)."""
+    _PX_CACHE.clear()
+    _PX_CACHE_NATIVE.clear()
+    _INFO_CACHE.clear()
+    _FX_CACHE.clear()
+    _FX_LIVE_LAST_SUCCESS.clear()
+
+
 def _fetch_fx_live(from_cur: str, to_cur: str) -> float | None:
     """Fetch FX rate live via yfinance. Tries direct pair `{from}{to}=X` then
     inverted `{to}{from}=X` (since yfinance only quotes the major direction

@@ -97,6 +97,28 @@ def migrated_db(
     return db
 
 
+@pytest.fixture(autouse=True)
+def _reset_price_caches():
+    """Isolation inter-tests des caches prix/FX (#147).
+
+    Vide les caches in-process de shared.prices AVANT chaque test. Sans ça, un
+    cache (FX surtout) porte d'un test a l'autre fait diverger les agregats
+    somme-parties au-dela de la tolerance -> flaky ordre-dependant
+    (test_aggregate_sum_equals_parts + test_coherence_under_perturbation
+    passaient isoles, failaient en full-run).
+
+    Reset SEULEMENT si shared.prices est deja importe (sys.modules) : un test
+    pur qui n'y touche pas ne force pas l'import et n'a rien a polluer. Source
+    unique du reset = prices.reset_caches() (L1), pas un clear de dicts internes.
+    """
+    import sys
+
+    _prices = sys.modules.get("shared.prices")
+    if _prices is not None:
+        _prices.reset_caches()
+    yield
+
+
 def _has_book_data() -> bool:
     """Detection robuste : DB courante a-t-elle des positions ?
 

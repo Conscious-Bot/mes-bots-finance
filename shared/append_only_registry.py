@@ -53,6 +53,18 @@ APPEND_ONLY_TABLES: dict[str, AppendOnlyClass] = {
     # Event sourcing : history positions (open/close/trim/add), jamais UPDATE
     # (toute correction = nouvelle event).
     "position_events": "immutable",
+    # Journaux de monitors (L4) + live-state cron (L17) : pur observation
+    # append-only, chaque évaluation = nouvelle ligne, jamais UPDATE/DELETE
+    # (grep-confirmé 12/06 audit (2) : zéro UPDATE/DELETE app sur ces 6).
+    # DELETE ré-armerait le compteur de transition → re-fire spurieux, exactement
+    # ce que L4 interdit. macro_regime_alerts + risk_signal_evaluations sont les
+    # exemples-canon de live-state append-only de LESSONS.md.
+    "over_cap_alerts": "immutable",
+    "kill_criteria_alerts": "immutable",
+    "stress_gate_alerts": "immutable",
+    "macro_regime_alerts": "immutable",
+    "stale_target_alerts": "immutable",
+    "risk_signal_evaluations": "immutable",
 
     # ========================================================================
     # NO_DELETE — rétention historique mais rows MUTABLES
@@ -74,5 +86,9 @@ APPEND_ONLY_TABLES: dict[str, AppendOnlyClass] = {
 # - transactions : trigger transactions_writeonce (migration 0046)
 # - thesis_predictions : 3 triggers (pose_writeonce, resolve_writeonce,
 #   no_delete) via migrations 0052/0053/0054 — chantier alpha
+# - predictions : no_delete + resolve_writeonce (migration 0058, audit 12/06 P1.1).
+#   Track-record Brier/outcome write-once à la résolution (storage.py:1113 résout
+#   en 1 UPDATE atomique). Le BEFORE UPDATE OF rendrait le méta-test test 2
+#   incompatible avec la classe 'no_delete' → régime propre, hors dict.
 # Ces tables ne sont PAS dans APPEND_ONLY_TABLES parce qu'elles ont leur
 # propre régime (write-once-per-column, plus fin que immutable).

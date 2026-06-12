@@ -132,9 +132,13 @@ def _compute_current_state(thesis: dict) -> dict:
     try:
         # Migration Lane 2 #4 : gateway canonique shared.prices au lieu de
         # cache render. Élimine dépendance intelligence→dashboard.render.
-        from shared.prices import get_current_price_in_eur
+        # L12 currency-native-invariant : current DOIT être natif pour être
+        # comparé à entry/stop/target (natifs). get_current_price_in_eur ici
+        # mélangeait EUR vs natif -> pnl/marges absurdes sur KRW/JPY, et ces
+        # marges pilotent la reco /exit via le prompt LLM. Fix : prix natif.
+        from shared.prices import get_current_price
 
-        current = get_current_price_in_eur(thesis["ticker"]) or 0
+        current = get_current_price(thesis["ticker"]) or 0
     except Exception:
         current = 0
     entry = thesis.get("entry_price") or 0
