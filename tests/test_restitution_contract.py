@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from dashboard.restitution import (
+from shared.llm_restitution import (  # cure P2 audit (3) — couche shared/, plus de dashboard/
     LLM_UNAVAILABLE_MARKER_PREFIX,
     format_llm_unavailable_marker,
     format_rule_fallback_provenance,

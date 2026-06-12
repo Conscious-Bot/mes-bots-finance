@@ -47,15 +47,20 @@ INTELLIGENCE = ROOT / "intelligence"
 # _positions/_cluster_health/_pnl_cost_map → shared/portfolio_analytics.py,
 # format_llm_unavailable_marker → garder dans dashboard/ mais inversion-corrigée
 # par injection de dépendance). À faire dans une session dédiée post-#120.
-_INTELLIGENCE_LEGACY_WHITELIST: set[tuple[str, int, str]] = {
-    # spof_and_sizing.py × 2 : RÉSOLUS cure #120 étape 3 (12/06) — _positions
-    # déplacé vers shared/portfolio_view_builder.py, spof importe depuis shared/.
-    # decision_copilot.py + portfolio_grade.py:184 : RÉSOLUS cure P2 audit (3)
-    # reste whitelist (12/06) — TICKER_SECTOR déplacé vers shared/sector_taxonomy.py.
-    # portfolio_grade.py:664 : RÉSOLU cure P2 audit (3) reste whitelist (12/06) —
-    # _cluster_health + _pnl_cost_map déplacés vers shared/portfolio_analytics.py.
-    ("intelligence/analyze.py", 534, "dashboard.restitution"),       # format_llm_unavailable_marker
-}
+# WHITELIST VIDE — tous les sites legacy intelligence/ → dashboard/ résolus par
+# les cures de la session 12/06 (cure #120 + cure P2 audit (3)). Si quelqu'un
+# ajoute une nouvelle entrée ici, le ratchet a fait son travail mais la dette
+# structurelle se reconstitue. RED FLAG : déplace le helper concerné vers
+# shared/ au lieu d'ajouter à la whitelist.
+#
+# Historique des résolutions (decreasing-only) :
+# - spof_and_sizing.py × 2 : cure #120 étape 3 — _positions → shared/portfolio_view_builder.py
+# - decision_copilot.py:426 + portfolio_grade.py:184 : cure P2 — TICKER_SECTOR → shared/sector_taxonomy.py
+# - portfolio_grade.py:664 : cure P2 — _cluster_health/_pnl_cost_map → shared/portfolio_analytics.py
+# - analyze.py:534 : cure P2 — format_llm_unavailable_marker → shared/llm_restitution.py
+#
+# NB : set() littéral, pas {} (qui serait un dict vide, TypeError au set diff).
+_INTELLIGENCE_LEGACY_WHITELIST: set[tuple[str, int, str]] = set()
 
 
 def _imports_dashboard(py_file: Path) -> list[tuple[int, str]]:
