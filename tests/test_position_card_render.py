@@ -121,18 +121,19 @@ def test_bandeau_hidden_when_no_fail_closed() -> None:
 # ─── Test 2 : verdict badge 5-state couleurs ─────────────────────────────
 
 
-@pytest.mark.parametrize("verdict, expected_color", [
-    (SteerVerdict.HOLD, "#3a9d4e"),       # vert
-    (SteerVerdict.TRIM_TO_X, "#b8860b"),  # ambre
-    (SteerVerdict.EXIT, "#7a1f1f"),       # rouge
-    (SteerVerdict.REVIEW, "#666"),        # gris
+@pytest.mark.parametrize("verdict, expected_label, expected_color", [
+    (SteerVerdict.HOLD, "HOLD", "#3a9d4e"),         # vert
+    (SteerVerdict.TRIM_TO_X, "TRIM", "#b8860b"),    # ambre, label canonique SPEC §1
+    (SteerVerdict.EXIT, "EXIT", "#7a1f1f"),         # rouge
+    (SteerVerdict.REVIEW, "REVIEW", "#666"),        # gris
 ])
-def test_verdict_badge_color_matrix(verdict, expected_color) -> None:
+def test_verdict_badge_color_matrix(verdict, expected_label, expected_color) -> None:
     inputs = _mk_inputs()
     steer = _mk_steer(verdict=verdict)
     html = _render(inputs, steer)
-    # Le badge contient le verdict label + la couleur
-    assert f"▶ {verdict.value}" in html
+    # Le badge contient le label canonique (vocab SPEC_ALERT_VOCABULARY §1 :
+    # TRIM_TO_X / ADD_TO_X -> TRIM / ADD, pas l'enum brut) + la couleur.
+    assert f"▶ {expected_label}" in html
     assert expected_color in html
 
 
@@ -277,12 +278,17 @@ def test_what_changed_top5_with_classifications() -> None:
 
 
 def test_what_changed_empty_when_no_compute() -> None:
-    """Si verdict None ET classifications vides, section dit 'non compute'."""
+    """Si verdict None ET classifications vides, section signale l'absence
+    de classifications persistees. Cure visuelle 12/06 : prose "non compute"
+    remplacee par message explicite "aucune classification persistee" +
+    chip PENDING sur le verdict header (cf cure section EROSION_DETECTED)."""
     inputs = _mk_inputs(erosion_verdict=None, erosion_classifications=[])
     steer = _mk_steer()
     html = _render(inputs, steer)
     assert "WHAT CHANGED SINCE ENTRY" in html
-    assert "non compute" in html
+    assert "aucune classification persistee" in html
+    # Chip PENDING dans le verdict header (cure visuelle 12/06)
+    assert "pc-verdict-pending" in html
 
 
 # ─── Test 7 : structural asymmetry honest (Catch 3) ──────────────────────
