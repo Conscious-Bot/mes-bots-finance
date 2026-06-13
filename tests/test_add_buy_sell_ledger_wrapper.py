@@ -197,6 +197,58 @@ def test_add_sell_inserts_transaction_SELL(ledger_db_with_view, monkeypatch):
     assert r["closed"] is False
 
 
+def test_add_sell_uses_bookline_when_view_avg_cost_is_null(
+    ledger_db_with_view, monkeypatch,
+):
+    """Cure 13/06 (#133bis pattern apres P1) : VUE.avg_cost_eur est NULL en
+    prod depuis migration #105 (positions VUE derivee). add_sell doit
+    prefer BookLine.avg_cost_eur (PMP roulant ledger-based) pour calculer
+    realized_pnl_event. Avant cette cure : avg_cost_pre fallback a 0 ->
+    realized_pnl_event = qty × sell_price (revenue total, pas PnL vrai)
+    -> chaque vente polluait le ledger event-level + bias le hook lock_in.
+
+    Test : simule simultanement VUE.avg_cost_eur=None + BookLine.avg_cost_eur=100.
+    Verifie que add_sell lit BookLine (PnL correct 120) pas le fallback 0
+    (qui aurait donne 420).
+    """
+    _no_classify(monkeypatch)
+    monkeypatch.setattr("intelligence.lock_in_detector.detect_winner_sell",
+                       lambda **kwargs: None)
+    from shared.positions import add_buy, add_sell
+
+    add_buy("NULLVUE", qty=10.0, price=100.0, currency="EUR", fx_at_trade=1.0,
+            broker_trade_id="NV-B1", source="test")
+
+    # Simule cas prod : VUE.avg_cost_eur NULL + BookLine present avec PMP 100.
+    from shared import positions as _p
+    real_get = _p.get_position
+    def get_position_null_avgcost(ticker):
+        row = real_get(ticker)
+        if row:
+            row = dict(row)
+            row["avg_cost_eur"] = None
+            row["avg_cost"] = None
+        return row
+    monkeypatch.setattr("shared.positions.get_position", get_position_null_avgcost)
+
+    # Mock BookLine pour ce ticker (la fixture cree pas le BookLine de
+    # NULLVUE car le canonical_perimeter.json ne le contient pas).
+    class _FakeBookLine:
+        avg_cost_eur = 100.0
+    fake_index = {"NULLVUE": _FakeBookLine()}
+    monkeypatch.setattr("shared.book.get_book_index", lambda: fake_index)
+
+    r = add_sell("NULLVUE", qty=3.0, price=140.0, currency="EUR", fx_at_trade=1.0,
+                 broker_trade_id="NV-S1", source="test")
+    # PnL attendu = 3 × (140 - 100) = 120 (calcul via BookLine avg_cost=100,
+    # pas via VUE NULL qui aurait donne fallback 0 -> faux pnl 420).
+    assert r["realized_pnl_event"] == pytest.approx(120.0, abs=1e-6), (
+        f"realized_pnl_event={r['realized_pnl_event']} doit utiliser BookLine "
+        f"avg_cost=100 (pas VUE NULL fallback 0)"
+    )
+    assert r["avg_cost"] == pytest.approx(100.0, abs=1e-6)
+
+
 def test_add_sell_validates_qty_oversell(ledger_db_with_view, monkeypatch):
     _no_classify(monkeypatch)
     from shared.positions import add_buy, add_sell

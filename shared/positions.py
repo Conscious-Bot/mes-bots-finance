@@ -250,7 +250,23 @@ def add_sell(
     qty_before = float(current["qty"])
     if qty > qty_before + 1e-9:
         raise ValueError(f"Sell qty {qty} > position qty {qty_before}")
-    avg_cost_pre = float(current.get("avg_cost_eur") or current.get("avg_cost") or 0)
+    # Cure 13/06 (#133bis pattern) : VUE.avg_cost_* est NULL par construction
+    # depuis migration #105 (positions VUE derivee, PMP roulant computed live
+    # via BookLine + ledger_pmp). Avant : fallback 0 => realized_pnl_event
+    # falsifie a qty × price (revenue total au lieu du vrai PnL). Critique
+    # avant file de sells (trim/exit) -> chaque vente polluait le ledger.
+    # Cure : prefer BookLine.avg_cost_eur (canonique), fallback VUE puis 0.
+    avg_cost_pre = 0.0
+    try:
+        from shared import book as _bk
+        _bl = _bk.get_book_index().get(ticker)
+        if _bl and _bl.avg_cost_eur:
+            avg_cost_pre = float(_bl.avg_cost_eur)
+    except Exception:
+        pass
+    if avg_cost_pre <= 0:
+        # Fallback legacy (VUE / static columns) si BookLine indispo
+        avg_cost_pre = float(current.get("avg_cost_eur") or current.get("avg_cost") or 0)
 
     if currency is None or fx_at_trade is None:
         cur, fx, fx_derived = _get_currency_and_fx(ticker)
