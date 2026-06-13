@@ -54,7 +54,38 @@ def main():
         notes="SPCX IPO 12/06, +600 EUR a 130 EUR/share",
     )
 
-    # 2. INSERT these (entry USD natif, target/stop EUR direct)
+    # 2. INSERT these (entry USD natif, target/stop EUR direct, substance gravee)
+    import json as _json
+
+    key_drivers = [
+        "Starship reusability scale : cout/kg en orbite divise par 10-100",
+        "Starlink revenue ramp : >$20B run-rate confirmed avant 2027",
+        "Musk ecosystem cross-pollination (TSLA Optimus + FSD AI + SPCX manufacturing)",
+        "Optionalite merger SPCX-TSLA : multiple expansion conglomerat post-deal",
+    ]
+    invalidation_triggers = [
+        "Musk leadership crisis materielle (sante, controverse legale, exit)",
+        "Starship echec scalable (3+ explosions consecutives v2/v3 ou abandon program)",
+        "Antitrust block explicite du merger SPCX-TSLA (regulators US/EU)",
+        "Starlink subscriber growth flat 2 quarters consecutifs",
+    ]
+    variant_perception = (
+        "Merger SPCX-TSLA a terme. Musk ecosystem flywheel (Starship + Starlink + "
+        "TSLA Energy/Optimus) value sous-evalue par la rue qui regarde SPCX comme un "
+        "space-pure-play. Vraie valeur = optionalite d'integration multi-business Musk."
+    )
+    driver_epic = (
+        "Convergence SPCX-TSLA en 18-36m : Starlink finance Starship, Optimus + FSD "
+        "integrent l'ecosystem manufacturing, merger ouvre la valuation au niveau "
+        "conglomerat (Berkshire-style)."
+    )
+    pre_mortem = (
+        "Si je devais expliquer pourquoi cette these a echoue dans 18m : 1) Musk a "
+        "perdu l'attention SPCX au profit de xAI/X/Politics, 2) Le merger est bloque "
+        "par antitrust, 3) Une concurrence (Bezos/Blue Origin nouvelle gen + Chinese "
+        "state) commoditise Starship economics avant scale."
+    )
+
     with s.db() as cx:
         cur = cx.execute("""
             INSERT INTO theses (
@@ -64,7 +95,8 @@ def main():
                 target_full, target_full_value, target_full_currency, target_full_asof,
                 stop_price, stop_value, stop_currency, stop_asof,
                 position_type, conviction_at_entry,
-                key_drivers, invalidation_triggers,
+                key_drivers, invalidation_triggers, variant_perception,
+                driver_epic, pre_mortem,
                 notes
             ) VALUES (
                 'SPCX', ?, 5, 'long', '18m', 'active',
@@ -72,7 +104,8 @@ def main():
                 ?, ?, 'EUR', ?,
                 ?, ?, 'EUR', ?,
                 'priced', 5,
-                '[]', '[]',
+                ?, ?, ?,
+                ?, ?,
                 ?
             )
         """, (
@@ -80,6 +113,9 @@ def main():
             entry_usd, entry_usd, today_iso, fx_eur_usd, today_iso,
             target_eur, target_eur, today_iso,
             stop_eur, stop_eur, today_iso,
+            _json.dumps(key_drivers, ensure_ascii=False),
+            _json.dumps(invalidation_triggers, ensure_ascii=False),
+            variant_perception, driver_epic, pre_mortem,
             "IPO 12/06 conv c5 high-conviction variant explicite. "
             "Target/stop en EUR direct (decision Olivier 13/06). Entry stocke "
             f"en USD natif ({entry_usd} USD = 130 EUR × fx {fx_eur_usd:.4f}) "
