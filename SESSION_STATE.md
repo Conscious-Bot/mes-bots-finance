@@ -3381,3 +3381,56 @@ Trois chantiers couplés sur une session marathon de 60+ tours :
 ### Commits session 13/06 — 1 commit unifié
 
 - `06a5a6e` [session 13/06] #149 group_cap monitor + #150 chantier spec figée + cure G2 (10 sentinelles posées rouge→vert)
+
+### Post-close addition (session 13/06 prolongée) — Cutover Mac→VM + drift detector
+
+**Mission de l'extension** : la verification "verifions tout ce qui a a etre verifier et solidifier" a découvert que la VM Hetzner provisionnée 05/06 tournait depuis 6 jours en parallèle du Mac avec **token Telegram partagé** → 2405 Conflict cumulés + 292 commits de drift code VM vs Mac.
+
+**Diagnostic via diff par clé naturelle** :
+- decisions : 0 VM-unique (VM strict subset Mac)
+- bias_events : 1 VM-unique = doublon sémantique TSM (id Mac=9, id VM=7)
+- predictions : 65 VM-uniques code obsolète pré-0060 (contamination L13/L14)
+- signals : 15 VM-uniques newsletters 05/06 bas-score
+- **Tous JETABLES** → zéro réconciliation effective requise
+
+**Cutover propre exécuté avec 3 landmines évitées** :
+1. **Stop process pas juste polling** : `launchctl bootout com.olivier.presage` (le `disable` du tour précédent n'avait pas tenu — KeepAlive=dict + ThrottleInterval=30 du plist relançait). Plus kill `dashboard.serve` (autre writer DB Mac). Premier SCP corrompu : DB Mac mutée pendant transfert par bot relancé.
+2. **Double-backup labellisé** : Mac `snapshot_pre_reconciliation_20260613_171803` (91MB) + VM `bot.db.backup_pre_cutover_macreplace_20260613_172611` (18MB côté Hetzner).
+3. **alembic head (code) == version_num (DB)** vérifié AVANT restart : 0060 == 0060 cohérent.
+
+**Vitals prod validés (C)** :
+- alembic 0060, 10 sentinelles, 18 triggers, group_cap_monitor importable
+- Telegram polling clean, AUCUN Conflict post-restart 08:31:40 UTC, alert envoyée
+- Scheduler 33 jobs, code wire group_cap présent (sequences.py:104)
+- Handler Telegram répond (validation user mobile)
+
+**A-corrigé : détecteur de drift, pas auto-deployer** :
+- `scripts/drift_detector.py` : `git fetch` + `rev-list --count HEAD..origin/main`, alerte Telegram si > 5 commits behind. NE PAS auto-deploy (violerait doctrine migration-sous-cron). Threshold via env DRIFT_THRESHOLD.
+- `deploy/presage-drift-detector.{service,timer}` : systemd user oneshot + daily timer 07:15 UTC (avant morning_chain).
+- Installé sur VM, enabled, smoke test OK (`behind=0`, sync). Prochain run dimanche 14/06 07:15 UTC.
+
+**Dette P0 currency bug 4 trades tracée** :
+- 12/06 14:28:30 broker import, `price_native` EUR mais `currency='USD'` + `fx_at_trade=1.0`
+- ids 198/199/200/201 (ALAB/GOOGL/AMD/AMZN), valeurs correctes USD documentées dans TODO.md
+- **Cure par entrées de compensation INTERDITE** (path-dependent PMP : reversal-BUY pollue avg cost, déplace l'erreur sur P&L futur). Session dédiée requise pour design propre.
+- Bénin court-terme : sous-estime P&L → stale_target flague moins, bénin sur sizing live.
+
+**État final architectural** :
+- Mac = mode dev (PRESAGE bootout durable `disabled`, survit reboot), Mac DB devient référence dev/test
+- VM = prod autoritaire, code `4075345` (HEAD post drift detector), DB = ex-Mac
+- Drift detector tournera quotidien 07:15 UTC pour empêcher la réoccurrence
+
+### Commits session 13/06 (extension post-close) — 3 commits supplémentaires
+
+- `06a5a6e..c8159a4` session principale (déjà notés Close initial)
+- `f2f3791` gardes mécanisées barrière #150 + doctrine no-anchoring (passe de "Claude se rappelle" à "système enforce")
+- `8a85c92` P0 dette currency bug tracée + cutover Mac→VM
+- `4075345` drift detector (anti-drift visible, pas auto-deploy)
+
+### Entry next session (mise à jour finale)
+
+1. **VM cron group_cap demain matin 07:15 UTC** : timer drift detector firera D'ABORD, puis morning_chain ~08:00 fera tourner group_cap_check_job pour la première fois en prod VM.
+2. **Si drift detector alerte un jour** : SSH VM, `git pull`, vérifier alembic head (code) == version_num (DB), si égalité → restart bot, si écart → migration manuelle avec 3 gardes CLAUDE.md.
+3. **Token Mac dev** (si besoin dev local) : BotFather → `@PRESAGE_dev_bot` ou similar, ajout `.env.dev` local, run `bot.main` avec `--env .env.dev`. Pas en prod risque.
+4. **Cure P0 currency 4 trades** : session dédiée. Design d'un mécanisme de correction (ledger event d'ajustement separate ou rebuild from broker source). NE PAS improviser sous pression.
+5. **Consolidation asymétrie** (toujours en file selon précédent close) : session fraîche, pas la queue d'une journée à 11 fils.
