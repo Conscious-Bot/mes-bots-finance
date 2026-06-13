@@ -3728,6 +3728,98 @@ def get_latest_group_cap_per_group(group_key: str) -> dict | None:
         return None
 
 
+# === research_brief log (spec #152 / migration 0061) ========================
+
+
+def insert_research_brief_log(
+    user_id: str, target: str, target_type: str,
+    success: bool, cost_actual_usd: float | None = None,
+    error_reason: str | None = None, response_chars: int | None = None,
+) -> int | None:
+    """Append-only insert apres un /research call.
+
+    target_type in {ticker, theme}. success bool stocke 0/1.
+    cost_actual_usd peut etre None si echec avant facturation LLM.
+    """
+    if target_type not in ("ticker", "theme"):
+        raise ValueError(
+            f"insert_research_brief_log: target_type={target_type!r} invalid. "
+            "Must be 'ticker' or 'theme'."
+        )
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO research_brief_log "
+                "(user_id, target, target_type, success, cost_actual_usd, "
+                " error_reason, response_chars) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    str(user_id), str(target), target_type,
+                    1 if success else 0,
+                    float(cost_actual_usd) if cost_actual_usd is not None else None,
+                    error_reason, response_chars,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_research_brief_log failed: {e}")
+        return None
+
+
+def check_research_brief_rate_limit(
+    user_id: str, window_seconds: int = 3600,
+) -> dict:
+    """Verifie rate-limit /research (defaut 1 brief / heure / user).
+
+    Returns dict {allowed: bool, last_at: str|None, retry_after_seconds: int}.
+    'allowed' is True si user n'a pas appelle dans la derniere fenetre.
+    """
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT created_at FROM research_brief_log "
+                "WHERE user_id = ? AND success = 1 "
+                "ORDER BY id DESC LIMIT 1",
+                (str(user_id),),
+            ).fetchone()
+            if not row:
+                return {"allowed": True, "last_at": None, "retry_after_seconds": 0}
+            last_at = row[0]
+            # SQLite datetime() store en UTC ISO format. Calcul delta via SQL.
+            delta_row = cx.execute(
+                "SELECT (strftime('%s', 'now') - strftime('%s', ?)) as delta_sec",
+                (last_at,),
+            ).fetchone()
+            delta_sec = int(delta_row[0]) if delta_row and delta_row[0] is not None else 0
+            allowed = delta_sec >= window_seconds
+            return {
+                "allowed": allowed,
+                "last_at": last_at,
+                "retry_after_seconds": 0 if allowed else (window_seconds - delta_sec),
+            }
+    except Exception as e:
+        _copilot_log.warning(f"check_research_brief_rate_limit failed: {e}")
+        # Fail-closed conservative : si DB erreur, refuser le brief
+        return {"allowed": False, "last_at": None, "retry_after_seconds": 0}
+
+
+def get_research_brief_cost_today(user_id: str) -> float:
+    """Sum cost_actual_usd today pour user_id (pour budget hard-stop daily)."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT COALESCE(SUM(cost_actual_usd), 0) "
+                "FROM research_brief_log "
+                "WHERE user_id = ? "
+                "AND created_at >= date('now')",
+                (str(user_id),),
+            ).fetchone()
+            return float(row[0]) if row else 0.0
+    except Exception as e:
+        _copilot_log.warning(f"get_research_brief_cost_today failed: {e}")
+        return 0.0
+
+
 # === stale_target monitor (#134 / migration 0056) ============================
 
 
