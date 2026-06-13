@@ -1,0 +1,34 @@
+# Pre-commit hook : ruff lint check sur fichiers staged.
+#
+# Cure structurelle session 13/06 post-CI cleanup : les 18 erreurs ruff qui
+# bloquaient CI s'etaient accumulees parce que rien ne les attrappait avant
+# push. Hook local = catch a chaque commit, jamais plus de surprise CI rouge.
+#
+# Setup (une fois par dev, apres clone) :
+#   source venv/bin/activate
+#   pip install pre-commit         # ou via requirements-dev.txt
+#   pre-commit install             # ecrit .git/hooks/pre-commit
+#
+# Usage : transparent. Chaque `git commit` lance ruff check sur fichiers staged.
+# Si erreur → commit aborte, tu fix (ou ruff --fix), tu re-stage, tu re-commit.
+#
+# Bypass d'urgence : `git commit --no-verify` (a justifier dans le message).
+# Doctrine : ne PAS skip les hooks sans raison documentee (cf CLAUDE.md).
+#
+# ⚠️ ruff-format VOLONTAIREMENT DESACTIVE.
+# Smoke session 13/06 : `ruff format --all-files` aurait reformate 364
+# fichiers en big-bang ET introduit une regression syntaxe Python 2 dans
+# tests/test_predictions_pipeline_invariants.py L131 (`except ValueError,
+# AttributeError:` qui ne compile pas en Py3). Pas acceptable comme "auto-cure".
+# Le formatting reste manuel cas par cas, pas systematique.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Pin precise sur version ruff matchant requirements-dev.txt (>=0.13.0,
+    # local actuel 0.15.12). Bump manuel quand on bumpe ruff dev side.
+    rev: v0.15.12
+    hooks:
+      # Lint check + auto-fix safe (= --fix sans --unsafe-fixes).
+      # Si fix applique : commit aborte, on re-stage les fichiers modifies.
+      - id: ruff-check
+        args: [--fix]
