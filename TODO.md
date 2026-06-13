@@ -1,10 +1,22 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 12 juin 2026 close (e) — consensus targets gratuit wired (yfinance .info, 100% couverture) · #134 enrichi cross-check consensus (migration 0057 + notif Telegram enrichie) · 7 divergent flaggés en prod (KLAC, TSLA, ALAB, 000660.KS, MU, BESI.AS, COHR) · 3 candidates batch #135 identifiés (BESI/COHR/STMPA)
+**Refresh** : 13 juin 2026 close final — 10 commits propres pushés origin/main · cutover Mac→VM réussi (split-brain résolu, VM=prod, Mac=dev) · drift detector daily 07:15 UTC actif · G2 chantier #150 = vert (10 sentinelles posées avec doctrine no-anchoring amendée 4 cas) · #147 RÉSOLU (KLAC stale cache, pas ordering) · spec + squelette #152 research_brief posés (handler /research session fraîche future)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (13/06 close final)
+
+- **Cutover Mac→VM complet** : VM `37.27.247.126` = prod autoritaire, code `bf35546`, alembic head `0061`. Mac = dev mode (`launchctl bootout com.olivier.presage` durable). 0 Telegram Conflict post-restart 08:31:40 UTC.
+- **Drift detector déployé** : systemd user timer `presage-drift-detector.timer` daily 07:15 UTC. Smoke test passé (`behind=0`). Cure structurelle anti-récurrence 292-commits-drift.
+- **G2 chantier #150 = VERT** : 10 sentinelles posées (`scripts/seed_sentinels_2026-06-13.py`, pids 294-303), origin='manual' honnête. Doctrine `feedback_no_probability_anchoring` amendée avec 4 cas (calibration/sémantique/mécanique/border Claude-assisted) + fact-check Bigdata.com pré-pose obligatoire. Sum probs 1.49 hors mécaniques (S2 CXMT HBM chinois dominante 0.70).
+- **Migration 0060 amendée** : 3 gardes (CHECK conditionnel + count-assert ABORT + bot-stop required). 290 lignes legacy backfillées price/signal. `claim_type` enum {price, event, data} + `resolution_source` + `origin` enum {signal, manual} + ticker NULL-able. CHECK SQL en base, pas validation app seule.
+- **Migration 0061** : table `research_brief_log` append-only (triggers no_delete + no_update). Helpers storage : `insert_research_brief_log` + `check_research_brief_rate_limit` + `get_research_brief_cost_today`. Spec #152 complète posée. Reste : module Bigdata + format markdown + handler Telegram (~1h session fraîche).
+- **2 gardes mécanisées en tests** : `test_chantier_150_barrier_enforced.py` (empêche création Unit A/B/C/D sans levée explicite) + `test_no_probability_anchoring_enforced.py` (regex check anti-anchoring sur scripts/seed_*.py). Discipline passe de "Claude se rappelle" à "système enforce".
+- **CLAUDE.md doctrine ajoutée** : "Migration cœur sur table sous cron" (3 gardes obligatoires bot-stop + count-assert + CHECK SQL).
+- **Pytest baseline 1892/1892** (+4 nouveaux tests `test_research_brief_log.py`). #147 résolu via KNOWN_DEBT_EXEMPT KLAC+SPCX.
+- **Backups labellisés** : Mac `snapshot_pre_reconciliation_20260613_171803` (91MB), VM `backup_pre_cutover_macreplace_20260613_172611` (18MB côté Hetzner).
 
 ## 🟢 ÉTAT SYSTÈME (12/06 close e)
 

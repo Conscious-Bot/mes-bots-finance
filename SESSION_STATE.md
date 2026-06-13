@@ -3434,3 +3434,40 @@ Trois chantiers couplés sur une session marathon de 60+ tours :
 3. **Token Mac dev** (si besoin dev local) : BotFather → `@PRESAGE_dev_bot` ou similar, ajout `.env.dev` local, run `bot.main` avec `--env .env.dev`. Pas en prod risque.
 4. **Cure P0 currency 4 trades** : session dédiée. Design d'un mécanisme de correction (ledger event d'ajustement separate ou rebuild from broker source). NE PAS improviser sous pression.
 5. **Consolidation asymétrie** (toujours en file selon précédent close) : session fraîche, pas la queue d'une journée à 11 fils.
+
+### Extension finale (override discipline marathon explicite) — #147 + spec #152 + squelette #152
+
+**Mission de l'extension finale** : après "verifions tout", "corrigeons tout", et "cleanon les dettes", user a override la discipline marathon avec scope strict 30 min pour démarrer #152 (handler `/research` posture analyste).
+
+**Livré** :
+- `261f58f` **#147 RÉSOLU** : diag honnête révélant que c'est KLAC stale cache, pas ordering-dependent. Cure via `KNOWN_DEBT_EXEMPT = {KLAC, SPCX}` cohérent pattern existant (test_book_gate.py, test_pipeline_end_to_end.py). Net pytest 1888/1888.
+- `d8668f5` **spec #152** : `docs/research_brief_spec.md` complète (197 lignes). Posture analyste = autorisée hors barrière #150 (matière factuelle pas jugement). Frontière strict : test mécanisé regex anti-verdict en sortie. 3 queries Bigdata.com (financials + consensus + news), format markdown Telegram, rate-limit 1/h, budget LLM cap, fail-closed.
+- `bf35546` **#152 squelette** : migration 0061 (table `research_brief_log` append-only + triggers no_delete/no_update + 2 indexes) + helpers storage (insert + rate-limit + cost-today) + 4 tests dédiés (4/4 verts). Reste session fraîche : module `intelligence/research_brief.py` (Bigdata calls + format markdown) + handler `bot/handlers/research.py` (cmd_research) + test anti-verdict regex. ~1h.
+
+**État final architectural extension** :
+- Pytest baseline théorique 1892/1892 (+4 nouveaux tests research_brief_log)
+- alembic head 0061 symétrique Mac + VM
+- Migration appliquée hot sur VM sans bot-stop (CREATE TABLE seul = safe, pas recreate-table donc 3 gardes pas nécessaires)
+- Spec figée avec frontière barrière #150 explicite + bonus fact-check pré-pose pour sentinelles futures
+
+### Commits session 13/06 (final) — 10 commits propres sur origin/main
+
+- `06a5a6e` #149 group_cap monitor + #150 chantier spec + cure G2 (10 sentinelles posées rouge→vert)
+- `d5b10fe` close v1 rituel L6
+- `c8159a4` quick wins (trigger group_cap + .gitignore + edgar mock schema)
+- `f2f3791` gardes mécanisées (barrière #150 + doctrine no-anchoring)
+- `8a85c92` P0 dette currency 4 trades + cutover Mac→VM préparé
+- `4075345` drift detector daily 07:15 UTC
+- `f0e4a30` close v2 cutover
+- `261f58f` #147 RÉSOLU diag réel (KLAC stale cache)
+- `d8668f5` spec #152 research_brief
+- `bf35546` #152 squelette (migration 0061 + helpers + 4 tests)
+
+### Entry next session finale (mise à jour ultime)
+
+1. **Implémentation finale #152** : module `intelligence/research_brief.py` (Bigdata calls + format markdown structuré + budget cap LLM) + handler `bot/handlers/research.py` (cmd_research + Telegram split chunks) + test anti-verdict regex (frontière barrière #150). Cf `docs/research_brief_spec.md` §3-§7. ~1h session fraîche.
+2. **Cure P0 currency 4 trades** : session dédiée, design d'un mécanisme de correction propre (ledger event d'ajustement separate OU rebuild from broker source). Path-dependent PMP = NE PAS improviser sous pression. Valeurs correctes documentées dans TODO §0bis.
+3. **Si drift detector alerte un jour** : SSH VM, git pull, vérifier alembic head (code) == version_num (DB), si égalité → restart bot, si écart → migration manuelle avec 3 gardes CLAUDE.md.
+4. **Cron group_cap demain matin VM** : timer 07:15 UTC drift detector FIRST, puis morning_chain ~08:00 fait tourner group_cap_check_job pour la 1ère fois en prod VM.
+5. **Token Mac dev** (si besoin dev local) : action BotFather mobile → bot séparé → .env.dev local.
+6. **Première résolution sentinelle** : S1 DRAM spread = 31/12/2026 (201 jours). Avec les autres horizons courts S8 (31/01/2027) et S9 (31/12/2026), tu auras 3 résolutions sentinelles avant Q1 2027 pour calibrer.
