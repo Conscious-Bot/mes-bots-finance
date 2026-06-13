@@ -30,6 +30,10 @@ def _setup_isolated_db(tmp_path, monkeypatch):
     """
     db_path = tmp_path / "test_wire.db"
     conn = sqlite3.connect(str(db_path))
+    # Schema minimal : sources, signals, predictions. Le e2e test peut faire
+    # tomber un insert_prediction si V2 produit une probabilite -- d'ou le besoin
+    # de predictions avec schema POST-0060 (claim_type / resolution_source /
+    # origin + CHECK conditionnel). Cure 13/06 G3 quick win.
     conn.executescript("""
     CREATE TABLE sources (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,6 +57,35 @@ def _setup_isolated_db(tmp_path, monkeypatch):
         signal_type TEXT,
         impact_magnitude REAL
     );
+    CREATE TABLE predictions (
+        id INTEGER PRIMARY KEY,
+        signal_id INTEGER REFERENCES signals(id),
+        ticker TEXT,
+        direction TEXT NOT NULL,
+        horizon_days INTEGER NOT NULL,
+        baseline_price REAL,
+        baseline_date TEXT NOT NULL,
+        target_date TEXT NOT NULL,
+        resolved_at TEXT,
+        final_price REAL,
+        return_pct REAL,
+        outcome TEXT,
+        credibility_delta REAL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        probability_at_creation REAL,
+        brier_score REAL,
+        methodology_version TEXT NOT NULL,
+        scoring_trace_json TEXT,
+        source_metadata_json TEXT,
+        claim_type TEXT NOT NULL DEFAULT 'price'
+            CHECK(claim_type IN ('price', 'event', 'data')),
+        resolution_source TEXT,
+        origin TEXT NOT NULL DEFAULT 'signal'
+            CHECK(origin IN ('signal', 'manual')),
+        CHECK(claim_type = 'price' OR resolution_source IS NOT NULL)
+    );
+    CREATE INDEX idx_predictions_target ON predictions(target_date);
+    CREATE INDEX idx_predictions_signal ON predictions(signal_id);
     """)
     conn.commit()
     conn.close()
