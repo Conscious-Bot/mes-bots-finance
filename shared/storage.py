@@ -902,6 +902,9 @@ def insert_prediction(
     probability_override=None,
     scoring_trace_json=None,
     source_metadata_json=None,
+    claim_type: str = "price",
+    resolution_source: str | None = None,
+    origin: str = "signal",
 ):
     """Brier: probability_at_creation source determined by caller.
 
@@ -922,6 +925,22 @@ def insert_prediction(
     V1 path : score/signal_type/impact_magnitude threaded ; credibility re-queried.
     Si score is None et probability_override is None : NOT registered (floored
     0.50 polluerait Brier ledger, bug 27/05).
+
+    Migration 0060 (cure chantier #150 G2) :
+    - claim_type ∈ {'price', 'event', 'data'} : segmentation calibration.
+      'price' (default, backwards-compat) = pari de prix sur ticker, baseline
+      requise, resolution via prix au target_date.
+      'event' = fait binaire avec horizon (ex. sentinelles macro). Ticker
+      optionnel, baseline_price optionnel, resolution_source REQUIS.
+      'data' = donnee mesurable a horizon (ex. capex hyperscalers Q4 2026).
+      Resolution_source REQUIS.
+    - resolution_source : source de verite externe (TrendForce, SemiAnalysis,
+      transcript GEV, etc). NOT NULL pour event/data. Trace ce qui resoudra
+      le claim hors prix.
+    - origin ∈ {'signal', 'manual'} : qui a pose le claim. 'signal' (default,
+      backwards-compat) = pose auto-scorer (signal_id requis). 'manual' =
+      pose humaine (sentinelles Olivier, pre-registration thesis ; signal_id
+      optionnel, peut etre None).
     """
     import logging as _logging
 
@@ -933,6 +952,33 @@ def insert_prediction(
         raise ValueError(
             "insert_prediction: methodology_version is required and must be a non-empty str "
             "(ADR 014 hazard B fix). Pass 'v1', 'v2', 'rule_v1_shadow', etc. explicitly."
+        )
+
+    # Validation claim_type (migration 0060)
+    if claim_type not in ("price", "event", "data"):
+        raise ValueError(
+            f"insert_prediction: claim_type={claim_type!r} invalid. "
+            "Must be one of: 'price', 'event', 'data'."
+        )
+    if origin not in ("signal", "manual"):
+        raise ValueError(
+            f"insert_prediction: origin={origin!r} invalid. "
+            "Must be one of: 'signal', 'manual'."
+        )
+    # event/data : resolution_source REQUIS (le claim n'a pas de prix pour
+    # se resoudre, il a besoin d'une source de verite externe declaree).
+    if claim_type in ("event", "data") and not resolution_source:
+        raise ValueError(
+            f"insert_prediction: claim_type={claim_type!r} requires resolution_source "
+            "(non-empty str). Sans source, le claim event/data n'est pas resoudable "
+            "et contamine le ledger Brier (cure chantier #150)."
+        )
+    # origin='signal' : signal_id REQUIS (pose auto -> doit pointer son signal source).
+    # origin='manual' : signal_id peut etre None (pose humaine sans signal parent).
+    if origin == "signal" and signal_id is None:
+        raise ValueError(
+            "insert_prediction: origin='signal' requires signal_id NOT NULL. "
+            "Pour pose manuelle sans signal parent, use origin='manual'."
         )
 
     conn = _sqlite3.connect(DB_PATH)
@@ -962,10 +1008,12 @@ def insert_prediction(
         cur = conn.execute(
             "INSERT INTO predictions (signal_id, ticker, direction, horizon_days, baseline_price, "
             "baseline_date, target_date, probability_at_creation, "
-            "scoring_trace_json, source_metadata_json, methodology_version) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "scoring_trace_json, source_metadata_json, methodology_version, "
+            "claim_type, resolution_source, origin) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (signal_id, ticker, direction, horizon_days, baseline_price, baseline_date,
-             target_date, prob, scoring_trace_json, source_metadata_json, methodology_version),
+             target_date, prob, scoring_trace_json, source_metadata_json, methodology_version,
+             claim_type, resolution_source, origin),
         )
         conn.commit()
         _pred_id = cur.lastrowid
@@ -3615,6 +3663,68 @@ def get_latest_oca_per_ticker(ticker: str) -> dict | None:
             return dict(zip(cols, row, strict=False))
     except Exception as e:
         _copilot_log.warning(f"get_latest_oca_per_ticker failed: {e}")
+        return None
+
+
+# === group_cap monitor (#149 / migration 0059) ==============================
+
+
+def insert_group_cap_alert(
+    group_key: str,
+    tickers: list,
+    status: str,
+    group_pct: float,
+    cap_pct: float,
+    group_eur: float,
+    book_eur: float,
+    notified: bool = False,
+    transition: str | None = None,
+) -> int | None:
+    """Insert un row d'evaluation group_cap. status in {dormant, over}.
+    Append-only ; prev_status = derniere row (cf get_latest_group_cap_per_group).
+    transition in {dormant_to_over, over_to_dormant, no_change, NULL}.
+
+    PAS de bias_event_id (signal pur de gouvernance taille groupe, pas anti-bias).
+    """
+    import json as _json
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO group_cap_alerts "
+                "(group_key, tickers_json, status, group_pct, cap_pct, "
+                " group_eur, book_eur, notified, transition) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    str(group_key), _json.dumps(tickers, ensure_ascii=False),
+                    status, float(group_pct), float(cap_pct),
+                    float(group_eur), float(book_eur),
+                    1 if notified else 0, transition,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        _copilot_log.warning(f"insert_group_cap_alert failed: {e}")
+        return None
+
+
+def get_latest_group_cap_per_group(group_key: str) -> dict | None:
+    """Last evaluation row for group_key, ou None si jamais evalue."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT id, created_at, tickers_json, status, group_pct, cap_pct, "
+                "       group_eur, book_eur, notified, transition "
+                "FROM group_cap_alerts WHERE group_key=? "
+                "ORDER BY id DESC LIMIT 1",
+                (str(group_key),),
+            ).fetchone()
+            if not row:
+                return None
+            cols = ["id", "created_at", "tickers_json", "status", "group_pct",
+                    "cap_pct", "group_eur", "book_eur", "notified", "transition"]
+            return dict(zip(cols, row, strict=False))
+    except Exception as e:
+        _copilot_log.warning(f"get_latest_group_cap_per_group failed: {e}")
         return None
 
 

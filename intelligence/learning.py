@@ -227,6 +227,14 @@ def auto_register_predictions(signals: list[dict[str, Any]], horizon_days: int =
     une probabilite directionnelle calibree. Direction = "watch" -> skip (sort
     du ledger, mieux que neutral mou).
 
+    DOCTRINE 'watch' (migration 0060, chantier #150) : ce skip ne concerne que la
+    voie AUTO-SCORER ici. 'watch' est CLASSE PREMIERE pour les sentinelles
+    POSEES MANUELLEMENT (origin='manual', claim_type IN ('event','data') -- ex.
+    S1-S10 sentinelles macro). NE PAS unifier en supprimant 'watch' du schema
+    croyant que c'est un dead branch : la voie manuelle l'utilise. Si tu trouves
+    ce skip et te dis "ah, watch n'est jamais ecrit, simplifions" -- non. Voir
+    docs/CHANTIER_REDEVABILITY_LAYER.md G2 + tests/test_migration_0060_*.
+
     Filter en entree : on garde score>=6 + sentiment bullish/bearish pour limiter
     le cout LLM (eviter de scorer du noise). V2 lui meme decide ensuite : il
     peut downgrade en watch ou inverser la direction si l'evidence le justifie.
@@ -348,8 +356,23 @@ def resolve_due_predictions(limit: int = 50) -> dict[str, Any]:
     due = storage.get_due_predictions(limit=limit)
     if not due:
         return {"resolved": 0, "details": []}
-    results: dict[str, Any] = {"resolved": 0, "details": []}
+    results: dict[str, Any] = {"resolved": 0, "details": [], "skipped_event": 0}
     for pred in due:
+        # Migration 0060 (chantier #150 G2) : event/data claims se resolvent sur
+        # resolution_source + le fait externe, JAMAIS sur baseline_price. La
+        # resolution auto prix-basee ne s'applique qu'aux claims 'price'. Pour
+        # event/data, l'humain (ou un futur cron event-aware) lit la source et
+        # appelle resolve_event_prediction(pred_id, outcome). Skip silent ici =
+        # contamination prix-comme-preuve evitee.
+        ct = pred.get("claim_type", "price")
+        if ct in ("event", "data"):
+            results["skipped_event"] += 1
+            log.info(
+                f"resolve_due_predictions SKIP event-type pred_id={pred.get('id')} "
+                f"ticker={pred.get('ticker') or '<macro>'} claim_type={ct} "
+                f"-- resolution manuelle ou cron dedie sur resolution_source='{pred.get('resolution_source')}'"
+            )
+            continue
         ticker = pred["ticker"]
         baseline_price = pred["baseline_price"]
         direction = pred["direction"]

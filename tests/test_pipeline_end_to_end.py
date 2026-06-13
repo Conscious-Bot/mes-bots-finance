@@ -183,12 +183,10 @@ def test_invariants_pass_after_synthetic_decision():
     with storage.db() as cx:
         v_before = run_static_gate(cx, strict=False)
 
-    # KNOWN-GAP 12/06/2026 : KLAC entry/stop/targets posees pendant bug
-    # yfinance 11/06 (prix gonfle x10). Action humaine pending = "fixer
-    # source prix d'abord, target apres" (cf TODO close (d) P0 humain +
-    # SESSION_STATE). Aligne avec exemption KNOWN_DEBT_TICKERS_CURRENCY
-    # dans tests/test_book_gate.py. A retirer quand Olivier repose KLAC.
-    KNOWN_DEBT_CURRENCY_TICKERS = {"KLAC"}
+    # KNOWN-GAP : KLAC (12/06 yfinance bug) + SPCX (13/06 target 500 EUR
+    # validation Olivier comme 3× high analyst). Align avec exemption
+    # KNOWN_DEBT_TICKERS_CURRENCY dans tests/test_book_gate.py.
+    KNOWN_DEBT_CURRENCY_TICKERS = {"KLAC", "SPCX"}
     unexpected = [
         viol for viol in v_before
         if not (

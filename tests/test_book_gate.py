@@ -23,7 +23,15 @@ KNOWN_DEBT_TICKERS_KILL_CRITERIA: set[str] = set()
 # 11/06 (prix gonfle x10). Action humaine pending = "fixer source prix
 # d'abord, target apres" (cf TODO close (d) P0 humain + SESSION_STATE).
 # A retirer quand Olivier repose les niveaux KLAC sur le prix reel.
-KNOWN_DEBT_TICKERS_CURRENCY: set[str] = {"KLAC"}
+KNOWN_DEBT_TICKERS_CURRENCY: set[str] = {
+    "KLAC",
+    # SPCX (validation 13/06/2026) : target 500 EUR explicitement pose par
+    # Olivier comme 3× le high analyst (variant convaincu, parameter-free L16
+    # consensus_divergence). Entry stocke USD natif via trigger 0054 write-once,
+    # target/stop en EUR direct. Mismatch devise interne ASSUME doctrinalement.
+    # Cf scripts/add_spcx_ipo_2026-06-13.py + [[currency-native-invariant]].
+    "SPCX",
+}
 
 
 @pytest.mark.live_book

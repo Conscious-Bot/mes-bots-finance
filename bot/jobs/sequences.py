@@ -63,6 +63,7 @@ async def morning_chain():
     from bot.jobs.daily import (
         daily_decision_anniversary_job,
         daily_digest_job,
+        daily_group_cap_check_job,
         daily_kill_criteria_check_job,
         daily_over_cap_check_job,
         daily_resolve_job,
@@ -100,6 +101,7 @@ async def morning_chain():
     await _safe_run("kill_criteria_check", daily_kill_criteria_check_job)
     await _safe_run("over_cap_check", daily_over_cap_check_job)
     await _safe_run("stale_target_check", daily_stale_target_check_job)
+    await _safe_run("group_cap_check", daily_group_cap_check_job)
     await _safe_run("risk_signal_monitor", daily_risk_signal_monitor_job)
     await _safe_run("decision_anniversary", daily_decision_anniversary_job)
 

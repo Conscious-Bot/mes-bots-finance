@@ -66,6 +66,43 @@ def test_predictions_brier_in_unit_interval(conn):
     assert not rows, f"Brier out of [0,1]: {[dict(r) for r in rows]}"
 
 
+def test_predictions_event_data_have_resolution_source(conn):
+    """Migration 0060 (cure chantier #150 G2) : tout claim_type IN ('event','data')
+    DOIT avoir resolution_source NON-NULL. Sans source de verite externe declaree,
+    le claim event/data n'est pas resoudable et contamine le ledger Brier.
+
+    Le schema accepte resolution_source NULL globalement (pour backwards-compat
+    avec les 285 lignes price-claim historiques). L'invariant metier est ici :
+    interdire la sentinelle mal formee au niveau de la CLASSE, pas seulement
+    de l'INSTANCE. Une migration future ajoutera un CHECK SQL quand toutes les
+    rows existantes seront verifiees conformes.
+    """
+    rows = conn.execute(
+        "SELECT id, ticker, claim_type, resolution_source FROM predictions "
+        "WHERE claim_type IN ('event', 'data') "
+        "AND (resolution_source IS NULL OR trim(resolution_source) = '')"
+    ).fetchall()
+    assert not rows, (
+        f"Predictions event/data sans resolution_source : {[dict(r) for r in rows]}. "
+        "Toute pose event/data doit declarer sa source de verite externe."
+    )
+
+
+def test_predictions_origin_signal_has_signal_id(conn):
+    """Migration 0060 : origin='signal' DOIT avoir signal_id NOT NULL.
+    Une pose auto-scorer sans signal parent est incoherente (impossible de
+    remonter la chaine de provenance). 'manual' peut etre signal_id NULL.
+    """
+    rows = conn.execute(
+        "SELECT id, ticker, claim_type, origin FROM predictions "
+        "WHERE origin = 'signal' AND signal_id IS NULL"
+    ).fetchall()
+    assert not rows, (
+        f"Predictions origin='signal' sans signal_id : {[dict(r) for r in rows]}. "
+        "Pose auto-scorer doit pointer son signal source ; sinon use origin='manual'."
+    )
+
+
 def test_decisions_return_30d_consistent_with_prices(conn):
     """return_30d_pct must match (price_30d - price_at_decision) / price_at_decision.
 

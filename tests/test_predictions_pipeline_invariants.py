@@ -47,14 +47,23 @@ def conn():
 
 
 def test_non_v0_predictions_have_signal_source(conn):
-    """Toute prediction non-v0 (V1/V2) doit avoir signal_id NOT NULL.
-    Sinon, provenance perdue -- audit externe impossible."""
+    """Toute prediction non-v0 origin='signal' doit avoir signal_id NOT NULL.
+    Sinon, provenance perdue -- audit externe impossible.
+
+    Scope post-migration 0060 (cure chantier #150 G2) : origin='manual'
+    (sentinelles posees humain, pre-registration thesis) n'a PAS de
+    signal_id par construction. La provenance vit dans source_metadata_json
+    + methodology_version + origin='manual' explicite. Filtre origin='signal'
+    applique pour scoper l'invariant a la voie auto-scorer.
+    """
     rows = conn.execute(
         "SELECT id, ticker, methodology_version FROM predictions "
-        "WHERE methodology_version != 'v0' AND signal_id IS NULL"
+        "WHERE methodology_version != 'v0' "
+        "AND origin = 'signal' "
+        "AND signal_id IS NULL"
     ).fetchall()
     assert not rows, (
-        f"Predictions non-v0 sans signal_id (provenance perdue) : "
+        f"Predictions non-v0 origin='signal' sans signal_id (provenance perdue) : "
         f"{[dict(r) for r in rows[:5]]}"
     )
 

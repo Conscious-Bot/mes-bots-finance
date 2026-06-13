@@ -82,12 +82,15 @@ def test_active_thesis_has_complete_inputs(held_lines):
     # par CONDITION STRUCTURELLE (capex guide, market share, spreads), pas par un
     # mouvement de cours. Laisser un stop-prix = laisser l'humeur du marche, et
     # non la condition de falsification, decider de la sortie. Erreur de categorie.
-    # invalidation_triggers restent renseignes et structurels pour ces 4 lignes.
+    # invalidation_triggers restent renseignes et structurels pour ces 5 lignes.
     accepted_blind: set[str] = {
-        "ASML.AS",  # monopole EUV litho -- invalidation = bookings/export/capex hyperscaler
-        "TSM",      # quasi-monopole foundry leading-edge -- invalidation = Samsung 2nm / Intel 18A / gross margin
-        "SNPS",     # duopoly EDA -- invalidation = Ansys merger / ASP / open-source EDA
-        "6920.T",   # Lasertec EUV inspection masque actinique -- invalidation = concurrent volume-livre
+        "ASML.AS",   # monopole EUV litho -- invalidation = bookings/export/capex hyperscaler
+        "TSM",       # quasi-monopole foundry leading-edge -- invalidation = Samsung 2nm / Intel 18A / gross margin
+        "SNPS",      # duopoly EDA -- invalidation = Ansys merger / ASP / open-source EDA
+        "6920.T",    # Lasertec EUV inspection masque actinique -- invalidation = concurrent volume-livre
+        "000660.KS", # Hynix RÉGIME A STRUCTURAL (13/06) -- HBM chokepoint, target supprimé volontairement.
+                     # Invalidation = qualif HBM CXMT volume (cf sentinelle S2) + 3 triggers structurels graves.
+                     # Cf scripts/hynix_repose_regime_a_2026-06-13.py.
     }
     unexpected = sorted(set(blind_tk) - accepted_blind)
     assert not unexpected, (
@@ -128,8 +131,17 @@ def test_phantoms_match_canonical_tagging(held_lines):
 def test_stop_fade_coherence_no_extreme_outliers(held_lines):
     """F10 : haut fade (>=60) + stop_dist enorme (>50%) = INCOHERENT.
     On laisse une marge a 50% pour ne pas trop bloquer. ALAB a -51%, edge case."""
+    # Exemptions explicites : positions ou stop large + fade haut est INTENTIONNEL.
+    # SPCX (validation 13/06) : variant convaincu, post-IPO vol enorme (+50% en
+    # jours). Stop 50 EUR = -64% volontaire pour ne pas etre sorti par noise
+    # IPO. Fade 72 reflete erosion fondamentale si these merger TSLA-SPCX echoue ;
+    # decision Olivier d'accepter cette incoherence apparente. Cf
+    # scripts/add_spcx_ipo_2026-06-13.py + [[currency-native-invariant]].
+    accepted_outliers: set[str] = {"SPCX"}
     extreme = []
     for ln in held_lines:
+        if ln.ticker in accepted_outliers:
+            continue
         if not ln.fade_rate_score or ln.fade_rate_score < 60:
             continue
         if not ln.stop_price or not ln.current_price_eur:

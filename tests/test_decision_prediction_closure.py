@@ -157,17 +157,22 @@ def test_pending_predictions_have_future_target_date(conn):
 
 
 def test_predictions_baseline_price_positive(conn):
-    """Toute prediction insere doit avoir un baseline_price > 0.
+    """Toute prediction PRICE-claim doit avoir un baseline_price > 0.
 
-    Si on a des baseline_price NULL ou <=0 = bug d'ingestion (prediction
-    creee sans prix observable -> outcome ne peut pas etre calcule).
+    Si on a des baseline_price NULL ou <=0 sur price-claims = bug d'ingestion
+    (prediction creee sans prix observable -> outcome ne peut pas etre calcule).
+
+    Scope post-migration 0060 (cure chantier #150 G2) : event-claims et data-
+    claims n'ont PAS de baseline_price par construction (le claim ne mesure
+    pas un prix). Filtre claim_type='price' applique.
     """
     n = conn.execute(
         "SELECT COUNT(*) FROM predictions "
-        "WHERE baseline_price IS NULL OR baseline_price <= 0"
+        "WHERE claim_type = 'price' "
+        "AND (baseline_price IS NULL OR baseline_price <= 0)"
     ).fetchone()[0]
     assert n == 0, (
-        f"{n} predictions avec baseline_price NULL/<=0. "
+        f"{n} predictions PRICE-claim avec baseline_price NULL/<=0. "
         "Bug d'ingestion ou price fetch failed -- ces predictions ne peuvent "
         "pas etre resolues."
     )

@@ -39,6 +39,8 @@
 
 ### Action humaine (pas code)
 
+~~0. **G2 du chantier #150 = ROUGE : `/predict ×10` sentinelles event-type**~~ — **RÉSOLU 13/06** : 10 sentinelles posées via `scripts/seed_sentinels_2026-06-13.py` après cure complète du schéma (migration 0060 ajoute `claim_type/resolution_source/origin` + CHECK conditionnel + ticker nullable). Distribution : 2 Olivier-seul (S1, S2), 6 Claude-assisted post-amend doctrine (S3-S5, S7-S9), 2 mécaniques 0.99 (S6, S10 déjà publiquement déclenchées trouvées via fact-check Bigdata.com). `origin='manual'` honnête. G2 ledger PASSAGE ROUGE→VERT (pids 294-303).
+
 1. **KLAC + 5 dying + 1 dead à reposer** (cf #135 méthode) : le monitor `stale_target` livré aujourd'hui (#134, commit `5f5c5a8`) remonte 5 transitions `alive_to_dying` (CCJ +0.6%, AMZN +4.0%, 6857.T +4.5%, 4063.T +3.6%, AVGO +4.1%) + 1 `alive_to_dead` (000660.KS edge -0.3%) + KLAC currency_native hors-range. Action humaine = relire chaque thèse + reposer target+stop ancrés sur prix réel actuel (cf doctrine #135 : 3 colonnes Instrument/Ancre externe live/Ressenti).
 
 ~~2. **#134 monitor `stale_target`**~~ — **RÉSOLU 12/06 (commit `5f5c5a8`)** : 3e monitor canonique livré + smoke live (19 alive, 5 dying, 1 dead, 6 notifs Telegram). Pattern figé du gabarit `monitor_pattern.md` validé une 3e fois.
@@ -56,6 +58,8 @@
 - **#147 Tests flaky ordering-dependent** : `test_aggregate_sum_equals_parts` + `test_coherence_under_perturbation` passent isolément, fail au full-run. Pollution état partagé. Diagnostic : probablement DB temp réutilisée ou cache statique non-clean. ~1h diag.
 
 - **Cure structurelle tests CI-fresh DB** : 7 tests utilisent `skip-on-OperationalError` (cure aujourd'hui pour débloquer CI). Vraie cure = migrer ces 7 tests vers fixture `migrated_db` canonique. À faire en lot. ~1h.
+
+- **#150 Couche de redevabilité décisionnelle (chantier figé 13/06, gated)** : étage au-dessus du ledger de prédictions, 4 unités en 3 couches (nulle paresseuse → registre unifié thèses engagées+vétoées → narrative drift + P&L biais). Spec complète : [`docs/CHANTIER_REDEVABILITY_LAYER.md`](docs/CHANTIER_REDEVABILITY_LAYER.md). Decision record : [`docs/adrs/010-decision-accountability-layer.md`](docs/adrs/010-decision-accountability-layer.md). 3 décisions tranchées 13/06 (Q1 deux hashes thesis/levels, Q2 nulle 100% SOXX jamais-rebalance + métriques duales, Q3 deux labels orthogonaux + détecteur a sa propre nulle). **Barrière §0 status 13/06 fin session** : G1✅(94 résolus) G2✅(10 sentinelles ledger) G3✅(18 triggers append-only, alembic 0060) G4✅(cure pattern #133bis add_sell) G5❓(baseline pytest à confirmer). **Ne démarre pas avant** : G5 vert ET observation post-Couche 0 plusieurs semaines. Construire avant d'observer = biais #3 en livrée d'architecte.
 
 ---
 

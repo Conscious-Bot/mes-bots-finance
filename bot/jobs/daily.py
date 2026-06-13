@@ -525,6 +525,27 @@ async def daily_stale_target_check_job():
         log.error(f"daily_stale_target_check failed: {e}")
 
 
+async def daily_group_cap_check_job():
+    """#149 -- detection transition dormant/over par GROUPE de tickers.
+
+    Le 4e monitor (pattern figé docs/templates/monitor_pattern.md). Premier
+    groupe live : memory = {000660.KS, MU} cap 6%. Signal pur de gouvernance
+    taille groupe : notify sur dormant_to_over. PAS de wire bias_event
+    (overlay book-level hors thèse). Tourne quotidien matin.
+    """
+    log.info("Daily group_cap check starting")
+    try:
+        from intelligence import group_cap_monitor as _gcm
+        out = _gcm.check_all_group_cap_transitions()
+        log.info(
+            f"group_cap_check : checked={out['checked']} dormant={out['dormant']} "
+            f"over={out['over']} transitions={out['transitions']} "
+            f"notified={out['notified']} errors={out['errors']}"
+        )
+    except Exception as e:
+        log.error(f"daily_group_cap_check failed: {e}")
+
+
 async def weekly_bias_event_backfill_observations_job():
     """v2.c.6 -- backfill observations[] longs horizons (60j, 90j) sur les
     bias_events resolved canoniquement (a +30j).
