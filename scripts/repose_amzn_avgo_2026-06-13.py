@@ -101,7 +101,7 @@ def main():
         if cur.rowcount != 1:
             raise RuntimeError(f"AVGO rowcount={cur.rowcount}")
         cx.commit()
-        print(f"✓ UPDATE AMZN + AVGO OK")
+        print("✓ UPDATE AMZN + AVGO OK")
 
 
 if __name__ == "__main__":

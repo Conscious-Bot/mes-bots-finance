@@ -20,7 +20,9 @@ DB backup pre-INSERT obligatoire.
 """
 import uuid
 from datetime import UTC, datetime
-from shared import storage as s, prices
+
+from shared import prices, storage as s
+
 
 def main():
     p = prices.get('6857.T')

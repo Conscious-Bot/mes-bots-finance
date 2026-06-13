@@ -77,7 +77,7 @@ def _quota_check() -> bool:
     """Returns True si le quota journalier le permet. Refresh compteur à minuit UTC."""
     global _QUOTA_DATE, _QUOTA_USED
     today = datetime.now(UTC).date().isoformat()
-    if _QUOTA_DATE != today:
+    if today != _QUOTA_DATE:
         _QUOTA_DATE = today
         _QUOTA_USED = 0
     return _QUOTA_USED < _QUOTA_LIMIT
@@ -92,7 +92,7 @@ def _quota_used() -> None:
 def quota_status() -> dict:
     """Returns dict {date, used, limit, remaining}. Pour audit/logging."""
     today = datetime.now(UTC).date().isoformat()
-    used = _QUOTA_USED if _QUOTA_DATE == today else 0
+    used = _QUOTA_USED if today == _QUOTA_DATE else 0
     return {
         "date": today,
         "used": used,

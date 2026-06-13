@@ -52,9 +52,10 @@ def test_triggers_append_only_preserved(migrated_db):
 
 def test_insert_event_without_resolution_source_raises(migrated_db):
     """event/data REQUIERT resolution_source."""
-    from shared import storage as s
     # Cree d'abord un signal parent valide pour le test
     import sqlite3
+
+    from shared import storage as s
     cx = sqlite3.connect(migrated_db)
     cx.execute(
         "INSERT INTO sources (name, type, credibility, family) "
@@ -136,8 +137,8 @@ def test_resolve_due_skips_event_type(migrated_db):
     Garantit que la resolution prix-basee ne contamine pas un event-claim
     (cure pattern price-as-proof, doctrine 13/06).
     """
-    from shared import storage as s
     from intelligence import learning as l
+    from shared import storage as s
     # Pose 1 event-claim deja due (target_date passe)
     pid = s.insert_prediction(
         signal_id=None, ticker=None, direction="watch", horizon_days=1,

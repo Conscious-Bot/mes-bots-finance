@@ -26,6 +26,7 @@ DB backup pre-update : data/bot.db.backup_pre_hynix_repose_<timestamp>
 from __future__ import annotations
 
 import json
+
 from shared import storage as s
 
 
@@ -77,7 +78,7 @@ def main():
         if cur.rowcount != 1:
             raise RuntimeError(f"rowcount={cur.rowcount}")
         cx.commit()
-        print(f"✓ UPDATE thesis id=28 (000660.KS Hynix) -> structural Régime A")
+        print("✓ UPDATE thesis id=28 (000660.KS Hynix) -> structural Régime A")
 
 
 if __name__ == "__main__":

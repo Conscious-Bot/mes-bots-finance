@@ -23,7 +23,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -32,7 +32,7 @@ DEFAULT_THRESHOLD = 5
 
 
 def log(msg: str) -> None:
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     line = f"[{ts}] {msg}\n"
     LOG_FILE.write_text(LOG_FILE.read_text() + line if LOG_FILE.exists() else line)
     print(line, end="", file=sys.stderr)

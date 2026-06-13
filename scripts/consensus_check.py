@@ -44,7 +44,7 @@ def main():
     deltas: list[tuple[str, float, int, str]] = []
 
     for r in rows:
-        tid, tk, conv, direction, tgt_olv, tgt_ccy = r
+        _tid, tk, conv, direction, tgt_olv, _tgt_ccy = r
         cons = prices.get_analyst_consensus(tk)
         n_checked += 1
         if not cons:

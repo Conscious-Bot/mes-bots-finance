@@ -11,7 +11,6 @@ Changements :
 - TSM  (id27) : target 495.23->495, stop 305->375 (conv deja 5). Variant bull.
 - ASML/Shin-Etsu/CCJ : inchanges (c5-hold / deja 4/4), rien a ecrire.
 """
-from datetime import date
 from shared.storage import db
 
 ASOF = "2026-06-12"
@@ -21,9 +20,9 @@ TSLA_INVAL = ('["FSD/robotaxi non-scale commercialement fin 2027",'
               '"Musk dilue activement les porteurs Tesla (deal SpaceX defavorable)"]')
 
 UPDATES = [
-    dict(ticker="TSLA", id=42, conviction=5, target=1075.0, stop=280.0, inval=TSLA_INVAL),
-    dict(ticker="SNPS", id=29, conviction=5, target=700.0,  stop=388.0, inval=None),
-    dict(ticker="TSM",  id=27, conviction=5, target=495.0,  stop=375.0, inval=None),
+    {"ticker": "TSLA", "id": 42, "conviction": 5, "target": 1075.0, "stop": 280.0, "inval": TSLA_INVAL},
+    {"ticker": "SNPS", "id": 29, "conviction": 5, "target": 700.0,  "stop": 388.0, "inval": None},
+    {"ticker": "TSM",  "id": 27, "conviction": 5, "target": 495.0,  "stop": 375.0, "inval": None},
 ]
 
 for u in UPDATES:

@@ -1,4 +1,4 @@
-"""Ajout position SPCX (Space Exploration Technologies) — IPO 12/06/2026.
+r"""Ajout position SPCX (Space Exploration Technologies) — IPO 12/06/2026.
 
 Pourquoi : Olivier a achete 600 EUR de SPCX a l'IPO du 12/06 a 130 EUR/share
 via TR. Position nouvelle, these basique posee meme jour.
