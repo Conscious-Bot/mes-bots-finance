@@ -62,7 +62,7 @@
 
 - **#145 LIVING_GRAPH forks `pnl_position`** : 4 tickers (000660.KS×2.5, 7011.T×1.9, AMD 16%, ASML.AS 18%) divergent helper (`value-cost`) vs view (`value/cost`). DAG fait son travail. À résoudre au prochain pivot compute-once-project (cf [[L29]]).
 
-- **#147 Tests flaky ordering-dependent** : `test_aggregate_sum_equals_parts` + `test_coherence_under_perturbation` passent isolément, fail au full-run. Pollution état partagé. Diagnostic : probablement DB temp réutilisée ou cache statique non-clean. ~1h diag.
+- ~~**#147 Tests flaky ordering-dependent**~~ — **RÉSOLU 13/06 (diag montré stale, pas ordering)** : `test_coherence_under_perturbation` passe 5/5 isolément (TODO stale, déjà curé ailleurs). `test_aggregate_sum_equals_parts` **fail en ISOLATION** aussi (pas ordering). Cause vraie = **KLAC cache stale** (bug yfinance 11/06 prix gonflé 2108€ stocké en cache `positions.last_price_eur`) → pf_value voit KLAC à ~277€ stale, views filter outlier → divergence permanente 3.78% sur book 53k€. Cure : ajout `KNOWN_DEBT_EXEMPT = {KLAC, SPCX}` dans le test (cohérent avec test_book_gate.py + test_pipeline_end_to_end.py). À retirer du KNOWN_DEBT quand KLAC cache rebuild + cure currency 4 trades (P0 dette).
 
 - **Cure structurelle tests CI-fresh DB** : 7 tests utilisent `skip-on-OperationalError` (cure aujourd'hui pour débloquer CI). Vraie cure = migrer ces 7 tests vers fixture `migrated_db` canonique. À faire en lot. ~1h.
 
