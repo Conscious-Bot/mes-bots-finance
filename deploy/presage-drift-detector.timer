@@ -1,0 +1,11 @@
+[Unit]
+Description=PRESAGE drift detector — run daily 07:15 UTC (avant morning_chain)
+Requires=presage-drift-detector.service
+
+[Timer]
+OnCalendar=*-*-* 07:15:00 UTC
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

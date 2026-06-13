@@ -1,0 +1,14 @@
+[Unit]
+Description=PRESAGE drift detector (alerte Telegram si VM derriere origin/main)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/presage/mes-bots-finance
+ExecStart=/home/presage/mes-bots-finance/venv/bin/python /home/presage/mes-bots-finance/scripts/drift_detector.py
+StandardOutput=journal
+StandardError=journal
+Environment=DRIFT_THRESHOLD=5
+
+[Install]
+WantedBy=default.target
