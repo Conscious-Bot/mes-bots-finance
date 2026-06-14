@@ -9,3 +9,4 @@ types-requests>=2.33.0
 # Pre-commit framework (hook ruff lint local pré-push, cf .pre-commit-config.yaml)
 pre-commit>=4.0.0
 fredapi>=0.5.2
+edgartools>=5.36.0
