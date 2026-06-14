@@ -35,16 +35,37 @@ async def _safe_run(label: str, coro_factory):
 
     On veut que le crash d'une etape NE bloque PAS les suivantes (sinon
     une etape boguee tue tout le pipeline du jour). Best-effort + log.
+
+    14/06/2026 : ajout journal scheduler_runs append-only pour observability
+    cron last-fire. Silent-miss strict : DB indispo n'affecte pas le run.
     """
+    import time
     log.info(f"chain step start : {label}")
+    _run_id = None
+    _t0 = time.monotonic()
+    try:
+        from shared.storage import insert_scheduler_run_start
+        _run_id = insert_scheduler_run_start(label)
+    except Exception:
+        pass
     try:
         result = coro_factory()
         if hasattr(result, "__await__"):
             await result
         log.info(f"chain step OK : {label}")
+        try:
+            from shared.storage import update_scheduler_run_end
+            update_scheduler_run_end(_run_id, "success", time.monotonic() - _t0)
+        except Exception:
+            pass
         return True
     except Exception as e:
         log.error(f"chain step FAILED : {label}: {type(e).__name__}: {e}")
+        try:
+            from shared.storage import update_scheduler_run_end
+            update_scheduler_run_end(_run_id, "fail", time.monotonic() - _t0, f"{type(e).__name__}: {e}")
+        except Exception:
+            pass
         return False
 
 

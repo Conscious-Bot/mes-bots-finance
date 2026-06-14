@@ -262,15 +262,10 @@ async def post_init(app):
     # #89 cadence mensuelle : snapshot JSON + recal credibility V2 + digest Telegram
     sched.add_job(monthly_track_record_snapshot_job, "cron", day=1, hour=8, minute=0,
                   misfire_grace_time=86400)
-    # #13 J-day 10/06 : Brier report Telegram + force snapshot same-day +
-    # re-render public HTML. Cron monthly fire 1er juillet -- trop tard.
-    # Date-trigger single-shot 09:30 (apres morning_chain 09:00 = resolve).
-    from bot.jobs.j_day import j_day_batch_close_job
-    sched.add_job(
-        j_day_batch_close_job, "date",
-        run_date="2026-06-10 09:30:00",
-        misfire_grace_time=43200,  # 12h grace si bot down au moment fire
-    )
+    # #13 J-day 10/06 : SUPPRIME 14/06/2026 (date passee + execute one-shot).
+    # APScheduler ignore deja le run_date past + outside grace, mais le code
+    # garde un add_job zombie qui pollue. Cure : retirer. Si nouveau J-day
+    # batch needed, ressusciter avec nouvelle date dans commit dedie.
     # V2 vigilances : check hebdo lundi 7h, push Telegram UNIQUEMENT si ALERT/WARN
     sched.add_job(weekly_v2_vigilance_check_job, "cron", day_of_week="mon", hour=7, minute=0,
                   misfire_grace_time=86400)

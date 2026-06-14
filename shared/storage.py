@@ -5144,6 +5144,63 @@ def assert_book_invariants(*, strict: bool = True) -> list[str]:
         return _pi.run_static_gate(cx, strict=strict)
 
 
+def insert_scheduler_run_start(job_name: str) -> int | None:
+    """Insert started_at row pour un cron fire. Returns id pour update end."""
+    import logging as _logging
+    try:
+        conn = _sqlite3.connect(DB_PATH)
+        try:
+            cur = conn.execute(
+                "INSERT INTO scheduler_runs (job_name, status) VALUES (?, 'started')",
+                (job_name,),
+            )
+            conn.commit()
+            return cur.lastrowid
+        finally:
+            conn.close()
+    except Exception as e:
+        _logging.getLogger(__name__).warning(f"scheduler_runs start silent miss {job_name}: {e}")
+        return None
+
+
+def update_scheduler_run_end(run_id: int, status: str, duration_s: float, error_msg: str | None = None) -> None:
+    """Update fin de job : status (success/fail), duration, error."""
+    import logging as _logging
+    if run_id is None:
+        return
+    try:
+        conn = _sqlite3.connect(DB_PATH)
+        try:
+            conn.execute(
+                "UPDATE scheduler_runs SET status=?, ended_at=datetime('now'), "
+                "duration_s=?, error_msg=? WHERE id=?",
+                (status, duration_s, error_msg, run_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        _logging.getLogger(__name__).warning(f"scheduler_runs end silent miss {run_id}: {e}")
+
+
+def get_last_scheduler_run(job_name: str) -> dict | None:
+    """Latest run for a job. Returns dict ou None."""
+    try:
+        conn = _sqlite3.connect(DB_PATH)
+        conn.row_factory = _sqlite3.Row
+        try:
+            row = conn.execute(
+                "SELECT * FROM scheduler_runs WHERE job_name=? "
+                "ORDER BY started_at DESC LIMIT 1",
+                (job_name,),
+            ).fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+    except Exception:
+        return None
+
+
 def __getattr__(name: str):
     """Module-level __getattr__ : resolve _DB_PATH dynamiquement vers DB_PATH.
 
