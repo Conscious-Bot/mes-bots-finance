@@ -27,10 +27,17 @@ import urllib.request
 SLUG_ENV_OVERRIDES = {
     "morning_chain": "HC_MORNING_CHAIN",
     "evening_chain": "HC_EVENING_CHAIN",
-    "j_day_batch": "HC_J_DAY_BATCH",
-    "group_cap_check": "HC_GROUP_CAP_CHECK",
+    "daily_digest_job": "HC_DAILY_DIGEST",
+    "daily_backup_job": "HC_DAILY_BACKUP",
+    "weekly_chain_saturday": "HC_WEEKLY_SAT",
+    "weekly_chain_sunday": "HC_WEEKLY_SUN",
+    "cron_tier1_daily": "HC_TIER1_DAILY",
+    "cron_tier2_weekly": "HC_TIER2_WEEKLY",
+    "cron_tier3_monthly": "HC_TIER3_MONTHLY",
     "drift_detector": "HC_DRIFT_DETECTOR",
     "lock_in_resolution_check": "HC_LOCK_IN_RESOLUTION",
+    "group_cap_check": "HC_GROUP_CAP_CHECK",
+    "j_day_batch": "HC_J_DAY_BATCH",
 }
 
 

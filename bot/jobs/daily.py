@@ -43,6 +43,11 @@ async def daily_calendar_refresh_job():
 async def daily_digest_job():
     """Auto-trigger unified digest synthesis (12h interval = 2x/jour)."""
     try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("daily_digest_job", status="start")
+    except Exception:
+        pass
+    try:
         from intelligence import digest as _digest_mod
         from shared import notify as _notify
 
@@ -52,8 +57,18 @@ async def daily_digest_job():
             if len(msg) > 3900:
                 msg = msg[:3900] + "\n[truncated]"
             _notify.send_text(msg)
+        try:
+            from shared.healthcheck_ping import ping as _hc_ping
+            _hc_ping("daily_digest_job", status="success")
+        except Exception:
+            pass
     except Exception as e:
         log.warning(f"daily_digest_job error: {e}")
+        try:
+            from shared.healthcheck_ping import ping_fail as _hc_fail
+            _hc_fail("daily_digest_job", f"{type(e).__name__}: {e}")
+        except Exception:
+            pass
 
 
 async def daily_backup_job():
@@ -64,6 +79,11 @@ async def daily_backup_job():
     donc subprocess cherchait bot/scripts/backup.sh (inexistant) -> FAILED chaque
     jour. Corrige a parent.parent.parent pour pointer au repo root.
     """
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("daily_backup_job", status="start")
+    except Exception:
+        pass
     try:
         import subprocess
         from pathlib import Path as _Path
@@ -79,10 +99,25 @@ async def daily_backup_job():
         )
         if result.returncode == 0:
             log.info("daily_backup_job: success")
+            try:
+                from shared.healthcheck_ping import ping as _hc_ping
+                _hc_ping("daily_backup_job", status="success")
+            except Exception:
+                pass
         else:
             log.error(f"daily_backup_job FAILED code={result.returncode} stderr={result.stderr[:300]}")
+            try:
+                from shared.healthcheck_ping import ping_fail as _hc_fail
+                _hc_fail("daily_backup_job", f"code={result.returncode}: {result.stderr[:200]}")
+            except Exception:
+                pass
     except Exception as e:
         log.error(f"daily_backup_job exception: {e}")
+        try:
+            from shared.healthcheck_ping import ping_fail as _hc_fail
+            _hc_fail("daily_backup_job", f"{type(e).__name__}: {e}")
+        except Exception:
+            pass
 
 
 async def daily_crypto_zone_job():

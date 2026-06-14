@@ -188,8 +188,18 @@ async def weekly_chain_saturday():
     from bot.jobs.daily import weekly_data_clusters_synthesis_job
 
     log.info("weekly_chain_saturday start")
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("weekly_chain_saturday", status="start")
+    except Exception:
+        pass
     await _safe_run("data_clusters", weekly_data_clusters_synthesis_job)
     log.info("weekly_chain_saturday end")
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("weekly_chain_saturday", status="success")
+    except Exception:
+        pass
 
 
 async def weekly_chain_sunday():
@@ -211,6 +221,11 @@ async def weekly_chain_sunday():
     )
 
     log.info("weekly_chain_sunday start")
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("weekly_chain_sunday", status="start")
+    except Exception:
+        pass
     # Pré-requis : refresh des half-lives sources
     await _safe_run("refresh_source_half_lives", refresh_source_half_lives_job)
     # Synthèses dans l'ordre des dépendances
@@ -225,3 +240,8 @@ async def weekly_chain_sunday():
     # (architecture B3 append-only enrichment, apres KPI cron)
     await _safe_run("bias_event_backfill", weekly_bias_event_backfill_observations_job)
     log.info("weekly_chain_sunday end")
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("weekly_chain_sunday", status="success")
+    except Exception:
+        pass

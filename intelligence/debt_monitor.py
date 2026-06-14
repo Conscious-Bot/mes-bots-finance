@@ -726,12 +726,30 @@ def _cron_run(tier: int, label: str) -> None:
     Aligns with bot/main.py existing cron pattern (try/except + log.exception + notify).
     Silent crashes break observability and the daily 06:00 protective layer.
     """
+    _hc_slug = f"cron_tier{tier}_daily" if tier == 1 else (
+        f"cron_tier{tier}_weekly" if tier == 2 else f"cron_tier{tier}_monthly"
+    )
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping(_hc_slug, status="start")
+    except Exception:
+        pass
     try:
         log.info(f"debt_monitor: {label} starting")
         r = run_scan(tiers=[tier], dispatch_alerts=True)
         log.info(f"debt_monitor: {label} complete, composite phase {r['phase']} score {r['score']:.1f}")
+        try:
+            from shared.healthcheck_ping import ping as _hc_ping
+            _hc_ping(_hc_slug, status="success")
+        except Exception:
+            pass
     except Exception as e:
         log.exception(f"debt_monitor: {label} cron crashed: {e}")
+        try:
+            from shared.healthcheck_ping import ping_fail as _hc_fail
+            _hc_fail(_hc_slug, f"{type(e).__name__}: {e}")
+        except Exception:
+            pass
         try:
             from shared import notify
 
