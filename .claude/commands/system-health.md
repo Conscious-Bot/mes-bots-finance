@@ -38,17 +38,47 @@ description: Recon rapide PRESAGE — bot VM alive, drift detector, alembic head
    ```
    Si > 7j ancien → session-rupture, re-onboarding plus long anticipé.
 
-5. **Cron sanity** (table `scheduler_runs` ou équivalent) :
+5. **Cron sanity** via table `scheduler_runs` (migration 0062, audit 14/06/2026) :
    ```python
    import sqlite3
+   from datetime import datetime, timedelta
    conn = sqlite3.connect('data/bot.db')
+   conn.row_factory = sqlite3.Row
+
+   # Last fire per chain step (inside morning/evening chain _safe_run)
    cur = conn.execute('''
-       SELECT job_name, MAX(ran_at) FROM scheduler_runs
-       WHERE ran_at >= datetime('now', '-2 days')
-       GROUP BY job_name ORDER BY MAX(ran_at) DESC
+       SELECT job_name,
+              MAX(started_at) AS last_started,
+              SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) AS n_success,
+              SUM(CASE WHEN status='fail'    THEN 1 ELSE 0 END) AS n_fail,
+              AVG(duration_s) AS avg_dur_s
+       FROM scheduler_runs
+       WHERE started_at >= datetime('now', '-7 days')
+       GROUP BY job_name
+       ORDER BY MAX(started_at) DESC
    ''')
+   rows = [dict(r) for r in cur]
+
+   # Expected cadences (en heures depuis dernier tir attendu)
+   EXPECTED_HOURS = {
+       'snapshot': 25, 'portfolio_grade': 25, 'counterfactual_resolve': 25,
+       'daily_resolve': 25, 'kill_criteria_check': 25, 'group_cap_check': 25,
+       'over_cap_check': 25, 'stale_target_check': 25, 'decision_anniversary': 25,
+       'resolve_journal_decisions': 25, 'resolve_buy_cluster_returns': 25,
+       # weekly steps (sat/sun chains)
+       'data_clusters': 8 * 24,
+   }
    ```
-   Lister jobs critiques (morning_chain, j_day_batch, group_cap_check, drift_detector) et flagger ceux > 24h sans tir.
+   Pour chaque row, flagger :
+   - **GREEN** : last_started < EXPECTED_HOURS * 1
+   - **YELLOW** : last_started entre 1x et 2x EXPECTED_HOURS
+   - **RED** : last_started > 2x EXPECTED_HOURS (silent-dead candidate)
+   - **FAIL-LOOP** : n_fail >= 3 sur dernier 7j (cron meurt en boucle)
+
+   Pour les crons TOP-LEVEL non encore tracked dans _safe_run (heartbeat,
+   ingest_gmail_job, daily_backup_job, etc.) : pas de coverage scheduler_runs
+   pour l'instant. Future iteration : ajouter @scheduler_run_logged decorator
+   sur leurs entrypoints.
 
 6. **Pytest baseline** (rapide, sans full run) :
    ```bash
@@ -73,7 +103,7 @@ ASPECT                | STATUS  | DETAIL
 ----------------------+---------+--------------------------------
 Bot VM (Hetzner)      | GREEN   | active since 2026-06-13
 Drift detector        | GREEN   | behind=0
-Alembic head sync     | GREEN   | 0061 == 0061
+Alembic head sync     | GREEN   | 0062 == 0062 (post audit 14/06)
 Last close            | GREEN   | 2026-06-13 (1 day ago)
 Cron freshness        | YELLOW  | group_cap_check 26h stale
 Pytest collect        | GREEN   | 1892 tests
@@ -93,4 +123,7 @@ Si YELLOW/RED → action recommandée par item.
 
 - Memory : `hetzner_migration_triggered`, `13/06 close cutover Mac→VM complet`
 - Script existant : `scripts/bot_health_check.sh` (peut être leveraged)
+- Table `scheduler_runs` (migration 0062, audit cron 14/06/2026) — source
+  unique de vérité pour cron last-fire. Helpers : `shared/storage.py:
+  insert_scheduler_run_start / update_scheduler_run_end / get_last_scheduler_run`.
 - Doctrine : memory `feedback_red_team_verify_before_assert` (verify, jamais à l'intuition)
