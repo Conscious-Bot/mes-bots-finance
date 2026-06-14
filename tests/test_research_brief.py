@@ -71,15 +71,21 @@ class TestRateLimit:
         original_db = st.DB_PATH
         monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "test_rate.db"))
 
-        # Apply migrations
+        # Apply migrations via shutil.which (CI-portable, pas hardcoded venv path)
+        import shutil
         import subprocess
-        result = subprocess.run(
-            ["venv/bin/alembic", "-x", f"db_path={tmp_path / 'test_rate.db'}", "upgrade", "head"],
-            capture_output=True, text=True, timeout=60,
-        )
+        alembic_bin = shutil.which("alembic")
+        if not alembic_bin:
+            pytest.skip("alembic not found in PATH (CI portable)")
+        try:
+            result = subprocess.run(
+                [alembic_bin, "-x", f"db_path={tmp_path / 'test_rate.db'}", "upgrade", "head"],
+                capture_output=True, text=True, timeout=60,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pytest.skip("alembic setup not supported in this env")
         if result.returncode != 0:
-            # Skip if alembic config not setup for test DB
-            pytest.skip("alembic test DB setup not supported")
+            pytest.skip("alembic test DB upgrade failed (config-dependent)")
 
         try:
             r1 = fetch(target="MSFT", user_id="test_user_rate")
