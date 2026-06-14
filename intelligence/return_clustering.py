@@ -94,13 +94,36 @@ def find_high_corr_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[dic
 
 
 def cluster_by_correlation(corr: pd.DataFrame, distance_threshold: float = 0.4) -> dict:
-    """Hierarchical clustering. distance = 1 - correlation. Returns {ticker: cluster_id}."""
+    """Hierarchical clustering. distance = 1 - correlation. Returns {ticker: cluster_id}.
+
+    Cure 14/06/2026 : NaN dans corr (tickers avec historique insuffisant) cause
+    "condensed distance matrix must contain only finite values" sur scipy.linkage.
+    Strategy : drop tickers avec >50% NaN dans leur row, replace NaN restants
+    par 1.0 (= max distance = pas de relation inferable). Fail-soft retourne
+    {} si <2 tickers post-clean.
+    """
     if corr.empty or corr.shape[0] < 2:
         return {}
+
+    # Cure NaN : drop tickers avec >50% NaN dans leur row corr (data insuffisante)
+    nan_rate_per_ticker = corr.isna().sum(axis=1) / len(corr.columns)
+    keep_tickers = nan_rate_per_ticker[nan_rate_per_ticker <= 0.5].index.tolist()
+    if len(keep_tickers) < 2:
+        log.warning(
+            f"clustering : {len(corr.columns) - len(keep_tickers)} tickers dropped "
+            f"(>50% NaN), only {len(keep_tickers)} remaining < 2 -> skip"
+        )
+        return {}
+    corr = corr.loc[keep_tickers, keep_tickers]
+
     tks = list(corr.columns)
     dist_matrix = 1 - corr.values
+    # Replace NaN restants par 1.0 (max distance = pas de relation)
+    dist_matrix = np.where(np.isnan(dist_matrix), 1.0, dist_matrix)
     # Ensure symmetry + zero diagonal
     np.fill_diagonal(dist_matrix, 0)
+    # Clip pour eviter distances negatives (rare mais possible avec corr=1.000001 floats)
+    dist_matrix = np.clip(dist_matrix, 0.0, 2.0)
     # squareform requires the matrix to be symmetric
     try:
         condensed = squareform(dist_matrix, checks=False)
