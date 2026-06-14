@@ -1031,6 +1031,33 @@ def insert_prediction(
                 f"prediction_integrity silent miss for {_pred_id}: {_e}",
                 exc_info=True,
             )
+        # Thesis library RAG hook (silent-miss : pas de Voyage key = noop).
+        # Indexer post-commit pour que /thesis-similar puisse retrieve cette
+        # prediction comme contexte historique sur futurs setups similaires.
+        try:
+            from shared.thesis_library import upsert_thesis as _upsert_thesis
+            _text = (
+                f"ID:{_pred_id} | Ticker:{ticker or 'macro'} | "
+                f"Direction:{direction or '?'} | ClaimType:{claim_type} | "
+                f"Horizon:{horizon_days or '?'} days | "
+                f"TargetDate:{target_date or '?'} | Origin:{origin} | "
+                f"Prob:{prob} | Methodology:{methodology_version}"
+            )
+            _meta = {
+                "pid": int(_pred_id),
+                "ticker": ticker or "macro",
+                "direction": direction or "?",
+                "claim_type": claim_type,
+                "origin": origin,
+                "outcome": "pending",
+                "probability_at_creation": float(prob),
+            }
+            _upsert_thesis(f"pred_{_pred_id}", _text, _meta)
+        except Exception as _e:
+            _logging.getLogger(__name__).warning(
+                f"thesis_library upsert silent miss for {_pred_id}: {_e}",
+                exc_info=True,
+            )
         return _pred_id
     finally:
         conn.close()

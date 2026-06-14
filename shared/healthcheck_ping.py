@@ -26,6 +26,7 @@ import urllib.request
 # Map slug → env var name (overridable per-slug, sinon fallback project URL + slug)
 SLUG_ENV_OVERRIDES = {
     "morning_chain": "HC_MORNING_CHAIN",
+    "evening_chain": "HC_EVENING_CHAIN",
     "j_day_batch": "HC_J_DAY_BATCH",
     "group_cap_check": "HC_GROUP_CAP_CHECK",
     "drift_detector": "HC_DRIFT_DETECTOR",

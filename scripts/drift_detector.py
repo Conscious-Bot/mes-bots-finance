@@ -120,4 +120,14 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # healthchecks.io heartbeat (fail-soft : pas de URL = noop)
+    _exit_code = main()
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping, ping_fail as _hc_fail
+        if _exit_code == 0:
+            _hc_ping("drift_detector", status="success")
+        else:
+            _hc_fail("drift_detector", f"exit_code={_exit_code}")
+    except Exception:
+        pass
+    sys.exit(_exit_code)

@@ -60,6 +60,12 @@ async def morning_chain():
     Etape 4 : Monitors (kill_criteria, risk_signal)
     Etape 5 : Resolutions (decisions, predictions, returns)
     """
+    # healthchecks.io heartbeat start (fail-soft : no URL = noop)
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("morning_chain", status="start")
+    except Exception:
+        pass
     from bot.jobs.daily import (
         daily_decision_anniversary_job,
         daily_digest_job,
@@ -112,6 +118,12 @@ async def morning_chain():
     await _safe_run("resolve_buy_cluster_returns", scheduled_resolve_buy_cluster_returns_job)
 
     log.info("morning_chain end")
+    # healthchecks.io heartbeat success
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("morning_chain", status="success")
+    except Exception:
+        pass
 
 
 # ─────────────────────── Evening chain (23h) ───────────────────────────────
@@ -131,10 +143,20 @@ async def evening_chain():
     from intelligence.snapshot import daily_snapshot_job
 
     log.info("evening_chain start")
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("evening_chain", status="start")
+    except Exception:
+        pass
     await _safe_run("snapshot", daily_snapshot_job)
     await _safe_run("portfolio_grade", daily_portfolio_grade_job)
     await _safe_run("counterfactual_resolve", daily_counterfactual_resolve_job)
     log.info("evening_chain end")
+    try:
+        from shared.healthcheck_ping import ping as _hc_ping
+        _hc_ping("evening_chain", status="success")
+    except Exception:
+        pass
 
 
 # ─────────────────────── Weekly chain (sat/sun) ────────────────────────────
