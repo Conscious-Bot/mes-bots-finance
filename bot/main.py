@@ -326,16 +326,10 @@ async def post_init(app):
                   misfire_grace_time=86400)
     sched.add_job(weekly_chain_sunday, "cron", day_of_week="sun", hour=19, minute=0,
                   misfire_grace_time=86400)
-    # Tier1 4x/jour 06h/12h/18h/22h (user 06/06 "accuracy = basic").
-    # VIX/USDJPY/TYX/MOVE/HY_OAS/DXY/Gold/BTC reagissent intra-day.
-    sched.add_job(cron_tier1_daily, "cron", hour="6,12,18,22", minute=0,
-                  misfire_grace_time=10800)  # 3h catchup
-    sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30,
-                  misfire_grace_time=86400)  # 24h catchup (cf cure 12/06 : missed lundi -> 6j stale)
-    # Tier3 monthly retry pattern : 1er + 5 + 10 + 15 du mois pour rattraper
-    # les FRED-pas-encore-publies (CPI publish ~mid-month). persist_signal
-    # ne stomp plus NULL = derniere valeur valide preserved.
-    sched.add_job(cron_tier3_monthly, "cron", day="1,5,10,15", hour=7, minute=0)
+    # NOTE 14/06/2026 : tier1/2/3 add_job retires ici (etaient duplicates lignes 288-295).
+    # Audit cron 14/06 a detecte : APScheduler genere UUID auto sans id= explicite =>
+    # 2 instances independantes firaient en parallele => tier1 8x/jour au lieu de 4x
+    # (2x LLM cost macro signals). Defini une fois pour toutes en debut de cette section.
     # 05/06 : espacements crons pour reduire pression LLM + DB write sans perte coverage.
     # classify 30min->2h, recompute_boost 1h->6h, materiality_v2 1h->6h.
     # safety-net : ingest_gmail_job chain materiality_v2 immediat apres ingestion,
