@@ -154,31 +154,31 @@ def collection_stats() -> dict:
         return {"error": f"{type(e).__name__} {e}"}
 
 
-def bootstrap_from_db(db_path: str | None = None) -> dict:
+def bootstrap_from_db() -> dict:
     """One-shot : index toutes theses existantes du book + resolved.
 
     Source : table `predictions` (manual + auto). Concat les champs pertinents
     pour text embedding : claim_text si dispo, sinon ticker + direction + horizon.
     metadata : ticker, conviction, claim_type, target_date, outcome, status, created_at.
+
+    Doctrine L17 (test_doctrine_grep_gates) : utilise shared.storage.db()
+    context manager au lieu de raw sqlite3 (cure 14/06/2026 post pytest fail).
     """
-    import sqlite3
-    db = db_path or str(REPO / "data" / "bot.db")
-    if not Path(db).exists():
-        return {"error": f"db not found: {db}"}
     if _voyage_client() is None:
         return {"error": "VOYAGE_API_KEY missing"}
     if _collection() is None:
         return {"error": "chromadb unavailable"}
 
-    conn = sqlite3.connect(db)
-    cur = conn.execute("""
-        SELECT id, ticker, direction, horizon_days, target_date, outcome,
-               origin, claim_type, methodology_version, created_at,
-               probability_at_creation, scoring_trace_json
-        FROM predictions
-        ORDER BY created_at DESC
-    """)
-    rows = cur.fetchall()
+    from shared.storage import db as _storage_db
+    with _storage_db() as conn:
+        cur = conn.execute("""
+            SELECT id, ticker, direction, horizon_days, target_date, outcome,
+                   origin, claim_type, methodology_version, created_at,
+                   probability_at_creation, scoring_trace_json
+            FROM predictions
+            ORDER BY created_at DESC
+        """)
+        rows = cur.fetchall()
     indexed, skipped = 0, 0
     for row in rows:
         pid, ticker, direction, horizon, td, outcome, origin, ctype, _mv, ca, prob, trace = row

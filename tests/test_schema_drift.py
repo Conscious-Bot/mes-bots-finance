@@ -56,6 +56,10 @@ _WHITELIST = {
     # migration upgrade()/downgrade(), pas dans le schema final.
     "predictions_new",
     "predictions_old",
+    # Faux positif regex : mot francais "interdit" dans messages RAISE
+    # des triggers append-only (cf migrations 0061 research_brief_log + 0062
+    # scheduler_runs). Cure 14/06/2026 post pytest fail.
+    "interdit",
 }
 
 
