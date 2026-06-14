@@ -24,6 +24,10 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _SCRIPT = _REPO_ROOT / "scripts" / "integrity_anchor.sh"
 
 
+from shared.scheduler_observability import scheduler_run_logged
+
+
+@scheduler_run_logged("integrity_anchor_daily_job")
 def integrity_anchor_daily_job() -> None:
     """Run OTS anchor on prediction + thesis chains, commit + push.
 

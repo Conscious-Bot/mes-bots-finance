@@ -288,6 +288,10 @@ def run_audit_refresh() -> dict:
     }
 
 
+from shared.scheduler_observability import scheduler_run_logged
+
+
+@scheduler_run_logged("cron_audit_calibration_daily")
 def cron_audit_calibration_daily() -> None:
     """APScheduler entry : daily check, trigger audit refresh si >= 10j."""
     log.info("cron_audit_calibration_daily starting")

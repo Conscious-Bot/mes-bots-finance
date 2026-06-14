@@ -9,6 +9,7 @@ from bot.handlers.observability import (
     _kpi_compute_all,
 )
 from shared import config, notify
+from shared.scheduler_observability import scheduler_run_logged
 
 log = logging.getLogger("bot")
 
@@ -86,6 +87,7 @@ async def refresh_source_half_lives_job():
         log.exception(f"refresh_source_half_lives_job crashed: {e}")
 
 
+@scheduler_run_logged("weekly_thesis_erosion_floor_job")
 async def weekly_thesis_erosion_floor_job():
     """Cron weekly lundi 6h : compute thesis_erosion floor sweep sur theses actives.
 
@@ -136,6 +138,7 @@ async def weekly_thesis_erosion_floor_job():
         log.exception(f"weekly_thesis_erosion_floor_job crashed: {e}")
 
 
+@scheduler_run_logged("weekly_v2_vigilance_check_job")
 async def weekly_v2_vigilance_check_job():
     """Cron weekly : check les 3 vigilances V2 (watch-rate, prob spread, insider clusters alive).
 

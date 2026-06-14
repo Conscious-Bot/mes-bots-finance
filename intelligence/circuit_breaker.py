@@ -118,6 +118,10 @@ def state() -> dict:
     return dict(_STATE)
 
 
+from shared.scheduler_observability import scheduler_run_logged
+
+
+@scheduler_run_logged("cron_circuit_breaker_daily")
 def cron_circuit_breaker_daily() -> None:
     """APScheduler entry : daily check. Si transition inactive->active,
     Telegram alert."""

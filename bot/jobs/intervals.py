@@ -5,17 +5,20 @@ import logging
 from data_sources import gmail_
 from intelligence.price_monitor import check_thesis_triggers
 from shared import config, storage
+from shared.scheduler_observability import scheduler_run_logged
 
 log = logging.getLogger("bot")
 
 CALENDAR_REFRESH_TICKERS = config.get_tickers("core") if hasattr(config, "get_tickers") else []
 
 
+@scheduler_run_logged("heartbeat")
 async def heartbeat():
     storage.update_state()
     log.info("heartbeat ok")
 
 
+@scheduler_run_logged("ingest_gmail_job")
 async def ingest_gmail_job():
     """Hourly Gmail ingestion + immediate materiality_v2 chaining.
 

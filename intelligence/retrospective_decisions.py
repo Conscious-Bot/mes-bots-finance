@@ -120,6 +120,10 @@ def process_horizon(horizon_days: int) -> dict:
     }
 
 
+from shared.scheduler_observability import scheduler_run_logged
+
+
+@scheduler_run_logged("cron_retrospective_daily")
 def cron_retrospective_daily() -> None:
     """APScheduler entry : daily 09:30 (apres market open). Processe +30j et +90j."""
     log.info("cron_retrospective_daily starting")
