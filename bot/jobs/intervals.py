@@ -86,6 +86,7 @@ async def score_pending_signals_job():
         log.exception(f"score_pending_signals_job crashed: {e}")
 
 
+@scheduler_run_logged("event_driven_erosion_check_job")
 async def event_driven_erosion_check_job():
     """Etape 3 chantier #2 anti-entetement : event-driven trigger.
 
@@ -125,6 +126,7 @@ async def event_driven_erosion_check_job():
         log.warning(f"event_driven_erosion_check_job error: {e}")
 
 
+@scheduler_run_logged("scheduled_classify_signal_types_job")
 async def scheduled_classify_signal_types_job():
     """Phase Digestion 3a — Classify signals with signal_type=NULL every 30min."""
     try:
@@ -137,6 +139,7 @@ async def scheduled_classify_signal_types_job():
         log.warning(f"classify_signal_types_job error: {e}")
 
 
+@scheduler_run_logged("scheduled_recompute_materiality_boost_job")
 async def scheduled_recompute_materiality_boost_job():
     """Phase Digestion 3b — Recompute corroboration multipliers after echo clusters update."""
     try:
@@ -149,6 +152,7 @@ async def scheduled_recompute_materiality_boost_job():
         log.warning(f"recompute_boost_job error: {e}")
 
 
+@scheduler_run_logged("scheduled_materiality_v2_job")
 async def scheduled_materiality_v2_job():
     """Phase Digestion 3c — Score signals with structured rubric every 1h."""
     try:
@@ -161,6 +165,7 @@ async def scheduled_materiality_v2_job():
         log.warning(f"materiality_v2_job error: {e}")
 
 
+@scheduler_run_logged("price_monitor_job")
 async def price_monitor_job():
     """Cron 15min mkt hours: check active theses for price crossings."""
     try:

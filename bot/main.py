@@ -376,6 +376,10 @@ def _reconcile_positions_prices_job() -> None:
         log.warning(f"reconcile_positions_prices_job failed: {e}")
 
 
+from shared.scheduler_observability import scheduler_run_logged
+
+
+@scheduler_run_logged("stress_gate_check_job")
 def _stress_gate_check_job() -> None:
     """Axe 4 QUALITY_BAR : stress-gate daily check + notify si breach.
 

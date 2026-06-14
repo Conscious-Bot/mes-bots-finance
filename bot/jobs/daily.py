@@ -8,6 +8,7 @@ from intelligence import (
 )
 from intelligence.insider_digest import daily_insider_refresh, format_daily_insider_digest
 from shared import config, crypto as crypto_mod, edgar as edgar_mod, notify, positions as positions_mod
+from shared.scheduler_observability import scheduler_run_logged
 
 log = logging.getLogger("bot")
 
@@ -26,6 +27,7 @@ async def daily_resolve_job():
         log.error(f"Daily resolve failed: {e}")
 
 
+@scheduler_run_logged("daily_calendar_refresh_job")
 async def daily_calendar_refresh_job():
     log.info("Daily calendar refresh starting")
     try:
@@ -120,6 +122,7 @@ async def daily_backup_job():
             pass
 
 
+@scheduler_run_logged("daily_crypto_zone_job")
 async def daily_crypto_zone_job():
     """Cron daily 10h Paris : check crypto zone, alert if extreme. Includes position context."""
     try:
@@ -481,6 +484,7 @@ async def weekly_bot_conceptions_synthesis_job():
         log.error(f"weekly_bot_conceptions_synthesis failed: {e}")
 
 
+@scheduler_run_logged("monthly_bot_preferences_synthesis_job")
 async def monthly_bot_preferences_synthesis_job():
     """Layer 3 — Sprint 11 : preferences mensuelles (ce qui MARCHE pour CE user).
 

@@ -169,6 +169,7 @@ async def weekly_v2_vigilance_check_job():
         log.exception(f"weekly_v2_vigilance_check_job crashed: {e}")
 
 
+@scheduler_run_logged("weekly_calibration_audit_job")
 async def weekly_calibration_audit_job():
     """Cron weekly : check calibration_audit scorer V2 (reliability + Brier moyen).
 
@@ -248,6 +249,7 @@ async def weekly_calibration_audit_job():
         log.exception(f"weekly_calibration_audit_job crashed: {e}")
 
 
+@scheduler_run_logged("recalibrate_credibility_brier_job")
 async def recalibrate_credibility_brier_job():
     """Phase A1 — Monthly cron: recalibrate sources.credibility from rolling Brier scores."""
     log.info("Brier credibility recalibration starting")
@@ -270,6 +272,7 @@ async def recalibrate_credibility_brier_job():
         log.exception(f"recalibrate_credibility_brier_job crashed: {e}")
 
 
+@scheduler_run_logged("monthly_track_record_snapshot_job")
 async def monthly_track_record_snapshot_job():
     """#89 cadence mensuelle (1er du mois) -- snapshot JSON + recal credibility +
     digest Telegram.
