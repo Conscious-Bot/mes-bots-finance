@@ -140,3 +140,6 @@ credentials.json.pre-*
 backups/
 digests/
 .j_day_watcher_alert_fired
+
+# Chroma vector DB local (Voyage thesis library)
+data/thesis_chroma/
