@@ -90,7 +90,7 @@ def test_gate_detects_baseline_arithmetic_violation():
         VIOLATION_PATH.unlink(missing_ok=True)
 
 
-def test_stop_value_is_mutable_not_writeonce():
+def test_stop_value_is_mutable_not_writeonce(migrated_db):
     """Substrat CANONICAL_MAP §2 : stop/target = décisions VIVANTES (trailing
     stop, re-target), pas faits immuables. Si quelqu'un re-pose un write-once
     sur stop/target, ce test casse — garde anti-régression doctrine.
@@ -98,22 +98,29 @@ def test_stop_value_is_mutable_not_writeonce():
     Sans ce test : un futur commit pourrait re-introduire write-once sur stop
     « par symétrie avec entry », ce qui ramène la friction §3 sur chaque
     ajustement de gestion. Le test verrouille la doctrine mutable.
+
+    Cure 15/06 (fixture migrated_db) : fixture thesis seedee dans schema
+    canonique alembic head. CI portable, plus de skip-on-OperationalError.
     """
     import sqlite3
 
     from shared import storage
 
-    try:
-        with storage.db() as cx:
-            cx.row_factory = None
-            row = cx.execute(
-                "SELECT id, stop_value FROM theses "
-                "WHERE status='active' AND stop_value IS NOT NULL LIMIT 1"
-            ).fetchone()
-    except sqlite3.OperationalError as e:
-        pytest.skip(f"DB sans table theses (CI fresh) -- {e}")
-    if row is None:
-        pytest.skip("No active thesis with stop_value to test mutability")
+    # Seed fixture : 1 thesis active avec stop_value (= condition test).
+    # entry_price requis par invariant F7 (these active doit avoir un anchor).
+    with storage.db() as cx:
+        cx.execute(
+            "INSERT INTO theses (ticker, opened_at, status, entry_price, stop_value) "
+            "VALUES ('FIXTURE', '2026-01-01T00:00:00Z', 'active', 50.0, 100.0)"
+        )
+
+    with storage.db() as cx:
+        cx.row_factory = None
+        row = cx.execute(
+            "SELECT id, stop_value FROM theses "
+            "WHERE status='active' AND stop_value IS NOT NULL LIMIT 1"
+        ).fetchone()
+    assert row is not None, "Fixture thesis seedee mais pas trouvee (schema bug?)"
     thesis_id, current_stop = row
     new_stop = current_stop * 1.05  # +5% trailing stop simulation
 
@@ -138,27 +145,33 @@ def test_stop_value_is_mutable_not_writeonce():
         )
 
 
-def test_writeonce_trigger_rejects_entry_value_update():
+def test_writeonce_trigger_rejects_entry_value_update(migrated_db):
     """Serrure D (Olivier) : write-once trigger sur entry_value doit RAISE
     quand un UPDATE post-INSERT tente de changer la valeur.
 
     Sans ce test, le trigger est un 'espoir, pas une serrure'.
+
+    Cure 15/06 (fixture migrated_db) : fixture thesis seedee. CI portable.
     """
     import sqlite3
 
     from shared import storage
 
-    try:
-        with storage.db() as cx:
-            cx.row_factory = None
-            row = cx.execute(
-                "SELECT id, entry_value FROM theses "
-                "WHERE status='active' AND entry_value IS NOT NULL LIMIT 1"
-            ).fetchone()
-    except sqlite3.OperationalError as e:
-        pytest.skip(f"DB sans table theses (CI fresh) -- {e}")
-    if row is None:
-        pytest.skip("No active thesis with entry_value to test trigger")
+    # Seed fixture : 1 thesis active avec entry_value (= condition test).
+    # entry_price requis par invariant F7.
+    with storage.db() as cx:
+        cx.execute(
+            "INSERT INTO theses (ticker, opened_at, status, entry_price, entry_value) "
+            "VALUES ('FIXTURE', '2026-01-01T00:00:00Z', 'active', 50.0, 75.0)"
+        )
+
+    with storage.db() as cx:
+        cx.row_factory = None
+        row = cx.execute(
+            "SELECT id, entry_value FROM theses "
+            "WHERE status='active' AND entry_value IS NOT NULL LIMIT 1"
+        ).fetchone()
+    assert row is not None, "Fixture thesis seedee mais pas trouvee"
     thesis_id, current = row
 
     with pytest.raises(sqlite3.IntegrityError, match="write-once"):
