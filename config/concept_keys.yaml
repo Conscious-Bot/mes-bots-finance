@@ -35,3 +35,18 @@ concepts:
     description: "Prix EUR live d'un ticker -- comparaison position_view.price_native*fx vs _cached_price_eur"
     asof_bucket: day
     epsilon_rel: 0.005  # 0.5% — tolère jitter FX/price refresh entre cron (DB cache) et yfinance live (process cache)
+
+  qty:
+    description: "Quantité d'unités d'un ticker -- positions VIEW vs ledger raw SUM(BUY-SELL)"
+    asof_bucket: day
+    epsilon_rel: 0.0001  # 0.01% strict — qty doit être exact (déterministe), toute divergence = bug structurel
+
+  cost_basis_eur:
+    description: "Cost basis position EUR -- book avg_cost*qty vs ledger_pmp FIFO français CGI"
+    asof_bucket: day
+    epsilon_rel: 0.01  # 1% — la VRAIE divergence sur partial-close (avg vs FIFO). C'est le signal cherché.
+
+  fx_rate_to_eur:
+    description: "Taux FX native→EUR -- positions DB cached vs prices.fx gateway live"
+    asof_bucket: day
+    epsilon_rel: 0.005  # 0.5% — jitter FX intra-day OK, divergence > 0.5% signale cron stale

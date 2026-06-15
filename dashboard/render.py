@@ -7175,8 +7175,35 @@ def render() -> Path:
     # le point unique _views. Le register a été retiré de compute_position()
     # (sinon multiple writes = faux forks). Source canonique "position_view".
     try:
+        from shared import storage
         from shared.living_graph import register_concept
         from shared.prices import _cached_price_eur
+
+        # === Batch pre-query (anti N+1) pour qty + cost_basis_eur + fx ===
+        # _positions_map[ticker] = (qty_view, avg_cost_eur, fx_rate_to_eur, currency)
+        # _qty_raw_map[ticker] = SUM signé qty depuis transactions
+        _positions_map: dict[str, tuple] = {}
+        _qty_raw_map: dict[str, float] = {}
+        if _views:
+            _tickers = list(_views.keys())
+            _placeholders = ",".join("?" * len(_tickers))
+            try:
+                with storage.db() as _cx:
+                    for _r in _cx.execute(
+                        f"SELECT ticker, qty, avg_cost_eur, fx_rate_to_eur, last_price_currency "
+                        f"FROM positions WHERE ticker IN ({_placeholders})",
+                        _tickers,
+                    ):
+                        _positions_map[_r[0]] = (_r[1], _r[2], _r[3], _r[4])
+                    for _r in _cx.execute(
+                        f"SELECT ticker, SUM(CASE side WHEN 'BUY' THEN qty WHEN 'SELL' THEN -qty ELSE 0 END) "
+                        f"FROM transactions WHERE ticker IN ({_placeholders}) GROUP BY ticker",
+                        _tickers,
+                    ):
+                        _qty_raw_map[_r[0]] = _r[1]
+            except Exception:
+                pass
+
         for _tk, _v in _views.items():
             # === pnl_position (existing) ===
             _pnl = getattr(_v, "pnl_position_pct", None)
@@ -7189,8 +7216,7 @@ def render() -> Path:
                     op="value_eur_datum_div_cost_basis_eur",
                 )
 
-            # === price_eur (NEW, 2 sources) — tracer-bullet extension LIVING_GRAPH ===
-            # Source A : derive position_view (price_native × fx_rate, Datum-tracked)
+            # === price_eur (2 sources) — tracer-bullet LIVING_GRAPH ===
             _px_native = getattr(_v, "price_native", None)
             _fx = getattr(_v, "fx_rate", None)
             if _px_native and _fx:
@@ -7201,7 +7227,6 @@ def render() -> Path:
                     ticker=_tk,
                     op="price_native_times_fx_rate",
                 )
-            # Source B : prices._cached_price_eur (live yfinance, 30min process cache)
             try:
                 _px_live = _cached_price_eur(_tk)
                 if _px_live:
@@ -7215,9 +7240,7 @@ def render() -> Path:
             except Exception:
                 pass
 
-            # === value_eur (boost : ajout 2e source depuis position_view) ===
-            # Source existante : shared/book.py:732 source="book.value_eur"
-            # Source ajoutée ici : position_view.value_eur_datum.value.amount
+            # === value_eur (boost : ajout 2e source) ===
             _vd = getattr(_v, "value_eur_datum", None)
             if _vd is not None and getattr(_vd, "value", None) is not None:
                 _amt = getattr(_vd.value, "amount", None)
@@ -7229,6 +7252,88 @@ def render() -> Path:
                         ticker=_tk,
                         op="value_eur_datum_amount",
                     )
+
+            # === qty (NEW, 2 sources) — positions VIEW vs ledger raw SUM ===
+            _pos_row = _positions_map.get(_tk)
+            _qty_view = float(_pos_row[0]) if _pos_row and _pos_row[0] is not None else None
+            _qty_raw = _qty_raw_map.get(_tk)
+            if _qty_view is not None:
+                register_concept(
+                    concept_key="qty",
+                    value=_qty_view,
+                    source="position_view",
+                    ticker=_tk,
+                    op="positions_qty_column",
+                )
+            if _qty_raw is not None:
+                register_concept(
+                    concept_key="qty",
+                    value=float(_qty_raw),
+                    source="ledger_raw_sum",
+                    ticker=_tk,
+                    op="sum_signed_qty_from_tx",
+                )
+
+            # === cost_basis_eur (NEW, 2 sources) — PositionView dérivation vs ledger PMP (FIFO) ===
+            # Source A : value_eur - pnl_position_eur (= cost_basis depuis PositionView canonique).
+            # Le pos.avg_cost_eur column est NULL en DB ; ne pas utiliser. PositionView dérive
+            # cost_basis_eur en interne pour pnl_position_eur, on l'inverse pour l'expliciter.
+            _val_eur = None
+            _vd_x = getattr(_v, "value_eur_datum", None)
+            if _vd_x is not None and getattr(_vd_x, "value", None) is not None:
+                _val_eur = getattr(_vd_x.value, "amount", None)
+            _pnl_eur = getattr(_v, "pnl_position_eur", None)
+            if _val_eur is not None and _pnl_eur is not None:
+                register_concept(
+                    concept_key="cost_basis_eur",
+                    value=float(_val_eur) - float(_pnl_eur),
+                    source="position_view",
+                    ticker=_tk,
+                    op="value_eur_minus_pnl_position_eur",
+                )
+            # Source B : ledger_pmp FIFO (compute_pmp_realized.pmp_eur × qty)
+            try:
+                from shared.ledger_pmp import compute_pmp_realized
+                with storage.db() as _cx:
+                    _pmp = compute_pmp_realized(_cx, _tk)
+                _pmp_eur = getattr(_pmp, "pmp_eur", None) if _pmp else None
+                if _pmp_eur and _qty_view:
+                    register_concept(
+                        concept_key="cost_basis_eur",
+                        value=_qty_view * float(_pmp_eur),
+                        source="ledger_pmp_fifo",
+                        ticker=_tk,
+                        op="pmp_eur_times_qty",
+                    )
+            except Exception:
+                pass
+
+            # === fx_rate_to_eur (NEW, 2 sources) — positions DB cached vs prices.fx gateway ===
+            _fx_view = float(_fx) if _fx else None
+            if _fx_view is not None:
+                register_concept(
+                    concept_key="fx_rate_to_eur",
+                    value=_fx_view,
+                    source="position_view",
+                    ticker=_tk,
+                    op="position_view_fx_rate",
+                )
+            _ccy = _pos_row[3] if _pos_row else None
+            if _ccy and _ccy != "EUR":
+                try:
+                    from shared import prices
+                    _fx_datum = prices.fx(_ccy, "EUR")
+                    _fx_live = getattr(_fx_datum, "value", None) if _fx_datum else None
+                    if _fx_live:
+                        register_concept(
+                            concept_key="fx_rate_to_eur",
+                            value=float(_fx_live),
+                            source="prices.fx",
+                            ticker=_tk,
+                            op="prices_fx_gateway",
+                        )
+                except Exception:
+                    pass
     except Exception:
         pass
 
