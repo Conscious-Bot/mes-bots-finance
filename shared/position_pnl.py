@@ -107,22 +107,13 @@ def pnl_position_pct_eur(position: dict[str, Any] | Any) -> float | None:
 
     pnl_pct = (value_eur_now / cost_basis_eur - 1) * 100.0
 
-    # LIVING GRAPH W1 (#110) : publie pnl_position dans concept_index.
-    # Source = "position_pnl.helper" (canonique #118). 2e producteur attendu :
-    # position_view.py:351 (inline assembly). Si divergence au-delà ε=0.005 ->
-    # fork chopé au regen-end (la divergence gauge dot-vs-tooltip mécanisée).
-    try:
-        from shared.living_graph import register_concept
-        register_concept(
-            concept_key="pnl_position",
-            value=pnl_pct,
-            source="position_pnl.helper",
-            ticker=ticker,
-            op="value_eur_minus_cost_basis_eur",
-        )
-    except Exception:
-        pass
-
+    # NOTE 15/06/2026 : register_concept retire (cure fork detection #145).
+    # Le helper n'a pas de production caller, seul tests/test_position_pnl_canonical.py
+    # l'appelle avec fixtures hardcoded → pollue concept_index avec valeurs fixture
+    # → fork detection systematic (helper fixture stale vs view live). Source
+    # canonique = position_view.compute_position() qui register depuis _views
+    # central (dashboard/render.py post-regen). Le helper devient pure calcul.
+    # Tests math toujours verts (l'effet side-effect register etait dispensable).
     return pnl_pct
 
 
