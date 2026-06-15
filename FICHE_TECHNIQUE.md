@@ -1,9 +1,52 @@
 # PRESAGE (mes-bots-finance) — Fiche Technique (Lean)
 
-**Version**: 01 juin 2026 soir (Day 27 — polish UI 8 pages + 5 tâches P2 fermées + filet 4-layer currency)
+**Version**: 15 juin 2026 (Day 41 — observability cron 100% + chantier #150 G3 /research + 5 outils analyste + 6 cures techniques)
 **Auteur**: Olivier Legendre
-**État**: High Standard / Observation jusqu'au 10/06/2026 (KPI #2 batch resolution V1 ; V2 pour cohortes futures wired en prod)
-**Bot**: Telegram @Hawk_Dove_bot (mono-instance lock fcntl depuis 01/06)
+**État**: High Standard / Phase 1 nourrir l'instrument (memory `feedback_instrumentation_vs_decision`). Première résolution sentinelle 31/12/2026 (S1 DRAM, 199j).
+**Bot**: Telegram @Hawk_Dove_bot (mono-instance lock fcntl, prod Hetzner VM 37.27.247.126 depuis cutover 13/06)
+**Alembic head**: 0062 (scheduler_runs append-only journal, post-audit cron 14/06)
+**Tests baseline**: 1908 passed local · CI green main `89a7980`
+
+## Session 15/06/2026 — 6 commits mini-session cures techniques + close ritual
+
+Continue post-marathon 14/06. Focus : P0 backlog actionnable + cures techniques visibles dans observability instrumentée la veille.
+
+### P0 Currency bug — cure tentée puis rollback honnête (β → α)
+- **Cure (β)** `081e4f7` : 4 trades ADJUST tx via `shared/ledger_pmp.py` correction-aware (SPEC_LEDGER §1 extensible). 6 tests dédiés.
+- **DISCOVERY scope** : 148 trades broker import systémique (135 USD + 11 JPY + 2 KRW avec `fx_at_trade=1.0`). Vérification empirique TSM 2021-12-16 stored 106.2 EUR/share = actual USD $120.34 × 0.88 fx.
+- **EUR-side invariant empirique** : PMP identiques pre/post DB rollback. Dashboard affiche EUR → 0 changement visible toute cure ADJUST.
+- **Décision (α)** `51ffde5` : rollback DB Mac + KNOWN-GAP TODO 0bis. Mécanique cure préservée (ledger_pmp handler dormant + script + 6 tests) si retour sur décision.
+
+### Cures techniques visibles (4 commits)
+- `2663006` **Telegram 400 parse** : `dashboard/render.py:7949` Markdown `_` underscores breakages. Cure `parse_mode=""`.
+- `f655b20` **Stagger 06:00** : 5 jobs simultanés → 06:00/03/05/07/10. `cron_tier1_daily` minute=10 consistent.
+- `a574c3c` **#145 LIVING_GRAPH forks cure** : root cause empirique = `shared/position_pnl.py` helper registre concept_index mais 0 production caller. Tests pollute → fork. Cure : retirer register_concept du helper.
+- `2ad2f48` **Tests CI-fresh DB** : 3 tests migrés vers fixture canonique `migrated_db`. Invariants gardés en CI.
+
+### Insight clé
+Observability instrumentée 14/06 a trouvé en **<24h deux anomalies cachées**. **ROI observability validé empiriquement**.
+
+---
+
+## Session 14/06/2026 — 23 commits ultra-marathon observability + chantier #150 G3
+
+Cf SESSION_STATE.md `## Close 2026-06-14` pour détail complet. Highlights :
+
+### Outils analyste livrés
+- **5 wrappers** : `fred_client`, `healthcheck_ping`, `edgar_client` (10-Q value-add), `thesis_library` (Voyage finance + Chroma local RAG), `scheduler_observability` (decorator async-aware)
+- **5 skills** : `/sentinel-check`, `/sentinel-status`, `/system-health`, `/edgar-context`, `/thesis-similar` (+ tennis `/tennis-audit`)
+- **1 MCP** : OpenInsider connected (16 outils gratuits SEC + FINRA + Yahoo)
+
+### Audit + cleanup crons (cures structurelles)
+- **P0 cure** `637d59b` : 3 duplicates tier1/2/3 retirés → ÷2 LLM cost macro
+- Migration 0062 `scheduler_runs` + decorator `@scheduler_run_logged` → coverage 100% (~30 jobs)
+- Cure live `data_clusters` NaN-safe `c391013` (anomalie détectée 09:31 → curée 09:45)
+
+### Chantier #150 G3 livré (`dd854db` + `68b8b4e`)
+- `/research <ticker|theme>` Telegram handler avec backend pluggable Bigdata-client
+- Anti-anchoring 8 regex patterns + rate-limit 1/h + budget cap. 14 tests verts.
+
+---
 
 ## Session 01/06/2026 — 8 commits, polish UI complet + filet currency + 5 tâches P2
 
