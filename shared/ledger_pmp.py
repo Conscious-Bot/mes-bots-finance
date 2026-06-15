@@ -48,13 +48,39 @@ def compute_pmp_realized(cx: Any, ticker: str) -> PositionPMP:
     Itère TOUTES les transactions (BUYs + SELLs) ordonnées par trade_date.
     Maintient (qty_pool, cost_pool_native, cost_pool_eur) en mémoire ;
     reset à 0 à chaque close complète.
+
+    ADJUST handling (cure currency bug 14/06/2026) : tx side='ADJUST' avec
+    notes JSON `{"target_tx_id": N, ...}` override les fields price_native +
+    fx_at_trade de la tx N. Permet correction sans UPDATE (append-only
+    structural preserved) ni pansement reversal-BUY (qui pollue PMP
+    path-dependent). Cf SPEC_LEDGER §1 "extensible 'SPLIT'/'ADJUST' (futur)".
     """
-    rows = cx.execute("""
-        SELECT side, qty, price_native, fees_native, fx_at_trade, trade_date
+    import json as _json
+    rows_raw = cx.execute("""
+        SELECT id, side, qty, price_native, fees_native, fx_at_trade, trade_date, notes
         FROM transactions
         WHERE ticker = ?
         ORDER BY trade_date ASC, id ASC
     """, (ticker,)).fetchall()
+
+    # Pre-pass : extract ADJUST overrides + filter for BUY/SELL iteration
+    adjust_map: dict[int, dict[str, float]] = {}
+    iter_rows: list[tuple] = []
+    for r in rows_raw:
+        tx_id, side, qty, price_native, fees_native, fx, _trade_date, notes = r
+        if side == "ADJUST":
+            try:
+                notes_data = _json.loads(notes) if notes else {}
+                target_id = notes_data.get("target_tx_id")
+                if target_id is not None:
+                    adjust_map[int(target_id)] = {
+                        "price_native": float(price_native),
+                        "fx_at_trade": float(fx),
+                    }
+            except (ValueError, TypeError, _json.JSONDecodeError):
+                continue  # ADJUST mal formé → ignore (fail-soft)
+        else:
+            iter_rows.append((tx_id, side, qty, price_native, fees_native, fx))
 
     qty_pool = 0.0
     cost_pool_native = 0.0  # somme cumulée qty x price + fees (en native)
@@ -62,8 +88,11 @@ def compute_pmp_realized(cx: Any, ticker: str) -> PositionPMP:
     realized_eur = 0.0
     n_closures = 0
 
-    for r in rows:
-        side, qty, price_native, fees_native, fx, _ = r
+    for tx_id, side, qty, price_native, fees_native, fx in iter_rows:
+        # Apply ADJUST override si applicable (currency bug cure)
+        if tx_id in adjust_map:
+            price_native = adjust_map[tx_id]["price_native"]
+            fx = adjust_map[tx_id]["fx_at_trade"]
         qty = float(qty)
         price_native = float(price_native)
         fees_native = float(fees_native)
