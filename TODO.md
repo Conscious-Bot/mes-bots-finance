@@ -1,10 +1,26 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 13 juin 2026 close final — 10 commits propres pushés origin/main · cutover Mac→VM réussi (split-brain résolu, VM=prod, Mac=dev) · drift detector daily 07:15 UTC actif · G2 chantier #150 = vert (10 sentinelles posées avec doctrine no-anchoring amendée 4 cas) · #147 RÉSOLU (KLAC stale cache, pas ordering) · spec + squelette #152 research_brief posés (handler /research session fraîche future)
+**Refresh** : 14 juin 2026 close ultra-marathon — 23 commits propres pushés (tennis Rule C + 5 outils analyste PRESAGE + cron observability 100% + chantier #150 G3 /research livré) · CI green sur main `68b8b4e` · Bot VM 5 redéploys all successful · scheduler_runs full coverage ~30 jobs · pytest baseline 1894 passed restaurée · cure live data_clusters NaN (anomaly détectée→curée 45 min)
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (14/06 close ultra-marathon)
+
+- **CI green main `68b8b4e`** (5m43s, 11/11 steps incluant ruff + mypy + pytest coverage). Run 27497658627 conclusion success.
+- **23 commits propres pushés** : tennis Rule C (3) + PRESAGE outils analyste (5) + audit cron (6) + cure clustering (1) + chantier #150 G3 (2) + tests fixes (2) + observability decorator (3) + CI fix (1).
+- **Bot Hetzner VM actif** : `systemctl --user is-active presage-bot.service = active`, code `68b8b4e`, alembic head `0062`, 29 jobs scheduled (vs 33 pre-cleanup audit P0 = 3 tier1/2/3 duplicates + j_day zombie supprimés).
+- **scheduler_runs append-only journal** (migration 0062) : **100% coverage** des ~30 crons via `_safe_run` (chain steps) + `@scheduler_run_logged` (top-level). 3 triggers append-only (no_delete + no_update_immutable preserving id/job_name/started_at). 3 helpers storage. Live data : 8 distinct job_names déjà tracés.
+- **healthcheck_ping wiring** : 9 crons préparés silent-noop fail-soft. `HEALTHCHECKS_PROJECT_URL` env var active réveille toute la chaîne.
+- **Chantier #150 G3 livré** : `/research <ticker|theme>` Telegram handler + 14 tests verts + anti-anchoring 8 patterns regex mecanisé + rate-limit 1/h + budget cap $5/jour. Backend pluggable Bigdata-real / stub. Coexiste avec `/review /digest /find`.
+- **Cure live data_clusters NaN** : anomalie détectée 09:31 via 1er fire scheduler_runs ("clustering failed: condensed distance matrix must contain only finite values"), root cause `intelligence/return_clustering.py:97` propagation NaN. Cure committée 09:45, validée 09:45:49 live. **~45 min boucle complète détection→cure validée prod** — sample direct value-add observability scheduler_runs.
+- **5 wrappers shared/ ajoutés** : fred_client (FRED API), healthcheck_ping (healthchecks.io), edgar_client (edgartools 10-Q value-add), thesis_library (Voyage finance-2 + Chroma SQLite local), scheduler_observability (decorator async-aware).
+- **5 skills .claude/commands/ ajoutés** : /sentinel-check, /sentinel-status, /system-health (utilise scheduler_runs live), /edgar-context, /thesis-similar.
+- **1 MCP server** : OpenInsider (16 outils gratuits SEC EDGAR + FINRA + OpenInsider + Yahoo). Tools dispos next Claude session restart.
+- **launchd plist Mac** : `com.olivier.presage-weekly-audit` dimanche 09:13 → Telegram alert sentinelles audit.
+- **Tennis-bot Path A pivot** : Rule C wired live (skip side price < 0.75), audit reminder 14/07 heartbeat dans bot.py.
+- **Pytest baseline 1894 passed** restaurée post-fixes (2 fails session : thesis_library raw sqlite3 → refactor `shared.storage.db()`, regex `interdit` faux positif → `_WHITELIST`).
 
 ## 🟢 ÉTAT SYSTÈME (13/06 close final)
 
@@ -78,7 +94,7 @@
 
 - **Cure structurelle tests CI-fresh DB** : 7 tests utilisent `skip-on-OperationalError` (cure aujourd'hui pour débloquer CI). Vraie cure = migrer ces 7 tests vers fixture `migrated_db` canonique. À faire en lot. ~1h.
 
-- **#152 Handler `/research <target>` (research_brief, posture analyste)** : feature légitime hors barrière #150 — fournir la matière factuelle structurée (Bigdata.com financials + consensus + news + cadre causal) pour calibrer les intuitions Olivier sans franchir la frontière du jugement bot. Spec complète : [`docs/research_brief_spec.md`](docs/research_brief_spec.md). 1h-1h30 session fraîche. Cap budget LLM, rate-limit 1/h, fail-closed L15, test mécanisé anti-verdict (regex). Bonus : peut servir de fact-check pré-pose obligatoire pour sentinelles futures (doctrine `feedback_no_probability_anchoring` amendée 13/06).
+- ~~**#152 Handler `/research <target>` (research_brief, posture analyste)**~~ — **RÉSOLU 14/06 (commits `dd854db` + `68b8b4e`)** : handler complet livré + déployé VM. `intelligence/research_brief.py` backends pluggables (Bigdata-real si `BIGDATA_API_KEY`, sinon stub explicite fail-closed L15). Format markdown spec §4 (FAITS/CONSENSUS/NEWS/CADRE). Anti-anchoring gate spec §5.4 mecanisé 8 patterns regex. Rate-limit 1/h via helper existant + budget cap $5/jour. 14 tests dédiés tous verts. CI green sur main. **Activation user-gated** : setup `BIGDATA_API_KEY` dans `.env` Mac+VM.
 
 - **#150 Couche de redevabilité décisionnelle (chantier figé 13/06, gated)** : étage au-dessus du ledger de prédictions, 4 unités en 3 couches (nulle paresseuse → registre unifié thèses engagées+vétoées → narrative drift + P&L biais). Spec complète : [`docs/CHANTIER_REDEVABILITY_LAYER.md`](docs/CHANTIER_REDEVABILITY_LAYER.md). Decision record : [`docs/adrs/010-decision-accountability-layer.md`](docs/adrs/010-decision-accountability-layer.md). 3 décisions tranchées 13/06 (Q1 deux hashes thesis/levels, Q2 nulle 100% SOXX jamais-rebalance + métriques duales, Q3 deux labels orthogonaux + détecteur a sa propre nulle). **Barrière §0 status 13/06 fin session** : G1✅(94 résolus) G2✅(10 sentinelles ledger) G3✅(18 triggers append-only, alembic 0060) G4✅(cure pattern #133bis add_sell) G5❓(baseline pytest à confirmer). **Ne démarre pas avant** : G5 vert ET observation post-Couche 0 plusieurs semaines. Construire avant d'observer = biais #3 en livrée d'architecte.
 

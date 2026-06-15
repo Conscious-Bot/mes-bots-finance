@@ -3471,3 +3471,87 @@ Trois chantiers couplés sur une session marathon de 60+ tours :
 4. **Cron group_cap demain matin VM** : timer 07:15 UTC drift detector FIRST, puis morning_chain ~08:00 fait tourner group_cap_check_job pour la 1ère fois en prod VM.
 5. **Token Mac dev** (si besoin dev local) : action BotFather mobile → bot séparé → .env.dev local.
 6. **Première résolution sentinelle** : S1 DRAM spread = 31/12/2026 (201 jours). Avec les autres horizons courts S8 (31/01/2027) et S9 (31/12/2026), tu auras 3 résolutions sentinelles avant Q1 2027 pour calibrer.
+
+---
+
+## Close 2026-06-14 — Session ultra-marathon : observability cron 100% + 5 outils analyste + chantier #150 G3 /research + cure data_clusters
+
+### Mission
+
+3 axes en parallèle :
+1. **Étendre matière disponible** sans franchir barrière #150 : 5 wrappers (fred_client, healthcheck_ping, edgar_client, thesis_library, scheduler_observability) + 5 skills (sentinel-check/status, system-health, edgar-context, thesis-similar) + 1 MCP server (OpenInsider)
+2. **Audit + cleanup crons PRESAGE** : 3 P0 duplicates supprimés + j_day zombie + migration 0062 scheduler_runs + decorator @scheduler_run_logged coverage 100% (~30 jobs)
+3. **Chantier #150 G3 livré** : `/research <ticker|theme>` Bigdata handler complet (spec #152) — matière analyste, anti-anchoring mécanisé
+
+### Livré
+
+**23 commits PRESAGE + tennis** sur la journée. Bot Hetzner VM 5 redéploys, tous successful, CI green sur main `68b8b4e` (5m43s, 11/11 steps).
+
+**Tennis-bot (3 commits)** :
+- `06f6d34` Rule C wired : skip si side bet < 0.75 (favoris fragiles). Validation TRAIN +4.18% / OOS +4.98% vs baseline +2.63% / -3.77% (audit empirique 14/06 sur scan_outcomes n=257).
+- `280ff04` cleanup 58 unused imports F401 sur 28 fichiers
+- `9838716` skill `/tennis-audit` + heartbeat reminder Rule C audit 14/07 (envoi Telegram one-shot via flag persistant)
+
+Tennis Path D matin pivotée vers Path A le soir (Rule C wired + audit 14/07). Memory `tennis_project_closed_2026-06-14` mise à jour avec sortie Path D.
+
+**PRESAGE — Outils analyste (5 commits)** :
+- `3cfb191` 3 skills (sentinel-check/status, system-health) + weekly sentinel audit launchd plist
+- `aacaaed` fred_client (FRED API wrapper, 12 series macro curées) + healthcheck_ping (cron observability)
+- `8d107ea` edgar_client (10-Q value-add net new : tenq_context, risk_factors_10q, income_statement_10q) + skill `/edgar-context`. Smoke NVDA validé live : Revenue $81.6B, Risk Factors 43k chars.
+- `a25c7c7` thesis_library RAG (Voyage finance-2 + Chroma local SQLite) + skill `/thesis-similar`. Doctrine fit : miroir disciplinaire, pas oracle.
+- `489f949` wire healthcheck_ping dans 3 crons + thesis_library hook post-`insert_prediction` (silent-noop fail-soft)
+
+**PRESAGE — Audit + cleanup crons (4 commits)** :
+- `637d59b` **P0 cure** : tier1/2/3 ajoutés 2× chacun lignes 288/331, 290/333, 295/338 → tier1 fire 8×/jour au lieu de 4× (2× LLM cost macro). Retirés. Live VM 33 → 29 jobs (3 dups + 1 j_day zombie).
+- `4c4605f` migration 0062 `scheduler_runs` append-only (3 triggers : no_delete, no_update_immutable preservant id/job_name/started_at) + 3 helpers storage (insert/update/get_last) + wire `_safe_run` chain steps + j_day_batch_close_job zombie cleanup
+- `f046d59` skill `/system-health` step 5 utilise vraie SQL `scheduler_runs` (avant : template placebo)
+- `f558a88` healthcheck wiring étendu 3 → 9 crons (daily_backup, daily_digest, weekly_sat/sun, tier1/2/3)
+- `1037468` decorator `@scheduler_run_logged` async-aware + 7 top-level crons (heartbeat, ingest_gmail, integrity_anchor, retrospective, circuit_breaker, audit_calibration, weekly_thesis_erosion, weekly_v2_vigilance)
+- `bacd6a7` decorator étendu 12 crons restants (price_monitor, scheduled_*, daily_calendar, monthly_*, weekly_calibration_audit) → coverage scheduler_runs **100% des add_job** (~30 jobs distincts)
+
+**PRESAGE — Cure data_clusters live (1 commit)** :
+- `c391013` `intelligence/return_clustering.py:cluster_by_correlation` cure NaN-safe : drop tickers >50% NaN dans row corr, replace NaN restants par 1.0 (max distance), clip [0, 2] safety floats. Anomalie détectée 09:31 UTC via 1er fire scheduler_runs ("clustering failed: condensed distance matrix must contain only finite values" caught + log.warning silencieux pré-cure), cure committed 09:45, validée live 09:45:49. **~45 min boucle complète détection → cure validée prod** — sample direct value-add observability scheduler_runs (avant : silently broken clusters dropped, invisible).
+
+**PRESAGE — Chantier #150 G3 (2 commits)** :
+- `dd854db` `/research <ticker|theme>` Telegram handler complet :
+  - `intelligence/research_brief.py` : backends pluggables (`_BigdataBackend` via bigdata-client>=2.21.0 si BIGDATA_API_KEY, sinon `_StubBackend` placeholder explicite fail-closed L15)
+  - Format markdown spec §4 (FAITS / CONSENSUS / NEWS / CADRE)
+  - Anti-anchoring gate spec §5.4 : 8 patterns regex (achete/vend/recommande/tu devrais/il faut acheter/probable que/overweight/probabilite) → abort + log si détecté
+  - Rate-limit 1/h/user via `check_research_brief_rate_limit` existant (migration 0061)
+  - Budget cap $5/jour/user via `get_research_brief_cost_today`
+  - Handler `bot/handlers/research.py` + enregistrement `bot/registry.py:131`
+  - **14 tests dédiés** : TestNoVerdict (9 cases anti-anchoring), TestFetchSmoke (3), TestRateLimit, test_module_imports_clean — tous verts
+- `68b8b4e` fix CI : `test_second_call_blocked` portable via `shutil.which("alembic")` au lieu hardcoded `venv/bin/alembic`
+
+**PRESAGE — Pytest baseline restaurée (1 commit)** :
+- `939d67e` 2 fails post-deploy ce matin : (1) `test_no_new_sqlite3_bypass` → `shared/thesis_library.py:bootstrap_from_db` raw sqlite3 violait L17 → refactor pour utiliser `shared.storage.db()` context manager ; (2) `test_no_orphan_table_refs` regex `interdit` (mot français dans RAISE message des triggers append-only) → ajout `_WHITELIST` avec rationale. Baseline 1894 passed restaurée.
+
+### Verification finale
+
+- `pytest -q --tb=no` local : **1894 passed, 36 skipped** (18:31)
+- CI GitHub Actions : conclusion success (5m43s, 11 steps incluant ruff + mypy + pytest coverage)
+- Bot Hetzner VM `systemctl --user is-active presage-bot.service` : active
+- `Scheduler started with 29 jobs` (vs 33 pre-cleanup)
+- `scheduler_runs` live : 8 distinct job_names + N rows (snapshot, portfolio_grade, counterfactual_resolve, data_clusters, ingest_gmail_job, heartbeat, scheduled_classify_signal_types_job, event_driven_erosion_check_job)
+- LLM cost mois courant (live VM) : $15.11 / 6089 calls, 0 erreur 24h
+- Telegram weekly_sentinel_audit_alert end-to-end testé (Olivier confirmé reception)
+
+### Outils ajoutés
+
+- **MCP** : OpenInsider (`openinsider-mcp` via npx) installé + connected. Tools `mcp__openinsider__*` dispo next Claude session restart : 16 outils gratuits sur OpenInsider + SEC EDGAR + FINRA + Yahoo.
+- **launchd plist Mac** : `com.olivier.presage-weekly-audit` dimanche 09:13 → `scripts/weekly_sentinel_audit_alert.py` → Telegram alert "Run /sentinel-status in Claude Code".
+- **Skills** : `/sentinel-check`, `/sentinel-status`, `/system-health`, `/edgar-context`, `/thesis-similar`, `/tennis-audit` (tennis-bot).
+- **Migration alembic** : 0062 scheduler_runs.
+
+### Audit canonical drift (post-session)
+
+À exécuter avant prochaine session : `python3 scripts/audit_canonical_drift.py | tail -20`. Pas exécuté ce soir vu taille session.
+
+### Entry next session
+
+1. **P0 design currency bug 4 trades** (id 198-201) : `price_native` EUR mais `currency='USD'` (cf 13/06 finding). Cure exige mécanisme correction dédié (memory `partial_close_handler_missing` : pas pansement par reversal-BUY qui pollue PMP). Options : ledger event d'ajustement separate OR rebuild from broker source. ~1-2h design + impl.
+2. **Action humaine** : KLAC + 5 dying (CCJ AMZN 6857.T 4063.T AVGO) + 1 dead (000660.KS) → reposer targets via méthode 3 colonnes #135 (Instrument / Ancre externe live / Ressenti). Non-bloquant code mais bénéfice immédiat.
+3. **Cure structurelle tests CI-fresh DB** : 7 tests utilisent `skip-on-OperationalError` (cure expédiente). Migrer vers fixture `migrated_db` canonique. ~1h cleanup propre.
+4. **Setup user (~10 min) pour activer composants dormants** : 3 signups gratuits (Voyage AI, healthchecks.io, FRED) + 1 paid (Bigdata.com si pas déjà) + 4 keys dans `.env` + 1 restart Claude pour OpenInsider tools. Sans ça, hooks silent-noop strict.
+5. **Audit 14/07/2026 tennis Rule C** : reminder heartbeat envoie alert Telegram automatique. Run `/tennis-audit` à reception.
+6. **Doctrine drift check** : `scripts/audit_canonical_drift.py` à exécuter avant chantier futur.
