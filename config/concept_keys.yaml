@@ -30,3 +30,8 @@ concepts:
     description: "P&L position % EUR ((value_now - cost_basis) / cost_basis) -- la divergence gauge dot-vs-tooltip"
     asof_bucket: day
     epsilon_rel: 0.005  # 0.5% — même tolérance que value_eur (dérivé direct)
+
+  price_eur:
+    description: "Prix EUR live d'un ticker -- comparaison position_view.price_native*fx vs _cached_price_eur"
+    asof_bucket: day
+    epsilon_rel: 0.005  # 0.5% — tolère jitter FX/price refresh entre cron (DB cache) et yfinance live (process cache)

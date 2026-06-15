@@ -102,7 +102,6 @@ SUFFIX = {
 # Cache prix EUR + native déplacé vers shared.prices (cure P0-1 audit (3) 12/06).
 # Ré-exporté ici pour rétro-compat des callers internes au render.py.
 from shared.prices import (
-    _cached_price_eur,
     _cached_price_native,
 )
 
@@ -7177,7 +7176,9 @@ def render() -> Path:
     # (sinon multiple writes = faux forks). Source canonique "position_view".
     try:
         from shared.living_graph import register_concept
+        from shared.prices import _cached_price_eur
         for _tk, _v in _views.items():
+            # === pnl_position (existing) ===
             _pnl = getattr(_v, "pnl_position_pct", None)
             if _pnl is not None:
                 register_concept(
@@ -7187,6 +7188,47 @@ def render() -> Path:
                     ticker=_tk,
                     op="value_eur_datum_div_cost_basis_eur",
                 )
+
+            # === price_eur (NEW, 2 sources) — tracer-bullet extension LIVING_GRAPH ===
+            # Source A : derive position_view (price_native × fx_rate, Datum-tracked)
+            _px_native = getattr(_v, "price_native", None)
+            _fx = getattr(_v, "fx_rate", None)
+            if _px_native and _fx:
+                register_concept(
+                    concept_key="price_eur",
+                    value=float(_px_native) * float(_fx),
+                    source="position_view",
+                    ticker=_tk,
+                    op="price_native_times_fx_rate",
+                )
+            # Source B : prices._cached_price_eur (live yfinance, 30min process cache)
+            try:
+                _px_live = _cached_price_eur(_tk)
+                if _px_live:
+                    register_concept(
+                        concept_key="price_eur",
+                        value=float(_px_live),
+                        source="prices._cached_price_eur",
+                        ticker=_tk,
+                        op="cached_yfinance_eur",
+                    )
+            except Exception:
+                pass
+
+            # === value_eur (boost : ajout 2e source depuis position_view) ===
+            # Source existante : shared/book.py:732 source="book.value_eur"
+            # Source ajoutée ici : position_view.value_eur_datum.value.amount
+            _vd = getattr(_v, "value_eur_datum", None)
+            if _vd is not None and getattr(_vd, "value", None) is not None:
+                _amt = getattr(_vd.value, "amount", None)
+                if _amt is not None:
+                    register_concept(
+                        concept_key="value_eur",
+                        value=float(_amt),
+                        source="position_view",
+                        ticker=_tk,
+                        op="value_eur_datum_amount",
+                    )
     except Exception:
         pass
 
