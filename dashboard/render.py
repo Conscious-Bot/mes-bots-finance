@@ -4114,57 +4114,86 @@ def _track_record_panel() -> str:
     else:
         _brier_cls, brier_verdict = "bear", "au-dessus du seuil"
 
-    # Axe taux correct : 0% -> 100%, marker = position actuelle
-    rate_frac = (n_corr / n * 100) if n else 0.0
-    # Axe Brier : 0 -> 0.5, marker = brier_mean, ligne ref a target 0.20 (= 40%)
-    brier_frac = (brier_mean / 0.5 * 100) if brier_mean is not None else None
-    brier_target_x = 40.0  # 0.20 / 0.5
-    # P2 canon : tick a 0.20 target (40%) + dot pour Brier mean. Pas de gradient.
+    # 5 fixes 15/06/2026 (calibration data-honesty) :
+    # 1. Reorder Brier → Reliability → Taux correct (calibration > accuracy)
+    # 2. Aucun marker si N < MIN_CONCLUSIF (value_pct=None → _tbar n'emet pas dot)
+    # 3. Aucune couleur non-grise si N < MIN_CONCLUSIF (dot_color="" neutre)
+    # 4. Reliability : trace pleine UNIQUEMENT si N≥MIN ; sinon bg gris+annotation
+    # 5. Date dynamique (next cohort) au lieu de "10/06" hardcoded stale
+
+    # N gating uniforme — un seul modèle de lecture vide
+    brier_ok = brier_mean is not None and n_brier >= MIN_CONCLUSIF
+    rate_ok = n >= MIN_CONCLUSIF
+    # Axes : value_pct None si insuffisant → _tbar omet le marker
+    brier_frac = (brier_mean / 0.5 * 100) if brier_ok else None
+    rate_frac = (n_corr / n * 100) if rate_ok else None
+    brier_target_x = 40.0  # 0.20 / 0.5 = 40% sur axe 0-0.5
     rate_pct = f"{n_corr/n:.0%}" if n else "&mdash;"
+    # Couleur gated derrière la donnée : aucune teinte non-grise sans data conclusive
+    brier_color = _brier_cls if brier_ok else ""
+    rate_color = _rate_cls if rate_ok else ""
+
+    # Next cohort dynamique : si batch j_day passé (10/06), pas hardcode.
+    # Fallback honnête : aucune cohorte planifiée si date passée.
+    from datetime import date as _date
+    _today = _date.today()
+    _j_day = _date(2026, 6, 10)
+    _next_cohort_str = "aucune cohorte planifi&eacute;e" if _today > _j_day else "10/06"
 
     return (
         f'<div class="colhead"><span class="t">Track record</span>'
         f'<span class="a">N={n} substantial &middot; honest-early disclosure if N&lt;{MIN_CONCLUSIF}</span></div>'
         f'<div class="card pad tr-card" style="margin-bottom:var(--s4)">'
-        # Metric 1 : Taux correct (axe 0->100%)
-        f'<div class="tr-metric">'
-        f'<div class="tr-mlabel"><span class="tr-mname">Taux correct</span>'
-        f'<span class="tr-mval mono">{n_corr}<span class="tr-mvsep">/</span>{n}</span>'
-        f'<span class="tr-munit">soit {rate_pct}</span></div>'
-        f'{_tbar(rate_frac, dot_color=_rate_cls, title=f"{rate_pct} correct")}'
-        f'<div class="tr-mfoot"><span class="mono">IC95% {ci_str.replace("IC95% ", "")}</span>'
-        f'<span class="tr-verdict">{rate_verdict}</span></div>'
-        f'</div>'
-        # Metric 2 : Brier rolling (axe 0->0.5, target 0.20)
+        # Metric 1 (head) : Brier rolling — calibration métrique primaire
         f'<div class="tr-metric">'
         f'<div class="tr-mlabel"><span class="tr-mname">Brier rolling</span>'
         f'<span class="tr-mval mono">{brier_str}</span>'
-        f'<span class="tr-munit">sur 0&ndash;0,5</span></div>'
-        f'{_tbar(brier_frac, ticks=[(brier_target_x, "target 0,20")], dot_color=_brier_cls, title="Brier sur 0-0,5")}'
-        f'<div class="tr-mfoot"><span class="mono">target 0,20</span>'
+        f'<span class="tr-munit">sur 0&ndash;0,5 &middot; plus bas = mieux</span></div>'
+        f'{_tbar(brier_frac, ticks=[(brier_target_x, "cible 0,20 &middot; r&eacute;f.")], dot_color=brier_color, title="Brier sur 0-0,5")}'
+        f'<div class="tr-mfoot"><span class="mono">cible 0,20 &middot; r&eacute;f.</span>'
         f'<span class="tr-verdict">{brier_verdict}</span></div>'
         f'</div>'
-        # Metric 3 : Curve de fiabilite (cadre vide + diagonale qui se trace)
+        # Metric 2 (co-head) : Reliability curve — diagonale référence + trace conditionnelle
         f'<div class="tr-metric">'
         f'<div class="tr-mlabel"><span class="tr-mname">Reliability curve</span>'
-        f'<span class="tr-munit">attend la first cohorte calibration</span></div>'
-        f'<svg class="tr-rsvg" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">'
-        f'<line x1="0" y1="60" x2="100" y2="0" class="tr-diag"/>'
-        f'<line x1="0" y1="60" x2="100" y2="60" class="tr-frame"/>'
-        f'<line x1="0" y1="0" x2="0" y2="60" class="tr-frame"/>'
-        f'</svg>'
-        f'<div class="tr-mfoot"><span class="mono">&mdash; &middot; N insuffisant</span>'
-        f'<span class="tr-verdict">trace se construit post 10/06</span></div>'
+        + (f'<span class="tr-munit">N={n} pr&eacute;dictions r&eacute;solues</span>'
+           if rate_ok else
+           '<span class="tr-munit">attend la 1<sup>re</sup> cohorte de r&eacute;solution</span>')
+        + '</div>'
+        '<svg class="tr-rsvg" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">'
+        + ('<rect x="0" y="0" width="100" height="60" class="tr-rempty"/>'
+           if not rate_ok else "")
+        + '<line x1="0" y1="60" x2="100" y2="0" class="tr-diag"/>'
+        '<line x1="0" y1="60" x2="100" y2="60" class="tr-frame"/>'
+        '<line x1="0" y1="0" x2="0" y2="60" class="tr-frame"/>'
+        + (f'<text x="50" y="33" class="tr-rempty-txt" text-anchor="middle">trace d&egrave;s N &ge; {MIN_CONCLUSIF}</text>'
+           if not rate_ok else "")
+        + '</svg>'
+        '<div class="tr-mfoot"><span class="mono">calibration parfaite &middot; r&eacute;f.</span>'
+        + (f'<span class="tr-verdict">{rate_verdict}</span>'
+           if rate_ok else
+           '<span class="tr-verdict">en attente cohorte</span>')
+        + f'</div>'
+        f'</div>'
+        # Metric 3 (démoted) : Taux correct — accuracy ≠ calibration, secondaire
+        f'<div class="tr-metric tr-metric--secondary">'
+        f'<div class="tr-mlabel"><span class="tr-mname tr-mname--small">Taux correct</span>'
+        f'<span class="tr-mval mono">{n_corr}<span class="tr-mvsep">/</span>{n}</span>'
+        f'<span class="tr-munit">soit {rate_pct}</span></div>'
+        f'<div class="tr-msubcaveat mono">accuracy &ne; calibration &mdash; secondaire</div>'
+        f'{_tbar(rate_frac, dot_color=rate_color, title=f"{rate_pct} correct")}'
+        f'<div class="tr-mfoot"><span class="mono">{"IC95% " + ci_str.replace("IC95% ", "") if rate_ok else "IC95% indisponible"}</span>'
+        f'<span class="tr-verdict">{rate_verdict if rate_ok else "ind&eacute;fini &middot; N=" + str(n)}</span></div>'
         f'</div>'
         # Pipeline state -- plat, honnete. ADR 014 : on surface v0 quarantine
         # ET v1 archive separement pour eviter "0 en attente" trompeur.
         f'<div class="tr-pipe mono">'
-        f'<span><b>{n}</b> resolved (canonique)</span><span class="tr-sep">&middot;</span>'
+        f'<span><b>{n}</b> r&eacute;solus (canonique)</span><span class="tr-sep">&middot;</span>'
         f'<span><b>{open_n}</b> en attente (canonique)</span><span class="tr-sep">&middot;</span>'
         f'<span>+<b>{v1_resolved_n}/{v1_resolved_n + v1_open_n}</b> v1 archive</span>'
         f'<span class="tr-sep">&middot;</span>'
         f'<span>+<b>{v0_n}</b> v0 quarantine</span><span class="tr-sep">&middot;</span>'
-        f'<span>prochaine cohorte <b>10/06</b></span>'
+        f'<span>prochaine cohorte <b>{_next_cohort_str}</b></span>'
         f'</div>'
         f'</div>'
     )

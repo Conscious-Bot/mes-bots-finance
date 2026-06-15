@@ -611,13 +611,23 @@ _CSS = """
   .tr-card .tr-mfoot .mono { color:var(--ink2); }
   .tr-card .tr-verdict { color:var(--steel); }
   .tr-card .tr-rsvg { display:block; width:100%; height:96px; margin:var(--s2) 0; }
-  .tr-card .tr-diag { stroke:var(--ink); stroke-width:.8; fill:none; stroke-dasharray:160; stroke-dashoffset:160; animation:trDiagDraw 1.4s cubic-bezier(.22,.61,.36,1) .15s forwards; }
+  /* tr-diag : diagonale pointillée gris pâle = référence "calibration parfaite",
+     pas une trace data. La couleur/style distincte signale que c'est un guide
+     visuel, pas une mesure. Cure 15/06 data-honesty. */
+  .tr-card .tr-diag { stroke:var(--steel); stroke-width:.6; fill:none; stroke-dasharray:2,2; opacity:.55; }
   .tr-card .tr-frame { stroke:var(--line2); stroke-width:.5; fill:none; }
+  /* tr-rempty : bg gris pâle + texte annotation quand N < MIN_CONCLUSIF.
+     Le viz lui-même dit "vide" sans qu'on ait à lire le label. */
+  .tr-card .tr-rempty { fill:color-mix(in srgb, var(--steel) 6%, transparent); }
+  .tr-card .tr-rempty-txt { fill:var(--steel); font-size:7px; font-family:var(--fm); opacity:.75; }
+  /* Taux correct démoté : titre plus petit + caveat sous-jacent + bordure
+     latérale gauche pour signifier "secondaire" visuellement. */
+  .tr-card .tr-metric--secondary { opacity:.85; }
+  .tr-card .tr-mname--small { font-size:var(--t-caption); font-weight:500; color:var(--ink2); }
+  .tr-card .tr-msubcaveat { font-size:var(--t-caption); color:var(--steel); margin:calc(-1 * var(--s2)) 0 var(--s2) 0; font-style:italic; }
   .tr-card .tr-pipe { display:flex; flex-wrap:wrap; gap:var(--s2) var(--s3); padding-top:var(--s35); color:var(--ink2); font-size:var(--t-body); }
   .tr-card .tr-pipe b { color:var(--ink); font-weight:600; }
   .tr-card .tr-sep { color:var(--line3); }
-  @keyframes trDiagDraw { to { stroke-dashoffset:0; } }
-  .noanim .tr-diag { animation:none; stroke-dashoffset:0; }
   .rs { display:flex; justify-content:space-between; margin-top:var(--s15); font-size:14px; color:var(--steel); }
   .dwrap { display:flex; align-items:center; gap:var(--s5); flex-wrap:wrap; }
   .legend { display:flex; flex-direction:column; gap:var(--s2); flex:1; min-width:200px; }
