@@ -69,7 +69,29 @@
 
 ~~0. **G2 du chantier #150 = ROUGE : `/predict ×10` sentinelles event-type**~~ — **RÉSOLU 13/06** : 10 sentinelles posées via `scripts/seed_sentinels_2026-06-13.py` après cure complète du schéma (migration 0060 ajoute `claim_type/resolution_source/origin` + CHECK conditionnel + ticker nullable). Distribution : 2 Olivier-seul (S1, S2), 6 Claude-assisted post-amend doctrine (S3-S5, S7-S9), 2 mécaniques 0.99 (S6, S10 déjà publiquement déclenchées trouvées via fact-check Bigdata.com). `origin='manual'` honnête. G2 ledger PASSAGE ROUGE→VERT (pids 294-303).
 
-0bis. **🔴 P0 DETTE CURRENCY BUG : 4 trades broker import du 12/06 14:28:30 avec `price_native` en EUR mais `currency='USD'`** (cf finding session 13/06 cutover Mac→VM). Path-dependent PMP : cure par entrées de compensation POLLUE le PMP (un reversal-BUY décale l'avg cost vers le haut, le SELL correct suivant calcule P&L contre avg pollué = on déplace l'erreur sur le P&L futur entier de cette ligne). **NE PAS curer par entrées inverses.** Cure exige mécanisme de correction dédié (ou rebuild interdit append-only) à designer dans session future. **Bénin court-terme** : P&L réalisé sous-estimé sur historique, PRU sous-estimé fait paraître plus profitable → `stale_target` flague moins, direction bénigne sur sizing live. Pas de risque /exit ni decision immédiate. **Valeurs correctes documentées** :
+0bis. **🟡 KNOWN-GAP CURRENCY BUG (analyse 15/06/2026) : 148 trades broker import avec `fx_at_trade=1.0` systémique** (cf SPEC_LEDGER §1 + memory `feedback_instrumentation_vs_decision`). Pattern initial identifié 13/06 sur 4 trades du 12/06 14:28:30 a été investigué 15/06 → étendu à **TOUTE l'historique broker import** :
+   - 135 USD trades (TR_csv) — pattern price_native = EUR-per-share, currency='USD', fx=1.0
+   - 11 JPY trades — idem
+   - 2 KRW trades — idem
+   - 4 manual_add 12/06 (id 198-201) — même pattern, juste plus visible
+   - Total **148 trades touchés**
+
+   **Cure (γ) full systemic** : 4-6h via ADJUST mass-batch (SPEC_LEDGER §1 "extensible ADJUST futur"). Mécanisme `shared/ledger_pmp.py:compute_pmp_realized` ADJUST handler livré 15/06 (commit `081e4f7`), prêt à recevoir 148 tx ADJUST avec notes JSON target_tx_id. Script `scripts/fix_currency_bug_4_trades_2026_06_14.py` template idempotent. 6 tests verts.
+
+   **DÉCISION 15/06 : (α) Rollback + KNOWN-GAP** (cf memory `feedback_instrumentation_vs_decision`).
+   Raison : ratio coût/bénéfice infini. EUR débité **invariant sous cure** (= ce que TR a réellement chargé) → 0 changement visible dashboard pré/post-cure. Vérifié empiriquement : TSM 2021-12-16 stored 106.2 = EUR/share matche actual USD price $120.34 × 0.88 fx (H1 EUR-pattern confirmé). PMP EUR / cost basis / realized_pnl tous invariants. Cure (γ) serait purement conceptuelle (restaure native USD interprétation) sans surface visible.
+
+   **DB Mac restored** : `data/bot.db.backup_before_currency_fix_20260614` (96MB). Audit copy avec cure preserved : `data/bot.db.with_currency_cure_for_audit`. VM jamais touchée (clean).
+
+   **Préservé pour future (γ) si retour sur décision** : 
+   - `shared/ledger_pmp.py` ADJUST handler (dormant tant que 0 ADJUST tx)
+   - `scripts/fix_currency_bug_4_trades_2026_06_14.py` template idempotent
+   - `tests/test_currency_bug_cure_adjust.py` 6 tests doctrine + mechanic
+   - Backup baseline + audit DB
+
+   **Bénin court-terme confirmé** : tous EUR-side aggregates corrects. Conceptual integrity USD-native broken mais aucune fonctionnalité user-facing impactée.
+
+   Valeurs originellement documentées 13/06 (cf historique pour reference future) :
    - tx id=198 ALAB SELL 1.242 @ **319.65 EUR (= ~$369 USD au fx 1.155)** stocké `price_native=319.65, currency='USD', fx_at_trade=1.0` → vraie valeur USD ≈ **371.4**
    - tx id=199 GOOGL BUY 1.0 @ **312.0 EUR** stocké `currency='USD', fx_at_trade=1.0` → vraie valeur USD ≈ **361**
    - tx id=200 AMD SELL 0.741 @ **445.34 EUR** stocké `currency='USD', fx_at_trade=1.0` → vraie valeur USD ≈ **515**
