@@ -255,10 +255,13 @@ async def post_init(app):
     # SOCLE S0 : OTS anchor chain-head daily 6h. Cf SPEC_SOCLE.md S5 + HANDOFF_SOCLE.md.
     # Lignage = integrite (Merkle-DAG). Track-record provable -- chaque jour compte.
     from bot.jobs.integrity_anchor import integrity_anchor_daily_job
-    sched.add_job(integrity_anchor_daily_job, "cron", hour=6, minute=0,
+    # Stagger 06:00 pile-up (cure 15/06/2026 audit cron) : morning_chain
+    # garde 06:00, les autres jobs decales 06:03/06:05/06:07/06:10 pour
+    # eviter contention DB write + LLM call simultanes au tick exact.
+    sched.add_job(integrity_anchor_daily_job, "cron", hour=6, minute=3,
                   misfire_grace_time=7200)
     sched.add_job(daily_crypto_zone_job, "cron", hour=10, minute=0)
-    sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=0)
+    sched.add_job(recalibrate_credibility_brier_job, "cron", day=1, hour=6, minute=7)
     # #89 cadence mensuelle : snapshot JSON + recal credibility V2 + digest Telegram
     sched.add_job(monthly_track_record_snapshot_job, "cron", day=1, hour=8, minute=0,
                   misfire_grace_time=86400)
@@ -272,7 +275,7 @@ async def post_init(app):
     # Couche 4 chantier #2 : weekly floor thesis_erosion lundi 6h Paris
     # (avant ouverture marche, donne verdicts frais pour la carte-decision).
     # Cout ~$0.60/run x 4 runs/mois = ~$2.40/mois. Pas spam Telegram si tout INTACT.
-    sched.add_job(weekly_thesis_erosion_floor_job, "cron", day_of_week="mon", hour=6, minute=0,
+    sched.add_job(weekly_thesis_erosion_floor_job, "cron", day_of_week="mon", hour=6, minute=5,
                   misfire_grace_time=86400)  # 24h catchup post-downtime (cure 12/06)
     # Calibration audit scorer V2 : check hebdo dimanche 22h, push Telegram si transition status notable
     sched.add_job(weekly_calibration_audit_job, "cron", day_of_week="sun", hour=22, minute=0,
@@ -280,8 +283,8 @@ async def post_init(app):
     sched.add_job(monthly_bot_preferences_synthesis_job, "cron", day=1, hour=4, minute=0, misfire_grace_time=86400)
     # Tier1 4x/jour 06h/12h/18h/22h (user 06/06 "accuracy = basic").
     # VIX/USDJPY/TYX/MOVE/HY_OAS/DXY/Gold/BTC reagissent intra-day.
-    sched.add_job(cron_tier1_daily, "cron", hour="6,12,18,22", minute=0,
-                  misfire_grace_time=10800)  # 3h catchup
+    sched.add_job(cron_tier1_daily, "cron", hour="6,12,18,22", minute=10,
+                  misfire_grace_time=10800)  # 3h catchup. minute=10 = stagger post-morning_chain 06:00
     sched.add_job(cron_tier2_weekly, "cron", day_of_week="mon", hour=6, minute=30,
                   misfire_grace_time=86400)  # 24h catchup (cf cure 12/06 : missed lundi -> 6j stale)
     # Tier3 monthly retry pattern : 1er + 5 + 10 + 15 du mois pour rattraper
