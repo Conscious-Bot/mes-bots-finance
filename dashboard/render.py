@@ -7946,7 +7946,10 @@ def render() -> Path:
                         f"- {f['concept_key']} {f['ticker'] or 'global'} {f['bucket']} "
                         f"| Δ={f['max_div_rel']:.3%} > ε={f['epsilon_rel']:.3%} | {cands}"
                     )
-                notify.send_text("\n".join(_lines))
+                # parse_mode="" : source names contiennent _ (position_pnl.helper,
+                # value_eur_minus_cost_basis_eur etc.) qui cassent Markdown parser.
+                # Cure 15/06/2026 : skip parse_mode -> plain text envoie clean.
+                notify.send_text("\n".join(_lines), parse_mode="")
             except Exception:
                 pass
     except Exception:
