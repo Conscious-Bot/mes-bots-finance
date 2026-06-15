@@ -10,6 +10,7 @@ de crash) + happy path avec data suffisante en memoire (in-memory SQLite).
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC
 
 import pytest
 
@@ -48,15 +49,26 @@ def empty_db() -> sqlite3.Connection:
 
 @pytest.fixture
 def populated_db(empty_db: sqlite3.Connection) -> sqlite3.Connection:
-    """In-memory DB avec 40 predictions resolues v1 (au-dessus de MIN_N_FIT=30)."""
+    """In-memory DB avec 40 predictions resolues v1 (au-dessus de MIN_N_FIT=30).
+
+    Dates relatives à 'now' (recent 7-15j) pour eviter test drift :
+    fetch_recent_lessons filtre `resolved_at >= now-30 days`. Hard-coded dates
+    cessent d'etre dans la fenetre apres N jours → test devient flaky (cure 15/06).
+    """
+    from datetime import datetime, timedelta, timezone
+    _now = datetime.now(UTC)
+    baseline_date = (_now - timedelta(days=20)).strftime("%Y-%m-%d")
+    target_date = (_now - timedelta(days=10)).strftime("%Y-%m-%d")
+    resolved_date = (_now - timedelta(days=7)).strftime("%Y-%m-%d")
+
     rows = []
     for i in range(40):
         # Alterne correct/incorrect avec probas calibrees-ish
         outcome = "correct" if i % 2 == 0 else "incorrect"
         prob = 0.6 + (0.3 if outcome == "correct" else -0.1)
         rows.append((
-            i, 1, "AAPL", "bullish", 14, 100.0, "2026-05-01", "2026-05-15",
-            "2026-05-16", 105.0, 0.05, outcome, 0.03, "2026-05-01", prob,
+            i, 1, "AAPL", "bullish", 14, 100.0, baseline_date, target_date,
+            resolved_date, 105.0, 0.05, outcome, 0.03, baseline_date, prob,
             0.1, "earnings", 0.5, "v1",
         ))
     empty_db.executemany(
