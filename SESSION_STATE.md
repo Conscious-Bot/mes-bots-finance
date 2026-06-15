@@ -3555,3 +3555,55 @@ Tennis Path D matin pivotée vers Path A le soir (Rule C wired + audit 14/07). M
 4. **Setup user (~10 min) pour activer composants dormants** : 3 signups gratuits (Voyage AI, healthchecks.io, FRED) + 1 paid (Bigdata.com si pas déjà) + 4 keys dans `.env` + 1 restart Claude pour OpenInsider tools. Sans ça, hooks silent-noop strict.
 5. **Audit 14/07/2026 tennis Rule C** : reminder heartbeat envoie alert Telegram automatique. Run `/tennis-audit` à reception.
 6. **Doctrine drift check** : `scripts/audit_canonical_drift.py` à exécuter avant chantier futur.
+
+---
+
+## Close 2026-06-15 — Mini-session continue : P0 currency rollback honest + 5 cures techniques
+
+### Mission
+
+Session continue (lendemain ultra-marathon 14/06), focus sur P0 backlog actionnable + cures techniques visibles dans observability instrumentée hier.
+
+### Livré
+
+**6 commits** sur la journée. CI green sur main `2ad2f48`. Bot Hetzner VM 3 redéploys all successful.
+
+**P0 Currency bug — cure tentée puis rollback honnête (2 commits)** :
+- `081e4f7` Cure (β) 4 trades via ADJUST tx (SPEC_LEDGER §1 anticipé extensible). Mécanique propre : `shared/ledger_pmp.py` pre-pass extract ADJUST overrides via notes JSON, applique pre-iteration BUY/SELL. Script idempotent `scripts/fix_currency_bug_4_trades_2026_06_14.py` + 6 tests dédiés `tests/test_currency_bug_cure_adjust.py`. 4 ADJUST tx (ids 203-206) inserted Mac DB.
+- DISCOVERY 15/06 : pattern bien plus large — 148 trades broker import avec fx_at_trade=1.0 systémique (135 USD + 11 JPY + 2 KRW). Vérification empirique TSM 2021-12-16 stored 106.2 = EUR/share confirmé par actual USD price $120.34 × 0.88 fx ≈ 106.2 → toute la track-record broker stocke prix EUR per share avec currency-tag native + fx=1.0.
+- ⚠️ **EUR débité INVARIANT sous cure ADJUST** (preuve empirique : PMP values identiques pre/post DB rollback). Dashboard affiche EUR → 0 changement visible. Memory `feedback_instrumentation_vs_decision` : "instrument en avance sur la donnée" → tunnel sans payoff.
+- `51ffde5` Decision (α) rollback + KNOWN-GAP documenté TODO 0bis. DB Mac restored depuis backup. VM jamais touchée. Mécanique cure préservée pour si retour sur décision (ledger_pmp ADJUST handler dormant + script template + 6 tests).
+
+**Telegram 400 parse error (1 commit)** :
+- `2663006` Visible quotidiennement dans `dashboard/serve.log` post-fork detection. Root cause : `dashboard/render.py:7949` envoie fork notification en Markdown mode, mais le contenu inclut `_` chars dans noms sources (`position_pnl.helper`, `value_eur_minus_cost_basis_eur`) → Markdown parser cherche italic close → "Can't find end of entity at byte offset 618". Cure : `parse_mode=""` skip parsing (message OPS plain text formate). Log clean post-fix.
+
+**Stagger 06:00 cron pile-up (1 commit)** :
+- `f655b20` Audit cron 14/06 P3 follow-up. 5 jobs ferment exactement à 06:00 simultanés. Stagger préservant morning_chain comme anchor : 06:00/03/05/07/10 spread temporel propre. `cron_tier1_daily` passe à minute=10 (consistent sur 4 fires intra-day). Zero behavior change semantic, juste cleaner DB write + LLM call distribution au tick.
+
+**#145 LIVING_GRAPH forks cure (1 commit)** :
+- `a574c3c` Investigation 4 tickers (000660.KS, 7011.T, AMD, ASML.AS) en fork constant détectés à chaque render. **Hypothesis initial L29 doctrine divergence helper vs view = FAUSSE.** Root cause empirique : `shared/position_pnl.py:pnl_position_pct_eur` registre `concept_index source='position_pnl.helper'` mais a ZÉRO production caller (uniquement `tests/test_position_pnl_canonical.py` qui teste EXACTEMENT ces 4 tickers SK Hynix/AMD/ASML/Mitsubishi avec fixtures hardcoded). Chaque pytest run écrit valeurs fixture dans concept_index production → fork détecté car view enregistre live values différentes.
+- Cure : retirer `register_concept` du helper (pure calcul math, side-effect dispensable). Source canonique reste `position_view.compute_position()` via dashboard render. Cleanup `concept_index` DELETE 4 stale rows. Validation : 0 forks post-cure sur fresh render. Memory `feedback_source_direct_fix` : fix à la source, pas symptôme (epsilon ε plus large).
+
+**Tests CI-fresh DB structural cure (1 commit)** :
+- `2ad2f48` 3 tests skippaient sur CI fresh DB via `except sqlite3.OperationalError + pytest.skip`. Cure expédiente (memory KNOWN-GAP). Migration vers fixture canonique `migrated_db` (existante `tests/conftest.py:62` SQLite backup() snapshot WAL-safe). 3 tests migrés : `test_vue_positions_returns_null_for_pmp_realized_failclosed` + `test_stop_value_is_mutable_not_writeonce` + `test_writeonce_trigger_rejects_entry_value_update`. Pour les 2 derniers, seed fixture thesis avec entry_price (F7 invariant required). Hors scope : 3 tests utilisent OperationalError intentionnellement (`pytest.raises` ou monkeypatch DB-down) → conservés. Effet : invariants gardés en CI (avant : skip silent = pas de garde réelle).
+
+### Audit findings (P0 → KNOWN-GAP)
+
+- **Currency bug 148 trades systémique** : documenté TODO section 0bis avec analyse empirique complète + mécanique cure préservée. Décision (α) honnête : EUR débité invariant sous toute cure ADJUST → effort sans payoff visible. Réservé future session si retour sur décision (déclencheur externe ou besoin USD-native specific).
+
+### Cleanup post-audit
+
+- Restore DB Mac `data/bot.db.backup_before_currency_fix_20260614` (96MB). Audit copy avec cure preserved : `data/bot.db.with_currency_cure_for_audit`.
+- Stale `concept_index` source='position_pnl.helper' DELETE (Mac + VM). 0 rows post-cleanup.
+
+### Outils ajoutés
+
+Aucun nouveau cette session — focus sur cures + structural fixes.
+
+### Entry next session
+
+1. **KLAC + 5 dying + 1 dead targets** : action humaine méthode 3 colonnes #135. Non-bloquant code, bénéfice immédiat dashboard (post-cure session sweep).
+2. **Setup user keys (~10 min)** pour activer composants dormants : 3 signups gratuits (Voyage AI, healthchecks.io, FRED) + Bigdata.com si pas déjà + 4 keys `.env` + 1 restart Claude. Sans ça, hooks silent-noop strict — c'est le seul gating de "activation totale" de la stack outils analyste livrée hier.
+3. **Audit 14/07/2026 tennis Rule C** : reminder heartbeat envoie alert Telegram automatique. Run `/tennis-audit` à reception (1 mois ETA).
+4. **#145 currency systémique** : KNOWN-GAP documenté. Si retour sur décision, mécanique préservée. Vérifier `data/bot.db.with_currency_cure_for_audit` avant suppression (audit reference).
+5. **Doctrine drift** : `scripts/audit_canonical_drift.py | tail -20` à exécuter avant chantier non-trivial.

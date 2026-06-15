@@ -1,10 +1,20 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 14 juin 2026 close ultra-marathon — 23 commits propres pushés (tennis Rule C + 5 outils analyste PRESAGE + cron observability 100% + chantier #150 G3 /research livré) · CI green sur main `68b8b4e` · Bot VM 5 redéploys all successful · scheduler_runs full coverage ~30 jobs · pytest baseline 1894 passed restaurée · cure live data_clusters NaN (anomaly détectée→curée 45 min)
+**Refresh** : 15 juin 2026 close mini-session — 6 commits cures techniques (P0 currency rollback honest + Telegram 400 + stagger 06:00 + #145 forks + tests CI-fresh DB structural) · CI green sur main `2ad2f48` · Bot VM 3 redéploys successful · pytest baseline 1908 passed local · P0 currency dette reformulée KNOWN-GAP documenté
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (15/06 close mini-session)
+
+- **CI green main `2ad2f48`** (last 6 commits all CI-green tested locally + Telegram fix validated live).
+- **6 commits propres pushés** : 081e4f7 (cure currency 4 trades) → 51ffde5 (rollback α) → 2663006 (Telegram 400) → f655b20 (stagger 06:00) → a574c3c (#145 forks) → 2ad2f48 (tests CI-fresh DB).
+- **Bot Hetzner VM actif** : `systemctl --user is-active = active`, code `2ad2f48`, alembic head `0062` (inchangé).
+- **Pytest baseline 1908 passed** local (+5 nouveaux tests : 6 sur ADJUST + migration 3 sur fixture). 2 fails KNOWN_DEBT_EXEMPT (KLAC stale).
+- **scheduler_runs append-only journal** : intact, scheduler_observability 100% coverage post-deploy hier maintenu.
+- **Dashboard live `http://127.0.0.1:8000/dashboard.html`** : Mac local actif (HTTP 200 736KB), log clean (0 Telegram 400 post-fix, 0 forks post-cure #145).
+- **P0 currency 148 trades systémique** : KNOWN-GAP documenté avec analyse empirique complète + mécanique cure préservée. Décision (α) honnête sur EUR invariance.
 
 ## 🟢 ÉTAT SYSTÈME (14/06 close ultra-marathon)
 
