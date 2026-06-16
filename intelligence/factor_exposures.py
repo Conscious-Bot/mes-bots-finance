@@ -164,6 +164,7 @@ def run_stress_test(scenario_name: str) -> dict:
     axes = {a["ticker"]: a for a in storage.get_all_latest_ticker_axes()}
     # Weight depuis seam canonique book.value_eur
     weights = {}
+    _degraded_count = 0
     for ln in held:
         qty = float(ln.qty or 0)
         if qty <= 0:
@@ -171,8 +172,18 @@ def run_stress_test(scenario_name: str) -> dict:
         v = _bk.value_eur(ln.ticker, qty)
         if v is not None and v.value is not None and hasattr(v.value, "amount"):
             weights[ln.ticker] = float(v.value.amount)
+            # Cure 16/06 audit P0 Cat-D : log degraded inputs pour stress scenarios.
+            # Scenario sur input stale -> resultat utile mais a flagger downstream.
+            if getattr(v, "degraded", False):
+                _degraded_count += 1
         else:
             weights[ln.ticker] = ln.weight_market_eur or 0
+    if _degraded_count > 0:
+        import logging as _lg
+        _lg.getLogger(__name__).warning(
+            "factor_exposures.run_stress: %d/%d positions value_eur DEGRADED -- scenario %s sur inputs stales",
+            _degraded_count, len(weights), scenario_name,
+        )
     total = sum(weights.values()) or 1
 
     by_position: list = []

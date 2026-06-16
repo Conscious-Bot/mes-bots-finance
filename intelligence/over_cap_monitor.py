@@ -182,6 +182,18 @@ def check_all_overcap_transitions() -> dict[str, Any]:
                 if v_datum is not None and v_datum.value is not None and hasattr(v_datum.value, "amount"):
                     weight = float(v_datum.value.amount)
                     anchor_eur = weight / qty
+                    # Cure 16/06 audit P0 Cat-D : Datum porte degraded flag
+                    # (fail-closed M1) mais avant cure : ignored ici. Si fx/price
+                    # est stale > amber threshold, on log warn et incremente errors
+                    # pour visibilite stats. Le monitor continue (best-effort) mais
+                    # le caller voit "n positions evaluees sur donnees stale".
+                    if getattr(v_datum, "degraded", False):
+                        log.warning(
+                            "over_cap_monitor: %s value_eur DEGRADED (asof=%s, source=%s) -- decision sur input stale",
+                            ln.ticker, getattr(v_datum, "asof", "?"),
+                            getattr(v_datum, "source", "?"),
+                        )
+                        stats["errors"] += 1
                 else:
                     weight = ln.weight_market_eur
                     anchor_eur = ln.current_price_eur
