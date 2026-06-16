@@ -93,7 +93,34 @@ def classify_group(
             f"group_cap.classify_group {group_key} : book vide (0 positions held)"
         )
 
-    book_eur = sum(ln.weight_market_eur or 0 for ln in held)
+    # Cure 16/06 Lane 2 #4 : migration ln.weight_market_eur -> book.value_eur.
+    # Avant : ln.weight_market_eur = qty x _cached_price_eur(tk) (DB cron-cached,
+    # peut etre stale, anti-pattern monitor depend du cache dashboard).
+    # Apres : recompute via book.value_eur Datum canonique (asof + degraded
+    # honnetes, pas de coupling au cron). Fallback ln.weight_market_eur si
+    # value_eur fail-closed (rare, mais preserve continuite du monitor).
+    from shared import book as _bk
+    _value_map: dict[str, float] = {}
+    _degraded = 0
+    for ln in held:
+        qty = float(ln.qty or 0)
+        if qty <= 0:
+            continue
+        v = _bk.value_eur(ln.ticker, qty)
+        if v is not None and v.value is not None and hasattr(v.value, "amount"):
+            _value_map[ln.ticker] = float(v.value.amount)
+            if getattr(v, "degraded", False):
+                _degraded += 1
+        else:
+            _value_map[ln.ticker] = float(ln.weight_market_eur or 0)
+    if _degraded > 0:
+        import logging as _lg
+        _lg.getLogger(__name__).warning(
+            "group_cap.classify_group %s : %d/%d positions value_eur DEGRADED",
+            group_key, _degraded, len(_value_map),
+        )
+
+    book_eur = sum(_value_map.values())
     if book_eur <= 0:
         raise MissingDataError(
             f"group_cap.classify_group {group_key} : book_eur={book_eur} (<=0)"
@@ -105,7 +132,7 @@ def classify_group(
         # legitime : aucun signal a emettre, pas une cassure de cascade.
         return None
 
-    group_eur = sum(ln.weight_market_eur or 0 for ln in group_lines)
+    group_eur = sum(_value_map.get(ln.ticker, 0.0) for ln in group_lines)
     group_pct = group_eur / book_eur * 100
 
     status = "over" if group_pct > cap_pct else "dormant"

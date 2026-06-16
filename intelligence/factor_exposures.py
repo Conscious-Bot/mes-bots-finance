@@ -53,7 +53,33 @@ def compute_factor_exposures() -> dict:
     held = book.get_held_lines()
     if not held:
         return {}
-    total = sum(ln.weight_market_eur for ln in held) or 1
+
+    # Cure 16/06 Lane 2 #5 : migration ln.weight_market_eur -> book.value_eur.
+    # Coherent avec over_cap_monitor (Lane 2 #3, deja migre) + group_cap_monitor
+    # (Lane 2 #4, migre cette session). Fallback ln.weight_market_eur si Datum
+    # fail-closed. Log degraded count pour visibilite.
+    _value_map: dict[str, float] = {}
+    _degraded = 0
+    for ln in held:
+        qty = float(ln.qty or 0)
+        if qty <= 0:
+            _value_map[ln.ticker] = 0.0
+            continue
+        v = book.value_eur(ln.ticker, qty)
+        if v is not None and v.value is not None and hasattr(v.value, "amount"):
+            _value_map[ln.ticker] = float(v.value.amount)
+            if getattr(v, "degraded", False):
+                _degraded += 1
+        else:
+            _value_map[ln.ticker] = float(ln.weight_market_eur or 0)
+    if _degraded > 0:
+        import logging as _lg
+        _lg.getLogger(__name__).warning(
+            "compute_factor_exposures: %d/%d positions value_eur DEGRADED",
+            _degraded, len(_value_map),
+        )
+
+    total = sum(_value_map.values()) or 1
 
     factors: dict = {}
     for ln in held:
@@ -64,7 +90,7 @@ def compute_factor_exposures() -> dict:
             "themes_overlay": {},  # F9 fix : visible cross-class
             "n_positions": 0,
         })
-        factors[f]["eur"] += ln.weight_market_eur
+        factors[f]["eur"] += _value_map.get(ln.ticker, 0.0)
         factors[f]["tickers"].append(ln.ticker)
         if ln.theme:
             factors[f]["themes_overlay"][ln.ticker] = ln.theme

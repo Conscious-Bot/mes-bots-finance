@@ -43,7 +43,7 @@ BROKER_KNOWN = {
         "fx_band": (0.004, 0.008),
     },
     "4063.T": {
-        "qty": 115.266393,           # CSV truth (was 107.5220 yaml stale)
+        "qty": 99.652293,            # post-SELL session 14/06 (-15.6 sh, partial close Shin-Etsu)
         "avg_cost_eur": 39.05,       # rolling fee-inc
         "expected_pnl_pct_at_snapshot": -4.92,
         "currency_native": "JPY",

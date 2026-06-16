@@ -30,6 +30,15 @@ def _make_bookline(ticker, qty, weight_eur):
     return bl
 
 
+@pytest.fixture(autouse=True)
+def _mock_book_value_eur(monkeypatch):
+    """Post-migration Lane 2 #4 (16/06) : classify_group call book.value_eur en
+    interne. Tests utilisent _make_bookline fixtures avec weight_market_eur
+    comme source de verite -> mock value_eur a None pour forcer le fallback
+    sur ln.weight_market_eur. Preserve semantique tests unit."""
+    monkeypatch.setattr("shared.book.value_eur", lambda *args, **kwargs: None)
+
+
 # ─── Tests UNIT classify_group ────────────────────────────────────────────────
 
 
