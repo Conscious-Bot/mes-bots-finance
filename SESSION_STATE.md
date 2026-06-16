@@ -3607,3 +3607,74 @@ Aucun nouveau cette session — focus sur cures + structural fixes.
 3. **Audit 14/07/2026 tennis Rule C** : reminder heartbeat envoie alert Telegram automatique. Run `/tennis-audit` à reception (1 mois ETA).
 4. **#145 currency systémique** : KNOWN-GAP documenté. Si retour sur décision, mécanique préservée. Vérifier `data/bot.db.with_currency_cure_for_audit` avant suppression (audit reference).
 5. **Doctrine drift** : `scripts/audit_canonical_drift.py | tail -20` à exécuter avant chantier non-trivial.
+
+---
+
+## Close 2026-06-16 — Chantier "tout clean A à Z" : audit LIVING_GRAPH gaps + 7 cures
+
+### Mission
+
+Session matinale post-rollover bucket : 16 forks `price_eur` détectés en démarrage (vs 0 hier soir) = LIVING_GRAPH instrumenté hier livre signal au premier jour. User : "tout clean A à Z" → red-team self-audit + chantier multi-pass.
+
+### Livré
+
+**7 commits** sur la journée. CI vert sur main `163dabc`. 11 concepts LIVING_GRAPH instrumentés (vs 7 hier soir).
+
+**Pass 1 — Silent-fails P0 cured (`00185f3`)** :
+- `shared/prices.py:303` `insert_price_observation` silent-fail = CAUSE DIRECTE des 16 forks (si write echoue, VIEW positions reste sur ancienne row, cron continue sans signal). Remplace `except Exception: pass` par log.warning.
+- `shared/prices.py:572` `insert_fx_observation` symetrique cote FX.
+- `dashboard/render.py:7337` top-level try/except: pass englobait toute l'instrumentation LIVING_GRAPH. Remplace par log.error → "instrumentation morte" detectable.
+- Audit faux-positif sur `bot/jobs/sequences.py` 11 silent-fails : TOUS autour de telemetry (scheduler_runs + healthcheck_ping), fail-soft documente. Skipped avec rationale.
+
+**Pass 2 — current_eur + realized_pnl_eur instrumentés (`8353ce9`)** :
+- `current_eur` 2 sources : `_cached_price_eur × qty` vs `book.value_eur` Datum. 15 forks détectés (pile le P0 audit Cat-B).
+- `realized_pnl_eur` 1 source : audit imprécis — `positions.realized_pnl` est INTENTIONNELLEMENT NULL post-alembic 0049 (fail-closed L15). Decision : keep single-source pour observabilité historique.
+
+**Pass 3 — prices.fx() asof honnête + whitelist MU (`b7f63bf`)** :
+- Audit P0 D : `fx_is_stale` helper 0 callsite. Root cause découvert : `prices.fx()` MENTAIT à la racine (`asof=now` + `age_sec=0` hardcoded même pour cached 4h ou HARDCODED fallback). Cure : 3 cas distincts honnêtes (identity / yfinance:fx / hardcoded_fx_fallback) avec asof + degraded propagation correcte.
+- Test verrouillant : MU thesis vide (Régime A activé hier) → whitelist alongside 000660.KS.
+
+**Pass 4 — 3e source value_eur (`b385cb6`)** :
+- `render.py:2328` calc ad-hoc `qty × bl.last_native × bl.fx` (P0 audit Cat-B #3 : "3 paths value_eur, 1 non instrumenté"). Register comme source="render_thesis_card". Au regen post-cure : 0 fork immediate, surface en place pour futurs drifts.
+
+**Pass 5 — Degraded gates dans monitors (`f35b72b`)** :
+- `intelligence/over_cap_monitor.py:181` + `intelligence/factor_exposures.py:171` : Datum.degraded ignored before. Maintenant : log warn + incremente stats["errors"]. Decision continue best-effort mais visible.
+
+**Pass 6 — Migration Lane 2 #4/#5 + CI repairs (`aca842e`)** :
+- `intelligence/group_cap_monitor.py:96` (Lane 2 #4) + `intelligence/factor_exposures.py:56` (Lane 2 #5) : migration `ln.weight_market_eur` → `book.value_eur` Datum. Coherent avec over_cap (Lane 2 #3 deja fait). Fallback ln.weight_market_eur si Datum fail-closed.
+- CI red repairs (3 tests cassés par pass 3) : `test_fx_returns_datum_when_fetch_succeeds` + `test_value_eur_pattern_propagates_lineage` (monkeypatch `_FX_LIVE_LAST_SUCCESS` pour simuler post-live-success) + `test_seam[4063.T]` (qty stale post-SELL hier, update BROKER_KNOWN).
+- Test fixture group_cap : autouse mock `book.value_eur` → None (force fallback ln.weight_market_eur, preserve unit test semantics).
+
+**Pass 7 — book_total_eur + factor_exposure_eur aggregates (`163dabc`)** :
+- `book_total_eur` 2 sources : sum cached weight_market_eur vs sum canonical book.value_eur. Au regen : 58344.87€ vs 58350.91€ = 0.01% spread, aggregation saine.
+- `factor_exposure_eur` per macro_factor : 1 source observabilité.
+- Detection inattendue : `value_eur` fork sur 6920.T (Lasertec) 1.7% — `position_view.value_eur_datum` 1595.39€ vs `book.value_eur` 1623.06€. Hypothèse qty cached vs actuel post-SELL hier. **Vrai signal architectural** surfacé sans intervention humaine.
+
+### Audit findings (red-team self)
+
+**Audit déléguée à general-purpose agent (466s) → 5 P0 + ~30 silent-fails dangereux + 8 concept candidates.** Cure 5/5 P0 fermés. Concept candidates : 5 instrumentés en multi-source, 3 single-source observability.
+
+**Pattern dominant identifié** : "datums portent asof mais 22+ consumers ne le lisent". Sweep complet hors scope session. Cure partielle : 2 consumers fixed (over_cap, factor_exposures stress). Reste 20+.
+
+### Topology investigation (root cause 16 forks)
+
+**Trouvé : Hetzner = production**, Mac dashboard = view-only sur DB sync. Le launchctl bootstrap a déclenché Telegram conflict (`terminated by other getUpdates`) → preuve que Hetzner bot tourne. Roll-back immédiat (bootout + disable) pour eviter CrashLoop fighting Hetzner.
+
+Les 16 forks de ce matin ≠ bug cron. Ce sont des signaux CORRECTS du LIVING_GRAPH : Mac DB = état figé au cutover + writes ad-hoc via mes regens vs live yfinance fetches. Sync gap normal.
+
+### Cleanup
+
+Aucun gros cleanup. Bot Mac laissé disabled (etat normal post-cutover Hetzner).
+
+### Outils ajoutés
+
+Aucun cette session — focus sur cures + audit + extension instrumentation existante.
+
+### Entry next session
+
+1. **Asof discipline sweep downstream** (~20 consumers restants) : pattern dominant audit. Multi-jour. Priorité haute mais découpable en sous-passes par panel.
+2. **Bot Hetzner health check** : tu peux confirmer via SSH `systemctl status presage-bot.service`. Si vivant, OK ; sinon escalate.
+3. **Sync Mac ← Hetzner** : valider qu'un mécanisme push les writes Hetzner → Mac data/bot.db (vu backups `before_*_sync_20260615`). Sinon dashboard Mac diverge silencieusement.
+4. **Action humaine** : sentinelles G2 sur cohorte 10/07 (resolution première vague). Quand plusieurs résolvent, le panneau Brier passera de vide à tracé.
+5. **CI fragility cleanup** : refactor `_FX_LIVE_LAST_SUCCESS` access via API helper (vs monkeypatch interne actuel).
+6. **Detection 6920.T value_eur** : vrai fork architectural 1.7%, investiguer si PositionView cache qty obsolete vs actuel post-SELL.
