@@ -2327,6 +2327,24 @@ def _position_card(inputs, steer_v2) -> str:
             weight_eur = qty * _last_native * _fx  # value_eur canonique cohérent
             pnl_eur = weight_eur - cost_basis
             pnl_pct = (weight_eur / cost_basis - 1) * 100
+            # Cure 16/06 audit P0 Cat-B : 3e source non-instrumentée pour value_eur.
+            # Ad-hoc cohérent intra-row positions (FX et price même timestamp via
+            # positions VIEW) vs Datum pipeline qui peut avoir FX-asof mismatch.
+            # L'écart historique 7% sur SK Hynix était cette divergence -- maintenant
+            # surfacée au lieu d'être cachée.
+            try:
+                from shared.living_graph import register_concept as _rc_lg
+                _tk_card = getattr(bl, "ticker", None) or inputs.ticker
+                if _tk_card:
+                    _rc_lg(
+                        concept_key="value_eur",
+                        value=float(weight_eur),
+                        source="render_thesis_card",
+                        ticker=_tk_card,
+                        op="bl_qty_x_last_native_x_fx_intra_row",
+                    )
+            except Exception:
+                pass
         else:
             weight_eur = (getattr(bl, "weight_market_eur", 0) or 0)
             pnl_eur = (weight_eur - cost_basis) if weight_eur else 0
