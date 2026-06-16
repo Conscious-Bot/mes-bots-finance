@@ -60,3 +60,13 @@ concepts:
     description: "P&L realise EUR cumule -- single-source compute_pmp_realized (VIEW SQL NULL by design post-alembic 0049)"
     asof_bucket: day
     epsilon_rel: 0.001  # 0.1% strict — pas de 2e source live, gardé pour observabilité historique
+
+  book_total_eur:
+    description: "Valeur totale book EUR -- sum-of-parts cached (weight_market_eur) vs sum canonical (book.value_eur Datum)"
+    asof_bucket: day
+    epsilon_rel: 0.005  # 0.5% — detecte aggregation drift entre cached snapshot et live sum
+
+  factor_exposure_eur:
+    description: "Expo EUR par macro_factor -- compute_factor_exposures aggregate (1 source aujourd'hui, hook si ailleurs)"
+    asof_bucket: day
+    epsilon_rel: 0.005  # 0.5% — meme tolerance que aggregates parents

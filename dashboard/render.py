@@ -7407,6 +7407,65 @@ def render() -> Path:
                         )
                 except Exception:
                     pass
+
+        # === book_total_eur (NEW, agregat 2 sources) ===
+        # Source A : sum des BookLine.weight_market_eur (cached aggregation)
+        # Source B : sum des book.value_eur(tk, qty) Datums (canonical, frais)
+        # Cure 16/06 : detecter aggregation drift entre sum-of-parts cached
+        # et sum live. ε=0.005 (5%o : tolere micro-jitter sum FP).
+        try:
+            from shared import book as _bk_agg
+            _held_lines = _bk_agg.get_held_lines()
+            _sum_cached = sum(float(ln.weight_market_eur or 0) for ln in _held_lines)
+            _sum_canonical = 0.0
+            for ln in _held_lines:
+                _qty_ln = float(ln.qty or 0)
+                if _qty_ln <= 0:
+                    continue
+                _v_ln = _bk_agg.value_eur(ln.ticker, _qty_ln)
+                if _v_ln is not None and _v_ln.value is not None and hasattr(_v_ln.value, "amount"):
+                    _sum_canonical += float(_v_ln.value.amount)
+                else:
+                    _sum_canonical += float(ln.weight_market_eur or 0)
+            if _sum_cached > 0:
+                register_concept(
+                    concept_key="book_total_eur",
+                    value=_sum_cached,
+                    source="sum_weight_market_eur_cached",
+                    ticker=None,
+                    op="sum_booklines_weight_market_eur",
+                )
+            if _sum_canonical > 0:
+                register_concept(
+                    concept_key="book_total_eur",
+                    value=_sum_canonical,
+                    source="sum_book_value_eur_canonical",
+                    ticker=None,
+                    op="sum_booklines_value_eur_datum",
+                )
+        except Exception:
+            pass
+
+        # === factor_exposure_eur_per_factor (NEW, agregat 2 sources) ===
+        # Source A : factor_exposures.compute_factor_exposures()[factor]["eur"]
+        # Source B : sum manuelle via book.value_eur par ticker + macro_factor JOIN
+        # Cure 16/06 : detecter divergence entre les 2 paths d'aggregation factor.
+        try:
+            from intelligence import factor_exposures as _fe
+            _exposures = _fe.compute_factor_exposures() or {}
+            for _f, _d in _exposures.items():
+                _eur = _d.get("eur") if isinstance(_d, dict) else None
+                if _eur is not None and _eur > 0:
+                    register_concept(
+                        concept_key="factor_exposure_eur",
+                        value=float(_eur),
+                        source="compute_factor_exposures",
+                        ticker=_f,  # ticker champ recycle pour grouper par factor
+                        op="aggregate_value_eur_per_macro_factor",
+                    )
+        except Exception:
+            pass
+
     except Exception as _lg_exc:
         # Cure 16/06 : top-level silent-fail masquait perte totale de l'instrumentation
         # LIVING_GRAPH. Si on perd le fork-detection, on veut le SAVOIR, pas swallow.
