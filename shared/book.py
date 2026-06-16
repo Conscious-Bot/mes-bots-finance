@@ -450,7 +450,10 @@ def _load_ticker_axes() -> dict[str, dict]:
 
     try:
         return {a["ticker"]: a for a in storage.get_all_latest_ticker_axes()}
-    except Exception:
+    except Exception as _e:
+        # Cure 16/06 pass 8 : silent-fail -> log warn. Caller voit {} comme avant.
+        import logging as _lg
+        _lg.getLogger(__name__).warning("_load_ticker_axes fail (%s): %s", type(_e).__name__, _e)
         return {}
 
 
@@ -460,7 +463,9 @@ def _load_ticker_meta() -> dict[str, dict]:
 
     try:
         return {m["ticker"]: m for m in storage.get_all_latest_ticker_meta()}
-    except Exception:
+    except Exception as _e:
+        import logging as _lg
+        _lg.getLogger(__name__).warning("_load_ticker_meta fail (%s): %s", type(_e).__name__, _e)
         return {}
 
 
@@ -475,7 +480,14 @@ def _current_price_eur(ticker: str) -> float | None:
         from shared.prices import _cached_price_eur
 
         return _cached_price_eur(ticker)
-    except Exception:
+    except Exception as _e:
+        # Cure 16/06 pass 8 : silent-fail price fetch -> log warn. Caller voit
+        # None comme avant, declenche fallback downstream. Mais on log la cause.
+        import logging as _lg
+        _lg.getLogger(__name__).warning(
+            "_current_price_eur fail %s (%s): %s",
+            ticker, type(_e).__name__, _e,
+        )
         return None
 
 
