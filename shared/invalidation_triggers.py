@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 from functools import lru_cache
 from typing import Any
 
@@ -59,7 +58,7 @@ def get_resolved_sentinels_by_code() -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     try:
         with storage.db() as cx:
-            cx.row_factory = sqlite3.Row
+            # storage.db() already sets row_factory = sqlite3.Row
             rows = cx.execute(
                 """
                 SELECT id, outcome, resolved_at, brier_score, probability_at_creation,
@@ -108,7 +107,7 @@ def get_trigger_status_per_thesis() -> dict[str, list[dict[str, Any]]]:
 
     try:
         with storage.db() as cx:
-            cx.row_factory = sqlite3.Row
+            # storage.db() already sets row_factory = sqlite3.Row
             rows = cx.execute(
                 "SELECT ticker, invalidation_triggers FROM theses WHERE status='active'"
             ).fetchall()
