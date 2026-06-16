@@ -453,6 +453,18 @@ _FX_CACHE: dict[tuple[str, str], tuple[float, datetime]] = {}
 # Last successful live fetch per pair (independent from cache : survit a
 # l'expiration TTL pour permettre fx_freshness() de signaler la staleness).
 _FX_LIVE_LAST_SUCCESS: dict[tuple[str, str], datetime] = {}
+
+
+def _mark_fx_live_success(base: str, quote: str = "EUR", when: datetime | None = None) -> None:
+    """API publique pour marquer un live FX success (tests + simulation).
+
+    Cure 16/06 : avant cette helper, les tests devaient `monkeypatch.setitem`
+    directement `_FX_LIVE_LAST_SUCCESS` (couplage interne fragile). Maintenant,
+    test peut simuler un live-success via API stable :
+        monkeypatch.setattr(prices, "_mark_fx_live_success", ...) OR
+        prices._mark_fx_live_success("USD", "EUR")
+    """
+    _FX_LIVE_LAST_SUCCESS[(base, quote)] = when or datetime.now(UTC)
 _log = _logging.getLogger(__name__)
 
 
@@ -568,7 +580,7 @@ def get_fx_rate(from_cur: str, to_cur: str = "EUR") -> float | None:
     live = _fetch_fx_live(from_cur, to_cur)
     if live is not None:
         _FX_CACHE[key] = (live, now)
-        _FX_LIVE_LAST_SUCCESS[key] = now
+        _mark_fx_live_success(from_cur, to_cur, now)
         # M1 persist append-only (cure 16/06 : pendant longtemps silent-miss
         # L7, donc cron FX qui foire = aucun signal. Symetrise prices.py:303
         # pour insert_price_observation).

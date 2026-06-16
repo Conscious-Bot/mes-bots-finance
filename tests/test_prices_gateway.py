@@ -42,11 +42,9 @@ def test_fx_returns_datum_when_fetch_succeeds(monkeypatch) -> None:
     monkeypatch.setattr(prices, "get_fx_rate", lambda b, q: 0.92)
     # Cure 16/06 : prices.fx() asof-honnete inspecte _FX_LIVE_LAST_SUCCESS pour
     # distinguer live vs hardcoded fallback. Pour ce test "fetch succeeds", simule
-    # l'etat post-live-success (sinon CI sans reseau classe comme fallback).
-    from datetime import UTC, datetime
-    monkeypatch.setitem(
-        prices._FX_LIVE_LAST_SUCCESS, ("USD", "EUR"), datetime.now(UTC),
-    )
+    # l'etat post-live-success via API _mark_fx_live_success (sinon CI sans
+    # reseau classe comme fallback).
+    prices._mark_fx_live_success("USD", "EUR")
     d = prices.fx("USD", "EUR")
     assert isinstance(d, Datum)
     assert d.value == 0.92
@@ -103,13 +101,10 @@ def test_value_eur_pattern_propagates_lineage(monkeypatch) -> None:
     """
     monkeypatch.setattr(prices, "get_current_price", lambda t: 100.0)
     monkeypatch.setattr(prices, "get_fx_rate", lambda b, q: 0.92)
-    # Cure 16/06 : simule live success pour _FX_LIVE_LAST_SUCCESS (cf
+    # Cure 16/06 : simule live success via API _mark_fx_live_success (cf
     # test_fx_returns_datum_when_fetch_succeeds). Sinon CI classe comme hardcoded
     # fallback -> confidence=0.4 au lieu de 1.0.
-    from datetime import UTC, datetime
-    monkeypatch.setitem(
-        prices._FX_LIVE_LAST_SUCCESS, ("USD", "EUR"), datetime.now(UTC),
-    )
+    prices._mark_fx_live_success("USD", "EUR")
     price = prices.get("NVDA")
     fx_rate = prices.fx("USD", "EUR")
     # Wrapper qty en Datum (ce que fera positions table en S2)

@@ -41,6 +41,7 @@ def compute_wrapper_allocation() -> dict:
 
     held = list(_bk.get_held_lines())
     weights = {}
+    _degraded = 0
     for ln in held:
         qty = float(ln.qty or 0)
         if qty <= 0:
@@ -48,8 +49,17 @@ def compute_wrapper_allocation() -> dict:
         v = _bk.value_eur(ln.ticker, qty)
         if v is not None and v.value is not None and hasattr(v.value, "amount"):
             weights[ln.ticker] = float(v.value.amount)
+            if getattr(v, "degraded", False):
+                _degraded += 1
         else:
             weights[ln.ticker] = ln.weight_market_eur or 0
+    # Cure 16/06 pass 8 : log degraded inputs (audit Cat-D asof discipline).
+    if _degraded > 0:
+        import logging as _lg
+        _lg.getLogger(__name__).warning(
+            "wrapper_tax.compute_wrapper_allocation: %d/%d positions value_eur DEGRADED",
+            _degraded, len(weights),
+        )
     total = sum(weights.values()) or 1
 
     alloc: dict = {"PEA": 0.0, "CTO": 0.0, "unknown": 0.0}
@@ -153,6 +163,7 @@ def compute_fx_exposure() -> dict:
 
     held = list(_bk.get_held_lines())
     weights = {}
+    _degraded = 0
     for ln in held:
         qty = float(ln.qty or 0)
         if qty <= 0:
@@ -160,8 +171,17 @@ def compute_fx_exposure() -> dict:
         v = _bk.value_eur(ln.ticker, qty)
         if v is not None and v.value is not None and hasattr(v.value, "amount"):
             weights[ln.ticker] = float(v.value.amount)
+            if getattr(v, "degraded", False):
+                _degraded += 1
         else:
             weights[ln.ticker] = ln.weight_market_eur or 0
+    # Cure 16/06 pass 8 : log degraded inputs (audit Cat-D asof discipline).
+    if _degraded > 0:
+        import logging as _lg
+        _lg.getLogger(__name__).warning(
+            "wrapper_tax.compute_currency_exposure: %d/%d positions value_eur DEGRADED",
+            _degraded, len(weights),
+        )
     total = sum(weights.values()) or 1
     by_cur: dict = {}
     for tk, w in weights.items():
