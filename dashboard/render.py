@@ -7190,11 +7190,12 @@ def render() -> Path:
             try:
                 with storage.db() as _cx:
                     for _r in _cx.execute(
-                        f"SELECT ticker, qty, avg_cost_eur, fx_rate_to_eur, last_price_currency "
+                        f"SELECT ticker, qty, avg_cost_eur, fx_rate_to_eur, last_price_currency, realized_pnl "
                         f"FROM positions WHERE ticker IN ({_placeholders})",
                         _tickers,
                     ):
-                        _positions_map[_r[0]] = (_r[1], _r[2], _r[3], _r[4])
+                        # tuple: (qty, avg_cost_eur, fx_rate_to_eur, currency, realized_pnl)
+                        _positions_map[_r[0]] = (_r[1], _r[2], _r[3], _r[4], _r[5])
                     for _r in _cx.execute(
                         f"SELECT ticker, SUM(CASE side WHEN 'BUY' THEN qty WHEN 'SELL' THEN -qty ELSE 0 END) "
                         f"FROM transactions WHERE ticker IN ({_placeholders}) GROUP BY ticker",
@@ -7304,6 +7305,60 @@ def render() -> Path:
                         source="ledger_pmp_fifo",
                         ticker=_tk,
                         op="pmp_eur_times_qty",
+                    )
+            except Exception:
+                pass
+
+            # === current_eur (NEW, 2 sources) — EUR market value, cure P0 audit 16/06 ===
+            # Source A : _cached_price_eur × qty (path BookLine.current_eur, book.py:563)
+            # Source B : book.value_eur Datum amount (canonical pipeline qty x price x fx)
+            # Cible : detecter staleness _PX_CACHE 30min vs path Datum frais.
+            # C'est le pattern P0 du fork 16/06 mais sur EUR (consumer-level vs price-level).
+            if _qty_view:
+                try:
+                    _px_live_cur = _cached_price_eur(_tk)
+                    if _px_live_cur:
+                        register_concept(
+                            concept_key="current_eur",
+                            value=_qty_view * float(_px_live_cur),
+                            source="cached_x_qty",
+                            ticker=_tk,
+                            op="cached_price_eur_times_qty",
+                        )
+                except Exception:
+                    pass
+                try:
+                    from shared import book as _book
+                    _vd_canon = _book.value_eur(_tk, _qty_view)
+                    if _vd_canon is not None and _vd_canon.value is not None:
+                        _amt_canon = getattr(_vd_canon.value, "amount", None)
+                        if _amt_canon is not None:
+                            register_concept(
+                                concept_key="current_eur",
+                                value=float(_amt_canon),
+                                source="book.value_eur",
+                                ticker=_tk,
+                                op="datum_qty_x_price_x_fx",
+                            )
+                except Exception:
+                    pass
+
+            # === realized_pnl_eur (single-source historique) ===
+            # Source unique : ledger_pmp.compute_pmp_realized.realized_pnl_eur (Python FIFO iterative).
+            # Note : positions.realized_pnl col est INTENTIONNELLEMENT NULL post-alembic
+            # 0049 (fail-closed L15, 09/06) — la sous-requete sells_agg etait fausse sur
+            # 8 tickers partial-SELL->re-BUY. Pas de 2e source possible cote SQL.
+            # Concept gardé pour observabilité historique des realized_pnl_eur, pas
+            # pour fork-detection (impossible single-source by design).
+            try:
+                _rp_pmp = getattr(_pmp, "realized_pnl_eur", None) if _pmp else None
+                if _rp_pmp is not None:
+                    register_concept(
+                        concept_key="realized_pnl_eur",
+                        value=float(_rp_pmp),
+                        source="ledger_pmp_python",
+                        ticker=_tk,
+                        op="compute_pmp_realized_iterative",
                     )
             except Exception:
                 pass

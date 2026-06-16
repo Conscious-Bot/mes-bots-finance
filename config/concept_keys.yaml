@@ -50,3 +50,13 @@ concepts:
     description: "Taux FX native→EUR -- positions DB cached vs prices.fx gateway live"
     asof_bucket: day
     epsilon_rel: 0.005  # 0.5% — jitter FX intra-day OK, divergence > 0.5% signale cron stale
+
+  current_eur:
+    description: "Valeur EUR position courante -- _cached_price_eur*qty vs book.value_eur Datum"
+    asof_bucket: day
+    epsilon_rel: 0.005  # 0.5% — meme tolerance que price_eur (derive direct via qty)
+
+  realized_pnl_eur:
+    description: "P&L realise EUR cumule -- single-source compute_pmp_realized (VIEW SQL NULL by design post-alembic 0049)"
+    asof_bucket: day
+    epsilon_rel: 0.001  # 0.1% strict — pas de 2e source live, gardé pour observabilité historique
