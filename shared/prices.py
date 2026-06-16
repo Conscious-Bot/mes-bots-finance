@@ -291,8 +291,11 @@ def get_current_price(ticker: str) -> float | None:
         median = _last_clean_median(ticker)
         outlier = _is_outlier(price, median)
 
-        # M1 persist append-only (silent-miss L7 si DB down -- ne casse pas fetch).
-        # Persiste TOUJOURS (audit), avec source distincte si outlier.
+        # M1 persist append-only (cure 16/06 : audit LIVING_GRAPH a identifié
+        # ce silent-fail comme cause directe des 16 forks price_eur post-rollover
+        # bucket. Si write echoue, VIEW positions.last_price_native reste sur
+        # ancienne row -> stale, et le cron continue sans signal. Log warn
+        # explicite + monkeypatch-friendly via _log).
         try:
             from shared.storage import insert_price_observation
             currency = get_currency_for_ticker(ticker)
@@ -300,8 +303,11 @@ def get_current_price(ticker: str) -> float | None:
                 ticker=ticker, price_native=price, currency=currency,
                 source="yfinance:outlier" if outlier else "yfinance",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.warning(
+                "insert_price_observation fail %s (%s): %s -- VIEW positions sera stale",
+                ticker, type(_e).__name__, _e,
+            )
 
         if outlier:
             # Log warning pour audit live ; le caller verra None -> fail-closed.
@@ -563,14 +569,19 @@ def get_fx_rate(from_cur: str, to_cur: str = "EUR") -> float | None:
     if live is not None:
         _FX_CACHE[key] = (live, now)
         _FX_LIVE_LAST_SUCCESS[key] = now
-        # M1 persist append-only (silent-miss L7)
+        # M1 persist append-only (cure 16/06 : pendant longtemps silent-miss
+        # L7, donc cron FX qui foire = aucun signal. Symetrise prices.py:303
+        # pour insert_price_observation).
         try:
             from shared.storage import insert_fx_observation
             insert_fx_observation(
                 base=from_cur, quote=to_cur, rate=live, source="yfinance",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.warning(
+                "insert_fx_observation fail %s->%s (%s): %s -- VIEW positions.fx sera stale",
+                from_cur, to_cur, type(_e).__name__, _e,
+            )
         return live
 
     _log.warning(f"FX live fetch failed for {from_cur}->{to_cur}, fallback hardcoded")

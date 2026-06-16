@@ -7334,8 +7334,15 @@ def render() -> Path:
                         )
                 except Exception:
                     pass
-    except Exception:
-        pass
+    except Exception as _lg_exc:
+        # Cure 16/06 : top-level silent-fail masquait perte totale de l'instrumentation
+        # LIVING_GRAPH. Si on perd le fork-detection, on veut le SAVOIR, pas swallow.
+        # Garde fail-soft (dashboard ne crash pas), mais log + alerte audit.
+        import logging as _lg
+        _lg.getLogger("dashboard").error(
+            "LIVING_GRAPH instrumentation BLOCK FAILED (%s): %s -- fork-detection DOWN",
+            type(_lg_exc).__name__, _lg_exc,
+        )
 
     # Bug fix 31/05 wave 9b : asymmetry compare current vs stop_price/target_full.
     # Comme ces derniers sont stockes NATIVE (cf currency_native_invariant),
