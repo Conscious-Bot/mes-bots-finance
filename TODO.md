@@ -1,10 +1,23 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 15 juin 2026 close mini-session — 6 commits cures techniques (P0 currency rollback honest + Telegram 400 + stagger 06:00 + #145 forks + tests CI-fresh DB structural) · CI green sur main `2ad2f48` · Bot VM 3 redéploys successful · pytest baseline 1908 passed local · P0 currency dette reformulée KNOWN-GAP documenté
+**Refresh** : 16 juin 2026 close — 9 commits chantier "tout clean A à Z" (silent-fails P0 + LIVING_GRAPH extension 11 concepts + prices.fx() asof honnête + Lane 2 #4/#5 migration + degraded gates monitors + book.py silent-fails) · CI green sur main `195e852` · 4 trades manuels loggés (SELL TSLA full + BUY COHR 1000€ + BUY SPCX 700€ + SELL SPCX 600€ avec divergence broker connue) · pytest baseline 1914 passed local · Topology confirmée (Hetzner=prod, Mac=view) · Audit canonical drift CLEAN 0 drift sur 11 SPECs
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (16/06 close)
+
+- **CI green main `195e852`** (9 commits aujourd'hui, dernier CI run vert sur pass 6 `aca842e`).
+- **9 commits propres pushés** : `00185f3` (silent-fails P0) → `8353ce9` (current_eur+realized_pnl_eur) → `b7f63bf` (prices.fx asof+MU whitelist) → `b385cb6` (3e source value_eur) → `f35b72b` (degraded gates monitors) → `aca842e` (Lane 2 #4/#5 migration) → `163dabc` (book_total_eur + factor_exposure_eur) → `88f6513` (SESSION_STATE close) → `7b0f415` (_mark_fx_live_success API + wrapper_tax degraded) → `195e852` (3 silent-fails book.py log warned).
+- **LIVING_GRAPH coverage : 11 concepts** (vs 7 hier soir) : book_total_eur (2 src) · cost_basis_eur (2) · current_eur (2) · factor_exposure_eur (1) · fx_rate_to_eur (2) · pmp_eur (1) · pnl_position (2) · price_eur (2) · qty (2) · realized_pnl_eur (1) · value_eur (3).
+- **Audit canonical drift CLEAN** : 11/11 SPECs footer OK, 0 drift, 0 doublons. Les 9 commits aujourd'hui n'ont pas introduit de drift doctrinal.
+- **Topology confirmée** : Hetzner = production (Telegram conflict prouvé via launchctl bootstrap test). Mac = view-only. **PAS de cron sync Mac←Hetzner** (backups `before_*_sync` = manuels user). Mac DB diverge silencieusement de Hetzner entre syncs manuels.
+- **4 trades loggés Mac DB** : SELL TSLA full (4.838 sh @ $406.43, -42.53€ realized) → COHR BUY 3.017 sh + SPCX BUY 5.052 sh redéploiement 1700€. Plus tard SPCX SELL 600€ avec divergence broker connue (tx_id=210 logged 3.388 sh @ $205.47 vs broker réel 3.239 sh @ €185.22 → 0.72 sh phantom Mac, EUR proceeds identique).
+- **pytest baseline 1914 passed** local (+ whitelist MU + autouse fixture group_cap + 2 prices_gateway refactored via `_mark_fx_live_success` API).
+- **Dashboard live** : HTTP 200, 30 forks LIVING_GRAPH détectés au lever (price_eur + current_eur sur 15 tickers) puis 0-2 forks intra-session (cache convergence). Instrumentation livre signal au premier jour.
+- **0bis KNOWN-GAP currency 148 trades** : statu quo (rollback α 15/06 maintained). Mécanique cure préservée.
+- **6 KNOWN-GAP partial close phantom qty** : étendu à 6 positions (5 historiques + SPCX 0.72 sh phantom suite SELL mismatch 16/06).
 
 ## 🟢 ÉTAT SYSTÈME (15/06 close mini-session)
 
