@@ -91,6 +91,9 @@ def test_active_thesis_has_complete_inputs(held_lines):
         "000660.KS", # Hynix RÉGIME A STRUCTURAL (13/06) -- HBM chokepoint, target supprimé volontairement.
                      # Invalidation = qualif HBM CXMT volume (cf sentinelle S2) + 3 triggers structurels graves.
                      # Cf scripts/hynix_repose_regime_a_2026-06-13.py.
+        "MU",        # Micron RÉGIME A STRUCTURAL (15/06) -- aligné avec 000660.KS sur les memes triggers HBM.
+                     # Target/stop/entry supprimes volontairement par user, invalidation par events S2/S12,
+                     # group cap 6% partage avec Hynix. Cf session 15/06.
     }
     unexpected = sorted(set(blind_tk) - accepted_blind)
     assert not unexpected, (

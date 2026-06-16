@@ -921,6 +921,13 @@ def fx(base: str, quote: str = "EUR") -> Datum | None:
     """SOCLE Gateway : retourne Datum[float] pour le taux FX base->quote.
 
     Memes invariants que get(). Identity (base==quote) -> Datum(value=1.0, ...)
+
+    Cure 16/06 (audit P0 D) : asof et age_sec calcules honnetement depuis
+    _FX_LIVE_LAST_SUCCESS. Avant : asof=now et age_sec=0 hardcoded -> Datum
+    mentait sur la fraicheur meme quand get_fx_rate retournait cached (4h) ou
+    HARDCODED fallback. Cassait toute la propagation M1 fail-closed downstream.
+    Maintenant : 3 cas distincts (live frais / cached / hardcoded), chacun
+    avec asof + degraded honnetes.
     """
     if base == quote:
         return Datum(
@@ -933,16 +940,29 @@ def fx(base: str, quote: str = "EUR") -> Datum | None:
     rate = get_fx_rate(base, quote)
     if rate is None:
         return None
-    asof_iso = datetime.now(UTC).isoformat()
+    # Determine la vraie fraicheur du rate retourne par get_fx_rate
+    key = (base, quote)
+    last_live = _FX_LIVE_LAST_SUCCESS.get(key)
+    now = datetime.now(UTC)
+    if last_live is not None:
+        age_sec = (now - last_live).total_seconds()
+        asof_iso = last_live.isoformat()
+        source = "yfinance:fx"
+    else:
+        # get_fx_rate a returne non-None mais pas de live success -> HARDCODED fallback.
+        # Source distincte + degraded=True systematique (peu importe le seuil).
+        asof_iso = now.isoformat()
+        age_sec = float("inf")
+        source = "hardcoded_fx_fallback"
     confidence, degraded = _staleness_to_confidence(
-        age_sec=0.0,
+        age_sec=age_sec,
         green_sec=_FX_GREEN_SEC,
         amber_sec=_FX_AMBER_SEC,
     )
     return Datum(
         value=rate,
         asof=asof_iso,
-        source="yfinance:fx",
+        source=source,
         confidence=confidence,
         degraded=degraded,
     )
