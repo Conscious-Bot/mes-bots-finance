@@ -2654,17 +2654,38 @@ def _position_card(inputs, steer_v2) -> str:
             '</div>'
         )
 
-    # Invalidation triggers list (count fired depuis erosion)
+    # Invalidation triggers list (count fired depuis erosion + sentinelles résolues)
     inv_html = ""
     if invals:
+        # Cure 16/06 : cross-référence sentinelles résolues -> trigger fired
+        # via shared.invalidation_triggers (read-only computed, lru_cache).
+        from shared.invalidation_triggers import get_trigger_status_per_thesis
+        _trig_status_map = get_trigger_status_per_thesis()
+        _trig_statuses = _trig_status_map.get(inputs.ticker, [])
+        n_fired_sentinels = sum(1 for s in _trig_statuses if s.get("fired"))
+        n_fired_erosion = inputs.erosion_n_invalidation_hit or 0
+        # Total fired = max (erosion peut overlap mais conservativement on prend
+        # max pour pas double-compter quand structure se compose)
+        n_fired_total = max(n_fired_erosion, n_fired_sentinels)
+        rows = []
+        for i, t in enumerate(invals):
+            t_text = (t if isinstance(t, str) else str(t))[:160]
+            st = _trig_statuses[i] if i < len(_trig_statuses) else None
+            if st and st.get("fired"):
+                marker = '<span class="pc-inv-fired">&#9679;</span>'  # filled circle
+                meta = (
+                    f' <span class="pc-inv-meta">({st["matched_code"]} '
+                    f'{st["outcome"]} {st["fired_at"][:10]})</span>'
+                )
+            else:
+                marker = '&#9675;'  # empty circle
+                meta = ''
+            rows.append(f'<div class="pc-inv">{marker} {t_text}{meta}</div>')
         inv_html = (
             '<div class="pc-section">'
             f'<div class="pc-section-h">INVALIDATION TRIGGERS '
-            f'({inputs.erosion_n_invalidation_hit}/{len(invals)} fired)</div>'
-            + "".join(
-                f'<div class="pc-inv">&#9675; {(t if isinstance(t, str) else str(t))[:160]}</div>'
-                for t in invals
-            )
+            f'({n_fired_total}/{len(invals)} fired)</div>'
+            + "".join(rows)
             + '</div>'
         )
 
@@ -3216,6 +3237,10 @@ def _position_card_panel() -> str:
   .pc-inv {
     padding:4px 0; font-size:var(--pc-fs-body); color:var(--ink); line-height:1.5;
   }
+  /* Trigger fired marker (cure 16/06 cross-ref sentinelles) :
+     filled circle rouge action-trigger + meta meta-data smaller/gray */
+  .pc-inv .pc-inv-fired { color: var(--bear, #c0392b); font-weight:bold; }
+  .pc-inv .pc-inv-meta { color: var(--steel); font-size: var(--t-caption); font-family: var(--fm); }
 
   /* WHAT CHANGED rows */
   .pc-changed-row {
