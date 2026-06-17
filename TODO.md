@@ -121,7 +121,11 @@
    - tx id=201 AMZN BUY 1.61 @ **204.97 EUR** stocké `currency='USD', fx_at_trade=1.0` → vraie valeur USD ≈ **237.2**
    Trace : `SELECT * FROM transactions WHERE id IN (198,199,200,201)`. Session dédiée requise pour design correction (ledger event d'ajustement separate ? rebuild from broker source ?).
 
-1. **KLAC + 5 dying + 1 dead à reposer** (cf #135 méthode) : le monitor `stale_target` livré aujourd'hui (#134, commit `5f5c5a8`) remonte 5 transitions `alive_to_dying` (CCJ +0.6%, AMZN +4.0%, 6857.T +4.5%, 4063.T +3.6%, AVGO +4.1%) + 1 `alive_to_dead` (000660.KS edge -0.3%) + KLAC currency_native hors-range. Action humaine = relire chaque thèse + reposer target+stop ancrés sur prix réel actuel (cf doctrine #135 : 3 colonnes Instrument/Ancre externe live/Ressenti).
+1. **KLAC + 5 dying + 1 dead à reposer** (cf #135 méthode) : le monitor `stale_target` livré (#134, commit `5f5c5a8`) remonte 5 transitions `alive_to_dying` (CCJ +0.6%, AMZN +4.0%, 6857.T +4.5%, 4063.T +3.6%, AVGO +4.1%) + 1 `alive_to_dead` (000660.KS edge -0.3%) + KLAC currency_native hors-range. Action humaine = relire chaque thèse + reposer target+stop ancrés sur prix réel actuel (cf doctrine #135 : 3 colonnes Instrument/Ancre externe live/Ressenti).
+
+2. **AVGO trigger #1 fired (S10) — décision pending** (16/06) : cross-ref sentinelles↔invalidation_triggers wired (commit `05c8d22`). AVGO trigger #1 "S10 dual-sourcing TPU" fired via résolution S10 sentinelle. Caveat sémantique : trigger text "v6/v7 / MRVL ou AMD" vs réalité Icefish v10 / MediaTek = près-mais-pas-exact. Verdict Claude red-team : **alleger ~30%** (proportionné au 1/4 fired count, garde core thèse 65-75% backlog network/wireless/storage non affectée). Action humaine : décider trim / sortir partial / repenser / wait.
+
+3. **Hetzner SSH check — bot.main alive ?** : `ssh presage@<VPS_IP> "systemctl --user status presage-bot.service"`. Mac launchctl disabled deliberately (post-cutover discipline). Hetzner = prod confirmée via Telegram conflict test 16/06 mais santé exacte du service à vérifier périodiquement.
 
 ~~2. **#134 monitor `stale_target`**~~ — **RÉSOLU 12/06 (commit `5f5c5a8`)** : 3e monitor canonique livré + smoke live (19 alive, 5 dying, 1 dead, 6 notifs Telegram). Pattern figé du gabarit `monitor_pattern.md` validé une 3e fois.
 
@@ -133,7 +137,15 @@
 
 - **#135 refonte complète niveaux décidés** : projet structural étalé 2-3 mois, ~1 ticker/semaine. Méthode canonique : ancre externe live consensus/multiples/52w/news + décision humaine + born-check (partial > cost ET > cur · full > partial · stop reconsidéré aussi) + trace `asof + raison 1 ligne`. Doctrine élargie : stop inclus dans la révision (pré-rally peut devenir absurde).
 
-- **#145 LIVING_GRAPH forks `pnl_position`** : 4 tickers (000660.KS×2.5, 7011.T×1.9, AMD 16%, ASML.AS 18%) divergent helper (`value-cost`) vs view (`value/cost`). DAG fait son travail. À résoudre au prochain pivot compute-once-project (cf [[L29]]).
+- ~~**#145 LIVING_GRAPH forks `pnl_position`**~~ — **RÉSOLU 15/06 (commit `a574c3c`)** : root cause empirique = `shared/position_pnl.py:pnl_position_pct_eur` registre concept depuis helper avec 0 production caller (uniquement tests qui hardcoded 4 tickers). Tests polluaient concept_index prod. Cure : retirer `register_concept` du helper (memory `feedback_helper_register_no_side_effect`). 0 forks post-cure sur ces 4 tickers. Pivot compute-once-project pas requis.
+
+- **6 KNOWN-GAP partial close phantom qty** (consolidé) : 5 positions historiques (broker import handler missing) + SPCX 0.72 sh ajoutée 16/06 (mon SELL log 3.388 sh @ $205 vs broker réel 3.239 sh @ €185 — EUR proceeds identique €600, qty diverge). Source unique de vérité = broker. Cure for-good = ledger ADJUST qty handler (au-delà du price/fx override existant). Hors scope sauf déclencheur explicite ou sync auto Mac←Hetzner mis en place.
+
+- **Sync auto Mac←Hetzner** (design décision) : Investigation 16/06 confirme PAS de cron sync (uniquement `deploy/presage-backup.timer` côté Hetzner = local backup + push offsite). Mac DB diverge silencieusement de Hetzner entre syncs manuels user. Options : (A) cron rsync periodic Mac←VM (1-2h impl), (B) script trigger manuel + reminder, (C) statu quo (manual quand nécessaire). Le LIVING_GRAPH forks de chaque morning regen sont essentiellement ce sync gap rendu visible.
+
+- **Setup user keys** (user action ~10 min) : 3 signups gratuits (Voyage AI, healthchecks.io, FRED) + Bigdata.com si pas déjà + 4 keys `.env` Mac+VM + 1 restart Claude pour OpenInsider tools. Sans ça : hooks silent-noop strict, composants livrés 14/06 dormants.
+
+- **14/07/2026 tennis Rule C audit** (automated heartbeat) : reminder Telegram automatique programmé dans `bot.py` (ligne ~1096). Au reception, run `/tennis-audit` pour mesurer ROI Rule C sur paris réels post-déploiement 14/06 (1 mois ETA).
 
 - ~~**#147 Tests flaky ordering-dependent**~~ — **RÉSOLU 13/06 (diag montré stale, pas ordering)** : `test_coherence_under_perturbation` passe 5/5 isolément (TODO stale, déjà curé ailleurs). `test_aggregate_sum_equals_parts` **fail en ISOLATION** aussi (pas ordering). Cause vraie = **KLAC cache stale** (bug yfinance 11/06 prix gonflé 2108€ stocké en cache `positions.last_price_eur`) → pf_value voit KLAC à ~277€ stale, views filter outlier → divergence permanente 3.78% sur book 53k€. Cure : ajout `KNOWN_DEBT_EXEMPT = {KLAC, SPCX}` dans le test (cohérent avec test_book_gate.py + test_pipeline_end_to_end.py). À retirer du KNOWN_DEBT quand KLAC cache rebuild + cure currency 4 trades (P0 dette).
 
