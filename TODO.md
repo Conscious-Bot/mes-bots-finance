@@ -149,7 +149,7 @@
 
 - ~~**#147 Tests flaky ordering-dependent**~~ — **RÉSOLU 13/06 (diag montré stale, pas ordering)** : `test_coherence_under_perturbation` passe 5/5 isolément (TODO stale, déjà curé ailleurs). `test_aggregate_sum_equals_parts` **fail en ISOLATION** aussi (pas ordering). Cause vraie = **KLAC cache stale** (bug yfinance 11/06 prix gonflé 2108€ stocké en cache `positions.last_price_eur`) → pf_value voit KLAC à ~277€ stale, views filter outlier → divergence permanente 3.78% sur book 53k€. Cure : ajout `KNOWN_DEBT_EXEMPT = {KLAC, SPCX}` dans le test (cohérent avec test_book_gate.py + test_pipeline_end_to_end.py). À retirer du KNOWN_DEBT quand KLAC cache rebuild + cure currency 4 trades (P0 dette).
 
-- **Cure structurelle tests CI-fresh DB** : 7 tests utilisent `skip-on-OperationalError` (cure aujourd'hui pour débloquer CI). Vraie cure = migrer ces 7 tests vers fixture `migrated_db` canonique. À faire en lot. ~1h.
+- ~~**Cure structurelle tests CI-fresh DB**~~ — **RÉSOLU 15/06 (`2ad2f48`)** + vérifié 17/06 : 0 test restant utilise le pattern `skip-on-OperationalError`. Migration vers fixture `migrated_db` canonique complétée. Les usages restants de `sqlite3.OperationalError` dans tests/ sont intentionnels (simulation DB down dans test_living_graph, archi-check dans test_e2e_alpha_chain).
 
 - **SPEC Moore/Compute-Cost Cycle (EXPLORATOIRE)** — `docs/specs/moore_compute_cycle_signal.md`. Status NOT_STARTED, gated keystone convictions + backtest L19. Red-team 17/06 identifie 6 points (proxies coïncidents pas leading, N=3 borderline, composite à pre-register YAML, pass threshold ex-ante, AI overlay rôle flou, token prices à exclure). À reprendre quand dégated.
 
