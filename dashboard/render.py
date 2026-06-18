@@ -464,12 +464,12 @@ def _llm_status_badge() -> str:
         f'title="{tip}" '
         f'style="position:fixed;bottom:22px;right:22px;z-index:50;'
         f'background:var(--panel);border:1px solid var(--line2);'
-        f'border-radius:50%;width:22px;height:22px;'
+        f'border-radius:var(--r-circle);width:22px;height:22px;'
         f'display:flex;align-items:center;justify-content:center;'
-        f'box-shadow:0 14px 40px -12px rgba(0,0,0,.20),0 2px 6px -2px rgba(0,0,0,.08);'
+        f'box-shadow:var(--elev2);'
         f'cursor:default;user-select:none">'
         f'<span class="llm-dot" aria-hidden="true" '
-        f'style="display:block;width:10px;height:10px;border-radius:50%;'
+        f'style="display:block;width:10px;height:10px;border-radius:var(--r-circle);'
         f'background:var({dot});flex-shrink:0"></span>'
         f'</div>'
     )
@@ -1411,7 +1411,7 @@ def _performance_panel() -> str:
         '<div class="card performance-card">'
         '<div class="card-h">'
         'Performance · ffn analytics (1y rolling) '
-        '<span style="display:inline-block;padding:2px 8px;border-radius:4px;'
+        '<span style="display:inline-block;padding:2px 8px;border-radius:var(--r1);'
         'font-size:10px;font-weight:600;background:#7a1f1f;color:#fff;'
         'margin-left:8px;letter-spacing:0.5px;">PRO-FORMA · PAS TRACK RECORD</span>'
         '</div>'
@@ -2406,7 +2406,7 @@ def _position_card(inputs, steer_v2) -> str:
         # et le tooltip enrichi via word.meaning -- pas un sweep du label.
         bandeau_html = (
             f'<div class="pc-bandeau" style="background:{_color_bg};color:#fff;'
-            'padding:8px 12px;border-radius:4px;margin:-2px -2px 12px -2px;'
+            'padding:8px 12px;border-radius:var(--r1);margin:-2px -2px 12px -2px;'
             'font-size:11px;font-weight:600;display:flex;gap:14px;align-items:center;" '
             f'data-vocab="FAIL_CLOSED" title="{_fc_word.meaning}">'
             '<span>⚠ FAIL-CLOSED L15</span>'
@@ -2465,7 +2465,7 @@ def _position_card(inputs, steer_v2) -> str:
             "ADD_TO_X": "ADD",
         }.get(steer_v2.verdict.value, steer_v2.verdict.value)
         verdict_v2_html = (
-            f'<span style="display:inline-block;padding:3px 10px;border-radius:3px;'
+            f'<span style="display:inline-block;padding:3px 10px;border-radius:var(--r0);'
             f'font-size:11px;font-weight:700;background:{v_color[0]};color:#fff;'
             f'margin-left:8px;letter-spacing:0.5px;">'
             f'▶ {verdict_label}{verdict_concrete}</span>'
@@ -3076,11 +3076,11 @@ def _position_card_panel() -> str:
   .pc-summary {
     display:flex; gap:8px; flex-wrap:wrap;
     padding:10px 14px; margin-bottom:18px;
-    background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:8px;
+    background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:var(--r2);
     font-size:var(--pc-fs-body);
   }
   .pc-summary > span {
-    padding:4px 10px; border-radius:4px; letter-spacing:.04em;
+    padding:4px 10px; border-radius:var(--r1); letter-spacing:.04em;
     display:inline-flex; align-items:baseline; gap:5px;
     background:color-mix(in srgb, var(--ink) 4%, transparent);
     color:var(--ink);
@@ -3094,7 +3094,7 @@ def _position_card_panel() -> str:
 
   /* CARD container : blanc, border, respiration mesuree */
   .pc-card {
-    background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:8px;
+    background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:var(--r2);
     padding:16px 18px; margin-bottom:18px;
     font-size:var(--pc-fs-body);
   }
@@ -3113,17 +3113,17 @@ def _position_card_panel() -> str:
   .pc-head .pc-conv {
     font-size:var(--pc-fs-tiny); color:var(--steel); padding:2px 8px;
     background:color-mix(in srgb, var(--steel) 8%, transparent);
-    border-radius:4px; font-weight:500;
+    border-radius:var(--r1); font-weight:500;
   }
   .pc-head .pc-typechip {
     font-size:9px; letter-spacing:.14em; text-transform:uppercase;
-    padding:3px 7px; border-radius:4px; font-weight:600;
+    padding:3px 7px; border-radius:var(--r1); font-weight:600;
     background:color-mix(in srgb, var(--ink) 7%, transparent); color:var(--steel);
   }
   .pc-head .pc-tag {
     font-size:10px; letter-spacing:.04em; padding:3px 7px;
     background:color-mix(in srgb, var(--acc) 12%, transparent);
-    color:var(--acc); border-radius:4px;
+    color:var(--acc); border-radius:var(--r1);
   }
   .pc-head .pc-meta {
     margin-left:auto; font-size:var(--pc-fs-tiny); color:var(--steel);
@@ -3142,7 +3142,7 @@ def _position_card_panel() -> str:
     padding:12px;
     background:#fafbfc;
     border:1px solid var(--line,#e3e6eb);
-    border-radius:6px;
+    border-radius:var(--r2);
   }
   .pc-cell-h {
     font-size:var(--pc-fs-label); letter-spacing:.16em; text-transform:uppercase;
@@ -3197,7 +3197,7 @@ def _position_card_panel() -> str:
     padding:12px 14px; margin-top:10px;
     background:#fafbfc;
     border:1px solid var(--line,#e3e6eb);
-    border-radius:6px;
+    border-radius:var(--r2);
   }
   .pc-section-h {
     font-size:var(--pc-fs-label); letter-spacing:.16em; text-transform:uppercase;
@@ -3215,7 +3215,7 @@ def _position_card_panel() -> str:
   /* PENDING chip (state-non-computed compact, remplace la prose) */
   .pc-verdict-pending {
     font-size:9px; letter-spacing:.14em; text-transform:uppercase;
-    padding:2px 7px; border-radius:3px; font-weight:600;
+    padding:2px 7px; border-radius:var(--r0); font-weight:600;
     background:color-mix(in srgb, var(--steel) 12%, transparent);
     color:var(--steel); margin-left:6px;
   }
@@ -3228,7 +3228,7 @@ def _position_card_panel() -> str:
   .pc-driver-name { flex:1; color:var(--ink); }
   .pc-driver-st {
     font-size:9px; letter-spacing:.12em; text-transform:uppercase;
-    padding:1px 6px; border-radius:3px; font-weight:600;
+    padding:1px 6px; border-radius:var(--r0); font-weight:600;
   }
   .pc-driver-st.ok   { background:color-mix(in srgb, var(--acc) 14%, transparent); color:var(--acc); }
   .pc-driver-st.warn { background:color-mix(in srgb, var(--warn) 14%, transparent); color:var(--warn); }
@@ -3255,7 +3255,7 @@ def _position_card_panel() -> str:
   }
   .pc-changed-rel {
     font-size:9px; letter-spacing:.12em; text-transform:uppercase;
-    padding:1px 6px; border-radius:3px; font-weight:600;
+    padding:1px 6px; border-radius:var(--r0); font-weight:600;
   }
   .pc-changed-rel.ok   { background:color-mix(in srgb, var(--acc) 14%, transparent); color:var(--acc); }
   .pc-changed-rel.warn { background:color-mix(in srgb, var(--warn) 14%, transparent); color:var(--warn); }
@@ -3272,7 +3272,7 @@ def _position_card_panel() -> str:
   }
   .pc-flag-label {
     font-size:9px; letter-spacing:.14em; text-transform:uppercase;
-    padding:3px 8px; border-radius:3px; font-weight:600; flex-shrink:0;
+    padding:3px 8px; border-radius:var(--r0); font-weight:600; flex-shrink:0;
     min-width:90px; text-align:center;
   }
   .pc-flag-label.ok   { background:color-mix(in srgb, var(--acc) 14%, transparent); color:var(--acc); }
@@ -3284,7 +3284,7 @@ def _position_card_panel() -> str:
   /* COUNTER ARG pressure chip */
   .pc-ca-pressure {
     font-size:9px; letter-spacing:.1em; text-transform:uppercase;
-    padding:1px 6px; border-radius:3px; font-weight:600;
+    padding:1px 6px; border-radius:var(--r0); font-weight:600;
   }
   .pc-ca-pressure.neg  { background:color-mix(in srgb, var(--bear) 14%, transparent); color:var(--bear); }
   .pc-ca-pressure.warn { background:color-mix(in srgb, var(--warn) 14%, transparent); color:var(--warn); }
@@ -3297,7 +3297,7 @@ def _position_card_panel() -> str:
   }
   .pc-sizing-cell {
     padding:10px 12px;
-    background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:5px;
+    background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:var(--r1);
   }
   .pc-sizing-k {
     font-size:9px; letter-spacing:.12em; text-transform:uppercase;
@@ -3330,7 +3330,7 @@ def _position_card_panel() -> str:
   }
   .pc-steer-k {
     font-size:10px; letter-spacing:.18em; text-transform:uppercase;
-    padding:3px 10px; border-radius:4px; font-weight:600;
+    padding:3px 10px; border-radius:var(--r1); font-weight:600;
     min-width:50px; text-align:center;
   }
   .pc-steer-k.ok   { background:color-mix(in srgb, var(--acc) 20%, transparent); color:var(--acc); }
@@ -3405,7 +3405,7 @@ def _stress_tests_panel() -> str:
     n_warn = sum(1 for g in gate_by_scenario.values() if g["status"] == "warn")
 
     # Header gate-aware : badge global etat (utilitaires existants pos/danger/warn)
-    _bdg = ("display:inline-block;padding:2px 8px;border-radius:4px;"
+    _bdg = ("display:inline-block;padding:2px 8px;border-radius:var(--r1);"
             "font-weight:600;font-size:11px;margin-left:6px;")
     if n_breach > 0:
         gate_header = (
@@ -3433,7 +3433,7 @@ def _stress_tests_panel() -> str:
         n = s.get("n_positions_affected", 0)
         # Couleur lue depuis le journal (pas re-calculee ici -> source unique L17).
         gate = gate_by_scenario.get(scenario)
-        _tag_base = ("display:inline-block;padding:1px 6px;border-radius:3px;"
+        _tag_base = ("display:inline-block;padding:1px 6px;border-radius:var(--r0);"
                      "font-size:10px;margin-left:4px;font-weight:500;")
         if gate and gate["status"] == "breach":
             dcls = "danger"
@@ -5123,22 +5123,22 @@ def _loop() -> str:
   .lp-tkname { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); letter-spacing:.04em; }
   .lp-tkmeta { font-family:var(--fm); font-size:10px; color:var(--steel); letter-spacing:.04em; }
 
-  .lp-track { position:relative; height:18px; background:linear-gradient(to right, color-mix(in srgb, var(--line) 30%, transparent), color-mix(in srgb, var(--line) 60%, transparent), color-mix(in srgb, var(--line) 30%, transparent)); border-radius:9px; }
-  .lp-track .ev { position:absolute; top:50%; transform:translate(-50%, -50%); border-radius:50%; }
+  .lp-track { position:relative; height:18px; background:linear-gradient(to right, color-mix(in srgb, var(--line) 30%, transparent), color-mix(in srgb, var(--line) 60%, transparent), color-mix(in srgb, var(--line) 30%, transparent)); border-radius:var(--r2); }
+  .lp-track .ev { position:absolute; top:50%; transform:translate(-50%, -50%); border-radius:var(--r-circle); }
   .lp-track .ev-pred { width:9px; height:9px; }
   .lp-track .ev-pred.open { background:var(--panel); border:1.5px solid var(--ink); }
   .lp-track .ev-pred.acc { background:var(--acc); }
   .lp-track .ev-pred.bear { background:var(--bear); }
   .lp-track .ev-pred.steel { background:var(--steel); }
   .lp-track .ev-out { width:5px; height:5px; background:var(--ink); opacity:.5; }
-  .lp-track .ev-dec { width:8px; height:8px; transform:translate(-50%, -50%) rotate(45deg); border-radius:1px; }
+  .lp-track .ev-dec { width:8px; height:8px; transform:translate(-50%, -50%) rotate(45deg); border-radius:var(--r0); }
   .lp-track .ev-dec.acc { background:var(--acc); }
   .lp-track .ev-dec.bear { background:var(--bear); }
   .lp-track .ev:hover { box-shadow:0 0 0 4px color-mix(in srgb, var(--acc) 25%, transparent); z-index:5; cursor:help; }
 
   .lp-stats { display:flex; align-items:center; gap:8px; justify-content:flex-end; font-family:var(--fm); font-size:12px; }
   .lp-resolved { color:var(--steel); font-variant-numeric:tabular-nums; }
-  .lp-badge { font-family:var(--fm); font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; border:1px solid currentColor; font-variant-numeric:tabular-nums; }
+  .lp-badge { font-family:var(--fm); font-size:11px; font-weight:600; padding:2px 8px; border-radius:var(--r-pill); border:1px solid currentColor; font-variant-numeric:tabular-nums; }
   .lp-badge.acc { color:var(--acc); }
   .lp-badge.warn { color:var(--warn); }
   .lp-badge.bear { color:var(--bear); }
@@ -5146,11 +5146,11 @@ def _loop() -> str:
 
   .lp-legend { display:flex; gap:18px; margin-top:var(--s3); padding-top:var(--s2); border-top:1px solid var(--line); font-family:var(--fm); font-size:11px; color:var(--steel); flex-wrap:wrap; }
   .lp-legend-item { display:flex; align-items:center; gap:6px; }
-  .lp-leg-dot { display:inline-block; width:10px; height:10px; border-radius:50%; }
+  .lp-leg-dot { display:inline-block; width:10px; height:10px; border-radius:var(--r-circle); }
   .lp-leg-dot.open { background:var(--panel); border:1.5px solid var(--ink); }
   .lp-leg-dot.acc { background:var(--acc); }
   .lp-leg-dot.bear { background:var(--bear); }
-  .lp-leg-dot.dec { transform:rotate(45deg); border-radius:1px; }
+  .lp-leg-dot.dec { transform:rotate(45deg); border-radius:var(--r0); }
 </style>
 """
 

@@ -144,14 +144,19 @@
   --line2: #D1D5DB;   /* separateur plus marque */
   --line3: #9CA3AF;   /* focus / outline TOP */
 
-  /* --- 5. TYPOGRAPHIE -------------------------------------------- */
-  /* Fonts : Geist universel (charte §2), Geist Mono pour TOUS chiffres */
+  /* --- 5. TYPOGRAPHIE — systeme 3 fontes documente ---------------- */
+  /* PRESAGE roule sur 3 typo-faces canoniques (Pass 8 audit-explicit doc) :
+       1. Geist        (--fd, --fb, --fo)  body text + headings ordinaires
+       2. Geist Mono   (--fm)              data, numbers, codes (tabular-nums)
+       3. Hubot Sans Expanded (--fdis)     hero numbers, page titles XL
+     Self-hosted depuis dashboard/static/fonts/ (zero round-trip externe). */
   --fd: "Geist", ui-sans-serif, system-ui, sans-serif;
   --fb: "Geist", ui-sans-serif, system-ui, sans-serif;
   --fm: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
   --fo: "Geist", ui-sans-serif, sans-serif;
-  /* Display heading face -- titres pages + heros + KPI gros chiffres.
-     Wide rounded geometric (user 02/06 img Hue cookies). Fallback Geist. */
+  /* Display heading face — titres pages + heros + KPI gros chiffres.
+     Wide rounded geometric (user 02/06 img Hue cookies). Letter-spacing
+     negatif (-.37px) + tabular-nums sur les chiffres XL. Fallback Geist. */
   --fdis: "Hubot Sans Expanded", "Geist", ui-sans-serif, sans-serif;
   /* Font-size scale -- base 15px, ratio ~1.2. Charte §1.4.
      Toute nouvelle ecriture utilise ces tokens, pas font-size:Npx inline. */
@@ -180,10 +185,25 @@
   --s5:  44px;  /* etait 32, margin hero / gros gaps */
   --s6:  64px;  /* etait 52, plus respirable */
 
-  /* --- 7. RAYONS -------------------------------------------------- */
-  --r1: 4px;
-  --r2: 8px;
-  --r3: 12px;
+  /* --- 7. RAYONS — 5 valeurs canoniques (Pass 8 audit) -------------- */
+  /* Tout hardcoded NpX devrait passer ici. Avant: 17+ radii distinctes
+     (1/1.5/2/2.5/3/4/5/6/8/9/10/12/14/24/32/99px) trahissaient l'absence
+     d'echelle. Mapping consolide : micro 2 / small 4 / medium 8 / large 12
+     + pill 999. */
+  --r0: 2px;       /* micro : dots, micro-chips, fine accents */
+  --r1: 4px;       /* small : badges, tags, inputs */
+  --r2: 8px;       /* medium : buttons, secondary cards */
+  --r3: 12px;      /* large : main cards, modals */
+  --r-pill: 999px; /* pill : chips long-form, capsule buttons */
+  --r-circle: 50%; /* circle : dots, avatars, modal close */
+  /* --- 7bis. ELEVATIONS — 3 niveaux canoniques + none -------------- */
+  /* Avant : 21 box-shadow distinctes empiriques. Apres :
+     elev1 = subtle (hover/raised, 1 couche legere)
+     elev2 = medium (tooltips, nav labels, sticky header, 2 couches)
+     elev3 = strong (modals, loupe, qsearch overlay, 1 couche profonde) */
+  --elev1: 0 4px 14px -4px rgba(0, 0, 0, .12), 0 1px 2px rgba(0, 0, 0, .06);
+  --elev2: 0 8px 24px rgba(0, 0, 0, .14), 0 2px 6px rgba(0, 0, 0, .08);
+  --elev3: 0 24px 64px -16px rgba(0, 0, 0, .35), 0 6px 16px -8px rgba(0, 0, 0, .15);
 
   /* --- 8. SURFACES translucides (charte §5) ----------------------- */
   /* Pivot 01/06 hybride moderne : alignement sur nouveau bg #F8F9FB. */
@@ -221,6 +241,10 @@ body.midnight {
   --warn:  #F59E0B;   /* amber-500 dark mode */
   --gold:  #F59E0B;
   --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
+  /* Pass 8 elevations dark mode — meme echelle qu'en light mais opacite renforcee. */
+  --elev1: 0 4px 14px -4px rgba(0, 0, 0, .50), 0 1px 2px rgba(0, 0, 0, .25);
+  --elev2: 0 8px 24px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .35);
+  --elev3: 0 30px 90px -20px rgba(0, 0, 0, .80), 0 6px 16px -8px rgba(0, 0, 0, .50);
   --glass:  rgba(22, 26, 32, .85);
   --glass2: rgba(15, 17, 21, .7);
   --tape:   rgba(15, 17, 21, .9);
