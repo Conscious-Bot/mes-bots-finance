@@ -294,7 +294,7 @@ _APP_JS = """
         var tipLeft=(best.x/w*rect.width);
         tip.style.left=tipLeft+'px';
         tip.style.display='block';
-        tip.innerHTML='<span class="tip-val">'+Number(best.val).toLocaleString('fr-FR')+'&nbsp;€</span><span class="tip-date">'+best.date+'</span>';
+        tip.innerHTML='<span class="tip-val">'+Number(best.val).toLocaleString('en-US')+'&nbsp;€</span><span class="tip-date">'+best.date+'</span>';
       });
       svg.addEventListener('mouseleave', function(){
         tip.style.display='none';

@@ -356,7 +356,7 @@ def _position_axis_price(prices: dict | None, *, extra_class: str = "") -> str:
     title = (
         f"P&L {prices['pnl_eur_pct']:+.1f}% EUR · "
         f"cost {prices['cost_eur']:,.0f}€ · cur {prices['cur_eur']:,.0f}€"
-    ).replace(",", " ")
+    )
     cls = ("tbar sig-pricenat " + extra_class).strip()
     if not prices["has_band"]:
         miss = "stop" if stop_n is None else "target"
@@ -513,12 +513,15 @@ SECTOR_COLORS = {
 # bucket Construction/Fragilite). Construction = ce qui structure le book.
 # Fragilite = ce qui peut le briser maintenant.
 _DIM_LABELS = {
-    "quality_T1_plus": ("High solidity", "min", "construction"),
-    "T2_redondant": ("Overlaps", "max", "construction"),
-    "decorrelation_star": ("Other bets", "min", "construction"),
-    "sizing_conviction": ("Calibration", "min", "construction"),
-    "cluster_cap": ("Bet principal", "max", "construction"),
-    "thesis_health": ("Health", "min", "fragilite"),
+    # 5 canonical FR axes preserved per memory `glossaire_canonique`.
+    # Solidité, Pari, Doublon, Santé, Calibrage are domain terms — FR by design.
+    # Rest of dashboard chrome is EN (Pass 4 audit).
+    "quality_T1_plus": ("Solidité haute", "min", "construction"),
+    "T2_redondant": ("Doublons", "max", "construction"),
+    "decorrelation_star": ("Autres paris", "min", "construction"),
+    "sizing_conviction": ("Calibrage", "min", "construction"),
+    "cluster_cap": ("Pari principal", "max", "construction"),
+    "thesis_health": ("Santé", "min", "fragilite"),
     "cycle_valo_exposure": ("Cycle / valo", "max", "fragilite"),
 }
 
@@ -563,7 +566,7 @@ def _v2_cohort_panel() -> str:
                 "WHERE src.name IN ('SEC EDGAR 8-K', 'SEC EDGAR Insider Cluster')"
             ).fetchone()
     except Exception as e:
-        return f'<div class="card pad"><div class="empty">cohorte V2 indispo: {type(e).__name__}</div></div>'
+        return f'<div class="card pad"><div class="empty">V2 cohort unavailable: {type(e).__name__}</div></div>'
 
     v1_lo, v1_hi, v1_b = v1_range['lo'] or 0, v1_range['hi'] or 0, v1_range['buckets'] or 0
     v2_lo, v2_hi, v2_b = v2_range['lo'] or 0, v2_range['hi'] or 0, v2_range['buckets'] or 0
@@ -620,7 +623,7 @@ def _calibration_progress_panel() -> str:
     except Exception as e:
         return (
             '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
-            f'<div class="empty">calibration indisponible : {type(e).__name__}</div></div>'
+            f'<div class="empty">calibration unavailable: {type(e).__name__}</div></div>'
         )
 
     target = _calib.MIN_N_TOTAL  # 30
@@ -648,7 +651,7 @@ def _calibration_progress_panel() -> str:
     brier_str = f"{brier:.4f}" if brier is not None else "&mdash;"
     return (
         '<div class="colhead"><span class="t">Calibration scorer V2</span>'
-        f'<span class="a">verdict reliability + Brier moyen sur cohorte n={n_total}</span></div>'
+        f'<span class="a">verdict reliability + mean Brier on cohort n={n_total}</span></div>'
         '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
         f'<div class="calib-verdict">'
         f'<span class="calib-status {status_cls}">{result["status"]}</span>'
@@ -1203,7 +1206,7 @@ def _data_health_panel() -> str:
         f'<span class="dh-chip ok">green {price_severities["green"]}</span>'
         f'<span class="dh-chip warn">amber {price_severities["amber"]}</span>'
         f'<span class="dh-chip neg">rouge {price_severities["rouge"]}</span>'
-        f'<span class="dh-chip neu">inconnu {price_severities["unknown"]}</span>'
+        f'<span class="dh-chip neu">unknown {price_severities["unknown"]}</span>'
         '</div>'
         + diversity_html +
         '</div>'
@@ -1233,7 +1236,7 @@ def _performance_panel() -> str:
         return (
             '<div class="card performance-card">'
             '<div class="card-h">Performance</div>'
-            '<div class="card-b">Historique insuffisant (>30j requis) ou yfinance indisponible.</div>'
+            '<div class="card-b">Insufficient history (>30d required) or yfinance unavailable.</div>'
             '</div>'
         )
 
@@ -1474,7 +1477,7 @@ def _grade_panel() -> str:
             "no_history": "snapshot J0",
         }.get(trend, "")
     except Exception as e:
-        return f'<div class="card pad"><div class="empty">note PF indisponible: {type(e).__name__}</div></div>'
+        return f'<div class="card pad"><div class="empty">portfolio note unavailable: {type(e).__name__}</div></div>'
 
     # Decompose Construction vs Fragilite : sub-score = weighted dims dans le bucket
     construction_dims, fragilite_dims = [], []
@@ -1699,7 +1702,7 @@ def _copilot_panel() -> str:
 
         rows = _stg.get_recent_copilot_interventions(limit=8)
     except Exception as e:
-        return f'<div class="card pad"><div class="empty">copilot indisponible: {type(e).__name__}: {e}</div></div>'
+        return f'<div class="card pad"><div class="empty">copilot unavailable: {type(e).__name__}: {e}</div></div>'
     if not rows:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
@@ -2249,7 +2252,7 @@ def _factor_exposures_panel() -> str:
             "</div>"
         )
     return (
-        '<div class="colhead"><span class="t">Bets du portefeuille</span>'
+        '<div class="colhead"><span class="t">Portfolio bets</span>'
         '<span class="a">what you really bet on, by macro factor &middot; a single big bet dominates</span></div>'
         '<div class="card pad factorscard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
@@ -3951,7 +3954,7 @@ def _narrative_panel() -> str:
 
         raw = _stg.get_latest_narrative_snapshot()
     except Exception as e:
-        return f'<div class="card pad"><div class="empty">narrative indisponible: {type(e).__name__}: {e}</div></div>'
+        return f'<div class="card pad"><div class="empty">narrative unavailable: {type(e).__name__}: {e}</div></div>'
     if not raw:
         return (
             '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
@@ -4132,7 +4135,7 @@ def _track_record_panel() -> str:
         lo, hi = proportion_confint(n_corr, n, alpha=0.05, method="wilson")
         ci_str = f"IC95% [{lo:.0%}, {hi:.0%}]"
     else:
-        ci_str = "IC indisponible"
+        ci_str = "CI unavailable"
     if n == 0:
         # ADR 014 : si canonical = 0, c'est parce que v2 n'a pas encore tire.
         # On dit "pas encore demarre" explicitement, jamais silent zero.
@@ -4140,7 +4143,7 @@ def _track_record_panel() -> str:
             "V2 pas encore d&eacute;marr&eacute; &mdash; v1 archive cl&ocirc;ture au batch 10/06"
         )
     elif n < MIN_CONCLUSIF:
-        _rate_cls, rate_verdict = "warn", f"INSUFFISANT &mdash; N&lt;{MIN_CONCLUSIF} pour conclure"
+        _rate_cls, rate_verdict = "warn", f"Insufficient &mdash; N&lt;{MIN_CONCLUSIF} to conclude"
     elif n_corr / n >= 0.55:
         _rate_cls, rate_verdict = "acc", "verdict provisoire favorable"
     else:
@@ -4148,7 +4151,7 @@ def _track_record_panel() -> str:
 
     brier_str = f"{brier_mean:.3f}" if brier_mean is not None else "—"
     if n_brier < MIN_CONCLUSIF or brier_mean is None:
-        _brier_cls, brier_verdict = "warn", f"INSUFFISANT &mdash; N={n_brier}&lt;{MIN_CONCLUSIF}"
+        _brier_cls, brier_verdict = "warn", f"Insufficient &mdash; N={n_brier}&lt;{MIN_CONCLUSIF}"
     elif brier_mean < 0.20:
         _brier_cls, brier_verdict = "acc", "sous la target 0.20"
     elif brier_mean < 0.25:
@@ -4180,7 +4183,7 @@ def _track_record_panel() -> str:
     from datetime import date as _date
     _today = _date.today()
     _j_day = _date(2026, 6, 10)
-    _next_cohort_str = "aucune cohorte planifi&eacute;e" if _today > _j_day else "10/06"
+    _next_cohort_str = "no cohort scheduled" if _today > _j_day else "10/06"
 
     return (
         f'<div class="colhead"><span class="t">Track record</span>'
@@ -4191,8 +4194,8 @@ def _track_record_panel() -> str:
         f'<div class="tr-mlabel"><span class="tr-mname">Brier rolling</span>'
         f'<span class="tr-mval mono">{brier_str}</span>'
         f'<span class="tr-munit">sur 0&ndash;0,5 &middot; plus bas = mieux</span></div>'
-        f'{_tbar(brier_frac, ticks=[(brier_target_x, "cible 0,20 &middot; r&eacute;f.")], dot_color=brier_color, title="Brier sur 0-0,5")}'
-        f'<div class="tr-mfoot"><span class="mono">cible 0,20 &middot; r&eacute;f.</span>'
+        f'{_tbar(brier_frac, ticks=[(brier_target_x, "target 0.20 &middot; ref.")], dot_color=brier_color, title="Brier on 0-0.5")}'
+        f'<div class="tr-mfoot"><span class="mono">target 0.20 &middot; ref.</span>'
         f'<span class="tr-verdict">{brier_verdict}</span></div>'
         f'</div>'
         # Metric 2 (co-head) : Reliability curve — diagonale référence + trace conditionnelle
@@ -4200,7 +4203,7 @@ def _track_record_panel() -> str:
         f'<div class="tr-mlabel"><span class="tr-mname">Reliability curve</span>'
         + (f'<span class="tr-munit">N={n} pr&eacute;dictions r&eacute;solues</span>'
            if rate_ok else
-           '<span class="tr-munit">attend la 1<sup>re</sup> cohorte de r&eacute;solution</span>')
+           '<span class="tr-munit">awaiting first resolution cohort</span>')
         + '</div>'
         '<svg class="tr-rsvg" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">'
         + ('<rect x="0" y="0" width="100" height="60" class="tr-rempty"/>'
@@ -4214,7 +4217,7 @@ def _track_record_panel() -> str:
         '<div class="tr-mfoot"><span class="mono">calibration parfaite &middot; r&eacute;f.</span>'
         + (f'<span class="tr-verdict">{rate_verdict}</span>'
            if rate_ok else
-           '<span class="tr-verdict">en attente cohorte</span>')
+           '<span class="tr-verdict">awaiting cohort</span>')
         + f'</div>'
         f'</div>'
         # Metric 3 (démoted) : Taux correct — accuracy ≠ calibration, secondaire
@@ -4224,7 +4227,7 @@ def _track_record_panel() -> str:
         f'<span class="tr-munit">soit {rate_pct}</span></div>'
         f'<div class="tr-msubcaveat mono">accuracy &ne; calibration &mdash; secondaire</div>'
         f'{_tbar(rate_frac, dot_color=rate_color, title=f"{rate_pct} correct")}'
-        f'<div class="tr-mfoot"><span class="mono">{"IC95% " + ci_str.replace("IC95% ", "") if rate_ok else "IC95% indisponible"}</span>'
+        f'<div class="tr-mfoot"><span class="mono">{"CI95% " + ci_str.replace("IC95% ", "").replace("CI unavailable", "unavailable") if rate_ok else "CI95% unavailable"}</span>'
         f'<span class="tr-verdict">{rate_verdict if rate_ok else "ind&eacute;fini &middot; N=" + str(n)}</span></div>'
         f'</div>'
         # Pipeline state -- plat, honnete. ADR 014 : on surface v0 quarantine
@@ -4235,7 +4238,7 @@ def _track_record_panel() -> str:
         f'<span>+<b>{v1_resolved_n}/{v1_resolved_n + v1_open_n}</b> v1 archive</span>'
         f'<span class="tr-sep">&middot;</span>'
         f'<span>+<b>{v0_n}</b> v0 quarantine</span><span class="tr-sep">&middot;</span>'
-        f'<span>prochaine cohorte <b>{_next_cohort_str}</b></span>'
+        f'<span>next cohort <b>{_next_cohort_str}</b></span>'
         f'</div>'
         f'</div>'
     )
@@ -4251,7 +4254,7 @@ def _copilot() -> str:
         f'<section data-page="copilot" role="region" aria-label="Copilot">'
         f'<div class="phead"><h1>Copilot</h1></div>'
         f'{_chat_panel()}'
-        f'<div class="vigie-sh" data-tip="Historical adversarial pressure tests: what the copilot challenged recently."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Pressions adversariales</div>'
+        f'<div class="vigie-sh" data-tip="Historical adversarial pressure tests: what the copilot challenged recently."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Adversarial pressures</div>'
         f'{_copilot_panel()}'
         f'</section>'
     )
@@ -5271,7 +5274,7 @@ def _signaux() -> str:
                 )
             elif b_info:
                 b_badge = (
-                    f' <span class="tag" title="N={b_info["n_resolved"]} insuffisant">'
+                    f' <span class="tag" title="N={b_info["n_resolved"]} insufficient">'
                     f'B=—</span>'
                 )
             else:
@@ -5626,7 +5629,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     _BUCKET_META = [
         ("act", "ACT NOW", "bear", "stress materiel, posture defensive maintenant"),
         ("watch", "WATCH", "warn", "borderline, suivre direction sur 7j"),
-        ("asleep", "CALM", "steel", "zone calme, pas d'action requise"),
+        ("asleep", "CALM", "steel", "calm zone, no action required"),
         ("silent", "SILENT", "steel", "donnee absente/stale, non-decidable"),
     ]
     blocks_parts = []
@@ -5785,7 +5788,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         _size_msg = f"VIX {_vix:.1f} &ge; {_vthr} stress (sizing x{_vsf:.1f})"
     else:
         _sfac = 1.0
-        _size_msg = f"VIX {_vix:.1f} &lt; {_vthr} normal (sizing x1.0)" if _vix is not None else "VIX indisponible"
+        _size_msg = f"VIX {_vix:.1f} &lt; {_vthr} normal (sizing x1.0)" if _vix is not None else "VIX unavailable"
     # Sizing 2-tier : warn zone (VIX > vthr) + panic zone (VIX > panic threshold).
     # Convention CTA QuantPedia 2026 + BIS papers. Decouple de la frise V3.
     size_txt = _size_msg
@@ -7776,7 +7779,7 @@ def render() -> Path:
             "no_history": "snapshot J0",
         }.get(_trend, "")
     except Exception:
-        _grade_letter, _grade_score, _grade_trend_str = "&mdash;", 0, "indisponible"
+        _grade_letter, _grade_score, _grade_trend_str = "&mdash;", 0, "unavailable"
     # grade_html n'est plus affiche separement (integre dans Star). Conserve
     # _grade_panel() call pour side-effects DB potentiels mais on supprime
     # le rendu dupliqué.
@@ -7932,7 +7935,7 @@ def render() -> Path:
         + f'<div class="ps-sub-lien">{_val_delta_str}</div>'
         + '</div>'
         + '<div class="ps-hero-right">'
-        + '<div class="ps-lbl" data-tip="Global Construction + Fragility grade. Construction = Solidity/Bet/Overlap/Calibration. Fragility = Health/cycle/valo. &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Portfolio grade</div>'
+        + '<div class="ps-lbl" data-tip="Global grade — Construction (Solidité/Pari/Doublon/Calibrage) + Fragility (Santé/cycle/valo). &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Portfolio grade</div>'
         + '<div class="ps-grade-row">'
         + f'<div class="ps-grade-letter {_grade_color}">{_grade_letter}</div>'
         + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
@@ -7955,7 +7958,7 @@ def render() -> Path:
         # Cure racine 09/06 : "Closest to target" filtre frac_raw < 100 (vraies
         # positions approchant) ; positions DÉPASSÉES vont dans panneau séparé
         # "Beyond target" (take-profit zone). Sémantiquement juste, plus de dot
-        # "toujours au-dessus du target" dans le mauvais panneau.
+        # "still above target" dans le mauvais panneau.
         # Attribution juste : le critère de classement est cur_native vs
         # target_full_native (FX-invariant), pas l'apparence visuelle du dot.
         # AMD peut avoir dot visuellement > tick vert (mélange mètres dot/cost
@@ -8075,7 +8078,7 @@ def render() -> Path:
         size_txt = f"VIX {_vix_p:.1f} &ge; {_vthr_p:.0f} stress (sizing x{_vsf_p:.1f})"
     else:
         _sfac = 1.0
-        size_txt = f"VIX {_vix_p:.1f} &lt; {_vthr_p:.0f} normal" if _vix_p else "VIX indisponible"
+        size_txt = f"VIX {_vix_p:.1f} &lt; {_vthr_p:.0f} normal" if _vix_p else "VIX unavailable"
     n_stop, n_watch, n_tgt = len(near_stop_tk), len(watch_zone_tk), len(near_tgt_tk)
     if n_stop:
         _post_cls, _post_lbl = "bear", "ALERT"
@@ -8237,12 +8240,12 @@ def render() -> Path:
         + _llm_status_badge()
         # Sprint 4 CTA flottant bas : Recherche seule (Compact + Filtrer retires
         # 01/06 user feedback : Compact none interet, Filtrer no utilite plug)
-        + '<div class="cta-bar" role="toolbar" aria-label="Recherche rapide">'
+        + '<div class="cta-bar" role="toolbar" aria-label="Quick search">'
         + '<button id="ctaSearch" title="Search (Cmd+K)"><span aria-hidden="true">&#9906;</span> Search</button>'
         + "</div>"
-        + '<div class="cta-modal" id="ctaSearchModal" role="dialog" aria-modal="true" aria-label="Recherche ticker">'
+        + '<div class="cta-modal" id="ctaSearchModal" role="dialog" aria-modal="true" aria-label="Search ticker or company">'
         + '<div class="cta-modal-inner">'
-        + '<input class="cta-search-input" id="ctaSearchInput" placeholder="Ticker ou nom de societe..." autocomplete="off" spellcheck="false" />'
+        + '<input class="cta-search-input" id="ctaSearchInput" placeholder="Ticker or company name..." autocomplete="off" spellcheck="false" inputmode="search" enterkeyhint="search" />'
         + '<div class="cta-search-chips" id="ctaSearchChips"></div>'
         + '<div class="cta-search-results" id="ctaSearchResults"></div>'
         + "</div></div>"
@@ -8259,7 +8262,7 @@ def render() -> Path:
         # Le natif sur l'axe + EUR uniquement dans le `title` text = séparation
         # invariante (§0-3). Pas de % nu dans le hover de la gauge prix-natif.
         + "<script>(function(){"
-          "function fmtNative(v,ccy){return v.toLocaleString('fr-FR',{maximumFractionDigits:2})+(ccy?' '+ccy:'');}"
+          "function fmtNative(v,ccy){return v.toLocaleString('en-US',{maximumFractionDigits:2})+(ccy?' '+ccy:'');}"
           "function fmtPct(v){var s=v>=0?'+':'\\u2212';return s+Math.abs(v).toFixed(1)+'%';}"
           "function wire(){document.querySelectorAll('.tbar').forEach(function(bar){"
           "var tip=bar.querySelector('.tbar-hover-tip');if(!tip||bar.dataset.tbarWired)return;"
