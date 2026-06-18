@@ -120,9 +120,13 @@
 
   /* --- 2. ENCRE -- gris fonce, JAMAIS noir pur ----------------------- */
   --ink:   #1C1E21;   /* primaire (jamais #000) */
+  /* Pass 5 audit #13 : --steel bumped 6B7280 → 5B6270 (4.32:1 → 5.2:1)
+     pour AA compliance 4.5:1 sur captions/muted text @ 13-15px (small text).
+     Token --steel reste alias retro-compat (legacy callers utilisaient les
+     deux indifferemment). */
   --ink2:  #374151;   /* secondaire (preserved pour usages explicites) */
-  --steel: #6B7280;   /* secondary / captions */
-  --metal: #6B7280;   /* alias --steel pour back-compat */
+  --steel: #5B6270;   /* secondary / captions — AA 5.2:1 on near-white bg */
+  --metal: #5B6270;   /* alias --steel pour back-compat */
   --id:    #1C1E21;   /* identite = ink */
 
   /* --- 3. ACCENTS reframe 02/06 user "vert/rouge necessaires mais moins

@@ -133,6 +133,24 @@ _CSS = """
      treats each card as a single skeleton box until scrolled near, then
      materialises full content. Cure Pass 2 audit #9 (lazy-paint, not lazy-build). */
   .pc-card { content-visibility:auto; contain-intrinsic-size:0 800px; }
+  /* Pass 5 audit polish — contain isolation : chaque card limite ses repaints
+     a son propre cadre. Mouse hover/state change ne force pas relayout amont. */
+  .card, .kpi { contain: layout paint; }
+  /* Pass 5 audit #19 : smooth scroll keyboard navigation (Tab/anchor jumps),
+     gated by prefers-reduced-motion. Scroll-margin pour eviter clip sous
+     header sticky .phead (~70px). */
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  [data-page] { scroll-margin-top: 78px; }
+  /* Pass 5 audit P3 micro : tabular-nums sur monospace data cells -- evite
+     jitter horizontal au hover/update (numbers ne shiftent pas comme avec
+     proportional digits). Applique a .mono qui est le hot path data. */
+  .mono { font-variant-numeric: tabular-nums; }
+  /* Pass 5 audit P3 : prefers-contrast more -- bump ink/line pour user
+     accessibility opt-in. Token-level override, transparent au reste du CSS. */
+  @media (prefers-contrast: more) {
+    :root { --steel: #424954; --line: #C5C9CF; --line2: #9DA3AC; }
+    body.midnight { --steel: #B1B6BE; --line: #3A3F47; --line2: #535963; }
+  }
   /* Accessibility focus-visible (keyboard nav). Polish DA 31/05.
      - Suppress browser default outline-on-click (ugly, non-keyboard)
      - Outline propre pour TAB navigation (keyboard) avec offset coherent palette
@@ -195,8 +213,10 @@ _CSS = """
   .dot { width:7px; height:7px; border-radius:50%; background:var(--acc); }
   .wrap { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; z-index:0; }
   .tape { overflow:hidden; white-space:nowrap; padding:11px 0; }
-  .tape .track2 { display:inline-block; animation:scroll 60s linear infinite; }
+  .tape .track2 { display:inline-block; animation:scroll 60s linear infinite; will-change:transform; }
   .tape:hover .track2 { animation-play-state:paused; }
+  /* Pass 5 audit P3 : pause ticker quand l'onglet est en background. CPU/battery saving. */
+  body.tab-hidden .tape .track2 { animation-play-state:paused; }
   .tape .ti { font-family:var(--fm); font-size:15px; margin:0 30px; letter-spacing:.02em; } .tape .ti b { color:var(--ink); } .tape .ti .pos { color:var(--acc); } .tape .ti .neg { color:var(--bear); }
   @keyframes scroll { from{transform:translateX(0);} to{transform:translateX(-50%);} }
   .tape8k { background:var(--tape); padding:var(--s2) 0; } .tape8k .ti .warn { color:var(--warn); } .tape8k .track2 { animation-duration:75s; }

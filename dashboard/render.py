@@ -5883,7 +5883,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     s_cap = "to watch" if near else "calm"
     star_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Correlated cluster whose cumulative position exceeds cap = action recommended.">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
+        + f'<div class="ps-cell" aria-live="polite" aria-atomic="true"><div class="ps-lbl" data-tip="Correlated cluster whose cumulative position exceeds cap = action recommended.">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions ≥75% along entry -> target path. Take-profit zone to watch.">Targets &ge;75%</div><div class="ps-val">{near_t}</div><div class="ps-cap">{t_cap}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 10% from their stop. Low margin, check before session.">Stops &lt;10%</div><div class="ps-val {s_cls}">{near}</div><div class="ps-cap">{s_cap}</div></div>'
         + "</div>"
@@ -7927,7 +7927,7 @@ def render() -> Path:
         + '<div class="ps-hero-row">'
         + '<div class="ps-hero-left">'
         + '<div class="ps-lbl">Portfolio value</div>'
-        + '<div class="ps-macro-row" style="align-items:baseline">'
+        + '<div class="ps-macro-row" style="align-items:baseline" aria-live="polite" aria-atomic="true">'
         + f'<div class="ps-val" style="font-size:37px">{pf_val_str}&nbsp;&euro;</div>'
         + f'<div class="ps-val {_pnl_star_cls}" style="font-size:21px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         + f'{_sparkline}'

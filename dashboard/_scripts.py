@@ -11,7 +11,7 @@ _LOGO = (Path(__file__).parent / "static" / "brand" / "presage_symbol.svg").read
 # sont les nouveaux Lucide.
 _NAV = (
     '<nav class="nav" role="navigation" aria-label="Main navigation">'
-    '<div class="nitem on" data-nav="vigie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Overview</span></div>'
+    '<div class="nitem on" data-nav="vigie" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4.5-3.5"/><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg><span class="nlab">Overview</span></div>'
     '<div class="nitem" data-nav="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg><span class="nlab">Positions</span></div>'
     '<div class="nitem" data-nav="theses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg><span class="nlab">Theses</span></div>'
     '<div class="nitem" data-nav="concentration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
@@ -225,10 +225,20 @@ _APP_JS = """
       rows.forEach(function(r){tb.appendChild(r);});
     });
   });
+  /* Pass 5 audit P3 : section label map -> dynamic <title> per page +
+     aria-current="page" sync. */
+  var _SECTION_LABELS = {vigie:'Overview', positions:'Positions', theses:'Theses',
+                         concentration:'Concentration', strategie:'Strategy',
+                         urgence:'Alerts', copilot:'Copilot', methode:'Method',
+                         'position-card':'Cards'};
   function show(id){
     pages.forEach(p=>p.classList.toggle('active',p.dataset.page===id));
-    items.forEach(n=>n.classList.toggle('on',n.dataset.nav===id));
-
+    items.forEach(function(n){
+      var on = n.dataset.nav===id;
+      n.classList.toggle('on',on);
+      if(on){n.setAttribute('aria-current','page');} else {n.removeAttribute('aria-current');}
+    });
+    var lbl=_SECTION_LABELS[id]; if(lbl){document.title='PRESAGE · '+lbl;}
     if(history.replaceState){history.replaceState(null,'','#'+id);}
   }
   /* C (#90 motion) : View Transitions API pour morph entre pages.
@@ -429,9 +439,9 @@ _APP_JS = """
       for(var k in groups){groups[k].classList.remove('on');groups[k].classList.remove('dim');}
       var top=sorted[0],tp=Math.round(top.tw/total*100),ov=tp>=30;
       PANEL.innerHTML='<div style="font-family:var(--fb);font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin-bottom:var(--s25)">Overview</div>'
-        +rw('Plus gros sector',top.name+' &middot; '+tp+'%',ov?'var(--bear)':'var(--acc)')
+        +rw('Largest sector',top.name+' &middot; '+tp+'%',ov?'var(--bear)':'var(--acc)')
         +rw('Total positions',DATA.reduce(function(a,s){return a+s.t.length;},0)+'')
-        +'<div style="margin-top:var(--s3);font-size:15px;color:'+(ov?'var(--warn)':'var(--steel)')+'">'+(ov?('&#9888; '+top.name+' au-dessus du cap 30%'):'sous le cap 30%')+'</div>'
+        +'<div style="margin-top:var(--s3);font-size:15px;color:'+(ov?'var(--warn)':'var(--steel)')+'">'+(ov?('&#9888; '+top.name+' above 30% cap'):'below 30% cap')+'</div>'
         +'<div style="margin-top:var(--s35);font-size:14px;color:var(--steel)">click a sector to see its positions</div>';
     }
     function showSector(name){
@@ -499,6 +509,11 @@ _APP_JS = """
       void 0;  /* auto-reload navigateur retire -- rafraichir avec Cmd+R */
     },75000);
   })();
+  /* Pass 5 audit P3 : pause ticker animations + auto-reload poll when tab hidden.
+     Spare CPU/battery quand l'onglet est en background. CSS toggle via body class. */
+  document.addEventListener('visibilitychange', function(){
+    document.body.classList.toggle('tab-hidden', document.hidden);
+  });
 """
 
 _LOUPE_HTML = (
