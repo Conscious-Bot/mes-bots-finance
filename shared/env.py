@@ -121,11 +121,16 @@ class _Env:
 
     @cached_property
     def presage_refresh_seconds(self) -> int:
-        """Intervalle regen dashboard.html. Default 60s."""
+        """Intervalle regen dashboard.html. Default 300s (5 min) post-audit 5.
+        Avant 60s causait perception "valeurs bougent toutes seules" (auditor:
+        "broker total est passé de 43,860 à 44,056 entre deux affichages" =
+        yfinance jitter intra-cache-window. Override env PRESAGE_REFRESH=60
+        pour dev iteration rapide. 5 min = trade-off perception fiabilite vs
+        live freshness sur outil de discipline."""
         try:
-            return int(os.environ.get("PRESAGE_REFRESH", "60"))
+            return int(os.environ.get("PRESAGE_REFRESH", "300"))
         except ValueError:
-            return 60
+            return 300
 
     # === Scheduling ===
 
