@@ -1488,11 +1488,11 @@ _CSS = """
   .brk-tot { font-family:var(--fm); font-size:var(--t-base); color:var(--ink); } .brk-tot span { color:var(--steel); font-size:var(--t-data2); }
   .brk-body { display:flex; gap:var(--s4); align-items:flex-start; flex-wrap:wrap; }
   .brk-viz { flex:0 0 320px; max-width:320px; }
-  /* Pass 16-ter : retrait du mask fade qui effacait visuellement les graphs
-     Progress quand ils etaient au bord droit visible. Juste overflow-x:auto
-     propre. La scrollbar suffit pour signaler "il y a plus a droite". */
-  .brk-tbl { flex:1 1 0; min-width:0; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .brk-tbl table.dt { width:max-content; min-width:100%; }
+  /* Pass 18 user-demand : restore micro-graphs Positions. Pass 16 avait
+     change table.dt vers width:max-content + overflow-x:auto qui affectait
+     la largeur de la cellule gauge dans la colonne Progress. Cure : revert
+     a un simple overflow-x:auto wrapper, sans modifier le rendu du table. */
+  .brk-tbl { flex:1; min-width:300px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .brk-bars { display:flex; flex-direction:column; gap:2px; }
   .brk-row { display:grid; grid-template-columns:minmax(110px,1.3fr) minmax(60px,2.5fr) 42px 56px; align-items:center; gap:var(--s3); padding:var(--s2) 4px; border-radius:var(--r1); transition:background .15s; }
   .brk-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); }
