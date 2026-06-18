@@ -124,9 +124,17 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         # CSP + security headers minimaux (Phase 0 doctrine 07/06, source nango).
         # default-src 'self' : pas de mixed content. script-src 'self' + 'unsafe-inline'
-        # car render.py injecte des constantes JS inline (_SORT_JS etc.). Si on migre
-        # vers script externalise un jour -> retirer 'unsafe-inline'. KNOWN-GAP: inline JS.
-        self.send_header("Cache-Control", "no-store")
+        # car render.py injecte des constantes JS inline (_SORT_JS etc.). Inline
+        # CSP reste obligatoire (multiples blocs locaux dans render.py).
+        # Cache : HTML jamais cache (no-store) car live-reload vise re-fetch.
+        # Static (/static/*) immutable longue-vie : versionne par ?v=mtime dans
+        # le HTML, browser garde en cache 1 an. Cure Pass 2 audit (sinon
+        # externalisation 160KB devient cosmetique : no-store force re-download).
+        path = getattr(self, "path", "")
+        if path.startswith("/static/"):
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        else:
+            self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")

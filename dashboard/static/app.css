@@ -1,130 +1,225 @@
-"""Dashboard CSS constants -- extracted from render.py Phase 1 refactor (02/06).
+/* ============================================================
+   FONTS — Geist + Geist Mono SELF-HOSTED (charte tooling 31/05)
+   ============================================================
+   User spec : "Geist auto-hebergé = maintenant (30 min, ça accélère
+   tout le reste)". Files dans dashboard/static/fonts/ (~128KB total).
+   Servis par dashboard.serve (stdlib HTTP server, directory="dashboard").
+   Eviter le CDN Google Fonts pour : (1) zero round-trip externe au load,
+   (2) zero tracking analytics, (3) zero CORS, (4) souveraine.
+   ============================================================ */
 
-Pure data, no behavior. Imported by render.py.
-"""
-from pathlib import Path
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url("/static/fonts/geist-200.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/static/fonts/geist-300.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/geist-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/geist-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/fonts/geist-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/fonts/geist-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/geist-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/geist-mono-500.woff2") format("woff2");
+}
 
-_TH_CSS = """
-<style>
-  .th-gap { margin-bottom:var(--s4); }
-  .th-hist { display:flex; flex-direction:column; gap:var(--s15); padding:2px 0; }
-  .th-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:15px; }
-  .th-hlab { width:24px; color:var(--steel); }
-  .th-hbar .axis { flex:1; margin:0; }
-  .th-htrack { flex:1; height:5px; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 6%,transparent); overflow:hidden; }
-  .th-hfill { height:100%; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 55%,transparent); transition:width .25s ease-out; }
-  body.midnight .th-htrack { background:rgba(255,255,255,.05); }
-  body.midnight .th-hfill { background:color-mix(in srgb,var(--ink) 75%,transparent); }
-  .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
+/* Hubot Sans Expanded -- display face wide-rounded-geometric.
+   GitHub OFL. Self-host comme Geist. Reserve aux titres + heros + KPI
+   gros chiffres (var --fdis). PAS pour body/data dense (lisibilite). */
+@font-face {
+  font-family: "Hubot Sans Expanded";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/fonts/hubot-expanded-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hubot Sans Expanded";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/fonts/hubot-expanded-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hubot Sans Expanded";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/static/fonts/hubot-expanded-800.woff2") format("woff2");
+}
 
-  /* === Canonical track bar (#91 signature unifie 03/06/2026) =============
-     Une primitive visuelle pour TOUS les axes du dashboard : track + dot +
-     ticks optionnels. Remplace .axis + .axis-mark + .axis-target-tick + le
-     mask SVG losange. Pas de gradient (sauf cas signature ou les extremes
-     ont vraiment un sens et le tick aux extremites le porte). Stripe/Linear.
-     Anti-Robinhood (#103 invariant : motion encode le delta, pas l'excitation). */
-  .tbar { position:relative; width:100%; height:5px; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 6%,transparent); margin:var(--s2) 0; cursor:default; }
-  .tbar-tick { position:absolute; top:-2px; width:1.5px; height:9px; background:var(--ink); opacity:.7; border-radius:1px; pointer-events:none; }
-  .tbar-tick.dash { background:transparent; border-left:1px dashed var(--steel); opacity:.55; width:0; }
-  /* Ticks colores axes signature position (limit/zero/target) :
-     - stop = red (limit gauche)
-     - entry/cost = grey (zero central, ton coût = point de départ)
-     - partial = jaune (première prise de profit decidée, feu tricolore)
-     - target = green (cible pleine decidée)
-     Dot noir par defaut ; rouge si dot <= stop, vert si dot >= target OU
-     beyond (cur_native >= target_native, cf SPEC_GAUGE §1.4). */
-  /* Feu tricolore canonique de la gauge (cf SPEC_GAUGE §1.3) : couleurs FLUO
-     vives explicites, pour que stop/partial/target se distinguent d'un coup
-     d'œil. Les vars globales --bear/--warn/--acc restent sobres pour le reste
-     du dashboard (DNA parchemin/instrument). Ici, sur la gauge spécifiquement,
-     on assume le contraste vif — c'est l'unique surface où le feu tricolore
-     doit crier sa sémantique. */
-  .tbar-tick.stop    { background:#ff1744; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; box-shadow:0 0 4px rgba(255,23,68,.55); }
-  .tbar-tick.entry   { background:var(--steel); opacity:.75; height:11px; top:-3px; width:1.5px; }
-  .tbar-tick.partial { background:#ffd400; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; box-shadow:0 0 4px rgba(255,212,0,.55); }
-  .tbar-tick.target  { background:#00e676; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:1.5px; box-shadow:0 0 4px rgba(0,230,118,.55); }
-  /* axe-prix natif (SPEC_GAUGE §3) : caret cost sous-ligne + chevrons overflow */
-  .tbar-cost-caret { position:absolute; bottom:-5px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:6px solid var(--steel); transform:translateX(-50%); pointer-events:none; z-index:2; }
-  .tbar-cost-caret.stale { opacity:.5; border-bottom-color:var(--warn); }
-  .tbar-chevron-left, .tbar-chevron-right { position:absolute; top:50%; transform:translateY(-50%); color:var(--steel); font-size:10px; line-height:1; opacity:.7; pointer-events:none; z-index:2; }
-  .tbar-chevron-left { left:1px; }
-  .tbar-chevron-right { right:1px; }
-  .tbar-dot { position:absolute; top:50%; width:9px; height:9px; border-radius:50%; background:var(--ink); transform:translate(-50%,-50%); z-index:2; box-shadow:0 0 0 1.5px var(--bg), 0 1px 3px rgba(0,0,0,.18); transition:left .25s ease-out; }
-  .tbar-dot.acc { background:var(--acc); }
-  .tbar-dot.warn { background:var(--warn); }
-  .tbar-dot.bear { background:var(--bear); }
-  .tbar-fill { position:absolute; left:0; top:0; height:100%; border-radius:2.5px; background:color-mix(in srgb,var(--ink) 50%,transparent); transition:width .25s ease-out; }
-  /* Hover tooltip : % continu sous le curseur. Pill ink-on-bg haute contraste,
-     tabular nums (digits ne shiftent pas en width quand le curseur glisse),
-     caret vers le bar, micro-motion opacity+slide.
-     Variants .pos / .neg : pill verte / rouge quand signed % > 0 / < 0
-     (user 03/06 "dynamic % cursor green above 0, red under 0"). */
-  .tbar-hover-tip { --pill-bg:var(--ink); --pill-fg:var(--bg); position:absolute; bottom:13px; transform:translateX(-50%) translateY(3px); background:var(--pill-bg); color:var(--pill-fg); border-radius:5px; padding:3px 8px 3.5px; font-family:var(--fm); font-size:11px; font-weight:500; letter-spacing:.01em; font-variant-numeric:tabular-nums; line-height:1.25; pointer-events:none; white-space:nowrap; opacity:0; transition:opacity .14s ease-out, transform .14s ease-out, background .14s ease-out; z-index:5; box-shadow:0 4px 14px -4px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.08); }
-  .tbar-hover-tip::after { content:""; position:absolute; left:50%; top:100%; transform:translateX(-50%); width:0; height:0; border:3.5px solid transparent; border-top-color:var(--pill-bg); border-bottom:0; transition:border-top-color .14s ease-out; }
-  .tbar-hover-tip.pos { --pill-bg:var(--acc); --pill-fg:#fff; }
-  .tbar-hover-tip.neg { --pill-bg:var(--bear); --pill-fg:#fff; }
-  .tbar:hover .tbar-hover-tip { opacity:1; transform:translateX(-50%) translateY(0); }
-  /* Midnight adaptations : track plus subtil + ticks neutres lift en blanc
-     transparent (mais SKIP les ticks colores sig-ent0 stop/entry/target qui
-     gardent leur couleur tokens). Dot box-shadow ring follows var(--bg)
-     auto -> pas besoin d'override. */
-  body.midnight .tbar { background:rgba(255,255,255,.05); }
-  body.midnight .tbar-fill { background:color-mix(in srgb,var(--ink) 70%,transparent); }
-  body.midnight .tbar-tick:not(.stop):not(.entry):not(.partial):not(.target):not(.dash) { background:rgba(255,255,255,.55); }
-  body.midnight .tbar-tick.entry { background:var(--steel); opacity:.7; }
-  body.midnight .tbar-hover-tip { box-shadow:0 4px 14px -4px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.25); }
-  /* Section headers unifies (Polish 01/06) : meme pattern visuel pour
-     .th-grp / .strat-sh / .vigie-sh / .dba-sh. Noms preserves pour HTML.
-     Petit icon optionnel via .sh-ico (data-icon attr peut etre utilise). */
-  .th-grp { font-family:var(--fm); font-weight:500; font-size:15px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
-  .th-grp::after { content:""; flex:1; height:1px; background:var(--line); }
-  .sh-ico { width:14px; height:14px; flex-shrink:0; opacity:.6; }
-  /* Sprint 2 purge borders TR-style + Sprint C polish : grid 180/52/1fr,
-     hover translateX(2px), padding plus généreux, transition ease-out. */
-  .th-row { display:grid; grid-template-columns:180px 52px 1fr; gap:var(--s3); align-items:center; padding:16px 8px; border-bottom:1px solid var(--line); margin-bottom:0; cursor:pointer; transition:background .15s ease-out, transform .15s ease-out, padding-left .15s ease-out; }
-  .th-row:last-child { border-bottom:none; }
-  .th-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); padding-left:14px; }
-  .th-row:active { transform:scale(.997); }
-  .th-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
-  .th-conv { font-family:var(--fm); font-weight:600; font-size:14px; letter-spacing:.04em; padding:2px 7px; border-radius:var(--r1); }
-  .th-conv.c5 { color:var(--bg); background:var(--ink); }
-  .th-conv.c4 { color:var(--bg); background:var(--acc); }
-  .th-conv.c3 { color:var(--bg); background:var(--warn); }
-  .th-conv.c2 { color:var(--steel); border:1px solid var(--line2); }
-  .th-conv.c1 { color:var(--steel); border:1px solid var(--line); opacity:.65; }
-  .th-tk { font-weight:600; font-size:16px; }
-  .th-w { font-family:var(--fm); font-size:15px; font-weight:600; color:var(--ink); text-align:right; align-self:center; }
-  .th-dir { font-family:var(--fb); font-size:14px; color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
-  .th-bar { display:flex; flex-direction:column; gap:var(--s15); grid-column:1/-1; margin-top:var(--s2); }
-  .sizebar { margin:var(--s15) 0 4px; }
-  .th-adj { font-family:var(--fm); font-size:14px; letter-spacing:.02em; line-height:1.3; font-weight:500; }
-  /* trim/bump alignes sur palette flashy (user 03/06) : trim=bear action-trigger,
-     bump=acc action-trigger. ok reste steel mute (pas d'action). */
-  .th-adj.trim { color:var(--bear); }
-  .th-adj.add { color:var(--acc); }
-  .th-adj.ok { color:var(--steel); }
-  .th-szcol { display:flex; flex-direction:column; gap:5px; }
-  .th-zone-loss { position:absolute; left:0; top:0; bottom:0; background:color-mix(in srgb, var(--bear) 13%, transparent); }
-  .th-zone-profit { position:absolute; right:0; top:0; bottom:0; background:color-mix(in srgb, var(--acc) 13%, transparent); }
-  .th-ends { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--fm); font-size:14px; }
-  .th-stop { color:var(--bear); }
-  .th-tgt { color:var(--acc); font-weight:600; }
-  /* th-pt par defaut = rouge (target hit + risky = signal trim a risque).
-     Variant .acc = vert (target beyond = indicateur positif). */
-  .th-pt { font-family:var(--fm); font-size:14px; padding:1px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); letter-spacing:.04em; margin-left:var(--s2); text-transform:uppercase; }
-  .th-pt.acc { background:color-mix(in srgb,var(--acc) 16%,transparent); color:var(--acc); }
-  .th-na { font-family:var(--fm); font-size:14px; color:var(--steel); }
-  .th-cat { font-family:var(--fm); font-size:14px; letter-spacing:.03em; color:var(--steel); background:color-mix(in srgb, var(--steel) 10%, transparent); border:1px solid var(--line); border-radius:var(--r1); padding:2px 8px; margin-left:2px; white-space:nowrap; }
-</style>
-"""
+/* ============================================================
+   TOKENS PRESAGE — couche unique de design system
+   ============================================================
+   Source unique des tokens consommes par dashboard/render.py _CSS.
+   Charte canonique : docs/DESIGN_SYSTEM.md (§1-3).
 
-_TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
+   Decide UNE fois. Tout le reste herite. Changer le feel = changer
+   les tokens, pas reecrire les composants.
 
-# Mode cahier-de-bord supprime 02/06 user "mode cahier a supprimer"
-# (incompatible avec DNA instrument v2 cold/single accent).
-# _CAHIER_CSS = (Path(__file__).parent / "cahier_de_bord.css").read_text(encoding="utf-8")
+   Sections :
+   1. PALETTE       light + midnight
+   2. ENCRE         3 niveaux + steel
+   3. ACCENTS       acc / bear / warn / gold (semantiques)
+   4. FILETS        line / line2 / line3
+   5. TYPOGRAPHIE   font-family + font-size scale 1.2 ratio
+   6. ESPACEMENT    s1 -> s6 base 4
+   7. RAYONS        r1 / r2 / r3
+   8. SURFACES      glass / tape / bar (rgba)
+   9. MOTION        ease canonical cubic-bezier
+   ============================================================ */
 
-_CSS = """
+:root {
+  /* --- 1. PALETTE -- DNA "instrument de mesure" v2 (02/06 reframe) ---
+     Cold whites/grays. Single accent bleu encre. Zero warm parchemin.
+     Zero green/red moral. Couleur = fait, jamais jugement. */
+  --bg:    #FFFFFF;   /* blanc net, neutre froid */
+  --panel: #F4F7FC;   /* surface tres legerement bleutee ciel (user 02/06 iter) */
+
+  /* --- 2. ENCRE -- gris fonce, JAMAIS noir pur ----------------------- */
+  --ink:   #1C1E21;   /* primaire (jamais #000) */
+  --ink2:  #374151;   /* secondaire (preserved pour usages explicites) */
+  --steel: #6B7280;   /* secondary / captions */
+  --metal: #6B7280;   /* alias --steel pour back-compat */
+  --id:    #1C1E21;   /* identite = ink */
+
+  /* --- 3. ACCENTS reframe 02/06 user "vert/rouge necessaires mais moins
+     flashy". 3 hues : data blue (focus/accent) + green (gain) + red (loss).
+     Tons sobres dense-friendly (Tailwind 700 family), pas neon. */
+  --data:  #2D5BFF;   /* bleu encre canonical -- accent focus */
+  --acc:   #16A34A;   /* green-600 flashy (bump 03/06 user "a bit more flashy green") */
+  --acc2:  #16A34A;
+  --bear:  #DC2626;   /* red-600 flashy fintech action-trigger (bump 03/06 user "same flashy red partout") */
+  --warn:  #A16207;   /* amber-700 sobre, ochre vigilance */
+  --gold:  #A16207;   /* alias warn (1 spark spec) */
+
+  /* --- 4. FILETS -- echelle froide ---------------------------------- */
+  --line:  #E8EAED;   /* bordure standard cards */
+  --line2: #D1D5DB;   /* separateur plus marque */
+  --line3: #9CA3AF;   /* focus / outline TOP */
+
+  /* --- 5. TYPOGRAPHIE -------------------------------------------- */
+  /* Fonts : Geist universel (charte §2), Geist Mono pour TOUS chiffres */
+  --fd: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --fb: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --fm: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --fo: "Geist", ui-sans-serif, sans-serif;
+  /* Display heading face -- titres pages + heros + KPI gros chiffres.
+     Wide rounded geometric (user 02/06 img Hue cookies). Fallback Geist. */
+  --fdis: "Hubot Sans Expanded", "Geist", ui-sans-serif, sans-serif;
+  /* Font-size scale -- base 15px, ratio ~1.2. Charte §1.4.
+     Toute nouvelle ecriture utilise ces tokens, pas font-size:Npx inline. */
+  --t-caption: 16px;
+  --t-body:    18px;
+  --t-base:    19px;
+  --t-h3:      23px;
+  --t-h2:      29px;
+  --t-h1:      37px;
+  --t-hero:    49px;
+
+  /* --- 6. ESPACEMENT -- base 4, genereux -------------------------- */
+  /* Sprint 1 breathing TR-inspired : bump des tokens mid-large.
+     s1-s3 inchanges (espacement intern row : si on les bumpe la row
+     se deforme). s35-s4-s5 bumpes ~35-40% : respiration cards + sections. */
+  --s1:  4px;
+  --s15: 6px;
+  --s2:  8px;
+  --s25: 10px;
+  --s3:  12px;
+  --s35: 22px;  /* etait 16, padding card vertical / gaps mid */
+  --s4:  28px;  /* etait 20, margin block / gap inter-sections */
+  --s5:  44px;  /* etait 32, margin hero / gros gaps */
+  --s6:  64px;  /* etait 52, plus respirable */
+
+  /* --- 7. RAYONS -------------------------------------------------- */
+  --r1: 4px;
+  --r2: 8px;
+  --r3: 12px;
+
+  /* --- 8. SURFACES translucides (charte §5) ----------------------- */
+  /* Pivot 01/06 hybride moderne : alignement sur nouveau bg #F8F9FB. */
+  --elev:  none;    /* PAS de box-shadow par defaut (charte §1.5) */
+  --glass:  rgba(255, 255, 255, .92);
+  --glass2: rgba(248, 249, 251, .88);
+  --tape:   rgba(255, 255, 255, .96);
+  --barbg:  #F3F4F6;
+
+  /* --- 9. MOTION -- ease canonique unique (charte §7) ------------ */
+  --ease: cubic-bezier(.22, .61, .36, 1);
+}
+
+/* ============================================================
+   MIDNIGHT (mode sombre) -- warm noir + accents pop fintech
+   Restore 01/06 : warm noir bg (user pref), garde accents
+   action-triggers modernes (vert/rouge Tailwind 500, amber warm).
+   ============================================================ */
+body.midnight {
+  /* Dark mode v2 : cold neutral (no warm noir). Single blue accent reste. */
+  --bg:    #0F1115;   /* cold near-black */
+  --panel: #161B23;   /* tres legerement bleute, match light tint */
+  --ink:   #E6E8EB;   /* cold off-white (no ivory) */
+  --ink2:  #C8CCD2;
+  --steel: #8B919A;
+  --metal: #8B919A;
+  --line:  #1F242C;
+  --line2: #2B313A;
+  --line3: #3F4754;
+  --data:  #5B7DFF;   /* bleu encre lift pour contraste sombre */
+  --acc:   #4ADE80;   /* green-400 dark flashy (bump 03/06) */
+  --acc2:  #4ADE80;
+  --id:    #E6E8EB;
+  --bear:  #EF4444;   /* red-500 dark flashy (bump 03/06 user "same flashy red") */
+  --warn:  #F59E0B;   /* amber-500 dark mode */
+  --gold:  #F59E0B;
+  --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
+  --glass:  rgba(22, 26, 32, .85);
+  --glass2: rgba(15, 17, 21, .7);
+  --tape:   rgba(15, 17, 21, .9);
+  --barbg:  #1B1F26;
+}
+
   * { box-sizing:border-box; }
   /* Visually-hidden : a11y headings/labels for screen readers, off-screen visual. */
   .vh { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -289,7 +384,7 @@ _CSS = """
   .sec-h:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); }
   .sec-name { font-family:var(--fd); font-weight:500; font-size:19px; color:var(--ink); display:flex; align-items:center; gap:9px; }
   .sec-name::before { content:""; width:6px; height:6px; border-radius:2px; background:var(--id); }
-  .sec-name::after { content:"\\25B8"; margin-left:8px; color:var(--steel); font-size:14px; transition:transform .18s ease; display:inline-block; }
+  .sec-name::after { content:"\25B8"; margin-left:8px; color:var(--steel); font-size:14px; transition:transform .18s ease; display:inline-block; }
   .sec-grp.open .sec-name::after { transform:rotate(90deg); }
   .sec-meta { font-family:var(--fm); font-size:15px; color:var(--steel); white-space:nowrap; }
   .sec-pl.pos { color:var(--acc); } .sec-pl.neg { color:var(--bear); }
@@ -405,7 +500,7 @@ _CSS = """
   .warn-c, b.warn { color:var(--warn); }
   .bear-c, b.bear { color:var(--bear); }
   .page-star .ps-cap { font-family:var(--fb); font-size:12px; color:var(--steel); margin:0; line-height:1.4; display:inline; }
-  .page-star .ps-cap::before { content:"\\00a0\\00b7\\00a0"; color:var(--steel); opacity:.5; }
+  .page-star .ps-cap::before { content:"\00a0\00b7\00a0"; color:var(--steel); opacity:.5; }
   .page-star .ps-macro-row { display:inline-flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
   .page-star .ps-macro-meta { font-family:var(--fm); font-size:12px; color:var(--steel); }
   /* Frise gauge : stable -> crise, GREEN gauche (calm) -> RED droite (crise).
@@ -698,7 +793,8 @@ _CSS = """
   .warn-chip.warn-chip-bear { color:var(--bear); }
   .warn-chip.warn-chip-warn { color:var(--warn); }
   .warn-chip.warn-chip-steel { color:var(--steel); }
-  /* Tooltip warn-chip : preserve \n pour structure ACTION / POURQUOI. */
+  /* Tooltip warn-chip : preserve 
+ pour structure ACTION / POURQUOI. */
   .warn-chip[data-tip]:hover::after { white-space: pre-line; max-width: 400px; }
   /* Regime chip (Phase A) : label classify_regime dans le header panel. */
   .regime-chip { font-family:var(--fb); font-size:14px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; padding:2px 9px; border-radius:10px; border:1px solid currentColor; }
@@ -1378,73 +1474,3 @@ _CSS = """
   .brk-row-fill { height:100%; border-radius:2px; transition:width .4s cubic-bezier(.2,.8,.2,1); }
   .brk-row-pct { font-family:var(--fm); font-weight:500; font-size:15px; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
   .brk-row-val { font-family:var(--fm); font-weight:400; font-size:14px; color:var(--steel); text-align:right; font-variant-numeric:tabular-nums; }
-"""
-
-_DBA_CSS = r"""
-<style>
-  /* Unified avec .th-grp / .strat-sh / .vigie-sh : flex + after-line subtile */
-  .dba-sh { font-family:var(--fm); font-weight:500; font-size:15px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
-  .dba-sh::after { content:""; flex:1; height:1px; background:var(--line); }
-  .dba-sh-aside { text-transform:none; letter-spacing:0; color:var(--steel); font-weight:normal; font-size:14px; margin-left:6px; }
-  /* DBA card harmonisee avec .page-star pattern (background panel + border line) */
-  .dba-card { padding:var(--s4); border:1px solid var(--line); border-radius:var(--r2); background:var(--panel); margin-bottom:var(--s3); }
-  .dba-chrow { display:flex; justify-content:space-between; align-items:baseline; gap:var(--s4); font-family:var(--fm); }
-  .dba-chrow .lab { font-weight:600; color:var(--ink); font-size:16px; }
-  .dba-chrow .stat { font-size:14px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:var(--r1); border:1px solid var(--line); white-space:nowrap; }
-  .dba-chrow .stat.actif { color:var(--acc); border-color:color-mix(in srgb, var(--acc) 30%, var(--line)); }
-  .dba-chrow .stat.veille { color:var(--warn); border-color:color-mix(in srgb, var(--warn) 30%, var(--line)); }
-  .dba-chrow .stat.non-inst { color:var(--steel); opacity:.7; }
-  .dba-meta { font-family:var(--fm); font-size:14px; color:var(--steel); margin-top:6px; line-height:1.5; }
-  .dba-bars { margin-top:var(--s3); }
-  /* Bars : couleur = SEVERITE (etat), pas presence. Label + count
-     portent la couleur ; la fill l'amplifie. Row a 0 reste typee. */
-  .dba-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:15px; margin:6px 0; }
-  .dba-hbar.zero { opacity:.55; }
-  .dba-hlab { width:80px; }
-  .dba-haxis { flex:1; height:6px; background:color-mix(in srgb, var(--steel) 12%, transparent); border-radius:3px; overflow:hidden; }
-  .dba-hfill { height:100%; background:var(--steel); }
-  .dba-hn { width:30px; text-align:right; font-weight:600; }
-  .dba-hbar.dormant .dba-hlab,
-  .dba-hbar.dormant .dba-hn { color:var(--steel); }
-  .dba-hbar.dormant .dba-hfill { background:var(--steel); }
-  .dba-hbar.at_risk .dba-hlab,
-  .dba-hbar.at_risk .dba-hn { color:var(--warn); font-weight:700; }
-  .dba-hbar.at_risk .dba-hfill { background:var(--warn); }
-  .dba-hbar.triggered .dba-hlab,
-  .dba-hbar.triggered .dba-hn { color:var(--bear); font-weight:700; }
-  .dba-hbar.triggered .dba-hfill { background:var(--bear); }
-  .dba-count { font-family:var(--fm); font-size:17px; color:var(--ink); margin-top:var(--s2); font-weight:600; }
-  .dba-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
-  .dba-tag { font-family:var(--fm); font-size:14px; padding:2px 8px; border-radius:var(--r1); background:color-mix(in srgb, var(--steel) 10%, transparent); color:var(--steel); }
-  .dba-cond { font-family:var(--fm); font-size:14px; color:var(--steel); margin-top:8px; font-style:italic; }
-  .dba-honest { font-family:var(--fm); font-size:14px; color:var(--warn); margin-top:8px; padding:7px 11px; background:color-mix(in srgb, var(--warn) 6%, transparent); border-left:2px solid var(--warn); border-radius:var(--r1); line-height:1.5; }
-  .dba-arrow { font-family:var(--fm); font-size:15px; color:var(--steel); margin-top:var(--s3); }
-  .dba-arrow .v { color:var(--ink); font-weight:600; }
-
-  /* DNA v2 surface d'honnetete : carte calibration Brier vs baseline */
-  .calib-card { background:var(--bg); border:1px solid var(--line); border-radius:var(--r3); padding:18px 22px; }
-  .calib-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
-  .calib-row .calib-lbl { font-family:var(--fb); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); font-weight:500; }
-  .calib-row .calib-val { font-family:var(--fm); font-size:32px; font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; line-height:1; letter-spacing:-.01em; }
-  .calib-row .calib-val.muted { color:var(--steel); opacity:.5; }
-  .calib-row .calib-val.acc { color:var(--acc); }
-  .calib-row .calib-val.warn { color:var(--warn); }
-  .calib-row .calib-val.bear { color:var(--bear); }
-  .calib-row .calib-baseline { font-family:var(--fm); font-size:12px; color:var(--steel); }
-  .calib-row .calib-delta { font-family:var(--fm); font-size:13px; margin-left:auto; padding:2px 9px; border-radius:99px; border:1px solid currentColor; font-variant-numeric:tabular-nums; }
-  .calib-row .calib-delta.acc { color:var(--acc); }
-  .calib-row .calib-delta.bear { color:var(--bear); }
-  .calib-axis { position:relative; height:34px; margin:18px 0 8px; }
-  .calib-axis .calib-track { position:absolute; left:0; right:0; top:8px; height:4px; background:linear-gradient(90deg, var(--acc), color-mix(in srgb,var(--acc) 40%,var(--steel)) 40%, var(--steel) 50%, color-mix(in srgb,var(--bear) 40%,var(--steel)) 60%, var(--bear)); border-radius:2px; }
-  .calib-axis .calib-baseline-tick { position:absolute; top:4px; width:2px; height:12px; background:var(--ink); opacity:.6; border-radius:1px; transform:translateX(-50%); }
-  .calib-axis .calib-baseline-tick::after { content:"baseline"; position:absolute; bottom:-14px; left:50%; transform:translateX(-50%); font-family:var(--fm); font-size:10px; color:var(--steel); white-space:nowrap; }
-  .calib-axis .calib-mark { position:absolute; top:5px; width:10px; height:10px; background:var(--ink); border:2px solid var(--bg); border-radius:50%; transform:translateX(-50%); box-shadow:0 0 0 1px var(--ink); }
-  .calib-axis .calib-scale { display:flex; justify-content:space-between; position:absolute; left:0; right:0; top:24px; font-family:var(--fm); font-size:10px; color:var(--steel); }
-  .calib-axis .calib-scale span:nth-child(2) { visibility:hidden; }
-  .calib-meta { margin-top:18px; }
-  .calib-badge { display:inline-block; font-family:var(--fm); font-size:11px; font-weight:500; letter-spacing:.04em; padding:3px 10px; border-radius:99px; border:1px solid currentColor; }
-  .calib-badge.acc { color:var(--acc); }
-  .calib-badge.warn { color:var(--warn); }
-  .calib-honest { font-family:var(--fb); font-size:12px; color:var(--steel); margin-top:12px; padding:10px 12px; background:var(--panel); border-left:2px solid var(--line2); border-radius:var(--r1); line-height:1.55; }
-</style>
-"""

@@ -7207,6 +7207,30 @@ def _discipline_biais_panel() -> str:
     )
 
 
+def _write_static_bundle() -> tuple[int, int]:
+    """Write combined CSS+JS bundles to dashboard/static/ for browser caching.
+    Returns (css_mtime, js_mtime) used as ?v= cache busters in the HTML.
+
+    Pass 2 audit cleanup : inline <style>+<script> blocks (~150KB) externalised so
+    the browser caches them across loads instead of re-downloading at every regen.
+    The substituted _APP_JS contains the resolved TICKER_DOMAIN/LOCAL maps.
+    """
+    static_dir = Path(__file__).parent / "static"
+    static_dir.mkdir(exist_ok=True)
+    app_css = _TOKENS_CSS + _CSS
+    app_js = _APP_JS.replace(
+        "__TKDOMAIN_JSON__", json.dumps(_ticker_logos_mod.TICKER_DOMAIN)
+    ).replace(
+        "__TKLOCAL_JSON__", json.dumps(_ticker_logos_mod._scan_local_logos())
+    )
+    (static_dir / "app.css").write_text(app_css, encoding="utf-8")
+    (static_dir / "app.js").write_text(app_js, encoding="utf-8")
+    return (
+        int((static_dir / "app.css").stat().st_mtime),
+        int((static_dir / "app.js").stat().st_mtime),
+    )
+
+
 def render() -> Path:
     # === COEUR UNIQUE (SPEC_MONEY_INVARIANT §8 + SPEC_POSITIONS_CARD_LINK §7.bis) ===
     # Battement unique : appele 1x/regen au top, tous les panneaux projettent.
@@ -8167,6 +8191,8 @@ def render() -> Path:
         + _LOUPE_HTML
     )
 
+    _css_v, _js_v = _write_static_bundle()
+
     html = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="1800">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -8183,10 +8209,7 @@ def render() -> Path:
         # @font-face block). No CDN Google Fonts (zero round-trip externe,
         # zero tracking, souveraine).
         ''
-        "<style>"
-        + _TOKENS_CSS
-        + _CSS
-        + "</style>"
+        + f'<link rel="stylesheet" href="/static/app.css?v={_css_v}">'
         # _THEME_INIT injecte AVANT </head> -> applique la class midnight
         # AVANT le paint initial, evite FOUC light->dark sur chaque refresh.
         + _THEME_INIT
@@ -8204,9 +8227,7 @@ def render() -> Path:
         + json.dumps(sb_data, allow_nan=False)
         + ";</script>"
         + ""
-        + "<script>"
-        + _APP_JS.replace("__TKDOMAIN_JSON__", json.dumps(_ticker_logos_mod.TICKER_DOMAIN)).replace("__TKLOCAL_JSON__", json.dumps(_ticker_logos_mod._scan_local_logos()))
-        + "</script>"
+        + f'<script src="/static/app.js?v={_js_v}"></script>'
         # Live-reload : poll Last-Modified toutes les 1s (vs 600s ancien). User
         # spec close-session : "Live-reload + Geist auto-hebergé = maintenant
         # (30 min, ca accelere tout le reste)". Iteration design instantanee
