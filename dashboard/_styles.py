@@ -126,6 +126,8 @@ _TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
 
 _CSS = """
   * { box-sizing:border-box; }
+  /* Visually-hidden : a11y headings/labels for screen readers, off-screen visual. */
+  .vh { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   /* Accessibility focus-visible (keyboard nav). Polish DA 31/05.
      - Suppress browser default outline-on-click (ugly, non-keyboard)
      - Outline propre pour TAB navigation (keyboard) avec offset coherent palette
@@ -201,7 +203,7 @@ _CSS = """
      quand le header est "stuck" (detecté via .stuck class JS IntersectionObserver). */
   .phead { position:sticky; top:0; z-index:30; margin-bottom:var(--s35); padding:14px 0 12px; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent); transition:box-shadow .2s ease-out, border-color .2s ease-out; }
   .phead.stuck { box-shadow:0 6px 16px -10px rgba(0,0,0,.10); border-bottom-color:var(--line2); }
-  .phead h2 { font-family:var(--fdis); font-weight:700; font-size:35px; margin:0 0 6px; letter-spacing:.02em; text-transform:uppercase; color:var(--ink); }
+  .phead h1 { font-family:var(--fdis); font-weight:700; font-size:clamp(26px, 5vw, 35px); margin:0 0 6px; letter-spacing:.02em; text-transform:uppercase; color:var(--ink); }
   .phead .sub { font-family:var(--fb); font-weight:400; font-size:13px; letter-spacing:.04em; color:var(--steel); opacity:.65; transition:opacity .22s ease; }
   .phead:hover .sub { opacity:1; }
   /* Page transitions (Emil framework) : Cmd+1..9 = action keyboard 30-50x/jour
@@ -212,7 +214,7 @@ _CSS = """
      like. Fallback : fadein keyframe ci-dessus reste. */
   @supports (view-transition-name: a) {
     [data-page].active { view-transition-name: page-body; animation: none; }
-    .phead h2 { view-transition-name: page-title; }
+    .phead h1 { view-transition-name: page-title; }
     .phead .sub { view-transition-name: page-sub; }
     ::view-transition-group(page-body) { animation-duration: .32s; animation-timing-function: var(--ease); }
     ::view-transition-old(page-body) { animation: vt-fade-out .18s var(--ease) both; }
@@ -517,6 +519,7 @@ _CSS = """
   @media (prefers-reduced-motion: reduce) { .cta-modal, .cta-modal-inner { animation:none; transition:none; } }
   .cta-modal-inner { background:var(--panel); border:1px solid var(--line2); border-radius:12px; width:min(560px,92vw); max-height:64vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 64px -16px rgba(0,0,0,.4); }
   .cta-search-input { width:100%; padding:18px 24px; font-family:var(--fb); font-size:19px; background:transparent; border:none; border-bottom:1px solid var(--line); color:var(--ink); outline:none; box-sizing:border-box; }
+  .cta-search-input:focus-visible { outline:2px solid var(--ink); outline-offset:2px; border-radius:var(--r1); }
   .cta-search-results { max-height:46vh; overflow-y:auto; padding:4px; }
   /* Chips sector filter (search modal enrichi) */
   .cta-search-chips { display:flex; gap:6px; padding:8px 16px 4px; flex-wrap:wrap; border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent); }
@@ -780,6 +783,7 @@ _CSS = """
   .qs.open { display:flex; }
   .qs-card { width:min(560px,100%); background:var(--panel); border:1px solid var(--line2); border-radius:var(--r3); box-shadow:0 30px 90px -20px #000; overflow:hidden; }
   #qs-input { width:100%; box-sizing:border-box; background:transparent; border:none; outline:none; color:var(--ink); font-family:var(--fb); font-size:21px; padding:var(--s4) 20px; border-bottom:1px solid var(--line); }
+  #qs-input:focus-visible { outline:2px solid var(--ink); outline-offset:2px; border-radius:var(--r1); }
   #qs-input::placeholder { color:var(--steel); }
   #qs-res { max-height:50vh; overflow:auto; }
   .qs-row { display:flex; align-items:center; gap:var(--s3); padding:11px 20px; cursor:pointer; border-bottom:.5px solid var(--line); }

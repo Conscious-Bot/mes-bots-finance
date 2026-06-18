@@ -3006,7 +3006,7 @@ def _position_card_panel() -> str:
     except Exception as e:
         return (
             '<section data-page="position-card" role="region" aria-label="Position cards">'
-            f'<div class="phead"><h2>Position cards</h2></div>'
+            f'<div class="phead"><h1>Position cards</h1></div>'
             f'<div class="pc-error">Indisponible : {type(e).__name__}: {e}</div>'
             '</section>'
         )
@@ -3364,7 +3364,7 @@ def _position_card_panel() -> str:
     return (
         '<section data-page="position-card" role="region" aria-label="Position cards">'
         + pc_css
-        + '<div class="phead"><h2>Position cards</h2>'
+        + '<div class="phead"><h1>Position cards</h1>'
         f'<div class="sub">Vue plein-ecran par position &middot; {n} active &middot; '
         'EXIT &amp; SIZE separes (Catch 2) &middot; deep-link #card-TICKER</div></div>'
         + summary_html
@@ -4249,7 +4249,7 @@ def _copilot() -> str:
     conserve, donnees disponibles pour reactivation future."""
     return (
         f'<section data-page="copilot" role="region" aria-label="Copilot">'
-        f'<div class="phead"><h2>Copilot</h2></div>'
+        f'<div class="phead"><h1>Copilot</h1></div>'
         f'{_chat_panel()}'
         f'<div class="vigie-sh" data-tip="Historical adversarial pressure tests: what the copilot challenged recently."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Pressions adversariales</div>'
         f'{_copilot_panel()}'
@@ -4609,7 +4609,7 @@ def _concentration(
         f'<div class="page-star">{star_strate_verdict}{star_strate_grid}{star_strate_foot}</div>'
     )
     return (
-        f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h2>Concentration</h2>'
+        f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h1>Concentration</h1>'
         f'</div>'
         f"{star_concentration}"
         # Retrait 02/06 user : sb-bars (horizontal bars par sector) = doublon
@@ -5168,7 +5168,7 @@ def _signaux() -> str:
         s30 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-30 day')")[0][0]
         n8k = _q("SELECT COUNT(*) FROM filings_8k_log WHERE filed_at > datetime('now','-60 day')")[0][0]
     except Exception as e:
-        return f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h2>Method</h2></div>{_err(e)}</section>'
+        return f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h1>Method</h1></div>{_err(e)}</section>'
 
     sevcls = {"HIGH": "danger", "MEDIUM": "warn", "MED": "warn", "LOW": "calm"}
     sev_order = (
@@ -5351,7 +5351,7 @@ def _signaux() -> str:
     performance_html_method = _performance_panel()
     data_health_html_method = _data_health_panel()
     return (
-        f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h2>Method</h2>'
+        f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h1>Method</h1>'
         f'<div class="sub">How the bot reads signals + how it monitors your biases &middot; track record &middot; insider flow &middot; loop provenance</div></div>'
         f"{star_signaux}{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}"
         f"{_discipline_biais_panel()}"
@@ -5895,7 +5895,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     rsi_html = _market_rsi()
     breadth_html = _breadth_rsp_spy()
     return (
-        f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h2>Alerts</h2>'
+        f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h1>Alerts</h1>'
         f'</div>'
         f"{star}"
         # Layout 02/06 user "organize, evitons les trous" : macro stress
@@ -6159,7 +6159,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     )
     if not rows:
         return (
-            '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Theses</h2>'
+            '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h1>Theses</h1>'
             '<div class="sub">none thesis active</div></div></section>'
         )
     _u = _cfg().get("universe", {})
@@ -6407,7 +6407,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         groups += "</div>"
 
     return (
-        '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h2>Theses</h2>'
+        '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h1>Theses</h1>'
         '<div class="sub">Target/stop asymmetry, by conviction level</div></div>'
         f"{_TH_CSS}{hero}{kpis}{gap}{groups}</section>"
     )
@@ -7890,7 +7890,7 @@ def render() -> Path:
     except Exception:
         _macro_state_strate = ""
     vigie = (
-        '<section data-page="vigie" class="active" role="region" aria-label="Overview"><div class="phead"><h2>Overview</h2>'
+        '<section data-page="vigie" class="active" role="region" aria-label="Overview"><div class="phead"><h1>Overview</h1>'
         '<div class="sub">Discipline posture &middot; what to act on today</div></div>'
         # === Star Vue d'ensemble (unifie) : valeur+PnL+capital sous-jacent
         # a gauche, grade A+ + bar a droite. Strate 2 = repartition lignes
@@ -7998,7 +7998,7 @@ def render() -> Path:
         + '</div>'
     )
     strategie_html = (
-        '<section data-page="strategie" role="region" aria-label="Strategy"><div class="phead"><h2>Strategy</h2>'
+        '<section data-page="strategie" role="region" aria-label="Strategy"><div class="phead"><h1>Strategy</h1>'
         '<div class="sub">Declared reference &middot; trajectory vs plan &middot; positions beyond bull</div></div>'
         f'{star_strategie}'
         # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
@@ -8098,7 +8098,7 @@ def render() -> Path:
     )
     broker_html = _broker_tables(positions, names, pnl, sectors)
     positions_pg = (
-        f'<section data-page="positions" role="region" aria-label="Positions"><div class="phead"><h2>Positions</h2>'
+        f'<section data-page="positions" role="region" aria-label="Positions"><div class="phead"><h1>Positions</h1>'
         f'<div class="sub">Upside margin to target &middot; downside to stop</div></div>'
         f"{star_positions}{broker_html}</section>"
     )
@@ -8169,7 +8169,15 @@ def render() -> Path:
 
     html = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="1800">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1"><script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>PRESAGE</title><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230c0c0e%22%2F%3E%3Cg%20transform%3D%22translate%288.00%2C19.57%29%20scale%280.13079%29%22%20fill%3D%22%23ECEFF4%22%3E%3Cg%20transform%3D%22translate%280.000000%2C190.000000%29%20scale%280.100000%2C-0.100000%29%22%20%20stroke%3D%22none%22%3E%20%3Cpath%20d%3D%22M1335%201890%20c-11%20-4%20-200%20-189%20-419%20-409%20l-399%20-401%20251%200%20250%200%20254%20260%20253%20260%2071%200%2071%200%2058%20-62%20c32%20-35%20168%20-174%20301%20-309%20l242%20-246%2069%20-7%20c37%20-4%20148%20-11%20246%20-16%2098%20-4%20181%20-11%20184%20-14%204%20-3%20-45%20-6%20-108%20-6%20-63%200%20-175%20-5%20-249%20-10%20l-135%20-11%20-72%20-72%20c-40%20-39%20-73%20-76%20-73%20-82%200%20-6%2051%20-61%20114%20-124%20l113%20-113%20184%20187%20184%20186%20330%209%20c182%205%20394%209%20473%2010%20l142%200%200%2030%200%2030%20-127%201%20c-71%201%20-284%204%20-474%207%20l-346%207%20-87%2082%20c-47%2045%20-126%20129%20-175%20186%20-131%20153%20-581%20617%20-609%20628%20-29%2011%20-490%2011%20-517%20-1z%22%2F%3E%20%3Cpath%20d%3D%22M2308%201888%20c-9%20-7%20-26%20-33%20-37%20-58%20-12%20-25%20-44%20-68%20-72%20-97%20l-51%20-52%20105%20-108%20105%20-107%2064%2067%2063%2067%2072%200%2071%200%20253%20-260%20252%20-260%20244%200%20c238%200%20244%200%20231%2019%20-23%2032%20-760%20775%20-782%20788%20-30%2018%20-496%2018%20-518%201z%22%2F%3E%20%3Cpath%20d%3D%22M1693%201259%20c-54%20-61%20-109%20-127%20-123%20-145%20-14%20-19%20-51%20-54%20-83%20-78%20l-58%20-43%20-487%20-7%20c-268%20-3%20-589%20-9%20-715%20-13%20-207%20-5%20-227%20-7%20-227%20-23%200%20-16%2024%20-18%20298%20-24%20163%20-4%20488%20-11%20721%20-17%20l424%20-10%2061%20-44%20c89%20-63%20148%20-125%20236%20-250%2053%20-75%20150%20-184%20305%20-345%20125%20-129%20237%20-240%20249%20-247%2015%20-9%2095%20-12%20276%20-13%20l254%200%20411%20410%20410%20410%20-245%200%20-245%200%20-255%20-255%20-255%20-255%20-81%200%20-80%200%20-244%20253%20c-309%20320%20-340%20349%20-388%20353%20-20%201%20-91%208%20-157%2013%20-66%206%20-176%2011%20-245%2012%20-149%202%20-118%2016%2039%2018%2056%200%20169%206%20250%2012%20l146%2011%2073%2071%20c39%2040%2071%2075%2070%2079%20-5%2013%20-221%20238%20-229%20238%20-4%200%20-52%20-50%20-106%20-111z%22%2F%3E%20%3Cpath%20d%3D%22M715%20618%20c110%20-112%20290%20-295%20402%20-408%20l202%20-205%20161%20-3%20c182%20-4%20206%203%20285%2077%2052%2049%20126%2093%20193%20115%20l54%2018%20-112%20112%20-111%20111%20-58%20-62%20-57%20-63%20-81%200%20-80%200%20-176%20178%20c-96%2097%20-208%20212%20-247%20255%20l-72%2077%20-251%200%20-251%200%20199%20-202z%22%2F%3E%20%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<meta name="description" content="PRESAGE — portfolio discipline dashboard. Theses, conviction, target/stop asymmetry, macro stress, calibration on outcomes.">'
+        '<meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">'
+        '<meta name="theme-color" content="#0F1115" media="(prefers-color-scheme: dark)">'
+        '<meta name="color-scheme" content="light dark">'
+        '<meta name="robots" content="noindex,nofollow">'
+        '<link rel="preload" href="/static/fonts/geist-500.woff2" as="font" type="font/woff2" crossorigin>'
+        '<link rel="preload" href="/static/fonts/hubot-expanded-700.woff2" as="font" type="font/woff2" crossorigin>'
+        '<script>try{if(sessionStorage.getItem("h_seen"))document.documentElement.classList.add("noanim");sessionStorage.setItem("h_seen","1");}catch(e){}</script><title>PRESAGE</title><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230c0c0e%22%2F%3E%3Cg%20transform%3D%22translate%288.00%2C19.57%29%20scale%280.13079%29%22%20fill%3D%22%23ECEFF4%22%3E%3Cg%20transform%3D%22translate%280.000000%2C190.000000%29%20scale%280.100000%2C-0.100000%29%22%20%20stroke%3D%22none%22%3E%20%3Cpath%20d%3D%22M1335%201890%20c-11%20-4%20-200%20-189%20-419%20-409%20l-399%20-401%20251%200%20250%200%20254%20260%20253%20260%2071%200%2071%200%2058%20-62%20c32%20-35%20168%20-174%20301%20-309%20l242%20-246%2069%20-7%20c37%20-4%20148%20-11%20246%20-16%2098%20-4%20181%20-11%20184%20-14%204%20-3%20-45%20-6%20-108%20-6%20-63%200%20-175%20-5%20-249%20-10%20l-135%20-11%20-72%20-72%20c-40%20-39%20-73%20-76%20-73%20-82%200%20-6%2051%20-61%20114%20-124%20l113%20-113%20184%20187%20184%20186%20330%209%20c182%205%20394%209%20473%2010%20l142%200%200%2030%200%2030%20-127%201%20c-71%201%20-284%204%20-474%207%20l-346%207%20-87%2082%20c-47%2045%20-126%20129%20-175%20186%20-131%20153%20-581%20617%20-609%20628%20-29%2011%20-490%2011%20-517%20-1z%22%2F%3E%20%3Cpath%20d%3D%22M2308%201888%20c-9%20-7%20-26%20-33%20-37%20-58%20-12%20-25%20-44%20-68%20-72%20-97%20l-51%20-52%20105%20-108%20105%20-107%2064%2067%2063%2067%2072%200%2071%200%20253%20-260%20252%20-260%20244%200%20c238%200%20244%200%20231%2019%20-23%2032%20-760%20775%20-782%20788%20-30%2018%20-496%2018%20-518%201z%22%2F%3E%20%3Cpath%20d%3D%22M1693%201259%20c-54%20-61%20-109%20-127%20-123%20-145%20-14%20-19%20-51%20-54%20-83%20-78%20l-58%20-43%20-487%20-7%20c-268%20-3%20-589%20-9%20-715%20-13%20-207%20-5%20-227%20-7%20-227%20-23%200%20-16%2024%20-18%20298%20-24%20163%20-4%20488%20-11%20721%20-17%20l424%20-10%2061%20-44%20c89%20-63%20148%20-125%20236%20-250%2053%20-75%20150%20-184%20305%20-345%20125%20-129%20237%20-240%20249%20-247%2015%20-9%2095%20-12%20276%20-13%20l254%200%20411%20410%20410%20410%20-245%200%20-245%200%20-255%20-255%20-255%20-255%20-81%200%20-80%200%20-244%20253%20c-309%20320%20-340%20349%20-388%20353%20-20%201%20-91%208%20-157%2013%20-66%206%20-176%2011%20-245%2012%20-149%202%20-118%2016%2039%2018%2056%200%20169%206%20250%2012%20l146%2011%2073%2071%20c39%2040%2071%2075%2070%2079%20-5%2013%20-221%20238%20-229%20238%20-4%200%20-52%20-50%20-106%20-111z%22%2F%3E%20%3Cpath%20d%3D%22M715%20618%20c110%20-112%20290%20-295%20402%20-408%20l202%20-205%20161%20-3%20c182%20-4%20206%203%20285%2077%2052%2049%20126%2093%20193%20115%20l54%2018%20-112%20112%20-111%20111%20-58%20-62%20-57%20-63%20-81%200%20-80%200%20-176%20178%20c-96%2097%20-208%20212%20-247%20255%20l-72%2077%20-251%200%20-251%200%20199%20-202z%22%2F%3E%20%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E">'
         ""
         # Geist auto-hosted depuis dashboard/static/fonts/ (cf tokens.css
         # @font-face block). No CDN Google Fonts (zero round-trip externe,

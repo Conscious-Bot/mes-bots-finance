@@ -361,13 +361,13 @@ _APP_JS = """
     // Priorite 1 : fichier local self-host (offline, sans appel externe)
     var localFile=(window._TKLOCAL||{})[tk]||(window._TKLOCAL||{})[String(tk).toUpperCase()];
     if(localFile){
-      return '<img class="tklogo" src="/static/brand/logos/'+localFile+'" alt="" onerror="'+fb+'">';
+      return '<img class="tklogo" src="/static/brand/logos/'+localFile+'" alt="'+tk+' logo" loading="lazy" decoding="async" onerror="'+fb+'">';
     }
     var dom=(window._TKDOMAIN||{})[tk]||(window._TKDOMAIN||{})[String(tk).toUpperCase()];
     if(!dom) return '<span class="tklogo tkfb">'+init+'</span>';
     var ddg='https://icons.duckduckgo.com/ip3/'+dom+'.ico';
     var fb2="this.onerror=function(){"+fb+"};this.src='"+ddg+"'";
-    return '<img class="tklogo" src="https://www.google.com/s2/favicons?domain='+dom+'&amp;sz=64" alt="" onerror="'+fb2+'">';
+    return '<img class="tklogo" src="https://www.google.com/s2/favicons?domain='+dom+'&amp;sz=64" alt="'+tk+' logo" loading="lazy" decoding="async" onerror="'+fb2+'">';
   }
   function openLoupe(tk){
     var d=(window.TK||{})[tk]||{};
@@ -392,9 +392,9 @@ _APP_JS = """
       +'<div class="lp-stat"><div class="lp-sl">To target</div><div class="lp-sv">'+_pct(d.up)+'</div></div>'
       +'<div class="lp-stat"><div class="lp-sl">Asymmetry</div><div class="lp-sv">'+(d.ratio==null?'&mdash;':(d.ratio>=999?'target &check;':d.ratio.toFixed(1)+'&times;'))+'</div></div>'
       +'</div>'+(d.perf?('<div class="lp-sec" style="margin-top:16px">Recent momentum</div><div class="lp-mom">'+mom('Day',d.perf.d)+mom('Week',d.perf.w)+mom('Month',d.perf.m)+'</div>'):'')):'<div class="lp-empty" style="padding:var(--s25) 0 2px">No position ouverte sur ce titre.</div>')+ana;
-    document.getElementById('loupe').classList.add('open');
+    var lp=document.getElementById('loupe');lp.classList.add('open');lp.setAttribute('aria-hidden','false');
   }
-  function closeLoupe(){ var el=document.getElementById('loupe'); if(el)el.classList.remove('open'); }
+  function closeLoupe(){ var el=document.getElementById('loupe'); if(el){el.classList.remove('open');el.setAttribute('aria-hidden','true');} }
   (function(){
     var BARS=document.getElementById('sb-bars'),PANEL=document.getElementById('sb-panel');
     if(!BARS||!PANEL||!window.SB_DATA)return;
@@ -454,13 +454,14 @@ _APP_JS = """
   document.addEventListener('keydown',function(ev){ if(ev.key==='Escape')closeLoupe(); });
   (function(){
     var box=document.createElement('div');box.id='qsearch';box.className='qs';
-    box.innerHTML='<div class="qs-card"><input id="qs-input" type="text" aria-label="Search ticker or name" placeholder="Search ticker or name..." autocomplete="off"><div id="qs-res"></div></div>';
+    box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Quick search');box.setAttribute('aria-hidden','true');
+    box.innerHTML='<div class="qs-card"><input id="qs-input" type="text" aria-label="Search ticker or name" placeholder="Search ticker or name..." autocomplete="off" inputmode="search" enterkeyhint="go"><div id="qs-res" role="listbox"></div></div>';
     document.body.appendChild(box);
     var inp=box.querySelector('#qs-input'),res=box.querySelector('#qs-res'),sel=0,cur=[];
     var rk={held:0,watch:1,core:2,extended:3,out:4};
     function lab(st){return {held:'held',watch:'watch',core:'core',extended:'extended'}[st]||'out-of-universe';}
-    function openQS(){box.classList.add('open');inp.value='';qrender('');setTimeout(function(){inp.focus();},30);}
-    function closeQS(){box.classList.remove('open');}
+    function openQS(){box.classList.add('open');box.setAttribute('aria-hidden','false');inp.value='';qrender('');setTimeout(function(){inp.focus();},30);}
+    function closeQS(){box.classList.remove('open');box.setAttribute('aria-hidden','true');}
     function qrender(q){
       var TK=window.TK||{},ql=q.trim().toLowerCase(),out=[];
       for(var tk in TK){var d=TK[tk],nm=(d.name||'').toLowerCase();
@@ -501,8 +502,10 @@ _APP_JS = """
 """
 
 _LOUPE_HTML = (
-    '<div id="loupe" class="loupe"><div class="loupe-card">'
-    '<button class="loupe-x" onclick="closeLoupe()" aria-label="Fermer">&times;</button>'
+    '<div id="loupe" class="loupe" role="dialog" aria-modal="true" aria-labelledby="loupe-title" aria-hidden="true">'
+    '<div class="loupe-card">'
+    '<h2 id="loupe-title" class="vh">Position detail</h2>'
+    '<button class="loupe-x" onclick="closeLoupe()" aria-label="Close">&times;</button>'
     '<div id="loupe-body"></div></div></div>'
 )
 
