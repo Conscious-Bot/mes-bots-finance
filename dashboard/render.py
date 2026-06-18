@@ -1945,7 +1945,7 @@ def _fx_exposure_panel() -> str:
             f'<div class="fx-sub">{sub_html}</div></div>'
         )
     return (
-        '<div class="colhead"><span class="t">Exposition par devise</span></div>'
+        '<div class="colhead"><span class="t">Currency exposure</span></div>'
         '<div class="card pad fxcard" style="margin-bottom:var(--s4)">'
         + "".join(rows)
         + '<script>document.querySelectorAll(".fxcard .fx-item").forEach(function(e){'
@@ -4634,11 +4634,8 @@ def _render_bucket(
     wbase = sum(r["w"] for r in rows if not r["prev"] and pnl.get(r["tk"]) is not None)
     wpl = sum(r["w"] * pnl[r["tk"]] for r in rows if not r["prev"] and pnl.get(r["tk"]) is not None)
     spl = (wpl / wbase) if wbase else None
-    plmeta = ""
-    if spl is not None:
-        plmeta = (
-            f' &middot; <span class="sec-pl {"pos" if spl >= 0 else "neg"}">{"+" if spl >= 0 else ""}{spl:.1f}%</span>'
-        )
+    # Pass 6 audit : plmeta inline retire (sec-h passe en grid, le P&L vit
+    # dans sa propre colonne via _spl_cell). Plus de "inline phrase a puces".
     lines = ""
     for r in rows:
         tk = r["tk"]
@@ -4667,9 +4664,20 @@ def _render_bucket(
             f'<span class="num">{pct:.1f}%</span>{dvc}{plc}</div>'
         )
     cls = "sec-grp sub" if sub else "sec-grp"
+    # Pass 6 audit : sec-h grid aligne sur sec-cols/sec-row (n / EUR / vide / pct / vide / P&L).
+    # Avant : sec-meta inline "n · eur · pct · pl" ne tombait sous aucune colonne.
+    _spl_cell = ""
+    if spl is not None:
+        _spl_cell = f'<span class="num sec-pl {"pos" if spl >= 0 else "neg"}">{"+" if spl >= 0 else ""}{spl:.1f}%</span>'
     return (
-        f'<div class="{cls}"><div class="sec-h"><span class="sec-name">{name}</span>'
-        f'<span class="sec-meta">{len(rows)} &middot; {sw:.0f}&euro; &middot; {spct:.1f}%{plmeta}</span></div>'
+        f'<div class="{cls}"><div class="sec-h">'
+        f'<span class="sec-name">{name} <span class="sec-n">{len(rows)}</span></span>'
+        f'<span class="num sec-agg">{sw:.0f}&euro;</span>'
+        f'<span></span>'
+        f'<span class="num sec-agg">{spct:.1f}%</span>'
+        f'<span></span>'
+        f'{_spl_cell or "<span></span>"}'
+        f'</div>'
         f'<div class="sec-rows">{lines}</div></div>'
     ), sw
 
@@ -4783,12 +4791,15 @@ def _geo_bars(positions: list[dict]) -> str:
                 f'<span class="gpc">{spc:.0f}%</span>'
                 f'<span class="gw">{sw:.0f}&euro;</span></div>'
             )
+        # Pass 6 audit bar unification : meme langage que fx-bar (fill-from-left)
+        # au lieu de dot-on-rail. Une seule grammaire visuelle pour toutes les
+        # vues d'exposition (devises, pays, secteurs).
         bars += (
             f'<div class="geo-item">'
             f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
             f'<span class="tag acc2">{pct:.0f}%</span></div>'
-            f'{_tbar(pct, title=f"{pct:.1f}%")}'
-            f'<div class="rs"><span>exposition</span><span class="mono">{w:.0f}&euro;</span></div></div>'
+            f'<div class="fx-bar" title="{pct:.1f}%"><div class="fx-fill" style="width:{min(pct, 100):.1f}%"></div></div>'
+            f'<div class="rs"><span>exposure</span><span class="mono">{w:.0f}&euro;</span></div></div>'
             f'<div class="geo-sub">{sub}</div></div>'
         )
     js = (
@@ -5803,9 +5814,12 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     # NON VALIDEE OOS. V4 a venir avec changement structurel. La frise est
     # affichee comme indicatif, taguee "exploratoire" pour respecter L3
     # (etat honnete > contenu invente).
-    _PHASE_LBL = {1: "STABLE", 2: "STRESS", 3: "ALERTE", 4: "CRISE"}
+    # Pass 6 audit vocab unification : un seul mot par etat partout (FRAGILE/CALM/STRESSED/BROKEN).
+    # FRAGILE remplace ALERTE pour coherence avec Overview macro state (`FRAGILE warn`).
+    # Avant: 3 mots (FRAGILE/ALERTE/EXPLORATORY) pour 1 concept.
+    _PHASE_LBL = {1: "STABLE", 2: "STRESSED", 3: "FRAGILE", 4: "BROKEN"}
     _PHASE_COL = {1: "acc", 2: "warn", 3: "warn", 4: "bear"}
-    clabel = _PHASE_LBL.get(cphase, "INCONNU")
+    clabel = _PHASE_LBL.get(cphase, "UNKNOWN")
     _conc = []
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
@@ -6320,9 +6334,17 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             _pnl_position_pct = pnl.get(t["tk"])
             if t["has_bar"] and _pnl_position_pct is not None:
                 _crypto = t["tk"] in crypto_tk
-                if _pnl_position_pct >= 12 and not _crypto:
+                # Pass 6 audit : afficher le bandeau "in profit" seulement quand
+                # NOTABLE -- multi-bagger 50%+ ou position substantielle (>3% book).
+                # Avant : seuil 12% -> tous les winners affichaient le meme bandeau,
+                # devenait du bruit (chaque card pareille = aucun signal).
+                _wv_t = vmap.get(t["tk"], 0.0)
+                _notable = _pnl_position_pct >= 50 or (_pnl_position_pct >= 20 and _wv_t >= 3.0)
+                if _notable and not _crypto:
                     _acls = "acc"
-                    _amsg = "Position in profit, upside margin remaining."
+                    _amsg = (f"Multi-bagger &middot; {_pnl_position_pct:+.0f}% on cost"
+                             if _pnl_position_pct >= 100
+                             else f"Strong winner &middot; {_pnl_position_pct:+.0f}% on cost")
                     anchor = f'<div class="th-anchor {_acls}" style="grid-column:1/-1">{_amsg}</div>'
             cat_html = f'<span class="th-cat">{t["cat"]}</span>' if t["cat"] else ""
             wv = vmap.get(t["tk"], 0.0)
@@ -6335,7 +6357,10 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _tgt = _cap / _sumcaps * 100
                 _cappct = _cap * 100
                 _heat = max(0.0, min((wv - _tgt) / (_cappct - _tgt), 1.0)) if _cappct > _tgt else 0.0
-                _hue = 150 - 125 * _heat
+                # Pass 6 color discipline : over-cap = decision required (trim candidate),
+                # PAS perte/danger. Hue gradient 150°→60° (vert→ambre), jamais rouge.
+                # Rouge reservé aux vrais signaux defavorables (near stop, broken thesis).
+                _hue = 150 - 90 * _heat
                 _lt = 0.60 + 0.20 * (_hue / 150)
                 wtxt = f'<span style="color:oklch({_lt:.2f} 0.22 {_hue:.0f})">{wv:.1f}%</span>'
                 # Sizebar redesign 02/06 user "bump -> tend vers vert optimal".
@@ -6351,7 +6376,9 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     _w_pos = 50.0 + min(50.0, extra / span * 50.0)
                 _w_pos = max(0.0, min(100.0, _w_pos))
                 # P2 canon : tick a 50% target + dot pour position weight.
-                _w_dot_cls = "bear" if _w_pos < 25 or _w_pos > 75 else ("acc" if 40 < _w_pos < 60 else "")
+                # Pass 6 color discipline : under/over-cap = action requise (warn ambre),
+                # PAS bear rouge. Reservoir bear seulement pour danger (near stop, broken).
+                _w_dot_cls = "warn" if _w_pos < 25 or _w_pos > 75 else ("acc" if 40 < _w_pos < 60 else "")
                 sizebar = _tbar(
                     _w_pos,
                     ticks=[(50.0, "target")],

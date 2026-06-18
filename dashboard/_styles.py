@@ -109,9 +109,11 @@ _TH_CSS = """
   .th-ends { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--fm); font-size:14px; }
   .th-stop { color:var(--bear); }
   .th-tgt { color:var(--acc); font-weight:600; }
-  /* th-pt par defaut = rouge (target hit + risky = signal trim a risque).
-     Variant .acc = vert (target beyond = indicateur positif). */
-  .th-pt { font-family:var(--fm); font-size:14px; padding:1px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); letter-spacing:.04em; margin-left:var(--s2); text-transform:uppercase; }
+  /* Pass 6 audit color discipline : .th-pt = TARGET HIT (good news event).
+     Defaut vert/acc. Variant .warn pour les rares cas "target hit + decision
+     trim risquée" — amber, jamais rouge sur evenement favorable. */
+  .th-pt { font-family:var(--fm); font-size:14px; padding:1px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--acc) 16%,transparent); color:var(--acc); letter-spacing:.04em; margin-left:var(--s2); text-transform:uppercase; }
+  .th-pt.warn { background:color-mix(in srgb,var(--warn) 16%,transparent); color:var(--warn); }
   .th-pt.acc { background:color-mix(in srgb,var(--acc) 16%,transparent); color:var(--acc); }
   .th-na { font-family:var(--fm); font-size:14px; color:var(--steel); }
   .th-cat { font-family:var(--fm); font-size:14px; letter-spacing:.03em; color:var(--steel); background:color-mix(in srgb, var(--steel) 10%, transparent); border:1px solid var(--line); border-radius:var(--r1); padding:2px 8px; margin-left:2px; white-space:nowrap; }
@@ -336,7 +338,11 @@ _CSS = """
   .sec-cols { display:grid; grid-template-columns:1fr 92px 96px 58px 72px 78px; gap:var(--s3); padding:2px 16px 9px; font-family:var(--fb); font-size:14px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel); border-bottom:1px solid var(--line); margin-bottom:var(--s3); }
   .sec-cols .num { text-align:right; }
   .sec-grp { margin-bottom:var(--s35); }
-  .sec-h { display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); margin:0 4px 9px; cursor:pointer; user-select:none; padding:6px 4px; border-radius:var(--r2); transition:background .12s; }
+  /* Pass 6 audit : sec-h grille IDENTIQUE a sec-row/sec-cols pour vrai alignement
+     vertical des colonnes (n / € / $ / % / Day / P&L) sur la ligne resume. */
+  .sec-h { display:grid; grid-template-columns:1fr 92px 96px 58px 72px 78px; gap:var(--s3); align-items:baseline; margin:0 4px 9px; cursor:pointer; user-select:none; padding:6px 16px; border-radius:var(--r2); transition:background .12s; }
+  .sec-h .sec-n { font-family:var(--fm); font-size:14px; color:var(--steel); margin-left:8px; font-weight:400; }
+  .sec-h .num.sec-agg { text-align:right; color:var(--ink); font-variant-numeric:tabular-nums; font-family:var(--fm); }
   .sec-h:hover { background:color-mix(in srgb,var(--ink) 4%,transparent); }
   .sec-name { font-family:var(--fd); font-weight:500; font-size:19px; color:var(--ink); display:flex; align-items:center; gap:9px; }
   .sec-name::before { content:""; width:6px; height:6px; border-radius:2px; background:var(--id); }
@@ -410,7 +416,10 @@ _CSS = """
   [data-page="vigie"] .page-star .ps-strate:first-child { padding-top:0; }
   [data-page="vigie"] .page-star .ps-strate:last-child { padding-bottom:0; }
   [data-page="vigie"] .page-star .ps-strate + .ps-strate { border-top:1px solid var(--line); }
-  [data-page="vigie"] .page-star .ps-hero-row { display:grid; grid-template-columns:1fr 1fr; gap:36px; align-items:start; }
+  /* Pass 6 audit hero rebalance : 1.6fr / 1fr (gauche dense, droite focalisee).
+     Grade module : letter + score reunis dans une capsule subtile (border + bg
+     tint), elimine le "decroche visuel" du 40px vs 22px sans gap. */
+  [data-page="vigie"] .page-star .ps-hero-row { display:grid; grid-template-columns:1.6fr 1fr; gap:32px; align-items:start; }
   [data-page="vigie"] .page-star .ps-hero-left, [data-page="vigie"] .page-star .ps-hero-right { display:block; }
   [data-page="vigie"] .page-star .ps-lbl { display:block; margin-bottom:8px; font-size:11px; letter-spacing:.10em; }
   [data-page="vigie"] .page-star .ps-macro-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
@@ -418,11 +427,11 @@ _CSS = """
   [data-page="vigie"] .page-star .ps-val[style*="font-size:37px"] { font-size:37px !important; }
   [data-page="vigie"] .page-star .ps-val[style*="font-size:21px"] { font-size:21px !important; }
   [data-page="vigie"] .page-star .ps-sub-lien { font-family:var(--fm); font-size:13px; color:var(--steel); margin-top:8px; }
-  [data-page="vigie"] .page-star .ps-grade-row { display:flex; align-items:center; gap:18px; margin-top:6px; }
-  [data-page="vigie"] .page-star .ps-grade-letter { font-size:40px; }
-  [data-page="vigie"] .page-star .ps-grade-num { font-size:22px; margin-bottom:8px; }
-  [data-page="vigie"] .page-star .ps-grade-max { font-size:14px; }
-  [data-page="vigie"] .page-star .ps-grade-score { flex:1; min-width:140px; }
+  [data-page="vigie"] .page-star .ps-grade-row { display:flex; align-items:center; gap:14px; margin-top:6px; padding:12px 16px; background:color-mix(in srgb, var(--ink) 3%, transparent); border:1px solid var(--line); border-radius:var(--r2); }
+  [data-page="vigie"] .page-star .ps-grade-letter { font-size:38px; line-height:1; }
+  [data-page="vigie"] .page-star .ps-grade-num { font-size:18px; margin-bottom:6px; }
+  [data-page="vigie"] .page-star .ps-grade-max { font-size:12px; }
+  [data-page="vigie"] .page-star .ps-grade-score { flex:1; min-width:120px; }
   [data-page="vigie"] .page-star .ps-grade-bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; }
   [data-page="vigie"] .page-star .ps-grade-fill { height:100%; transition:width .3s ease; }
   [data-page="vigie"] .page-star .ps-grade-fill.acc { background:var(--acc); }
