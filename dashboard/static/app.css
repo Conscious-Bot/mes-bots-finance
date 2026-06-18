@@ -254,6 +254,27 @@ body.midnight {
   * { box-sizing:border-box; }
   /* Visually-hidden : a11y headings/labels for screen readers, off-screen visual. */
   .vh { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  /* Pass 15 audit 6 #3 — Long-form readability defaults.
+     Auditor: "Augmentez l'interligne (line-height ~1.5–1.6) sur les paragraphes
+     longs, et limitez la largeur de ligne." Cible : tout conteneur narratif
+     (descriptions, empty states, copilot, narrative, at_risk, biais) hereft.
+     Pas de touch sur les tables/numbers (mono compact reste). */
+  p, .prose, .empty, .narrativecard p, .copilotcard p,
+  .riskwatchcard .rw-cell, .biaiscard p,
+  .gloss-def, .cp-latest-teaser { line-height: 1.55; }
+  .prose, .narrativecard p, .biaiscard p, .gloss-def { max-width: 64ch; }
+  /* Pass 15 audit 6 #4 — Canonical badge system.
+     Avant : tag/bdg/warn-chip/pc-chip/qs-st/th-cat/th-pt incoherents.
+     Apres : .badge avec 4 variants semantiques (neutral / info / warn / danger).
+     Forme uniforme (pill 99px), padding 2/8px, mono 11px tracking .08em uppercase.
+     Migration progressive — toute nouvelle ecriture utilise .badge.
+     Tooltip data-tip pour expliciter ce que le tag represente. */
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-family: var(--fm); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid transparent; line-height: 1.4; white-space: nowrap; }
+  .badge.neutral { background: color-mix(in srgb, var(--steel) 10%, transparent); color: var(--steel); border-color: color-mix(in srgb, var(--steel) 25%, transparent); }
+  .badge.info { background: color-mix(in srgb, var(--data) 10%, transparent); color: var(--data); border-color: color-mix(in srgb, var(--data) 35%, transparent); }
+  .badge.warn { background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+  .badge.danger { background: color-mix(in srgb, var(--bear) 12%, transparent); color: var(--bear); border-color: color-mix(in srgb, var(--bear) 35%, transparent); }
+  .badge.success { background: color-mix(in srgb, var(--acc) 12%, transparent); color: var(--acc); border-color: color-mix(in srgb, var(--acc) 35%, transparent); }
   /* content-visibility :auto skips layout/paint for off-viewport cards.
      ~3500 nodes pre-built in 26 position cards (47% DOM weight). Browser
      treats each card as a single skeleton box until scrolled near, then
@@ -321,11 +342,10 @@ body.midnight {
       scroll-behavior: auto !important;
     }
   }
-  /* Pass 14 audit 6 #1 : dband sticky was masking section h1 under scroll.
-     Fix : thin (32px), z-index 20 (sous phead 30 = phead reste lisible quand
-     ils s'overlappent), padding compressé. Reste sticky pour rester
-     informatif sans voler l'espace. */
-  .dband { position:sticky; top:var(--s2); z-index:20; display:flex; align-items:center; gap:10px; padding:6px 14px; margin:0 0 var(--s35); border:1px solid var(--line3); border-radius:var(--r-pill); background:color-mix(in srgb,var(--panel) 92%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); cursor:pointer; transition:border-color .15s,background .15s; font-size:13px; }
+  /* Pass 14 audit 6 #1 : dband sticky masquait section h1 + clipping sidebar.
+     Cure Pass 15 (post-screenshot user) : non-sticky tout court. Apparait au
+     top de page, scroll away naturellement. Reste capsule pill thin. */
+  .dband { display:flex; align-items:center; gap:10px; padding:6px 14px; margin:0 0 var(--s35); border:1px solid var(--line3); border-radius:var(--r-pill); background:var(--panel); cursor:pointer; transition:border-color .15s,background .15s; font-size:13px; width:fit-content; }
   .dband:hover { background:color-mix(in srgb,var(--panel) 95%,transparent); }
   .dband .dd { width:9px; height:9px; border-radius:var(--r-circle); flex:none; }
   .dband.bear .dd { background:var(--bear); }
@@ -368,7 +388,10 @@ body.midnight {
   .rfmacro { width:8px; height:8px; border-radius:var(--r0); }
   .dot { width:7px; height:7px; border-radius:var(--r-circle); background:var(--acc); }
   .wrap { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; z-index:0; }
-  .tape { overflow:hidden; white-space:nowrap; padding:11px 0; }
+  /* Pass 15 audit 6 #7c — tape edge fade mask. Avant : items partiellement
+     scrolles aux bords (ex: "AMD +2.5%" devenait "A 2.5%") lisaient comme
+     "cut off". Mask gradient = fade au lieu de clip dur. */
+  .tape { overflow:hidden; white-space:nowrap; padding:11px 0; -webkit-mask-image: linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), transparent 100%); }
   .tape .track2 { display:inline-block; animation:scroll 60s linear infinite; will-change:transform; }
   .tape:hover .track2 { animation-play-state:paused; }
   /* Pass 5 audit P3 : pause ticker quand l'onglet est en background. CPU/battery saving. */
