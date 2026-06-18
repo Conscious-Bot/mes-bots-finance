@@ -908,6 +908,8 @@ body.midnight {
   .empty .hint { display:block; margin-top:6px; font-size:var(--t-data); color:color-mix(in srgb,var(--steel) 70%,transparent); }
   .dt { width:100%; border-collapse:collapse; font-size:var(--t-base); }
   .dt th { text-align:left; font-family:var(--fb); font-size:var(--t-data); letter-spacing:.12em; text-transform:uppercase; color:var(--steel); padding:var(--s2) 10px; border-bottom:1px solid var(--line2); cursor:pointer; user-select:none; }
+  /* Pass 19 : Progress column min-width pour que la gauge ait de la place. */
+  .dt th:last-child, .dt td:last-child { min-width:140px; }
   .dt th.num { text-align:right; } .dt th:hover { color:var(--ink); }
   .dt td { padding:var(--s2) 10px; border-bottom:1px solid var(--line); } .dt td.num { text-align:right; font-family:var(--fm); }
   .dt td.tk { font-family:var(--fm); font-weight:600; } .dt tr:hover td { background:color-mix(in srgb,var(--ink) 2.5%,transparent); }

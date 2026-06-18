@@ -23,7 +23,10 @@ _TH_CSS = """
      mask SVG losange. Pas de gradient (sauf cas signature ou les extremes
      ont vraiment un sens et le tick aux extremites le porte). Stripe/Linear.
      Anti-Robinhood (#103 invariant : motion encode le delta, pas l'excitation). */
-  .tbar { position:relative; width:100%; height:5px; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 6%,transparent); margin:var(--s2) 0; cursor:default; }
+  /* Pass 19 user-demand : track gauge plus visible (Pass 18b headers courts
+     ont liberé de la place mais le track lui-meme etait trop transparent).
+     6% ink → 13% pour signaler clairement "il y a un rail" entre stop/target. */
+  .tbar { position:relative; width:100%; height:5px; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 13%,transparent); margin:var(--s2) 0; cursor:default; }
   .tbar-tick { position:absolute; top:-2px; width:1.5px; height:9px; background:var(--ink); opacity:.7; border-radius:var(--r0); pointer-events:none; }
   .tbar-tick.dash { background:transparent; border-left:1px dashed var(--steel); opacity:.55; width:0; }
   /* Ticks colores axes signature position (limit/zero/target) :
@@ -768,6 +771,8 @@ _CSS = """
   .empty .hint { display:block; margin-top:6px; font-size:var(--t-data); color:color-mix(in srgb,var(--steel) 70%,transparent); }
   .dt { width:100%; border-collapse:collapse; font-size:var(--t-base); }
   .dt th { text-align:left; font-family:var(--fb); font-size:var(--t-data); letter-spacing:.12em; text-transform:uppercase; color:var(--steel); padding:var(--s2) 10px; border-bottom:1px solid var(--line2); cursor:pointer; user-select:none; }
+  /* Pass 19 : Progress column min-width pour que la gauge ait de la place. */
+  .dt th:last-child, .dt td:last-child { min-width:140px; }
   .dt th.num { text-align:right; } .dt th:hover { color:var(--ink); }
   .dt td { padding:var(--s2) 10px; border-bottom:1px solid var(--line); } .dt td.num { text-align:right; font-family:var(--fm); }
   .dt td.tk { font-family:var(--fm); font-weight:600; } .dt tr:hover td { background:color-mix(in srgb,var(--ink) 2.5%,transparent); }
