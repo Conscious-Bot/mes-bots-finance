@@ -321,7 +321,11 @@ body.midnight {
       scroll-behavior: auto !important;
     }
   }
-  .dband { position:sticky; top:var(--s25); z-index:45; display:flex; align-items:center; gap:13px; padding:11px 17px; margin:0 0 var(--s35); border:1px solid var(--line3); border-radius:var(--r3); background:color-mix(in srgb,var(--panel) 85%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); cursor:pointer; transition:border-color .15s,background .15s; }
+  /* Pass 14 audit 6 #1 : dband sticky was masking section h1 under scroll.
+     Fix : thin (32px), z-index 20 (sous phead 30 = phead reste lisible quand
+     ils s'overlappent), padding compressé. Reste sticky pour rester
+     informatif sans voler l'espace. */
+  .dband { position:sticky; top:var(--s2); z-index:20; display:flex; align-items:center; gap:10px; padding:6px 14px; margin:0 0 var(--s35); border:1px solid var(--line3); border-radius:var(--r-pill); background:color-mix(in srgb,var(--panel) 92%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); cursor:pointer; transition:border-color .15s,background .15s; font-size:13px; }
   .dband:hover { background:color-mix(in srgb,var(--panel) 95%,transparent); }
   .dband .dd { width:9px; height:9px; border-radius:var(--r-circle); flex:none; }
   .dband.bear .dd { background:var(--bear); }
@@ -719,7 +723,9 @@ body.midnight {
   /* Sprint 4 CTA flottants bas (TR/RH-inspired) : 3 pills sticky bottom */
   /* CTA bar : pill clair distinct du body via border marquee + shadow forte.
      Centree dans zone main (compense sidebar 78px). */
-  .cta-bar { position:fixed; bottom:22px; left:calc(50% + 39px); transform:translateX(-50%); background:var(--panel); border:1px solid var(--line2); border-radius:var(--r-pill); padding:6px; display:flex; gap:2px; z-index:50; box-shadow:var(--elev3), inset 0 1px 0 rgba(255,255,255,.8); }
+  /* Pass 14 audit 6 #7 : CTA bottom-center overlap content. Move bottom-right
+     coin moins intrusif. Reste a 78+22=100px du bord gauche pour eviter sidebar. */
+  .cta-bar { position:fixed; bottom:22px; right:64px; background:var(--panel); border:1px solid var(--line2); border-radius:var(--r-pill); padding:6px; display:flex; gap:2px; z-index:50; box-shadow:var(--elev3), inset 0 1px 0 rgba(255,255,255,.8); }
   .cta-bar button:hover { background:color-mix(in srgb,var(--ink) 6%,transparent); }
   body.midnight .cta-bar { background:var(--panel); border-color:var(--line2); box-shadow:var(--elev3), inset 0 1px 0 rgba(255,255,255,.06); }
   body.midnight .cta-bar button { color:var(--ink); }

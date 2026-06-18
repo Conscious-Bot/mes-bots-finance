@@ -459,18 +459,22 @@ def _llm_status_badge() -> str:
     # NB : box-sizing:border-box est global (* {...}), donc width/height includent
     # padding+border. Outer 22px sans padding + inner 10px centre via flex = ring
     # visible avec dot couleur a l'interieur.
+    # Pass 14 audit 6 #7 : badge mystery point gris/vert — ajout label visible "LLM".
+    # Avant : seulement le dot, user "statut ? c'est quoi". Apres : pill capsule
+    # avec text "LLM" + dot + hover tooltip detail.
     return (
         f'<div class="llm-badge" role="status" aria-label="LLM {label}" '
         f'title="{tip}" '
         f'style="position:fixed;bottom:22px;right:22px;z-index:50;'
         f'background:var(--panel);border:1px solid var(--line2);'
-        f'border-radius:var(--r-circle);width:22px;height:22px;'
-        f'display:flex;align-items:center;justify-content:center;'
+        f'border-radius:var(--r-pill);height:24px;padding:0 10px 0 7px;'
+        f'display:flex;align-items:center;gap:7px;'
         f'box-shadow:var(--elev2);'
-        f'cursor:default;user-select:none">'
+        f'cursor:default;user-select:none;font-family:var(--fm);font-size:11px;color:var(--steel);letter-spacing:.08em;text-transform:uppercase">'
         f'<span class="llm-dot" aria-hidden="true" '
-        f'style="display:block;width:10px;height:10px;border-radius:var(--r-circle);'
+        f'style="display:block;width:8px;height:8px;border-radius:var(--r-circle);'
         f'background:var({dot});flex-shrink:0"></span>'
+        f'<span>LLM</span>'
         f'</div>'
     )
 
