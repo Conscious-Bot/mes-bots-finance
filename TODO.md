@@ -1,10 +1,21 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 16 juin 2026 close — 9 commits chantier "tout clean A à Z" (silent-fails P0 + LIVING_GRAPH extension 11 concepts + prices.fx() asof honnête + Lane 2 #4/#5 migration + degraded gates monitors + book.py silent-fails) · CI green sur main `195e852` · 4 trades manuels loggés (SELL TSLA full + BUY COHR 1000€ + BUY SPCX 700€ + SELL SPCX 600€ avec divergence broker connue) · pytest baseline 1914 passed local · Topology confirmée (Hetzner=prod, Mac=view) · Audit canonical drift CLEAN 0 drift sur 11 SPECs
+**Refresh** : 18 juin 2026 close — Mini-session trading (1 commit `916ff5d`). Salve 6 trades manuels via canonical `add_buy/add_sell` (AVGO SELL 290€ -24.91€ · 4063.T SELL 499€ +16.71€ · GOOGL BUY 300€ · MU BUY 200€ · AMD SELL 500€ +335.08€ · 000660.KS BUY 250€). Net réalisé jour **+326.88€**. 250€ cash kept. AVGO P0 #2 closed (override reco Claude, trim exécuté + thesis id=33 enrichie 2 notes datées 16/06+18/06).
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (18/06 close mini-session trading)
+
+- **CI green main `916ff5d`** (1 commit aujourd'hui, build d'hier `195e852` toujours vert sur base).
+- **6 trades manuels loggés DB** (tx 211-216) via `shared.positions.add_buy/add_sell` canonique. Net réalisé jour **+326.88€** (AMD 3x winner +335€ dominant, AVGO -25€ + 4063.T +17€).
+- **AMD lock_in_detector hook firé** post-commit sur tx 215 : avg_cost EUR 146.81 → sell 445.09 = +203%. Partial trim 33%, pas full exit. Obs +30j scheduled 2026-07-18 (mesure biais #1 honnête).
+- **AVGO P0 #2 closed (override)** : reco Claude 16/06 "statu quo no trim" overridée par Olivier (trim 290€ exécuté). Position 1252€ → 963€ (c3 ~1.8% book, 2.82 sh remain). Thèse id=33 enrichie 2 notes datées + caveat sémantique S10 trigger préservé pour re-anchor #135.
+- **Prix post-cutoff vérifiés live yfinance** : MU $1043, AMD $512, 000660.KS ₩2.71M — tous réels (previousClose cohérent), pas cache stale (training cutoff Jan 2026 dépassé par rally AI/HBM).
+- **Topology inchangée** : Hetzner = prod. Mac DB diverge silencieusement (sync gap LIVING_GRAPH forks attendus). PAS de cron sync Mac←Hetzner.
+- **Positions finales 6 tickers touchés** : AVGO 963€ · 4063.T 3527€ · GOOGL 2754€ · MU 1327€ · AMD 1005€ · 000660.KS 2587€.
+- **Brew claude-code upgrade** : 2.1.153 → 2.1.170 (side note début session).
 
 ## 🟢 ÉTAT SYSTÈME (16/06 close)
 

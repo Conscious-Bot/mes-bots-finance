@@ -3678,3 +3678,54 @@ Aucun cette session — focus sur cures + audit + extension instrumentation exis
 4. **Action humaine** : sentinelles G2 sur cohorte 10/07 (resolution première vague). Quand plusieurs résolvent, le panneau Brier passera de vide à tracé.
 5. **CI fragility cleanup** : refactor `_FX_LIVE_LAST_SUCCESS` access via API helper (vs monkeypatch interne actuel).
 6. **Detection 6920.T value_eur** : vrai fork architectural 1.7%, investiguer si PositionView cache qty obsolete vs actuel post-SELL.
+
+---
+
+## Close 2026-06-18 — Mini-session trading : salve 6 trades manuels + AVGO P0 #2 clos
+
+### Mission
+
+Session courte focus exécution book (pas code). 1 P0 AVGO décidé+exécuté + redéploiement multi-tickers + 250€ cash kept.
+
+### Livré
+
+**1 commit** (`916ff5d`) : TODO close AVGO P0 + résumé salve.
+
+**6 trades manuels loggés DB** via `shared.positions.add_buy/add_sell` canonique :
+
+| Tx | Ticker | Side | Qty | EUR | Realized |
+|---|---|---|---|---|---|
+| 211 | AVGO | SELL | 0.8505 sh @ $392.90 / fx 0.8678 | 290€ | **-24.91€** |
+| 212 | 4063.T | SELL | 12.35 sh @ ¥7474 / fx 0.00541 | 499€ | **+16.71€** |
+| 213 | GOOGL | BUY | 0.950 sh @ $363.79 / fx 0.868 | 300€ | — |
+| 214 | MU | BUY | 0.221 sh @ $1043.19 / fx 0.868 | 200€ | — |
+| 215 | AMD | SELL | 1.123 sh @ $512.48 / fx 0.8685 | 500€ | **+335.08€** |
+| 216 | 000660.KS | BUY | 0.162 sh @ ₩2.71M / fx 0.00057 | 250€ | — |
+
+**Net réalisé jour : +326.88€.** 250€ cash kept (non redéployé).
+
+**AVGO P0 #2 closed (override Claude reco)** :
+- Reco Claude 16/06 : statu quo (trim 30% sur 1252€ = noise). Override Olivier : trim 290€ exécuté.
+- Thèse id=33 enrichie de 2 notes datées : `[16/06 TRIGGER #1 (S10) PARTIAL-FIRED]` (caveat sémantique Icefish v10 / MediaTek vs trigger text "v6/v7 / MRVL ou AMD" = près-mais-pas-exact match, 1/4 fired) + `[18/06 PARTIAL TRIM 290€ EXECUTED]` (acte la décision réelle). Sizing reste gelé, re-anchor #135 toujours prévu batch suivant.
+
+**Discipline AMD = lock_in zone** :
+- AMD avg_cost EUR 146.81 → sell 445.09 = 3x winner (+203%). `lock_in_detector.detect_winner_sell` hook firé post-commit (gate `pnl_pct ≥ 15% AND conviction_at_sell ≥ 3` satisfait). Partial trim 33% (1.12/3.38 sh) sur c3 — pas un full exit. Si AMD continue +20% sur 30j, remonte en obs `+30j` du detector → mesure honnête biais #1 (vendre winners trop tôt).
+
+**Vérification empirique prix post-cutoff** :
+- MU $1043 (training cutoff Jan 2026 le voyait ~$100-150) : confirmé yfinance live + previousClose 1020 → réel, pas cache stale. Rally HBM/AI memory.
+- AMD $512 : confirmé yfinance live + previousClose 507 → réel.
+- 000660.KS ₩2.71M : confirmé yfinance live + previousClose 2.52M → réel.
+
+**Position finale 6 tickers touchés** : AVGO 963€ · 4063.T 3527€ · GOOGL 2754€ · MU 1327€ · AMD 1005€ · 000660.KS 2587€.
+
+### Outils ajoutés
+
+Aucun. Side note : `brew upgrade claude-code` 2.1.153 → 2.1.170.
+
+### Entry next session
+
+1. **AMD lock_in obs +30j à surveiller** : 3x winner partial trim test biais #1 (résolution scheduled 2026-07-18). Si +20% additionnel, l'obs remonte ; si -20%, decision validée.
+2. **KLAC + 5 dying + 1 dead targets** (toujours pending, P0 #1) : méthode #135 3 colonnes Instrument / Ancre externe live / Ressenti. Action humaine non-bloquante code.
+3. **AVGO re-anchor batch #135** : noté avec contexte S10 fired pour quand le tour vient (déjà dans la liste #133 P1).
+4. **Hetzner SSH check** (toujours pending, P0 #3) : `ssh presage@<VPS_IP> "systemctl --user status presage-bot.service"`. Vérification périodique post-cutover.
+5. **Setup user keys** (~10 min) : 4 keys `.env` Voyage/healthchecks/FRED/Bigdata + restart Claude. Hooks 14/06 toujours dormants.
