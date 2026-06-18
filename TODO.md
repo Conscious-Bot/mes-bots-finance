@@ -1,6 +1,6 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 18 juin 2026 close — Mini-session trading (1 commit `916ff5d`). Salve 6 trades manuels via canonical `add_buy/add_sell` (AVGO SELL 290€ -24.91€ · 4063.T SELL 499€ +16.71€ · GOOGL BUY 300€ · MU BUY 200€ · AMD SELL 500€ +335.08€ · 000660.KS BUY 250€). Net réalisé jour **+326.88€**. 250€ cash kept. AVGO P0 #2 closed (override reco Claude, trim exécuté + thesis id=33 enrichie 2 notes datées 16/06+18/06).
+**Refresh** : 18 juin 2026 close marathon — Trading 6 trades net réalisé **+326.88€** + chantier dashboard audit **8 passes** (`a7c24ed` → `cbda410`) couvrant a11y P0/perf P1/responsive P0/i18n FR→EN/contrast AA/color rule discipline/tokens canoniques (80+ radii→6, 21 shadows→3, 3 fonts documentées). HTML weight 731KB→569KB (-22%). AVGO P0 #2 closed. 11 commits total sur main, CI green.
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 

@@ -3729,3 +3729,53 @@ Aucun. Side note : `brew upgrade claude-code` 2.1.153 → 2.1.170.
 3. **AVGO re-anchor batch #135** : noté avec contexte S10 fired pour quand le tour vient (déjà dans la liste #133 P1).
 4. **Hetzner SSH check** (toujours pending, P0 #3) : `ssh presage@<VPS_IP> "systemctl --user status presage-bot.service"`. Vérification périodique post-cutover.
 5. **Setup user keys** (~10 min) : 4 keys `.env` Voyage/healthchecks/FRED/Bigdata + restart Claude. Hooks 14/06 toujours dormants.
+
+---
+
+## Close 2026-06-18 (suite) — Marathon dashboard audit 8 passes
+
+### Mission
+
+Audit externe dashboard (4 vagues successives par un LLM-browser): a11y/perf/responsive d'abord, puis design system discipline, puis micro-typo/déterminisme. Exécution en 8 passes en 1 session, attaque structurelle + cosmétique.
+
+### Livré
+
+**8 commits chantier dashboard** (`a7c24ed` → `cbda410`) sur main, tous CI-green local.
+
+| Pass | Commit | Focus |
+|---|---|---|
+| 1 | a7c24ed | `<h1>` per section · meta head · modal a11y · img lazy · font preload |
+| 2 | 593a3ca | Architecture split CSS/JS → `/static/` cacheable · cache headers serve.py · content-visibility lazy paint |
+| 3 | d993736 | Mobile responsive < 640px · sidebar→bottom-bar · tables overflow scroll · clamp() type fluid |
+| 4 | f8fbf73 | i18n FR→EN sweep (~25 strings) · en-US locale uniform · 5 axes canoniques FR preservés |
+| 5 | 22b1544 | Contrast AA (`--steel` 5.2:1) · smooth-scroll · aria-current/live · tabular-nums · visibilitychange ticker pause |
+| 6 | bbe1ddb | Color rule strict (`.th-pt` red→green) · hero card unified module · bar language unified (countries → fx-bar fill-from-left) · vocab FRAGILE single · IA reorder Concentration→Theses |
+| 7 | 2c8411a | Number format uniform en-US comma · "as of HH:MM" hero timestamp · LLM dot semantic (gray=paused, red=down only) |
+| 8 | cbda410 | **Tokens canonique : 80+ radii→6 (r0/r1/r2/r3/pill/circle) · 21 shadows→3 elevations · 3 fonts documentées** |
+
+**HTML weight 731KB → 569KB** (-22% via Pass 2 split, 160KB external cacheable).
+
+**Doctrine** : pas de big-bang. Chaque pass = seam additif testable indépendamment. Memory `feedback_seam_not_big_bang` respectée. Chaque commit gates ruff + import + render() smoke.
+
+### Findings non actionnés (volontairement)
+
+- **Logo glyph-only 78px** — design work, défère
+- **Denominators "of what" explicit labels** (TSM 7.5% book vs 14% USD bucket) — exigerait data layer change, défère
+- **Number determinism côté yfinance** — acté : "as of" timestamp est le bon fix de perception. Régen 60s = nature live du dashboard, pas un bug.
+
+### Audit findings faux positifs
+
+- `transition: all` ghosting — aucune occurrence dans le code (claim auditor faux)
+- `Brier rolling 0.000` empty state — déjà géré (`brier_str = "—"` quand `brier_mean is None`)
+- Method nav orphan — décision 02/06 user : intentionnel dans le foot, pas orphelin
+
+### Outils ajoutés
+
+Aucun nouveau cette suite. Tokens canoniques `--r0/r1/r2/r3/r-pill/r-circle` + `--elev1/elev2/elev3` à utiliser dans toute nouvelle écriture CSS (cf charte tokens.css §7-7bis).
+
+### Entry next session
+
+1. **Redémarrer `dashboard.serve`** pour activer Cache-Control `/static/*` (serve.py change Pass 2). Process tourne depuis 12/06.
+2. **Vérifier visuellement dashboard** : tester mobile DevTools < 640px, dark mode, hero "as of" timestamp visible, color rule appliquée (TARGET HIT green, weight gradient ambre pas rouge).
+3. **Toutes les entry items précédentes** (AMD lock_in obs +30j, KLAC sweep, Hetzner SSH, user keys) restent valides — pas touchées par les 8 passes dashboard.
+4. **Charte tokens** : toute nouvelle écriture CSS utilise `--r0..r-pill` + `--elev1..elev3`. Pas de hardcode pixels.
