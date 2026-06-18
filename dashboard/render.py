@@ -6853,7 +6853,9 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     return (
         f'<div class="brk"><div class="brk-h"><div><span class="brk-n">{label}</span>'
         f'<span class="brk-note">{note}</span></div>'
-        f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} positions &middot; {share:.0f}% of book</span></div></div>'
+        f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} positions &middot; {share:.0f}% of book &middot; <span class="ps-asof">as of '
+        + datetime.now().strftime("%H:%M")
+        + '</span></span></div></div>'
         f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:var(--s1) 18px"><table class="dt"><thead><tr><th>Position</th>'
         f'<th class="num">Value</th><th class="num" title="Position weight as share of total book (cost basis).">Weight (of book)</th><th class="num" title="P&L vs cost basis, native currency.">P&amp;L</th>'
         f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (let run). <1 = inverse (candidate trim).">Asymmetry</th>'

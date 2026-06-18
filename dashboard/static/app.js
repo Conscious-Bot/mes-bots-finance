@@ -256,15 +256,33 @@
     function lab(st){return {held:'held',watch:'watch',core:'core',extended:'extended'}[st]||'out-of-universe';}
     function openQS(){box.classList.add('open');box.setAttribute('aria-hidden','false');inp.value='';qrender('');setTimeout(function(){inp.focus();},30);}
     function closeQS(){box.classList.remove('open');box.setAttribute('aria-hidden','true');}
+    /* Pass 10 search ranking fix : prioritize query-match quality OVER status.
+       Avant bug : taper "nvda" sortait Kioxia (285A.T held) avant NVDA (out)
+       parce qu'on triait par status-rank d'abord. Maintenant :
+       match score = ticker exact (0) > ticker prefix (1) > name prefix (2)
+       > ticker substring (3) > name substring (4) > no match (skip).
+       Status ne sert que de tiebreaker au sein du meme score. */
     function qrender(q){
       var TK=window.TK||{},ql=q.trim().toLowerCase(),out=[];
-      for(var tk in TK){var d=TK[tk],nm=(d.name||'').toLowerCase();
-        if(!ql||tk.toLowerCase().indexOf(ql)>=0||nm.indexOf(ql)>=0){out.push([tk,d]);}}
-      out.sort(function(a,b){return (rk[a[1].status]||9)-(rk[b[1].status]||9);});
+      for(var tk in TK){
+        var d=TK[tk],nm=(d.name||'').toLowerCase(),tkl=tk.toLowerCase();
+        if(!ql){out.push([tk,d,9]);continue;}
+        var score=-1;
+        if(tkl===ql)score=0;
+        else if(tkl.indexOf(ql)===0)score=1;
+        else if(nm.indexOf(ql)===0)score=2;
+        else if(tkl.indexOf(ql)>=0)score=3;
+        else if(nm.indexOf(ql)>=0)score=4;
+        if(score>=0)out.push([tk,d,score]);
+      }
+      out.sort(function(a,b){
+        if(a[2]!==b[2])return a[2]-b[2];
+        return (rk[a[1].status]||9)-(rk[b[1].status]||9);
+      });
       cur=out.slice(0,8);sel=0;
       res.innerHTML=cur.length?cur.map(function(e,i){var d=e[1];
         return '<div class="qs-row'+(i===0?' on':'')+'" data-qtk="'+e[0]+'"><span class="qs-tk">'+e[0]+'</span><span class="qs-nm">'+(d.name||'')+'</span><span class="qs-st '+(d.status||'out')+'">'+lab(d.status||'out')+'</span></div>';
-      }).join(''):'<div class="qs-empty">none titre</div>';
+      }).join(''):'<div class="qs-empty">No match for "'+(q||'').replace(/[<>&"]/g,'')+'" — try a ticker or company name</div>';
     }
     function pick(tk){if(!tk)return;closeQS();openLoupe(tk);}
     function hi(){var rows=res.querySelectorAll('.qs-row');for(var i=0;i<rows.length;i++){rows[i].classList.toggle('on',i===sel);}}
