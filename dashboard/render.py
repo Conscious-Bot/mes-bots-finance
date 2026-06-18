@@ -429,6 +429,10 @@ def _llm_status_badge() -> str:
     model = st.get("active_model")
     since = st.get("since") or ""
 
+    # Pass 7 audit semantic dot : gris=idle, vert=pret, ambre=throttle/recoverable,
+    # rouge UNIQUEMENT pour vraie panne (down). Avant : rouge collait a "stopped
+    # (cap 100%)" qui est un PAUSE choisi user (budget), pas une erreur. Le
+    # rouge fixe lit universellement "rec/live/erreur" et confondait.
     if status == "healthy":
         dot = "--acc" if model in ("sonnet", "opus") else "--steel"
         label = f"LLM {model}" if model else "LLM"
@@ -436,9 +440,9 @@ def _llm_status_badge() -> str:
         if reason == "cost_cap_soft":
             dot, label = "--warn", "LLM haiku (cap 80%)"
         elif reason == "cost_cap_hard":
-            dot, label = "--bear", "LLM stopped (cap 100%)"
+            dot, label = "--steel", "LLM paused (cap 100%)"
         elif reason == "credit_exhausted":
-            dot, label = "--bear", "LLM credit exhausted"
+            dot, label = "--warn", "LLM credit exhausted"
         elif reason == "rate_limited":
             dot, label = "--warn", "LLM rate limited"
         else:
@@ -1931,8 +1935,7 @@ def _fx_exposure_panel() -> str:
                 f'<div class="fx-stk"><span class="gnm">{nm or tk}</span>'
                 f'<span class="gtk">{tk if nm else ""}</span>'
                 f'<span class="gpc">{h["pct_of_cur"]:.0f}%</span>'
-                f'<span class="gw">{h["eur"]:,.0f}&euro;</span></div>'.replace(",", "&#8239;")
-            )
+                f'<span class="gw">{h["eur"]:,.0f}&euro;</span></div>'            )
         sub_html = "".join(sub_items)
         rows.append(
             f'<div class="fx-row fx-item">'
@@ -4549,8 +4552,7 @@ def _concentration(
     these_cls = "negc" if dom_these_pct >= NARRATIVE_CAP else "acc"
     line_msg = f"{top_nm} &middot; {'&#9888; above cap' if top_pct >= POS_CAP else 'under cap'} {POS_CAP:.0f}%"
     these_msg = f"{dom_these} &middot; {'&#9888; trim' if dom_these_pct >= NARRATIVE_CAP else 'under cap'} {NARRATIVE_CAP:.0f}%"
-    cap = f"{cost_total:,.0f}".replace(",", "&#8239;")
-    # === Star Concentration : fusion verdict + cluster + 3 KPIs ===
+    cap = f"{cost_total:,.0f}"    # === Star Concentration : fusion verdict + cluster + 3 KPIs ===
     # Mapping verdict cls -> ps-val color class
     # vcls peut etre danger/warn/calm OU acc/warn/bear selon la source.
     # Normalise vers acc/warn/bear pour les ps-val color.
@@ -4564,7 +4566,7 @@ def _concentration(
     breached = [c for c in _ch if c["breached"]]
     if breached:
         c = breached[0]
-        _ov = f"{c['over_eur']:,.0f}".replace(",", "&#8239;")
+        _ov = f"{c['over_eur']:,.0f}"
         _over_pct = max(0, c["pct"] - c["cap"])
         # Gravite : <2pp warn light, 2-5pp warn, >=5pp bear
         if _over_pct >= 5:
@@ -5823,8 +5825,8 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     _conc = []
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
-            _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
-            _conc.append(f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;")
+            _ov = f"{_c['over_eur']:,.0f}"
+            _conc.append(f"trim {_c['name']} &middot; +{_ov}&nbsp;&euro;")
     _phase_col = _PHASE_COL.get(cphase, "steel")
     # Tally indicateurs par phase (responsive : on voit combien d'indicateurs
     # contribuent a chaque niveau de stress, pas juste le score agrege).
@@ -6777,7 +6779,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         pcls = "pos" if (pc or 0) >= 0 else "neg"
         pstr = "&mdash;" if pc is None else f"{'+' if pc >= 0 else ''}{pc:.1f}%"
         nm = names.get(tk, tk)
-        vstr = f"{v:,.0f}".replace(",", "&#8239;")
+        vstr = f"{v:,.0f}"
         asym_cls, asym_str = _asym_format(asym.get(tk))
         g = gauges.get(tk)
         if g:
@@ -6839,7 +6841,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         )
     if not ps:
         rows = '<tr><td class="empty" colspan="6" style="padding:var(--s4) 0">no position</td></tr>'
-    tot_str = f"{tot:,.0f}".replace(",", "&#8239;")
+    tot_str = f"{tot:,.0f}"
     donut = _sector_donut(_sector_mix(ps, pnl, sectors)) if ps else ""
     return (
         f'<div class="brk"><div class="brk-h"><div><span class="brk-n">{label}</span>'
@@ -6947,8 +6949,7 @@ def _dba_eur(n: float) -> str:
     """Format EUR FR canon : separateur narrow no-break space, 0 decimale.
     Aligne avec '70 180' deja dans le panneau (litteral) -- evite l'ambiguite
     virgule = decimale en FR."""
-    return f"{n:,.0f}".replace(",", "&#8239;")
-
+    return f"{n:,.0f}"
 
 def _dba_bar(state: str, count: int, total: int) -> str:
     """Bar canonique : la classe d'etat (dormant/at_risk/triggered) porte
@@ -7619,9 +7620,12 @@ def render() -> Path:
     # Star Vue d'ensemble : .ps-val attend acc/warn/bear (pas pos/neg legacy)
     _pnl_star_cls = "acc" if pf_pnl_eur >= 0 else "bear"
     pf_arrow = "&#9650;" if pf_pnl_eur >= 0 else "&#9660;"
-    pf_val_str = f"{pf_value:,.0f}".replace(",", "&#8239;")
+    # Pass 7 audit number format uniform : comma en-US (Pass 4 standard).
+    # Hero precedent : "57576" sans separator car Hubot Expanded skip &#8239;
+    # narrow no-break space en font display. Comma rendue stable partout.
+    pf_val_str = f"{pf_value:,.0f}"
     _pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")  # D5 retire Vigie, conserve compute (re-use eventuelle)
-    pf_pe = f"{abs(pf_pnl_eur):,.0f}".replace(",", "&#8239;")
+    pf_pe = f"{abs(pf_pnl_eur):,.0f}"
     near_stop_tk = [
         r["ticker"]
         for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
@@ -7849,7 +7853,7 @@ def render() -> Path:
         _val_delta_str = (
             f'<span class="ps-trend-delta {_val_col_d}">{_val_arrow_d} '
             f'{abs(_val_d):,.0f}&nbsp;&euro; ({"+" if _val_d_pct >= 0 else ""}{_val_d_pct:.2f}%) vs J-1</span>'
-        ).replace(",", "&#8239;")
+        )
     if len(_spark_vals) >= 2:
         _spk_lo, _spk_hi = min(_spark_vals), max(_spark_vals)
         _spk_rng = (_spk_hi - _spk_lo) or 1.0
@@ -7953,10 +7957,12 @@ def render() -> Path:
         + '<div class="ps-strate">'
         + '<div class="ps-hero-row">'
         + '<div class="ps-hero-left">'
-        + '<div class="ps-lbl">Portfolio value</div>'
+        + '<div class="ps-lbl">Portfolio value <span class="ps-asof" data-tip="Snapshot freshness. Server regenerates every 60s; refresh manually for newer.">&middot; as of '
+        + datetime.now().strftime("%H:%M")
+        + '</span></div>'
         + '<div class="ps-macro-row" style="align-items:baseline" aria-live="polite" aria-atomic="true">'
         + f'<div class="ps-val" style="font-size:37px">{pf_val_str}&nbsp;&euro;</div>'
-        + f'<div class="ps-val {_pnl_star_cls}" style="font-size:21px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro; ({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
+        + f'<div class="ps-val {_pnl_star_cls}" style="font-size:21px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro;&nbsp;({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         + f'{_sparkline}'
         + '</div>'
         + f'<div class="ps-sub-lien">{_val_delta_str}</div>'
@@ -8167,9 +8173,9 @@ def render() -> Path:
     _dev_items = []  # liste de (label, nav_target)
     for _c in _cluster_health(positions, pnl):
         if _c["breached"]:
-            _ov = f"{_c['over_eur']:,.0f}".replace(",", "&#8239;")
+            _ov = f"{_c['over_eur']:,.0f}"
             _dev_items.append(
-                (f"trim {_c['name']} &middot; +{_ov}&#8239;&euro;", "concentration")
+                (f"trim {_c['name']} &middot; +{_ov}&nbsp;&euro;", "concentration")
             )
     if near:
         _dev_items.append((f"{near} position(s) &lt; 10% from stop", "risque"))

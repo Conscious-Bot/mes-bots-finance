@@ -422,6 +422,10 @@ _CSS = """
   [data-page="vigie"] .page-star .ps-hero-row { display:grid; grid-template-columns:1.6fr 1fr; gap:32px; align-items:start; }
   [data-page="vigie"] .page-star .ps-hero-left, [data-page="vigie"] .page-star .ps-hero-right { display:block; }
   [data-page="vigie"] .page-star .ps-lbl { display:block; margin-bottom:8px; font-size:11px; letter-spacing:.10em; }
+  /* Pass 7 audit number determinism : as-of timestamp etiquette le snapshot.
+     User comprend "this is at 14:32, refresh for newer" plutot que de voir
+     yfinance refresh silencieuse comme jitter. */
+  [data-page="vigie"] .page-star .ps-asof { font-family:var(--fm); font-size:10px; letter-spacing:.06em; color:var(--steel); text-transform:none; font-weight:400; margin-left:6px; }
   [data-page="vigie"] .page-star .ps-macro-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
   [data-page="vigie"] .page-star .ps-val { font-size:32px; font-family:var(--fdis); font-variant-numeric:tabular-nums; font-weight:700; line-height:1.1; letter-spacing:-.01em; }
   [data-page="vigie"] .page-star .ps-val[style*="font-size:37px"] { font-size:37px !important; }
