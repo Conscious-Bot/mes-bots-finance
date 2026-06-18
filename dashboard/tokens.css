@@ -170,6 +170,21 @@
   --t-h2:      clamp(22px, 3vw, 29px);
   --t-h1:      clamp(26px, 4vw, 37px);
   --t-hero:    clamp(32px, 6vw, 49px);
+  /* Pass 16 audit 6 #2 — tokens fixes pour micro-typo (badges, meta, fine print).
+     Non-clamp parce que sur des elements tres compacts (badges, captions sub-13px),
+     le scale fluid donne des resultats moches. Mapping :
+       --t-fine  10px : super-fine print (footer asof, status fineprint)
+       --t-meta  11px : meta captions (.colhead .a, tooltip text)
+       --t-mini  12px : mini labels (data captions, .ps-asof, footer)
+       --t-small 13px : small body (footnotes, secondary labels)
+       --t-data  14px : default mono data (numbers in tables, ticker text)
+       --t-data2 15px : larger mono data (tape items, hover tips) */
+  --t-fine:    10px;
+  --t-meta:    11px;
+  --t-mini:    12px;
+  --t-small:   13px;
+  --t-data:    14px;
+  --t-data2:   15px;
 
   /* --- 6. ESPACEMENT -- base 4, genereux -------------------------- */
   /* Sprint 1 breathing TR-inspired : bump des tokens mid-large.

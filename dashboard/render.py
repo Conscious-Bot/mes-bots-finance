@@ -223,7 +223,7 @@ def _q(sql: str) -> list:
 
 
 def _err(e: Exception) -> str:
-    return f'<div class="empty"><b>Query to adjust</b><span class="mono" style="font-size:14px">{type(e).__name__}: {str(e)[:130]}</span></div>'
+    return f'<div class="empty"><b>Query to adjust</b><span class="mono" style="font-size:var(--t-data)">{type(e).__name__}: {str(e)[:130]}</span></div>'
 
 
 def _tbar(
@@ -470,7 +470,7 @@ def _llm_status_badge() -> str:
         f'border-radius:var(--r-pill);height:24px;padding:0 10px 0 7px;'
         f'display:flex;align-items:center;gap:7px;'
         f'box-shadow:var(--elev2);'
-        f'cursor:default;user-select:none;font-family:var(--fm);font-size:11px;color:var(--steel);letter-spacing:.08em;text-transform:uppercase">'
+        f'cursor:default;user-select:none;font-family:var(--fm);font-size:var(--t-meta);color:var(--steel);letter-spacing:.08em;text-transform:uppercase">'
         f'<span class="llm-dot" aria-hidden="true" '
         f'style="display:block;width:8px;height:8px;border-radius:var(--r-circle);'
         f'background:var({dot});flex-shrink:0"></span>'
@@ -1190,7 +1190,7 @@ def _data_health_panel() -> str:
             f'<span class="dh-chip {narr_sev}">'
             f'sources : {narr_pct:.0f}% narrative / {ortho_pct:.0f}% orthogonal · '
             f'n={n_total_src}</span>'
-            '<span class="dh-chip neu" style="font-size:10px;opacity:0.7">'
+            '<span class="dh-chip neu" style="font-size:var(--t-fine);opacity:0.7">'
             'Axe 2 garde-fou : 2 narratifs corrélés ≠ 2 lectures du marché'
             '</span>'
             '</div>'
@@ -1208,7 +1208,7 @@ def _data_health_panel() -> str:
         f'<div class="dh-kpi"><div class="k">Inconnu</div><div class="v mono {_sev_class("unknown" if n_unknown else "green")}">{n_unknown}</div></div>'
         f'<div class="dh-kpi"><div class="k">Prix le + vieux</div><div class="v mono">{_fmt_age(oldest_price_age)}</div><div class="dh-tip">{oldest_price_ticker or "—"}</div></div>'
         f'<div class="dh-kpi"><div class="k">FX le + vieux</div><div class="v mono">{_fmt_age(oldest_fx_age)}</div><div class="dh-tip">{oldest_fx_pair or "—"}</div></div>'
-        f'<div class="dh-kpi"><div class="k">Sources</div><div class="v mono" style="font-size:13px">{sources_str}</div></div>'
+        f'<div class="dh-kpi"><div class="k">Sources</div><div class="v mono" style="font-size:var(--t-small)">{sources_str}</div></div>'
         '</div>'
         '<div class="dh-distrib">'
         f'<span class="dh-chip ok">green {price_severities["green"]}</span>'
@@ -1416,7 +1416,7 @@ def _performance_panel() -> str:
         '<div class="card-h">'
         'Performance · ffn analytics (1y rolling) '
         '<span style="display:inline-block;padding:2px 8px;border-radius:var(--r1);'
-        'font-size:10px;font-weight:600;background:#7a1f1f;color:#fff;'
+        'font-size:var(--t-fine);font-weight:600;background:#7a1f1f;color:#fff;'
         'margin-left:8px;letter-spacing:0.5px;">PRO-FORMA · PAS TRACK RECORD</span>'
         '</div>'
         '<div class="card-meta" style="margin-bottom:4px;color:#a06;font-weight:500;">'
@@ -2550,7 +2550,7 @@ def _position_card(inputs, steer_v2) -> str:
         bandeau_html = (
             f'<div class="pc-bandeau" style="background:{_color_bg};color:#fff;'
             'padding:8px 12px;border-radius:var(--r1);margin:-2px -2px 12px -2px;'
-            'font-size:11px;font-weight:600;display:flex;gap:14px;align-items:center;" '
+            'font-size:var(--t-meta);font-weight:600;display:flex;gap:14px;align-items:center;" '
             f'data-vocab="FAIL_CLOSED" title="{_fc_word.meaning}">'
             '<span>⚠ FAIL-CLOSED L15</span>'
             f'<span style="opacity:0.9;font-weight:500;">{items}</span>'
@@ -2569,7 +2569,7 @@ def _position_card(inputs, steer_v2) -> str:
             proxy_banner_html = (
                 f'<div class="pc-proxy-banner" style="background:var(--bg-2);'
                 'border-left:3px solid var(--steel);padding:6px 12px;margin:-2px -2px 12px -2px;'
-                'font-size:11px;color:var(--steel);" '
+                'font-size:var(--t-meta);color:var(--steel);" '
                 f'title="{_proxy_reason}">'
                 '<span style="font-weight:600;">·proxy</span>'
                 f'<span style="opacity:0.85;margin-left:8px;">{_proxy_reason}</span>'
@@ -2609,7 +2609,7 @@ def _position_card(inputs, steer_v2) -> str:
         }.get(steer_v2.verdict.value, steer_v2.verdict.value)
         verdict_v2_html = (
             f'<span style="display:inline-block;padding:3px 10px;border-radius:var(--r0);'
-            f'font-size:11px;font-weight:700;background:{v_color[0]};color:#fff;'
+            f'font-size:var(--t-meta);font-weight:700;background:{v_color[0]};color:#fff;'
             f'margin-left:8px;letter-spacing:0.5px;">'
             f'▶ {verdict_label}{verdict_concrete}</span>'
         )
@@ -2631,7 +2631,7 @@ def _position_card(inputs, steer_v2) -> str:
         sector_profile_html = (
             f'<div class="pc-sector-profile" '
             f'data-profile="{_sp_data}" data-tier="{_sp.evidence_tier}" '
-            f'style="font-size:10px;color:{_tier_color};opacity:0.85;margin:2px 0 6px 0;'
+            f'style="font-size:var(--t-fine);color:{_tier_color};opacity:0.85;margin:2px 0 6px 0;'
             'letter-spacing:0.3px;">'
             f'sector : <b>{_sp.name}</b> &middot; tier <b>{_sp.evidence_tier}</b> ({_tier_label}) '
             f'&middot; {_kpis_label}'
@@ -2648,7 +2648,7 @@ def _position_card(inputs, steer_v2) -> str:
         drift_cls = "ok" if inputs.conviction_drift_delta > 0 else "warn"
         drift_html = (
             f'<span class="pc-drift {drift_cls}" style="margin-left:8px;'
-            'font-size:10px;opacity:0.85">'
+            'font-size:var(--t-fine);opacity:0.85">'
             f'drift {sign}{inputs.conviction_drift_delta} '
             f'(PIT c{inputs.conviction_at_entry} → now c{inputs.conviction_current}, '
             f'{inputs.conviction_n_drifts} change(s))'
@@ -2762,13 +2762,13 @@ def _position_card(inputs, steer_v2) -> str:
         # Action hint discret (sous-ligne 11px italique).
         action_html = (
             f'<div class="pc-verdict-action" '
-            f'style="font-size:11px;opacity:0.75;font-style:italic;'
+            f'style="font-size:var(--t-meta);opacity:0.75;font-style:italic;'
             f'margin:2px 0 4px 0">&rarr; {action_hint}</div>'
             if action_hint else ""
         )
         # Header drivers explicite (vs classifications atomiques).
         drv_header = (
-            f'<div class="pc-section-h" style="margin-top:6px;font-size:10px">'
+            f'<div class="pc-section-h" style="margin-top:6px;font-size:var(--t-fine)">'
             f'DRIVERS ({n_drivers}) &middot; '
             f'<span style="opacity:0.7">seuil broken net &le; {_NET_BROKEN:.1f}</span>'
             f'</div>'
@@ -2778,7 +2778,7 @@ def _position_card(inputs, steer_v2) -> str:
             '<div class="pc-section-h">THESE -- VERDICT MOTEUR #2</div>'
             f'<div class="pc-verdict {verdict_cls}">{verdict or "?"}'
             + stale_chip
-            + f' <span style="font-size:10px;opacity:0.7">'
+            + f' <span style="font-size:var(--t-fine);opacity:0.7">'
             f'computed {erosion_computed_at} &middot; '
             f'{n_conf} confirms &middot; {n_ero} erodes &middot; {n_inv} invalidations '
             f'<span style="opacity:0.6">'
@@ -2798,7 +2798,7 @@ def _position_card(inputs, steer_v2) -> str:
             '<div class="pc-section">'
             '<div class="pc-section-h">THESE &mdash; VERDICT MOTEUR #2 '
             '<span class="pc-verdict-pending">PENDING</span> '
-            '<span style="font-size:9px;color:var(--steel);letter-spacing:0.05em;">'
+            '<span style="font-size:var(--t-fine);color:var(--steel);letter-spacing:0.05em;">'
             'erosion cron not wired yet</span></div>'
             '</div>'
         )
@@ -2872,7 +2872,7 @@ def _position_card(inputs, steer_v2) -> str:
                 f'<span class="pc-changed-target mono">{target_label}</span>'
                 f'<span class="pc-changed-conf mono" style="opacity:0.7">'
                 f'mat {mat:.1f} · conf {conf:.2f}</span>'
-                f'<span class="pc-changed-quote" style="font-size:11px">'
+                f'<span class="pc-changed-quote" style="font-size:var(--t-meta)">'
                 f'{rationale or quote or "—"}</span>'
                 '</div>'
             )
@@ -2981,21 +2981,21 @@ def _position_card(inputs, steer_v2) -> str:
             '<div class="pc-section">'
             '<div class="pc-section-h">SIZING 3-WAY (levier #4 asymetrie-first)</div>'
             '<div class="pc-sizing-grid" style="display:grid;'
-            'grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px">'
+            'grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:var(--t-mini)">'
             '<div class="pc-sizing-cell">'
-            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:10px">REAL (live)</div>'
+            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:var(--t-fine)">REAL (live)</div>'
             f'<div class="pc-sizing-v mono {real_cls}">{inputs.weight_pct:.2f}%</div>'
             '</div>'
             '<div class="pc-sizing-cell">'
-            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:10px">target-conv (cap c{inputs.conviction_current or "?"})</div>'
+            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:var(--t-fine)">target-conv (cap c{inputs.conviction_current or "?"})</div>'
             f'<div class="pc-sizing-v mono {cap_cls}">{inputs.cap_for_conviction_pct:.2f}%</div>'
             '</div>'
             '<div class="pc-sizing-cell">'
-            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:10px">target-edge (ruin {inputs.ruin_budget_per_name_pct:.2f}%/NAV)</div>'
+            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:var(--t-fine)">target-edge (ruin {inputs.ruin_budget_per_name_pct:.2f}%/NAV)</div>'
             f'<div class="pc-sizing-v mono {edge_cls}">{edge_value}</div>'
             '</div>'
             '</div>'
-            f'<div class="pc-sizing-binding" style="margin-top:6px;font-size:11px">'
+            f'<div class="pc-sizing-binding" style="margin-top:6px;font-size:var(--t-meta)">'
             f'<b>BINDING = {binding_value}</b> &middot; <span style="opacity:0.75">{binding_label}</span>'
             '</div>'
             '</div>'
@@ -3117,9 +3117,9 @@ def _position_card(inputs, steer_v2) -> str:
         '<div class="pc-cell"><div class="pc-cell-h">TYPE &amp; FACTOR</div>'
         f'<div class="pc-line"><span>type</span><span>{ptype}</span></div>'
         f'<div class="pc-line"><span>conv</span><span class="mono">c{conv}</span></div>'
-        + f'<div class="pc-line"><span>factor</span><span style="font-size:11px">{macro_factor or "&mdash;"}</span></div>'
-        + f'<div class="pc-line"><span>theme</span><span style="font-size:11px">{theme or "&mdash;"}</span></div>'
-        + '<div class="pc-line"><span>tags</span><span style="font-size:11px">'
+        + f'<div class="pc-line"><span>factor</span><span style="font-size:var(--t-meta)">{macro_factor or "&mdash;"}</span></div>'
+        + f'<div class="pc-line"><span>theme</span><span style="font-size:var(--t-meta)">{theme or "&mdash;"}</span></div>'
+        + '<div class="pc-line"><span>tags</span><span style="font-size:var(--t-meta)">'
         + (", ".join(tags) if tags else "&mdash;") + '</span></div>'
         + '</div>'
         '</div>'
@@ -3233,7 +3233,7 @@ def _position_card_panel() -> str:
   .pc-summary > span.trim   { background:color-mix(in srgb, var(--warn) 16%, transparent); color:color-mix(in srgb, var(--warn) 85%, var(--ink)); }
   .pc-summary > span.exit   { background:color-mix(in srgb, var(--bear) 14%, transparent); color:var(--bear); }
   .pc-summary > span.review { background:color-mix(in srgb, var(--steel) 14%, transparent); color:var(--steel); }
-  .pc-summary em { font-style:italic; opacity:.6; font-size:10px; }
+  .pc-summary em { font-style:italic; opacity:.6; font-size:var(--t-fine); }
 
   /* CARD container : blanc, border, respiration mesuree */
   .pc-card {
@@ -3259,12 +3259,12 @@ def _position_card_panel() -> str:
     border-radius:var(--r1); font-weight:500;
   }
   .pc-head .pc-typechip {
-    font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    font-size:var(--t-fine); letter-spacing:.14em; text-transform:uppercase;
     padding:3px 7px; border-radius:var(--r1); font-weight:600;
     background:color-mix(in srgb, var(--ink) 7%, transparent); color:var(--steel);
   }
   .pc-head .pc-tag {
-    font-size:10px; letter-spacing:.04em; padding:3px 7px;
+    font-size:var(--t-fine); letter-spacing:.04em; padding:3px 7px;
     background:color-mix(in srgb, var(--acc) 12%, transparent);
     color:var(--acc); border-radius:var(--r1);
   }
@@ -3313,7 +3313,7 @@ def _position_card_panel() -> str:
   .pc-line .ok,  .pc-line .mono.ok  { color:var(--acc);  font-weight:600; }
   .pc-line .neu, .pc-line .mono.neu { color:var(--steel); }
   .pc-asof {
-    font-size:10px; color:var(--steel); margin-left:6px; opacity:.75;
+    font-size:var(--t-fine); color:var(--steel); margin-left:6px; opacity:.75;
     font-style:italic;
   }
 
@@ -3357,7 +3357,7 @@ def _position_card_panel() -> str:
   .pc-verdict.neu  { color:var(--steel); font-weight:400; font-style:italic; }
   /* PENDING chip (state-non-computed compact, remplace la prose) */
   .pc-verdict-pending {
-    font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    font-size:var(--t-fine); letter-spacing:.14em; text-transform:uppercase;
     padding:2px 7px; border-radius:var(--r0); font-weight:600;
     background:color-mix(in srgb, var(--steel) 12%, transparent);
     color:var(--steel); margin-left:6px;
@@ -3370,7 +3370,7 @@ def _position_card_panel() -> str:
   }
   .pc-driver-name { flex:1; color:var(--ink); }
   .pc-driver-st {
-    font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    font-size:var(--t-fine); letter-spacing:.12em; text-transform:uppercase;
     padding:1px 6px; border-radius:var(--r0); font-weight:600;
   }
   .pc-driver-st.ok   { background:color-mix(in srgb, var(--acc) 14%, transparent); color:var(--acc); }
@@ -3379,7 +3379,7 @@ def _position_card_panel() -> str:
   .pc-driver-st.neu  { background:color-mix(in srgb, var(--steel) 10%, transparent); color:var(--steel); }
   .pc-driver-net {
     font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
-    font-variant-numeric:tabular-nums; color:var(--steel); font-size:10px;
+    font-variant-numeric:tabular-nums; color:var(--steel); font-size:var(--t-fine);
   }
 
   /* INVALIDATION TRIGGERS rows */
@@ -3397,7 +3397,7 @@ def _position_card_panel() -> str:
     padding:4px 0; font-size:var(--pc-fs-tiny); align-items:baseline;
   }
   .pc-changed-rel {
-    font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    font-size:var(--t-fine); letter-spacing:.12em; text-transform:uppercase;
     padding:1px 6px; border-radius:var(--r0); font-weight:600;
   }
   .pc-changed-rel.ok   { background:color-mix(in srgb, var(--acc) 14%, transparent); color:var(--acc); }
@@ -3414,7 +3414,7 @@ def _position_card_panel() -> str:
     font-size:var(--pc-fs-body);
   }
   .pc-flag-label {
-    font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    font-size:var(--t-fine); letter-spacing:.14em; text-transform:uppercase;
     padding:3px 8px; border-radius:var(--r0); font-weight:600; flex-shrink:0;
     min-width:90px; text-align:center;
   }
@@ -3426,7 +3426,7 @@ def _position_card_panel() -> str:
 
   /* COUNTER ARG pressure chip */
   .pc-ca-pressure {
-    font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+    font-size:var(--t-fine); letter-spacing:.1em; text-transform:uppercase;
     padding:1px 6px; border-radius:var(--r0); font-weight:600;
   }
   .pc-ca-pressure.neg  { background:color-mix(in srgb, var(--bear) 14%, transparent); color:var(--bear); }
@@ -3443,12 +3443,12 @@ def _position_card_panel() -> str:
     background:#fff; border:1px solid var(--line,#e3e6eb); border-radius:var(--r1);
   }
   .pc-sizing-k {
-    font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    font-size:var(--t-fine); letter-spacing:.12em; text-transform:uppercase;
     color:var(--steel); margin-bottom:4px; font-weight:500;
   }
   .pc-sizing-v {
     font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
-    font-size:17px; font-weight:600; font-variant-numeric:tabular-nums;
+    font-size:var(--t-base); font-weight:600; font-variant-numeric:tabular-nums;
     color:var(--ink);
   }
   .pc-sizing-v.neg { color:var(--bear); }
@@ -3472,7 +3472,7 @@ def _position_card_panel() -> str:
     padding:6px 0;
   }
   .pc-steer-k {
-    font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+    font-size:var(--t-fine); letter-spacing:.18em; text-transform:uppercase;
     padding:3px 10px; border-radius:var(--r1); font-weight:600;
     min-width:50px; text-align:center;
   }
@@ -3482,14 +3482,14 @@ def _position_card_panel() -> str:
   .pc-steer-k.neu  { background:color-mix(in srgb, var(--steel) 12%, transparent); color:var(--steel); }
   .pc-steer-action {
     font-family: var(--fm, "Geist Mono", ui-monospace, monospace);
-    font-weight:700; color:var(--ink); font-size:15px; letter-spacing:.02em;
+    font-weight:700; color:var(--ink); font-size:var(--t-data2); letter-spacing:.02em;
   }
   .pc-steer-reason {
     margin-left:64px; font-size:var(--pc-fs-tiny);
     color:var(--steel); font-style:italic; padding:2px 0 8px;
   }
   .pc-steer-list-h {
-    font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    font-size:var(--t-fine); letter-spacing:.14em; text-transform:uppercase;
     color:var(--steel); margin-top:10px; margin-bottom:4px; font-weight:600;
   }
   .pc-steer-li {
@@ -3549,7 +3549,7 @@ def _stress_tests_panel() -> str:
 
     # Header gate-aware : badge global etat (utilitaires existants pos/danger/warn)
     _bdg = ("display:inline-block;padding:2px 8px;border-radius:var(--r1);"
-            "font-weight:600;font-size:11px;margin-left:6px;")
+            "font-weight:600;font-size:var(--t-meta);margin-left:6px;")
     if n_breach > 0:
         gate_header = (
             f'<span style="{_bdg}background:#7a1f1f;color:#fff;">'
@@ -3577,7 +3577,7 @@ def _stress_tests_panel() -> str:
         # Couleur lue depuis le journal (pas re-calculee ici -> source unique L17).
         gate = gate_by_scenario.get(scenario)
         _tag_base = ("display:inline-block;padding:1px 6px;border-radius:var(--r0);"
-                     "font-size:10px;margin-left:4px;font-weight:500;")
+                     "font-size:var(--t-fine);margin-left:4px;font-weight:500;")
         if gate and gate["status"] == "breach":
             dcls = "danger"
             gate_tag = (
@@ -4204,7 +4204,7 @@ def _distribution_health_panel() -> str:
             f'<div class="row" title="{msg}">'
             f'<div class="rt"><span style="font-weight:600">{name}</span>'
             f'<span class="tag {cls}">{status}</span></div>'
-            f'<div class="rs"><span style="color:var(--steel);font-size:15px">{msg[:120]}</span></div>'
+            f'<div class="rs"><span style="color:var(--steel);font-size:var(--t-data2)">{msg[:120]}</span></div>'
             f'</div>'
         )
     return (
@@ -4914,10 +4914,10 @@ def _geo_bars(positions: list[dict]) -> str:
         "transition:max-height .3s ease,opacity .2s ease,margin .3s ease}"
         ".geo-item.open .geo-sub{max-height:360px;opacity:1;margin:var(--s1) 0 14px}"
         ".geo-stk{display:flex;align-items:center;gap:var(--s3);padding:var(--s15) 6px 5px 16px;"
-        "font-size:15px;border-left:2px solid var(--line2);margin-left:3px}"
+        "font-size:var(--t-data2);border-left:2px solid var(--line2);margin-left:3px}"
         ".geo-stk .gnm{color:var(--ink)}"
-        ".geo-stk .gtk{color:var(--steel);font-family:var(--fm);font-size:14px}"
-        ".geo-stk .gpc{margin-left:auto;color:var(--steel);font-family:var(--fm);font-size:14px}"
+        ".geo-stk .gtk{color:var(--steel);font-family:var(--fm);font-size:var(--t-data)}"
+        ".geo-stk .gpc{margin-left:auto;color:var(--steel);font-family:var(--fm);font-size:var(--t-data)}"
         ".geo-stk .gw{color:var(--ink);font-family:var(--fm);min-width:62px;text-align:right}"
         "</style>"
     )
@@ -4996,7 +4996,7 @@ def _fx_status_label_html() -> str:
         title = " ; ".join(title_parts)
         color = "var(--acc)" if cls == "calm" else "var(--warn)"
         return (
-            f'<span class="mono" style="font-size:14px;opacity:.65;padding:0 var(--s2);color:{color}"'
+            f'<span class="mono" style="font-size:var(--t-data);opacity:.65;padding:0 var(--s2);color:{color}"'
             f' title="{title}">{txt}</span>'
         )
     except Exception:
@@ -5256,12 +5256,12 @@ def _loop() -> str:
 <style>
   .loop-stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:var(--s3); margin-bottom:var(--s4); }
   .loop-stat { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s3) var(--s4); display:flex; flex-direction:column; gap:4px; }
-  .loop-stat .ls-val { font-family:var(--fm); font-size:32px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
-  .loop-stat .ls-lbl { font-family:var(--fm); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
+  .loop-stat .ls-val { font-family:var(--fm); font-size:var(--t-h1); font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .loop-stat .ls-lbl { font-family:var(--fm); font-size:var(--t-meta); letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
 
   .lp-wrap { background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s35) var(--s3) var(--s2); }
   .lp-axis { position:relative; height:18px; margin: 0 0 8px 130px; border-bottom:1px solid var(--line); }
-  .lp-mark { position:absolute; transform:translateX(-50%); font-family:var(--fm); font-size:10px; color:var(--steel); top:0; }
+  .lp-mark { position:absolute; transform:translateX(-50%); font-family:var(--fm); font-size:var(--t-fine); color:var(--steel); top:0; }
   .lp-mark::after { content:""; position:absolute; left:50%; top:14px; width:1px; height:4px; background:var(--line); }
 
   .lp-row { display:grid; grid-template-columns:130px 1fr 110px; gap:var(--s3); align-items:center; padding:6px 0; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent); transition:background .12s; }
@@ -5269,8 +5269,8 @@ def _loop() -> str:
   .lp-row:last-child { border-bottom:none; }
 
   .lp-tk { display:flex; flex-direction:column; gap:2px; }
-  .lp-tkname { font-family:var(--fm); font-weight:600; font-size:13px; color:var(--ink); letter-spacing:.04em; }
-  .lp-tkmeta { font-family:var(--fm); font-size:10px; color:var(--steel); letter-spacing:.04em; }
+  .lp-tkname { font-family:var(--fm); font-weight:600; font-size:var(--t-small); color:var(--ink); letter-spacing:.04em; }
+  .lp-tkmeta { font-family:var(--fm); font-size:var(--t-fine); color:var(--steel); letter-spacing:.04em; }
 
   .lp-track { position:relative; height:18px; background:linear-gradient(to right, color-mix(in srgb, var(--line) 30%, transparent), color-mix(in srgb, var(--line) 60%, transparent), color-mix(in srgb, var(--line) 30%, transparent)); border-radius:var(--r2); }
   .lp-track .ev { position:absolute; top:50%; transform:translate(-50%, -50%); border-radius:var(--r-circle); }
@@ -5285,15 +5285,15 @@ def _loop() -> str:
   .lp-track .ev-dec.bear { background:var(--bear); }
   .lp-track .ev:hover { box-shadow:0 0 0 4px color-mix(in srgb, var(--acc) 25%, transparent); z-index:5; cursor:help; }
 
-  .lp-stats { display:flex; align-items:center; gap:8px; justify-content:flex-end; font-family:var(--fm); font-size:12px; }
+  .lp-stats { display:flex; align-items:center; gap:8px; justify-content:flex-end; font-family:var(--fm); font-size:var(--t-mini); }
   .lp-resolved { color:var(--steel); font-variant-numeric:tabular-nums; }
-  .lp-badge { font-family:var(--fm); font-size:11px; font-weight:600; padding:2px 8px; border-radius:var(--r-pill); border:1px solid currentColor; font-variant-numeric:tabular-nums; }
+  .lp-badge { font-family:var(--fm); font-size:var(--t-meta); font-weight:600; padding:2px 8px; border-radius:var(--r-pill); border:1px solid currentColor; font-variant-numeric:tabular-nums; }
   .lp-badge.acc { color:var(--acc); }
   .lp-badge.warn { color:var(--warn); }
   .lp-badge.bear { color:var(--bear); }
   .lp-badge.muted { color:var(--steel); opacity:.6; }
 
-  .lp-legend { display:flex; gap:18px; margin-top:var(--s3); padding-top:var(--s2); border-top:1px solid var(--line); font-family:var(--fm); font-size:11px; color:var(--steel); flex-wrap:wrap; }
+  .lp-legend { display:flex; gap:18px; margin-top:var(--s3); padding-top:var(--s2); border-top:1px solid var(--line); font-family:var(--fm); font-size:var(--t-meta); color:var(--steel); flex-wrap:wrap; }
   .lp-legend-item { display:flex; align-items:center; gap:6px; }
   .lp-leg-dot { display:inline-block; width:10px; height:10px; border-radius:var(--r-circle); }
   .lp-leg-dot.open { background:var(--panel); border:1.5px solid var(--ink); }
@@ -5634,7 +5634,7 @@ def _market_rsi() -> str:
         tag_html = f'<span class="dp">{tag}</span>' if tag else '<span class="dp"></span>'
         rows += (
             f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span>'
-            f'<span class="dname">{name} <span style="color:var(--steel);font-size:14px">({tk})</span></span>'
+            f'<span class="dname">{name} <span style="color:var(--steel);font-size:var(--t-data)">({tk})</span></span>'
             f'<span class="dval {dot}">{num}</span>{tag_html}</div>'
         )
     return rows
@@ -5689,7 +5689,7 @@ def _breadth_rsp_spy() -> str:
     tip_attr = f' data-tip="{_h.escape(tip, quote=True)}"'
     return (
         f'<div class="drow"{tip_attr}><span class="ddot {dot}"></span>'
-        f'<span class="dname">RSP / SPY ratio <span style="color:var(--steel);font-size:14px">vs MM50</span></span>'
+        f'<span class="dname">RSP / SPY ratio <span style="color:var(--steel);font-size:var(--t-data)">vs MM50</span></span>'
         f'<span class="dval {dot}">{delta_pct:+.2f}%</span><span class="dp">{tag}</span></div>'
     )
 
@@ -6202,9 +6202,9 @@ def _cockpit() -> str:
         "<style>"
         ".ck-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--s3);margin-top:var(--s2)}"
         ".ck-cell{padding:var(--s35) 4px;border-bottom:1px solid var(--line)}"
-        ".ck-label{font-size:15px;color:var(--steel);letter-spacing:.01em}"
-        ".ck-num{font-family:var(--fm);font-size:25px;font-weight:500;margin-top:var(--s15);line-height:1.05;letter-spacing:-.01em}"
-        ".ck-sub{font-size:15px;color:var(--steel);margin-top:var(--s15);line-height:1.4}"
+        ".ck-label{font-size:var(--t-data2);color:var(--steel);letter-spacing:.01em}"
+        ".ck-num{font-family:var(--fm);font-size:var(--t-h2);font-weight:500;margin-top:var(--s15);line-height:1.05;letter-spacing:-.01em}"
+        ".ck-sub{font-size:var(--t-data2);color:var(--steel);margin-top:var(--s15);line-height:1.4}"
         "</style>"
     )
 
@@ -6977,7 +6977,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         # (cost/realized restent EUR-corrects via ledger) — juste informer.
         _proxy_reason = is_proxy_price(tk)
         _proxy_chip = (
-            f'<span class="proxy-chip" style="font-size:9px;opacity:.55;margin-left:4px;'
+            f'<span class="proxy-chip" style="font-size:var(--t-fine);opacity:.55;margin-left:4px;'
             f'color:var(--steel);font-weight:500" '
             f'data-tip="{_h_esc.escape(_proxy_reason, quote=True)}">&middot;proxy</span>'
             if _proxy_reason else ""
@@ -8086,7 +8086,7 @@ def render() -> Path:
             '<div class="ps-strate" data-tip="' + _html.escape(_ms_tip, quote=True) + '">'
             + '<div class="ps-lbl">Macro state</div>'
             + '<div class="ps-macro-row" style="align-items:baseline;gap:var(--s4)">'
-            + f'<div class="ps-val {_ms_color}" style="font-size:24px">{_ms_regime.replace("_", " ")}</div>'
+            + f'<div class="ps-val {_ms_color}" style="font-size:var(--t-h2)">{_ms_regime.replace("_", " ")}</div>'
             + f'<div class="ps-macro-meta">score {_ms_score:.0f}</div>'
             + '<div class="ps-macro-meta" style="margin-left:auto">'
             + f'<span class="bear" style="font-weight:600">ACT {_ms_buckets.get("act", 0)}</span>'
@@ -8113,8 +8113,8 @@ def render() -> Path:
         + datetime.now().strftime("%H:%M")
         + '</span></div>'
         + '<div class="ps-macro-row" style="align-items:baseline" aria-live="polite" aria-atomic="true">'
-        + f'<div class="ps-val" style="font-size:37px">{pf_val_str}&nbsp;&euro;</div>'
-        + f'<div class="ps-val {_pnl_star_cls}" style="font-size:21px">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro;&nbsp;({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
+        + f'<div class="ps-val" style="font-size:var(--t-h1)">{pf_val_str}&nbsp;&euro;</div>'
+        + f'<div class="ps-val {_pnl_star_cls}" style="font-size:var(--t-h3)">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro;&nbsp;({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
         + f'{_sparkline}'
         + '</div>'
         + f'<div class="ps-sub-lien">{_val_delta_str}</div>'
