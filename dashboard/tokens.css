@@ -151,13 +151,16 @@
   --fdis: "Hubot Sans Expanded", "Geist", ui-sans-serif, sans-serif;
   /* Font-size scale -- base 15px, ratio ~1.2. Charte §1.4.
      Toute nouvelle ecriture utilise ces tokens, pas font-size:Npx inline. */
-  --t-caption: 16px;
-  --t-body:    18px;
-  --t-base:    19px;
-  --t-h3:      23px;
-  --t-h2:      29px;
-  --t-h1:      37px;
-  --t-hero:    49px;
+  /* Pass 3 audit cleanup #16 : clamp() fluid type pour mobile sans casser desktop.
+     Cible : meme valeur a >900px viewport, scale down progressif < 640px.
+     Format clamp(min, preferred-vw, max) -- preferred = idx px equivalents en vw. */
+  --t-caption: clamp(13px, 1.6vw, 16px);
+  --t-body:    clamp(15px, 1.8vw, 18px);
+  --t-base:    clamp(16px, 1.9vw, 19px);
+  --t-h3:      clamp(18px, 2.3vw, 23px);
+  --t-h2:      clamp(22px, 3vw, 29px);
+  --t-h1:      clamp(26px, 4vw, 37px);
+  --t-hero:    clamp(32px, 6vw, 49px);
 
   /* --- 6. ESPACEMENT -- base 4, genereux -------------------------- */
   /* Sprint 1 breathing TR-inspired : bump des tokens mid-large.

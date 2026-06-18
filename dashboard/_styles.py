@@ -202,7 +202,38 @@ _CSS = """
   .tape8k { background:var(--tape); padding:var(--s2) 0; } .tape8k .ti .warn { color:var(--warn); } .tape8k .track2 { animation-duration:75s; }
   .statedot { width:8px; height:8px; border-radius:50%; }
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
-  .main { padding:30px 52px 54px; max-width:1340px; }
+  .main { padding:30px clamp(16px, 4vw, 52px) 54px; max-width:1340px; }
+  /* Pass 3 audit cleanup #5 #6 #7 #8 : mobile responsive layout.
+     Below 640px : sidebar becomes bottom tab-bar (touch-friendly position),
+     main reclaims full width with clamp-padding, tables get overflow-x scroll,
+     ticker tape compressed. Above 640px : current desktop layout untouched. */
+  @media (max-width: 640px) {
+    body { flex-direction: column; }
+    .sidebar { position: fixed; bottom: 0; left: 0; width: 100%; height: auto;
+               flex-direction: row; justify-content: space-around; align-items: center;
+               padding: 6px 8px; border-right: 0; border-top: 1px solid var(--line);
+               background: color-mix(in srgb, var(--bg) 95%, transparent);
+               backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 200; }
+    .sidebar .logo { display: none; }
+    .sidebar .nav { flex-direction: row; gap: 4px; flex: 1; justify-content: space-around; }
+    .sidebar .nitem { width: 40px; height: 40px; border-left: 0; border-top: 2px solid transparent; }
+    .sidebar .nitem.on { border-left: 0; border-top-color: var(--id); box-shadow: none; }
+    .sidebar .nitem svg { width: 22px; height: 22px; }
+    .sidebar .nlab { display: none; }
+    .sidebar .foot { display: none; }
+    .wrap { width: 100%; }
+    .main { padding: 16px 16px 84px; max-width: 100%; }
+    /* Tables : convertir en bloc scrollable horizontalement. Pas de clip silencieux. */
+    .card table, .pad table, table.dt { display: block; max-width: 100%; overflow-x: auto;
+                                         -webkit-overflow-scrolling: touch; }
+    /* Ticker tape compressee. */
+    .tape .ti { font-size: 13px; margin: 0 18px; }
+    .tape .tklogo { width: 14px; height: 14px; }
+    /* CTA bar bottom (search) : remontee au-dessus du tab-bar, centree (pas decalee du sidebar). */
+    .cta-bar { bottom: 64px !important; left: 50% !important; }
+    /* Tape hover pause non-tactile : auto-replay mobile. */
+    .tape:hover .track2 { animation-play-state: running; }
+  }
   /* Sticky page header (Stripe/Linear pattern) : reste en haut au scroll
      avec backdrop subtil. Z-index 30 sous .dband (45). Drop shadow apparaît
      quand le header est "stuck" (detecté via .stuck class JS IntersectionObserver). */
