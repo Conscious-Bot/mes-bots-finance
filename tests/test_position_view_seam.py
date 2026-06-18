@@ -29,9 +29,9 @@ from shared.position_view import PositionView, get_all_positions_views
 # le PMP rolling fiscal FR (cf shared.ledger_pmp) qui diffère de l'all-buys-avg.
 BROKER_KNOWN = {
     "000660.KS": {
-        "qty": 1.515580,            # CSV truth (#121 réconcilié)
-        "avg_cost_eur": 1060.53,    # rolling fee-inc, was 1084.83 (stale yaml)
-        "expected_pnl_pct_at_snapshot": 8.5,
+        "qty": 1.677483,            # post-BUY session 18/06 (+0.161904 sh, redeploy AMD trim)
+        "avg_cost_eur": 1107.21,    # rolling fee-inc post BUY (PMP rolled up via 250€ @ 1544€/sh)
+        "expected_pnl_pct_at_snapshot": 37.40,
         "currency_native": "KRW",
         "fx_band": (0.0004, 0.0008),
     },
@@ -43,9 +43,9 @@ BROKER_KNOWN = {
         "fx_band": (0.004, 0.008),
     },
     "4063.T": {
-        "qty": 99.652293,            # post-SELL session 14/06 (-15.6 sh, partial close Shin-Etsu)
-        "avg_cost_eur": 39.05,       # rolling fee-inc
-        "expected_pnl_pct_at_snapshot": -4.92,
+        "qty": 87.301253,            # post-SELL session 18/06 (-12.35 sh, partial close Shin-Etsu redeploy GOOGL+MU)
+        "avg_cost_eur": 39.05,       # rolling fee-inc (unchanged on SELL — PMP invariant)
+        "expected_pnl_pct_at_snapshot": 3.50,
         "currency_native": "JPY",
         "fx_band": (0.004, 0.008),
     },

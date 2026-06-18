@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections import Counter
+from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -83,14 +84,18 @@ def test_resolved_predictions_have_valid_outcome(conn):
 
 def test_resolved_predictions_have_return_pct(conn):
     """Resolved predictions doivent avoir return_pct calcule.
-    Sans return_pct, Brier non-calculable -> pas de signal calibration."""
+    Sans return_pct, Brier non-calculable -> pas de signal calibration.
+
+    Filtre claim_type='price' : event-type sentinelles (migration 0060) se
+    résolvent binaire (fired/not-fired), return_pct est N/A by design.
+    """
     rows = conn.execute(
         "SELECT id, ticker, outcome FROM predictions "
         "WHERE resolved_at IS NOT NULL AND outcome != 'neutral' "
-        "AND return_pct IS NULL"
+        "AND return_pct IS NULL AND claim_type = 'price'"
     ).fetchall()
     assert not rows, (
-        f"Resolved predictions non-neutres sans return_pct : "
+        f"Resolved price-claim predictions non-neutres sans return_pct : "
         f"{[dict(r) for r in rows[:5]]}"
     )
 
@@ -115,17 +120,28 @@ def test_brier_scores_in_unit_interval(conn):
 
 def test_resolved_at_after_baseline_plus_horizon(conn):
     """resolved_at doit etre >= baseline_date + horizon_days. Sinon resolution
-    premature = bug (pas attendu l'horizon)."""
+    premature = bug (pas attendu l'horizon).
+
+    Filtre claim_type='price' : event-type sentinelles (migration 0060) ferment
+    sur fire d'événement, pas sur horizon temporel — horizon_days est nominal.
+    """
     from datetime import datetime, timedelta
     rows = conn.execute(
         "SELECT id, ticker, baseline_date, horizon_days, resolved_at "
-        "FROM predictions WHERE resolved_at IS NOT NULL"
+        "FROM predictions WHERE resolved_at IS NOT NULL AND claim_type = 'price'"
     ).fetchall()
     violations = []
+    from datetime import timezone as _tz
+    def _norm(s: str) -> datetime:
+        s = s.replace("Z", "+00:00").replace(" ", "T")
+        if "T" not in s:
+            s = s + "T00:00:00"
+        dt = datetime.fromisoformat(s)
+        return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
     for r in rows:
         try:
-            baseline = datetime.fromisoformat(r["baseline_date"].replace("Z", "+00:00"))
-            resolved = datetime.fromisoformat(r["resolved_at"].replace("Z", "+00:00"))
+            baseline = _norm(r["baseline_date"])
+            resolved = _norm(r["resolved_at"])
             min_resolved = baseline + timedelta(days=r["horizon_days"] - 3)  # 3j tolerance
             if resolved < min_resolved:
                 violations.append({
