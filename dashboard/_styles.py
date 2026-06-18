@@ -109,11 +109,10 @@ _TH_CSS = """
   .th-ends { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--fm); font-size:var(--t-data); }
   .th-stop { color:var(--bear); }
   .th-tgt { color:var(--acc); font-weight:600; }
-  /* Pass 6 audit color discipline : .th-pt = TARGET HIT (good news event).
-     Defaut vert/acc. Variant .warn pour les rares cas "target hit + decision
-     trim risquée" — amber, jamais rouge sur evenement favorable. */
-  .th-pt { font-family:var(--fm); font-size:var(--t-data); padding:1px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--acc) 16%,transparent); color:var(--acc); letter-spacing:.04em; margin-left:var(--s2); text-transform:uppercase; }
-  .th-pt.warn { background:color-mix(in srgb,var(--warn) 16%,transparent); color:var(--warn); }
+  /* Pass 17 revert user-demand : background original "il y a une heure".
+     th-pt defaut = rouge (target hit + risky = signal trim a risque).
+     Variant .acc = vert (target beyond = indicateur positif). */
+  .th-pt { font-family:var(--fm); font-size:var(--t-data); padding:1px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); letter-spacing:.04em; margin-left:var(--s2); text-transform:uppercase; }
   .th-pt.acc { background:color-mix(in srgb,var(--acc) 16%,transparent); color:var(--acc); }
   .th-na { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); }
   .th-cat { font-family:var(--fm); font-size:var(--t-data); letter-spacing:.03em; color:var(--steel); background:color-mix(in srgb, var(--steel) 10%, transparent); border:1px solid var(--line); border-radius:var(--r1); padding:2px 8px; margin-left:2px; white-space:nowrap; }
@@ -312,11 +311,11 @@ _CSS = """
   /* Sticky page header (Stripe/Linear pattern) : reste en haut au scroll
      avec backdrop subtil. Z-index 30 sous .dband (45). Drop shadow apparaît
      quand le header est "stuck" (detecté via .stuck class JS IntersectionObserver). */
-  /* Pass 16-bis screenshot user : phead reste card-like malgre fixes. Cure
-     radicale : bg & backdrop totalement retires. Titre = simple texte qui
-     coule au-dessus du contenu (sticky preserve pour rester visible scroll). */
-  .phead { position:sticky; top:0; z-index:30; margin-bottom:var(--s2); padding:14px 0 10px; background:transparent; transition:box-shadow .2s ease-out; }
-  .phead.stuck { box-shadow:var(--elev1); border-bottom-color:var(--line2); }
+  /* Pass 17 user-demand : titres POSITIONS / OVERVIEW etc n'ont PAS besoin
+     d'etre dans un bandeau. Cure : non-sticky, transparent, juste padding.
+     Le titre est un titre simple qui scroll naturellement avec le contenu. */
+  .phead { margin-bottom:var(--s2); padding:14px 0 10px; background:transparent; }
+  .phead.stuck { /* Pass 17 : retire l'effet visuel sticky qui creait le bandeau */ }
   .phead h1 { font-family:var(--fdis); font-weight:700; font-size:clamp(26px, 5vw, 35px); margin:0 0 6px; letter-spacing:.02em; text-transform:uppercase; color:var(--ink); }
   .phead .sub { font-family:var(--fb); font-weight:400; font-size:var(--t-small); letter-spacing:.04em; color:var(--steel); opacity:.65; transition:opacity .22s ease; }
   .phead:hover .sub { opacity:1; }

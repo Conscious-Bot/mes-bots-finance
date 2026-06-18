@@ -451,11 +451,11 @@ body.midnight {
   /* Sticky page header (Stripe/Linear pattern) : reste en haut au scroll
      avec backdrop subtil. Z-index 30 sous .dband (45). Drop shadow apparaît
      quand le header est "stuck" (detecté via .stuck class JS IntersectionObserver). */
-  /* Pass 16-bis screenshot user : phead reste card-like malgre fixes. Cure
-     radicale : bg & backdrop totalement retires. Titre = simple texte qui
-     coule au-dessus du contenu (sticky preserve pour rester visible scroll). */
-  .phead { position:sticky; top:0; z-index:30; margin-bottom:var(--s2); padding:14px 0 10px; background:transparent; transition:box-shadow .2s ease-out; }
-  .phead.stuck { box-shadow:var(--elev1); border-bottom-color:var(--line2); }
+  /* Pass 17 user-demand : titres POSITIONS / OVERVIEW etc n'ont PAS besoin
+     d'etre dans un bandeau. Cure : non-sticky, transparent, juste padding.
+     Le titre est un titre simple qui scroll naturellement avec le contenu. */
+  .phead { margin-bottom:var(--s2); padding:14px 0 10px; background:transparent; }
+  .phead.stuck { /* Pass 17 : retire l'effet visuel sticky qui creait le bandeau */ }
   .phead h1 { font-family:var(--fdis); font-weight:700; font-size:clamp(26px, 5vw, 35px); margin:0 0 6px; letter-spacing:.02em; text-transform:uppercase; color:var(--ink); }
   .phead .sub { font-family:var(--fb); font-weight:400; font-size:var(--t-small); letter-spacing:.04em; color:var(--steel); opacity:.65; transition:opacity .22s ease; }
   .phead:hover .sub { opacity:1; }

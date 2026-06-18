@@ -6509,10 +6509,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 _tgt = _cap / _sumcaps * 100
                 _cappct = _cap * 100
                 _heat = max(0.0, min((wv - _tgt) / (_cappct - _tgt), 1.0)) if _cappct > _tgt else 0.0
-                # Pass 6 color discipline : over-cap = decision required (trim candidate),
-                # PAS perte/danger. Hue gradient 150°→60° (vert→ambre), jamais rouge.
-                # Rouge reservé aux vrais signaux defavorables (near stop, broken thesis).
-                _hue = 150 - 90 * _heat
+                # Pass 17 revert user-demand : hue gradient original 150°→25° (vert→rouge profond).
+                _hue = 150 - 125 * _heat
                 _lt = 0.60 + 0.20 * (_hue / 150)
                 wtxt = f'<span style="color:oklch({_lt:.2f} 0.22 {_hue:.0f})">{wv:.1f}%</span>'
                 # Sizebar redesign 02/06 user "bump -> tend vers vert optimal".
@@ -6528,9 +6526,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                     _w_pos = 50.0 + min(50.0, extra / span * 50.0)
                 _w_pos = max(0.0, min(100.0, _w_pos))
                 # P2 canon : tick a 50% target + dot pour position weight.
-                # Pass 6 color discipline : under/over-cap = action requise (warn ambre),
-                # PAS bear rouge. Reservoir bear seulement pour danger (near stop, broken).
-                _w_dot_cls = "warn" if _w_pos < 25 or _w_pos > 75 else ("acc" if 40 < _w_pos < 60 else "")
+                # Pass 17 revert user-demand : bear rouge pour under/over-cap (visuel original).
+                _w_dot_cls = "bear" if _w_pos < 25 or _w_pos > 75 else ("acc" if 40 < _w_pos < 60 else "")
                 sizebar = _tbar(
                     _w_pos,
                     ticks=[(50.0, "target")],
