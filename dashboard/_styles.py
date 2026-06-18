@@ -138,6 +138,32 @@ _CSS = """
   /* Pass 5 audit polish — contain isolation : chaque card limite ses repaints
      a son propre cadre. Mouse hover/state change ne force pas relayout amont. */
   .card, .kpi { contain: layout paint; }
+  /* Pass 11 audit promotion — Copilot card in Overview prime real estate.
+     Subtle highlight (border tinted with accent) signals "this is your edge"
+     without screaming. CTA button mimics .cta-bar pill grammar. */
+  .copilot-promote { border-color: color-mix(in srgb, var(--data) 30%, var(--line)); background: color-mix(in srgb, var(--data) 3%, var(--panel)); }
+  .copilot-promote .cp-promote-edge { font-family: var(--fm); font-size: 11px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase; color: var(--data); margin-left: 8px; padding: 2px 8px; border: 1px solid color-mix(in srgb, var(--data) 40%, transparent); border-radius: var(--r-pill); }
+  .copilot-promote .cp-latest { display: flex; flex-direction: column; gap: 6px; padding: 14px 0 12px; }
+  .copilot-promote .cp-latest-meta { font-family: var(--fm); font-size: 12px; color: var(--steel); letter-spacing: .04em; }
+  .copilot-promote .cp-latest-verdict { font-family: var(--fm); font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+  .copilot-promote .cp-latest-verdict.ok { color: var(--acc); }
+  .copilot-promote .cp-latest-verdict.warn { color: var(--warn); }
+  .copilot-promote .cp-latest-verdict.bad { color: var(--bear); }
+  .copilot-promote .cp-latest-verdict.calm { color: var(--steel); }
+  .copilot-promote .cp-latest-teaser { font-family: var(--fb); font-size: 15px; line-height: 1.45; color: var(--ink); margin-top: 2px; }
+  .copilot-promote .cp-promote-cta { display: flex; align-items: center; gap: 14px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+  .copilot-promote .cp-promote-btn { font-family: var(--fb); font-size: 15px; font-weight: 500; color: var(--bg); background: var(--ink); border: none; padding: 10px 18px; border-radius: var(--r-pill); cursor: pointer; transition: transform .08s ease-out, box-shadow .15s ease-out; box-shadow: var(--elev1); }
+  .copilot-promote .cp-promote-btn:hover { box-shadow: var(--elev2); }
+  .copilot-promote .cp-promote-btn:active { transform: scale(.97); }
+  .copilot-promote .cp-promote-hint { font-family: var(--fm); font-size: 12px; color: var(--steel); }
+  /* Pass 12 audit lexicon — glossary definition list in Method section.
+     2-col grid > 720px, 1-col stack < 720. Term-def visual pair, scannable. */
+  .glosscard .gloss-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s35) var(--s4); margin: 0; padding: 0; }
+  @media (max-width: 720px) { .glosscard .gloss-list { grid-template-columns: 1fr; gap: var(--s3); } }
+  .glosscard .gloss-item { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r2); background: color-mix(in srgb, var(--ink) 2%, transparent); scroll-margin-top: 90px; }
+  .glosscard .gloss-item:target { border-color: var(--data); background: color-mix(in srgb, var(--data) 6%, transparent); }
+  .glosscard .gloss-term { font-family: var(--fm); font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 6px; letter-spacing: .02em; }
+  .glosscard .gloss-def { font-family: var(--fb); font-size: 14px; line-height: 1.5; color: var(--steel); margin: 0; }
   /* Pass 5 audit #19 : smooth scroll keyboard navigation (Tab/anchor jumps),
      gated by prefers-reduced-motion. Scroll-margin pour eviter clip sous
      header sticky .phead (~70px). */
