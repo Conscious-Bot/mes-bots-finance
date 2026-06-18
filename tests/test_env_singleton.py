@@ -59,7 +59,7 @@ def test_defaults_applied_when_unset(monkeypatch: pytest.MonkeyPatch):
     assert env.llm_cost_cap_disable is False
     assert env.llm_cost_cap_usd_24h == 10.0
     assert env.presage_port == 8000
-    assert env.presage_refresh_seconds == 60
+    assert env.presage_refresh_seconds == 300
     assert env.timezone == "Europe/Paris"
     assert env.resilience_fallback_enabled is False
     assert env.resilience_shadow_enabled is False
@@ -103,7 +103,7 @@ def test_int_parsing_fallback_on_invalid(monkeypatch: pytest.MonkeyPatch):
     env = _reload_env(monkeypatch)
     env.reset_cache()
     assert env.presage_port == 8000
-    assert env.presage_refresh_seconds == 60
+    assert env.presage_refresh_seconds == 300
     assert env.llm_cost_cap_usd_24h == 10.0
 
 
