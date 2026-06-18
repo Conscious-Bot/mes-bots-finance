@@ -1926,7 +1926,8 @@ def _fx_exposure_panel() -> str:
     for cur, d in fx.items():
         pct = d["pct"]
         wcls = "high" if pct >= 40 else ("mid" if pct >= 15 else "low")
-        # Sub : pattern accordeon comme [[geo-item]] (toggle .open au clic).
+        # Pass 9 audit denominator explicit : fx-pct "% of book", sub "of {cur}".
+        # Avant : TSM "14%" inline dans USD bucket lisait comme "14% of book" → ambiguite.
         sub_items = []
         for h in d.get("holdings", []):
             tk = h["tk"]
@@ -1934,13 +1935,13 @@ def _fx_exposure_panel() -> str:
             sub_items.append(
                 f'<div class="fx-stk"><span class="gnm">{nm or tk}</span>'
                 f'<span class="gtk">{tk if nm else ""}</span>'
-                f'<span class="gpc">{h["pct_of_cur"]:.0f}%</span>'
+                f'<span class="gpc" title="Share of {cur} bucket">{h["pct_of_cur"]:.0f}% of {cur}</span>'
                 f'<span class="gw">{h["eur"]:,.0f}&euro;</span></div>'            )
         sub_html = "".join(sub_items)
         rows.append(
             f'<div class="fx-row fx-item">'
             f'<div class="fx-head"><span class="fx-cur">{cur}</span>'
-            f'<span class="fx-pct {wcls} mono">{pct:.1f}%</span>'
+            f'<span class="fx-pct {wcls} mono" title="Share of total book exposed in {cur}">{pct:.1f}% of book</span>'
             f'<span class="fx-eur mono">{d["eur"]:,.0f}€</span>'
             f'<span class="fx-n">n={d["n_positions"]}</span>'
             f'<svg class="fx-chev" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></div>'
@@ -4604,8 +4605,8 @@ def _concentration(
     )
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position with highest individual weight in portfolio. Cap by conviction (c5 up to 22%, c4 up to 14%).">Top position</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Thesis with highest aggregated weight (sum of positions carrying it). Thematic concentration indicator.">Dominant thesis</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position with highest individual weight as share of total book. Cap by conviction (c5 up to 22%, c4 up to 14%).">Top position (of book)</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Thesis with highest aggregated weight as share of book (sum of positions carrying it). Thematic concentration indicator — distinct from sector or factor exposure.">Dominant thesis (of book)</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Cumulative capital invested in book (cost basis sum). Distinct from current value with PnL.">Capital invested</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} positions &middot; {len(sw_real)} sectors</div></div>'
         + "</div>"
     )
@@ -4728,9 +4729,12 @@ def _sector_blocks(
             if c_spl is None
             else f' &middot; <span class="sec-pl {"pos" if c_spl >= 0 else "neg"}">{"+" if c_spl >= 0 else ""}{c_spl:.1f}%</span>'
         )
+        # Pass 9 audit : "Compute AI" exists comme sector (book classification, niche L2) ET
+        # comme cluster narratif (factor exposure, plus large). Pour eviter ambiguite avec
+        # la card risque qui affiche un autre chiffre, on label explicitement "cluster".
         blocks += (
-            f'<div class="sec-super"><div class="sec-superh"><span class="sec-supername">Compute AI</span>'
-            f'<span class="sec-meta">{len(c_rows)} &middot; {c_sw:.0f}&euro; &middot; {c_pct:.1f}%{c_pm}</span></div>'
+            f'<div class="sec-super"><div class="sec-superh"><span class="sec-supername" title="Cluster narratif (membres detenus du super-groupe). Distinct du facteur exposure plus large affiche dans la card risque.">Compute AI cluster</span>'
+            f'<span class="sec-meta">{len(c_rows)} &middot; {c_sw:.0f}&euro; &middot; {c_pct:.1f}% of book{c_pm}</span></div>'
             f'<div class="sec-subwrap">{subhtml}</div></div>'
         )
     order = sorted(standalone, key=lambda fb: -sum(r["w"] for r in standalone[fb]))
@@ -4738,8 +4742,8 @@ def _sector_blocks(
         h, _sw = _render_bucket(fb, standalone[fb], total, pnl, names, daily, fx)
         blocks += h
     return (
-        f'<div class="sec-cols"><span></span><span class="num">&euro;</span><span class="num">$</span>'
-        f'<span class="num">%</span><span class="num">Day</span><span class="num">P&amp;L</span></div>'
+        f'<div class="sec-cols"><span></span><span class="num" title="Market value EUR">&euro;</span><span class="num" title="Market value USD">$</span>'
+        f'<span class="num" title="Weight as share of total book (cost basis).">% of book</span><span class="num" title="Day change, native currency">Day</span><span class="num" title="P&L vs cost basis, position-level">P&amp;L</span></div>'
         f"{blocks}"
     )
 
@@ -4790,17 +4794,20 @@ def _geo_bars(positions: list[dict]) -> str:
             sub += (
                 f'<div class="geo-stk"><span class="gnm">{nm or tk}</span>'
                 f'<span class="gtk">{tk if nm else ""}</span>'
-                f'<span class="gpc">{spc:.0f}%</span>'
+                f'<span class="gpc" title="Share of {country} bucket">{spc:.0f}% of {country}</span>'
                 f'<span class="gw">{sw:.0f}&euro;</span></div>'
             )
         # Pass 6 audit bar unification : meme langage que fx-bar (fill-from-left)
         # au lieu de dot-on-rail. Une seule grammaire visuelle pour toutes les
         # vues d'exposition (devises, pays, secteurs).
+        # Pass 9 audit denominator explicit : "% of book" sur tag + tooltip.
+        # Sub-items lisent "X% of {country}" pour eviter ambiguite (TSM 7.5% book
+        # vs 14% USD bucket vs 23% Taiwan = 3 chiffres distincts pour 1 ticker).
         bars += (
             f'<div class="geo-item">'
             f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
-            f'<span class="tag acc2">{pct:.0f}%</span></div>'
-            f'<div class="fx-bar" title="{pct:.1f}%"><div class="fx-fill" style="width:{min(pct, 100):.1f}%"></div></div>'
+            f'<span class="tag acc2" data-tip="Share of total book in {country}-domiciled positions.">{pct:.0f}% of book</span></div>'
+            f'<div class="fx-bar" title="{pct:.1f}% of book"><div class="fx-fill" style="width:{min(pct, 100):.1f}%"></div></div>'
             f'<div class="rs"><span>exposure</span><span class="mono">{w:.0f}&euro;</span></div></div>'
             f'<div class="geo-sub">{sub}</div></div>'
         )
@@ -6846,10 +6853,10 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     return (
         f'<div class="brk"><div class="brk-h"><div><span class="brk-n">{label}</span>'
         f'<span class="brk-note">{note}</span></div>'
-        f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} positions &middot; {share:.0f}% of total</span></div></div>'
+        f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} positions &middot; {share:.0f}% of book</span></div></div>'
         f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:var(--s1) 18px"><table class="dt"><thead><tr><th>Position</th>'
-        f'<th class="num">Valeur</th><th class="num">Poids</th><th class="num">P&amp;L</th>'
-        f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (laisser courir). <1 = inverse (candidate trim).">Asymmetry</th>'
+        f'<th class="num">Value</th><th class="num" title="Position weight as share of total book (cost basis).">Weight (of book)</th><th class="num" title="P&L vs cost basis, native currency.">P&amp;L</th>'
+        f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (let run). <1 = inverse (candidate trim).">Asymmetry</th>'
         f'<th title="Stop -> target progress (marker = current price, tick = target).">Progress</th></tr></thead>'
         f"<tbody>{rows}</tbody></table></div></div></div></div>"
     )
