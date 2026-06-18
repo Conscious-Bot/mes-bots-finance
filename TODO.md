@@ -1,6 +1,6 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 18 juin 2026 close marathon — Trading 6 trades net réalisé **+326.88€** + chantier dashboard audit **8 passes** (`a7c24ed` → `cbda410`) couvrant a11y P0/perf P1/responsive P0/i18n FR→EN/contrast AA/color rule discipline/tokens canoniques (80+ radii→6, 21 shadows→3, 3 fonts documentées). HTML weight 731KB→569KB (-22%). AVGO P0 #2 closed. 11 commits total sur main, CI green.
+**Refresh** : 18 juin 2026 close marathon ultime — 26 commits. Trading 6 trades +326.88€ + AVGO P0 #2 closed (3 commits matin). Dashboard audit 4 vagues, **20 passes** (1-20) : technical foundation (Pass 1-5), design discipline (6-8), strategic (9-13), use réelle + iterations user-driven (14-20). HTML -22%, tokens canoniques figés (radii/shadows/fonts/typography), Copilot promu Overview, Lexicon 25 termes, micro-graphs gauges restaurés Pass 20 user-confirmed "now good". Serve restart confirmed Cache-Control immutable actif.
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 

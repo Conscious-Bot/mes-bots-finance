@@ -3779,3 +3779,69 @@ Aucun nouveau cette suite. Tokens canoniques `--r0/r1/r2/r3/r-pill/r-circle` + `
 2. **Vérifier visuellement dashboard** : tester mobile DevTools < 640px, dark mode, hero "as of" timestamp visible, color rule appliquée (TARGET HIT green, weight gradient ambre pas rouge).
 3. **Toutes les entry items précédentes** (AMD lock_in obs +30j, KLAC sweep, Hetzner SSH, user keys) restent valides — pas touchées par les 8 passes dashboard.
 4. **Charte tokens** : toute nouvelle écriture CSS utilise `--r0..r-pill` + `--elev1..elev3`. Pas de hardcode pixels.
+
+---
+
+## Close 2026-06-18 (suite 2 — marathon dashboard 4 vagues d'audit + iterations user)
+
+### Mission
+
+Après les 8 premières passes (`a7c24ed` → `cbda410`), le user a partagé **4 audits successifs** d'un LLM-browser externe (esthétique pure → discipline système → use réelle → screenshots itératifs). 12 passes supplémentaires (9-20) plus revert/itérations user-driven.
+
+### Livré (18 commits suite, total 26 sur la journée)
+
+**Vague 3 (Pass 9-13) — Strategic + system**
+- `4bdd212` Pass 9 : denominators "of what" explicit (Weight of book, Currency of USD, etc.)
+- `c1c14c9` Pass 10 : bug Cmd+K "nvda" → 285A.T (Kioxia) fixed (search ranking : ticker exact > prefix > substring > status tiebreaker). Broker total "as of HH:MM".
+- `ec0b791` **Pass 11+12 majeur : Copilot promu Overview prime real estate + Lexicon 25 termes dans Method**.
+- `d4c6850` Pass 13 : régen default 60s → 300s (perception stability sans casser live-reload).
+
+**Vague 4 (Pass 14-20) — Use réelle + screenshots iterations**
+- `7e88ae8` Pass 14 : dband thin + nav `title=` tooltips + CTA right + LLM pill.
+- `0992c51` Pass 15 : dband non-sticky · line-height 1.55 long-form · `.badge` canonical (neutral/info/warn/danger/success) · tape edge fade.
+- `bedbc0d` **Pass 16 typography sweep total : 380+ font-sizes hardcoded → 13 tokens** (6 fixes --t-fine/meta/mini/small/data/data2 + 7 clamp existants).
+- `60da846` Pass 16-ter : retire mask fade brk-tbl (effaçait visuellement les graphs Progress).
+- `cba58cb` **Pass 17 REVERT user-demand** : stop/target visuals restaurés au pre-Pass 6 (`.th-pt` rouge, hue gradient 150°→25° complet, sizebar `bear`). Section h1 non-sticky transparent (plus de bandeau).
+- `6aad7cd` Pass 18 : revert `width:max-content` sur `table.dt` qui rétrécissait la cellule gauge.
+- `75cf516` Pass 18b : headers raccourcis (Weight au lieu de Weight (of book), Asym au lieu de Asymmetry) — dénominateurs en tooltip.
+- `143d923` Pass 19 : track gauge 6%→13% ink (rail visible) + Progress col min-width 140px.
+- `f793d78` **Pass 20 final : Progress col 180px + donut viz 240px = gauge complète stop-tick + target-tick + dot sans clip.**
+
+### Livrables clés cumulés (passes 1-20)
+
+- **HTML weight 731KB → 569KB** (-22% via Pass 2 split CSS/JS → `/static/` cacheable).
+- **Tokens canoniques figés** : 6 radii (r0/r1/r2/r3/pill/circle) · 3 elevations (elev1/2/3) · 13 fonts tokens (6 fixes + 7 clamp).
+- **Copilot promu en Overview** (killer feature plus enterré 1/8 sections).
+- **Lexicon Method** : 25 termes canoniques définis (anchor `#glossary-{slug}`).
+- **i18n** : sweep FR→EN visible chrome, 5 axes canoniques (Solidité/Pari/Doublon/Santé/Calibrage) **préservés FR** per memory `glossaire_canonique`.
+- **Régen interval default** 60s → 300s (perception stability).
+- **Cache-Control `/static/*`** immutable 1y dans serve.py (Pass 2 — activé après restart serve.py confirmé `Cache-Control: public, max-age=31536000, immutable`).
+
+### Findings non actionnés (volontairement)
+
+- **Logo glyph-only 78px** — design work, défère.
+- **Number determinism côté yfinance** — acté : "as of HH:MM" timestamp + régen 300s adressent la perception sans casser le live-reload. Yfinance jitter intra-cache restera, c'est la nature.
+
+### Faux positifs audit identifiés
+
+- `transition: all` ghosting — aucune occurrence dans le code (auditor erreur).
+- `Brier rolling 0.000` empty state — déjà géré (`brier_str = "—"` quand `brier_mean is None`).
+- Method nav orphan — décision 02/06 user : intentionnel dans le foot.
+- Tape "AMD +2.5%" cut-off — artefact loop transition (Pass 15 mask fade rejected user, retiré Pass 16-ter).
+
+### Doctrine émergente (à graver L?)
+
+- **Doctrine perception > technique** sur outil de discipline : un timestamp "as of" + régen plus lent vaut mieux qu'un live-reload agressif qui crée perception "values bounce".
+- **User-feedback loop visuel** : screenshots itératifs supérieurs à audits abstraits. Pass 17-20 toutes nées de screenshots concrets ; chaque correction = pas vers convergence.
+- **Reverts assumés** : Pass 17 a annulé Pass 6 color discipline sur user-demand. Doctrine : design discipline peut s'opposer au gout user, le user gagne. Cf déjà `feedback_robinhood_inspiration` (couleurs action-trigger).
+
+### Restart serve effectué
+
+`pkill 14411` (process depuis 12/06) + relaunch nohup. Confirmé `Cache-Control: immutable` actif sur `/static/*`. Nouveau PID 66352.
+
+### Entry next session
+
+1. **Vérification visuelle complète** : user a confirmé "now good" sur Pass 20. Tester mobile DevTools, dark mode, dark/light themed.
+2. **Backlog inchangé** : AMD lock_in obs +30j (résolution 2026-07-18), KLAC sweep #135, Hetzner SSH, user keys (Voyage/healthchecks/FRED/Bigdata).
+3. **Tokens charte** : toute nouvelle écriture CSS utilise --r0..r-pill, --elev1..elev3, --t-* tokens. Pas de hardcode pixels.
+4. **Memory candidates** : doctrine "user-feedback loop visuel" et "perception > technique" à formaliser si pattern récurrent.
