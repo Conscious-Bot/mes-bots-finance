@@ -1693,8 +1693,13 @@ body.midnight {
   /* --- Tableau : interactivité + densité + typo --- */
   table.dt tbody tr{ transition:background .15s var(--ease); border-bottom:1px solid rgba(232,234,237,.6); }
   table.dt tbody tr:hover{ background:linear-gradient(90deg,rgba(45,91,255,.05),rgba(45,91,255,.02)); }
-  table.dt thead th{ letter-spacing:.04em; text-transform:uppercase; font-size:11px; color:var(--metal); font-weight:700; padding:10px 0!important; border-bottom:1px solid var(--line)!important; }
-  table.dt tbody td{ padding:11px 0!important; font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+  table.dt thead th{ letter-spacing:.04em; text-transform:uppercase; font-size:11px; color:var(--metal); font-weight:700; padding:10px 0 10px 18px!important; border-bottom:1px solid var(--line)!important; }
+  table.dt tbody td{ padding:11px 0 11px 18px!important; font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+  /* 19/06 fix chevauchement colonnes legacy .dt (Theses/Method/etc) : la modernisation
+     avait padding horizontal 0 -> "VALUE"+"WEIGHT" et "ASYM"+"PROGRESS" collés,
+     et "target ✓" chevauchait la gauge. Redonne gap gauche sauf 1ere col + nowrap. */
+  table.dt thead th:first-child, table.dt tbody td:first-child{ padding-left:0!important; }
+  table.dt th.num, table.dt td.num{ white-space:nowrap; }
 
   /* --- Badges / chips (soft fill) --- */
   .warn-chip{ border-radius:999px; padding:2px 8px; font-weight:700; letter-spacing:.04em; line-height:1.4; transition:transform .12s var(--ease),filter .12s var(--ease); }
@@ -1731,6 +1736,32 @@ body.midnight {
   body.midnight .brk-row-bar{ background:rgba(255,255,255,.08); box-shadow:inset 0 0 0 1px rgba(255,255,255,.04); }
   body.midnight .warn-chip-warn{ background:rgba(161,98,7,.18); border-color:rgba(180,120,30,.5); }
   body.midnight .warn-chip-bear{ background:rgba(220,38,38,.18); border-color:rgba(240,80,80,.5); }
+
+/* ============================================================
+   Needs you today (v3 19/06 evening) — crochet decisionnel Overview
+   Strip de cartes routables au top du panel Vigie : Positions <10%
+   du stop (crit, bear) + clusters over cap (caut, warn). Si vide :
+   carte ok 'All clear'. Clic -> nav vers page concernee.
+   ============================================================ */
+.needs { margin: var(--s4) 0; }
+.needs-lbl { display:flex; align-items:center; gap:10px; margin:0 2px 10px; font-family:var(--fm); font-weight:500; font-size:var(--t-mini); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); }
+.needs-lbl b { color:var(--ink); font-weight:600; }
+.needrow { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:760px) { .needrow { grid-template-columns:1fr; } }
+.need { display:flex; align-items:center; gap:14px; padding:15px 18px; border:1px solid var(--line); border-radius:var(--r3); background:var(--panel); cursor:pointer; transition:transform .16s var(--ease),box-shadow .16s var(--ease); }
+.need:hover { transform:translateY(-2px); box-shadow:var(--elev1); }
+.need .sv { width:42px; height:42px; border-radius:var(--r2); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:var(--fm); font-weight:600; font-size:var(--t-data); }
+.need.crit { border-color:color-mix(in srgb,var(--bear) 32%,var(--line)); } .need.crit .sv { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
+.need.caut { border-color:color-mix(in srgb,var(--warn) 30%,var(--line)); } .need.caut .sv { background:color-mix(in srgb,var(--warn) 14%,transparent); color:var(--warn); }
+.need.ok { cursor:default; } .need.ok .sv { background:color-mix(in srgb,var(--acc) 13%,transparent); color:var(--acc); } .need.ok:hover { transform:none; box-shadow:none; }
+.need .body { flex:1; min-width:0; }
+.need .ttl { font-family:var(--fb); font-weight:600; font-size:var(--t-data2); display:flex; align-items:center; gap:8px; }
+.need .tag { font-family:var(--fm); font-size:var(--t-fine); letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:var(--r1); }
+.need.crit .tag { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
+.need.caut .tag { background:color-mix(in srgb,var(--warn) 14%,transparent); color:var(--warn); }
+.need .desc { font-family:var(--fm); font-size:var(--t-mini); color:var(--steel); margin-top:4px; }
+.need .go { color:var(--steel); flex-shrink:0; font-size:20px; line-height:1; transition:transform .16s var(--ease),color .16s; }
+.need:hover .go { color:var(--data); transform:translateX(3px); }
 
 /* ============================================================
    POSITIONS v3 (19/06 evening redesign target screenshot)
@@ -1816,19 +1847,22 @@ table.pos-dt{ width:100%; border-collapse:collapse; }
 .pos-asym.barbell{ color:var(--acc); } .pos-asym.inv{ color:var(--steel); }
 .pos-asym .x{ font-weight:400; color:var(--steel); }
 
-/* progress gauge teal arc */
-.pos-gauge{ width:170px; height:6px; background:color-mix(in srgb,var(--ink) 8%,transparent); border-radius:3px; position:relative; display:inline-block; vertical-align:middle; }
-.pos-gauge .fill{ height:100%; background:var(--data); border-radius:3px; transition:width .5s cubic-bezier(.2,.8,.2,1); }
-.pos-gauge .dot{ position:absolute; top:50%; width:14px; height:14px; border-radius:50%; background:var(--bg); border:2px solid var(--data); transform:translate(-50%,-50%); box-shadow:0 1px 3px rgba(16,24,40,.18); }
-.pos-gauge .tick{ position:absolute; top:-3px; right:0; width:2px; height:12px; background:var(--acc); border-radius:1px; }
+/* progress gauge — wraps canonical _position_axis_price (5 repères stop/entry/partial/target/dot prix).
+   Largeur reduite pour eviter overflow de la target-tick a droite (la canonique
+   pose le tick avec right negatif). td:last-child garde un padding-right qui
+   absorbe le debordement intrinseque. */
+.pos-gauge-wrap{ display:inline-block; width:130px; max-width:100%; vertical-align:middle; box-sizing:border-box; }
+.pos-gauge-wrap .row-bar,
+.pos-gauge-wrap .axis{ width:100%; box-sizing:border-box; }
+.pos-dt td:last-child{ padding-right:8px; }
 
 /* alert row (AT STOP) */
 .pos-dt tr.pos-alert td{ background:color-mix(in srgb,var(--bear) 6%,transparent); }
 .pos-dt tr.pos-alert:hover td{ background:color-mix(in srgb,var(--bear) 10%,transparent); }
 .pos-dt tr.pos-alert .pos-sym{ color:var(--bear); }
 .pos-dt tr.pos-alert .pos-mono{ background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
-.pos-dt tr.pos-alert .pos-gauge .fill{ background:var(--bear); }
-.pos-dt tr.pos-alert .pos-gauge .dot{ border-color:var(--bear); }
+/* Alert row gauge : la canonique gere deja la couleur du dot via le prix actuel
+   (rouge si <stop). Pas de surcharge a appliquer ici. */
 .pos-stop-chip{ display:inline-block; font-family:var(--fm); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--bear); border:1px solid color-mix(in srgb,var(--bear) 38%,transparent); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:3px 9px; border-radius:5px; font-weight:700; margin-left:10px; vertical-align:middle; }
 
 body.midnight .pos-hero,

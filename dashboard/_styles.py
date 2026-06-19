@@ -1592,6 +1592,34 @@ _CSS = """
   body.midnight .warn-chip-bear{ background:rgba(220,38,38,.18); border-color:rgba(240,80,80,.5); }
 """
 
+_NEEDS_TODAY_CSS = """
+/* ============================================================
+   Needs you today (v3 19/06 evening) — crochet decisionnel Overview
+   Strip de cartes routables au top du panel Vigie : Positions <10%
+   du stop (crit, bear) + clusters over cap (caut, warn). Si vide :
+   carte ok 'All clear'. Clic -> nav vers page concernee.
+   ============================================================ */
+.needs { margin: var(--s4) 0; }
+.needs-lbl { display:flex; align-items:center; gap:10px; margin:0 2px 10px; font-family:var(--fm); font-weight:500; font-size:var(--t-mini); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); }
+.needs-lbl b { color:var(--ink); font-weight:600; }
+.needrow { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:760px) { .needrow { grid-template-columns:1fr; } }
+.need { display:flex; align-items:center; gap:14px; padding:15px 18px; border:1px solid var(--line); border-radius:var(--r3); background:var(--panel); cursor:pointer; transition:transform .16s var(--ease),box-shadow .16s var(--ease); }
+.need:hover { transform:translateY(-2px); box-shadow:var(--elev1); }
+.need .sv { width:42px; height:42px; border-radius:var(--r2); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:var(--fm); font-weight:600; font-size:var(--t-data); }
+.need.crit { border-color:color-mix(in srgb,var(--bear) 32%,var(--line)); } .need.crit .sv { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
+.need.caut { border-color:color-mix(in srgb,var(--warn) 30%,var(--line)); } .need.caut .sv { background:color-mix(in srgb,var(--warn) 14%,transparent); color:var(--warn); }
+.need.ok { cursor:default; } .need.ok .sv { background:color-mix(in srgb,var(--acc) 13%,transparent); color:var(--acc); } .need.ok:hover { transform:none; box-shadow:none; }
+.need .body { flex:1; min-width:0; }
+.need .ttl { font-family:var(--fb); font-weight:600; font-size:var(--t-data2); display:flex; align-items:center; gap:8px; }
+.need .tag { font-family:var(--fm); font-size:var(--t-fine); letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:var(--r1); }
+.need.crit .tag { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
+.need.caut .tag { background:color-mix(in srgb,var(--warn) 14%,transparent); color:var(--warn); }
+.need .desc { font-family:var(--fm); font-size:var(--t-mini); color:var(--steel); margin-top:4px; }
+.need .go { color:var(--steel); flex-shrink:0; font-size:20px; line-height:1; transition:transform .16s var(--ease),color .16s; }
+.need:hover .go { color:var(--data); transform:translateX(3px); }
+"""
+
 _POSITIONS_V3_CSS = """
 /* ============================================================
    POSITIONS v3 (19/06 evening redesign target screenshot)
@@ -1677,10 +1705,14 @@ table.pos-dt{ width:100%; border-collapse:collapse; }
 .pos-asym.barbell{ color:var(--acc); } .pos-asym.inv{ color:var(--steel); }
 .pos-asym .x{ font-weight:400; color:var(--steel); }
 
-/* progress gauge — wraps canonical _position_axis_price (5 repères stop/entry/partial/target/dot prix). */
-.pos-gauge-wrap{ display:inline-block; width:180px; vertical-align:middle; }
+/* progress gauge — wraps canonical _position_axis_price (5 repères stop/entry/partial/target/dot prix).
+   Largeur reduite pour eviter overflow de la target-tick a droite (la canonique
+   pose le tick avec right negatif). td:last-child garde un padding-right qui
+   absorbe le debordement intrinseque. */
+.pos-gauge-wrap{ display:inline-block; width:130px; max-width:100%; vertical-align:middle; box-sizing:border-box; }
 .pos-gauge-wrap .row-bar,
-.pos-gauge-wrap .axis{ width:100%; }
+.pos-gauge-wrap .axis{ width:100%; box-sizing:border-box; }
+.pos-dt td:last-child{ padding-right:8px; }
 
 /* alert row (AT STOP) */
 .pos-dt tr.pos-alert td{ background:color-mix(in srgb,var(--bear) 6%,transparent); }

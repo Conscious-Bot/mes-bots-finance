@@ -29,7 +29,14 @@ from dashboard._scripts import (
     _SORT_JS,
     _THEME_INIT,
 )
-from dashboard._styles import _CSS, _DBA_CSS, _POSITIONS_V3_CSS, _TH_CSS, _TOKENS_CSS
+from dashboard._styles import (
+    _CSS,
+    _DBA_CSS,
+    _NEEDS_TODAY_CSS,
+    _POSITIONS_V3_CSS,
+    _TH_CSS,
+    _TOKENS_CSS,
+)
 from intelligence import asymmetry as asym_mod
 
 importlib.reload(_ticker_logos_mod)
@@ -7113,6 +7120,54 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     )
 
 
+def _needs_today(positions: list[dict], pnl: dict, near: int) -> str:
+    """v3 (19/06) crochet decisionnel 'Needs you today' en haut d'Overview.
+
+    Reutilise EXACTEMENT les signaux du bandeau discipline (_dev_items) :
+    clusters hors cap (_cluster_health) + positions <10% du stop (near).
+    Rend un strip de cartes routables (clic -> page concernee). Si rien :
+    carte positive 'All clear' (appui sur le positif). Aucune donnee inventee.
+    """
+    items = []  # (cls, sv, title, tag, desc, nav)
+    if near:
+        items.append((
+            "crit", "STOP", "Positions near stop", f"{near}",
+            f"{near} position(s) &lt; 10% from stop &middot; revise stop or cut", "urgence",
+        ))
+    for _c in _cluster_health(positions, pnl):
+        if _c.get("breached"):
+            items.append((
+                "caut", "CAP", f"{_c['name']} cluster over cap",
+                f"+{_c['over_eur']:,.0f}&nbsp;&euro;", "trim to get back under cap", "concentration",
+            ))
+    if not items:
+        body = (
+            '<div class="need ok"><div class="sv">&check;</div>'
+            '<div class="body"><div class="ttl">All clear today</div>'
+            '<div class="desc">no cluster over cap, no position near stop</div></div></div>'
+        )
+        n_lbl = "0 items"
+    else:
+        cards = []
+        for cls, sv, title, tag, desc, nav in items:
+            cards.append(
+                f'<div class="need {cls}" role="button" tabindex="0" '
+                f'onclick="document.querySelector(&#39;[data-nav={nav}]&#39;).click()">'
+                f'<div class="sv">{sv}</div>'
+                f'<div class="body"><div class="ttl">{title} <span class="tag">{tag}</span></div>'
+                f'<div class="desc">{desc}</div></div>'
+                f'<span class="go">&rsaquo;</span></div>'
+            )
+        body = "".join(cards)
+        n_lbl = f"{len(items)} item(s)"
+    return (
+        '<div class="needs">'
+        f'<div class="needs-lbl"><b>Needs you today</b> &middot; {n_lbl}</div>'
+        f'<div class="needrow">{body}</div>'
+        '</div>'
+    )
+
+
 def _ticker_warnings_map(positions: list[dict]) -> dict[str, list[dict]]:
     """Map ticker -> list of macro_book_warnings affecting it.
 
@@ -7506,7 +7561,7 @@ def _write_static_bundle() -> tuple[int, int]:
     """
     static_dir = Path(__file__).parent / "static"
     static_dir.mkdir(exist_ok=True)
-    app_css = _TOKENS_CSS + _CSS + _POSITIONS_V3_CSS
+    app_css = _TOKENS_CSS + _CSS + _NEEDS_TODAY_CSS + _POSITIONS_V3_CSS
     app_js = _APP_JS.replace(
         "__TKDOMAIN_JSON__", json.dumps(_ticker_logos_mod.TICKER_DOMAIN)
     ).replace(
@@ -8238,6 +8293,10 @@ def render() -> Path:
         # D5 retire 02/06 user : "Capital investi" duplique avec Star Concentration.
         # Vigie garde valeur PF + grade en haut (suffisant pour posture).
         + '</div>'
+        # v3 19/06 evening : crochet decisionnel "Needs you today" juste sous le hero.
+        # Reutilise near (positions <10% stop) + _cluster_health (clusters over cap).
+        # Memes signaux que _dband disciplines, mais en strip routable acc-haut.
+        + _needs_today(positions, pnl, near)
         # Pass 11 audit promotion : copilot adversarial in prime real estate.
         + _copilot_promote_card()
         # Track record + Sante distribution deplaces vers page "signaux"
