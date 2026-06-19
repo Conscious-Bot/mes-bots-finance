@@ -78,15 +78,15 @@ def compute_book_warnings(
     # R1 : FRAGILE/STRESS + semis dominant -> repricing risk concentre.
     if regime in ("FRAGILE", "STRESS", "LATE_CYCLE") and semis_share > _R1_SEMIS_MIN:
         sev = "high" if regime == "STRESS" else "med"
-        tyx_phrase = f"Taux 30Y à {tyx:.1f}% (>4.2 = repricing actif). " if tyx and tyx > 4.2 else ""
+        tyx_phrase = f"30Y rate at {tyx:.1f}% (>4.2 = active repricing). " if tyx and tyx > 4.2 else ""
         warnings.append(Warning(
             severity=sev,
             rule_id="R1_semis_concentration",
-            action=f"Resserre tes stops sur le cluster semis ({semis_share:.0f}% du book)",
+            action=f"Tighten stops on the semis cluster ({semis_share:.0f}% of book)",
             rationale=(
-                f"Marché en {regime}. {tyx_phrase}"
-                f"Les multiples growth craquent en premier sur repricing brutal, "
-                f"et ton book est concentré à {semis_share:.0f}% sur les semis."
+                f"Market in {regime}. {tyx_phrase}"
+                f"Growth multiples crack first on brutal repricing, "
+                f"and your book is concentrated at {semis_share:.0f}% on semis."
             ),
             tickers=semis_tickers[:5],
         ))
@@ -97,11 +97,11 @@ def compute_book_warnings(
         warnings.append(Warning(
             severity=sev,
             rule_id="R2_carry_unwind_jp",
-            action=f"Hedge ou réduis tes positions japonaises ({jp_share:.0f}% du book)",
+            action=f"Hedge or trim your Japanese positions ({jp_share:.0f}% of book)",
             rationale=(
-                f"USDJPY à {usdjpy:.1f}. BoJ/MoF ont déjà dépensé > 73 Mds$ pour défendre 160 "
-                f"en avril-mai 2026, l'intervention est confirmée. Si l'unwind carry démarre, "
-                f"yen monte vite et tech JP vendus en cascade. Tu as {len(jp_tickers)} positions JP."
+                f"USDJPY at {usdjpy:.1f}. BoJ/MoF already spent > $73B defending 160 "
+                f"in April-May 2026, intervention confirmed. If carry unwind starts, "
+                f"yen rises fast and JP tech gets sold in cascade. You have {len(jp_tickers)} JP positions."
             ),
             tickers=jp_tickers[:5],
         ))
@@ -112,11 +112,11 @@ def compute_book_warnings(
         warnings.append(Warning(
             severity="med",
             rule_id="R3_growth_tech_dominance",
-            action=f"Diversifie hors du growth-tech ({growth_tech:.0f}% combiné)",
+            action=f"Diversify outside growth-tech ({growth_tech:.0f}% combined)",
             rationale=(
-                f"Tu cumules {semis_share:.0f}% semis + {tech_mega_share:.0f}% mega-cap = "
-                f"{growth_tech:.0f}% du book exposé au même facteur taux. "
-                f"L'energie ({energy_share:.0f}%) et les industriels EU décorrèlent."
+                f"You cumulate {semis_share:.0f}% semis + {tech_mega_share:.0f}% mega-cap = "
+                f"{growth_tech:.0f}% of book exposed to the same rate factor. "
+                f"Energy ({energy_share:.0f}%) and EU industrials decorrelate."
             ),
             tickers=tech_tickers[:5],
         ))
@@ -126,10 +126,10 @@ def compute_book_warnings(
         warnings.append(Warning(
             severity="med",
             rule_id="R4_auto_ev_stress",
-            action="Allège le cluster auto/EV",
+            action="Trim the auto/EV cluster",
             rationale=(
-                "Marché en STRESS et le cycle auto est en contraction. "
-                "Marges sous pression + sentiment fragile = baisse rapide possible."
+                "Market in STRESS and auto cycle is contracting. "
+                "Margins under pressure + fragile sentiment = rapid drop possible."
             ),
             tickers=by_sector.get("auto_ev", {}).get("tickers", [])[:5],
         ))
@@ -139,11 +139,11 @@ def compute_book_warnings(
         warnings.append(Warning(
             severity="low",
             rule_id="R5_complacent_hedge",
-            action="Considère un hedge tactique (puts SPY / call spread VIX)",
+            action="Consider a tactical hedge (SPY puts / VIX call spread)",
             rationale=(
-                f"VIX à {vix:.1f} = ultra-bas, spreads serrés. "
-                f"Le coût d'un hedge est minimal historiquement, et le risque de "
-                f"correction asymétrique se construit."
+                f"VIX at {vix:.1f} = ultra-low, tight spreads. "
+                f"Hedge cost is historically minimal, and asymmetric correction risk "
+                f"is building up."
             ),
             tickers=[],
         ))

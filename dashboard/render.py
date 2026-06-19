@@ -2963,7 +2963,7 @@ def _position_card(inputs, steer_v2) -> str:
         cap_cls = "ok" if inputs.weight_pct <= inputs.cap_for_conviction_pct else "warn"
         if inputs.target_edge_pct is not None:
             edge_cls = "ok" if inputs.weight_pct <= inputs.target_edge_pct else "warn"
-            edge_value = f"{inputs.target_edge_pct:.2f}%"
+            edge_value = f"{inputs.target_edge_pct:.1f}%"
         else:
             edge_cls = "neu"
             edge_value = "structural" if inputs.position_type == "structural" else "n/a"
@@ -2974,7 +2974,7 @@ def _position_card(inputs, steer_v2) -> str:
             "structural": "structural (downside non-borne par prix, cap conv prime)",
         }.get(inputs.sizing_binding or "", "?")
         binding_value = (
-            f"{inputs.binding_target_pct:.2f}%"
+            f"{inputs.binding_target_pct:.1f}%"
             if inputs.binding_target_pct is not None else "?"
         )
         sizing_3way_html = (
@@ -2984,14 +2984,14 @@ def _position_card(inputs, steer_v2) -> str:
             'grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:var(--t-mini)">'
             '<div class="pc-sizing-cell">'
             f'<div class="pc-sizing-k" style="opacity:0.6;font-size:var(--t-fine)">REAL (live)</div>'
-            f'<div class="pc-sizing-v mono {real_cls}">{inputs.weight_pct:.2f}%</div>'
+            f'<div class="pc-sizing-v mono {real_cls}">{inputs.weight_pct:.1f}%</div>'
             '</div>'
             '<div class="pc-sizing-cell">'
             f'<div class="pc-sizing-k" style="opacity:0.6;font-size:var(--t-fine)">target-conv (cap c{inputs.conviction_current or "?"})</div>'
-            f'<div class="pc-sizing-v mono {cap_cls}">{inputs.cap_for_conviction_pct:.2f}%</div>'
+            f'<div class="pc-sizing-v mono {cap_cls}">{inputs.cap_for_conviction_pct:.1f}%</div>'
             '</div>'
             '<div class="pc-sizing-cell">'
-            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:var(--t-fine)">target-edge (ruin {inputs.ruin_budget_per_name_pct:.2f}%/NAV)</div>'
+            f'<div class="pc-sizing-k" style="opacity:0.6;font-size:var(--t-fine)">target-edge (ruin {inputs.ruin_budget_per_name_pct:.1f}%/NAV)</div>'
             f'<div class="pc-sizing-v mono {edge_cls}">{edge_value}</div>'
             '</div>'
             '</div>'
@@ -3716,7 +3716,7 @@ def _user_strategy_panel() -> str:
         f'<div class="us-row"><span class="us-k">Main bet target</span><span class="us-v mono">{cap}%</span></div>'
         f'<div class="us-row"><span class="us-k">Other bets target</span><span class="us-v mono">{dec}%</span></div>'
         f'<div class="us-row"><span class="us-k">Benchmark</span><span class="us-v mono">{bench}</span></div>'
-        f'<div class="us-row"><span class="us-k">Theses horizon</span><span class="us-v mono">{horizon} ans</span></div>'
+        f'<div class="us-row"><span class="us-k">Thesis horizon</span><span class="us-v mono">{horizon} years</span></div>'
         f'<div class="us-row"><span class="us-k">Accepted concentrations</span><span class="us-v">{accepted_html}</span></div>'
         '</div>'
         f'{cta_html}'
@@ -4805,7 +4805,7 @@ def _render_bucket(
         lines += (
             f'<div class="sec-row" data-tk="{tk}" data-w="{w:.2f}" data-pct="{pct:.4f}" data-dv="{dv if dv is not None else -1e9:.2f}" data-pl="{pl if pl is not None else -1e9:.2f}">'
             f'<span class="sec-tk">{_ticker_logo(tk)}{tk}{badge}{nmspan}</span>'
-            f'<span class="num">{w:.0f}&euro;</span><span class="num">${usd:.0f}</span>'
+            f'<span class="num">{w:,.0f}&euro;</span><span class="num">${usd:,.0f}</span>'
             f'<span class="num">{pct:.1f}%</span>{dvc}{plc}</div>'
         )
     cls = "sec-grp sub" if sub else "sec-grp"
@@ -4817,7 +4817,7 @@ def _render_bucket(
     return (
         f'<div class="{cls}"><div class="sec-h">'
         f'<span class="sec-name">{name} <span class="sec-n">{len(rows)}</span></span>'
-        f'<span class="num sec-agg">{sw:.0f}&euro;</span>'
+        f'<span class="num sec-agg">{sw:,.0f}&euro;</span>'
         f'<span></span>'
         f'<span class="num sec-agg">{spct:.1f}%</span>'
         f'<span></span>'
@@ -4876,7 +4876,7 @@ def _sector_blocks(
         # la card risque qui affiche un autre chiffre, on label explicitement "cluster".
         blocks += (
             f'<div class="sec-super"><div class="sec-superh"><span class="sec-supername" title="Cluster narratif (membres detenus du super-groupe). Distinct du facteur exposure plus large affiche dans la card risque.">Compute AI cluster</span>'
-            f'<span class="sec-meta">{len(c_rows)} &middot; {c_sw:.0f}&euro; &middot; {c_pct:.1f}% of book{c_pm}</span></div>'
+            f'<span class="sec-meta">{len(c_rows)} &middot; {c_sw:,.0f}&euro; &middot; {c_pct:.1f}% of book{c_pm}</span></div>'
             f'<div class="sec-subwrap">{subhtml}</div></div>'
         )
     order = sorted(standalone, key=lambda fb: -sum(r["w"] for r in standalone[fb]))
@@ -4937,7 +4937,7 @@ def _geo_bars(positions: list[dict]) -> str:
                 f'<div class="geo-stk"><span class="gnm">{nm or tk}</span>'
                 f'<span class="gtk">{tk if nm else ""}</span>'
                 f'<span class="gpc" title="Share of {country} bucket">{spc:.0f}% of {country}</span>'
-                f'<span class="gw">{sw:.0f}&euro;</span></div>'
+                f'<span class="gw">{sw:,.0f}&euro;</span></div>'
             )
         # Pass 6 audit bar unification : meme langage que fx-bar (fill-from-left)
         # au lieu de dot-on-rail. Une seule grammaire visuelle pour toutes les
@@ -4950,7 +4950,7 @@ def _geo_bars(positions: list[dict]) -> str:
             f'<div class="row"><div class="rt"><span class="tk">{country}</span>'
             f'<span class="tag acc2" data-tip="Share of total book in {country}-domiciled positions.">{pct:.0f}% of book</span></div>'
             f'<div class="fx-bar" title="{pct:.1f}% of book"><div class="fx-fill" style="width:{min(pct, 100):.1f}%"></div></div>'
-            f'<div class="rs"><span>exposure</span><span class="mono">{w:.0f}&euro;</span></div></div>'
+            f'<div class="rs"><span>exposure</span><span class="mono">{w:,.0f}&euro;</span></div></div>'
             f'<div class="geo-sub">{sub}</div></div>'
         )
     js = (
@@ -5703,7 +5703,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         "VIX": (1, "VIX", 2, False),
         "DXY": (1, "Dollar (DXY)", 2, False),
         "BTC_drawdown180": (1, "BTC drawdown 6M (%)", 1, False),
-        "Gold": (1, "Or ($/oz)", 0, True),
+        "Gold": (1, "Gold ($/oz)", 0, True),
         # Tier 2: Stress bancaire & liquidité Fed — signaux avancés en haut, plomberie milieu, slow bas
         # RepoSRF retire 02/06 -- replace par BankReserves (ADR 006 audit : ON RRP ambigu post-QT).
         "MOVE": (2, "Bond vol (MOVE)", 2, False),
@@ -5790,10 +5790,10 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         }
     # Render buckets in stress order. Headers incluent count chip + intent line.
     _BUCKET_META = [
-        ("act", "ACT NOW", "bear", "stress materiel, posture defensive maintenant"),
-        ("watch", "WATCH", "warn", "borderline, suivre direction sur 7j"),
-        ("asleep", "CALM", "steel", "calm zone, no action required"),
-        ("silent", "SILENT", "steel", "donnee absente/stale, non-decidable"),
+        ("act", "ACT NOW", "bear", "Material stress — defensive posture now."),
+        ("watch", "WATCH", "warn", "Borderline — track direction over 7d."),
+        ("asleep", "CALM", "steel", "Calm zone — no action required."),
+        ("silent", "SILENT", "steel", "Data absent/stale — non-decidable."),
     ]
     blocks_parts = []
     for _bkey, _blabel, _bcls, _btip in _BUCKET_META:
@@ -8001,7 +8001,7 @@ def render() -> Path:
         _val_col_d = "acc" if _val_d >= 0 else "bear"
         _val_delta_str = (
             f'<span class="ps-trend-delta {_val_col_d}">{_val_arrow_d} '
-            f'{abs(_val_d):,.0f}&nbsp;&euro; ({"+" if _val_d_pct >= 0 else ""}{_val_d_pct:.2f}%) vs J-1</span>'
+            f'{abs(_val_d):,.0f}&nbsp;&euro; ({"+" if _val_d_pct >= 0 else ""}{_val_d_pct:.1f}%) vs J-1</span>'
         )
     if len(_spark_vals) >= 2:
         _spk_lo, _spk_hi = min(_spark_vals), max(_spark_vals)

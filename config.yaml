@@ -393,10 +393,9 @@ risk:
 user_strategy:
   archetype: "concentrator_thematic"
   description: >
-    Compounder de conviction sur un supercycle reel (capex IA). La concentration
-    sectorielle est DELIBEREE, pas une violation. Les autres paris (defense,
-    uranium, GNL, terres rares) sont des decorrelants tactiques, pas une
-    diversification large-cap.
+    Conviction compounder on a real supercycle (AI capex). Sectoral concentration
+    is DELIBERATE, not a violation. Other bets (defense, uranium, LNG, rare earths)
+    are tactical decorrelators, not large-cap diversification.
   # Cibles personnalisees (remplacent les defaults config.yaml.concentration)
   target_cluster_cap_pct: 70
   target_decorrelation_pct: 15
