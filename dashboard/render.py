@@ -6980,7 +6980,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             if _proxy_reason else ""
         )
         rows += (
-            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}{tk}<span class="nm">{nm}</span>{_cp_chip}{_tw_chips}</td>'
+            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}<span class="tk-sym">{tk}</span><span class="nm">{nm}</span>{_cp_chip}{_tw_chips}</td>'
             f'<td class="num mono">{vstr}&nbsp;&euro;{_proxy_chip}</td><td class="num">{w:.1f}%</td>'
             f'<td class="num {pcls}">{pstr}</td>'
             f'<td class="{asym_cls}">{asym_str}</td>'

@@ -781,7 +781,11 @@ _CSS = """
   .dt td.pos { color:var(--acc); } .dt td.neg { color:var(--bear); }
   .bdg { display:inline-block; margin-left:var(--s2); font-family:var(--fb); font-size:var(--t-data); letter-spacing:.1em; text-transform:uppercase; color:var(--id); border:1px solid color-mix(in srgb, var(--acc2) 40%, transparent); border-radius:var(--r0); padding:1px 5px; vertical-align:middle; }
   .dt tr.prev td { opacity:.72; } .dt tr.prev td.tk { color:var(--id); }
-  .nm { display:block; font-size:var(--t-data); font-weight:400; color:var(--steel); margin-top:2px; }
+  /* Pass 24 audit 7 #6 : ticker/name colles ("ASML.ASASML HOLDING"). Cure :
+     - tk-sym wrap explicit autour du symbol pour grab le block flow.
+     - .nm display:block + margin-top 4px (au lieu de 2) pour clear visual break. */
+  .tk-sym { display:block; font-family:var(--fm); font-weight:600; color:var(--ink); }
+  .nm { display:block; font-size:var(--t-data); font-weight:400; color:var(--steel); margin-top:4px; }
   .ph3 { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin:0 0 12px; }
   .dtier { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin:0 0 6px; padding-bottom:var(--s15); border-bottom:1px solid var(--line); break-after:avoid; }
   /* Macro stress monitor full-width : flow tiers en colonnes auto
