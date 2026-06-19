@@ -126,24 +126,18 @@
      deux indifferemment). */
   --ink2:  #374151;   /* secondaire (preserved pour usages explicites) */
   --steel: #5B6270;   /* secondary / captions — AA 5.2:1 on near-white bg */
-  --metal: #5B6270;   /* alias --steel pour back-compat */
   --id:    #1C1E21;   /* identite = ink */
 
-  /* --- 3. ACCENTS reframe 02/06 user "vert/rouge necessaires mais moins
-     flashy". 3 hues : data blue (focus/accent) + green (gain) + red (loss).
-     Tons sobres dense-friendly (Tailwind 700 family), pas neon. */
-  /* v2 Teal colorway (19/06) — accent re-point ONLY. Cold-instrument
-     DNA intact : single accent, sober green/red unchanged. A future colorway
-     = change --data/--data-2 here; --glow/--hair derive automatically. */
+  /* --- 3. ACCENTS canoniques (audit P1 19/06 : drop des aliases --data-2,
+     --acc2, --gold qui doublonnaient leurs primaires sans valeur ajoutee). */
+  /* v3 Teal colorway : 1 accent unique (DNA cold instrument).
+     Future colorway = change --data ici, --glow/--hair derivent. */
   --data:   #0D9488;  /* teal-600 — accent focus / interactive / neutral-info */
-  --data-2: #0D9488;  /* accent lift (same as --data in light) */
   --glow:   color-mix(in srgb, var(--data) 48%, transparent);
   --hair:   linear-gradient(120deg, color-mix(in srgb, var(--data) 34%, transparent), color-mix(in srgb, var(--ink) 5%, transparent) 42%, color-mix(in srgb, var(--ink) 2%, transparent));
-  --acc:   #16A34A;   /* green-600 flashy (bump 03/06 user "a bit more flashy green") */
-  --acc2:  #16A34A;
-  --bear:  #DC2626;   /* red-600 flashy fintech action-trigger (bump 03/06 user "same flashy red partout") */
-  --warn:  #A16207;   /* amber-700 sobre, ochre vigilance */
-  --gold:  #A16207;   /* alias warn (1 spark spec) */
+  --acc:   #16A34A;   /* green-600 — gain / validated-healthy */
+  --bear:  #DC2626;   /* red-600 — loss / breached */
+  --warn:  #A16207;   /* amber-700 — caution / vigilance */
 
   /* --- 4. FILETS -- echelle froide ---------------------------------- */
   --line:  #E8EAED;   /* bordure standard cards */
@@ -250,19 +244,15 @@ body.midnight {
   --ink:   #E6E8EB;   /* cold off-white (no ivory) */
   --ink2:  #C8CCD2;
   --steel: #8B919A;
-  --metal: #8B919A;
   --line:  #1F242C;
   --line2: #2B313A;
   --line3: #3F4754;
-  --data:   #2DD4BF;  /* v2 Teal — teal-400 lifts on cold near-black */
-  --data-2: #5EEAD4;  /* teal-300 accent lift */
-  --glow:   color-mix(in srgb, var(--data) 55%, transparent);
-  --acc:   #4ADE80;   /* green-400 dark flashy (bump 03/06) */
-  --acc2:  #4ADE80;
+  --data:  #2DD4BF;   /* v3 Teal — teal-400 lifts on cold near-black */
+  --glow:  color-mix(in srgb, var(--data) 55%, transparent);
+  --acc:   #4ADE80;   /* green-400 — gain */
   --id:    #E6E8EB;
-  --bear:  #EF4444;   /* red-500 dark flashy (bump 03/06 user "same flashy red") */
-  --warn:  #F59E0B;   /* amber-500 dark mode */
-  --gold:  #F59E0B;
+  --bear:  #EF4444;   /* red-500 — loss */
+  --warn:  #F59E0B;   /* amber-500 — caution */
   --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
   /* Pass 8 elevations dark mode — meme echelle qu'en light mais opacite renforcee. */
   --elev1: 0 4px 14px -4px rgba(0, 0, 0, .50), 0 1px 2px rgba(0, 0, 0, .25);

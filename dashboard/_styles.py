@@ -42,10 +42,11 @@ _TH_CSS = """
      du dashboard (DNA parchemin/instrument). Ici, sur la gauge spécifiquement,
      on assume le contraste vif — c'est l'unique surface où le feu tricolore
      doit crier sa sémantique. */
-  .tbar-tick.stop    { background:#ff1744; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px rgba(255,23,68,.55); }
+  /* Feu tricolore SPEC_GAUGE : couleurs sémantiques via tokens (audit P1 19/06). */
+  .tbar-tick.stop    { background:var(--bear); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px color-mix(in srgb,var(--bear) 55%,transparent); }
   .tbar-tick.entry   { background:var(--steel); opacity:.75; height:11px; top:-3px; width:1.5px; }
-  .tbar-tick.partial { background:#ffd400; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px rgba(255,212,0,.55); }
-  .tbar-tick.target  { background:#00e676; opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px rgba(0,230,118,.55); }
+  .tbar-tick.partial { background:var(--warn); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px color-mix(in srgb,var(--warn) 55%,transparent); }
+  .tbar-tick.target  { background:var(--acc); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px color-mix(in srgb,var(--acc) 55%,transparent); }
   /* axe-prix natif (SPEC_GAUGE §3) : caret cost sous-ligne + chevrons overflow */
   .tbar-cost-caret { position:absolute; bottom:-5px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:6px solid var(--steel); transform:translateX(-50%); pointer-events:none; z-index:2; }
   .tbar-cost-caret.stale { opacity:.5; border-bottom-color:var(--warn); }
@@ -227,11 +228,11 @@ _CSS = """
   .dband:hover { background:color-mix(in srgb,var(--panel) 95%,transparent); }
   .dband .dd { width:9px; height:9px; border-radius:var(--r-circle); flex:none; }
   .dband.bear .dd { background:var(--bear); }
-  .dband.acc .dd { background:var(--acc); } .dband.size .dd { background:var(--metal); }
+  .dband.acc .dd { background:var(--acc); } .dband.size .dd { background:var(--steel); }
   .dband .dv { font-family:var(--fd); font-weight:500; font-size:var(--t-data); letter-spacing:.18em; text-transform:uppercase; flex:none; }
   .dband.bear .dv { color:var(--bear); }
   .dband.acc .dv { color:var(--acc); }
-  .dband.size .dv { color:var(--metal); }
+  .dband.size .dv { color:var(--steel); }
   .dband .dx { font-family:var(--fm); font-size:var(--t-data2); color:var(--steel); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .dband .dn { font-family:var(--fm); font-size:var(--t-data2); color:var(--ink); font-weight:600; flex:none; }
   .dband .dc { font-size:var(--t-h3); line-height:1; color:var(--steel); flex:none; transition:transform .15s,color .15s; }
@@ -638,7 +639,7 @@ _CSS = """
   .cta-result .ctk b, .cta-result .cnm b { color:var(--data); font-weight:700; font-style:normal; }
   .cta-result.sel .ctk b, .cta-result.sel .cnm b { color:var(--data); }
   .tag { font-family:var(--fm); font-weight:600; font-size:var(--t-data); padding:3px 9px; border-radius:var(--r1); }
-  .tag.up { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); } .tag.acc2 { color:var(--acc2); background:color-mix(in srgb, var(--acc2) 12%, transparent); }
+  .tag.up { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); } .tag.acc2 { color:var(--acc); background:color-mix(in srgb, var(--acc) 12%, transparent); }
   .tag.down,.tag.danger { color:var(--bear); background:color-mix(in srgb, var(--bear) 13%, transparent); } .tag.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 14%, transparent); } .tag.calm { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); } .tag.mute { color:var(--steel); background:color-mix(in srgb, var(--steel) 12%, transparent); }
   /* Axe gradient evolutif smooth (red -> steel -> green) du DNA original.
      Target tick a 66.67% (zone overshoot 66.67..100%). Le marker peut
@@ -748,7 +749,7 @@ _CSS = """
   .dt td { padding:var(--s2) 10px; border-bottom:1px solid var(--line); } .dt td.num { text-align:right; font-family:var(--fm); }
   .dt td.tk { font-family:var(--fm); font-weight:600; } .dt tr:hover td { background:color-mix(in srgb,var(--ink) 2.5%,transparent); }
   .dt td.pos { color:var(--acc); } .dt td.neg { color:var(--bear); }
-  .bdg { display:inline-block; margin-left:var(--s2); font-family:var(--fb); font-size:var(--t-data); letter-spacing:.1em; text-transform:uppercase; color:var(--id); border:1px solid color-mix(in srgb, var(--acc2) 40%, transparent); border-radius:var(--r0); padding:1px 5px; vertical-align:middle; }
+  .bdg { display:inline-block; margin-left:var(--s2); font-family:var(--fb); font-size:var(--t-data); letter-spacing:.1em; text-transform:uppercase; color:var(--id); border:1px solid color-mix(in srgb, var(--acc) 40%, transparent); border-radius:var(--r0); padding:1px 5px; vertical-align:middle; }
   .dt tr.prev td { opacity:.72; } .dt tr.prev td.tk { color:var(--id); }
   /* Pass 24 audit 7 #6 : ticker/name colles ("ASML.ASASML HOLDING"). Cure :
      - tk-sym wrap explicit autour du symbol pour grab le block flow.
@@ -827,7 +828,7 @@ _CSS = """
   .pi { display:flex; flex-direction:column; gap:var(--s1); padding-left:13px; border-left:2px solid var(--line2); border-radius:0; }
   .pi.danger { border-left-color:var(--bear); } .pi.warn { border-left-color:var(--warn); } .pi.calm { border-left-color:var(--acc); } .pi.size { border-left-color:var(--steel); }
   .pn { font-family:var(--fm); font-weight:500; font-size:var(--t-h2); line-height:1; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
-  .pi.danger .pn { color:var(--bear); } .pi.warn .pn { color:var(--warn); } .pi.calm .pn { color:var(--acc); } .pi.size .pn { color:var(--metal); }
+  .pi.danger .pn { color:var(--bear); } .pi.warn .pn { color:var(--warn); } .pi.calm .pn { color:var(--acc); } .pi.size .pn { color:var(--steel); }
   .pl { font-size:var(--t-data2); color:var(--ink); } .pt { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); }
   .dt tbody tr:not(.prev) { cursor:pointer; }
   .loupe { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(6,10,18,.72); backdrop-filter:blur(6px); padding:34px; }
@@ -864,7 +865,7 @@ _CSS = """
   .lp-hint code { font-family:var(--fm); font-weight:600; color:var(--ink); background:color-mix(in srgb,var(--ink) 5%,transparent); padding:1px 5px; border-radius:var(--r0); font-size:var(--t-data); }
   .tkc { cursor:pointer; transition:color .12s; } .tkc:hover { color:var(--id); }
   .lp-badge { display:inline-block; font-family:var(--fb); font-size:var(--t-data); letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:var(--r1); border:1px solid currentColor; }
-  .lp-badge.held { color:var(--acc); } .lp-badge.watch { color:var(--warn); } .lp-badge.univ { color:var(--acc2); } .lp-badge.out { color:var(--steel); }
+  .lp-badge.held { color:var(--acc); } .lp-badge.watch { color:var(--warn); } .lp-badge.univ { color:var(--acc); } .lp-badge.out { color:var(--steel); }
   .sbwrap { display:flex; flex-direction:column; gap:var(--s5); }
   .sb-top { display:grid; grid-template-columns:repeat(3,1fr); gap:32px; width:100%; padding:var(--s2) 4px 16px; border-bottom:1px solid var(--line); }
   .sb-kpi { display:flex; flex-direction:column; gap:var(--s15); }
@@ -897,7 +898,7 @@ _CSS = """
   .qs-tk { font-family:var(--fm); font-weight:600; font-size:var(--t-base); width:78px; }
   .qs-nm { flex:1; font-size:var(--t-base); color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .qs-st { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.08em; text-transform:uppercase; color:var(--steel); }
-  .qs-st.held { color:var(--acc); } .qs-st.watch { color:var(--warn); } .qs-st.core, .qs-st.extended { color:var(--acc2); }
+  .qs-st.held { color:var(--acc); } .qs-st.watch { color:var(--warn); } .qs-st.core, .qs-st.extended { color:var(--acc); }
   .qs-empty { padding:22px 20px; color:var(--steel); font-size:var(--t-base); text-align:center; }
   .hero.posture { display:block; }
   .hero.posture .plan-row { margin-top:var(--s35); gap:var(--s5); }
@@ -1065,7 +1066,7 @@ _CSS = """
   /* Calibration progress panel (action #3 31/05) -- s'active a n>=30 */
   .calibcard .calib-progress { display:flex; align-items:center; gap:var(--s4); margin-top:var(--s35); }
   .calibcard .calib-bar { flex:1; height:8px; background:color-mix(in srgb, var(--steel) 12%, transparent); border-radius:var(--r0); overflow:hidden; position:relative; }
-  .calibcard .calib-fill { height:100%; background:linear-gradient(90deg, var(--acc), color-mix(in srgb, var(--acc) 70%, var(--gold))); transition:none; }
+  .calibcard .calib-fill { height:100%; background:linear-gradient(90deg, var(--acc), color-mix(in srgb, var(--acc) 70%, var(--warn))); transition:none; }
   .calibcard .calib-meta { display:flex; align-items:baseline; gap:var(--s35); min-width:160px; justify-content:flex-end; }
   .calibcard .calib-n { font-family:var(--fmono); font-size:var(--t-h3); font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
   .calibcard .calib-rem { font-family:var(--fm); font-size:var(--t-data2); color:var(--steel); }
@@ -1197,7 +1198,7 @@ _CSS = """
   .conceptionscard .bc-val.neu { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
   .conceptionscard .bc-n { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
   .conceptionscard .bc-text { font-family:var(--fm); font-size:var(--t-base); line-height:1.55; color:var(--ink); opacity:.88; max-height:62px; overflow:hidden; position:relative; transition:max-height .3s ease; }
-  .conceptionscard .bc-text::after { content:""; position:absolute; bottom:0; left:0; right:0; height:24px; background:linear-gradient(to bottom, transparent, var(--paper, #f5efe3)); pointer-events:none; transition:opacity .2s ease; }
+  .conceptionscard .bc-text::after { content:""; position:absolute; bottom:0; left:0; right:0; height:24px; background:linear-gradient(to bottom, transparent, var(--bg)); pointer-events:none; transition:opacity .2s ease; }
   .conceptionscard .bc-row.open .bc-text { max-height:600px; }
   .conceptionscard .bc-row:hover .bc-text::after, .conceptionscard .bc-row.open .bc-text::after { opacity:0; }
   /* Layer 3 - Preferences calibrees */
@@ -1495,7 +1496,7 @@ _CSS = """
     radial-gradient(1200px 600px at 80% -10%, rgba(45,91,255,.05), transparent 60%),
     radial-gradient(1000px 500px at -5% 10%, rgba(22,163,74,.04), transparent 55%), #FCFCFD; }
   .sidebar{ background:linear-gradient(180deg,rgba(255,255,255,.7),rgba(248,249,251,.5)); border-right:1px solid var(--line); backdrop-filter:blur(8px); }
-  .nitem{ transition:background .18s var(--ease),transform .18s var(--ease),color .18s var(--ease); color:var(--metal); }
+  .nitem{ transition:background .18s var(--ease),transform .18s var(--ease),color .18s var(--ease); color:var(--steel); }
   .nitem:hover{ background:rgba(45,91,255,.08); transform:translateY(-1px); color:var(--ink); }
   .nitem.on{ background:linear-gradient(180deg,rgba(45,91,255,.14),rgba(45,91,255,.08)); box-shadow:inset 0 0 0 1px rgba(45,91,255,.18); color:var(--data); }
 
@@ -1516,7 +1517,7 @@ _CSS = """
   /* --- Tableau : interactivité + densité + typo --- */
   table.dt tbody tr{ transition:background .15s var(--ease); border-bottom:1px solid rgba(232,234,237,.6); }
   table.dt tbody tr:hover{ background:linear-gradient(90deg,rgba(45,91,255,.05),rgba(45,91,255,.02)); }
-  table.dt thead th{ letter-spacing:.04em; text-transform:uppercase; font-size:11px; color:var(--metal); font-weight:700; padding:10px 0 10px 18px!important; border-bottom:1px solid var(--line)!important; }
+  table.dt thead th{ letter-spacing:.04em; text-transform:uppercase; font-size:11px; color:var(--steel); font-weight:700; padding:10px 0 10px 18px!important; border-bottom:1px solid var(--line)!important; }
   table.dt tbody td{ padding:11px 0 11px 18px!important; font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
   /* 19/06 fix chevauchement colonnes legacy .dt (Theses/Method/etc) : la modernisation
      avait padding horizontal 0 -> "VALUE"+"WEIGHT" et "ASYM"+"PROGRESS" collés,
