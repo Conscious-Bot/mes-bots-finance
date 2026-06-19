@@ -660,14 +660,13 @@ _DONUT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
         var r = c.getAttribute('data-r');
         hero.querySelectorAll('.ov-chip').forEach(function(x){ x.classList.toggle('on', x === c); });
         chart.querySelectorAll('g.ov-rng').forEach(function(g){
-          g.style.display = (g.getAttribute('data-r') === r) ? '' : 'none';
+          g.classList.toggle('on', g.getAttribute('data-r') === r);
         });
       });
     });
     /* tooltip + crosshair (active layer) */
     function getActive(){
-      return chart.querySelector('g.ov-rng:not([style*="display:none"]):not([style*="display: none"])')
-          || chart.querySelector('g.ov-rng');
+      return chart.querySelector('g.ov-rng.on') || chart.querySelector('g.ov-rng');
     }
     chart.addEventListener('mousemove', function(e){
       var active = getActive(); if(!active) return;

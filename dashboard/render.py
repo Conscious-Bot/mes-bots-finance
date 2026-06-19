@@ -7920,7 +7920,7 @@ def render() -> Path:
     erows = erows or '<div class="empty" style="padding:var(--s35) 0">none deadline</div>'
 
     wbase = sum(p["weight"] for p in positions if p["ticker"] in pnl) or 1
-    port_pnl = sum(p["weight"] * pnl[p["ticker"]] for p in positions if p["ticker"] in pnl) / wbase
+    _ = sum(p["weight"] * pnl[p["ticker"]] for p in positions if p["ticker"] in pnl) / wbase  # legacy port_pnl, unused after Pass v3 hero
     _gain_eur = sum(p["weight"] for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
     _n_gain = sum(1 for p in positions if pnl.get(p["ticker"], 0) >= 0 and p["ticker"] in pnl)
     _n_pnl = sum(1 for p in positions if p["ticker"] in pnl) or 1
@@ -7933,13 +7933,13 @@ def render() -> Path:
     pf_pnl_eur = pf_value - _pfcost
     # Star Vue d'ensemble : .ps-val attend acc/warn/bear (pas pos/neg legacy)
     _pnl_star_cls = "acc" if pf_pnl_eur >= 0 else "bear"
-    pf_arrow = "&#9650;" if pf_pnl_eur >= 0 else "&#9660;"
+    _ = "&#9650;" if pf_pnl_eur >= 0 else "&#9660;"  # legacy pf_arrow
     # Pass 7 audit number format uniform : comma en-US (Pass 4 standard).
     # Hero precedent : "57576" sans separator car Hubot Expanded skip &#8239;
     # narrow no-break space en font display. Comma rendue stable partout.
     pf_val_str = f"{pf_value:,.0f}"
     _pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")  # D5 retire Vigie, conserve compute (re-use eventuelle)
-    pf_pe = f"{abs(pf_pnl_eur):,.0f}"
+    _ = f"{abs(pf_pnl_eur):,.0f}"  # legacy pf_pe
     near_stop_tk = [
         r["ticker"]
         for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
@@ -8109,11 +8109,13 @@ def render() -> Path:
         from intelligence import portfolio_grade as _pgrade
         from shared import storage as _stg_g
         _latest_g = _stg_g.get_latest_portfolio_grade()
+        # On a toujours besoin du compute_grade() pour les sub-buckets
+        # (le DB record stocke un JSON, pas les buckets pre-aggreges).
+        _g_fresh = _pgrade.compute_grade()
         if _latest_g:
             _grade_letter = _latest_g["overall_grade"]
             _grade_score = _latest_g["overall_score"]
         else:
-            _g_fresh = _pgrade.compute_grade()
             _grade_letter = _g_fresh["overall_grade"]
             _grade_score = _g_fresh["overall_score"]
         _trend = _pgrade.compute_trend_7d()
@@ -8123,8 +8125,27 @@ def render() -> Path:
             "deteriorating": "&darr; 7j",
             "no_history": "snapshot J0",
         }.get(_trend, "")
+        # Compute Construction / Fragility weighted avg depuis dimensions
+        # (mapping bucket dans _DIM_LABELS line 540).
+        _dims = _g_fresh.get("dimensions", {})
+        _cw = _fw = _cs = _fs = 0.0
+        for _dk, (_lbl, _kind, _bucket) in _DIM_LABELS.items():
+            _d = _dims.get(_dk) or {}
+            if _d.get("status") == "data_insufficient":
+                continue
+            _wt = _d.get("weight", 0)
+            _sc = _d.get("score", 0)
+            if _bucket == "construction":
+                _cw += _wt
+                _cs += _sc * _wt / 100
+            else:
+                _fw += _wt
+                _fs += _sc * _wt / 100
+        _construction_score = round(_cs * 100 / _cw) if _cw else 0
+        _fragilite_score = round(_fs * 100 / _fw) if _fw else 0
     except Exception:
         _grade_letter, _grade_score, _grade_trend_str = "&mdash;", 0, "unavailable"
+        _construction_score, _fragilite_score = 0, 0
     # grade_html n'est plus affiche separement (integre dans Star). Conserve
     # _grade_panel() call pour side-effects DB potentiels mais on supprime
     # le rendu dupliqué.
@@ -8239,9 +8260,9 @@ def render() -> Path:
     _ov_default_r = "90"
     # Helper : emit one chart layer for a range
     def _ov_chart_layer(r: str, data: dict, active: bool) -> str:
-        vis = "" if active else 'style="display:none"'
+        cls = "ov-rng on" if active else "ov-rng"
         return (
-            f'<g class="ov-rng" data-r="{r}" {vis}>'
+            f'<g class="{cls}" data-r="{r}">'
             f'<path class="ov-area" d="{data["area"]}" fill="url(#ovgrad)"/>'
             f'<path class="ov-line" d="{data["line"]}" fill="none" stroke="var(--data)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
             f'<circle class="ov-last" cx="{data["pts"].split(";")[-1].split("|")[0] if data["pts"] else 0}" cy="{data["pts"].split(";")[-1].split("|")[1] if data["pts"] else 0}" r="4.5" fill="var(--data)"/>'
@@ -8254,7 +8275,43 @@ def render() -> Path:
         f'<button class="ov-chip {"on" if r == _ov_default_r else ""}" data-r="{r}">{lab}</button>'
         for r, lab in [("30", "30d"), ("90", "90d"), ("365", "1Y")]
     )
+    # Grade card (right half) : ring SVG + score + sub-bars Construction/Fragility
+    _grade_color_v3 = "acc" if _grade_score >= 70 else ("warn" if _grade_score >= 50 else "bear")
+    # SVG ring : circumference 2*PI*54 = 339.292
+    _ring_C = 339.292
+    _ring_offset = _ring_C * (1 - _grade_score / 100)
+    _grade_card = (
+        '<div class="ov-grade-card">'
+        '<div class="ov-grade-flex">'
+        '<div class="ov-ring">'
+        '<svg viewBox="0 0 128 128" width="128" height="128" aria-hidden="true">'
+        '<defs><linearGradient id="ovringgrad" x1="0" y1="0" x2="1" y2="1">'
+        '<stop offset="0" stop-color="var(--data)"/>'
+        f'<stop offset="1" stop-color="var(--{_grade_color_v3})"/>'
+        '</linearGradient></defs>'
+        '<circle cx="64" cy="64" r="54" fill="none" stroke="color-mix(in srgb,var(--ink) 9%,transparent)" stroke-width="9"/>'
+        f'<circle cx="64" cy="64" r="54" fill="none" stroke="url(#ovringgrad)" stroke-width="9" stroke-linecap="round" stroke-dasharray="{_ring_C:.2f}" stroke-dashoffset="{_ring_offset:.2f}" transform="rotate(-90 64 64)"/>'
+        '</svg>'
+        f'<div class="ov-ring-ctr"><div class="letter {_grade_color_v3}">{_grade_letter}</div>'
+        f'<div class="score">{_grade_score} / 100</div></div>'
+        '</div>'
+        '<div class="ov-grade-meta">'
+        '<div class="k">Portfolio grade</div>'
+        f'<div class="trend">snapshot {datetime.now().strftime("%m.%d")} &middot; {_grade_trend_str}</div>'
+        '<div class="ov-subs">'
+        '<div class="ss"><div class="lab">Construction</div>'
+        f'<div class="bar"><i class="acc" style="width:{_construction_score}%"></i></div>'
+        f'<div class="n">{_construction_score}</div></div>'
+        '<div class="ss"><div class="lab">Fragility</div>'
+        f'<div class="bar"><i class="warn" style="width:{_fragilite_score}%"></i></div>'
+        f'<div class="n">{_fragilite_score}</div></div>'
+        '</div>'
+        '</div>'
+        '</div>'
+        '</div>'
+    )
     _ov_hero_panel = (
+        '<div class="ov-hero-grid">'
         '<div class="ov-hero">'
         '<div class="ov-hero-top">'
         '<div>'
@@ -8281,7 +8338,9 @@ def render() -> Path:
         + '</svg>'
         '<div class="ov-tip"></div>'
         '</div>'
-        '</div>'
+        '</div>'  # close .ov-hero (left)
+        + _grade_card  # right half
+        + '</div>'  # close .ov-hero-grid
     )
     # Live indicator string pour le phead
     _ov_live_html = (
@@ -8390,38 +8449,17 @@ def render() -> Path:
         '<div class="phead"><h1>Overview</h1>'
         f'{_ov_live_html}'
         '</div>'
-        # v3 19/06 evening : big hero panel BookValue + chart smooth area + range chips.
+        # v3 19/06 evening : big hero panel BookValue + chart smooth area + range chips +
+        # grade ring (right half). Replace legacy page-star qui doublonnait pf_val +
+        # grade. User feedback "doublon d'info" + "keep only the macro state panel".
         f'{_ov_hero_panel}'
-        # === Star Vue d'ensemble (unifie) : valeur+PnL+capital sous-jacent
-        # a gauche, grade A+ + bar a droite. Strate 2 = repartition lignes
-        # pleine largeur. Gradecard detail retire (vide visuel).
+        # Macro state strate (conservé, dans son wrapper page-star)
         + '<div class="page-star">'
-        + '<div class="ps-strate">'
-        + '<div class="ps-hero-row">'
-        + '<div class="ps-hero-left">'
-        + '<div class="ps-lbl">Portfolio value <span class="ps-asof" data-tip="Snapshot freshness. Server regenerates every 60s; refresh manually for newer.">&middot; as of '
-        + datetime.now().strftime("%H:%M")
-        + '</span></div>'
-        + '<div class="ps-macro-row" style="align-items:baseline" aria-live="polite" aria-atomic="true">'
-        + f'<div class="ps-val" style="font-size:var(--t-h1)">{pf_val_str}&nbsp;&euro;</div>'
-        + f'<div class="ps-val {_pnl_star_cls}" style="font-size:var(--t-h3)">{pf_arrow}&nbsp;{pf_pe}&nbsp;&euro;&nbsp;({"+" if port_pnl >= 0 else ""}{port_pnl:.1f}%)</div>'
-        + f'{_sparkline}'
-        + '</div>'
-        + f'<div class="ps-sub-lien">{_val_delta_str}</div>'
-        + '</div>'
-        + '<div class="ps-hero-right">'
-        + '<div class="ps-lbl" data-tip="Global grade — Construction (Solidité/Pari/Doublon/Calibrage) + Fragility (Santé/cycle/valo). &gt;= 70 acc, &gt;= 50 warn, &lt; 50 bear.">Portfolio grade</div>'
-        + '<div class="ps-grade-row">'
-        + f'<div class="ps-grade-letter {_grade_color}">{_grade_letter}</div>'
-        + f'<div class="ps-grade-score"><div class="ps-grade-num">{_grade_score}<span class="ps-grade-max">/100</span></div>'
-        + f'<div class="ps-grade-bar"><div class="ps-grade-fill {_grade_color}" style="width:{_grade_score:.0f}%"></div></div></div>'
-        + '</div></div>'
-        + '</div></div>'
-        # === Macro state strate 06/06 (Vigie connectee a shared.macro_state) ===
         + _macro_state_strate
-        # D5 retire 02/06 user : "Capital investi" duplique avec Star Concentration.
-        # Vigie garde valeur PF + grade en haut (suffisant pour posture).
         + '</div>'
+        # Legacy variables kept defined for back-compat (referenced elsewhere) :
+        # _sparkline, _grade_color, _pnl_star_cls, pf_arrow, pf_pe, port_pnl
+        + ''
         # v3 19/06 evening : crochet decisionnel "Needs you today" juste sous le hero.
         # Reutilise near (positions <10% stop) + _cluster_health (clusters over cap).
         # Memes signaux que _dband disciplines, mais en strip routable acc-haut.

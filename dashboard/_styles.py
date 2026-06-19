@@ -1621,12 +1621,48 @@ _OV_HERO_CSS = """
 /* Chart */
 .ov-chart-wrap{ position:relative; margin-top:6px; }
 .ov-chart{ width:100%; height:280px; display:block; overflow:visible; }
+.ov-chart g.ov-rng{ display:none; }
+.ov-chart g.ov-rng.on{ display:inline; }
 .ov-tip{ position:absolute; pointer-events:none; transform:translate(-50%,calc(-100% - 12px)); background:var(--ink); color:var(--bg); font-family:var(--fm); font-size:12px; font-weight:600; padding:6px 10px; border-radius:6px; font-variant-numeric:tabular-nums; white-space:nowrap; opacity:0; transition:opacity .12s; z-index:5; }
 .ov-tip::after{ content:""; position:absolute; left:50%; top:100%; transform:translateX(-50%); border:5px solid transparent; border-top-color:var(--ink); }
+
+/* === Hero 2-col grid : chart half + grade half === */
+.ov-hero-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:16px 0 22px; }
+@media(max-width:1100px){ .ov-hero-grid{ grid-template-columns:1fr; } }
+.ov-hero-grid .ov-hero{ margin:0; }  /* la grid gere le spacing */
+.ov-hero-grid .ov-hero .v{ font-size:42px; }
+.ov-hero-grid .ov-hero .v small{ font-size:16px; }
+.ov-hero-grid .ov-chart{ height:220px; }
+
+/* Grade card (right half) */
+.ov-grade-card{ background:linear-gradient(180deg,#FFFFFF,#FBFCFE); border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(16,24,40,.04),0 12px 32px -16px rgba(16,24,40,.12); padding:28px 32px; display:flex; align-items:center; }
+.ov-grade-flex{ display:flex; align-items:center; gap:28px; width:100%; }
+.ov-ring{ position:relative; width:128px; height:128px; flex-shrink:0; }
+.ov-ring-ctr{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.ov-ring-ctr .letter{ font-family:var(--fdis); font-weight:700; font-size:42px; line-height:1; letter-spacing:-.02em; }
+.ov-ring-ctr .letter.acc{ color:var(--acc); }
+.ov-ring-ctr .letter.warn{ color:var(--warn); }
+.ov-ring-ctr .letter.bear{ color:var(--bear); }
+.ov-ring-ctr .score{ font-family:var(--fm); font-size:11px; color:var(--steel); margin-top:4px; font-variant-numeric:tabular-nums; }
+.ov-grade-meta{ flex:1; min-width:0; }
+.ov-grade-meta .k{ font-family:var(--fm); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); font-weight:500; margin-bottom:8px; }
+.ov-grade-meta .trend{ font-family:var(--fm); font-size:13px; color:var(--steel); margin-bottom:20px; font-variant-numeric:tabular-nums; }
+.ov-subs{ display:flex; flex-direction:column; gap:10px; }
+.ov-subs .ss{ display:grid; grid-template-columns:84px 1fr 40px; align-items:center; gap:12px; }
+.ov-subs .lab{ font-family:var(--fm); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); font-weight:600; }
+.ov-subs .bar{ height:6px; border-radius:3px; background:color-mix(in srgb,var(--ink) 7%,transparent); overflow:hidden; }
+.ov-subs .bar > i{ display:block; height:100%; border-radius:3px; transition:width .5s cubic-bezier(.2,.8,.2,1); }
+.ov-subs .bar > i.acc{ background:var(--acc); }
+.ov-subs .bar > i.warn{ background:var(--warn); }
+.ov-subs .n{ font-family:var(--fm); font-weight:700; font-size:17px; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
+
+/* Hide legacy page-star strate on vigie (replaced by 2-col hero grid) */
+[data-page="vigie"] .page-star{ display:none; }
 
 body.midnight .ov-hero{ background:linear-gradient(180deg,#15191F,#10141A); border-color:#1F242C; }
 body.midnight .ov-chips{ background:rgba(255,255,255,.05); }
 body.midnight .ov-chip.on{ background:rgba(255,255,255,.04); }
+body.midnight .ov-grade-card{ background:linear-gradient(180deg,#15191F,#10141A); border-color:#1F242C; }
 """
 
 _NEEDS_TODAY_CSS = """
