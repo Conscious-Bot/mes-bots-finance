@@ -1547,8 +1547,13 @@ _CSS = """
   /* --- Tableau : interactivité + densité + typo --- */
   table.dt tbody tr{ transition:background .15s var(--ease); border-bottom:1px solid rgba(232,234,237,.6); }
   table.dt tbody tr:hover{ background:linear-gradient(90deg,rgba(45,91,255,.05),rgba(45,91,255,.02)); }
-  table.dt thead th{ letter-spacing:.04em; text-transform:uppercase; font-size:11px; color:var(--metal); font-weight:700; padding:10px 0!important; border-bottom:1px solid var(--line)!important; }
-  table.dt tbody td{ padding:11px 0!important; font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+  table.dt thead th{ letter-spacing:.04em; text-transform:uppercase; font-size:11px; color:var(--metal); font-weight:700; padding:10px 0 10px 18px!important; border-bottom:1px solid var(--line)!important; }
+  table.dt tbody td{ padding:11px 0 11px 18px!important; font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+  /* 19/06 fix chevauchement colonnes legacy .dt (Theses/Method/etc) : la modernisation
+     avait padding horizontal 0 -> "VALUE"+"WEIGHT" et "ASYM"+"PROGRESS" collés,
+     et "target ✓" chevauchait la gauge. Redonne gap gauche sauf 1ere col + nowrap. */
+  table.dt thead th:first-child, table.dt tbody td:first-child{ padding-left:0!important; }
+  table.dt th.num, table.dt td.num{ white-space:nowrap; }
 
   /* --- Badges / chips (soft fill) --- */
   .warn-chip{ border-radius:999px; padding:2px 8px; font-weight:700; letter-spacing:.04em; line-height:1.4; transition:transform .12s var(--ease),filter .12s var(--ease); }
