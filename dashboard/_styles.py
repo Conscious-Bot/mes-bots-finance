@@ -1711,7 +1711,9 @@ _POSITIONS_V3_CSS = """
 [data-page="positions"] .colhead{ display:none; }
 
 /* === HERO 4-cell band === */
-.pos-hero{ display:grid; grid-template-columns:repeat(4,1fr); gap:0; background:linear-gradient(180deg,#FFFFFF,#FBFCFE); border:1px solid var(--line); border-radius:14px; box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px -12px rgba(16,24,40,.10); margin-bottom:22px; overflow:hidden; }
+/* Hero band 3-cell (post 19/06 evening : Top sector drop, concentrator-thematic
+   book -> single-sector signal trivial, vraie concentration vit dans cluster-cap). */
+.pos-hero{ display:grid; grid-template-columns:repeat(3,1fr); gap:0; background:linear-gradient(180deg,#FFFFFF,#FBFCFE); border:1px solid var(--line); border-radius:14px; box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px -12px rgba(16,24,40,.10); margin-bottom:22px; overflow:hidden; }
 .pos-hero .cell{ padding:22px 26px; }
 .pos-hero .cell + .cell{ border-left:1px solid var(--line); }
 .pos-hero .k{ font-family:var(--fm); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin-bottom:14px; font-weight:500; }
@@ -1721,7 +1723,7 @@ _POSITIONS_V3_CSS = """
 .pos-hero .cap{ font-family:var(--fm); font-size:12px; color:var(--steel); margin-top:12px; letter-spacing:.02em; }
 .pos-hero .cap.bear{ color:var(--bear); }
 .pos-hero .cap b{ font-weight:600; }
-@media(max-width:980px){ .pos-hero{ grid-template-columns:1fr 1fr; } .pos-hero .cell:nth-child(3){ border-left:none; } .pos-hero .cell:nth-child(3), .pos-hero .cell:nth-child(4){ border-top:1px solid var(--line); } }
+@media(max-width:780px){ .pos-hero{ grid-template-columns:1fr; } .pos-hero .cell + .cell{ border-left:none; border-top:1px solid var(--line); } }
 
 /* === ACCOUNT card === */
 .pos-acct{ background:linear-gradient(180deg,#FFFFFF,#FBFCFE); border:1px solid var(--line); border-radius:14px; box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px -12px rgba(16,24,40,.10); padding:26px 30px; margin-bottom:18px; }

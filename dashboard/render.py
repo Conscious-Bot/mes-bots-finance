@@ -6971,6 +6971,18 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     ps = sorted(ps, key=lambda p: -_broker_value(p, pnl))
     tot = sum(_broker_value(p, pnl) for p in ps)
     share = tot / grand * 100
+    # === Sector mix : top-5 sectors gardent leur nom, le reste -> "Other" ===
+    # Bug fix (19/06 user 'le sector Other a 37% n'est rattache a rien') :
+    # avant les rows table avaient data-sec=<vrai secteur> ce qui ne matchait
+    # pas la bar Other au click. Maintenant on calcule l'ensemble top-5 ici
+    # ET on l'utilise pour patcher les rows -> click 'Other' highlight bien
+    # les tickers regroupes dans ce bucket.
+    _mix_for_card = _sector_mix(ps, pnl, sectors) if ps else []
+    _mix_sorted = sorted(_mix_for_card, key=lambda kv: -kv[1])
+    _top5_sectors = {label for label, _v in _mix_sorted[:5]}
+    def _row_sec(_tk: str) -> str:
+        _s = sectors.get(_tk, "No thesis")
+        return _s if _s in _top5_sectors else "Other"
     # 06/06 : cycle_phase chip canonique via shared.sectors (source unique
     # sectors.yaml, partagee avec /review handler + macro_book_warnings).
     try:
@@ -7053,9 +7065,13 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         else:
             _av3_cls = "pos-asym"
             _av3_txt = f'{_ratio_v3:.1f}<span class="x">&times;</span>'
-        # AT STOP chip + alert row : downside_pct < 10
+        # AT STOP chip + alert row : downside_pct < 10 AND position PERDANTE.
+        # Winners avec stop trailing remonte = securisation de gains, pas alerte
+        # rouge alarmante (user 19/06 'astera labs +90% pas du tout near stop').
+        # Vrai stop alarmant = perte + stop proche.
         _dn_v3 = gauges.get(tk, {}).get("dn")
-        _alert_cls_v3 = "pos-alert" if (_dn_v3 is not None and _dn_v3 < 10) else ""
+        _is_losing = pc is not None and pc < 0
+        _alert_cls_v3 = "pos-alert" if (_dn_v3 is not None and _dn_v3 < 10 and _is_losing) else ""
         _stop_chip_v3 = '<span class="pos-stop-chip">AT&nbsp;STOP</span>' if _alert_cls_v3 else ""
         # Progress gauge v3 : reuse _position_axis_price canonique (5 repères :
         # stop rouge / entry steel / target_partial warn / target_full vert / dot prix actuel).
@@ -7078,7 +7094,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             if _cp != "unknown" else ""
         )
         rows += (
-            f'<tr data-tk="{tk}" data-sec="{_h_esc.escape(sectors.get(tk, "No thesis"), quote=True)}" '
+            f'<tr data-tk="{tk}" data-sec="{_h_esc.escape(_row_sec(tk), quote=True)}" '
             f'data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}" '
             f'class="{_alert_cls_v3}">'
             f'<td><div class="pos-tk">'
@@ -8677,17 +8693,21 @@ def render() -> Path:
     broker_html = _broker_tables(positions, names, pnl, sectors)
     # Pass legacy star_positions retire (Pass 33 v3) ; remplace par .pos-hero 4-cell.
     _ = star_positions  # legacy var, gardee pour back-compat eventuelle
-    # === v3 4-cell hero band : Book / Top sector / Near target / Near stop ===
-    _all_mix = _sector_mix(positions, pnl, sectors) if positions else []
-    if _all_mix:
-        _all_tot = sum(v for _, v in _all_mix) or 1
-        _top_lbl, _top_v = max(_all_mix, key=lambda kv: kv[1])
-        _top_pct = _top_v / _all_tot * 100
-    else:
-        _top_lbl, _top_pct = "&mdash;", 0
-    _ns = n_stop
-    _nt_within6 = sum(1 for tk in near_tgt_tk if tk)  # near_tgt = upside_pct < 12, on garde count
-    _ns_label = near_stop_tk[0] if near_stop_tk else ""
+    # === v3 hero band 3-cell : Book / Near target / Near stop ===
+    # 'Top sector' cell drop 19/06 (user 'top sector 24% semi equipment make no
+    # sense / delete'). Sur un book concentrator-thematic, le top sector single-
+    # cluster est triviallement >50% et porte zero signal d'action. La vraie
+    # concentration check vit dans cluster-cap (page Concentration).
+    #
+    # 'Near stop' filter pnl<0 (user 'astera labs n'est pas du tout near stop
+    # mais a +90%'). Logique : winner avec stop statique proche = trailing room
+    # restante, PAS danger. Vrai 'near stop' = position perdante + downside<10.
+    _losing_near_stop_tk = [
+        _tk for _tk in near_stop_tk
+        if pnl.get(_tk) is not None and pnl[_tk] < 0
+    ]
+    _ns = len(_losing_near_stop_tk)
+    _ns_label = _losing_near_stop_tk[0] if _losing_near_stop_tk else ""
     _ns_margin = ""
     if _ns_label:
         try:
@@ -8705,11 +8725,6 @@ def render() -> Path:
         f'<div class="cap">cost basis &middot; {len(positions)} lines</div>'
         '</div>'
         '<div class="cell">'
-        f'<div class="k">Top sector</div>'
-        f'<div class="v">{_top_pct:.0f}<small>%</small></div>'
-        f'<div class="cap">{_top_lbl}</div>'
-        '</div>'
-        '<div class="cell">'
         f'<div class="k">Near target</div>'
         f'<div class="v">{n_tgt}</div>'
         f'<div class="cap">within 12% of target</div>'
@@ -8720,7 +8735,7 @@ def render() -> Path:
         + (
             f'<div class="cap bear"><b>{_ns_label}</b> &middot; {_ns_margin}</div>'
             if _ns and _ns_label and _ns_margin
-            else '<div class="cap">no position critical</div>'
+            else '<div class="cap">no losing position critical</div>'
         )
         + '</div>'
         '</div>'
