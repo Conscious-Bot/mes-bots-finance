@@ -4666,9 +4666,9 @@ def _concentration(
     top_pct = (_v(top) / total * 100) if top else 0.0
     sw: dict[str, float] = {}
     for p in positions:
-        key = sectors.get(p["ticker"], "Sans thesis")
+        key = sectors.get(p["ticker"], "No thesis")
         sw[key] = sw.get(key, 0.0) + _v(p)
-    sw_real = {k: v for k, v in sw.items() if k != "Sans thesis"}
+    sw_real = {k: v for k, v in sw.items() if k != "No thesis"}
     dom_these = max(sw_real, key=lambda k: sw_real[k]) if sw_real else "&mdash;"
     dom_these_pct = (max(sw_real.values()) / total * 100) if sw_real else 0.0
     over_cap_tk = [p["ticker"] for p in ps if _v(p) / total * 100 >= POS_CAP]
@@ -4837,11 +4837,11 @@ def _sector_blocks(
     _cl = _compute_ai_set()
     fine: dict = {}
     for p in positions:
-        fine.setdefault(sectors.get(p["ticker"], "Autre"), []).append(
+        fine.setdefault(sectors.get(p["ticker"], "Other"), []).append(
             {"tk": p["ticker"], "w": p["weight"], "prev": False}
         )
     for p in planned:
-        fine.setdefault(p.get("sector") or "Autre", []).append({"tk": p["ticker"], "w": p["weight"], "prev": True})
+        fine.setdefault(p.get("sector") or "Other", []).append({"tk": p["ticker"], "w": p["weight"], "prev": True})
     # Compute AI (L1) = membres DETENUS du cluster, niches sous leur bucket fin (L2). Reste top-level.
     compute_sub: dict = {}
     standalone: dict = {}
@@ -6025,8 +6025,8 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         + "</div>"
         + '<div class="ps-frise-wrap">'
         + f'<div class="ps-frise"><div class="ps-frise-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
-        + '<div class="ps-frise-labs" data-tip="Macro regime scale (V3 debt_monitor composite, exploratory). STABLE = calm vol + tight spreads + risk-on. STRESS = rising vol or widening credit, no panic. ALERT = clear deterioration, defensive posture warranted. CRISIS = full risk-off, large drawdowns, severe credit/vol stress.">'
-        + '<span>stable</span><span>stress</span><span>alert</span><span>crisis</span>'
+        + '<div class="ps-frise-labs" data-tip="Macro regime scale (V3 debt_monitor composite, exploratory). STABLE = calm vol + tight spreads + risk-on. STRESSED = rising vol or widening credit, no panic. FRAGILE = clear deterioration, defensive posture warranted. BROKEN = full risk-off, large drawdowns, severe credit/vol stress.">'
+        + '<span>stable</span><span>stressed</span><span>fragile</span><span>broken</span>'
         + '</div>'
         + '<div class="ps-frise-tally" data-tip="Distribution courante des indicateurs sous-jacents par phase. Si P3+P4 montent, la frise va vers la droite. Permet de voir lesquels contribuent au stress sans cliquer dans le panneau d\'indicateurs.">'
         + f'<span class="ps-tally-cell"><span class="ps-tally-dot ph1"></span>P1 {_phase_counts[1]}</span>'
@@ -6783,7 +6783,7 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
         dn, up, rt = r.get("downside_pct"), r.get("upside_pct"), r.get("asymmetry_ratio")
         out[tk] = {
             "name": names.get(tk, ""),
-            "sector": sectors.get(tk, "Sans thesis"),
+            "sector": sectors.get(tk, "No thesis"),
             "country": _country(tk),
             "status": "held",
             "weight_eur": round(p["weight"]),
@@ -6800,7 +6800,7 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
             continue
         out[tk] = {
             "name": names.get(tk, ""),
-            "sector": sectors.get(tk, "Sans thesis"),
+            "sector": sectors.get(tk, "No thesis"),
             "country": _country(tk),
             "status": status,
             "weight_eur": None,
@@ -6829,7 +6829,7 @@ def _broker_value(p: dict, pnl: dict) -> float:  # noqa: ARG001
 def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
     agg: dict[str, float] = {}
     for p in ps:
-        sec = sectors.get(p["ticker"], "Sans thesis")
+        sec = sectors.get(p["ticker"], "No thesis")
         agg[sec] = agg.get(sec, 0.0) + _broker_value(p, pnl)
     return sorted(agg.items(), key=lambda kv: -kv[1])
 
@@ -7728,7 +7728,7 @@ def render() -> Path:
     sb_down = {r["ticker"]: r.get("downside_pct") for r in computed}
     sb_secs: dict = {}
     for p in positions:
-        sb_secs.setdefault(sectors.get(p["ticker"], "Sans thesis"), []).append(
+        sb_secs.setdefault(sectors.get(p["ticker"], "No thesis"), []).append(
             {
                 "tk": p["ticker"],
                 "w": round(p["weight"] or 0),
@@ -7736,7 +7736,7 @@ def render() -> Path:
                 "down": round(sb_down[p["ticker"]] or 0, 1) if sb_down.get(p["ticker"]) is not None else None,
             }
         )
-    sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "Sans thesis", -sum(x["w"] for x in kv[1])))
+    sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "No thesis", -sum(x["w"] for x in kv[1])))
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
     _ris, near, _heat, watch = _rows_risque(computed, positions)  # AUDIT v5 : pass positions pour weighted heat
