@@ -501,22 +501,22 @@ def _needle_color(frac: float, *, invert: bool = False) -> str:
 
 
 SECTOR_COLORS = {
-    # v2 palette categorielle (19/06) -- jewel tones a saturation/lightness
-    # coherentes (famille Tailwind ~500), distinctes mais harmonieuses.
-    # Teal en tete (= accent --data), puis hues espacees regulierement.
-    # Defense / fallback = slate neutre. Plus colore que la rampe mono,
-    # sans l'arc-en-ciel aleatoire d'origine.
-    "Foundry & logic": "#0D9488",
-    "Semi equipment": "#3B82F6",
-    "Memory": "#8B5CF6",
-    "Semi materials": "#06B6D4",
-    "EDA": "#6366F1",
-    "Connectivity & optics": "#EC4899",
-    "Hyperscalers": "#14B8A6",
-    "Power & electrification": "#F59E0B",
-    "Defense": "#64748B",
-    "Energy & raw materials": "#10B981",
-    "Auto / robotics": "#0EA5E9",
+    # Palette categorielle v3 (19/06 evening) -- distinctes ET vivantes.
+    # User feedback "change the color of the sector" : la version jewel-tones
+    # etait trop fade (greens/blues similaires). Maintenant : indigo profond,
+    # vermillon, ambre, magenta, etc. Distance percu maximisee.
+    # Plus de chevauchement entre secteurs voisins du book.
+    "Foundry & logic": "#4F46E5",       # indigo-600 -- accent dense fonderies
+    "Semi equipment": "#0EA5E9",        # sky-500 -- equipementiers cool
+    "Memory": "#A855F7",                # purple-500 -- memoire
+    "Semi materials": "#F59E0B",        # amber-500 -- materiaux specs
+    "EDA": "#EC4899",                   # pink-500 -- design automation
+    "Connectivity & optics": "#EF4444", # red-500 -- com/optique
+    "Hyperscalers": "#0D9488",          # teal-600 -- cloud
+    "Power & electrification": "#FB923C",  # orange-400 -- power
+    "Defense": "#475569",               # slate-600 -- defense neutre
+    "Energy & raw materials": "#22C55E",   # green-500 -- energie
+    "Auto / robotics": "#06B6D4",       # cyan-500 -- robotics
 }
 # TICKER_SECTOR + SECTOR_ALIAS déplacés vers shared/sector_taxonomy.py
 # (cure P2 audit (3) reste whitelist 12/06). Ré-export pour rétro-compat.
@@ -7049,20 +7049,17 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         _dn_v3 = gauges.get(tk, {}).get("dn")
         _alert_cls_v3 = "pos-alert" if (_dn_v3 is not None and _dn_v3 < 10) else ""
         _stop_chip_v3 = '<span class="pos-stop-chip">AT&nbsp;STOP</span>' if _alert_cls_v3 else ""
-        # Progress gauge v3 : barre teal pleine + dot circle + tick cible.
-        # Calcule la fraction stop->target [0..100] depuis _entry/_stop/_tgt/_cur.
+        # Progress gauge v3 : reuse _position_axis_price canonique (5 repères :
+        # stop rouge / entry steel / target_partial warn / target_full vert / dot prix actuel).
+        # User feedback 19/06 evening : "no more stop and no target" sur la v3 initiale ->
+        # retour au canonical pour preserver les anchors utiles.
         _g3 = gauges.get(tk, {})
         if _g3.get("_stop") and _g3.get("_tgt") and _g3.get("_cur") is not None:
-            _stop_v, _tgt_v, _cur_v = _g3["_stop"], _g3["_tgt"], _g3["_cur"]
-            _range = (_tgt_v - _stop_v) or 1.0
-            _frac = max(0.0, min(100.0, (_cur_v - _stop_v) / _range * 100))
-            _gauge_v3 = (
-                f'<span class="pos-gauge">'
-                f'<i class="fill" style="width:{_frac:.1f}%"></i>'
-                f'<i class="dot" style="left:{_frac:.1f}%"></i>'
-                f'<i class="tick"></i>'
-                f'</span>'
+            _gauge_inner = (
+                _position_axis_price(_gauge_prices_native(_book_idx.get(tk)), extra_class="row-bar")
+                or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
             )
+            _gauge_v3 = f'<span class="pos-gauge-wrap">{_gauge_inner}</span>'
         else:
             _gauge_v3 = '<span style="color:var(--steel);opacity:.4">&mdash;</span>'
         # Cycle chip v3 (mute, reuse v2chip-ish style minimal)
@@ -7076,10 +7073,11 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             f'<tr data-tk="{tk}" data-sec="{_h_esc.escape(sectors.get(tk, "No thesis"), quote=True)}" '
             f'data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}" '
             f'class="{_alert_cls_v3}">'
-            f'<td><div class="pos-tk"><span class="pos-mono">{_mono}</span>'
+            f'<td><div class="pos-tk">'
+            f'{_ticker_logo(tk) or f"<span class=\"pos-mono\">{_mono}</span>"}'
             f'<span class="pos-sym">{tk}</span>'
             f'<span class="pos-name">{nm}</span>'
-            f'{_cp_v3_chip}{_stop_chip_v3}</div></td>'
+            f'{_cp_v3_chip}{_tw_chips}{_stop_chip_v3}</div></td>'
             f'<td><span class="pos-val">{vstr}&nbsp;&euro;</span>{_proxy_chip}</td>'
             f'<td><span class="pos-wt">{w:.1f}%</span></td>'
             f'<td><span class="pos-pl {pcls}">{pstr}</span></td>'

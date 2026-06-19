@@ -1677,19 +1677,18 @@ table.pos-dt{ width:100%; border-collapse:collapse; }
 .pos-asym.barbell{ color:var(--acc); } .pos-asym.inv{ color:var(--steel); }
 .pos-asym .x{ font-weight:400; color:var(--steel); }
 
-/* progress gauge teal arc */
-.pos-gauge{ width:170px; height:6px; background:color-mix(in srgb,var(--ink) 8%,transparent); border-radius:3px; position:relative; display:inline-block; vertical-align:middle; }
-.pos-gauge .fill{ height:100%; background:var(--data); border-radius:3px; transition:width .5s cubic-bezier(.2,.8,.2,1); }
-.pos-gauge .dot{ position:absolute; top:50%; width:14px; height:14px; border-radius:50%; background:var(--bg); border:2px solid var(--data); transform:translate(-50%,-50%); box-shadow:0 1px 3px rgba(16,24,40,.18); }
-.pos-gauge .tick{ position:absolute; top:-3px; right:0; width:2px; height:12px; background:var(--acc); border-radius:1px; }
+/* progress gauge — wraps canonical _position_axis_price (5 repères stop/entry/partial/target/dot prix). */
+.pos-gauge-wrap{ display:inline-block; width:180px; vertical-align:middle; }
+.pos-gauge-wrap .row-bar,
+.pos-gauge-wrap .axis{ width:100%; }
 
 /* alert row (AT STOP) */
 .pos-dt tr.pos-alert td{ background:color-mix(in srgb,var(--bear) 6%,transparent); }
 .pos-dt tr.pos-alert:hover td{ background:color-mix(in srgb,var(--bear) 10%,transparent); }
 .pos-dt tr.pos-alert .pos-sym{ color:var(--bear); }
 .pos-dt tr.pos-alert .pos-mono{ background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
-.pos-dt tr.pos-alert .pos-gauge .fill{ background:var(--bear); }
-.pos-dt tr.pos-alert .pos-gauge .dot{ border-color:var(--bear); }
+/* Alert row gauge : la canonique gere deja la couleur du dot via le prix actuel
+   (rouge si <stop). Pas de surcharge a appliquer ici. */
 .pos-stop-chip{ display:inline-block; font-family:var(--fm); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--bear); border:1px solid color-mix(in srgb,var(--bear) 38%,transparent); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:3px 9px; border-radius:5px; font-weight:700; margin-left:10px; vertical-align:middle; }
 
 body.midnight .pos-hero,
