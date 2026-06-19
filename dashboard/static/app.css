@@ -478,12 +478,12 @@ body.midnight {
     .phead h1 { view-transition-name: page-title; }
     .phead .sub { view-transition-name: page-sub; }
     ::view-transition-group(page-body) { animation-duration: .32s; animation-timing-function: var(--ease); }
-    ::view-transition-old(page-body) { animation: vt-fade-out .18s var(--ease) both; }
-    ::view-transition-new(page-body) { animation: vt-slide-in .32s var(--ease) both; }
+    ::view-transition-old(page-body) { animation: vt-fade-out .10s ease-out both; }
+    ::view-transition-new(page-body) { animation: vt-slide-in .12s ease-out both; }
     ::view-transition-old(page-title), ::view-transition-new(page-title) { animation-duration: .26s; animation-timing-function: var(--ease); }
     ::view-transition-old(page-sub),   ::view-transition-new(page-sub)   { animation-duration: .26s; animation-timing-function: var(--ease); }
-    @keyframes vt-fade-out { to { opacity: 0; transform: translateY(-6px); } }
-    @keyframes vt-slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes vt-fade-out { to { opacity: 0; } }
+    @keyframes vt-slide-in { from { opacity: 0; } to { opacity: 1; } }
   }
   /* Respect prefers-reduced-motion : kill toute view-transition. */
   @media (prefers-reduced-motion: reduce) {
@@ -492,8 +492,10 @@ body.midnight {
   /* Cascade signature Vue d'ensemble : page load orchestre, blocs en revel
      staggered 60ms. Remplace le fadein page generique sur vigie uniquement.
      Direction "instrument vivant qui se decouvre" (task #37 axe 4). */
-  [data-page="vigie"].active { animation:none; }
-  [data-page="vigie"].active > * { animation:presage-cascade .32s var(--ease) both; }
+  /* Cascade vigie supprimee 19/06 (user 'pas le meme effet sur toutes les pages').
+     Toutes les pages utilisent maintenant le meme fadein .12s du selecteur generique. */
+  [data-page="vigie"].active { animation:fadein .12s ease-out; }
+  [data-page="vigie"].active > * { animation:none; opacity:1; }
   [data-page="vigie"].active > *:nth-child(1) { animation-delay:0ms; }
   [data-page="vigie"].active > *:nth-child(2) { animation-delay:60ms; }
   [data-page="vigie"].active > *:nth-child(3) { animation-delay:120ms; }
@@ -588,7 +590,7 @@ body.midnight {
   .ghead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:11px; } .ghead .gl { font-family:var(--fb); font-weight:600; font-size:var(--t-data); letter-spacing:.18em; text-transform:uppercase; color:var(--steel); } .ghead .gv { font-family:var(--fm); font-weight:500; font-size:var(--t-h2); letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
   .gtrack { position:relative; height:6px; border-radius:var(--r0); background:linear-gradient(90deg, var(--acc), var(--warn) 52%, var(--bear)); }
   .glab { margin-top:9px; font-size:var(--t-data); color:var(--steel); display:flex; justify-content:space-between; font-family:var(--fm); letter-spacing:.08em; }
-  .row { padding:9px 0; border-bottom:1px solid var(--line); opacity:0; animation:fade .45s ease forwards; } .row:last-child { border-bottom:none; }
+  .row { padding:9px 0; border-bottom:1px solid var(--line); opacity:1; } .row:last-child { border-bottom:none; }
   .row[data-tk] { cursor:pointer; transition:background .15s ease-out, padding-left .15s ease-out; } .row[data-tk]:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); padding-left:4px; }
   .rt { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; gap:8px; } .tk { font-family:var(--fm); font-weight:600; font-size:var(--t-base); display:inline-flex; align-items:center; gap:7px; }
   /* Sprint 3 logos tickers (Clearbit + fallback initiale, cf shared/ticker_logos.py) */
@@ -686,7 +688,7 @@ body.midnight {
     background-color:var(--ink);
     -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
     mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
-    transform:translate(-50%,-50%); z-index:2; animation: axis-mark-slide-in .9s cubic-bezier(.2,.8,.2,1) both; }
+    transform:translate(-50%,-50%); z-index:2; }
   .noanim .page-star .ps-frise-mark { animation: none; }
   .page-star .ps-frise-labs { display:grid; grid-template-columns:repeat(4, 1fr); font-family:var(--fm); font-size:var(--t-fine); color:var(--steel); margin-top:8px; letter-spacing:.06em; text-transform:uppercase; cursor:help; }
   .page-star .ps-frise-labs span { text-align:center; }
@@ -860,7 +862,7 @@ body.midnight {
     from { left: 0% !important; opacity: 0; }
     to   { opacity: 1; }
   }
-  .axis-mark { animation: axis-mark-slide-in .9s cubic-bezier(.2,.8,.2,1) both; }
+  .axis-mark { animation: none; }
   .noanim .axis-mark { animation: none; }
   @media (prefers-reduced-motion: reduce) {
     .axis-mark { animation: none !important; }
