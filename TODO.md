@@ -1,10 +1,19 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 18 juin 2026 close marathon ultime — 26 commits. Trading 6 trades +326.88€ + AVGO P0 #2 closed (3 commits matin). Dashboard audit 4 vagues, **20 passes** (1-20) : technical foundation (Pass 1-5), design discipline (6-8), strategic (9-13), use réelle + iterations user-driven (14-20). HTML -22%, tokens canoniques figés (radii/shadows/fonts/typography), Copilot promu Overview, Lexicon 25 termes, micro-graphs gauges restaurés Pass 20 user-confirmed "now good". Serve restart confirmed Cache-Control immutable actif.
+**Refresh** : 19 juin 2026 close marathon dashboard refonte v3 + audit canonique 4 passes — 23 commits dashboard. Phase 1 v3 redesign collab claude.ai web (Teal colorway + Positions v3 hero 3-cell + Overview v3 hero 2-col chart+grade + Needs you today riches cards). Phase 2 polish/cohérence (animations identiques cross-pages, filter winners → pas d'AT STOP rouge sur ALAB +90%). Phase 3 audit canonique : palette → 4 tokens, 46 hardcoded → tokens, 163 CSS rules + 303 lignes Python dead droppées. Bundle -9%, render.py -3.4%.
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (19/06 close marathon v3 + audit canonique)
+
+- **main HEAD `96861f8`** (23 commits dashboard aujourd'hui).
+- **Tag rollback** `pre-design-session-2026-06-19` posé à `36bf729` (avant v3) + `pre-v2-redesign` historique.
+- **Reverts effacés** : commits Pass 27-31f du 18/06 (10 commits supprimés du log via `git reset --hard c523d06` + force-push, user "everything we did is just ugly").
+- **Repo GitHub PUBLIC** (toujours, pour accès claude.ai connector). À repasser PRIVATE quand collaboration externe terminée.
+- **Topology inchangée** : Hetzner prod, Mac dev. Positions/trades inchangés depuis 18/06.
+- **Dashboard v3 live** : Overview (chart Catmull-Rom + grade ring B+ 90/100), Positions (hero 3-cell + per-broker sector mix cliquable), animations uniformes .12s fade pur sans mouvement.
 
 ## 🟢 ÉTAT SYSTÈME (18/06 close mini-session trading)
 

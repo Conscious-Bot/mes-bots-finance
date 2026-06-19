@@ -3845,3 +3845,67 @@ Après les 8 premières passes (`a7c24ed` → `cbda410`), le user a partagé **4
 2. **Backlog inchangé** : AMD lock_in obs +30j (résolution 2026-07-18), KLAC sweep #135, Hetzner SSH, user keys (Voyage/healthchecks/FRED/Bigdata).
 3. **Tokens charte** : toute nouvelle écriture CSS utilise --r0..r-pill, --elev1..elev3, --t-* tokens. Pas de hardcode pixels.
 4. **Memory candidates** : doctrine "user-feedback loop visuel" et "perception > technique" à formaliser si pattern récurrent.
+
+## Close 2026-06-19 — Marathon dashboard refonte v3 + Audit canonique 4 passes
+
+**Session ultra-dense** : 23 commits dashboard sur la journée. Trois grandes phases.
+
+### Phase 1 — V3 redesign (matin → soir, externe Claude design + intégration)
+
+Commits livrés via collaboration avec autre Claude (claude.ai web, packagés en zips successifs) :
+
+- `8a16f29` **v3 Teal colorway + sector bars cliquables** : palette jewel-tones, click bar secteur → highlight rows table scope par carte broker (`_DONUT_JS` rempli).
+- `9190b23` **Positions v3 redesign complet** : hero 4-cell, monogrammes ticker (NV, AVG, etc), card par broker (sector mix gauche + table droite), AT STOP chip rouge, gauge teal arc, palette --c1..--c5.
+- `e23d44c` Cherry-pick fix legacy `.dt` table padding (cols collées, target ✓ wrap).
+- `0bb6ebe` **Positions v3 polish** : logos canoniques remis + gauge canonique 5 repères (`_position_axis_price`) + macro chips JP FX/SEMIS restaurés + palette secteur élargie (indigo/sky/purple/amber/pink/red/teal/orange).
+- `f5516c8` **Overview Needs you today panel** : strip cartes routables (crit/caut/ok), gauge overflow fixé.
+- `c945cee` **Overview hero bloc 1** : big chart panel Catmull-Rom area teal + range chips 30d/90d/1Y + Live meta (Session + last checked).
+- `f51f7f0` **Overview hero bloc 2** : 2-col grid (chart | grade ring), drop doublon legacy strate, fix chip swap (class `.on` au lieu de `style.display`), Construction 98 / Fragility 72 réels.
+- `143673f` **Needs you today bloc 3** : cartes riches per ticker/cluster, filter winners (`pnl<0`), ALAB +90% n'apparaît plus comme "near stop".
+
+### Phase 2 — Polish + cohérence make-sense (user feedback semi-instant)
+
+- `3e86fc3` **Positions make-sense 3-fixes** : (1) Other linkage scope par carte broker (top-5 sectors gardés, reste → `data-sec="Other"` sur rows table), (2) drop "Top sector" cell hero (concentrator-thematic → signal trivial), (3) row alert + AT STOP chip filtrés `pnl<0` (ALAB +90% silent).
+- `11f3a7e` Reduce page-change effect : fade .12s sans slide (était .26s + translateY 4px).
+- `dc83314` Unify animations partout : drop vigie cascade .32s staggered, all pages identical.
+- `d0ea039` Drop transitions width sur 11 bars (sector mix, conviction, asym, sub-bars) — page entry instant.
+- `615c158` **Kill View Transitions API** + nth-child stagger Vigie — c'était le `@supports(view-transition-name)` qui causait le crossfade en relief sur Chrome.
+
+### Phase 3 — Audit canonique 4 passes (P1 → P4)
+
+- `2494086` **P1** : 3 hex legacy (`#ff1744`/`#ffd400`/`#f5efe3`) → tokens sémantiques + 4 aliases morts consolidés (`--metal`/`--gold`/`--acc2`/`--data-2` droppés, 16 var() remplacés).
+- `74014c8` **P2** : 37 font-size + 9 border-radius hardcoded → tokens existants (75% du drift mappable).
+- `fb01b9a` **P3** : 163 CSS rules legacy droppées (9 cards dead : gradecard/factorscard/conceptionscard/narrativecard/benchcard/axescard/wrappercard/v2cohortcard/wactcard).
+- `96861f8` **P4** : 303 lignes Python dead droppées (5 fns définies jamais appelées).
+
+### Livrables structurels
+
+- **Overview v3** : header Live meta (Session DD MMM · HH:MM CET · last checked), gros hero 2-col (chart Catmull-Rom + grade ring B+ avec Construction/Fragility), Needs you today riches cards, Macro state conservé.
+- **Positions v3** : hero 3-cell (Book / Near target / Near stop), per-broker card 2-col (sector mix cliquable + table), logos + monogrammes fallback, gauge canonique 5 repères, sector bucket "Other" correctement lié.
+- **Cohérence sémantique** : "Near stop" / "AT STOP" / row alert = downside<10 **AND** pnl<0 (winners trailing stop tight → pas d'alerte rouge).
+
+### Audit canonique — bilan chiffré
+
+- Palette canonique : 4 tokens (`--data` + `--acc`/`--bear`/`--warn`) au lieu de 8 avec aliases
+- Bundle app.css : 167 lignes droppées (-9%)
+- render.py : 8955 → 8652 lignes (-3.4%)
+- font-size hardcoded : 50 → 13 (75% tokenisés)
+- border-radius hardcoded : 20+ → 13 (45% tokenisés)
+- 0 reference `var(--metal|gold|acc2|data-2)` dans le code source
+
+### Tag rollback créé
+
+- `pre-design-session-2026-06-19` posé à `36bf729` (avant la phase v3) pour rollback safe si besoin.
+- `pre-v2-redesign` toujours présent.
+
+### Reverts session précédente (matin)
+
+- `git reset --hard c523d06` + force-push pour effacer les commits Pass 27-31f du 2026-06-18 (user "everything we did is just ugly"). 10 commits supprimés du log. Repartis ensuite avec l'externe Claude.
+
+### Entry next session
+
+1. **Tester le dashboard live** côté Mac/browser (Cmd+Shift+R) — bloc Overview v3 + Positions v3 + animations identiques cross-pages.
+2. **Repo PUBLIC** sur GitHub (toujours, pour accès claude.ai connector). Si l'autre Claude n'est plus actif, repasser PRIVATE.
+3. **Backlog inchangé** : AMD lock_in obs +30j (2026-07-18), KLAC sweep #135, Hetzner SSH, user keys.
+4. **Hardcoded restant audit P5** (si on continue) : 13 font-size display-spec (38/42/45/56/59px) + 13 border-radius custom (3/5/6/14/16/24px) — ajouter tokens dédiés (--t-display-XL, --r-card-lg) ou laisser.
+5. **Memory candidate** : pattern collaboration claude.ai web + Claude Code via zip handoff + GitHub connector. Doctrine émergente "external Claude design ≠ source-of-truth, merge selective via diff stat".
