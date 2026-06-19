@@ -1592,6 +1592,43 @@ _CSS = """
   body.midnight .warn-chip-bear{ background:rgba(220,38,38,.18); border-color:rgba(240,80,80,.5); }
 """
 
+_OV_HERO_CSS = """
+/* ============================================================
+   Overview hero (v3 19/06 evening) — gros panel BookValue + chart
+   smooth Catmull-Rom + range chips 30/90/1Y + tooltip + crosshair.
+   ============================================================ */
+.ov-live-meta{ font-family:var(--fm); font-size:var(--t-mini); color:var(--steel); letter-spacing:.04em; font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:8px; }
+.ov-live-meta b{ color:var(--ink); font-weight:600; }
+.ov-live-dot{ width:8px; height:8px; border-radius:50%; background:var(--acc); box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent); display:inline-block; }
+[data-page="vigie"] .phead{ display:flex; align-items:baseline; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+[data-page="vigie"] .phead .sub{ display:none; }
+
+.ov-hero{ background:linear-gradient(180deg,#FFFFFF,#FBFCFE); border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(16,24,40,.04),0 12px 32px -16px rgba(16,24,40,.12); padding:28px 32px 18px; margin:16px 0 22px; }
+.ov-hero-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:24px; margin-bottom:14px; }
+.ov-hero .k{ font-family:var(--fm); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); font-weight:500; margin-bottom:12px; }
+.ov-hero .v{ font-family:var(--fdis); font-weight:700; font-size:56px; line-height:1; letter-spacing:-.02em; font-variant-numeric:tabular-nums; color:var(--ink); }
+.ov-hero .v small{ font-family:var(--fm); font-size:20px; color:var(--steel); font-weight:500; margin-left:6px; vertical-align:baseline; }
+.ov-hero .meta{ font-family:var(--fm); font-size:13px; color:var(--steel); margin-top:14px; letter-spacing:.02em; font-variant-numeric:tabular-nums; }
+.ov-hero .meta .acc{ color:var(--acc); font-weight:600; }
+.ov-hero .meta .bear{ color:var(--bear); font-weight:600; }
+
+/* Range chips */
+.ov-chips{ display:inline-flex; gap:6px; padding:4px; background:color-mix(in srgb,var(--ink) 4%,transparent); border-radius:24px; flex-shrink:0; }
+.ov-chip{ font-family:var(--fm); font-size:12px; font-weight:600; letter-spacing:.04em; padding:8px 16px; border-radius:18px; border:1px solid transparent; background:transparent; color:var(--steel); cursor:pointer; transition:all .18s var(--ease); }
+.ov-chip:hover{ color:var(--ink); }
+.ov-chip.on{ background:var(--bg); color:var(--data); border-color:color-mix(in srgb,var(--data) 38%,transparent); box-shadow:0 1px 3px rgba(16,24,40,.08); }
+
+/* Chart */
+.ov-chart-wrap{ position:relative; margin-top:6px; }
+.ov-chart{ width:100%; height:280px; display:block; overflow:visible; }
+.ov-tip{ position:absolute; pointer-events:none; transform:translate(-50%,calc(-100% - 12px)); background:var(--ink); color:var(--bg); font-family:var(--fm); font-size:12px; font-weight:600; padding:6px 10px; border-radius:6px; font-variant-numeric:tabular-nums; white-space:nowrap; opacity:0; transition:opacity .12s; z-index:5; }
+.ov-tip::after{ content:""; position:absolute; left:50%; top:100%; transform:translateX(-50%); border:5px solid transparent; border-top-color:var(--ink); }
+
+body.midnight .ov-hero{ background:linear-gradient(180deg,#15191F,#10141A); border-color:#1F242C; }
+body.midnight .ov-chips{ background:rgba(255,255,255,.05); }
+body.midnight .ov-chip.on{ background:rgba(255,255,255,.04); }
+"""
+
 _NEEDS_TODAY_CSS = """
 /* ============================================================
    Needs you today (v3 19/06 evening) — crochet decisionnel Overview

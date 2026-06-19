@@ -648,7 +648,67 @@ _DONUT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
   }
   document.querySelectorAll('.pos-acct').forEach(function(c){ wireCard(c,'.pos-sec-row'); });
   document.querySelectorAll('.brk').forEach(function(c){ wireCard(c,'.brk-row'); });
-});</script>"""  # sector bars : click/hover -> highlight matching table rows (scoped per .pos-acct / .brk card)
+
+  /* === Overview hero chart : range chips swap + tooltip crosshair === */
+  document.querySelectorAll('.ov-hero').forEach(function(hero){
+    var chart = hero.querySelector('.ov-chart');
+    var tip = hero.querySelector('.ov-tip');
+    if(!chart) return;
+    /* chips */
+    hero.querySelectorAll('.ov-chip').forEach(function(c){
+      c.addEventListener('click', function(){
+        var r = c.getAttribute('data-r');
+        hero.querySelectorAll('.ov-chip').forEach(function(x){ x.classList.toggle('on', x === c); });
+        chart.querySelectorAll('g.ov-rng').forEach(function(g){
+          g.style.display = (g.getAttribute('data-r') === r) ? '' : 'none';
+        });
+      });
+    });
+    /* tooltip + crosshair (active layer) */
+    function getActive(){
+      return chart.querySelector('g.ov-rng:not([style*="display:none"]):not([style*="display: none"])')
+          || chart.querySelector('g.ov-rng');
+    }
+    chart.addEventListener('mousemove', function(e){
+      var active = getActive(); if(!active) return;
+      var ptsg = active.querySelector('.ov-pts');
+      if(!ptsg) return;
+      var pts = ptsg.getAttribute('data-pts').split(';').map(function(s){
+        var p = s.split('|');
+        return {x:parseFloat(p[0]), y:parseFloat(p[1]), v:parseFloat(p[2]), d:p[3]};
+      });
+      if(!pts.length) return;
+      var rect = chart.getBoundingClientRect();
+      /* px coord -> svg viewBox coord */
+      var vb = chart.viewBox.baseVal;
+      var mx = (e.clientX - rect.left) / rect.width * vb.width;
+      var nearest = pts[0]; var minD = Math.abs(pts[0].x - mx);
+      for(var i=1;i<pts.length;i++){
+        var d = Math.abs(pts[i].x - mx);
+        if(d < minD){ nearest = pts[i]; minD = d; }
+      }
+      var cross = active.querySelector('.ov-cross');
+      var cursor = active.querySelector('.ov-cursor');
+      if(cross){ cross.setAttribute('x1', nearest.x); cross.setAttribute('x2', nearest.x); cross.style.opacity = 1; }
+      if(cursor){ cursor.setAttribute('cx', nearest.x); cursor.setAttribute('cy', nearest.y); cursor.style.opacity = 1; }
+      /* tooltip position (px space) */
+      var px = nearest.x / vb.width * rect.width;
+      var py = nearest.y / vb.height * rect.height;
+      tip.style.left = px + 'px';
+      tip.style.top = py + 'px';
+      tip.style.opacity = 1;
+      tip.textContent = Math.round(nearest.v).toLocaleString('en-US') + ' €';
+    });
+    chart.addEventListener('mouseleave', function(){
+      var active = getActive(); if(!active) return;
+      var cross = active.querySelector('.ov-cross');
+      var cursor = active.querySelector('.ov-cursor');
+      if(cross) cross.style.opacity = 0;
+      if(cursor) cursor.style.opacity = 0;
+      tip.style.opacity = 0;
+    });
+  });
+});</script>"""  # sector bars + Overview hero chart interactivity
 
 _CSORT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
 document.querySelectorAll('.sec-cols').forEach(function(hdr){

@@ -33,6 +33,7 @@ from dashboard._styles import (
     _CSS,
     _DBA_CSS,
     _NEEDS_TODAY_CSS,
+    _OV_HERO_CSS,
     _POSITIONS_V3_CSS,
     _TH_CSS,
     _TOKENS_CSS,
@@ -7561,7 +7562,7 @@ def _write_static_bundle() -> tuple[int, int]:
     """
     static_dir = Path(__file__).parent / "static"
     static_dir.mkdir(exist_ok=True)
-    app_css = _TOKENS_CSS + _CSS + _NEEDS_TODAY_CSS + _POSITIONS_V3_CSS
+    app_css = _TOKENS_CSS + _CSS + _OV_HERO_CSS + _NEEDS_TODAY_CSS + _POSITIONS_V3_CSS
     app_js = _APP_JS.replace(
         "__TKDOMAIN_JSON__", json.dumps(_ticker_logos_mod.TICKER_DOMAIN)
     ).replace(
@@ -8128,27 +8129,22 @@ def render() -> Path:
     # _grade_panel() call pour side-effects DB potentiels mais on supprime
     # le rendu dupliqué.
     _ = grade_html  # ne pas retirer l'appel : side-effects DB potentiels
-    # Sparkline hero 30j depuis portfolio_snapshots (Robinhood/TR pattern).
-    # Aggregate par jour (MAX 1 valeur/jour, prend la plus recente) pour
-    # accuracy : evite step pattern cause par snapshots multiples meme date.
+    # Hero chart : 365 jours de snapshots, slice client-side en 30/90/365 ranges.
+    # Pattern Robinhood/TR : 1 valeur par jour (la plus recente).
     try:
         _spark_raw = list(_q(
             "SELECT snapshot_date, total_value_eur FROM portfolio_snapshots "
             "WHERE total_value_eur IS NOT NULL "
-            "AND snapshot_date >= date('now','-31 day') "
+            "AND snapshot_date >= date('now','-365 day') "
             "ORDER BY snapshot_date ASC, captured_at ASC"
         ))
-        # Aggregate : 1 valeur par date (la plus recente)
         _spark_by_day = {}
         for _d, _v in _spark_raw:
             _spark_by_day[_d] = _v
         _spark_dates_sorted = sorted(_spark_by_day.keys())
         _spark_vals = [_spark_by_day[k] for k in _spark_dates_sorted]
         _spark_dates = _spark_dates_sorted
-        # Append live value si snapshot du jour pas encore present (snapshot
-        # tourne dans evening_chain 23:00 -- en attendant, le widget refletait
-        # hier soir au lieu de maintenant -> sparkline endpoint + delta vs J-1
-        # tous deux mensongers. Cf docs/audit_2026-06-03 Pattern 2 + 3.
+        # Append live value si snapshot du jour pas encore present.
         _today_iso = datetime.now(UTC).strftime("%Y-%m-%d")
         if pf_value > 0 and (not _spark_dates or _spark_dates[-1] != _today_iso):
             _spark_vals.append(pf_value)
@@ -8167,6 +8163,135 @@ def render() -> Path:
             f'<span class="ps-trend-delta {_val_col_d}">{_val_arrow_d} '
             f'{abs(_val_d):,.0f}&nbsp;&euro; ({"+" if _val_d_pct >= 0 else ""}{_val_d_pct:.1f}%) vs J-1</span>'
         )
+    # === Hero big chart (v3 19/06 evening) : 3 series 30/90/365j ===
+    # Genere 3 jeux path/area pour la range chips au click cote client.
+    def _ov_build_chart(vals_list: list, dates_list: list, W: int = 880, H: int = 280):
+        """Build SVG paths Catmull-Rom (line + area fill) pour une serie."""
+        if len(vals_list) < 2:
+            return {"line": "", "area": "", "pts": [], "lo": 0, "hi": 0,
+                    "first": 0, "last": 0, "delta": 0, "delta_pct": 0}
+        lo, hi = min(vals_list), max(vals_list)
+        rng = (hi - lo) or 1.0
+        padT, padB, padL, padR = 18, 18, 4, 4
+        n = len(vals_list)
+        pts = []
+        for i, v in enumerate(vals_list):
+            x = padL + (i / max(1, n - 1)) * (W - padL - padR)
+            y = padT + (H - padT - padB) - ((v - lo) / rng) * (H - padT - padB)
+            pts.append((x, y))
+        # Catmull-Rom -> cubic Bezier
+        line = f"M {pts[0][0]:.1f} {pts[0][1]:.1f}"
+        for i in range(1, len(pts)):
+            p0 = pts[i-2] if i >= 2 else pts[i-1]
+            p1 = pts[i-1]
+            p2 = pts[i]
+            p3 = pts[i+1] if i+1 < len(pts) else p2
+            c1x = p1[0] + (p2[0] - p0[0]) / 6
+            c1y = p1[1] + (p2[1] - p0[1]) / 6
+            c2x = p2[0] - (p3[0] - p1[0]) / 6
+            c2y = p2[1] - (p3[1] - p1[1]) / 6
+            line += f" C {c1x:.1f} {c1y:.1f} {c2x:.1f} {c2y:.1f} {p2[0]:.1f} {p2[1]:.1f}"
+        area = line + f" L {pts[-1][0]:.1f} {H} L {pts[0][0]:.1f} {H} Z"
+        # Encode points + dates pour hover (x|y|val|date pipe-separated)
+        pts_data = ";".join(
+            f"{pts[i][0]:.1f}|{pts[i][1]:.1f}|{vals_list[i]:.0f}|{dates_list[i]}"
+            for i in range(len(pts))
+        )
+        delta = vals_list[-1] - vals_list[0]
+        delta_pct = (delta / vals_list[0] * 100) if vals_list[0] else 0
+        return {"line": line, "area": area, "pts": pts_data, "lo": lo, "hi": hi,
+                "first": vals_list[0], "last": vals_list[-1],
+                "delta": delta, "delta_pct": delta_pct, "n": n}
+    # Slice the master 365d series into 3 ranges.
+    _ov_W, _ov_H = 880, 280
+    _ov_30 = _ov_build_chart(_spark_vals[-31:], _spark_dates[-31:], _ov_W, _ov_H)
+    _ov_90 = _ov_build_chart(_spark_vals[-91:], _spark_dates[-91:], _ov_W, _ov_H)
+    _ov_365 = _ov_build_chart(_spark_vals, _spark_dates, _ov_W, _ov_H)
+    # Compute baseline 'invested' (cost basis sum)
+    _ov_invested = _pfcost
+    _ov_pnl_eur = pf_value - _ov_invested
+    _ov_pnl_pct = (_ov_pnl_eur / _ov_invested * 100) if _ov_invested else 0
+    _ov_pnl_arrow = "&#9650;" if _ov_pnl_eur >= 0 else "&#9660;"
+    _ov_pnl_cls = "acc" if _ov_pnl_eur >= 0 else "bear"
+    # Today delta (vs J-1) reuse _val_d/_val_d_pct calcules ci-dessus.
+    _ov_today_d = _val_d if len(_spark_vals) >= 2 else 0
+    _ov_today_arrow = "&#9650;" if _ov_today_d >= 0 else "&#9660;"
+    _ov_today_cls = "acc" if _ov_today_d >= 0 else "bear"
+    # Live indicator : true if last snapshot < 24h ago.
+    _ov_live = "Live"
+    _ov_last_checked = "now"
+    if _spark_dates:
+        try:
+            _last_dt = datetime.strptime(_spark_dates[-1], "%Y-%m-%d").replace(tzinfo=UTC)
+            _now = datetime.now(UTC)
+            _hours_ago = (_now - _last_dt).total_seconds() / 3600
+            if _hours_ago < 1:
+                _ov_last_checked = "&lt;1h ago"
+            elif _hours_ago < 24:
+                _ov_last_checked = f"{_hours_ago:.0f}h ago"
+            else:
+                _ov_last_checked = f"{_hours_ago / 24:.0f}d ago"
+        except Exception:
+            pass
+    _ov_session_date = datetime.now().strftime("%-d %b")
+    _ov_session_time = datetime.now().strftime("%H:%M") + " CET"
+    # Embed each path/area inside <g class="rng" data-r="30|90|365"> for client swap.
+    _ov_default_r = "90"
+    # Helper : emit one chart layer for a range
+    def _ov_chart_layer(r: str, data: dict, active: bool) -> str:
+        vis = "" if active else 'style="display:none"'
+        return (
+            f'<g class="ov-rng" data-r="{r}" {vis}>'
+            f'<path class="ov-area" d="{data["area"]}" fill="url(#ovgrad)"/>'
+            f'<path class="ov-line" d="{data["line"]}" fill="none" stroke="var(--data)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+            f'<circle class="ov-last" cx="{data["pts"].split(";")[-1].split("|")[0] if data["pts"] else 0}" cy="{data["pts"].split(";")[-1].split("|")[1] if data["pts"] else 0}" r="4.5" fill="var(--data)"/>'
+            f'<line class="ov-cross" x1="0" y1="0" x2="0" y2="{_ov_H}" stroke="var(--data)" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>'
+            f'<circle class="ov-cursor" cx="0" cy="0" r="5" fill="var(--data)" opacity="0"/>'
+            f'<g class="ov-pts" data-pts="{data["pts"]}"></g>'
+            f'</g>'
+        )
+    _ov_chips = "".join(
+        f'<button class="ov-chip {"on" if r == _ov_default_r else ""}" data-r="{r}">{lab}</button>'
+        for r, lab in [("30", "30d"), ("90", "90d"), ("365", "1Y")]
+    )
+    _ov_hero_panel = (
+        '<div class="ov-hero">'
+        '<div class="ov-hero-top">'
+        '<div>'
+        '<div class="k">Book value</div>'
+        f'<div class="v">{pf_val_str}&nbsp;<small>&euro;</small></div>'
+        '<div class="meta">'
+        f'<span class="{_ov_pnl_cls}">{_ov_pnl_arrow} {abs(_ov_pnl_eur):,.0f}&nbsp;&euro;</span>'
+        f' &middot; <span class="{_ov_pnl_cls}">{"+" if _ov_pnl_pct >= 0 else ""}{_ov_pnl_pct:.1f}%</span> on cost'
+        ' &nbsp;|&nbsp; today '
+        f'<span class="{_ov_today_cls}">{_ov_today_arrow} {abs(_ov_today_d):,.0f}&nbsp;&euro;</span>'
+        f' &nbsp;|&nbsp; invested {_ov_invested:,.0f}&nbsp;&euro;'
+        '</div>'
+        '</div>'
+        f'<div class="ov-chips">{_ov_chips}</div>'
+        '</div>'
+        f'<div class="ov-chart-wrap"><svg class="ov-chart" viewBox="0 0 {_ov_W} {_ov_H}" preserveAspectRatio="none">'
+        '<defs><linearGradient id="ovgrad" x1="0" y1="0" x2="0" y2="1">'
+        '<stop offset="0" stop-color="var(--data)" stop-opacity=".28"/>'
+        '<stop offset="1" stop-color="var(--data)" stop-opacity="0"/>'
+        '</linearGradient></defs>'
+        + _ov_chart_layer("30", _ov_30, _ov_default_r == "30")
+        + _ov_chart_layer("90", _ov_90, _ov_default_r == "90")
+        + _ov_chart_layer("365", _ov_365, _ov_default_r == "365")
+        + '</svg>'
+        '<div class="ov-tip"></div>'
+        '</div>'
+        '</div>'
+    )
+    # Live indicator string pour le phead
+    _ov_live_html = (
+        f'<div class="ov-live-meta">'
+        f'<span class="ov-live-dot"></span><b>{_ov_live}</b> &middot; '
+        f'Session {_ov_session_date} &middot; {_ov_session_time} &middot; '
+        f'last checked {_ov_last_checked}'
+        f'</div>'
+    )
+    # Legacy sparkline calculation (still emitted but gated by ov_hero presence) :
     if len(_spark_vals) >= 2:
         _spk_lo, _spk_hi = min(_spark_vals), max(_spark_vals)
         _spk_rng = (_spk_hi - _spk_lo) or 1.0
@@ -8261,8 +8386,12 @@ def render() -> Path:
     except Exception:
         _macro_state_strate = ""
     vigie = (
-        '<section data-page="vigie" class="active" role="region" aria-label="Overview"><div class="phead"><h1>Overview</h1>'
-        '<div class="sub">Discipline posture &middot; what to act on today</div></div>'
+        '<section data-page="vigie" class="active" role="region" aria-label="Overview">'
+        '<div class="phead"><h1>Overview</h1>'
+        f'{_ov_live_html}'
+        '</div>'
+        # v3 19/06 evening : big hero panel BookValue + chart smooth area + range chips.
+        f'{_ov_hero_panel}'
         # === Star Vue d'ensemble (unifie) : valeur+PnL+capital sous-jacent
         # a gauche, grade A+ + bar a droite. Strate 2 = repartition lignes
         # pleine largeur. Gradecard detail retire (vide visuel).
