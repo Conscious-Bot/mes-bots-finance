@@ -547,82 +547,6 @@ _DIM_LABELS = {
 }
 
 
-def _v2_cohort_panel() -> str:
-    """Cohorte V2 vs V1 -- visualise le pivot scoring 30/05.
-
-    V2 = signal_scorer_v2 (base-rate-first, 3 etapes), source unique post-30/05.
-    V1 = estimate_probability (formule cap [0.50, 0.72]), legacy mono-bucket.
-    Tant que zero prediction V2 n'est en ledger -> affiche message d'attente.
-    """
-    try:
-        from shared import storage as _stg
-
-        with _stg.db() as cx:
-            # V2 = predictions issues des sources SEC EDGAR (8-K + insider)
-            v2_n = cx.execute(
-                "SELECT COUNT(*) c FROM predictions p "
-                "JOIN signals sig ON p.signal_id = sig.id "
-                "JOIN sources src ON sig.source_id = src.id "
-                "WHERE src.name IN ('SEC EDGAR 8-K', 'SEC EDGAR Insider Cluster')"
-            ).fetchone()['c']
-            # V1 = tout le reste (newsletters)
-            v1_n = cx.execute(
-                "SELECT COUNT(*) c FROM predictions p "
-                "JOIN signals sig ON p.signal_id = sig.id "
-                "JOIN sources src ON sig.source_id = src.id "
-                "WHERE src.name NOT IN ('SEC EDGAR 8-K', 'SEC EDGAR Insider Cluster')"
-            ).fetchone()['c']
-            v1_range = cx.execute(
-                "SELECT MIN(probability_at_creation) lo, MAX(probability_at_creation) hi, "
-                "       COUNT(DISTINCT ROUND(probability_at_creation, 2)) buckets "
-                "FROM predictions p JOIN signals sig ON p.signal_id = sig.id "
-                "JOIN sources src ON sig.source_id = src.id "
-                "WHERE src.name NOT IN ('SEC EDGAR 8-K', 'SEC EDGAR Insider Cluster')"
-            ).fetchone()
-            v2_range = cx.execute(
-                "SELECT MIN(probability_at_creation) lo, MAX(probability_at_creation) hi, "
-                "       COUNT(DISTINCT ROUND(probability_at_creation, 2)) buckets "
-                "FROM predictions p JOIN signals sig ON p.signal_id = sig.id "
-                "JOIN sources src ON sig.source_id = src.id "
-                "WHERE src.name IN ('SEC EDGAR 8-K', 'SEC EDGAR Insider Cluster')"
-            ).fetchone()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">V2 cohort unavailable: {type(e).__name__}</div></div>'
-
-    v1_lo, v1_hi, v1_b = v1_range['lo'] or 0, v1_range['hi'] or 0, v1_range['buckets'] or 0
-    v2_lo, v2_hi, v2_b = v2_range['lo'] or 0, v2_range['hi'] or 0, v2_range['buckets'] or 0
-
-    v2_status = (
-        '<div class="v2-status v2-empty">First V2 cohort expected '
-        '31/05 6:30 (cron 8-K scan + 6:20 insider clusters)</div>'
-        if v2_n == 0
-        else f'<div class="v2-stat-row">'
-             f'<span class="v2-stat-n mono">n={v2_n}</span>'
-             f'<span class="v2-stat-rg mono">[{v2_lo:.3f} - {v2_hi:.3f}]</span>'
-             f'<span class="v2-stat-bk mono">{v2_b} bucket(s)</span></div>'
-    )
-
-    v1_block = (
-        f'<div class="v2-stat-row">'
-        f'<span class="v2-stat-n mono">n={v1_n}</span>'
-        f'<span class="v2-stat-rg mono">[{v1_lo:.3f} - {v1_hi:.3f}]</span>'
-        f'<span class="v2-stat-bk mono">{v1_b} bucket(s)</span></div>'
-        if v1_n > 0
-        else '<div class="v2-status v2-empty">no V1 prediction</div>'
-    )
-
-    return (
-        '<div class="colhead"><span class="t">Cohort V2 vs V1 (scorer pivot 30/05)</span>'
-        '<span class="a">V2 = SEC EDGAR primary content &middot; V1 = newsletter sentiment (mono-bucket)</span></div>'
-        '<div class="card pad v2cohortcard" style="margin-bottom:var(--s4)">'
-        '<div class="v2-grid">'
-        '<div class="v2-side v2-current"><div class="v2-label">V2 (canonique post-30/05)</div>'
-        f'{v2_status}</div>'
-        '<div class="v2-side v2-legacy"><div class="v2-label">V1 (legacy, baseline 10/06)</div>'
-        f'{v1_block}</div></div></div>'
-    )
-
-
 def _calibration_progress_panel() -> str:
     """Calibration scorer V2 -- progress bar n/30 (INSUFFICIENT_DATA) ou verdict OK/WARN/ALERT.
 
@@ -2006,62 +1930,6 @@ def _return_clustering_panel() -> str:
         '<div class="dc-sub">'
         f'<div class="dc-sh">Clusters mixed macro_factor (concentration cachee) — n={n_mixed}</div>'
         f'<div class="dc-list">{mix_html}</div></div>'
-        '</div>'
-    )
-
-
-def _wrapper_panel() -> str:
-    """Sprint 16 — Placement PEA / CTO + flag PEA-eligible mal places + tax-loss harvest."""
-    try:
-        from intelligence import wrapper_tax as _wt
-
-        alloc = _wt.compute_wrapper_allocation()
-        losses = _wt.compute_tax_loss_harvest_candidates(min_loss_pct=-5)
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">wrapper indispo: {type(e).__name__}</div></div>'
-    rows_alloc = []
-    for k in ("PEA", "CTO", "unknown"):
-        pct = alloc["allocation_pct"][k]
-        eur = alloc["allocation_eur"][k]
-        if eur == 0:
-            continue
-        rows_alloc.append(
-            f'<div class="wr-row"><span class="wr-key">{k}</span>'
-            f'<span class="wr-pct mono">{pct:.1f}%</span>'
-            f'<span class="wr-eur mono">{eur:,.0f}€</span></div>'
-        )
-    misalloc_html = ""
-    if alloc["n_pea_misallocated"]:
-        items = "".join(
-            f'<div class="wr-mis"><span class="wr-mis-tk">{m["ticker"]}</span>'
-            f'<span class="wr-mis-pct mono">{m["weight_pct"]:.1f}%</span>'
-            f'<span class="wr-mis-eur mono">{m["weight_eur"]:,.0f}€</span></div>'
-            for m in alloc["pea_misallocated_in_cto"]
-        )
-        misalloc_html = (
-            '<div class="wr-section">'
-            f'<div class="wr-sh">PEA-eligibles loges au CTO (n={alloc["n_pea_misallocated"]})</div>'
-            + items + '</div>'
-        )
-    loss_html = ""
-    if losses:
-        items = "".join(
-            f'<div class="wr-mis"><span class="wr-mis-tk">{loss["ticker"]}</span>'
-            f'<span class="wr-mis-pct mono neg">{loss["pnl_pct"]:+.1f}%</span>'
-            f'<span class="wr-mis-eur mono">{loss["moins_value_eur"]:+,.0f}€</span></div>'
-            for loss in losses
-        )
-        loss_html = (
-            '<div class="wr-section">'
-            f'<div class="wr-sh">Recolte moins-values CTO (seuil -5%, n={len(losses)})</div>'
-            + items + '</div>'
-        )
-    return (
-        '<div class="colhead"><span class="t">Placement fiscal (PEA / CTO)</span>'
-        '<span class="a">tax-loss harvest + flag PEA-eligibles mal places</span></div>'
-        '<div class="card pad wrappercard" style="margin-bottom:var(--s4)">'
-        f'<div class="wr-alloc">{"".join(rows_alloc)}</div>'
-        f'{misalloc_html}{loss_html}'
         '</div>'
     )
 
@@ -3797,60 +3665,6 @@ def _trajectory_panel() -> str:
     )
 
 
-def _ticker_axes_panel() -> str:
-    """Sprint 12 — Tagging per ticker (driver/stage/moat/macro_factor) pour
-    redefinir REDONDANCE et DECORRELATION proprement. Cf. critique review.
-    """
-    try:
-        from shared import storage as _stg
-
-        rows = _stg.get_all_latest_ticker_axes()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">axes indispo: {type(e).__name__}</div></div>'
-    if not rows:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Axes tagging (driver/stage/moat/macro) pending. Tech sheets will appear here once classified."
-            "</div></div>"
-        )
-    # Group by macro_factor (dominant macro view)
-    by_macro: dict = {}
-    for r in rows:
-        by_macro.setdefault(r.get("macro_factor", "Other"), []).append(r)
-    # Sort macros by count desc
-    macros = sorted(by_macro.items(), key=lambda kv: -len(kv[1]))
-    groups_html = []
-    for macro, members in macros:
-        lis = []
-        for r in members:
-            tk = r["ticker"]
-            driver = (r.get("demand_driver") or "")[:70]
-            stage = (r.get("value_chain_stage") or "")[:70]
-            moat = (r.get("moat_source") or "")[:70]
-            lis.append(
-                f'<div class="ax-row">'
-                f'<div class="ax-tk">{tk}</div>'
-                f'<div class="ax-fields">'
-                f'<div class="ax-f"><span class="ax-l">driver</span> {driver}</div>'
-                f'<div class="ax-f"><span class="ax-l">stage</span> {stage}</div>'
-                f'<div class="ax-f"><span class="ax-l">moat</span> {moat}</div>'
-                f'</div></div>'
-            )
-        groups_html.append(
-            f'<div class="ax-group"><div class="ax-h">'
-            f'<span class="ax-macro">{macro}</span>'
-            f'<span class="ax-n">n={len(members)}</span></div>'
-            + "".join(lis) + "</div>"
-        )
-    return (
-        '<div class="colhead"><span class="t">Fiches techniques par ticker</span>'
-        '<span class="a">demand engine &middot; value chain layer &middot; moat nature &middot; macro factor</span></div>'
-        '<div class="card pad axescard" style="margin-bottom:var(--s4)">'
-        + "".join(groups_html)
-        + "</div>"
-    )
-
-
 def _preferences_panel() -> str:
     """Layer 3 — ce qui MARCHE deterministically pour CE user.
 
@@ -3930,59 +3744,6 @@ def _pref_row(key: str, n: int, mean_ret: float, win: float) -> str:
         f'<span class="pr-mid">n={n}</span>'
         f'<span class="pr-num mono {rcls}">{mean_ret:+.1f}%</span>'
         f'<span class="pr-win mono">win {win:.0f}%</span></div>'
-    )
-
-
-def _conceptions_panel() -> str:
-    """Layer 2 — vue stable du bot per ticker. Synthese hebdo (cron Sun 19h)."""
-    try:
-        from shared import storage as _stg
-
-        concs = _stg.get_all_current_conceptions()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">conceptions indispo: {type(e).__name__}</div></div>'
-    if not concs:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Weekly summary scheduled Sunday 19:00. Once generated, bot's stable per-ticker views will appear here."
-            "</div></div>"
-        )
-    rows = []
-    for c in concs[:40]:
-        kind = c.get("kind", "?")
-        target = c.get("target_key", "?")
-        conv = c.get("conviction", 0) or 0
-        val = c.get("valence")
-        val_s = f"{val:+.2f}" if isinstance(val, int | float) else "·"
-        vcls = "neg" if (isinstance(val, int | float) and val < -0.1) else (
-            "pos" if (isinstance(val, int | float) and val > 0.1) else "neu"
-        )
-        text = (c.get("conception_text") or "").strip()
-        text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        # 1200+ chars = summarize via LLM upstream a posteriori. Aujourd'hui
-        # max obs = 791, donc accordeon suffit. Cap hard a 1500 par securite.
-        if len(text) > 1500:
-            text = text[:1497] + "..."
-        n = c.get("n_signals_used") or 0
-        ccls = "high" if conv >= 60 else ("mid" if conv >= 35 else "low")
-        rows.append(
-            f'<div class="bc-row">'
-            f'<div class="bc-head"><span class="bc-target">{target}</span>'
-            f'<span class="bc-kind">{kind}</span>'
-            f'<span class="bc-conv {ccls}">conv {conv}</span>'
-            f'<span class="bc-val {vcls}">{val_s}</span>'
-            f'<span class="bc-n">n={n}</span></div>'
-            f'<div class="bc-text">{text}</div></div>'
-        )
-    return (
-        '<div class="colhead"><span class="t">Ce que le bot pense par ticker</span>'
-        '<span class="a">stable per-ticker summary updated weekly '
-        '&middot; survole ou clique pour expand</span></div>'
-        '<div class="card pad conceptionscard" style="margin-bottom:var(--s4)">'
-        + "".join(rows)
-        + "<script>document.querySelectorAll('.conceptionscard .bc-row').forEach(function(e){"
-        "e.addEventListener('click',function(){e.classList.toggle('open')})});</script>"
-        + "</div>"
     )
 
 
@@ -4101,70 +3862,6 @@ def _conversations_panel() -> str:
         '<div class="card pad conversationscard" style="margin-bottom:var(--s4)">'
         + "".join(lis)
         + "</div>"
-    )
-
-
-def _narrative_panel() -> str:
-    """Sprint 6 surface : narrative clusters LLM + edges + redundant."""
-    try:
-        import json as _json
-
-        from shared import storage as _stg
-
-        raw = _stg.get_latest_narrative_snapshot()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">narrative unavailable: {type(e).__name__}: {e}</div></div>'
-    if not raw:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Weekly narrative synthesis scheduled Sunday 20:30. Narrative clusters will appear here once generated."
-            "</div></div>"
-        )
-    clusters = _json.loads(raw.get("clusters_json") or "[]")
-    edges_blob = _json.loads(raw.get("edges_json") or "{}")
-    edges = edges_blob.get("edge_positions") or []
-    redundant = edges_blob.get("redundant_positions") or []
-
-    cluster_rows = []
-    for cl in clusters:
-        name = cl.get("name", "?")
-        tks = cl.get("tickers") or []
-        overlap = cl.get("narrative_overlap_score") or 0
-        shared = (cl.get("shared_drivers") or "")[:200]
-        ocls = "high" if overlap >= 70 else ("mid" if overlap >= 40 else "low")
-        cluster_rows.append(
-            f'<div class="nv-cluster"><div class="nv-cl-head">'
-            f'<span class="nv-cl-name">{name}</span>'
-            f'<span class="nv-cl-overlap {ocls}">overlap {overlap}</span>'
-            f'<span class="nv-cl-n">n={len(tks)}</span></div>'
-            f'<div class="nv-cl-tks">{", ".join(tks[:10])}</div>'
-            f'<div class="nv-cl-driv">{shared}</div></div>'
-        )
-
-    edges_rows = "".join(
-        f'<div class="nv-line"><span class="nv-tk">{e.get("ticker","?")}</span>'
-        f'<span class="nv-why">{(e.get("reason") or "")[:200]}</span></div>'
-        for e in edges
-    ) or '<div class="empty" style="padding:var(--s25) 0">none edge identifie</div>'
-
-    red_rows = "".join(
-        f'<div class="nv-line"><span class="nv-tk">{r.get("ticker","?")}</span>'
-        f'<span class="nv-with">redondant avec {r.get("redundant_with","?")}</span>'
-        f'<span class="nv-why">{(r.get("reason") or "")[:160]}</span></div>'
-        for r in redundant
-    ) or '<div class="empty" style="padding:var(--s25) 0">none redondance</div>'
-
-    return (
-        '<div class="colhead"><span class="t">Clusters narratifs (LLM)</span>'
-        f'<span class="a">{raw.get("snapshot_date","?")} &middot; consume par T2 + decorrelation du grade</span></div>'
-        '<div class="card pad narrativecard" style="margin-bottom:var(--s4)">'
-        f'<div class="nv-grid">{"".join(cluster_rows)}</div>'
-        '<div class="nv-split">'
-        '<div class="nv-col"><div class="nv-h">Edge positions (independantes)</div>'
-        f'{edges_rows}</div>'
-        '<div class="nv-col"><div class="nv-h">Redondances detectees</div>'
-        f'{red_rows}</div>'
-        '</div></div>'
     )
 
 
