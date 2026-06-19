@@ -325,43 +325,10 @@ _CSS = """
   /* Page transitions (Emil framework) : Cmd+1..9 = action keyboard 30-50x/jour
      -> doit feel instant. .26s cubic-bezier ease-out vs .42s ease (sluggish). */
   [data-page] { display:none; } [data-page].active { display:block; animation:fadein .12s ease-out; } @keyframes fadein { from { opacity:0; } to { opacity:1; } }
-  /* View Transitions API (Chrome 111+, Safari 18+, Edge 111+). Override le
-     fadein generique : croise old + new snapshots avec slide subtil. Linear-
-     like. Fallback : fadein keyframe ci-dessus reste. */
-  @supports (view-transition-name: a) {
-    [data-page].active { view-transition-name: page-body; animation: none; }
-    .phead h1 { view-transition-name: page-title; }
-    .phead .sub { view-transition-name: page-sub; }
-    ::view-transition-group(page-body) { animation-duration: .32s; animation-timing-function: var(--ease); }
-    ::view-transition-old(page-body) { animation: vt-fade-out .10s ease-out both; }
-    ::view-transition-new(page-body) { animation: vt-slide-in .12s ease-out both; }
-    ::view-transition-old(page-title), ::view-transition-new(page-title) { animation-duration: .26s; animation-timing-function: var(--ease); }
-    ::view-transition-old(page-sub),   ::view-transition-new(page-sub)   { animation-duration: .26s; animation-timing-function: var(--ease); }
-    @keyframes vt-fade-out { to { opacity: 0; } }
-    @keyframes vt-slide-in { from { opacity: 0; } to { opacity: 1; } }
-  }
-  /* Respect prefers-reduced-motion : kill toute view-transition. */
-  @media (prefers-reduced-motion: reduce) {
-    ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
-  }
-  /* Cascade signature Vue d'ensemble : page load orchestre, blocs en revel
-     staggered 60ms. Remplace le fadein page generique sur vigie uniquement.
-     Direction "instrument vivant qui se decouvre" (task #37 axe 4). */
-  /* Cascade vigie supprimee 19/06 (user 'pas le meme effet sur toutes les pages').
-     Toutes les pages utilisent maintenant le meme fadein .12s du selecteur generique. */
-  [data-page="vigie"].active { animation:fadein .12s ease-out; }
-  [data-page="vigie"].active > * { animation:none; opacity:1; }
-  [data-page="vigie"].active > *:nth-child(1) { animation-delay:0ms; }
-  [data-page="vigie"].active > *:nth-child(2) { animation-delay:60ms; }
-  [data-page="vigie"].active > *:nth-child(3) { animation-delay:120ms; }
-  [data-page="vigie"].active > *:nth-child(4) { animation-delay:180ms; }
-  [data-page="vigie"].active > *:nth-child(5) { animation-delay:240ms; }
-  [data-page="vigie"].active > *:nth-child(6) { animation-delay:300ms; }
-  [data-page="vigie"].active > *:nth-child(7) { animation-delay:360ms; }
-  [data-page="vigie"].active > *:nth-child(8) { animation-delay:420ms; }
-  [data-page="vigie"].active > *:nth-child(n+9) { animation-delay:480ms; }
-  @keyframes presage-cascade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
-  .noanim [data-page="vigie"].active > * { animation:none; opacity:1; transform:none; }
+  /* View Transitions API + presage-cascade + nth-child delays supprimes
+     19/06 (user 'animation de mouvement en relief' sur positions/overview/theses).
+     Toutes les pages utilisent le meme fadein .12s du selecteur generique
+     line 327. Aucun mouvement, aucun stagger, aucune diff cross-page. */
   .hero { background:var(--panel); border:1px solid var(--line3); border-radius:var(--r3); padding:28px 34px; margin-bottom:26px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; }
   .hero .big { font-family:var(--fdis); font-weight:800; font-size:var(--t-hero); line-height:.95; letter-spacing:-.015em; font-variant-numeric:tabular-nums; }
   .hero .big.pos { color:var(--acc); } .hero .big.neg { color:var(--bear); }
