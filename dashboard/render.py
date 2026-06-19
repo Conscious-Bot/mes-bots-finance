@@ -29,7 +29,7 @@ from dashboard._scripts import (
     _SORT_JS,
     _THEME_INIT,
 )
-from dashboard._styles import _CSS, _DBA_CSS, _TH_CSS, _TOKENS_CSS
+from dashboard._styles import _CSS, _DBA_CSS, _POSITIONS_V3_CSS, _TH_CSS, _TOKENS_CSS
 from intelligence import asymmetry as asym_mod
 
 importlib.reload(_ticker_logos_mod)
@@ -6871,6 +6871,47 @@ def _sector_donut(segs: list) -> str:
     return f'<div class="brk-viz"><div class="brk-bars">{"".join(rows)}</div></div>'
 
 
+def _sector_mix_v3(segs: list) -> str:
+    """V3 sector mix left col (Pass 33 19/06) — SECTOR MIX · CLICK TO FILTER.
+
+    Markup .pos-sec / .pos-sec-row[data-sec] pour JS highlight scope par .pos-acct.
+    Top-5 + Other fallback. Couleur via SECTOR_COLORS (jewel-tones palette).
+    """
+    import html as _h
+    if not segs:
+        return ""
+    total = sum(v for _, v in segs) or 1
+    sorted_segs = sorted(segs, key=lambda kv: -kv[1])
+    max_pct = sorted_segs[0][1] / total * 100 if sorted_segs else 0
+    keep = sorted_segs[:5]
+    other = sum(v for _, v in sorted_segs[5:])
+    if other > 0:
+        keep.append(("Other", other))
+    rows = []
+    for label, v in keep:
+        col = SECTOR_COLORS.get(label, "#6B7686")
+        pct = v / total * 100
+        fill = pct / max_pct * 100 if max_pct else 0
+        vstr = f"{v / 1000:.0f}k" if v >= 1000 else f"{v:.0f}"
+        _sec = _h.escape(label, quote=True)
+        rows.append(
+            f'<div class="pos-sec-row" data-sec="{_sec}" tabindex="0" role="button" '
+            f'aria-label="Highlight {_sec} positions">'
+            f'<span class="pos-sec-dot" style="background:{col}"></span>'
+            f'<span class="pos-sec-name">{label}</span>'
+            f'<span class="pos-sec-bar"><i style="width:{fill:.1f}%;background:{col}"></i></span>'
+            f'<span class="pos-sec-pct">{pct:.0f}%</span>'
+            f'<span class="pos-sec-val">{vstr}&nbsp;&euro;</span>'
+            f"</div>"
+        )
+    return (
+        '<div class="pos-sec">'
+        '<h2>Sector mix &middot; click to filter</h2>'
+        f'<div class="pos-sec-rows">{"".join(rows)}</div>'
+        '</div>'
+    )
+
+
 def _asym_format(ratio):
     """Format asymmetry_ratio avec class de coloration via doctrine vocabulary.
 
@@ -6939,13 +6980,9 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         pstr = "&mdash;" if pc is None else f"{'+' if pc >= 0 else ''}{pc:.1f}%"
         nm = names.get(tk, tk)
         vstr = f"{v:,.0f}"
-        asym_cls, asym_str = _asym_format(asym.get(tk))
-        g = gauges.get(tk)
-        if g:
-            # Gauge canonique SPEC_GAUGE : axe-prix natif via BookLine.
-            gauge_html = _position_axis_price(_gauge_prices_native(_book_idx.get(tk)), extra_class="row-bar") or '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
-        else:
-            gauge_html = '<span class="num" style="color:var(--steel);opacity:.5">&mdash;</span>'
+        # Pass 33 v3 : legacy asym_cls/asym_str + gauge_html supersedes by v3 markup below.
+        _ = _asym_format(asym.get(tk))  # legacy formatter retenu pour back-compat tests
+        _ = gauges.get(tk)  # legacy 'g' — Pass 33 v3 lit gauges directement via _g3 plus bas
         # Cycle phase chip via vocabulary canonique (#117 -- adoption STATE calme).
         # Avant : _CP_CLS mappait late->warn / contraction->bear, faisant CRIER
         # des STATE (mur de rouge dans le book). Maintenant via vocabulary :
@@ -6991,28 +7028,90 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             f'data-tip="{_h_esc.escape(_proxy_reason, quote=True)}">&middot;proxy</span>'
             if _proxy_reason else ""
         )
+        # === v3 markup (Pass 33 19/06 redesign target) ===
+        _mono = "".join(c for c in tk if c.isalnum())[:3].upper()
+        # Asym v3 : coloration au-dela de _asym_format (qui retourne 'num/num acc/num steel-mute')
+        _ratio_v3 = asym.get(tk)
+        if _ratio_v3 is None:
+            _av3_cls, _av3_txt = "pos-asym", "&mdash;"
+        elif _ratio_v3 >= 999:
+            _av3_cls, _av3_txt = "pos-asym barbell", "target&nbsp;&check;"
+        elif _ratio_v3 >= 3.0:
+            _av3_cls = "pos-asym barbell"
+            _av3_txt = f'{_ratio_v3:.1f}<span class="x">&times;</span>'
+        elif _ratio_v3 < 1.0:
+            _av3_cls = "pos-asym inv"
+            _av3_txt = f'{_ratio_v3:.1f}<span class="x">&times;</span>'
+        else:
+            _av3_cls = "pos-asym"
+            _av3_txt = f'{_ratio_v3:.1f}<span class="x">&times;</span>'
+        # AT STOP chip + alert row : downside_pct < 10
+        _dn_v3 = gauges.get(tk, {}).get("dn")
+        _alert_cls_v3 = "pos-alert" if (_dn_v3 is not None and _dn_v3 < 10) else ""
+        _stop_chip_v3 = '<span class="pos-stop-chip">AT&nbsp;STOP</span>' if _alert_cls_v3 else ""
+        # Progress gauge v3 : barre teal pleine + dot circle + tick cible.
+        # Calcule la fraction stop->target [0..100] depuis _entry/_stop/_tgt/_cur.
+        _g3 = gauges.get(tk, {})
+        if _g3.get("_stop") and _g3.get("_tgt") and _g3.get("_cur") is not None:
+            _stop_v, _tgt_v, _cur_v = _g3["_stop"], _g3["_tgt"], _g3["_cur"]
+            _range = (_tgt_v - _stop_v) or 1.0
+            _frac = max(0.0, min(100.0, (_cur_v - _stop_v) / _range * 100))
+            _gauge_v3 = (
+                f'<span class="pos-gauge">'
+                f'<i class="fill" style="width:{_frac:.1f}%"></i>'
+                f'<i class="dot" style="left:{_frac:.1f}%"></i>'
+                f'<i class="tick"></i>'
+                f'</span>'
+            )
+        else:
+            _gauge_v3 = '<span style="color:var(--steel);opacity:.4">&mdash;</span>'
+        # Cycle chip v3 (mute, reuse v2chip-ish style minimal)
+        _cp_v3_chip = (
+            f'<span style="display:inline-block;font-family:var(--fm);font-size:10px;letter-spacing:.06em;'
+            f'text-transform:uppercase;color:var(--steel);border:1px solid var(--line2);background:transparent;'
+            f'padding:2px 7px;border-radius:5px;margin-left:8px;vertical-align:middle">{_cp}</span>'
+            if _cp != "unknown" else ""
+        )
         rows += (
-            f'<tr data-tk="{tk}" data-sec="{_h_esc.escape(sectors.get(tk, "No thesis"), quote=True)}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}<span class="tk-sym">{tk}</span><span class="nm">{nm}</span>{_cp_chip}{_tw_chips}</td>'
-            f'<td class="num mono">{vstr}&nbsp;&euro;{_proxy_chip}</td><td class="num">{w:.1f}%</td>'
-            f'<td class="num {pcls}">{pstr}</td>'
-            f'<td class="{asym_cls}">{asym_str}</td>'
-            f'<td class="row-gauge">{gauge_html}</td></tr>'
+            f'<tr data-tk="{tk}" data-sec="{_h_esc.escape(sectors.get(tk, "No thesis"), quote=True)}" '
+            f'data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}" '
+            f'class="{_alert_cls_v3}">'
+            f'<td><div class="pos-tk"><span class="pos-mono">{_mono}</span>'
+            f'<span class="pos-sym">{tk}</span>'
+            f'<span class="pos-name">{nm}</span>'
+            f'{_cp_v3_chip}{_stop_chip_v3}</div></td>'
+            f'<td><span class="pos-val">{vstr}&nbsp;&euro;</span>{_proxy_chip}</td>'
+            f'<td><span class="pos-wt">{w:.1f}%</span></td>'
+            f'<td><span class="pos-pl {pcls}">{pstr}</span></td>'
+            f'<td><span class="{_av3_cls}">{_av3_txt}</span></td>'
+            f'<td>{_gauge_v3}</td>'
+            f'</tr>'
         )
     if not ps:
-        rows = '<tr><td class="empty" colspan="6" style="padding:var(--s4) 0">no position</td></tr>'
+        rows = '<tr><td colspan="6" style="padding:20px 0;color:var(--steel);text-align:center">no position</td></tr>'
     tot_str = f"{tot:,.0f}"
-    donut = _sector_donut(_sector_mix(ps, pnl, sectors)) if ps else ""
+    sector_mix_html = _sector_mix_v3(_sector_mix(ps, pnl, sectors)) if ps else ""
+    _short_note = (
+        "CTO" if "Europe" in note or "hors" in note.lower() else
+        "PEA" if "PEA" in note else note
+    )
     return (
-        f'<div class="brk"><div class="brk-h"><div><span class="brk-n">{label}</span>'
-        f'<span class="brk-note">{note}</span></div>'
-        f'<div class="brk-tot">{tot_str}&nbsp;&euro; <span>&middot; {len(ps)} positions &middot; {share:.0f}% of book &middot; <span class="ps-asof">as of '
-        + datetime.now().strftime("%H:%M")
-        + '</span></span></div></div>'
-        f'<div class="brk-body">{donut}<div class="brk-tbl"><div class="card pad" style="padding:var(--s1) 18px"><table class="dt"><thead><tr><th>Position</th>'
-        f'<th class="num">Value</th><th class="num" title="Position weight as share of total book (cost basis).">Weight</th><th class="num" title="P&L vs cost basis, native currency.">P&amp;L</th>'
-        f'<th class="num" title="upside_to_target / downside_to_stop. >3 = barbell (let run). <1 = inverse (candidate trim).">Asym</th>'
-        f'<th title="Stop -> target progress (marker = current price, tick = target).">Progress</th></tr></thead>'
-        f"<tbody>{rows}</tbody></table></div></div></div></div>"
+        '<div class="pos-acct">'
+        '<div class="pos-acct-h">'
+        f'<div class="nm">{label}<span class="note">{_short_note}</span></div>'
+        f'<div class="tot"><span class="v">{tot_str}&nbsp;&euro;</span> &middot; {len(ps)} lines &middot; {share:.0f}% of book</div>'
+        '</div>'
+        '<div class="pos-acct-body">'
+        f'{sector_mix_html}'
+        '<div class="pos-tbl"><table class="pos-dt"><thead><tr>'
+        '<th>Position</th><th>Value</th><th>Weight</th>'
+        '<th title="P&L vs cost basis, native currency.">P&amp;L</th>'
+        '<th title="upside_to_target / downside_to_stop. &gt;3 = barbell. &lt;1 = inverse.">Asym</th>'
+        '<th title="Stop &rarr; target progress (marker = current).">Progress</th>'
+        '</tr></thead>'
+        f'<tbody>{rows}</tbody>'
+        '</table></div>'
+        '</div></div>'
     )
 
 
@@ -7409,7 +7508,7 @@ def _write_static_bundle() -> tuple[int, int]:
     """
     static_dir = Path(__file__).parent / "static"
     static_dir.mkdir(exist_ok=True)
-    app_css = _TOKENS_CSS + _CSS
+    app_css = _TOKENS_CSS + _CSS + _POSITIONS_V3_CSS
     app_js = _APP_JS.replace(
         "__TKDOMAIN_JSON__", json.dumps(_ticker_logos_mod.TICKER_DOMAIN)
     ).replace(
@@ -8320,10 +8419,63 @@ def render() -> Path:
         f'<div class="page-star">{star_strate_post}{star_strate_grid}{star_strate_foot}</div>'
     )
     broker_html = _broker_tables(positions, names, pnl, sectors)
+    # Pass legacy star_positions retire (Pass 33 v3) ; remplace par .pos-hero 4-cell.
+    _ = star_positions  # legacy var, gardee pour back-compat eventuelle
+    # === v3 4-cell hero band : Book / Top sector / Near target / Near stop ===
+    _all_mix = _sector_mix(positions, pnl, sectors) if positions else []
+    if _all_mix:
+        _all_tot = sum(v for _, v in _all_mix) or 1
+        _top_lbl, _top_v = max(_all_mix, key=lambda kv: kv[1])
+        _top_pct = _top_v / _all_tot * 100
+    else:
+        _top_lbl, _top_pct = "&mdash;", 0
+    _ns = n_stop
+    _nt_within6 = sum(1 for tk in near_tgt_tk if tk)  # near_tgt = upside_pct < 12, on garde count
+    _ns_label = near_stop_tk[0] if near_stop_tk else ""
+    _ns_margin = ""
+    if _ns_label:
+        try:
+            _ns_dn = next((r.get("downside_pct") for r in computed if r.get("ticker") == _ns_label), None)
+            if _ns_dn is not None:
+                _ns_margin = f"{_ns_dn:.0f}% margin"
+        except Exception:
+            _ns_margin = ""
+    _as_of = datetime.now().strftime("%H:%M")
+    _pos_hero = (
+        '<div class="pos-hero">'
+        '<div class="cell">'
+        f'<div class="k">Book value</div>'
+        f'<div class="v">{pf_value:,.0f}<small>&euro;</small></div>'
+        f'<div class="cap">cost basis &middot; {len(positions)} lines</div>'
+        '</div>'
+        '<div class="cell">'
+        f'<div class="k">Top sector</div>'
+        f'<div class="v">{_top_pct:.0f}<small>%</small></div>'
+        f'<div class="cap">{_top_lbl}</div>'
+        '</div>'
+        '<div class="cell">'
+        f'<div class="k">Near target</div>'
+        f'<div class="v">{n_tgt}</div>'
+        f'<div class="cap">within 12% of target</div>'
+        '</div>'
+        '<div class="cell">'
+        f'<div class="k">Near stop</div>'
+        f'<div class="v {"bear" if _ns else ""}">{_ns}</div>'
+        + (
+            f'<div class="cap bear"><b>{_ns_label}</b> &middot; {_ns_margin}</div>'
+            if _ns and _ns_label and _ns_margin
+            else '<div class="cap">no position critical</div>'
+        )
+        + '</div>'
+        '</div>'
+    )
     positions_pg = (
-        f'<section data-page="positions" role="region" aria-label="Positions"><div class="phead"><h1>Positions</h1>'
-        f'<div class="sub">Upside margin to target &middot; downside to stop</div></div>'
-        f"{star_positions}{broker_html}</section>"
+        '<section data-page="positions" role="region" aria-label="Positions">'
+        '<div class="phead">'
+        '<h1>Positions</h1>'
+        f'<div class="pos-pmeta">2 accounts &middot; {len(positions)} lines &middot; as of {_as_of}</div>'
+        '</div>'
+        f"{_pos_hero}{broker_html}</section>"
     )
 
     # --- Bandeau d'ecart de discipline (sticky, haut de page) ---

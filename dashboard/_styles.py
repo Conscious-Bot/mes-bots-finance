@@ -1587,6 +1587,112 @@ _CSS = """
   body.midnight .warn-chip-bear{ background:rgba(220,38,38,.18); border-color:rgba(240,80,80,.5); }
 """
 
+_POSITIONS_V3_CSS = """
+/* ============================================================
+   POSITIONS v3 (19/06 evening redesign target screenshot)
+   - phead with right-aligned meta
+   - 4-cell hero band : Book value / Top sector / Near target / Near stop
+   - per-account card : header + 2-col (sector mix left + table right)
+   - ticker monogram badge + AT STOP chip + alert row tint
+   - teal arc progress gauge with circle marker + target tick
+   Scoped under [data-page="positions"] pour pas leak globalement.
+   ============================================================ */
+[data-page="positions"] .phead{ display:flex; align-items:baseline; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom:18px; }
+[data-page="positions"] .phead h1{ margin:0; }
+[data-page="positions"] .phead .sub{ display:none; }
+.pos-pmeta{ font-family:var(--fm); font-size:var(--t-mini); color:var(--steel); letter-spacing:.04em; font-variant-numeric:tabular-nums; }
+[data-page="positions"] .page-star{ display:none; }
+[data-page="positions"] .colhead{ display:none; }
+
+/* === HERO 4-cell band === */
+.pos-hero{ display:grid; grid-template-columns:repeat(4,1fr); gap:0; background:linear-gradient(180deg,#FFFFFF,#FBFCFE); border:1px solid var(--line); border-radius:14px; box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px -12px rgba(16,24,40,.10); margin-bottom:22px; overflow:hidden; }
+.pos-hero .cell{ padding:22px 26px; }
+.pos-hero .cell + .cell{ border-left:1px solid var(--line); }
+.pos-hero .k{ font-family:var(--fm); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); margin-bottom:14px; font-weight:500; }
+.pos-hero .v{ font-family:var(--fdis); font-weight:700; font-size:38px; line-height:1; letter-spacing:-.012em; font-variant-numeric:tabular-nums; color:var(--ink); }
+.pos-hero .v small{ font-family:var(--fm); font-size:15px; color:var(--steel); font-weight:500; margin-left:5px; }
+.pos-hero .v.bear{ color:var(--bear); }
+.pos-hero .cap{ font-family:var(--fm); font-size:12px; color:var(--steel); margin-top:12px; letter-spacing:.02em; }
+.pos-hero .cap.bear{ color:var(--bear); }
+.pos-hero .cap b{ font-weight:600; }
+@media(max-width:980px){ .pos-hero{ grid-template-columns:1fr 1fr; } .pos-hero .cell:nth-child(3){ border-left:none; } .pos-hero .cell:nth-child(3), .pos-hero .cell:nth-child(4){ border-top:1px solid var(--line); } }
+
+/* === ACCOUNT card === */
+.pos-acct{ background:linear-gradient(180deg,#FFFFFF,#FBFCFE); border:1px solid var(--line); border-radius:14px; box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px -12px rgba(16,24,40,.10); padding:26px 30px; margin-bottom:18px; }
+.pos-acct-h{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+.pos-acct-h .nm{ font-family:var(--fdis); font-weight:700; font-size:22px; letter-spacing:-.005em; color:var(--ink); }
+.pos-acct-h .nm .note{ font-family:var(--fm); font-weight:500; font-size:13px; color:var(--steel); margin-left:10px; letter-spacing:.04em; }
+.pos-acct-h .tot{ font-family:var(--fm); font-size:13px; color:var(--steel); font-variant-numeric:tabular-nums; }
+.pos-acct-h .tot .v{ color:var(--ink); font-weight:600; }
+.pos-acct-body{ display:grid; grid-template-columns:240px 1fr; gap:34px; align-items:start; }
+@media(max-width:880px){ .pos-acct-body{ grid-template-columns:1fr; } }
+
+/* === SECTOR MIX left col === */
+.pos-sec h2{ font-family:var(--fm); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin:0 0 16px; font-weight:600; }
+.pos-sec-rows{ display:flex; flex-direction:column; gap:10px; }
+.pos-sec-row{ display:grid; grid-template-columns:10px minmax(0,1fr) 50px 42px 42px; align-items:center; gap:10px; cursor:pointer; padding:4px 0; border-radius:6px; transition:background .15s; }
+.pos-sec-row:hover{ background:color-mix(in srgb,var(--ink) 3%,transparent); }
+.pos-sec-row:focus-visible{ outline:2px solid var(--data); outline-offset:2px; }
+.pos-sec-row.dim{ opacity:.4; }
+.pos-sec-row.on .pos-sec-name{ color:var(--data); font-weight:600; }
+.pos-sec-dot{ width:8px; height:8px; border-radius:50%; }
+.pos-sec-name{ font-family:var(--fm); font-size:13px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+.pos-sec-bar{ height:4px; border-radius:2px; background:color-mix(in srgb,var(--ink) 7%,transparent); overflow:hidden; }
+.pos-sec-bar > i{ display:block; height:100%; border-radius:2px; transition:width .4s cubic-bezier(.2,.8,.2,1); }
+.pos-sec-pct{ font-family:var(--fm); font-weight:700; font-size:13px; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
+.pos-sec-val{ font-family:var(--fm); font-size:12px; color:var(--steel); text-align:right; font-variant-numeric:tabular-nums; }
+
+/* === TABLE v3 === */
+table.pos-dt{ width:100%; border-collapse:collapse; }
+.pos-dt th{ font-family:var(--fm); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); font-weight:600; text-align:right; padding:0 16px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
+.pos-dt th:first-child{ text-align:left; padding-left:0; }
+.pos-dt th:last-child{ padding-right:0; text-align:right; }
+.pos-dt td{ padding:14px 16px; border-bottom:1px solid var(--line); vertical-align:middle; text-align:right; font-variant-numeric:tabular-nums; }
+.pos-dt td:first-child{ padding-left:0; text-align:left; }
+.pos-dt td:last-child{ padding-right:0; }
+.pos-dt tr:last-child td{ border-bottom:none; }
+.pos-dt tbody tr{ transition:background .14s; }
+.pos-dt tbody tr:hover td{ background:color-mix(in srgb,var(--ink) 3%,transparent); }
+.pos-dt tbody tr.sec-dim{ opacity:.3; }
+.pos-dt tbody tr.sec-hi td{ background:color-mix(in srgb,var(--data) 6%,transparent); }
+.pos-dt tbody tr.sec-hi .pos-sym{ color:var(--data); }
+
+/* ticker monogram + name */
+.pos-tk{ display:flex; align-items:center; gap:14px; min-width:0; }
+.pos-mono{ width:30px; height:30px; border-radius:6px; background:color-mix(in srgb,var(--ink) 8%,transparent); display:inline-flex; align-items:center; justify-content:center; font-family:var(--fm); font-size:10px; font-weight:600; color:var(--steel); flex-shrink:0; letter-spacing:.04em; }
+.pos-sym{ font-family:var(--fm); font-weight:700; font-size:14px; color:var(--ink); }
+.pos-name{ font-family:var(--fm); font-size:13px; color:var(--steel); }
+
+/* value cells */
+.pos-val{ font-family:var(--fm); font-weight:700; color:var(--ink); font-size:14px; }
+.pos-wt{ font-family:var(--fm); color:var(--ink); font-size:14px; }
+.pos-pl{ font-family:var(--fm); font-weight:700; font-size:14px; }
+.pos-pl.pos{ color:var(--acc); } .pos-pl.neg{ color:var(--bear); }
+.pos-asym{ font-family:var(--fm); font-weight:700; font-size:14px; white-space:nowrap; }
+.pos-asym.barbell{ color:var(--acc); } .pos-asym.inv{ color:var(--steel); }
+.pos-asym .x{ font-weight:400; color:var(--steel); }
+
+/* progress gauge teal arc */
+.pos-gauge{ width:170px; height:6px; background:color-mix(in srgb,var(--ink) 8%,transparent); border-radius:3px; position:relative; display:inline-block; vertical-align:middle; }
+.pos-gauge .fill{ height:100%; background:var(--data); border-radius:3px; transition:width .5s cubic-bezier(.2,.8,.2,1); }
+.pos-gauge .dot{ position:absolute; top:50%; width:14px; height:14px; border-radius:50%; background:var(--bg); border:2px solid var(--data); transform:translate(-50%,-50%); box-shadow:0 1px 3px rgba(16,24,40,.18); }
+.pos-gauge .tick{ position:absolute; top:-3px; right:0; width:2px; height:12px; background:var(--acc); border-radius:1px; }
+
+/* alert row (AT STOP) */
+.pos-dt tr.pos-alert td{ background:color-mix(in srgb,var(--bear) 6%,transparent); }
+.pos-dt tr.pos-alert:hover td{ background:color-mix(in srgb,var(--bear) 10%,transparent); }
+.pos-dt tr.pos-alert .pos-sym{ color:var(--bear); }
+.pos-dt tr.pos-alert .pos-mono{ background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
+.pos-dt tr.pos-alert .pos-gauge .fill{ background:var(--bear); }
+.pos-dt tr.pos-alert .pos-gauge .dot{ border-color:var(--bear); }
+.pos-stop-chip{ display:inline-block; font-family:var(--fm); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--bear); border:1px solid color-mix(in srgb,var(--bear) 38%,transparent); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:3px 9px; border-radius:5px; font-weight:700; margin-left:10px; vertical-align:middle; }
+
+body.midnight .pos-hero,
+body.midnight .pos-acct{ background:linear-gradient(180deg,#15191F,#10141A); border-color:#1F242C; }
+body.midnight .pos-mono{ background:rgba(255,255,255,.07); color:#A1A8B3; }
+body.midnight .pos-dt tr.pos-alert td{ background:rgba(220,38,38,.10); }
+"""
+
 _DBA_CSS = r"""
 <style>
   /* Unified avec .th-grp / .strat-sh / .vigie-sh : flex + after-line subtile */

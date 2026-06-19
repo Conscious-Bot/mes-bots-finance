@@ -620,11 +620,13 @@ document.querySelectorAll('table.dt').forEach(function(t){
 });</script>"""
 
 _DONUT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
-  /* Sector bars interactivity (19/06) : clic sur une rangee secteur -> highlight
-     ses positions dans la table de la MEME carte .brk (estompe le reste). Lock
-     au clic (re-clic = clear), preview au hover quand rien n'est locke. */
-  document.querySelectorAll('.brk').forEach(function(card){
-    var rows=card.querySelectorAll('.brk-row');
+  /* Sector bars interactivity : clic sur une rangee secteur -> highlight
+     ses positions dans la table de la MEME carte (estompe le reste). Lock
+     au clic (re-clic = clear), preview au hover quand rien n'est locke.
+     v3 (19/06 evening) : scope .pos-acct + selectors .pos-sec-row / tr[data-sec].
+     Legacy fallback : .brk + .brk-row (autres pages non-migrees). */
+  function wireCard(card, rowSel){
+    var rows=card.querySelectorAll(rowSel);
     var trs=card.querySelectorAll('tr[data-sec]');
     if(!rows.length||!trs.length) return;
     var locked=null;
@@ -643,8 +645,10 @@ _DONUT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
       r.addEventListener('mouseenter',function(){ if(!locked) apply(s); });
       r.addEventListener('mouseleave',function(){ if(!locked) clear(); });
     });
-  });
-});</script>"""  # sector bars : click/hover -> highlight matching table rows (scoped per .brk card)
+  }
+  document.querySelectorAll('.pos-acct').forEach(function(c){ wireCard(c,'.pos-sec-row'); });
+  document.querySelectorAll('.brk').forEach(function(c){ wireCard(c,'.brk-row'); });
+});</script>"""  # sector bars : click/hover -> highlight matching table rows (scoped per .pos-acct / .brk card)
 
 _CSORT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
 document.querySelectorAll('.sec-cols').forEach(function(hdr){
