@@ -275,7 +275,6 @@ body.midnight {
   p, .prose, .empty, .narrativecard p, .copilotcard p,
   .riskwatchcard .rw-cell, .biaiscard p,
   .gloss-def, .cp-latest-teaser { line-height: 1.55; }
-  .prose, .narrativecard p, .biaiscard p, .gloss-def { max-width: 64ch; }
   /* Pass 15 audit 6 #4 — Canonical badge system.
      Avant : tag/bdg/warn-chip/pc-chip/qs-st/th-cat/th-pt incoherents.
      Apres : .badge avec 4 variants semantiques (neutral / info / warn / danger).
@@ -1068,58 +1067,9 @@ body.midnight {
   .hrow.star .hero.posture .pn { font-size:45px; line-height:.95; }
   .hrow.star .hero.posture .plan-row { margin-top:var(--s4); gap:30px; }
   /* Sprint 5 - Portfolio grade */
-  .gradecard .ghead { display:flex; align-items:center; gap:22px; margin:var(--s35) 0 18px; padding-bottom:var(--s4); border-bottom:1px solid var(--line); }
-  .gradecard .gletter { font-family:var(--fm); font-weight:500; font-size:59px; line-height:.9; letter-spacing:-.02em; padding:0 18px; border-radius:var(--r2); }
-  .gradecard .gletter.good { color:var(--acc); }
-  .gradecard .gletter.warn { color:var(--warn); }
-  .gradecard .gletter.bad { color:var(--bear); }
-  .gradecard .gscore { flex:1; display:flex; flex-direction:column; gap:var(--s15); }
-  .gradecard .gscoreval { font-size:var(--t-h1); font-weight:500; letter-spacing:-.01em; line-height:1; color:var(--ink); }
-  .gradecard .gscoremax { color:var(--steel); font-weight:400; font-size:var(--t-h3); margin-left:2px; }
-  .gradecard .gscorebar { height:6px; background:color-mix(in srgb,var(--ink) 6%,transparent); border-radius:var(--r1); overflow:hidden; }
-  .gradecard .gscorefill { height:100%; border-radius:var(--r1); transition:none; }
-  .gradecard .gscorefill.good { background:var(--acc); }
-  .gradecard .gscorefill.warn { background:var(--warn); }
-  .gradecard .gscorefill.bad { background:var(--bear); }
-  .gradecard .gbody { display:grid; gap:var(--s3); }
-  .gradecard .grow { display:grid; grid-template-columns:200px 1fr 180px; align-items:center; gap:var(--s35); }
-  .gradecard .glab { font-family:var(--fm); font-size:var(--t-base); color:var(--steel); font-weight:500; }
-  .gradecard .gaxis { position:relative; height:6px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:var(--r1); }
-  .gradecard .gfill { position:absolute; left:0; top:0; height:100%; border-radius:var(--r1); }
-  .gradecard .gfill.good { background:var(--acc); }
-  .gradecard .gfill.bad { background:var(--bear); opacity:.55; }
   /* Needle iconic canonique (diamant SVG noir/blanc — meme forme que .axis-mark) */
-  .gradecard .gtgt { position:absolute; top:50%; width:28px; height:13px;
-    background-color:var(--ink);
-    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
-    mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'><path d='M1 12 Q26 10 30 1 Q34 10 59 12 Q34 14 30 23 Q26 14 1 12 Z' fill='%23ffffff'/></svg>") no-repeat center / contain;
-    transform:translate(-50%,-50%); z-index:2; opacity:.85; }
-  .gradecard .gnum { display:flex; align-items:center; gap:var(--s3); justify-content:flex-end; font-size:var(--t-data2); color:var(--ink); }
-  .gradecard .gnum .gt { color:var(--steel); font-size:var(--t-data); }
-  @media (max-width:980px) { .gradecard .grow { grid-template-columns:1fr; gap:var(--s1); } .gradecard .gnum { justify-content:flex-start; } }
   /* Sprint 21 - Accordion dim qui deroule INLINE en dessous (pattern geo) */
-  .gradecard .grow-wrap { cursor:pointer; }
-  .gradecard .grow.has-acc { transition:background .15s; border-radius:var(--r2); padding:2px 4px; margin:0 -4px; }
-  .gradecard .grow-wrap:hover .grow.has-acc { background:color-mix(in srgb,var(--ink) 4%,transparent); }
-  .gradecard .gsub { max-height:0; overflow:hidden; opacity:0; transition:max-height .3s ease, opacity .2s ease, margin .3s ease, padding .3s ease; padding:0 10px; margin:0; }
-  .gradecard .grow-wrap.open .gsub { max-height:260px; opacity:1; margin:var(--s15) 0 14px; padding:var(--s25) 14px; }
-  .gradecard .gsub { background:color-mix(in srgb,var(--ink) 3%,transparent); border-left:2px solid var(--line2); border-radius:0 var(--r2) var(--r2) 0; margin-left:var(--s15); }
-  .gradecard .gsub-chips { display:flex; flex-wrap:wrap; gap:var(--s15); margin-bottom:var(--s2); }
-  .gradecard .gsub-tk { font-family:var(--fm); font-size:var(--t-data); font-weight:600; color:var(--ink); background:color-mix(in srgb,var(--ink) 8%,transparent); padding:3px 9px; border-radius:var(--r1); cursor:pointer; transition:.12s; }
-  .gradecard .gsub-tk:hover { background:color-mix(in srgb,var(--id) 16%,transparent); color:var(--id); }
-  .gradecard .gsub-empty { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); font-style:italic; }
-  .gradecard .gsub-ev { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); line-height:1.55; padding-top:var(--s15); border-top:1px solid color-mix(in srgb,var(--ink) 6%,transparent); }
   /* Sub-notes Construction + Fragilite (glossaire canonique) */
-  .gradecard .gsplit { display:grid; grid-template-columns:1fr 1fr; gap:var(--s5); margin-top:var(--s4); padding-top:var(--s4); border-top:1px solid var(--line); }
-  .gradecard .gsub { display:flex; flex-direction:column; gap:var(--s3); }
-  .gradecard .gsubh { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; }
-  .gradecard .gsubscore { font-size:var(--t-h1); font-weight:500; line-height:1; letter-spacing:-.02em; }
-  .gradecard .gsubscore.good { color:var(--acc); }
-  .gradecard .gsubscore.warn { color:var(--warn); }
-  .gradecard .gsubscore.bad { color:var(--bear); }
-  .gradecard .gsubmax { color:var(--steel); font-size:var(--t-base); margin-left:1px; font-weight:400; }
-  @media (max-width:980px) { .gradecard .gsplit { grid-template-columns:1fr; gap:var(--s35); } }
-  .gradecard .ggate { font-family:var(--fm); font-size:var(--t-data2); color:var(--bear); background:color-mix(in srgb,var(--bear) 10%,transparent); padding:var(--s25) 14px; border-radius:var(--r2); margin:var(--s35) 0; border-left:3px solid var(--bear); }
   /* Top Risks surveillance */
   .riskwatchcard .rw-lens { font-family:var(--fm); margin:var(--s25) 0 4px; padding:9px 12px; background:color-mix(in srgb, var(--warn) 5%, transparent); border-left:2px solid var(--warn); border-radius:var(--r0); font-size:var(--t-data2); color:var(--ink); line-height:1.55; }
   .riskwatchcard .rw-card { padding:16px 0; border-bottom:1px solid var(--line); }
@@ -1272,25 +1222,6 @@ body.midnight {
   .copilotcard .cp-outc.ok { background:color-mix(in srgb,var(--acc) 12%,transparent); color:var(--acc); }
   .copilotcard .cp-outc.bad { background:color-mix(in srgb,var(--bear) 12%,transparent); color:var(--bear); }
   /* Sprint 6 - Narrative clusters panel */
-  .narrativecard .nv-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:var(--s3); margin:var(--s35) 0 18px; }
-  .narrativecard .nv-cluster { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s35) 16px; }
-  .narrativecard .nv-cl-head { display:flex; align-items:baseline; gap:var(--s2); margin-bottom:var(--s15); flex-wrap:wrap; }
-  .narrativecard .nv-cl-name { font-family:var(--fm); font-weight:600; font-size:var(--t-base); color:var(--ink); flex:1; min-width:0; }
-  .narrativecard .nv-cl-overlap { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.12em; padding:2px 6px; border-radius:var(--r1); font-weight:600; }
-  .narrativecard .nv-cl-overlap.high { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
-  .narrativecard .nv-cl-overlap.mid { background:color-mix(in srgb,var(--warn) 14%,transparent); color:var(--warn); }
-  .narrativecard .nv-cl-overlap.low { background:color-mix(in srgb,var(--acc) 14%,transparent); color:var(--acc); }
-  .narrativecard .nv-cl-n { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); font-variant-numeric:tabular-nums; }
-  .narrativecard .nv-cl-tks { font-family:var(--fm); font-size:var(--t-data); color:var(--ink); margin-bottom:var(--s15); opacity:.8; font-variant-numeric:tabular-nums; }
-  .narrativecard .nv-cl-driv { font-family:var(--fm); font-size:var(--t-data2); color:var(--steel); line-height:1.4; }
-  .narrativecard .nv-split { display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); border-top:1px solid var(--line); padding-top:var(--s35); }
-  .narrativecard .nv-h { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
-  .narrativecard .nv-line { display:flex; align-items:baseline; gap:var(--s2); padding:var(--s15) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); font-size:var(--t-data2); }
-  .narrativecard .nv-line:last-child { border-bottom:none; }
-  .narrativecard .nv-tk { font-family:var(--fm); font-weight:600; color:var(--ink); min-width:70px; }
-  .narrativecard .nv-with { font-family:var(--fm); color:var(--steel); font-size:var(--t-data); }
-  .narrativecard .nv-why { font-family:var(--fm); color:var(--ink); opacity:.85; line-height:1.4; flex:1; }
-  @media (max-width:980px) { .narrativecard .nv-split { grid-template-columns:1fr; } }
   /* Sprint 9 - Conversations recentes */
   .conversationscard .cv-row { padding:var(--s25) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
   .conversationscard .cv-row:last-child { border-bottom:none; }
@@ -1317,25 +1248,6 @@ body.midnight {
   .chatsigcard .cs-quote { font-family:var(--fm); font-size:var(--t-data2); font-style:italic; color:var(--ink); opacity:.85; line-height:1.4; margin-bottom:3px; }
   .chatsigcard .cs-note { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); line-height:1.4; }
   /* Layer 2 - Conceptions du bot */
-  .conceptionscard .bc-row { padding:var(--s35) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); cursor:pointer; }
-  .conceptionscard .bc-row:last-child { border-bottom:none; }
-  .conceptionscard .bc-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); border-radius:var(--r2); }
-  .conceptionscard .bc-head { display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s2); flex-wrap:wrap; }
-  .conceptionscard .bc-target { font-family:var(--fm); font-weight:600; font-size:var(--t-base); color:var(--ink); }
-  .conceptionscard .bc-kind { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); }
-  .conceptionscard .bc-conv { font-family:var(--fm); font-size:var(--t-data); font-variant-numeric:tabular-nums; padding:1px 6px; border-radius:var(--r1); font-weight:600; }
-  .conceptionscard .bc-conv.high { background:color-mix(in srgb,var(--acc) 14%,transparent); color:var(--acc); }
-  .conceptionscard .bc-conv.mid { background:color-mix(in srgb,var(--warn) 14%,transparent); color:var(--warn); }
-  .conceptionscard .bc-conv.low { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
-  .conceptionscard .bc-val { font-family:var(--fm); font-size:var(--t-data); font-variant-numeric:tabular-nums; padding:1px 6px; border-radius:var(--r1); }
-  .conceptionscard .bc-val.neg { background:color-mix(in srgb,var(--bear) 14%,transparent); color:var(--bear); }
-  .conceptionscard .bc-val.pos { background:color-mix(in srgb,var(--acc) 14%,transparent); color:var(--acc); }
-  .conceptionscard .bc-val.neu { background:color-mix(in srgb,var(--ink) 8%,transparent); color:var(--steel); }
-  .conceptionscard .bc-n { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
-  .conceptionscard .bc-text { font-family:var(--fm); font-size:var(--t-base); line-height:1.55; color:var(--ink); opacity:.88; max-height:62px; overflow:hidden; position:relative; transition:max-height .3s ease; }
-  .conceptionscard .bc-text::after { content:""; position:absolute; bottom:0; left:0; right:0; height:24px; background:linear-gradient(to bottom, transparent, var(--bg)); pointer-events:none; transition:opacity .2s ease; }
-  .conceptionscard .bc-row.open .bc-text { max-height:600px; }
-  .conceptionscard .bc-row:hover .bc-text::after, .conceptionscard .bc-row.open .bc-text::after { opacity:0; }
   /* Layer 3 - Preferences calibrees */
   .preferencescard .pr-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:var(--s35); margin-top:var(--s35); }
   .preferencescard .pr-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s3) var(--s35); }
@@ -1352,36 +1264,7 @@ body.midnight {
   .preferencescard .pr-num.neu { color:var(--steel); }
   .preferencescard .pr-win { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); min-width:50px; text-align:right; }
   /* Sprint 12 - Ticker axes */
-  .axescard .ax-group { background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); padding:var(--s35) 16px; margin-top:var(--s35); }
-  .axescard .ax-h { display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s25); padding-bottom:var(--s2); border-bottom:1px solid color-mix(in srgb,var(--ink) 5%,transparent); }
-  .axescard .ax-macro { font-family:var(--fm); font-weight:600; font-size:var(--t-base); color:var(--ink); }
-  .axescard .ax-n { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); margin-left:auto; font-variant-numeric:tabular-nums; }
-  .axescard .ax-row { display:grid; grid-template-columns:78px 1fr; gap:var(--s35); padding:var(--s2) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
-  .axescard .ax-row:last-child { border-bottom:none; }
-  .axescard .ax-tk { font-family:var(--fm); font-weight:600; font-size:var(--t-data2); color:var(--ink); }
-  .axescard .ax-fields { display:flex; flex-direction:column; gap:3px; }
-  .axescard .ax-f { font-family:var(--fm); font-size:var(--t-data); color:var(--ink); opacity:.82; line-height:1.4; }
-  .axescard .ax-l { display:inline-block; font-family:var(--fb); font-size:var(--t-data); letter-spacing:.14em; text-transform:uppercase; color:var(--steel); width:50px; }
   /* Sprint 13 - Factor exposures + Stress + Trajectory */
-  .factorscard .fe-row { padding:var(--s3) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
-  .factorscard .fe-row:last-child { border-bottom:none; }
-  .factorscard .fe-row.fe-composite { padding:var(--s35) 14px; margin:0 -14px 8px; background:color-mix(in srgb,var(--bear) 6%,transparent); border-left:2px solid var(--bear); border-radius:var(--r0); border-bottom:none; }
-  .factorscard .fe-row.fe-composite .fe-name { font-weight:600; }
-  .factorscard .fe-comp-note { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); margin-top:var(--s15); line-height:1.45; font-style:italic; }
-  .factorscard .fe-th { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); margin-left:2px; padding:0 4px; background:color-mix(in srgb,var(--ink) 6%,transparent); border-radius:var(--r1); }
-  .factorscard .fe-head { display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s15); }
-  .factorscard .fe-name { font-family:var(--fm); font-weight:500; font-size:var(--t-base); color:var(--ink); flex:1; }
-  .factorscard .fe-pct { font-family:var(--fm); font-size:var(--t-base); font-weight:600; font-variant-numeric:tabular-nums; }
-  .factorscard .fe-pct.high { color:var(--bear); }
-  .factorscard .fe-pct.mid { color:var(--warn); }
-  .factorscard .fe-pct.low { color:var(--acc); }
-  .factorscard .fe-eur { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); font-variant-numeric:tabular-nums; min-width:75px; text-align:right; }
-  .factorscard .fe-bar { height:5px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:var(--r1); overflow:hidden; margin:var(--s1) 0 6px; }
-  .factorscard .fe-fill { height:100%; border-radius:var(--r1); }
-  .factorscard .fe-fill.high { background:var(--bear); }
-  .factorscard .fe-fill.mid { background:var(--warn); }
-  .factorscard .fe-fill.low { background:var(--acc); }
-  .factorscard .fe-tks { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); font-variant-numeric:tabular-nums; }
   .stresscard .st-row { display:flex; align-items:baseline; gap:var(--s35); padding:var(--s25) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .stresscard .st-row:last-child { border-bottom:none; }
   .stresscard .st-name { font-family:var(--fm); font-size:var(--t-data2); color:var(--ink); flex:1; }
@@ -1469,53 +1352,12 @@ body.midnight {
   .vgcard .vg-name { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.05em; text-transform:uppercase; font-weight:600; color:var(--ink); }
   .vgcard .vg-status { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-left:auto; }
   .vgcard .vg-msg { font-family:var(--fm); font-size:var(--t-data2); color:var(--ink); opacity:.85; line-height:1.5; }
-  .v2cohortcard .v2-grid { display:grid; grid-template-columns:1fr 1fr; gap:var(--s35); margin-top:var(--s3); }
-  .v2cohortcard .v2-side { padding:var(--s35); border:1px solid var(--line); border-radius:var(--r2); background:color-mix(in srgb,var(--ink) 2%,transparent); }
-  .v2cohortcard .v2-current { border-left:3px solid var(--acc); }
-  .v2cohortcard .v2-legacy { border-left:3px solid color-mix(in srgb,var(--steel) 50%,transparent); opacity:.85; }
-  .v2cohortcard .v2-label { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.16em; text-transform:uppercase; font-weight:600; color:var(--steel); margin-bottom:var(--s2); }
-  .v2cohortcard .v2-stat-row { display:flex; gap:var(--s35); align-items:baseline; font-family:var(--fm); font-size:var(--t-base); font-variant-numeric:tabular-nums; }
-  .v2cohortcard .v2-stat-n { font-weight:600; color:var(--ink); }
-  .v2cohortcard .v2-stat-rg, .v2cohortcard .v2-stat-bk { color:var(--steel); font-size:var(--t-data2); }
-  .v2cohortcard .v2-status.v2-empty { font-family:var(--fm); font-size:var(--t-data2); color:var(--steel); font-style:italic; line-height:1.4; }
-  .wactcard .wact-grid { display:flex; gap:var(--s35); margin:var(--s3) 0 16px; }
-  .wactcard .wact-cell { flex:1; padding:var(--s25) 14px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
-  .wactcard .wact-label { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; margin-bottom:var(--s1); }
-  .wactcard .wact-v { font-family:var(--fm); font-size:var(--t-base); color:var(--ink); }
-  .wactcard .wact-recent-head { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); font-weight:600; margin-bottom:var(--s2); padding-top:var(--s15); border-top:1px solid var(--line); }
-  .wactcard .wact-recent { display:flex; gap:var(--s3); align-items:baseline; padding:var(--s15) 0; font-family:var(--fm); font-size:var(--t-data2); border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
-  .wactcard .wact-recent:last-child { border-bottom:none; }
-  .wactcard .wact-tk { font-family:var(--fb); font-weight:600; min-width:60px; color:var(--ink); }
-  .wactcard .wact-when { color:var(--steel); font-variant-numeric:tabular-nums; }
-  .wactcard .wact-sev { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.14em; text-transform:uppercase; font-weight:600; padding:1px 6px; border-radius:var(--r1); }
-  .wactcard .wact-sev.wact-catastrophic, .wactcard .wact-sev.wact-high { background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); }
-  .wactcard .wact-sev.wact-medium { background:color-mix(in srgb,var(--warn) 16%,transparent); color:var(--warn); }
-  .wactcard .wact-sev.wact-low, .wactcard .wact-sev.wact-unknown { background:color-mix(in srgb,var(--steel) 12%,transparent); color:var(--steel); }
-  .wactcard .wact-items { margin-left:auto; color:var(--steel); font-variant-numeric:tabular-nums; }
   @media (max-width:980px) {
-    .v2cohortcard .v2-grid { grid-template-columns:1fr; }
-    .wactcard .wact-grid { flex-direction:column; }
-    .wactcard .wact-recent { flex-wrap:wrap; gap:var(--s15) 12px; }
-    .wactcard .wact-items { margin-left:0; flex-basis:100%; font-size:var(--t-data); }
     /* wrappercard PEA/CTO alloc -- seul vrai panel a casser mobile (3-4 wrappers horizontal) */
-    .wrappercard .wr-alloc { flex-direction:column; gap:var(--s3); }
     /* Note : autres panels (chatcard/chatsig/conversations/conceptions/preferences/axes/traj/fx)
        utilisent deja repeat(auto-fit, minmax(280px,1fr)) = responsive natif sans media query. */
   }
   /* Sprint 16 - Wrapper PEA/CTO + FX + Benchmark */
-  .wrappercard .wr-alloc { display:flex; gap:var(--s4); margin:var(--s35) 0 18px; padding-bottom:var(--s35); border-bottom:1px solid var(--line); }
-  .wrappercard .wr-row { flex:1; padding:var(--s3) var(--s35); background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); display:flex; flex-direction:column; gap:var(--s1); }
-  .wrappercard .wr-key { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; }
-  .wrappercard .wr-pct { font-family:var(--fm); font-size:var(--t-h2); font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
-  .wrappercard .wr-eur { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); font-variant-numeric:tabular-nums; }
-  .wrappercard .wr-section { margin-top:var(--s35); }
-  .wrappercard .wr-sh { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
-  .wrappercard .wr-mis { display:flex; align-items:baseline; gap:var(--s3); padding:var(--s15) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 3%,transparent); font-size:var(--t-data2); }
-  .wrappercard .wr-mis:last-child { border-bottom:none; }
-  .wrappercard .wr-mis-tk { font-family:var(--fm); font-weight:600; color:var(--ink); min-width:80px; }
-  .wrappercard .wr-mis-pct { font-family:var(--fm); color:var(--ink); margin-left:auto; font-variant-numeric:tabular-nums; min-width:55px; text-align:right; }
-  .wrappercard .wr-mis-pct.neg { color:var(--bear); }
-  .wrappercard .wr-mis-eur { font-family:var(--fm); color:var(--steel); font-variant-numeric:tabular-nums; min-width:80px; text-align:right; }
   .fxcard .fx-row { padding:var(--s3) 0; border-bottom:1px solid color-mix(in srgb,var(--ink) 4%,transparent); }
   .fxcard .fx-row:last-child { border-bottom:none; }
   .fxcard .fx-head { display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s15); }
@@ -1541,15 +1383,6 @@ body.midnight {
   .fxcard .fx-stk .gtk { color:var(--steel); font-family:var(--fm); font-size:var(--t-data); }
   .fxcard .fx-stk .gpc { margin-left:auto; color:var(--steel); font-family:var(--fm); font-size:var(--t-data); font-variant-numeric:tabular-nums; }
   .fxcard .fx-stk .gw { color:var(--ink); font-family:var(--fm); min-width:62px; text-align:right; font-variant-numeric:tabular-nums; }
-  .benchcard .bm-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:var(--s4); margin:var(--s35) 0; }
-  .benchcard .bm-cell { padding:var(--s35) 18px; background:color-mix(in srgb,var(--ink) 3%,transparent); border:1px solid var(--line); border-radius:var(--r2); }
-  .benchcard .bm-h { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.18em; text-transform:uppercase; color:var(--steel); font-weight:600; margin-bottom:var(--s15); }
-  .benchcard .bm-v { font-family:var(--fm); font-size:var(--t-h2); font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
-  .benchcard .bm-v.pos { color:var(--acc); }
-  .benchcard .bm-v.neg { color:var(--bear); }
-  .benchcard .bm-v.neu { color:var(--steel); }
-  .benchcard .bm-foot { font-family:var(--fm); font-size:var(--t-data2); color:var(--steel); margin-top:var(--s25); padding-top:var(--s25); border-top:1px solid var(--line); }
-  .benchcard .bm-warn { font-family:var(--fm); font-size:var(--t-data2); color:var(--warn); background:color-mix(in srgb,var(--warn) 8%,transparent); padding:var(--s2) 12px; border-radius:var(--r2); margin:var(--s3) 0 0; }
   /* Sprint 17 - Data-defined clusters */
   .clustercard .dc-sub { margin-top:var(--s35); }
   .clustercard .dc-sh { font-family:var(--fb); font-size:var(--t-data); letter-spacing:.18em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
