@@ -7121,42 +7121,74 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     )
 
 
-def _needs_today(positions: list[dict], pnl: dict, near: int) -> str:
+def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
+                 computed: list, names: dict) -> str:
     """v3 (19/06) crochet decisionnel 'Needs you today' en haut d'Overview.
 
-    Reutilise EXACTEMENT les signaux du bandeau discipline (_dev_items) :
-    clusters hors cap (_cluster_health) + positions <10% du stop (near).
-    Rend un strip de cartes routables (clic -> page concernee). Si rien :
-    carte positive 'All clear' (appui sur le positif). Aucune donnee inventee.
+    Cartes riches (1 par signal) :
+    - Per ticker near stop AND pnl<0 : 'TKR — stop margin critical' avec
+      downside_pct + pnl on cost. Filtre les winners (pnl>=0) car leur stop
+      proche = trailing stop, pas un signal d'action.
+    - Per cluster breached : 'ClusterName cluster over cap' avec over_eur
+      + % vs cap.
+    - Sinon : carte 'All clear' positive.
     """
-    items = []  # (cls, sv, title, tag, desc, nav)
-    if near:
-        items.append((
-            "crit", "STOP", "Positions near stop", f"{near}",
-            f"{near} position(s) &lt; 10% from stop &middot; revise stop or cut", "urgence",
-        ))
+    # Index downside_pct par ticker depuis computed (asym results)
+    _dn_by_tk = {r.get("ticker"): r.get("downside_pct") for r in computed if r.get("ticker")}
+    items = []  # dict per card
+    # === Stop margin critical (only losing positions) ===
+    for _tk in near_stop_tk:
+        _pnl_pct = pnl.get(_tk)
+        # Filtre : seulement positions PERDANTES proches du stop = vrai signal d'action.
+        # Si pnl >= 0 = winner avec trailing stop -> pas un cri d'urgence.
+        if _pnl_pct is None or _pnl_pct >= 0:
+            continue
+        _dn = _dn_by_tk.get(_tk)
+        _name = names.get(_tk, _tk)
+        _mono = "".join(c for c in _tk if c.isalnum())[:2].upper()
+        _dn_str = f"{_dn:.0f}%" if _dn is not None else "&mdash;"
+        items.append({
+            "cls": "crit", "sv": _mono,
+            "title": f"{_name} &mdash; stop margin critical",
+            "tag": "AT STOP",
+            "desc": f"price {_dn_str} from stop &middot; "
+                    f"{'+' if _pnl_pct >= 0 else ''}{_pnl_pct:.0f}% on cost &middot; "
+                    "revise stop or cut",
+            "nav": "urgence",
+        })
+    # === Cluster over cap ===
     for _c in _cluster_health(positions, pnl):
         if _c.get("breached"):
-            items.append((
-                "caut", "CAP", f"{_c['name']} cluster over cap",
-                f"+{_c['over_eur']:,.0f}&nbsp;&euro;", "trim to get back under cap", "concentration",
-            ))
+            _pct = _c.get("pct", 0)
+            _cap = _c.get("cap", 0)
+            _ov = _c.get("over_eur", 0)
+            _cname = _c["name"]
+            _mono_c = "".join(c for c in _cname if c.isalnum())[:2].upper()
+            items.append({
+                "cls": "caut", "sv": _mono_c,
+                "title": f"{_cname} cluster over cap",
+                "tag": f"+{_pct - _cap:.0f}%",
+                "desc": f"{_pct:.0f}% vs cap {_cap:.0f}% &middot; "
+                        f"+{_ov:,.0f}&nbsp;&euro; to trim to get back under",
+                "nav": "concentration",
+            })
     if not items:
         body = (
             '<div class="need ok"><div class="sv">&check;</div>'
             '<div class="body"><div class="ttl">All clear today</div>'
-            '<div class="desc">no cluster over cap, no position near stop</div></div></div>'
+            '<div class="desc">no cluster over cap, no losing position near stop</div></div></div>'
         )
         n_lbl = "0 items"
     else:
         cards = []
-        for cls, sv, title, tag, desc, nav in items:
+        for it in items:
             cards.append(
-                f'<div class="need {cls}" role="button" tabindex="0" '
-                f'onclick="document.querySelector(&#39;[data-nav={nav}]&#39;).click()">'
-                f'<div class="sv">{sv}</div>'
-                f'<div class="body"><div class="ttl">{title} <span class="tag">{tag}</span></div>'
-                f'<div class="desc">{desc}</div></div>'
+                f'<div class="need {it["cls"]}" role="button" tabindex="0" '
+                f'onclick="document.querySelector(&#39;[data-nav={it["nav"]}]&#39;).click()">'
+                f'<div class="sv">{it["sv"]}</div>'
+                f'<div class="body"><div class="ttl">{it["title"]} '
+                f'<span class="tag">{it["tag"]}</span></div>'
+                f'<div class="desc">{it["desc"]}</div></div>'
                 f'<span class="go">&rsaquo;</span></div>'
             )
         body = "".join(cards)
@@ -8461,9 +8493,9 @@ def render() -> Path:
         # _sparkline, _grade_color, _pnl_star_cls, pf_arrow, pf_pe, port_pnl
         + ''
         # v3 19/06 evening : crochet decisionnel "Needs you today" juste sous le hero.
-        # Reutilise near (positions <10% stop) + _cluster_health (clusters over cap).
-        # Memes signaux que _dband disciplines, mais en strip routable acc-haut.
-        + _needs_today(positions, pnl, near)
+        # Cartes riches per ticker (stop margin critical, PERDANT) + per cluster
+        # (over cap). Filtre les winners avec trailing stop tight (pas un cri).
+        + _needs_today(positions, pnl, near_stop_tk, computed, names)
         # Pass 11 audit promotion : copilot adversarial in prime real estate.
         + _copilot_promote_card()
         # Track record + Sante distribution deplaces vers page "signaux"
