@@ -132,19 +132,18 @@
   /* --- 3. ACCENTS reframe 02/06 user "vert/rouge necessaires mais moins
      flashy". 3 hues : data blue (focus/accent) + green (gain) + red (loss).
      Tons sobres dense-friendly (Tailwind 700 family), pas neon. */
-  /* Pass 26 — v2 redesign Deep Cyan colorway (handoff/01-tokens-deepcyan.css).
-     Rule: a colorway sets ONLY --data / --data-2. --acc/--bear/--warn restent
-     semantic-invariants. --glow/--hair derived from --data via color-mix
-     pour qu'un futur colorway = 1 ligne. */
-  --data:   #0E7490;  /* deep cyan 700 — focus / interactive / neutral-info (was #2D5BFF ink blue) */
-  --data-2: #0E7490;  /* accent lift (same in light mode) */
-  --acc:    #16A34A;  /* green-600 — gain / validated-healthy ONLY (unchanged) */
-  --acc2:   #16A34A;
-  --bear:   #DC2626;  /* red-600 — loss / breached / at-stop (unchanged) */
-  --warn:   #A16207;  /* amber-700 — caution / near a limit / fragile (unchanged) */
-  --gold:   #A16207;  /* alias warn (1 spark spec) */
+  /* v2 Teal colorway (19/06) — accent re-point ONLY. Cold-instrument
+     DNA intact : single accent, sober green/red unchanged. A future colorway
+     = change --data/--data-2 here; --glow/--hair derive automatically. */
+  --data:   #0D9488;  /* teal-600 — accent focus / interactive / neutral-info */
+  --data-2: #0D9488;  /* accent lift (same as --data in light) */
   --glow:   color-mix(in srgb, var(--data) 48%, transparent);
   --hair:   linear-gradient(120deg, color-mix(in srgb, var(--data) 34%, transparent), color-mix(in srgb, var(--ink) 5%, transparent) 42%, color-mix(in srgb, var(--ink) 2%, transparent));
+  --acc:   #16A34A;   /* green-600 flashy (bump 03/06 user "a bit more flashy green") */
+  --acc2:  #16A34A;
+  --bear:  #DC2626;   /* red-600 flashy fintech action-trigger (bump 03/06 user "same flashy red partout") */
+  --warn:  #A16207;   /* amber-700 sobre, ochre vigilance */
+  --gold:  #A16207;   /* alias warn (1 spark spec) */
 
   /* --- 4. FILETS -- echelle froide ---------------------------------- */
   --line:  #E8EAED;   /* bordure standard cards */
@@ -255,16 +254,15 @@ body.midnight {
   --line:  #1F242C;
   --line2: #2B313A;
   --line3: #3F4754;
-  /* Pass 26 — v2 Deep Cyan colorway dark mode. cyan-400/300 lift sur near-black. */
-  --data:   #22D3EE;  /* cyan-400 — lifts on near-black (was #5B7DFF ink blue) */
-  --data-2: #67E8F9;  /* cyan-300 */
-  --acc:    #3DDC84;  /* tweaked vs #4ADE80 */
-  --acc2:   #3DDC84;
-  --id:     #E6E8EB;
-  --bear:   #FF5C5C;  /* tweaked vs #EF4444 */
-  --warn:   #F5A623;  /* tweaked vs #F59E0B */
-  --gold:   #F5A623;
+  --data:   #2DD4BF;  /* v2 Teal — teal-400 lifts on cold near-black */
+  --data-2: #5EEAD4;  /* teal-300 accent lift */
   --glow:   color-mix(in srgb, var(--data) 55%, transparent);
+  --acc:   #4ADE80;   /* green-400 dark flashy (bump 03/06) */
+  --acc2:  #4ADE80;
+  --id:    #E6E8EB;
+  --bear:  #EF4444;   /* red-500 dark flashy (bump 03/06 user "same flashy red") */
+  --warn:  #F59E0B;   /* amber-500 dark mode */
+  --gold:  #F59E0B;
   --elev:   0 12px 32px -18px rgba(0, 0, 0, .65);
   /* Pass 8 elevations dark mode — meme echelle qu'en light mais opacite renforcee. */
   --elev1: 0 4px 14px -4px rgba(0, 0, 0, .50), 0 1px 2px rgba(0, 0, 0, .25);

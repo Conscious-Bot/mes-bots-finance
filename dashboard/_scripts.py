@@ -619,7 +619,32 @@ document.querySelectorAll('table.dt').forEach(function(t){
 });
 });</script>"""
 
-_DONUT_JS = ""  # legacy slot — tooltips no longer needed (info inline in .brk-row)
+_DONUT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
+  /* Sector bars interactivity (19/06) : clic sur une rangee secteur -> highlight
+     ses positions dans la table de la MEME carte .brk (estompe le reste). Lock
+     au clic (re-clic = clear), preview au hover quand rien n'est locke. */
+  document.querySelectorAll('.brk').forEach(function(card){
+    var rows=card.querySelectorAll('.brk-row');
+    var trs=card.querySelectorAll('tr[data-sec]');
+    if(!rows.length||!trs.length) return;
+    var locked=null;
+    function clear(){
+      rows.forEach(function(r){r.classList.remove('on','dim');});
+      trs.forEach(function(t){t.classList.remove('sec-hi','sec-dim');});
+    }
+    function apply(sec){
+      rows.forEach(function(r){var m=r.getAttribute('data-sec')===sec;r.classList.toggle('on',m);r.classList.toggle('dim',!m);});
+      trs.forEach(function(t){var m=t.getAttribute('data-sec')===sec;t.classList.toggle('sec-hi',m);t.classList.toggle('sec-dim',!m);});
+    }
+    rows.forEach(function(r){
+      var s=r.getAttribute('data-sec');
+      r.addEventListener('click',function(){ if(locked===s){locked=null;clear();} else {locked=s;apply(s);} });
+      r.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();r.click();} });
+      r.addEventListener('mouseenter',function(){ if(!locked) apply(s); });
+      r.addEventListener('mouseleave',function(){ if(!locked) clear(); });
+    });
+  });
+});</script>"""  # sector bars : click/hover -> highlight matching table rows (scoped per .brk card)
 
 _CSORT_JS = """<script>document.addEventListener('DOMContentLoaded',function(){
 document.querySelectorAll('.sec-cols').forEach(function(hdr){

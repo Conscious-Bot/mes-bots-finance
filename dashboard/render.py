@@ -501,17 +501,22 @@ def _needle_color(frac: float, *, invert: bool = False) -> str:
 
 
 SECTOR_COLORS = {
-    "Foundry & logic": "#3056D3",
-    "Semi equipment": "#10A37F",
-    "Memory": "#E14B62",
-    "Semi materials": "#FB923C",
-    "EDA": "#7E47C9",
-    "Connectivity & optics": "#D154AB",
-    "Hyperscalers": "#0D9488",
-    "Power & electrification": "#B45D31",
-    "Defense": "#475569",
-    "Energy & raw materials": "#CA8A04",
-    "Auto / robotics": "#0EAFC4",
+    # v2 palette categorielle (19/06) -- jewel tones a saturation/lightness
+    # coherentes (famille Tailwind ~500), distinctes mais harmonieuses.
+    # Teal en tete (= accent --data), puis hues espacees regulierement.
+    # Defense / fallback = slate neutre. Plus colore que la rampe mono,
+    # sans l'arc-en-ciel aleatoire d'origine.
+    "Foundry & logic": "#0D9488",
+    "Semi equipment": "#3B82F6",
+    "Memory": "#8B5CF6",
+    "Semi materials": "#06B6D4",
+    "EDA": "#6366F1",
+    "Connectivity & optics": "#EC4899",
+    "Hyperscalers": "#14B8A6",
+    "Power & electrification": "#F59E0B",
+    "Defense": "#64748B",
+    "Energy & raw materials": "#10B981",
+    "Auto / robotics": "#0EA5E9",
 }
 # TICKER_SECTOR + SECTOR_ALIAS déplacés vers shared/sector_taxonomy.py
 # (cure P2 audit (3) reste whitelist 12/06). Ré-export pour rétro-compat.
@@ -6835,7 +6840,12 @@ def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
 
 
 def _sector_donut(segs: list) -> str:
-    """Horizontal bars list — modern Linear/Vercel pattern (replaces donut+legend)."""
+    """Horizontal bars list — modern Linear/Vercel pattern (replaces donut+legend).
+
+    19/06 : barres interactives. Chaque rangee porte data-sec=<label> ; le
+    JS (_DONUT_JS) lie clic/hover -> highlight des lignes table data-sec
+    correspondantes dans la meme carte .brk (clic = lock, re-clic = clear)."""
+    import html as _h
     total = sum(v for _, v in segs) or 1
     if not segs:
         return ""
@@ -6847,8 +6857,10 @@ def _sector_donut(segs: list) -> str:
         pct = v / total * 100
         fill_pct = pct / max_pct * 100 if max_pct else 0
         vstr = f"{v / 1000:.0f}k" if v >= 1000 else f"{v:.0f}"
+        _sec = _h.escape(label, quote=True)
         rows.append(
-            f'<div class="brk-row">'
+            f'<div class="brk-row" data-sec="{_sec}" tabindex="0" role="button" '
+            f'aria-label="Highlight {_sec} positions">'
             f'<div class="brk-row-name"><span class="brk-row-dot" style="background:{col}"></span>'
             f'<span class="brk-row-label">{label}</span></div>'
             f'<div class="brk-row-bar"><div class="brk-row-fill" style="width:{fill_pct:.1f}%;background:{col}"></div></div>'
@@ -6980,7 +6992,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
             if _proxy_reason else ""
         )
         rows += (
-            f'<tr data-tk="{tk}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}<span class="tk-sym">{tk}</span><span class="nm">{nm}</span>{_cp_chip}{_tw_chips}</td>'
+            f'<tr data-tk="{tk}" data-sec="{_h_esc.escape(sectors.get(tk, "No thesis"), quote=True)}" data-v="{v:.2f}" data-w="{w:.2f}" data-p="{pc if pc is not None else -9999}"><td class="tk">{_ticker_logo(tk)}<span class="tk-sym">{tk}</span><span class="nm">{nm}</span>{_cp_chip}{_tw_chips}</td>'
             f'<td class="num mono">{vstr}&nbsp;&euro;{_proxy_chip}</td><td class="num">{w:.1f}%</td>'
             f'<td class="num {pcls}">{pstr}</td>'
             f'<td class="{asym_cls}">{asym_str}</td>'

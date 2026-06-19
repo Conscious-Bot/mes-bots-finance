@@ -1564,6 +1564,16 @@ _CSS = """
   .brk-row-bar{ height:6px; border-radius:999px; background:rgba(28,30,33,.06); box-shadow:inset 0 0 0 1px rgba(28,30,33,.03); }
   .brk-row-fill{ height:6px; border-radius:999px; filter:saturate(1.05); transition:width .6s var(--ease),filter .2s var(--ease); box-shadow:0 1px 3px -1px rgba(0,0,0,.25); }
   .brk-row:hover .brk-row-fill{ filter:saturate(1.2) brightness(1.05); }
+  /* 19/06 sector bars interactivity : clic/hover -> highlight positions table.
+     Un seul accent (teal var(--data)) ; pas de couleur de jugement. */
+  .brk-row{ cursor:pointer; }
+  .brk-row:focus-visible{ outline:2px solid var(--data); outline-offset:2px; }
+  .brk-row.dim{ opacity:.38; }
+  .brk-row.on{ background:color-mix(in srgb, var(--data) 9%, transparent); }
+  .brk-row.on .brk-row-label{ color:var(--data); font-weight:600; }
+  table.dt tbody tr.sec-dim{ opacity:.3; transition:opacity .18s var(--ease); }
+  table.dt tbody tr.sec-hi{ background:color-mix(in srgb, var(--data) 7%, transparent); }
+  table.dt tbody tr.sec-hi .tk-sym{ color:var(--data); }
 
   /* --- Mode nuit (.midnight) --- */
   body.midnight{ background:radial-gradient(1200px 600px at 80% -10%,rgba(45,91,255,.10),transparent 60%),radial-gradient(1000px 500px at -5% 10%,rgba(22,163,74,.06),transparent 55%); }
