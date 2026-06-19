@@ -1706,13 +1706,14 @@ table.pos-dt{ width:100%; border-collapse:collapse; }
 .pos-asym .x{ font-weight:400; color:var(--steel); }
 
 /* progress gauge — wraps canonical _position_axis_price (5 repères stop/entry/partial/target/dot prix).
-   Largeur reduite pour eviter overflow de la target-tick a droite (la canonique
-   pose le tick avec right negatif). td:last-child garde un padding-right qui
-   absorbe le debordement intrinseque. */
+   Pas d'overflow:hidden : la canonique positionne le target-tick avec right
+   negatif et il dépassait le clip. Augmente padding-right de la derniere col
+   pour absorber le tick + reduit la largeur du wrap. */
 .pos-gauge-wrap{ display:inline-block; width:130px; max-width:100%; vertical-align:middle; box-sizing:border-box; }
 .pos-gauge-wrap .row-bar,
 .pos-gauge-wrap .axis{ width:100%; box-sizing:border-box; }
-.pos-dt td:last-child{ padding-right:8px; }
+.pos-dt th:last-child,
+.pos-dt td:last-child{ padding-right:16px; overflow:visible; }
 
 /* alert row (AT STOP) */
 .pos-dt tr.pos-alert td{ background:color-mix(in srgb,var(--bear) 6%,transparent); }
