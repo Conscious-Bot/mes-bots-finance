@@ -12,7 +12,7 @@ _TH_CSS = """
   .th-hlab { width:24px; color:var(--steel); }
   .th-hbar .axis { flex:1; margin:0; }
   .th-htrack { flex:1; height:5px; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 6%,transparent); overflow:hidden; }
-  .th-hfill { height:100%; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 55%,transparent); transition:width .25s ease-out; }
+  .th-hfill { height:100%; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 55%,transparent); transition:none; }
   body.midnight .th-htrack { background:rgba(255,255,255,.05); }
   body.midnight .th-hfill { background:color-mix(in srgb,var(--ink) 75%,transparent); }
   .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
@@ -56,7 +56,7 @@ _TH_CSS = """
   .tbar-dot.acc { background:var(--acc); }
   .tbar-dot.warn { background:var(--warn); }
   .tbar-dot.bear { background:var(--bear); }
-  .tbar-fill { position:absolute; left:0; top:0; height:100%; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 50%,transparent); transition:width .25s ease-out; }
+  .tbar-fill { position:absolute; left:0; top:0; height:100%; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 50%,transparent); transition:none; }
   /* Hover tooltip : % continu sous le curseur. Pill ink-on-bg haute contraste,
      tabular nums (digits ne shiftent pas en width quand le curseur glisse),
      caret vers le bar, micro-motion opacity+slide.
@@ -497,7 +497,7 @@ _CSS = """
   [data-page="vigie"] .page-star .ps-grade-max { font-size:var(--t-mini); }
   [data-page="vigie"] .page-star .ps-grade-score { flex:1; min-width:120px; }
   [data-page="vigie"] .page-star .ps-grade-bar { height:6px; background:var(--line); border-radius:var(--r0); overflow:hidden; }
-  [data-page="vigie"] .page-star .ps-grade-fill { height:100%; transition:width .3s ease; }
+  [data-page="vigie"] .page-star .ps-grade-fill { height:100%; transition:none; }
   [data-page="vigie"] .page-star .ps-grade-fill.acc { background:var(--acc); }
   [data-page="vigie"] .page-star .ps-grade-fill.warn { background:var(--warn); }
   [data-page="vigie"] .page-star .ps-grade-fill.bear { background:var(--bear); }
@@ -590,7 +590,7 @@ _CSS = """
   .page-star .ps-sub-lien { font-family:var(--fm); font-size:var(--t-mini); color:var(--steel); margin:6px 0 0; }
   .page-star .ps-sub-lien b { color:var(--ink); font-weight:500; }
   .page-star .ps-grade-bar { height:6px; background:color-mix(in srgb,var(--line) 90%,transparent); border-radius:var(--r0); overflow:hidden; }
-  .page-star .ps-grade-fill { height:100%; transition:width .3s ease; }
+  .page-star .ps-grade-fill { height:100%; transition:none; }
   .page-star .ps-grade-fill.acc { background:var(--acc); }
   .page-star .ps-grade-fill.warn { background:var(--warn); }
   .page-star .ps-grade-fill.bear { background:var(--bear); }
@@ -912,7 +912,7 @@ _CSS = """
   .sb-row-dot { width:8px; height:8px; border-radius:var(--r-circle); flex:0 0 auto; }
   .sb-row-label { font-family:var(--fb); font-weight:500; font-size:var(--t-base); color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sb-row-bar { height:4px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:var(--r0); overflow:hidden; }
-  .sb-row-fill { height:100%; border-radius:var(--r0); transition:width .4s cubic-bezier(.2,.8,.2,1); }
+  .sb-row-fill { height:100%; border-radius:var(--r0); transition:none; }
   .sb-row-pct { font-family:var(--fm); font-weight:500; font-size:var(--t-base); color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
   .sb-row-val { font-family:var(--fm); font-weight:400; font-size:var(--t-data2); color:var(--steel); text-align:right; font-variant-numeric:tabular-nums; }
   #sb-panel { width:100%; font-size:var(--t-base); padding:var(--s3) 0 0; }
@@ -974,7 +974,7 @@ _CSS = """
   .gradecard .gscoreval { font-size:var(--t-h1); font-weight:500; letter-spacing:-.01em; line-height:1; color:var(--ink); }
   .gradecard .gscoremax { color:var(--steel); font-weight:400; font-size:var(--t-h3); margin-left:2px; }
   .gradecard .gscorebar { height:6px; background:color-mix(in srgb,var(--ink) 6%,transparent); border-radius:var(--r1); overflow:hidden; }
-  .gradecard .gscorefill { height:100%; border-radius:var(--r1); transition:width .4s ease; }
+  .gradecard .gscorefill { height:100%; border-radius:var(--r1); transition:none; }
   .gradecard .gscorefill.good { background:var(--acc); }
   .gradecard .gscorefill.warn { background:var(--warn); }
   .gradecard .gscorefill.bad { background:var(--bear); }
@@ -1098,7 +1098,7 @@ _CSS = """
   /* Calibration progress panel (action #3 31/05) -- s'active a n>=30 */
   .calibcard .calib-progress { display:flex; align-items:center; gap:var(--s4); margin-top:var(--s35); }
   .calibcard .calib-bar { flex:1; height:8px; background:color-mix(in srgb, var(--steel) 12%, transparent); border-radius:var(--r0); overflow:hidden; position:relative; }
-  .calibcard .calib-fill { height:100%; background:linear-gradient(90deg, var(--acc), color-mix(in srgb, var(--acc) 70%, var(--gold))); transition:width .4s ease; }
+  .calibcard .calib-fill { height:100%; background:linear-gradient(90deg, var(--acc), color-mix(in srgb, var(--acc) 70%, var(--gold))); transition:none; }
   .calibcard .calib-meta { display:flex; align-items:baseline; gap:var(--s35); min-width:160px; justify-content:flex-end; }
   .calibcard .calib-n { font-family:var(--fmono); font-size:var(--t-h3); font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
   .calibcard .calib-rem { font-family:var(--fm); font-size:var(--t-data2); color:var(--steel); }
@@ -1515,7 +1515,7 @@ _CSS = """
   .brk-row-dot { width:8px; height:8px; border-radius:var(--r-circle); flex:0 0 auto; }
   .brk-row-label { font-family:var(--fb); font-weight:500; font-size:var(--t-data2); color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .brk-row-bar { height:4px; background:color-mix(in srgb,var(--ink) 5%,transparent); border-radius:var(--r0); overflow:hidden; }
-  .brk-row-fill { height:100%; border-radius:var(--r0); transition:width .4s cubic-bezier(.2,.8,.2,1); }
+  .brk-row-fill { height:100%; border-radius:var(--r0); transition:none; }
   .brk-row-pct { font-family:var(--fm); font-weight:500; font-size:var(--t-data2); color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
   .brk-row-val { font-family:var(--fm); font-weight:400; font-size:var(--t-data); color:var(--steel); text-align:right; font-variant-numeric:tabular-nums; }
 
@@ -1569,7 +1569,7 @@ _CSS = """
   .brk-row{ transition:opacity .15s var(--ease),background .15s var(--ease); border-radius:8px; }
   .brk-row:hover{ background:rgba(0,0,0,.015); }
   .brk-row-bar{ height:6px; border-radius:999px; background:rgba(28,30,33,.06); box-shadow:inset 0 0 0 1px rgba(28,30,33,.03); }
-  .brk-row-fill{ height:6px; border-radius:999px; filter:saturate(1.05); transition:width .6s var(--ease),filter .2s var(--ease); box-shadow:0 1px 3px -1px rgba(0,0,0,.25); }
+  .brk-row-fill{ height:6px; border-radius:999px; filter:saturate(1.05); transition:none; box-shadow:0 1px 3px -1px rgba(0,0,0,.25); }
   .brk-row:hover .brk-row-fill{ filter:saturate(1.2) brightness(1.05); }
   /* 19/06 sector bars interactivity : clic/hover -> highlight positions table.
      Un seul accent (teal var(--data)) ; pas de couleur de jugement. */
@@ -1653,7 +1653,7 @@ _OV_HERO_CSS = """
 .ov-subs .ss{ display:grid; grid-template-columns:84px 1fr 40px; align-items:center; gap:12px; }
 .ov-subs .lab{ font-family:var(--fm); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); font-weight:600; }
 .ov-subs .bar{ height:6px; border-radius:3px; background:color-mix(in srgb,var(--ink) 7%,transparent); overflow:hidden; }
-.ov-subs .bar > i{ display:block; height:100%; border-radius:3px; transition:width .5s cubic-bezier(.2,.8,.2,1); }
+.ov-subs .bar > i{ display:block; height:100%; border-radius:3px; transition:none; }
 .ov-subs .bar > i.acc{ background:var(--acc); }
 .ov-subs .bar > i.warn{ background:var(--warn); }
 .ov-subs .n{ font-family:var(--fm); font-weight:700; font-size:17px; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
@@ -1748,7 +1748,7 @@ _POSITIONS_V3_CSS = """
 .pos-sec-dot{ width:8px; height:8px; border-radius:50%; }
 .pos-sec-name{ font-family:var(--fm); font-size:13px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
 .pos-sec-bar{ height:4px; border-radius:2px; background:color-mix(in srgb,var(--ink) 7%,transparent); overflow:hidden; }
-.pos-sec-bar > i{ display:block; height:100%; border-radius:2px; transition:width .4s cubic-bezier(.2,.8,.2,1); }
+.pos-sec-bar > i{ display:block; height:100%; border-radius:2px; transition:none; }
 .pos-sec-pct{ font-family:var(--fm); font-weight:700; font-size:13px; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
 .pos-sec-val{ font-family:var(--fm); font-size:12px; color:var(--steel); text-align:right; font-variant-numeric:tabular-nums; }
 
