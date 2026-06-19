@@ -1,0 +1,45 @@
+/* ============================================================
+   PRESAGE v2 — TOKEN OVERRIDES (Deep Cyan colorway)
+   Merge into dashboard/tokens.css. Only the ACCENT changes;
+   the cold-instrument DNA (single accent, sober green/red) is intact.
+   Rule: a colorway sets ONLY --data / --data-2. Everything else derives.
+   ============================================================ */
+
+:root{
+  /* accent (light) — was #2D5BFF ink blue */
+  --data:  #0E7490;   /* deep cyan 700 — focus / interactive / neutral-info */
+  --data-2:#0E7490;   /* accent lift (same in light) */
+
+  /* gain / loss / caution — UNCHANGED across colorways (semantic) */
+  --acc:  #16A34A;    /* green-600  — gain / validated-healthy ONLY */
+  --bear: #DC2626;    /* red-600    — loss / breached / at-stop */
+  --warn: #A16207;    /* amber-700  — caution / near a limit / fragile */
+
+  /* derived from --data so a colorway is a one-line change */
+  --glow: color-mix(in srgb, var(--data) 48%, transparent);
+  --hair: linear-gradient(120deg,
+            color-mix(in srgb, var(--data) 34%, transparent),
+            color-mix(in srgb, var(--ink) 5%, transparent) 42%,
+            color-mix(in srgb, var(--ink) 2%, transparent));
+}
+
+body.midnight{
+  /* accent (dark) — was #5B7DFF / #7C93FF */
+  --data:  #22D3EE;   /* cyan-400 — lifts on near-black */
+  --data-2:#67E8F9;   /* cyan-300 */
+  --acc:  #3DDC84;
+  --bear: #FF5C5C;
+  --warn: #F5A623;
+  --glow: color-mix(in srgb, var(--data) 55%, transparent);
+}
+
+/* ============================================================
+   SEMANTIC COLOR CONTRACT (enforce everywhere)
+   --data  : neutral / data / interactive. NEVER means good-or-bad.
+   --acc   : genuinely healthy / validated / beats benchmark.
+   --warn  : caution / approaching a cap / fragile / trim candidate.
+   --bear  : critical / cap breached / at stop / kill fired.
+   --ink/--steel : raw data, AND anything not-yet-reliable (small N).
+   → If a value is unproven (e.g. Brier N<20), render it NEUTRAL,
+     never green. Green is earned, not aspirational.
+   ============================================================ */
