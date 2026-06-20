@@ -151,6 +151,48 @@ def serialize(audit: dict[str, Any], out_dir: Path = Path("docs")) -> Path:
         lines.append("✓ **GREEN** sur les 10 derniers runs main. Nothing to do.")
         lines.append("")
 
+    # UI invariants section (Playwright headless behavioural assertions)
+    ui_data = audit.get("ui") or {}
+    ui_failures = ui_data.get("candidates_raw") or []
+    ui_status = ui_data.get("status", "not_run")
+    if ui_failures:
+        # Group by invariant_id
+        by_inv: dict[str, list] = {}
+        for f in ui_failures:
+            by_inv.setdefault(f.invariant_id, []).append(f)
+        lines.append("## UI invariant fails (Playwright)")
+        lines.append("")
+        lines.append(f"> Behavioural DOM/JS assertions on `{ui_data.get('url', '?')}`. "
+                     f"**{len(ui_failures)} fail(s)** across {len(by_inv)} invariant(s).")
+        lines.append("")
+        for inv_id, items in sorted(by_inv.items()):
+            lines.append(f"### `{inv_id}` — {len(items)} occurrence(s)")
+            lines.append("")
+            lines.append(f"> {items[0].description}")
+            lines.append("")
+            for f in items[:10]:
+                lines.append(f"  - page=`{f.page}` ({f.confidence}%) — {f.evidence}")
+            if len(items) > 10:
+                lines.append(f"  - ... et {len(items) - 10} de plus (filtre top-10)")
+            lines.append("")
+            lines.append("  → verdict : toi.")
+            lines.append("")
+    elif ui_status == "ok":
+        lines.append("## UI invariants")
+        lines.append("")
+        lines.append(f"✓ **PASS** sur `{ui_data.get('url', '?')}`. Nothing to do.")
+        lines.append("")
+    elif ui_status == "skipped":
+        lines.append("## UI invariants")
+        lines.append("")
+        lines.append(f"⏭ **SKIPPED** — {ui_data.get('reason', '?')}")
+        lines.append("")
+    elif ui_status == "error":
+        lines.append("## UI invariants")
+        lines.append("")
+        lines.append(f"⚠ **ERROR** during scan : {ui_data.get('reason', '?')}")
+        lines.append("")
+
     # Footer
     lines.append("---")
     lines.append("")

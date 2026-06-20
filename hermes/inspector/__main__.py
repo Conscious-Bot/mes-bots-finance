@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--lens",
-        choices=("static", "runtime", "decision", "doctrine", "ci", "all"),
+        choices=("static", "runtime", "decision", "doctrine", "ci", "ui", "all"),
         default="all",
         help="Lentille a executer (defaut: all).",
     )
@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         window_days = int(args.since)
 
-    lenses = (args.lens,) if args.lens != "all" else ("static", "runtime", "decision", "doctrine", "ci")
+    lenses = (args.lens,) if args.lens != "all" else ("static", "runtime", "decision", "doctrine", "ci", "ui")
     audit = runner.run(
         lenses=lenses,
         window_days=window_days,
@@ -86,6 +86,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"CI window 10 runs  : {n_window_fails} historical fail(s)")
     if summary.get('ci_last_fail_age_h') is not None:
         print(f"  last fail age    : {summary['ci_last_fail_age_h']:.1f}h")
+    ui_status = summary.get('ui_status', 'not_run')
+    ui_fails = summary.get('ui_invariant_fails', 0)
+    if ui_status != 'not_run':
+        ui_label = {'ok': 'OK', 'skipped': 'SKIP', 'error': 'ERR'}.get(ui_status, ui_status.upper())
+        print(f"UI invariants      : {ui_label} ({ui_fails} fail(s))" if ui_status == 'ok'
+              else f"UI invariants      : {ui_label} ({audit.get('ui', {}).get('reason', '')})")
     print(f"total findings     : {summary.get('total_findings', 0)}")
 
     if args.dry_run:

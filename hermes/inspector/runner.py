@@ -15,7 +15,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import lens_ci, lens_decision, lens_doctrine, lens_runtime, lens_static
+from . import (
+    lens_ci,
+    lens_decision,
+    lens_doctrine,
+    lens_runtime,
+    lens_static,
+    lens_ui_invariants,
+)
 
 
 @dataclass
@@ -33,7 +40,7 @@ def _confidence_label(n: int) -> str:
     return {1: "WATCH", 2: "CANDIDATE", 3: "DEAD"}.get(n, "UNKNOWN")
 
 
-def run(lenses: tuple[str, ...] = ("static", "runtime", "decision", "doctrine", "ci"),
+def run(lenses: tuple[str, ...] = ("static", "runtime", "decision", "doctrine", "ci", "ui"),
         window_days: int = 90,
         targets: list[str] | None = None,
         vulture_min_confidence: int = 80) -> dict[str, Any]:
@@ -65,6 +72,8 @@ def run(lenses: tuple[str, ...] = ("static", "runtime", "decision", "doctrine", 
         out["doctrine"] = lens_doctrine.scan(targets=targets)
     if "ci" in lenses:
         out["ci"] = lens_ci.scan(limit=10, branch="main", deep_parse=True)
+    if "ui" in lenses:
+        out["ui"] = lens_ui_invariants.scan()
 
     # Triangulation par 'name' canonique
     by_name: dict[str, dict[str, str]] = {}
@@ -109,6 +118,9 @@ def run(lenses: tuple[str, ...] = ("static", "runtime", "decision", "doctrine", 
     # CI findings (categorie a part : etat infra plutot que code).
     ci_data = out.get("ci") or {}
     ci_failures = ci_data.get("failures", [])
+    # UI invariant findings (categorie a part : assertions comportementales DOM/JS).
+    ui_data = out.get("ui") or {}
+    ui_failures = ui_data.get("candidates_raw") or []
     summary = {
         "DEAD": sum(1 for f in triangulated if f.n_lenses == 3 and not f.excluded),
         "CANDIDATE": sum(1 for f in triangulated if f.n_lenses == 2 and not f.excluded),
@@ -118,7 +130,9 @@ def run(lenses: tuple[str, ...] = ("static", "runtime", "decision", "doctrine", 
         "ci_green": ci_data.get("ci_green", True),
         "ci_recent_fails": len(ci_failures),
         "ci_last_fail_age_h": ci_data.get("last_fail_age_hours"),
-        "total_findings": len(triangulated) + len(doctrine_findings) + len(ci_failures),
+        "ui_status": ui_data.get("status", "not_run"),
+        "ui_invariant_fails": len(ui_failures),
+        "total_findings": len(triangulated) + len(doctrine_findings) + len(ci_failures) + len(ui_failures),
     }
 
     out["triangulated"] = triangulated
