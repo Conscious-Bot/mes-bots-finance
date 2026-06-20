@@ -152,15 +152,29 @@ def compute_mauboussin_sizing() -> dict:
 
 
 def list_above_bull_case() -> list[dict]:
-    """Critique : 'flag quand expectations depassent meme le bull case (AMD ~92x)'."""
+    """Critique : 'flag quand expectations depassent meme le bull case (AMD ~92x)'.
+
+    Audit 20/06 : filter sur positions tenues (qty > 0). Avant, ticker_meta
+    pouvait flagger TSLA above-bull-case meme si non detenue -> 'trim
+    candidate' sur un ticker absent du book (incoherent).
+    """
     meta = storage.get_all_latest_ticker_meta()
+    try:
+        from shared.book import get_book_index
+        _held = {tk for tk, ln in get_book_index().items() if (ln.qty or 0) > 0}
+    except Exception:
+        _held = None  # fail-open : si book indisponible, affiche tout (back-compat)
     out = []
     for m in meta:
-        if m.get("valo_above_bull_case"):
-            out.append({
-                "ticker": m["ticker"],
-                "what_priced_in": (m.get("valo_what_priced_in") or "")[:300],
-                "pe_or_proxy": m.get("valo_pe_or_proxy"),
-                "rationale": (m.get("rationale") or "")[:200],
-            })
+        if not m.get("valo_above_bull_case"):
+            continue
+        # Filter : seulement positions tenues (sinon 'trim candidate' sur ticker absent).
+        if _held is not None and m["ticker"] not in _held:
+            continue
+        out.append({
+            "ticker": m["ticker"],
+            "what_priced_in": (m.get("valo_what_priced_in") or "")[:300],
+            "pe_or_proxy": m.get("valo_pe_or_proxy"),
+            "rationale": (m.get("rationale") or "")[:200],
+        })
     return out
