@@ -116,37 +116,47 @@ def check_l12_native_eur_mix(targets: list[str]) -> list[DoctrineCandidate]:
 def check_adr014_canonical_filter(targets: list[str]) -> list[DoctrineCandidate]:
     """ADR 014 : queries sur 'predictions' doivent utiliser canonical_predictions_filter().
 
-    Pattern : raw SQL 'FROM predictions' sans 'canonical_predictions_filter' dans
-    le meme bloc/fichier.
+    Pattern : raw SQL 'FROM predictions' SANS appel a un filter canonical/substance
+    dans le voisinage immediat (5 lignes apres). Accepte les 2 variantes :
+    - canonical_predictions_filter (strict v2 only, ADR 014)
+    - substance_predictions_filter (variant equivalent, certaines queries
+      historiques pre-014 l'utilisent par convention)
     """
     out: list[DoctrineCandidate] = []
     rule_text = (
         "ADR 014 : toute query SQL sur predictions canoniques DOIT utiliser "
-        "canonical_predictions_filter() pour exclure v0/v1/rule_v1_*. Source : "
-        "docs/adrs/014-canonical-predictions-filter.md."
+        "canonical_predictions_filter() (ou substance_predictions_filter variant) "
+        "pour exclure v0/v1/rule_v1_*. Source : docs/adrs/014-canonical-predictions-filter.md."
     )
     from_pat = re.compile(r"FROM\s+predictions\b", re.IGNORECASE)
+    filter_pat = re.compile(r"(canonical|substance)_predictions_filter")
     for target in targets:
         for path in Path(target).rglob("*.py"):
-            content = path.read_text(encoding="utf-8", errors="ignore")
-            if "canonical_predictions_filter" in content:
-                continue  # le filter est utilise dans le fichier, presume OK
             # Skip tests (fixtures peuvent legitimement query toutes les preds)
             if "/tests/" in str(path) or path.name.startswith("test_"):
                 continue
-            for line_no, line in _scan_file_lines(path):
-                if from_pat.search(line):
-                    # Skip migration files (alembic) et schema dumps
-                    if "alembic" in str(path):
-                        continue
-                    out.append(DoctrineCandidate(
-                        rule_id="ADR014",
-                        rule_text=rule_text,
-                        file=str(path),
-                        line=line_no,
-                        excerpt=line.strip()[:120],
-                        confidence=80,
-                    ))
+            # Skip migration files (alembic) et schema dumps
+            if "alembic" in str(path):
+                continue
+            lines = _scan_file_lines(path)
+            for i, (line_no, line) in enumerate(lines):
+                if not from_pat.search(line):
+                    continue
+                # Look in window [i-2, i+5] for a filter call (couvre f-string
+                # qui formate canonical_predictions_filter() apres le FROM)
+                start = max(0, i - 2)
+                end = min(len(lines), i + 6)
+                window = "\n".join(ln for _, ln in lines[start:end])
+                if filter_pat.search(window):
+                    continue  # filter present dans le voisinage, OK
+                out.append(DoctrineCandidate(
+                    rule_id="ADR014",
+                    rule_text=rule_text,
+                    file=str(path),
+                    line=line_no,
+                    excerpt=line.strip()[:120],
+                    confidence=80,
+                ))
     return out
 
 
