@@ -32,6 +32,7 @@ from dashboard._scripts import (
 from dashboard._styles import (
     _CSS,
     _DBA_CSS,
+    _INLINE_LEAKS_CSS,
     _NEEDS_TODAY_CSS,
     _OV_HERO_CSS,
     _POSITIONS_V3_CSS,
@@ -4622,22 +4623,7 @@ def _geo_bars(positions: list[dict]) -> str:
         _gsn = _gsn_real
     except Exception:
         _gsn = None
-    css = (
-        "<style>"
-        ".geo-item{cursor:pointer}"
-        ".geo-item .row{transition:background .15s;border-radius:var(--r2)}"
-        ".geo-item:hover .row{background:color-mix(in srgb,var(--ink) 4%,transparent)}"
-        ".geo-sub{max-height:0;overflow:hidden;opacity:0;"
-        "transition:max-height .3s ease,opacity .2s ease,margin .3s ease}"
-        ".geo-item.open .geo-sub{max-height:360px;opacity:1;margin:var(--s1) 0 14px}"
-        ".geo-stk{display:flex;align-items:center;gap:var(--s3);padding:var(--s15) 6px 5px 16px;"
-        "font-size:var(--t-data2);border-left:2px solid var(--line2);margin-left:3px}"
-        ".geo-stk .gnm{color:var(--ink)}"
-        ".geo-stk .gtk{color:var(--steel);font-family:var(--fm);font-size:var(--t-data)}"
-        ".geo-stk .gpc{margin-left:auto;color:var(--steel);font-family:var(--fm);font-size:var(--t-data)}"
-        ".geo-stk .gw{color:var(--ink);font-family:var(--fm);min-width:62px;text-align:right}"
-        "</style>"
-    )
+    css = ""  # Audit 20/06 : .geo-* styles deplaces dans _INLINE_LEAKS_CSS (bundle global).
     bars = ""
     for country, w in sorted(cw.items(), key=lambda x: -x[1]):
         pct = w / total * 100
@@ -5824,7 +5810,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         # full-width au-dessus (indicateurs naturellement nombreux), puis
         # RSI + breadth cote-a-cote en bas.
         f'<div class="ph3">Macro stress monitor &mdash; score {score:.0f} {_regime_chip_html} {_audit_chip_html}</div>'
-        f'<div class="card pad" style="margin-bottom:var(--s4)"><div class="dlist"><style>.ddot.mute{{background:var(--steel);box-shadow:none;opacity:.6}}</style>{blocks}</div>{_book_warnings_html}</div>'
+        f'<div class="card pad" style="margin-bottom:var(--s4)"><div class="dlist">{blocks}</div>{_book_warnings_html}</div>'
         f'<div class="cols">'
         f'<div><div class="ph3">Market momentum &middot; RSI(14) daily &middot; 30min cache</div>'
         f'<div class="card pad"><div class="dlist">{rsi_html}</div></div></div>'
@@ -5951,15 +5937,7 @@ def _cockpit() -> str:
     else:
         countdown, countdown_sub = f"J+{-days_to_jun10}", f"batch past &middot; {preds_due} en retard"
 
-    css = (
-        "<style>"
-        ".ck-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--s3);margin-top:var(--s2)}"
-        ".ck-cell{padding:var(--s35) 4px;border-bottom:1px solid var(--line)}"
-        ".ck-label{font-size:var(--t-data2);color:var(--steel);letter-spacing:.01em}"
-        ".ck-num{font-family:var(--fm);font-size:var(--t-h2);font-weight:500;margin-top:var(--s15);line-height:1.05;letter-spacing:-.01em}"
-        ".ck-sub{font-size:var(--t-data2);color:var(--steel);margin-top:var(--s15);line-height:1.4}"
-        "</style>"
-    )
+    css = ""  # Audit 20/06 : .ck-* styles deplaces dans _INLINE_LEAKS_CSS (bundle global).
 
     def cell(label: str, value: str, sub: str, color: str) -> str:
         return (
@@ -7352,6 +7330,7 @@ def _write_static_bundle() -> tuple[int, int]:
     static_dir.mkdir(exist_ok=True)
     app_css = (
         _TOKENS_CSS + _CSS + _OV_HERO_CSS + _NEEDS_TODAY_CSS + _POSITIONS_V3_CSS
+        + _INLINE_LEAKS_CSS  # styles extracts du DOM (audit 20/06, scopes par page)
         + _PREMIUM_CSS  # couche finale 'premium' user-supplied 20/06 (overrides)
     )
     app_js = _APP_JS.replace(

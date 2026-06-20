@@ -1750,6 +1750,35 @@ body.midnight .pos-mono{ background:rgba(255,255,255,.07); color:#A1A8B3; }
 body.midnight .pos-dt tr.pos-alert td{ background:rgba(220,38,38,.10); }
 
 /* ============================================================
+   Inline-style leaks extraits du DOM (audit 20/06).
+   Avant : 3 <style> blocks emis dans le body des sections (Concentration
+   geo-item / Urgence ddot.mute / Methode ck-grid) -> pollution DOM.
+   Apres : declares ici, dans le bundle global, prefixes scopes par page
+   pour eviter le bleed cross-page.
+   ============================================================ */
+/* Concentration > geo-item drilldown */
+[data-page="concentration"] .geo-item{ cursor:pointer; }
+[data-page="concentration"] .geo-item .row{ transition:background .15s; border-radius:var(--r2); }
+[data-page="concentration"] .geo-item:hover .row{ background:color-mix(in srgb,var(--ink) 4%,transparent); }
+[data-page="concentration"] .geo-sub{ max-height:0; overflow:hidden; opacity:0; transition:max-height .3s ease,opacity .2s ease,margin .3s ease; }
+[data-page="concentration"] .geo-item.open .geo-sub{ max-height:360px; opacity:1; margin:var(--s1) 0 14px; }
+[data-page="concentration"] .geo-stk{ display:flex; align-items:center; gap:var(--s3); padding:var(--s15) 6px 5px 16px; font-size:var(--t-data2); border-left:2px solid var(--line2); margin-left:3px; }
+[data-page="concentration"] .geo-stk .gnm{ color:var(--ink); }
+[data-page="concentration"] .geo-stk .gtk{ color:var(--steel); font-family:var(--fm); font-size:var(--t-data); }
+[data-page="concentration"] .geo-stk .gpc{ margin-left:auto; color:var(--steel); font-family:var(--fm); font-size:var(--t-data); }
+[data-page="concentration"] .geo-stk .gw{ color:var(--ink); font-family:var(--fm); min-width:62px; text-align:right; }
+
+/* Urgence > mute dot dans Macro stress monitor */
+[data-page="urgence"] .ddot.mute{ background:var(--steel); box-shadow:none; opacity:.6; }
+
+/* Methode > checkin grid (KPI cells track record) */
+[data-page="methode"] .ck-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:var(--s3); margin-top:var(--s2); }
+[data-page="methode"] .ck-cell{ padding:var(--s35) 4px; border-bottom:1px solid var(--line); }
+[data-page="methode"] .ck-label{ font-size:var(--t-data2); color:var(--steel); letter-spacing:.01em; }
+[data-page="methode"] .ck-num{ font-family:var(--fm); font-size:var(--t-h2); font-weight:500; margin-top:var(--s15); line-height:1.05; letter-spacing:-.01em; }
+[data-page="methode"] .ck-sub{ font-size:var(--t-data2); color:var(--steel); margin-top:var(--s15); line-height:1.4; }
+
+/* ============================================================
    PRESAGE · couche esthetique 'premium' (20/06)
    ============================================================ */
 
