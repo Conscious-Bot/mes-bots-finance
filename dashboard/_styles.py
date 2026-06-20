@@ -242,7 +242,7 @@ _CSS = """
   .sec-subwrap { display:flex; flex-direction:column; gap:var(--s1); }
   .sec-super .sec-grp.sub { margin:0; border-left:2px solid var(--line); border-radius:0 var(--r2) var(--r2) 0; }
   .sec-super .sec-grp.sub .sec-name { font-family:var(--fd); font-weight:600; font-size:var(--t-base); color:var(--steel); letter-spacing:0; }
-  body { font-family:var(--fb); font-size:var(--t-base); color:var(--ink); margin:0; display:flex; min-height:100vh; background:var(--bg); -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
+  body { font-family:var(--fb); font-size:var(--t-base); color:var(--ink); margin:0; display:flex; min-height:100vh; background:var(--bg); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; transition:background .3s ease,color .3s ease; }
   .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; position:sticky; top:0; align-self:flex-start; height:100vh; z-index:60; }
   .logo { display:flex; align-items:center; justify-content:center; margin-bottom:var(--s35); padding:2px 0 0; }
   .logo svg { width:62px; height:auto; color:var(--ink); }
@@ -1739,13 +1739,6 @@ _PREMIUM_CSS = """
   --elev1:0 1px 2px rgba(18,22,33,.05), 0 6px 16px -8px rgba(18,22,33,.10);
   --elev2:0 2px 6px rgba(18,22,33,.06), 0 18px 40px -16px rgba(18,22,33,.18);
 }
-/* Body deep background : couche zip 19/06 user-supplied canonique (block A lignes
-   1337-1340). Le body BG de _PREMIUM_CSS retire 20/06 user-demand : 2 sources
-   competeing -> drift cascade. Source unique = block A (literal blue+green). */
-html,body{
-  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
-}
-
 /* ---------- 2. CARTES ---------- */
 .card{
   background:linear-gradient(180deg,#FFFFFF,#FCFDFE);
