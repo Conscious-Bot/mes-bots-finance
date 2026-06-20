@@ -47,16 +47,8 @@ def _run_gh(args: list[str], timeout: int = 30) -> str | None:
     return result.stdout
 
 
-def scan_recent_fails(limit: int = 10, branch: str = "main") -> list[CIFailure]:
-    """List recent failed runs on the branch.
-
-    Args:
-        limit: nombre de runs a inspecter (defaut 10)
-        branch: filter par branch (defaut main)
-
-    Returns:
-        list[CIFailure] des runs failed (peut etre vide).
-    """
+def _list_recent_runs(limit: int = 10, branch: str = "main") -> list[dict]:
+    """Retourne la liste brute des runs (ordre desc par date)."""
     raw = _run_gh([
         "run", "list",
         "--branch", branch,
@@ -66,9 +58,14 @@ def scan_recent_fails(limit: int = 10, branch: str = "main") -> list[CIFailure]:
     if not raw:
         return []
     try:
-        runs = json.loads(raw)
+        return json.loads(raw)
     except json.JSONDecodeError:
         return []
+
+
+def scan_recent_fails(limit: int = 10, branch: str = "main") -> list[CIFailure]:
+    """List recent failed runs on the branch."""
+    runs = _list_recent_runs(limit=limit, branch=branch)
     failures: list[CIFailure] = []
     now = datetime.utcnow()
     for run in runs:
@@ -90,6 +87,19 @@ def scan_recent_fails(limit: int = 10, branch: str = "main") -> list[CIFailure]:
             on_main=(branch == "main"),
         ))
     return failures
+
+
+def latest_run_status(branch: str = "main") -> str:
+    """Retourne le conclusion du dernier run completed sur branch.
+
+    Returns:
+        'success' | 'failure' | 'cancelled' | 'unknown' (si gh missing / no runs).
+    """
+    runs = _list_recent_runs(limit=5, branch=branch)
+    for run in runs:
+        if run.get("status") == "completed":
+            return run.get("conclusion") or "unknown"
+    return "unknown"
 
 
 def parse_failed_test_from_log(run_id: str) -> str | None:
@@ -131,13 +141,18 @@ def scan(limit: int = 10, branch: str = "main",
         for f in fails:
             f.failed_test = parse_failed_test_from_log(f.run_id)
     recurrent = detect_recurrent_fails(fails)
-    # Most recent fail's age (heures)
     last_fail_age = min((f.age_hours for f in fails), default=None)
+    # latest_status : conclusion du dernier run terminé (vs ci_green qui est
+    # 'aucun fail dans la fenetre'). Distingue 'historique sale, present propre'
+    # de 'tout casse'.
+    latest_status = latest_run_status(branch=branch)
     return {
         "failures": fails,
         "n_failures": len(fails),
         "recurrent_tests": recurrent,
         "n_recurrent": sum(1 for k, v in recurrent.items() if v >= 2),
         "last_fail_age_hours": last_fail_age,
-        "ci_green": len(fails) == 0,
+        "ci_green": len(fails) == 0,         # window: aucun fail
+        "latest_run_status": latest_status,  # tete: dernier run
+        "ci_latest_green": latest_status == "success",
     }

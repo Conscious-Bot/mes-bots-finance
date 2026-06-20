@@ -77,8 +77,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"WATCH (1/3)        : {summary.get('WATCH', 0)}")
     print(f"excluded           : {summary.get('excluded', 0)}")
     print(f"doctrine violations: {summary.get('doctrine_violations', 0)}")
-    ci_status = "GREEN" if summary.get('ci_green') else f"FAIL ({summary.get('ci_recent_fails', 0)} recent)"
-    print(f"CI status          : {ci_status}")
+    ci_data = audit.get("ci") or {}
+    latest_status = ci_data.get("latest_run_status", "unknown")
+    latest_label = {"success": "GREEN", "failure": "FAIL", "cancelled": "CANCELLED"}.get(latest_status, latest_status.upper())
+    n_window_fails = summary.get('ci_recent_fails', 0)
+    print(f"CI latest run      : {latest_label}")
+    if n_window_fails > 0:
+        print(f"CI window 10 runs  : {n_window_fails} historical fail(s)")
     if summary.get('ci_last_fail_age_h') is not None:
         print(f"  last fail age    : {summary['ci_last_fail_age_h']:.1f}h")
     print(f"total findings     : {summary.get('total_findings', 0)}")
