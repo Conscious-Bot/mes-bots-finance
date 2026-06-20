@@ -6860,7 +6860,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     return (
         '<div class="pos-acct">'
         '<div class="pos-acct-h">'
-        f'<div class="nm">{label}<span class="note">{_short_note}</span></div>'
+        f'<div class="nm">{label} <span class="note">{_short_note}</span></div>'
         f'<div class="tot"><span class="v">{tot_str}&nbsp;&euro;</span> &middot; {len(ps)} lines &middot; {share:.0f}% of book</div>'
         '</div>'
         '<div class="pos-acct-body">'

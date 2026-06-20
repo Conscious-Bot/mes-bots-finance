@@ -437,6 +437,10 @@ _CSS = """
   .page-star { display:none !important; }
   [data-page="vigie"] .page-star { display:block !important; background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:24px 28px; margin-bottom:var(--s4); }
   [data-page="urgence"] .page-star { display:block !important; background:transparent; border:none; padding:0; margin-bottom:var(--s4); }
+  /* Audit 20/06 (autre Claude) : page-star Concentration etait cache par la
+     regle universelle, malgre les styles dedies aux strates internes ->
+     verdict 'EXCESSIVE' invisible. Re-show avec le meme pattern que vigie. */
+  [data-page="concentration"] .page-star { display:block !important; background:var(--panel); border:1px solid var(--line); border-radius:var(--r3); padding:20px 24px; margin-bottom:var(--s4); }
   [data-page="urgence"] .page-star .ps-strate:not(:first-child) { display:none !important; }
   [data-page="urgence"] .page-star .ps-strate:first-child { border-top:none; padding:0; }
   [data-page="vigie"] .page-star .ps-strate { display:block; padding:14px 0; gap:0; }
