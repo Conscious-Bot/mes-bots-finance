@@ -1823,9 +1823,16 @@ html,body{
 .mono,.ps-macro-meta{ font-feature-settings:'tnum' 1,'ss01' 1; }
 
 /* ============================================================
-   FIX — verdict Concentration (display:none oublie cote universal rule)
+   FIX — 4 verdicts pages cachés par oubli CSS (display:none universal).
+   Strategy / Theses / Methode contenaient chacun un .page-star riche
+   (synthese de tete de page : book reading, conviction repartition,
+   signal activity 24h) masque accidentellement. Concentration deja
+   re-show via _CSS earlier mais on garde la rule ici pour doc.
    ============================================================ */
 [data-page='concentration'] .page-star{ display:block; }
+[data-page='strategie']    .page-star{ display:block; }
+[data-page='theses']       .page-star{ display:block; }
+[data-page='methode']      .page-star{ display:block; }
 
 /* ============================================================
    REORDER Overview : Needs You Today remonte juste sous le hero,
