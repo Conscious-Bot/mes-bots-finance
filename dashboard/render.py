@@ -6654,7 +6654,7 @@ def _sector_mix_v3(segs: list) -> str:
         )
     return (
         '<div class="pos-sec">'
-        '<h2>Sector mix &middot; click to filter</h2>'
+        '<h2>Sector mix &middot; click to highlight</h2>'
         f'<div class="pos-sec-rows">{"".join(rows)}</div>'
         '</div>'
     )
