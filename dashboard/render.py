@@ -3396,8 +3396,7 @@ def _position_card_panel() -> str:
         '<section data-page="position-card" role="region" aria-label="Position cards">'
         + pc_css
         + '<div class="phead"><h1>Position cards</h1>'
-        f'<div class="sub">Vue plein-ecran par position &middot; {n} active &middot; '
-        'EXIT &amp; SIZE separes (Catch 2) &middot; deep-link #card-TICKER</div></div>'
+        f'<div class="sub">Per-ticker deep-dive &middot; {n} active &middot; EXIT / SIZE separated</div></div>'
         + summary_html
         + "".join(cards)
         + '</section>'
@@ -4115,7 +4114,7 @@ def _copilot() -> str:
     conserve, donnees disponibles pour reactivation future."""
     return (
         f'<section data-page="copilot" role="region" aria-label="Copilot">'
-        f'<div class="phead"><h1>Copilot</h1></div>'
+        f'<div class="phead"><h1>Copilot</h1><div class="sub">Adversarial AI pressure-tests &middot; biases log</div></div>'
         f'{_chat_panel()}'
         f'<div class="vigie-sh" data-tip="Historical adversarial pressure tests: what the copilot challenged recently."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5 2 3 4 3 6.5c0 1.5.8 2.8 2 3.6V12c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-1.9c1.2-.8 2-2.1 2-3.6C13 4 11 2 8 2z"/><path d="M6 13v1c0 .5.4 1 1 1h2c.6 0 1-.5 1-1v-1"/></svg>Adversarial pressures</div>'
         f'{_copilot_panel()}'
@@ -4475,6 +4474,7 @@ def _concentration(
     )
     return (
         f'<section data-page="concentration" role="region" aria-label="Concentration"><div class="phead"><h1>Concentration</h1>'
+        f'<div class="sub">Cluster &middot; sector &middot; currency &middot; wrapper breakdown</div>'
         f'</div>'
         f"{star_concentration}"
         # Retrait 02/06 user : sb-bars (horizontal bars par sector) = doublon
@@ -5234,7 +5234,7 @@ def _signaux() -> str:
     data_health_html_method = _data_health_panel()
     return (
         f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h1>Method</h1>'
-        f'<div class="sub">How the bot reads signals + how it monitors your biases &middot; track record &middot; insider flow &middot; loop provenance</div></div>'
+        f'<div class="sub">Track record &middot; signal quality &middot; loop provenance</div></div>'
         f"{star_signaux}{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}"
         f"{_discipline_biais_panel()}"
         f"{_glossary_panel()}"
@@ -5817,6 +5817,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     breadth_html = _breadth_rsp_spy()
     return (
         f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h1>Alerts</h1>'
+        f'<div class="sub">Stops near &middot; targets reached &middot; kill-criteria firing</div>'
         f'</div>'
         f"{star}"
         # Layout 02/06 user "organize, evitons les trous" : macro stress
