@@ -8001,8 +8001,7 @@ def render() -> Path:
             pass
     _ov_session_date = datetime.now().strftime("%-d %b")
     _ov_session_time = datetime.now().strftime("%H:%M") + " CET"
-    # Embed each path/area inside <g class="rng" data-r="30|90|365"> for client swap.
-    _ov_default_r = "90"
+    # Embed each path/area inside <g class="rng" data-r="..."> for client swap.
     # Helper : emit one chart layer for a range
     def _ov_chart_layer(r: str, data: dict, active: bool) -> str:
         cls = "ov-rng on" if active else "ov-rng"
@@ -8016,10 +8015,23 @@ def render() -> Path:
             f'<g class="ov-pts" data-pts="{data["pts"]}"></g>'
             f'</g>'
         )
+    # Auto-detect ranges qui ont strictement plus de points (vraiment distinctes).
+    # Si l'historique snapshots est court (<31j), 30d=90d=1Y -> ne montre QUE la range
+    # la plus large et drop les chips (sinon promesse fausse, user 20/06 'useless').
+    _ov_ranges_avail = []
+    _seen_n = -1
+    for _r, _lab, _data in [("30", "30d", _ov_30), ("90", "90d", _ov_90), ("365", "1Y", _ov_365)]:
+        _n = _data.get("n", 0)
+        if _n > _seen_n:
+            _ov_ranges_avail.append((_r, _lab, _data))
+            _seen_n = _n
+    _show_chips = len(_ov_ranges_avail) >= 2
+    # Default = plus large range disponible (capte tout l'historique par defaut)
+    _ov_default_r = _ov_ranges_avail[-1][0] if _ov_ranges_avail else "90"
     _ov_chips = "".join(
         f'<button class="ov-chip {"on" if r == _ov_default_r else ""}" data-r="{r}">{lab}</button>'
-        for r, lab in [("30", "30d"), ("90", "90d"), ("365", "1Y")]
-    )
+        for r, lab, _ in _ov_ranges_avail
+    ) if _show_chips else ""
     # Grade card (right half) : ring SVG + score + sub-bars Construction/Fragility
     _grade_color_v3 = "acc" if _grade_score >= 70 else ("warn" if _grade_score >= 50 else "bear")
     # SVG ring : circumference 2*PI*54 = 339.292
@@ -8077,9 +8089,7 @@ def render() -> Path:
         '<stop offset="0" stop-color="var(--data)" stop-opacity=".28"/>'
         '<stop offset="1" stop-color="var(--data)" stop-opacity="0"/>'
         '</linearGradient></defs>'
-        + _ov_chart_layer("30", _ov_30, _ov_default_r == "30")
-        + _ov_chart_layer("90", _ov_90, _ov_default_r == "90")
-        + _ov_chart_layer("365", _ov_365, _ov_default_r == "365")
+        + "".join(_ov_chart_layer(r, data, r == _ov_default_r) for r, _, data in _ov_ranges_avail)
         + '</svg>'
         '<div class="ov-tip"></div>'
         '</div>'
