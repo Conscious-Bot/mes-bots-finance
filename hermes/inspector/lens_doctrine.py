@@ -142,10 +142,11 @@ def check_adr014_canonical_filter(targets: list[str]) -> list[DoctrineCandidate]
             for i, (line_no, line) in enumerate(lines):
                 if not from_pat.search(line):
                     continue
-                # Look in window [i-2, i+5] for a filter call (couvre f-string
-                # qui formate canonical_predictions_filter() apres le FROM)
-                start = max(0, i - 2)
-                end = min(len(lines), i + 6)
+                # Look in window [i-8, i+10] for a filter call. Window widened
+                # apres faux positifs (filter assigne via .replace() 5+ lignes
+                # avant ou applique 8+ lignes plus bas dans multi-line SQL).
+                start = max(0, i - 8)
+                end = min(len(lines), i + 10)
                 window = "\n".join(ln for _, ln in lines[start:end])
                 if filter_pat.search(window):
                     continue  # filter present dans le voisinage, OK
@@ -175,6 +176,13 @@ def check_l7_helper_side_effect(targets: list[str]) -> list[DoctrineCandidate]:
         "Source : memory feedback_helper_register_no_side_effect."
     )
     call_re = re.compile(r"\bregister_concept\s*\(")
+    # Markers qui indiquent que le register est INTENTIONAL (LIVING_GRAPH seed,
+    # canonical source declaree). Skip ces cas (faux positifs du raw pattern).
+    intentional_re = re.compile(
+        r"LIVING[ _]GRAPH|canonique|canonical|seed|fork[ _-]detection|"
+        r"tracer.bullet|compute.once|point unique|source unique",
+        re.IGNORECASE,
+    )
     for target in targets:
         for path in Path(target).rglob("*.py"):
             if "/tests/" in str(path):
@@ -185,7 +193,7 @@ def check_l7_helper_side_effect(targets: list[str]) -> list[DoctrineCandidate]:
             lines = _scan_file_lines(path)
             in_fn: int | None = None
             saw_commit = False
-            for line_no, line in lines:
+            for i, (line_no, line) in enumerate(lines):
                 stripped = line.lstrip()
                 # Skip imports + comments + docstrings (not actionable calls)
                 if stripped.startswith(("import ", "from ", "#", '"""', "'''", '"')):
@@ -197,6 +205,15 @@ def check_l7_helper_side_effect(targets: list[str]) -> list[DoctrineCandidate]:
                     if ".commit()" in line or "cx.commit" in line:
                         saw_commit = True
                     if call_re.search(line) and not saw_commit:
+                        # Inspect 15 lignes precedentes : si marker 'intentional' present,
+                        # c'est un seed canonical -> skip (legitime). Widened de 8 a 15
+                        # apres faux positifs sur render.py (canonique mentionne 12 lignes
+                        # avant le call_re).
+                        ctx_start = max(0, i - 15)
+                        ctx = "\n".join(ln for _, ln in lines[ctx_start:i])
+                        if intentional_re.search(ctx):
+                            in_fn = None
+                            continue
                         out.append(DoctrineCandidate(
                             rule_id="L7",
                             rule_text=rule_text,

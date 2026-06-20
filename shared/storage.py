@@ -33,6 +33,26 @@ def db() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+@contextmanager
+def db_ro() -> Iterator[sqlite3.Connection]:
+    """Connection read-only stricte (URI mode=ro).
+
+    Use case : audit agents (Tier R), observers, scripts qui ne doivent
+    JAMAIS muter l'etat. Si une UPDATE/INSERT/DELETE est tentee, sqlite3
+    leve `OperationalError: attempt to write a readonly database`.
+
+    Audit doctrine SAS (hermes/) : tous les acces DB depuis hermes/ passent
+    par db_ro() (gate technique, pas juste convention).
+    """
+    uri = f"file:{DB_PATH}?mode=ro"
+    conn = sqlite3.connect(uri, uri=True)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
 def load_state() -> dict[str, Any]:
     from typing import cast
 
