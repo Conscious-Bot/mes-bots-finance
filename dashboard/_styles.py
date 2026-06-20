@@ -1846,4 +1846,48 @@ _PREMIUM_CSS = """
 #presage-bgfx{ position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
 body > .sidebar{ position:sticky; z-index:1; }
 body > .wrap{ position:relative; z-index:1; }
+
+/* ============================================================
+   DARK MODE OVERRIDES -- placees APRES _PREMIUM_CSS pour gagner
+   par cascade. _PREMIUM_CSS hardcode #FFFFFF sur .card / .need /
+   .page-star / .rw-cell / .sidebar / .dband -> en .midnight ces
+   surfaces restaient blanches sur body dark = illisible.
+   Source unique des overrides midnight UI surfaces.
+   ============================================================ */
+body.midnight{ background:#0F1115; }
+body.midnight .card{
+  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px -14px rgba(0,0,0,.6);
+}
+body.midnight .card:hover{
+  border-color:color-mix(in srgb,var(--data) 30%,rgba(255,255,255,.12));
+}
+body.midnight .page-star{
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));
+  border:1px solid color-mix(in srgb,var(--warn) 22%,rgba(255,255,255,.08));
+}
+body.midnight .need{
+  background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 8%,rgba(255,255,255,.02)),rgba(255,255,255,.015));
+  border:1px solid color-mix(in srgb,var(--acc) 22%,rgba(255,255,255,.08));
+}
+body.midnight .need .sv{
+  background:color-mix(in srgb,var(--acc) 16%,rgba(255,255,255,.03));
+}
+body.midnight .rw-cell{
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 1px 2px rgba(0,0,0,.3);
+}
+body.midnight .sidebar{
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
+  border-right:1px solid rgba(255,255,255,.08);
+}
+body.midnight .dband{
+  background:color-mix(in srgb,#0F1115 70%,rgba(255,255,255,.04));
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+body.midnight .phead.stuck{
+  background:linear-gradient(180deg,color-mix(in srgb,#0F1115 90%,transparent),color-mix(in srgb,#0F1115 60%,transparent));
+}
 """
