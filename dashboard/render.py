@@ -24,6 +24,7 @@ from dashboard._scripts import (
     _FOOT_METHOD,
     _LOGO,
     _LOUPE_HTML,
+    _MESH_FX,
     _MODE_BTN,
     _NAV,
     _SORT_JS,
@@ -8256,8 +8257,8 @@ def render() -> Path:
         # Cartes riches per ticker (stop margin critical, PERDANT) + per cluster
         # (over cap). Filtre les winners avec trailing stop tight (pas un cri).
         + _needs_today(positions, pnl, near_stop_tk, computed, names)
-        # Pass 11 audit promotion : copilot adversarial in prime real estate.
-        + _copilot_promote_card()
+        # Copilot promote drop 20/06 user : page Copilot dediee suffit, pas
+        # besoin de double-affichage en Overview.
         # Track record + Sante distribution deplaces vers page "signaux"
         # (user feedback 01/06 : pilotage qualite des signaux groupe ensemble).
         # Reordre 01/06 soir (user feedback) : Opportunites + Mouvement
@@ -8580,6 +8581,7 @@ def render() -> Path:
         # AVANT le paint initial, evite FOUC light->dark sur chaque refresh.
         + _THEME_INIT
         + "</head><body>"
+        + _MESH_FX
         + body
         + "<script>window.TK="
         # allow_nan=False catche NaN/Inf qui pollueraient le HTML rendu
