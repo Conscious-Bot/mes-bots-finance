@@ -6319,7 +6319,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     return (
         '<section data-page="theses" role="region" aria-label="Theses"><div class="phead"><h1>Theses</h1>'
         '<div class="sub">Target/stop asymmetry, by conviction level</div></div>'
-        f"{_TH_CSS}{hero}{kpis}{gap}{groups}</section>"
+        f"{hero}{kpis}{gap}{groups}</section>"  # _TH_CSS moved to bundle (audit 20/06)
     )
 
 
@@ -7252,7 +7252,7 @@ def _discipline_biais_panel() -> str:
         # Migre 02/06 user : fusion dans page Methode (data-page="methode").
         # Wrapper section retire -- ce bloc est inline dans _signaux().
         '<div class="dba-block">'
-        + _DBA_CSS
+        # _DBA_CSS moved to bundle (audit 20/06, 8KB pollution DOM Methode -> head)
         + '<div class="dba-sh" data-tip="PRESAGE mission counter: calibrated predictions + mechanized behavioral biases."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.5 1.5L8.5 4.5"/><path d="M10 6h4"/><path d="M4 11l1.5 1.5L8.5 9.5"/><path d="M10 11h4"/></svg>Discipline &amp; mechanized biases'
         '<span class="dba-sh-aside">mission counter &middot; real density at J+30</span></div>'
         + star_discipline
@@ -7330,6 +7330,8 @@ def _write_static_bundle() -> tuple[int, int]:
     static_dir.mkdir(exist_ok=True)
     app_css = (
         _TOKENS_CSS + _CSS + _OV_HERO_CSS + _NEEDS_TODAY_CSS + _POSITIONS_V3_CSS
+        + _TH_CSS  # Theses page styles (was inline emit body, audit 20/06)
+        + _DBA_CSS  # Methode dba-block styles (was 8KB inline, audit 20/06)
         + _INLINE_LEAKS_CSS  # styles extracts du DOM (audit 20/06, scopes par page)
         + _PREMIUM_CSS  # couche finale 'premium' user-supplied 20/06 (overrides)
     )

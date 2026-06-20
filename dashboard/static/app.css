@@ -1749,6 +1749,189 @@ body.midnight .pos-acct{ background:linear-gradient(180deg,#15191F,#10141A); bor
 body.midnight .pos-mono{ background:rgba(255,255,255,.07); color:#A1A8B3; }
 body.midnight .pos-dt tr.pos-alert td{ background:rgba(220,38,38,.10); }
 
+/* Audit 20/06 : _TH_CSS aussi inline dans body Theses, integre au bundle. */
+  .th-gap { margin-bottom:var(--s4); }
+  .th-hist { display:flex; flex-direction:column; gap:var(--s15); padding:2px 0; }
+  .th-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:var(--t-data2); }
+  .th-hlab { width:24px; color:var(--steel); }
+  .th-hbar .axis { flex:1; margin:0; }
+  .th-htrack { flex:1; height:5px; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 6%,transparent); overflow:hidden; }
+  .th-hfill { height:100%; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 55%,transparent); transition:none; }
+  body.midnight .th-htrack { background:rgba(255,255,255,.05); }
+  body.midnight .th-hfill { background:color-mix(in srgb,var(--ink) 75%,transparent); }
+  .th-hn { width:22px; text-align:right; color:var(--ink); font-weight:600; }
+
+  /* === Canonical track bar (#91 signature unifie 03/06/2026) =============
+     Une primitive visuelle pour TOUS les axes du dashboard : track + dot +
+     ticks optionnels. Remplace .axis + .axis-mark + .axis-target-tick + le
+     mask SVG losange. Pas de gradient (sauf cas signature ou les extremes
+     ont vraiment un sens et le tick aux extremites le porte). Stripe/Linear.
+     Anti-Robinhood (#103 invariant : motion encode le delta, pas l'excitation). */
+  /* Pass 19 user-demand : track gauge plus visible (Pass 18b headers courts
+     ont liberé de la place mais le track lui-meme etait trop transparent).
+     6% ink → 13% pour signaler clairement "il y a un rail" entre stop/target. */
+  .tbar { position:relative; width:100%; height:5px; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 13%,transparent); margin:var(--s2) 0; cursor:default; }
+  .tbar-tick { position:absolute; top:-2px; width:1.5px; height:9px; background:var(--ink); opacity:.7; border-radius:var(--r0); pointer-events:none; }
+  .tbar-tick.dash { background:transparent; border-left:1px dashed var(--steel); opacity:.55; width:0; }
+  /* Ticks colores axes signature position (limit/zero/target) :
+     - stop = red (limit gauche)
+     - entry/cost = grey (zero central, ton coût = point de départ)
+     - partial = jaune (première prise de profit decidée, feu tricolore)
+     - target = green (cible pleine decidée)
+     Dot noir par defaut ; rouge si dot <= stop, vert si dot >= target OU
+     beyond (cur_native >= target_native, cf SPEC_GAUGE §1.4). */
+  /* Feu tricolore canonique de la gauge (cf SPEC_GAUGE §1.3) : couleurs FLUO
+     vives explicites, pour que stop/partial/target se distinguent d'un coup
+     d'œil. Les vars globales --bear/--warn/--acc restent sobres pour le reste
+     du dashboard (DNA parchemin/instrument). Ici, sur la gauge spécifiquement,
+     on assume le contraste vif — c'est l'unique surface où le feu tricolore
+     doit crier sa sémantique. */
+  /* Feu tricolore SPEC_GAUGE : couleurs sémantiques via tokens (audit P1 19/06). */
+  .tbar-tick.stop    { background:var(--bear); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px color-mix(in srgb,var(--bear) 55%,transparent); }
+  .tbar-tick.entry   { background:var(--steel); opacity:.75; height:11px; top:-3px; width:1.5px; }
+  .tbar-tick.partial { background:var(--warn); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px color-mix(in srgb,var(--warn) 55%,transparent); }
+  .tbar-tick.target  { background:var(--acc); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px color-mix(in srgb,var(--acc) 55%,transparent); }
+  /* axe-prix natif (SPEC_GAUGE §3) : caret cost sous-ligne + chevrons overflow */
+  .tbar-cost-caret { position:absolute; bottom:-5px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:6px solid var(--steel); transform:translateX(-50%); pointer-events:none; z-index:2; }
+  .tbar-cost-caret.stale { opacity:.5; border-bottom-color:var(--warn); }
+  .tbar-chevron-left, .tbar-chevron-right { position:absolute; top:50%; transform:translateY(-50%); color:var(--steel); font-size:var(--t-fine); line-height:1; opacity:.7; pointer-events:none; z-index:2; }
+  .tbar-chevron-left { left:1px; }
+  .tbar-chevron-right { right:1px; }
+  .tbar-dot { position:absolute; top:50%; width:9px; height:9px; border-radius:var(--r-circle); background:var(--ink); transform:translate(-50%,-50%); z-index:2; box-shadow:0 0 0 1.5px var(--bg), 0 1px 3px rgba(0,0,0,.18); transition:left .25s ease-out; }
+  .tbar-dot.acc { background:var(--acc); }
+  .tbar-dot.warn { background:var(--warn); }
+  .tbar-dot.bear { background:var(--bear); }
+  .tbar-fill { position:absolute; left:0; top:0; height:100%; border-radius:var(--r0); background:color-mix(in srgb,var(--ink) 50%,transparent); transition:none; }
+  /* Hover tooltip : % continu sous le curseur. Pill ink-on-bg haute contraste,
+     tabular nums (digits ne shiftent pas en width quand le curseur glisse),
+     caret vers le bar, micro-motion opacity+slide.
+     Variants .pos / .neg : pill verte / rouge quand signed % > 0 / < 0
+     (user 03/06 "dynamic % cursor green above 0, red under 0"). */
+  .tbar-hover-tip { --pill-bg:var(--ink); --pill-fg:var(--bg); position:absolute; bottom:13px; transform:translateX(-50%) translateY(3px); background:var(--pill-bg); color:var(--pill-fg); border-radius:var(--r1); padding:3px 8px 3.5px; font-family:var(--fm); font-size:var(--t-meta); font-weight:500; letter-spacing:.01em; font-variant-numeric:tabular-nums; line-height:1.25; pointer-events:none; white-space:nowrap; opacity:0; transition:opacity .14s ease-out, transform .14s ease-out, background .14s ease-out; z-index:5; box-shadow:var(--elev1); }
+  .tbar-hover-tip::after { content:""; position:absolute; left:50%; top:100%; transform:translateX(-50%); width:0; height:0; border:3.5px solid transparent; border-top-color:var(--pill-bg); border-bottom:0; transition:border-top-color .14s ease-out; }
+  .tbar-hover-tip.pos { --pill-bg:var(--acc); --pill-fg:#fff; }
+  .tbar-hover-tip.neg { --pill-bg:var(--bear); --pill-fg:#fff; }
+  .tbar:hover .tbar-hover-tip { opacity:1; transform:translateX(-50%) translateY(0); }
+  /* Midnight adaptations : track plus subtil + ticks neutres lift en blanc
+     transparent (mais SKIP les ticks colores sig-ent0 stop/entry/target qui
+     gardent leur couleur tokens). Dot box-shadow ring follows var(--bg)
+     auto -> pas besoin d'override. */
+  body.midnight .tbar { background:rgba(255,255,255,.05); }
+  body.midnight .tbar-fill { background:color-mix(in srgb,var(--ink) 70%,transparent); }
+  body.midnight .tbar-tick:not(.stop):not(.entry):not(.partial):not(.target):not(.dash) { background:rgba(255,255,255,.55); }
+  body.midnight .tbar-tick.entry { background:var(--steel); opacity:.7; }
+  body.midnight .tbar-hover-tip { box-shadow:var(--elev1); }
+  /* Section headers unifies (Polish 01/06) : meme pattern visuel pour
+     .th-grp / .strat-sh / .vigie-sh / .dba-sh. Noms preserves pour HTML.
+     Petit icon optionnel via .sh-ico (data-icon attr peut etre utilise). */
+  .th-grp { font-family:var(--fm); font-weight:500; font-size:var(--t-data2); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
+  .th-grp::after { content:""; flex:1; height:1px; background:var(--line); }
+  .sh-ico { width:14px; height:14px; flex-shrink:0; opacity:.6; }
+  /* Sprint 2 purge borders TR-style + Sprint C polish : grid 180/52/1fr,
+     hover translateX(2px), padding plus généreux, transition ease-out. */
+  .th-row { display:grid; grid-template-columns:180px 52px 1fr; gap:var(--s3); align-items:center; padding:16px 8px; border-bottom:1px solid var(--line); margin-bottom:0; cursor:pointer; transition:background .15s ease-out, transform .15s ease-out, padding-left .15s ease-out; }
+  .th-row:last-child { border-bottom:none; }
+  .th-row:hover { background:color-mix(in srgb,var(--ink) 3%,transparent); padding-left:14px; }
+  .th-row:active { transform:scale(.997); }
+  .th-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .th-conv { font-family:var(--fm); font-weight:600; font-size:var(--t-data); letter-spacing:.04em; padding:2px 7px; border-radius:var(--r1); }
+  .th-conv.c5 { color:var(--bg); background:var(--ink); }
+  .th-conv.c4 { color:var(--bg); background:var(--acc); }
+  .th-conv.c3 { color:var(--bg); background:var(--warn); }
+  .th-conv.c2 { color:var(--steel); border:1px solid var(--line2); }
+  .th-conv.c1 { color:var(--steel); border:1px solid var(--line); opacity:.65; }
+  .th-tk { font-weight:600; font-size:var(--t-base); }
+  .th-w { font-family:var(--fm); font-size:var(--t-data2); font-weight:600; color:var(--ink); text-align:right; align-self:center; }
+  .th-dir { font-family:var(--fb); font-size:var(--t-data); color:var(--steel); text-transform:uppercase; letter-spacing:.12em; }
+  .th-bar { display:flex; flex-direction:column; gap:var(--s15); grid-column:1/-1; margin-top:var(--s2); }
+  .sizebar { margin:var(--s15) 0 4px; }
+  .th-adj { font-family:var(--fm); font-size:var(--t-data); letter-spacing:.02em; line-height:1.3; font-weight:500; }
+  /* trim/bump alignes sur palette flashy (user 03/06) : trim=bear action-trigger,
+     bump=acc action-trigger. ok reste steel mute (pas d'action). */
+  .th-adj.trim { color:var(--bear); }
+  .th-adj.add { color:var(--acc); }
+  .th-adj.ok { color:var(--steel); }
+  .th-szcol { display:flex; flex-direction:column; gap:5px; }
+  .th-zone-loss { position:absolute; left:0; top:0; bottom:0; background:color-mix(in srgb, var(--bear) 13%, transparent); }
+  .th-zone-profit { position:absolute; right:0; top:0; bottom:0; background:color-mix(in srgb, var(--acc) 13%, transparent); }
+  .th-ends { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--fm); font-size:var(--t-data); }
+  .th-stop { color:var(--bear); }
+  .th-tgt { color:var(--acc); font-weight:600; }
+  /* Pass 17 revert user-demand : background original "il y a une heure".
+     th-pt defaut = rouge (target hit + risky = signal trim a risque).
+     Variant .acc = vert (target beyond = indicateur positif). */
+  .th-pt { font-family:var(--fm); font-size:var(--t-data); padding:1px 7px; border-radius:var(--r1); background:color-mix(in srgb,var(--bear) 16%,transparent); color:var(--bear); letter-spacing:.04em; margin-left:var(--s2); text-transform:uppercase; }
+  .th-pt.acc { background:color-mix(in srgb,var(--acc) 16%,transparent); color:var(--acc); }
+  .th-na { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); }
+  .th-cat { font-family:var(--fm); font-size:var(--t-data); letter-spacing:.03em; color:var(--steel); background:color-mix(in srgb, var(--steel) 10%, transparent); border:1px solid var(--line); border-radius:var(--r1); padding:2px 8px; margin-left:2px; white-space:nowrap; }
+
+/* Audit 20/06 : ce bloc etait inline-emis dans body Methode via dba-block
+   (8KB de pollution DOM). Maintenant integre au bundle global. */
+  /* Unified avec .th-grp / .strat-sh / .vigie-sh : flex + after-line subtile */
+  .dba-sh { font-family:var(--fm); font-weight:500; font-size:var(--t-data2); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
+  .dba-sh::after { content:""; flex:1; height:1px; background:var(--line); }
+  .dba-sh-aside { text-transform:none; letter-spacing:0; color:var(--steel); font-weight:normal; font-size:var(--t-data); margin-left:6px; }
+  /* DBA card harmonisee avec .page-star pattern (background panel + border line) */
+  .dba-card { padding:var(--s4); border:1px solid var(--line); border-radius:var(--r2); background:var(--panel); margin-bottom:var(--s3); }
+  .dba-chrow { display:flex; justify-content:space-between; align-items:baseline; gap:var(--s4); font-family:var(--fm); }
+  .dba-chrow .lab { font-weight:600; color:var(--ink); font-size:var(--t-base); }
+  .dba-chrow .stat { font-size:var(--t-data); letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:var(--r1); border:1px solid var(--line); white-space:nowrap; }
+  .dba-chrow .stat.actif { color:var(--acc); border-color:color-mix(in srgb, var(--acc) 30%, var(--line)); }
+  .dba-chrow .stat.veille { color:var(--warn); border-color:color-mix(in srgb, var(--warn) 30%, var(--line)); }
+  .dba-chrow .stat.non-inst { color:var(--steel); opacity:.7; }
+  .dba-meta { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); margin-top:6px; line-height:1.5; }
+  .dba-bars { margin-top:var(--s3); }
+  /* Bars : couleur = SEVERITE (etat), pas presence. Label + count
+     portent la couleur ; la fill l'amplifie. Row a 0 reste typee. */
+  .dba-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:var(--t-data2); margin:6px 0; }
+  .dba-hbar.zero { opacity:.55; }
+  .dba-hlab { width:80px; }
+  .dba-haxis { flex:1; height:6px; background:color-mix(in srgb, var(--steel) 12%, transparent); border-radius:var(--r0); overflow:hidden; }
+  .dba-hfill { height:100%; background:var(--steel); }
+  .dba-hn { width:30px; text-align:right; font-weight:600; }
+  .dba-hbar.dormant .dba-hlab,
+  .dba-hbar.dormant .dba-hn { color:var(--steel); }
+  .dba-hbar.dormant .dba-hfill { background:var(--steel); }
+  .dba-hbar.at_risk .dba-hlab,
+  .dba-hbar.at_risk .dba-hn { color:var(--warn); font-weight:700; }
+  .dba-hbar.at_risk .dba-hfill { background:var(--warn); }
+  .dba-hbar.triggered .dba-hlab,
+  .dba-hbar.triggered .dba-hn { color:var(--bear); font-weight:700; }
+  .dba-hbar.triggered .dba-hfill { background:var(--bear); }
+  .dba-count { font-family:var(--fm); font-size:var(--t-base); color:var(--ink); margin-top:var(--s2); font-weight:600; }
+  .dba-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .dba-tag { font-family:var(--fm); font-size:var(--t-data); padding:2px 8px; border-radius:var(--r1); background:color-mix(in srgb, var(--steel) 10%, transparent); color:var(--steel); }
+  .dba-cond { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); margin-top:8px; font-style:italic; }
+  .dba-honest { font-family:var(--fm); font-size:var(--t-data); color:var(--warn); margin-top:8px; padding:7px 11px; background:color-mix(in srgb, var(--warn) 6%, transparent); border-left:2px solid var(--warn); border-radius:var(--r1); line-height:1.5; }
+  .dba-arrow { font-family:var(--fm); font-size:var(--t-data2); color:var(--steel); margin-top:var(--s3); }
+  .dba-arrow .v { color:var(--ink); font-weight:600; }
+
+  /* DNA v2 surface d'honnetete : carte calibration Brier vs baseline */
+  .calib-card { background:var(--bg); border:1px solid var(--line); border-radius:var(--r3); padding:18px 22px; }
+  .calib-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .calib-row .calib-lbl { font-family:var(--fb); font-size:var(--t-meta); letter-spacing:.12em; text-transform:uppercase; color:var(--steel); font-weight:500; }
+  .calib-row .calib-val { font-family:var(--fm); font-size:var(--t-h1); font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; line-height:1; letter-spacing:-.01em; }
+  .calib-row .calib-val.muted { color:var(--steel); opacity:.5; }
+  .calib-row .calib-val.acc { color:var(--acc); }
+  .calib-row .calib-val.warn { color:var(--warn); }
+  .calib-row .calib-val.bear { color:var(--bear); }
+  .calib-row .calib-baseline { font-family:var(--fm); font-size:var(--t-mini); color:var(--steel); }
+  .calib-row .calib-delta { font-family:var(--fm); font-size:var(--t-small); margin-left:auto; padding:2px 9px; border-radius:var(--r-pill); border:1px solid currentColor; font-variant-numeric:tabular-nums; }
+  .calib-row .calib-delta.acc { color:var(--acc); }
+  .calib-row .calib-delta.bear { color:var(--bear); }
+  .calib-axis { position:relative; height:34px; margin:18px 0 8px; }
+  .calib-axis .calib-track { position:absolute; left:0; right:0; top:8px; height:4px; background:linear-gradient(90deg, var(--acc), color-mix(in srgb,var(--acc) 40%,var(--steel)) 40%, var(--steel) 50%, color-mix(in srgb,var(--bear) 40%,var(--steel)) 60%, var(--bear)); border-radius:var(--r0); }
+  .calib-axis .calib-baseline-tick { position:absolute; top:4px; width:2px; height:12px; background:var(--ink); opacity:.6; border-radius:var(--r0); transform:translateX(-50%); }
+  .calib-axis .calib-baseline-tick::after { content:"baseline"; position:absolute; bottom:-14px; left:50%; transform:translateX(-50%); font-family:var(--fm); font-size:var(--t-fine); color:var(--steel); white-space:nowrap; }
+  .calib-axis .calib-mark { position:absolute; top:5px; width:10px; height:10px; background:var(--ink); border:2px solid var(--bg); border-radius:var(--r-circle); transform:translateX(-50%); box-shadow:0 0 0 1px var(--ink); }
+  .calib-axis .calib-scale { display:flex; justify-content:space-between; position:absolute; left:0; right:0; top:24px; font-family:var(--fm); font-size:var(--t-fine); color:var(--steel); }
+  .calib-axis .calib-scale span:nth-child(2) { visibility:hidden; }
+  .calib-meta { margin-top:18px; }
+  .calib-badge { display:inline-block; font-family:var(--fm); font-size:var(--t-meta); font-weight:500; letter-spacing:.04em; padding:3px 10px; border-radius:var(--r-pill); border:1px solid currentColor; }
+  .calib-badge.acc { color:var(--acc); }
+  .calib-badge.warn { color:var(--warn); }
+  .calib-honest { font-family:var(--fb); font-size:var(--t-mini); color:var(--steel); margin-top:12px; padding:10px 12px; background:var(--panel); border-left:2px solid var(--line2); border-radius:var(--r1); line-height:1.55; }
+
 /* ============================================================
    Inline-style leaks extraits du DOM (audit 20/06).
    Avant : 3 <style> blocks emis dans le body des sections (Concentration

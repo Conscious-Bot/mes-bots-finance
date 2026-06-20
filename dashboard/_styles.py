@@ -5,7 +5,7 @@ Pure data, no behavior. Imported by render.py.
 from pathlib import Path
 
 _TH_CSS = """
-<style>
+/* Audit 20/06 : _TH_CSS aussi inline dans body Theses, integre au bundle. */
   .th-gap { margin-bottom:var(--s4); }
   .th-hist { display:flex; flex-direction:column; gap:var(--s15); padding:2px 0; }
   .th-hbar { display:flex; align-items:center; gap:11px; font-family:var(--fm); font-size:var(--t-data2); }
@@ -120,7 +120,6 @@ _TH_CSS = """
   .th-pt.acc { background:color-mix(in srgb,var(--acc) 16%,transparent); color:var(--acc); }
   .th-na { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); }
   .th-cat { font-family:var(--fm); font-size:var(--t-data); letter-spacing:.03em; color:var(--steel); background:color-mix(in srgb, var(--steel) 10%, transparent); border:1px solid var(--line); border-radius:var(--r1); padding:2px 8px; margin-left:2px; white-space:nowrap; }
-</style>
 """
 
 _TOKENS_CSS = (Path(__file__).parent / "tokens.css").read_text(encoding="utf-8")
@@ -1622,7 +1621,8 @@ body.midnight .pos-dt tr.pos-alert td{ background:rgba(220,38,38,.10); }
 """
 
 _DBA_CSS = r"""
-<style>
+/* Audit 20/06 : ce bloc etait inline-emis dans body Methode via dba-block
+   (8KB de pollution DOM). Maintenant integre au bundle global. */
   /* Unified avec .th-grp / .strat-sh / .vigie-sh : flex + after-line subtile */
   .dba-sh { font-family:var(--fm); font-weight:500; font-size:var(--t-data2); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin:var(--s4) 2px var(--s3); display:flex; align-items:center; gap:var(--s3); }
   .dba-sh::after { content:""; flex:1; height:1px; background:var(--line); }
@@ -1687,7 +1687,6 @@ _DBA_CSS = r"""
   .calib-badge.acc { color:var(--acc); }
   .calib-badge.warn { color:var(--warn); }
   .calib-honest { font-family:var(--fb); font-size:var(--t-mini); color:var(--steel); margin-top:12px; padding:10px 12px; background:var(--panel); border-left:2px solid var(--line2); border-radius:var(--r1); line-height:1.55; }
-</style>
 """
 
 # ============================================================
