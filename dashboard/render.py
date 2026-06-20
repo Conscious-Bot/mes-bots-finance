@@ -6598,10 +6598,13 @@ def _sector_donut(segs: list) -> str:
 
 
 def _sector_mix_v3(segs: list) -> str:
-    """V3 sector mix left col (Pass 33 19/06) — SECTOR MIX · CLICK TO FILTER.
+    """V3 sector mix left col (Pass 33 19/06) — SECTOR MIX · CLICK TO HIGHLIGHT.
 
     Markup .pos-sec / .pos-sec-row[data-sec] pour JS highlight scope par .pos-acct.
-    Top-5 + Other fallback. Couleur via SECTOR_COLORS (jewel-tones palette).
+    Audit 20/06 : drop le bucket 'Other' (user 'Other ne veut rien dire, SK Hynix
+    et Micron sont Memory, Synopsys EDA, etc.'). Maintenant chaque secteur garde
+    son nom canonique meme sous 5%. Couleur via SECTOR_COLORS jewel-tones, fallback
+    steel #6B7686 pour secteurs sans color assignee.
     """
     import html as _h
     if not segs:
@@ -6609,10 +6612,7 @@ def _sector_mix_v3(segs: list) -> str:
     total = sum(v for _, v in segs) or 1
     sorted_segs = sorted(segs, key=lambda kv: -kv[1])
     max_pct = sorted_segs[0][1] / total * 100 if sorted_segs else 0
-    keep = sorted_segs[:5]
-    other = sum(v for _, v in sorted_segs[5:])
-    if other > 0:
-        keep.append(("Other", other))
+    keep = sorted_segs  # tous les secteurs, plus de bucket Other
     rows = []
     for label, v in keep:
         col = SECTOR_COLORS.get(label, "#6B7686")
