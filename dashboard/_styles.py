@@ -1364,13 +1364,16 @@ _CSS = """
   table.dt thead th:first-child, table.dt tbody td:first-child{ padding-left:0!important; }
   table.dt th.num, table.dt td.num{ white-space:nowrap; }
 
-  /* --- Badges / chips (soft fill) --- */
-  .warn-chip{ border-radius:var(--r-pill); padding:2px 8px; font-weight:700; letter-spacing:.04em; line-height:1.4; transition:transform .12s var(--ease),filter .12s var(--ease); }
-  .warn-chip:hover{ transform:translateY(-1px); filter:saturate(1.15); }
+  /* --- Badges / chips (info-only, audit 20/06 P1 demute) ---
+     Avant : translateY au hover + saturate -> 'click me' faux signal.
+     Apres : hover cursor:help (signale tooltip) + filter saturate seul,
+     pas de mouvement. Les chips sont des affordances INFO/HOVER, pas
+     CLICK. Le mouvement TRA invitait l'utilisateur a cliquer dans le vide. */
+  .warn-chip{ border-radius:var(--r-pill); padding:2px 8px; font-weight:700; letter-spacing:.04em; line-height:1.4; cursor:help; transition:filter .12s var(--ease); }
+  .warn-chip:hover{ filter:saturate(1.15); }
   .warn-chip-warn{ background:rgba(161,98,7,.10); border-color:rgba(161,98,7,.35); }
   .warn-chip-bear{ background:rgba(220,38,38,.10); border-color:rgba(220,38,38,.35); }
-  .dh-chip,.cycle-chip,.regime-chip,.pc-typechip,.dtchip,.audit-chip{ border-radius:var(--r-pill); transition:transform .12s var(--ease); }
-  .dh-chip:hover,.cycle-chip:hover,.regime-chip:hover{ transform:translateY(-1px); }
+  .dh-chip,.cycle-chip,.regime-chip,.pc-typechip,.dtchip,.audit-chip{ border-radius:var(--r-pill); cursor:help; }
 
   /* --- Barres de pondération sectorielle --- */
   .brk-row{ transition:opacity .15s var(--ease),background .15s var(--ease); border-radius:var(--r2); }
