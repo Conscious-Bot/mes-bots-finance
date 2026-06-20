@@ -1855,8 +1855,12 @@ body > .wrap{ position:relative; z-index:1; }
    Source unique des overrides midnight UI surfaces.
    ============================================================ */
 body.midnight{ background:#0F1115; }
+/* En dark mode, panneaux OPAQUES (pas semi-transparent) sinon le network
+   mesh #presage-bgfx transparait a travers et ressemble a etre on top.
+   --surf1 #161A21 / --surf2 #1B2028 = palette deep-navy mate, mesh reste
+   en second plan derriere. */
 body.midnight .card{
-  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015));
+  background:#161A21;
   border:1px solid rgba(255,255,255,.08);
   box-shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px -14px rgba(0,0,0,.6);
 }
@@ -1864,45 +1868,44 @@ body.midnight .card:hover{
   border-color:color-mix(in srgb,var(--data) 30%,rgba(255,255,255,.12));
 }
 body.midnight .page-star{
-  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));
+  background:#161A21;
   border:1px solid color-mix(in srgb,var(--warn) 22%,rgba(255,255,255,.08));
 }
 body.midnight .need{
-  background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 8%,rgba(255,255,255,.02)),rgba(255,255,255,.015));
+  background:#1A1F26;
   border:1px solid color-mix(in srgb,var(--acc) 22%,rgba(255,255,255,.08));
 }
 body.midnight .need .sv{
-  background:color-mix(in srgb,var(--acc) 16%,rgba(255,255,255,.03));
+  background:color-mix(in srgb,var(--acc) 16%,#1A1F26);
 }
 body.midnight .rw-cell{
-  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));
+  background:#161A21;
   border:1px solid rgba(255,255,255,.08);
   box-shadow:0 1px 2px rgba(0,0,0,.3);
 }
 body.midnight .sidebar{
-  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
+  background:#13161C;
   border-right:1px solid rgba(255,255,255,.08);
 }
 body.midnight .dband{
-  background:color-mix(in srgb,#0F1115 70%,rgba(255,255,255,.04));
+  background:#13161C;
   border-bottom:1px solid rgba(255,255,255,.08);
 }
 body.midnight .phead.stuck{
-  background:linear-gradient(180deg,color-mix(in srgb,#0F1115 90%,transparent),color-mix(in srgb,#0F1115 60%,transparent));
+  background:linear-gradient(180deg,#0F1115EE,#0F1115AA);
 }
 
-/* Position cards page : .pc-* selectors definis inline dans render.py
-   (lignes 3103/3124/3168/3223/3325) hardcodent #fff / #fafbfc -> remap
-   en dark mode via le meme pattern semi-transparent. */
+/* Position cards page : .pc-* opaques aussi (selectors definis inline
+   render.py 3103/3124/3168/3223/3325). */
 body.midnight .pc-summary,
 body.midnight .pc-card{
-  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015));
+  background:#161A21;
   border:1px solid rgba(255,255,255,.08);
 }
 body.midnight .pc-cell,
 body.midnight .pc-section,
 body.midnight .pc-sizing-cell{
-  background:rgba(255,255,255,.02);
+  background:#1B2028;
   border:1px solid rgba(255,255,255,.06);
 }
 body.midnight .pc-head{ border-bottom-color:rgba(255,255,255,.08); }
