@@ -6689,18 +6689,14 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     ps = sorted(ps, key=lambda p: -_broker_value(p, pnl))
     tot = sum(_broker_value(p, pnl) for p in ps)
     share = tot / grand * 100
-    # === Sector mix : top-5 sectors gardent leur nom, le reste -> "Other" ===
-    # Bug fix (19/06 user 'le sector Other a 37% n'est rattache a rien') :
-    # avant les rows table avaient data-sec=<vrai secteur> ce qui ne matchait
-    # pas la bar Other au click. Maintenant on calcule l'ensemble top-5 ici
-    # ET on l'utilise pour patcher les rows -> click 'Other' highlight bien
-    # les tickers regroupes dans ce bucket.
-    _mix_for_card = _sector_mix(ps, pnl, sectors) if ps else []
-    _mix_sorted = sorted(_mix_for_card, key=lambda kv: -kv[1])
-    _top5_sectors = {label for label, _v in _mix_sorted[:5]}
+    # === Sector mix : chaque ticker garde son vrai secteur ===
+    # Bug 19/06 ('Other 37% rattache a rien') : avant les rows avaient leur
+    # vrai secteur, click Other sur bar ne matchait pas -> on bucketait dans
+    # Other. 20/06 : drop bucket Other dans _sector_mix_v3 -> les bars
+    # montrent tous les sectors. ROW emit doit emettre le VRAI secteur
+    # canonique (sectors.get) pour matcher.
     def _row_sec(_tk: str) -> str:
-        _s = sectors.get(_tk, "No thesis")
-        return _s if _s in _top5_sectors else "Other"
+        return sectors.get(_tk, "No thesis")
     # 06/06 : cycle_phase chip canonique via shared.sectors (source unique
     # sectors.yaml, partagee avec /review handler + macro_book_warnings).
     try:
