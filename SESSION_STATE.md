@@ -3909,3 +3909,59 @@ Commits livrés via collaboration avec autre Claude (claude.ai web, packagés en
 3. **Backlog inchangé** : AMD lock_in obs +30j (2026-07-18), KLAC sweep #135, Hetzner SSH, user keys.
 4. **Hardcoded restant audit P5** (si on continue) : 13 font-size display-spec (38/42/45/56/59px) + 13 border-radius custom (3/5/6/14/16/24px) — ajouter tokens dédiés (--t-display-XL, --r-card-lg) ou laisser.
 5. **Memory candidate** : pattern collaboration claude.ai web + Claude Code via zip handoff + GitHub connector. Doctrine émergente "external Claude design ≠ source-of-truth, merge selective via diff stat".
+
+## Close 2026-06-20 — Hermes 6e lentille + sweep tooltips drift + cockpit hardening
+
+**Continuité 19→20** : session post-marathon dashboard v3 enchaîne sur trois axes — fix bug d'audit gap (sector linkage Energy→No thesis), sweep stale tooltips claims (V4/c5-c4 caps/J-day), construction de la 6e lentille Hermes lens_ui_invariants (Playwright headless) qui aurait capturé toutes ces dérives string-vs-réalité automatiquement.
+
+### Livré
+
+**Phase A — Bug-fix substantiel sector linkage** (commit `fcba8f3`) :
+- Bug user observable : "Energy → No thesis, secteurs ne lient à aucune position et ne surlignent rien". Root cause : `_row_sec` (render.py:6701) bucketait les tickers non-mappés vers "No thesis", mais les sector bars affichaient le vrai secteur du book — donc clic sur "Energy" cherchait `tr[data-sec="Energy"]` mais les rows portaient `data-sec="No thesis"`. Fix : `_row_sec` retourne directement `sectors.get(_tk, "No thesis")` sans bucketing, chaque bar ↔ chaque row alignés sur le même domaine.
+
+**Phase B — Sweep stale tooltip claims** (2 commits) :
+- `bb39dd9` — 2 tooltips dashboard.py corrigés à la racine :
+  - Macro state `data-tip` mentionnait "V4 forthcoming (cf decision_log 02)" mais memory `business_path_6_acted` (02/06) a acté V4 enterré. Replaced → "V4 abandoned (Business Path 6 acted 02/06), V3 stays exploratory permanently".
+  - Concentration top-position `data-tip` mentionnait "Cap by conviction (c5 up to 22%, c4 up to 14%)" mais `config/portfolio_rules.yaml` line_cap_by_conviction a c5=6%, c4=4.8% (drift 4×). Replaced → "Cap by conviction tier (read live from config/portfolio_rules.yaml line_cap_by_conviction)" — élimine le drift à la source.
+- `1e7e90d` — `_cockpit()` dead-code hardening :
+  - 2 dates hardcodées (`'2026-06-11'` SQL + `date(2026, 6, 10)` Python) référençaient J-day milestone passé. Replaced par `date('now')` / `date.today()`. Fonction reste dormante (retirée 31/05 user, conservée "pour réactivation future") mais si revival, numbers seront truthful from day one.
+
+**Phase C — Hermes lens_ui_invariants 6e lentille** (commit `b15a2e7`) :
+- Nouvelle catégorie de bug couverte : assertion DOM/JS comportementale que les 5 autres lens (static + runtime + decision + doctrine + ci) ne voient pas. Le bug-type "Energy→No thesis no link" et "V4 forthcoming" sont exactement ce que cette lens cible.
+- Playwright headless contre `http://127.0.0.1:8000/dashboard.html`. Pre-flight TCP probe + import lazy → skip silent si serveur down ou pip install missing (doctrine Tier R observateur).
+- Anti-flake : `wait_for state="attached"` sur sélecteur .active (vs sleep arbitraire). 5/5 runs locaux stables après cette correction.
+- 3 invariants MVP haute-signal :
+  - `nav_switches_panel` : chaque `[data-nav=X]` click ajoute `.active` + `bbox.height > 0` à `section[data-page=X]`. Aurait capturé "click theses → écran blanc" (transient observé en exploration, non reproduit après fix).
+  - `book_value_cross_page` : Overview `.ov-hero .v` digits == Positions `.v` digits (cross-page coherence).
+  - `sector_bar_links_to_rows` : pour chaque `.pos-acct` card, click sur `.pos-sec-row[data-sec=X]` highlight (`.sec-hi`) ≥1 `tr[data-sec=X]` de la MÊME card + vérifie pré-requis (bar affiché ↔ row existant). Aurait capturé le bug Phase A automatiquement.
+- Wirage complet : runner.py (ui dans lenses défaut, summary fields), `__main__.py` (`--lens ui`, ligne stdout), report.py (section markdown groupée par invariant_id), README.md (6 lentilles documentées).
+- Tests : 4 smoke tests CI-safe (skip path via port 65535 dead) — pas de live test contre dashboard.serve.
+
+### Findings sweep "autres bugs de type string-vs-réalité" (continue de chercher partout)
+
+Vérifiés OK (faux positifs éliminés du backlog) :
+- Seuils tooltip "≥75% / <10% / <12% / <20% / Brier <0.20-0.25" → tous matchent code threshold.
+- Cross-page `pf_value` → single source de vérité, Overview hero = Positions hero.
+- "2 mechanized biases" line 8323 → DB confirme 1 lock_in event + 8 fomo_greed events.
+- Insider flow 7j label → query `snapshot_date >= -7 days` matche.
+- 8-K 60j → query `filed_at > -60 day` matche.
+
+Notes secondaires non-actionées (laissés au backlog) :
+- Tooltip fomo_greed `over_cap` channel : techniquement wired, mais en mode DORMANT per memory `over_cap_dark_construction_phase`. Wording suggère 2 actifs, réalité 1 actif + 1 dormant. Mild.
+
+### Doctrine émergente (à graver L?)
+
+- **Lens behavioural ≠ lens statique** : la vérification "tooltip → string vs config" n'est qu'un cas particulier de la vérification "claim affichée → état réel". Les lens statique/runtime/decision/doctrine cherchent des bugs dans le code. La lens UI invariants cherche des bugs dans l'interaction. Catégorie orthogonale → 6e lens, pas extension d'une existante.
+- **Anti-flake par construction** : `wait_for state="attached"` sur sélecteur cible plutôt que `wait_for_timeout(150)` arbitraire. Le sleep tolère 0% de slack pour des states qui rendent lent ; le wait_for adapte. Pattern à généraliser pour tout futur invariant.
+
+### Restant non-actioné
+
+- `lens_chip_has_handler_or_help_cursor` (4e invariant prévu) — skipped pour MVP, trop FP-prone (nombreux chips info-only).
+- pytest full suite stoppée mid-run (>5 min, pas de patience). Gates discrets ont tous passé (ruff hermes ok, 4 nouveaux tests hermes ok, --lens ui live ok).
+
+### Entry next session
+
+1. **Run pytest full suite** au démarrage pour confirmer baseline ≥ 1914 (commit `b15a2e7` n'a touché que hermes/ + tests/hermes/ + dashboard/render.py tooltips, faible probabilité de régression).
+2. **Run `python -m hermes.inspector --lens all`** (dashboard.serve doit être actif sur :8000) pour générer le premier report avec lens_ui live + valider que les 3 invariants passent en steady-state.
+3. **Backlog inchangé** : AMD lock_in obs +30j (2026-07-18), KLAC sweep #135, Hetzner SSH check, user keys (Voyage/healthchecks/FRED/Bigdata).
+4. **Memory candidate** : doctrine "lens behavioural orthogonal" + pattern wait_for vs sleep pour assertions UI. Si récurrent, formaliser.

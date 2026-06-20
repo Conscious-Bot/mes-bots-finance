@@ -1,10 +1,19 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 19 juin 2026 close marathon dashboard refonte v3 + audit canonique 4 passes — 23 commits dashboard. Phase 1 v3 redesign collab claude.ai web (Teal colorway + Positions v3 hero 3-cell + Overview v3 hero 2-col chart+grade + Needs you today riches cards). Phase 2 polish/cohérence (animations identiques cross-pages, filter winners → pas d'AT STOP rouge sur ALAB +90%). Phase 3 audit canonique : palette → 4 tokens, 46 hardcoded → tokens, 163 CSS rules + 303 lignes Python dead droppées. Bundle -9%, render.py -3.4%.
+**Refresh** : 20 juin 2026 close hermes 6e lentille + sweep tooltips drift + cockpit hardening — 4 commits. Phase A bug-fix sector linkage (`fcba8f3` Energy→No thesis no link). Phase B sweep stale tooltip claims (`bb39dd9` V4 abandoned + cap tier live read). Phase C cockpit hardening (`1e7e90d` J-day hardcodé → date('now')). Phase D `b15a2e7` lens_ui_invariants 6e lentille Playwright headless behavioural — 3 invariants MVP nav/book/sector, 4 smoke tests CI-safe, wirage runner/`__main__`/report/README complets.
 **Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (20/06 close hermes 6e lens + sweep tooltips)
+
+- **main HEAD `b15a2e7`** (4 commits aujourd'hui, post-marathon dashboard v3 d'hier).
+- **Hermes 6 lentilles opérationnelles** : `lens_static` + `lens_runtime` + `lens_decision` (triangulation) + `lens_doctrine` + `lens_ci` + `lens_ui_invariants` (Playwright headless, 3 invariants MVP, doctrine Tier R observateur strict).
+- **Sweep stale tooltips fini** : V4 forthcoming → V4 abandoned, c5 22%/c4 14% → live read config, J-day hardcodé → date('now'). 5 tooltip↔code threshold pairs vérifiés OK (≥75%/<10%/<12%/<20%/Brier). Cross-page book value confirmé single source.
+- **Sector linkage Energy→No thesis fixé** (Phase A) : `_row_sec` simplifié → chaque bar lié à ≥1 row.
+- **Repo PUBLIC** (encore, pour claude.ai connector). Topology Hetzner = prod, Mac = dev — inchangée 16/06+.
+- **Dashboard live** : `http://127.0.0.1:8000/dashboard.html` HTTP 200, sect ions actives, sector mix cliquable, all 6 lentilles validables via `python -m hermes.inspector --lens all`.
 
 ## 🟢 ÉTAT SYSTÈME (19/06 close marathon v3 + audit canonique)
 
