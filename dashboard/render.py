@@ -5557,22 +5557,39 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         # Fallback silencieux : presentation layer ne doit pas crasher le dashboard.
         _regime_chip_html = ""
     # 06/06 Phase A canonical : chip audit metadata (date last audit + version).
+    # Audit 20/06 : si next_audit_due passe -> badge OVERDUE bear visible.
     try:
+        from datetime import date
+
         from shared.calibration import get_audit_metadata
         _amd = get_audit_metadata()
         _audit_last = _amd.get("last_audit", "?")
         _audit_ver = _amd.get("audit_version", "?")
         _audit_next = _amd.get("next_audit_due", "?")
         _audit_report = _amd.get("audit_report", "?")
+        # Calcul overdue depuis next_audit_due
+        _overdue_days = 0
+        _audit_overdue = False
+        try:
+            _next_d = date.fromisoformat(_audit_next)
+            _overdue_days = (date.today() - _next_d).days
+            _audit_overdue = _overdue_days > 0
+        except Exception:
+            pass
+        _overdue_suffix = (
+            f" · OVERDUE {_overdue_days}d" if _audit_overdue else ""
+        )
+        _overdue_cls = " audit-chip-overdue" if _audit_overdue else ""
         _audit_tip = _html_esc.escape(
             f"Calibration {_audit_ver} — last audit {_audit_last}. "
             f"Next audit due {_audit_next} (cron 10j Phase B). "
+            f"{'OVERDUE by ' + str(_overdue_days) + ' days. ' if _audit_overdue else ''}"
             f"Source: config/calibration.yaml. Rapport: {_audit_report}.",
             quote=True,
         )
         _audit_chip_html = (
-            f'<span class="audit-chip" data-tip="{_audit_tip}">'
-            f'calib {_audit_ver} &middot; {_audit_last}</span>'
+            f'<span class="audit-chip{_overdue_cls}" data-tip="{_audit_tip}">'
+            f'calib {_audit_ver} &middot; {_audit_last}{_overdue_suffix}</span>'
         )
     except Exception:
         _audit_chip_html = ""
