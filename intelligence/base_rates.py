@@ -147,7 +147,9 @@ def list_active_base_rates(cx: sqlite3.Connection) -> list[dict[str, Any]]:
     # Enumere les combinaisons (signal_type, direction, horizon_bucket) qui
     # ont >= MIN_N_PER_BUCKET. Brute force ok (peu de combinations).
     types = cx.execute(
-        "SELECT DISTINCT signal_type FROM predictions WHERE signal_type IS NOT NULL"
+        f"SELECT DISTINCT signal_type FROM predictions "
+        f"WHERE signal_type IS NOT NULL "
+        f"AND {storage.substance_predictions_filter()}"
     ).fetchall()
     type_list = [t[0] for t in types] + [None]  # None = all-types aggregate
     for st in type_list:

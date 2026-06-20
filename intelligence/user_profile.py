@@ -330,7 +330,7 @@ def _format_concentration(snapshot: dict | None) -> str:
 def assemble_synthesis_context(months_window: int = 6) -> tuple[dict, dict]:
     """Lit tout l'historique structure pour la synthese profile.
     Returns (formatted_context_dict_for_prompt, source_counts_dict)."""
-    from shared.storage import db
+    from shared.storage import canonical_predictions_filter, db
 
     now = datetime.now(UTC)
     window_start = (now - timedelta(days=months_window * 30)).isoformat()
@@ -371,9 +371,10 @@ def assemble_synthesis_context(months_window: int = 6) -> tuple[dict, dict]:
         counts["n_decisions_resolved"] = len([d for d in decisions if d.get("resolved_30d_at")])
         # Predictions resolved
         pred_rows = conn.execute(
-            "SELECT id, ticker, direction, resolved_at, outcome, return_pct, brier_score "
-            "FROM predictions WHERE resolved_at IS NOT NULL AND created_at >= ? "
-            "ORDER BY resolved_at DESC LIMIT 50",
+            f"SELECT id, ticker, direction, resolved_at, outcome, return_pct, brier_score "
+            f"FROM predictions WHERE resolved_at IS NOT NULL AND created_at >= ? "
+            f"AND {canonical_predictions_filter()} "
+            f"ORDER BY resolved_at DESC LIMIT 50",
             (window_start,),
         ).fetchall()
         preds = [dict(zip(["id", "ticker", "direction", "resolved_at", "outcome", "return_pct", "brier_score"], r, strict=False)) for r in pred_rows]
