@@ -14,13 +14,15 @@ Audit code = lecture seule. Aucune édition de fichier, ni d'état. Le verdict r
 
 **Statut** : ✓ installé (20/06/2026)
 
-Triangulation 3 lentilles, jamais une seule pour déclarer "mort" :
+5 lentilles. Les 3 premières en triangulation (1/3 → WATCH, 3/3 → DEAD). Les 2 dernières sont des lectures directes (violations canoniques, état infra).
 
 | Lens | Source | Cible |
 |---|---|---|
 | `lens_static` | `ruff` + `vulture` (AST) | symbols dead-by-syntax |
-| `lens_runtime` | telemetry `handler_calls` + `scheduler_runs` | handlers/crons 0 appel sur fenêtre |
-| `lens_decision` | DB `signals` + `predictions` + `ticker_meta` | sources/tickers 0 matter / 90j |
+| `lens_runtime` | telemetry `handler_calls` + `scheduler_runs` (via `storage.db_ro`) | handlers/crons 0 appel sur fenêtre |
+| `lens_decision` | DB `signals` + `predictions` + `ticker_meta` (read-only) | sources/tickers 0 matter / 90j |
+| `lens_doctrine` | grep code vs ADRs + LESSONS L1-L25 | violations doctrine canonique |
+| `lens_ci` | `gh run list` + `gh run view --log-failed` | CI failures + tests récurrents |
 
 Triangulation strict :
 - 1 lens KO  →  **WATCH** (à regarder)

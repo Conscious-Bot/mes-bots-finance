@@ -57,6 +57,8 @@ def serialize(audit: dict[str, Any], out_dir: Path = Path("docs")) -> Path:
     lines.append(f"- **WATCH**      : {summary.get('WATCH', 0)} (1/3 lenses)")
     lines.append(f"- **excluded**   : {summary.get('excluded', 0)} (doctrine exclusions, voir bas)")
     lines.append(f"- **doctrine violations** : {summary.get('doctrine_violations', 0)} (regles canoniques code vs docs)")
+    ci_label = "GREEN" if summary.get('ci_green', True) else f"FAIL ({summary.get('ci_recent_fails', 0)} recent)"
+    lines.append(f"- **CI status** : {ci_label}")
     lines.append(f"- **total findings** : {summary.get('total_findings', 0)}")
     lines.append("")
 
@@ -118,6 +120,35 @@ def serialize(audit: dict[str, Any], out_dir: Path = Path("docs")) -> Path:
         lines.append("")
         for f in excluded_items:
             lines.append(f"- `{f.name}` ({f.n_lenses}/3) — {f.exclusion_reason}")
+        lines.append("")
+
+    # CI section (read-only audit GitHub Actions)
+    ci_data = audit.get("ci") or {}
+    ci_failures = ci_data.get("failures", [])
+    if ci_failures:
+        lines.append("## CI failures (GitHub Actions)")
+        lines.append("")
+        lines.append(f"> Hermes astreint au CI green. **{len(ci_failures)} runs failed** sur main "
+                     f"(last fail il y a {ci_data.get('last_fail_age_hours', 0):.1f}h).")
+        lines.append("")
+        for f in ci_failures[:10]:
+            test = f" — {f.failed_test}" if f.failed_test else ""
+            lines.append(f"- `{f.commit_sha}` ({f.workflow}) il y a {f.age_hours:.1f}h{test}")
+            lines.append(f"  - commit : {f.commit_msg}")
+        recurrent = ci_data.get("recurrent_tests", {})
+        rec_flagged = {k: v for k, v in recurrent.items() if v >= 2}
+        if rec_flagged:
+            lines.append("")
+            lines.append("**Tests recurrents (flaky ou regression) :**")
+            for test, count in sorted(rec_flagged.items(), key=lambda kv: -kv[1]):
+                lines.append(f"  - `{test}` × {count} fails recents")
+        lines.append("")
+        lines.append("→ **Verdict : toi.** Fix CI avant toute autre action.")
+        lines.append("")
+    elif ci_data.get("ci_green", True):
+        lines.append("## CI status")
+        lines.append("")
+        lines.append("✓ **GREEN** sur les 10 derniers runs main. Nothing to do.")
         lines.append("")
 
     # Footer

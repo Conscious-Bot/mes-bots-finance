@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--lens",
-        choices=("static", "runtime", "decision", "doctrine", "all"),
+        choices=("static", "runtime", "decision", "doctrine", "ci", "all"),
         default="all",
         help="Lentille a executer (defaut: all).",
     )
@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         window_days = int(args.since)
 
-    lenses = (args.lens,) if args.lens != "all" else ("static", "runtime", "decision", "doctrine")
+    lenses = (args.lens,) if args.lens != "all" else ("static", "runtime", "decision", "doctrine", "ci")
     audit = runner.run(
         lenses=lenses,
         window_days=window_days,
@@ -77,6 +77,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"WATCH (1/3)        : {summary.get('WATCH', 0)}")
     print(f"excluded           : {summary.get('excluded', 0)}")
     print(f"doctrine violations: {summary.get('doctrine_violations', 0)}")
+    ci_status = "GREEN" if summary.get('ci_green') else f"FAIL ({summary.get('ci_recent_fails', 0)} recent)"
+    print(f"CI status          : {ci_status}")
+    if summary.get('ci_last_fail_age_h') is not None:
+        print(f"  last fail age    : {summary['ci_last_fail_age_h']:.1f}h")
     print(f"total findings     : {summary.get('total_findings', 0)}")
 
     if args.dry_run:
