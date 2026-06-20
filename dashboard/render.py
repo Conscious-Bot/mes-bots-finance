@@ -4464,7 +4464,7 @@ def _concentration(
     )
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position with highest individual weight as share of total book. Cap by conviction (c5 up to 22%, c4 up to 14%).">Top position (of book)</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Position with highest individual weight as share of total book. Cap by conviction tier (read live from config/portfolio_rules.yaml line_cap_by_conviction).">Top position (of book)</div><div class="ps-val {_top_pcls}">{_pct(top_pct)}%</div><div class="ps-cap">{line_msg}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Thesis with highest aggregated weight as share of book (sum of positions carrying it). Thematic concentration indicator — distinct from sector or factor exposure.">Dominant thesis (of book)</div><div class="ps-val {_these_pcls}">{dom_these_pct:.0f}%</div><div class="ps-cap">{dom_these} &middot; {these_msg}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Cumulative capital invested in book (cost basis sum). Distinct from current value with PnL.">Capital invested</div><div class="ps-val">{cap}&nbsp;&euro;</div><div class="ps-cap">{len(positions)} positions &middot; {len(sw_real)} sectors</div></div>'
         + "</div>"
@@ -5756,7 +5756,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         )
     star_macro = (
         '<div class="ps-strate">'
-        + '<div class="ps-lbl" data-tip="V3 composite macro phase (debt_monitor). STATUS: exploratory -- strict HOLDOUT 4/8 (02/06). V3 never generates P1 (centrist bias). Do not drive decisions on this value. V4 forthcoming (cf decision_log 02).">Macro state <span class="ps-tag-explor">exploratory</span></div>'
+        + '<div class="ps-lbl" data-tip="V3 composite macro phase (debt_monitor). STATUS: exploratory -- strict HOLDOUT 4/8 (02/06). V3 never generates P1 (centrist bias). Do not drive decisions on this value. V4 abandoned (Business Path 6 acted 02/06) -- V3 stays exploratory permanently.">Macro state <span class="ps-tag-explor">exploratory</span></div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_phase_col}">{clabel}</div>'
         + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}{_delta_html}{_stale_caveat_html}</div>'
