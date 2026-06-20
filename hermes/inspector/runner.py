@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import lens_decision, lens_runtime, lens_static
+from . import lens_decision, lens_doctrine, lens_runtime, lens_static
 
 
 @dataclass
@@ -33,7 +33,7 @@ def _confidence_label(n: int) -> str:
     return {1: "WATCH", 2: "CANDIDATE", 3: "DEAD"}.get(n, "UNKNOWN")
 
 
-def run(lenses: tuple[str, ...] = ("static", "runtime", "decision"),
+def run(lenses: tuple[str, ...] = ("static", "runtime", "decision", "doctrine"),
         window_days: int = 90,
         targets: list[str] | None = None,
         vulture_min_confidence: int = 80) -> dict[str, Any]:
@@ -61,6 +61,8 @@ def run(lenses: tuple[str, ...] = ("static", "runtime", "decision"),
         out["runtime"] = lens_runtime.scan(window_days=window_days)
     if "decision" in lenses:
         out["decision"] = lens_decision.scan(window_days=window_days)
+    if "doctrine" in lenses:
+        out["doctrine"] = lens_doctrine.scan(targets=targets)
 
     # Triangulation par 'name' canonique
     by_name: dict[str, dict[str, str]] = {}
@@ -100,12 +102,15 @@ def run(lenses: tuple[str, ...] = ("static", "runtime", "decision"),
         f.name,
     ))
 
+    # Doctrine findings : categorie separee (violations regles, pas symbols morts).
+    doctrine_findings = (out.get("doctrine", {}) or {}).get("candidates_raw") or []
     summary = {
         "DEAD": sum(1 for f in triangulated if f.n_lenses == 3 and not f.excluded),
         "CANDIDATE": sum(1 for f in triangulated if f.n_lenses == 2 and not f.excluded),
         "WATCH": sum(1 for f in triangulated if f.n_lenses == 1 and not f.excluded),
         "excluded": sum(1 for f in triangulated if f.excluded),
-        "total_findings": len(triangulated),
+        "doctrine_violations": len(doctrine_findings),
+        "total_findings": len(triangulated) + len(doctrine_findings),
     }
 
     out["triangulated"] = triangulated

@@ -56,6 +56,7 @@ def serialize(audit: dict[str, Any], out_dir: Path = Path("docs")) -> Path:
     lines.append(f"- **CANDIDATE**  : {summary.get('CANDIDATE', 0)} (2/3 lenses)")
     lines.append(f"- **WATCH**      : {summary.get('WATCH', 0)} (1/3 lenses)")
     lines.append(f"- **excluded**   : {summary.get('excluded', 0)} (doctrine exclusions, voir bas)")
+    lines.append(f"- **doctrine violations** : {summary.get('doctrine_violations', 0)} (regles canoniques code vs docs)")
     lines.append(f"- **total findings** : {summary.get('total_findings', 0)}")
     lines.append("")
 
@@ -84,6 +85,29 @@ def serialize(audit: dict[str, Any], out_dir: Path = Path("docs")) -> Path:
     emit_section("DEAD", 3)
     emit_section("CANDIDATE", 2)
     emit_section("WATCH", 1)
+
+    # Doctrine violations (separe : pas une triangulation mais une lecture
+    # directe code vs regle canonique).
+    doctrine_findings = (audit.get("doctrine", {}) or {}).get("candidates_raw") or []
+    if doctrine_findings:
+        # Group by rule_id
+        by_rule: dict[str, list] = {}
+        for f in doctrine_findings:
+            by_rule.setdefault(f.rule_id, []).append(f)
+        lines.append("## Doctrine violations")
+        lines.append("")
+        for rule_id, items in sorted(by_rule.items()):
+            lines.append(f"### {rule_id} — {len(items)} occurrence(s)")
+            lines.append("")
+            lines.append(f"> {items[0].rule_text}")
+            lines.append("")
+            for f in items[:10]:  # cap a 10 par regle pour eviter wall
+                lines.append(f"  - `{f.file}:{f.line}` ({f.confidence}%) — `{f.excerpt}`")
+            if len(items) > 10:
+                lines.append(f"  - ... et {len(items) - 10} de plus (filtre top-10)")
+            lines.append("")
+            lines.append("  → verdict : toi.")
+            lines.append("")
 
     # Doctrine exclusions
     excluded_items = [f for f in triangulated if f.excluded]

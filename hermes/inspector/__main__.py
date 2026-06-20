@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--lens",
-        choices=("static", "runtime", "decision", "all"),
+        choices=("static", "runtime", "decision", "doctrine", "all"),
         default="all",
         help="Lentille a executer (defaut: all).",
     )
@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         window_days = int(args.since)
 
-    lenses = (args.lens,) if args.lens != "all" else ("static", "runtime", "decision")
+    lenses = (args.lens,) if args.lens != "all" else ("static", "runtime", "decision", "doctrine")
     audit = runner.run(
         lenses=lenses,
         window_days=window_days,
@@ -72,11 +72,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Window         : {window_days} days")
     print(f"Lenses         : {', '.join(lenses)}")
     print(f"Targets        : {audit['meta']['targets']}")
-    print(f"DEAD (3/3)     : {summary.get('DEAD', 0)}")
-    print(f"CANDIDATE (2/3): {summary.get('CANDIDATE', 0)}")
-    print(f"WATCH (1/3)    : {summary.get('WATCH', 0)}")
-    print(f"excluded       : {summary.get('excluded', 0)}")
-    print(f"total findings : {summary.get('total_findings', 0)}")
+    print(f"DEAD (3/3)         : {summary.get('DEAD', 0)}")
+    print(f"CANDIDATE (2/3)    : {summary.get('CANDIDATE', 0)}")
+    print(f"WATCH (1/3)        : {summary.get('WATCH', 0)}")
+    print(f"excluded           : {summary.get('excluded', 0)}")
+    print(f"doctrine violations: {summary.get('doctrine_violations', 0)}")
+    print(f"total findings     : {summary.get('total_findings', 0)}")
 
     if args.dry_run:
         print("\n[dry-run] No file written.")
