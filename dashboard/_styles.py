@@ -1735,15 +1735,17 @@ html, body{
 .card.pad{ border-radius: 16px; }
 .col .card{ border-radius: 14px; }
 
-/* En-tetes de section : plus fins + hairline */
-.colhead, .vigie-sh{
+/* En-tetes de section : 5 variantes legacy unifiees (.colhead, .vigie-sh,
+   .strat-sh, .dba-sh, .th-grp) -> meme look canonical : caps 12px tracking
+   1.6px steel weight 600 + hairline + icon teinte data quand presente. */
+.colhead, .vigie-sh, .strat-sh, .dba-sh, .th-grp, .th-tier{
   font-size: 12px;
   letter-spacing: 1.6px;
   color: var(--steel);
   font-weight: 600;
   text-transform: uppercase;
 }
-.vigie-sh{
+.vigie-sh, .strat-sh, .dba-sh, .th-grp{
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1751,7 +1753,7 @@ html, body{
   margin-bottom: 4px;
   border-bottom: 1px solid var(--line);
 }
-.vigie-sh .sh-ico{ color: var(--data); opacity: .85; }
+.vigie-sh .sh-ico, .strat-sh .sh-ico, .dba-sh .sh-ico, .th-grp .sh-ico{ color: var(--data); opacity: .85; }
 
 /* Hero (Book value) */
 .ov-hero-grid{ gap: 20px; }
