@@ -5895,14 +5895,20 @@ def _cockpit() -> str:
     from datetime import date
 
     dec_30d = _q("SELECT count(*) FROM decisions WHERE created_at > datetime('now','-30 days')")[0][0]
-    preds_due = _q("SELECT count(*) FROM predictions WHERE resolved_at IS NULL AND target_date < '2026-06-11'")[0][0]
+    preds_due = _q(
+        "SELECT count(*) FROM predictions WHERE resolved_at IS NULL "
+        "AND target_date <= date('now')"
+    )[0][0]
     panic = _q(
         "SELECT count(*) FROM decisions "
         "WHERE LOWER(COALESCE(bias_tags,'')) LIKE '%panic%' "
         "OR LOWER(COALESCE(decision_type,'')) LIKE '%panic%'"
     )[0][0]
 
-    jun10 = date(2026, 6, 10)
+    # J-day milestone (10/06/2026) past; cockpit dormant since 31/05 user retire.
+    # Anchor preserved via date.today() so countdown reads TODAY if reactivated,
+    # rather than misleading a frozen past date.
+    jun10 = date.today()
     days_to_jun10 = (jun10 - date.today()).days
 
     drift_count = len(RECONCILE_FLAGS)
@@ -5931,7 +5937,7 @@ def _cockpit() -> str:
         cd_color = INK
 
     if days_to_jun10 > 0:
-        countdown, countdown_sub = f"J-{days_to_jun10}", f"10/06 &middot; {preds_due} pred. resolve"
+        countdown, countdown_sub = f"J-{days_to_jun10}", f"{preds_due} pred. resolve"
     elif days_to_jun10 == 0:
         countdown, countdown_sub = "TODAY", f"{preds_due} pred. resolve"
     else:
