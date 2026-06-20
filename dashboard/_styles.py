@@ -278,7 +278,7 @@ _CSS = """
   .tape8k { background:var(--tape); padding:var(--s2) 0; } .tape8k .ti .warn { color:var(--warn); } .tape8k .track2 { animation-duration:75s; }
   .statedot { width:8px; height:8px; border-radius:var(--r-circle); }
   .statedot.calm { background:var(--acc); color:var(--acc); } .statedot.warn { background:var(--warn); color:var(--warn); } .statedot.alert { background:var(--bear); color:var(--bear); }
-  .main { padding:30px clamp(16px, 4vw, 52px) 54px; max-width:1340px; }
+  .main { padding:30px clamp(16px, 4vw, 52px) 54px; }  /* max-width:1340 drop 20/06 (user 'grand espace vide a droite'). padding clamp suffit pour le breath. */
   /* Pass 3 audit cleanup #5 #6 #7 #8 : mobile responsive layout.
      Below 640px : sidebar becomes bottom tab-bar (touch-friendly position),
      main reclaims full width with clamp-padding, tables get overflow-x scroll,
