@@ -3537,13 +3537,19 @@ def _user_strategy_panel() -> str:
         tgt_eur = us.get("target_capital_eur") or 0
         tgt_pos = us.get("target_positions_count") or 0
         progress = (cur_eur / tgt_eur * 100) if tgt_eur else 0
+        # Audit 20/06 P0 #5 : avant '84% · 26/33 positions' fusionnait deux
+        # ratios distincts (valeur 84% != count 78.8%) -> reader-confusion.
+        # Maintenant : 2 ratios labels explicites, count avec son propre %.
+        pos_progress = (cur_pos / tgt_pos * 100) if tgt_pos else 0
         construction_html = (
             '<div class="us-construction">'
             '<div class="us-cstr-h">Construction phase</div>'
             f'<div class="us-cstr-b">Book is under construction: '
             f'<b class="mono">{cur_eur:,.0f}&nbsp;€</b> / '
-            f'<b class="mono">{tgt_eur:,.0f}&nbsp;€</b> target '
-            f'(<b>{progress:.0f}%</b> &middot; {cur_pos}/{tgt_pos} positions). '
+            f'<b class="mono">{tgt_eur:,.0f}&nbsp;€</b> '
+            f'(<b>{progress:.0f}%</b> in value) &middot; '
+            f'<b class="mono">{cur_pos}</b> / <b class="mono">{tgt_pos}</b> positions '
+            f'(<b>{pos_progress:.0f}%</b> in lines). '
             "Decorrelators (Energy-for-AI, Defense, Robotics) are being added. "
             "Current concentration ratios (cluster cap, strict ballast, AI capex expo) "
             "<b>will naturally converge</b> toward target. Informational only, "
