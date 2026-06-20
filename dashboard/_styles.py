@@ -1890,4 +1890,20 @@ body.midnight .dband{
 body.midnight .phead.stuck{
   background:linear-gradient(180deg,color-mix(in srgb,#0F1115 90%,transparent),color-mix(in srgb,#0F1115 60%,transparent));
 }
+
+/* Position cards page : .pc-* selectors definis inline dans render.py
+   (lignes 3103/3124/3168/3223/3325) hardcodent #fff / #fafbfc -> remap
+   en dark mode via le meme pattern semi-transparent. */
+body.midnight .pc-summary,
+body.midnight .pc-card{
+  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.08);
+}
+body.midnight .pc-cell,
+body.midnight .pc-section,
+body.midnight .pc-sizing-cell{
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);
+}
+body.midnight .pc-head{ border-bottom-color:rgba(255,255,255,.08); }
 """
