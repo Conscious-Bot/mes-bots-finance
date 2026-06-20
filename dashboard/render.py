@@ -5445,6 +5445,10 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     bucket_rows: dict[str, list[tuple]] = {}
     # Phase A : capture readings pour classify_regime apres la boucle.
     readings_for_regime: dict[str, dict] = {}
+    # Audit 20/06 : count stale / no-data inputs pour caveat regime score.
+    _n_stale = 0
+    _n_nodata = 0
+    _n_total = 0
     for ind, val, phase, ts in sig:
         tier, label, dec, thou = debt_map.get(ind, (9, ind, 2, False))
         # L3 etat honnete : val=NULL -> "no data", pas 0.0 affiche en vert.
@@ -5464,10 +5468,13 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         except Exception:
             _age = 0
         is_stale = (not data_missing) and _age > _STALE.get(tier, 10)
+        _n_total += 1
         if data_missing:
             badge = '<span class="nodata">no data</span>'
+            _n_nodata += 1
         elif is_stale:
             badge = f'<span class="stale">stale {_age}d</span>'
+            _n_stale += 1
         else:
             badge = ""
         tip = _MACRO_TIPS.get(ind, "")
@@ -5743,12 +5750,23 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         pass
     # Strate 1 : etat macro + frise STRESS pleine largeur + tag exploratoire
     # (cf decision_log 02 -- V3 demote, V4 a venir).
+    # Audit 20/06 P0 #4 : caveat "score may be stale" si inputs stale/no-data.
+    _n_unfresh = _n_stale + _n_nodata
+    _stale_caveat_html = ""
+    if _n_unfresh > 0 and _n_total > 0:
+        _caveat_cls = "bear" if _n_unfresh >= 3 else "warn"
+        _stale_caveat_html = (
+            f' <span class="ps-stale-caveat {_caveat_cls}" '
+            f'data-tip="Score base sur {_n_total} indicateurs dont {_n_stale} stale + {_n_nodata} no-data. '
+            f'Le regime affiche peut etre obsolete : refresh data avant action.">'
+            f'⚠ {_n_unfresh}/{_n_total} stale</span>'
+        )
     star_macro = (
         '<div class="ps-strate">'
         + '<div class="ps-lbl" data-tip="V3 composite macro phase (debt_monitor). STATUS: exploratory -- strict HOLDOUT 4/8 (02/06). V3 never generates P1 (centrist bias). Do not drive decisions on this value. V4 forthcoming (cf decision_log 02).">Macro state <span class="ps-tag-explor">exploratory</span></div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_phase_col}">{clabel}</div>'
-        + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}{_delta_html}</div>'
+        + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}{_delta_html}{_stale_caveat_html}</div>'
         + "</div>"
         + '<div class="ps-frise-wrap">'
         + f'<div class="ps-frise"><div class="ps-frise-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'

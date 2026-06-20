@@ -669,6 +669,10 @@ body.midnight {
   .page-star .ps-delta { font-family:var(--fm); font-size:var(--t-mini); margin-left:4px; font-weight:500; }
   .page-star .ps-delta.bear { color:var(--bear); }
   .page-star .ps-delta.acc { color:var(--acc); }
+  /* Audit 20/06 P0 #4 : caveat 'score may be stale' si inputs unfresh. */
+  .ps-stale-caveat { font-family:var(--fm); font-size:var(--t-mini); margin-left:8px; padding:1px 7px; border-radius:var(--r1); border:1px solid currentColor; cursor:help; font-weight:600; letter-spacing:.02em; }
+  .ps-stale-caveat.warn { color:var(--warn); background:color-mix(in srgb,var(--warn) 10%,transparent); }
+  .ps-stale-caveat.bear { color:var(--bear); background:color-mix(in srgb,var(--bear) 10%,transparent); }
   /* ps-grid : flex inline row au lieu de 3-col grid card */
   .page-star .ps-grid { display:flex; flex-wrap:wrap; gap:24px; margin:0; }
   .page-star .ps-cell { display:flex; align-items:baseline; gap:6px; }
