@@ -35,6 +35,7 @@ from dashboard._styles import (
     _NEEDS_TODAY_CSS,
     _OV_HERO_CSS,
     _POSITIONS_V3_CSS,
+    _PREMIUM_CSS,
     _TH_CSS,
     _TOKENS_CSS,
 )
@@ -7348,7 +7349,10 @@ def _write_static_bundle() -> tuple[int, int]:
     """
     static_dir = Path(__file__).parent / "static"
     static_dir.mkdir(exist_ok=True)
-    app_css = _TOKENS_CSS + _CSS + _OV_HERO_CSS + _NEEDS_TODAY_CSS + _POSITIONS_V3_CSS
+    app_css = (
+        _TOKENS_CSS + _CSS + _OV_HERO_CSS + _NEEDS_TODAY_CSS + _POSITIONS_V3_CSS
+        + _PREMIUM_CSS  # couche finale 'premium' user-supplied 20/06 (overrides)
+    )
     app_js = _APP_JS.replace(
         "__TKDOMAIN_JSON__", json.dumps(_ticker_logos_mod.TICKER_DOMAIN)
     ).replace(

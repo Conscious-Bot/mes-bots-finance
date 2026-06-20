@@ -1682,3 +1682,148 @@ _DBA_CSS = r"""
   .calib-honest { font-family:var(--fb); font-size:var(--t-mini); color:var(--steel); margin-top:12px; padding:10px 12px; background:var(--panel); border-left:2px solid var(--line2); border-radius:var(--r1); line-height:1.55; }
 </style>
 """
+
+# ============================================================
+# Audit esthetique 20/06 — couche 'premium' user-supplied.
+# Token tuning (palette plus chaleureuse), card hover lift, section dividers
+# affines, .page-star statut panel avec accent rail warn, .need.ok serein,
+# sidebar glow active, glass blur sur dband + phead.stuck.
+# Append a la fin du bundle pour override les rules precedentes.
+# ============================================================
+_PREMIUM_CSS = """
+/* ============================================================
+   PRESAGE · couche esthetique 'premium' (20/06)
+   ============================================================ */
+
+/* Tokens raffines (palette + elevations) */
+:root{
+  --bg: #FBFBFC;
+  --ink: #16181D;
+  --ink2: #3B4250;
+  --steel: #6A7180;
+  --line: #ECEDF1;
+  --line2: #DCDFE6;
+  --panel: #F6F8FC;
+  --elev1: 0 1px 2px rgba(18,22,33,.05), 0 6px 16px -8px rgba(18,22,33,.10);
+  --elev2: 0 2px 6px rgba(18,22,33,.06), 0 18px 40px -16px rgba(18,22,33,.18);
+  --glass: rgba(255,255,255,.78);
+}
+
+/* Fond avec halos discrets */
+html, body{
+  background:
+    radial-gradient(1200px 600px at 78% -10%, color-mix(in srgb, var(--data) 6%, transparent), transparent 60%),
+    radial-gradient(900px 500px at -5% 0%, color-mix(in srgb, var(--acc) 4%, transparent), transparent 55%),
+    var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Cartes : profondeur + lift au survol */
+.card{
+  background: linear-gradient(180deg, #FFFFFF, #FCFDFE);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 16px;
+  box-shadow: var(--elev1);
+  transition: box-shadow .35s var(--ease), transform .35s var(--ease), border-color .35s var(--ease);
+}
+.card:hover{
+  box-shadow: var(--elev2);
+  border-color: color-mix(in srgb, var(--data) 22%, var(--line));
+  transform: translateY(-1px);
+}
+.card.pad{ border-radius: 16px; }
+.col .card{ border-radius: 14px; }
+
+/* En-tetes de section : plus fins + hairline */
+.colhead, .vigie-sh{
+  font-size: 12px;
+  letter-spacing: 1.6px;
+  color: var(--steel);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.vigie-sh{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.vigie-sh .sh-ico{ color: var(--data); opacity: .85; }
+
+/* Hero (Book value) */
+.ov-hero-grid{ gap: 20px; }
+.v{ letter-spacing: -1px; font-feature-settings: 'tnum' 1; }
+
+/* MACRO STATE : panneau de statut avec rail d'accent */
+.page-star{
+  position: relative;
+  overflow: hidden;
+  padding: 18px 22px;
+  background: linear-gradient(180deg, #FFFFFF, #FAFBFD);
+  border: 1px solid color-mix(in srgb, var(--warn) 18%, var(--line));
+  border-radius: 16px;
+  box-shadow: var(--elev1);
+}
+.page-star::before{
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--warn), color-mix(in srgb, var(--warn) 30%, transparent));
+}
+.ps-val{ letter-spacing: .5px; }
+.ps-lbl{ letter-spacing: 1.6px; }
+
+/* 'All clear today' : carte verte sereine */
+.need{
+  background: linear-gradient(180deg, color-mix(in srgb, var(--acc) 5%, #fff), #fff);
+  border: 1px solid color-mix(in srgb, var(--acc) 18%, var(--line));
+  border-radius: 14px;
+  box-shadow: var(--elev1);
+}
+.need .sv{
+  background: color-mix(in srgb, var(--acc) 14%, #fff);
+  color: var(--acc);
+  border-radius: 10px;
+}
+
+/* Tuiles de risque : glass coherent */
+.rw-cell{
+  background: linear-gradient(180deg, #FFFFFF, #FAFBFD);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(18,22,33,.04);
+  transition: box-shadow .3s var(--ease), transform .3s var(--ease);
+}
+.rw-cell:hover{ box-shadow: var(--elev1); transform: translateY(-1px); }
+
+/* Sidebar : legere profondeur + glow actif */
+.sidebar{
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 60%, #fff), #fff);
+  backdrop-filter: saturate(1.1);
+}
+.sidebar a.active, .sidebar .active{
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--data) 30%, transparent),
+    0 4px 12px -4px color-mix(in srgb, var(--data) 35%, transparent);
+}
+
+/* Ticker tape + header collant en verre */
+.dband{
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, #fff 70%, var(--panel));
+  backdrop-filter: saturate(1.05) blur(2px);
+}
+.phead.stuck{
+  backdrop-filter: saturate(1.1) blur(8px);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, #fff 90%, transparent),
+    color-mix(in srgb, #fff 60%, transparent));
+}
+
+/* Chiffres mono tabulaires */
+.mono, .ps-macro-meta{ font-feature-settings: 'tnum' 1, 'ss01' 1; }
+"""
