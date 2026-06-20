@@ -730,3 +730,31 @@ document.querySelectorAll('.sec-grp .sec-h').forEach(function(h){
   h.addEventListener('click',function(){h.parentElement.classList.toggle('open');});
 });
 });</script>"""
+
+# Network mesh background (19/06, canonique) : couche de fond vivante "data flow".
+# Canvas fixe derriere tout le contenu (#presage-bgfx). Theme-aware (lit --data),
+# coupe en prefers-reduced-motion (rend une trame statique), pause hors-onglet.
+# Nodes derivent lentement + se relient quand proches (graphe de correlations).
+_MESH_FX = """<canvas id="presage-bgfx" aria-hidden="true"></canvas><script>
+(function(){
+  var cv=document.getElementById('presage-bgfx');if(!cv)return;var ctx=cv.getContext('2d');
+  var W=0,H=0,DPR=Math.min(2,window.devicePixelRatio||1),raf=null,N=[];
+  var RM=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function accent(){var c=getComputedStyle(document.body).getPropertyValue('--data').trim();return c||'#0D9488';}
+  function dark(){return document.body.classList.contains('midnight');}
+  function hexA(hex,a){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');var r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);if(isNaN(r))return 'rgba(13,148,136,'+a+')';return 'rgba('+r+','+g+','+b+','+a+')';}
+  function init(){N=[];var n=Math.max(14,Math.round(W*H/26000));for(var i=0;i<n;i++)N.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.16,vy:(Math.random()-.5)*.16,r:1+Math.random()*1.6});}
+  function resize(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);init();if(RM)draw();}
+  function draw(){
+    ctx.clearRect(0,0,W,H);var col=accent(),d=dark();
+    for(var i=0;i<N.length;i++){var a=N[i];a.x+=a.vx;a.y+=a.vy;if(a.x<0||a.x>W)a.vx*=-1;if(a.y<0||a.y>H)a.vy*=-1;}
+    for(var i=0;i<N.length;i++){for(var j=i+1;j<N.length;j++){var a=N[i],b=N[j],dx=a.x-b.x,dy=a.y-b.y,ds=Math.sqrt(dx*dx+dy*dy);
+      if(ds<132){ctx.beginPath();ctx.strokeStyle=hexA(col,(d?0.34:0.24)*(1-ds/132));ctx.lineWidth=1;ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}}
+    for(var i=0;i<N.length;i++){var a=N[i];ctx.beginPath();ctx.fillStyle=hexA(col,d?0.55:0.4);ctx.arc(a.x,a.y,a.r,0,6.283);ctx.fill();}
+    if(!RM&&!document.hidden)raf=requestAnimationFrame(draw);
+  }
+  function start(){if(raf)cancelAnimationFrame(raf);if(!RM&&!document.hidden)raf=requestAnimationFrame(draw);else draw();}
+  window.addEventListener('resize',function(){resize();start();});
+  document.addEventListener('visibilitychange',function(){if(document.hidden){if(raf)cancelAnimationFrame(raf);}else start();});
+  resize();start();
+})();</script>"""  # canonical living background : network mesh, behind all content

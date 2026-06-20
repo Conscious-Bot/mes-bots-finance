@@ -1837,4 +1837,13 @@ _PREMIUM_CSS = """
 [data-page='vigie'].active > .ov-hero-grid   { order:-2; }
 [data-page='vigie'].active > .needs          { order:-1; }
 [data-page='vigie'].active > .copilot-promote{ order:99; }
+
+/* ============================================================
+   Network mesh background -- canvas fixe canonique derriere tout
+   (cf dashboard/_scripts.py _MESH_FX). pointer-events:none =
+   reste cliquable a travers ; z-index:0 = sous content (z:1+).
+   ============================================================ */
+#presage-bgfx{ position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+body > .sidebar{ position:sticky; z-index:1; }
+body > .wrap{ position:relative; z-index:1; }
 """
