@@ -1909,4 +1909,23 @@ body.midnight .pc-sizing-cell{
   border:1px solid rgba(255,255,255,.06);
 }
 body.midnight .pc-head{ border-bottom-color:rgba(255,255,255,.08); }
+
+/* Action bar + search button + search modals + LLM badge :
+   tous opaques en dark, mesh reste en second plan. */
+body.midnight .cta-bar{
+  background:#161A21;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:var(--elev3), inset 0 1px 0 rgba(255,255,255,.04);
+}
+body.midnight .cta-bar button:hover{ background:rgba(255,255,255,.06); }
+body.midnight #ctaSearch{
+  box-shadow:0 8px 24px -6px rgba(45,91,255,.45),0 2px 4px rgba(0,0,0,.4);
+}
+body.midnight .cta-modal{ background:rgba(0,0,0,.65); }
+body.midnight .loupe{ background:rgba(15,17,21,.92); backdrop-filter:blur(8px); }
+body.midnight .qs{ background:rgba(15,17,21,.92); backdrop-filter:blur(8px); }
+body.midnight .llm-badge{
+  background:#161A21;
+  border:1px solid rgba(255,255,255,.10);
+}
 """
