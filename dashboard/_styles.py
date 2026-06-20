@@ -1739,11 +1739,10 @@ _PREMIUM_CSS = """
   --elev1:0 1px 2px rgba(18,22,33,.05), 0 6px 16px -8px rgba(18,22,33,.10);
   --elev2:0 2px 6px rgba(18,22,33,.06), 0 18px 40px -16px rgba(18,22,33,.18);
 }
+/* Body deep background : couche zip 19/06 user-supplied canonique (block A lignes
+   1337-1340). Le body BG de _PREMIUM_CSS retire 20/06 user-demand : 2 sources
+   competeing -> drift cascade. Source unique = block A (literal blue+green). */
 html,body{
-  background:
-    radial-gradient(1200px 600px at 78% -10%, color-mix(in srgb,var(--data) 6%,transparent), transparent 60%),
-    radial-gradient(900px 500px at -5% 0%, color-mix(in srgb,var(--acc) 4%,transparent), transparent 55%),
-    var(--bg);
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
 }
 
