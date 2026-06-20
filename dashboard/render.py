@@ -7650,6 +7650,14 @@ def render() -> Path:
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
     _ris, near, _heat, watch = _rows_risque(computed, positions)  # AUDIT v5 : pass positions pour weighted heat
+    # FRICTIONS strip filter (audit 20/06) : "near stop" = downside<10 ET pnl<0.
+    # Winners avec trailing stop tight ne sont pas en danger (alignment avec
+    # Positions hero qui applique deja ce filter, cure 'ALAB +90% pas near stop').
+    _near_losing = sum(
+        1 for r in computed
+        if r.get("downside_pct") is not None and r["downside_pct"] < 10
+        and pnl.get(r.get("ticker")) is not None and pnl[r["ticker"]] < 0
+    )
     gain, _lose = _movers(pnl)
     # day_up/day_dn computes pour _urgence() seulement (D2 retire de Vigie 02/06).
     _day_up, _day_dn = _day_movers(daily)
@@ -8470,8 +8478,8 @@ def render() -> Path:
             _dev_items.append(
                 (f"trim {_c['name']} &middot; +{_ov}&nbsp;&euro;", "concentration")
             )
-    if near:
-        _dev_items.append((f"{near} position(s) &lt; 10% from stop", "risque"))
+    if _near_losing:
+        _dev_items.append((f"{_near_losing} losing position(s) &lt; 10% from stop", "urgence"))
     _dn = len(_dev_items)
     _dcls, _dverdict = ("bear", "FRICTIONS") if _dn else ("acc", "ALIGNED")
     _ddetail = (
