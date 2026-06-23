@@ -143,3 +143,7 @@ digests/
 
 # Chroma vector DB local (Voyage thesis library)
 data/thesis_chroma/
+
+# Cron-generated skeleton calibration audits (audit_calibration_job, daily).
+# Substantive findings local-only ; pro audits (v4/v5/etc) stay tracked.
+docs/calibration_audits/*_skeleton.md
