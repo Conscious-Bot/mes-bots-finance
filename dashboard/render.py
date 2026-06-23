@@ -6788,13 +6788,25 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         else:
             _av3_cls = "pos-asym"
             _av3_txt = f'{_ratio_v3:.1f}<span class="x">&times;</span>'
-        # AT STOP chip + alert row : downside_pct < 10 AND position PERDANTE.
+        # AT STOP chip + alert row : current price WITHIN 10% du stop AND position PERDANTE.
         # Winners avec stop trailing remonte = securisation de gains, pas alerte
         # rouge alarmante (user 19/06 'astera labs +90% pas du tout near stop').
         # Vrai stop alarmant = perte + stop proche.
-        _dn_v3 = gauges.get(tk, {}).get("dn")
+        # Bug semantic fix 23/06 : `dn` du gauge = thesis-level (stop/entry-1) NEGATIF,
+        # pas distance current->stop. Toutes positions long avaient _dn_v3 < 10 (true)
+        # systematiquement -> AT STOP fired des que pnl < 0 (ex GEV +HDS new positions today
+        # avec stop bien en dessous mais pnl temporaire negatif). Cure : recompute
+        # distance-from-stop via (current - stop) / current pour le near-stop check.
+        _g3_chk = gauges.get(tk, {})
+        _cur_chk, _stop_chk = _g3_chk.get("_cur"), _g3_chk.get("_stop")
+        _near_stop_chk = None
+        if _cur_chk and _stop_chk and _cur_chk > 0:
+            _near_stop_chk = (_cur_chk - _stop_chk) / _cur_chk * 100
         _is_losing = pc is not None and pc < 0
-        _alert_cls_v3 = "pos-alert" if (_dn_v3 is not None and _dn_v3 < 10 and _is_losing) else ""
+        # Threshold 5% (was 10%) post user 23/06 feedback : 10% trop sensible aux
+        # nouvelles positions market-noise (-2-5% normal vol intraday qui n'est pas
+        # une vraie alerte stop). 5% = "vraiment proche stop" = signal actionable.
+        _alert_cls_v3 = "pos-alert" if (_near_stop_chk is not None and _near_stop_chk < 5 and _is_losing) else ""
         _stop_chip_v3 = '<span class="pos-stop-chip">AT&nbsp;STOP</span>' if _alert_cls_v3 else ""
         # Progress gauge v3 : reuse _position_axis_price canonique (5 repères :
         # stop rouge / entry steel / target_partial warn / target_full vert / dot prix actuel).
