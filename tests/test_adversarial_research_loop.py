@@ -53,20 +53,24 @@ def test_invalid_target_rejected():
 
 
 def test_loop_runs_4_stages_with_stub_backend(monkeypatch, isolated_db):
-    """Sans BIGDATA_API_KEY -> stub backend retourne placeholders, loop run sans crash."""
+    """Sans BIGDATA_API_KEY ni ANTHROPIC_API_KEY -> stub backend.
+    Stage 4 + 5 LLM skip silently sur stub (claims vides). Markdown reste OK.
+    """
     monkeypatch.delenv("BIGDATA_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from intelligence.adversarial_research_loop import run
     r = run("AAPL", "user_test")
-    # Stub returns 1 chunk per stage, all 3 stages called
     assert r.ok
     assert len(r.raw_bull_chunks) >= 1
     assert len(r.raw_bear_chunks) >= 1
     assert len(r.raw_counter_chunks) >= 1
-    # Markdown contains all 4 section markers
+    # Stage 4 skipped sur stub -> claims empty
+    assert r.claims_bull == []
+    assert r.claims_bear == []
+    # Markdown contains key section markers
     assert "ADVERSARIAL BRIEF" in r.markdown
-    assert "BULL CASE" in r.markdown
-    assert "BEAR CASE" in r.markdown
-    assert "COUNTER-EVIDENCE" in r.markdown
+    assert "BULL CLAIMS" in r.markdown
+    assert "BEAR CLAIMS" in r.markdown
     assert "VERDICT GRID" in r.markdown
 
 

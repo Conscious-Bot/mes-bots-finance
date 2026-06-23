@@ -6,6 +6,7 @@ Old aliases preserved (Sprint 1.2 Phase A): /biases, /signal, /echo, /8k.
 
 from telegram.ext import Application, CommandHandler
 
+from bot.handlers.adversarial import cmd_adversarial
 from bot.handlers.anti_erosion import (
     cmd_log_friction,
     cmd_log_value,
@@ -129,6 +130,7 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("audit", cmd_audit))  # per-decision audit (cf scripts/decision_audit.py)
     app.add_handler(CommandHandler("review", cmd_review))  # per-ticker fact-sheet (cf bot/handlers/review.py)
     app.add_handler(CommandHandler("research", cmd_research))  # Chantier #150 G3 spec #152 — Bigdata brief
+    app.add_handler(CommandHandler("adversarial", cmd_adversarial))  # 4-stage bull/bear/counter/verdicts loop (23/06/2026)
     app.add_handler(CommandHandler("find", cmd_find))
     app.add_handler(CommandHandler("portfolio_sectors", cmd_portfolio_sectors))
     app.add_handler(CommandHandler("portfolio_narratives", cmd_portfolio_narratives))
