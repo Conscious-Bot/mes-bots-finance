@@ -117,6 +117,14 @@
 
 ---
 
+## 🔵 TRADES DEFERRED (à exécuter quand conditions OK)
+
+- **SELL COHR ~1/8 (~0.81 sh, ~€300)** — demain en sortie de red day. Partial $410 atteint (current ~$425). Lock_in #1 protect modeste (c3 + 0% trim historique + consensus -10% sous current). Cf thèse COHR notes.
+- **SELL KLAC ~1/4 (~3.15 sh, ~€700)** — DÈS que broker TR débloque corporate action (split 10:1 12/06 en cours processing chez TR au 23/06). Sweep #135 winner +48%, target_full $200 ✓ hit (current ~$255 post -5% red day). Cf thèse KLAC notes.
+- **BUY GEV ~€700 (proceeds KLAC trim)** — pour atteindre position totale GEV ~€1400 (current €753 = 0.796 sh). Add ~0.66-0.73 sh selon prix au moment. Cf thèse GEV notes.
+
+---
+
 ## 🔴 P0 ACTIONNABLES
 
 ### Action humaine (pas code)
