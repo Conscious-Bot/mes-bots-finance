@@ -279,8 +279,36 @@ def test_add_sell_lock_in_hook_called(ledger_db_with_view, monkeypatch):
     h = hook_calls[0]
     assert h["ticker"] == "HOOK"
     assert h["qty_sold"] == 3.0
-    assert h["sold_price_native"] == 130.0
+    assert h["sold_price_eur"] == 130.0  # EUR/share (fx_at_trade=1.0 sur EUR currency)
     assert h["qty_before"] == 10.0
+
+
+def test_add_sell_hook_receives_eur_not_native(ledger_db_with_view, monkeypatch):
+    """L12 cure 23/06 : hook detect_winner_sell doit recevoir sold_price_eur
+    (= price * fx_at_trade), pas price natif. Avant la cure, un sell USD
+    avec fx=0.85 passait price=120 USD au hook qui le comparait a avg_cost
+    EUR -> pnl_pct mixe USD/EUR, gates biaises.
+    """
+    _no_classify(monkeypatch)
+    from shared.positions import add_buy, add_sell
+
+    hook_calls = []
+    def fake_hook(**kwargs):
+        hook_calls.append(kwargs)
+
+    monkeypatch.setattr("intelligence.lock_in_detector.detect_winner_sell", fake_hook)
+
+    # Achat USD a 100, fx 1.0 -> avg_cost EUR = 100/share
+    add_buy("L12T", qty=10.0, price=100.0, currency="USD", fx_at_trade=1.0,
+            broker_trade_id="L12-B1", source="test")
+    # Sell USD a 130, fx 0.85 -> sold_price_eur attendu = 130 * 0.85 = 110.5
+    add_sell("L12T", qty=3.0, price=130.0, currency="USD", fx_at_trade=0.85,
+             broker_trade_id="L12-S1", source="test")
+
+    assert len(hook_calls) == 1
+    assert hook_calls[0]["sold_price_eur"] == 130.0 * 0.85
+    # avg_cost reste EUR (100.0)
+    assert hook_calls[0]["avg_cost"] == 100.0
 
 
 def test_add_sell_hook_silent_miss_dont_break_sell(ledger_db_with_view, monkeypatch):

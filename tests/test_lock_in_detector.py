@@ -158,7 +158,7 @@ def test_winner_pnl20_c4_sold_opens_candidate(
     from intelligence.lock_in_detector import detect_winner_sell
     out = detect_winner_sell(
         position_id=1, ticker="NVDA",
-        qty_sold=50.0, sold_price_native=120.0,
+        qty_sold=50.0, sold_price_eur=120.0,
         qty_before=100.0, avg_cost=100.0,
     )
     assert out is not None
@@ -212,7 +212,7 @@ def test_winner_pnl15_c3_sold_boundary_opens_candidate(
     from intelligence.lock_in_detector import detect_winner_sell
     out = detect_winner_sell(
         position_id=1, ticker="AMD",
-        qty_sold=50.0, sold_price_native=115.0,
+        qty_sold=50.0, sold_price_eur=115.0,
         qty_before=100.0, avg_cost=100.0,
     )
     assert out is not None
@@ -233,7 +233,7 @@ def test_pnl5_below_gate_not_opened(
     from intelligence.lock_in_detector import detect_winner_sell
     out = detect_winner_sell(
         position_id=1, ticker="TSLA",
-        qty_sold=50.0, sold_price_native=105.0,
+        qty_sold=50.0, sold_price_eur=105.0,
         qty_before=100.0, avg_cost=100.0,
     )
     assert out is None
@@ -255,7 +255,7 @@ def test_conviction_c1_below_gate_not_opened(
     from intelligence.lock_in_detector import detect_winner_sell
     out = detect_winner_sell(
         position_id=1, ticker="MEME",
-        qty_sold=50.0, sold_price_native=120.0,
+        qty_sold=50.0, sold_price_eur=120.0,
         qty_before=100.0, avg_cost=100.0,
     )
     assert out is None
@@ -276,7 +276,7 @@ def test_loser_sold_not_opened(
     from intelligence.lock_in_detector import detect_winner_sell
     out = detect_winner_sell(
         position_id=1, ticker="SHOR",
-        qty_sold=50.0, sold_price_native=90.0,
+        qty_sold=50.0, sold_price_eur=90.0,
         qty_before=100.0, avg_cost=100.0,
     )
     assert out is None
@@ -298,7 +298,7 @@ def test_no_active_thesis_skips_clean(
     from intelligence.lock_in_detector import detect_winner_sell
     out = detect_winner_sell(
         position_id=1, ticker="ORPHAN",
-        qty_sold=50.0, sold_price_native=120.0,
+        qty_sold=50.0, sold_price_eur=120.0,
         qty_before=100.0, avg_cost=100.0,
     )
     assert out is None
@@ -322,13 +322,13 @@ def test_idempotence_same_position_event_kept(
 
     # 1er appel
     out1 = detect_winner_sell(
-        position_id=1, ticker="NVDA", qty_sold=50.0, sold_price_native=120.0,
+        position_id=1, ticker="NVDA", qty_sold=50.0, sold_price_eur=120.0,
         qty_before=100.0, avg_cost=100.0,
     )
     assert out1 is not None
     # 2e appel meme parametres (meme position_event)
     out2 = detect_winner_sell(
-        position_id=1, ticker="NVDA", qty_sold=50.0, sold_price_native=120.0,
+        position_id=1, ticker="NVDA", qty_sold=50.0, sold_price_eur=120.0,
         qty_before=100.0, avg_cost=100.0,
     )
     # out2 = None car wire_bias_trigger.opened == 0 (kept)
@@ -365,7 +365,7 @@ def test_conviction_at_sell_reads_current_post_revisit(
     from intelligence.lock_in_detector import detect_winner_sell
     out = detect_winner_sell(
         position_id=1, ticker="NVDA",
-        qty_sold=50.0, sold_price_native=120.0,
+        qty_sold=50.0, sold_price_eur=120.0,
         qty_before=100.0, avg_cost=100.0,
     )
     # Avec c4 (post-revisit), gate conviction OK -> candidat ouvert
@@ -412,7 +412,7 @@ def test_failsafe_wire_raise_caller_survives(
     raised = False
     try:
         out = detect_winner_sell(
-            position_id=1, ticker="NVDA", qty_sold=50.0, sold_price_native=120.0,
+            position_id=1, ticker="NVDA", qty_sold=50.0, sold_price_eur=120.0,
             qty_before=100.0, avg_cost=100.0,
         )
     except RuntimeError:

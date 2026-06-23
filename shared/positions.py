@@ -304,9 +304,12 @@ def add_sell(
         # Note : detect_winner_sell signature legacy attend position_id (int).
         # Maintenant que positions est une VUE, l'id est m.rowid de positions_meta.
         position_id = current.get("id") if isinstance(current.get("id"), int) else None
+        # L12 invariant : sold_price_eur et avg_cost doivent etre meme devise (EUR/share).
+        # Avant 23/06 on passait price (USD natif) -> classify_lock_in calculait pnl_pct
+        # avec USD/EUR mix, biaisant les gates 15% et halfway target.
         detect_winner_sell(
             position_id=position_id, ticker=ticker,
-            qty_sold=qty, sold_price_native=price,
+            qty_sold=qty, sold_price_eur=sell_eur_per_share,
             qty_before=qty_before, avg_cost=avg_cost_pre,
         )
     except Exception as e:

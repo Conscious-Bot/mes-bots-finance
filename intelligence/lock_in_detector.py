@@ -162,9 +162,11 @@ def classify_lock_in(sale: dict[str, Any]) -> dict[str, Any] | None:
         sale: dict avec cles requises :
             - ticker (str)
             - qty_sold (float > 0)
-            - sold_price_native (float > 0)
+            - sold_price_eur (float > 0) -- EUR/share, MEME devise que avg_cost
+              (cure L12 23/06 : pre-renommage sold_price_native qui mixait
+              USD/EUR sur tickers non-EUR, biaisant pnl_pct gates).
             - qty_before (float > 0)
-            - avg_cost (float > 0)
+            - avg_cost (float > 0) -- EUR/share
             - thesis: dict ou None
                 {conviction, status, target_partial, target_full,
                  opened_at, entry_price}
@@ -178,7 +180,7 @@ def classify_lock_in(sale: dict[str, Any]) -> dict[str, Any] | None:
     """
     ticker = str(sale.get("ticker") or "").upper()
     qty_sold = float(sale.get("qty_sold") or 0)
-    sold_price = float(sale.get("sold_price_native") or 0)
+    sold_price = float(sale.get("sold_price_eur") or 0)
     qty_before = float(sale.get("qty_before") or 0)
     avg_cost = float(sale.get("avg_cost") or 0)
     thesis = sale.get("thesis") or None
@@ -274,7 +276,7 @@ def detect_winner_sell(
     position_id: int,  # noqa: ARG001  reserve pour futur audit
     ticker: str,
     qty_sold: float,
-    sold_price_native: float,
+    sold_price_eur: float,
     qty_before: float,
     avg_cost: float,
 ) -> dict[str, Any] | None:
@@ -286,7 +288,7 @@ def detect_winner_sell(
     ticker = ticker.upper()
     log.info(
         f"lock_in_detector ENTERED ticker={ticker} qty_sold={qty_sold} "
-        f"sold_price={sold_price_native} avg_cost={avg_cost}"
+        f"sold_price={sold_price_eur} avg_cost={avg_cost}"
     )
 
     # Read thesis + overcap state (DB)
@@ -297,7 +299,7 @@ def detect_winner_sell(
     sale = {
         "ticker": ticker,
         "qty_sold": qty_sold,
-        "sold_price_native": sold_price_native,
+        "sold_price_eur": sold_price_eur,
         "qty_before": qty_before,
         "avg_cost": avg_cost,
         "thesis": thesis,
@@ -345,8 +347,8 @@ def detect_winner_sell(
     extra_cf = {
         **candidate["dimensions"],
         "surface": "surface_2_winner_sell",
-        "sold_price_native": sold_price_native,
-        "avg_cost_native": avg_cost,
+        "sold_price_eur": sold_price_eur,
+        "avg_cost_eur": avg_cost,
         "qty_sold": qty_sold,
         "qty_before": qty_before,
         "target_pnl_pct": candidate["target_pnl_pct"],

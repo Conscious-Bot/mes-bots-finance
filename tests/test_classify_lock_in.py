@@ -54,7 +54,7 @@ def _make_sale(
     return {
         "ticker": ticker,
         "qty_sold": qty_sold,
-        "sold_price_native": sold_price,
+        "sold_price_eur": sold_price,
         "qty_before": qty_before,
         "avg_cost": avg_cost,
         "thesis": _make_thesis() if thesis is _SENTINEL else thesis,
