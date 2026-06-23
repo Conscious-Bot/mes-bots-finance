@@ -15,6 +15,7 @@
 - **KLAC mystère split 10:1 résolu** : real corporate event 12/06 (pas yfinance glitch). Cure DB Mac+VM appliquée + sweep #135 levels $290/$330/$230. Script SQL canonique committé.
 - **L12 cure structurelle lock_in_detector** : sold_price_eur partout, 52/52 tests verts, 0 candidate flip retroactif sur 8 sells fx≠1.
 - **Bot Hetzner VM actif** : `systemctl --user is-active presage-bot.service = active` depuis 02:47:19 UTC restart, code HEAD VM aligned avec Mac.
+- **🔴 Bug arch trouvé post-sweep** : `shared/positions.py:add_sell` calcule `closed = new_qty <= 1e-6` mais ne UPDATE jamais `positions_meta.status='closed'`. Variable juste returned dans le dict. Conséquence : positions a qty=0 restent status='open' = "fantome" gate red. TSLA aujourd'hui curée manuellement VM. **À fixer en code** : INSERT UPDATE positions_meta SET status='closed' WHERE ticker=? AND closed=True dans la transaction add_sell, post-commit. Plus tests qui couvrent le close-on-zero pattern.
 
 ## 🟢 ÉTAT SYSTÈME (19/06 close marathon v3 + audit canonique)
 
