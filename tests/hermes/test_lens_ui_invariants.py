@@ -9,10 +9,19 @@ from hermes.inspector import lens_ui_invariants
 
 
 def test_scan_skips_when_server_unreachable() -> None:
-    """Port 65535 libre -> scan retourne status 'skipped' sans raise."""
+    """Port 65535 libre OU Playwright absent -> scan retourne status 'skipped' sans raise.
+
+    En CI (pas de Playwright installe), le skip-guard playwright fire en premier
+    et reason = 'playwright not installed'. En local (Playwright present), le
+    TCP probe fire et reason = 'server unreachable'. Les deux raisons valident
+    le contract : skip silent + no raise + candidates_raw vide.
+    """
     out = lens_ui_invariants.scan(url="http://127.0.0.1:65535/dashboard.html")
     assert out["status"] == "skipped"
-    assert "unreachable" in out["reason"].lower()
+    reason_lower = out["reason"].lower()
+    assert "unreachable" in reason_lower or "playwright" in reason_lower, (
+        f"Expected skip reason mentioning 'unreachable' ou 'playwright', got: {out['reason']!r}"
+    )
     assert out["candidates_raw"] == []
 
 
