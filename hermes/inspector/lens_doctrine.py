@@ -130,6 +130,19 @@ def check_adr014_canonical_filter(targets: list[str]) -> list[DoctrineCandidate]
     )
     from_pat = re.compile(r"FROM\s+predictions\b", re.IGNORECASE)
     filter_pat = re.compile(r"(canonical|substance)_predictions_filter")
+    # Patterns intentionnels exempts (ne pas flagger comme violation) :
+    # - cohort selection explicite (v0/v1/v2 literal)
+    # - methodology_version parametrise (intent : caller decide la version)
+    # - by-id accessor (WHERE id=? ou WHERE p.id=?)
+    # - bootstrap library qui indexe ALL predictions intentionnellement
+    intentional_re = re.compile(
+        r"methodology_version\s*(?:!=|=)\s*['\"](v0|v1|v2)['\"]"
+        r"|methodology_version\s*=\s*\?"
+        r"|WHERE\s+id\s*=\s*\?"
+        r"|WHERE\s+p\.id\s*="
+        r"|_loop_filter|_loop_filter_substance"  # render.py:4785 multi-line WHERE applique le filter
+        r"|ADR014-EXEMPT"  # pragma comment pour exemption explicite (cf docs/adrs/014)
+    )
     for target in targets:
         for path in Path(target).rglob("*.py"):
             # Skip tests (fixtures peuvent legitimement query toutes les preds)
@@ -150,6 +163,8 @@ def check_adr014_canonical_filter(targets: list[str]) -> list[DoctrineCandidate]
                 window = "\n".join(ln for _, ln in lines[start:end])
                 if filter_pat.search(window):
                     continue  # filter present dans le voisinage, OK
+                if intentional_re.search(window):
+                    continue  # intentional cohort/by-id/library, exempt
                 out.append(DoctrineCandidate(
                     rule_id="ADR014",
                     rule_text=rule_text,

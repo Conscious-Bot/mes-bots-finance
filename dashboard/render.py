@@ -5895,10 +5895,12 @@ def _cockpit() -> str:
     Display-only; no behavior change."""
     from datetime import date
 
+    from shared import storage as _storage_ck
     dec_30d = _q("SELECT count(*) FROM decisions WHERE created_at > datetime('now','-30 days')")[0][0]
     preds_due = _q(
-        "SELECT count(*) FROM predictions WHERE resolved_at IS NULL "
-        "AND target_date <= date('now')"
+        f"SELECT count(*) FROM predictions WHERE resolved_at IS NULL "
+        f"AND target_date <= date('now') "
+        f"AND {_storage_ck.canonical_predictions_filter()}"
     )[0][0]
     panic = _q(
         "SELECT count(*) FROM decisions "
@@ -7392,6 +7394,9 @@ def render() -> Path:
             except Exception:
                 pass
 
+        # Consumer orchestrator render() = point unique de battement.
+        # Les register_concept ci-dessous sont la SOURCE CANONIQUE LIVING_GRAPH
+        # pour chaque ticker (compute-once-project, pas helper side-effect).
         for _tk, _v in _views.items():
             # === pnl_position (existing) ===
             _pnl = getattr(_v, "pnl_position_pct", None)

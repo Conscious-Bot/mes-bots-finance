@@ -168,10 +168,12 @@ def _check_no_recent_material_decision_orphan(conn) -> list[str]:
         if n_cf > 0:
             continue
         # Check prediction window (heuristique +60min)
+        from shared import storage as _storage
         n_pred = conn.execute(
             "SELECT COUNT(*) FROM predictions p, decisions d "
             "WHERE p.ticker=? AND d.id=? "
-            "AND p.created_at BETWEEN d.created_at AND datetime(d.created_at, '+60 minutes')",
+            "AND p.created_at BETWEEN d.created_at AND datetime(d.created_at, '+60 minutes') "
+            f"AND {_storage.canonical_predictions_filter().replace('methodology_version', 'p.methodology_version')}",
             (tk, d_id),
         ).fetchone()[0]
         if n_pred == 0:
@@ -181,10 +183,12 @@ def _check_no_recent_material_decision_orphan(conn) -> list[str]:
 
 def _check_resolved_predictions_have_brier(conn) -> list[str]:
     """Point #7 + scoring : resolved + outcome != neutral => brier present."""
-    rows = conn.execute("""
+    from shared import storage as _storage
+    rows = conn.execute(f"""
         SELECT id, ticker, outcome, brier_score FROM predictions
         WHERE resolved_at IS NOT NULL AND outcome != 'neutral'
           AND brier_score IS NULL
+          AND {_storage.canonical_predictions_filter()}
     """).fetchall()
     return [f"#7 pred_{r[0]} {r[1]} resolved outcome={r[2]} mais brier=NULL" for r in rows]
 

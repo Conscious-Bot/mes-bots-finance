@@ -68,11 +68,14 @@ async def cmd_history(update, ctx):  # noqa: ARG001
         """,
             (ticker,),
         ).fetchone()
+        from shared import storage as _storage_jb
         preds = conn.execute(
-            """
+            f"""
             SELECT direction, horizon_days, baseline_price, final_price, return_pct,
                    outcome, baseline_date
-            FROM predictions WHERE ticker=? ORDER BY baseline_date DESC LIMIT 5
+            FROM predictions WHERE ticker=?
+              AND {_storage_jb.canonical_predictions_filter()}
+            ORDER BY baseline_date DESC LIMIT 5
         """,
             (ticker,),
         ).fetchall()

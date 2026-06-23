@@ -171,6 +171,8 @@ def bootstrap_from_db() -> dict:
 
     from shared.storage import db as _storage_db
     with _storage_db() as conn:
+        # ADR014-EXEMPT : library bootstrap indexe ALL predictions
+        # (methodology_version preserve en metadata, filtrage au retrieval).
         cur = conn.execute("""
             SELECT id, ticker, direction, horizon_days, target_date, outcome,
                    origin, claim_type, methodology_version, created_at,

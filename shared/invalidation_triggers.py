@@ -60,11 +60,12 @@ def get_resolved_sentinels_by_code() -> dict[str, dict[str, Any]]:
         with storage.db() as cx:
             # storage.db() already sets row_factory = sqlite3.Row
             rows = cx.execute(
-                """
+                f"""
                 SELECT id, outcome, resolved_at, brier_score, probability_at_creation,
                        source_metadata_json
                 FROM predictions
                 WHERE origin = 'manual' AND resolved_at IS NOT NULL
+                  AND {storage.canonical_predictions_filter()}
                 """
             ).fetchall()
     except Exception:

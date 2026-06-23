@@ -1148,7 +1148,8 @@ def get_due_predictions(limit=50):
     conn.row_factory = _sqlite3.Row
     try:
         rows = conn.execute(
-            "SELECT * FROM predictions WHERE target_date <= date('now') AND resolved_at IS NULL ORDER BY target_date ASC LIMIT ?",
+            f"SELECT * FROM predictions WHERE target_date <= date('now') AND resolved_at IS NULL "
+            f"AND {canonical_predictions_filter()} ORDER BY target_date ASC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -1218,8 +1219,12 @@ def get_recent_predictions(limit=20):
     conn = _sqlite3.connect(DB_PATH)
     conn.row_factory = _sqlite3.Row
     try:
+        _f = canonical_predictions_filter().replace("methodology_version", "p.methodology_version")
         rows = conn.execute(
-            "SELECT p.*, src.name as source_name FROM predictions p LEFT JOIN signals s ON p.signal_id = s.id LEFT JOIN sources src ON s.source_id = src.id ORDER BY p.id DESC LIMIT ?",
+            f"SELECT p.*, src.name as source_name FROM predictions p "
+            f"LEFT JOIN signals s ON p.signal_id = s.id "
+            f"LEFT JOIN sources src ON s.source_id = src.id "
+            f"WHERE {_f} ORDER BY p.id DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]

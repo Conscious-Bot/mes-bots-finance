@@ -105,7 +105,10 @@ async def cmd_health(update, ctx):  # noqa: ARG001
     # Predictions + theses active count
     try:
         with storage_mod.db() as conn:
-            open_pred = conn.execute("SELECT COUNT(*) FROM predictions WHERE resolved_at IS NULL").fetchone()[0]
+            open_pred = conn.execute(
+                f"SELECT COUNT(*) FROM predictions WHERE resolved_at IS NULL "
+                f"AND {storage_mod.canonical_predictions_filter()}"
+            ).fetchone()[0]
             active_theses = conn.execute(
                 "SELECT COUNT(*) FROM theses WHERE COALESCE(status, 'active') = 'active'"
             ).fetchone()[0]
@@ -305,9 +308,12 @@ def _kpi_compute_all():
     }
 
     # KPI #3: Brier rolling 90d (target <0.20)
+    from shared import storage as _storage_kpi3
     r3 = conn.execute(
-        "SELECT AVG(brier_score) AS brier_avg, COUNT(*) AS n FROM predictions "
-        "WHERE brier_score IS NOT NULL AND probability_at_creation != 0.5 AND resolved_at >= datetime('now', '-90 days')"
+        f"SELECT AVG(brier_score) AS brier_avg, COUNT(*) AS n FROM predictions "
+        f"WHERE brier_score IS NOT NULL AND probability_at_creation != 0.5 "
+        f"AND resolved_at >= datetime('now', '-90 days') "
+        f"AND {_storage_kpi3.canonical_predictions_filter()}"
     ).fetchone()
     brier = r3["brier_avg"]
     n3 = r3["n"]

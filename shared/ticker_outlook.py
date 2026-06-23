@@ -56,6 +56,7 @@ def recent_outlook(ticker: str, days: int = 30) -> TickerOutlook:
                 "FROM predictions "
                 "WHERE ticker = ? "
                 "  AND created_at > datetime('now', '-' || ? || ' day') "
+                f"  AND {storage.canonical_predictions_filter()} "
                 "ORDER BY created_at DESC",
                 (ticker.upper(), int(days)),
             ).fetchall()
