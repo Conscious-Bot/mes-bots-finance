@@ -377,7 +377,7 @@ body.midnight {
   .sec-subwrap { display:flex; flex-direction:column; gap:var(--s1); }
   .sec-super .sec-grp.sub { margin:0; border-left:2px solid var(--line); border-radius:0 var(--r2) var(--r2) 0; }
   .sec-super .sec-grp.sub .sec-name { font-family:var(--fd); font-weight:600; font-size:var(--t-base); color:var(--steel); letter-spacing:0; }
-  body { font-family:var(--fb); font-size:var(--t-base); color:var(--ink); margin:0; display:flex; min-height:100vh; background:var(--bg); -webkit-font-smoothing:antialiased; transition:background .3s ease,color .3s ease; }
+  body { font-family:var(--fb); font-size:var(--t-base); color:var(--ink); margin:0; display:flex; min-height:100vh; background:var(--bg); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; transition:background .3s ease,color .3s ease; }
   .sidebar { width:78px; flex-shrink:0; background:transparent; border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; align-items:center; position:sticky; top:0; align-self:flex-start; height:100vh; z-index:60; }
   .logo { display:flex; align-items:center; justify-content:center; margin-bottom:var(--s35); padding:2px 0 0; }
   .logo svg { width:62px; height:auto; color:var(--ink); }
@@ -1972,14 +1972,6 @@ body.midnight .pos-dt tr.pos-alert td{ background:rgba(220,38,38,.10); }
   --elev1:0 1px 2px rgba(18,22,33,.05), 0 6px 16px -8px rgba(18,22,33,.10);
   --elev2:0 2px 6px rgba(18,22,33,.06), 0 18px 40px -16px rgba(18,22,33,.18);
 }
-html,body{
-  background:
-    radial-gradient(1200px 600px at 78% -10%, color-mix(in srgb,var(--data) 6%,transparent), transparent 60%),
-    radial-gradient(900px 500px at -5% 0%, color-mix(in srgb,var(--acc) 4%,transparent), transparent 55%),
-    var(--bg);
-  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
-}
-
 /* ---------- 2. CARTES ---------- */
 .card{
   background:linear-gradient(180deg,#FFFFFF,#FCFDFE);
@@ -2078,3 +2070,94 @@ html,body{
 [data-page='vigie'].active > .ov-hero-grid   { order:-2; }
 [data-page='vigie'].active > .needs          { order:-1; }
 [data-page='vigie'].active > .copilot-promote{ order:99; }
+
+/* ============================================================
+   Network mesh background -- canvas fixe canonique derriere tout
+   (cf dashboard/_scripts.py _MESH_FX). pointer-events:none =
+   reste cliquable a travers ; z-index:0 = sous content (z:1+).
+   ============================================================ */
+#presage-bgfx{ position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+body > .sidebar{ position:sticky; z-index:1; }
+body > .wrap{ position:relative; z-index:1; }
+
+/* ============================================================
+   DARK MODE OVERRIDES -- placees APRES _PREMIUM_CSS pour gagner
+   par cascade. _PREMIUM_CSS hardcode #FFFFFF sur .card / .need /
+   .page-star / .rw-cell / .sidebar / .dband -> en .midnight ces
+   surfaces restaient blanches sur body dark = illisible.
+   Source unique des overrides midnight UI surfaces.
+   ============================================================ */
+body.midnight{ background:#0F1115; }
+/* En dark mode, panneaux OPAQUES (pas semi-transparent) sinon le network
+   mesh #presage-bgfx transparait a travers et ressemble a etre on top.
+   --surf1 #161A21 / --surf2 #1B2028 = palette deep-navy mate, mesh reste
+   en second plan derriere. */
+body.midnight .card{
+  background:#161A21;
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px -14px rgba(0,0,0,.6);
+}
+body.midnight .card:hover{
+  border-color:color-mix(in srgb,var(--data) 30%,rgba(255,255,255,.12));
+}
+body.midnight .page-star{
+  background:#161A21;
+  border:1px solid color-mix(in srgb,var(--warn) 22%,rgba(255,255,255,.08));
+}
+body.midnight .need{
+  background:#1A1F26;
+  border:1px solid color-mix(in srgb,var(--acc) 22%,rgba(255,255,255,.08));
+}
+body.midnight .need .sv{
+  background:color-mix(in srgb,var(--acc) 16%,#1A1F26);
+}
+body.midnight .rw-cell{
+  background:#161A21;
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 1px 2px rgba(0,0,0,.3);
+}
+body.midnight .sidebar{
+  background:#13161C;
+  border-right:1px solid rgba(255,255,255,.08);
+}
+body.midnight .dband{
+  background:#13161C;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+body.midnight .phead.stuck{
+  background:linear-gradient(180deg,#0F1115EE,#0F1115AA);
+}
+
+/* Position cards page : .pc-* opaques aussi (selectors definis inline
+   render.py 3103/3124/3168/3223/3325). */
+body.midnight .pc-summary,
+body.midnight .pc-card{
+  background:#161A21;
+  border:1px solid rgba(255,255,255,.08);
+}
+body.midnight .pc-cell,
+body.midnight .pc-section,
+body.midnight .pc-sizing-cell{
+  background:#1B2028;
+  border:1px solid rgba(255,255,255,.06);
+}
+body.midnight .pc-head{ border-bottom-color:rgba(255,255,255,.08); }
+
+/* Action bar + search button + search modals + LLM badge :
+   tous opaques en dark, mesh reste en second plan. */
+body.midnight .cta-bar{
+  background:#161A21;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:var(--elev3), inset 0 1px 0 rgba(255,255,255,.04);
+}
+body.midnight .cta-bar button:hover{ background:rgba(255,255,255,.06); }
+body.midnight #ctaSearch{
+  box-shadow:0 8px 24px -6px rgba(45,91,255,.45),0 2px 4px rgba(0,0,0,.4);
+}
+body.midnight .cta-modal{ background:rgba(0,0,0,.65); }
+body.midnight .loupe{ background:rgba(15,17,21,.92); backdrop-filter:blur(8px); }
+body.midnight .qs{ background:rgba(15,17,21,.92); backdrop-filter:blur(8px); }
+body.midnight .llm-badge{
+  background:#161A21;
+  border:1px solid rgba(255,255,255,.10);
+}
