@@ -675,7 +675,16 @@ async def _sell_impl(update, ticker: str, qty: float, price: float, reasoning: s
     msg_lines = [f"✓ Sold {r['sold_qty']:.3f} {r['ticker']} @ {format_finance(r['sold_price'], decimals=2)} [{dtype}]"]
     msg_lines.append(f"  Avg cost was: {format_finance(r['avg_cost'], decimals=2)}")
     msg_lines.append(f"  Realized PnL (event): {format_finance(r['realized_pnl_event'], decimals=2, signed=True)}")
-    msg_lines.append(f"  Realized PnL (total): {format_finance(r['realized_pnl_total'], decimals=2, signed=True)}")
+    # realized_pnl_total : compute from BookLine si dispo, sinon fallback event-only
+    _rpnl_total = r.get('realized_pnl_total')
+    if _rpnl_total is None:
+        try:
+            from shared import book as _bk
+            _bl = _bk.get_book_index().get(r['ticker'])
+            _rpnl_total = float(_bl.realized_pnl_eur) if _bl and _bl.realized_pnl_eur else r['realized_pnl_event']
+        except Exception:
+            _rpnl_total = r['realized_pnl_event']
+    msg_lines.append(f"  Realized PnL (total): {format_finance(_rpnl_total, decimals=2, signed=True)}")
     msg_lines.append(f"  Remaining: {r['remaining_qty']:.3f}" + ("  [CLOSED]" if r["closed"] else ""))
     if decision_id:
         tags_str = f", biases: {','.join(bias_tags)}" if bias_tags else ""
