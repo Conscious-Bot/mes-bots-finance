@@ -119,10 +119,14 @@
 
 ## 🔵 TRADES DEFERRED (à exécuter quand conditions OK)
 
-- **SELL TSM ~€200** — small trim core c5 (current ~$468, déjà 46% trim historique). Plan minimal post sweep #135 (decision était "hold + raise + stop trail").
-- **SELL COHR ~1/8 (~0.81 sh, ~€300)** — demain en sortie de red day. Partial $410 atteint (current ~$425). Lock_in #1 protect modeste (c3 + 0% trim historique + consensus -10% sous current). Cf thèse COHR notes.
-- **SELL KLAC ~1/4 (~3.15 sh, ~€700)** — DÈS que broker TR débloque corporate action (split 10:1 12/06 en cours processing chez TR au 23/06). Sweep #135 winner +48%, target_full $200 ✓ hit (current ~$255 post -5% red day). Cf thèse KLAC notes.
-- **BUY GEV ~€700 (proceeds KLAC trim)** — pour atteindre position totale GEV ~€1400 (current €753 = 0.796 sh). Add ~0.66-0.73 sh selon prix au moment. Cf thèse GEV notes.
+- **SELL COHR ~1/8 (~0.81 sh, ~€300)** — quand prêt (demain post red day initialement). Partial $410 atteint. Lock_in #1 protect modeste c3. Cf thèse COHR notes.
+
+### ✓ Executed 2026-06-23 (live estimates, reconcile if broker exec diverges)
+
+- ~~SELL KLAC 2.96 sh @ $269.16 (-€696, realized +€227)~~ — KLAC 12.59→9.63 sh
+- ~~SELL TSM 0.61 sh @ $467.67 (-€249, realized +€111)~~ — TSM 11.45→10.84 sh
+- ~~BUY GEV 0.71 sh @ $1127.59 (+€700)~~ — GEV 0.796→1.506 sh (~€1486 MV cible €1400 atteint)
+- ~~BUY HDS (6324.T) 5.85 sh @ ¥7700 (+€244)~~ — HDS 24.9→30.75 sh
 
 ---
 
