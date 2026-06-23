@@ -3965,3 +3965,87 @@ Notes secondaires non-actionées (laissés au backlog) :
 2. **Run `python -m hermes.inspector --lens all`** (dashboard.serve doit être actif sur :8000) pour générer le premier report avec lens_ui live + valider que les 3 invariants passent en steady-state.
 3. **Backlog inchangé** : AMD lock_in obs +30j (2026-07-18), KLAC sweep #135, Hetzner SSH check, user keys (Voyage/healthchecks/FRED/Bigdata).
 4. **Memory candidate** : doctrine "lens behavioural orthogonal" + pattern wait_for vs sleep pour assertions UI. Si récurrent, formaliser.
+
+## Close 2026-06-23 — Session ÉPIQUE : ADR014 sweep + L7 + sync architecture + L12 cure + KLAC split + 21 thèses #135 + data-loss recovery
+
+**Session massive 12+ heures couvrant 4 axes complets**. Lessons multiples gravées (single-source-VM doctrine, L12 currency cure, KLAC split cure post-hoc, sync direction critique).
+
+### Livré (10 commits propres)
+
+**Phase 1 — AMD investigation → L12 cure structurelle** (`7c4b5d3`) :
+- AMD obs missing : faux problème, mécaniquement correct (pnl +203% multi-bagger >> halfway 25% c3 → SKIP correct). SESSION_STATE 18/06 sur-optimiste.
+- Découvert bug L12 dans passage `shared/positions.py:307` → `intelligence/lock_in_detector.py:204` : `pnl_pct = sold_price_native / avg_cost_eur` mélangeait USD/EUR sur tickers non-EUR.
+- Cure : rename `sold_price_native` → `sold_price_eur` partout (caller + signature + sale dict + tests). 14 call sites mis à jour. Nouveau test L12 border case (`test_add_sell_hook_receives_eur_not_native`) verrouille la cure. 52/52 lock_in tests verts.
+- Audit rétroactif 8 sells post-15/06 avec fx réel : **0 candidate flip** (6 SKIP avec raison différente buggy vs correct mais résultat final = SKIP partout). Cure PROACTIVE pure, rien à backfill.
+
+**Phase 2 — KLAC split 10:1 cure** (`ade7ddb` + SQL script) :
+- KLAC mystère résolu : VRAI split corporate 10:1 le 12/06 (tx206 BUY 11.335sh @ $0 source=split_klac_10to1_20260612), pas un bug yfinance.
+- Bug : trigger logic confused mid-split → triggered_partial_at + triggered_full_at + triggered_stop_at tous firés à tort. NEW schema (`*_value`) jamais ÷10 ajusté.
+- Cure DB Mac+VM : NULL les 3 triggered_*_at + sync target_*_value + stop_value /= 10 + refresh last_price live $269. entry_value=1626.22 reste immutable per L28 / SPEC_MONEY_INVARIANT §3 trigger DB enforce. Script SQL `scripts/cure_klac_split_2026_06_12.sql` commité pour traceability + reproductibilité VM.
+
+**Phase 3 — ADR014 sweep doctrinal + L7 fix** (`a01ea2d`) :
+- Hermes baseline flaggait 23 ADR014 + 1 L7 = chronique tech-debt.
+- 10 sites patchés avec `AND canonical_predictions_filter()` : _cockpit dead code + invalidation_triggers + ticker_outlook + position_invariants (2) + storage (2) + observability (2) + journal_bias.
+- 11 sites légitimement EXEMPT (cohort v1/v0 explicit, by-id accessor, param methodology_version) : extension `intentional_re` dans `lens_doctrine.py` pour exclure automatiquement. Pragma `# ADR014-EXEMPT` ajouté pour bootstrap library.
+- L7 violation render.py:7398 : marker comment "Consumer orchestrator render() = point unique de battement compute-once-project" rendu explicit → lens reconnaît.
+- **Hermes baseline post-sweep : 0 doctrine violations** (vs 24 ce matin).
+
+**Phase 4 — Sync architecture + data-loss recovery** (`a9e496b` + memory `single_source_vm_acted_2026-06-23.md`) :
+- **Installé sync auto Mac←VM hourly** : `scripts/sync_db_from_hetzner.sh` + `deploy/launchd_mac/com.olivier.presage-sync-from-vm.plist`. VM-side sqlite3 `.backup` (WAL-consistent) + rsync + integrity_check Mac + backup pré-swap + atomic mv. Rotation 5 backups.
+- 🚨 **DATA LOSS event mid-session** : la sync VM→Mac de 10:43 a ÉCRASÉ 11 transactions Mac-only (tx 207-217 du 15-18/06 = TSLA SELL + COHR BUY + SPCX adj + AVGO/4063.T/AMD SELLs + GOOGL/MU BUYs). Décerné par user dire "i don't own TSLA anymore" alors qu'une thesis sweep le montrait open qty=4.84.
+- Recovery : restore Mac depuis `data/bot.db.backup_sync_20260623_104354` (149MB pré-sync) + disable launchd avant restore puis re-enable APRÈS architecture redress. Push tx 207-217 Mac→VM via SQL dump + SCP one-time.
+- **Décision actée single source of truth = VM** (aligne avec cutover 13/06). Going forward TOUS trades via Telegram VM ou ssh+python sur VM, JAMAIS Mac local. Memory dédiée + MEMORY.md update.
+
+**Phase 5 — Sweep #135 sur 21 tickers** (decisions ON VM, propagated to Mac via launchd sync) :
+- 4 levels broken anchored : 000660.KS (SK Hynix ₩3M/₩4M/₩2.2M), MU (anchor $1400/$1700/$1000), SNPS (partial $560 added), SPCX (partial $250 added)
+- Stale winners revisited : ALAB (stop trail tight $420 vu 47% deja trim), TSM (raise full $700 stop trail $400, 46% trim), ENTG (trim 1/4 prévu + raise $205 + stop trail $165), AMD (raise $665 stop trail $500, 92% trim runner)
+- Decisions intégrant trim historique : 6920.T et MU trim plans annulés post-audit (33% et 72% déjà trim suffisant)
+- TSLA marquée `status='realized'` (qty=0 via tx207 SELL 15/06)
+- 6 PEA stocks (ASML.AS, BESI.AS, HO.PA, SAF.PA, STMPA.PA, SU.PA) DÉFERRED → strategy distincte session séparée (user demande)
+
+**Phase 6 — User keys checklist + KNOWN-GAP cleanup** (`4138048` + `d67dd1c`) :
+- `docs/USER_KEYS_SETUP.md` : 5 keys à signer (EDGAR_IDENTITY/VOYAGE_API_KEY/HEALTHCHECKS_*/BIGDATA_API_KEY) + signup URLs + verification snippet. `.env.example` étendu.
+- 6 KNOWN-GAP partial close : audit DB confirme **0 phantom across all open positions**. Memory `partial_close_handler_missing` déjà RÉSOLU 09/06. SESSION_STATE 16/06 SPCX 0.72sh phantom = pas en DB (jamais loggée OU jamais broker-executed).
+
+**Phase 7 — Misc** (`3cb3b68` + `39ab499`) :
+- Gitignore `docs/calibration_audits/*_skeleton.md` (cron-generated daily skeletons sur VM, signal-noise local-only)
+- Dashboard `app.css` regen bundle propagation sweep updates + L7 marker
+
+### Outils ajoutés
+
+- **`scripts/sync_db_from_hetzner.sh`** + **`deploy/launchd_mac/com.olivier.presage-sync-from-vm.plist`** : sync auto Mac←VM hourly H+5min, WAL-consistent snapshot via sqlite3 .backup
+- **`scripts/cure_klac_split_2026_06_12.sql`** : cure SQL one-off KLAC split 10:1 (Mac + VM applied)
+- **`docs/USER_KEYS_SETUP.md`** : checklist user keys 5 services
+- **Memory `single_source_vm_acted_2026-06-23.md`** : doctrine VM = source of truth, Mac = read-only view
+- **`hermes/inspector/lens_doctrine.py`** étendu : `intentional_re` regex couvre cohort v0/v1/v2 explicit + by-id accessor + ADR014-EXEMPT pragma
+
+### Hetzner deploy session
+
+- Code push GitHub `fcba8f3..39ab499` (10 commits today, 26 commits if including session 20/06 not yet pulled)
+- VM pulled `957bcc4..3cb3b68` puis additional updates via direct UPDATE
+- KLAC SQL cure appliquée VM
+- 11 tx 207-217 pushed Mac→VM
+- 21 sweep #135 updates appliqués VM
+- Bot service restart 02:47:19 UTC + Telegram polling resumed
+
+### Findings non actionés (intentionnel)
+
+- pytest full suite : en background au close (résultat dans `/tmp/pytest_close_23juin.out` quand terminé)
+- 6 PEA stocks sweep : déferré per user (strategy distincte session séparée)
+- Backups DB générés aujourd'hui : pas de cleanup (rotation auto next sync cycles)
+- `logs/` directory untracked : créé par sync script + launchd, pas committé (généré local)
+- `site_public/track.html` : modif pré-session jamais touchée (consistance avec tous les closes précédents)
+
+### Doctrine émergente (à graver L?)
+
+- **Sync direction critique** : naive rsync entre two stateful systems where both writers exist = data loss inevitable. Décision single-source-VM doit précéder install de sync, pas l'inverse. Le launchd VM→Mac initial était dans la BONNE direction par chance (Mac vient d'être read-only désormais) mais ÉTAIT dans la mauvaise direction au moment d'install (Mac avait 11 tx > VM).
+- **Trim history matters in #135 decisions** : sweep aware du trim historique (table audit) évite over-discipline. 6920.T et MU avaient 33% et 72% déjà trimmed → mes "trim 1/4 prévu" recommendations annulées en révision.
+- **L25 doctrine SPEC immutability is real protection** : entry_value write-once trigger DB a refusé ma cure KLAC tentant d'update. Forcé à laisser entry_value=1626.22 pre-split USD (semantic preserved post-split via cost basis math). DB-level enforcement > convention.
+
+### Entry next session
+
+1. **Sweep PEA stocks (6)** : ASML.AS / BESI.AS / HO.PA / SAF.PA / STMPA.PA / SU.PA. User demande strategy distincte vs non-PEA — peut-être trim aggressive sur STMPA.PA c2 +204% MV €2914 = textbook lock_in #1. ETA 20-30 min.
+- **Tu m'envoies les BUYs GEV + HDS quand exécutés** : draft plan posé (GEV c4 partial $1250/full $1424/stop $950, HDS c3 partial ¥9000/full ¥10000/stop ¥7000). Je log tx + crée théses status='active' quand tu confirmes prix exact + qty.
+- **Setup user keys** (~15 min user action) : `docs/USER_KEYS_SETUP.md` — 5 signups + .env update Mac+VM + restart Claude pour MCP openinsider.
+- **Pytest full suite** : verify result `/tmp/pytest_close_23juin.out`. Si fail, fix avant next session.
+- **Memory candidates** : 3 doctrines émergentes ci-dessus (sync direction, trim history awareness, SPEC immutability protection).

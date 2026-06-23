@@ -1,19 +1,20 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 20 juin 2026 close hermes 6e lentille + sweep tooltips drift + cockpit hardening — 4 commits. Phase A bug-fix sector linkage (`fcba8f3` Energy→No thesis no link). Phase B sweep stale tooltip claims (`bb39dd9` V4 abandoned + cap tier live read). Phase C cockpit hardening (`1e7e90d` J-day hardcodé → date('now')). Phase D `b15a2e7` lens_ui_invariants 6e lentille Playwright headless behavioural — 3 invariants MVP nav/book/sector, 4 smoke tests CI-safe, wirage runner/`__main__`/report/README complets.
-**Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Capstone red-team nuit++ accepté.
+**Refresh** : 23 juin 2026 close session ÉPIQUE 10 commits, 4 axes massifs. (1) L12 lock_in cure structurelle `7c4b5d3` — rename sold_price_native→sold_price_eur partout, caller fix, 14 call sites, 1 nouveau test border case, audit rétroactif 0 candidate flip. (2) KLAC split 10:1 cure post-hoc `ade7ddb` — script SQL Mac+VM, triggers NULL + ÷10 schemas. (3) ADR014 sweep doctrinal `a01ea2d` — 10 sites patchés + 11 exempt via lens_doctrine intentional_re étendu, L7 marker, **0 doctrine violations**. (4) Sync architecture + data-loss recovery `a9e496b` + memory single-source-VM — launchd VM→Mac hourly, 11 tx restored, 21 sweep #135 thèses sur VM. Plus : user keys checklist, KNOWN-GAP 0 phantom confirmed, gitignore skeleton calibration, dashboard regen.
+**Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Single source of truth = VM acted 23/06.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
 
-## 🟢 ÉTAT SYSTÈME (20/06 close hermes 6e lens + sweep tooltips)
+## 🟢 ÉTAT SYSTÈME (23/06 close session épique)
 
-- **main HEAD `b15a2e7`** (4 commits aujourd'hui, post-marathon dashboard v3 d'hier).
-- **Hermes 6 lentilles opérationnelles** : `lens_static` + `lens_runtime` + `lens_decision` (triangulation) + `lens_doctrine` + `lens_ci` + `lens_ui_invariants` (Playwright headless, 3 invariants MVP, doctrine Tier R observateur strict).
-- **Sweep stale tooltips fini** : V4 forthcoming → V4 abandoned, c5 22%/c4 14% → live read config, J-day hardcodé → date('now'). 5 tooltip↔code threshold pairs vérifiés OK (≥75%/<10%/<12%/<20%/Brier). Cross-page book value confirmé single source.
-- **Sector linkage Energy→No thesis fixé** (Phase A) : `_row_sec` simplifié → chaque bar lié à ≥1 row.
-- **Repo PUBLIC** (encore, pour claude.ai connector). Topology Hetzner = prod, Mac = dev — inchangée 16/06+.
-- **Dashboard live** : `http://127.0.0.1:8000/dashboard.html` HTTP 200, sect ions actives, sector mix cliquable, all 6 lentilles validables via `python -m hermes.inspector --lens all`.
+- **main HEAD `39ab499`** (10 commits today, alembic head 0062).
+- **Hermes baseline VERTE** : 0 DEAD / 0 CANDIDATE / 1 WATCH (vulture FP) / **0 doctrine violations** (vs 24 ce matin) / 0 UI invariants fails / CI head GREEN.
+- **VM Hetzner = single source of truth (acted 23/06)** : memory `single_source_vm_acted_2026-06-23` doctrine. Going forward TOUS trades via Telegram VM ou ssh+python sur VM, JAMAIS Mac local. Sync VM→Mac hourly launchd `com.olivier.presage-sync-from-vm` H+5min. Mac = read-only view.
+- **Sweep #135 fait sur 21 tickers non-PEA** (KLAC/6920.T/6857.T/AVGO/LNG/MP/4063.T/AMZN/7011.T/000660.KS/MU/SNPS/SPCX/ALAB/TSM/AMD/GOOGL/COHR/CCJ/ENTG + TSLA closed). 4 levels broken anchored. 6 PEA stocks (ASML.AS/BESI.AS/HO.PA/SAF.PA/STMPA.PA/SU.PA) DÉFERRED → strategy distincte.
+- **KLAC mystère split 10:1 résolu** : real corporate event 12/06 (pas yfinance glitch). Cure DB Mac+VM appliquée + sweep #135 levels $290/$330/$230. Script SQL canonique committé.
+- **L12 cure structurelle lock_in_detector** : sold_price_eur partout, 52/52 tests verts, 0 candidate flip retroactif sur 8 sells fx≠1.
+- **Bot Hetzner VM actif** : `systemctl --user is-active presage-bot.service = active` depuis 02:47:19 UTC restart, code HEAD VM aligned avec Mac.
 
 ## 🟢 ÉTAT SYSTÈME (19/06 close marathon v3 + audit canonique)
 
