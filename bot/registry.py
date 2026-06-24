@@ -63,7 +63,9 @@ from bot.handlers.positions import (
     cmd_journal_decision,
     cmd_portfolio,
     cmd_position_buy,
+    cmd_position_buy_quick,
     cmd_position_sell,
+    cmd_position_sell_quick,
     cmd_trade,
 )
 from bot.handlers.prediction_why import cmd_why
@@ -171,7 +173,9 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("llm_costs", cmd_llm_costs))
     app.add_handler(CommandHandler("echo", cmd_echo_recent))  # Sprint 1.2 Phase A alias
     app.add_handler(CommandHandler("position_buy", cmd_position_buy))
+    app.add_handler(CommandHandler("position_buy_quick", cmd_position_buy_quick))
     app.add_handler(CommandHandler("position_sell", cmd_position_sell))
+    app.add_handler(CommandHandler("position_sell_quick", cmd_position_sell_quick))
     app.add_handler(CommandHandler("trade", cmd_trade))  # Sprint 1.2 Phase C family
     app.add_handler(CommandHandler("portfolio", cmd_portfolio))
     app.add_handler(CommandHandler("positions", cmd_portfolio))  # alias intuitif (telem: 5 tentatives)

@@ -329,18 +329,100 @@ async def cmd_portfolio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(msg, parse_mode="HTML")
 
 
-async def cmd_position_buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
-    """Buy + Phase B5 journal logging + bias tagging (auto).
-    Usage: /position_buy <TICKER> <QTY> <PRICE> [reasoning]
+# Discipline journalisation 24/06 (cf memory journalisation-three-fields) :
+# 3 champs structures (these / invalidation / conviction) au lieu d'un blob ou
+# d'un compteur de chars (peage contournable identique au keyword backdoor du
+# detecteur #4). Friction au point de decision = feature anti-biais lock_in.
+# Echappatoire honnete : variants _quick taggees [QUICK_UNJOURNALED] pour
+# urgences, comptees comme decision non-journalisee assumee dans KPI #5.
+_USAGE_BUY = (
+    "Usage : /position_buy <TICKER> <QTY> <PRICE> | <these> | <invalidation> | <conviction 1-5>\n\n"
+    "Exemple :\n"
+    "/position_buy NVDA 5 145 | AI capex resilient Q2 | si Hyperscaler capex guide down >15% | 4\n\n"
+    "Urgence -> /position_buy_quick (taggee non-journalisee)."
+)
+_USAGE_SELL = (
+    "Usage : /position_sell <TICKER> <QTY> <PRICE> | <these> | <invalidation> | <conviction 1-5>\n\n"
+    "Exemple :\n"
+    "/position_sell TSM 2 245 | take-profit partiel target hit | si breakout >$260 vs partial | 3\n\n"
+    "Urgence -> /position_sell_quick (taggee non-journalisee)."
+)
+
+
+def _parse_structured_decision(text: str) -> tuple[str, float, float, str] | None:
+    """Parse '/cmd TICKER QTY PRICE | these | invalidation | conviction'.
+    Returns (ticker, qty, price, reasoning_concat) ou None si format invalide.
+    reasoning_concat = '[STRUCTURED] these: X | invalidation: Y | conviction: Z'.
     """
-    assert update.message is not None and update.message.text is not None  # type narrowing
-    parts = update.message.text.split(maxsplit=4)
+    if "|" not in text:
+        return None
+    head, *fields = [s.strip() for s in text.split("|")]
+    head_parts = head.split()
+    if len(head_parts) < 4 or len(fields) < 3:
+        return None
+    ticker, qty_s, price_s = head_parts[1].upper(), head_parts[2], head_parts[3]
+    these, invalidation, conviction_s = fields[0], fields[1], fields[2]
+    if not these or not invalidation or not conviction_s:
+        return None
+    try:
+        qty, price = float(qty_s), float(price_s)
+        conviction = int(conviction_s)
+    except ValueError:
+        return None
+    if not (1 <= conviction <= 5):
+        return None
+    reasoning = (
+        f"[STRUCTURED] these: {these} | invalidation: {invalidation} | "
+        f"conviction: {conviction}"
+    )
+    return (ticker, qty, price, reasoning)
+
+
+def _parse_quick_decision(text: str, fallback_label: str) -> tuple[str, float, float, str] | None:
+    """Parse '/cmd_quick TICKER QTY PRICE [freetext]'. Tagged [QUICK_UNJOURNALED]."""
+    parts = text.split(maxsplit=4)
     if len(parts) < 4:
-        await update.message.reply_text("Usage: /position_buy <TICKER> <QTY> <PRICE> [reasoning]")
-        return
+        return None
     try:
         ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
-        reasoning = parts[4] if len(parts) > 4 else "Buy via /position_buy"
+    except ValueError:
+        return None
+    freetext = parts[4] if len(parts) > 4 else fallback_label
+    reasoning = f"[QUICK_UNJOURNALED] {freetext}"
+    return (ticker, qty, price, reasoning)
+
+
+async def cmd_position_buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
+    """Buy + Phase B5 journal logging + bias tagging (auto).
+    Structure obligatoire : /position_buy TICKER QTY PRICE | these | invalidation | conviction
+    Cf [[journalisation-three-fields]] doctrine 24/06.
+    """
+    assert update.message is not None and update.message.text is not None
+    parsed = _parse_structured_decision(update.message.text)
+    if parsed is None:
+        await update.message.reply_text(_USAGE_BUY)
+        return
+    try:
+        ticker, qty, price, reasoning = parsed
+        await _buy_impl(update, ticker, qty, price, reasoning)
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_position_buy_quick(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
+    """Buy QUICK — echappatoire urgence. Decision taggee [QUICK_UNJOURNALED]
+    et NON comptee dans KPI #5 journalisees. A utiliser quand structure 3-champs
+    pas possible (urgence marche, fenetre courte). Cf doctrine 24/06.
+    """
+    assert update.message is not None and update.message.text is not None
+    parsed = _parse_quick_decision(update.message.text, "Buy quick (no journal)")
+    if parsed is None:
+        await update.message.reply_text(
+            "Usage : /position_buy_quick <TICKER> <QTY> <PRICE> [freetext]"
+        )
+        return
+    try:
+        ticker, qty, price, reasoning = parsed
         await _buy_impl(update, ticker, qty, price, reasoning)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
@@ -348,16 +430,34 @@ async def cmd_position_buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> No
 
 async def cmd_position_sell(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
     """Sell + Phase B5 journal logging + bias tagging (auto).
-    Usage: /position_sell <TICKER> <QTY> <PRICE> [reasoning]
+    Structure obligatoire : /position_sell TICKER QTY PRICE | these | invalidation | conviction
+    Cf [[journalisation-three-fields]] doctrine 24/06.
     """
-    assert update.message is not None and update.message.text is not None  # type narrowing
-    parts = update.message.text.split(maxsplit=4)
-    if len(parts) < 4:
-        await update.message.reply_text("Usage: /position_sell <TICKER> <QTY> <PRICE> [reasoning]")
+    assert update.message is not None and update.message.text is not None
+    parsed = _parse_structured_decision(update.message.text)
+    if parsed is None:
+        await update.message.reply_text(_USAGE_SELL)
         return
     try:
-        ticker, qty, price = parts[1].upper(), float(parts[2]), float(parts[3])
-        reasoning = parts[4] if len(parts) > 4 else "Sell via /position_sell"
+        ticker, qty, price, reasoning = parsed
+        await _sell_impl(update, ticker, qty, price, reasoning)
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+
+async def cmd_position_sell_quick(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:  # noqa: ARG001
+    """Sell QUICK — echappatoire urgence. Decision taggee [QUICK_UNJOURNALED]
+    et NON comptee dans KPI #5 journalisees. Cf doctrine 24/06.
+    """
+    assert update.message is not None and update.message.text is not None
+    parsed = _parse_quick_decision(update.message.text, "Sell quick (no journal)")
+    if parsed is None:
+        await update.message.reply_text(
+            "Usage : /position_sell_quick <TICKER> <QTY> <PRICE> [freetext]"
+        )
+        return
+    try:
+        ticker, qty, price, reasoning = parsed
         await _sell_impl(update, ticker, qty, price, reasoning)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")

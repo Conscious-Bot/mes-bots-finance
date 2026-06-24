@@ -388,19 +388,25 @@ def _kpi_compute_all():
         "enforcement": "Pause + bias analysis si ≥1",
     }
 
-    # KPI #5: Trade decisions journalisées (30d window)
-    # Material scope (whitelist): entry, scale_in, partial_exit, full_exit
+    # KPI #5: Trade decisions journalisées (30d window).
+    # Material scope (whitelist): entry, scale_in, partial_exit, full_exit.
     # Excluded: no_action_flag (passive), thesis_add/set (thesis events, separate KPI),
-    #           position_set/override (manual admin overrides, no journal req)
-    # Journalisation criteria: reasoning >=30 chars AND bias_tags filled
+    #           position_set/override (manual admin overrides, no journal req).
+    # Refonte 24/06 (cf [[journalisation-three-fields]]) : criteria base sur la
+    # STRUCTURE pas la longueur. Le prefix '[STRUCTURED]' marque les decisions
+    # passees par /position_buy ou /position_sell avec les 3 champs obligatoires
+    # (these / invalidation / conviction 1-5). Le prefix '[QUICK_UNJOURNALED]'
+    # marque les variants _quick (urgence) — exclues du compteur journalisees.
+    # bias_tags non plus exige comme proxy (peut etre vide si LLM down OU si
+    # decision factuellement sans biais identifiable — pas un signal de manque
+    # de discipline). Source = STRUCTURE garantie au point de capture.
     # Enforcement: blocks new thesis creation if <90% (prevents adding theses
-    # without proper retrospective audit trail on recent trade behavior)
+    # without proper retrospective audit trail on recent trade behavior).
     r5 = conn.execute(
         "SELECT "
         "  SUM(CASE WHEN decision_type IN ('entry','scale_in','partial_exit','full_exit') THEN 1 ELSE 0 END) AS material, "
         "  SUM(CASE WHEN decision_type IN ('entry','scale_in','partial_exit','full_exit') "
-        "           AND LENGTH(COALESCE(reasoning, '')) >= 30 "
-        "           AND COALESCE(bias_tags, '') != '' THEN 1 ELSE 0 END) AS journalised "
+        "           AND COALESCE(reasoning, '') LIKE '[STRUCTURED]%' THEN 1 ELSE 0 END) AS journalised "
         "FROM decisions "
         "WHERE created_at >= datetime('now', '-30 days')"
     ).fetchone()
