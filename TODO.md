@@ -119,7 +119,7 @@
 
 ## 🔵 TRADES DEFERRED (à exécuter quand conditions OK)
 
-- **SELL COHR ~1/8 (~0.81 sh, ~€300)** — quand prêt (demain post red day initialement). Partial $410 atteint. Lock_in #1 protect modeste c3. Cf thèse COHR notes.
+- ~~SELL COHR ~1/8~~ — **ANNULÉ 24/06** : user choisit hold full 6.456 sh runner malgré partial $410 trigger atteint. Bet market right vs consensus.
 
 ### ✓ Executed 2026-06-23 (live estimates, reconcile if broker exec diverges)
 
