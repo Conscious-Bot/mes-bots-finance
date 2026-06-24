@@ -264,8 +264,13 @@ def _kpi_compute_all():
         "AND resolved_at >= datetime('now', '-28 days')"
     ).fetchone()
     open_pred = conn.execute("SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL").fetchone()["n"]
+    # Fix 24/06 : stuck = target_date STRICTEMENT calendairement avant aujourd'hui
+    # (pas <= datetime('now') qui matchait les target_date du jour comme retards).
+    # Les predictions target_date='today' sont des deadlines du jour que le cron
+    # quotidien resoudra dans sa fenetre normale. Vrai stuck = target d'hier ou avant
+    # ET pas resolu par le cron qui aurait du tourner.
     stuck = conn.execute(
-        "SELECT COUNT(*) AS n FROM predictions WHERE target_date <= datetime('now') AND resolved_at IS NULL"
+        "SELECT COUNT(*) AS n FROM predictions WHERE date(target_date) < date('now') AND resolved_at IS NULL"
     ).fetchone()["n"]
     projected_28d = conn.execute(
         "SELECT COUNT(*) AS n FROM predictions WHERE resolved_at IS NULL AND target_date <= datetime('now', '+28 days')"
