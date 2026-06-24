@@ -29,7 +29,11 @@ concepts:
   pnl_position:
     description: "P&L position % EUR ((value_now - cost_basis) / cost_basis) -- la divergence gauge dot-vs-tooltip"
     asof_bucket: day
-    epsilon_rel: 0.05  # 5% — meme raisonnement que value_eur. Derive direct, FX jitter propage.
+    epsilon_rel: 0.05  # 5% relatif — couvre les positions au PnL substantiel (gain/loss > 5%).
+    epsilon_abs: 1.0   # 1pp absolu — guard contre amplification near-zero (cure 25/06).
+    # Fork SI rel>5% ET abs>1pp simultanement. Cas CCJ : -0.76% vs -0.89% =
+    # 17% relatif (explose car v_ref petit) mais 0.13pp absolu (< 1pp) -> NO FORK.
+    # Vraie divergence = ecart de plus de 1pp en PnL : "ton PnL est-il 5% ou 6.5%?".
 
   price_eur:
     description: "Prix EUR live d'un ticker -- comparaison position_view.price_native*fx vs _cached_price_eur"

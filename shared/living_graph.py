@@ -141,28 +141,45 @@ def detect_forks(asof_bucket: str | None = None) -> list[dict[str, Any]]:
                     {"value": float(r["value"]), "source": r["source"], "op": r["op"]}
                     for r in candidates_rows
                 ]
-                # Compute max divergence relative
+                # Compute max divergence relative + absolute
                 values = [c["value"] for c in candidates]
                 if not values:
                     continue
                 v_ref = values[0]
+                max_div_abs = max(abs(v - v_ref) for v in values)
                 if v_ref == 0:
                     # Edge case : on compare |a-b| absolu si ref=0
-                    max_div = max(abs(v - v_ref) for v in values)
-                    max_div_rel = max_div  # absolute as rel proxy
+                    max_div_rel = max_div_abs  # absolute as rel proxy
                 else:
                     max_div_rel = max(abs(v - v_ref) / abs(v_ref) for v in values)
 
-                # Tolérance ε du concept (default 0.001 si concept inconnu — fail strict)
+                # Tolérance du concept :
+                #   - epsilon_rel = seuil relatif (default 0.001 = 0.1%)
+                #   - epsilon_abs = seuil absolu OPTIONNEL (cure 25/06 :
+                #     pour metriques pourcentage near-zero ou PnL points,
+                #     le relatif explose. Utiliser absolu = points absolus.)
+                # Logique : fork SI relative > eps_rel ET absolute > eps_abs
+                # (les deux dois etre depasses ; eps_abs=0 == ignored)
                 cfg = registry.get(concept_key, {})
-                eps = float(cfg.get("epsilon_rel", 0.001))
-                if max_div_rel > eps:
+                eps_rel = float(cfg.get("epsilon_rel", 0.001))
+                eps_abs = float(cfg.get("epsilon_abs", 0.0))
+                rel_breached = max_div_rel > eps_rel
+                abs_breached = (eps_abs > 0 and max_div_abs > eps_abs)
+                # Si eps_abs defini : fork = (rel AND abs) — guard contre amplification near-zero
+                # Si eps_abs == 0 : fork = rel seul (comportement legacy)
+                if eps_abs > 0:
+                    is_fork = rel_breached and abs_breached
+                else:
+                    is_fork = rel_breached
+                if is_fork:
                     forks.append({
                         "concept_key": concept_key,
                         "ticker": ticker if ticker else None,
                         "bucket": bucket,
                         "max_div_rel": max_div_rel,
-                        "epsilon_rel": eps,
+                        "max_div_abs": max_div_abs,
+                        "epsilon_rel": eps_rel,
+                        "epsilon_abs": eps_abs,
                         "candidates": candidates,
                     })
     except Exception as e:
