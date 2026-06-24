@@ -528,6 +528,7 @@ SECTOR_COLORS = {
     "Defense": "#475569",               # slate-600 -- defense neutre
     "Energy & raw materials": "#22C55E",   # green-500 -- energie
     "Auto / robotics": "#06B6D4",       # cyan-500 -- robotics
+    "Aerospace": "#7C3AED",             # violet-600 -- space (SPCX/SpaceX)
 }
 # TICKER_SECTOR + SECTOR_ALIAS déplacés vers shared/sector_taxonomy.py
 # (cure P2 audit (3) reste whitelist 12/06). Ré-export pour rétro-compat.
@@ -7740,10 +7741,23 @@ def render() -> Path:
     pf_val_str = f"{pf_value:,.0f}"
     _pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")  # D5 retire Vigie, conserve compute (re-use eventuelle)
     _ = f"{abs(pf_pnl_eur):,.0f}"  # legacy pf_pe
+    # Threshold 5% (was 10%) + filtre is-losing : aligned avec position card
+    # AT STOP chip (cf fix 7447fec 23/06). 10% catchait fresh BUYs market-noise
+    # (GEV+HDS le 23/06 = -8% et -9% du stop alors que nouvelles positions normales),
+    # 5% = vraiment proche stop. Plus losing-filter : winners avec stop trail
+    # remonte = securisation gains, pas alerte. pnl-frame = (current/entry-1)
+    # car asym rows ont current_price + entry directement, pas pnl_pct precompute.
+    def _is_losing_row(r):
+        cur, ent = r.get("current_price"), r.get("entry")
+        if not cur or not ent or ent == 0:
+            return False
+        return (cur / ent - 1) < 0
     near_stop_tk = [
         r["ticker"]
         for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
-        if r.get("downside_pct") is not None and r["downside_pct"] < 10
+        if (r.get("downside_pct") is not None
+            and r["downside_pct"] < 5
+            and _is_losing_row(r))
     ]
     near_tgt_tk = [
         r["ticker"]
@@ -7797,7 +7811,11 @@ def render() -> Path:
         if not pr or not pr.get("has_band"):
             continue
         up, dn = view.upside_pct, view.downside_pct
-        if up is None or dn is None:
+        # F1 fix 2026-06-24 : gate sur up seul (pas dn). La gauge math utilise
+        # pr["stop_native"] / pr["full_native"] / pr["cur_native"], pas view.dn.
+        # Inclure structural avec stop trail au-dessus entry (TSM/SK Hynix/6920.T)
+        # — leur dn=None (anti-asymetrie) ne doit pas exclure du panneau Closest.
+        if up is None:
             continue
         st, tg, c = pr["stop_native"], pr["full_native"], pr["cur_native"]
         frac_raw = (c - st) / (tg - st) * 100
@@ -8376,7 +8394,7 @@ def render() -> Path:
     watch_zone_tk = [
         r["ticker"]
         for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
-        if r.get("downside_pct") is not None and 10 <= r["downside_pct"] < 20
+        if r.get("downside_pct") is not None and 5 <= r["downside_pct"] < 20
     ]
     # === Star Positions : posture portefeuille en 3 strates ===
     # Recompute sizing context (_sfac + size_txt) localement -- defini dans
@@ -8411,10 +8429,10 @@ def render() -> Path:
     n_stop, n_watch, n_tgt = len(near_stop_tk), len(watch_zone_tk), len(near_tgt_tk)
     if n_stop:
         _post_cls, _post_lbl = "bear", "ALERT"
-        _post_cap = f"{n_stop} position(s) at stop &lt; 10% &middot; check before session"
+        _post_cap = f"{n_stop} position(s) at stop &lt; 5% &middot; check before session"
     elif n_watch:
         _post_cls, _post_lbl = "warn", "WATCH"
-        _post_cap = f"{n_watch} position(s) in 10-20% from stop zone &middot; remaining margin"
+        _post_cap = f"{n_watch} position(s) in 5-20% from stop zone &middot; remaining margin"
     elif n_tgt:
         _post_cls, _post_lbl = "acc", "TAKE&nbsp;PROFIT"
         _post_cap = f"{n_tgt} position(s) near a level"
@@ -8439,8 +8457,8 @@ def render() -> Path:
     _tgt_caption = (", ".join(near_tgt_tk[:3]) + ("…" if len(near_tgt_tk) > 3 else "")) if near_tgt_tk else "none"
     star_strate_grid = (
         '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 10% from stop trigger. Critical margin: review thesis or trailing stop before session.">At stop &lt;10%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Intermediate alert zone 10-20% from stop. Watch, no immediate action.">Watch 10-20%</div><div class="ps-val {_star_watch_cls}">{n_watch}</div><div class="ps-cap">{_watch_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Losing positions less than 5% from stop trigger. Critical margin: review thesis or trailing stop before session.">At stop &lt;5%</div><div class="ps-val {_star_stop_cls}">{n_stop}</div><div class="ps-cap">{_stop_caption}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Intermediate alert zone 5-20% from stop. Watch, no immediate action.">Watch 5-20%</div><div class="ps-val {_star_watch_cls}">{n_watch}</div><div class="ps-cap">{_watch_caption}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 12% from target (target_full). Take-profit zone for winners with valo &gt; bull.">Near target</div><div class="ps-val {_star_tgt_cls}">{n_tgt}</div><div class="ps-cap">{_tgt_caption}</div></div>'
         + "</div>"
     )

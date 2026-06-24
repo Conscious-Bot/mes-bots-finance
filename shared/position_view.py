@@ -317,11 +317,20 @@ def compute_position(
         or thesis_dict.get("entry_price")
     )
     direction = thesis_dict.get("direction", "long")
-    # Pour structural : downside non-borne par prix -> ratio n/a (cf render.py:2295)
+    # F1 fix 2026-06-24 : structural = position long-terme conviction haute,
+    # mais SI stop user-set existe ET stop < entry (cas legitime), on calcule
+    # downside_pct quand meme pour permettre l'inclusion dans panneaux comme
+    # Closest/Beyond target qui filtrent sur (up, dn) not None.
+    # Garde None UNIQUEMENT pour cas pathologique stop >= entry (trailing stop
+    # remonte au-dessus entry pour securiser gains = anti-asymetrie).
+    # asym_ratio reste None pour structural (semantic distincte).
     if position_type == "structural":
         upside_pct = ((target_full / entry - 1) * 100.0) if (target_full and entry) else None
-        downside_pct = None  # structurel non-borne par prix
         asym_ratio = None
+        if entry is not None and stop is not None and direction == "long" and stop < entry:
+            downside_pct = (stop / entry - 1) * 100.0  # negatif (stop < entry)
+        else:
+            downside_pct = None
     else:
         upside_pct, downside_pct, asym_ratio = _compute_asym_ratio(
             entry, target_partial, target_full, stop, direction=direction
