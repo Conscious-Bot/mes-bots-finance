@@ -165,7 +165,7 @@ def check_kill_criteria_substance(conn) -> list[str]:
     return violations
 
 
-def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tolerance_high: float = 3.0) -> list[str]:
+def check_currency_native_consistency(conn, *, tolerance_low: float = 0.20, tolerance_high: float = 5.0) -> list[str]:
     """Cross-check prix-fields vs prix natif du ticker.
 
     Check tous les champs prix de la these (stop_price, target_price,
@@ -176,8 +176,13 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.30, tole
     a echappe : target_price stocke en EUR (234.82) au lieu de JPY
     (38745) parce que stop_price etait OK seul.
 
-    Tolerance haute relevee a 3.0 pour supporter targets > current_price
-    (target_partial peut etre +30%, target_full +60% par-dessus).
+    Update 25/06 : tolerance_high 3.0 -> 5.0, tolerance_low 0.30 -> 0.20.
+    Cause : long-shot targets legitimes (SPCX target $500 vs current $157
+    = 3.16x = c4 conviction 5+ thesis 3x+ multibagger). 3.0 trop strict.
+    Vraies devise mismatches restent detectees (typique 0.01-0.1 ou 10+
+    sur JPY/KRW vs EUR mix) bien hors [0.20, 5.0]. Compromis : on garde
+    signal pour les vraies erreurs structurelles mais on laisse passer
+    les thesis long-shot conviction-forte.
 
     Best-effort : si yfinance indispo, skip ce check pour ce ticker.
     """
