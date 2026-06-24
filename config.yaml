@@ -443,11 +443,14 @@ concentration:
   #   - Ancre : c5 = 6% (sommet bride vs 8% historique, sub-Kelly transitoire)
   #   - Les % absolus sont du second ordre ; la FORME (ratios) est l'invariant.
   line_cap_by_conviction:   # taille max par ligne = f(conviction); remplace style.position_max_pct
-    5: 0.060   # ancre courante
-    4: 0.048   # x0.80
-    3: 0.038   # x0.79
-    2: 0.030   # x0.79
-    1: 0.024   # x0.80
+    # Refonte 24/06/2026 : c5 devient SOCLE (monopole incontestable + fondamentaux
+    # accelerant -> GELE, hors decision de sizing, de-gelable uniquement par sentinelle
+    # structurelle). Caps remontes vs ancre sub-Kelly 6%. Nouvelle ancre c5 = 8%.
+    5: 0.080   # SOCLE — ASML.AS, TSM uniquement
+    4: 0.060   # durable mais cyclique / risque integration
+    3: 0.045   # moat contestable / sous surveillance
+    2: 0.030   # satellite conviction moyenne
+    1: 0.020   # sonde / belief-sleeve
   clusters:
     # semis_ai = correles sur le capex AI / cycle semi (foundry, litho, EDA, memoire,
     # equipement, materiaux, connectivite). Hyperscalers (AMZN/GOOGL) et power-for-AI

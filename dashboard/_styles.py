@@ -44,6 +44,9 @@ _TH_CSS = """
      doit crier sa sémantique. */
   /* Feu tricolore SPEC_GAUGE : couleurs sémantiques via tokens (audit P1 19/06). */
   .tbar-tick.stop    { background:var(--bear); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px color-mix(in srgb,var(--bear) 55%,transparent); }
+  /* Option B 24/06 : trailing-up stop (au-dessus de l'entry, profit-lock pas alerte).
+     Warn ambre vs bear rouge stop standard = securisation gains. */
+  .tbar-tick.stop.trail { background:var(--warn); opacity:.85; box-shadow:0 0 4px color-mix(in srgb,var(--warn) 45%,transparent); }
   .tbar-tick.entry   { background:var(--steel); opacity:.75; height:11px; top:-3px; width:1.5px; }
   .tbar-tick.partial { background:var(--warn); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px color-mix(in srgb,var(--warn) 55%,transparent); }
   .tbar-tick.target  { background:var(--acc); opacity:1; height:14px; top:-4.5px; width:3px; border-radius:var(--r0); box-shadow:0 0 4px color-mix(in srgb,var(--acc) 55%,transparent); }
@@ -92,6 +95,9 @@ _TH_CSS = """
   .th-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
   .th-conv { font-family:var(--fm); font-weight:600; font-size:var(--t-data); letter-spacing:.04em; padding:2px 7px; border-radius:var(--r1); }
   .th-conv.c5 { color:var(--bg); background:var(--ink); }
+  /* SOCLE 24/06 : c5 + position_type=structural = monopole gele, surface differenciee
+     pour signaler "hors decision de sizing, de-gelable uniquement par sentinelle". */
+  .th-conv.c5.socle { background:linear-gradient(135deg,var(--ink) 0%,#4a2c1a 100%); letter-spacing:.06em; padding:2px 9px; }
   .th-conv.c4 { color:var(--bg); background:var(--acc); }
   .th-conv.c3 { color:var(--bg); background:var(--warn); }
   .th-conv.c2 { color:var(--steel); border:1px solid var(--line2); }

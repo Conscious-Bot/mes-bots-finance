@@ -66,6 +66,39 @@ _CFG = _cfg()
 from shared.sizing_caps import absolute_max_cap as _absolute_max_cap
 
 POS_CAP = _absolute_max_cap() * 100
+
+# ─── Conviction grid refonte 24/06/2026 (cf brief Olivier) ───
+# c5 = SOCLE : monopole incontestable + fondamentaux qui accelerent.
+#   GELE, hors decision de sizing, de-gelable UNIQUEMENT par sentinelle structurelle.
+#   Mecanise via theses.position_type='structural' (ASML.AS + TSM uniquement).
+# c4 = durable mais cyclique / regulier / risque integration.
+# c3 = moat contestable / sous surveillance.
+# c2 = satellite conviction moyenne.
+# c1 = sonde / belief-sleeve.
+# Caps lus depuis config.yaml concentration.line_cap_by_conviction (single source).
+# Single-source mapping ticker->conviction = theses.conviction (DB), pas hardcode ici.
+# Re-grading post-cohorte = UPDATE theses, pas patch code.
+CONVICTION_LABELS = {
+    5: "SOCLE",
+    4: "",
+    3: "",
+    2: "",
+    1: "",
+}
+
+
+def conviction_chip(conviction: int | None, position_type: str | None = None) -> str:
+    """Return chip HTML for a thesis conviction tier.
+    SOCLE only when conviction=5 AND position_type=structural (frozen, de-gelable
+    par sentinelle structurelle uniquement).
+    """
+    if not conviction:
+        return '<span class="conv-chip">c?</span>'
+    label = CONVICTION_LABELS.get(int(conviction), "")
+    is_socle = (int(conviction) == 5 and position_type == "structural")
+    if is_socle and label:
+        return f'<span class="conv-chip socle">c{conviction}&nbsp;{label}</span>'
+    return f'<span class="conv-chip">c{conviction}</span>'
 NARRATIVE_CAP = float(_CFG.get("style", {}).get("narrative_max_pct", 0.30)) * 100
 DD_REDUCE = float(_CFG.get("risk", {}).get("drawdown_reduce_pct", 0.08)) * 100
 DD_STOP = float(_CFG.get("risk", {}).get("drawdown_stop_pct", 0.20)) * 100
@@ -3012,7 +3045,7 @@ def _position_card(inputs, steer_v2) -> str:
         + '<div class="pc-head">'
         f'<span class="pc-tk mono">{ticker}</span>'
         f'{verdict_v2_html}'
-        f'<span class="pc-conv">c{conv} {direction}</span>'
+        f'<span class="pc-conv">c{conv}{(" " + CONVICTION_LABELS.get(int(conv), "")) if (isinstance(conv, int) and conv == 5 and ptype == "structural" and CONVICTION_LABELS.get(int(conv))) else ""} {direction}</span>'
         f'{drift_html}'
         f'{type_chip}'
         f'{tags_html}'
@@ -6103,7 +6136,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     # _CP_CLS_TH mort -- remplace par _cycle_chip_cls_via_vocab (#117 vocabulary)
     rows = _q(
         "SELECT ticker, conviction, direction, entry_price, stop_price, target_full, "
-        "target_partial, last_price FROM theses WHERE status='active' "
+        "target_partial, last_price, position_type FROM theses WHERE status='active' "
         "ORDER BY conviction DESC, ticker"
     )
     if not rows:
@@ -6118,6 +6151,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     n_missing = n_near_tgt = n_near = n_profit = 0
     for r in rows:
         tk, conv, direction, entry, stop, tgt, tpart, last = r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7]
+        ptype = r[8] or "priced"
         conv = int(conv or 0)
         if conv in dist:
             dist[conv] += 1
@@ -6168,6 +6202,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             {
                 "tk": tk,
                 "conv": conv,
+                "ptype": ptype,
                 "dir": (direction or "long"),
                 "nm": names.get(tk, tk),
                 "d_stop": d_stop,
@@ -6359,7 +6394,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
                 )
             groups += (
                 f'<div class="th-row" data-tk="{t["tk"]}">'
-                f'<div class="th-id"><span class="th-conv c{t["conv"]}">c{t["conv"]}</span>'
+                f'<div class="th-id"><span class="th-conv c{t["conv"]}{" socle" if (t["conv"] == 5 and t.get("ptype") == "structural") else ""}">c{t["conv"]}{("&nbsp;" + CONVICTION_LABELS[5]) if (t["conv"] == 5 and t.get("ptype") == "structural") else ""}</span>'
                 f'<span class="th-tk">{t["nm"]}</span>{cat_html}{_cp_chip_th}{_tw_chips_th}</div>'
                 f'<div class="th-w">{wtxt}</div><div class="th-szcol">{sizebar}{adj}</div>{bar}{anchor}</div>'
             )
