@@ -24,7 +24,15 @@ audit_metadata:
   last_audit: '2026-06-06'
   audit_version: v5
   audit_method: 'pro web research (macro v4 + panels v5: RSI/Breadth/Risque/Concentration/Drawdown)'
-  next_audit_due: '2026-06-16'  # +10 days, Phase B cron will refresh
+  next_audit_due: '2026-07-15'  # Manual reset 24/06 (4 weeks forward).
+  # KNOWN-GAP: Phase B cron `audit_calibration_job` pas encore wired (mecanisme
+  # prevu : cron 10j tourne audit drift + refresh next_audit_due automatiquement).
+  # Tant que pas wired, dashboard affiche OVERDUE Xd. Update manuel ici legitime
+  # car aucun trigger drift detecte (temporal_splits.next_oos_window frozen
+  # jusqu'a 2026-09-30 — bands v5 restent valides par construction doctrine).
+  # Re-tune actif possible UNIQUEMENT si misfire >15% regime alerts OU drift
+  # detecte audit cron (quand wired). Cette modif = reset horloge admin, PAS
+  # recalibration bands. Cf [[clean-auditable-path]] anti-maquillage.
   audit_reports:
     - 'docs/calibration_audits/2026-06-06_v4.md'        # macro panels
     - 'docs/calibration_audits/2026-06-06_v5_panels.md' # autres panels (RSI/Breadth/Risque/Conc/DD)

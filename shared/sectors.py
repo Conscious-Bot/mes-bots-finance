@@ -96,11 +96,21 @@ def book_composition_by_sector(positions: list[dict]) -> dict[str, dict]:
     by_sector: dict[str, dict] = {}
     for pos in positions:
         tk = pos.get("ticker")
-        qty = float(pos.get("qty") or 0)
-        avg = float(pos.get("avg_cost") or 0)
-        if qty <= 0 or avg <= 0:
-            continue
-        exposure = qty * avg
+        # Refonte 24/06 (cure coherence cluster%) : prefere weight (market value
+        # EUR canonique cure #120) sur qty*avg_cost (cost basis). Le panneau macro
+        # impact disait 57% (cost basis) vs cluster_cap grade 62.3% (market).
+        # Sur winners +50-100% PnL, market value gonfle 5pp vs cost. Single-source
+        # via weight = panneaux concordants. Fallback qty*avg pour callers legacy
+        # (trade_context.py simulate post-trade qui ne passe pas weight).
+        weight = pos.get("weight")
+        if weight is not None and weight > 0:
+            exposure = float(weight)
+        else:
+            qty = float(pos.get("qty") or 0)
+            avg = float(pos.get("avg_cost") or 0)
+            if qty <= 0 or avg <= 0:
+                continue
+            exposure = qty * avg
         sid = ticker_to_sector.get(tk, "uncat")
         sdef = sectors.get(sid, {})
         bucket = by_sector.setdefault(sid, {
