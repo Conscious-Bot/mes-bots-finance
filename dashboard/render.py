@@ -350,17 +350,35 @@ def _gauge_prices_native(bl: object | None) -> dict | None:
 
 
 def _position_axis_price(prices: dict | None, *, extra_class: str = "") -> str:
-    """Gauge axe-PRIX NATIF pur (canon SPEC_GAUGE §2.2). UN renderer.
+    """Gauge axe-PRIX NATIF — Option B (entry-centred, redesign 2026-06-24).
 
-    Bande [stop_native, full_native] -> [10%, 90%] lineaire. Hors-bande :
-    overflow rationnel borne (pas de clamp, pas de log) + chevron. cost =
-    caret SOUS la ligne (stale si > full). € UNIQUEMENT dans le title, natif
-    sur l'axe (separation §0-3). Fail-closed si pas de bande.
+    Convention canonique : ENTRY au CENTRE (50%), STOP a gauche, TARGET a droite.
+    Permet de lire la position du dot relativement au PRU sans ecraser les
+    winners dans le quart gauche (ce que faisait le scale [stop->target] legacy).
+
+    Math :
+      - Cas standard (stop < entry) : map [stop, entry] -> [0%, 50%]
+        + [entry, full] -> [50%, 100%].
+      - Cas trailing-up (stop >= entry, ex: KLAC post-split, ALAB trail) :
+        map [0, entry] -> [0%, 50%] (compression pre-history) + [entry, full]
+        -> [50%, 100%]. Le stop apparait dans la zone upside avec tick special.
+      - Overflow droite (cur > full) : clamp dot 100% + chevron + chip "+X%".
+      - Petite bande (stop tres proche entry) : pas de min-band, sensibilite
+        visuelle acceptee (refl ete realite prix).
+
+    Classes CSS preservees pour compat back :
+      - tbar sig-pricenat (container)
+      - tbar-cost-caret / .stale (caret entry/cost)
+      - tbar-dot / .acc / .bear (dot current)
+      - tbar-tick stop / partial / target (ticks)
+      - tbar-tick entry (NEW : tick central entry pivot)
+      - tbar-chevron-left / -right (overflow)
+      - tbar-trail-badge (NEW : badge texte trailing-up)
     """
     if not prices:
         return ""
     cur_n = prices["cur_native"]
-    cost_n = prices["cost_native"]
+    cost_n = prices["cost_native"]  # entry/PRU native
     stop_n = prices["stop_native"]
     full_n = prices["full_native"]
     partial_n = prices["partial_native"]
@@ -372,43 +390,64 @@ def _position_axis_price(prices: dict | None, *, extra_class: str = "") -> str:
     if not prices["has_band"]:
         miss = "stop" if stop_n is None else "target"
         body = (
-            '<div class="tbar-cost-caret" style="left:38.0%" title="cost"></div>'
-            '<div class="tbar-dot" style="left:62.0%"></div>'
+            '<div class="tbar-cost-caret" style="left:50.0%" title="cost"></div>'
+            '<div class="tbar-dot" style="left:50.0%"></div>'
             '<div class="tbar-hover-tip"></div>'
         )
         return f'<div class="{cls} degraded" title="{title} · {miss} non défini">{body}</div>'
-    span = full_n - stop_n
 
-    def to_v(p: float | None) -> float | None:
+    entry = cost_n
+    trailing_up = stop_n >= entry
+    EPS = 1e-9
+    span_up = max(full_n - entry, EPS)
+
+    def to_x(p: float | None) -> float | None:
         if p is None:
             return None
-        frac = (p - stop_n) / span
-        if frac < 0.0:
-            return 10.0 / (1.0 + (-frac))
-        if frac > 1.0:
-            return 90.0 + 10.0 * (1.0 - 1.0 / (1.0 + (frac - 1.0)))
-        return 10.0 + frac * 80.0
+        if trailing_up:
+            if p <= entry:
+                return 50.0 * p / max(entry, EPS)
+            return 50.0 + 50.0 * (p - entry) / span_up
+        # standard : stop < entry
+        span_dn = max(entry - stop_n, EPS)
+        if p <= entry:
+            return 50.0 * (p - stop_n) / span_dn
+        return 50.0 + 50.0 * (p - entry) / span_up
 
-    partial_v = to_v(partial_n)
-    cost_v = to_v(cost_n)
-    dot_v = to_v(cur_n)
-    dot_color = "bear" if cur_n <= stop_n else ("acc" if cur_n >= full_n else "")
-    caret_cls = "tbar-cost-caret stale" if cost_n > full_n else "tbar-cost-caret"
+    stop_x = to_x(stop_n)
+    entry_x = 50.0
+    partial_x = to_x(partial_n)
+    target_x = to_x(full_n)
+    dot_x_raw = to_x(cur_n)
+    dot_x = max(0.0, min(100.0, dot_x_raw or 50.0))
+    dot_color = "bear" if cur_n <= stop_n and not trailing_up else ("acc" if cur_n >= full_n else "")
+    caret_cls = "tbar-cost-caret stale" if cur_n > full_n else "tbar-cost-caret"
     da = (
         f' data-axmin="{stop_n:.4f}" data-axmax="{full_n:.4f}"'
-        f' data-currency="{prices["currency"]}" data-axis-mode="price-native"'
+        f' data-axentry="{entry:.4f}"'
+        f' data-currency="{prices["currency"]}" data-axis-mode="price-native-entry-centred"'
     )
     body = [f'<div class="{cls}"{da} title="{title}">']
-    if cost_n < stop_n or cur_n < stop_n:
+    # Chevrons overflow
+    if dot_x_raw is not None and dot_x_raw < 0:
         body.append('<div class="tbar-chevron-left">‹</div>')
-    if cost_n > full_n or cur_n > full_n:
+    if dot_x_raw is not None and dot_x_raw > 100:
         body.append('<div class="tbar-chevron-right">›</div>')
-    body.append('<div class="tbar-tick stop" style="left:10.0%" title="stop"></div>')
-    if partial_v is not None:
-        body.append(f'<div class="tbar-tick partial" style="left:{partial_v:.1f}%" title="partial"></div>')
-    body.append('<div class="tbar-tick target" style="left:90.0%" title="target full"></div>')
-    body.append(f'<div class="{caret_cls}" style="left:{cost_v:.1f}%" title="cost"></div>')
-    body.append(f'<div class="{("tbar-dot " + dot_color).strip()}" style="left:{dot_v:.1f}%"></div>')
+    # Ticks : stop, entry (pivot central), partial, target
+    if stop_x is not None and 0 <= stop_x <= 100:
+        stop_tick_cls = "tbar-tick stop trail" if trailing_up else "tbar-tick stop"
+        tt = "trailing stop (locked above entry)" if trailing_up else "stop"
+        body.append(f'<div class="{stop_tick_cls}" style="left:{stop_x:.1f}%" title="{tt}"></div>')
+    body.append(f'<div class="tbar-tick entry" style="left:{entry_x:.1f}%" title="entry (PRU)"></div>')
+    if partial_x is not None and 0 <= partial_x <= 100:
+        body.append(f'<div class="tbar-tick partial" style="left:{partial_x:.1f}%" title="partial"></div>')
+    if target_x is not None:
+        body.append(f'<div class="tbar-tick target" style="left:{min(100.0, target_x):.1f}%" title="target full"></div>')
+    # Caret cost = entry pivot (redondant avec tick entry, conserve pour back-compat
+    # CSS si certains panneaux stylisent le caret diff)
+    body.append(f'<div class="{caret_cls}" style="left:{entry_x:.1f}%" title="cost"></div>')
+    # Dot current
+    body.append(f'<div class="{("tbar-dot " + dot_color).strip()}" style="left:{dot_x:.1f}%"></div>')
     body.append('<div class="tbar-hover-tip"></div>')
     body.append("</div>")
     return "".join(body)
