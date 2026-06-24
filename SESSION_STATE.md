@@ -4049,3 +4049,51 @@ Notes secondaires non-actionées (laissés au backlog) :
 - **Setup user keys** (~15 min user action) : `docs/USER_KEYS_SETUP.md` — 5 signups + .env update Mac+VM + restart Claude pour MCP openinsider.
 - **Pytest full suite** : verify result `/tmp/pytest_close_23juin.out`. Si fail, fix avant next session.
 - **Memory candidates** : 3 doctrines émergentes ci-dessus (sync direction, trim history awareness, SPEC immutability protection).
+
+
+## Close 2026-06-24 — Session instrument-honnêteté : audit panneaux + 4 KPI fixes + grid SOCLE refonte
+
+**6 commits livrés** (séquence narrative — découverte → fix structurel → discipline doctrinale) :
+- `2a27e25` **fix(dashboard) audit findings F1+F2+F3** — Closest-to-target inclusion structural (5 positions ASML/TSM/SK Hynix/SNPS/6920.T réintégrées via fix position_view.py:321-333 stop<entry compute downside) + label/code alignment 10%→5% + 3 sectors manquants (6324.T/GEV/SPCX).
+- `378c24f` **feat(gauge) Option B entry-centred** — Bug visuel KLAC dot 25% (faussement "near stop") → 71% (clairement winner secured). Math entry au centre 50%, stop gauche, target droite. Modes standard (stop<entry) + trailing-up (stop≥entry trailing locked, warn ambre vs bear rouge). Distribution book 15 trailing + 13 standard. Playwright validation 7 tickers.
+- `659480a` **fix(kpi4) panic detector signature factuelle** — Doctrine pivot session : détecteurs de biais s'appuient sur faits DB (status/prix/triggers), JAMAIS sur mots-clés reasoning. Naïve keyword-filter écarté (backdoor pour biais #1 lock_in). Faits : full/partial_exit AND (price<entry OR triggered_stop_at<=created_at) AND status≠concluded. SNOW faux positif exclu via faits, test négatif PASS (decision fictive avec "redéploiement" toujours flagged).
+- `5d23b18` **fix(kpi2) stuck label strict calendaire** — Condition `target_date <= datetime('now')` matchait les déadlines du JOUR comme retards. Fix `date(target_date) < date('now')`. 5 false positives (NVDA/AVGO/TSM/MU/AMD bearish 2026-06-24) → 0.
+- `26f4a55` **feat(kpi5) journalisation 3-fields structure** — Hook auto-tag confirmé fonctionnel (test live tag 4 biases sur 262 chars). Vrai RED de discipline. Solution structurelle non-contournable : 3 champs obligatoires `/position_buy TICKER QTY PRICE | thèse | invalidation | conviction(1-5)`. Échappatoire honnête `_quick` tagged [QUICK_UNJOURNALED]. KPI #5 forward-only (compteur=0 jusqu'à nouvelle discipline).
+- `98e04fd` **feat(grid) conviction refonte 24/06 SOCLE** — c5 devient SOCLE (monopole + fondamentaux accélèrent, GELÉ, dégelable uniquement par sentinelle structurelle). ASML.AS + TSM seuls c5/structural. Caps 8/6/4.5/3/2. 28 thèses correctement redistribuées. Mapping single-source DB. CSS gradient or-bordeau pour SOCLE chip. Sync VM single-source.
+
+**Audit-trail dashboard livré** (`docs/audit_panneaux_dashboard_2026-06-24.md`) : 45 panneaux × 9 pages, 7 findings classés par sévérité (aucun HIGH). Source de vérité = `transactions` append-only ledger. Single-source enforcement cure #120 confirmé (Σ p["weight"] ≡ Σ view.value_eur ≡ Σ qty×price×fx au centime près sur 57,358 €).
+
+**Doctrines durables ajoutées en mémoire** :
+- `[[bias-detectors-factual-not-keyword]]` : détecteurs sur faits DB jamais keywords (backdoor)
+- `[[recal-let-system-work]]` : ne pas court-circuiter recal mensuel par dépondérations DB (WSR/Meilleurtaux laissés au cron 1er du mois)
+- `[[journalisation-three-fields]]` : structure thèse/invalidation/conviction obligatoire, mode _quick échappatoire honnête, friction = anti-biais feature
+- `[[bigdata-out-of-loop-2026-06-24]]` : subscription terminée, MCP plus invoqué, historique préservé
+- `[[conviction-grid-refonte-2026-06-24]]` : grid SOCLE actée + sentinelles S2/S6/S7/S4/S5 + bloc électrification
+
+**État système 24/06 end-of-session** :
+- 28 thèses actives (2 c5 SOCLE structural + 8 c4 priced + 16 c3 priced + 2 c2 priced)
+- 28 positions held (qty>0)
+- 201 transactions append-only
+- pf_value = 57,358 € (Book value cohérent 3 sources)
+- pf_cost = 45,104 € (PMP rolling)
+- PnL +12,254 € (+27.2% on cost)
+- Bot.main running VM (pid OK)
+- DB integrity_check ok
+- SPECs : 11/11 footers OK, 0 drift, 3 orphelins acceptables
+- 0 KNOWN-GAP / 0 TODO markers en code (codebase propre)
+- 5/5 gates verts (ruff/import/regen/pytest 13/13/smoke)
+
+**KPIs dashboard post-session** :
+- KPI #2 NON-NEG : passé strict (target<today)
+- KPI #4 panic : 1 flagged (VRT cas-limite documenté, à juger humainement)
+- KPI #5 journalisation : 0/76 (forward-only, montera avec nouvelle discipline 3-champs)
+- KPI #1/#3/#6 inchangés
+
+**Entry next session** :
+- Utiliser `/position_buy TICKER QTY PRICE | thèse | invalidation | conv` à partir du prochain trade — voir si KPI #5 monte
+- WSR + Meilleurtaux : dépondérés cognitivement, recal mensuel 1er du mois va les ajuster automatiquement
+- Sentinelles structurelles : surveiller S2 (CXMT HBM) + S7 (EDA souverain CN Empyrean) + S4/S5 (lead-times Schneider + GE Vernova book-to-bill)
+- ZÉRO nouvelle thèse jusqu'à ce que N grossisse (152 prédictions due 28j — pulser via résolutions automatiques)
+- Le bot tourne, le système est construit, laisser le temps faire le travail
+
+**Backup DB** : `data/bot.db.backup_close_20260624_*` (Mac + VM)

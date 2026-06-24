@@ -1,7 +1,7 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 23 juin 2026 close session ÉPIQUE 10 commits, 4 axes massifs. (1) L12 lock_in cure structurelle `7c4b5d3` — rename sold_price_native→sold_price_eur partout, caller fix, 14 call sites, 1 nouveau test border case, audit rétroactif 0 candidate flip. (2) KLAC split 10:1 cure post-hoc `ade7ddb` — script SQL Mac+VM, triggers NULL + ÷10 schemas. (3) ADR014 sweep doctrinal `a01ea2d` — 10 sites patchés + 11 exempt via lens_doctrine intentional_re étendu, L7 marker, **0 doctrine violations**. (4) Sync architecture + data-loss recovery `a9e496b` + memory single-source-VM — launchd VM→Mac hourly, 11 tx restored, 21 sweep #135 thèses sur VM. Plus : user keys checklist, KNOWN-GAP 0 phantom confirmed, gitignore skeleton calibration, dashboard regen.
-**Mode** : **FOUNDATION FIRST. AUDITABLE PAR ADVERSAIRE.** Single source of truth = VM acted 23/06.
+**Refresh** : 24 juin 2026 close session instrument-honnêteté 6 commits. Audit dashboard 45 panneaux × 9 pages (7 findings classés, aucun HIGH). 4 KPI fixes : KPI #4 panic signature factuelle non-contournable + KPI #2 stuck strict calendaire + KPI #5 journalisation 3-fields structure (anti-keyword backdoor) + audit findings F1/F2/F3 (closest-to-target inclusion structural + label/code alignment + 3 sectors missing). Gauge Option B entry-centred (bug visuel KLAC 25%→71%). Grid conviction refonte : c5 = SOCLE (ASML.AS + TSM monopole gelé), caps 8/6/4.5/3/2, 28 thèses redistribuées. 4 doctrines durables ajoutées en mémoire.
+**Mode** : **INSTRUMENT HONNÊTE. STRUCTURE PAS LONGUEUR. FAITS PAS KEYWORDS.** Forward-only, le bot tourne, on laisse le temps faire.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
