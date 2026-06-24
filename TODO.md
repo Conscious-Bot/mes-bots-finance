@@ -6,6 +6,32 @@
 
 ---
 
+## 🟢 ÉTAT SYSTÈME (24/06 close instrument-honnêteté + SOCLE refonte)
+
+- **main HEAD `0b0ae81`** (7 commits today : 6 substantiels + close ; alembic head inchangé 0062).
+- **DB integrity_check ok** Mac + VM. Sync VM→Mac launchd hourly opérationnel (last sync 04:45Z).
+- **28 thèses actives** réparties grid SOCLE 24/06 : 2 c5 SOCLE structural (ASML.AS+TSM) / 8 c4 priced / 16 c3 priced / 2 c2 priced. **28 positions held** (qty>0). **201 transactions** append-only.
+- **Book value 57 358 €** (pf_value), **cost basis 45 104 €** (pf_cost via PMP rolling), **PnL +12 254 € (+27.2% on cost)**. Trois sources canoniques cohérentes au centime.
+- **Bot.main running VM** (pid OK, vérif SSH). Mac = read-only view single-source-VM (memory 23/06 doctrine).
+- **5/5 gates verts** : ruff / import / regen / pytest 13/13 critical (8m06s) / smoke Playwright SOCLE rendering confirmé.
+- **SPECs canonical drift** : 11/11 footers OK, 0 drift, 3 orphelins acceptables. 0 KNOWN-GAP / 0 TODO markers en code (codebase propre).
+- **KPIs dashboard post-fix** : #2 stuck strict calendaire (5→0 false positives) · #4 panic factuel non-contournable (1 flagged = VRT cas-limite) · #5 forward-only 0/76 (compteur monte à mesure de la nouvelle discipline 3-champs).
+- **Backups** : `data/bot.db.backup_close_20260624_145504` Mac (102 MB) + VM (100 MB) + `config.yaml.backup_close_20260624_145504` (16 KB).
+- **🟡 Dette doctrinale connue** : 57 mypy errors pré-existants dashboard/render.py (count identique avant/après mes patches, 0 nouveau). À ne pas attaquer maintenant — focus accumulation N résolutions 28j.
+- **🔴 Bug add_sell `positions_meta.status='closed'` (héritage 23/06)** : pas encore fixé, reste KNOWN à fixer en code (UPDATE post-commit + test close-on-zero pattern).
+
+## ✅ DÉJÀ FAIT (24/06)
+
+- **Audit dashboard 45 panneaux × 9 pages** (`docs/audit_panneaux_dashboard_2026-06-24.md`) — 7 findings classés par sévérité, aucun HIGH, source de vérité = transactions ledger confirmée.
+- **F1+F2+F3 fixes** (`2a27e25`) — Closest-to-target inclusion structural / label-code alignment 10%→5% / 3 sectors mappings (6324.T/GEV/SPCX).
+- **Gauge Option B** (`378c24f`) — Entry centré 50%, KLAC dot 25%→71% (winner secured visuel), modes standard + trailing-up, validation Playwright 7 tickers.
+- **KPI #4 panic factuel** (`659480a`) — Signature DB non-contournable, test négatif PASS avec mot-clé "redéploiement" toujours flagged. Doctrine [[bias-detectors-factual-not-keyword]].
+- **KPI #2 stuck strict calendaire** (`5d23b18`) — `date(target_date) < date('now')`. 5 false positives (NVDA/AVGO/TSM/MU/AMD bearish 2026-06-24) → 0.
+- **KPI #5 journalisation 3-fields** (`26f4a55`) — Structure thèse/invalidation/conviction obligatoire `/position_buy TICKER QTY PRICE | T | I | C`. Quick escape hatch tagged unjournaled. Hook auto-tag confirmé fonctionnel via test live. Doctrine [[journalisation-three-fields]].
+- **Grid conviction refonte SOCLE** (`98e04fd`) — c5 = SOCLE (ASML+TSM monopole gelé), caps 8/6/4.5/3/2, 28 thèses redistribuées DB single-source VM (12 conviction + 3 position_type updates), CSS gradient or-bordeau SOCLE chip, doctrine [[conviction-grid-refonte-2026-06-24]].
+- **Bigdata out of loop** (`bigdata-out-of-loop-2026-06-24` doctrine) — Subscription terminée, MCP plus invoqué, fallback WebSearch/Stub déjà gracieux côté code (vérifié .env sans BIGDATA_API_KEY).
+- **Session close ritual L6** (`0b0ae81`) — SESSION_STATE + TODO + DB backups Mac+VM + config backup.
+
 ## 🟢 ÉTAT SYSTÈME (23/06 close session épique)
 
 - **main HEAD `39ab499`** (10 commits today, alembic head 0062).
