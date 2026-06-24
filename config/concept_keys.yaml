@@ -24,17 +24,17 @@ concepts:
   value_eur:
     description: "Valeur position EUR (qty x price x fx) -- canonique book.value_eur()"
     asof_bucket: day
-    epsilon_rel: 0.005  # 0.5% — tolère micro-jitter FX/price intra-jour entre producteurs
+    epsilon_rel: 0.05  # 5% — raise 24/06 : FX intraday JPY/KRW peut bouger 1-3% entre 2 paths (book.value_eur live fx vs cached_x_qty cron 15min). 5% catche encore divergences structurelles (10%+ = vrai bug).
 
   pnl_position:
     description: "P&L position % EUR ((value_now - cost_basis) / cost_basis) -- la divergence gauge dot-vs-tooltip"
     asof_bucket: day
-    epsilon_rel: 0.005  # 0.5% — même tolérance que value_eur (dérivé direct)
+    epsilon_rel: 0.05  # 5% — meme raisonnement que value_eur. Derive direct, FX jitter propage.
 
   price_eur:
     description: "Prix EUR live d'un ticker -- comparaison position_view.price_native*fx vs _cached_price_eur"
     asof_bucket: day
-    epsilon_rel: 0.005  # 0.5% — tolère jitter FX/price refresh entre cron (DB cache) et yfinance live (process cache)
+    epsilon_rel: 0.05  # 5% — jitter FX/price refresh entre cron 15min (DB cache) et yfinance live (process cache TTL 30min). JPY/KRW intraday courant.
 
   qty:
     description: "Quantité d'unités d'un ticker -- positions VIEW vs ledger raw SUM(BUY-SELL)"
@@ -54,7 +54,7 @@ concepts:
   current_eur:
     description: "Valeur EUR position courante -- _cached_price_eur*qty vs book.value_eur Datum"
     asof_bucket: day
-    epsilon_rel: 0.005  # 0.5% — meme tolerance que price_eur (derive direct via qty)
+    epsilon_rel: 0.05  # 5% — raise 24/06 : meme jitter FX que price_eur. JPY/KRW intraday courant.
 
   realized_pnl_eur:
     description: "P&L realise EUR cumule -- single-source compute_pmp_realized (VIEW SQL NULL by design post-alembic 0049)"
