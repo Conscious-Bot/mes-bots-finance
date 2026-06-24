@@ -337,14 +337,36 @@ def _kpi_compute_all():
         "enforcement": "Alert + revue méthodo si >0.25",
     }
 
-    # KPI #4: panic sells (heuristic: full_exit BEFORE thesis triggered_partial)
+    # KPI #4: panic sells (factual signature, redesign 24/06).
+    # AVANT (defectueux) : full_exit BEFORE triggered_partial_at + BEFORE triggered_stop_at.
+    # Faux positifs structurels : SNOW redeploy +18.6% gain thesis concluded -> classifie panic.
+    # APRES (signature factuelle non-contournable) : pas de keyword reasoning (qui creerait
+    # une backdoor pour le biais #1 lock_in : ecrire "redeploiement" desarmerait le KPI).
+    # Conditions panic basees uniquement sur faits DB :
+    #   (a) full_exit OU partial_exit
+    #   (b) ET (sortie sous l'entree EN PERTE OU stop touche AVANT la decision)
+    #   (c) ET thesis statut != 'concluded' (thesis pas explicitement close)
+    # SNOW exclu car (a) prix > entry (+18.6% gain) ET (b) thesis.status='concluded'.
+    #
+    # Garde-fous techniques :
+    #   - Temporal anchor sur triggered_stop_at <= d.created_at (sinon stop futur false-flag
+    #     les partial_exit anterieurs comme MU/ALAB 29/05 + stop 12/06).
+    #   - Ratio price/entry > 0.1 pour eviter currency-mismatch L12 (decisions.price_at_decision
+    #     stocke EUR pour foreign tickers vs theses.entry_price stocke native, cf memory
+    #     project_currency_148_eur_invariant). Skip arithmetique inutile si units differents.
+    # Cf memory [[bias-detectors-factual-not-keyword]] doctrine 24/06.
     r4 = conn.execute(
         "SELECT COUNT(*) AS n FROM decisions d "
         "LEFT JOIN theses t ON t.id = d.thesis_id "
-        "WHERE d.decision_type = 'full_exit' "
+        "WHERE d.decision_type IN ('full_exit','partial_exit') "
         "AND d.created_at >= datetime('now', '-30 days') "
-        "AND (t.triggered_partial_at IS NULL OR d.created_at < t.triggered_partial_at) "
-        "AND (t.triggered_stop_at IS NULL OR d.created_at < t.triggered_stop_at)"
+        "AND ("
+        "  (d.price_at_decision IS NOT NULL AND t.entry_price IS NOT NULL "
+        "   AND d.price_at_decision < t.entry_price "
+        "   AND (d.price_at_decision * 1.0 / t.entry_price) > 0.1)"
+        "  OR (t.triggered_stop_at IS NOT NULL AND t.triggered_stop_at <= d.created_at)"
+        ") "
+        "AND COALESCE(t.status, '') != 'concluded'"
     ).fetchone()
     n4 = r4["n"]
     if n4 == 0:
