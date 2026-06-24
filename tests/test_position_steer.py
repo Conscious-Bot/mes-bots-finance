@@ -84,33 +84,35 @@ def test_tactical_forbidden_hold_through_catalyst() -> None:
 
 
 def test_critical_catch2_structural_intact_over_cap_still_rightsizes() -> None:
-    """LE TEST CATCH 2 : ASML cas reel (11% weight, c5 cap 6%, intact structural).
-    Doit retourner EXIT:HOLD + SIZE:RIGHTSIZE. Jamais l'un exempte l'autre."""
+    """LE TEST CATCH 2 : ASML cas reel post-refonte 24/06 (11% weight, c5 cap 8%,
+    intact structural SOCLE). 11.1/8.0 = 1.39x cap < 1.5x -> rightsize normal
+    (pas urgent). Doit retourner EXIT:HOLD + SIZE:RIGHTSIZE. Jamais l'un exempte
+    l'autre. Cf [[conviction-grid-refonte-2026-06-24]] caps 8/6/4.5/3/2."""
     s = derive_steer(
         position_type="structural",
         erosion_verdict="INTACT",
         current_weight_pct=11.1,  # ASML reel
-        conviction=5,             # cap 6%
+        conviction=5,             # cap 8% post-refonte
     )
-    # EXIT : hold (these structurelle intacte)
+    # EXIT : hold (these structurelle intacte / SOCLE gele)
     assert s.exit_policy.action == "hold"
-    # SIZE : rightsize (over cap, 11% vs 6% = 1.85x = pas urgent < 1.5x non, = 1.85 > 1.5 -> urgent)
-    assert s.size_action.action == "urgent_rightsize"
+    # SIZE : rightsize (over cap mais 11.1/8.0 = 1.39x < 1.5x -> normal pas urgent)
+    assert s.size_action.action == "rightsize"
     assert s.size_action.over_cap_pp > 0
-    # Trim qty calcule : ramene 11.1% a 6% -> -45.95% de qty
-    assert s.size_action.target_qty_delta_pct < -40
-    assert s.size_action.target_qty_delta_pct > -50
+    # Trim qty calcule : ramene 11.1% a 8% -> ~-28% de qty
+    assert s.size_action.target_qty_delta_pct < -20
+    assert s.size_action.target_qty_delta_pct > -35
 
 
 def test_critical_catch2_structural_intact_under_cap_no_size_action() -> None:
-    """Memes inputs sauf weight 5% : cap c5 = 6% donc sous cap -> no_action."""
+    """Memes inputs sauf weight 5% : cap c5 = 8% (refonte 24/06) donc sous cap -> no_action."""
     s = derive_steer("structural", "INTACT", current_weight_pct=5.0, conviction=5)
     assert s.exit_policy.action == "hold"
     assert s.size_action.action == "no_action"
     assert s.size_action.target_qty_delta_pct == 0.0
 
 
-# ─── Test 4 : Sizing thresholds ────────────────────────────────────────
+# ─── Test 4 : Sizing thresholds (cap c5=8% post-refonte 24/06) ───────────
 
 
 def test_size_no_action_under_cap() -> None:
@@ -119,24 +121,24 @@ def test_size_no_action_under_cap() -> None:
 
 
 def test_size_no_action_exactly_at_cap() -> None:
-    """Exactement au cap = no_action (boundary inclusive sous le cap)."""
-    s = derive_steer("priced", "INTACT", current_weight_pct=6.0, conviction=5)
+    """Exactement au cap (8% post-refonte) = no_action (boundary inclusive sous le cap)."""
+    s = derive_steer("priced", "INTACT", current_weight_pct=8.0, conviction=5)
     assert s.size_action.action == "no_action"
     assert s.size_action.over_cap_pp == 0.0
 
 
 def test_size_rightsize_normal_zone() -> None:
-    """Entre cap et 1.5x cap : rightsize normal (pas urgent)."""
-    # cap c5 = 6%, 1.5x = 9% -- weight 8% = entre cap et 1.5x
-    s = derive_steer("priced", "INTACT", current_weight_pct=8.0, conviction=5)
+    """Entre cap et 1.5x cap : rightsize normal (pas urgent).
+    Cap c5 post-refonte = 8%, 1.5x = 12% -- weight 10% = entre cap et 1.5x."""
+    s = derive_steer("priced", "INTACT", current_weight_pct=10.0, conviction=5)
     assert s.size_action.action == "rightsize"
     assert s.size_action.target_qty_delta_pct < 0
 
 
 def test_size_urgent_rightsize_above_1_5x() -> None:
-    """> 1.5x cap : urgent_rightsize."""
-    # weight 10% = 1.67x cap 6% -> urgent
-    s = derive_steer("priced", "INTACT", current_weight_pct=10.0, conviction=5)
+    """> 1.5x cap : urgent_rightsize.
+    Cap c5 post-refonte = 8%, 1.5x = 12% -- weight 13% = 1.625x cap -> urgent."""
+    s = derive_steer("priced", "INTACT", current_weight_pct=13.0, conviction=5)
     assert s.size_action.action == "urgent_rightsize"
 
 
@@ -145,18 +147,19 @@ def test_size_urgent_rightsize_above_1_5x() -> None:
 
 @pytest.mark.parametrize("position_type", ["structural", "priced", "tactical"])
 def test_size_action_invariant_across_types(position_type: str) -> None:
-    """Meme weight + conviction -> meme SizeAction quel que soit le type."""
-    s = derive_steer(position_type, "INTACT", current_weight_pct=10.0, conviction=5)
+    """Meme weight + conviction -> meme SizeAction quel que soit le type.
+    Refonte 24/06 : cap c5 = 8%, weight 13% = 1.625x -> urgent_rightsize uniforme."""
+    s = derive_steer(position_type, "INTACT", current_weight_pct=13.0, conviction=5)
     assert s.size_action.action == "urgent_rightsize"
-    assert s.size_action.cap_pct == 6.0
-    assert s.size_action.over_cap_pp == 4.0
+    assert s.size_action.cap_pct == 8.0
+    assert s.size_action.over_cap_pp == 5.0
 
 
 # ─── Test 6 : Sizing varie par conviction ────────────────────────────────
 
 
 def test_size_uses_conviction_cap() -> None:
-    """Cap c3 = 3.8% -- weight 5% est over pour c3, sous pour c5."""
+    """Cap c3 = 4.5% (refonte 24/06) -- weight 5% est over pour c3, sous pour c5 (cap 8%)."""
     s_c3 = derive_steer("priced", "INTACT", current_weight_pct=5.0, conviction=3)
     s_c5 = derive_steer("priced", "INTACT", current_weight_pct=5.0, conviction=5)
     assert s_c3.size_action.action == "rightsize"
@@ -201,8 +204,9 @@ def test_verdict_none_treated_as_intact() -> None:
 
 
 def test_display_shows_both_axes_separately() -> None:
-    """Le display doit MONTRER LES 2 AXES SEPAREMENT (jamais fusionner)."""
-    s = derive_steer("structural", "INTACT", 11.1, 5)
+    """Le display doit MONTRER LES 2 AXES SEPAREMENT (jamais fusionner).
+    Refonte 24/06 : weight 13% sur cap c5=8% = 1.625x > 1.5x -> URGENT_RIGHTSIZE."""
+    s = derive_steer("structural", "INTACT", 13.0, 5)
     out = s.display()
     assert "EXIT" in out
     assert "SIZE" in out

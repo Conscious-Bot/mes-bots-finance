@@ -40,7 +40,12 @@ def test_hard_cap_respected():
 
 
 def test_cap_varies_by_conviction():
-    """Cap fin decroit monotone par conviction (pente compressee)."""
+    """Cap fin decroit monotone par conviction.
+    Grid refonte 24/06 (cf [[conviction-grid-refonte-2026-06-24]]) : caps
+    8/6/4.5/3/2. Ratios 0.75 au sommet (c4/c5, c3/c4) et 0.67 vers la base
+    (c2/c3, c1/c2) — compression accrue pour signaler le saut semantique
+    entre SOCLE/durable (haut) et satellite/sonde (bas). Bornes elargies.
+    """
     sizes = [
         position_size(10.0, 0.01, 10000, 1.0, conviction=c)
         for c in (5, 4, 3, 2, 1)
@@ -48,11 +53,12 @@ def test_cap_varies_by_conviction():
     # Strictly decreasing
     assert all(sizes[i] > sizes[i + 1] for i in range(4)), \
         f"Cap doit decroitre monotone: {sizes}"
-    # Ratios inter-tiers consecutifs ~0.80 (forme compressee sub-Kelly)
+    # Ratios inter-tiers consecutifs in [0.60, 0.90] (compression variable
+    # refonte 24/06 : 0.75 haut, 0.67 bas)
     for i in range(4):
         ratio = sizes[i + 1] / sizes[i]
-        assert 0.70 < ratio < 0.90, \
-            f"Ratio c{4-i}/c{5-i} = {ratio:.2f} hors plage compressee [0.70, 0.90]"
+        assert 0.60 < ratio < 0.90, \
+            f"Ratio c{4-i}/c{5-i} = {ratio:.2f} hors plage [0.60, 0.90]"
 
 
 def test_cap_unknown_conviction_falls_back_c5():

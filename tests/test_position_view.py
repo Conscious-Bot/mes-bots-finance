@@ -202,11 +202,16 @@ def test_compute_position_builds_view_from_4063t_walking_skeleton() -> None:
 
 
 def test_structural_position_has_no_ratio() -> None:
-    """Catch 3 render.py:2293 : structural -> downside non-borne par prix.
+    """Catch 3 render.py:2293 : structural -> asym_ratio reste n/a.
 
-    Convention canonique : pour structural, asym_ratio = None ; upside_pct
-    est calcule depuis target_full/entry, mais downside_pct = None (axe
-    structural != axe prix). Le caller affiche "n/a" sur le ratio.
+    Convention canonique (refonte F1 24/06) :
+      - asym_ratio = None pour structural (axe structural != axe prix)
+      - upside_pct calcule depuis target_full/entry
+      - downside_pct : computed si stop < entry (cas legitime stop sous PRU),
+        None si stop >= entry (anti-asymetrie, trailing stop remonte au-dessus).
+    Fixture _build_ci : stop=4900 < entry=5800 -> downside_pct doit etre computed
+    (negatif). Le panneau Closest-to-target inclut maintenant les structural avec
+    stop<entry, qui etaient exclues par dn=None.
     """
     ci = _build_ci(position_type="structural")
     steer = FakeSteer(bandeau=[])
@@ -220,7 +225,9 @@ def test_structural_position_has_no_ratio() -> None:
     )
     assert view.position_type == "structural"
     assert view.asym_ratio is None  # ratio n/a pour structural
-    assert view.downside_pct is None  # non-borne par prix
+    # F1 fix 24/06 : downside_pct computed quand stop<entry (cas legitime)
+    assert view.downside_pct is not None
+    assert view.downside_pct < 0  # negatif (stop sous PRU)
     # upside_pct existe (depuis target/entry, sans axe prix)
     assert view.upside_pct is not None
 
