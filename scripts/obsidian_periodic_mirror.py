@@ -152,15 +152,21 @@ def mirror_digest(cx: sqlite3.Connection) -> str | None:
         return f"write_note DIGEST failed: {e}"
 
 
-# Mapping explicite ticker -> note vault canonical (pour les cas ou le pattern
-# auto-match echoue : tickers avec suffix bourse, ou nom court vault different).
+# Mapping explicite ticker -> note vault canonical.
+# Important : SI un ticker a une note "TICKER.md" stub vide ET une note longue
+# "TICKER — description.md" (cas Olivier vault), il FAUT mapping override
+# pour ne PAS appender sur le stub. Audit 25/06 a revele 5 stubs auto-match
+# en erreur (AVGO/KLAC/GOOGL/LNG/MU).
 # A jour 25/06/2026 — etendre si nouvelle note vault avec nom non-standard.
 TICKER_TO_VAULT_NOTE = {
     "ASML.AS": "ASML.md",
     "TSM": "TSMC.md",
     "SNPS": "SYNOPSYS.md",
-    "MU": "MICRON.md",  # MU.md existe AUSSI mais MICRON.md est plus rich
-    "AVGO": "BROADCOM - AVGO.md",  # BROADCOM - AVGO plus riche que AVGO.md
+    "MU": "MICRON.md",  # MU.md = stub vide
+    "AVGO": "BROADCOM - AVGO.md",  # AVGO.md = stub vide
+    "KLAC": "KLA CORPORATION.md",  # KLAC.md = stub vide
+    "GOOGL": "GOOGL — hyperscaler côté demande, le client-chokepoint.md",  # GOOGL.md = stub vide
+    "LNG": "LNG — export GNL, le décorrélateur authentique.md",  # LNG.md = stub vide
     "SAF.PA": "SAF — aéro civil, ballast à rente d'après-vente (hors-IA).md",
     "HO.PA": "HO — défense, le ballast authentique (réarmement, hors-IA).md",
     "SU.PA": "SU — électrification, le faux décorrélateur (AI-capex déguisé).md",
@@ -172,7 +178,14 @@ TICKER_TO_VAULT_NOTE = {
     "6920.T": "6920 (Lasertec) — monopole fragile de l'inspection EUV.md",
     "7011.T": "7011 (Mitsubishi Heavy) — conglomérat hybride, à cheval grappe ballast.md",
     # 6324.T (HARMONIC DRIVE) : no vault note yet, will skip
-    # GEV, LNG, MP, CCJ, COHR, ENTG, ALAB, AMZN, GOOGL, KLAC, SPCX : auto-match OK
+    # GEV, MP, CCJ, COHR, ENTG, ALAB, AMZN, SPCX : auto-match OK (pas de doublon stub)
+}
+
+# Stubs vides connus a IGNORER absolument (jamais appender sur eux meme
+# si l'auto-match les attrape). Defense in depth contre regression mapping.
+KNOWN_EMPTY_STUBS_TO_SKIP = {
+    "AVGO.md", "KLAC.md", "GOOGL.md", "LNG.md", "MU.md",
+    "Snapshot patrimoine.md",  # canonical sans date = stub Olivier
 }
 
 
@@ -230,6 +243,11 @@ def mirror_chiffres_position() -> tuple[int, int]:
                     note_path = entry
                     break
         if not note_path:
+            n_skipped += 1
+            continue
+
+        # Defense in depth : skip stubs vides connus (regression mapping override)
+        if note_path in KNOWN_EMPTY_STUBS_TO_SKIP:
             n_skipped += 1
             continue
 
