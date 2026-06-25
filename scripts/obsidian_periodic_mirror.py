@@ -339,6 +339,9 @@ def mirror_transactions(cx: sqlite3.Connection) -> tuple[int, str | None]:
         "trade_date, source, notes "
         "FROM transactions "
         "WHERE trade_date >= datetime('now', '-30 days') "
+        "  AND source NOT LIKE 'smoke_test%' "
+        "  AND ticker NOT LIKE 'SMOKE%' "
+        "  AND ticker NOT LIKE 'SMK%' "
         "ORDER BY trade_date, id"
     ).fetchall()
 
