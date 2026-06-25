@@ -434,6 +434,29 @@ def main() -> int:
     else:
         print("  SNAPSHOT : OK (created or already exists today)")
 
+    # 4. RELOAD Obsidian app pour rafraichir UI (re-index file changes auto-detection
+    # peut etre lazy). app:reload command via plugin Local REST API. Soft-fail si
+    # Obsidian app pas ouverte (le mirror DB+vault s'est fait, juste pas de refresh UI).
+    try:
+        import ssl
+        import urllib.request
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        from shared.obsidian import _API_KEY, _API_URL
+        req = urllib.request.Request(
+            f"{_API_URL}/commands/app:reload/",
+            method="POST",
+            headers={"Authorization": f"Bearer {_API_KEY}"},
+        )
+        with urllib.request.urlopen(req, context=ctx, timeout=5) as r:
+            if r.status == 204:
+                print("  RELOAD : OK (Obsidian app refreshed)")
+            else:
+                print(f"  RELOAD : status {r.status}")
+    except Exception as e:
+        print(f"  RELOAD : skip ({type(e).__name__}: {e})")
+
     print(f"[obsidian_periodic_mirror] done {datetime.now().isoformat()}")
     return 0
 
