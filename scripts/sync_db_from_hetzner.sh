@@ -63,6 +63,13 @@ fi
 # 6. Atomic swap
 mv "$LOCAL_TMP" "$LOCAL_DB"
 
+# 6b. Cleanup stale WAL/SHM siblings (3e corruption 25/06 root-caused ici)
+# .backup on VM = single-file consistent snapshot (no WAL).
+# Mac side : bot.db-wal/-shm pre-existants pointaient vers l'ancien inode.
+# Si on les laisse, SQLite tente d'appliquer le WAL stale au nouveau DB
+# = "Rowid out of order" + index B-tree corrompu. Cleanup force fresh open.
+rm -f "$LOCAL_DB-wal" "$LOCAL_DB-shm" "$LOCAL_TMP-wal" "$LOCAL_TMP-shm"
+
 # 7. Cleanup VM snapshot
 ssh "$VM_HOST" "rm -f $VM_SNAPSHOT" 2>/dev/null || true
 
