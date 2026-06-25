@@ -168,6 +168,64 @@ def frontmatter(
 
 # ─── Anti-fantome check ────────────────────────────────────────────────────
 
+# ─── Bootstrap session ─────────────────────────────────────────────────────
+
+# Hubs canoniques lus au demarrage de chaque session non-triviale.
+# Cf memory [[project-obsidian-vault-primary-substrate]] doctrine 25/06/2026.
+BOOTSTRAP_HUBS = [
+    "CLAUDE.md",  # doctrine vault (prime sur toute autre instruction)
+    "Grille de Conviction.md",
+    "World Model — le modèle causal (apex).md",
+    "Concentration — grappe AI-compute.md",
+]
+
+
+def vault_bootstrap(*, include_latest_snapshot: bool = True) -> dict:
+    """Lecture des hubs canoniques au demarrage de session.
+
+    Retourne dict {note_path: content_markdown}. Le caller (typiquement Claude
+    en debut de session) lit les hubs pour aligner sur contexte courant
+    Olivier en vigueur (Grille de Conviction, World Model, doctrine vault).
+
+    Si include_latest_snapshot=True (defaut), ajoute aussi la note "Snapshot
+    patrimoine — YYYY-MM-DD.md" la plus recente trouvee a la racine.
+
+    Returns : dict[path -> content]. Cles absentes pour notes inexistantes.
+    """
+    out: dict[str, str] = {}
+    for note in BOOTSTRAP_HUBS:
+        try:
+            out[note] = read_note(note)
+        except ObsidianError as e:
+            # Note inexistante = on skip (peut etre nouvelle session ou doctrine pas encore migree)
+            if "404" in str(e):
+                continue
+            raise
+    if include_latest_snapshot:
+        try:
+            entries = list_notes()
+            # Prefere les snapshots DATES (format "Snapshot patrimoine — YYYY-MM-DD.md")
+            # vs le canonical sans date qui peut etre un index vide.
+            import re
+            dated_pattern = re.compile(r"Snapshot patrimoine — (\d{4}-\d{2}-\d{2})\.md$")
+            dated_snaps = []
+            for e in entries:
+                m = dated_pattern.match(e)
+                if m:
+                    dated_snaps.append((m.group(1), e))
+            if dated_snaps:
+                dated_snaps.sort(reverse=True)  # most recent first
+                latest_path = dated_snaps[0][1]
+                out[latest_path] = read_note(latest_path)
+            else:
+                # Fallback canonical sans date
+                if "Snapshot patrimoine.md" in entries:
+                    out["Snapshot patrimoine.md"] = read_note("Snapshot patrimoine.md")
+        except ObsidianError:
+            pass
+    return out
+
+
 def filter_existing_links(candidate_links: list[str]) -> tuple[list[str], list[str]]:
     """Pour une liste de noms de notes candidats, retourne (existantes, fantomes).
 
