@@ -72,6 +72,30 @@ async def cmd_digest(update, ctx):  # noqa: ARG001
         if len(full) > 3900:
             full = full[:3850] + "\n...[truncated]"
         await update.message.reply_text(full)
+        # Mirror Obsidian vault (mode vacances aussi, cf doctrine 25/06)
+        try:
+            from shared import obsidian as _obs
+            date_iso = _dt.now().strftime("%Y-%m-%d")
+            note_path = f"journal/digests/DIGEST_{date_iso}.md"
+            fm = _obs.frontmatter(
+                type_="digest", date_iso=date_iso,
+                aliases=[f"digest_bot_{date_iso}_vacances"],
+                tickers=[], theses_touchees=[], noms_propres=[],
+                hubs=[], status="archive",
+            )
+            content = fm + (
+                f"\n# Digest bot — {date_iso} (MODE VACANCES)\n\n"
+                f"Mirror du digest Telegram dégradé (LLM down, brief honest non-scoré).\n\n"
+                f"```\n{full}\n```\n\n"
+                "## [À COMPLÉTER PAR O.]\n\nRien à distiller (mode vacances). : —\n"
+            )
+            _obs.write_note(note_path, content, overwrite=True)
+        except Exception as obs_err:
+            import logging
+            logging.getLogger("bot.digest").warning(
+                "Obsidian mirror failed (soft): %s: %s",
+                type(obs_err).__name__, obs_err,
+            )
         return
 
     try:
@@ -132,3 +156,49 @@ async def cmd_digest(update, ctx):  # noqa: ARG001
             await update.message.reply_text(c)
     else:
         await update.message.reply_text(full_output)
+
+    # Mirror Obsidian vault PRESAGE (workflow C, cf memory
+    # project-obsidian-vault-primary-substrate doctrine 25/06/2026).
+    # Le vault = raffinerie cumulative. Chaque digest TG -> note datee dans
+    # journal/digests/. Si Obsidian inaccessible (vault offline / clé manquante),
+    # soft-fail : log warning, ne casse pas le digest principal.
+    try:
+        from shared import obsidian as _obs
+        date_iso = _dt.now().strftime("%Y-%m-%d")
+        note_path = f"journal/digests/DIGEST_{date_iso}.md"
+        candidates = [
+            "Concentration — grappe AI-compute",
+            "Grille de Conviction",
+            "World Model — le modèle causal (apex)",
+        ]
+        existing, _ghosts = _obs.filter_existing_links(candidates)
+        fm = _obs.frontmatter(
+            type_="digest",
+            date_iso=date_iso,
+            aliases=[f"digest_bot_{date_iso}"],
+            tickers=[],
+            theses_touchees=[],
+            noms_propres=[],
+            hubs=existing,
+            status="archive",
+        )
+        content = fm + (
+            f"\n# Digest bot — {date_iso}\n\n"
+            f"Mirror du digest Telegram (cmd_digest) écrit automatiquement\n"
+            f"par bot/handlers/digest.py post-send TG.\n\n"
+            f"## Output Telegram brut\n\n"
+            f"```\n{full_output}\n```\n\n"
+            f"## 🔗 Rattachements\n\n"
+            + (", ".join(f"[[{h}]]" for h in existing) if existing else "  (aucun hub)\n")
+            + "\n\n## [À COMPLÉTER PAR O.] — distillation\n\n"
+            "Patterns à graver ? Signaux à promouvoir en thèse ? : —\n"
+        )
+        # Overwrite : si plusieurs digests par jour, le dernier ecrase (idempotent)
+        _obs.write_note(note_path, content, overwrite=True)
+    except Exception as obs_err:
+        # Soft-fail : log seulement, ne casse pas cmd_digest
+        import logging
+        logging.getLogger("bot.digest").warning(
+            "Obsidian mirror failed (soft): %s: %s",
+            type(obs_err).__name__, obs_err,
+        )
