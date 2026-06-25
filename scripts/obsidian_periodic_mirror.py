@@ -320,6 +320,230 @@ def mirror_chiffres_position() -> tuple[int, int]:
     return n_updated, n_skipped
 
 
+def mirror_transactions(cx: sqlite3.Connection) -> tuple[int, str | None]:
+    """Mirror les transactions des 30 derniers jours, groupees par date.
+
+    Crée 1 fichier par jour avec tx : journal/transactions/TX_<date>.md.
+    Overwrite idempotent (chaque run regenere le fichier du jour).
+
+    Returns (n_days_written, err_msg_or_None).
+    """
+    try:
+        from shared import obsidian as obs
+    except Exception as e:
+        return (0, f"obsidian import: {e}")
+
+    cx.row_factory = sqlite3.Row
+    txs_all = cx.execute(
+        "SELECT id, ticker, side, qty, price_native, currency, fx_at_trade, "
+        "trade_date, source, notes "
+        "FROM transactions "
+        "WHERE trade_date >= datetime('now', '-30 days') "
+        "ORDER BY trade_date, id"
+    ).fetchall()
+
+    # Group by date
+    by_date: dict[str, list] = {}
+    for tx in txs_all:
+        d_iso = (tx["trade_date"] or "")[:10]
+        if d_iso:
+            by_date.setdefault(d_iso, []).append(tx)
+
+    if not by_date:
+        return (0, None)
+
+    # Cache root entries for ticker → note resolution
+    try:
+        all_root = obs.list_notes()
+    except Exception:
+        all_root = []
+
+    def resolve_ticker_note(tk: str) -> str:
+        override = TICKER_TO_VAULT_NOTE.get(tk)
+        if override and override in all_root:
+            return override.replace(".md", "")
+        for e in all_root:
+            if e == f"{tk}.md" or e.replace(".md", "").startswith(tk + " "):
+                return e.replace(".md", "")
+        return tk
+
+    candidates = ["Concentration — grappe AI-compute", "Grille de Conviction"]
+    try:
+        hubs, _ = obs.filter_existing_links(candidates)
+    except Exception:
+        hubs = []
+
+    n_written = 0
+    for d_iso, txs in by_date.items():
+        tickers_day = sorted({t["ticker"] for t in txs})
+        ticker_to_note = {tk: resolve_ticker_note(tk) for tk in tickers_day}
+
+        fm = obs.frontmatter(
+            type_="transactions-log",
+            date_iso=d_iso,
+            aliases=[f"transactions_{d_iso}"],
+            tickers=tickers_day,
+            theses_touchees=list(set(ticker_to_note.values())),
+            noms_propres=[],
+            hubs=hubs,
+            status="archive",
+        )
+
+        content = fm + (
+            f"\n# Transactions — {d_iso}\n\n"
+            f"Mirror auto via `scripts/obsidian_periodic_mirror.py`. "
+            f"{len(txs)} transaction(s) ce jour.\n\n"
+        )
+        for tx in txs:
+            ticker = tx["ticker"]
+            thesis_link = f"[[{ticker_to_note[ticker]}]]"
+            eur_value = float(tx["qty"]) * float(tx["price_native"]) * float(tx["fx_at_trade"])
+            notes_excerpt = (tx["notes"] or "")[:150]
+            content += (
+                f"## tx#{tx['id']} — {ticker} {tx['side']}\n\n"
+                f"- **Ticker** : {thesis_link}\n"
+                f"- **Side** : {tx['side']}\n"
+                f"- **Quantité** : {tx['qty']:.6f} sh\n"
+                f"- **Prix natif** : {tx['price_native']:.2f} {tx['currency']} "
+                f"(fx {tx['fx_at_trade']:.4f} → ~€{eur_value:.0f})\n"
+                f"- **Date** : {tx['trade_date'][:19]}\n"
+                f"- **Source** : `{tx['source']}`\n"
+                f"- **Notes** : {notes_excerpt}\n\n"
+            )
+
+        content += (
+            "## 🔗 Rattachements\n\n"
+            + ", ".join(f"[[{h}]]" for h in hubs)
+            + "\n\n## [À COMPLÉTER PAR O.] — distillation\n\n"
+            "Pattern observé ? Cohérence avec la doctrine ? : —\n"
+        )
+
+        try:
+            obs.write_note(f"journal/transactions/TX_{d_iso}.md", content, overwrite=True)
+            n_written += 1
+        except Exception as e:
+            return (n_written, f"write tx {d_iso}: {e}")
+
+    return (n_written, None)
+
+
+def mirror_decisions(cx: sqlite3.Connection) -> tuple[int, int]:
+    """Mirror chaque decision dans journal/decisions/DECISION_<id>_<ticker>.md.
+
+    Idempotent par decision_id. Chaque decision = 1 note avec :
+      - frontmatter avec bias_tags + thesis_id + decision_type
+      - reasoning [STRUCTURED] parsé (these / invalidation / conviction)
+      - lien vers note thèse + bias hub + counterfactual si présent
+    Returns (n_created, n_skipped).
+    """
+    try:
+        from shared import obsidian as obs
+    except Exception:
+        return (0, 0)
+
+    cx.row_factory = sqlite3.Row
+    # Decisions créées dans les derniers 30 jours (limite raisonnable)
+    decs = cx.execute(
+        "SELECT id, ticker, decision_type, created_at, confidence_pre, reasoning, "
+        "thesis_id, bias_tags, price_at_decision "
+        "FROM decisions "
+        "WHERE created_at >= datetime('now', '-30 days') "
+        "ORDER BY id"
+    ).fetchall()
+
+    try:
+        all_root = obs.list_notes()
+    except Exception:
+        all_root = []
+
+    n_created = n_skipped = 0
+    for d in decs:
+        ticker = d["ticker"]
+        # Path canonical
+        date_iso = (d["created_at"] or "")[:10]
+        note_path = f"journal/decisions/DECISION_{d['id']:03d}_{ticker}_{date_iso}.md"
+        if obs.note_exists(note_path):
+            n_skipped += 1
+            continue
+
+        # Find thesis note link
+        thesis_note_link = ticker
+        override = TICKER_TO_VAULT_NOTE.get(ticker)
+        if override and override in all_root:
+            thesis_note_link = f"[[{override.replace('.md', '')}]]"
+        else:
+            for e in all_root:
+                if e == f"{ticker}.md" or e.replace(".md", "").startswith(ticker + " "):
+                    thesis_note_link = f"[[{e.replace('.md', '')}]]"
+                    break
+
+        # Parse [STRUCTURED] reasoning
+        reasoning = d["reasoning"] or ""
+        is_structured = reasoning.startswith("[STRUCTURED]")
+        is_quick = reasoning.startswith("[QUICK_UNJOURNALED]")
+
+        # Bias tags
+        bias_tags = []
+        if d["bias_tags"]:
+            try:
+                import json as _json
+                bias_tags = _json.loads(d["bias_tags"])
+            except Exception:
+                bias_tags = []
+
+        candidates = ["Biais", "Grille de Conviction", "Concentration — grappe AI-compute"]
+        try:
+            hubs, _ = obs.filter_existing_links(candidates)
+        except Exception:
+            hubs = []
+
+        fm = obs.frontmatter(
+            type_="decision",
+            date_iso=date_iso,
+            aliases=[f"decision_{d['id']}_{ticker}"],
+            tickers=[ticker],
+            theses_touchees=[],
+            noms_propres=[],
+            hubs=hubs,
+            status="archive",
+        )
+
+        struct_indicator = "✅ STRUCTURED" if is_structured else ("⚠️ QUICK_UNJOURNALED" if is_quick else "⚠️ legacy/incomplete")
+
+        content = fm + (
+            f"\n# Decision #{d['id']} — {ticker} {d['decision_type']}\n\n"
+            f"- **Date** : {d['created_at']}\n"
+            f"- **Ticker** : {thesis_note_link}\n"
+            f"- **Type** : `{d['decision_type']}`\n"
+            f"- **Conviction (pre-decision)** : c{d['confidence_pre']}\n"
+            f"- **Prix at decision** : {d['price_at_decision']}\n"
+            f"- **Format reasoning** : {struct_indicator}\n"
+            f"- **Thesis ID DB** : {d['thesis_id']}\n\n"
+            "## 🧠 Reasoning structuré\n\n"
+            f"```\n{reasoning}\n```\n\n"
+        )
+
+        if bias_tags:
+            content += "## 🎭 Bias tags (auto-detected via bias_tagger LLM)\n\n"
+            for tag in bias_tags:
+                content += f"- `{tag}`\n"
+            content += "\nCf [[Biais]] pour la doctrine de mitigation.\n\n"
+
+        content += (
+            "## 🔗 Rattachements\n\n"
+            + ", ".join(f"[[{h}]]" for h in hubs)
+            + "\n\n## [À COMPLÉTER PAR O.] — distillation\n\n"
+            "Decision rétro : ai-je bien fait ? Quel biais à monitorer next ? : —\n"
+        )
+
+        try:
+            obs.write_note(note_path, content)
+            n_created += 1
+        except Exception:
+            n_skipped += 1
+    return (n_created, n_skipped)
+
+
 def mirror_snapshot_patrimoine() -> str | None:
     """Cree Snapshot patrimoine — <date>.md si pas deja existant aujourd'hui.
 
@@ -414,7 +638,6 @@ def main() -> int:
     # 1. DIGEST
     cx = sqlite3.connect(REPO / "data" / "bot.db")
     err_digest = mirror_digest(cx)
-    cx.close()
     if err_digest:
         print(f"  DIGEST : FAIL {err_digest}", file=sys.stderr)
     else:
@@ -434,28 +657,25 @@ def main() -> int:
     else:
         print("  SNAPSHOT : OK (created or already exists today)")
 
-    # 4. RELOAD Obsidian app pour rafraichir UI (re-index file changes auto-detection
-    # peut etre lazy). app:reload command via plugin Local REST API. Soft-fail si
-    # Obsidian app pas ouverte (le mirror DB+vault s'est fait, juste pas de refresh UI).
+    # 4. TRANSACTIONS 30j (groupees par date)
+    n_tx_days, err_tx = mirror_transactions(cx)
+    if err_tx:
+        print(f"  TRANSACTIONS : FAIL {err_tx}", file=sys.stderr)
+    else:
+        print(f"  TRANSACTIONS : OK ({n_tx_days} days mirrored)")
+
+    # 5. DECISIONS (30j window, idempotent par id)
     try:
-        import ssl
-        import urllib.request
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        from shared.obsidian import _API_KEY, _API_URL
-        req = urllib.request.Request(
-            f"{_API_URL}/commands/app:reload/",
-            method="POST",
-            headers={"Authorization": f"Bearer {_API_KEY}"},
-        )
-        with urllib.request.urlopen(req, context=ctx, timeout=5) as r:
-            if r.status == 204:
-                print("  RELOAD : OK (Obsidian app refreshed)")
-            else:
-                print(f"  RELOAD : status {r.status}")
+        n_dec_new, n_dec_skip = mirror_decisions(cx)
+        print(f"  DECISIONS : {n_dec_new} créées, {n_dec_skip} déjà mirrorées")
     except Exception as e:
-        print(f"  RELOAD : skip ({type(e).__name__}: {e})")
+        print(f"  DECISIONS : FAIL {e}", file=sys.stderr)
+    cx.close()
+
+    # NOTE 25/06 : RETIRE app:reload. Constate qu'il casse le plugin Local REST API
+    # post-execution (le plugin ne se re-init pas correctement). Obsidian file watcher
+    # detecte les changes file system de facon native, donc UI rafraichit toute seule
+    # sans avoir besoin de reload programmatique.
 
     print(f"[obsidian_periodic_mirror] done {datetime.now().isoformat()}")
     return 0
