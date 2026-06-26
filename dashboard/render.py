@@ -5657,6 +5657,25 @@ def _vault() -> str:
         if ms["stale_target"]["dying_tickers"]:
             rows.append(f'<div class="cer-mon-row cer-mon-warn">💭 stale dying : <b>{e(", ".join(ms["stale_target"]["dying_tickers"]))}</b></div>')
             monitors_n += 1
+        # Tier 3 #7 fx tripwire (26/06) — USD/EUR rate move + silent EUR impact
+        fxm = ms.get("fx") or {}
+        for window_lbl, key in (("30j", "w30"), ("90j", "w90")):
+            fxw = fxm.get(key) or {}
+            if not fxw.get("ok"):
+                continue
+            rc = fxw.get("rate_change_pct", 0)
+            si = fxw.get("silent_eur_impact", 0)
+            expo = fxw.get("usd_exposure_eur", 0)
+            n_usd = fxw.get("n_positions_usd", 0)
+            eff = fxw.get("effective_days", 0)
+            cls = {"info": "", "warn": "cer-mon-warn", "bad": "cer-mon-bad"}.get(fxw.get("status", "info"), "")
+            direction = {"usd_up": "USD↑ apprécié", "usd_down": "USD↓ déprécié", "flat": "USD→ flat"}.get(fxw.get("direction"), "")
+            rows.append(
+                f'<div class="cer-mon-row {cls}">💱 USD/EUR {window_lbl} (eff {eff}j) : '
+                f'<b>{rc:+.2f}%</b> · {direction} · impact silencieux <b>{si:+,.0f}€</b> '
+                f'sur {expo:,.0f}€ expo USD ({n_usd} pos)</div>'
+            )
+            monitors_n += 1
         # Tier 2 #5 benchmark (26/06) — affiche les 2 windows × 3 benchmarks
         bm = ms.get("benchmark") or {}
         for window_lbl, key in (("30j", "w30"), ("90j", "w90")):
@@ -7682,6 +7701,27 @@ def _monitors_live_band() -> str:
             )
     except Exception:
         pass
+
+    # fx_tripwire USD/EUR — Tier 3 #7 wiring (26/06). Non-clickable, tooltip détaille.
+    fx = s.get("fx") or {}
+    fx30 = fx.get("w30") or {}
+    if fx30.get("ok"):
+        rate_chg = fx30.get("rate_change_pct", 0)
+        impact = fx30.get("silent_eur_impact", 0)
+        expo = fx30.get("usd_exposure_eur", 0)
+        cls = {"info": "ml-info", "warn": "ml-warn", "bad": "ml-bad"}.get(fx30.get("status", "info"), "ml-info")
+        direction_icon = "↑" if fx30.get("direction") == "usd_up" else ("↓" if fx30.get("direction") == "usd_down" else "→")
+        tt = (
+            f"USD/EUR {rate_chg:+.2f}% sur {fx30.get('effective_days', 0)}j effectifs "
+            f"(start {fx30.get('start_date', '?')}). USD exposure {expo:,.0f}€ "
+            f"({fx30.get('n_positions_usd', 0)} pos) → impact silencieux {impact:+,.0f}€ EUR. "
+            f"Seuils : info <3%, warn 3-7%, bad >7%."
+        )
+        chips.append(
+            f'<div class="ml-chip {cls}" title="{tt}">'
+            f'<span class="ml-lab">USD/EUR {direction_icon}</span>'
+            f'<span class="ml-val">{rate_chg:+.1f}% / {impact:+,.0f}€</span></div>'
+        )
 
     # benchmark vs SMH/SPY/QQQ 30d — Tier 2 #5 wiring (26/06). Chip non-clickable
     # (détails complets dans Cerebro accordion). Affiche le delta SMH primary.

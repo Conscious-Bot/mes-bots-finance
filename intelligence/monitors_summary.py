@@ -41,6 +41,7 @@ def get_monitors_summary() -> dict[str, Any]:
         "kill_criteria": {"triggered_tickers": [], "at_risk_tickers": []},
         "stale_target": {"dead_tickers": [], "dying_tickers": []},
         "benchmark": {"w30": None, "w90": None},
+        "fx": {"w30": None, "w90": None},
     }
 
     # 1. over_cap — current 'over' positions + today's dormant→over transitions
@@ -139,6 +140,14 @@ def get_monitors_summary() -> dict[str, Any]:
     except Exception as e:
         log.debug(f"benchmark summary fail: {e}")
 
+    # 6. fx_tripwire (USD/EUR move + silent EUR impact) — Tier 3 #7 wiring (26/06)
+    try:
+        from intelligence.fx_tripwire import get_fx_tripwire_summary
+        out["fx"] = get_fx_tripwire_summary()
+    except Exception as e:
+        log.debug(f"fx tripwire summary fail: {e}")
+        out["fx"] = {"w30": None, "w90": None}
+
     return out
 
 
@@ -183,6 +192,16 @@ def format_text_summary(summary: dict[str, Any] | None = None) -> str:
         parts.append(f"💀 stale DEAD : {', '.join(st['dead_tickers'])}")
     if st["dying_tickers"]:
         parts.append(f"💭 stale dying : {', '.join(st['dying_tickers'])}")
+
+    # fx tripwire (Tier 3 #7, 26/06)
+    fxm = summary.get("fx") or {}
+    fx30 = fxm.get("w30") or {}
+    if fx30.get("ok"):
+        rc = fx30.get("rate_change_pct", 0)
+        si = fx30.get("silent_eur_impact", 0)
+        arrow = "↑" if fx30.get("direction") == "usd_up" else ("↓" if fx30.get("direction") == "usd_down" else "→")
+        emoji = {"info": "💱", "warn": "⚠️ 💱", "bad": "🚨 💱"}.get(fx30.get("status", "info"), "💱")
+        parts.append(f"{emoji} USD/EUR 30j {arrow} {rc:+.2f}% · impact silencieux {si:+,.0f}€")
 
     # benchmark (Tier 2 #5, 26/06) — affiche delta SMH 30d primary
     bm = summary.get("benchmark") or {}
