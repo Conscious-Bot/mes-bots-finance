@@ -66,10 +66,21 @@ def _today() -> date:
 def _cluster_membership() -> set[str]:
     """Récupère la liste des tickers de la grappe AI-compute.
 
-    Priorité : cluster_tickers explicite > cluster_narrative (lookup via theses).
-    Raise ConfigurationError si aucun des deux n'est défini.
+    Priorité (26/06/2026 refonte taxonomie) :
+    1. cluster_source: 'compute_ai_cluster' → lecture dynamique de
+       concentration.clusters.compute_ai (source canonique unique).
+    2. cluster_tickers explicite → fallback statique.
+    3. cluster_narrative → lookup via theses (deprecated).
+
+    Raise ConfigurationError si rien défini.
     """
     cfg = _cfg()
+    source = cfg.get("cluster_source")
+    if source == "compute_ai_cluster":
+        full = config.get()
+        canon = (full.get("concentration", {}).get("clusters", {}).get("compute_ai") or [])
+        if canon:
+            return {str(t).upper() for t in canon}
     tickers = cfg.get("cluster_tickers")
     if tickers:
         return {str(t).upper() for t in tickers}
@@ -83,7 +94,7 @@ def _cluster_membership() -> set[str]:
             ).fetchall()
             return {str(r[0]).upper() for r in rows}
     raise config.ConfigurationError(
-        "kill_switch: ni cluster_tickers ni cluster_narrative défini"
+        "kill_switch: ni cluster_source ni cluster_tickers ni cluster_narrative défini"
     )
 
 

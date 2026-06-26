@@ -452,43 +452,76 @@ concentration:
     2: 0.030   # satellite conviction moyenne
     1: 0.020   # sonde / belief-sleeve
   clusters:
-    # semis_ai = correles sur le capex AI / cycle semi (foundry, litho, EDA, memoire,
-    # equipement, materiaux, connectivite). Hyperscalers (AMZN/GOOGL) et power-for-AI
-    # (VRT/CCJ/CEG/VST/GEV) sont AI-adjacents, suivis hors cap (drivers distincts).
+    # Refonte 26/06/2026 (post 2 red-teams) : compute_ai élargi pour inclure
+    # demande-enablers (Hyperscalers AMZN/GOOGL) + AI-capex bottleneck
+    # (Power & électrification SU.PA/VRT/GEV). Avant la refonte, le bot
+    # mesurait l'AI-compute concentration ~58% en EXCLUANT ces buckets ;
+    # mais en honnêteté économique ils sont la même variable-maître
+    # (demande capex hyperscaler + goulot infra électrique). Real exposure
+    # ~73%. Le cluster_kill_monitor (P1 drawdown) et tous les caps cluster
+    # reposent sur cette définition canonique.
+    #
+    # Décorrélateurs authentiques séparés en cluster decorrelators (souveraineté,
+    # uranium, LNG, terres rares, défense, aéro civil) — vrais autres facteurs.
+    # Jachère / moonshots dans cluster jachere (robotique, SpaceX).
     compute_ai:
-      - NVDA
-      - AVGO
-      - TSM
-      - MU
+      # Supply-side chokepoints (couches chip)
+      - NVDA          # GPU
+      - AVGO          # ASIC
+      - TSM           # foundry + CoWoS
+      - MU            # memory
       - ASML
-      - ASML.AS
-      - AMD
-      - ARM
-      - SNPS
-      - KLAC
-      - LRCX
-      - AMAT
-      - TER
-      - ENTG
-      - COHR
-      - ALAB
-      - MRVL
-      - QCOM
-      - NXPI
-      - STM
-      - STMPA.PA
-      - BESI.AS
-      - 4063.T
-      - 6920.T
-      - 6857.T
-      - 000660.KS
-      - CRWV
-      - NBIS
-      - 8035.T
-      - ASM.AS
-      - ACMR
-      - 6890.T
-      - 1347.HK
+      - ASML.AS       # litho EUV
+      - AMD           # CPU/GPU
+      - ARM           # IP cores
+      - SNPS          # EDA
+      - KLAC          # métrologie + inspection actinique
+      - LRCX          # dépôt/gravure
+      - AMAT          # dépôt/gravure
+      - TER           # test ATE
+      - ENTG          # gaz/chimie process
+      - COHR          # connectivité optique
+      - ALAB          # silicium réseau
+      - MRVL          # ASIC
+      - QCOM          # ASIC mobile
+      - NXPI          # ASIC auto
+      - STM           # cyclique généraliste
+      - STMPA.PA      # cyclique généraliste
+      - BESI.AS       # bonding packaging
+      - 4063.T        # wafer silicium (Shin-Etsu)
+      - 6920.T        # inspection actinique (Lasertec)
+      - 6857.T        # test ATE (Advantest)
+      - 000660.KS     # HBM (SK Hynix)
+      - CRWV          # neocloud
+      - NBIS          # neocloud
+      - 8035.T        # TEL équipement
+      - ASM.AS        # ALD équipement
+      - ACMR          # cleaning équipement
+      - 6890.T        # Ferrotec matériaux
+      - 1347.HK       # SMIC foundry
+      # Demande-enablers (AI capex driver) — élargi 26/06
+      - AMZN          # hyperscaler AWS
+      - GOOGL         # hyperscaler GCP
+      - MSFT          # hyperscaler Azure
+      - META          # hyperscaler AI infra
+      # Power & électrification (AI capex bottleneck)
+      - SU.PA         # Schneider Electric
+      - VRT           # Vertiv cooling
+      - GEV           # GE Vernova turbines
+
+    # Décorrélateurs authentiques (autres facteurs, vraies décorrélations).
+    decorrelators:
+      - CCJ           # uranium
+      - LNG           # LNG export
+      - MP            # terres rares
+      - HO.PA         # défense
+      - SAF.PA        # aéro civil
+      - 7011.T        # Mitsubishi Heavy
+
+    # Jachère / moonshots (thèses dormantes ou amorçables, hors cluster).
+    jachere:
+      - 6324.T        # Harmonic Drive (robotique)
+      - SPCX          # SpaceX (moonshot)
 
 models:
   signal_scoring: claude-haiku-4-5-20251001
@@ -753,9 +786,15 @@ sectors:
 # =============================================================================
 kill_switch:
   enabled: true
-  # Définition de la grappe (explicite, miroir de sectors.yaml:semis cohérent
-  # avec la doctrine § F1-F3). cluster_narrative optionnel en alternative.
+  # Définition de la grappe : SOURCE UNIQUE = concentration.clusters.compute_ai
+  # (refonte 26/06/2026 inclut Hyperscalers + Power & électrif = vraie variable-maître).
+  # cluster_source: 'compute_ai_cluster' = lecture dynamique du cluster compute_ai
+  # via shared.config.get(). Garde explicit cluster_tickers comme fallback si
+  # la lecture échoue (fail-closed L15).
+  cluster_source: compute_ai_cluster
   cluster_tickers:
+    # Fallback uniquement — la source canonique = clusters.compute_ai ci-dessus.
+    # Tickers held actuellement dans le cluster compute_ai élargi (26/06 refonte).
     - ASML.AS
     - TSM
     - "000660.KS"
@@ -774,6 +813,11 @@ kill_switch:
     - "6857.T"
     - "6920.T"
     - NVDA
+    - AMZN
+    - GOOGL
+    - SU.PA
+    - VRT
+    - GEV
   peak_window_days: 90
   drawdown_reduce_pct: 0.25            # Stage 1 — VIGILANCE (gel)
   drawdown_stop_pct: 0.35              # Stage 2 — DÉ-RISQUE (trim partiel)
