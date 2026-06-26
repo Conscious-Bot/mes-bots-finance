@@ -54,11 +54,23 @@ async def daily_digest_job():
         from shared import notify as _notify
 
         narrative = _digest_mod.generate_unified_digest(since_hours=12, max_signals=30)
+        # Phase 1 wiring (26/06) : préfixe monitors summary live pour surface user
+        try:
+            from intelligence.monitors_summary import format_text_summary as _monitors_txt
+            monitors_block = _monitors_txt()
+        except Exception:
+            monitors_block = ""
         if narrative and not narrative.startswith("Aucun signal"):
-            msg = "DIGEST AUTO (12h)\n\n" + narrative
+            msg = "DIGEST AUTO (12h)\n\n"
+            if monitors_block:
+                msg += monitors_block + "\n\n"
+            msg += narrative
             if len(msg) > 3900:
                 msg = msg[:3900] + "\n[truncated]"
             _notify.send_text(msg)
+        elif monitors_block and "tout sain" not in monitors_block:
+            # Si pas de digest narrative mais monitors ont signal → envoie tout de même
+            _notify.send_text("DIGEST AUTO (12h)\n\n" + monitors_block)
         try:
             from shared.healthcheck_ping import ping as _hc_ping
             _hc_ping("daily_digest_job", status="success")

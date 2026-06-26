@@ -5624,6 +5624,66 @@ def _vault() -> str:
     )
 
     # 9. Assemble
+    # Phase 1 wiring (26/06) : accordion Monitors live en HAUT (avant sentinelles)
+    # — source intelligence.monitors_summary
+    monitors_content = ""
+    monitors_n = 0
+    try:
+        from intelligence.monitors_summary import get_monitors_summary
+        ms = get_monitors_summary()
+        rows = []
+        if ms["over_cap"]["today_transitions"]:
+            for t in ms["over_cap"]["today_transitions"]:
+                rows.append(f'<div class="cer-mon-row cer-mon-warn">🔺 OVER_CAP today : <b>{e(t["ticker"])}</b> {t["weight_pct"]}% (cap {t["cap_pct"]}%)</div>')
+                monitors_n += 1
+        if ms["over_cap"]["over_tickers"]:
+            for tk in ms["over_cap"]["over_tickers"]:
+                rows.append(f'<div class="cer-mon-row">🔸 over_cap : <b>{e(tk)}</b></div>')
+                monitors_n += 1
+        if ms["stress_gate"]["worst_scenario"]:
+            w = ms["stress_gate"]["worst_scenario"]
+            cls = "cer-mon-bad" if w["status"] == "breach" else ("cer-mon-warn" if w["status"] == "warn" else "")
+            rows.append(f'<div class="cer-mon-row {cls}">📉 worst stress : <b>{e(w["scenario_name"])}</b> drawdown {w["drawdown_pct"]:+.1f}% (warn {w["warn_pct"]}%, breach {w["breach_pct"]}%)</div>')
+            monitors_n += 1
+        if ms["kill_criteria"]["triggered_tickers"]:
+            rows.append(f'<div class="cer-mon-row cer-mon-bad">🚨 KILL TRIGGERED : <b>{e(", ".join(ms["kill_criteria"]["triggered_tickers"]))}</b></div>')
+            monitors_n += 1
+        if ms["kill_criteria"]["at_risk_tickers"]:
+            rows.append(f'<div class="cer-mon-row cer-mon-warn">⚠ kill at_risk : <b>{e(", ".join(ms["kill_criteria"]["at_risk_tickers"]))}</b></div>')
+            monitors_n += 1
+        if ms["stale_target"]["dead_tickers"]:
+            rows.append(f'<div class="cer-mon-row cer-mon-bad">💀 stale DEAD : <b>{e(", ".join(ms["stale_target"]["dead_tickers"]))}</b></div>')
+            monitors_n += 1
+        if ms["stale_target"]["dying_tickers"]:
+            rows.append(f'<div class="cer-mon-row cer-mon-warn">💭 stale dying : <b>{e(", ".join(ms["stale_target"]["dying_tickers"]))}</b></div>')
+            monitors_n += 1
+        if not rows:
+            monitors_content = '<div class="cer-empty">Tout sain — over_cap=0, stress ok, kill_criteria=0, stale=0.</div>'
+        else:
+            monitors_content = (
+                '<style>'
+                '.cer-mon-row{padding:8px 4px;border-bottom:1px solid color-mix(in oklch, var(--rule), transparent 50%);font-size:12px}'
+                '.cer-mon-row:last-child{border-bottom:none}'
+                '.cer-mon-warn{color:var(--acc, #e67e22)}'
+                '.cer-mon-bad{color:var(--bear, #c0392b)}'
+                '</style>'
+                + "".join(rows)
+            )
+    except Exception as exc:
+        monitors_content = f'<div class="cer-empty">Erreur monitors : {e(str(exc))}</div>'
+
+    monitors_acc = (
+        '<details class="cer-acc" open>'  # open par défaut — c'est ce qui mérite ton attention
+        '<summary class="cer-acc-head">'
+        '<span class="cer-acc-icon">📊</span>'
+        '<span class="cer-acc-title">Monitors live</span>'
+        f'<span class="cer-acc-count">{monitors_n}</span>'
+        '<span class="cer-acc-chevron">▸</span>'
+        '</summary>'
+        f'<div class="cer-acc-body">{monitors_content}</div>'
+        '</details>'
+    )
+
     sent_acc = (
         '<details class="cer-acc">'
         '<summary class="cer-acc-head">'
@@ -5689,7 +5749,7 @@ def _vault() -> str:
         '<div id="cerebroChips" class="cer-chips"></div>'
         '</div>'
         '<div id="cerebroExplore">'
-        + sent_acc + tl_acc + cloud_acc + sect_acc +
+        + monitors_acc + sent_acc + tl_acc + cloud_acc + sect_acc +
         '</div>'
         '<div id="cerebroResults" class="cer-results"></div>'
         + cerebro_js
@@ -7541,6 +7601,109 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     )
 
 
+def _monitors_live_band() -> str:
+    """Phase 1 wiring (26/06) : bandeau MONITORS LIVE en haut d'Overview.
+
+    Source : intelligence.monitors_summary.get_monitors_summary().
+    Surface : over_cap (count + today transitions), stress_gate (worst scenario),
+    kill_criteria (triggered/at_risk), stale_target (dying/dead).
+
+    Fail-soft : si helper unavailable / DB error, retourne empty string (pas
+    de bandeau au lieu d'un bandeau d'erreur).
+    """
+    try:
+        from intelligence.monitors_summary import get_monitors_summary
+        s = get_monitors_summary()
+    except Exception:
+        return ""
+
+    chips = []
+    # over_cap
+    oc = s["over_cap"]
+    if oc["over_count"] > 0:
+        cls = "ml-warn" if oc["today_transitions"] else "ml-info"
+        today_marker = " <small>(+1 today)</small>" if oc["today_transitions"] else ""
+        chips.append(
+            f'<a class="ml-chip {cls}" href="#strategie" title="Voir caps par conviction">'
+            f'<span class="ml-lab">over_cap</span>'
+            f'<span class="ml-val">{oc["over_count"]} pos</span>'
+            f'{today_marker}</a>'
+        )
+
+    # stress_gate
+    sg = s["stress_gate"]
+    if sg["worst_scenario"]:
+        w = sg["worst_scenario"]
+        cls = {"breach": "ml-bad", "warn": "ml-warn"}.get(w["status"], "ml-info")
+        chips.append(
+            f'<div class="ml-chip {cls}" title="warn={w["warn_pct"]}% breach={w["breach_pct"]}%">'
+            f'<span class="ml-lab">worst stress</span>'
+            f'<span class="ml-val">{w["scenario_name"]} {w["drawdown_pct"]:+.1f}%</span></div>'
+        )
+
+    # kill_criteria
+    kc = s["kill_criteria"]
+    if kc["triggered_tickers"]:
+        chips.append(
+            f'<a class="ml-chip ml-bad" href="#urgence">'
+            f'<span class="ml-lab">kill triggered</span>'
+            f'<span class="ml-val">{", ".join(kc["triggered_tickers"][:3])}</span></a>'
+        )
+    elif kc["at_risk_tickers"]:
+        chips.append(
+            f'<a class="ml-chip ml-warn" href="#urgence">'
+            f'<span class="ml-lab">kill at_risk</span>'
+            f'<span class="ml-val">{", ".join(kc["at_risk_tickers"][:3])}</span></a>'
+        )
+
+    # stale_target
+    st = s["stale_target"]
+    if st["dead_tickers"]:
+        chips.append(
+            f'<div class="ml-chip ml-bad"><span class="ml-lab">stale dead</span>'
+            f'<span class="ml-val">{", ".join(st["dead_tickers"][:3])}</span></div>'
+        )
+    if st["dying_tickers"]:
+        chips.append(
+            f'<div class="ml-chip ml-warn"><span class="ml-lab">stale dying</span>'
+            f'<span class="ml-val">{", ".join(st["dying_tickers"][:3])}</span></div>'
+        )
+
+    if not chips:
+        return (
+            '<div class="page-star monitors-live monitors-live-ok">'
+            '<div class="ml-row">'
+            '<span class="ml-head">📊 Monitors live</span>'
+            '<span class="ml-allclear">all sain · over_cap=0 · stress ok · kill 0 · stale 0</span>'
+            '</div></div>'
+        )
+
+    return (
+        '<div class="page-star monitors-live">'
+        '<div class="ml-row">'
+        '<span class="ml-head">📊 Monitors live</span>'
+        + "".join(chips) +
+        '</div>'
+        '<style>'
+        '.monitors-live{margin:14px 0 18px;padding:0}'
+        '.ml-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:10px 14px}'
+        '.ml-head{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);opacity:.8;font-weight:600;margin-right:8px}'
+        '.ml-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:transparent;border:1px solid var(--rule);border-radius:14px;font-size:11px;text-decoration:none;color:var(--ink);transition:all .15s}'
+        '.ml-chip:hover{background:color-mix(in oklch, var(--ink), transparent 95%);border-color:var(--ink-soft)}'
+        '.ml-lab{color:var(--ink-soft);font-weight:500}'
+        '.ml-val{font-weight:600;font-variant-numeric:tabular-nums}'
+        '.ml-info{}'
+        '.ml-warn{border-color:var(--acc, #e67e22);color:var(--acc, #e67e22)}'
+        '.ml-warn .ml-lab{color:var(--acc, #e67e22)}'
+        '.ml-bad{border-color:var(--bear, #c0392b);color:var(--bear, #c0392b)}'
+        '.ml-bad .ml-lab{color:var(--bear, #c0392b)}'
+        '.ml-allclear{font-size:11px;color:var(--ink-soft);opacity:.7}'
+        '.monitors-live-ok .ml-row{background:color-mix(in oklch, var(--paper), transparent 30%)}'
+        '</style>'
+        '</div>'
+    )
+
+
 def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
                  computed: list, names: dict) -> str:
     """v3 (19/06) crochet decisionnel 'Needs you today' en haut d'Overview.
@@ -8956,6 +9119,9 @@ def render() -> Path:
         # Legacy variables kept defined for back-compat (referenced elsewhere) :
         # _sparkline, _grade_color, _pnl_star_cls, pf_arrow, pf_pe, port_pnl
         + ''
+        # Phase 1 wiring monitors (26/06) : bandeau MONITORS LIVE en haut Overview.
+        # Source unique intelligence.monitors_summary, fail-soft si DB.
+        + _monitors_live_band()
         # v3 19/06 evening : crochet decisionnel "Needs you today" juste sous le hero.
         # Cartes riches per ticker (stop margin critical, PERDANT) + per cluster
         # (over cap). Filtre les winners avec trailing stop tight (pas un cri).
