@@ -43,6 +43,7 @@ def get_monitors_summary() -> dict[str, Any]:
         "benchmark": {"w30": None, "w90": None},
         "fx": {"w30": None, "w90": None},
         "priced_in": None,
+        "brier": None,
     }
 
     # 1. over_cap — current 'over' positions + today's dormant→over transitions
@@ -157,6 +158,14 @@ def get_monitors_summary() -> dict[str, Any]:
         log.debug(f"priced_in summary fail: {e}")
         out["priced_in"] = None
 
+    # 8. Brier per-domain audit — Tier 3 #9 wiring (26/06)
+    try:
+        from intelligence.brier_audit import compute_brier_audit
+        out["brier"] = compute_brier_audit()
+    except Exception as e:
+        log.debug(f"brier audit summary fail: {e}")
+        out["brier"] = None
+
     return out
 
 
@@ -201,6 +210,14 @@ def format_text_summary(summary: dict[str, Any] | None = None) -> str:
         parts.append(f"💀 stale DEAD : {', '.join(st['dead_tickers'])}")
     if st["dying_tickers"]:
         parts.append(f"💭 stale dying : {', '.join(st['dying_tickers'])}")
+
+    # brier per-domain (Tier 3 #9, 26/06)
+    br = summary.get("brier")
+    if br and br.get("ok"):
+        parts.append(
+            f"📏 Brier global {br['avg_brier_global']:.3f} sur N={br['n_total']} "
+            f"(baseline 0.25). Détail par ticker/sector dans Cerebro."
+        )
 
     # priced_in (Tetlock Tier 3 #10, 26/06)
     pi = summary.get("priced_in")

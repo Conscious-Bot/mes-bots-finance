@@ -5657,6 +5657,30 @@ def _vault() -> str:
         if ms["stale_target"]["dying_tickers"]:
             rows.append(f'<div class="cer-mon-row cer-mon-warn">💭 stale dying : <b>{e(", ".join(ms["stale_target"]["dying_tickers"]))}</b></div>')
             monitors_n += 1
+        # Tier 3 #9 Brier per-domain audit — global + per ticker + per sector
+        br = ms.get("brier")
+        if br and br.get("ok"):
+            rows.append(
+                f'<div class="cer-mon-row">📏 <b>Brier global {br["avg_brier_global"]:.3f}</b> '
+                f'sur N={br["n_total"]} (baseline 0.25 = pile/face binaire). '
+                f'<small>Plus bas = mieux calibré. CI large sur petits buckets, '
+                f'caveat affiché.</small></div>'
+            )
+            monitors_n += 1
+            for tk_row in br.get("per_ticker", [])[:5]:
+                rows.append(
+                    f'<div class="cer-mon-row" style="padding-left:24px;font-size:11px">'
+                    f'· <b>{e(tk_row["ticker"])}</b> Brier {tk_row["avg_brier"]:.3f} '
+                    f'<small style="opacity:.6">| {e(tk_row["caveat"])}</small></div>'
+                )
+                monitors_n += 1
+            for sec_row in br.get("per_sector", [])[:5]:
+                rows.append(
+                    f'<div class="cer-mon-row" style="padding-left:24px;font-size:11px">'
+                    f'· <i>{e(sec_row["sector"])}</i> Brier {sec_row["avg_brier"]:.3f} '
+                    f'<small style="opacity:.6">| {e(sec_row["caveat"])}</small></div>'
+                )
+                monitors_n += 1
         # Tier 3 #10 priced_in (Tetlock 'what's priced in') — agg + top 3 par catégorie
         pi = ms.get("priced_in")
         if pi and pi.get("ok"):
