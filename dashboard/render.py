@@ -4259,11 +4259,25 @@ from shared.taxonomy import clean_sector as _clean_sector
 
 
 def _sectors() -> dict:
-    sect_map = _cfg().get("sectors", {})
+    """ticker → display label = CATÉGORIE-MÈRE du layer_primary (Phase 2, 26/06/2026).
+
+    Avant : lecture de config.yaml:sectors: (Source D) — 12 buckets ad-hoc qui
+    divergeaient du cluster compute_ai et de TICKER_SECTOR.
+    Maintenant : lecture de config/presage_taxonomy.yaml via shared/taxonomy.py
+    (Source unique, 26 held + 7 planned + 1 sorti). Le groupement principal
+    est la CATÉGORIE-MÈRE (compute, manufacturing, materials, …) — c'est le
+    tissu liant qui regroupe (AMZN+AVGO+GOOGL → 'Compute', pas 3 îles).
+    Le détail sous-couche reste accessible via `taxonomy.layer_label(layer_primary)`
+    pour un affichage hiérarchique futur (sous-ligne sous la mère).
+
+    Tout ticker DB held ⊆ mapping (validate_against_db gate Phase 0). Si un
+    ticker est absent du mapping (sorti silencieux), il prend label 'Sans thesis'.
+    """
+    from shared import taxonomy
+
     out: dict = {}
-    for sector, tickers in sect_map.items():
-        for tk in tickers:
-            out[tk] = sector
+    for tk, p in taxonomy._by_ticker().items():
+        out[tk] = taxonomy.make_sector_label(p["layer_primary"])
     return out
 
 

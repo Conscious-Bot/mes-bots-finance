@@ -192,6 +192,76 @@ def same_sector_tickers(ticker: str, status: str = "held") -> list[str]:
     ]
 
 
+class SectorLabel(str):
+    """Display label porteur de la mère ET de la sous-couche (Phase 2, 26/06/2026).
+
+    Sous-classe de str : sa VALEUR string EST la catégorie-mère (compatibilité
+    descendante avec tout caller qui fait `sectors.get(tk, "Other")` ou compare
+    par égalité). L'attribut `.sub` porte la sous-couche pour un affichage
+    hiérarchique (sous-ligne sous la mère dans la page Positions).
+
+    Usage :
+        s = SectorLabel('Compute', sub='Hyperscaler')
+        s == 'Compute'           # True (string compare)
+        f"{s}"                   # 'Compute'
+        s.sub                    # 'Hyperscaler'
+
+    Réserve 2 du red-team 26/06 : le tissu liant (mère) doit apparaître à l'écran
+    sans sacrifier la précision (sous-couche). Le dict source porte les deux.
+    """
+
+    sub: str | None
+
+    def __new__(cls, group: str, sub: str | None = None) -> SectorLabel:
+        instance = super().__new__(cls, group)
+        instance.sub = sub
+        return instance
+
+
+def make_sector_label(layer_primary: str | None) -> SectorLabel:
+    """Build a SectorLabel from a layer_primary (group=mère, sub=sous-couche)."""
+    return SectorLabel(category_label(layer_primary), sub=layer_label(layer_primary))
+
+
+def layer_label(layer_primary: str | None) -> str:
+    """Format a layer_primary 'category/sub' into a display label.
+
+    'compute/hyperscaler'         → 'Hyperscaler'
+    'manufacturing/foundry_leading'→ 'Foundry Leading'
+    'memory/hbm'                  → 'HBM'
+    'capital_equipment/litho'     → 'Litho'
+    None                          → 'Sans thesis'
+
+    On affiche la SOUS-couche (plus informative que la mère). Pour la mère,
+    cf `category_label(layer_primary)`. Cure 26/06/2026 — Phase 2.
+    """
+    if not layer_primary or "/" not in layer_primary:
+        return clean_sector(layer_primary)
+    sub = layer_primary.split("/", 1)[1]
+    return clean_sector(sub)
+
+
+def category_label(layer_primary: str | None) -> str:
+    """Format the catégorie-mère of a layer_primary into a display label.
+
+    'compute/hyperscaler'         → 'Compute'
+    'manufacturing/foundry_leading'→ 'Manufacturing'
+    """
+    if not layer_primary or "/" not in layer_primary:
+        return clean_sector(layer_primary)
+    cat = layer_primary.split("/", 1)[0]
+    return clean_sector(cat)
+
+
+def driver_label(driver: str | None) -> str:
+    """Format a driver enum into a display label.
+
+    'ai_capex'         → 'AI Capex'
+    'resources_energy' → 'Resources Energy'
+    """
+    return clean_sector(driver)
+
+
 def clean_sector(sid: str | None) -> str:
     """Format a sector_id (snake_case with optional trailing year) into a display label.
 
@@ -209,6 +279,20 @@ def clean_sector(sid: str | None) -> str:
         .replace("Hpq", "HPQ")
         .replace("Eu ", "EU ")
         .replace("Mag7", "MAG 7")
+        # Acronymes du vocabulaire taxonomy (26/06/2026) — Phase 2.
+        # KNOWN-GAP P3 : cascade .replace fragile (chaque acronyme = ligne) +
+        # risque de frappe sur sous-chaîne innocente. Refonte cible : dict
+        # ACRONYMS appliqué par lookup sur token (split sur ' '), pas par
+        # substitution globale. Réserve 1 du red-team 26/06.
+        .replace("Hbm", "HBM")
+        .replace("Eda", "EDA")
+        .replace("Lng", "LNG")
+        .replace("Asic", "ASIC")
+        .replace("Cpu", "CPU")
+        .replace("Gpu", "GPU")
+        .replace("Cowos", "CoWoS")
+        .replace("Idm Analog", "IDM Analog")
+        .replace("Ip Cores", "IP Cores")
     )
 
 
