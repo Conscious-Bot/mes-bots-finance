@@ -508,6 +508,9 @@ concentration:
       - SU.PA         # Schneider Electric
       - VRT           # Vertiv cooling
       - GEV           # GE Vernova turbines
+      - 7011.T        # Mitsubishi Heavy — turbines power-AI capex (driver ai_capex
+                      #   bias-safe 27/06 ; conglomérat avec defense en co-primary,
+                      #   override-falsifiable-daté possible si plancher défense tient)
 
     # Décorrélateurs authentiques (autres facteurs, vraies décorrélations).
     decorrelators:
@@ -516,7 +519,6 @@ concentration:
       - MP            # terres rares
       - HO.PA         # défense
       - SAF.PA        # aéro civil
-      - 7011.T        # Mitsubishi Heavy
 
     # Jachère / moonshots (thèses dormantes ou amorçables, hors cluster).
     jachere:
@@ -786,12 +788,18 @@ sectors:
 # =============================================================================
 kill_switch:
   enabled: true
-  # Définition de la grappe : SOURCE UNIQUE = concentration.clusters.compute_ai
-  # (refonte 26/06/2026 inclut Hyperscalers + Power & électrif = vraie variable-maître).
-  # cluster_source: 'compute_ai_cluster' = lecture dynamique du cluster compute_ai
-  # via shared.config.get(). Garde explicit cluster_tickers comme fallback si
-  # la lecture échoue (fail-closed L15).
-  cluster_source: compute_ai_cluster
+  # Définition de la grappe : SOURCE UNIQUE (Phase 4 unification 27/06/2026) =
+  # mapping presage_taxonomy.yaml driver=ai_capex sur held. Avant chaque retour
+  # de _cluster_membership, taxonomy.assert_held_cluster_consistency() vérifie
+  # l'égalité sur le périmètre held entre B (config.yaml:cluster.compute_ai)
+  # et le mapping — fail-closed si divergence (ne pas armer le disjoncteur sur
+  # un périmètre faux, cf brief Phase 4).
+  #
+  # cluster_source: 'taxonomy_ai_capex_held' = source canonique Phase 4.
+  # cluster_source: 'compute_ai_cluster' = chemin legacy avant Phase 4 (conservé
+  # pour rollback rapide si besoin — la donnée B reste à jour).
+  # Garde cluster_tickers comme fallback statique (fail-closed L15).
+  cluster_source: taxonomy_ai_capex_held
   cluster_tickers:
     # Fallback uniquement — la source canonique = clusters.compute_ai ci-dessus.
     # Tickers held actuellement dans le cluster compute_ai élargi (26/06 refonte).

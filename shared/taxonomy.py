@@ -342,6 +342,51 @@ def clean_sector(sid: str | None) -> str:
     )
 
 
+def assert_held_cluster_consistency() -> None:
+    """Phase 4 — kill_switch contract (27/06/2026).
+
+    Vérifie l'égalité scopée au held entre :
+      - B  : config.yaml:concentration.clusters.compute_ai (univers étendu)
+      - M  : mapping ai_capex held (presage_taxonomy.yaml)
+
+    Sur le périmètre DÉTENU (qty>0 en DB), B∩held DOIT être égal à M∩held.
+    Sinon → TaxonomyError (fail-closed, ne pas armer le disjoncteur sur un
+    périmètre faux). Cf brief Phase 4.
+
+    Cette assertion est exécutée à chaque appel de _cluster_membership() côté
+    kill_switch quand cluster_source='taxonomy_ai_capex_held' — coût négligeable
+    et garantie de cohérence à chaque inspection live.
+    """
+    from pathlib import Path
+
+    from shared import storage
+
+    with storage.db() as cx:
+        db_held = {
+            row[0]
+            for row in cx.execute("SELECT ticker FROM positions WHERE qty>0").fetchall()
+        }
+    cfg = yaml.safe_load(Path("config.yaml").read_text())
+    cluster_b = set(cfg.get("concentration", {}).get("clusters", {}).get("compute_ai") or [])
+    held_in_b = {t for t in db_held if t in cluster_b}
+    held_ai_mapping: set[str] = set()
+    for t in db_held:
+        try:
+            if get_taxonomy(t).get("driver") == "ai_capex":
+                held_ai_mapping.add(t)
+        except TaxonomyError:
+            pass
+    if held_in_b != held_ai_mapping:
+        b_only = sorted(held_in_b - held_ai_mapping)
+        m_only = sorted(held_ai_mapping - held_in_b)
+        raise TaxonomyError(
+            f"divergence cluster B ↔ taxonomy mapping sur held (kill_switch contract Phase 4) : "
+            f"B\\map={b_only}, map\\B={m_only}. "
+            f"Aligner config.yaml:concentration.clusters.compute_ai et "
+            f"presage_taxonomy.yaml driver=ai_capex avant d'armer le disjoncteur."
+        )
+
+
 def validate_against_db(*, raise_on_missing: bool = True) -> dict[str, list[str]]:
     """Cross-check : every DB held ticker (qty>0) ∈ mapping.
 

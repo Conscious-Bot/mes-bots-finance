@@ -115,3 +115,40 @@ def test_cluster_membership_neither_defined_raises(monkeypatch):
 
     with pytest.raises(config.ConfigurationError):
         ks._cluster_membership()
+
+
+def test_cluster_membership_taxonomy_ai_capex_held(monkeypatch):
+    """Phase 4 — source canonique = taxonomy mapping driver=ai_capex sur held.
+
+    L'assertion held-scopée vs B (config.yaml) doit passer puisque l'alignement
+    27/06 (MHI 7011.T déplacé de decorrelators vers compute_ai) a été commité.
+    """
+    monkeypatch.setattr(ks, "_cfg", lambda: {"cluster_source": "taxonomy_ai_capex_held"})
+    members = ks._cluster_membership()
+    # Tickers held ai_capex attendus (snapshot 27/06 post-alignement MHI)
+    assert "TSM" in members
+    assert "AVGO" in members
+    assert "AMZN" in members  # hyperscaler driver=ai_capex
+    assert "GOOGL" in members
+    assert "GEV" in members
+    assert "SU.PA" in members
+    assert "7011.T" in members  # MHI bias-safe driver=ai_capex (cf MEMORY layer_vs_driver)
+    # Tickers held mais NON ai_capex doivent être ABSENTS
+    assert "CCJ" not in members
+    assert "LNG" not in members
+    assert "HO.PA" not in members
+    assert "SAF.PA" not in members
+    assert "SPCX" not in members
+    assert "6324.T" not in members
+    assert "MP" not in members
+    # Tickers de l'univers étendu (B) non-held NE DOIVENT PAS être dans le set
+    # (Phase 4 retourne strict held, pas l'univers)
+    assert "NVDA" not in members  # not held
+    assert "AMD" not in members   # not held
+
+
+def test_assert_held_cluster_consistency_passes_after_alignment():
+    """L'assertion doit passer sur l'état figé 27/06 — sinon Phase 4 cassée."""
+    from shared import taxonomy
+
+    taxonomy.assert_held_cluster_consistency()  # raise sinon

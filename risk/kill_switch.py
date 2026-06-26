@@ -66,16 +66,27 @@ def _today() -> date:
 def _cluster_membership() -> set[str]:
     """Récupère la liste des tickers de la grappe AI-compute.
 
-    Priorité (26/06/2026 refonte taxonomie) :
-    1. cluster_source: 'compute_ai_cluster' → lecture dynamique de
-       concentration.clusters.compute_ai (source canonique unique).
-    2. cluster_tickers explicite → fallback statique.
-    3. cluster_narrative → lookup via theses (deprecated).
+    Priorité (27/06/2026 — Phase 4 unification 5 sources → 1) :
+    1. cluster_source: 'taxonomy_ai_capex_held' → dérivation depuis le mapping
+       unique (presage_taxonomy.yaml driver=ai_capex sur held). Avant retour,
+       assertion held-scopée vs config.yaml cluster_compute_ai (fail-closed).
+    2. cluster_source: 'compute_ai_cluster' → lecture directe de
+       concentration.clusters.compute_ai (chemin legacy avant Phase 4).
+    3. cluster_tickers explicite → fallback statique.
+    4. cluster_narrative → lookup via theses (deprecated).
 
     Raise ConfigurationError si rien défini.
+    Raise TaxonomyError si source='taxonomy_ai_capex_held' ET divergence vs B.
     """
     cfg = _cfg()
     source = cfg.get("cluster_source")
+    if source == "taxonomy_ai_capex_held":
+        # Phase 4 — source canonique unique. Assertion held-scopée AVANT retour
+        # garantit que B (config.yaml) et mapping s'accordent sur le détenu.
+        from shared import taxonomy
+
+        taxonomy.assert_held_cluster_consistency()  # raise sinon
+        return {tk.upper() for tk in taxonomy.by_driver("ai_capex", "held")}
     if source == "compute_ai_cluster":
         full = config.get()
         canon = (full.get("concentration", {}).get("clusters", {}).get("compute_ai") or [])
