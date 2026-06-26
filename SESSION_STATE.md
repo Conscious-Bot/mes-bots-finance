@@ -4097,3 +4097,60 @@ Notes secondaires non-actionées (laissés au backlog) :
 - Le bot tourne, le système est construit, laisser le temps faire le travail
 
 **Backup DB** : `data/bot.db.backup_close_20260624_*` (Mac + VM)
+
+
+## Close 2026-06-26 — Session vault cleanup + DB corruption fix structurel + sweep #135 (7 thèses)
+
+**2 commits techniques livrés** (peu nombreux mais haut levier) :
+- `607769e` **fix(mirror): skip smoke_test transactions** — 12 tx résidu smoke test 09/06 (source='smoke_test_126', tickers SMOKE126/SMK126_*) polluaient `journal/transactions/TX_2026-06-09.md` via le mirror Obsidian. Triple filtre défensif (source NOT LIKE 'smoke_test%' + ticker NOT LIKE 'SMOKE%' + NOT LIKE 'SMK%'). Ledger préservé (tx#43-#54 restent en DB neutralisées), seul l'affichage Obsidian nettoyé.
+- `4780d4e` **fix(sync): cleanup stale WAL/SHM after atomic swap** — Root cause de la 3e corruption Mac DB post-sync (23/06 + 2× 25/06). Atomic `mv` ne suffit pas : `bot.db-wal`/`-shm` pré-existants pointent vers l'ancien inode, SQLite tente d'appliquer le WAL stale au nouveau DB → "Rowid X out of order" + index B-tree corrompu. Fix = `rm -f bot.db-wal bot.db-shm` post-swap. Force fresh open au prochain reader, serve.py recrée des siblings vides. Bug structurel fermé.
+
+**Vault PRESAGE cleanup massif** :
+- **13 notes vides supprimées** : Biais 1.md (doublon), THESE PRESAGE - EXPLICATION.md (template), 00_ingestion/STUB_test_link_2026-06-25.md (leftover), journal/transactions/TX_2026-06-09.md (smoke-only), AMD — thèse conclue.md, 3 sentinelles S — adoption hybrid bonding / perte leadership process / S6 brèche découplage, TSM.md (doublon de TSMC.md via alias), 4 sentinelles "[À COMPLÉTER PAR O.]" stubs. Doctrine acceptée par O. : "delete on créera en temps et en heure si nécessaire" — 14 fantômes assumés.
+- **Presage.md hub créé** (FIREWALL FAIT/JUGEMENT respecté : seulement liens existants + [À COMPLÉTER PAR O.] distillation) → résout 36 phantoms [[Presage]].
+- **10 notes existantes enrichies d'aliases** (NVIDIA, SHIN-ETSU, MP MATERIALS, 7011, AMZN, 6920 Lasertec, BESI, GOOGL, 6857 Advantest, ALAB) → résout ~30 phantoms company-name (Nvidia, Amazon, MP Materials, Mitsubishi Heavy, Lasertec, Alphabet/Google, Advantest, Astera Labs, etc.).
+- **Bilan vault** : 143 → ~36 phantoms (-75%). 254 notes, integrité préservée.
+
+**Sweep #135 — 7 thèses re-reviewed** (KPI #1 P0 du TODO) :
+- **000660.KS (SK Hynix)** decision#95 `override` — Re-anchor structural avec 3 catalyseurs convergents dictés par O. : (1) HBM4 cycle 2027-2029, (2) monopole 70% market share confirmé Q1 2026, (3) entrée bourse US juillet 2026. Niveaux relevés : partial ₩3M→₩3.5M, full ₩4M→₩5M, stop ₩2.2M→₩2.5M. PnL +89% sur cost. Discipline anti-anchoring respectée (raison structural ex-ante dictée).
+- **KLAC** decision#96 `no_action_flag` — Statu quo. Cur $258.80 (+59% sur cost), consensus mean $204 (-21% sous cur, **analystes en LAG**), recoMean 2.0. Conviction inspection EUV monopole inchangée, hypothèse "analystes ajusteront +1-2 quarters". Pas de re-anchor (thèse inchangée → discipline respectée).
+- **5 trail stops mécaniques** (4063.T / 6857.T / AMZN / AVGO / CCJ) decisions#97-101 `override` — Thèses INCHANGÉES, targets INCHANGÉS, stops only updated. Base 15% sous cur. AVGO élargi à 20% (cur déjà proche stop précédent). CCJ resserré à 10% (marge 44% excessive). Doctrine appliquée : refus de widen targets sans raison structural (pushback anti-anchoring tenu contre tentation O. de widen "légèrement").
+
+**Trade exécuté 25/06** :
+- HO.PA scale_in 1 sh @ €219.40 (tx#243, decision#94) — Position 7→8 sh, cap c3 31% du book, sous l'entry moyen ₩221.90.
+
+**Incident résolu — Dashboard book value = 0** (25/06 soir) :
+- Symptôme : dashboard affiche 0 positions. Root cause = `Rowid out of order` corruption Mac DB post-sync. VM intacte (single-source-VM respectée). Restore : `cp bot.db bot.db.corrupted_*` + re-sync VM → integrity ok + 36 positions retrouvées. Puis fix structurel commit 4780d4e ci-dessus. Procédure restore documentée dans memory `sqlite-wal-shm-cleanup-post-sync`.
+
+**Incident résolu — MU LIVING_GRAPH fork +13%** (25/06 soir) :
+- Alert Telegram légitime, détecteur fait son job. Root cause = MU +13% intraday (yfinance currentPrice $1183 vs previousClose $1047, rally HBM ~12× sur 52w). `_PX_CACHE` 30 min cache + price_history fresh = 13% divergence cross-source. Fix = restart serve.py (cache RAM clear). Fork 25/06 résolu (0 occurrence sur today's bucket vs 93 sur 24/06 historique non-rétroactif).
+
+**Doctrines durables ajoutées en mémoire** :
+- `[[feedback-dashboard-positions-only-not-total-account]]` — dashboard book_value = positions only (qty×price×fx), PAS le total compte broker. Cash buffer (~€500-1000 typique) pas tracké en DB. Si user signale "valeur fausse", vérifier d'abord gap = cash buffer.
+- `[[sqlite-wal-shm-cleanup-post-sync]]` — 3e corruption Mac DB → root-cause + fix grave. Atomic `mv` ne suffit pas, MUST `rm -f bot.db-wal bot.db-shm`. Procédure restore complète incluse.
+- `[[feedback-pea-no-fractional-sizing-min]]` (acté 25/06) — PEA Boursorama no fractional, sizing min ~10 sh pour trim partial 30%. Position <10 sh = hold-full forced.
+
+**Discipline anti-anchoring tenue** (session récurrente) :
+- SK Hynix re_anchor refusé jusqu'à ce que O. dicte les 3 catalyseurs structuraux explicites
+- KLAC `(a) statu quo` choisi par O. = discipline respectée (consensus en LAG, thèse inchangée, pas de re-anchor opportunistic)
+- Trail stops × 5 acceptés (mécanique pure, lock-in gain) MAIS widen targets refusé sans raison structural (pushback explicite tenu contre "conservons nos thèses ET élargissons légèrement targets" — pattern textbook anchoring/lock_in déguisé)
+
+**État système 26/06 end-of-session** :
+- 28 thèses actives (1 c5 SOCLE ASML.AS + 1 c5 SOCLE TSM + 8 c4 priced + 16 c3 priced + 2 c2 priced)
+- 36 positions held (qty>0, dont positions historiques non-thésées)
+- 208 transactions append-only (tx#243 HO.PA scale_in dernier en date)
+- 101 decisions journalisées (decision#101 CCJ trail dernier)
+- Bot.main running VM ✓ (single-source-VM respectée)
+- DB integrity_check ok Mac + VM
+- Vault PRESAGE 254 notes, 36 phantoms résiduels acceptés
+
+**Entry next session** :
+1. **6 thèses restantes du sweep #135** (DEJA FAIT post-sweep, à vérifier monitor stale_target ne reflag plus). Si reflag → analyse pourquoi (consensus drift ?).
+2. **PEA cash injection pending** : Infineon + Prysmian + ARM buys bloqués, virement bancaire en cours. Quand cash arrive → exec via VM (single-source) avec [STRUCTURED] reasoning sur les 3 entrées.
+3. **Hetzner SSH health check** : `ssh presage@37.27.247.126 "systemctl --user status presage-bot.service"` (post-cutover discipline, périodique).
+4. **2 alias fails Obsidian** (ENTG / LNG) — paths exactes à retrouver, 6 phantoms mineurs à résoudre.
+5. **Phantoms résiduels (36)** : décider si on en supprime d'autres ou si on accepte. Notamment [[AMD]] (9 refs, note delete confirmée) + [[Thales]]/[[Schneider]]/[[Prysmian]]/[[HDS]]/[[6324.T]] (notes thèse jamais migrées vault).
+6. **Dette : enum `decision_type` n'a pas `re_anchor`** — utilisé `override` comme fourre-tout. Si re-anchors fréquents, ajouter au CHECK constraint DB (migration légère).
+
+**Backup DB** : sync naturel à 22:05/21:05/20:05 (rotation auto 5 backups). Pas de backup nominatif `close_*` créé (le sweep #135 ne touche que `theses.stop_price`/`target_*` + `decisions` append-only, change-set petit).
+

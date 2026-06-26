@@ -1,10 +1,38 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 24 juin 2026 close session instrument-honnêteté 6 commits. Audit dashboard 45 panneaux × 9 pages (7 findings classés, aucun HIGH). 4 KPI fixes : KPI #4 panic signature factuelle non-contournable + KPI #2 stuck strict calendaire + KPI #5 journalisation 3-fields structure (anti-keyword backdoor) + audit findings F1/F2/F3 (closest-to-target inclusion structural + label/code alignment + 3 sectors missing). Gauge Option B entry-centred (bug visuel KLAC 25%→71%). Grid conviction refonte : c5 = SOCLE (ASML.AS + TSM monopole gelé), caps 8/6/4.5/3/2, 28 thèses redistribuées. 4 doctrines durables ajoutées en mémoire.
+**Refresh** : 26 juin 2026 close session vault cleanup + DB corruption fix structurel + sweep #135 (7 thèses re-reviewed). 2 commits techniques (607769e mirror smoke filter + 4780d4e WAL/SHM cleanup post-sync = 3e corruption root-caused). Vault 13 notes vides supprimées + Presage.md hub créé + 10 aliases adds → 143→36 phantoms (-75%). Sweep #135 sur KLAC+5 dying+1 dead : SK Hynix re_anchor structural (3 catalyseurs HBM4+monopole+US listing), KLAC statu quo, 5 trail stops mécaniques (4063.T/6857.T/AMZN/AVGO/CCJ). HO.PA scale_in 1 sh @ €219.40. Discipline anti-anchoring tenue (refus widen targets sans raison structural). 3 doctrines durables ajoutées (dashboard positions-only, SQLite WAL/SHM cleanup, PEA no fractional).
 **Mode** : **INSTRUMENT HONNÊTE. STRUCTURE PAS LONGUEUR. FAITS PAS KEYWORDS.** Forward-only, le bot tourne, on laisse le temps faire.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (26/06 close vault cleanup + sweep #135)
+
+- **main HEAD `4780d4e`** (2 commits today : `607769e` mirror smoke filter + `4780d4e` WAL/SHM cleanup ; alembic head inchangé 0062).
+- **DB integrity_check ok** Mac + VM. Bug structurel post-sync corruption (3e occurrence) **fermé** via WAL/SHM cleanup.
+- **28 thèses actives** (1 SK Hynix re_anchor structural 26/06, 1 KLAC no_action_flag, 5 trail stops mécaniques). 36 positions held.
+- **208 transactions append-only** (tx#243 HO.PA scale_in 1 sh @ €219.40 — dernier).
+- **101 decisions journalisées** (decision#101 CCJ trail dernier ; KPI #5 +7 décisions [STRUCTURED] aujourd'hui sur 7 thèses sweep #135 + 1 trade).
+- **Bot.main running VM** ✓ (single-source-VM respectée). Mac = read-only view.
+- **Vault PRESAGE** : 254 notes (13 vides supprimées + 1 Presage.md hub créé + 10 aliases adds). 143→36 phantoms (-75%). FIREWALL FAIT/JUGEMENT inviolable respecté.
+- **Backups DB sync auto** : rotation 5 backups via launchd (last 22:05/21:05/20:05/19:05/...).
+- **🟡 Dette doctrinale connue** : enum `decision_type` n'a pas `re_anchor`, utilisé `override` comme fourre-tout. À ajouter au CHECK constraint DB si re-anchors fréquents (migration légère).
+- **🔵 Trades pending cash injection** : Infineon + Prysmian + ARM bloqués (Boursorama ≥€2500 min PEA, ARM CTO €1600 short). Virement bancaire en cours.
+
+## ✅ DÉJÀ FAIT (26/06)
+
+- **Mirror smoke filter** (`607769e`) — Triple filtre `source NOT LIKE 'smoke_test%' + ticker NOT LIKE 'SMOKE%' + NOT LIKE 'SMK%'`. 12 tx résidu 09/06 ne polluent plus le mirror Obsidian. Ledger préservé.
+- **SQLite WAL/SHM cleanup post-sync** (`4780d4e`) — Root cause 3e corruption Mac DB identifiée (atomic `mv` ne suffit pas, WAL stale survit au swap). Fix `rm -f bot.db-wal bot.db-shm` après swap. Bug structurel fermé.
+- **Vault cleanup** — 13 notes vides supprimées (doublons + stubs `[À COMPLÉTER]` + smoke residue). Presage.md hub créé (résout 36 phantoms). 10 aliases adds (résout ~30 phantoms company-name). Net -75%.
+- **Sweep #135 (7 thèses)** — 000660.KS re_anchor structural (3 catalyseurs HBM4+monopole+US listing). KLAC no_action_flag (analystes en LAG, thèse inchangée). 4063.T+6857.T+AMZN trail 15%. AVGO trail 20% (recule). CCJ trail 10% (avance). Targets inchangés sur les 5 trail (discipline anti-anchoring tenue contre tentation widen "légèrement").
+- **HO.PA scale_in** 1 sh @ €219.40 (tx#243, decision#94). 7→8 sh, cap c3 31%, sous entry moyen 221.90.
+- **Session close ritual L6** — SESSION_STATE update + TODO refresh + commit dédié.
+
+## ✅ DÉJÀ FAIT (25/06)
+
+- **Audit panneaux dashboard book value** — User signale dashboard €56,652 vs broker €57,370. Diagnostic = cash buffer (~€696 CTO+PEA) non tracké en DB. User accepte Option D (status quo). Doctrine gravée mémoire.
+- **Incident dashboard book=0** — 3e corruption Mac DB post-sync. Restore via re-sync + investigation root cause WAL/SHM stale → fix structurel commit 4780d4e ci-dessus.
+- **Incident MU LIVING_GRAPH fork +13%** — Alert légitime (MU +13% intraday, cache 30 min vs price_history fresh). Restart serve.py clear `_PX_CACHE` → fork résolu (0 occurrence today's bucket).
 
 ## 🟢 ÉTAT SYSTÈME (24/06 close instrument-honnêteté + SOCLE refonte)
 
