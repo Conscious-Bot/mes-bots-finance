@@ -5657,6 +5657,31 @@ def _vault() -> str:
         if ms["stale_target"]["dying_tickers"]:
             rows.append(f'<div class="cer-mon-row cer-mon-warn">💭 stale dying : <b>{e(", ".join(ms["stale_target"]["dying_tickers"]))}</b></div>')
             monitors_n += 1
+        # Tier 3 #10 priced_in (Tetlock 'what's priced in') — agg + top 3 par catégorie
+        pi = ms.get("priced_in")
+        if pi and pi.get("ok"):
+            agg = (
+                f'<div class="cer-mon-row">📐 Priced-in ({pi["n_rated"]}/{pi["n_total"]} rated) : '
+                f'<b>{pi["n_asymmetric"]}</b> asymmetric · '
+                f'<b>{pi["n_at_consensus"]}</b> at_consensus · '
+                f'<b>{pi["n_above_consensus"]}</b> above_consensus · '
+                f'<b>{pi["n_priced_for_perfection"]}</b> priced_for_perfection · '
+                f'<b>{pi["n_crowded_buy"]}</b> crowded_buy (rm&lt;1.5)</div>'
+            )
+            rows.append(agg)
+            monitors_n += 1
+            if pi.get("top_priced_for_perfection"):
+                rows.append(
+                    f'<div class="cer-mon-row cer-mon-warn">🎯 top priced_for_perfection : '
+                    f'<b>{e(", ".join(pi["top_priced_for_perfection"]))}</b></div>'
+                )
+                monitors_n += 1
+            if pi.get("top_asymmetric"):
+                rows.append(
+                    f'<div class="cer-mon-row">↗ top asymmetric (upside consensus) : '
+                    f'<b>{e(", ".join(pi["top_asymmetric"]))}</b></div>'
+                )
+                monitors_n += 1
         # Tier 3 #7 fx tripwire (26/06) — USD/EUR rate move + silent EUR impact
         fxm = ms.get("fx") or {}
         for window_lbl, key in (("30j", "w30"), ("90j", "w90")):
@@ -7701,6 +7726,33 @@ def _monitors_live_band() -> str:
             )
     except Exception:
         pass
+
+    # priced_in Tetlock — Tier 3 #10 wiring (26/06). Non-clickable, info chip.
+    pi = s.get("priced_in")
+    if pi and pi.get("ok"):
+        # Status : green si > 50% asymmetric, warn si plus de 5 priced_for_perfection,
+        # bad si > 30% above_consensus + priced_for_perfection cumulés.
+        n_total = pi["n_total"]
+        n_above_or_perfection = pi["n_above_consensus"] + pi["n_priced_for_perfection"]
+        n_asym = pi["n_asymmetric"]
+        if pi["n_priced_for_perfection"] >= 3 or n_above_or_perfection / max(n_total, 1) > 0.4:
+            cls = "ml-warn"
+        elif n_asym / max(n_total, 1) > 0.5:
+            cls = "ml-info"
+        else:
+            cls = "ml-info"
+        tt = (
+            f"Tetlock 'what's priced in' : "
+            f"{pi['n_asymmetric']}/{pi['n_total']} positions ont upside consensus, "
+            f"{pi['n_priced_for_perfection']} sont au-dessus du target_high analyste, "
+            f"{pi['n_crowded_buy']} sont crowded_buy (recommendation_mean<1.5). "
+            f"Détails par ticker dans Cerebro > Monitors live."
+        )
+        chips.append(
+            f'<div class="ml-chip {cls}" title="{tt}">'
+            f'<span class="ml-lab">priced-in</span>'
+            f'<span class="ml-val">{pi["n_asymmetric"]} asym / {pi["n_priced_for_perfection"]} perf</span></div>'
+        )
 
     # fx_tripwire USD/EUR — Tier 3 #7 wiring (26/06). Non-clickable, tooltip détaille.
     fx = s.get("fx") or {}

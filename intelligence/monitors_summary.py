@@ -42,6 +42,7 @@ def get_monitors_summary() -> dict[str, Any]:
         "stale_target": {"dead_tickers": [], "dying_tickers": []},
         "benchmark": {"w30": None, "w90": None},
         "fx": {"w30": None, "w90": None},
+        "priced_in": None,
     }
 
     # 1. over_cap — current 'over' positions + today's dormant→over transitions
@@ -148,6 +149,14 @@ def get_monitors_summary() -> dict[str, Any]:
         log.debug(f"fx tripwire summary fail: {e}")
         out["fx"] = {"w30": None, "w90": None}
 
+    # 7. priced_in (Tetlock 'what's priced in') — Tier 3 #10 wiring (26/06)
+    try:
+        from intelligence.priced_in_tracker import compute_priced_in
+        out["priced_in"] = compute_priced_in()
+    except Exception as e:
+        log.debug(f"priced_in summary fail: {e}")
+        out["priced_in"] = None
+
     return out
 
 
@@ -192,6 +201,21 @@ def format_text_summary(summary: dict[str, Any] | None = None) -> str:
         parts.append(f"💀 stale DEAD : {', '.join(st['dead_tickers'])}")
     if st["dying_tickers"]:
         parts.append(f"💭 stale dying : {', '.join(st['dying_tickers'])}")
+
+    # priced_in (Tetlock Tier 3 #10, 26/06)
+    pi = summary.get("priced_in")
+    if pi and pi.get("ok"):
+        segs = []
+        if pi["n_priced_for_perfection"]:
+            segs.append(f"🎯 perfection {pi['n_priced_for_perfection']}")
+        if pi["n_above_consensus"]:
+            segs.append(f"⬆ above_cons {pi['n_above_consensus']}")
+        if pi["n_asymmetric"]:
+            segs.append(f"↗ asym {pi['n_asymmetric']}")
+        if pi["n_crowded_buy"]:
+            segs.append(f"🐑 crowded_buy {pi['n_crowded_buy']}")
+        if segs:
+            parts.append(f"📐 Priced-in ({pi['n_rated']}/{pi['n_total']}) · " + " · ".join(segs))
 
     # fx tripwire (Tier 3 #7, 26/06)
     fxm = summary.get("fx") or {}
