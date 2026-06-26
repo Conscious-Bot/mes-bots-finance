@@ -1407,6 +1407,94 @@ def log_decision(
         conn.close()
 
 
+def insert_decision_with_cf(
+    *,
+    ticker,
+    decision_type,
+    reasoning,
+    thesis_id,
+    conviction,
+    price_native,
+    qty_before,
+    currency,
+    direction=None,
+    price_eur=None,
+    counterfactual_branch="hold",
+    bias_hypothesis_json="[]",
+    conn=None,
+):
+    """Insert decision + decision_counterfactual atomiquement.
+
+    Pattern obligatoire pour TOUT script manuel d'exec trade : ferme la dette
+    structurelle gravee dans memory `[[manual-exec-must-create-cf]]` (sinon
+    rule #7 ROUGE au close — cf tests/test_book_gate.py).
+
+    CF cree SEULEMENT si decision_type IN ('entry','scale_in','partial_exit','full_exit').
+    Pour 'override' / 'no_action_flag', seule la decision est inseree (CF inutile,
+    pas trade materiel).
+
+    Args:
+        ticker: str (uppercased).
+        decision_type: enum ('entry','scale_in','partial_exit','full_exit','override','no_action_flag').
+        reasoning: str [STRUCTURED] format these/invalidation/conviction.
+        thesis_id: int (FK theses.id, required pour rule #7 traceability).
+        conviction: int 1-5.
+        price_native: float price natif au moment decision.
+        qty_before: float position qty AVANT le trade (pour CF anchor).
+        currency: str (EUR/USD/JPY/KRW...).
+        direction: 'long'|'short' (default None, inferred).
+        price_eur: float optional EUR conversion.
+        counterfactual_branch: 'hold'|'would_have_sold'|'rotate_to' (default 'hold').
+        bias_hypothesis_json: str JSON list (default '[]').
+        conn: sqlite3.Connection existante optional. Si None, ouvre une nouvelle.
+
+    Returns:
+        tuple (decision_id, cf_id) — cf_id is None si decision_type ne necessite pas CF.
+
+    Raises:
+        ValueError si decision_type invalide.
+    """
+    valid_types = {"entry", "scale_in", "partial_exit", "full_exit", "override", "no_action_flag"}
+    if decision_type not in valid_types:
+        raise ValueError(f"decision_type must be in {valid_types}, got {decision_type}")
+
+    needs_cf = decision_type in {"entry", "scale_in", "partial_exit", "full_exit"}
+
+    close_conn = False
+    if conn is None:
+        conn = _sqlite3.connect(DB_PATH)
+        close_conn = True
+
+    try:
+        cur = conn.execute(
+            "INSERT INTO decisions (ticker, decision_type, direction, confidence_pre, reasoning, "
+            "thesis_id, price_at_decision) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (ticker.upper(), decision_type, direction, conviction, reasoning, thesis_id, price_native),
+        )
+        decision_id = cur.lastrowid
+
+        cf_id = None
+        if needs_cf:
+            cur = conn.execute(
+                "INSERT INTO decision_counterfactual "
+                "(decision_id, ticker, decision_type, decided_at, counterfactual_branch, "
+                " anchor_price_native, anchor_price_eur, anchor_qty_before, anchor_currency, "
+                " anchor_thesis_id, anchor_conviction, bias_hypothesis_json, reasoning_at_decision) "
+                "VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (decision_id, ticker.upper(), decision_type, counterfactual_branch,
+                 price_native, price_eur, qty_before, currency,
+                 thesis_id, conviction, bias_hypothesis_json, (reasoning or "")[:1000]),
+            )
+            cf_id = cur.lastrowid
+
+        if close_conn:
+            conn.commit()
+        return decision_id, cf_id
+    finally:
+        if close_conn:
+            conn.close()
+
+
 def get_decision(decision_id):
     """Fetch single decision by id. Returns dict or None."""
     conn = _sqlite3.connect(DB_PATH)
