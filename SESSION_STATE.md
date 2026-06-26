@@ -4151,6 +4151,7 @@ Notes secondaires non-actionées (laissés au backlog) :
 4. **2 alias fails Obsidian** (ENTG / LNG) — paths exactes à retrouver, 6 phantoms mineurs à résoudre.
 5. **Phantoms résiduels (36)** : décider si on en supprime d'autres ou si on accepte. Notamment [[AMD]] (9 refs, note delete confirmée) + [[Thales]]/[[Schneider]]/[[Prysmian]]/[[HDS]]/[[6324.T]] (notes thèse jamais migrées vault).
 6. **Dette : enum `decision_type` n'a pas `re_anchor`** — utilisé `override` comme fourre-tout. Si re-anchors fréquents, ajouter au CHECK constraint DB (migration légère).
+7. **Dette structurelle : scripts manuels bypass hook CF** — Test `test_book_gate.py::test_static_gate_no_new_violations` ROUGE au close (decisions 91-94 sans artefact CF). Backfill ad-hoc fait. Solution durable = helper `shared/decisions.py:insert_decision_with_cf` ou refactor scripts vers `shared/positions.add_buy/add_sell`. Doctrine gravée `[[manual-exec-must-create-cf]]`.
 
 **Backup DB** : sync naturel à 22:05/21:05/20:05 (rotation auto 5 backups). Pas de backup nominatif `close_*` créé (le sweep #135 ne touche que `theses.stop_price`/`target_*` + `decisions` append-only, change-set petit).
 
