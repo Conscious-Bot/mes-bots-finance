@@ -5104,6 +5104,573 @@ def _loop() -> str:
 
 
 
+def _vault() -> str:
+    """Cerebro page : search-first vault PRESAGE explorer (v2 26/06).
+
+    Accordions-collapsed-by-default + search-as-filter + ticker-cloud-injects.
+    Hybrid filter pattern : type text OR click chip-cloud → unified search bar.
+
+    Fetch via Obsidian Local REST API (shared/obsidian.py). Fail-soft offline.
+    Pas de FDA macOS requis. Le nom "Cerebro" = ref X-Men.
+    """
+    import datetime as _dt
+    import html as _html_esc
+    import json as _json
+    import re as _re
+    from collections import Counter as _Counter
+
+    try:
+        from shared import obsidian as _obs
+    except Exception as e:
+        return (
+            '<section data-page="cerebro" role="region" aria-label="Cerebro">'
+            '<div class="phead"><h1>Cerebro</h1></div>'
+            f'<div class="card-pad muted">shared/obsidian not importable: {_html_esc.escape(str(e))}</div>'
+            '</section>'
+        )
+
+    VAULT_NAME = "PRESAGE"
+
+    # 1. Connectivity probe — fail-soft early (result discarded, only used as exception trigger)
+    try:
+        _obs.list_notes("")
+    except Exception as e:
+        return (
+            '<section data-page="cerebro" role="region" aria-label="Cerebro">'
+            '<div class="phead"><h1>Cerebro</h1><span class="dn">vault offline</span></div>'
+            '<div class="card-pad muted" style="padding:24px;line-height:1.6">'
+            '<strong>Obsidian REST API offline.</strong><br>'
+            'Ouvre Obsidian (plugin Local REST API doit être actif) puis recharge.<br>'
+            f'<small style="opacity:.6">Erreur : {_html_esc.escape(str(e))}</small>'
+            '</div></section>'
+        )
+
+    # 2. Walk vault — root + journal subfolders
+    folders = ["", "journal/transactions", "journal/decisions", "journal/digests", "journal/dialogues"]
+    all_paths = []
+    for folder in folders:
+        try:
+            for n in _obs.list_notes(folder):
+                if n.endswith(".md"):
+                    all_paths.append(f"{folder}/{n}" if folder else n)
+        except Exception:
+            continue
+
+    def _fm_list(fm, key):
+        m = _re.search(rf"^{key}:\s*\[(.*?)\]", fm, _re.M)
+        if m:
+            return [s.strip().strip("'\"") for s in m.group(1).split(",") if s.strip()]
+        m = _re.search(rf"^{key}:\s*\n((?:\s*-\s+.+\n)+)", fm, _re.M)
+        if m:
+            return [_re.sub(r"^\s*-\s+", "", line).strip().strip("'\"") for line in m.group(1).splitlines() if line.strip()]
+        return []
+
+    def _fm_scalar(fm, key):
+        m = _re.search(rf"^{key}:\s*['\"]?([^\n'\"]+)['\"]?", fm, _re.M)
+        return m.group(1).strip() if m else ""
+
+    # 3. Build index
+    index = []
+    sentinels_armed = []
+    today = _dt.date.today()
+    cutoff_30 = (today - _dt.timedelta(days=30)).isoformat()
+    timeline_buckets = {}  # date_iso -> list of entries
+
+    for path in all_paths:
+        try:
+            c = _obs.read_note(path)
+        except Exception:
+            continue
+        name = path.split("/")[-1].replace(".md", "")
+        entry = {
+            "path": path, "name": name, "aliases": [], "tickers": [],
+            "type": "", "date": "", "sectors": [], "hubs": [], "noms": [],
+            "preview": "",
+        }
+        fm_m = _re.match(r"^---\n(.*?)\n---", c, _re.DOTALL)
+        body_preview = ""
+        if fm_m:
+            fm = fm_m.group(1)
+            entry["aliases"] = _fm_list(fm, "aliases")
+            entry["tickers"] = _fm_list(fm, "tickers")
+            entry["hubs"] = _fm_list(fm, "hubs")
+            entry["noms"] = _fm_list(fm, "noms_propres")
+            entry["type"] = _fm_scalar(fm, "type")
+            entry["date"] = _fm_scalar(fm, "date") or _fm_scalar(fm, "created")
+            entry["sectors"] = _fm_list(fm, "sectors") or _fm_list(fm, "secteur") or _fm_list(fm, "cluster")
+            body = c[fm_m.end():].strip()
+            # Strip h1 title for cleaner preview
+            body = _re.sub(r"^#\s+[^\n]+\n+", "", body, count=1)
+            body_preview = _re.sub(r"\s+", " ", body)[:200]
+            if entry["type"] == "sentinelle":
+                status = _fm_scalar(fm, "status")
+                if status in ("armée", "armee", "armed"):
+                    sentinels_armed.append({
+                        "name": name, "path": path,
+                        "deadline": _fm_scalar(fm, "deadline"),
+                        "tickers": entry["tickers"],
+                        "preview": body_preview,
+                    })
+        else:
+            body_preview = _re.sub(r"\s+", " ", c.strip())[:200]
+        entry["preview"] = body_preview
+        if not entry["type"]:
+            if "/decisions/" in path:
+                entry["type"] = "decision"
+            elif "/transactions/" in path:
+                entry["type"] = "transaction"
+            elif "/dialogues/" in path:
+                entry["type"] = "dialogue"
+            elif "/digests/" in path:
+                entry["type"] = "digest"
+        index.append(entry)
+        # Timeline 30j bucket
+        if entry["date"] and entry["date"] >= cutoff_30:
+            timeline_buckets.setdefault(entry["date"], []).append(entry)
+
+    # Sort sentinels by deadline
+    def _sk(s):
+        if not s["deadline"]:
+            return (1, today + _dt.timedelta(days=99999))
+        try:
+            return (0, _dt.date.fromisoformat(s["deadline"]))
+        except Exception:
+            return (1, today + _dt.timedelta(days=99999))
+    sentinels_armed.sort(key=_sk)
+
+    # 4. Aggregations
+    n_total = len(index)
+    n_sentinels = len(sentinels_armed)
+    ticker_counts = _Counter(t for e in index for t in e["tickers"])
+    sector_counts = _Counter(s for e in index for s in (e["sectors"] + e["hubs"]))
+
+    # 5. Build pieces of HTML
+    e = _html_esc.escape
+
+    # 5a. Sentinels accordion content
+    if sentinels_armed:
+        sent_rows = []
+        for s in sentinels_armed:
+            deadline_str = "—"
+            deadline_cls = ""
+            countdown = ""
+            if s["deadline"]:
+                try:
+                    d = _dt.date.fromisoformat(s["deadline"])
+                    delta = (d - today).days
+                    countdown = f"J{delta:+d}"
+                    deadline_str = s["deadline"]
+                    if delta < 0:
+                        deadline_cls = "cer-deadline-past"
+                    elif delta <= 30:
+                        deadline_cls = "cer-deadline-near"
+                except Exception:
+                    deadline_str = s["deadline"]
+            tk_html = " ".join(f'<span class="cer-tk">{e(t)}</span>' for t in s["tickers"][:3])
+            preview = s["preview"][:280] if s["preview"] else ""
+            obs_href = f'obsidian://open?vault={VAULT_NAME}&file={s["name"].replace(" ", "%20")}'
+            sent_rows.append(
+                f'<div class="cer-sent-row" data-name="{e(s["name"])}">'
+                f'  <div class="cer-sent-head" onclick="this.parentElement.classList.toggle(&quot;open&quot;)">'
+                f'    <span class="cer-sent-chev">▸</span>'
+                f'    <span class="cer-sent-name">{e(s["name"])}</span>'
+                f'    <span class="cer-sent-meta">{tk_html}</span>'
+                f'    <span class="cer-sent-deadline {deadline_cls}">{e(deadline_str)} <small>{e(countdown)}</small></span>'
+                f'    <a href="{e(obs_href)}" class="cer-open-obsidian" title="Ouvrir dans Obsidian" onclick="event.stopPropagation()">↗</a>'
+                f'  </div>'
+                f'  <div class="cer-sent-body">'
+                f'    <div class="cer-sent-preview">{e(preview)}…</div>'
+                f'    <a href="{e(obs_href)}" class="cer-sent-open-link">Ouvrir dans Obsidian ↗</a>'
+                f'  </div>'
+                f'</div>'
+            )
+        sent_content = "".join(sent_rows)
+    else:
+        sent_content = '<div class="cer-empty">Aucune sentinelle armée actuellement. Crée une note avec <code>type: sentinelle</code> + <code>status: armée</code>.</div>'
+
+    # 5b. Timeline 30j accordion content
+    timeline_rows = []
+    for date_iso in sorted(timeline_buckets.keys(), reverse=True):
+        entries = timeline_buckets[date_iso]
+        type_breakdown = _Counter(en["type"] or "untyped" for en in entries)
+        breakdown_html = " · ".join(f'{cnt} {tp}' for tp, cnt in type_breakdown.most_common())
+        rows_inner = []
+        for en in entries[:20]:
+            obs_href = f'obsidian://open?vault={VAULT_NAME}&file={en["path"].replace(".md", "").replace(" ", "%20")}'
+            tk_html = " ".join(f'<span class="cer-tk">{e(t)}</span>' for t in en["tickers"][:3])
+            type_chip = f'<span class="cer-type cer-type-{e(en["type"])}">{e(en["type"])}</span>' if en["type"] else ""
+            rows_inner.append(
+                f'<div class="cer-tl-entry">'
+                f'<a class="cer-tl-link" href="{e(obs_href)}" target="_blank" rel="noopener">{e(en["name"])}</a>'
+                f'<span class="cer-tl-meta">{type_chip}{tk_html}</span></div>'
+            )
+        timeline_rows.append(
+            f'<div class="cer-tl-day">'
+            f'  <div class="cer-tl-head" onclick="this.parentElement.classList.toggle(&quot;open&quot;)">'
+            f'    <span class="cer-sent-chev">▸</span>'
+            f'    <span class="cer-tl-date">{e(date_iso)}</span>'
+            f'    <span class="cer-tl-count">{len(entries)} note(s) — {e(breakdown_html)}</span>'
+            f'  </div>'
+            f'  <div class="cer-tl-body">{"".join(rows_inner)}</div>'
+            f'</div>'
+        )
+    timeline_content = "".join(timeline_rows) or '<div class="cer-empty">Aucune activité dans les 30 derniers jours.</div>'
+
+    # 5c. Tickers cloud — top 30 by count, sized by frequency
+    if ticker_counts:
+        max_n = max(ticker_counts.values())
+        tk_chips = []
+        for tk, n in ticker_counts.most_common(40):
+            size_pct = 70 + int((n / max_n) * 80)  # 70%-150% font-size
+            tk_chips.append(
+                f'<button class="cer-tk-chip" data-inject="{e(tk)}" '
+                f'style="font-size:{size_pct}%" title="{n} note(s)">{e(tk)} '
+                f'<span class="cer-tk-count">{n}</span></button>'
+            )
+        cloud_content = '<div class="cer-cloud">' + "".join(tk_chips) + '</div>'
+    else:
+        cloud_content = '<div class="cer-empty">Aucun ticker indexé dans le vault.</div>'
+
+    # 5d. Clusters & sectors
+    if sector_counts:
+        max_s = max(sector_counts.values())
+        sect_rows = []
+        for sec, n in sector_counts.most_common(20):
+            bar_w = int((n / max_s) * 100)
+            sect_rows.append(
+                f'<button class="cer-sect-row" data-inject="{e(sec)}">'
+                f'<span class="cer-sect-name">{e(sec)}</span>'
+                f'<span class="cer-sect-bar"><span class="cer-sect-fill" style="width:{bar_w}%"></span></span>'
+                f'<span class="cer-sect-count">{n}</span></button>'
+            )
+        sect_content = "".join(sect_rows)
+    else:
+        sect_content = '<div class="cer-empty">Aucun cluster/secteur indexé.</div>'
+
+    # 6. JSON for search
+    index_json = _json.dumps(index, ensure_ascii=False)
+
+    # 7. JS
+    cerebro_js = (
+        '<script>'
+        f'window._CEREBRO_IDX = {index_json};'
+        f'window._CEREBRO_VAULT = {_json.dumps(VAULT_NAME)};'
+        f'window._CEREBRO_TOTAL = {n_total};'
+        '(function(){'
+        '  var input=document.getElementById("cerebroSearch");'
+        '  var chips=document.getElementById("cerebroChips");'
+        '  var results=document.getElementById("cerebroResults");'
+        '  var explore=document.getElementById("cerebroExplore");'
+        '  var idx=window._CEREBRO_IDX||[];'
+        '  var vault=window._CEREBRO_VAULT;'
+        '  var totalN=window._CEREBRO_TOTAL||idx.length;'
+        '  var activeChips=[];'  # injected chips (tickers/sectors)
+        '  var kbdSel=-1;'  # keyboard selection index
+        '  var lastMatches=[];'
+        '  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}'
+        '  function obsHref(p){return "obsidian://open?vault="+encodeURIComponent(vault)+"&file="+encodeURIComponent(p.replace(/\\.md$/,""));}'
+        '  function renderChips(){'
+        '    if(activeChips.length===0){ chips.style.display="none"; chips.innerHTML=""; return; }'
+        '    chips.style.display="flex";'
+        '    chips.innerHTML=activeChips.map(function(c,i){'
+        '      return "<button class=\\"cer-active-chip\\" data-i=\\""+i+"\\">"+esc(c)+" <span>×</span></button>";'
+        '    }).join("");'
+        '    chips.querySelectorAll(".cer-active-chip").forEach(function(btn){'
+        '      btn.onclick=function(){ var i=parseInt(btn.dataset.i,10); activeChips.splice(i,1); renderChips(); render(); };'
+        '    });'
+        '  }'
+        '  function score(qTokens, chipTokens, en){'
+        '    var hay=(en.name+" "+(en.aliases||[]).join(" ")+" "+(en.tickers||[]).join(" ")+" "+(en.noms||[]).join(" ")+" "+(en.hubs||[]).join(" ")+" "+(en.sectors||[]).join(" ")+" "+(en.type||"")+" "+(en.date||"")+" "+(en.path||"")+" "+(en.preview||"")).toLowerCase();'
+        '    var s=0;'
+        '    for(var i=0;i<chipTokens.length;i++){'
+        '      var c=chipTokens[i].toLowerCase();'
+        '      if(hay.indexOf(c)<0) return 0;'
+        '      s+=100;'
+        '    }'
+        '    for(var j=0;j<qTokens.length;j++){'
+        '      var q=qTokens[j].toLowerCase();'
+        '      if(!q) continue;'
+        '      if(en.name && en.name.toLowerCase()===q) s+=1000;'
+        '      else if(en.tickers && en.tickers.some(function(t){return t.toLowerCase()===q;})) s+=900;'
+        '      else if(en.aliases && en.aliases.some(function(a){return a.toLowerCase()===q;})) s+=800;'
+        '      else if(hay.indexOf(q)>=0) s+=200;'
+        '      else return 0;'
+        '    }'
+        '    if(s===0 && qTokens.length===0 && chipTokens.length===0) return 1;'
+        '    return s;'
+        '  }'
+        '  function updateKbdSel(){'
+        '    var rs=results.querySelectorAll(".cer-result");'
+        '    rs.forEach(function(r,i){ r.classList.toggle("cer-kbd-on", i===kbdSel); });'
+        '    if(kbdSel>=0 && rs[kbdSel]) rs[kbdSel].scrollIntoView({block:"nearest"});'
+        '  }'
+        '  function render(){'
+        '    var q=input.value.trim();'
+        '    var qTokens=q?q.split(/\\s+/):[];'
+        '    var chipTokens=activeChips.slice();'
+        '    var active=qTokens.length>0||chipTokens.length>0;'
+        '    kbdSel=-1;'
+        '    if(!active){'
+        '      explore.style.display="block";'
+        '      results.style.display="none";'
+        '      results.innerHTML="";'
+        '      lastMatches=[];'
+        '      return;'
+        '    }'
+        '    explore.style.display="none";'
+        '    results.style.display="block";'
+        '    var matches=[];'
+        '    for(var k=0;k<idx.length;k++){'
+        '      var en=idx[k];'
+        '      var s=score(qTokens, chipTokens, en);'
+        '      if(s>0) matches.push({en:en,s:s});'
+        '    }'
+        '    matches.sort(function(a,b){'
+        '      if(b.s!==a.s) return b.s-a.s;'
+        '      var da=a.en.date||"", db=b.en.date||"";'
+        '      if(da&&db) return db.localeCompare(da);'
+        '      return a.en.name.localeCompare(b.en.name);'
+        '    });'
+        '    matches=matches.slice(0,40);'
+        '    lastMatches=matches;'
+        '    if(!matches.length){'
+        '      results.innerHTML="<div class=\\"cer-empty\\">Aucun résultat pour <code>"+esc(q||activeChips.join(" "))+"</code>.<br><br>Essaye : un <strong>ticker</strong> (AVGO, ASML.AS), une <strong>date</strong> (YYYY-MM-DD), un <strong>type</strong> (sentinelle, dialogue, decision), ou un <strong>cluster</strong> (AI-compute, ballast).</div>";'
+        '      return;'
+        '    }'
+        '    var html="<div class=\\"cer-results-head\\"><strong>"+matches.length+"</strong> résultat(s) sur "+totalN+" notes</div>";'
+        '    for(var m=0;m<matches.length;m++){'
+        '      var en=matches[m].en;'
+        '      var tkChips=(en.tickers||[]).slice(0,3).map(function(t){return "<span class=\\"cer-tk\\">"+esc(t)+"</span>";}).join("");'
+        '      var date=en.date?"<span class=\\"cer-date\\">"+esc(en.date)+"</span>":"";'
+        '      var type=en.type?"<span class=\\"cer-type cer-type-"+esc(en.type)+"\\">"+esc(en.type)+"</span>":"";'
+        '      var preview=en.preview?"<div class=\\"cer-result-preview\\">"+esc(en.preview.slice(0,170))+"…</div>":"";'
+        '      html+="<a class=\\"cer-result\\" href=\\""+obsHref(en.path)+"\\" target=\\"_blank\\" rel=\\"noopener\\" data-idx=\\""+m+"\\">"'
+        '          +"<div class=\\"cer-result-main\\">"+esc(en.name)+"</div>"'
+        '          +"<div class=\\"cer-result-meta\\">"+type+tkChips+date+"</div>"'
+        '          +preview'
+        '          +"</a>";'
+        '    }'
+        '    results.innerHTML=html;'
+        '  }'
+        '  input.addEventListener("input", render);'
+        # Keyboard nav : ↑↓ select, Enter open, Esc clear
+        '  input.addEventListener("keydown", function(ev){'
+        '    if(!lastMatches.length){'
+        '      if(ev.key==="Escape"){ input.value=""; activeChips=[]; renderChips(); render(); }'
+        '      return;'
+        '    }'
+        '    if(ev.key==="ArrowDown"){ ev.preventDefault(); kbdSel=Math.min(kbdSel+1, lastMatches.length-1); updateKbdSel(); }'
+        '    else if(ev.key==="ArrowUp"){ ev.preventDefault(); kbdSel=Math.max(kbdSel-1, -1); updateKbdSel(); }'
+        '    else if(ev.key==="Enter" && kbdSel>=0){ ev.preventDefault(); var en=lastMatches[kbdSel].en; window.open(obsHref(en.path), "_blank", "noopener"); }'
+        '    else if(ev.key==="Escape"){ input.value=""; activeChips=[]; renderChips(); render(); }'
+        '  });'
+        # Click ticker/sector → inject as chip
+        '  document.querySelectorAll(".cer-tk-chip, .cer-sect-row").forEach(function(btn){'
+        '    btn.addEventListener("click", function(ev){'
+        '      ev.preventDefault();'
+        '      var v=btn.dataset.inject;'
+        '      if(activeChips.indexOf(v)<0){ activeChips.push(v); renderChips(); render(); }'
+        '      input.focus();'
+        '    });'
+        '  });'
+        # Quick-action chips wiring
+        '  document.querySelectorAll(".cer-qa").forEach(function(btn){'
+        '    btn.addEventListener("click", function(ev){'
+        '      ev.preventDefault();'
+        '      var qa=btn.dataset.qa;'
+        '      input.value="";'
+        '      activeChips=[];'
+        '      if(qa==="today"){'
+        '        var d=new Date(); var iso=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");'
+        '        input.value=iso;'
+        '      } else if(qa==="week"){'
+        '        var d=new Date(); var prefix=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");'
+        '        input.value=prefix;'
+        '      } else if(qa==="sentinelle"){'
+        '        activeChips=["sentinelle"];'
+        '      } else if(qa==="ai-compute"){'
+        '        activeChips=["AI-compute"];'
+        '      } else if(qa==="decision30"){'
+        '        activeChips=["decision"];'
+        '        var d2=new Date(); d2.setDate(d2.getDate()-30); input.value=d2.toISOString().slice(0,7);'
+        '      }'
+        '      renderChips(); render(); input.focus();'
+        '    });'
+        '  });'
+        '  render();'
+        '})();'
+        '</script>'
+    )
+
+    # 8. CSS
+    css = (
+        '<style>'
+        '.cer-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px}'
+        '.cer-head-count{font-size:13px;color:var(--ink-soft);opacity:.7}'
+        # Phase 2a : sticky search bar + quick-actions
+        '.cer-quickactions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}'
+        '.cer-qa{display:inline-flex;align-items:center;padding:5px 11px;background:transparent;border:1px solid var(--rule);border-radius:14px;font-size:11px;color:var(--ink-soft);cursor:pointer;font-family:inherit;transition:all .15s}'
+        '.cer-qa:hover{border-color:var(--ink);color:var(--ink);background:color-mix(in oklch, var(--ink), transparent 96%)}'
+        '.cer-search-bar{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:14px 16px;margin-bottom:14px;position:sticky;top:8px;z-index:5;backdrop-filter:blur(8px);background:color-mix(in oklch, var(--paper), transparent 6%)}'
+        '.cer-search{width:100%;padding:12px 14px;background:transparent;border:1px solid var(--rule);border-radius:8px;font-size:15px;color:var(--ink);outline:none;transition:border-color .15s;font-family:inherit}'
+        '.cer-search:focus{border-color:var(--acc, #e67e22)}'
+        '.cer-chips{display:none;flex-wrap:wrap;gap:6px;margin-top:10px}'
+        '.cer-active-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--acc, #e67e22);color:var(--paper);border:none;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit}'
+        '.cer-active-chip span{opacity:.7;font-weight:700}'
+        '.cer-active-chip:hover{opacity:.85}'
+        # Accordions
+        '.cer-acc{background:var(--paper);border:1px solid var(--rule);border-radius:10px;margin-bottom:10px;overflow:hidden}'
+        '.cer-acc-head{padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none;user-select:none;transition:background .12s}'
+        '.cer-acc-head::-webkit-details-marker{display:none}'
+        '.cer-acc-head:hover{background:color-mix(in oklch, var(--ink), transparent 96%)}'
+        '.cer-acc-icon{font-size:14px}'
+        '.cer-acc-title{font-size:13px;font-weight:600;letter-spacing:-.01em;flex:1}'
+        '.cer-acc-count{font-size:11px;color:var(--ink-soft);background:var(--rule);padding:2px 8px;border-radius:6px}'
+        '.cer-acc-chevron{font-size:10px;color:var(--ink-soft);transition:transform .18s ease}'
+        '.cer-acc[open] .cer-acc-chevron{transform:rotate(90deg)}'
+        '.cer-acc-body{padding:6px 16px 14px;border-top:1px solid color-mix(in oklch, var(--rule), transparent 40%)}'
+        # Sentinel rows
+        '.cer-sent-row{border-bottom:1px solid color-mix(in oklch, var(--rule), transparent 50%)}'
+        '.cer-sent-row:last-child{border-bottom:none}'
+        '.cer-sent-head{display:grid;grid-template-columns:auto 1.6fr 1.2fr 1fr auto;align-items:center;gap:10px;padding:10px 4px;cursor:pointer;font-size:13px}'
+        '.cer-sent-head:hover{background:color-mix(in oklch, var(--ink), transparent 97%)}'
+        '.cer-sent-chev{font-size:9px;color:var(--ink-soft);transition:transform .18s}'
+        '.cer-sent-row.open .cer-sent-chev{transform:rotate(90deg)}'
+        '.cer-sent-name{font-weight:500}'
+        '.cer-sent-meta{font-size:11px;color:var(--ink-soft)}'
+        '.cer-sent-deadline{text-align:right;font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-soft)}'
+        '.cer-deadline-past{color:var(--bear, #c0392b);font-weight:600}'
+        '.cer-deadline-near{color:var(--acc, #e67e22);font-weight:600}'
+        '.cer-open-obsidian{display:inline-block;padding:3px 8px;font-size:11px;color:var(--ink-soft);text-decoration:none;border-radius:5px;opacity:.4;transition:all .15s}'
+        '.cer-sent-head:hover .cer-open-obsidian{opacity:1;background:var(--rule)}'
+        '.cer-sent-body{display:none;padding:4px 18px 14px 24px;color:var(--ink-soft);font-size:12px}'
+        '.cer-sent-row.open .cer-sent-body{display:block}'
+        '.cer-sent-preview{line-height:1.55;margin-bottom:8px}'
+        '.cer-sent-open-link{font-size:11px;color:var(--acc, #e67e22);text-decoration:none}'
+        '.cer-sent-open-link:hover{text-decoration:underline}'
+        # Timeline
+        '.cer-tl-day{border-bottom:1px solid color-mix(in oklch, var(--rule), transparent 50%)}'
+        '.cer-tl-day:last-child{border-bottom:none}'
+        '.cer-tl-head{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:12px;padding:8px 4px;cursor:pointer;font-size:13px}'
+        '.cer-tl-head:hover{background:color-mix(in oklch, var(--ink), transparent 97%)}'
+        '.cer-tl-day.open .cer-sent-chev{transform:rotate(90deg)}'
+        '.cer-tl-date{font-family:var(--mono, ui-monospace, monospace);font-size:12px;font-weight:600}'
+        '.cer-tl-count{font-size:11px;color:var(--ink-soft)}'
+        '.cer-tl-body{display:none;padding:4px 12px 12px 24px}'
+        '.cer-tl-day.open .cer-tl-body{display:block}'
+        '.cer-tl-entry{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;font-size:12px}'
+        '.cer-tl-link{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--ink-soft)}'
+        '.cer-tl-link:hover{color:var(--acc, #e67e22)}'
+        '.cer-tl-meta{display:flex;gap:6px;align-items:center}'
+        # Tickers cloud
+        '.cer-cloud{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0}'
+        '.cer-tk-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:transparent;border:1px solid var(--rule);border-radius:14px;color:var(--ink);cursor:pointer;font-family:var(--mono, ui-monospace, monospace);transition:all .15s}'
+        '.cer-tk-chip:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}'
+        '.cer-tk-count{font-size:10px;opacity:.6;font-family:inherit}'
+        # Sectors
+        '.cer-sect-row{display:grid;grid-template-columns:1fr 2fr auto;align-items:center;gap:12px;width:100%;padding:6px 4px;background:transparent;border:none;cursor:pointer;font-family:inherit;color:var(--ink);font-size:12px;text-align:left}'
+        '.cer-sect-row:hover{background:color-mix(in oklch, var(--ink), transparent 97%)}'
+        '.cer-sect-name{font-weight:500}'
+        '.cer-sect-bar{height:4px;background:var(--rule);border-radius:2px;overflow:hidden}'
+        '.cer-sect-fill{display:block;height:100%;background:var(--ink);opacity:.6}'
+        '.cer-sect-count{font-variant-numeric:tabular-nums;color:var(--ink-soft);font-size:11px}'
+        # Shared
+        '.cer-tk{display:inline-block;padding:1px 6px;background:var(--rule);border-radius:4px;font-size:10px;margin-right:4px;font-family:var(--mono, ui-monospace, monospace)}'
+        '.cer-empty{padding:18px;text-align:center;color:var(--ink-soft);font-size:12px;opacity:.7}'
+        '.cer-empty code{background:var(--rule);padding:2px 6px;border-radius:4px;font-size:10px}'
+        # Results
+        '.cer-results{display:none;flex-direction:column;gap:6px;margin-top:14px}'
+        '.cer-results-head{font-size:11px;color:var(--ink-soft);margin-bottom:6px}'
+        '.cer-result{display:flex;flex-direction:column;gap:4px;padding:10px 14px;border:1px solid var(--rule);border-radius:8px;text-decoration:none;color:var(--ink);transition:all .15s}'
+        '.cer-result:hover,.cer-result.cer-kbd-on{background:color-mix(in oklch, var(--ink), transparent 95%);border-color:var(--ink);transform:translateX(2px)}'
+        '.cer-result-main{font-size:13px;font-weight:500}'
+        '.cer-result-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:10px;color:var(--ink-soft)}'
+        '.cer-result-preview{font-size:11px;color:var(--ink-soft);opacity:.75;line-height:1.5;margin-top:2px}'
+        '.cer-type{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;text-transform:uppercase;letter-spacing:.05em;background:var(--rule);color:var(--ink-soft);font-weight:600}'
+        '.cer-type-sentinelle{background:color-mix(in oklch, var(--acc, #e67e22), transparent 80%);color:var(--acc, #e67e22)}'
+        '.cer-type-dialogue{background:color-mix(in oklch, var(--ink), transparent 88%);color:var(--ink)}'
+        '.cer-type-decision{background:color-mix(in oklch, var(--bear, #c0392b), transparent 88%);color:var(--bear, #c0392b)}'
+        '.cer-type-hub{background:color-mix(in oklch, var(--ink), transparent 85%);font-weight:700;color:var(--ink)}'
+        '.cer-type-thesis,.cer-type-these{background:color-mix(in oklch, var(--ink), transparent 80%);color:var(--ink);font-weight:600}'
+        '.cer-date{color:var(--ink-soft);font-family:var(--mono, ui-monospace, monospace)}'
+        '</style>'
+    )
+
+    # 9. Assemble
+    sent_acc = (
+        '<details class="cer-acc">'
+        '<summary class="cer-acc-head">'
+        '<span class="cer-acc-icon">📡</span>'
+        '<span class="cer-acc-title">Sentinelles armées</span>'
+        f'<span class="cer-acc-count">{n_sentinels}</span>'
+        '<span class="cer-acc-chevron">▸</span>'
+        '</summary>'
+        f'<div class="cer-acc-body">{sent_content}</div>'
+        '</details>'
+    )
+    tl_acc = (
+        '<details class="cer-acc">'
+        '<summary class="cer-acc-head">'
+        '<span class="cer-acc-icon">🕒</span>'
+        '<span class="cer-acc-title">Timeline 30 derniers jours</span>'
+        f'<span class="cer-acc-count">{len(timeline_buckets)} jour(s)</span>'
+        '<span class="cer-acc-chevron">▸</span>'
+        '</summary>'
+        f'<div class="cer-acc-body">{timeline_content}</div>'
+        '</details>'
+    )
+    cloud_acc = (
+        '<details class="cer-acc">'
+        '<summary class="cer-acc-head">'
+        '<span class="cer-acc-icon">🏷️</span>'
+        '<span class="cer-acc-title">Tickers — click pour filtrer</span>'
+        f'<span class="cer-acc-count">{len(ticker_counts)}</span>'
+        '<span class="cer-acc-chevron">▸</span>'
+        '</summary>'
+        f'<div class="cer-acc-body">{cloud_content}</div>'
+        '</details>'
+    )
+    sect_acc = (
+        '<details class="cer-acc">'
+        '<summary class="cer-acc-head">'
+        '<span class="cer-acc-icon">🌐</span>'
+        '<span class="cer-acc-title">Clusters &amp; secteurs</span>'
+        f'<span class="cer-acc-count">{len(sector_counts)}</span>'
+        '<span class="cer-acc-chevron">▸</span>'
+        '</summary>'
+        f'<div class="cer-acc-body">{sect_content}</div>'
+        '</details>'
+    )
+
+    return (
+        '<section data-page="cerebro" role="region" aria-label="Cerebro">'
+        '<div class="phead"><h1>Cerebro</h1>'
+        f'<span class="dn">vault PRESAGE · {n_total} notes</span></div>'
+        + css +
+        # Quick-actions row (Phase 2b) — 5 raccourcis fréquents
+        '<div class="cer-quickactions">'
+        '<button class="cer-qa" data-qa="today">Aujourd\'hui</button>'
+        '<button class="cer-qa" data-qa="week">Cette semaine</button>'
+        '<button class="cer-qa" data-qa="sentinelle">Sentinelles armées</button>'
+        '<button class="cer-qa" data-qa="ai-compute">AI-compute</button>'
+        '<button class="cer-qa" data-qa="decision30">Décisions 30j</button>'
+        '</div>'
+        '<div class="cer-search-bar">'
+        '<input type="text" id="cerebroSearch" class="cer-search" '
+        'placeholder="Rechercher : ticker, alias, company, date YYYY-MM-DD, type, secteur… (↑ ↓ Enter Esc)" '
+        'autocomplete="off" spellcheck="false">'
+        '<div id="cerebroChips" class="cer-chips"></div>'
+        '</div>'
+        '<div id="cerebroExplore">'
+        + sent_acc + tl_acc + cloud_acc + sect_acc +
+        '</div>'
+        '<div id="cerebroResults" class="cer-results"></div>'
+        + cerebro_js
+        + '</section>'
+    )
+
+
+
 def _signaux() -> str:
     try:
         s24 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-1 day')")[0][0]
@@ -8663,6 +9230,8 @@ def render() -> Path:
         # Position-card #1 couche 3 : section deep-linkable par ticker.
         # Acces via nav (a ajouter dans _NAV) OU via hash #card-TICKER deep-link.
         + _position_card_panel()
+        # Vault PRESAGE (26/06) — Niveau 1 + 2 minimal. Fail-soft si Obsidian offline.
+        + _vault()
         + "</main></div>"
         + _LOUPE_HTML
     )
