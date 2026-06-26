@@ -5332,3 +5332,112 @@ def __getattr__(name: str):
     if name == "_DB_PATH":
         return DB_PATH
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+# ─── Kill-switch helpers (26/06/2026, doctrine "Kill-condition AI-compute") ────
+
+
+def record_cluster_snapshot(snapshot_date: str, value_eur: float) -> None:
+    """Upsert un snapshot daily de la valeur agrégée EUR de la grappe.
+
+    Idempotent par snapshot_date (UPDATE si déjà inséré ce jour).
+    """
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO cluster_value_snapshots(snapshot_date, value_eur) VALUES(?, ?) "
+            "ON CONFLICT(snapshot_date) DO UPDATE SET value_eur=excluded.value_eur",
+            (snapshot_date, value_eur),
+        )
+
+
+def get_latest_cluster_snapshot() -> dict[str, Any] | None:
+    """Dernier snapshot (par date DESC). None si table vide."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT snapshot_date, value_eur FROM cluster_value_snapshots "
+            "ORDER BY snapshot_date DESC LIMIT 1"
+        ).fetchone()
+    return {"snapshot_date": row[0], "value_eur": row[1]} if row else None
+
+
+def get_cluster_peak(window_days: int) -> float | None:
+    """Max cluster value sur les `window_days` derniers jours (pic glissant)."""
+    import datetime as _dt
+    cutoff = (_dt.datetime.now(_dt.UTC).date() - _dt.timedelta(days=window_days)).isoformat()
+    with db() as conn:
+        row = conn.execute(
+            "SELECT MAX(value_eur) FROM cluster_value_snapshots WHERE snapshot_date >= ?",
+            (cutoff,),
+        ).fetchone()
+    return float(row[0]) if row and row[0] is not None else None
+
+
+def insert_kill_trigger(**f: Any) -> int:
+    """INSERT kill_triggers row. Returns lastrowid. Required fields :
+    trigger_type, stage, level_measured, prescribed_action, status, created_at.
+    Optional : episode_id, override_text, override_falsification_date, resolved_at.
+    """
+    with db() as conn:
+        cur = conn.execute(
+            "INSERT INTO kill_triggers"
+            "(trigger_type, episode_id, stage, level_measured, prescribed_action, status, "
+            " created_at, override_text, override_falsification_date, resolved_at) "
+            "VALUES(:trigger_type, :episode_id, :stage, :level_measured, :prescribed_action, "
+            ":status, :created_at, :override_text, :override_falsification_date, :resolved_at)",
+            {
+                "trigger_type": f["trigger_type"],
+                "episode_id": f.get("episode_id", 0),
+                "stage": f["stage"],
+                "level_measured": f["level_measured"],
+                "prescribed_action": f["prescribed_action"],
+                "status": f["status"],
+                "created_at": f["created_at"],
+                "override_text": f.get("override_text"),
+                "override_falsification_date": f.get("override_falsification_date"),
+                "resolved_at": f.get("resolved_at"),
+            },
+        )
+        return int(cur.lastrowid or 0)
+
+
+def get_kill_trigger(trigger_id: int) -> dict[str, Any] | None:
+    """Lire un trigger par id. Returns dict ou None."""
+    with db() as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM kill_triggers WHERE id = ?", (trigger_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def get_kill_triggers_by_status(status: str) -> list[dict[str, Any]]:
+    """Lire tous les triggers avec un statut donné."""
+    with db() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM kill_triggers WHERE status = ?", (status,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def update_kill_trigger(trigger_id: int, **fields: Any) -> None:
+    """UPDATE kill_triggers (anchors immuables enforced par trigger DB)."""
+    if not fields:
+        raise ValueError("update_kill_trigger: no fields")
+    cols = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["_id"] = trigger_id
+    with db() as conn:
+        conn.execute(f"UPDATE kill_triggers SET {cols} WHERE id = :_id", fields)
+
+
+def get_kill_episode_state() -> dict[str, Any]:
+    """État d'épisode anti-spam : {open, worst_stage, episode_id}.
+
+    Vit dans le state store JSON, pas dans une table dédiée.
+    """
+    state = load_state()
+    return state.get(
+        "kill_switch_p1_episode",
+        {"open": False, "worst_stage": 0, "episode_id": 0},
+    )
+
+
+def set_kill_episode_state(ep: dict[str, Any]) -> None:
+    """Persist l'état d'épisode dans le state store JSON."""
+    update_state(kill_switch_p1_episode=ep)

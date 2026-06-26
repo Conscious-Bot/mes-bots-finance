@@ -250,6 +250,17 @@ async def post_init(app):
     # Axe 4 QUALITY_BAR : stress-gate daily check + notify si breach.
     # Daily 7:00 : le book bouge lentement, in-session not needed.
     sched.add_job(_stress_gate_check_job, "cron", hour=7, minute=0)
+
+    # Kill-condition disjoncteur grappe AI-compute (26/06/2026, doctrine V3).
+    # 3 jobs : snapshot daily 21:50 (close US), check toutes les 15min (cache prix),
+    # escalade 7:05 avant /brief.
+    from risk import kill_switch
+    sched.add_job(kill_switch.snapshot_cluster_value, "cron", hour=21, minute=50,
+                  id="kill_snapshot", replace_existing=True)
+    sched.add_job(kill_switch.check_and_fire, "interval", minutes=15,
+                  id="kill_check", replace_existing=True)
+    sched.add_job(kill_switch.escalate_unresolved, "cron", hour=7, minute=5,
+                  id="kill_escalate", replace_existing=True)
     sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
     # SOCLE S0 : OTS anchor chain-head daily 6h. Cf SPEC_SOCLE.md S5 + HANDOFF_SOCLE.md.

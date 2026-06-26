@@ -21,6 +21,15 @@ def load() -> dict[str, Any]:
     return _config
 
 
+def get() -> dict[str, Any]:
+    """Alias canonique : returns merged config dict. Cf risk/kill_switch.py (26/06)."""
+    return load()
+
+
+class ConfigurationError(Exception):
+    """Raised when a config section is missing or invalid."""
+
+
 def env(key: str, default: Any = None, cast: Callable[[Any], Any] = str) -> Any:
     v = os.environ.get(key, default)
     if v is None:

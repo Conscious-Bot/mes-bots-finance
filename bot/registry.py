@@ -115,6 +115,9 @@ from bot.handlers.thesis_crud import (
 from bot.handlers.thesis_health import cmd_thesis_health
 from bot.handlers.track_record import cmd_track_record
 
+# Kill-condition disjoncteur grappe AI-compute (26/06/2026, doctrine V3, spec handoff §7).
+from risk.kill_switch import cmd_kill_exec, cmd_kill_override, cmd_kill_resolve
+
 
 def register_command_handlers(app: Application) -> None:
     """Register all 80 Telegram CommandHandlers.
@@ -132,6 +135,10 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("audit", cmd_audit))  # per-decision audit (cf scripts/decision_audit.py)
     app.add_handler(CommandHandler("review", cmd_review))  # per-ticker fact-sheet (cf bot/handlers/review.py)
     app.add_handler(CommandHandler("research", cmd_research))  # Chantier #150 G3 spec #152 — Bigdata brief
+    # Kill-condition handlers (26/06/2026, doctrine kill-switch P1) :
+    app.add_handler(CommandHandler("kill_exec", cmd_kill_exec))
+    app.add_handler(CommandHandler("kill_override", cmd_kill_override))
+    app.add_handler(CommandHandler("kill_resolve", cmd_kill_resolve))
     app.add_handler(CommandHandler("adversarial", cmd_adversarial))  # 4-stage bull/bear/counter/verdicts loop (23/06/2026)
     app.add_handler(CommandHandler("find", cmd_find))
     app.add_handler(CommandHandler("portfolio_sectors", cmd_portfolio_sectors))

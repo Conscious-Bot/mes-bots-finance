@@ -745,3 +745,39 @@ sectors:
   "Energy & raw materials": ["CCJ", "LNG", "MP"]
   "Auto / robotics": ["TSLA", "6324.T"]
   "Aerospace": ["SPCX"]
+
+# =============================================================================
+# kill_switch — Disjoncteur grappe AI-compute (P1 drawdown, 26/06/2026).
+# Doctrine vault : "Kill-condition — disjoncteur de la grappe AI-compute" V3.
+# Branche fondamentale F1-F4 = à calibrer août 2026 (revue earnings hyperscaler).
+# =============================================================================
+kill_switch:
+  enabled: true
+  # Définition de la grappe (explicite, miroir de sectors.yaml:semis cohérent
+  # avec la doctrine § F1-F3). cluster_narrative optionnel en alternative.
+  cluster_tickers:
+    - ASML.AS
+    - TSM
+    - "000660.KS"
+    - BESI.AS
+    - "4063.T"
+    - SNPS
+    - KLAC
+    - COHR
+    - AVGO
+    - AMD
+    - MU
+    - ARM
+    - ENTG
+    - ALAB
+    - STMPA.PA
+    - "6857.T"
+    - "6920.T"
+    - NVDA
+  peak_window_days: 90
+  drawdown_reduce_pct: 0.25            # Stage 1 — VIGILANCE (gel)
+  drawdown_stop_pct: 0.35              # Stage 2 — DÉ-RISQUE (trim partiel)
+  drawdown_hard_pct: null              # Stage 3 par prix DÉSACTIVÉ (à décider août 2026)
+  override_min_chars: 40
+  override_failure_policy: re_arm      # notify | re_arm (défaut O.) | auto_execute
+  chat_id_key: kill_switch

@@ -7766,7 +7766,9 @@ def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
             "desc": f"price {_dn_str} from stop &middot; "
                     f"{'+' if _pnl_pct >= 0 else ''}{_pnl_pct:.0f}% on cost &middot; "
                     "revise stop or cut",
-            "nav": "urgence",
+            # Phase 1 fix (26/06) : nav vers /position-card du ticker, pas /urgence (macro)
+            "nav": "position-card",
+            "hash": f"card-{_tk}",
         })
     # === Cluster over cap ===
     for _c in _cluster_health(positions, pnl):
@@ -7794,9 +7796,15 @@ def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
     else:
         cards = []
         for it in items:
+            # presageNav supporte hash deep-link en 2e arg (canonique 26/06)
+            nav_arg = (
+                f"presageNav(&#39;{it['nav']}&#39;, &#39;{it['hash']}&#39;)"
+                if it.get("hash")
+                else f"presageNav(&#39;{it['nav']}&#39;)"
+            )
             cards.append(
                 f'<div class="need {it["cls"]}" role="button" tabindex="0" '
-                f'onclick="presageNav(&#39;{it["nav"]}&#39;)">'
+                f'onclick="{nav_arg}">'
                 f'<div class="sv">{it["sv"]}</div>'
                 f'<div class="body"><div class="ttl">{it["title"]} '
                 f'<span class="tag">{it["tag"]}</span></div>'
