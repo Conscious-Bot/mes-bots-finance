@@ -5193,6 +5193,10 @@ def _vault() -> str:
             fm = fm_m.group(1)
             entry["aliases"] = _fm_list(fm, "aliases")
             entry["tickers"] = _fm_list(fm, "tickers")
+            # Support frontmatter `ticker:` (singular) commun dans les theses
+            single_ticker = _fm_scalar(fm, "ticker")
+            if single_ticker and single_ticker not in entry["tickers"]:
+                entry["tickers"].append(single_ticker)
             entry["hubs"] = _fm_list(fm, "hubs")
             entry["noms"] = _fm_list(fm, "noms_propres")
             entry["type"] = _fm_scalar(fm, "type")
@@ -5387,15 +5391,38 @@ def _vault() -> str:
         '      if(hay.indexOf(c)<0) return 0;'
         '      s+=100;'
         '    }'
+        # Algorithme additif (v2 ranking) : multiples signaux s'additionnent
+        # plutot que else-if-chain. Un thesis canonique TSMC (alias=TSM +
+        # name prefix tsm + type=thesis bonus) bat un sentinel qui a juste
+        # le ticker exact.
         '    for(var j=0;j<qTokens.length;j++){'
         '      var q=qTokens[j].toLowerCase();'
         '      if(!q) continue;'
-        '      if(en.name && en.name.toLowerCase()===q) s+=1000;'
-        '      else if(en.tickers && en.tickers.some(function(t){return t.toLowerCase()===q;})) s+=900;'
-        '      else if(en.aliases && en.aliases.some(function(a){return a.toLowerCase()===q;})) s+=800;'
-        '      else if(hay.indexOf(q)>=0) s+=200;'
-        '      else return 0;'
+        '      var sub=0;'
+        '      var nameLC=(en.name||"").toLowerCase();'
+        '      if(nameLC===q) sub+=1000;'
+        '      else if(nameLC.indexOf(q)===0) sub+=500;'
+        '      else if(nameLC.indexOf(q)>=0) sub+=250;'
+        '      if(en.tickers && en.tickers.some(function(t){return t.toLowerCase()===q;})) sub+=600;'
+        '      else if(en.tickers && en.tickers.some(function(t){return t.toLowerCase().indexOf(q)>=0;})) sub+=200;'
+        '      if(en.aliases && en.aliases.some(function(a){return a.toLowerCase()===q;})) sub+=500;'
+        '      else if(en.aliases && en.aliases.some(function(a){return a.toLowerCase().indexOf(q)>=0;})) sub+=200;'
+        '      if(en.noms && en.noms.some(function(n){return n.toLowerCase().indexOf(q)>=0;})) sub+=150;'
+        '      if(en.hubs && en.hubs.some(function(h){return h.toLowerCase().indexOf(q)>=0;})) sub+=100;'
+        '      if(en.sectors && en.sectors.some(function(t){return t.toLowerCase().indexOf(q)>=0;})) sub+=100;'
+        '      if(en.date && en.date.indexOf(q)>=0) sub+=80;'
+        '      if(en.type && en.type.toLowerCase()===q) sub+=200;'
+        # Body preview as last-resort signal (low weight)
+        '      if(sub===0 && (en.preview||"").toLowerCase().indexOf(q)>=0) sub+=30;'
+        # Si AUCUN match pour ce token, le note est out
+        '      if(sub===0) return 0;'
+        '      s+=sub;'
         '    }'
+        # Bonus type canonique : thesis/hub valent + qu'un sentinel ou tx pour
+        # une query ticker (cf TSMC > S—risque binaire Taiwan attendu)
+        '    if(en.type==="these" || en.type==="thesis") s+=80;'
+        '    else if(en.type==="hub") s+=60;'
+        '    else if(en.type==="sentinelle") s+=40;'
         '    if(s===0 && qTokens.length===0 && chipTokens.length===0) return 1;'
         '    return s;'
         '  }'

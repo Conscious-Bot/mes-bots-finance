@@ -168,6 +168,110 @@ def frontmatter(
 
 # ─── Anti-fantome check ────────────────────────────────────────────────────
 
+
+def canonical_ticker_aliases(ticker: str) -> list[str]:
+    """Génère les aliases canoniques pour un ticker — méthode de classification.
+
+    Doctrine 26/06 : toute nouvelle note thèse / hub / sentinelle référençant
+    un ticker DOIT inclure ces aliases pour être searchable dans Cerebro.
+
+    Récupère longName + shortName via yfinance, dérive version sans suffixes
+    corporate (Inc/Corp/Corporation/Ltd/N.V./S.A./etc).
+
+    Returns: liste d'aliases dédupliquée [ticker, longName, longName_clean,
+        shortName, shortName_clean] — vides filtrés.
+
+    Fail-soft : si yfinance HS, retourne juste [ticker].
+
+    Exemple :
+        canonical_ticker_aliases("AVGO")
+        # ['AVGO', 'Broadcom Inc.', 'Broadcom']
+
+        canonical_ticker_aliases("000660.KS")
+        # ['000660.KS', 'SK hynix Inc.', 'SK hynix']
+
+        canonical_ticker_aliases("TSM")
+        # ['TSM', 'Taiwan Semiconductor Manufacturing Company Limited',
+        #  'Taiwan Semiconductor Manufacturing Company', 'TSMC']
+    """
+    import re as _re
+
+    def _clean(name: str) -> str:
+        if not name:
+            return ""
+        n = name
+        # Strip corporate suffixes (ordered longest first to avoid partial match)
+        for suf in [
+            ", Inc.", " Inc.", " Inc", ", Corp.", " Corp.", " Corporation",
+            " N.V.", " Limited", " Ltd.", " Ltd", " S.A.", " S.E.", " SE",
+            " Co., Ltd.", ", Ltd.", " Holding", " Holdings", " Group",
+        ]:
+            n = _re.sub(_re.escape(suf) + r"$", "", n)
+        return n.strip().rstrip(".").strip()
+
+    aliases = [ticker]
+    try:
+        import yfinance as _yf
+        info = _yf.Ticker(ticker).info or {}
+        longName = (info.get("longName") or "").strip()
+        shortName = (info.get("shortName") or "").strip()
+        for raw in [longName, _clean(longName), shortName, _clean(shortName)]:
+            if raw and raw not in aliases:
+                aliases.append(raw)
+    except Exception:
+        pass
+    return aliases
+
+
+def thesis_frontmatter(
+    *,
+    ticker: str,
+    conviction: int | str,
+    cap_pct: float,
+    cluster: str = "AI-compute",
+    sector_thesis_id: str | None = None,
+    extra_aliases: list[str] | None = None,
+    status: str = "active",
+) -> str:
+    """Frontmatter canonique pour TOUTE nouvelle note thèse — méthode de
+    classification au moment de la création.
+
+    Aliases auto-générés via canonical_ticker_aliases() + extra_aliases user.
+    Garantit que la note est searchable dans Cerebro par : ticker, longName,
+    company name nettoyé, tout alias user-supplied.
+
+    Doctrine 26/06 cf [[manual-exec-must-create-cf]] (helper canonique) et
+    cette nouvelle [[canonical-thesis-aliases-at-creation]].
+    """
+    aliases = canonical_ticker_aliases(ticker)
+    if extra_aliases:
+        for a in extra_aliases:
+            if a and a not in aliases:
+                aliases.append(a)
+    lines = [
+        "---",
+        "type: these",
+        "domain: patrimoine",
+        "strate: synthese",
+        f"ticker: {ticker}",
+        f"conviction: {conviction}",
+        f"cap_pct: {cap_pct}",
+        "taille_actuelle:    # % du book aujourd'hui",
+        f"cluster: {cluster}",
+        f"status: {status}     # active | concluded | invalidated",
+        f"created: {date.today().isoformat()}",
+        f"aliases: [{', '.join(f'\"{a}\"' for a in aliases)}]",
+        f"tickers: [\"{ticker}\"]",
+        "sentinelle: []     # conditions d'invalidation datées",
+        "gouverne_par: \"[[Presage]]\"",
+        "teste_ma_discipline: \"[[Biais 1 vendre les gagnants trop tot]]\"",
+    ]
+    if sector_thesis_id:
+        lines.append(f"sector_thesis_id: {sector_thesis_id}")
+    lines.append("---")
+    return "\n".join(lines) + "\n"
+
+
 # ─── Bootstrap session ─────────────────────────────────────────────────────
 
 # Hubs canoniques lus au demarrage de chaque session non-triviale.

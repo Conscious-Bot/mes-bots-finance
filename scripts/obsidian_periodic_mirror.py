@@ -21,6 +21,7 @@ section (un fail FAIT ne casse pas le mirror DIGEST).
 from __future__ import annotations
 
 import contextlib
+import re
 import sqlite3
 import sys
 from datetime import datetime
@@ -318,6 +319,92 @@ def mirror_chiffres_position() -> tuple[int, int]:
 
     cx.close()
     return n_updated, n_skipped
+
+
+def mirror_thesis_aliases() -> tuple[int, int]:
+    """Auto-enrichit les notes thèse avec les aliases canoniques (méthode 26/06).
+
+    Pour CHAQUE note avec `type: these` dans le root vault :
+    1. Extrait le ticker (frontmatter `ticker:` singulier ou `tickers:` pluriel)
+    2. Appelle obsidian.canonical_ticker_aliases(ticker) -> longName + clean
+    3. Merge avec aliases existants (préserve user-supplied)
+    4. Rewrite frontmatter SI nouveaux aliases ajoutés (idempotent sinon)
+
+    Cf doctrine [[canonical-thesis-aliases-at-creation]].
+    Returns (n_enriched, n_already_complete).
+    """
+    try:
+        from shared import obsidian as obs
+    except Exception as e:
+        print(f"  ALIASES skip (import err): {e}", file=sys.stderr)
+        return (0, 0)
+
+    try:
+        all_root = obs.list_notes()
+    except Exception as e:
+        print(f"  ALIASES skip (list err): {e}", file=sys.stderr)
+        return (0, 0)
+
+    n_enriched = n_skipped = 0
+    for fn in all_root:
+        if not fn.endswith(".md"):
+            continue
+        try:
+            content = obs.read_note(fn)
+        except Exception:
+            continue
+        m = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
+        if not m:
+            continue
+        fm = m.group(1)
+        # Only enrich notes with type: these / thesis
+        type_m = re.search(r"^type:\s*['\"]?(these|thesis)['\"]?", fm, re.M)
+        if not type_m:
+            continue
+        # Extract ticker (singular OR plural)
+        ticker = None
+        tm = re.search(r"^ticker:\s*['\"]?([^\n'\"]+)['\"]?", fm, re.M)
+        if tm:
+            ticker = tm.group(1).strip()
+        if not ticker:
+            tms = re.search(r"^tickers:\s*\[\s*['\"]?([^\n,'\"\]]+)['\"]?", fm, re.M)
+            if tms:
+                ticker = tms.group(1).strip()
+        if not ticker:
+            continue
+
+        # Current aliases
+        am = re.search(r"^aliases:\s*\[(.*?)\]", fm, re.M)
+        current = []
+        if am:
+            current = [s.strip().strip("'\"") for s in am.group(1).split(",") if s.strip()]
+        else:
+            am2 = re.search(r"^aliases:\s*\n((?:\s*-\s+.+\n)+)", fm, re.M)
+            if am2:
+                current = [re.sub(r"^\s*-\s+", "", line).strip().strip("'\"") for line in am2.group(1).splitlines() if line.strip()]
+
+        # Canonical aliases
+        canonical = obs.canonical_ticker_aliases(ticker)
+        to_add = [a for a in canonical if a and a not in current]
+        if not to_add:
+            n_skipped += 1
+            continue
+
+        merged = current + to_add
+        new_block = "[" + ", ".join(f'"{a}"' for a in merged) + "]"
+        if am:
+            new_fm = re.sub(r"^aliases:\s*\[.*?\]", f"aliases: {new_block}", fm, count=1, flags=re.M)
+        elif "am2" in dir() and am2:
+            new_fm = re.sub(r"^aliases:\s*\n(?:\s*-\s+.+\n)+", f"aliases: {new_block}\n", fm, count=1, flags=re.M)
+        else:
+            new_fm = fm.rstrip() + f"\naliases: {new_block}"
+        new_content = "---\n" + new_fm + "\n---\n" + content[m.end():]
+        try:
+            obs.write_note(fn, new_content, overwrite=True)
+            n_enriched += 1
+        except Exception as e:
+            print(f"  ALIASES {fn[:40]} fail: {e}", file=sys.stderr)
+    return (n_enriched, n_skipped)
 
 
 def mirror_transactions(cx: sqlite3.Connection) -> tuple[int, str | None]:
@@ -652,6 +739,13 @@ def main() -> int:
         print(f"  FAIT : {n_up} notes updated, {n_skip} skipped (already updated today or no thesis)")
     except Exception as e:
         print(f"  FAIT : FAIL {e}", file=sys.stderr)
+
+    # 2bis. ALIASES auto-enrich notes thèse (méthode canonique 26/06)
+    try:
+        n_enr, n_skip = mirror_thesis_aliases()
+        print(f"  ALIASES : {n_enr} enrichies, {n_skip} déjà canoniques")
+    except Exception as e:
+        print(f"  ALIASES : FAIL {e}", file=sys.stderr)
 
     # 3. SNAPSHOT
     err_snap = mirror_snapshot_patrimoine()
