@@ -219,6 +219,19 @@ _CTA_JS = """
 """
 
 _APP_JS = """
+  /* presageNav (26/06) — helper canonique pour navigation inline depuis un
+     chip / lien / button. Pattern unique remplaçant les
+     onclick="document.querySelector('[data-nav=X]').click()" verbose.
+     Usage : onclick="presageNav('strategie')" ou
+             onclick="presageNav('position-card','card-AVGO')" (hash deep-link)
+     Bénéfice : (1) HTML lisible (2) point unique pour faire évoluer le
+     comportement (smooth scroll, history, telemetry). */
+  window.presageNav = function(target, hash){
+    if(hash){ window.location.hash = '#' + hash; }
+    var el = document.querySelector('[data-nav=' + target + ']');
+    if(el){ el.click(); }
+    return false;
+  };
   const items=document.querySelectorAll('[data-nav]'),pages=document.querySelectorAll('[data-page]');
   document.querySelectorAll('table.dt th').forEach(function(th){
     th.addEventListener('click',function(){

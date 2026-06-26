@@ -1843,7 +1843,7 @@ def _copilot_promote_card() -> str:
         + latest +
         '<div class="cp-promote-cta">'
         '<button class="cp-promote-btn" data-nav-target="copilot" '
-        'onclick="document.querySelector(&#39;[data-nav=copilot]&#39;).click()">'
+        'onclick="presageNav(&#39;copilot&#39;)">'
         'Ask the copilot &rarr;</button>'
         '<span class="cp-promote-hint">or hit Cmd+K to search</span>'
         '</div>'
@@ -7625,7 +7625,7 @@ def _monitors_live_band() -> str:
         today_marker = " <small>(+1 aujourd'hui)</small>" if oc["today_transitions"] else ""
         tt = "Positions qui pèsent + que leur cap par conviction (c5=8%, c4=6%, c3=4.5%, c2=3%, c1=2%). Click → Strategy."
         chips.append(
-            f'<a class="ml-chip {cls}" onclick="document.querySelector(&#39;[data-nav=strategie]&#39;).click()" title="{tt}">'
+            f'<a class="ml-chip {cls}" onclick="presageNav(&#39;strategie&#39;)" title="{tt}">'
             f'<span class="ml-lab">over_cap</span>'
             f'<span class="ml-val">{oc["over_count"]} pos</span>'
             f'{today_marker}</a>'
@@ -7654,7 +7654,7 @@ def _monitors_live_band() -> str:
                 f"La + critique : {urgent[0]} à {urgent[1]}% du stop. Click → Position card."
             )
             chips.append(
-                f'<a class="ml-chip ml-bad" onclick="window.location.hash=&#39;#card-{urgent[0]}&#39;;document.querySelector(&#39;[data-nav=position-card]&#39;).click()" title="{tt}">'
+                f'<a class="ml-chip ml-bad" onclick="presageNav(&#39;position-card&#39;,&#39;card-{urgent[0]}&#39;)" title="{tt}">'
                 f'<span class="ml-lab">near_stop</span>'
                 f'<span class="ml-val">{urgent[0]} {urgent[1]}%</span></a>'
             )
@@ -7683,7 +7683,7 @@ def _monitors_live_band() -> str:
         tk = kc["triggered_tickers"][0]
         tt = "Thèse(s) dont les triggers d'invalidation se sont déclenchés. Action requise. Click → Position card."
         chips.append(
-            f'<a class="ml-chip ml-bad" onclick="window.location.hash=&#39;#card-{tk}&#39;;document.querySelector(&#39;[data-nav=position-card]&#39;).click()" title="{tt}">'
+            f'<a class="ml-chip ml-bad" onclick="presageNav(&#39;position-card&#39;,&#39;card-{tk}&#39;)" title="{tt}">'
             f'<span class="ml-lab">kill triggered</span>'
             f'<span class="ml-val">{", ".join(kc["triggered_tickers"][:3])}</span></a>'
         )
@@ -7691,7 +7691,7 @@ def _monitors_live_band() -> str:
         tk = kc["at_risk_tickers"][0]
         tt = "Thèse(s) proches de déclencher invalidation. Click → Position card."
         chips.append(
-            f'<a class="ml-chip ml-warn" onclick="window.location.hash=&#39;#card-{tk}&#39;;document.querySelector(&#39;[data-nav=position-card]&#39;).click()" title="{tt}">'
+            f'<a class="ml-chip ml-warn" onclick="presageNav(&#39;position-card&#39;,&#39;card-{tk}&#39;)" title="{tt}">'
             f'<span class="ml-lab">kill at_risk</span>'
             f'<span class="ml-val">{", ".join(kc["at_risk_tickers"][:3])}</span></a>'
         )
@@ -7796,7 +7796,7 @@ def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
         for it in items:
             cards.append(
                 f'<div class="need {it["cls"]}" role="button" tabindex="0" '
-                f'onclick="document.querySelector(&#39;[data-nav={it["nav"]}]&#39;).click()">'
+                f'onclick="presageNav(&#39;{it["nav"]}&#39;)">'
                 f'<div class="sv">{it["sv"]}</div>'
                 f'<div class="body"><div class="ttl">{it["title"]} '
                 f'<span class="tag">{it["tag"]}</span></div>'
@@ -9429,7 +9429,7 @@ def render() -> Path:
     )
     _dband = (
         f'<div class="dband {_dcls}" title="{_dtitle}" '
-        f'onclick="document.querySelector(&#39;[data-nav={_nav_target}]&#39;).click()">'
+        f'onclick="presageNav(&#39;{_nav_target}&#39;)">'
         f'<span class="dd"></span><span class="dv">{_dverdict}</span>'
         f'<span class="dx">{_ddetail}</span>'
         f'<span class="dn">{_dn} axe(s)</span><span class="dc">&rsaquo;</span></div>'
