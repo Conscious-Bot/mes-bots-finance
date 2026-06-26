@@ -98,12 +98,57 @@ def test_coverage_holes_planned_only_molding_open():
 
 
 def test_sector_highlevel():
+    # by_category résolution (default)
     assert taxonomy.sector_highlevel("TSM") == "semis"
-    assert taxonomy.sector_highlevel("AMZN") == "semis"
     assert taxonomy.sector_highlevel("CCJ") == "energy_commodities"
     assert taxonomy.sector_highlevel("LNG") == "energy_commodities"
     assert taxonomy.sector_highlevel("HO.PA") == "defense_industrials_eu"
     assert taxonomy.sector_highlevel("SAF.PA") == "defense_industrials_eu"
+    assert taxonomy.sector_highlevel("GEV") == "defense_industrials_eu"
+    # Override historique Phase 3 (préservation Brier) : compute/hyperscaler → tech_mega
+    assert taxonomy.sector_highlevel("AMZN") == "tech_mega"
+    assert taxonomy.sector_highlevel("GOOGL") == "tech_mega"
+    # Override historique : MP materials/rare_earths → energy_commodities (pas semis)
+    assert taxonomy.sector_highlevel("MP") == "energy_commodities"
+    # Tickers hors-mapping mais portés par overrides (historique Brier)
+    assert taxonomy.sector_highlevel("NVDA") == "semis"
+    assert taxonomy.sector_highlevel("AMD") == "semis"
+    assert taxonomy.sector_highlevel("TSLA") == "auto_ev"
+
+
+def test_sector_highlevel_info_rich():
+    """Info riche Phase 3 : label + index + cycle_phase + cycle_note."""
+    info = taxonomy.sector_highlevel_info("TSM")
+    assert info["id"] == "semis"
+    assert info["index"] == "SOXX"
+    assert info["cycle_phase"] == "late"
+    info = taxonomy.sector_highlevel_info("AMZN")
+    assert info["id"] == "tech_mega"
+    assert info["index"] == "XLK"
+    info = taxonomy.sector_highlevel_info("TSLA")
+    assert info["id"] == "auto_ev"
+    assert info["cycle_phase"] == "contraction"
+
+
+def test_cycle_phase_for():
+    assert taxonomy.cycle_phase_for("TSM") == "late"
+    assert taxonomy.cycle_phase_for("CCJ") == "early"
+    assert taxonomy.cycle_phase_for("SAF.PA") == "mid"
+    assert taxonomy.cycle_phase_for("TSLA") == "contraction"
+    assert taxonomy.cycle_phase_for("UNKNOWN_X9") == "unknown"
+
+
+def test_sectors_facade_compat():
+    """shared/sectors.py façade lit la même source — préservation API + historique."""
+    from shared import sectors as _sec
+    # API compat : sector_for_ticker retourne TypedDict avec les bons champs
+    info = _sec.sector_for_ticker("AMZN")
+    assert info is not None
+    assert info["id"] == "tech_mega"
+    assert info["cycle_phase"] == "late"
+    # Cycle phase passthrough
+    assert _sec.cycle_phase_for_ticker("CCJ") == "early"
+    assert _sec.cycle_phase_for_ticker("UNKNOWN_X9") == "unknown"
 
 
 def test_validate_against_db_no_missing():

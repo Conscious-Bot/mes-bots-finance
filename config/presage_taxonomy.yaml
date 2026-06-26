@@ -170,22 +170,81 @@ positions:
 #   pages Positions/Concentration. C'est l'alignement UI↔risk, pas un changement de poids.
 
 # ════════════════════════════════════════════════════════════════════════════
-# AGRÉGATION HIGH-LEVEL — catégorie-mère → bucket Brier (5 buckets, Phase 3/C).
+# AGRÉGATION HIGH-LEVEL — Brier bucket (5 buckets, Phase 3/C, 26/06/2026 figé).
 #   Source unique pour intelligence/brier_audit.py + /review TICKER cyclicality
-#   + benchmark_tracker, dérivée de ce mapping (config/sectors.yaml meurt après).
+#   + dashboard cycle_phase chips. Supersède config/sectors.yaml (tué Phase 3).
+#
+# Format de chaque bucket :
+#   label        : nom affiché (handler /review, panneau)
+#   index        : index benchmark (Brier comparatif sectoriel)
+#   cycle_phase  : early | mid | late | contraction (vue signée user, MAJ trimestrielle)
+#   cycle_note   : commentaire qualitatif (affiché chip + handler)
+#   by_category  : layer-mère du mapping → bucket (résolution par défaut)
+#   tickers      : tickers FORCÉS dans ce bucket (overrides historiques OU
+#                  tickers hors-mapping à préserver)
+#
+# Logique de résolution (taxonomy.sector_highlevel_info) :
+#   1. Si ticker apparaît dans bucket.tickers → return ce bucket (priorité au 1er)
+#   2. Sinon, layer-mère(ticker) ∈ by_category[bucket] → return bucket
+#   3. Sinon None
+#
+# Préservation historique Brier (snapshot AVANT-Phase-3 du 26/06/2026) :
+#   AMZN/GOOGL → tech_mega (pas semis malgré compute/hyperscaler — l'historique
+#   Brier les a toujours classés tech_mega, on préserve)
+#   MP → energy_commodities (pas semis malgré materials/rare_earths)
+#   AMD/NVDA/ARM/TSLA → buckets historiques (pas au mapping principal mais
+#   présents en historique prédictions)
 # ════════════════════════════════════════════════════════════════════════════
 sector_highlevel_buckets:
-  # categorie-mere du layer → bucket high-level affiché
-  design:                 semis
-  capital_equipment:      semis
-  materials:              semis
-  manufacturing:          semis
-  assembly:               semis
-  memory:                 semis
-  compute:                semis            # asic + hyperscaler agrégés ici (NOTE : hyperscaler = client final mais Brier-side reste semis-supply-chain)
-  networking:             semis
-  energy:                 defense_industrials_eu   # power & électrification — bucket "défense/industriels" pour l'instant (à raffiner si volume)
-  resources:              energy_commodities
-  sovereignty:            defense_industrials_eu
-  aerospace:              defense_industrials_eu
-  robotics:               defense_industrials_eu   # Harmonic Drive en attendant un bucket dédié
+  semis:
+    label: "Semi-conducteurs (chip-related)"
+    index: SOXX
+    cycle_phase: late
+    cycle_note: "Capex cycle peak imminent. AI hype deja price dans valos."
+    by_category: [design, capital_equipment, materials, manufacturing, assembly, memory, compute, networking]
+    tickers:
+      # tickers hors-mapping à classer historiquement en semis
+      - NVDA
+      - AMD
+      - ARM
+      - STMPA.PA   # sorti 2026-06-26 mais conservé pour historique Brier
+      - 4063.T     # historique sectors.yaml (déjà couvert by_category materials)
+      - 6857.T     # historique sectors.yaml (déjà couvert by_category capital_equipment)
+      - 6920.T     # historique sectors.yaml (déjà couvert by_category capital_equipment)
+      - 000660.KS  # historique sectors.yaml (déjà couvert by_category memory)
+
+  energy_commodities:
+    label: "Energie commodities (uranium / gaz / terres rares)"
+    index: XLE
+    cycle_phase: early
+    cycle_note: "Uranium renaissance datacenter power. LNG export structural."
+    by_category: [resources]
+    tickers:
+      - MP   # OVERRIDE : MP materials/rare_earths driver=commodities mais bucket historique energy_commodities
+
+  defense_industrials_eu:
+    label: "Defense + industriels EU (rearmement)"
+    index: XAR
+    cycle_phase: mid
+    cycle_note: "Rearmement europeen structurel post-conflit."
+    by_category: [sovereignty, aerospace, robotics, energy]
+    tickers: []
+
+  tech_mega:
+    label: "Tech mega-cap (hyperscalers)"
+    index: XLK
+    cycle_phase: late
+    cycle_note: "Valorisations stretched. AI plays deja prices in stock."
+    by_category: []
+    tickers:
+      - GOOGL   # OVERRIDE : compute/hyperscaler mais bucket historique tech_mega
+      - AMZN    # OVERRIDE : compute/hyperscaler mais bucket historique tech_mega
+
+  auto_ev:
+    label: "Auto / EV"
+    index: DRIV
+    cycle_phase: contraction
+    cycle_note: "Demande EV peak fears. Margins Tesla en compression."
+    by_category: []
+    tickers:
+      - TSLA   # pas au mapping (jamais held), préservé pour historique Brier

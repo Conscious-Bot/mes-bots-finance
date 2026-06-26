@@ -157,18 +157,64 @@ def coverage_holes(status: str = "held") -> list[str]:
 
 
 def sector_highlevel(ticker: str) -> str | None:
-    """Bucket high-level Brier-side (semis / energy_commodities / defense_industrials_eu).
+    """Bucket high-level Brier-side (semis / energy_commodities / defense_industrials_eu / tech_mega / auto_ev).
 
-    Lit sector_highlevel_buckets du YAML (catégorie-mère → bucket).
-    Retourne None si layer_primary mal formé ou catégorie absente du mapping bucket.
+    Logique (Phase 3, 26/06/2026 — supersède config/sectors.yaml) :
+      1. Si ticker ∈ bucket.tickers d'un bucket → return ce bucket (overrides + historiques).
+      2. Sinon, layer-mère du mapping ∈ bucket.by_category → return bucket par défaut.
+      3. Sinon None (ticker hors-mapping et hors-overrides).
+
+    Préserve l'historique Brier : AMZN/GOOGL → tech_mega (pas semis), MP → energy_commodities, etc.
     """
-    tax = get_taxonomy(ticker)
+    info = sector_highlevel_info(ticker)
+    return info["id"] if info else None
+
+
+def sector_highlevel_info(ticker: str) -> dict[str, Any] | None:
+    """Bucket high-level RICHE (Phase 3) : {id, label, index, cycle_phase, cycle_note}.
+
+    Source unique post-cure : presage_taxonomy.yaml:sector_highlevel_buckets.
+    Replace shared/sectors.py:sector_for_ticker (façade conservée, mais lit ici).
+    """
+    raw = _load_raw()
+    buckets = raw.get("sector_highlevel_buckets") or {}
+    # 1. Override / explicit tickers list (priorité au 1er bucket qui le mentionne)
+    for bid, bdef in buckets.items():
+        if ticker in (bdef.get("tickers") or []):
+            return _build_sector_info(bid, bdef)
+    # 2. Résolution par catégorie-mère via mapping principal
+    try:
+        tax = get_taxonomy(ticker)
+    except TaxonomyError:
+        return None
     lp = tax.get("layer_primary") or ""
     if "/" not in lp:
         return None
     category = lp.split("/", 1)[0]
-    buckets = _load_raw().get("sector_highlevel_buckets") or {}
-    return buckets.get(category)
+    for bid, bdef in buckets.items():
+        if category in (bdef.get("by_category") or []):
+            return _build_sector_info(bid, bdef)
+    return None
+
+
+def _build_sector_info(bid: str, bdef: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": bid,
+        "label": bdef.get("label", bid),
+        "index": bdef.get("index", ""),
+        "cycle_phase": bdef.get("cycle_phase", "unknown"),
+        "cycle_note": bdef.get("cycle_note", ""),
+    }
+
+
+def cycle_phase_for(ticker: str) -> str:
+    """Cycle phase courante du bucket Brier d'un ticker. 'unknown' si non-catalogué.
+
+    Equivalent à shared/sectors.py:cycle_phase_for_ticker (façade canonique
+    conservée mais sa source bascule ici).
+    """
+    info = sector_highlevel_info(ticker)
+    return info["cycle_phase"] if info else "unknown"
 
 
 def same_sector_tickers(ticker: str, status: str = "held") -> list[str]:

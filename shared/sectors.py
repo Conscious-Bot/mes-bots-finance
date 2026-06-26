@@ -1,28 +1,26 @@
-"""Source canonique unique pour config/sectors.yaml.
+"""Façade canonique sectoriel — source dérivée du mapping unique (Phase 3, 26/06/2026).
 
-Consolide 2 implementations precedentes :
-- intelligence/macro_book_warnings.py (_load_sectors + _book_composition)
-- bot/handlers/review.py (_load_sector_config + _find_sector_for_ticker)
+Avant : façade qui lisait config/sectors.yaml directement.
+Maintenant : façade qui lit shared/taxonomy.py (presage_taxonomy.yaml). L'API est
+strictement identique (5 consumers downstream ne voient rien) — seule la SOURCE
+bascule. Les buckets sont définis dans presage_taxonomy.yaml:sector_highlevel_buckets.
 
-Tout panel/handler qui a besoin du mapping ticker->secteur+cycle_phase
-doit importer d'ici. Une seule source de verite, un seul cache, une
-seule semantique (cf [[organize tout proprement]] memory 06/06).
+Tout panel/handler qui a besoin du mapping ticker → secteur + cycle_phase doit
+importer d'ici. Une seule source de vérité (taxonomy), une seule sémantique
+(préservation historique Brier garantie via overrides).
 """
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TypedDict
 
 log = logging.getLogger(__name__)
 
-_SECTORS_YAML = Path(__file__).resolve().parent.parent / "config" / "sectors.yaml"
-_CACHE: dict | None = None
-
 
 class SectorInfo(TypedDict):
-    """Forme retournee par sector_for_ticker."""
+    """Forme retournée par sector_for_ticker (compat exacte avec l'ancienne API)."""
+
     id: str
     label: str
     index: str
@@ -31,47 +29,69 @@ class SectorInfo(TypedDict):
 
 
 def load_sectors() -> dict:
-    """Lazy load + cache. Re-load au redemarrage process suffisant
-    (config evolue trimestriellement)."""
-    global _CACHE
-    if _CACHE is not None:
-        return _CACHE
-    try:
-        import yaml
-        with open(_SECTORS_YAML) as f:
-            _CACHE = yaml.safe_load(f) or {}
-    except Exception as e:
-        log.warning(f"sectors.yaml load failed: {e}")
-        _CACHE = {}
-    return _CACHE
+    """Compat layer : retourne un dict raw {sectors: {bid: {...}}} dérivé du mapping.
+
+    L'ancienne API renvoyait le YAML chargé. On reconstruit la même forme depuis
+    presage_taxonomy.yaml:sector_highlevel_buckets pour compat callers qui
+    inspectent le dict raw (book_composition_by_sector ci-dessous).
+    """
+    from shared import taxonomy
+
+    raw = taxonomy._load_raw()
+    buckets = raw.get("sector_highlevel_buckets") or {}
+    out_sectors = {}
+    for bid, bdef in buckets.items():
+        # Reconstruit la liste tickers du bucket : tickers explicites + ceux que
+        # le mapping classe via by_category.
+        explicit = list(bdef.get("tickers") or [])
+        by_cat = set(bdef.get("by_category") or [])
+        cat_tickers = []
+        for tk, p in taxonomy._by_ticker().items():
+            lp = p.get("layer_primary") or ""
+            if "/" not in lp:
+                continue
+            category = lp.split("/", 1)[0]
+            if category in by_cat and tk not in explicit:
+                cat_tickers.append(tk)
+        out_sectors[bid] = {
+            "label": bdef.get("label", bid),
+            "index": bdef.get("index", ""),
+            "cycle_phase": bdef.get("cycle_phase", "unknown"),
+            "cycle_note": bdef.get("cycle_note", ""),
+            "tickers": explicit + cat_tickers,
+        }
+    return {"sectors": out_sectors}
 
 
 def sector_for_ticker(ticker: str) -> SectorInfo | None:
-    """Lookup ticker -> {id, label, index, cycle_phase, cycle_note}.
+    """Lookup ticker → {id, label, index, cycle_phase, cycle_note}.
 
-    None si ticker absent du mapping. Source canonique = sectors.yaml.
+    None si ticker absent du mapping ET hors overrides. Source canonique =
+    presage_taxonomy.yaml via shared/taxonomy.py.
     """
-    cfg = load_sectors()
-    for sect_id, sect in cfg.get("sectors", {}).items():
-        if ticker in sect.get("tickers", []):
-            return SectorInfo(
-                id=sect_id,
-                label=sect.get("label", sect_id),
-                index=sect.get("index", ""),
-                cycle_phase=sect.get("cycle_phase", "unknown"),
-                cycle_note=sect.get("cycle_note", ""),
-            )
-    return None
+    from shared import taxonomy
+
+    info = taxonomy.sector_highlevel_info(ticker)
+    if not info:
+        return None
+    return SectorInfo(
+        id=info["id"],
+        label=info["label"],
+        index=info["index"],
+        cycle_phase=info["cycle_phase"],
+        cycle_note=info["cycle_note"],
+    )
 
 
 def cycle_phase_for_ticker(ticker: str) -> str:
     """Cycle phase courante du secteur d'un ticker. 'unknown' si non-catalogue."""
-    s = sector_for_ticker(ticker)
-    return s["cycle_phase"] if s else "unknown"
+    from shared import taxonomy
+
+    return taxonomy.cycle_phase_for(ticker)
 
 
 def book_composition_by_sector(positions: list[dict]) -> dict[str, dict]:
-    """Decompose un book par sector_id. Returns:
+    """Décompose un book par sector_id. Returns:
         {
           sector_id: {
             exposure_eur: float,
@@ -82,20 +102,15 @@ def book_composition_by_sector(positions: list[dict]) -> dict[str, dict]:
           }
         }
 
-    Tickers absents de sectors.yaml -> bucket 'uncat' (surface explicite
-    plutot que masquer dans 'other').
+    Tickers hors-mapping → bucket 'uncat' (surface explicite plutôt que masquer
+    dans 'other'). Source = shared/taxonomy.py (Phase 3, 26/06/2026).
     """
-    cfg = load_sectors()
-    sectors = cfg.get("sectors", {})
-    ticker_to_sector: dict[str, str] = {}
-    for sid, sdef in sectors.items():
-        for tk in sdef.get("tickers", []):
-            ticker_to_sector[tk] = sid
-
     total_eur = 0.0
     by_sector: dict[str, dict] = {}
     for pos in positions:
         tk = pos.get("ticker")
+        if not tk:
+            continue
         # Refonte 24/06 (cure coherence cluster%) : prefere weight (market value
         # EUR canonique cure #120) sur qty*avg_cost (cost basis). Le panneau macro
         # impact disait 57% (cost basis) vs cluster_cap grade 62.3% (market).
@@ -111,14 +126,17 @@ def book_composition_by_sector(positions: list[dict]) -> dict[str, dict]:
             if qty <= 0 or avg <= 0:
                 continue
             exposure = qty * avg
-        sid = ticker_to_sector.get(tk, "uncat")
-        sdef = sectors.get(sid, {})
-        bucket = by_sector.setdefault(sid, {
-            "exposure_eur": 0.0,
-            "tickers": [],
-            "cycle_phase": sdef.get("cycle_phase", "unknown"),
-            "label": sdef.get("label", sid),
-        })
+        info = sector_for_ticker(tk)
+        sid = info["id"] if info else "uncat"
+        bucket = by_sector.setdefault(
+            sid,
+            {
+                "exposure_eur": 0.0,
+                "tickers": [],
+                "cycle_phase": info["cycle_phase"] if info else "unknown",
+                "label": info["label"] if info else sid,
+            },
+        )
         bucket["exposure_eur"] += exposure
         bucket["tickers"].append(tk)
         total_eur += exposure
@@ -131,12 +149,11 @@ def book_composition_by_sector(positions: list[dict]) -> dict[str, dict]:
 def jp_tickers(positions: list[dict]) -> list[str]:
     """Tickers .T (Tokyo) parmi positions tenues (qty > 0)."""
     return [
-        p["ticker"] for p in positions
+        p["ticker"]
+        for p in positions
         if p.get("ticker", "").endswith(".T") and float(p.get("qty") or 0) > 0
     ]
 
 
 def reset_cache() -> None:
-    """Force re-load au prochain appel. Pour tests + edge case manuel."""
-    global _CACHE
-    _CACHE = None
+    """No-op (taxonomy has its own lru_cache). Conservé pour compat callers tests."""

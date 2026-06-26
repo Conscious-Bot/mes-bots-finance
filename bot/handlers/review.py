@@ -3,7 +3,7 @@
 Output : 1 message Telegram structure agregating
   - Position courante (PnL + qty depuis avg_cost)
   - These (entry / partial / full / stop + asymmetry)
-  - Sector + cycle phase (config/sectors.yaml)
+  - Sector + cycle phase (presage_taxonomy.yaml via shared/sectors façade)
   - Perf 1y / 2y du ticker + perf relative au sector index
   - Valorisation (P/E, P/S vs sector)
   - Modele agrege : top signaux 30j + impact moyen + sentiment dominant

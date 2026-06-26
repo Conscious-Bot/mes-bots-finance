@@ -35,16 +35,19 @@ log = logging.getLogger(__name__)
 
 
 def _load_sector_map() -> dict[str, str]:
-    """Ticker → sector_label from config/sectors.yaml."""
-    from pathlib import Path
+    """Ticker → sector_label, dérivé du mapping unique (Phase 3, 26/06/2026).
 
-    import yaml
+    Avant : lecture directe de config/sectors.yaml.
+    Maintenant : passe par shared/sectors.py façade (qui lit shared/taxonomy.py).
+    L'override historique (AMZN/GOOGL→tech_mega, MP→energy_commodities, etc.)
+    est appliqué par la façade — préservation Brier garantie.
+    """
+    from shared.sectors import load_sectors
 
-    cfg_path = Path(__file__).parent.parent / "config" / "sectors.yaml"
     try:
-        cfg = yaml.safe_load(cfg_path.read_text())
+        cfg = load_sectors()
     except Exception as e:
-        log.debug("sectors.yaml load fail: %s", e)
+        log.debug("sector_highlevel_buckets load fail: %s", e)
         return {}
     sectors = cfg.get("sectors", {})
     out = {}

@@ -7128,7 +7128,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
             _cp_cls_th = _cycle_chip_cls_via_vocab(_cp_th)
             _cp_chip_th = (
                 f'<span class="cycle-chip cycle-{_cp_cls_th}" '
-                f'data-tip="Cycle phase {_cp_th} (config/sectors.yaml).">{_cp_th}</span>'
+                f'data-tip="Cycle phase {_cp_th} (presage_taxonomy.yaml).">{_cp_th}</span>'
                 if _cp_th != "unknown" else ""
             )
             _tw_chips_th = ""
@@ -7567,7 +7567,7 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         _cp_cls = _cycle_chip_cls_via_vocab(_cp)
         _cp_chip = (
             f'<span class="cycle-chip cycle-{_cp_cls}" '
-            f'data-tip="Cycle phase {_cp} (source config/sectors.yaml).">{_cp}</span>'
+            f'data-tip="Cycle phase {_cp} (source presage_taxonomy.yaml).">{_cp}</span>'
             if _cp != "unknown" else ""
         )
         # Macro book warning chips (06/06 v2 readability + ticker outlook v3) :
