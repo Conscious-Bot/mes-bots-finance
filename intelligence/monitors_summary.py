@@ -24,23 +24,11 @@ log = logging.getLogger(__name__)
 
 def get_monitors_summary() -> dict[str, Any]:
     """Returns {
-        'over_cap': {
-            'over_count': int,
-            'today_transitions': list[{ticker, transition, weight_pct, cap_pct}],
-            'over_tickers': list[ticker],
-        },
-        'stress_gate': {
-            'worst_scenario': {scenario_name, drawdown_pct, status} | None,
-            'breached_scenarios': list[{...}],  # status='breach' or 'warn'
-        },
-        'kill_criteria': {
-            'triggered_tickers': list[ticker],
-            'at_risk_tickers': list[ticker],
-        },
-        'stale_target': {
-            'dead_tickers': list[ticker],
-            'dying_tickers': list[ticker],
-        },
+        'over_cap': {...},
+        'stress_gate': {...},
+        'kill_criteria': {...},
+        'stale_target': {...},
+        'benchmark': {'w30': {...}, 'w90': {...}},  # Tier 2 #5 wiring 26/06
     }
 
     Fail-soft : chaque section retourne valeurs vides si table absente / query fail.
@@ -52,6 +40,7 @@ def get_monitors_summary() -> dict[str, Any]:
         "stress_gate": {"worst_scenario": None, "breached_scenarios": []},
         "kill_criteria": {"triggered_tickers": [], "at_risk_tickers": []},
         "stale_target": {"dead_tickers": [], "dying_tickers": []},
+        "benchmark": {"w30": None, "w90": None},
     }
 
     # 1. over_cap — current 'over' positions + today's dormant→over transitions
@@ -142,6 +131,14 @@ def get_monitors_summary() -> dict[str, Any]:
     except Exception as e:
         log.debug(f"stale_target summary fail: {e}")
 
+    # 5. benchmark vs SMH/SPY/QQQ — Tier 2 #5 wiring (26/06)
+    try:
+        from intelligence.benchmark_tracker import get_benchmarks_summary
+        bm = get_benchmarks_summary()
+        out["benchmark"] = bm
+    except Exception as e:
+        log.debug(f"benchmark summary fail: {e}")
+
     return out
 
 
@@ -186,6 +183,25 @@ def format_text_summary(summary: dict[str, Any] | None = None) -> str:
         parts.append(f"💀 stale DEAD : {', '.join(st['dead_tickers'])}")
     if st["dying_tickers"]:
         parts.append(f"💭 stale dying : {', '.join(st['dying_tickers'])}")
+
+    # benchmark (Tier 2 #5, 26/06) — affiche delta SMH 30d primary
+    bm = summary.get("benchmark") or {}
+    w30 = bm.get("w30") or {}
+    if w30.get("ok"):
+        bms = w30.get("benchmarks") or {}
+        pr_pct = w30.get("portfolio_return_pct", 0)
+        smh = bms.get("SMH")
+        spy = bms.get("SPY")
+        qqq = bms.get("QQQ")
+        bench_segs = []
+        if smh:
+            bench_segs.append(f"SMH Δ{smh['delta_pp']:+.1f}pp")
+        if spy:
+            bench_segs.append(f"SPY Δ{spy['delta_pp']:+.1f}pp")
+        if qqq:
+            bench_segs.append(f"QQQ Δ{qqq['delta_pp']:+.1f}pp")
+        if bench_segs:
+            parts.append(f"📈 Portfolio 30j {pr_pct:+.2f}% · " + " · ".join(bench_segs))
 
     if not parts:
         return "📊 Monitors : tout sain (over_cap=0, stress=ok, kill_criteria=0, stale=0)"

@@ -5657,6 +5657,28 @@ def _vault() -> str:
         if ms["stale_target"]["dying_tickers"]:
             rows.append(f'<div class="cer-mon-row cer-mon-warn">💭 stale dying : <b>{e(", ".join(ms["stale_target"]["dying_tickers"]))}</b></div>')
             monitors_n += 1
+        # Tier 2 #5 benchmark (26/06) — affiche les 2 windows × 3 benchmarks
+        bm = ms.get("benchmark") or {}
+        for window_lbl, key in (("30j", "w30"), ("90j", "w90")):
+            w = bm.get(key) or {}
+            if not w.get("ok"):
+                continue
+            pr_pct = w.get("portfolio_return_pct", 0)
+            bm_rows = []
+            for tk in ("SMH", "SPY", "QQQ"):
+                b = (w.get("benchmarks") or {}).get(tk)
+                if not b:
+                    continue
+                cls = {"green": "", "yellow": "cer-mon-warn", "red": "cer-mon-bad"}.get(b["status"], "")
+                bm_rows.append(
+                    f'<span class="{cls}" style="margin-right:14px">{tk} {b["return_pct"]:+.2f}% → Δ {b["delta_pp"]:+.2f}pp</span>'
+                )
+            if bm_rows:
+                rows.append(
+                    f'<div class="cer-mon-row">📊 Portfolio {window_lbl} : <b>{pr_pct:+.2f}%</b> &middot; '
+                    + "".join(bm_rows) + '</div>'
+                )
+                monitors_n += 1
         if not rows:
             monitors_content = '<div class="cer-empty">Tout sain — over_cap=0, stress ok, kill_criteria=0, stale=0.</div>'
         else:
@@ -7660,6 +7682,25 @@ def _monitors_live_band() -> str:
             )
     except Exception:
         pass
+
+    # benchmark vs SMH/SPY/QQQ 30d — Tier 2 #5 wiring (26/06). Chip non-clickable
+    # (détails complets dans Cerebro accordion). Affiche le delta SMH primary.
+    bm = s.get("benchmark") or {}
+    w30 = bm.get("w30") or {}
+    if w30.get("ok") and w30.get("benchmarks"):
+        smh = w30["benchmarks"].get("SMH")
+        if smh:
+            cls = {"green": "ml-info", "yellow": "ml-warn", "red": "ml-bad"}.get(smh["status"], "ml-info")
+            tt = (
+                f"Portfolio 30d : {w30['portfolio_return_pct']:+.2f}%. "
+                f"vs SMH {smh['return_pct']:+.2f}% → delta {smh['delta_pp']:+.2f}pp. "
+                f"SPY/QQQ détails dans Cerebro > Monitors live."
+            )
+            chips.append(
+                f'<div class="ml-chip {cls}" title="{tt}">'
+                f'<span class="ml-lab">vs SMH 30d</span>'
+                f'<span class="ml-val">{smh["delta_pp"]:+.1f}pp</span></div>'
+            )
 
     # worst stress — NON-clickable (pas de page dédiée, détails dans Cerebro accordion)
     sg = s["stress_gate"]
