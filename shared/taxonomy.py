@@ -15,6 +15,7 @@ CONVENTIONS §6, jamais de défaut silencieux).
 from __future__ import annotations
 
 import functools
+import re
 from pathlib import Path
 from typing import Any
 
@@ -168,6 +169,47 @@ def sector_highlevel(ticker: str) -> str | None:
     category = lp.split("/", 1)[0]
     buckets = _load_raw().get("sector_highlevel_buckets") or {}
     return buckets.get(category)
+
+
+def same_sector_tickers(ticker: str, status: str = "held") -> list[str]:
+    """Tickers in the same high-level sector bucket (Brier-side), excluding the input.
+
+    Used by adversarial co-pilot for "adjacent signals" lookup. Maps to
+    `sector_highlevel(ticker)` — broad bucket (semis / energy_commodities /
+    defense_industrials_eu) — which best matches the legacy TICKER_SECTOR
+    grouping ("AI Compute" → multiple semis sub-layers were grouped together).
+    Returns [] if ticker has no bucket.
+    """
+    bucket = sector_highlevel(ticker)
+    if not bucket:
+        return []
+    return [
+        tk
+        for tk, p in _by_ticker().items()
+        if tk != ticker
+        and p["status"] == status
+        and sector_highlevel(tk) == bucket
+    ]
+
+
+def clean_sector(sid: str | None) -> str:
+    """Format a sector_id (snake_case with optional trailing year) into a display label.
+
+    'ai_compute_2026' → 'AI Compute' ; 'mag7' → 'MAG 7' ; None → 'Sans thesis'.
+    Migrée depuis shared/sector_taxonomy.py:clean_sector lors de la cure
+    5 sources → 1 (Phase 1, 26/06/2026). Pure formatting, ne dépend d'aucune
+    table — sert au rendu de tout label catégoriel hérité.
+    """
+    if not sid:
+        return "Sans thesis"
+    s = re.sub(r"_20\d\d$", "", sid).replace("_", " ").title()
+    return (
+        s.replace(" Ai", " AI")
+        .replace("Ai ", "AI ")
+        .replace("Hpq", "HPQ")
+        .replace("Eu ", "EU ")
+        .replace("Mag7", "MAG 7")
+    )
 
 
 def validate_against_db(*, raise_on_missing: bool = True) -> dict[str, list[str]]:

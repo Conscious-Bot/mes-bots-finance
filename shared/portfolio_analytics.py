@@ -361,7 +361,7 @@ def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:  # noqa: AR
 
     import yaml
 
-    from shared.sector_taxonomy import clean_sector
+    from shared.taxonomy import clean_sector
 
     def _v(p: dict) -> float:
         return float(p["weight"])

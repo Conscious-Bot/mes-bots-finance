@@ -181,9 +181,9 @@ def _ticker_sector(ticker: str) -> str | None:
     if ticker in _CLUSTER_MAP_CACHE:
         return _CLUSTER_MAP_CACHE[ticker]
     try:
-        from shared.sector_taxonomy import TICKER_SECTOR  # cure P2 audit (3) — couche shared/, plus de dashboard/
+        from shared import taxonomy  # source unique catégorisation (cure 5 sources → 1, 26/06/2026)
 
-        return TICKER_SECTOR.get(ticker)
+        return taxonomy.sector_highlevel(ticker)
     except Exception:
         return None
 

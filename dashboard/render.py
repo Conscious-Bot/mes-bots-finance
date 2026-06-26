@@ -4250,12 +4250,12 @@ def _chat_panel() -> str:
     )
 
 
-# _clean_sector déplacé vers shared/sector_taxonomy.py (cure P2 audit (3) reste
-# whitelist 12/06). Ré-export pour rétro-compat des callers internes.
+# _clean_sector lit shared/taxonomy.py (cure 5 sources → 1, 26/06/2026 — Phase 1).
+# Avant : shared/sector_taxonomy.py (tué en Phase 1).
 # Builder _positions déplacé vers shared/portfolio_view_builder.py (cure #120
 # étape 2 12/06). Ré-export pour rétro-compat des callers internes au render.py.
 from shared.portfolio_view_builder import _positions
-from shared.sector_taxonomy import _clean_sector
+from shared.taxonomy import clean_sector as _clean_sector
 
 
 def _sectors() -> dict:

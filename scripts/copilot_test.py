@@ -42,12 +42,15 @@ def _fetch_recent_signals(con, ticker: str) -> list[dict]:
     ).fetchall()
 
     # 2. Adjacent signals : same sector tickers
-    from dashboard.render import TICKER_SECTOR
+    from shared import taxonomy  # source unique catégorisation (cure 5 sources → 1, 26/06/2026)
 
-    sector = TICKER_SECTOR.get(ticker)
+    try:
+        sector = taxonomy.sector_highlevel(ticker)
+    except taxonomy.TaxonomyError:
+        sector = None
     adjacent_rows = []
     if sector:
-        same_sector_tks = [tk for tk, sec in TICKER_SECTOR.items() if sec == sector and tk != ticker]
+        same_sector_tks = taxonomy.same_sector_tickers(ticker)
         if same_sector_tks:
             placeholders = " OR ".join(["s.entities LIKE ?" for _ in same_sector_tks])
             params = [f"%{tk}%" for tk in same_sector_tks]

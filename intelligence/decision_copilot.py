@@ -423,10 +423,13 @@ def run_pre_trade_copilot(ticker: str, decision_type: str, reasoning: str, price
 
 def _fetch_signals_for_ticker(ticker: str) -> list:
     """Pull direct + adjacent (same sector) signals last 30d, materiality ≥ 4/8."""
-    from shared.sector_taxonomy import TICKER_SECTOR  # cure P2 audit (3) — couche shared/, plus de dashboard/
+    from shared import taxonomy  # source unique catégorisation (cure 5 sources → 1, 26/06/2026)
     from shared.storage import db
 
-    sector = TICKER_SECTOR.get(ticker)
+    try:
+        sector = taxonomy.sector_highlevel(ticker)
+    except taxonomy.TaxonomyError:
+        sector = None
     out = []
     try:
         with db() as conn:
@@ -441,7 +444,7 @@ def _fetch_signals_for_ticker(ticker: str) -> list:
             ).fetchall()
             adjacent = []
             if sector:
-                same_sec = [tk for tk, sec in TICKER_SECTOR.items() if sec == sector and tk != ticker]
+                same_sec = taxonomy.same_sector_tickers(ticker)
                 if same_sec:
                     ph = " OR ".join(["s.entities LIKE ?" for _ in same_sec])
                     params = [f"%{tk}%" for tk in same_sec]
