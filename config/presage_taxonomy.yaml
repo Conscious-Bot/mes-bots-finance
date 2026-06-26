@@ -1,0 +1,191 @@
+# PRESAGE — Taxonomie unifiée & mapping des positions
+# Source de vérité UNIQUE. Toutes les pages du dashboard (Positions, Concentration,
+# géo, trous) lisent CE fichier. Aucune page ne dérive sa propre catégorisation.
+# Le vault Obsidian utilise les MÊMES valeurs comme tags (#layer/..., #driver/..., #geo/...).
+#
+# Figé le 2026-06-26. v2 : book actif = 26 held (STM sorti) + 7 planned réels.
+# v2 ajoute compute/hyperscaler (AMZN, GOOGL) + GEV/SU.PA (energy) + corrige IFX -> IFX.DE.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ════════════════════════════════════════════════════════════════════════════
+# AXE 1 — layer  (FONCTION dans la chaîne ; catégorie-mère = tissu liant,
+#                 sous-catégorie = précision. Multi-valeur : chevauchement = info de trou.)
+# ════════════════════════════════════════════════════════════════════════════
+layers:
+  design:                      # concevoir le produit
+    - eda                      #   outils de conception
+    - ip_cores                 #   blocs IP / architectures
+  capital_equipment:           # fabriquer (machines lourdes de production)
+    - litho                    #   lithographie
+    - metrology                #   métrologie / mesure
+    - inspection               #   inspection (défauts, masques actiniques)
+    - test                     #   test ATE
+    - deposition_etch          #   dépôt / gravure
+  materials:                   # la matière transformée
+    - wafer                    #   substrat silicium
+    - process_chemicals        #   gaz / chimie procédé
+    - rare_earths              #   terres rares / aimants
+    - multimetal               #   cuivre / multimétal / recyclage
+  manufacturing:               # transformer (le procédé sous contrat)
+    - foundry_leading          #   fonderie de pointe
+    - idm_analog               #   fondeur-fabless analog/MCU (STM sorti — gardé au vocabulaire)
+  assembly:                    # assembler / intégrer physiquement (back-end)
+    - bonding_equip            #   équipement de bonding
+    - cowos                    #   CoWoS / interposer / advanced packaging
+    - substrate                #   substrat FC-BGA
+    - substrate_film           #   film diélectrique (ABF)
+    - molding_equip            #   équipement de moulage / encapsulation
+  memory:                      # stocker l'information
+    - hbm                      #   mémoire haute bande passante
+    - dram_nand                #   (réservé : DRAM / NAND / stockage)
+  compute:                     # traiter l'information OU en financer la demande
+    - asic                     #   ASIC / accelerator / custom silicon
+    - hyperscaler              #   acheteur final (finance la demande, pas un maillon)
+    - gpu                      #   (réservé)
+    - cpu                      #   (réservé)
+  networking:                  # déplacer l'information
+    - optical                  #   optique / transceivers
+    - chip_interconnect        #   interconnexion de puces
+    - satellite                #   constellation satellite
+    - telecom                  #   (réservé : télécom terrestre)
+  energy:                      # alimenter / convertir / mouvoir
+    - generation               #   génération (turbines, nucléaire civil)
+    - transmission             #   transport / grid (câbles, équipement électrique)
+    - power_semis              #   semi de puissance
+  resources:                   # énergie / matière brute négociée
+    - lng                      #   gaz naturel liquéfié
+    - uranium                  #   combustible nucléaire
+  sovereignty:                 # actifs stratégiques d'État
+    - defense_aero             #   défense / aéronautique souveraine
+  aerospace:                   # accès & opérations spatiales / aéro
+    - launch                   #   lancement / spatial
+  robotics:                    # automatisation physique / embodied
+    - actuation                #   actionnement de précision
+    - reducers                 #   (réservé : réducteurs RV)
+    - sensing                  #   (réservé)
+  # datacenter_infra:          # (réservé — créer si VRT/Vertiv entre au book : thermal_power)
+
+# ════════════════════════════════════════════════════════════════════════════
+# AXE 2 — driver  (VARIABLE DE RISQUE : ce qui corrèle. Sizing/concentration. Unique.)
+# ════════════════════════════════════════════════════════════════════════════
+drivers:
+  - ai_capex                   # variable-maître (compute, hyperscaler-demande, equip,
+                               #   foundry, memory, packaging, networking-DC, power-for-AI)
+  - sovereignty                # défense / souveraineté
+  - resources_energy           # LNG, uranium, énergie brute
+  - commodities                # métaux / matières (incl. multimétal)
+  - space                      # exposition spatiale propre
+  - robotics                   # automatisation / embodied
+  - auto_industrial            # cycle auto / industriel (hors datacenter)
+  - financials                 # (réservé)
+  - crypto                     # (réservé)
+
+# ════════════════════════════════════════════════════════════════════════════
+# AXE 3 — geo  (POINT DE DÉFAILLANCE physique : où est l'usine/le siège. Unique.)
+# ════════════════════════════════════════════════════════════════════════════
+geos:
+  - taiwan
+  - japan
+  - korea
+  - us
+  - europe
+  - uk
+  - china
+  - china_exposed              # siège hors-Chine mais opérations/revenus Chine
+  - global
+
+# ════════════════════════════════════════════════════════════════════════════
+# AXE 4 — status  (DÉTENU vs PROJETÉ. Jamais confondu dans une vue de risque.)
+# ════════════════════════════════════════════════════════════════════════════
+statuses:
+  - held                       # détenu — entre dans le calcul de concentration réelle
+  - planned                    # watchlist / file d'achats — vue distincte, hors risque actuel
+  - sorti                      # liquidé — exclu du mapping actif
+
+# ════════════════════════════════════════════════════════════════════════════
+# MAPPING — chaque position sur les 5 champs.
+#   layer          : liste complète (chevauchements) → DÉTECTION DE TROUS (ne somme pas)
+#   layer_primary  : valeur unique ∈ layer → COMPTABILITÉ dashboard (somme 100%)
+#   driver, geo, status
+# ════════════════════════════════════════════════════════════════════════════
+positions:
+
+
+  # ── HELD (26) ──────────────────────────────────────────────────────────────
+  ASML:       {ticker: "ASML.AS", name: "ASML", layer: [capital_equipment/litho], layer_primary: capital_equipment/litho, driver: ai_capex, geo: europe, status: held}
+  KLAC:       {ticker: "KLAC", name: "KLA", layer: [capital_equipment/metrology, capital_equipment/inspection], layer_primary: capital_equipment/metrology, driver: ai_capex, geo: us, status: held}
+  ADVTEST:    {ticker: "6857.T", name: "Advantest", layer: [capital_equipment/test], layer_primary: capital_equipment/test, driver: ai_capex, geo: japan, status: held}
+  BESI:       {ticker: "BESI.AS", name: "BE Semiconductor", layer: [assembly/bonding_equip], layer_primary: assembly/bonding_equip, driver: ai_capex, geo: europe, status: held}
+  LASERTEC:   {ticker: "6920.T", name: "Lasertec", layer: [capital_equipment/inspection], layer_primary: capital_equipment/inspection, driver: ai_capex, geo: japan, status: held}
+  SHINETSU:   {ticker: "4063.T", name: "Shin-Etsu", layer: [materials/wafer, materials/process_chemicals], layer_primary: materials/wafer, driver: ai_capex, geo: japan, status: held}
+  ENTG:       {ticker: "ENTG", name: "Entegris", layer: [materials/process_chemicals], layer_primary: materials/process_chemicals, driver: ai_capex, geo: us, status: held}
+  TSMC:       {ticker: "TSM", name: "TSMC", layer: [manufacturing/foundry_leading, assembly/cowos], layer_primary: manufacturing/foundry_leading, driver: ai_capex, geo: taiwan, status: held}
+  SKHYNIX:    {ticker: "000660.KS", name: "SK Hynix", layer: [memory/hbm], layer_primary: memory/hbm, driver: ai_capex, geo: korea, status: held}
+  MICRON:     {ticker: "MU", name: "Micron", layer: [memory/hbm], layer_primary: memory/hbm, driver: ai_capex, geo: us, status: held}
+  COHR:       {ticker: "COHR", name: "Coherent", layer: [networking/optical], layer_primary: networking/optical, driver: ai_capex, geo: us, status: held}
+  AVGO:       {ticker: "AVGO", name: "Broadcom", layer: [compute/asic, networking/chip_interconnect], layer_primary: compute/asic, driver: ai_capex, geo: us, status: held}
+  ALAB:       {ticker: "ALAB", name: "Astera Labs", layer: [networking/chip_interconnect], layer_primary: networking/chip_interconnect, driver: ai_capex, geo: us, status: held}
+  SNPS:       {ticker: "SNPS", name: "Synopsys", layer: [design/eda], layer_primary: design/eda, driver: ai_capex, geo: us, status: held}
+  AMZN:       {ticker: "AMZN", name: "Amazon", layer: [compute/hyperscaler], layer_primary: compute/hyperscaler, driver: ai_capex, geo: us, status: held}   # acheteur final — finance la demande
+  GOOGL:      {ticker: "GOOGL", name: "Alphabet", layer: [compute/hyperscaler], layer_primary: compute/hyperscaler, driver: ai_capex, geo: us, status: held}   # acheteur final — finance la demande
+  MHI:        {ticker: "7011.T", name: "Mitsubishi Heavy", layer: [energy/generation, sovereignty/defense_aero], layer_primary: energy/generation, driver: ai_capex, geo: japan, status: held}
+  GEV:        {ticker: "GEV", name: "GE Vernova", layer: [energy/generation, energy/transmission], layer_primary: energy/generation, driver: ai_capex, geo: us, status: held}   # turbines + grid pour datacenter
+  SUPA:       {ticker: "SU.PA", name: "Schneider Electric", layer: [energy/transmission], layer_primary: energy/transmission, driver: ai_capex, geo: europe, status: held}   # équipement électrique grid
+  THALES:     {ticker: "HO.PA", name: "Thales", layer: [sovereignty/defense_aero], layer_primary: sovereignty/defense_aero, driver: sovereignty, geo: europe, status: held}
+  SAFRAN:     {ticker: "SAF.PA", name: "Safran", layer: [sovereignty/defense_aero], layer_primary: sovereignty/defense_aero, driver: sovereignty, geo: europe, status: held}   # ~2067€ post-swap STM, cible 2100€
+  CHENIERE:   {ticker: "LNG", name: "Cheniere", layer: [resources/lng], layer_primary: resources/lng, driver: resources_energy, geo: us, status: held}
+  CAMECO:     {ticker: "CCJ", name: "Cameco", layer: [resources/uranium], layer_primary: resources/uranium, driver: resources_energy, geo: us, status: held}   # décorrélation imparfaite (datacenter-nucléaire)
+  MP:         {ticker: "MP", name: "MP Materials", layer: [materials/rare_earths], layer_primary: materials/rare_earths, driver: commodities, geo: us, status: held}
+  SPACEX:     {ticker: "SPCX", name: "SpaceX", layer: [aerospace/launch, networking/satellite], layer_primary: aerospace/launch, driver: space, geo: us, status: held}
+  HARMONIC:   {ticker: "6324.T", name: "Harmonic Drive", layer: [robotics/actuation], layer_primary: robotics/actuation, driver: robotics, geo: japan, status: held}
+
+  # ── PLANNED (7) — file RÉELLE. Hors concentration actuelle. N'existent PAS en DB (option α). ──
+  INFINEON:   {ticker: "IFX.DE", name: "Infineon", layer: [energy/power_semis], layer_primary: energy/power_semis, driver: ai_capex, geo: europe, status: planned}
+  PRYSMIAN:   {ticker: "PRY.MI", name: "Prysmian", layer: [energy/transmission], layer_primary: energy/transmission, driver: ai_capex, geo: europe, status: planned}
+  ARM:        {ticker: "ARM", name: "ARM", layer: [design/ip_cores], layer_primary: design/ip_cores, driver: ai_capex, geo: uk, status: planned}
+  AJINOMOTO:  {ticker: "2802.T", name: "Ajinomoto", layer: [assembly/substrate_film], layer_primary: assembly/substrate_film, driver: ai_capex, geo: japan, status: planned}   # TROU substrat film (monopole ABF)
+  IBIDEN:     {ticker: "4062.T", name: "Ibiden", layer: [assembly/substrate], layer_primary: assembly/substrate, driver: ai_capex, geo: japan, status: planned}   # TROU substrat FC-BGA
+  AURUBIS:    {ticker: "NDA.DE", name: "Aurubis", layer: [materials/multimetal], layer_primary: materials/multimetal, driver: commodities, geo: europe, status: planned}   # seul vrai décorrélateur de la file
+  TEL:        {ticker: "8035.T", name: "Tokyo Electron", layer: [capital_equipment/deposition_etch], layer_primary: capital_equipment/deposition_etch, driver: ai_capex, geo: japan, status: planned}
+
+  # ── SORTI ──────────────────────────────────────────────────────────────────
+  STM:        {ticker: "STMPA.PA", name: "STMicroelectronics", layer: [manufacturing/idm_analog], layer_primary: manufacturing/idm_analog, driver: auto_industrial, geo: europe, status: sorti}   # 0/3 lens, swap -> Safran 2026-06-26
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# RÈGLE DE LECTURE (non négociable — réconcilie trous & précision)
+#
+#   • layer_primary  → COMPTE (poids d'une couche, somme à 100% sur le dashboard).
+#   • layer (liste)  → COUVRE (détection de trous, ne somme pas).
+#   • TROU = une sous-couche absente de la liste `layer` de TOUTE position held —
+#            même si elle est le primary de personne.
+#       → networking/chip_interconnect COUVERT (Astera primary + Broadcom secondaire) : PAS un trou.
+#       → energy/transmission COUVERT en held (Schneider primary + GEV secondaire) : PAS un trou.
+#       → assembly/substrate & substrate_film : couverts seulement en PLANNED (Ibiden, Ajinomoto) : TROU.
+#       → assembly/molding_equip : dans AUCUNE liste held ni planned : TROU ouvert (Towa).
+#
+# NOTE concentration : driver=ai_capex held inclut la DEMANDE (AMZN/GOOGL hyperscalers)
+#   ET l'OFFRE qui la sert. Pari à variable unique assumé. Le chiffre ne MONTE pas vs
+#   le risk-side (kill_switch comptait déjà ces tickers) — il devient VISIBLE sur les
+#   pages Positions/Concentration. C'est l'alignement UI↔risk, pas un changement de poids.
+
+# ════════════════════════════════════════════════════════════════════════════
+# AGRÉGATION HIGH-LEVEL — catégorie-mère → bucket Brier (5 buckets, Phase 3/C).
+#   Source unique pour intelligence/brier_audit.py + /review TICKER cyclicality
+#   + benchmark_tracker, dérivée de ce mapping (config/sectors.yaml meurt après).
+# ════════════════════════════════════════════════════════════════════════════
+sector_highlevel_buckets:
+  # categorie-mere du layer → bucket high-level affiché
+  design:                 semis
+  capital_equipment:      semis
+  materials:              semis
+  manufacturing:          semis
+  assembly:               semis
+  memory:                 semis
+  compute:                semis            # asic + hyperscaler agrégés ici (NOTE : hyperscaler = client final mais Brier-side reste semis-supply-chain)
+  networking:             semis
+  energy:                 defense_industrials_eu   # power & électrification — bucket "défense/industriels" pour l'instant (à raffiner si volume)
+  resources:              energy_commodities
+  sovereignty:            defense_industrials_eu
+  aerospace:              defense_industrials_eu
+  robotics:               defense_industrials_eu   # Harmonic Drive en attendant un bucket dédié
