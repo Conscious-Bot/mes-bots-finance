@@ -92,6 +92,9 @@ from bot.handlers.signals_filings import (
     cmd_recent_8k,
     cmd_signals_by_type,
 )
+
+# Kelly sizing voluntary advisor (Phase 2 wiring 26/06/2026).
+from bot.handlers.size_recommend import cmd_size_recommend
 from bot.handlers.sources_admin import (
     cmd_sources,
     cmd_sources_brier,
@@ -139,6 +142,8 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("kill_exec", cmd_kill_exec))
     app.add_handler(CommandHandler("kill_override", cmd_kill_override))
     app.add_handler(CommandHandler("kill_resolve", cmd_kill_resolve))
+    # Kelly sizing voluntary advisor (Phase 2 26/06/2026, risk/sizing.py un-darks) :
+    app.add_handler(CommandHandler("size_recommend", cmd_size_recommend))
     app.add_handler(CommandHandler("adversarial", cmd_adversarial))  # 4-stage bull/bear/counter/verdicts loop (23/06/2026)
     app.add_handler(CommandHandler("find", cmd_find))
     app.add_handler(CommandHandler("portfolio_sectors", cmd_portfolio_sectors))
