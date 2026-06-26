@@ -7618,56 +7618,85 @@ def _monitors_live_band() -> str:
         return ""
 
     chips = []
-    # over_cap
+    # over_cap — click → /strategie (caps par conviction)
     oc = s["over_cap"]
     if oc["over_count"] > 0:
         cls = "ml-warn" if oc["today_transitions"] else "ml-info"
-        today_marker = " <small>(+1 today)</small>" if oc["today_transitions"] else ""
+        today_marker = " <small>(+1 aujourd'hui)</small>" if oc["today_transitions"] else ""
+        tt = "Positions qui pèsent + que leur cap par conviction (c5=8%, c4=6%, c3=4.5%, c2=3%, c1=2%). Click → Strategy."
         chips.append(
-            f'<a class="ml-chip {cls}" href="#strategie" title="Voir caps par conviction">'
+            f'<a class="ml-chip {cls}" onclick="document.querySelector(&#39;[data-nav=strategie]&#39;).click()" title="{tt}">'
             f'<span class="ml-lab">over_cap</span>'
             f'<span class="ml-val">{oc["over_count"]} pos</span>'
             f'{today_marker}</a>'
         )
 
-    # stress_gate
+    # near_stop — VRAI signal stop-proximity (pas stale_target qui = thèse edge)
+    try:
+        from shared import storage as _sto
+        with _sto.db() as cx:
+            ns_rows = cx.execute("""
+                SELECT t.ticker,
+                       ROUND((p.last_price_native - t.stop_price) / p.last_price_native * 100, 1) as dist_pct
+                FROM theses t
+                INNER JOIN positions p ON p.ticker=t.ticker
+                WHERE t.status='active' AND p.qty > 0
+                  AND t.stop_price > 0
+                  AND p.last_price_native > t.stop_price
+                  AND p.last_price_native < t.entry_price
+                  AND (p.last_price_native - t.stop_price) / p.last_price_native < 0.05
+                ORDER BY (p.last_price_native - t.stop_price) / p.last_price_native ASC
+            """).fetchall()
+        if ns_rows:
+            urgent = ns_rows[0]
+            tt = (
+                f"Position(s) en perte ET prix actuel à moins de 5% du stop. "
+                f"La + critique : {urgent[0]} à {urgent[1]}% du stop. Click → Position card."
+            )
+            chips.append(
+                f'<a class="ml-chip ml-bad" onclick="window.location.hash=&#39;#card-{urgent[0]}&#39;;document.querySelector(&#39;[data-nav=position-card]&#39;).click()" title="{tt}">'
+                f'<span class="ml-lab">near_stop</span>'
+                f'<span class="ml-val">{urgent[0]} {urgent[1]}%</span></a>'
+            )
+    except Exception:
+        pass
+
+    # worst stress — NON-clickable (pas de page dédiée, détails dans Cerebro accordion)
     sg = s["stress_gate"]
     if sg["worst_scenario"]:
         w = sg["worst_scenario"]
         cls = {"breach": "ml-bad", "warn": "ml-warn"}.get(w["status"], "ml-info")
+        tt = (
+            f"Stress test : si '{w['scenario_name']}' arrive, ton book perd "
+            f"{abs(w['drawdown_pct']):.1f}% (estimé). Warn à {w['warn_pct']}%, "
+            f"breach à {w['breach_pct']}%. Détails dans Cerebro > Monitors live."
+        )
         chips.append(
-            f'<div class="ml-chip {cls}" title="warn={w["warn_pct"]}% breach={w["breach_pct"]}%">'
+            f'<div class="ml-chip {cls}" title="{tt}">'
             f'<span class="ml-lab">worst stress</span>'
             f'<span class="ml-val">{w["scenario_name"]} {w["drawdown_pct"]:+.1f}%</span></div>'
         )
 
-    # kill_criteria
+    # kill_criteria triggered/at_risk — click → /position-card du 1er ticker
     kc = s["kill_criteria"]
     if kc["triggered_tickers"]:
+        tk = kc["triggered_tickers"][0]
+        tt = "Thèse(s) dont les triggers d'invalidation se sont déclenchés. Action requise. Click → Position card."
         chips.append(
-            f'<a class="ml-chip ml-bad" href="#urgence">'
+            f'<a class="ml-chip ml-bad" onclick="window.location.hash=&#39;#card-{tk}&#39;;document.querySelector(&#39;[data-nav=position-card]&#39;).click()" title="{tt}">'
             f'<span class="ml-lab">kill triggered</span>'
             f'<span class="ml-val">{", ".join(kc["triggered_tickers"][:3])}</span></a>'
         )
     elif kc["at_risk_tickers"]:
+        tk = kc["at_risk_tickers"][0]
+        tt = "Thèse(s) proches de déclencher invalidation. Click → Position card."
         chips.append(
-            f'<a class="ml-chip ml-warn" href="#urgence">'
+            f'<a class="ml-chip ml-warn" onclick="window.location.hash=&#39;#card-{tk}&#39;;document.querySelector(&#39;[data-nav=position-card]&#39;).click()" title="{tt}">'
             f'<span class="ml-lab">kill at_risk</span>'
             f'<span class="ml-val">{", ".join(kc["at_risk_tickers"][:3])}</span></a>'
         )
-
-    # stale_target
-    st = s["stale_target"]
-    if st["dead_tickers"]:
-        chips.append(
-            f'<div class="ml-chip ml-bad"><span class="ml-lab">stale dead</span>'
-            f'<span class="ml-val">{", ".join(st["dead_tickers"][:3])}</span></div>'
-        )
-    if st["dying_tickers"]:
-        chips.append(
-            f'<div class="ml-chip ml-warn"><span class="ml-lab">stale dying</span>'
-            f'<span class="ml-val">{", ".join(st["dying_tickers"][:3])}</span></div>'
-        )
+    # NB : stale_target retiré du bandeau (sémantique "edge thèse vs cost" confusing,
+    # déjà visible dans Cerebro > Monitors live accordion).
 
     if not chips:
         return (
