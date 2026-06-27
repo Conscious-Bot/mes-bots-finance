@@ -166,6 +166,37 @@ def test_planned_tickers_7():
     assert p == {"IFX.DE", "PRY.MI", "ARM", "2802.T", "4062.T", "NDA.DE", "8035.T"}
 
 
+def test_clean_sector_preserves_legacy_output():
+    """Refonte 27/06 token-based : output identique à la cascade .replace."""
+    assert taxonomy.clean_sector("ai_compute_2026") == "AI Compute"
+    assert taxonomy.clean_sector("mag7") == "MAG 7"
+    assert taxonomy.clean_sector("hpq") == "HPQ"
+    assert taxonomy.clean_sector("hbm") == "HBM"
+    assert taxonomy.clean_sector("eda") == "EDA"
+    assert taxonomy.clean_sector("lng") == "LNG"
+    assert taxonomy.clean_sector("asic") == "ASIC"
+    assert taxonomy.clean_sector("cowos") == "CoWoS"
+    assert taxonomy.clean_sector("idm_analog") == "IDM Analog"
+    assert taxonomy.clean_sector("ip_cores") == "IP Cores"
+    assert taxonomy.clean_sector(None) == "Sans thesis"
+    assert taxonomy.clean_sector("") == "Sans thesis"
+
+
+def test_clean_sector_no_substring_collision():
+    """Refonte 27/06 doit régler le bug "Fx" → "FX" frappant des sous-chaînes innocentes.
+
+    Le token-based ne touche que les mots entiers (split sur ' '), pas les substrings.
+    """
+    # Mot innocent contenant 'ai' en sous-chaîne ne doit pas être frappé.
+    assert taxonomy.clean_sector("captain") == "Captain"
+    assert taxonomy.clean_sector("mosaic") == "Mosaic"
+    assert taxonomy.clean_sector("airline") == "Airline"
+    # Pas de collision Fx (l'ancien .replace("Fx","FX") aurait frappé Fxd→FXd)
+    assert taxonomy.clean_sector("fixed") == "Fixed"
+    # Mais l'acronyme entier doit toujours marcher
+    assert taxonomy.clean_sector("ai") == "AI"
+
+
 def test_invariants_already_validated_at_load():
     """_load_raw() raise si layer_primary∉layer ou couche hors vocab. Si on arrive ici, OK."""
     taxonomy._load_raw()  # ne raise pas = invariants OK

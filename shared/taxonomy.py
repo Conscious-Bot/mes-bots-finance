@@ -308,6 +308,29 @@ def driver_label(driver: str | None) -> str:
     return clean_sector(driver)
 
 
+# Dict d'acronymes appliqué par lookup sur token (split sur ' '), pas par
+# substitution globale. Fermeture de la KNOWN-GAP P3 (cascade .replace fragile,
+# risque de frappe sur sous-chaîne innocente — cf "Fx" → "FX" frappait "Fxd").
+# Cure 27/06/2026 : lookup par token = zéro collision substring possible.
+#
+# Lecture : token Titlecased (depuis .title()) → ACRONYMS[token.lower()] si présent.
+# Si la clé n'existe pas → token gardé tel quel.
+ACRONYMS: dict[str, str] = {
+    "ai": "AI",
+    "hpq": "HPQ",
+    "eu": "EU",
+    "hbm": "HBM",
+    "eda": "EDA",
+    "lng": "LNG",
+    "asic": "ASIC",
+    "cpu": "CPU",
+    "gpu": "GPU",
+    "ip": "IP",
+    "idm": "IDM",
+    "cowos": "CoWoS",
+}
+
+
 def clean_sector(sid: str | None) -> str:
     """Format a sector_id (snake_case with optional trailing year) into a display label.
 
@@ -315,31 +338,18 @@ def clean_sector(sid: str | None) -> str:
     Migrée depuis shared/sector_taxonomy.py:clean_sector lors de la cure
     5 sources → 1 (Phase 1, 26/06/2026). Pure formatting, ne dépend d'aucune
     table — sert au rendu de tout label catégoriel hérité.
+
+    Refonte 27/06/2026 (KNOWN-GAP P3) : cascade .replace remplacée par lookup
+    token-based via dict ACRONYMS — zéro collision substring (un mot innocent
+    contenant 'fx' ou 'ai' en sous-chaîne n'est plus frappé).
     """
     if not sid:
         return "Sans thesis"
     s = re.sub(r"_20\d\d$", "", sid).replace("_", " ").title()
-    return (
-        s.replace(" Ai", " AI")
-        .replace("Ai ", "AI ")
-        .replace("Hpq", "HPQ")
-        .replace("Eu ", "EU ")
-        .replace("Mag7", "MAG 7")
-        # Acronymes du vocabulaire taxonomy (26/06/2026) — Phase 2.
-        # KNOWN-GAP P3 : cascade .replace fragile (chaque acronyme = ligne) +
-        # risque de frappe sur sous-chaîne innocente. Refonte cible : dict
-        # ACRONYMS appliqué par lookup sur token (split sur ' '), pas par
-        # substitution globale. Réserve 1 du red-team 26/06.
-        .replace("Hbm", "HBM")
-        .replace("Eda", "EDA")
-        .replace("Lng", "LNG")
-        .replace("Asic", "ASIC")
-        .replace("Cpu", "CPU")
-        .replace("Gpu", "GPU")
-        .replace("Cowos", "CoWoS")
-        .replace("Idm Analog", "IDM Analog")
-        .replace("Ip Cores", "IP Cores")
-    )
+    # Cas compound digit-attached : "Mag7" → "MAG 7" (insère espace + uppercase)
+    s = re.sub(r"\bMag(\d)\b", r"MAG \1", s)
+    # Acronymes par lookup token (zéro substring collision)
+    return " ".join(ACRONYMS.get(t.lower(), t) for t in s.split(" "))
 
 
 def assert_held_cluster_consistency() -> None:
