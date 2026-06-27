@@ -42,6 +42,7 @@ from dashboard._styles import (
     _TOKENS_CSS,
 )
 from intelligence import asymmetry as asym_mod
+from shared import taxonomy
 
 importlib.reload(_ticker_logos_mod)
 _ticker_logo = _ticker_logos_mod.logo_html
@@ -583,25 +584,13 @@ def _needle_color(frac: float, *, invert: bool = False) -> str:
     return f"color-mix(in srgb,var(--steel) {(1 - t) * 100:.0f}%,var(--acc) {t * 100:.0f}%)"
 
 
-SECTOR_COLORS = {
-    # Palette categorielle v3 (19/06 evening) -- distinctes ET vivantes.
-    # User feedback "change the color of the sector" : la version jewel-tones
-    # etait trop fade (greens/blues similaires). Maintenant : indigo profond,
-    # vermillon, ambre, magenta, etc. Distance percu maximisee.
-    # Plus de chevauchement entre secteurs voisins du book.
-    "Foundry & logic": "#4F46E5",       # indigo-600 -- accent dense fonderies
-    "Semi equipment": "#0EA5E9",        # sky-500 -- equipementiers cool
-    "Memory": "#A855F7",                # purple-500 -- memoire
-    "Semi materials": "#F59E0B",        # amber-500 -- materiaux specs
-    "EDA": "#EC4899",                   # pink-500 -- design automation
-    "Connectivity & optics": "#EF4444", # red-500 -- com/optique
-    "Hyperscalers": "#0D9488",          # teal-600 -- cloud
-    "Power & electrification": "#FB923C",  # orange-400 -- power
-    "Defense": "#475569",               # slate-600 -- defense neutre
-    "Energy & raw materials": "#22C55E",   # green-500 -- energie
-    "Auto / robotics": "#06B6D4",       # cyan-500 -- robotics
-    "Aerospace": "#7C3AED",             # violet-600 -- space (SPCX/SpaceX)
-}
+# Couleurs secteur = source canonique config/presage_taxonomy.yaml:layer_colors,
+# dérivées via taxonomy.sector_color_map() (keyé label-mère). Le dict jewel-tones
+# en dur (19/06) a été migré dans le YAML lors de la cure couleur (27/06) : source
+# unique, lue aussi par le futur vault Obsidian, plus de 6e source orpheline.
+# Les labels-mères ('Compute', 'Manufacturing', …) matchent ceux produits par
+# _sectors() ; fallback #6B7686 conservé au point d'appel pour tout hors-mapping.
+SECTOR_COLORS = taxonomy.sector_color_map()
 # TICKER_SECTOR + SECTOR_ALIAS déplacés vers shared/sector_taxonomy.py
 # (cure P2 audit (3) reste whitelist 12/06). Ré-export pour rétro-compat.
 

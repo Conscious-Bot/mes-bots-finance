@@ -200,3 +200,49 @@ def test_clean_sector_no_substring_collision():
 def test_invariants_already_validated_at_load():
     """_load_raw() raise si layer_primary∉layer ou couche hors vocab. Si on arrive ici, OK."""
     taxonomy._load_raw()  # ne raise pas = invariants OK
+
+
+def test_sector_color_map_covers_every_mere():
+    """Cure couleur 27/06 : toute catégorie-mère a une couleur hex valide.
+
+    Source canonique = config/presage_taxonomy.yaml:layer_colors. Le dashboard
+    (SECTOR_COLORS) et le futur vault Obsidian en dérivent — fail-closed si une
+    mère est orpheline (le bug d'origine : labels renommés, couleurs restées sur
+    les anciens labels → gris fallback partout).
+    """
+    import re
+
+    raw = taxonomy._load_raw()
+    meres = set((raw.get("layers") or {}).keys())
+    cmap = taxonomy.sector_color_map()
+    # chaque mère du vocabulaire est présente dans la map, keyée par label affiché
+    expected_labels = {taxonomy.category_label(m) for m in meres}
+    assert expected_labels <= set(cmap), f"mères sans couleur : {expected_labels - set(cmap)}"
+    # tout hex est valide 6 chiffres
+    for label, hexv in cmap.items():
+        assert re.fullmatch(r"#[0-9A-Fa-f]{6}", hexv), (label, hexv)
+    # les labels-mères réels du book (via make_sector_label) trouvent leur couleur
+    for _tk, p in taxonomy._by_ticker().items():
+        lab = taxonomy.category_label(p["layer_primary"])
+        assert lab in cmap, f"label-mère du book sans couleur : {lab}"
+
+
+def test_layer_colors_missing_raises(tmp_path, monkeypatch):
+    """Retirer une couleur de mère → TaxonomyError au load (fail-closed prouvé)."""
+    import yaml as _yaml
+
+    raw = _yaml.safe_load(taxonomy._YAML_PATH.read_text(encoding="utf-8"))
+    raw["layer_colors"].pop("assembly")  # mère orpheline volontaire
+    bad = tmp_path / "bad_taxonomy.yaml"
+    bad.write_text(_yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
+    monkeypatch.setattr(taxonomy, "_YAML_PATH", bad)
+    taxonomy._load_raw.cache_clear()
+    taxonomy._by_ticker.cache_clear()
+    try:
+        with pytest.raises(taxonomy.TaxonomyError, match="sans couleur"):
+            taxonomy._load_raw()
+    finally:
+        # restaure le cache propre pour les tests suivants (monkeypatch rend _YAML_PATH réel)
+        taxonomy._load_raw.cache_clear()
+        taxonomy._by_ticker.cache_clear()
+        taxonomy.sector_color_map.cache_clear()

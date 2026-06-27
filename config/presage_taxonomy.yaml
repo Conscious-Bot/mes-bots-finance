@@ -66,6 +66,30 @@ layers:
   # datacenter_infra:          # (réservé — créer si VRT/Vertiv entre au book : thermal_power)
 
 # ════════════════════════════════════════════════════════════════════════════
+# COULEUR — repère visuel canonique par catégorie-mère (axe layer).
+# Source UNIQUE de la couleur : le sector-mix du dashboard (render.py:SECTOR_COLORS
+# en dérive, plus de hex en dur) ET le futur vault Obsidian (tag #layer/<mère> →
+# couleur) lisent CE mapping. La couleur encode un FAIT (la mère), jamais un
+# jugement. Palette jewel-tones figée 19/06, remappée mère lors de la cure couleur
+# (27/06). Toute mère de layers: DOIT avoir une couleur ici (validation fail-closed
+# au loader). Hex 6 chiffres obligatoire.
+# ════════════════════════════════════════════════════════════════════════════
+layer_colors:
+  design:            "#EC4899"   # pink   (ex-EDA)
+  capital_equipment: "#0EA5E9"   # sky    (ex-Semi equipment)
+  materials:         "#F59E0B"   # amber  (ex-Semi materials)
+  manufacturing:     "#4F46E5"   # indigo (ex-Foundry & logic)
+  assembly:          "#84CC16"   # lime   (neuf — comble le trou perceptuel jaune-vert)
+  memory:            "#A855F7"   # purple
+  compute:           "#0D9488"   # teal   (ex-Hyperscalers)
+  networking:        "#EF4444"   # red    (ex-Connectivity & optics)
+  energy:            "#FB923C"   # orange (ex-Power & electrification)
+  resources:         "#22C55E"   # green  (ex-Energy & raw materials)
+  sovereignty:       "#475569"   # slate  (ex-Defense)
+  aerospace:         "#7C3AED"   # violet
+  robotics:          "#06B6D4"   # cyan   (ex-Auto / robotics)
+
+# ════════════════════════════════════════════════════════════════════════════
 # AXE 2 — driver  (VARIABLE DE RISQUE : ce qui corrèle. Sizing/concentration. Unique.)
 # ════════════════════════════════════════════════════════════════════════════
 drivers:

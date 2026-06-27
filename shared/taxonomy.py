@@ -48,6 +48,22 @@ def _load_raw() -> dict[str, Any]:
     geos_vocab = set(data.get("geos") or [])
     statuses_vocab = set(data.get("statuses") or [])
 
+    # Couleur canonique : toute catégorie-mère DOIT avoir une couleur hex valide
+    # (fail-closed — la couleur est un datum comme un autre, pas de défaut silencieux).
+    # Source unique lue par render.py:SECTOR_COLORS + futur vault Obsidian.
+    layer_colors = data.get("layer_colors") or {}
+    meres = set((data.get("layers") or {}).keys())
+    missing_color = meres - set(layer_colors)
+    if missing_color:
+        raise TaxonomyError(
+            f"layer_colors : catégorie(s)-mère sans couleur {sorted(missing_color)}"
+        )
+    for mere, hexv in layer_colors.items():
+        if not (isinstance(hexv, str) and re.fullmatch(r"#[0-9A-Fa-f]{6}", hexv)):
+            raise TaxonomyError(
+                f"layer_colors[{mere!r}] : hex 6 chiffres requis, reçu {hexv!r}"
+            )
+
     positions = data.get("positions") or {}
     if not positions:
         raise TaxonomyError("positions block empty in YAML")
@@ -297,6 +313,23 @@ def category_label(layer_primary: str | None) -> str:
         return clean_sector(layer_primary)
     cat = layer_primary.split("/", 1)[0]
     return clean_sector(cat)
+
+
+@functools.lru_cache(maxsize=1)
+def sector_color_map() -> dict[str, str]:
+    """{label-mère affiché → hex}. Source canonique des couleurs secteur.
+
+    Lue par dashboard/render.py (SECTOR_COLORS en dérive — plus de hex en dur) et
+    par le futur vault Obsidian. La couleur encode la catégorie-mère (un fait).
+    Loader-validé : toute mère a une couleur hex valide (cf _load_raw).
+
+    'compute' → 'Compute' → '#0D9488' ; 'assembly' → 'Assembly' → '#84CC16'.
+    """
+    raw = _load_raw()
+    return {
+        category_label(mere): hexv
+        for mere, hexv in (raw.get("layer_colors") or {}).items()
+    }
 
 
 def driver_label(driver: str | None) -> str:
