@@ -5445,10 +5445,11 @@ def get_kill_episode_state() -> dict[str, Any]:
     Vit dans le state store JSON, pas dans une table dédiée.
     """
     state = load_state()
-    return state.get(
+    episode: dict[str, Any] = state.get(
         "kill_switch_p1_episode",
         {"open": False, "worst_stage": 0, "episode_id": 0},
     )
+    return episode
 
 
 def set_kill_episode_state(ep: dict[str, Any]) -> None:
