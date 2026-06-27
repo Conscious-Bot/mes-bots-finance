@@ -83,6 +83,93 @@ def test_full_exit_creates_both(migrated_db, fixture_thesis):
     assert cf_id is not None
 
 
+def test_full_exit_closes_positions_meta(migrated_db, fixture_thesis):
+    """Cure STMPA fantome 27/06 — full_exit doit UPDATE positions_meta.status='closed'.
+
+    Avant cette cure : full_exit laissait positions_meta.status='open' avec qty=0
+    (fantome a fermer) -> rouge test_pipeline_end_to_end.
+    """
+    import sqlite3
+    cx = sqlite3.connect(migrated_db)
+    # Setup : ticker positions_meta ouvert
+    cx.execute(
+        "INSERT INTO positions_meta (ticker, status, account, wrapper) "
+        "VALUES ('TEST.PA', 'open', 'PEA', 'PEA')"
+    )
+    cx.commit()
+    cx.close()
+
+    # Act : full_exit via helper
+    storage.insert_decision_with_cf(
+        ticker="TEST.PA",
+        decision_type="full_exit",
+        reasoning="liquidation",
+        thesis_id=fixture_thesis,
+        conviction=3,
+        price_native=150.0,
+        qty_before=10.0,
+        currency="EUR",
+    )
+
+    # Assert : positions_meta.status passe a 'closed'
+    cx = sqlite3.connect(migrated_db)
+    status = cx.execute(
+        "SELECT status FROM positions_meta WHERE ticker='TEST.PA'"
+    ).fetchone()[0]
+    cx.close()
+    assert status == "closed", f"Expected 'closed' apres full_exit, got {status!r}"
+
+
+def test_full_exit_close_is_idempotent(migrated_db, fixture_thesis):
+    """Si positions_meta deja closed, full_exit ne crashe pas et laisse closed."""
+    import sqlite3
+    cx = sqlite3.connect(migrated_db)
+    cx.execute(
+        "INSERT INTO positions_meta (ticker, status, account, wrapper) "
+        "VALUES ('TEST.PA', 'closed', 'PEA', 'PEA')"
+    )
+    cx.commit()
+    cx.close()
+
+    storage.insert_decision_with_cf(
+        ticker="TEST.PA", decision_type="full_exit",
+        reasoning="r", thesis_id=fixture_thesis, conviction=3,
+        price_native=150.0, qty_before=10.0, currency="EUR",
+    )
+
+    cx = sqlite3.connect(migrated_db)
+    status = cx.execute(
+        "SELECT status FROM positions_meta WHERE ticker='TEST.PA'"
+    ).fetchone()[0]
+    cx.close()
+    assert status == "closed"
+
+
+def test_partial_exit_does_NOT_close_positions_meta(migrated_db, fixture_thesis):
+    """Garde-fou : partial_exit ne doit PAS fermer positions_meta (qty reste > 0)."""
+    import sqlite3
+    cx = sqlite3.connect(migrated_db)
+    cx.execute(
+        "INSERT INTO positions_meta (ticker, status, account, wrapper) "
+        "VALUES ('TEST.PA', 'open', 'PEA', 'PEA')"
+    )
+    cx.commit()
+    cx.close()
+
+    storage.insert_decision_with_cf(
+        ticker="TEST.PA", decision_type="partial_exit",
+        reasoning="r", thesis_id=fixture_thesis, conviction=3,
+        price_native=125.0, qty_before=10.0, currency="EUR",
+    )
+
+    cx = sqlite3.connect(migrated_db)
+    status = cx.execute(
+        "SELECT status FROM positions_meta WHERE ticker='TEST.PA'"
+    ).fetchone()[0]
+    cx.close()
+    assert status == "open", f"partial_exit ne doit pas fermer, got {status!r}"
+
+
 def test_override_skips_cf(migrated_db, fixture_thesis):
     """override → decision SANS CF (pas un trade materiel)."""
     dec_id, cf_id = storage.insert_decision_with_cf(

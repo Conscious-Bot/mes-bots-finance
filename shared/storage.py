@@ -1433,6 +1433,11 @@ def insert_decision_with_cf(
     Pour 'override' / 'no_action_flag', seule la decision est inseree (CF inutile,
     pas trade materiel).
 
+    Side-effect supplementaire 27/06 (cure STMPA fantome) : si decision_type =
+    'full_exit', UPDATE positions_meta SET status='closed' (idempotent via
+    WHERE status='open'). Sinon le ticker reste 'open' avec qty=0 -> rouge
+    test_pipeline_end_to_end::test_invariants_pass_after_synthetic_decision.
+
     Args:
         ticker: str (uppercased).
         decision_type: enum ('entry','scale_in','partial_exit','full_exit','override','no_action_flag').
@@ -1486,6 +1491,14 @@ def insert_decision_with_cf(
                  thesis_id, conviction, bias_hypothesis_json, (reasoning or "")[:1000]),
             )
             cf_id = cur.lastrowid
+
+        # Cure STMPA fantome 27/06 — full_exit doit fermer positions_meta.status
+        # Idempotent : WHERE status='open' no-op si deja closed.
+        if decision_type == "full_exit":
+            conn.execute(
+                "UPDATE positions_meta SET status='closed' WHERE ticker=? AND status='open'",
+                (ticker.upper(),),
+            )
 
         if close_conn:
             conn.commit()
