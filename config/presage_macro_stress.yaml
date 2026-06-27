@@ -1,0 +1,222 @@
+# PRESAGE — Macro Stress Model (scoring pondéré)
+# Source UNIQUE du score de crise. Frère de presage_taxonomy.yaml.
+#
+# Score = Σ_familles [ poids_famille × Σ_indic_valides (poids_intra_renorm × normalize(valeur)) ]
+#         borné 0-100. Bandes d'état = seuils sur ce 0-100. UN seul calcul, traçable.
+#
+# ── PRINCIPE DE PONDÉRATION (le point qui fait la véracité) ──────────────────
+# Poids fondés sur le TRACK RECORD HISTORIQUE multi-régimes — pas sur l'intensité
+# du jour. SUR-pondère les prédicteurs robustes (courbe, crédit), SOUS-pondère les
+# thermomètres COÏNCIDENTS (VIX, FX, momentum) qui montent PENDANT la crise.
+#
+# normalize(v) : floor (=0 stress, calme) → ceiling (=1 stress max). Si floor >
+# ceiling, "plus bas = plus de stress" (ex. pente). Clampé [0,1].
+# source: nom du signal dans debt_signals (DB). plausible_*: hors bornes = donnée
+# CASSÉE → exclue fail-closed (drapeau), JAMAIS interprétée comme calme.
+# v_draft 2026-06-27 — ordre des poids ferme (histoire) ; % exacts ajustables.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── VERSION (clause de révision — la véracité c'est aussi savoir quand un
+# paramètre a été fixé) ──────────────────────────────────────────────────────
+version:
+  id: v1
+  date: 2026-06-27
+  signed_by: olivier
+  basis: "Poids = ordre historique multi-régimes (oracles lourds, coïncidents légers). Bandes 30/55/75 = défaut raisonnable. DÉCISION DU 27/06, pas vérité gravée."
+  revision_trigger: "Recalibrer quand le score aura traversé un vrai épisode de stress crédit/courbe, pour juger s'il l'a bien capté. Réviser sur base STRUCTURELLE (conviction sur ce qui cause une crise), jamais sur l'angoisse du jour."
+
+families:
+
+  # ══ TIER 1 — LES ORACLES (prédicteurs robustes multi-régimes) ══════════════
+  credit:
+    weight: 22
+    justification: "Robuste 2008/2011/2015/2020/2022, meilleur timing que la courbe. Le crédit = où la peur devient argent réel en premier."
+    indicators:
+      hy_spread:
+        source: HY_OAS
+        intra_weight: 60
+        stress_floor: 300
+        stress_ceiling: 800
+        nonlinear_threshold: 500
+        plausible_min: 50
+        plausible_max: 3000
+        note: "ACTUEL 278bp = CALME. Meilleur prédicteur crédit ne voit AUCUNE crise."
+      move:
+        source: MOVE
+        intra_weight: 40
+        stress_floor: 80
+        stress_ceiling: 160
+        plausible_min: 30
+        plausible_max: 400
+        note: "ACTUEL 67 = calme. Vol obligataire / funding, mène souvent."
+
+  rates:
+    weight: 20
+    justification: "Pente 10Y-2Y = le plus proche d'un ORACLE. Précède ~toutes les récessions US depuis 1960. Date mal le timing -> prédicteur de probabilité."
+    indicators:
+      slope_10y_2y:
+        source: T10Y2Y
+        intra_weight: 75
+        stress_floor: 0.5
+        stress_ceiling: -0.5
+        nonlinear_threshold: 0.0
+        plausible_min: -3.0
+        plausible_max: 3.0
+        note: "ACTUEL +0.27 = NON inversée. L'oracle ne voit PAS de récession. Écrase le niveau (75 vs 25)."
+      us_30y:
+        source: TYX
+        intra_weight: 25
+        stress_floor: 3.5
+        stress_ceiling: 6.0
+        plausible_min: 0.0
+        plausible_max: 20.0
+        note: "ACTUEL 4.86. Niveau, pas pente — sous-pondéré DANS la famille à dessein."
+
+  liquidity:
+    weight: 15
+    justification: "2008 et 2020 NÉS comme crises de liquidité avant d'être crises de prix. Le robinet monétaire, en amont des spreads."
+    indicators:
+      fed_reserves:
+        source: BankReserves
+        intra_weight: 50
+        stress_floor: 3300000
+        stress_ceiling: 2700000
+        plausible_min: 1000000
+        plausible_max: 6000000
+        note: "ACTUEL 3.03M. floor>ceiling : réserves qui DRAINENT = stress."
+      fed_balance_yoy:
+        source: FedBalance_yoy
+        intra_weight: 50
+        stress_floor: 5.0
+        stress_ceiling: -10.0
+        plausible_min: -30.0
+        plausible_max: 30.0
+        note: "ACTUEL 0.7%. Contraction du bilan = resserrement."
+
+  # ══ TIER 2 — CONFIRMATEURS ═════════════════════════════════════════════════
+  banks_plumbing:
+    weight: 13
+    justification: "Stress systémique + régime cycle réel. Copper/gold = risk-on/off structurel."
+    indicators:
+      regional_banks:
+        source: KRE
+        intra_weight: 50
+        stress_floor: 75
+        stress_ceiling: 50
+        plausible_min: 20
+        plausible_max: 200
+        note: "ACTUEL 71.72 = calme. Stress bancaire régional = signal 2023 (SVB)."
+      copper_gold:
+        source: CopperGold
+        intra_weight: 50
+        stress_floor: 0.0020
+        stress_ceiling: 0.0010
+        plausible_min: 0.0005
+        plausible_max: 0.0100
+        note: "ACTUEL 0.0015 = VALIDE (vérifié). Le '0.00' vu à l'écran = artefact d'affichage .2f sur un ratio 4-décimales (bug UI distinct, pas donnée cassée). plausible_min reste la garde fail-closed si le ratio s'effondrait vraiment à 0."
+
+  real_economy:
+    weight: 12
+    justification: "Cycle lent, toile de fond. Backdrop, pas déclencheur."
+    indicators:
+      core_inflation:
+        source: CoreCPI
+        intra_weight: 50
+        stress_floor: 2.0
+        stress_ceiling: 5.0
+        plausible_min: -2.0
+        plausible_max: 20.0
+        note: "ACTUEL 2.82. On score le côté haut (inflation hors contrôle)."
+      industrial_production:
+        source: MfgIP_yoy
+        intra_weight: 50
+        stress_floor: 2.0
+        stress_ceiling: -3.0
+        plausible_min: -20.0
+        plausible_max: 20.0
+        note: "ACTUEL 1.47. floor>ceiling : production qui chute = récession réelle."
+
+  # ══ TIER 3 — COÏNCIDENTS (thermomètres, PAS oracles — délibérément légers) ══
+  risk_fear:
+    weight: 10
+    justification: "COÏNCIDENT. Le VIX monte PENDANT la crise, rarement avant (bas avant 2008 ET 2020). Léger à dessein."
+    indicators:
+      vix:
+        source: VIX
+        intra_weight: 40
+        stress_floor: 15
+        stress_ceiling: 45
+        plausible_min: 5
+        plausible_max: 150
+        note: "ACTUEL 18.4 = calme. Thermomètre coïncident, pas oracle."
+      btc_drawdown:
+        source: BTC_drawdown180
+        intra_weight: 30
+        stress_floor: -10
+        stress_ceiling: -50
+        plausible_min: -100
+        plausible_max: 5
+        note: "ACTUEL -34.9. Risk-asset sentiment, pas signal macro systémique."
+      gold:
+        source: Gold
+        intra_weight: 30
+        stress_floor: 3000
+        stress_ceiling: 4500
+        plausible_min: 500
+        plausible_max: 10000
+        note: "ACTUEL 4086. Ambigu (peur OU debasement) -> poids modéré."
+
+  dollar_fx:
+    weight: 5
+    justification: "Régime/coïncident. HURLE aujourd'hui (USD/JPY, DXY) mais n'a PAS prédit les crises systémiques. Léger MALGRÉ le bruit = ce que la véracité exige."
+    indicators:
+      usd_jpy:
+        source: USDJPY
+        intra_weight: 50
+        stress_floor: 145
+        stress_ceiling: 165
+        plausible_min: 70
+        plausible_max: 250
+        note: "ACTUEL 161.75 — vérifié exact. Plus bas yen depuis 1986. Mais FX != crise systémique."
+      dxy:
+        source: DXY
+        intra_weight: 50
+        stress_floor: 100
+        stress_ceiling: 115
+        plausible_min: 70
+        plausible_max: 130
+        note: "ACTUEL 101.4. Force du dollar = régime, pas oracle."
+
+  momentum_breadth:
+    weight: 3
+    justification: "Pur COÏNCIDENT — état présent, jamais un oracle. Le plus léger."
+    indicators:
+      rsi_composite:
+        source: null   # pas dans debt_signals -> non wiré v1, exclu fail-closed jusqu'à wire
+        intra_weight: 70
+        stress_floor: 50
+        stress_ceiling: 25
+        plausible_min: 0
+        plausible_max: 100
+        note: "RSI moyen SPY/QQQ/SMH/IWM. Non wiré v1 (panel séparé). Exclu fail-closed."
+      rsp_spy:
+        source: null
+        intra_weight: 30
+        stress_floor: 0.0
+        stress_ceiling: -5.0
+        plausible_min: -30.0
+        plausible_max: 30.0
+        note: "Breadth RSP/SPY. Non wiré v1."
+
+# ── BANDES D'ÉTAT (un seul état dérive du score 0-100) ───────────────────────
+bands:
+  stable:   [0, 30]
+  stressed: [30, 55]
+  fragile:  [55, 75]
+  broken:   [75, 100]
+  note: "UN seul état sort du score. Fini la contradiction BROKEN affiché / STRESS calculé / P4=0. L'état DÉRIVE du score."
+
+# ── INVARIANTS (vérifiés fail-closed au loader) ──────────────────────────────
+# Σ family.weight == 100 (22+20+15+13+12+10+5+3)
+# Σ intra_weight == 100 dans chaque famille
+# robustes (credit+rates+liquidity)=57% · coïncidents (risk+fx+momentum)=18%

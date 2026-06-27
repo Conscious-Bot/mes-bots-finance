@@ -146,6 +146,48 @@ def book_composition_by_sector(positions: list[dict]) -> dict[str, dict]:
     return by_sector
 
 
+def book_share_by_driver(positions: list[dict], driver: str) -> dict:
+    """Part du book (market value EUR) sur un DRIVER taxonomy (ai_capex, ...).
+
+    Source UNIQUE = presage_taxonomy.yaml:driver. Calculé EN DIRECT, jamais figé.
+    Même logique d'exposition que book_composition_by_sector (weight market value,
+    fallback qty*avg). Remplace l'axe sector_highlevel 'semis' (sous-estimé) par
+    l'axe driver de risque (ai_capex held vs semis bucket).
+    """
+    from shared import taxonomy  # local : même pattern que sector_for_ticker
+    from shared.taxonomy import TaxonomyError
+
+    total = 0.0
+    drv_eur = 0.0
+    tickers: list[str] = []
+    for pos in positions:
+        tk = pos.get("ticker")
+        if not tk:
+            continue
+        weight = pos.get("weight")
+        if weight is not None and weight > 0:
+            exposure = float(weight)
+        else:
+            qty = float(pos.get("qty") or 0)
+            avg = float(pos.get("avg_cost") or 0)
+            if qty <= 0 or avg <= 0:
+                continue
+            exposure = qty * avg
+        total += exposure
+        try:
+            d = taxonomy.get_taxonomy(tk).get("driver")
+        except TaxonomyError:
+            d = None  # ticker hors mapping = pas ce driver (NameError/bug NON avalé)
+        if d == driver:
+            drv_eur += exposure
+            tickers.append(tk)
+    return {
+        "share_pct": (drv_eur / total * 100.0) if total > 0 else 0.0,
+        "exposure_eur": drv_eur,
+        "tickers": tickers,
+    }
+
+
 def jp_tickers(positions: list[dict]) -> list[str]:
     """Tickers .T (Tokyo) parmi positions tenues (qty > 0)."""
     return [

@@ -58,8 +58,14 @@ def compute_book_warnings(
     tech_mega_share = by_sector.get("tech_mega", {}).get("share_pct", 0.0)
     auto_ev_share = by_sector.get("auto_ev", {}).get("share_pct", 0.0)
     energy_share = by_sector.get("energy_commodities", {}).get("share_pct", 0.0)
-    semis_tickers = by_sector.get("semis", {}).get("tickers", [])
     tech_tickers = by_sector.get("tech_mega", {}).get("tickers", [])
+
+    # Couche 2 = driver ai_capex (source UNIQUE presage_taxonomy.yaml), calculé EN
+    # DIRECT — remplace le bucket semis sous-estimé (58%) par la vraie concentration
+    # de risque ai_capex held (~78%). Jamais de chiffre figé.
+    _ai_capex = _sec.book_share_by_driver(positions, "ai_capex")
+    ai_capex_share = _ai_capex["share_pct"]
+    ai_capex_tickers = _ai_capex["tickers"]
 
     jp_tickers = _sec.jp_tickers(positions)
     jp_exposure_eur = sum(
@@ -75,20 +81,22 @@ def compute_book_warnings(
 
     warnings: list[Warning] = []
 
-    # R1 : FRAGILE/STRESS + semis dominant -> repricing risk concentre.
-    if regime in ("FRAGILE", "STRESS", "LATE_CYCLE") and semis_share > _R1_SEMIS_MIN:
+    # R1 : FRAGILE/STRESS + ai_capex dominant -> repricing risk concentre.
+    # Couche 2 = driver ai_capex unifié (vraie concentration de risque), pas le
+    # bucket semis (sous-couche) qui sous-estimait.
+    if regime in ("FRAGILE", "STRESS", "LATE_CYCLE") and ai_capex_share > _R1_SEMIS_MIN:
         sev = "high" if regime == "STRESS" else "med"
         tyx_phrase = f"30Y rate at {tyx:.1f}% (>4.2 = active repricing). " if tyx and tyx > 4.2 else ""
         warnings.append(Warning(
             severity=sev,
             rule_id="R1_semis_concentration",
-            action=f"Tighten stops on the semis cluster ({semis_share:.0f}% of book)",
+            action=f"Tighten stops on the AI-capex cluster ({ai_capex_share:.0f}% of book)",
             rationale=(
                 f"Market in {regime}. {tyx_phrase}"
                 f"Growth multiples crack first on brutal repricing, "
-                f"and your book is concentrated at {semis_share:.0f}% on semis."
+                f"and your book is concentrated at {ai_capex_share:.0f}% on the ai_capex driver."
             ),
-            tickers=semis_tickers[:5],
+            tickers=ai_capex_tickers[:5],
         ))
 
     # R2 : USDJPY > gate (calib) + JP exposure > min (calib) -> carry unwind risk.

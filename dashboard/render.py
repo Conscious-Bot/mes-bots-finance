@@ -6343,11 +6343,17 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     blocks = "".join(blocks_parts)
     # Diagnostic counts (utilise par Phase A regime detector + close ritual).
     _bucket_counts = {k: len(v) for k, v in bucket_rows.items()}
+    # État macro = macro_stress (courbe pondérée, validée, testée). UN seul score
+    # -> UN seul état (bandes). Remplace le V3 debt_composite opaque (artefact
+    # BROKEN/phase4/P4=0). Cf config/presage_macro_stress.yaml + tests.
+    _STATE_PHASE = {"STABLE": 1, "STRESSED": 2, "FRAGILE": 3, "BROKEN": 4}
     try:
-        comp = _q("SELECT score, phase FROM debt_composite ORDER BY timestamp DESC LIMIT 1")
+        from intelligence import macro_stress as _msx
+        _stress = _msx.macro_stress_now()
+        score = float(_stress["score"]) if _stress["score"] is not None else 0.0
+        cphase = _STATE_PHASE.get(_stress["state"], 1)
     except Exception:
-        comp = []
-    score, cphase = (float(comp[0][0] or 0), int(comp[0][1] or 1)) if comp else (0.0, 1)
+        score, cphase = (0.0, 1)
     # Phase A : classify_regime + chip dans le header. Decouple du V3 score
     # (V3 exploratoire, biais centriste). Regime = confluence rules deterministe.
     _regime_label = "RISK_ON"
@@ -6577,14 +6583,14 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         )
     star_macro = (
         '<div class="ps-strate">'
-        + '<div class="ps-lbl" data-tip="V3 composite macro phase (debt_monitor). STATUS: exploratory -- strict HOLDOUT 4/8 (02/06). V3 never generates P1 (centrist bias). Do not drive decisions on this value. V4 abandoned (Business Path 6 acted 02/06) -- V3 stays exploratory permanently.">Macro state <span class="ps-tag-explor">exploratory</span></div>'
+        + '<div class="ps-lbl" data-tip="Macro stress (v1, presage_macro_stress.yaml). Courbe pondérée par famille selon track-record HISTORIQUE : oracles (crédit, courbe) lourds, coïncidents (VIX, FX, momentum) légers. UN score 0-100 -> UN état (bandes 30/55/75). Donnée cassée/stale = exclue fail-closed, jamais lue comme calme. Validé par tests (chaine donnée->signal->courbe->etat).">Macro stress <span class="ps-tag-explor">v1</span></div>'
         + '<div class="ps-macro-row">'
         + f'<div class="ps-val {_phase_col}">{clabel}</div>'
         + f'<div class="ps-macro-meta">phase {cphase}/4 &middot; indice {score:.0f}{_delta_html}{_stale_caveat_html}</div>'
         + "</div>"
         + '<div class="ps-frise-wrap">'
         + f'<div class="ps-frise"><div class="ps-frise-mark" style="left:{(cphase - 0.5) * 25:.0f}%"></div></div>'
-        + '<div class="ps-frise-labs" data-tip="Macro regime scale (V3 debt_monitor composite, exploratory). STABLE = calm vol + tight spreads + risk-on. STRESSED = rising vol or widening credit, no panic. FRAGILE = clear deterioration, defensive posture warranted. BROKEN = full risk-off, large drawdowns, severe credit/vol stress.">'
+        + '<div class="ps-frise-labs" data-tip="Échelle macro stress (courbe pondérée 0-100, bandes). STABLE [0-30] = oracles calmes, monde macro non cassé. STRESSED [30-55] = crédit/courbe commencent à bouger. FRAGILE [55-75] = détérioration claire, posture défensive. BROKEN [75-100] = risk-off complet, stress crédit/vol sévère.">'
         + '<span>stable</span><span>stressed</span><span>fragile</span><span>broken</span>'
         + '</div>'
         + '<div class="ps-frise-tally" data-tip="Distribution courante des indicateurs sous-jacents par phase. Si P3+P4 montent, la frise va vers la droite. Permet de voir lesquels contribuent au stress sans cliquer dans le panneau d\'indicateurs.">'

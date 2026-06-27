@@ -144,7 +144,7 @@ bands:
 
 # Tooltips FR (affiches au survol du dot indicateur).
 tooltips:
-  TYX: 'Coût capital long. > 4 = capital cost contraint, > 4.4 = stress growth/tech, > 5 = craquements historiques (DÉJÀ ATTEINT juin 2026, environnement compressif actif).'
+  TYX: 'Coût capital long. > 4 = capital cost contraint, > 4.4 = stress growth/tech, > 5 = craquements historiques (PAS ENCORE franchi — 4.86 au 27/06, sous le seuil ; environnement contraint mais le seuil de craquement n''est pas atteint).'
   Gold: 'Couverture taux réels / débasement / géopol. Lecture interprétative. Drivers structurels : achats BC (~755 t/an), géopol, débasement dollar, de-dollarisation.'
   USDJPY: 'Baromètre carry trade. > 155 = MoF/BoJ jawboning, > 160 = zone intervention confirmée 2024+2026 (>73 Mds$ dépensés avr-mai). Unwind = tail risk tech US.'
   VIX: 'Vol implicite S&P 500 30j. < 15 = euphorie/complacent (médiane 10y ~17.6), > 20 = stress actif, > 30 = panique sérieuse.'
