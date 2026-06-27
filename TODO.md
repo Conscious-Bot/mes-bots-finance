@@ -1,10 +1,38 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 26 juin 2026 close session vault cleanup + DB corruption fix structurel + sweep #135 (7 thèses re-reviewed). 2 commits techniques (607769e mirror smoke filter + 4780d4e WAL/SHM cleanup post-sync = 3e corruption root-caused). Vault 13 notes vides supprimées + Presage.md hub créé + 10 aliases adds → 143→36 phantoms (-75%). Sweep #135 sur KLAC+5 dying+1 dead : SK Hynix re_anchor structural (3 catalyseurs HBM4+monopole+US listing), KLAC statu quo, 5 trail stops mécaniques (4063.T/6857.T/AMZN/AVGO/CCJ). HO.PA scale_in 1 sh @ €219.40. Discipline anti-anchoring tenue (refus widen targets sans raison structural). 3 doctrines durables ajoutées (dashboard positions-only, SQLite WAL/SHM cleanup, PEA no fractional).
+**Refresh** : 27 juin 2026 close session **CURE TAXONOMIE 5 sources → 1** (Phases 0→4 chaînées). 5 commits dédiés (`38ee8ee` loader + YAML v2 → `7e2b61f` Source A morte → `8bbcdb9` Source E morte dict 2-niveaux → `7bf5f6a` Source C dérivée façade conservée → `82f5d4c` kill_switch dérivé assertion held-scopée). L'assertion a attrapé 1 incohérence MHI préexistante (decorrelators config.yaml ↔ ai_capex mapping) ; tranché bias-safe driver=ai_capex, layer reste energy/generation, config.yaml aligné. Périmètre disjoncteur passe **18 → 19 tickers** (MHI entre), vigilance -25% à 32 493€, trim partiel -35% à 28 160€. Sanity check final : Σ layer_primary = 100% pile (55 233€), ai_capex held = 78.4% VALEUR = exact match kill_switch live VM (43 324€), Positions ≡ Concentration. Production confirmée live VM (PID 447296, smoke `_cluster_membership() = 19 + MHI inclus + 43 324€`). Doctrine durable ajoutée `[[layer-vs-driver-orthogonal]]` (cas conglomérat ambigu, bias-safe).
 **Mode** : **INSTRUMENT HONNÊTE. STRUCTURE PAS LONGUEUR. FAITS PAS KEYWORDS.** Forward-only, le bot tourne, on laisse le temps faire.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (27/06 close cure taxonomie 5 sources → 1)
+
+- **main HEAD `82f5d4c`** (5 commits today : `38ee8ee` Phase 0 loader + `7e2b61f` Phase 1 A morte + `8bbcdb9` Phase 2 E morte + `7bf5f6a` Phase 3 C dérivée + `82f5d4c` Phase 4 kill_switch dérivé ; alembic head inchangé 0062).
+- **DB integrity_check ok** Mac + VM. STMPA fantôme (positions_meta.status='open' qty=0 post 26/06 full_exit) corrigé sur VM.
+- **28 thèses actives** + 1 thèse `concluded` (STMPA.PA). 26 positions DB held (qty>0).
+- **209 transactions append-only** (tx#244 STMPA full_exit + tx#245 SAF.PA scale_in du 26/06).
+- **104 decisions journalisées** (decision#104 SAF.PA scale_in 26/06).
+- **Bot.main running VM (PID 447296)** ✓ avec nouveau `cluster_source: taxonomy_ai_capex_held`. Smoke live confirmé : 19 tickers + MHI + 43 324€. Aucun ghost (0 zombie, 0 orphan PRESAGE).
+- **5 sources catégorisation → 1 canonique** (`presage_taxonomy.yaml`) + 2 résiduelles (B 3 lecteurs non-kill_switch + assertion permanente held-scopée, D pour caps portfolio_rules). `sector_taxonomy.py` + `config/sectors.yaml` supprimées.
+- **Vault PRESAGE** : 254 notes, 36 phantoms résiduels acceptés. FIREWALL FAIT/JUGEMENT respecté.
+- **Backups** : `~/config.yaml.backup_pre_phase4_*` créé sur VM avant pull. Sync DB auto rotation 5 backups via launchd.
+- **🟡 Dette doctrinale connue** : enum `decision_type` n'a pas `re_anchor`, utilisé `override` comme fourre-tout. Migration légère pending.
+- **🟡 KNOWN-GAP P3** : cascade `.replace` acronymes dans `clean_sector` (fragile). Refonte cible = dict `ACRONYMS` lookup par token. Pas urgent.
+- **🟡 KNOWN-GAP P3** : helper `insert_decision_with_cf` doit `UPDATE positions_meta.status='closed'` au `full_exit`. Pattern manquant détecté 27/06 (STMPA fantôme).
+- **🔵 Trades pending cash injection** : Infineon (IFX.DE) + Prysmian (PRY.MI) + ARM bloqués, virement bancaire en cours.
+
+## ✅ DÉJÀ FAIT (27/06)
+
+- **Cure taxonomie 5 sources → 1** (5 commits `38ee8ee` → `82f5d4c`) :
+  - **Phase 0** loader `shared/taxonomy.py` + YAML v2 26 held + 7 planned. Invariants raise à l'import. 15 tests.
+  - **Phase 1** atomique : Source A (`sector_taxonomy.py`) morte, 5 consommateurs basculés (decision_copilot, portfolio_grade, copilot_test, render._clean_sector, portfolio_analytics). Leçon "symbole vs fichier" — un fichier exporte plusieurs symboles, recon doit lister TOUS les importeurs.
+  - **Phase 2** : Source E (7 fonctions render.py) morte via `_sectors()`. Dict 2-niveaux `SectorLabel(group=mère, sub=sous-couche)` backward-compatible. 6 downstream héritent par threading. Check chiffré : 13 mères, Σ = 100% (54 702€).
+  - **Phase 3** : Source C (`config/sectors.yaml`) dérivée. Façade `shared/sectors.py` conservée. `sector_highlevel_buckets` enrichi avec overrides historiques (AMZN/GOOGL → tech_mega, MP → energy_commodities, TSLA → auto_ev). 25 tickers prédictions résolues, **0 divergence Brier**. D survit intact.
+  - **Phase 4** : Source B basculée pour kill_switch. `taxonomy.assert_held_cluster_consistency()` fail-closed. Assertion a attrapé MHI incohérent → bias-safe driver=ai_capex tranché → config.yaml aligné (7011.T `decorrelators` → `compute_ai`). Périmètre 18 → 19.
+- **STMPA fantôme positions_meta corrigé sur VM** (side-effect post 26/06 full_exit). Test pipeline_end_to_end repassé vert.
+- **Production VM cutover Phase 4** : `git pull --ff-only` VM + `systemctl --user restart presage-bot.service` (PID 436087 → 447296). Smoke live confirme cluster 19 tickers + MHI + 43 324€.
+- **Doctrine `[[layer-vs-driver-orthogonal]]` ajoutée mémoire** (27/06) : layer = fonction-chaîne (objective), driver = ce-qui-meut-cours (binaire forcé). Ne JAMAIS changer le layer pour aligner le driver. Bias-safe sur conglomérat ambigu : préférer l'erreur qui ne crédite pas une décorrélation à moitié.
 
 ## 🟢 ÉTAT SYSTÈME (26/06 close vault cleanup + sweep #135)
 

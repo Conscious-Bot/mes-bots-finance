@@ -4155,3 +4155,57 @@ Notes secondaires non-actionées (laissés au backlog) :
 
 **Backup DB** : sync naturel à 22:05/21:05/20:05 (rotation auto 5 backups). Pas de backup nominatif `close_*` créé (le sweep #135 ne touche que `theses.stop_price`/`target_*` + `decisions` append-only, change-set petit).
 
+## Close 2026-06-27 — Cure taxonomie 5 sources → 1 (Phase 0→4 chaînées, kill_switch dérivé)
+
+**Contexte** : 5 sources de catégorisation coexistaient dans le repo et divergeaient
+silencieusement (pages Positions ≠ Concentration ; mapping AMZN/GOOGL absent ;
+MHI classé dans `decorrelators` config.yaml mais `driver=ai_capex` dans le mapping
+posé en début de session). Cure ordonnancée en 5 phases, commits dédiés par phase,
+check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque source.
+
+**Livre** :
+- **Phase 0** (`38ee8ee`) : `shared/taxonomy.py` loader additif + `config/presage_taxonomy.yaml` v2 (26 held + 7 planned + 1 sorti). Invariants à l'import : DB held ⊆ mapping, `layer_primary ∈ layer`, couches ∈ vocab. 15 tests.
+- **Phase 1** (`7e2b61f`) : Source A morte. `shared/sector_taxonomy.py` supprimée. 5 consommateurs basculés atomique (decision_copilot, portfolio_grade, copilot_test, render._clean_sector, portfolio_analytics). Helpers ajoutés au loader : `clean_sector`, `same_sector_tickers`.
+- **Phase 2** (`8bbcdb9`) : Source E morte. `render._sectors()` lit le mapping. Dict 2-niveaux `SectorLabel(group=mère, sub=sous-couche)` backward-compatible (string compare préservé, attribut `.sub` ajouté). Les 6 fonctions downstream héritent par threading. Check chiffré : 13 catégories-mères, 26 lignes, Σ = 100% (54 702 €). Tissu liant visible (Compute = AMZN/Hyperscaler + AVGO/ASIC + GOOGL/Hyperscaler).
+- **Phase 3** (`7bf5f6a`) : Source C morte. `config/sectors.yaml` supprimée. `shared/sectors.py` façade conservée mais sa source bascule vers le mapping. `sector_highlevel_buckets` enrichi (label + index + cycle_phase + cycle_note + by_category + overrides historiques). Overrides historiques préservent l'historique Brier : AMZN/GOOGL → tech_mega, MP → energy_commodities, AMD/NVDA/ARM/TSLA → buckets historiques. Check chiffré : 25 tickers avec prédictions résolues, **0 divergence avant/après**. D survit pour caps `portfolio_rules`.
+- **Phase 4** (`82f5d4c`) : Source B basculée pour kill_switch. `_cluster_membership` lit `taxonomy.by_driver("ai_capex", "held")` quand `cluster_source: taxonomy_ai_capex_held`. `taxonomy.assert_held_cluster_consistency()` vérifie l'égalité B↔mapping sur le périmètre held avant chaque retour (fail-closed). B (config.yaml:concentration.clusters) survit pour les 3 autres lecteurs (render._compute_ai_set, portfolio_grade, bot_preferences).
+
+**Le moment crucial** : l'assertion held-scopée a attrapé une vraie incohérence préexistante (MHI `7011.T` dans `decorrelators` config.yaml ↔ `driver=ai_capex` dans le mapping). Tranché bias-safe (cf doctrine `[[layer-vs-driver-orthogonal]]` 27/06) — driver=ai_capex assumé (turbines power-AI capex enabler comme GEV), layer_primary reste `energy/generation`. config.yaml aligné : `7011.T` déplacé de `decorrelators` → `compute_ai`. **Conséquence assumée** : le périmètre disjoncteur passe de 18 → 19 tickers (MHI entre), vigilance -25% à 32 493 €, trim partiel -35% à 28 160 €. Override-falsifiable-daté possible si plancher défense JP tient empiriquement.
+
+**Sanity check final** :
+- Σ poids par `layer_primary` (held) = **100.000000%** (55 233 € pile) ✓
+- `driver=ai_capex` held par VALEUR = **78.4%** (43 324 € = exactement ce que voit `compute_cluster_value_eur` live VM) ✓
+- Pages Positions ≡ Concentration (source unique gravée) ✓
+- Matrice de trous : **1 seul trou ouvert** (`assembly/molding_equip` = Towa), 6 buckets comblés en planned (substrate, substrate_film, deposition_etch, ip_cores, power_semis, multimetal).
+
+**Déploiement production** : git push Mac → `git pull --ff-only` VM → `systemctl --user restart presage-bot.service` → nouveau PID 447296. Smoke live `_cluster_membership()` confirme **19 tickers · MHI inclus · 43 324 €**. Aucun ghost (ancien PID 436087 bien tué, 0 zombie, 0 orphan PRESAGE).
+
+**Lessons capturées dans memory** :
+- `[[feedback-layer-vs-driver-orthogonal]]` (27/06) : `layer` (fonction-chaîne) et `driver` (ce qui meut le cours) sont 2 axes orthogonaux. Ne JAMAIS changer le layer pour aligner le driver. Bias-safe sur classification ambiguë conglomérat : préférer l'erreur qui ne crédite pas une décorrélation à moitié. Cas fondateur MHI 27/06.
+
+**Doctrines durables réaffirmées** :
+- "symbole vs fichier" (Phase 1 récit) : un fichier peut exporter plusieurs symboles, recon doit lister TOUS les importeurs du fichier pas seulement les consommateurs du symbole principal. Cas : `sector_taxonomy.py` exportait `TICKER_SECTOR` (3 consommateurs) ET `clean_sector` (2 consommateurs — dont 1 que le brief avait raté).
+- Recon "symbole vs fichier" réappliquée Phase 3 → 6 lecteurs réels vs 3 du brief (façade `shared/sectors.py` + 2 chips dashboard + `trade_context.py` + `macro_book_warnings.py` ratés du brief).
+- Helper Stage : commit phase atomique = rollback ne perd que la phase. Phase 0 additive, Phase 1+ atomiques.
+
+**Side-effect post-trade STMPA full_exit (26/06)** détecté en début de session par `test_pipeline_end_to_end` rouge : `positions_meta.status='open'` mais qty=0 (fantôme). Corrigé sur VM (`UPDATE positions_meta SET status='closed' WHERE ticker='STMPA.PA'`). À graver : helper `insert_decision_with_cf` doit aussi `UPDATE positions_meta.status='closed'` quand `decision_type='full_exit'`. KNOWN-GAP P3.
+
+**État système 27/06 end-of-session** :
+- 28 thèses actives + 1 thèse `concluded` (STMPA.PA 26/06 prévalente)
+- 26 positions DB qty>0 (held)
+- 209 transactions (tx#244 STMPA full_exit + tx#245 SAF.PA scale_in du 26/06)
+- 104 decisions (decision#104 SAF.PA scale_in du 26/06)
+- Bot.main running VM (PID 447296) ✓ avec nouveau `cluster_source: taxonomy_ai_capex_held`
+- DB integrity_check ok Mac + VM
+- Dashboard regen ok (823 899 bytes)
+- 5 sources catégorisation → 1 canonique + 2 résiduelles (B 3 lecteurs + assertion permanente, D pour caps)
+
+**Entry next session** :
+1. **Cosmétique sous-couches dans page Positions** : la donnée `.sub` est portée par `SectorLabel`, mais pas encore rendue à l'écran sous chaque mère. Refactor `_sector_blocks` pour afficher la sous-ligne (AMZN/Hyperscaler sous "Compute"). Pur agrément UI sur fondation propre.
+2. **KNOWN-GAP P3 : cascade `.replace` acronymes dans `clean_sector`** — fragile (.replace("Hbm","HBM") etc). Refonte cible = dict `ACRONYMS` appliqué par lookup sur token (split). Pas urgent.
+3. **Helper `insert_decision_with_cf` doit fermer `positions_meta.status='closed'` au full_exit** — pattern manquant détecté 27/06 (STMPA fantôme post-26/06). Graver dans la doctrine `[[manual-exec-must-create-cf]]`.
+4. **2 alias fails Obsidian** (ENTG / LNG) reportés du 26/06 — paths exactes à retrouver, 6 phantoms mineurs à résoudre.
+5. **PEA cash injection pending** (reporté 26/06) : Infineon (IFX.DE) + Prysmian (PRY.MI) + ARM buys bloqués, virement bancaire en cours. Quand cash arrive → exec via VM avec `[STRUCTURED]` reasoning.
+6. **MHI override-falsifiable-daté** : si conviction défense devient assertive (carnet commandes défense > X), open override datée avec invalidation condition. Sinon laisser MHI compter pleinement en ai_capex (bias-safe par défaut).
+
+**Backup config.yaml VM** : `~/config.yaml.backup_pre_phase4_*` créé avant pull. Pas de backup DB nominatif (sync auto rotation, change-set petit, code + config.yaml uniquement).
