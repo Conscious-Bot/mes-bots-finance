@@ -1,7 +1,7 @@
 # ADR 010 — Cap cluster = 35% (risk-adjusted via choc underwrité), config aligné
 
 **Date**: 2026-05-26
-**Status**: Accepted
+**Status**: Accepted — **paramètre superseded par [`015-concentration-assumed-deep-defense`](015-concentration-assumed-deep-defense.md) (28/06/2026)** ; méthode (cap dérivé d'un underwriting de choc) conservée. Le cap opératoire est passé à 70% sous choc honnête 57% (drawdown ~−40% assumé) + système de digues. La présente ADR reste la trace de la dérivation 35%.
 **Résout**: la contradiction 35-vs-57 (SESSION_STATE suite-4).
 **Reaffirme**: `008-cluster-cap-grandfather` (35% liant, position 5% soft, grandfather strict).
 **Supersede**: config Day-14 `cluster_max_pct: 0.57` (choc underwrité trop bénin).
