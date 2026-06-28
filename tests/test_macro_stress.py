@@ -79,6 +79,7 @@ def test_valid_copper_is_scored():
     assert bp["valid"] == 2
 
 
+@pytest.mark.live_data  # lit storage.DB_PATH (debt_signals) — absent/vide en CI
 def test_mapping_sources_are_real_debt_signals():
     """Chaque source spec DOIT être un vrai champ debt_signals — sinon le modèle
     calcule une courbe cohérente sur la MAUVAISE donnée (pire cas, rien ne crie)."""
@@ -86,6 +87,8 @@ def test_mapping_sources_are_real_debt_signals():
     with storage.db() as cx:
         real = {r[0] for r in cx.execute(
             "SELECT DISTINCT indicator_name FROM debt_signals").fetchall()}
+    if not real:
+        pytest.skip("debt_signals vide (CI/DB fraîche) : rien à mapper")
     for fname, f in ms.load_model()["families"].items():
         for iname, ind in f["indicators"].items():
             src = ind.get("source")

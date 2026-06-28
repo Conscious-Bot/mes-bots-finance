@@ -211,8 +211,10 @@ def canonical_ticker_aliases(ticker: str) -> list[str]:
 
     aliases = [ticker]
     try:
-        import yfinance as _yf
-        info = _yf.Ticker(ticker).info or {}
+        # Single-gateway yfinance : passe par shared.prices.get_info (cache TTL 1h
+        # + throttle anti-ban partagé), jamais d'import yfinance direct.
+        from shared import prices as _px
+        info = _px.get_info(ticker) or {}
         longName = (info.get("longName") or "").strip()
         shortName = (info.get("shortName") or "").strip()
         for raw in [longName, _clean(longName), shortName, _clean(shortName)]:

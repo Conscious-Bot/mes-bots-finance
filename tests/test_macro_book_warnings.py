@@ -7,14 +7,15 @@ from intelligence.macro_book_warnings import compute_book_warnings
 
 
 def _semi_heavy_book() -> list[dict]:
-    """Book 64% semis miroir etat 06/06."""
+    """Book ~93% ai_capex driver (R1 lit maintenant le driver, plus le bucket
+    semis). Vrais tickers held pour que taxonomy.get_taxonomy() les classe."""
     return [
-        {"ticker": "NVDA", "qty": 10.0, "avg_cost": 500.0},   # 5000 semis
-        {"ticker": "AVGO", "qty": 5.0, "avg_cost": 400.0},    # 2000 semis
-        {"ticker": "AMD", "qty": 10.0, "avg_cost": 150.0},    # 1500 semis
-        {"ticker": "GOOGL", "qty": 5.0, "avg_cost": 200.0},   # 1000 tech_mega
-        {"ticker": "CCJ", "qty": 10.0, "avg_cost": 50.0},     # 500 energy
-        # total ~10000, semis = 8500 = 85%
+        {"ticker": "ASML.AS", "qty": 3.0, "avg_cost": 800.0},  # 2400 ai_capex / semis
+        {"ticker": "AVGO", "qty": 5.0, "avg_cost": 400.0},     # 2000 ai_capex / semis
+        {"ticker": "KLAC", "qty": 5.0, "avg_cost": 200.0},     # 1000 ai_capex / semis
+        {"ticker": "GOOGL", "qty": 5.0, "avg_cost": 200.0},    # 1000 ai_capex / tech_mega
+        {"ticker": "CCJ", "qty": 10.0, "avg_cost": 50.0},      # 500 resources (non-ai_capex)
+        # total 6900, ai_capex = 6400 = 93%
     ]
 
 
