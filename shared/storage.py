@@ -3173,10 +3173,29 @@ def update_thesis_field(ticker: str, field: str, value) -> tuple[bool, str, obje
         thesis_id = r["id"]
         old = cx.execute(f"SELECT {field_lc} FROM theses WHERE id=?", (thesis_id,)).fetchone()
         old_val = old[0] if old else None
-        cx.execute(
-            f"UPDATE theses SET {field_lc}=?, last_reviewed=CURRENT_TIMESTAMP WHERE id=?",
-            (value, thesis_id),
-        )
+        # Réviser un niveau (target/stop) = nouveau pari sur ce niveau → on RESET le
+        # flag de trigger correspondant. Sinon le garde `not triggered_*_at` de
+        # price_monitor supprime SILENCIEUSEMENT l'alerte cible/stop contre le
+        # nouveau niveau (fail-silent attrapé par l'audit chrono 30/06 : 5 thèses
+        # avaient triggered_full_at posé contre une ancienne cible, prix à 53-84%
+        # de la cible relevée → alerte cible-atteinte morte). On ne clear que si la
+        # valeur change réellement (pas de reset sur un set no-op).
+        _trigger_for_level = {
+            "target_partial": "triggered_partial_at",
+            "target_full": "triggered_full_at",
+            "stop_price": "triggered_stop_at",
+        }.get(field_lc)
+        if _trigger_for_level and old_val is not None and old_val != value:
+            cx.execute(
+                f"UPDATE theses SET {field_lc}=?, {_trigger_for_level}=NULL, "
+                "last_reviewed=CURRENT_TIMESTAMP WHERE id=?",
+                (value, thesis_id),
+            )
+        else:
+            cx.execute(
+                f"UPDATE theses SET {field_lc}=?, last_reviewed=CURRENT_TIMESTAMP WHERE id=?",
+                (value, thesis_id),
+            )
         cx.commit()
 
     # Hook drift conviction : append integrity log si changement effectif

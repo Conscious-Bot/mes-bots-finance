@@ -39,6 +39,9 @@ def _schema(cx: sqlite3.Connection) -> None:
             target_partial REAL,
             target_full REAL,
             stop_price REAL,
+            triggered_partial_at TEXT,
+            triggered_full_at TEXT,
+            triggered_stop_at TEXT,
             notes TEXT,
             status TEXT DEFAULT 'active',
             last_reviewed TEXT,
@@ -199,3 +202,59 @@ def test_chain_hash_chain_coherent(db: Path) -> None:
     assert rows[1][1] == rows[0][2]
     # Hashes distincts
     assert rows[0][2] != rows[1][2]
+
+
+# ─── Test : révision de niveau reset le triggered_*_at (fail-silent audit 30/06) ──
+
+
+def test_level_revision_clears_trigger_flag(db: Path) -> None:
+    """Réviser un niveau (target/stop) doit RESET le triggered_*_at correspondant.
+
+    Sinon le garde `not triggered_*_at` de price_monitor supprime silencieusement
+    l'alerte cible/stop contre le nouveau niveau (5 thèses orphelines, audit chrono
+    30/06 : triggered_full_at posé contre une ancienne cible, prix à 53-84% de la
+    cible relevée). Le flag d'un AUTRE niveau ne doit pas bouger.
+    """
+    cx = sqlite3.connect(db)
+    cx.execute(
+        "UPDATE theses SET target_full=700, "
+        "triggered_full_at='2026-06-09T00:00:00+00:00', "
+        "stop_price=400, triggered_stop_at='2026-06-12T00:00:00+00:00' "
+        "WHERE ticker='ASML.AS'"
+    )
+    cx.commit()
+    cx.close()
+
+    ok, _msg, old = storage.update_thesis_field("ASML.AS", "target_full", 900)
+    assert ok
+    assert float(old) == 700.0
+
+    cx = sqlite3.connect(db)
+    row = cx.execute(
+        "SELECT target_full, triggered_full_at, triggered_stop_at "
+        "FROM theses WHERE ticker='ASML.AS'"
+    ).fetchone()
+    cx.close()
+    assert row[0] == 900
+    assert row[1] is None        # flag full reset (niveau révisé)
+    assert row[2] is not None    # flag stop intact (niveau non touché)
+
+
+def test_level_noop_set_keeps_trigger_flag(db: Path) -> None:
+    """Set no-op (même valeur) ne doit PAS reset le flag — pas de reset gratuit."""
+    cx = sqlite3.connect(db)
+    cx.execute(
+        "UPDATE theses SET target_full=700, "
+        "triggered_full_at='2026-06-09T00:00:00+00:00' WHERE ticker='ASML.AS'"
+    )
+    cx.commit()
+    cx.close()
+
+    storage.update_thesis_field("ASML.AS", "target_full", 700)
+
+    cx = sqlite3.connect(db)
+    row = cx.execute(
+        "SELECT triggered_full_at FROM theses WHERE ticker='ASML.AS'"
+    ).fetchone()
+    cx.close()
+    assert row[0] is not None    # flag conservé (valeur inchangée)
