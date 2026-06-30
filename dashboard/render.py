@@ -239,8 +239,16 @@ def _dp_pct(ticker: str) -> float | None:
                     FROM price_history WHERE ticker = ?
                 )
                 SELECT price_native, day FROM day_lasts WHERE rn = 1
-                ORDER BY day DESC LIMIT 2
+                ORDER BY day DESC LIMIT 3
             """, (ticker,)).fetchall()
+        # Fix 30/06 : avant l'ouverture US, le cron stocke le close de la veille
+        # comme "valeur du jour" -> le record du jour DUPLIQUE le close veille,
+        # close-to-close = 0% pour ~60% du book (noms US). On affiche alors le
+        # move de la dernière SÉANCE COMPLÈTE (skip le doublon stale) plutôt qu'un
+        # mur de 0%. Détecteur fiable : égalité prix exacte = pas de vraie séance,
+        # 2 closes réels ne matchent jamais à la précision float stockée.
+        if len(rows) >= 3 and rows[0][0] and rows[1][0] and rows[0][0] == rows[1][0]:
+            rows = rows[1:]
         if len(rows) >= 2 and rows[0][0] and rows[1][0]:
             v = round((rows[0][0] / rows[1][0] - 1.0) * 100.0, 1)
     except Exception:
@@ -9533,6 +9541,10 @@ def render() -> Path:
                 _ns_margin = f"{_ns_dn:.0f}% margin"
         except Exception:
             _ns_margin = ""
+    # Near target / near stop : lister les tickers concernés (user 30/06 "which
+    # ones ?") au lieu d'un simple compte. Listes déjà ordonnées proche-d'abord.
+    _tgt_names = " &middot; ".join(near_tgt_tk[:4]) + ("…" if len(near_tgt_tk) > 4 else "")
+    _ns_names = " &middot; ".join(_losing_near_stop_tk[:4]) + ("…" if len(_losing_near_stop_tk) > 4 else "")
     _as_of = datetime.now().strftime("%H:%M")
     _pos_hero = (
         '<div class="pos-hero">'
@@ -9544,14 +9556,20 @@ def render() -> Path:
         '<div class="cell">'
         f'<div class="k">Near target</div>'
         f'<div class="v">{n_tgt}</div>'
-        f'<div class="cap">within 12% of target</div>'
-        '</div>'
+        + (
+            f'<div class="cap" title="within 12% of target"><b>{_tgt_names}</b></div>'
+            if near_tgt_tk
+            else '<div class="cap">none within 12% of target</div>'
+        )
+        + '</div>'
         '<div class="cell">'
         f'<div class="k">Near stop</div>'
         f'<div class="v {"bear" if _ns else ""}">{_ns}</div>'
         + (
-            f'<div class="cap bear"><b>{_ns_label}</b> &middot; {_ns_margin}</div>'
-            if _ns and _ns_label and _ns_margin
+            f'<div class="cap bear"><b>{_ns_names}</b>'
+            + (f' &middot; {_ns_margin}' if _ns_margin else '')
+            + '</div>'
+            if _ns
             else '<div class="cap">no losing position critical</div>'
         )
         + '</div>'
