@@ -251,23 +251,26 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
 
 def _regen_loop():
+    # Render-first (fix 30/06) : on rend AVANT le premier sleep. Comme main()
+    # binde le socket avant de lancer ce thread, le render initial se fait ici
+    # en arrière-plan pendant que le port sert déjà le dashboard.html existant.
     while True:
-        time.sleep(INTERVAL)
         t0 = time.monotonic()
         try:
             _fresh_render()
             print(f"[serve] regen {time.monotonic() - t0:.1f}s", flush=True)
         except Exception as e:
             print(f"[serve] regen FAILED: {type(e).__name__}: {e}", flush=True)
+        time.sleep(INTERVAL)
 
 
 def main():
     socketserver.TCPServer.allow_reuse_address = True
-    try:
-        _fresh_render()
-        print("[serve] initial render OK", flush=True)
-    except Exception as e:
-        print(f"[serve] initial render FAILED: {type(e).__name__}: {e}", flush=True)
+    # Bind-first (fix 30/06) : le socket s'ouvre AVANT le render initial. Avant,
+    # _fresh_render() bloquant (~100s de fetch prix) précédait le bind -> fenêtre
+    # aveugle où le port n'existait pas = "connexion refusée" au lancement. Désormais
+    # le port répond instantanément (sert le dashboard.html déjà sur disque) et
+    # _regen_loop fait le render initial en thread puis rafraîchit le fichier.
     threading.Thread(target=_regen_loop, daemon=True).start()
     handler = functools.partial(NoCache, directory="dashboard")
     with socketserver.TCPServer(("127.0.0.1", PORT), handler) as srv:
