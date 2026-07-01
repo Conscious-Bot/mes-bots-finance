@@ -194,11 +194,14 @@ def _stop_distance_pct_native(ticker: str, stop_price: float | None) -> float | 
 _DP_CACHE: dict[str, tuple[float | None, float]] = {}
 _DP_TTL = 840.0
 
-# Dédup alerte fork LIVING_GRAPH (cure bruit 30/06) : le regen tourne toutes
-# les ~5 min ; un fork persistant (ex 6324.T) envoyait un Telegram À CHAQUE
-# regen = rafale. On ne notifie que si la SIGNATURE des forks change (nouveau
-# fork ou nouveau jour via bucket). Le log.warning, lui, reste à chaque regen.
-_FORK_ALERT_STATE: dict[str, object] = {"sig": None}
+# Alerte fork LIVING_GRAPH gated par PERSISTANCE (cure bruit 30/06 v2).
+# Le regen tourne toutes les ~5 min. La plupart des forks sont TRANSITOIRES
+# (TTL de cache prix, lag de sync Mac↔VM) et s'auto-résolvent en 1-2 regens →
+# ils ne doivent PAS pager. On ne notifie qu'un fork qui SURVIT _FORK_PERSIST_N
+# regens consécutifs (= divergence structurelle, ex PnL fork), et une seule fois
+# (au franchissement du seuil). Le log.warning, lui, sort à chaque regen.
+_FORK_ALERT_STATE: dict = {}  # {(concept_key, ticker): compteur de regens consécutifs}
+_FORK_PERSIST_N = 3  # ~15 min à PRESAGE_REFRESH=300s avant d'alerter
 
 
 def _dp_pct(ticker: str) -> float | None:
@@ -9768,30 +9771,37 @@ def render() -> Path:
     try:
         from shared.living_graph import detect_forks
         _forks = detect_forks()
+        # Compteur de persistance : incrémente les forks présents, retire les
+        # absents (reset). Un fork transitoire disparaît avant d'atteindre le seuil.
+        _cur = {(f["concept_key"], f["ticker"]): f for f in _forks}
+        for _k in [k for k in _FORK_ALERT_STATE if k not in _cur]:
+            del _FORK_ALERT_STATE[_k]
         if _forks:
             import logging as _lg
             _lg.getLogger("dashboard").warning("LIVING_GRAPH forks detected (n=%d): %s",
                                                 len(_forks), _forks)
-            try:
-                from shared import notify
-                _lines = [f"[OPS] LIVING_GRAPH fork détecté ({len(_forks)} concept(s))"]
-                for f in _forks[:5]:
-                    cands = ", ".join(f"{c['source']}={c['value']:.6g}" for c in f["candidates"])
-                    _lines.append(
-                        f"- {f['concept_key']} {f['ticker'] or 'global'} {f['bucket']} "
-                        f"| Δ={f['max_div_rel']:.3%} > ε={f['epsilon_rel']:.3%} | {cands}"
-                    )
-                # parse_mode="" : source names contiennent _ (position_pnl.helper,
-                # value_eur_minus_cost_basis_eur etc.) qui cassent Markdown parser.
-                # Cure 15/06/2026 : skip parse_mode -> plain text envoie clean.
-                # Dédup bruit 30/06 : n'envoie que si la signature des forks a
-                # changé (sinon rafale à chaque regen ~5 min). Le log WARN reste.
-                _sig = frozenset((f["concept_key"], f["ticker"], f["bucket"]) for f in _forks)
-                if _sig != _FORK_ALERT_STATE["sig"]:
-                    _FORK_ALERT_STATE["sig"] = _sig
+            _newly = []
+            for _k, _f in _cur.items():
+                _FORK_ALERT_STATE[_k] = int(_FORK_ALERT_STATE.get(_k, 0)) + 1
+                if _FORK_ALERT_STATE[_k] == _FORK_PERSIST_N:  # franchissement = 1 alerte
+                    _newly.append(_f)
+            if _newly:
+                try:
+                    from shared import notify
+                    _lines = [
+                        f"[OPS] LIVING_GRAPH fork PERSISTANT "
+                        f"({len(_newly)} concept(s), ≥{_FORK_PERSIST_N} regens)"
+                    ]
+                    for f in _newly[:5]:
+                        cands = ", ".join(f"{c['source']}={c['value']:.6g}" for c in f["candidates"])
+                        _lines.append(
+                            f"- {f['concept_key']} {f['ticker'] or 'global'} {f['bucket']} "
+                            f"| Δ={f['max_div_rel']:.3%} > ε={f['epsilon_rel']:.3%} | {cands}"
+                        )
+                    # parse_mode="" : source names contiennent _ (cassent Markdown).
                     notify.send_text("\n".join(_lines), parse_mode="")
-            except Exception:
-                pass
+                except Exception:
+                    pass
     except Exception:
         pass
 
