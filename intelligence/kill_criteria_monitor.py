@@ -127,8 +127,8 @@ def _fetch_recent_signals(ticker: str) -> str:
         return "  (signal fetch failed)"
 
 
-def _compute_current_state(thesis: dict) -> dict:
-    """Get prices + ages."""
+def _compute_current_state(thesis: dict) -> dict | None:
+    """Get prices + ages. None si prix indisponible (fail-closed, pas de fabrication)."""
     try:
         # Migration Lane 2 #4 : gateway canonique shared.prices au lieu de
         # cache render. Élimine dépendance intelligence→dashboard.render.
@@ -138,9 +138,15 @@ def _compute_current_state(thesis: dict) -> dict:
         # marges pilotent la reco /exit via le prompt LLM. Fix : prix natif.
         from shared.prices import get_current_price
 
-        current = get_current_price(thesis["ticker"]) or 0
+        current = get_current_price(thesis["ticker"])
     except Exception:
-        current = 0
+        current = None
+    # Prix absent → on NE PEUT PAS juger les marges. Avant, current=0 fabriquait
+    # pnl -100% + marge-avant-stop 0% dans le prompt LLM = faux KILL sur un monitor
+    # ACTIF (fix D 30/06). Fail-closed : retourne None → l'éval est skippée, aucune
+    # reco fabriquée à partir d'un prix manquant.
+    if not current:
+        return None
     entry = thesis.get("entry_price") or 0
     stop = thesis.get("stop_price") or 0
     target_full = thesis.get("target_full") or 0
@@ -189,6 +195,9 @@ def check_one_thesis(thesis: dict) -> tuple[dict | None, int | None]:
         return None, None
 
     state = _compute_current_state(thesis)
+    if state is None:  # prix indisponible → on ne juge pas (fail-closed, pas de faux KILL)
+        log.info(f"kca {ticker} : prix indisponible, skip éval")
+        return None, None
     prompt = _PROMPT.format(
         ticker=ticker,
         conviction=thesis.get("conviction", "?"),
