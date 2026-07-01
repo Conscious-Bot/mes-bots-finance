@@ -22,9 +22,13 @@ Discipline fail-soft : sans key → return [] sur queries, no raise. Cron-safe.
 """
 from __future__ import annotations
 
+import logging
 import os
+import time
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger("thesis_library")
 
 try:
     import chromadb
@@ -154,8 +158,12 @@ def collection_stats() -> dict:
         return {"error": f"{type(e).__name__} {e}"}
 
 
-def bootstrap_from_db() -> dict:
+def bootstrap_from_db(batch_size: int = 40, sleep_s: float = 0.0) -> dict:
     """One-shot : index toutes theses existantes du book + resolved.
+
+    batch_size + sleep_s : pace pour le rate-limit. Free tier Voyage sans moyen
+    de paiement = 3 RPM + 10K TPM → batch_size=40 (~7-8K tokens) + sleep_s=60
+    (1 req/min) reste sous les deux plafonds. Tier payant : sleep_s=0, batch=128.
 
     Source : table `predictions` (manual + auto). Concat les champs pertinents
     pour text embedding : claim_text si dispo, sinon ticker + direction + horizon.
@@ -181,10 +189,10 @@ def bootstrap_from_db() -> dict:
             ORDER BY created_at DESC
         """)
         rows = cur.fetchall()
-    indexed, skipped = 0, 0
+    # Compose (id, text, meta) pour toutes les lignes
+    items: list[tuple[str, str, dict]] = []
     for row in rows:
         pid, ticker, direction, horizon, td, outcome, origin, ctype, _mv, ca, prob, trace = row
-        # Compose text for embedding
         text_parts = [
             f"ID:{pid}",
             f"Ticker:{ticker or 'macro'}",
@@ -199,7 +207,6 @@ def bootstrap_from_db() -> dict:
         ]
         if trace:
             text_parts.append(f"Trace:{str(trace)[:500]}")
-        text = " | ".join(text_parts)
         meta = {
             "pid": int(pid),
             "ticker": ticker or "macro",
@@ -210,10 +217,32 @@ def bootstrap_from_db() -> dict:
             "created_at": ca or "?",
             "probability_at_creation": float(prob) if prob is not None else 0.0,
         }
-        if upsert_thesis(f"pred_{pid}", text, meta):
-            indexed += 1
-        else:
-            skipped += 1
+        items.append((f"pred_{pid}", " | ".join(text_parts), meta))
+
+    # Embed + upsert par BATCH (cure rate-limit 30/06 : 1 appel API / lot au lieu
+    # de 1 / thèse → ~5 appels pour 422 lignes au lieu de 422, le free tier ~3 RPM
+    # ne coince plus). Voyage accepte une liste de textes par requête.
+    col = _collection()
+    indexed, skipped = 0, 0
+    for i in range(0, len(items), batch_size):
+        if i > 0 and sleep_s:
+            time.sleep(sleep_s)  # respecte 3 RPM + 10K TPM du free tier
+        chunk = items[i:i + batch_size]
+        embs = _embed([t for _, t, _ in chunk], input_type="document")
+        if embs is None:
+            skipped += len(chunk)
+            continue
+        try:
+            col.upsert(
+                ids=[c[0] for c in chunk],
+                embeddings=embs,
+                documents=[c[1] for c in chunk],
+                metadatas=[c[2] for c in chunk],
+            )
+            indexed += len(chunk)
+        except Exception as e:
+            log.warning(f"bootstrap batch upsert failed ({len(chunk)} items): {e}")
+            skipped += len(chunk)
     return {"indexed": indexed, "skipped": skipped, "total_rows": len(rows)}
 
 
