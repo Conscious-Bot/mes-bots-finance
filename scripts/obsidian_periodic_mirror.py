@@ -738,11 +738,17 @@ def main() -> int:
         print(f"  Obsidian unreachable, abort: {e}", file=sys.stderr)
         return 1
 
+    # Fail-loud (fix O4 30/06) : chaque section qui échoue est comptée. Un run
+    # "vert" qui n'a rien miroité (ex DB corrompue post-sync) est un mensonge —
+    # avant, main() retournait 0 en silence. Désormais : alerte Telegram + exit≠0.
+    failures: list[str] = []
+
     # 1. DIGEST
     cx = sqlite3.connect(REPO / "data" / "bot.db")
     err_digest = mirror_digest(cx)
     if err_digest:
         print(f"  DIGEST : FAIL {err_digest}", file=sys.stderr)
+        failures.append(f"DIGEST ({err_digest})")
     else:
         print(f"  DIGEST : OK (DIGEST_{_now_iso()}.md updated)")
 
@@ -752,6 +758,7 @@ def main() -> int:
         print(f"  FAIT : {n_up} notes updated, {n_skip} skipped (already updated today or no thesis)")
     except Exception as e:
         print(f"  FAIT : FAIL {e}", file=sys.stderr)
+        failures.append(f"FAIT ({e})")
 
     # 2bis. ALIASES auto-enrich notes thèse (méthode canonique 26/06)
     try:
@@ -759,11 +766,13 @@ def main() -> int:
         print(f"  ALIASES : {n_enr} enrichies, {n_skip} déjà canoniques")
     except Exception as e:
         print(f"  ALIASES : FAIL {e}", file=sys.stderr)
+        failures.append(f"ALIASES ({e})")
 
     # 3. SNAPSHOT
     err_snap = mirror_snapshot_patrimoine()
     if err_snap:
         print(f"  SNAPSHOT : {err_snap}", file=sys.stderr)
+        failures.append(f"SNAPSHOT ({err_snap})")
     else:
         print("  SNAPSHOT : OK (created or already exists today)")
 
@@ -771,6 +780,7 @@ def main() -> int:
     n_tx_days, err_tx = mirror_transactions(cx)
     if err_tx:
         print(f"  TRANSACTIONS : FAIL {err_tx}", file=sys.stderr)
+        failures.append(f"TRANSACTIONS ({err_tx})")
     else:
         print(f"  TRANSACTIONS : OK ({n_tx_days} days mirrored)")
 
@@ -780,6 +790,7 @@ def main() -> int:
         print(f"  DECISIONS : {n_dec_new} créées, {n_dec_skip} déjà mirrorées")
     except Exception as e:
         print(f"  DECISIONS : FAIL {e}", file=sys.stderr)
+        failures.append(f"DECISIONS ({e})")
     cx.close()
 
     # NOTE 25/06 : RETIRE app:reload. Constate qu'il casse le plugin Local REST API
@@ -788,6 +799,21 @@ def main() -> int:
     # sans avoir besoin de reload programmatique.
 
     print(f"[obsidian_periodic_mirror] done {datetime.now().isoformat()}")
+
+    if failures:
+        # DB corrompue / vault indispo = le cerveau n'est plus alimenté. Rare +
+        # urgent → alerte loud (pas du bruit routinier type fork). Best-effort.
+        msg = (
+            f"⚠️ [OPS] obsidian mirror : {len(failures)} section(s) en échec — "
+            f"le vault n'a peut-être PAS été mis à jour.\n" + "\n".join(f"• {f[:180]}" for f in failures)
+        )
+        print(f"  {len(failures)} FAILURE(S) → exit 1 + alerte", file=sys.stderr)
+        try:
+            from shared import notify
+            notify.send_text(msg, parse_mode="")
+        except Exception as e:
+            print(f"  (notify échec: {e})", file=sys.stderr)
+        return 1
     return 0
 
 
