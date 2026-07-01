@@ -9743,7 +9743,7 @@ def render() -> Path:
           "if(hasAxis){"
           # Geometrie inverse SPEC_GAUGE : bande [stop,full] -> [10,90].
           # Lanes <10 / >90 = overflow rationnel -> "hors bande", pas de prix.
-          "if(mode==='price-native'){"
+          "if(mode.indexOf('price-native')===0){"
           "if(p<10){tip.textContent='\\u2039 hors bande';}"
           "else if(p>90){tip.textContent='hors bande \\u203A';}"
           "else{var span=axmax-axmin;var price=axmin+(p-10)/80*span;tip.textContent=fmtNative(price,ccy);}"
