@@ -36,6 +36,7 @@ ALLOWED_FILES = {
     "shared/thesis_predictions_writer.py",  # SPEC_THESIS_ALPHA_RESOLVER pieces 3+4 (11/06) : insert_thesis_pose + update_thesis_resolve_fields + mark_thesis_prediction_abandoned. Table append-only thesis_predictions avec 3 triggers (pose_writeonce, resolve_writeonce, no_delete). Writer dedie au chantier alpha resolver, pattern identique self_loop / bias_events.
     "bot/main.py",  # telemetrie handler_calls
     "bot/handlers/misc.py",  # edition champs these
+    "packaging/trial/import_book.py",  # seeder trial one-shot (hors prod bot) : INSERT transactions/positions_meta/theses pour onboarder le book d'un ami. Ecriture assumee, hors chemin bot.
 }
 ALLOWED_PREFIXES = ("scripts/", "tests/")
 SKIP_DIRS = {"venv", ".venv", ".backups", "__pycache__", ".git", "build", "dist", "data"}

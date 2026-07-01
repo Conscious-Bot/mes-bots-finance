@@ -117,6 +117,7 @@ def test_cluster_membership_neither_defined_raises(monkeypatch):
         ks._cluster_membership()
 
 
+@pytest.mark.live_data  # lit _cluster_membership() = book live (data/bot.db absent en CI)
 def test_cluster_membership_taxonomy_ai_capex_held(monkeypatch):
     """Phase 4 — source canonique = taxonomy mapping driver=ai_capex sur held.
 
@@ -147,6 +148,7 @@ def test_cluster_membership_taxonomy_ai_capex_held(monkeypatch):
     assert "AMD" not in members   # not held
 
 
+@pytest.mark.live_data  # assertion sur le book live held (data/bot.db absent en CI)
 def test_assert_held_cluster_consistency_passes_after_alignment():
     """L'assertion doit passer sur l'état figé 27/06 — sinon Phase 4 cassée."""
     from shared import taxonomy
