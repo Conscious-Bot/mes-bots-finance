@@ -377,20 +377,28 @@ def mirror_thesis_aliases() -> tuple[int, int]:
         am = re.search(r"^aliases:\s*\[(.*?)\]", fm, re.M)
         current = []
         if am:
-            current = [s.strip().strip("'\"") for s in am.group(1).split(",") if s.strip()]
+            # Parser QUOTE-AWARE (fix 01/07) : split(",") naïf coupait les longNames
+            # à virgule ("Amazon.com, Inc." → "Amazon.com" + "Inc.") → jamais égal au
+            # canonique → ré-ajout à chaque run (AMZN monté à 235 aliases). On extrait
+            # les chaînes entre quotes en respectant les virgules internes.
+            current = [
+                m[0] or m[1]
+                for m in re.findall(r'"([^"]*)"|\'([^\']*)\'', am.group(1))
+            ]
         else:
             am2 = re.search(r"^aliases:\s*\n((?:\s*-\s+.+\n)+)", fm, re.M)
             if am2:
                 current = [re.sub(r"^\s*-\s+", "", line).strip().strip("'\"") for line in am2.group(1).splitlines() if line.strip()]
 
-        # Canonical aliases
+        # Canonical aliases + DÉDUP (fix 01/07) : on réécrit si la dédup change
+        # quelque chose — soit ajouter le canonique, soit purger les doublons
+        # hérités du bug parser (AMZN avait "Inc." ~115×). dict.fromkeys = unique
+        # en préservant l'ordre.
         canonical = obs.canonical_ticker_aliases(ticker)
-        to_add = [a for a in canonical if a and a not in current]
-        if not to_add:
+        merged = list(dict.fromkeys(a for a in (current + canonical) if a))
+        if merged == current:
             n_skipped += 1
             continue
-
-        merged = current + to_add
         new_block = "[" + ", ".join(f'"{a}"' for a in merged) + "]"
         if am:
             new_fm = re.sub(r"^aliases:\s*\[.*?\]", f"aliases: {new_block}", fm, count=1, flags=re.M)
@@ -448,14 +456,17 @@ def mirror_transactions(cx: sqlite3.Connection) -> tuple[int, str | None]:
     except Exception:
         all_root = []
 
-    def resolve_ticker_note(tk: str) -> str:
+    def resolve_ticker_note(tk: str) -> str | None:
+        # Retourne le nom de note SI elle existe, sinon None (fix anti-fantôme
+        # 01/07 : avant retournait le ticker nu → wrap [[AMD]] créait un lien mort
+        # quand aucune note n'existe. Le mirror violait l'anti-fantôme lui-même).
         override = TICKER_TO_VAULT_NOTE.get(tk)
         if override and override in all_root:
             return override.replace(".md", "")
         for e in all_root:
             if e == f"{tk}.md" or e.replace(".md", "").startswith(tk + " "):
                 return e.replace(".md", "")
-        return tk
+        return None
 
     candidates = ["Concentration — grappe AI-compute", "Grille de Conviction"]
     try:
@@ -473,7 +484,7 @@ def mirror_transactions(cx: sqlite3.Connection) -> tuple[int, str | None]:
             date_iso=d_iso,
             aliases=[f"transactions_{d_iso}"],
             tickers=tickers_day,
-            theses_touchees=list(set(ticker_to_note.values())),
+            theses_touchees=sorted({v for v in ticker_to_note.values() if v}),
             noms_propres=[],
             hubs=hubs,
             status="archive",
@@ -486,7 +497,9 @@ def mirror_transactions(cx: sqlite3.Connection) -> tuple[int, str | None]:
         )
         for tx in txs:
             ticker = tx["ticker"]
-            thesis_link = f"[[{ticker_to_note[ticker]}]]"
+            # Anti-fantôme : wrap [[...]] SEULEMENT si la note existe, sinon texte nu.
+            _note = ticker_to_note[ticker]
+            thesis_link = f"[[{_note}]]" if _note else ticker
             eur_value = float(tx["qty"]) * float(tx["price_native"]) * float(tx["fx_at_trade"])
             notes_excerpt = (tx["notes"] or "")[:150]
             content += (
