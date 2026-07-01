@@ -75,3 +75,14 @@ ssh "$VM_HOST" "rm -f $VM_SNAPSHOT" 2>/dev/null || true
 
 SIZE_KB=$(du -k "$LOCAL_DB" | cut -f1)
 log "OK : $SIZE_KB KB synced from $VM_HOST"
+
+# 8. Refresh index thesis-library (incrémental, best-effort). Les nouvelles
+# prédictions arrivées via CE sync -> index Mac-authoritative à jour sans effort.
+# STRICT fail-soft : n'abort JAMAIS le sync (index absent/Voyage down/pas de clé
+# = warn + continue). Sans VOYAGE_API_KEY, bootstrap retourne {error} = no-op.
+if [ -f "$REPO/.env" ]; then
+    ( cd "$REPO" && set -a && . "$REPO/.env" && set +a \
+      && "$REPO/venv/bin/python" -c "from shared.thesis_library import bootstrap_from_db as b; print('refresh:', b(incremental=True))" ) >>"$LOG" 2>&1 \
+      && log "thesis-library index refreshed" \
+      || log "WARN : thesis-library refresh failed (non-bloquant)"
+fi
