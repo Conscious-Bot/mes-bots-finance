@@ -1,0 +1,4 @@
+ticker,qty,avg_price_native,currency,trade_date,conviction,direction,entry_price,target_partial,target_full,stop_price,thesis,account,wrapper
+AAPL,10,180.50,USD,2025-11-15,3,long,180.50,240,280,150,"Services margin expansion + install base moat",trial,CTO
+MC.PA,5,620.00,EUR,2025-12-01,4,long,620,800,900,540,"Luxe pricing power, leader incontesté",trial,PEA
+ASML.AS,2,900.00,EUR,2026-01-10,,,,,,,,trial,PEA

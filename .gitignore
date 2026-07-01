@@ -147,3 +147,10 @@ data/thesis_chroma/
 # Cron-generated skeleton calibration audits (audit_calibration_job, daily).
 # Substantive findings local-only ; pro audits (v4/v5/etc) stay tracked.
 docs/calibration_audits/*_skeleton.md
+
+# Package trial build output (regénérable via packaging/trial/build_package.sh)
+dist/
+# Cruft hygiene (leçon packaging 30/06)
+*.bak_*
+bot.log.*
+!bot.log.*.keep
