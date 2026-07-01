@@ -79,16 +79,33 @@ def check_today() -> dict:
     if not anniversaries:
         return {"n_anniversaries": 0, "notified": 0}
 
+    # Digest UNIQUE (cure bruit 30/06 : anniversaires en rafale = dérangeant).
+    # Un seul Telegram groupé au lieu d'un message par décision. La persistance
+    # chat_signal reste par-décision (DB, aucun bruit user-facing).
     notified = 0
-    for d in anniversaries:
-        msg = _format_anniversary_message(d)
-        try:
-            notify.send_text(msg)
-            notified += 1
-        except Exception as e:
-            log.warning(f"anniversary notify failed for decision_{d['id']}: {e}")
-            continue
+    try:
+        if len(anniversaries) == 1:
+            _digest = _format_anniversary_message(anniversaries[0])
+        else:
+            _rows = []
+            for d in anniversaries:
+                _r = d.get("return_30d_pct")
+                _rs = f" · J+30 {_r:+.1f}%" if _r is not None else ""
+                _rows.append(
+                    f"• J+{d['anniversary_days']} decision_{d['id']} {d['ticker']} "
+                    f"{d.get('decision_type', '?')}{_rs}"
+                )
+            _digest = (
+                f"🔄 {len(anniversaries)} anniversaires de décision aujourd'hui :\n"
+                + "\n".join(_rows)
+                + "\n\nRéfléchir : ces thèses tiennent-elles toujours ?"
+            )
+        notify.send_text(_digest)
+        notified = 1
+    except Exception as e:
+        log.warning(f"anniversary digest notify failed: {e}")
 
+    for d in anniversaries:
         # Persist as chat_extracted_signal so it nourishes user_profile
         # next refresh + chat context
         try:

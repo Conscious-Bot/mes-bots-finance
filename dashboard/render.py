@@ -194,6 +194,12 @@ def _stop_distance_pct_native(ticker: str, stop_price: float | None) -> float | 
 _DP_CACHE: dict[str, tuple[float | None, float]] = {}
 _DP_TTL = 840.0
 
+# Dédup alerte fork LIVING_GRAPH (cure bruit 30/06) : le regen tourne toutes
+# les ~5 min ; un fork persistant (ex 6324.T) envoyait un Telegram À CHAQUE
+# regen = rafale. On ne notifie que si la SIGNATURE des forks change (nouveau
+# fork ou nouveau jour via bucket). Le log.warning, lui, reste à chaque regen.
+_FORK_ALERT_STATE: dict[str, object] = {"sig": None}
+
 
 def _dp_pct(ticker: str) -> float | None:
     """Variation % 24h : close-to-close officiel via gateway prices canonique.
@@ -9778,7 +9784,12 @@ def render() -> Path:
                 # parse_mode="" : source names contiennent _ (position_pnl.helper,
                 # value_eur_minus_cost_basis_eur etc.) qui cassent Markdown parser.
                 # Cure 15/06/2026 : skip parse_mode -> plain text envoie clean.
-                notify.send_text("\n".join(_lines), parse_mode="")
+                # Dédup bruit 30/06 : n'envoie que si la signature des forks a
+                # changé (sinon rafale à chaque regen ~5 min). Le log WARN reste.
+                _sig = frozenset((f["concept_key"], f["ticker"], f["bucket"]) for f in _forks)
+                if _sig != _FORK_ALERT_STATE["sig"]:
+                    _FORK_ALERT_STATE["sig"] = _sig
+                    notify.send_text("\n".join(_lines), parse_mode="")
             except Exception:
                 pass
     except Exception:
