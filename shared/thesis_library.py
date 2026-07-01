@@ -158,12 +158,16 @@ def collection_stats() -> dict:
         return {"error": f"{type(e).__name__} {e}"}
 
 
-def bootstrap_from_db(batch_size: int = 40, sleep_s: float = 0.0) -> dict:
+def bootstrap_from_db(batch_size: int = 40, sleep_s: float = 0.0, incremental: bool = False) -> dict:
     """One-shot : index toutes theses existantes du book + resolved.
 
     batch_size + sleep_s : pace pour le rate-limit. Free tier Voyage sans moyen
     de paiement = 3 RPM + 10K TPM → batch_size=40 (~7-8K tokens) + sleep_s=60
     (1 req/min) reste sous les deux plafonds. Tier payant : sleep_s=0, batch=128.
+
+    incremental=True : n'embed que les prédictions ABSENTES du Chroma (skip celles
+    déjà indexées) → coût quasi-nul pour rafraîchir (index Mac-authoritative qui
+    vieillit à mesure que le bot logge sur la VM). Rebuild complet : incremental=False.
 
     Source : table `predictions` (manual + auto). Concat les champs pertinents
     pour text embedding : claim_text si dispo, sinon ticker + direction + horizon.
@@ -223,6 +227,14 @@ def bootstrap_from_db(batch_size: int = 40, sleep_s: float = 0.0) -> dict:
     # de 1 / thèse → ~5 appels pour 422 lignes au lieu de 422, le free tier ~3 RPM
     # ne coince plus). Voyage accepte une liste de textes par requête.
     col = _collection()
+    if incremental and col is not None:
+        try:
+            _existing = set(col.get(include=[]).get("ids", []))
+            _before = len(items)
+            items = [it for it in items if it[0] not in _existing]
+            log.info(f"incremental : {len(items)} nouvelles / {_before} (skip {_before - len(items)} déjà indexées)")
+        except Exception as e:
+            log.warning(f"incremental filter failed, full reindex: {e}")
     indexed, skipped = 0, 0
     for i in range(0, len(items), batch_size):
         if i > 0 and sleep_s:
