@@ -1,10 +1,24 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 27 juin 2026 close session **CURE TAXONOMIE 5 sources → 1** (Phases 0→4 chaînées). 5 commits dédiés (`38ee8ee` loader + YAML v2 → `7e2b61f` Source A morte → `8bbcdb9` Source E morte dict 2-niveaux → `7bf5f6a` Source C dérivée façade conservée → `82f5d4c` kill_switch dérivé assertion held-scopée). L'assertion a attrapé 1 incohérence MHI préexistante (decorrelators config.yaml ↔ ai_capex mapping) ; tranché bias-safe driver=ai_capex, layer reste energy/generation, config.yaml aligné. Périmètre disjoncteur passe **18 → 19 tickers** (MHI entre), vigilance -25% à 32 493€, trim partiel -35% à 28 160€. Sanity check final : Σ layer_primary = 100% pile (55 233€), ai_capex held = 78.4% VALEUR = exact match kill_switch live VM (43 324€), Positions ≡ Concentration. Production confirmée live VM (PID 447296, smoke `_cluster_membership() = 19 + MHI inclus + 43 324€`). Doctrine durable ajoutée `[[layer-vs-driver-orthogonal]]` (cas conglomérat ambigu, bias-safe).
+**Refresh** : 30 juin→01 juil 2026 close session **SOLIDIFICATION + AUDIT 3 DOMAINES**. 6 commits (`49c98eb`→`45d05da`) : serve résilient (bind-first+launchd KeepAlive), 2 fail-silents tués (`triggered_*_at` révision-reset, `size_recommend` mauvaise table), bandeau daily% honnête + cartes NEAR nominatives, migration 0064 (clamp dust qty vue positions). Data VM : 20 flags triggered orphelins nettoyés, AMD qty→0, Voyage AI câblée (index 5/422 rate-limited). **Audit code+dashboard+Obsidian** → 5 fail-silents HARD actifs (cf ÉTAT SYSTÈME + P0). **⚠️ deploy VM en attente** (bot 12 commits en retard, fast-forward propre). — *Refresh précédent 27/06 : cure taxonomie 5 sources → 1, cf ci-dessous.*
+**Refresh (27/06)** : close session **CURE TAXONOMIE 5 sources → 1** (Phases 0→4 chaînées). 5 commits dédiés (`38ee8ee` loader + YAML v2 → `7e2b61f` Source A morte → `8bbcdb9` Source E morte dict 2-niveaux → `7bf5f6a` Source C dérivée façade conservée → `82f5d4c` kill_switch dérivé assertion held-scopée). L'assertion a attrapé 1 incohérence MHI préexistante (decorrelators config.yaml ↔ ai_capex mapping) ; tranché bias-safe driver=ai_capex, layer reste energy/generation, config.yaml aligné. Périmètre disjoncteur passe **18 → 19 tickers** (MHI entre), vigilance -25% à 32 493€, trim partiel -35% à 28 160€. Sanity check final : Σ layer_primary = 100% pile (55 233€), ai_capex held = 78.4% VALEUR = exact match kill_switch live VM (43 324€), Positions ≡ Concentration. Production confirmée live VM (PID 447296, smoke `_cluster_membership() = 19 + MHI inclus + 43 324€`). Doctrine durable ajoutée `[[layer-vs-driver-orthogonal]]` (cas conglomérat ambigu, bias-safe).
 **Mode** : **INSTRUMENT HONNÊTE. STRUCTURE PAS LONGUEUR. FAITS PAS KEYWORDS.** Forward-only, le bot tourne, on laisse le temps faire.
 **Historique** : `SESSION_STATE.md` (sessions chronologiques) · `/tmp/TODO_pre_pruning_*.md` (snapshots pré-élagage)
 
 ---
+
+## 🟢 ÉTAT SYSTÈME (30/06→01/07 close solidification + audit 3 domaines)
+
+- **main HEAD `45d05da`** (6 commits, cf Refresh). **alembic head 0064** Mac+VM.
+- **⚠️ bot VM 12 commits en retard** (`2b855f1`, fast-forward propre, aucune divergence) → fixes `storage`(triggered-clear)/`size_recommend` PAS live. Séquence deploy dans SESSION_STATE close. Attend go explicite (restart bot prod).
+- Pytest : les 2 échecs (AMD dust + size_recommend) **corrigés** ; sinon 1977 passed. Dashboard serve sous launchd KeepAlive (bind-first ~4s). Bot VM vivant, crons 0-fail. Voyage embed OK (index sparse 5/422).
+
+### 🔴 P0 AUDIT — 5 fail-silents HARD actifs (30/06, détail SESSION_STATE close)
+- **A** Obsidian `mirror_thesis_aliases:380` non-idempotent (`split(",")` casse longNames à virgule) → AMZN **235 aliases** ré-ajoutés chaque run 30min. Fix parser quote-aware + nettoyer 8 notes. *(cron VM)*
+- **B** Dashboard `_perf_dwm` (TOP MOVERS) diverge de `_dp_pct` (sources ≠ : yfinance vs price_history) → daily% contradictoire. Fix : source unique. *(Mac)*
+- **C** Dashboard equity/CAGR/Sharpe/maxDD biaisés (look-ahead qty + survivorship + multi-devise sans FX, `render.py:999-1043`). Track record embelli — stratégique proof-of-value. *(Mac)*
+- **D** Code `kill_criteria_monitor.py:141-149` : prix absent → marges 0% fabriquées dans prompt LLM → faux KILL. Fix `return None`. *(cron VM)*
+- **E** Obsidian `mirror_transactions:451-489` fabrique `[[liens]]` morts. Fix : enrober que si résolu. *(cron VM)*
 
 ## 🟢 ÉTAT SYSTÈME (27/06 close cure taxonomie 5 sources → 1)
 

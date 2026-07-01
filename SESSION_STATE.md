@@ -4209,3 +4209,40 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 6. **MHI override-falsifiable-daté** : si conviction défense devient assertive (carnet commandes défense > X), open override datée avec invalidation condition. Sinon laisser MHI compter pleinement en ai_capex (bias-safe par défaut).
 
 **Backup config.yaml VM** : `~/config.yaml.backup_pre_phase4_*` créé avant pull. Pas de backup DB nominatif (sync auto rotation, change-set petit, code + config.yaml uniquement).
+
+---
+
+## Close 2026-06-30 (→ 07-01) — Solidification dashboard + chasse fail-silent + audit 3 domaines
+
+**Livré (6 commits, `b710254`→`45d05da`) :**
+- `49c98eb` — **serve résilient** : bind-first (200 en ~4s vs 223s de fenêtre aveugle) + agent launchd `com.olivier.presage-dashboard` KeepAlive (auto-restart prouvé kill→2s). Launcher `scripts/dashboard_launcher.sh` + plist mirroré `deploy/launchd_mac/`.
+- `f66458c` — **bandeau daily%** : `_dp_pct` affiche la dernière séance complète au lieu de 0% (doublon stale close-veille pré-ouverture US, 60% du book) + **cartes NEAR TARGET/STOP nominatives** (listent les tickers).
+- `69fea42` — **fix fail-silent `triggered_*_at`** : `update_thesis_field` reset le flag à la révision de niveau (sinon price_monitor supprime silencieusement l'alerte cible/stop). +2 tests régression.
+- `40c4dd6` — script one-off `clear_stale_triggers_2026-07-01.py`.
+- `122a6fe` — **migration 0064** : vue `positions` clampe le dust flottant de qty (`CASE WHEN ABS(net)<1e-6 THEN 0`). AMD −1.8e-07→0, 35 autres byte-identiques.
+- `45d05da` — **fix fail-silent `size_recommend`** : `_current_book_value_eur` lisait `portfolio_grade_history`/`created_at` (inexistants) → toujours None. Corrigé `portfolio_grades`/`snapshot_at` → retourne 57961€.
+
+**Data ops (VM autoritative, live) :** 20 flags `triggered_*_at` orphelins nettoyés (sweep #135 les posait en masse) → 0 orphelin, sync VM→Mac. Migration 0064 appliquée Mac+VM (alembic **0064** des 2 côtés). Clé **Voyage AI** installée `.env` Mac+VM, embed OK (dim 1024), index Chroma bootstrappé **5/422 (rate-limited free tier)**.
+
+**AUDIT 3 DOMAINES (points de solidification, tous vérifiés code+DB live) :**
+
+*Tier 1 — dégradation ACTIVE :*
+- **A (Obsidian, HARD)** `mirror_thesis_aliases:380` non-idempotent : `split(",")` casse les longNames à virgule → ré-ajoute alias chaque run 30min. **AMZN = 235 aliases** (`"Inc."` ×115). Fix : parser quote-aware + nettoyer 8 notes. Nettoyage cron VM requis.
+- **B (Dashboard, HARD)** `_perf_dwm` (TOP MOVERS) tire yfinance-live vs `_dp_pct` price_history → daily% **contradictoire** entre 2 panneaux (000660.KS −2.1% vs −0.8%) + pas le garde stale. Fix : dériver `_perf_dwm[d]` de `_dp_pct`.
+- **C (Dashboard, HARD)** equity curve/CAGR/Sharpe/maxDD (`render.py:999-1043`) **biaisés** : look-ahead qty + survivorship (`status='open'` only) + somme multi-devises sans FX. Track record embelli — critique pour vision proof-of-value. Fix : reconstruire du ledger transactions.
+- **D (Code, HARD)** `kill_criteria_monitor.py:141-149` : échec fetch prix → `current=0` → marges fabriquées 0% dans prompt LLM → faux KILL possible (monitor actif). Fix : `return None` si prix absent.
+- **E (Obsidian, HARD)** `mirror_transactions:451-489` fabrique des `[[liens]]` morts (`[[AMD]]`,`[[TSLA]]`,`[[6324.T]]`) — le cron viole l'anti-fantôme. Fix : enrober `[[…]]` que si résolu (pattern correct existe dans `mirror_decisions`).
+
+*Tier 2 — structurel :* 6324.T (HARMONIC c2) thèse active **sans note vault** (O3) · mirror fail-silent sur DB corrompue retourne 0 note (O4) · Concentration panel cap plat 8% vs caps conviction 8/6/4.5/3/2 sous-compte over-cap (D4) · `serve.py` mono-thread : `/chat` Opus gèle GET/health (D5, fix `ThreadingHTTPServer`) · render échoué → HTML stale sans bannière fraîcheur (D6) · `prices.py:69/95` sert prix caché arbitrairement vieux sans flag si yfinance down (C2) · format ticker DB `ASML.AS` ≠ frontmatter `ASML` auto-match silencieux (O6).
+
+*Tier 3 — hygiène :* fallback couleur secteur `#6B7686` hors YAML · label J-day figé 10/06 · désync conviction ALAB (DB c3/vault c2) · liens morts manuels `[[Biais 2 FOMO]]` · vault 74% auto-mirror (dérive entrepôt) · `_dp_pct` faux positif close inchangé · `_pnl_cost_map` fallback silencieux latent (mort côté render actuel).
+
+*SAIN vérifié :* firewall FAIT/JUGEMENT respecté (26 notes) · phantom tables clean · monitors sur journal append-only · get_fx_rate/get_current_price fail-closed propres.
+
+**⚠️ DEPLOY VM PENDANT** : bot VM 12 commits en retard (`2b855f1`), **fast-forward propre (aucune divergence)**. Mes fixes `storage.py`(triggered-clear) + `size_recommend.py` **pas live sur le bot** tant que pas déployé. Migration 0064 déjà appliquée VM (scp direct) — au `git pull` VM : `rm scripts/alembic/versions/0064_*.py` d'abord (fichier scp'é = collision untracked). Séquence : `git push origin main` → VM `rm 0064 scp'é` → `git pull --ff-only` (2b855f1→45d05da) → restart bot. Action prod = pas faite en autonomie, attend go explicite.
+
+**Entry next session :**
+1. **Décider le deploy VM** (push+pull+restart bot) — bloque la mise en prod de 2 fixes fail-silent + 6 commits d'aujourd'hui + 6 antérieurs.
+2. **Attaquer Tier 1 audit** : A/B/D/E sont des 1-liners (A/D/E touchent crons VM → deploy d'abord). C (track record honnête) = plus lourd, plus stratégique.
+3. **Voyage index sparse (5/422)** : backfill throttlé/batché OU trancher archi Chroma Mac-vs-VM (le bot VM upserte dans un index que le skill Mac ne lit pas ; VM n'a pas le pkg `voyageai`).
+4. **Nettoyer les 8 notes AMZN&co corrompues** (235 aliases) après le fix A.
