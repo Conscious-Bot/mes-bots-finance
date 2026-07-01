@@ -4246,3 +4246,28 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 2. **Attaquer Tier 1 audit** : A/B/D/E sont des 1-liners (A/D/E touchent crons VM → deploy d'abord). C (track record honnête) = plus lourd, plus stratégique.
 3. **Voyage index sparse (5/422)** : backfill throttlé/batché OU trancher archi Chroma Mac-vs-VM (le bot VM upserte dans un index que le skill Mac ne lit pas ; VM n'a pas le pkg `voyageai`).
 4. **Nettoyer les 8 notes AMZN&co corrompues** (235 aliases) après le fix A.
+
+---
+
+## Close 2026-07-01 (2) — marathon post-audit : deploy + Voyage + Telegram + Obsidian + CI verte
+
+11 commits (`a8f169e`→`6bc392a`). État final : **CI VERTE** (1re fois depuis plusieurs commits), Mac == VM == `6bc392a`, bot sain, tout committé/poussé/déployé.
+
+**Livré par chantier :**
+- **Deploy VM** : le bot tournait 12 commits en retard (fast-forward propre) → rattrapé. Les fixes `storage`(triggered-clear) + `size_recommend` sont maintenant LIVE sur le bot prod.
+- **Package trial sendable** (`a8f169e`, `f9f8b67`) : `packaging/trial/` (import_book seed CSV + backfill price_history, setup.sh, .env.example, README, build_package.sh). Build SÛR via **git-archive + allowlist + scan secret** (le 1er build denylist-rsync avait fuité credentials.json + .env.save + backup DB → leçon gravée : jamais denylist pour partager). `dist/` gitignoré. Zip backup `~/backups/presage-trial-20260701.zip`.
+- **Hygiène secrets** : 6 backups de secrets stale (`.env.save`, `credentials.pre-rotation`, `token.json.*`…) **sortis du repo** → `~/backups/secrets/` (chmod 600). `.gitignore` durci (`dist/`, `*.bak_*`, `bot.log.*`). Cruft racine nettoyé (`40%`, vieux logs).
+- **Bruit Telegram coupé** (`0e21eea`, `fc59acd`) : anniversaires **26 msg→1 digest** ; fork LIVING_GRAPH **rafale→persistant-seulement** (compteur, alerte au 3e regen consécutif, transitoires en log). Vérifié.
+- **Voyage / thesis-library** (`34b7c31`, `e149105`, `0cd5528`) : bootstrap **batché+throttlé** (tient free tier 3RPM/10K TPM) → index **5→447** ; **incrémental** (refresh 1.5s) ; **auto-refresh** hooké dans le sync VM→Mac (fail-soft). Archi : index **Mac-authoritative** reconstruit du DB Mac. Retrieval vérifié (query mémoire→MU/TSM/NVDA/AMAT). Clé installée Mac+VM.
+- **Obsidian** (`792d2d4`, `1e4bd07`) : **A** aliases churn (`split(",")` → parser quote-aware + dédup ; AMZN 254→5, stable) ; **E** liens `[[fantômes]]` (resolve→None→texte nu si pas de note) ; **O4** mirror fail-loud (exit≠0 + alerte Telegram si section échoue, plus de run "vert" muet).
+- **CI verte** (`342dbf2`) : allowlist `import_book` (ma régression) + `kill_switch` tests ×2 en `@live_data` (pré-existant, rouge depuis avant la session).
+- **Kill-criteria** (`6bc392a`, audit D) : prix absent → `_compute_current_state` retourne None → skip éval (avant : current=0 fabriquait pnl -100% + marge 0% → faux KILL sur monitor actif). Fail-closed.
+
+**Scorecard audit 5 fail-silents** : A✅ · **B écarté** (divergence TOP MOVERS transitoire, ne reproduit pas — vérifié) · **C reste** (equity/CAGR/Sharpe biaisés : look-ahead qty + survivorship `status='open'` + multi-devise sans FX, `render.py:995-1045` — CONFIRMÉ mais chantier) · D✅ · E✅. **4/5 traités.**
+
+**Entry next session :**
+1. **C = le seul vrai reste** : reconstruire l'equity curve depuis le **ledger transactions** (qty-à-la-date, inclure positions FERMÉES, FX historique) au lieu du `SELECT qty FROM positions WHERE status='open'`. Enjeu = crédibilité track record (vision proof-of-value). Chantier moyen, à faire à froid.
+2. **#1 KLAC + 5 dying + 1 dead à reposer** (humain, méthode #135) — inchangé.
+3. **B = transitoire connu** : TOP MOVERS (`_perf_dwm`) et bandeau (`_dp_pct`) PEUVENT diverger un instant (caches yfinance vs price_history) mais s'alignent — non-bug, ne pas "fixer".
+4. **Package trial** : `dist/presage-trial` régénérable via `bash packaging/trial/build_package.sh`. Si envoi réel à un ami → valider `setup.sh` en venv vierge (pip install 213 deps + alembic + import + serve) non encore testé bout-en-bout.
+5. **Voyage (optionnel)** : ajouter moyen de paiement → rebuilds complets en secondes (l'incrémental suffit au quotidien).
