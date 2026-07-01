@@ -45,8 +45,8 @@ def _current_book_value_eur() -> float | None:
     try:
         with storage.db() as cx:
             row = cx.execute(
-                "SELECT total_capital_eur FROM portfolio_grade_history "
-                "ORDER BY created_at DESC LIMIT 1"
+                "SELECT total_capital_eur FROM portfolio_grades "
+                "ORDER BY snapshot_at DESC LIMIT 1"
             ).fetchone()
             if row and row[0] and row[0] > 0:
                 return float(row[0])
