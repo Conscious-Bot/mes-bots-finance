@@ -154,3 +154,5 @@ dist/
 *.bak_*
 bot.log.*
 !bot.log.*.keep
+logs/
+config.yaml.backup*
