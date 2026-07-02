@@ -458,14 +458,72 @@ def _release_mono_instance_lock() -> None:
     _LOCK_FH = None
 
 
+def _check_critical_env_or_refuse() -> None:
+    """T0.6 (audit 17/07) : fail-closed au boot. Si ENV=prod et une clé critique
+    manque/vide, refuse de démarrer plutôt que tourner en mode dégradé silencieux
+    (L15/L21). Empêche 'feature dormante en prod sans signal' (divergence .env
+    Mac↔VM invisible). Le flock ne couvre pas ça — c'est une barrière orthogonale."""
+    env = (os.environ.get("ENV") or "").lower()
+    if env not in ("prod", "production"):
+        return
+    critical = ["TELEGRAM_BOT_TOKEN", "ANTHROPIC_API_KEY"]
+    missing = [k for k in critical if not (os.environ.get(k) or "").strip()]
+    if missing:
+        sys.stderr.write(
+            f"[bot.main] ENV=prod mais clés critiques manquantes : {', '.join(missing)}. "
+            "Refuse de démarrer (fail-closed T0.6). Exit 1.\n"
+        )
+        sys.exit(1)
+
+
+def _refuse_if_conflicting_poller(token: str | None) -> None:
+    """T0.4 (audit 17/07) : refuse de démarrer si une AUTRE instance poll déjà ce
+    bot (Telegram Conflict 409). Le long-polling est exclusif CROSS-MACHINE, donc
+    le flock local (_acquire_mono_instance_lock) ne peut pas l'attraper — c'est
+    précisément le split-brain Mac↔VM du 13/06. Fail-closed : mieux ne pas booter
+    qu'entrer dans un split-brain silencieux. Probe best-effort : une erreur réseau
+    ne bloque pas le boot (seul un 409 explicite refuse)."""
+    if not token:
+        return
+    import time as _t
+
+    import requests
+
+    def _probe() -> int | None:
+        try:
+            return requests.get(
+                f"https://api.telegram.org/bot{token}/getUpdates",
+                params={"timeout": 0, "limit": 1}, timeout=10,
+            ).status_code
+        except Exception as e:
+            log.warning(f"[bot.main] probe Conflict 409 échouée ({e}) — best-effort")
+            return None
+
+    # Retry sur 409 : un `systemctl restart` laisse l'ancienne instance relâcher
+    # son long-poll pendant ~qq s → 409 TRANSITOIRE. On ne refuse que si le 409
+    # PERSISTE (vrai split-brain cross-machine), sinon on bloquerait chaque deploy.
+    if _probe() != 409:
+        return
+    _t.sleep(6)
+    if _probe() != 409:
+        return
+    sys.stderr.write(
+        "[bot.main] Telegram Conflict 409 PERSISTANT : une AUTRE instance poll déjà "
+        "ce bot (split-brain Mac↔VM ?). Refuse de démarrer. Arrête l'autre poller. Exit 1.\n"
+    )
+    sys.exit(1)
+
+
 def main():
     _acquire_mono_instance_lock()
+    _check_critical_env_or_refuse()
     storage.log_event("startup", {"phase": "2"})
     config.load()
     log.info(
         f"Bot starting. Tickers: {len(config.get_tickers('core'))} core + {len(config.get_tickers('watch'))} watch + {len(config.get_tickers('extended'))} extended = {len(config.get_tickers('all'))} total"
     )
 
+    _refuse_if_conflicting_poller(config.telegram_token())
     app = Application.builder().token(config.telegram_token()).post_init(post_init).build()
     app.add_error_handler(error_handler)
     # Phase Solidification P0 #3 — handler usage telemetry (middleware in group=-1)
