@@ -4271,3 +4271,26 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 3. **B = transitoire connu** : TOP MOVERS (`_perf_dwm`) et bandeau (`_dp_pct`) PEUVENT diverger un instant (caches yfinance vs price_history) mais s'alignent — non-bug, ne pas "fixer".
 4. **Package trial** : `dist/presage-trial` régénérable via `bash packaging/trial/build_package.sh`. Si envoi réel à un ami → valider `setup.sh` en venv vierge (pip install 213 deps + alembic + import + serve) non encore testé bout-en-bout.
 5. **Voyage (optionnel)** : ajouter moyen de paiement → rebuilds complets en secondes (l'incrémental suffit au quotidien).
+
+---
+
+## Close 2026-07-02 — exécution audit stratégique (TIER 0+1) + doctrine soustraction ratifiée
+
+**Livré (Mac==VM==`2d4b552`) :**
+- **Gauge fix** (`6a2745a`) : hover badge +1495% → JS matchait l'ancien nom de mode (`price-native` vs `-entry-centred`). Affecte tous les gauges. (Hynix 40.7× = PAS un bug : stop stale 2.5M vs `stop_value` 2.2M — 5 thèses ont `_price`≠`_value`, à réconcilier ; MU propre.)
+- **Kill-criteria D** (`6bc392a`) : prix absent → None → skip éval (avant : current=0 fabriquait pnl -100%+marge 0% = faux KILL). Fail-closed.
+- **TIER 0 barrières** (`96bb138`) : T0.4 refuse-boot si Conflict 409 persistant (split-brain Mac↔VM cross-machine, retry 6s anti-overlap-restart) + T0.6 refuse-boot si ENV=prod & clé critique manque. Bot VM reboote OK (ENV=production + clés présentes).
+- **TIER 1 élagage** : CUT 4 modules morts (`68f9eb8`, −584l) · archive **21 scripts** + **9 docs** → Obsidian (`Archive/`, contenu préservé) puis git rm (`7c7367c`,`717961f`) · QUALITY_BAR réconcilié (`2d4b552`, delta racine mergé dans docs/) · gitignore durci · post-mortems fusionnés. **6 near-misses évités** par WHERE-check+code-ref (FICHE_TECHNIQUE, PHILOSOPHY, seed_sentinels, trigger_rewrites_c4/c5, refresh_positions, friction). `git add -A` imprudent rattrapé.
+
+**Audit TIER 0 restant = TES 2 signups** : T0.2 healthchecks.io (morning_chain/backup/drift meurent en silence — seul j_day wired) · T0.3 token dev BotFather (optionnel, T0.4 couvre déjà le dégât).
+
+**DOCTRINE SOUSTRACTION ratifiée** (cf mémoire [[feedback_subtraction_doctrine]]) : gate « si ça ne réduit pas un nombre, ce n'en est pas une » + 3 gardes (extincteur/déterminisme/spine) + clause miroir (les capteurs de Claude délogent un panneau) + compteurs (commandes ~71→≤10, handlers 71→−morts−doublons, orchestration 3→1, panneaux 28→≤12). Chaque passe : compteur avant/après dans SESSION_STATE.
+
+**FILE À LA RÉOUVERTURE (ordre figé, ne pas re-litiguer) :**
+1. **SPGI** (~20 min) — la seule chose avant tout.
+2. **3 arbitrages crowding** (~30s).
+3. **Passes de soustraction**, sessions fraîches, 1 surface/session : **passe 1 = commandes/handlers** → spine → dashboard.
+
+**Déclencheur** : à la réouverture, Olivier dit **« brief passe 1 »** → Claude livre le doc complet prêt à coller (doctrine + 3 gardes + compteurs + protocole de clôture) pour la session fraîche.
+
+**Reste flaggé** : glossary.md (case-trap FS Mac, laissé) · addendum QUALITY_BAR (delta racine trié, à intégrer finement) · 5 thèses `_price`≠`_value` (stops/targets stale, réconcilier côté VM avant décision) · audit C equity-curve (look-ahead+survivorship, chantier).
