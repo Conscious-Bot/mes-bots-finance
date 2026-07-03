@@ -555,6 +555,24 @@ async def daily_over_cap_check_job():
         log.error(f"daily_over_cap_check failed: {e}")
 
 
+async def daily_digue_check_job():
+    """ADR 015 §3 -- digues de concentration sur drawdown RÉALISÉ du book.
+    Détecte transition d'état digue (normal/gel_15/gel_25/prorata_35), notify
+    Telegram sur escalade/recovery, journalise chaque évaluation. Le gel de
+    /position_buy (Digue 1) et le prorata 20% (Digue 2) s'appliquent en direct
+    via current_digue_state() ; ce cron = alerte à l'instant T + audit trail."""
+    log.info("Daily digue check starting")
+    try:
+        from intelligence import digue_monitor as _dm
+        out = _dm.check_digue_transition()
+        log.info(
+            f"digue_check : status={out['status']} transition={out['transition']} "
+            f"dd={out['drawdown_pct']} notified={out['notified']}"
+        )
+    except Exception as e:
+        log.error(f"daily_digue_check failed: {e}")
+
+
 async def daily_stale_target_check_job():
     """#134 -- detection transition alive/dying/dead par these active.
 

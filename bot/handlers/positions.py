@@ -472,6 +472,33 @@ async def _buy_impl(update, ticker: str, qty: float, price: float, reasoning: st
     """
     assert update.message is not None
 
+    # 0a. Digue 1 (ADR 015 §3) : gel des ajouts/renforts sur drawdown RÉALISÉ du
+    # book (equity vs HWM). Ne vend rien. Fail-OPEN : un signal indisponible ou un
+    # bug du monitor NE bloque PAS l'achat (ne pas fabriquer un faux gel — L15).
+    try:
+        from intelligence import digue_monitor as _digue
+
+        _dg = _digue.current_digue_state()
+        if _dg["frozen"]:
+            _prorata = (
+                "\n⛔ Digue 2 armée (-35%) : prorata 20% compute_ai via /kill_exec."
+                if _dg["prorata_armed"]
+                else ""
+            )
+            await update.message.reply_text(
+                "🚫 Achat GELÉ — Digue concentration ADR 015.\n"
+                f"Drawdown réalisé {_dg['drawdown_pct']:+.1f}% (seuil gel -15%, "
+                f"état {_dg['status']}). Digue 1 gèle ajout/renfort, ne vend rien.\n"
+                "Déblocage = protocole de revue du cluster (relire thèses, "
+                "sentinelles S4/S5, inflation de conviction) + cooldown — pas un clic."
+                + _prorata
+            )
+            return
+    except Exception as _e_digue:
+        logging.getLogger("bot.position_buy").warning(
+            "digue gate check failed (fail-open): %s", _e_digue
+        )
+
     # 0. B2: Risk validation gate (feature-flagged, default OFF)
     from shared import config as _cfg_b2_mod, storage as _storage_b2_mod
 

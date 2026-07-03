@@ -365,6 +365,69 @@ def get_portfolio_snapshots(limit: int = 400) -> list[dict]:
     return [dict(zip(keys, r)) for r in rows]
 
 
+def insert_digue_alert(
+    status: str,
+    drawdown_pct: float,
+    hwm_value_eur: float | None = None,
+    current_value_eur: float | None = None,
+    snapshot_date: str | None = None,
+    notified: bool = False,
+    transition: str | None = None,
+) -> int | None:
+    """Insert un row d'évaluation digue (ADR 015). Toujours append (append-only).
+
+    status ∈ {normal, gel_15, gel_25, prorata_35}. transition ∈
+    {escalation, recovery, no_change, NULL}. prev_status = derniere row
+    (cf get_latest_digue_alert). Retour lastrowid ou None on error.
+    """
+    try:
+        with db() as cx:
+            cur = cx.execute(
+                "INSERT INTO digue_alerts "
+                "(status, drawdown_pct, hwm_value_eur, current_value_eur, "
+                " snapshot_date, notified, transition) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    status,
+                    float(drawdown_pct),
+                    hwm_value_eur,
+                    current_value_eur,
+                    snapshot_date,
+                    1 if notified else 0,
+                    transition,
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:  # pragma: no cover - defensive
+        import logging as _lg
+
+        _lg.getLogger(__name__).warning("insert_digue_alert failed: %s", e)
+        return None
+
+
+def get_latest_digue_alert() -> dict | None:
+    """Dernière row du journal digue = source de vérité prev_status. None si vide."""
+    try:
+        with db() as cx:
+            row = cx.execute(
+                "SELECT id, created_at, status, drawdown_pct, hwm_value_eur, "
+                "current_value_eur, snapshot_date, notified, transition "
+                "FROM digue_alerts ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+    except Exception as e:  # pragma: no cover - defensive
+        import logging as _lg
+
+        _lg.getLogger(__name__).warning("get_latest_digue_alert failed: %s", e)
+        return None
+    if not row:
+        return None
+    keys = (
+        "id", "created_at", "status", "drawdown_pct", "hwm_value_eur",
+        "current_value_eur", "snapshot_date", "notified", "transition",
+    )
+    return dict(zip(keys, row))
+
+
 # Note : _DB_PATH n'est plus un module attribute statique. Il est resolu
 # dynamiquement via __getattr__ (defini en bas du fichier) -> retourne
 # toujours la valeur COURANTE de DB_PATH. Ainsi, monkeypatch(storage,
