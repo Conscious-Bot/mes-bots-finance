@@ -146,8 +146,61 @@ def managed_track_record(inception: str = INCEPTION) -> dict | None:
     return compute_managed_return(nav0, navt, flows, inception, terminal_date)
 
 
+# Benchmarks pour la comparaison relative (book 70% AI-compute -> SMH = comp dur).
+_BENCHMARKS: tuple[str, ...] = ("SMH", "SPY", "QQQ")
+
+
+def managed_vs_benchmark(inception: str = INCEPTION) -> dict | None:
+    """Rendement managed flux-neutralisé RELATIF à SMH/SPY/QQQ sur la même fenêtre.
+
+    Le relatif filtre le mouvement de marché : à N faible, c'est le seul angle qui
+    porte du signal (le point-estimate absolu oscille de ±50% sur une séance).
+
+    IMPORTANT : fetch yfinance FRAIS (pas `shared.portfolio_metrics` qui lit
+    `price_history` — les ETF benchmark n'y sont PAS rafraîchis, figés au dernier
+    backfill => deltas faux). Réseau requis ; fail-soft (benchmark None si échec).
+    EUR-équivalent via EURUSD=X aux bornes (USD asset, vue investisseur EUR).
+    """
+    tr = managed_track_record(inception)
+    if tr is None:
+        return None
+    start, end = tr["inception"], tr["terminal_date"]
+    try:
+        import warnings
+
+        import yfinance as yf
+
+        warnings.filterwarnings("ignore")
+        px = yf.download(
+            [*_BENCHMARKS, "EURUSD=X"], start="2026-05-20", end="2026-07-04", progress=False
+        )["Close"]
+    except Exception:
+        return {**tr, "benchmarks": dict.fromkeys(_BENCHMARKS), "benchmark_reason": "fetch failed"}
+
+    def _close_le(series, d):
+        s = series.loc[:d]
+        return float(s.iloc[-1]) if len(s) else None
+
+    eur0, eur1 = _close_le(px["EURUSD=X"], start), _close_le(px["EURUSD=X"], end)
+    benches: dict = {}
+    for tk in _BENCHMARKS:
+        try:
+            p0, p1 = _close_le(px[tk], start), _close_le(px[tk], end)
+            if None in (p0, p1, eur0, eur1) or p0 == 0:
+                benches[tk] = None
+                continue
+            eur_ret = ((p1 / eur1) / (p0 / eur0) - 1) * 100  # EUR investor view
+            benches[tk] = {
+                "eur_ret_pct": round(eur_ret, 2),
+                "delta_pp": round(tr["perf_pct"] - eur_ret, 2),
+            }
+        except Exception:
+            benches[tk] = None
+    return {**tr, "benchmarks": benches, "eurusd_start": eur0, "eurusd_end": eur1}
+
+
 if __name__ == "__main__":
-    tr = managed_track_record()
+    tr = managed_vs_benchmark()
     if tr is None:
         print("track_record: pas de snapshot à l'inception (fail-closed)")
     else:
@@ -159,3 +212,10 @@ if __name__ == "__main__":
             f"  |  XIRR ≈ {tr['xirr_pct']:+.0f}%/an"
             + ("  [N<90j : variance-dominé]" if tr["low_n_warning"] else "")
         )
+        print("  RELATIF (même fenêtre, EUR-équiv, fetch frais) :")
+        for tk, b in (tr.get("benchmarks") or {}).items():
+            if b is None:
+                print(f"    {tk}: n/a")
+            else:
+                verd = "bat" if b["delta_pp"] >= 0 else "traîne"
+                print(f"    vs {tk}: bench {b['eur_ret_pct']:+.1f}%  → book {verd} de {b['delta_pp']:+.1f}pp")
