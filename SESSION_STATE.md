@@ -4305,7 +4305,13 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 - **Chiffre honnête** : perf managed flux-neutralisée = **+2.86% / 40j** (XIRR ~+28%/an, **N<90j variance-dominé**). Le +16.1% créditait au système les gains embarqués pré-inception. Nouveau chiffre = proof-of-value réel.
 - **Ledger fiable** : réconcilie à la vue positions au centième (25/26). Module read-only, aucun write/schéma touché (seam additif).
 
+**Managed vs benchmark — commit `2e3024a`** (`managed_vs_benchmark()`, fetch FRAIS) : book +2.86% vs **SMH +5.0% = −2.1pp** (traîne son secteur), vs SPY/QQQ +0.6/+1.3pp (bêta semi, pas skill). À N=40 le relatif est le seul angle qui porte du signal (chute −3.4% du 02/07 → le point-estimate absolu oscille ±50% sur une séance ; managed jusqu'au 30/06 valait +6.6%). **Verdict honnête : pas encore de preuve stock-picking edge.**
+**FINDING benchmark_tracker** : les ETF SMH/SPY/QQQ sont figés au **25/06** dans `price_history` (`yfinance_backfill`, jamais rafraîchis) → le monitor live wiré 26/06 compare la NAV actuelle à des prix stale = **deltas faux** (donnait SMH +13.1% au lieu de +5.0%). Fix = mettre les ETF dans la boucle de refresh (chantier VM).
+
+**Cadre acté (pushback Olivier 03/07, juste)** : le +16.1% n'est PAS "faux/stupide" — c'est le coussin latent réel du book sur base de coût, bon pour la santé de position. Erreur = seulement le LABEL "proof-of-value" (il embarque des gains pré-inception). Retiré le jugement "flatteur". Vrai verdict = "trop tôt, trop volatil (N=40) pour conclure".
+
 **Restes audit C (writes VM séparés, PAS ce soir)** :
 1. **Purger lignes smoke** `transactions` ids 43-54 (`SMOKE126`/`SMK126`) — polluent le ledger.
 2. **Codifier `ADJUST`** dans SPEC_LEDGER (n=2 GEV, `broker_reconcile` ; la vue nette à zéro, reconstruction naïve casse).
-3. **Wire dashboard** : afficher le +2.86% managed à la place / à côté du +16.1% (render.py, surface visible → session dédiée seam).
+3. **Wire dashboard** : afficher le +2.86% managed + relatif SMH à la place / à côté du +16.1% (render.py, surface visible → session dédiée seam).
+4. **ETF refresh** : brancher SMH/SPY/QQQ dans la boucle de prix (sinon benchmark_tracker live reste faux).
