@@ -4288,8 +4288,8 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 
 **FILE À LA RÉOUVERTURE (ordre figé, ne pas re-litiguer) :**
 1. ~~**SPGI**~~ ✅ **FAIT 03/07** — thèse id 57 posée (C4, entry 440 / partial 475 / full 520 / stop 390, décorrélateur de facteur PAS tail-hedge, `_price`==`_value` J0). Achat starter ~4000€ NON exécuté → logger le fill à l'achat broker.
-2. **3 arbitrages crowding** (~30s) — ⚠️ non définis dans SESSION_STATE (détail resté dans l'autre session). À la réouverture, Olivier donne les 3 (quels noms/décisions crowding).
-3. **Passes de soustraction**, sessions fraîches, 1 surface/session : **passe 1 = commandes/handlers** → spine → dashboard.
+2. ~~**3 arbitrages crowding**~~ ✅ **RÉSOLU 03/07 : AUCUN TRIM** (hold all). Cohérent phase BUILD (pas de trims hardcore en construction) + concentration gérée par digues ADR 015, pas trims ad-hoc.
+3. **Passes de soustraction**, sessions fraîches, 1 surface/session : **passe 1 = commandes/handlers** → spine → dashboard. **File dégagée** (SPGI + crowding faits).
 
 **Déclencheur** : à la réouverture, Olivier dit **« brief passe 1 »** → Claude livre le doc complet prêt à coller (doctrine + 3 gardes + compteurs + protocole de clôture) pour la session fraîche.
 
