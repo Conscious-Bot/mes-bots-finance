@@ -4287,8 +4287,8 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 **DOCTRINE SOUSTRACTION ratifiée** (cf mémoire [[feedback_subtraction_doctrine]]) : gate « si ça ne réduit pas un nombre, ce n'en est pas une » + 3 gardes (extincteur/déterminisme/spine) + clause miroir (les capteurs de Claude délogent un panneau) + compteurs (commandes ~71→≤10, handlers 71→−morts−doublons, orchestration 3→1, panneaux 28→≤12). Chaque passe : compteur avant/après dans SESSION_STATE.
 
 **FILE À LA RÉOUVERTURE (ordre figé, ne pas re-litiguer) :**
-1. **SPGI** (~20 min) — la seule chose avant tout.
-2. **3 arbitrages crowding** (~30s).
+1. ~~**SPGI**~~ ✅ **FAIT 03/07** — thèse id 57 posée (C4, entry 440 / partial 475 / full 520 / stop 390, décorrélateur de facteur PAS tail-hedge, `_price`==`_value` J0). Achat starter ~4000€ NON exécuté → logger le fill à l'achat broker.
+2. **3 arbitrages crowding** (~30s) — ⚠️ non définis dans SESSION_STATE (détail resté dans l'autre session). À la réouverture, Olivier donne les 3 (quels noms/décisions crowding).
 3. **Passes de soustraction**, sessions fraîches, 1 surface/session : **passe 1 = commandes/handlers** → spine → dashboard.
 
 **Déclencheur** : à la réouverture, Olivier dit **« brief passe 1 »** → Claude livre le doc complet prêt à coller (doctrine + 3 gardes + compteurs + protocole de clôture) pour la session fraîche.
