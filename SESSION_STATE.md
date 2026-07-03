@@ -4315,3 +4315,18 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 2. **Codifier `ADJUST`** dans SPEC_LEDGER (n=2 GEV, `broker_reconcile` ; la vue nette à zéro, reconstruction naïve casse).
 3. **Wire dashboard** : afficher le +2.86% managed + relatif SMH à la place / à côté du +16.1% (render.py, surface visible → session dédiée seam).
 4. **ETF refresh** : brancher SMH/SPY/QQQ dans la boucle de prix (sinon benchmark_tracker live reste faux).
+
+## Digues ADR 015 — Digue 1 livrée + déployée — 2026-07-04
+
+**Path B étape 2** (cf [[project_fund_as_business_path_B]]) : après metrics (audit C), les digues = le "loss challenge" mécanisé. **Commit `b0008c0`, Mac==VM, migration 0065, bot VM restarté.**
+
+`intelligence/digue_monitor.py` — défense en profondeur sur **drawdown RÉALISÉ** (`portfolio_snapshots.drawdown_pct` vs HWM, jamais classify_regime). Classifier gradué : `normal >-15% · gel_15 · gel_25 (-25% vigilance, même gel) · prorata_35 (-35%)`. **Question 3-paliers tranchée** : gel_15 ET gel_25 gèlent tous les deux = un seul gel gradué (pas doublon).
+- **Digue 1 OPÉRATIONNELLE** : gate `/position_buy` dans `_buy_impl` (buy + buy_quick), refuse ajout/renfort à −15%, **ne vend rien**, fail-OPEN (bug/signal absent ne bloque pas, ne fabrique pas de faux gel — L15).
+- **Digue 2 DÉTECTÉE+alertée** (prorata_35) ; calcul prorata 20% exact sur compute_ai via `kill_exec` = seam suivant.
+- Table `digue_alerts` append-only + `check_digue_transition` (cron étape 4) + notify escalade/recovery. **17 tests.** État = **normal/DORMANT** (DD −9.3% < −15%), check live VM validé (no_change, no notify).
+
+**Restes digues (seams suivants, sessions dédiées)** :
+1. **Digue 2 prorata** : calcul 20% par ligne compute_ai + wire `cmd_kill_exec` (aujourd'hui `prorata_35` alerté seulement).
+2. **Override Digue 1** : protocole revue + cooldown incompressible (aujourd'hui refus fail-closed sans déblocage propre).
+3. **Réconcilier** labels config kill_switch `-25/-35` avec les états digue.
+4. **Dashboard** : afficher DD réalisé vs seuils digues (−15/−25/−35) + cap 70% en flag (ADR §Conséquences).
