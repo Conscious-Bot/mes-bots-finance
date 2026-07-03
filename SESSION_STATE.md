@@ -4293,4 +4293,19 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 
 **Déclencheur** : à la réouverture, Olivier dit **« brief passe 1 »** → Claude livre le doc complet prêt à coller (doctrine + 3 gardes + compteurs + protocole de clôture) pour la session fraîche.
 
-**Reste flaggé** : glossary.md (case-trap FS Mac, laissé) · addendum QUALITY_BAR (delta racine trié, à intégrer finement) · 5 thèses `_price`≠`_value` (stops/targets stale, réconcilier côté VM avant décision) · audit C equity-curve (look-ahead+survivorship, chantier).
+**Reste flaggé** : glossary.md (case-trap FS Mac, laissé) · addendum QUALITY_BAR (delta racine trié, à intégrer finement) · 5 thèses `_price`≠`_value` (stops/targets stale, réconcilier côté VM avant décision) · ~~audit C equity-curve~~ ✅ **FAIT 03/07 (voir ci-dessous)**.
+
+## Audit C livré + direction fonds Path B — 2026-07-03
+
+**Path B acté** (cf [[project_fund_as_business_path_B]]) : "gérer comme un fonds" = discipline prop-grade sur le book existant, PAS compte financé externe FTMO. Séquence : **metrics right (audit C ✅) → digues ADR 015 → date build→operate → capital/scale**.
+
+**Audit C — commit `1b53807` (Mac==VM), `intelligence/track_record.py` + 8 tests :**
+- **Bug prouvé** : `portfolio_snapshots.pnl_pct` (+16.1% affiché) sous-estimait la vraie perf de ~2.6× par SURVIVORSHIP — **+9098€ de P&L réalisé** (AMD +4037 / STMPA +1754 / TSLA −442 fermées + trims GOOGL/MU/TSM…) étaient jetés ; en plus dénominateur mouvant mélangeait apports et perf.
+- **Méthodo actée** : PRESAGE-managed only (inception **2026-05-23**, 1er snapshot forward), PAS lifetime TR 2021-2026 (= cost-basis/contexte). Le ledger contient 4.5 ans d'historique TR réel + anchors PEA, **zéro double-count** (anchors PEA-only, disjoints du TR).
+- **Chiffre honnête** : perf managed flux-neutralisée = **+2.86% / 40j** (XIRR ~+28%/an, **N<90j variance-dominé**). Le +16.1% créditait au système les gains embarqués pré-inception. Nouveau chiffre = proof-of-value réel.
+- **Ledger fiable** : réconcilie à la vue positions au centième (25/26). Module read-only, aucun write/schéma touché (seam additif).
+
+**Restes audit C (writes VM séparés, PAS ce soir)** :
+1. **Purger lignes smoke** `transactions` ids 43-54 (`SMOKE126`/`SMK126`) — polluent le ledger.
+2. **Codifier `ADJUST`** dans SPEC_LEDGER (n=2 GEV, `broker_reconcile` ; la vue nette à zéro, reconstruction naïve casse).
+3. **Wire dashboard** : afficher le +2.86% managed à la place / à côté du +16.1% (render.py, surface visible → session dédiée seam).
