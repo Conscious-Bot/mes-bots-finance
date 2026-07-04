@@ -1,16 +1,24 @@
 """Digues de concentration — ADR 015 §3 (défense en profondeur).
 
-Deux digues sur le **drawdown RÉALISÉ du book** (equity vs high-water-mark, fait
-objectif), JAMAIS `classify_regime` (capteur à faux positifs). Le bot ne trade
-pas : les digues sont gate + reco, exécution manuelle.
+Ce module porte la Digue 1 (GEL comportemental) sur le **drawdown RÉALISÉ du book**
+(equity vs HWM, fait objectif), JAMAIS `classify_regime`. Le bot ne trade pas :
+gate + reco, exécution manuelle.
 
   - Digue 1 (gel_15, -15%) : gèle /position_buy (ajout/renfort refusé). Ne vend
     RIEN. Protocole de revue + cooldown avant déblocage (à implémenter — pour
     l'instant refus fail-closed avec message).
-  - gel_25 (-25%) : vigilance renforcée, MÊME action (gel). Réconcilie le doublon
-    de gel kill_switch Stage 1 / digue 1 en un seul gel gradué (ADR 015 §3 digue 2).
-  - Digue 2 (prorata_35, -35%) : prorata 20% uniforme sur chaque ligne compute_ai
-    (:381), reco kill_switch, gel maintenu.
+  - gel_25 (-25%) : vigilance renforcée, MÊME action (gel). Un seul gel gradué.
+  - prorata_35 (-35% book) : gel maintenu + heads-up. NE déclenche PAS le prorata.
+
+RÉCONCILIATION DES SIGNAUX (décision 04/07, point d'implémentation ouvert ADR §3) :
+deux signaux, deux jobs. Le GEL (Digue 1, comportemental « arrête d'ajouter »)
+utilise le DD BOOK (ici). Le PRORATA (Digue 2, frein de capital sur la
+concentration) utilise le DD GRAPPE compute_ai (`risk/kill_switch.py`, cluster vs
+pic 90j) — car un frein de concentration doit se déclencher sur la détresse de
+concentration, pas sur une baisse book possiblement portée par le ballast. La
+graduation vécue : book -15% stop-add → grappe -25% vigilance → grappe -35% prorata.
+Le prorata est donc mono-déclencheur (kill_switch) ; ici prorata_35 (book) ne fait
+que défèrer au kill_switch (à -35% book la grappe à 73% est quasi-sûrement en Stage 2).
 
 Signal = portfolio_snapshots.drawdown_pct (déjà calculé vs HWM dans snapshot.py).
 État actuel dormant tant que DD > -15% (conforme monitor_defaults : défaut dormant).
@@ -178,18 +186,17 @@ def check_digue_transition() -> dict:
             if is_frozen(new_status):
                 body += "\n🚫 /position_buy GELÉ (ajout/renfort refusé). Ne vend rien."
             if is_prorata_armed(new_status):
+                # Réconciliation des signaux (décision 04/07) : le PRORATA (Digue 2)
+                # est un frein de CONCENTRATION → déclenché par le DD GRAPPE
+                # (kill_switch, cluster compute_ai), PAS par le DD book. À -35% book
+                # la grappe (73% du book) est quasi-certainement en Stage 2 aussi ;
+                # la digue défère donc au kill_switch pour le prorata chiffré, elle
+                # ne calcule pas un 2e prorata book-side. Ici : heads-up + gel maintenu.
                 body += (
-                    "\n⛔ Digue 2 armée : prorata 20% uniforme sur chaque ligne "
-                    "compute_ai — reco /kill_exec (exécution manuelle)."
+                    "\n⛔ Book DD -35%+ : gel maintenu. Le PRORATA 20% (Digue 2) se "
+                    "déclenche sur le DD de la grappe compute_ai via le kill_switch — "
+                    "plan chiffré exact dans /kill_exec quand Stage 2 grappe s'arme."
                 )
-                # Source unique du calcul prorata = risk.kill_switch (réutilisé
-                # par les deux déclencheurs : DD book ici, DD cluster côté kill).
-                try:
-                    from risk.kill_switch import compute_prorata_plan, format_prorata_plan
-
-                    body += "\n\n" + format_prorata_plan(compute_prorata_plan())
-                except Exception as e:
-                    log.warning("digue prorata plan compute failed: %s", e)
             if new_status == "normal":
                 body += "\n✓ Digues levées — /position_buy de nouveau autorisé."
             notify.send_text(body)
