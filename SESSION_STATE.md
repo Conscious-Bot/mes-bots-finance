@@ -4327,10 +4327,11 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 
 **Digue 2 LIVRÉE 04/07** (commit `27d2869`, Mac==VM, bot restarté) : `compute_prorata_plan(0.20)` dans `risk/kill_switch.py` requalifie le trim Stage 2 SÉLECTIF → PRORATA UNIFORME 20% sur chaque ligne compute_ai (non-discrétionnaire = anti-biais #1). Plan chiffré exact injecté dans `cmd_kill_exec` (Stage≥2) + alerte digue prorata_35 (source unique). Book actuel : 19 lignes, ~8.5k€ levés sur 42.7k€ grappe. 8 tests. Validé VM.
 
-**Restes digues (seams suivants, sessions dédiées)** :
-1. **Réconcilier les 2 signaux −35%** : book DD (digue_monitor) vs cluster DD (kill_switch) = 2 déclencheurs distincts pointant le même prorata. ADR §3 dit "signal = book" mais reco "sur kill_switch" (cluster). Point d'implémentation explicite ADR — à trancher.
-2. **Override Digue 1** : protocole revue + cooldown incompressible (aujourd'hui refus fail-closed sans déblocage propre). Réutiliser le pattern override kill_switch (min_chars 40 + date falsification) ?
-3. **Réconcilier** labels config kill_switch `-25/-35` avec les états digue (cosmétique).
-4. **Dashboard** : afficher DD réalisé vs seuils digues (−15/−25/−35) + cap 70% en flag (ADR §Conséquences).
+**Réconciliation signaux TRANCHÉE 04/07** (commit `7b2ba0d`) : deux signaux, deux jobs. **GEL (Digue 1, comportemental) = DD BOOK** (digue_monitor) ; **PRORATA (Digue 2, frein capital concentration) = DD GRAPPE compute_ai** (kill_switch, cluster vs pic 90j) — un frein de concentration se déclenche sur la détresse de concentration, pas sur une baisse book portée par le ballast. Prorata MONO-déclencheur (kill_switch) ; digue_monitor.prorata_35 défère (heads-up, pas de 2e prorata book-side). Graduation vécue : book −15% stop-add → grappe −25% vigilance → grappe −35% prorata. Honore l'esprit ADR (DD réalisé objectif, JAMAIS classify_regime).
+
+**Restes digues (raffinements légers, sessions dédiées)** :
+1. **Override Digue 1** : protocole revue + cooldown incompressible (aujourd'hui refus fail-closed sans déblocage propre). Réutiliser le pattern override kill_switch (min_chars 40 + date falsification) ?
+2. **Labels config** kill_switch `-25/-35` (cosmétique).
+3. **Dashboard** : afficher DD réalisé vs seuils digues (−15/−25/−35) + cap 70% en flag (ADR §Conséquences).
 
 **Digues ADR 015 = les DEUX livrées et déployées** (Digue 1 gate −15% + Digue 2 prorata −35%). Path B étape 2 substantiellement close ; restent 4 raffinements (réconciliation signaux, override, labels, dashboard).
