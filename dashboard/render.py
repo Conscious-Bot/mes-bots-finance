@@ -8802,36 +8802,41 @@ def render() -> Path:
         _gscore_int = 0
     _grade_color = "acc" if _gscore_int >= 70 else ("warn" if _gscore_int >= 50 else "bear")
     # (Grade sparkline retire 01/06 user feedback : pas besoin sur Portfolio grade)
-    # === Macro state strate (06/06 user "tout connecter aux memes sources") ===
-    # Lecture canonique : shared.macro_state.current_macro_state(). Meme dict
-    # que celui consomme par _urgence panel. Source unique.
+    # === Macro stress strate ===
+    # SOURCE UNIQUE = intelligence.macro_stress (courbe v1 YAML, validée+testée),
+    # LA MÊME que le hero Urgence. Cure 04/07 (audit dashboard, fork CRITIQUE) :
+    # cette strate lisait shared.macro_state = le composite V3 acté BROKEN le
+    # 27/06 → l'Overview affichait « STRESS 108 » pendant qu'Urgence affichait
+    # « STABLE 25 ». Le chip regime (confluence classify_regime) est un instrument
+    # SÉPARÉ, affiché page Alerts avec son propre label — pas mélangé ici.
     try:
         import html as _html
 
-        from shared.macro_state import current_macro_state, regime_color
-        _ms = current_macro_state()
-        _ms_regime = _ms["regime"]
-        _ms_score = _ms["score"]
-        _ms_buckets = _ms["bucket_counts"]
-        _ms_color = regime_color(_ms_regime)
+        from intelligence.macro_stress import macro_stress_now
+        _msx = macro_stress_now()
+        _msx_state = str(_msx.get("state") or "NO-DATA")
+        _msx_score = _msx.get("score")
+        _msx_cov = _msx.get("coverage_pct")
+        _msx_color = {
+            "STABLE": "calm", "STRESSED": "warn", "FRAGILE": "warn", "BROKEN": "bear",
+        }.get(_msx_state, "steel")
+        _msx_score_txt = f"{_msx_score:.0f}" if _msx_score is not None else "&mdash;"
+        _msx_cov_txt = f"{_msx_cov:.0f}%" if _msx_cov is not None else "&mdash;"
         _ms_tip = (
-            f"Etat macro courant. Regime: {_ms_regime}. Score V3: {_ms_score:.0f}. "
-            f"Indicateurs : ACT {_ms_buckets.get('act', 0)} / "
-            f"WATCH {_ms_buckets.get('watch', 0)} / CALM {_ms_buckets.get('calm', 0)} / "
-            f"SILENT {_ms_buckets.get('silent', 0)}. "
-            "Source : shared.macro_state. Detail : page Alerts."
+            f"Courbe de stress macro (v1 YAML, source unique — même lecture que la "
+            f"page Alerts). État : {_msx_state}. Indice : {_msx_score_txt} "
+            f"(0=calme, 100=crise). Couverture données : {_msx_cov_txt} du poids du "
+            "modèle. Le RÉGIME (confluence, échelle distincte) vit page Alerts. "
+            "Source : intelligence.macro_stress."
         )
         _macro_state_strate = (
             '<div class="ps-strate" data-tip="' + _html.escape(_ms_tip, quote=True) + '">'
-            + '<div class="ps-lbl">Macro state</div>'
+            + '<div class="ps-lbl">Macro stress</div>'
             + '<div class="ps-macro-row" style="align-items:baseline;gap:var(--s4)">'
-            + f'<div class="ps-val {_ms_color}" style="font-size:var(--t-h2)">{_ms_regime.replace("_", " ")}</div>'
-            + f'<div class="ps-macro-meta">score {_ms_score:.0f}</div>'
+            + f'<div class="ps-val {_msx_color}" style="font-size:var(--t-h2)">{_msx_state}</div>'
+            + f'<div class="ps-macro-meta">indice {_msx_score_txt}</div>'
             + '<div class="ps-macro-meta" style="margin-left:auto">'
-            + f'<span class="bear" style="font-weight:600">ACT {_ms_buckets.get("act", 0)}</span>'
-            + ' &middot; '
-            + f'<span class="warn" style="font-weight:600">WATCH {_ms_buckets.get("watch", 0)}</span>'
-            + f' &middot; CALM {_ms_buckets.get("calm", 0)} &middot; SILENT {_ms_buckets.get("silent", 0)}'
+            + f'couverture {_msx_cov_txt} &middot; d&eacute;tail : Alerts'
             + '</div>'
             + '</div>'
             + '</div>'

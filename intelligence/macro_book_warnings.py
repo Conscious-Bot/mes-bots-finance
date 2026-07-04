@@ -92,7 +92,10 @@ def compute_book_warnings(
             rule_id="R1_semis_concentration",
             action=f"Tighten stops on the AI-capex cluster ({ai_capex_share:.0f}% of book)",
             rationale=(
-                f"Market in {regime}. {tyx_phrase}"
+                # « Regime … (confluence) » et pas « Market in … » : le régime
+                # (classify_regime) est une échelle DISTINCTE de la courbe de
+                # stress v1 (STABLE/STRESSED…) — désambiguïsation audit 04/07.
+                f"Regime {regime} (confluence). {tyx_phrase}"
                 f"Growth multiples crack first on brutal repricing, "
                 f"and your book is concentrated at {ai_capex_share:.0f}% on the ai_capex driver."
             ),
@@ -136,7 +139,7 @@ def compute_book_warnings(
             rule_id="R4_auto_ev_stress",
             action="Trim the auto/EV cluster",
             rationale=(
-                "Market in STRESS and auto cycle is contracting. "
+                "Regime STRESS (confluence) and auto cycle is contracting. "
                 "Margins under pressure + fragile sentiment = rapid drop possible."
             ),
             tickers=by_sector.get("auto_ev", {}).get("tickers", [])[:5],
