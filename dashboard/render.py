@@ -9816,7 +9816,22 @@ def render() -> Path:
             return OUTPUT
     except OSError:
         pass
-    OUTPUT.write_text(html)
+    # Écriture ATOMIQUE (audit 04/07, dashboard E1) : serve.py sert ce fichier en
+    # concurrence pendant qu'on le réécrit (845 KB). tmp + replace garantit qu'un
+    # GET voit soit l'ancien fichier complet, soit le nouveau — jamais un HTML
+    # tronqué (rename POSIX atomique sur le même volume).
+    import os as _os
+    import tempfile as _tempfile
+
+    _fd, _tmp = _tempfile.mkstemp(dir=str(OUTPUT.parent), suffix=".tmp")
+    _tmp_path = Path(_tmp)
+    try:
+        with _os.fdopen(_fd, "w") as _f:
+            _f.write(html)
+        _tmp_path.replace(OUTPUT)
+    finally:
+        with contextlib.suppress(OSError):
+            _tmp_path.unlink(missing_ok=True)
 
     # LIVING GRAPH W0 (#110, SPEC §3.3+§4) : detect_forks au regen-end.
     # Le regen EST le battement -- les producteurs canoniques (ledger_pmp,

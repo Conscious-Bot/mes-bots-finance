@@ -22,6 +22,10 @@ from shared.env import env
 
 PORT = env.presage_port
 INTERVAL = env.presage_refresh_seconds
+# /readyz : un regen sain arrive tous les INTERVAL + durée de regen (~260s). On
+# tolère ~2 cycles ratés avant de crier not_ready (sinon flapping en régime sain).
+_READYZ_REGEN_BUDGET = 300  # majorant généreux d'une durée de regen
+_READYZ_STALE_SEC = 2 * (INTERVAL + _READYZ_REGEN_BUDGET)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 # Modules dont les changements doivent declencher un reload.
@@ -192,7 +196,12 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
                 try:
                     age_sec = _t.time() - _last_regen_ts if _last_regen_ts else 99999
                     checks["regen_age_sec"] = int(age_sec)
-                    checks["regen_fresh"] = age_sec < 300  # 5 min
+                    # Seuil réaliste (audit 04/07 M2) : un cycle sain = INTERVAL
+                    # d'attente + durée de regen (~230-260s). L'ancien 300s fixe
+                    # faisait flapper /readyz en 503 ~40% du temps en régime NORMAL.
+                    # Stale = 2 cycles ratés (INTERVAL + regen) + marge.
+                    checks["regen_stale_threshold_sec"] = _READYZ_STALE_SEC
+                    checks["regen_fresh"] = age_sec < _READYZ_STALE_SEC
                 except Exception:
                     checks["regen_age_sec"] = -1
                     checks["regen_fresh"] = False
@@ -264,8 +273,17 @@ def _regen_loop():
         time.sleep(INTERVAL)
 
 
+class _ThreadingServer(socketserver.ThreadingTCPServer):
+    """Serveur multi-thread (audit 04/07 E2) : sans ça, un POST /chat synchrone
+    (appel LLM, secondes à dizaines de s) gelait TOUT le serving — dashboard.html
+    ET les endpoints santé /healthz /readyz (qui devenaient mensongers par
+    timeout). daemon_threads : les requêtes en vol ne bloquent pas l'arrêt."""
+
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 def main():
-    socketserver.TCPServer.allow_reuse_address = True
     # Bind-first (fix 30/06) : le socket s'ouvre AVANT le render initial. Avant,
     # _fresh_render() bloquant (~100s de fetch prix) précédait le bind -> fenêtre
     # aveugle où le port n'existait pas = "connexion refusée" au lancement. Désormais
@@ -273,7 +291,7 @@ def main():
     # _regen_loop fait le render initial en thread puis rafraîchit le fichier.
     threading.Thread(target=_regen_loop, daemon=True).start()
     handler = functools.partial(NoCache, directory="dashboard")
-    with socketserver.TCPServer(("127.0.0.1", PORT), handler) as srv:
+    with _ThreadingServer(("127.0.0.1", PORT), handler) as srv:
         print(f"[serve] live -> http://127.0.0.1:{PORT}/dashboard.html  (regen {INTERVAL}s)", flush=True)
         srv.serve_forever()
 
