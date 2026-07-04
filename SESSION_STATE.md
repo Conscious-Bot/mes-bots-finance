@@ -4325,8 +4325,12 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 - **Digue 2 DÉTECTÉE+alertée** (prorata_35) ; calcul prorata 20% exact sur compute_ai via `kill_exec` = seam suivant.
 - Table `digue_alerts` append-only + `check_digue_transition` (cron étape 4) + notify escalade/recovery. **17 tests.** État = **normal/DORMANT** (DD −9.3% < −15%), check live VM validé (no_change, no notify).
 
+**Digue 2 LIVRÉE 04/07** (commit `27d2869`, Mac==VM, bot restarté) : `compute_prorata_plan(0.20)` dans `risk/kill_switch.py` requalifie le trim Stage 2 SÉLECTIF → PRORATA UNIFORME 20% sur chaque ligne compute_ai (non-discrétionnaire = anti-biais #1). Plan chiffré exact injecté dans `cmd_kill_exec` (Stage≥2) + alerte digue prorata_35 (source unique). Book actuel : 19 lignes, ~8.5k€ levés sur 42.7k€ grappe. 8 tests. Validé VM.
+
 **Restes digues (seams suivants, sessions dédiées)** :
-1. **Digue 2 prorata** : calcul 20% par ligne compute_ai + wire `cmd_kill_exec` (aujourd'hui `prorata_35` alerté seulement).
-2. **Override Digue 1** : protocole revue + cooldown incompressible (aujourd'hui refus fail-closed sans déblocage propre).
-3. **Réconcilier** labels config kill_switch `-25/-35` avec les états digue.
+1. **Réconcilier les 2 signaux −35%** : book DD (digue_monitor) vs cluster DD (kill_switch) = 2 déclencheurs distincts pointant le même prorata. ADR §3 dit "signal = book" mais reco "sur kill_switch" (cluster). Point d'implémentation explicite ADR — à trancher.
+2. **Override Digue 1** : protocole revue + cooldown incompressible (aujourd'hui refus fail-closed sans déblocage propre). Réutiliser le pattern override kill_switch (min_chars 40 + date falsification) ?
+3. **Réconcilier** labels config kill_switch `-25/-35` avec les états digue (cosmétique).
 4. **Dashboard** : afficher DD réalisé vs seuils digues (−15/−25/−35) + cap 70% en flag (ADR §Conséquences).
+
+**Digues ADR 015 = les DEUX livrées et déployées** (Digue 1 gate −15% + Digue 2 prorata −35%). Path B étape 2 substantiellement close ; restent 4 raffinements (réconciliation signaux, override, labels, dashboard).
