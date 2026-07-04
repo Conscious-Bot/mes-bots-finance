@@ -51,10 +51,8 @@ jobs:
                --follow-imports=silent
       - name: Run pytest with coverage (skip slow + live_data)
         # marker `slow` exclu : tests reseau (SEC EDGAR) + Claude API.
-        # marker `live_data` exclu : tests qui lisent storage.DB_PATH
-        #   (data/bot.db gitignored, absent en CI -> OperationalError).
-        # Cf pytest.ini markers + commit 06/06 (13 fichiers marques file-level).
-        # Local : tirer `pytest -m live_data` separement pour ces tests.
+        # marker `live_data` exclu ICI : rejoue a l'etape suivante contre la
+        #   DB fixture (scripts/ci_fixture_db.py). Cf pytest.ini markers.
         run: |
           pytest tests/ -v --tb=short -m "not slow and not live_data" \
             --cov=shared.math_helpers \
@@ -63,6 +61,18 @@ jobs:
             --cov=intelligence.learning \
             --cov-report=term-missing \
             --cov-report=xml
+
+      - name: Run live_data tests against fixture DB
+        # Chantier #11 (04/07) : la classe live_data ne tournait JAMAIS en CI
+        # ("rouge depuis toujours" -> skippee 06/06 au lieu d'etre couverte).
+        # Fixture = schema reel (alembic head) + golden book synthetique.
+        # live_book (asserte le VRAI book) reste local-only par construction.
+        env:
+          PRESAGE_DB_PATH: ${{ runner.temp }}/presage_fixture/bot.db
+          PRESAGE_STATE_PATH: ${{ runner.temp }}/presage_fixture/bot_state.json
+        run: |
+          python scripts/ci_fixture_db.py
+          pytest tests/ -v --tb=short -m "live_data and not live_book and not slow"
       
       - name: Upload coverage to artifact
         if: always()

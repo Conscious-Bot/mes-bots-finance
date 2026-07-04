@@ -19,6 +19,31 @@ with contextlib.suppress(Exception):
 
 import yfinance as yf
 
+
+class SimulatedOutage(RuntimeError):
+    """PRESAGE_SIMULATE_YF_DOWN=1 : panne yfinance SIMULÉE (crash-test mensuel).
+
+    But : vérifier que TOUT le système dit « je ne sais pas » (fail-closed
+    L15/L31) au lieu de mentir quand la source prix meurt — snapshot REFUSÉ
+    visible, digue gel-hold, kill aveugle notifié, dashboard stale marqué.
+    Cf .claude/commands/crash-test.md (rituel mensuel).
+    """
+
+
+def _yf_ticker(ticker: str) -> Any:
+    """Chokepoint UNIQUE vers yf.Ticker — porte du crash-test fail-closed.
+
+    Sous PRESAGE_SIMULATE_YF_DOWN=1, raise comme une vraie panne réseau : chaque
+    caller traverse alors son chemin d'erreur RÉEL (les try/except existants).
+    Un chemin qui ne fail-close pas proprement se révèle ici — c'est le but.
+    """
+    import os
+
+    if os.environ.get("PRESAGE_SIMULATE_YF_DOWN") == "1":
+        raise SimulatedOutage("yfinance down (simulé — crash-test mensuel)")
+    return yf.Ticker(ticker)
+
+
 # ============================================================================
 # Cache info/calendar pour réduire les appels yfinance lourds (SOCLE S1c #111).
 # TTL court (1h) — les fundamentals bougent rarement intraday.
@@ -111,7 +136,7 @@ def get_info(ticker: str) -> dict:
     if cached is not None and now - cached[1] < _INFO_TTL_SEC:
         return cached[0]
     try:
-        info = yf.Ticker(ticker).info or {}
+        info = _yf_ticker(ticker).info or {}
     except Exception:
         info = {}
     _INFO_CACHE[ticker] = (info, now)
@@ -176,7 +201,7 @@ def get_calendar(ticker: str) -> Any:
     if cached is not None and now - cached[1] < _CALENDAR_TTL_SEC:
         return cached[0]
     try:
-        cal = yf.Ticker(ticker).calendar
+        cal = _yf_ticker(ticker).calendar
     except Exception:
         cal = None
     _CALENDAR_CACHE[ticker] = (cal, now)
@@ -197,7 +222,7 @@ def _get_fundamental_df(ticker: str, attr: str) -> Any:
     if cached is not None and now - cached[1] < _FUNDAMENTALS_TTL_SEC:
         return cached[0]
     try:
-        df = getattr(yf.Ticker(ticker), attr)
+        df = getattr(_yf_ticker(ticker), attr)
     except Exception:
         df = None
     _FUNDAMENTALS_CACHE[key] = (df, now)
@@ -243,7 +268,7 @@ def _last_clean_median(ticker: str) -> float | None:
     Returns None si <_OUTLIER_MIN_HISTORY closes valides.
     """
     try:
-        t = yf.Ticker(ticker)
+        t = _yf_ticker(ticker)
         # period suffisant : daily window N+5d pour absorber weekends/holidays
         hist = t.history(period=f"{_OUTLIER_LOOKBACK + 5}d", interval="1d")
         closes = [float(c) for c in hist["Close"].dropna()]
@@ -280,7 +305,7 @@ def get_current_price(ticker: str) -> float | None:
     (P&L, MV, perf "&mdash;" plutot que faux nombre confiant).
     """
     try:
-        t = yf.Ticker(ticker)
+        t = _yf_ticker(ticker)
         hist = t.history(period="5d", interval="1d")
         closes = hist["Close"].dropna()
         if closes.empty:
@@ -334,7 +359,7 @@ def get_close_on(ticker: str, date_str: str) -> float | None:
     try:
         start = datetime.strptime(date_str, "%Y-%m-%d")
         end = (start + timedelta(days=7)).strftime("%Y-%m-%d")
-        d = yf.Ticker(ticker).history(
+        d = _yf_ticker(ticker).history(
             start=date_str, end=end, interval="1d", auto_adjust=False
         )
         closes = d["Close"].dropna()
@@ -366,7 +391,7 @@ def get_fx_rate_on(from_cur: str, to_cur: str, date_str: str) -> float | None:
             (f"{to_cur}{from_cur}=X", True),
         ]:
             try:
-                d = yf.Ticker(pair).history(
+                d = _yf_ticker(pair).history(
                     start=date_str, end=end, interval="1d", auto_adjust=False
                 )
                 closes = d["Close"].dropna()
@@ -494,7 +519,7 @@ def _fetch_fx_live(from_cur: str, to_cur: str) -> float | None:
         (f"{to_cur}{from_cur}=X", True),
     ]:
         try:
-            d = yf.Ticker(pair).history(period="2d", interval="1d", auto_adjust=False)
+            d = _yf_ticker(pair).history(period="2d", interval="1d", auto_adjust=False)
             closes = d["Close"].dropna()
             if not closes.empty:
                 rate = float(closes.iloc[-1])
@@ -654,7 +679,7 @@ def get_price_on_date(ticker: str, date: str | datetime) -> tuple[str | None, fl
 
     end = (target + timedelta(days=10)).strftime("%Y-%m-%d")
     try:
-        t = yf.Ticker(ticker)
+        t = _yf_ticker(ticker)
         hist = t.history(start=date_str, end=end, interval="1d")
         if hist.empty:
             return (None, None)
@@ -787,7 +812,7 @@ def ensure_price_history(
             "backfill yfinance"
         )
         try:
-            t = yf.Ticker(ticker)
+            t = _yf_ticker(ticker)
             hist = t.history(start=start_str, end=end_str, interval="1d", auto_adjust=False)
             if not hist.empty:
                 currency = get_currency_for_ticker(ticker)
@@ -846,7 +871,7 @@ def get_price_window(ticker: str, start_date: str | datetime, end_date: str | da
     else:
         end_str = str(end_date)[:10]
     try:
-        t = yf.Ticker(ticker)
+        t = _yf_ticker(ticker)
         hist = t.history(start=start_str, end=end_str, interval="1d")
         if hist.empty:
             return []

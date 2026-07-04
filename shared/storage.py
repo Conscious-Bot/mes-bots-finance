@@ -17,8 +17,14 @@ from typing import Any
 __all__ = ["DB_PATH", "IntegrityError", "db"]  # extension possible
 
 ROOT = Path(__file__).parent.parent
-DB_PATH = ROOT / "data" / "bot.db"
-STATE_PATH = ROOT / "data" / "bot_state.json"
+# Override env PRESAGE_DB_PATH (04/07, chantier fixture CI) : permet de pointer
+# la passerelle sur une DB de synthèse (CI, dry-runs, crash-tests) SANS toucher
+# le défaut prod. DB_PATH reste LA source de vérité (memory storage_db_path) —
+# l'override est résolu une fois à l'import, pas de re-lecture dynamique.
+import os as _os
+
+DB_PATH = Path(_os.environ.get("PRESAGE_DB_PATH") or (ROOT / "data" / "bot.db"))
+STATE_PATH = Path(_os.environ.get("PRESAGE_STATE_PATH") or (ROOT / "data" / "bot_state.json"))
 
 
 @contextmanager

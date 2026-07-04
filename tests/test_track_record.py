@@ -74,6 +74,7 @@ def test_annualization_matches_compounding():
 
 
 @pytest.mark.live_data
+@pytest.mark.live_book  # asserte les CHIFFRES du vrai book (audit C) — fixture CI s/o
 def test_managed_track_record_reproduces_audit_c():
     """Sur la vraie DB : reproduit le verdict audit C (perf managed honnête).
 
