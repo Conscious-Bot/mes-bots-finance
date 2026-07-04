@@ -972,3 +972,17 @@ Cas relevés 10/06 panneau asym `CLOSEST_TO_TARGET` : AMZN/6857.T morts, CCJ en 
 - **Mécanisation naturelle** : monitor `stale_target` via `docs/templates/monitor_pattern.md` (table journal append-only + classify pur + check_all_transitions). Le 3e monitor du gabarit, cas d'usage exact. Cf TODO #134.
 
 **Référencer** : SPEC_GAUGE §3 (caret cost canonique) ; [[L27]] couche temporelle (figé vs roulant traités différemment) ; [[L29]] couche diffusion (la cible diffusée dans le visuel ment si le cost roule sans révision humaine) ; helper `_gauge_prices_native()` (le triple natif qui rend la dissonance lisible) ; conversation 10/06 minuit (red-team Olivier sur ce stub, source canonique de l'anti-piège).
+
+## L31 — Agrégat partiel ≠ total : une somme à couverture incomplète est un faux, pas une approximation
+
+**Attrapé 04/07 (audit solidité), 3 instances de la MÊME classe sur le chemin capital le plus sensible** : `kill_switch.compute_cluster_value_eur` (grappe), `snapshot.aggregate` (book), et par diffusion `digue_monitor` — chacun sommait sur les seules lignes **pricées** puis comparait ce total tronqué à une **référence pleine** (pic 90j, HWM book-complet). yfinance down un soir → grappe/book à −50% *fabriqué* → faux Stage 2 (prorata prescrit par Telegram) / faux gel Digue 1. Même classe que le fork PnL #123 ([[L29]]), mais ici elle **prescrit une vente forcée**.
+
+**Règle** : toute agrégation dont le dénominateur peut être incomplet (prix manquants, source down, ligne delistée) doit **soit refuser de produire un nombre** (fail-closed, [[L15]] : `None`/`raise` visible dans `scheduler_runs`, jamais un skip silencieux), **soit borner et exposer sa couverture** (`(valeur, couverture, manquants)`). Interdit : enregistrer un total partiel dans une table `*_snapshots` puis le comparer à une référence établie sur le book complet — c'est présenter un nombre plus confiant que son évidence ([[L21]]).
+
+**Corollaires du 04/07** :
+- Le **writer** décide la tolérance (ex. `MIN_COST_COVERAGE=0.98` pondéré coût) ; le **reader** aval doit s'y **aligner** (`DIGUE_MAX_UNPRICED_GAP`), sinon corridor de désarmement silencieux (writer écrit une row « acceptable » que le reader strict ignore → staleness → fail-open permanent, tous les monitors au vert).
+- **Staleness = indisponibilité, pas dernière-valeur** : un snapshot trop vieux n'est pas « le dernier connu », c'est `None`. Un gel/dégel ne se décide pas sur du fossile.
+- **Fail-open ne DISSOUT pas un état actif** : le fail-open « trou de données ≠ gel » couvre la *création* d'un gel, pas sa *dissolution*. Un gel journalisé tient sur la dernière évidence même signal perdu (sinon casser le pipeline devient un déblocage moins cher que le protocole).
+- **L'aveuglement doit être VISIBLE** : un monitor de capital qui n'écrit plus / n'évalue plus doit le crier (FAIL `scheduler_runs` + notify Telegram once-per-épisode), jamais mourir dans le logger APScheduler.
+
+**Référencer** : [[L15]] fail-closed (None > faux) ; [[L21]] jamais plus confiant que l'évidence ; [[L29]] diffusion (chaque chemin qui sert le nombre corrigé ou fail-closed) ; `intelligence/snapshot.py:MIN_COST_COVERAGE` + `intelligence/digue_monitor.py:DIGUE_MAX_UNPRICED_GAP/DIGUE_STALE_AFTER_DAYS` + `risk/kill_switch.py:snapshot_cluster_value` (fail-closed) ; tests `test_snapshot.py::test_aggregate_partial_refused`, `test_digue_monitor.py::test_gel_hold_when_signal_lost_during_active_gel`.

@@ -4342,3 +4342,36 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 **ADR 015 substantiellement CLOSE** : Digue 1 (gel book −15% + override) + Digue 2 (prorata grappe −35%) + réconciliation signaux, toutes déployées et dormantes. Restent 2 cosmétiques.
 
 **Digues ADR 015 = les DEUX livrées et déployées** (Digue 1 gate −15% + Digue 2 prorata −35%). Path B étape 2 substantiellement close ; restent 4 raffinements (réconciliation signaux, override, labels, dashboard).
+
+---
+
+## Close 2026-07-04 (2) — Audit 4 axes + durcissement (10 commits)
+
+**Trigger** : Olivier demande audit solidité/sécurité/dead-code/dupes du modèle, puis « je suis prêt à faire tt les changements ». Audit mené par 4 agents parallèles + vérification adversariale (13 findings réfutés par des sceptiques indépendants) + revue adversariale du patch digues (3 lentilles).
+
+**Découverte de fond** : les « CI failed random » n'étaient PAS random — cause unique (gate doctrine yfinance) déjà fixée `9bf2ad9` 13:16 ; les « exit 0 » des runs `pytest | tail` étaient trompeurs (code de `tail`, pas de pytest).
+
+**10 commits livrés (tous testés, ruff+pre-commit verts)** :
+1. `9847560` fix(risk) — **agrégat partiel ≠ total** (L31) + observabilité jobs kill. Ferme la classe sur les 2 digues : refus fail-closed du snapshot grappe/book partiel, staleness gate, gel-hold sur signal perdu, 3 jobs kill wrappés `scheduler_run_logged`. 39 tests.
+2. `8932953` feat(security) — **allowlist expéditeur Telegram** (finding E1) : `authorize_middleware` group=-2, refuse tout chat_id hors allowlist. /kill_override /digue_override n'étaient plus désarmables par un tiers. 8 tests.
+3. `810bd52` fix(state) — **bot_state.json atomique** (tmp+replace) + load tolérant (.bak) + RMW flock. Tue le lost-update gel/override vs heartbeat. 7 tests.
+4. `61fefe2` fix(dashboard) — serve **ThreadingTCPServer** (/chat ne gèle plus tout) + write atomique dashboard.html + /readyz seuil réaliste.
+5. `37f0d86` fix(public) — track.html **garde fail-loud** (refuse de publier des zéros) + vrais chiffres restaurés (28/0.238/27) + purge placeholders morts.
+6. `73a721b` fix(gate) — yfinance HARD exclut dist/.claude (faux positifs) + base_health lit le vrai résultat (parsait un format obsolète → toujours 0).
+7. `5d1fdb5` refactor(dupes) — caps conviction ×2 → source unique (avaient divergé 17j) + FX render live + `_FALLBACK_CAP_C5` 0.06→0.08 + chemin DB analyze.py absolu.
+8. `f86b650` docs(gates) — parité mypy local↔CI + baseline ruff 0 (la doc mentait N==8).
+9. `ba05b2f` docs(claude) — render.py ~9900 l (pas 1860), cadence regen ~9 min (pas 60s).
+10. crontab Mac : 3 lignes J-day (piège juin 2027) retirées, backup `backups/crontab.backup_20260704`.
+
+**Nouvelle doctrine** : L31 « agrégat partiel ≠ total » gravée (docs/LESSONS.md).
+
+**2 échecs suite préexistants** (live_book, orthogonaux, vérifié git-stash) : these_57 SPGI active sans position + AMD fantôme qty=0 → chip spawné (fix côté VM).
+
+**RESTE (programme audité, priorisé — chacun sa session)** :
+- Dead code purge ~2165 l vérifié (17 fn storage, 15 helpers render, markets/ vide) — large/destructif, full-suite après.
+- **Structure** : read model unique typé (fermer seam PositionView, tue #123/L21/L31 par construction) · migrer état risque JSON→DB (L17) · manifest jobs déclaratif + drift check.
+- **Fraîcheur** : contrat par flux + refresh ETF benchmark (SMH figé 25/06) · FX chemin capital → gateway fx() Datum (0 appelant prod aujourd'hui).
+- **Display** : bloc « Aujourd'hui » (miroir→copilote) · afficher managed +2.86%/SMH (fin audit C #3).
+- **Concept Path B** : métrique valeur-de-la-discipline (€) — LE chiffre-produit · détecteur conviction vs proba calibrée.
+- **Robustesse** : fixture DB synthèse pour la classe live_data en CI (plus gros trou de filet) · crash-test mensuel fail-closed.
+- Consolider helpers Wilson/bootstrap ×8 + telegram send ×3.
