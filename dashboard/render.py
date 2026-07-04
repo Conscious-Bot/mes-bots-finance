@@ -1756,8 +1756,10 @@ def _return_clustering_panel() -> str:
     mix_html = "".join(cluster_rows) or '<div class="empty" style="padding:var(--s2) 0">none cluster avec macro_factor melange</div>'
 
     return (
-        '<div class="colhead"><span class="t">Overlaps seen by prices</span>'
-        f'<span class="a">{snapshot_date} &middot; returns correlation &middot; what truly moves together</span></div>'
+        # Vocab canonique (glossaire 5 axes) : « Doublon » = même pari + substituable.
+        # Ce panneau lit les doublons par la corrélation des prix (cure diffusion 04/07).
+        '<div class="colhead"><span class="t">Doublons &mdash; vus par les prix</span>'
+        f'<span class="a">{snapshot_date} &middot; corrélation des rendements &middot; ce qui bouge vraiment ensemble</span></div>'
         '<div class="card pad clustercard" style="margin-bottom:var(--s4)">'
         '<div class="dc-sub">'
         f'<div class="dc-sh">Paires correlees (>0.7)</div>'
@@ -3294,7 +3296,7 @@ def _user_strategy_panel() -> str:
             f'<b class="mono">{cur_pos}</b> / <b class="mono">{tgt_pos}</b> positions '
             f'(<b>{pos_progress:.0f}%</b> in lines). '
             "Decorrelators (Energy-for-AI, Defense, Robotics) are being added. "
-            "Current concentration ratios (cluster cap, strict ballast, AI capex expo) "
+            "Current concentration ratios (pari principal, strict ballast, AI capex expo) "
             "<b>will naturally converge</b> toward target. Informational only, "
             "not actionable: do not push trims until construction is complete."
             '</div>'
@@ -3344,7 +3346,7 @@ def _user_strategy_panel() -> str:
         f'{construction_html}'
         '<div class="us-grid">'
         f'<div class="us-row"><span class="us-k">Main bet target</span><span class="us-v mono">{cap}%</span></div>'
-        f'<div class="us-row"><span class="us-k">Other bets target</span><span class="us-v mono">{dec}%</span></div>'
+        f'<div class="us-row"><span class="us-k">Autres paris &mdash; cible</span><span class="us-v mono">{dec}%</span></div>'
         f'<div class="us-row"><span class="us-k">Benchmark</span><span class="us-v mono">{bench}</span></div>'
         f'<div class="us-row"><span class="us-k">Thesis horizon</span><span class="us-v mono">{horizon} years</span></div>'
         f'<div class="us-row"><span class="us-k">Accepted concentrations</span><span class="us-v">{accepted_html}</span></div>'
