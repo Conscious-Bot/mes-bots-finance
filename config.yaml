@@ -827,6 +827,10 @@ kill_switch:
     - VRT
     - GEV
   peak_window_days: 90
+  # Staleness gate (04/07/2026) : au-delà de cet âge, le dernier snapshot grappe
+  # n'est plus un signal — compute_drawdown() retourne None (le disjoncteur dit
+  # « je ne sais pas » au lieu d'évaluer un état de marché sur du fossile).
+  snapshot_max_age_days: 3
   drawdown_reduce_pct: 0.25            # Stage 1 — VIGILANCE (gel)
   drawdown_stop_pct: 0.35              # Stage 2 — DÉ-RISQUE (trim partiel)
   drawdown_hard_pct: null              # Stage 3 par prix DÉSACTIVÉ (à décider août 2026)

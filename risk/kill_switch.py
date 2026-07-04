@@ -115,11 +115,14 @@ def _cluster_membership() -> set[str]:
     )
 
 
-def compute_cluster_value_eur() -> float:
+def compute_cluster_value_eur() -> tuple[float, list[str]]:
     """Aggregate live EUR value de la grappe AI-compute.
 
-    Réutilise le cache prix (_PX_TTL) → zéro charge yfinance additionnelle.
-    Tickers absents de price cache sont log.warning et exclus du calcul.
+    Fetch direct via prices.get_current_price_in_eur (PAS le cache _PX_TTL :
+    son fallback stale-hit masquerait précisément les prix manquants qu'on
+    veut détecter ici). Returns (total_eur, missing_tickers) — le caller DOIT
+    consulter missing : un total tronqué présenté comme plein fabrique un faux
+    drawdown (classe « agrégat partiel ≠ total », 04/07/2026).
     """
     cluster = _cluster_membership()
     total = 0.0
@@ -139,7 +142,7 @@ def compute_cluster_value_eur() -> float:
         total += px * qty
     if missing:
         logger.warning("kill_switch: prix EUR manquant pour %s, exclus du calcul grappe", missing)
-    return total
+    return total, missing
 
 
 def compute_prorata_plan(pct: float = PRORATA_PCT) -> dict:
@@ -220,8 +223,40 @@ def format_prorata_plan(plan: dict, limit: int = 12) -> str:
 
 
 def snapshot_cluster_value() -> None:
-    """Daily cron : record un snapshot daily de la valeur agrégée EUR."""
-    value = compute_cluster_value_eur()
+    """Daily cron : record un snapshot daily de la valeur agrégée EUR.
+
+    FAIL-CLOSED (04/07/2026) : un agrégat partiel (prix manquants) ou nul est
+    REFUSÉ — raise RuntimeError plutôt qu'écrire une valeur tronquée qui, comparée
+    au pic 90j plein, fabriquerait un faux Stage 2 avec prorata prescrit. Le raise
+    est volontaire : il rend le refus visible dans scheduler_runs (pas un skip
+    silencieux). Pas de snapshot ce jour = compute_drawdown gate sur staleness.
+    """
+    if not _cfg().get("enabled", False):
+        return
+    value, missing = compute_cluster_value_eur()
+    if missing:
+        # Notify best-effort AVANT le raise : le job est daily → 1 message/jour max
+        # pendant une panne. Un disjoncteur de capital qui devient aveugle ne se
+        # signale pas qu'en scheduler_runs (revue 04/07).
+        msg = (
+            f"kill_switch: snapshot grappe REFUSÉ — {len(missing)} ticker(s) sans "
+            f"prix EUR ({', '.join(sorted(missing))}). Agrégat partiel vs pic plein "
+            f"= faux drawdown → faux Stage 2 (L15 : pas de valeur fabriquée)."
+        )
+        try:
+            notify.send_text(
+                "⚠️ Kill-switch grappe : snapshot REFUSÉ (prix manquants : "
+                f"{', '.join(sorted(missing))}). Aveugle dans "
+                f"{int(_cfg().get('snapshot_max_age_days', 3))}j si ça persiste."
+            )
+        except Exception as e:
+            logger.warning("kill_switch: blindness notify failed: %s", e)
+        raise RuntimeError(msg)
+    if value <= 0:
+        # Grappe vide (post-Stage 3, membership vide) = état légitime, PAS une
+        # panne : pas de row à 0 fabriquée, pas de FAIL permanent pour non-événement.
+        logger.info("kill_switch: grappe vide (aucune ligne compute_ai tenue) — pas de snapshot")
+        return
     storage.record_cluster_snapshot(_today().isoformat(), value)
     logger.info("kill_switch: snapshot grappe %.0f EUR", value)
 
@@ -234,10 +269,27 @@ def compute_drawdown() -> tuple[float, float, float] | None:
 
     Early on (history < window) : peak ≈ current → drawdown ~0 → pas de false trigger.
     Forward-only by construction.
+
+    Gate de staleness (04/07/2026) : un snapshot plus vieux que
+    snapshot_max_age_days n'est PAS un signal — None (le disjoncteur dit
+    « je ne sais pas », il n'évalue pas un état du marché sur du fossile).
     """
-    window = int(_cfg().get("peak_window_days", 90))
+    cfg = _cfg()
+    window = int(cfg.get("peak_window_days", 90))
     latest = storage.get_latest_cluster_snapshot()
     if latest is None:
+        return None
+    max_age = int(cfg.get("snapshot_max_age_days", 3))
+    try:
+        age_days = (_today() - date.fromisoformat(str(latest["snapshot_date"]))).days
+    except (TypeError, ValueError):
+        age_days = None
+    if age_days is None or age_days > max_age:
+        logger.warning(
+            "kill_switch: dernier snapshot grappe %s trop vieux (%sj > %dj) — "
+            "drawdown indisponible",
+            latest.get("snapshot_date"), age_days, max_age,
+        )
         return None
     peak = storage.get_cluster_peak(window)
     if peak is None or peak <= 0:
@@ -275,6 +327,13 @@ def check_and_fire() -> None:
         return
     dd = compute_drawdown()
     if dd is None:
+        # info, pas warning : le job tourne toutes les 15 min (96 lignes/jour en
+        # panne). Les signaux FORTS de l'aveuglement = FAIL quotidien du job
+        # snapshot dans scheduler_runs + notify Telegram au refus de snapshot.
+        logger.info(
+            "kill_switch: drawdown indisponible (snapshot absent/stale) — "
+            "évaluation sautée, le disjoncteur est AVEUGLE tant que le snapshot ne repart pas"
+        )
         return
     cur, peak, dd_pct = dd
     stage = stage_for_drawdown(dd_pct)
@@ -309,14 +368,28 @@ def check_and_fire() -> None:
 
 
 def _push_trigger(
-    tid: int, stage: int, dd_pct: float, cur: float, peak: float, *, escalation: bool
+    tid: int, stage: int, dd_pct: float, cur: float | None, peak: float | None,
+    *, escalation: bool
 ) -> None:
-    """Push TG dédié au franchissement (ou reminder si escalation=True)."""
+    """Push TG dédié au franchissement (ou reminder si escalation=True).
+
+    cur/peak None (drawdown live indisponible au moment du rappel) → le message
+    le DIT au lieu d'afficher « 0€ vs pic 0€ » (L3 : pas de contenu inventé).
+    """
     prefix = "🔴 *RAPPEL — KILL-CONDITION*" if escalation else "🔴 *KILL-CONDITION*"
+    if cur is not None and peak is not None:
+        dd_line = (
+            f"Drawdown *{dd_pct * 100:.1f}%* depuis le pic 90j "
+            f"({cur:,.0f}€ vs pic {peak:,.0f}€)\n"
+        )
+    else:
+        dd_line = (
+            f"Drawdown *{dd_pct * 100:.1f}%* (dernier niveau mesuré — "
+            f"drawdown live indisponible, snapshot grappe absent/stale)\n"
+        )
     msg = (
         f"{prefix} — grappe AI-compute\n\n"
-        f"Drawdown *{dd_pct * 100:.1f}%* depuis le pic 90j "
-        f"({cur:,.0f}€ vs pic {peak:,.0f}€)\n"
+        f"{dd_line}"
         f"Palier *Stage {stage}* — {STAGE_LABELS[stage]}\n\n"
         f"Action prescrite : {STAGE_ACTION[stage]}\n\n"
         f"Deux issues — pas d'accusé de réception vide :\n"
@@ -335,10 +408,14 @@ def escalate_unresolved() -> None:
     if not _cfg().get("enabled", False):
         return
     dd = compute_drawdown()
-    cur, peak, dd_pct = dd if dd else (0.0, 0.0, 0.0)
 
     for t in storage.get_kill_triggers_by_status("unresolved"):
-        level = dd_pct if dd else float(t["level_measured"])
+        if dd is not None:
+            cur, peak, level = dd
+        else:
+            # Drawdown live indisponible : rappel sur le niveau mesuré au trigger,
+            # sans fabriquer des 0€ (le message le signale explicitement).
+            cur, peak, level = None, None, float(t["level_measured"])
         _push_trigger(t["id"], t["stage"], level, cur, peak, escalation=True)
 
     today = _today()

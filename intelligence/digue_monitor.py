@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from shared import storage
 
@@ -48,6 +48,20 @@ DIGUE_OVERRIDE_MIN_CHARS = 40
 GEL_15_PCT = -15.0
 GEL_25_PCT = -25.0
 PRORATA_35_PCT = -35.0
+
+# Un snapshot plus vieux que ça n'est plus un signal : indisponible (fail-open,
+# pas de gel sur donnée fossile). Le pipeline snapshot est daily — 7j = cassé.
+# Volontairement plus long que kill_switch.snapshot_max_age_days=3 : le gel est
+# comportemental et fail-open (ne vend rien, ne prescrit rien), le kill_switch
+# PRESCRIT une vente → il exige une fraîcheur plus stricte.
+DIGUE_STALE_AFTER_DAYS = 7
+
+# Tolérance reader ALIGNÉE sur le writer (revue 04/07) : snapshot.aggregate écrit
+# une row avec ≤2% du coût unpriced (1-2 petites lignes max). Un reader strict
+# n_priced==n_positions rendrait ces rows quasi-exactes invisibles → staleness
+# artificielle → digue aveugle en silence (corridor de désarmement). Gap >2 =
+# row anormale (pré-gate ou pipeline cassé) → exclue.
+DIGUE_MAX_UNPRICED_GAP = 2
 
 # Ordre de sévérité pour détecter escalade vs recovery.
 _SEVERITY = {"normal": 0, "gel_15": 1, "gel_25": 2, "prorata_35": 3}
@@ -79,11 +93,19 @@ def is_prorata_armed(status: str) -> bool:
 
 
 def _latest_drawdown() -> dict | None:
-    """Lit le drawdown réalisé du dernier snapshot. None si aucun snapshot.
+    """Lit le drawdown réalisé du dernier snapshot COMPLET et FRAIS. None sinon.
 
     Fail-OPEN par design : si le signal est indisponible, le caller (gate)
     NE gèle PAS (un trou de données ne doit pas bloquer le trading ni fabriquer
     un faux gel — cf L15 : ne pas inventer un état plus confiant que l'évidence).
+
+    Deux gardes d'honnêteté (04/07/2026, classe « agrégat partiel ≠ total ») :
+    - gap unpriced borné : une row franchement partielle (throttle yfinance,
+      pipeline cassé) compare un total tronqué au HWM book-complet → drawdown
+      fabriqué. On la saute. Les rows writer-tolérées (gap ≤ DIGUE_MAX_UNPRICED_GAP,
+      biais ≤2% du coût par construction de MIN_COST_COVERAGE) restent consommées.
+    - staleness : au-delà de DIGUE_STALE_AFTER_DAYS le signal est indisponible,
+      pas « le dernier connu » — un gel/dégel ne se décide pas sur du fossile.
     """
     try:
         with storage.db_ro() as cx:
@@ -91,12 +113,25 @@ def _latest_drawdown() -> dict | None:
                 "SELECT snapshot_date, total_value_eur, hwm_value_eur, drawdown_pct "
                 "FROM portfolio_snapshots "
                 "WHERE drawdown_pct IS NOT NULL "
-                "ORDER BY snapshot_date DESC LIMIT 1"
+                "  AND (n_positions - n_priced) <= ? "
+                "ORDER BY snapshot_date DESC LIMIT 1",
+                (DIGUE_MAX_UNPRICED_GAP,),
             ).fetchone()
     except Exception as e:
         log.warning("digue _latest_drawdown read failed: %s", e)
         return None
     if not row:
+        return None
+    try:
+        age_days = (datetime.now(UTC).date() - date.fromisoformat(str(row[0]))).days
+    except (TypeError, ValueError):
+        age_days = None
+    if age_days is None or age_days > DIGUE_STALE_AFTER_DAYS:
+        log.warning(
+            "digue: dernier snapshot complet %s trop vieux (%sj > %dj) — "
+            "signal indisponible (fail-open)",
+            row[0], age_days, DIGUE_STALE_AFTER_DAYS,
+        )
         return None
     return {
         "snapshot_date": row[0],
@@ -111,9 +146,28 @@ def current_digue_state() -> dict:
 
     Returns {available, status, frozen, prorata_armed, drawdown_pct, ...}.
     available=False + status='normal' + frozen=False si signal indisponible.
+
+    EXCEPTION gel actif (revue 04/07) : le fail-open ne CRÉE pas de gel sur
+    donnée absente — mais il ne DISSOUT pas non plus un gel déjà journalisé.
+    La dernière évidence disait gel ; ré-autoriser les achats sur signal perdu
+    serait aussi une décision prise sur donnée absente (L21), et casserait le
+    « jamais un clic » (une panne de pipeline deviendrait moins chère que le
+    protocole override). Déblocage d'un gel-hold = /digue_override normal
+    (cooldown + protocole), ou retour du signal.
     """
     dd = _latest_drawdown()
     if dd is None:
+        last = _prev_status()
+        if is_frozen(last):
+            return {
+                "available": False,
+                "status": last,
+                "frozen": True,
+                "prorata_armed": False,  # jamais d'armement prorata sur donnée absente
+                "drawdown_pct": None,
+                "snapshot_date": None,
+                "signal_stale_hold": True,
+            }
         return {
             "available": False,
             "status": "normal",
@@ -159,17 +213,75 @@ _LABELS = {
 }
 
 
+def _notify_blindness_once(state: dict) -> None:
+    """Telegram UNE fois par épisode d'aveuglement (flag state), pas par run.
+
+    L'aveuglement digue doit être VISIBLE (revue 04/07) : sans ça, un pipeline
+    snapshot cassé désarme/suspend la digue pendant que tous les monitors sont
+    verts. Flag posé seulement si le notify part (sinon retente au prochain run).
+    """
+    if storage.load_state().get("digue_stale_notified"):
+        return
+    if not state.get("signal_stale_hold") and storage.get_latest_digue_alert() is None:
+        # Monitor jamais évalué (fresh install / DB neuve) : rien n'a été « perdu »,
+        # pas d'alerte d'aveuglement pour un signal qui n'a jamais existé.
+        return
+    try:
+        from shared import notify
+
+        if state.get("signal_stale_hold"):
+            body = (
+                "⚠️ *Digue ADR 015 — signal AVEUGLE, gel MAINTENU*\n"
+                f"Snapshots book partiels/stale ({DIGUE_STALE_AFTER_DAYS}j+). "
+                f"Dernière évidence = {_LABELS.get(state['status'], state['status'])} "
+                "→ le gel tient (pas de dégel sur donnée absente).\n"
+                "Déblocage = `/digue_override` (cooldown + protocole) ou retour du signal.\n"
+                "Cause probable : voir scheduler_runs (snapshot FAIL) / yfinance."
+            )
+        else:
+            body = (
+                "⚠️ *Digue ADR 015 — signal AVEUGLE (fail-open)*\n"
+                f"Aucun snapshot book complet et frais ({DIGUE_STALE_AFTER_DAYS}j). "
+                "La digue ne peut plus détecter un franchissement −15% tant que le "
+                "pipeline snapshot ne repart pas (voir scheduler_runs)."
+            )
+        notify.send_text(body, parse_mode="Markdown")
+    except Exception as e:
+        log.warning("digue blindness notify failed: %s", e)
+        return
+    storage.update_state(digue_stale_notified=datetime.now(UTC).isoformat())
+
+
+def _clear_blindness_flag(new_status: str) -> None:
+    """Signal revenu : lève le flag + heads-up symétrique (si on avait alerté)."""
+    if not storage.load_state().get("digue_stale_notified"):
+        return
+    storage.update_state(digue_stale_notified=None)
+    with contextlib.suppress(Exception):
+        from shared import notify
+
+        notify.send_text(
+            f"✓ Signal digue rétabli — état {_LABELS.get(new_status, new_status)}."
+        )
+
+
 def check_digue_transition() -> dict:
     """Évalue l'état digue, journalise, notifie sur transition (escalade/recovery).
 
     Append une row à CHAQUE évaluation (no_change inclus). Notify seulement sur
-    vraie transition. Returns stats dict.
+    vraie transition. Returns stats dict. Signal indisponible → pas de row
+    (le schéma journal exige un drawdown réel), mais notify-once d'aveuglement.
     """
     stats = {"status": None, "transition": None, "notified": False, "drawdown_pct": None}
     state = current_digue_state()
     if not state["available"]:
-        log.info("digue: signal indisponible (pas de snapshot) — skip")
+        _notify_blindness_once(state)
+        log.info(
+            "digue: signal indisponible — skip (gel_hold=%s)",
+            bool(state.get("signal_stale_hold")),
+        )
         return stats
+    _clear_blindness_flag(state["status"])
 
     new_status = state["status"]
     prev_status = _prev_status()
@@ -272,11 +384,17 @@ def gate_allows_buy() -> tuple[bool, str]:
     st = current_digue_state()
     if not st["frozen"]:
         return True, ""
+    if st.get("drawdown_pct") is not None:
+        dd_txt = f"DD réalisé {st['drawdown_pct']:+.1f}% (état {st['status']})"
+    else:
+        dd_txt = (
+            f"signal drawdown INDISPONIBLE (snapshot partiel/stale) — gel MAINTENU "
+            f"sur dernière évidence ({st['status']})"
+        )
     if _active_override() is not None:
         ov = _active_override()
         return True, (
-            f"⚠ Achat sous OVERRIDE Digue 1 (expire {ov['expires_at'][:10]}). "
-            f"DD réalisé {st['drawdown_pct']:+.1f}%."
+            f"⚠ Achat sous OVERRIDE Digue 1 (expire {ov['expires_at'][:10]}). {dd_txt}."
         )
     rem = _gel_cooldown_remaining_days()
     if rem and rem > 0:
@@ -284,8 +402,8 @@ def gate_allows_buy() -> tuple[bool, str]:
     else:
         cd = " Cooldown écoulé — `/digue_override <protocole de revue ≥40 car.>` pour débloquer."
     return False, (
-        f"🚫 Achat GELÉ — Digue 1 ADR 015. DD réalisé {st['drawdown_pct']:+.1f}% "
-        f"(état {st['status']}). Gèle ajout/renfort, ne vend rien.{cd}"
+        f"🚫 Achat GELÉ — Digue 1 ADR 015. {dd_txt}. "
+        f"Gèle ajout/renfort, ne vend rien.{cd}"
     )
 
 

@@ -541,18 +541,17 @@ async def daily_over_cap_check_job():
     """v2.c.5 -- detecte transition dormant -> over_cap par position.
     Notify Telegram + ouvre candidat bias_event fomo_greed (resister a
     trimmer un runner) pour instrumenter la resistance future. Miroir
-    structurel de daily_kill_criteria_check_job."""
+    structurel de daily_kill_criteria_check_job.
+    PAS de try/except interne : il masquait le fail a _safe_run → scheduler_runs
+    affichait « success » sur un monitor qui crashait (cure 04/07/2026)."""
     log.info("Daily over_cap check starting")
-    try:
-        from intelligence import over_cap_monitor as _ocm
-        out = _ocm.check_all_overcap_transitions()
-        log.info(
-            f"over_cap_check : checked={out['checked']} over={out['over']} "
-            f"transitions={out['transitions']} notified={out['notified']} "
-            f"wired={out['wired']} errors={out['errors']}"
-        )
-    except Exception as e:
-        log.error(f"daily_over_cap_check failed: {e}")
+    from intelligence import over_cap_monitor as _ocm
+    out = _ocm.check_all_overcap_transitions()
+    log.info(
+        f"over_cap_check : checked={out['checked']} over={out['over']} "
+        f"transitions={out['transitions']} notified={out['notified']} "
+        f"wired={out['wired']} errors={out['errors']}"
+    )
 
 
 async def daily_digue_check_job():
@@ -560,17 +559,16 @@ async def daily_digue_check_job():
     Détecte transition d'état digue (normal/gel_15/gel_25/prorata_35), notify
     Telegram sur escalade/recovery, journalise chaque évaluation. Le gel de
     /position_buy (Digue 1) et le prorata 20% (Digue 2) s'appliquent en direct
-    via current_digue_state() ; ce cron = alerte à l'instant T + audit trail."""
+    via current_digue_state() ; ce cron = alerte à l'instant T + audit trail.
+    PAS de try/except interne : il masquait le fail à _safe_run → scheduler_runs
+    affichait « success » sur LE monitor de la digue (cure 04/07/2026)."""
     log.info("Daily digue check starting")
-    try:
-        from intelligence import digue_monitor as _dm
-        out = _dm.check_digue_transition()
-        log.info(
-            f"digue_check : status={out['status']} transition={out['transition']} "
-            f"dd={out['drawdown_pct']} notified={out['notified']}"
-        )
-    except Exception as e:
-        log.error(f"daily_digue_check failed: {e}")
+    from intelligence import digue_monitor as _dm
+    out = _dm.check_digue_transition()
+    log.info(
+        f"digue_check : status={out['status']} transition={out['transition']} "
+        f"dd={out['drawdown_pct']} notified={out['notified']}"
+    )
 
 
 async def daily_stale_target_check_job():

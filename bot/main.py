@@ -252,14 +252,16 @@ async def post_init(app):
     sched.add_job(_stress_gate_check_job, "cron", hour=7, minute=0)
 
     # Kill-condition disjoncteur grappe AI-compute (26/06/2026, doctrine V3).
-    # 3 jobs : snapshot daily 21:50 (close US), check toutes les 15min (cache prix),
-    # escalade 7:05 avant /brief.
-    from risk import kill_switch
-    sched.add_job(kill_switch.snapshot_cluster_value, "cron", hour=21, minute=50,
+    # 3 jobs : snapshot daily 21:50 (close US, fetch prix direct), check toutes les
+    # 15min (relit le snapshot DB), escalade 7:05 avant /brief.
+    # Wrappers @scheduler_run_logged (cure 04/07/2026) : un monitor de capital qui
+    # meurt doit apparaître dans scheduler_runs / système-health, pas mourir en
+    # silence dans le logger APScheduler.
+    sched.add_job(_kill_snapshot_job, "cron", hour=21, minute=50,
                   id="kill_snapshot", replace_existing=True)
-    sched.add_job(kill_switch.check_and_fire, "interval", minutes=15,
+    sched.add_job(_kill_check_job, "interval", minutes=15,
                   id="kill_check", replace_existing=True)
-    sched.add_job(kill_switch.escalate_unresolved, "cron", hour=7, minute=5,
+    sched.add_job(_kill_escalate_job, "cron", hour=7, minute=5,
                   id="kill_escalate", replace_existing=True)
     sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
@@ -399,13 +401,35 @@ def _stress_gate_check_job() -> None:
 
     Wrap intelligence.stress_gate_monitor.check_all_stress_transitions().
     Daily car le book bouge lentement ; in-session pas necessaire.
+    PAS de try/except interne : il masquait le fail au décorateur → scheduler_runs
+    affichait « success » sur une gate qui crashait (cure 04/07/2026).
     """
-    try:
-        from intelligence import stress_gate_monitor
-        out = stress_gate_monitor.check_all_stress_transitions()
-        log.info(f"stress_gate_check : {out}")
-    except Exception as e:
-        log.warning(f"stress_gate_check_job failed: {e}")
+    from intelligence import stress_gate_monitor
+    out = stress_gate_monitor.check_all_stress_transitions()
+    log.info(f"stress_gate_check : {out}")
+
+
+# Kill-switch grappe (doctrine V3 + ADR 015 Digue 2) : wrappers observés.
+# Même règle : pas de try/except interne — un snapshot REFUSÉ (agrégat partiel,
+# cf risk/kill_switch.snapshot_cluster_value) doit apparaître en FAIL dans
+# scheduler_runs, c'est le signal que le disjoncteur est aveugle.
+
+@scheduler_run_logged("kill_snapshot_job")
+def _kill_snapshot_job() -> None:
+    from risk import kill_switch
+    kill_switch.snapshot_cluster_value()
+
+
+@scheduler_run_logged("kill_check_job")
+def _kill_check_job() -> None:
+    from risk import kill_switch
+    kill_switch.check_and_fire()
+
+
+@scheduler_run_logged("kill_escalate_job")
+def _kill_escalate_job() -> None:
+    from risk import kill_switch
+    kill_switch.escalate_unresolved()
 
 
 def _acquire_mono_instance_lock() -> None:

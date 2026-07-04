@@ -54,13 +54,15 @@ def test_transition_direction():
 
 @pytest.fixture
 def temp_db(tmp_path, monkeypatch):
-    """DB SQLite temp avec portfolio_snapshots + digue_alerts."""
+    """DB SQLite temp avec portfolio_snapshots + digue_alerts (schéma aligné prod :
+    n_priced/n_positions requis par la garde « agrégat partiel ≠ total » 04/07)."""
     p = tmp_path / "t.db"
     c = sqlite3.connect(p)
     c.executescript(
         """
         CREATE TABLE portfolio_snapshots (
-            snapshot_date TEXT, total_value_eur REAL, hwm_value_eur REAL, drawdown_pct REAL
+            snapshot_date TEXT, total_value_eur REAL, hwm_value_eur REAL,
+            drawdown_pct REAL, n_priced INTEGER, n_positions INTEGER
         );
         CREATE TABLE digue_alerts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,17 +86,24 @@ def temp_db(tmp_path, monkeypatch):
     return p
 
 
-def _set_snapshot(db_path, date, value, hwm, dd):
+def _iso(days_ago: int = 0) -> str:
+    """Dates RELATIVES (jamais hardcodées — leçon 15/06 : boundary temporel
+    silencieux) ; la gate de staleness digue rendrait des dates figées fausses."""
+    return (datetime.now(UTC).date() - timedelta(days=days_ago)).isoformat()
+
+
+def _set_snapshot(db_path, date, value, hwm, dd, n_priced=26, n_positions=26):
     c = sqlite3.connect(db_path)
     c.execute(
-        "INSERT INTO portfolio_snapshots VALUES (?,?,?,?)", (date, value, hwm, dd)
+        "INSERT INTO portfolio_snapshots VALUES (?,?,?,?,?,?)",
+        (date, value, hwm, dd, n_priced, n_positions),
     )
     c.commit()
     c.close()
 
 
 def test_current_state_normal_when_shallow(temp_db):
-    _set_snapshot(temp_db, "2026-07-02", 54646, 60258, -9.31)
+    _set_snapshot(temp_db, _iso(0), 54646, 60258, -9.31)
     st = dm.current_digue_state()
     assert st["available"] is True
     assert st["status"] == "normal"
@@ -102,7 +111,7 @@ def test_current_state_normal_when_shallow(temp_db):
 
 
 def test_current_state_frozen_at_minus_20(temp_db):
-    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
     st = dm.current_digue_state()
     assert st["status"] == "gel_15"
     assert st["frozen"] is True
@@ -117,7 +126,7 @@ def test_fail_open_when_no_snapshot(temp_db):
 
 
 def test_check_transition_journals_and_notifies_on_escalation(temp_db):
-    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
     with mock.patch("shared.notify.send_text") as sent:
         out = dm.check_digue_transition()
     assert out["status"] == "gel_15"
@@ -133,7 +142,7 @@ def test_check_transition_journals_and_notifies_on_escalation(temp_db):
 
 
 def test_check_transition_no_change_second_cycle_no_notify(temp_db):
-    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
     with mock.patch("shared.notify.send_text"):
         dm.check_digue_transition()  # 1er : escalation
     with mock.patch("shared.notify.send_text") as sent2:
@@ -163,28 +172,28 @@ _VALID_PROTOCOL = (
 
 
 def test_gate_allows_when_normal(temp_db):
-    _set_snapshot(temp_db, "2026-07-02", 54646, 60258, -9.31)
+    _set_snapshot(temp_db, _iso(0), 54646, 60258, -9.31)
     allow, msg = dm.gate_allows_buy()
     assert allow is True
     assert msg == ""
 
 
 def test_gate_blocks_when_frozen_no_override(temp_db):
-    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
     allow, msg = dm.gate_allows_buy()
     assert allow is False
     assert "GELÉ" in msg
 
 
 def test_override_refused_when_not_frozen(temp_db):
-    _set_snapshot(temp_db, "2026-07-02", 54646, 60258, -9.31)
+    _set_snapshot(temp_db, _iso(0), 54646, 60258, -9.31)
     ok, msg = dm.grant_override(_VALID_PROTOCOL)
     assert ok is False
     assert "Aucun gel" in msg
 
 
 def test_override_refused_too_short(temp_db):
-    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
     ok, msg = dm.grant_override("ok débloque")
     assert ok is False
     assert "trop courte" in msg
@@ -192,7 +201,7 @@ def test_override_refused_too_short(temp_db):
 
 def test_override_refused_during_cooldown(temp_db):
     """Cooldown incompressible : justification parfaite mais gel trop récent → refus."""
-    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
     from shared import storage
 
     storage.update_state(digue_gel_started_at=datetime.now(UTC).isoformat())  # gel = maintenant
@@ -203,7 +212,7 @@ def test_override_refused_during_cooldown(temp_db):
 
 def test_override_granted_after_cooldown_then_gate_allows(temp_db):
     """Cooldown écoulé + protocole substantiel → override accordé → gate ré-autorise."""
-    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
     from shared import storage
 
     old = (datetime.now(UTC) - timedelta(days=dm.DIGUE_COOLDOWN_DAYS + 1)).isoformat()
@@ -218,7 +227,7 @@ def test_override_granted_after_cooldown_then_gate_allows(temp_db):
 
 def test_override_expires(temp_db):
     """Override expiré → gate re-bloque."""
-    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
     from shared import storage
 
     past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
@@ -227,3 +236,151 @@ def test_override_expires(temp_db):
     )
     allow, _ = dm.gate_allows_buy()
     assert allow is False
+
+
+# ---------- honnêteté d'agrégat + staleness (cure 04/07/2026) ----------
+# Classe « agrégat partiel ≠ total » : une row partielle (throttle yfinance un
+# soir) compare un total tronqué au HWM book-complet → faux gel fabriqué.
+
+
+def _purge_snapshots(db_path):
+    c = sqlite3.connect(db_path)
+    c.execute("DELETE FROM portfolio_snapshots")
+    c.commit()
+    c.close()
+
+
+def test_partial_snapshot_row_ignored(temp_db):
+    """Row partielle (13/26 pricées, dd -50 fabriqué) IGNORÉE : l'état se lit
+    sur la dernière row complète (dd -9.31 → normal, pas de faux gel)."""
+    _set_snapshot(temp_db, _iso(1), 54646, 60258, -9.31)  # complète, hier
+    _set_snapshot(temp_db, _iso(0), 30000, 60258, -50.0, n_priced=13)  # partielle
+    st = dm.current_digue_state()
+    assert st["available"] is True
+    assert st["status"] == "normal"
+    assert st["frozen"] is False
+    assert st["drawdown_pct"] == -9.31
+
+
+def test_partial_only_fail_open(temp_db):
+    """Seule une row partielle existe → signal indisponible, PAS de gel fabriqué."""
+    _set_snapshot(temp_db, _iso(0), 30000, 60258, -50.0, n_priced=13)
+    st = dm.current_digue_state()
+    assert st["available"] is False
+    assert st["frozen"] is False
+    allow, msg = dm.gate_allows_buy()
+    assert allow is True and msg == ""
+
+
+def test_stale_snapshot_fail_open(temp_db):
+    """Snapshot complet mais fossile (> DIGUE_STALE_AFTER_DAYS) → indisponible :
+    un gel/dégel ne se décide pas sur une donnée qui a cessé d'être un signal."""
+    _set_snapshot(temp_db, _iso(dm.DIGUE_STALE_AFTER_DAYS + 1), 48000, 60000, -20.0)
+    st = dm.current_digue_state()
+    assert st["available"] is False
+    assert st["frozen"] is False
+    allow, _ = dm.gate_allows_buy()
+    assert allow is True
+
+
+def test_stale_boundary_still_available(temp_db, monkeypatch):
+    """Boundary : âge == DIGUE_STALE_AFTER_DAYS reste un signal (stale strict au-delà).
+    Horloge FIGÉE pour tuer la fenêtre de flake minuit-UTC."""
+    frozen = datetime.now(UTC)
+
+    class _FrozenDT(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return frozen if tz else frozen.replace(tzinfo=None)
+
+    monkeypatch.setattr(dm, "datetime", _FrozenDT)
+    day = (frozen.date() - timedelta(days=dm.DIGUE_STALE_AFTER_DAYS)).isoformat()
+    _set_snapshot(temp_db, day, 48000, 60000, -20.0)
+    st = dm.current_digue_state()
+    assert st["available"] is True
+    assert st["status"] == "gel_15"
+
+
+# ---------- gel-hold + tolérance writer/reader + notify aveuglement (revue 04/07) ----------
+
+
+def test_tolerated_gap_rows_consumed(temp_db):
+    """Rows writer-tolérées (gap ≤ DIGUE_MAX_UNPRICED_GAP) consommées : un petit
+    ticker durablement unpriced ne crée pas de corridor de désarmement. Gap 2
+    = boundary tolérée, gap 3 = anormale (ignorée, fallback row précédente)."""
+    _set_snapshot(temp_db, _iso(1), 54646, 60258, -9.31, n_priced=24)  # gap 2 : toléré
+    _set_snapshot(temp_db, _iso(0), 30000, 60258, -50.0, n_priced=23)  # gap 3 : ignoré
+    st = dm.current_digue_state()
+    assert st["available"] is True
+    assert st["status"] == "normal"
+    assert st["drawdown_pct"] == -9.31
+
+
+def test_gel_hold_when_signal_lost_during_active_gel(temp_db):
+    """Régression revue 04/07 : un gel ACTIF ne se dissout PAS sur signal perdu.
+    Dernière évidence journalisée = gel → frozen maintenu, gate bloque et le dit."""
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
+    with mock.patch("shared.notify.send_text"):
+        dm.check_digue_transition()  # journalise gel_15
+    _purge_snapshots(temp_db)  # pipeline snapshot cassé (simulé)
+    st = dm.current_digue_state()
+    assert st["available"] is False
+    assert st["frozen"] is True
+    assert st.get("signal_stale_hold") is True
+    assert st["status"] == "gel_15"
+    assert st["prorata_armed"] is False  # jamais d'armement sur donnée absente
+    allow, msg = dm.gate_allows_buy()
+    assert allow is False
+    assert "MAINTENU" in msg
+
+
+def test_no_gel_fabricated_when_signal_lost_without_gel(temp_db):
+    """Sans gel journalisé, signal perdu = fail-open inchangé (pas de gel fantôme)."""
+    _set_snapshot(temp_db, _iso(0), 54646, 60258, -9.31)
+    with mock.patch("shared.notify.send_text"):
+        dm.check_digue_transition()  # journalise normal
+    _purge_snapshots(temp_db)
+    st = dm.current_digue_state()
+    assert st["frozen"] is False
+    allow, _ = dm.gate_allows_buy()
+    assert allow is True
+
+
+def test_blindness_notified_once_then_cleared(temp_db):
+    """Aveuglement → notify UNE fois par épisode (flag state), pas par run ;
+    retour du signal → flag levé."""
+    from shared import storage
+
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)
+    with mock.patch("shared.notify.send_text"):
+        dm.check_digue_transition()  # journalise gel_15
+    _purge_snapshots(temp_db)
+    with mock.patch("shared.notify.send_text") as sent:
+        dm.check_digue_transition()
+        dm.check_digue_transition()  # 2e run : flag posé → silence
+    assert sent.call_count == 1
+    assert "AVEUGLE" in sent.call_args_list[0].args[0]
+    assert storage.load_state().get("digue_stale_notified")
+    _set_snapshot(temp_db, _iso(0), 48000, 60000, -20.0)  # signal revient
+    with mock.patch("shared.notify.send_text"):
+        dm.check_digue_transition()
+    assert storage.load_state().get("digue_stale_notified") is None
+
+
+def test_check_transition_partial_only_no_fabrication(temp_db):
+    """Chemin complet check_digue_transition avec row partielle seule : status
+    None, AUCUNE row digue_alerts fabriquée, seul le notify d'aveuglement part."""
+    from shared import storage
+
+    _set_snapshot(temp_db, _iso(0), 54646, 60258, -9.31)
+    with mock.patch("shared.notify.send_text"):
+        dm.check_digue_transition()  # journal : normal (le monitor a vécu)
+    _purge_snapshots(temp_db)
+    _set_snapshot(temp_db, _iso(0), 30000, 60258, -50.0, n_priced=13)
+    with mock.patch("shared.notify.send_text") as sent:
+        out = dm.check_digue_transition()
+    assert out["status"] is None
+    row = storage.get_latest_digue_alert()
+    assert row["status"] == "normal"  # rien fabriqué depuis la row partielle
+    assert sent.call_count == 1
+    assert "AVEUGLE" in sent.call_args[0][0]
