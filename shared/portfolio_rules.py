@@ -23,6 +23,7 @@ API publique :
 from __future__ import annotations
 
 import logging
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -76,6 +77,65 @@ def get_cluster_caps() -> dict[str, float] | None:
     if cfg is None:
         return None
     return cfg.get("cluster_caps")
+
+
+def operate_state(book_eur: float | None = None, today: date | None = None) -> dict:
+    """État de la transition BUILD -> OPERATE (étape 3 Path B, cure 04/07).
+
+    Ferme le seuil ORAL (>=65k en memory) : la règle est désormais déclarative
+    (config/portfolio_rules.yaml:operate_transition). rule=first_of → OPERATE
+    dès que capital OU date est atteint (pas d'excuse « phase construction »
+    infinie — antipattern gravé en memory 26/06).
+
+    Args:
+        book_eur : book courant (positions only, market value). None → calculé
+            via shared.book.get_held_lines (import paresseux, fail-safe None).
+        today : date de référence (défaut = aujourd'hui UTC).
+
+    Returns dict : {available, phase ('BUILD'|'OPERATE'), book_eur,
+        target_book_eur, target_date, days_to_date, book_gap_eur,
+        met_by ('capital'|'date'|None), rule}. available=False si le bloc absent.
+    """
+    cfg = load_portfolio_rules()
+    ot = (cfg or {}).get("operate_transition") if cfg else None
+    if not ot:
+        return {"available": False, "phase": "BUILD"}
+
+    from datetime import UTC, datetime
+
+    if today is None:
+        today = datetime.now(UTC).date()
+    if book_eur is None:
+        try:
+            from shared.book import get_held_lines
+
+            book_eur = sum(ln.weight_market_eur for ln in get_held_lines())
+        except Exception as e:
+            log.warning(f"operate_state: book value indisponible ({e})")
+            book_eur = None
+
+    target_book = float(ot["book_eur"])
+    tgt_date = ot["date"]
+    if isinstance(tgt_date, str):
+        tgt_date = date.fromisoformat(tgt_date)
+    rule = ot.get("rule", "first_of")
+
+    cap_met = book_eur is not None and book_eur >= target_book
+    date_met = today >= tgt_date
+    operate = (cap_met and date_met) if rule == "all_of" else (cap_met or date_met)
+    met_by = ("capital" if cap_met else "date") if operate else None
+
+    return {
+        "available": True,
+        "phase": "OPERATE" if operate else "BUILD",
+        "book_eur": round(book_eur, 0) if book_eur is not None else None,
+        "target_book_eur": target_book,
+        "target_date": tgt_date.isoformat(),
+        "days_to_date": (tgt_date - today).days,
+        "book_gap_eur": round(target_book - book_eur, 0) if book_eur is not None else None,
+        "met_by": met_by,
+        "rule": rule,
+    }
 
 
 def clear_cache() -> None:

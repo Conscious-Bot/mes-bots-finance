@@ -272,17 +272,38 @@ def check_all_overcap_transitions() -> dict[str, Any]:
                     )
                 else:
 
+                    # Gate BUILD/OPERATE (cure 04/07) : le monitor est « dark »
+                    # pendant la construction (memory over_cap_dark) — mais cette
+                    # décision était ORALE. Elle est désormais DÉCLARATIVE : on
+                    # journalise toujours l'audit row (observabilité), mais on ne
+                    # notifie qu'en phase OPERATE. Le monitor s'auto-active à la
+                    # date butoir (operate_transition), sans re-décision manuelle.
+                    _operate = True
+                    try:
+                        from shared.portfolio_rules import operate_state
+                        _ost = operate_state()
+                        if _ost.get("available"):
+                            _operate = _ost["phase"] == "OPERATE"
+                    except Exception:
+                        _operate = True  # fail-open : dans le doute, on notifie
+
                     # Notify d'abord (l'instant T fidele = franchissement dit a l'user)
                     try:
-                        _notify.send_text(
-                            f"📈 OVER CAP — {ticker}\n"
-                            f"poids {wpct:.1f}% > cap c{conv} {cap_pct:.1f}%\n"
-                            f"discipline : trim ~{abs(expected_delta):.1f} shares "
-                            f"(revenir sous cap)\n"
-                            f"Action : /tiers ou /alleger {ticker}"
-                        )
-                        notified_flag = True
-                        stats["notified"] += 1
+                        if _operate:
+                            _notify.send_text(
+                                f"📈 OVER CAP — {ticker}\n"
+                                f"poids {wpct:.1f}% > cap c{conv} {cap_pct:.1f}%\n"
+                                f"discipline : trim ~{abs(expected_delta):.1f} shares "
+                                f"(revenir sous cap)\n"
+                                f"Action : /tiers ou /alleger {ticker}"
+                            )
+                            notified_flag = True
+                            stats["notified"] += 1
+                        else:
+                            log.info(
+                                f"over_cap {ticker}: OVER détecté mais phase BUILD "
+                                f"(operate_transition) — audit journalisé, notify différé"
+                            )
                     except Exception as e:
                         log.warning(f"over_cap notify {ticker} failed: {e}")
 

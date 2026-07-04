@@ -104,6 +104,22 @@ class ClusterCaps(BaseModel):
     ai_compute_max_pct: float = Field(gt=0.0, le=100.0)
 
 
+class OperateTransition(BaseModel):
+    """Date butoir declarative BUILD -> OPERATE (etape 3 Path B, cure 04/07).
+
+    Ferme le seuil ORAL (>=65k en memory) qui laissait "phase construction"
+    servir d'excuse infinie. rule=first_of : la premiere condition atteinte
+    (capital OU date) declenche OPERATE.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    rule: str = Field(pattern="^(first_of|all_of)$")
+    book_eur: float = Field(gt=0.0)
+    date: date
+    on_operate: list[str] = Field(default_factory=list)
+
+
 class Position(BaseModel):
     """Regle sizing/invalidation pour une position tenue OU pseudo-ticker (CASH).
 
@@ -161,6 +177,7 @@ class PortfolioRulesConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     meta: PortfolioRulesMeta = Field(alias="_meta")
+    operate_transition: OperateTransition | None = None
     cluster_caps: ClusterCaps
     positions: dict[str, Position] = Field(min_length=1)
     # Cap sum-of-weights : > 105% = bump aveugle non catche par les validators

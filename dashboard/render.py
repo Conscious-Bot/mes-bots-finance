@@ -7309,6 +7309,35 @@ def _monitors_live_band(near_stop_alerts: list | None = None) -> str:
     except Exception:
         pass
 
+    # build→operate — countdown Path B étape 3 (cure 04/07 : le seuil était oral,
+    # « phase construction » servait d'excuse infinie). Chip = date butoir visible.
+    try:
+        from shared.portfolio_rules import operate_state
+        _os = operate_state()
+        if _os.get("available"):
+            _phase = _os["phase"]
+            if _phase == "OPERATE":
+                _ocls, _oval = "ml-warn", f"OPERATE ({_os.get('met_by')})"
+            else:
+                _gap = _os.get("book_gap_eur")
+                _gap_txt = f"+{_gap:,.0f}€" if _gap and _gap > 0 else "cap atteint"
+                _oval = f"BUILD &middot; {_gap_txt} ou {_os.get('days_to_date')}j"
+                _ocls = "ml-info"
+            _ott = (
+                f"Transition BUILD→OPERATE (Path B étape 3, déclaratif). "
+                f"Book {_os.get('book_eur'):,.0f}€ / cible {_os.get('target_book_eur'):,.0f}€ "
+                f"OU date {_os.get('target_date')} (règle {_os.get('rule')}). "
+                f"OPERATE = fin de la déférence « phase construction »."
+                if _os.get("book_eur") is not None else "Transition BUILD→OPERATE (book indisponible)."
+            )
+            chips.append(
+                f'<span class="ml-chip {_ocls}" title="{_ott}">'
+                f'<span class="ml-lab">build→operate</span>'
+                f'<span class="ml-val">{_oval}</span></span>'
+            )
+    except Exception:
+        pass
+
     # over_cap — click → /strategie (caps par conviction)
     oc = s["over_cap"]
     if oc["over_count"] > 0:

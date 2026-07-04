@@ -28,6 +28,23 @@ _meta:
   description: 'Cadre sizing/invalidation/regime du portefeuille. Mine d''or sweep #133 10/06.'
   source: 'Bigdata.com/FMP tranches 1-4 (consensus PT/median) + decisions user'
 
+# ============================================================
+# Transition BUILD -> OPERATE (etape 3 Path B, declarative L17).
+# Avant 04/07 : le seuil etait ORAL (>=65k en memory, pas en config) et les
+# moniteurs en veille (over_cap dark) reposaient sur une decision au cas par cas
+# -> chaque critique de sizing se re-litigeait contre "phase construction".
+# Antipattern grave en memory (26/06) : "phase BUILD = excuse infinie, date
+# butoir necessaire". Ce bloc EST la date butoir. rule=first_of : la premiere
+# condition atteinte declenche OPERATE -> pas d'excuse infinie possible.
+operate_transition:
+  rule: 'first_of'          # first_of = OR (premiere atteinte) ; all_of = AND
+  book_eur: 65000           # seuil capital (ex-seuil oral over_cap, decision 01/06)
+  date: '2026-09-30'        # date butoir dure (alignee next_review_due)
+  # Ce que OPERATE debloque (documentaire ; le wiring lit operate_state()) :
+  on_operate:
+    - 'over_cap_monitor: dark -> active (notify transitions)'
+    - 'sizing critiques substance: plus de defer phase-construction'
+
 # Caps de concentration cluster.
 # > seuil ai_compute -> trim par le bas de pile (Astera/AMD/Coherent/KLA),
 # jamais ASML/TSMC/Synopsys (regle gouvernance bias #1).
