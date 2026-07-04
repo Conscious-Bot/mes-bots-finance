@@ -4331,9 +4331,13 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 
 **Override Digue 1 LIVRÉ 04/07** (commit `e0efe1c`) : déblocage du gel `/position_buy` conditionné à cooldown incompressible (2j, le gel tient au moins ça) ÉCOULÉ **ET** justification substantielle ≥40 car (le protocole de revue) — jamais un clic. `gate_allows_buy()` remplace le refus sec ; `grant_override(text)` + `/digue_override` (3j de validité). Épisode de gel stampé (`digue_gel_started_at`). 7 tests override, 24 tests digue total.
 
-**Restes digues (cosmétiques, non bloquants)** :
-1. **Labels config** kill_switch `-25/-35` (cosmétique, aligner le vocabulaire avec les états digue).
-2. **Dashboard** : afficher DD réalisé vs seuils digues (−15/−25/−35) + cap 70% en flag (ADR §Conséquences). = la dernière surface visible.
+**Dashboard digues LIVRÉ 04/07** (commit `c3259c5`) : lignes-seuils gel −15 / vigilance −25 / prorata −35 INTÉGRÉES au chart DD existant (clause miroir : pas de nouveau panneau) + caption header `DD réalisé X% · digue <état>` via current_digue_state. **BONUS = audit C reste #3 PARTIEL** : `_fetch_portfolio_equity_curve` bascule source PRIMAIRE sur `portfolio_snapshots` (courbe forward HONNÊTE, zéro survivorship/look-ahead, sans yfinance) ; le panneau Performance affichait à tort "Insufficient history" (reconstruction survivorship + yfinance down) → ressuscité sur la courbe honnête. Reconstruction legacy = fallback <2 snapshots. **MAIS survivorship fixé ≠ tout fixé** : le panneau calcule encore ffn (CAGR/Sharpe) sur la NAV BRUTE → garde la contribution-conflation. Le **+2.86% flux-neutralisé** (`managed_track_record`) + le relatif SMH ne sont PAS encore affichés = ce qui RESTE d'audit C #3.
+
+**Restes (légers)** :
+1. **Afficher le managed flux-neutralisé** (`managed_track_record` +2.86% + `managed_vs_benchmark` −2.1pp SMH) dans le panneau Performance, à la place/à côté du ffn-sur-NAV-brute. = fin d'audit C #3.
+2. **Labels config** kill_switch `-25/-35` (cosmétique). Non bloquant.
+
+**ADR 015 : COMPLÈTE fonctionnellement.** Digue 1 (gel book −15% + override cooldown/protocole) · Digue 2 (prorata grappe −35%) · réconciliation signaux · dashboard. 7 déploiements 04/07 : audit C · benchmark · Digue 1 · Digue 2 · réconciliation · override · dashboard+equity honnête.
 
 **ADR 015 substantiellement CLOSE** : Digue 1 (gel book −15% + override) + Digue 2 (prorata grappe −35%) + réconciliation signaux, toutes déployées et dormantes. Restent 2 cosmétiques.
 
