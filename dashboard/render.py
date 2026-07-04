@@ -1003,6 +1003,27 @@ def _fetch_portfolio_equity_curve():
     except Exception:
         return None
 
+    # Audit C (03/07) : source PRIMAIRE = portfolio_snapshots (courbe forward
+    # HONNÊTE, capturée à J, zéro look-ahead/survivorship, sans dépendance
+    # yfinance). La reconstruction ci-dessous (SELECT qty WHERE open × prix
+    # historiques) est l'approche survivorship+look-ahead condamnée par audit C —
+    # conservée en FALLBACK legacy seulement si <2 snapshots.
+    try:
+        with storage.db() as cx:
+            srows = cx.execute(
+                "SELECT snapshot_date, total_value_eur FROM portfolio_snapshots "
+                "WHERE total_value_eur IS NOT NULL ORDER BY snapshot_date"
+            ).fetchall()
+        if srows and len(srows) >= 2:
+            s = pd.Series(
+                [float(r[1]) for r in srows],
+                index=pd.to_datetime([r[0] for r in srows]),
+            )
+            _PORTFOLIO_HISTORY_CACHE = (s, now)
+            return s
+    except Exception:
+        pass  # fallback legacy ci-dessous
+
     try:
         with storage.db() as cx:
             rows = cx.execute(
@@ -1387,27 +1408,43 @@ def _performance_panel() -> str:
 
     def _build_drawdown_chart(dd_series, days=30, width=720, height=50, pad=4) -> str:
         """Drawdown area chart sur les `days` derniers points. Toujours rouge
-        car DD est negatif. Area fill = severite visible."""
+        car DD est negatif. Area fill = severite visible. Lignes-seuils digues
+        ADR 015 (gel -15 / vigilance -25 / prorata -35) en repere (legende dans le
+        header HTML — pas de texte dans le SVG etire)."""
         vals = list(dd_series.tail(days).values)
         n = len(vals)
         if n < 2:
             return ""
-        # DD est en [-1, 0] approximativement, on cale sur le min observe
-        lo = min(min(vals), -0.01)  # min 1% pour graph
+        # DD est en [-1, 0] approx. Plancher force a -0.16 pour toujours montrer
+        # la digue gel (-15%) comme reference ; seuils plus profonds si atteints.
+        lo = min(min(vals), -0.16)
         hi = 0.0
         rng = (hi - lo) or 1.0
+
+        def _y(v: float) -> float:
+            return pad + ((hi - v) / rng) * (height - 2 * pad)
+
         pts = []
         for i, v in enumerate(vals):
             x = pad + (i / max(1, n - 1)) * (width - 2 * pad)
-            # DD 0 en haut, DD -X en bas
-            y = pad + ((hi - v) / rng) * (height - 2 * pad)
-            pts.append(f"{x:.1f},{y:.1f}")
+            pts.append(f"{x:.1f},{_y(v):.1f}")
         # Area : ligne + ferme par les coins bas droite/gauche
         area_pts = " ".join(pts) + f" {width-pad:.1f},{height-pad:.1f} {pad:.1f},{height-pad:.1f}"
+        # Lignes-seuils digues (uniquement celles dans la plage visible)
+        thresh_svg = ""
+        for tv in (-0.15, -0.25, -0.35):
+            if tv < lo:
+                continue
+            ty = _y(tv)
+            thresh_svg += (
+                f'<line x1="{pad}" y1="{ty:.1f}" x2="{width-pad}" y2="{ty:.1f}" '
+                f'stroke="var(--bear)" stroke-width="0.6" stroke-dasharray="4 4" opacity="0.45"/>'
+            )
         return (
             f'<svg class="perf-dd-svg" viewBox="0 0 {width} {height}" '
             f'preserveAspectRatio="none" width="100%" height="{height}">'
             f'<polygon points="{area_pts}" fill="var(--bear)" opacity="0.18"/>'
+            f'{thresh_svg}'
             f'<polyline points="{" ".join(pts)}" fill="none" stroke="var(--bear)" '
             f'stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>'
             f'</svg>'
@@ -1419,6 +1456,25 @@ def _performance_panel() -> str:
     except Exception:
         equity_chart = ""
         dd_chart = ""
+
+    # Caption digues ADR 015 : etat courant + legende des seuils (les lignes
+    # pointillees du chart). Fail-soft — si le signal manque, legende seule.
+    dd_digue_caption = "seuils digues : gel −15 · vigilance −25 · prorata −35"
+    try:
+        from intelligence.digue_monitor import current_digue_state as _cds
+
+        _ds = _cds()
+        if _ds.get("drawdown_pct") is not None:
+            _dlabel = {
+                "normal": "normal", "gel_15": "GEL", "gel_25": "VIGILANCE",
+                "prorata_35": "PRORATA",
+            }.get(_ds["status"], _ds["status"])
+            dd_digue_caption = (
+                f'DD réalisé {_ds["drawdown_pct"]:+.1f}% · digue <b>{_dlabel}</b> · '
+                "seuils gel −15 · vigilance −25 · prorata −35"
+            )
+    except Exception:
+        pass
 
     ir_fmt = _fmt_num(ir_value)
     bench_sharpe = _fmt_num(bench_metrics.get("sharpe"))
@@ -1463,7 +1519,7 @@ def _performance_panel() -> str:
         )
         + (
             '<div class="perf-chart-block">'
-            '<div class="perf-chart-h">Drawdown 30j</div>'
+            f'<div class="perf-chart-h">Drawdown 30j — <span class="perf-dd-digue">{dd_digue_caption}</span></div>'
             f'{dd_chart}'
             '</div>' if dd_chart else ""
         )
