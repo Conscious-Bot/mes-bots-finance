@@ -147,7 +147,7 @@ def check_freshness() -> dict:
             "details": {},
         }
 
-    # Check 2b : gate yfinance violations (SOFT mode)
+    # Check 2b : gate yfinance violations (mode HARD depuis 09/06)
     import subprocess
     gate_path = _REPO_ROOT / "scripts" / "check_yfinance_gate.sh"
     if gate_path.exists():
@@ -156,15 +156,20 @@ def check_freshness() -> dict:
                 ["bash", str(gate_path)],
                 capture_output=True, text=True, timeout=30, cwd=str(_REPO_ROOT),
             )
-            stdout = result.stdout
-            # Parse "WARNING (NB violations)"
+            # Le gate est en mode HARD : exit 0 = propre, exit != 0 = violations.
+            # L'ancien parse cherchait "WARNING (N violations)", un format obsolète
+            # jamais émis en mode HARD → rapportait toujours 0 (audit 04/07 E5). On
+            # lit le returncode d'abord, puis le compte exact pour l'affichage.
             import contextlib
-            n_violations = 0
-            for line in stdout.splitlines():
-                if "violations)" in line and "WARNING" in line:
-                    with contextlib.suppress(Exception):
-                        n_violations = int(line.split("(")[1].split(" ")[0])
-                    break
+            import re as _re
+            if result.returncode == 0:
+                n_violations = 0
+            else:
+                n_violations = -1  # violation certaine, compte inconnu par défaut
+                m = _re.search(r"HARD GATE VIOLATED\s*--\s*(\d+)\s+import", result.stdout)
+                if m:
+                    with contextlib.suppress(ValueError):
+                        n_violations = int(m.group(1))
             details["yfinance_violations"] = n_violations
         except Exception as e:
             log.warning(f"gate yfinance check failed: {e}")

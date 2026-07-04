@@ -24,7 +24,10 @@ echo "=== SOCLE gate yfinance (HARD mode, AST-based) ==="
 VIOLATIONS=$(python3 - <<'PY'
 import ast, pathlib
 
-EXCLUDE_DIRS = {"venv", ".venv", "__pycache__", "tests", "alembic"}
+# dist/ = copie vendored du gateway (build packaging, gitignored) ; .claude/ =
+# worktrees d'agents/tasks (copies du repo) ; .git/ = objets. Aucun n'est du code
+# actif — les scanner produisait des faux positifs HARD (audit 04/07, dashboard E5).
+EXCLUDE_DIRS = {"venv", ".venv", "__pycache__", "tests", "alembic", "dist", ".claude", ".git", "build"}
 ROOT = pathlib.Path(".")
 out = []
 
