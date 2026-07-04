@@ -7394,6 +7394,7 @@ def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
             "cls": "crit", "sv": _mono,
             "title": f"{_name} &mdash; stop margin critical",
             "tag": "AT STOP",
+            "sev": 0,  # critique : capital en jeu
             "desc": f"price {_dn_str} from stop &middot; "
                     f"{'+' if _pnl_pct >= 0 else ''}{_pnl_pct:.0f}% on cost &middot; "
                     "revise stop or cut",
@@ -7410,13 +7411,121 @@ def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
             _cname = _c["name"]
             _mono_c = "".join(c for c in _cname if c.isalnum())[:2].upper()
             items.append({
-                "cls": "caut", "sv": _mono_c,
+                "cls": "caut", "sv": _mono_c, "sev": 1,
                 "title": f"{_cname} cluster over cap",
                 "tag": f"+{_pct - _cap:.0f}%",
                 "desc": f"{_pct:.0f}% vs cap {_cap:.0f}% &middot; "
                         f"+{_ov:,.0f}&nbsp;&euro; to trim to get back under",
                 "nav": "concentration",
             })
+
+    # === File décisionnelle unifiée (cure 04/07 #19) : le système CONNAÎT ~9
+    # actions dues (digue, kill_criteria, stress gate, over_cap, thèses mourantes,
+    # cibles atteintes) mais n'en montrait que 2. Pure AGRÉGATION de matière déjà
+    # calculée (monitors_summary + digue), triée par sévérité. Fail-soft par bloc.
+    # PHILOSOPHY : un signal sans mécanisme d'action est un produit jetable.
+
+    # -- Digue ADR 015 : gel actif = tête de file (frein comportemental capital) --
+    try:
+        from intelligence.digue_monitor import current_digue_state as _cds_n
+        _dg = _cds_n()
+        if _dg.get("frozen"):
+            _dd = _dg.get("drawdown_pct")
+            _dd_txt = f"DD réalisé {_dd:+.1f}%" if _dd is not None else "signal stale, gel maintenu"
+            items.append({
+                "cls": "crit", "sv": "DG", "sev": 0,
+                "title": "Digue 1 — /position_buy GELÉ",
+                "tag": _dg.get("status", "gel"),
+                "desc": f"{_dd_txt} &middot; ajout/renfort refusé &middot; "
+                        "déblocage = /digue_override (cooldown + protocole)",
+                "nav": "urgence",
+            })
+    except Exception:
+        pass
+
+    # -- Monitors (source unique get_monitors_summary : même matière que la bande) --
+    try:
+        from intelligence.monitors_summary import get_monitors_summary as _gms_n
+        _ms = _gms_n()
+        # kill_criteria triggered = thèse cassée qui firait (critique)
+        for _tk in (_ms.get("kill_criteria", {}).get("triggered_tickers") or [])[:3]:
+            items.append({
+                "cls": "crit", "sv": "K!", "sev": 0,
+                "title": f"{names.get(_tk, _tk)} — kill-criteria FIRING",
+                "tag": "KILL", "desc": "critère d'invalidation franchi &middot; décider sortie/override",
+                "nav": "position-card", "hash": f"card-{_tk}",
+            })
+        # stress gate franchi = gate DURE QUALITY_BAR axe 4 (critique)
+        _sg = _ms.get("stress_gate", {})
+        if _sg.get("breached_scenarios"):
+            _ws = _sg.get("worst_scenario") or {}
+            items.append({
+                "cls": "crit", "sv": "SG", "sev": 0,
+                "title": "Stress gate franchi",
+                "tag": "BREACH",
+                "desc": f"{len(_sg['breached_scenarios'])} scénario(s) au-delà du seuil "
+                        f"({_ws.get('name', '?')}) &middot; gate dure, réviser l'exposition",
+                "nav": "urgence",
+            })
+        # over_cap par position (élevé)
+        for _oc in (_ms.get("over_cap", {}).get("over_tickers") or [])[:3]:
+            _octk = _oc.get("ticker") if isinstance(_oc, dict) else _oc
+            items.append({
+                "cls": "caut", "sv": "OC", "sev": 1,
+                "title": f"{names.get(_octk, _octk)} — position over cap",
+                "tag": "TRIM", "desc": "poids > cap conviction &middot; /alleger pour revenir sous cap",
+                "nav": "strategie",
+            })
+        # thèses mortes = revue due (élevé) ; mourantes (moyen)
+        for _tk in (_ms.get("stale_target", {}).get("dead_tickers") or [])[:3]:
+            items.append({
+                "cls": "caut", "sv": "TD", "sev": 1,
+                "title": f"{names.get(_tk, _tk)} — thèse morte (cible rattrapée)",
+                "tag": "REVUE", "desc": "cible dépassée par le cost &middot; réviser ou retirer la cible",
+                "nav": "position-card", "hash": f"card-{_tk}",
+            })
+        for _tk in (_ms.get("stale_target", {}).get("dying_tickers") or [])[:3]:
+            items.append({
+                "cls": "info", "sv": "td", "sev": 2,
+                "title": f"{names.get(_tk, _tk)} — thèse mourante",
+                "tag": "watch", "desc": "marge cible/cost qui se réduit &middot; à surveiller",
+                "nav": "position-card", "hash": f"card-{_tk}",
+            })
+        # kill_criteria at_risk (moyen)
+        for _tk in (_ms.get("kill_criteria", {}).get("at_risk_tickers") or [])[:3]:
+            items.append({
+                "cls": "info", "sv": "k?", "sev": 2,
+                "title": f"{names.get(_tk, _tk)} — kill-criteria at risk",
+                "tag": "vigie", "desc": "proche du critère d'invalidation &middot; surveiller",
+                "nav": "position-card", "hash": f"card-{_tk}",
+            })
+    except Exception:
+        pass
+
+    # -- Cibles atteintes = revue pré-enregistrée due (moyen) --
+    try:
+        for _r in computed:
+            _up = _r.get("upside_pct")
+            _tk = _r.get("ticker")
+            if _up is not None and _up <= 0 and _tk:  # prix >= cible
+                items.append({
+                    "cls": "info", "sv": "T✓", "sev": 2,
+                    "title": f"{names.get(_tk, _tk)} — cible atteinte",
+                    "tag": "revue due",
+                    "desc": "claim résolue &middot; revue pré-enregistrée : re-cible ou allège",
+                    "nav": "position-card", "hash": f"card-{_tk}",
+                })
+    except Exception:
+        pass
+
+    # Dédup (même ticker sur 2 canaux → garder le + sévère) + tri par sévérité.
+    _seen: dict = {}
+    for _it in sorted(items, key=lambda x: x.get("sev", 9)):
+        _key = (_it.get("hash") or _it["title"])
+        if _key not in _seen:
+            _seen[_key] = _it
+    items = list(_seen.values())
+
     if not items:
         body = (
             '<div class="need ok"><div class="sv">&check;</div>'
