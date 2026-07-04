@@ -481,6 +481,18 @@ async def _buy_impl(update, ticker: str, qty: float, price: float, reasoning: st
 
         _allow, _gate_msg = _digue.gate_allows_buy()
         if not _allow:
+            # Capteur valeur-de-la-discipline (#20, 05/07) : le trade REFUSÉ
+            # n'existe nulle part ailleurs (aucune row decisions). On logge
+            # l'intention complète (ticker/qty/prix) en append-only bot_events →
+            # valorisée contrefactuellement à +30j par intelligence.discipline_value
+            # (refus d'un achat qui aurait baissé = discipline positive).
+            with contextlib.suppress(Exception):
+                from shared import storage as _stg_ref
+
+                _stg_ref.log_event(
+                    "digue_buy_refused",
+                    {"ticker": ticker, "qty": qty, "price": price},
+                )
             await update.message.reply_text(_gate_msg)
             return
         if _gate_msg:  # achat autorisé mais sous override actif : le signaler

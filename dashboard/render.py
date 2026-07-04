@@ -7917,6 +7917,51 @@ def _discipline_biais_panel() -> str:
         + '</div>'
         + '</div>'
     )
+    # Counts lock_in réels (le canal est ACTIF depuis v2.c.6 — cf bloc plus bas)
+    _lockin_open = _lockin_resolved = 0
+    try:
+        for _st, _n in _q("SELECT status, COUNT(*) FROM bias_events WHERE bias='lock_in' GROUP BY status"):
+            if _st == "open":
+                _lockin_open = int(_n)
+            elif _st == "resolved":
+                _lockin_resolved = int(_n)
+    except Exception:
+        pass
+
+    # === Valeur de la discipline (#20, 05/07) — LE compteur bidirectionnel
+    # canonique (GLOSSARY : somme signée des deltas contrefactuels). Source :
+    # intelligence.discipline_value (contrefactuels décisions résolus + refus
+    # digue valorisés ; lens biais séparée, jamais additionnée). Fail-soft.
+    _dv_block = ""
+    try:
+        from intelligence.discipline_value import discipline_value_summary
+        _dv = discipline_value_summary()
+        _dvd = _dv["components"]["decisions"]
+        if _dv["total_eur"] is not None:
+            _dv_cls = "acc" if _dv["total_eur"] >= 0 else "bear"
+            _dv_txt = f"{_dv['total_eur']:+,.0f}&nbsp;&euro;"
+            # les 2 types extrêmes = la lecture (ex. partial_exit −8.5k = lock_in en €)
+            _bt = sorted(_dvd["by_type"].items(), key=lambda x: x[1]["eur"])
+            _dv_detail = " &middot; ".join(
+                f"{t} {v['eur']:+,.0f}&euro; (n={v['n']})" for t, v in _bt
+            )
+            _refN = _dv["components"]["digue_refusals"]["n_events"]
+            _dv_block = (
+                '<div class="dba-card" style="border-left:2px solid var(--acc)">'
+                '<div class="dba-chrow">'
+                '<span class="lab" data-tip="GLOSSARY : coût du biais / valeur de la '
+                'discipline — compteur bidirectionnel, somme signée des deltas '
+                'contrefactuels (décision réelle vs alternative à +30j). Positif = '
+                'tes décisions ont battu leur contrefactuel.">Valeur de la discipline</span>'
+                f'<span class="stat mono {_dv_cls}" style="font-size:var(--t-h3)">{_dv_txt}</span></div>'
+                f'<div class="dba-meta">{_dv["n_total"]} r&eacute;solutions contrefactuelles &middot; {_dv_detail}</div>'
+                f'<div class="dba-cond">Refus digue captur&eacute;s : {_refN} (valoris&eacute;s &agrave; +30j) &middot; '
+                'lens biais s&eacute;par&eacute;e ci-dessous (sous-ensemble, non additionn&eacute;e)</div>'
+                '</div>'
+            )
+    except Exception:
+        _dv_block = ""
+
     return (
         # Migre 02/06 user : fusion dans page Methode (data-page="methode").
         # Wrapper section retire -- ce bloc est inline dans _signaux().
@@ -7924,6 +7969,7 @@ def _discipline_biais_panel() -> str:
         # _DBA_CSS moved to bundle (audit 20/06, 8KB pollution DOM Methode -> head)
         + '<div class="dba-sh" data-tip="PRESAGE mission counter: calibrated predictions + mechanized behavioral biases."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.5 1.5L8.5 4.5"/><path d="M10 6h4"/><path d="M4 11l1.5 1.5L8.5 9.5"/><path d="M10 11h4"/></svg>Discipline &amp; mechanized biases'
         '<span class="dba-sh-aside">mission counter &middot; real density at J+30</span></div>'
+        + _dv_block
         + star_discipline
         # ─── PREDICTIONS ─────────────────────────────────────────────────
         + '<div class="dba-sh" data-tip="Predictions resolved at J+28: probabilistic marker (Brier score) on estimate calibration."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="0.8" fill="currentColor" stroke="none"/></svg>Predictions'
@@ -7974,14 +8020,20 @@ def _discipline_biais_panel() -> str:
         # ─── BIAIS lock_in ──────────────────────────────────────────────
         '<div class="dba-sh" data-tip="Lock-in bias: selling winners too early. PRESAGE bias #1 per ADR-010. Mechanized via Surface 2 (sell winner sync capture)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/><circle cx="8" cy="10.5" r=".9" fill="currentColor" stroke="none"/></svg>Biais &mdash; lock_in'
         '<span class="dba-sh-aside">selling winners too early</span></div>'
+        # État de canal CANONIQUE (GLOSSARY) : lock_in est ACTIF depuis v2.c.6
+        # (01/06) — hook positions.add_sell → lock_in_detector.detect_winner_sell,
+        # gate pnl≥15% AND conviction≥3, résolution +30j + obs +60/+90 (B3).
+        # L'ancien libellé « not instrumented » MENTAIT en sens inverse (audit
+        # 04/07) : un canal câblé affiché non-livré. « Comptage à 0 lit
+        # littéralement : actif mais aucun événement qualifiant. »
         '<div class="dba-card">'
         '<div class="dba-chrow">'
         '<span class="lab">Surface 2 &mdash; capture synchrone vente winner</span>'
-        '<span class="stat non-inst">not instrumented</span></div>'
-        '<div class="dba-meta">Path planned by ADR-010 §2. '
-        'No capture channel today &mdash; PRESAGE bias #1, to fill in.</div>'
-        '<div class="dba-cond">No candidat capturable tant que ce chemin '
-        'not yet shipped.</div>'
+        f'<span class="stat inst" data-tip="Canal câblé v2.c.6 : hook add_sell → detect_winner_sell (gate pnl&ge;15% ET conviction&ge;3). Résolution +30j, observations +60/+90j (B3).">actif &middot; {_lockin_open} open / {_lockin_resolved} resolved</span></div>'
+        '<div class="dba-meta">Hook add_sell &rarr; detect_winner_sell (v2.c.6) &middot; '
+        'gate pnl&ge;15% ET conviction&ge;3 &middot; r&eacute;solution +30j, obs +60/+90j.</div>'
+        '<div class="dba-cond">0 resolved = canal actif, aucune vente winner '
+        'qualifiante encore r&eacute;solue (30j d&rsquo;horloge par candidat).</div>'
         '</div>'
         '</div>'
     )
