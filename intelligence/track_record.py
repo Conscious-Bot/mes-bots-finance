@@ -156,47 +156,36 @@ def managed_vs_benchmark(inception: str = INCEPTION) -> dict | None:
     Le relatif filtre le mouvement de marché : à N faible, c'est le seul angle qui
     porte du signal (le point-estimate absolu oscille de ±50% sur une séance).
 
-    IMPORTANT : fetch yfinance FRAIS (pas `shared.portfolio_metrics` qui lit
-    `price_history` — les ETF benchmark n'y sont PAS rafraîchis, figés au dernier
-    backfill => deltas faux). Réseau requis ; fail-soft (benchmark None si échec).
-    EUR-équivalent via EURUSD=X aux bornes (USD asset, vue investisseur EUR).
+    Fetch via `shared.prices.get_close_on_in_eur` (passerelle yfinance canonique,
+    doctrine single-gateway) : close FRAIS à la date + conversion FX native→EUR
+    cohérente (PAS `price_history`, où les ETF benchmark sont figés au backfill =>
+    deltas faux). Fail-soft : benchmark None si close indisponible aux bornes.
     """
     tr = managed_track_record(inception)
     if tr is None:
         return None
     start, end = tr["inception"], tr["terminal_date"]
     try:
-        import warnings
-
-        import yfinance as yf
-
-        warnings.filterwarnings("ignore")
-        px = yf.download(
-            [*_BENCHMARKS, "EURUSD=X"], start="2026-05-20", end="2026-07-04", progress=False
-        )["Close"]
+        from shared.prices import get_close_on_in_eur
     except Exception:
-        return {**tr, "benchmarks": dict.fromkeys(_BENCHMARKS), "benchmark_reason": "fetch failed"}
+        return {**tr, "benchmarks": dict.fromkeys(_BENCHMARKS), "benchmark_reason": "gateway unavailable"}
 
-    def _close_le(series, d):
-        s = series.loc[:d]
-        return float(s.iloc[-1]) if len(s) else None
-
-    eur0, eur1 = _close_le(px["EURUSD=X"], start), _close_le(px["EURUSD=X"], end)
     benches: dict = {}
     for tk in _BENCHMARKS:
         try:
-            p0, p1 = _close_le(px[tk], start), _close_le(px[tk], end)
-            if None in (p0, p1, eur0, eur1) or p0 == 0:
+            p0 = get_close_on_in_eur(tk, start)
+            p1 = get_close_on_in_eur(tk, end)
+            if not p0 or not p1:
                 benches[tk] = None
                 continue
-            eur_ret = ((p1 / eur1) / (p0 / eur0) - 1) * 100  # EUR investor view
+            eur_ret = (p1 / p0 - 1) * 100  # EUR investor view (FX déjà appliqué)
             benches[tk] = {
                 "eur_ret_pct": round(eur_ret, 2),
                 "delta_pp": round(tr["perf_pct"] - eur_ret, 2),
             }
         except Exception:
             benches[tk] = None
-    return {**tr, "benchmarks": benches, "eurusd_start": eur0, "eurusd_end": eur1}
+    return {**tr, "benchmarks": benches}
 
 
 if __name__ == "__main__":

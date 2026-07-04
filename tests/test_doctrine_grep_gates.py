@@ -106,9 +106,10 @@ def _scan_violators(import_re: re.Pattern, exclude_paths: set[str]) -> list[str]
     """
     violators = []
     for py_file in _REPO_ROOT.rglob("*.py"):
-        # Skip venv / cache / git
+        # Skip venv / cache / git / dist (dist/ = artefact de build packaging,
+        # gitignored + absent en CI ; ne pas scanner la copie du repo qu'il contient).
         rel_str = str(py_file.relative_to(_REPO_ROOT)).replace("\\", "/")
-        if any(p in rel_str for p in ("venv/", "__pycache__/", ".git/")):
+        if any(p in rel_str for p in ("venv/", "__pycache__/", ".git/", "dist/")):
             continue
         # Skip tests/ et alembic/ (legitimate use)
         if rel_str.startswith("tests/") or "/alembic/" in rel_str:
