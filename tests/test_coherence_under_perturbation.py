@@ -162,42 +162,26 @@ def test_other_tickers_unaffected_by_perturbation(monkeypatch, baseline_views):
     )
 
 
-def test_dp_pct_panel_consumes_canonical_source():
-    """Couverture unisson : _dp_pct (TOP MOVERS 24h) doit lire price_history,
-    pas fetcher yfinance localement. Convention close-to-close.
+def test_tape_daily_pct_single_source():
+    """Fork daily% fermé (cure 04/07) : le tape consomme LA MÊME map `daily`
+    (= _perf_dwm close-to-close) que Top movers — le pipeline parallèle _dp_pct
+    (price_history tick, détecteur de doublon férié cassable par jitter float →
+    mur de « ▲0.0% » verts pendant que movers affichait −11.5%) est SUPPRIMÉ.
 
-    Discipline migration L27 (Olivier 08/06 nuit) : chaque panneau migré
-    s'ajoute au test cohérence dans le même commit. Sinon le ratchet
-    descend mais "couverture tous panneaux" n'avance jamais.
-
-    Verify-before-trust (par marché, 08/06 nuit) :
-      - Asia (KRX 23:21 KST) : marché fermé → tick = close, Δ vs yfinance ~0
-      - EU (Paris 14:21 CET) : marché ouvert → tick intraday, Δ ≤0.3pp acceptable
-      - US (NASDAQ 8:21 ET)  : pas ouvert → pre-market, Δ ≤0.4pp acceptable
+    Test source (pattern test_smoke_observation) : vérifie (a) le pipeline mort
+    ne ressuscite pas, (b) le tape lit `daily.get(`, (c) un ticker sans donnée
+    est ABSENT du tape (fail-closed : `if dp is not None`), jamais 0.0 fabriqué.
     """
-    from dashboard.render import _DP_CACHE, _dp_pct
-    _DP_CACHE.clear()  # bypass cache pour fresh read
+    from pathlib import Path
 
-    # Sample multi-marché : Asia (close réel), EU (intraday), US (intraday)
-    asia_tk = "000660.KS"
-    eu_tk = "HO.PA"
-    us_tk = "AMD"
-
-    values = {tk: _dp_pct(tk) for tk in (asia_tk, eu_tk, us_tk)}
-
-    # CI peut avoir price_history vide -> skip plutot que fail. Le test verifie
-    # la consommation de la source canonique, ce qui requiert >=2 jours data
-    # cron-collected. Pas testable sur CI fresh DB.
-    if all(v is None for v in values.values()):
-        pytest.skip("price_history vide (CI fresh) -- test data-dependent")
-
-    # Au moins un ticker avec data : tous ceux qui ont data doivent etre dans
-    # la bande sane.
-    for tk, v in values.items():
-        if v is None:
-            continue  # CI partial coverage OK
-        # Sanity : % 24h dans bande raisonnable (-50% à +50% pour stocks single-day)
-        assert -50.0 <= v <= 50.0, f"{tk}: _dp_pct={v}% hors bande sane"
+    src = Path("dashboard/render.py").read_text()
+    assert "def _dp_pct" not in src, (
+        "le pipeline _dp_pct a ressuscité — le daily% du tape doit venir de "
+        "_perf_dwm (source unique avec Top movers), pas d'un 2e calculateur"
+    )
+    tape_block = src.split("tape_data = []")[1].split("tape =")[0]
+    assert "daily.get(tk)" in tape_block, "le tape ne lit plus la map daily (fork réintroduit ?)"
+    assert "if dp is not None" in tape_block, "fail-closed du tape retiré (0.0 fabriqués possibles)"
 
 
 def test_no_silent_stale_field(baseline_views):

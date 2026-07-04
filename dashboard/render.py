@@ -184,80 +184,10 @@ def _stop_distance_pct_native(ticker: str, stop_price: float | None) -> float | 
     return (current - stop_price) / current * 100
 
 
-_DP_CACHE: dict[str, tuple[float | None, float]] = {}
-_DP_TTL = 840.0
-
-# Alerte fork LIVING_GRAPH gated par PERSISTANCE (cure bruit 30/06 v2).
-# Le regen tourne toutes les ~5 min. La plupart des forks sont TRANSITOIRES
-# (TTL de cache prix, lag de sync Mac↔VM) et s'auto-résolvent en 1-2 regens →
-# ils ne doivent PAS pager. On ne notifie qu'un fork qui SURVIT _FORK_PERSIST_N
-# regens consécutifs (= divergence structurelle, ex PnL fork), et une seule fois
+# Anti-spam fork alerts : n'alerte que si le fork persiste N regens consécutifs
 # (au franchissement du seuil). Le log.warning, lui, sort à chaque regen.
 _FORK_ALERT_STATE: dict = {}  # {(concept_key, ticker): compteur de regens consécutifs}
 _FORK_PERSIST_N = 3  # ~15 min à PRESAGE_REFRESH=300s avant d'alerter
-
-
-def _dp_pct(ticker: str) -> float | None:
-    """Variation % 24h : close-to-close officiel via gateway prices canonique.
-
-    Convention décidée 08/06 nuit (red-team Olivier) :
-      - Source price_history (L1, alimentée par cron). NON yfinance local
-        (bypass éliminé du callsite render.py).
-      - Convention close-to-close : matche broker / Yahoo. Le ratio rolling-live
-        (dernier tick intraday vs close veille) diverge selon timezone du marché :
-          * Asia (KRX/TSE) à 14:21 FR : marchés fermés, dernier tick = close, diff ~0
-          * EU (Paris/Amsterdam) à 14:21 CET : marchés ouverts, tick intraday, diff ≤0.3pp
-          * US (NASDAQ) à 8:21 ET : pas ouvert, tick = pre-market, diff ≤0.4pp
-        On REFUSE cette divergence convention-broker pour un panel "% 24h".
-      - Fallback : si close du jour pas dispo (marché ouvert), prend dernier tick
-        intraday (pour Asie c'est = close, pour EU/US c'est intraday accepté
-        comme "best available" jusqu'au close réel à 22h+ FR).
-
-    Returns None si moins de 2 jours de données (fail-closed L15).
-    """
-    import time as _t
-
-    now = _t.monotonic()
-    hit = _DP_CACHE.get(ticker)
-    if hit is not None and now - hit[1] < _DP_TTL:
-        return hit[0]
-
-    v: float | None = hit[0] if hit is not None else None
-    try:
-        from shared import storage
-        with storage.db() as cx:
-            cx.row_factory = None
-            # 2 derniers jours de close (dernier tick par jour). Si marché Asia
-            # déjà clos → tick = close réel. Si marché US/EU encore ouvert →
-            # tick intraday, accepté comme best-available pour panel temps réel.
-            rows = cx.execute("""
-                WITH day_lasts AS (
-                    SELECT price_native,
-                           substr(asof, 1, 10) AS day,
-                           ROW_NUMBER() OVER (
-                               PARTITION BY substr(asof, 1, 10)
-                               ORDER BY asof DESC
-                           ) AS rn
-                    FROM price_history WHERE ticker = ?
-                )
-                SELECT price_native, day FROM day_lasts WHERE rn = 1
-                ORDER BY day DESC LIMIT 3
-            """, (ticker,)).fetchall()
-        # Fix 30/06 : avant l'ouverture US, le cron stocke le close de la veille
-        # comme "valeur du jour" -> le record du jour DUPLIQUE le close veille,
-        # close-to-close = 0% pour ~60% du book (noms US). On affiche alors le
-        # move de la dernière SÉANCE COMPLÈTE (skip le doublon stale) plutôt qu'un
-        # mur de 0%. Détecteur fiable : égalité prix exacte = pas de vraie séance,
-        # 2 closes réels ne matchent jamais à la précision float stockée.
-        if len(rows) >= 3 and rows[0][0] and rows[1][0] and rows[0][0] == rows[1][0]:
-            rows = rows[1:]
-        if len(rows) >= 2 and rows[0][0] and rows[1][0]:
-            v = round((rows[0][0] / rows[1][0] - 1.0) * 100.0, 1)
-    except Exception:
-        pass
-
-    _DP_CACHE[ticker] = (v, now)
-    return v
 
 
 def _country(tk: str) -> str:
@@ -6754,10 +6684,10 @@ def _perf_dwm(ticker: str) -> dict:
 
     Migration Phase 4 #5 : daily close-to-close via prices.get_price_window
     (gateway unique). Simplification convention-wide : "d" devient daily
-    close-to-close (close[-1] vs close[-2]) aligné avec _dp_pct (panneau
-    voisin TOP MOVERS). Plus de fetch intraday 1h yfinance — la part
+    close-to-close (close[-1] vs close[-2]) — SOURCE UNIQUE du daily% (tape +
+    Top movers, cure fork 04/07 : le pipeline _dp_pct supprimé). Plus de fetch intraday 1h yfinance — la part
     intraday "24h rolling vrai" est sacrifiée pour la cohérence convention
-    (matche broker/Yahoo daily%, cf finding _dp_pct).
+    (matche broker/Yahoo daily%).
 
     "d" = close jour J vs close jour J-1 (daily approximation canonique
     Yahoo/Robinhood "Today").
@@ -8341,10 +8271,16 @@ def render() -> Path:
     # Tape ticker DAILY % (user 02/06 "valeurs tickers en daily%"). Avant
     # on affichait pnl[tk] = lifetime PnL since entry -> incoherent avec
     # un bandeau "roulant" qui suggere flux temps-reel.
+    # SOURCE UNIQUE = `daily` (= _perf_dwm close-to-close, LA MÊME map que Top
+    # movers). Cure 04/07 (audit dashboard) : le tape avait son propre pipeline
+    # _dp_pct (price_history tick) dont le détecteur de doublon jour-férié
+    # cassait sur jitter float → mur de « ▲0.0% » verts pendant que movers
+    # affichait KLAC −11.5% sur le même écran. Un ticker sans donnée = ABSENT
+    # du tape (fail-closed), jamais un 0.0 fabriqué.
     tape_items = ""
     tape_data = []
     for tk in pnl:
-        dp = _dp_pct(tk)
+        dp = daily.get(tk)
         if dp is not None:
             tape_data.append((tk, dp))
     for tk, dp in sorted(tape_data, key=lambda x: -x[1]):
