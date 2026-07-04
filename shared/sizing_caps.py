@@ -23,7 +23,9 @@ log = logging.getLogger(__name__)
 
 # Fallback minimal si config indisponible (tests, bootstrap).
 # = c5 ancre courante (sommet bride sub-Kelly N<100). Documente dans config.yaml.
-_FALLBACK_CAP_C5 = 0.06
+# 0.08 = valeur canonique c5 (refonte 24/06) ; l'ancien 0.06 divergeait du canon
+# (dupe silencieuse, audit 04/07).
+_FALLBACK_CAP_C5 = 0.08
 
 
 def cap_for_conviction(conviction: int | None) -> float:
@@ -62,6 +64,16 @@ def cap_for_conviction(conviction: int | None) -> float:
     if str(key_int) in caps:
         return float(caps[str(key_int)])
     return float(caps.get(5, caps.get("5", _FALLBACK_CAP_C5)))
+
+
+def cap_pct_for_conviction(conviction: int | None) -> float:
+    """Même source de vérité que cap_for_conviction, mais en POURCENTAGE (8.0
+    pour c5), pour les consommateurs scoring/display qui raisonnent en %.
+
+    Remplace les dicts hardcodés dupliqués _BASE_CAP_BY_CONVICTION
+    (spof_and_sizing) et CONVICTION_CAPS_PCT (portfolio_grade) — ils avaient déjà
+    divergé du YAML 17 jours (07→24/06, audit 04/07). Source unique désormais."""
+    return cap_for_conviction(conviction) * 100.0
 
 
 def absolute_max_cap() -> float:

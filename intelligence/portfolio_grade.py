@@ -44,8 +44,9 @@ def _parse_dt_aware(s: str | None) -> datetime | None:
         return None
 
 
-# Conviction caps from config (mirrored to avoid yaml import cost — keep in sync)
-CONVICTION_CAPS_PCT = {5: 8.0, 4: 6.0, 3: 4.5, 2: 3.0, 1: 2.0}
+# Conviction caps : source UNIQUE = config.yaml via shared.sizing_caps (le dict
+# hardcodé CONVICTION_CAPS_PCT avait divergé du YAML 17j, audit 04/07).
+from shared.sizing_caps import cap_pct_for_conviction as _cap_pct
 
 # Dimension weights (sum = 100)
 DIMENSION_WEIGHTS = {
@@ -622,7 +623,7 @@ def _compute_sizing_conviction(state: dict) -> dict:
     for p in positions:
         t = theses_by_ticker.get(p["ticker"])
         conv = (t or {}).get("conviction") or 3
-        cap_pct = CONVICTION_CAPS_PCT.get(conv, 3.0)
+        cap_pct = _cap_pct(conv)
         weight_pct = p["weight"] / total * 100 if total else 0
         if weight_pct <= cap_pct + 0.2:  # tiny tolerance 0.2%
             compliant_eur += p["weight"]

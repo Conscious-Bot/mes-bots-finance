@@ -419,7 +419,9 @@ def _get_cached_analysis(ticker, max_age_hours=24):
     import sqlite3
     from datetime import datetime, timedelta
 
-    conn = sqlite3.connect("data/bot.db")
+    from shared import storage
+
+    conn = sqlite3.connect(str(storage.DB_PATH))  # chemin absolu (casse hors-cwd sinon)
     try:
         cutoff = (datetime.now(UTC) - timedelta(hours=max_age_hours)).replace(tzinfo=None).isoformat()
         row = conn.execute(
@@ -445,6 +447,7 @@ def _store_analysis(ticker, synthesis, data):
     import json
     import sqlite3
 
+    from shared import storage
     from shared.storage import _naive_utc_iso
 
     def _safe(v):
@@ -455,7 +458,7 @@ def _store_analysis(ticker, synthesis, data):
             return False
 
     meta_dict = {k: v for k, v in data.items() if _safe(v)}
-    conn = sqlite3.connect("data/bot.db")
+    conn = sqlite3.connect(str(storage.DB_PATH))  # chemin absolu (casse hors-cwd sinon)
     try:
         conn.execute(
             "INSERT INTO analyses(ticker, type, timestamp, content, metadata) VALUES (?, ?, ?, ?, ?)",

@@ -81,8 +81,9 @@ def compute_spof_graph() -> dict:
 # ─────────────────────────── Mauboussin implied sizing ───────────────────────
 
 
-# Cap par conviction (sync avec config.yaml ; mirrored ici)
-_BASE_CAP_BY_CONVICTION = {5: 8.0, 4: 6.0, 3: 4.5, 2: 3.0, 1: 2.0}
+# Cap par conviction : source UNIQUE = config.yaml via shared.sizing_caps
+# (le dict hardcodé _BASE_CAP_BY_CONVICTION avait divergé du YAML 17j, audit 04/07).
+from shared.sizing_caps import cap_pct_for_conviction as _cap_pct
 
 
 def _fade_factor(fade_rate_score: int | None) -> float:
@@ -129,7 +130,7 @@ def compute_mauboussin_sizing() -> dict:
         if conv is None or not m:
             continue
         fade = m.get("fade_rate_score")
-        base_cap = _BASE_CAP_BY_CONVICTION.get(int(conv), 3.0)
+        base_cap = _cap_pct(conv)
         target_pct = base_cap * _fade_factor(fade)
         actual_pct = p["weight"] / total * 100
         gap_pp = actual_pct - target_pct

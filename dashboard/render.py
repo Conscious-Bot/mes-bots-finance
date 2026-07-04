@@ -101,9 +101,13 @@ def conviction_chip(conviction: int | None, position_type: str | None = None) ->
         return f'<span class="conv-chip socle">c{conviction}&nbsp;{label}</span>'
     return f'<span class="conv-chip">c{conviction}</span>'
 NARRATIVE_CAP = float(_CFG.get("style", {}).get("narrative_max_pct", 0.30)) * 100
-DD_REDUCE = float(_CFG.get("risk", {}).get("drawdown_reduce_pct", 0.08)) * 100
-DD_STOP = float(_CFG.get("risk", {}).get("drawdown_stop_pct", 0.20)) * 100
-FX_USD = 0.858
+# FX USD→EUR d'affichage (buckets secteur) : live via le gateway canonique
+# (cache _FX_TTL + fallback hardcodé interne), plus de constante figée 0.858 qui
+# vieillissait en silence (dupe audit 04/07). 0.92 = garde ultime si tout casse.
+# DD_REDUCE/DD_STOP supprimés : constantes mortes (0 usage) ET périmées (8/20 vs
+# canon kill_switch 25/35) — un piège (audit dead-code).
+def _fx_usd_eur() -> float:
+    return get_fx_rate("USD", "EUR") or 0.92
 REVIEWS = [
     ("2026-05-30", "Brier resolution (KPI#2)"),
     ("2026-05-30", "COHR review"),
@@ -148,6 +152,7 @@ SUFFIX = {
 # Ré-exporté ici pour rétro-compat des callers internes au render.py.
 from shared.prices import (
     _cached_price_native,
+    get_fx_rate,
 )
 
 # Phase post-audit 07/06 : cache historique portfolio pour Performance panel.
@@ -4701,7 +4706,7 @@ def _sector_blocks(
     real_t = sum(p["weight"] for p in positions)
     plan_t = sum(p["weight"] for p in planned)
     total = (real_t + plan_t) or 1
-    fx = FX_USD
+    fx = _fx_usd_eur()
     _cl = _compute_ai_set()
     fine: dict = {}
     for p in positions:
