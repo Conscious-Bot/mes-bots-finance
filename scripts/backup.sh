@@ -58,6 +58,23 @@ else
     exit 2
 fi
 
+# Vault Obsidian (le « cerveau » NON-régénérable, #31 04/07). Mac-only :
+# l'API REST vit sur 127.0.0.1, la VM ne peut pas l'atteindre. On backup le
+# vault SEULEMENT si OBSIDIAN_API_URL est configuré (donc sur le Mac).
+# Non-fatal : un échec vault ne doit pas casser le backup DB, mais l'ops voit
+# le WARN (le vault est irrécupérable — c'est le backup le plus important).
+VAULT_TARBALL=""
+if [ -n "${OBSIDIAN_API_URL:-}" ] || grep -q '^OBSIDIAN_API_URL=' "$PROJECT_DIR/.env" 2>/dev/null; then
+    if "$PROJECT_DIR/venv/bin/python3" "$PROJECT_DIR/scripts/backup_vault.py" >>"$LOG_FILE" 2>&1; then
+        VAULT_TARBALL=$(ls -t "$HOME/presage_vault_backups"/PRESAGE_vault_*.tgz 2>/dev/null | head -1)
+        log "Vault backup: OK ($(basename "${VAULT_TARBALL:-none}"))"
+    else
+        log "Vault backup: FAIL — cerveau NON sauvegardé cette fois, ALERTE OPS (Obsidian tourne ?)"
+    fi
+else
+    log "Vault backup: SKIP — OBSIDIAN_API_URL absent (non-Mac ou API non configurée)"
+fi
+
 # Push offsite (rsync/SSH). Apres integrity check : on ne pousse jamais un
 # snapshot corrompu. Echec non-fatal : le local reste, l'ops doit voir le WARN.
 if [ -n "$BACKUP_REMOTE_HOST" ] && [ -n "$BACKUP_REMOTE_PATH" ]; then
@@ -66,9 +83,9 @@ if [ -n "$BACKUP_REMOTE_HOST" ] && [ -n "$BACKUP_REMOTE_PATH" ]; then
     SSH_OPTS="-p $PORT -i $KEY -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
     log "Push offsite: $BACKUP_REMOTE_HOST:$BACKUP_REMOTE_PATH (port=$PORT)"
     if rsync -az --partial -e "ssh $SSH_OPTS" \
-            "$TARBALL" "$DB_SNAP" \
+            "$TARBALL" "$DB_SNAP" $VAULT_TARBALL \
             "${BACKUP_REMOTE_HOST}:${BACKUP_REMOTE_PATH}/" 2>>"$LOG_FILE"; then
-        log "Push offsite: OK ($(basename "$TARBALL") + $(basename "$DB_SNAP"))"
+        log "Push offsite: OK ($(basename "$TARBALL") + $(basename "$DB_SNAP")$([ -n "$VAULT_TARBALL" ] && echo " + vault"))"
     else
         log "Push offsite: FAIL (rsync exit $?) — local backup conserve, ALERTE OPS"
     fi
