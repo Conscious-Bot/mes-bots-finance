@@ -53,21 +53,105 @@ def db_ro() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+import logging as _logging
+
+_state_log = _logging.getLogger("shared.storage.state")
+
+# Verrou inter-process pour le read-modify-write de bot_state.json. Le fichier
+# porte l'état de contrôle de risque (gel digue, override, épisode kill) ET est
+# écrit par plusieurs process/threads concurrents (heartbeat, statut LLM,
+# kill_switch pendant les drawdowns). Sans lock, un octroi d'override pouvait
+# être écrasé par un heartbeat concurrent (audit 04/07, finding solidité E1).
+def _state_lock_path() -> Path:
+    """Dérivé du STATE_PATH COURANT (suit le monkeypatch des tests)."""
+    return STATE_PATH.with_suffix(".lock")
+
+
 def load_state() -> dict[str, Any]:
+    """Lit bot_state.json. TOLÉRANT à la corruption (crash mi-write) : bascule
+    sur le backup .bak de la dernière écriture réussie, sinon {} LOUD (log.error).
+
+    Ne masque JAMAIS une corruption en silence (l'ancien fallback s={} de
+    set_llm_status wipait tout l'état sur la moindre erreur de parse)."""
     from typing import cast
 
-    return cast(dict[str, Any], json.loads(STATE_PATH.read_text()))
+    try:
+        return cast(dict[str, Any], json.loads(STATE_PATH.read_text()))
+    except FileNotFoundError:
+        return {}
+    except (json.JSONDecodeError, OSError) as e:
+        _state_log.error("bot_state.json illisible (%s) — tentative backup .bak", e)
+        bak = STATE_PATH.with_suffix(".json.bak")
+        try:
+            data = cast(dict[str, Any], json.loads(bak.read_text()))
+            _state_log.error("bot_state.json restauré depuis .bak (%d clés)", len(data))
+            # préserver la copie corrompue pour post-mortem, une seule fois
+            with suppress(OSError):
+                STATE_PATH.replace(STATE_PATH.with_suffix(".json.corrupt"))
+            return data
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            _state_log.error("bot_state.json ET .bak illisibles — état vide (LOUD)")
+            return {}
 
 
 def save_state(state: dict[str, Any]) -> None:
-    STATE_PATH.write_text(json.dumps(state, indent=2))
+    """Écriture ATOMIQUE (tmp + os.replace) + backup .bak de la version sortante.
+
+    os.replace est atomique sur POSIX (même volume) : un lecteur voit soit
+    l'ancien fichier complet, soit le nouveau — jamais un JSON tronqué. Le .bak
+    conserve la dernière version connue-bonne pour le fallback de load_state."""
+    import os
+    import tempfile
+
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # backup best-effort de l'état actuel AVANT de le remplacer
+    with suppress(OSError):
+        if STATE_PATH.exists():
+            STATE_PATH.replace(STATE_PATH.with_suffix(".json.bak"))
+    payload = json.dumps(state, indent=2)
+    fd, tmp = tempfile.mkstemp(dir=str(STATE_PATH.parent), suffix=".tmp")
+    tmp_path = Path(tmp)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(payload)
+            f.flush()
+            os.fsync(f.fileno())
+        tmp_path.replace(STATE_PATH)  # atomique (rename POSIX même volume)
+    finally:
+        with suppress(OSError):
+            tmp_path.unlink(missing_ok=True)
+
+
+@contextmanager
+def _state_lock() -> Iterator[None]:
+    """flock exclusif autour du read-modify-write. Best-effort : si flock
+    indisponible (plateforme/FS), on continue sans (l'atomicité du save reste)."""
+    import contextlib
+
+    try:
+        import fcntl
+    except ImportError:
+        yield
+        return
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with contextlib.ExitStack() as stack:
+        try:
+            lf = stack.enter_context(open(_state_lock_path(), "w"))
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            stack.callback(lambda: fcntl.flock(lf.fileno(), fcntl.LOCK_UN))
+        except OSError:
+            pass  # lock indisponible → on procède (save reste atomique)
+        yield
 
 
 def update_state(**kwargs: Any) -> None:
-    s = load_state()
-    s.update(kwargs)
-    s["last_heartbeat_ts"] = datetime.now(UTC).isoformat()
-    save_state(s)
+    """Read-modify-write VERROUILLÉ : plus de lost-update entre écrivains
+    concurrents (override digue vs heartbeat vs statut LLM)."""
+    with _state_lock():
+        s = load_state()
+        s.update(kwargs)
+        s["last_heartbeat_ts"] = datetime.now(UTC).isoformat()
+        save_state(s)
 
 
 def log_event(event_type: str, details: Any = None) -> None:

@@ -170,14 +170,19 @@ def set_llm_status(
     ):
         return  # no-op (debounce write + alert spam)
 
-    s["llm_status"] = status
-    s["llm_status_since"] = datetime.now(UTC).isoformat()
-    s["llm_status_reason"] = reason
+    # RMW ciblé et VERROUILLÉ (audit 04/07 E1) : update_state ne réécrit QUE ces
+    # clés sous flock — ne clobbe plus une écriture concurrente (override digue,
+    # épisode kill) comme le faisait save_state(s) sur l'état complet.
+    updates: dict = {
+        "llm_status": status,
+        "llm_status_since": datetime.now(UTC).isoformat(),
+        "llm_status_reason": reason,
+    }
     if active_model is not None:
-        s["llm_active_model"] = active_model
+        updates["llm_active_model"] = active_model
     import contextlib
     with contextlib.suppress(Exception):
-        storage.save_state(s)  # fail-open : ne pas casser l'appel LLM si bot_state ecriture echoue
+        storage.update_state(**updates)  # fail-open : ne pas casser l'appel LLM
 
     # Telegram alert sur transition (Phase B). Fail-safe : si notify casse,
     # l'etat reste sauvegarde -- on n'echange pas la verite contre le bruit.
