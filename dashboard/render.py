@@ -3355,63 +3355,7 @@ def _user_strategy_panel() -> str:
     )
 
 
-def _trajectory_panel() -> str:
-    """Sprint 13 — drift du grade et de chaque dim sur les 30 derniers jours."""
-    try:
-        from intelligence import factor_exposures as _fe
-
-        t = _fe.format_grade_trajectory(n_days=30)
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">trajectory indispo: {type(e).__name__}</div></div>'
-    snaps = t.get("snapshots") or []
-    drift = t.get("drift") or {}
-    if len(snaps) < 2:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            f"Trajectory : {len(snaps)} snapshot(s) — il en faut >=2 pour mesurer la derive. "
-            "Les snapshots quotidiens s'accumulent via le cron 23h15."
-            "</div></div>"
-        )
-    score_drift = drift.get("score") or {}
-    delta_score = score_drift.get("delta", 0)
-    arrow = "↑" if delta_score > 0 else ("↓" if delta_score < 0 else "·")
-    cls = "pos" if delta_score > 0 else ("neg" if delta_score < 0 else "neu")
-    # Use canonical glossary labels
-    canon_labels = {
-        "quality_T1_plus": "High solidity",
-        "T2_redondant": "Overlaps",
-        "decorrelation_star": "Other bets",
-        "sizing_conviction": "Calibration",
-        "cluster_cap": "Bet principal",
-        "thesis_health": "Health",
-    }
-    rows = []
-    for dk in ("quality_T1_plus", "T2_redondant", "decorrelation_star",
-               "sizing_conviction", "cluster_cap", "thesis_health"):
-        d = drift.get(dk) or {}
-        delta = d.get("delta", 0)
-        dcls = "pos" if delta > 0 else ("neg" if delta < 0 else "neu")
-        dirsym = "↑" if delta > 0 else ("↓" if delta < 0 else "·")
-        rows.append(
-            f'<div class="tr-row">'
-            f'<span class="tr-key">{canon_labels.get(dk, dk)}</span>'
-            f'<span class="tr-from mono">{d.get("first", "?")}%</span>'
-            f'<span class="tr-arr">→</span>'
-            f'<span class="tr-to mono">{d.get("last", "?")}%</span>'
-            f'<span class="tr-delta {dcls} mono">{dirsym} {delta:+.1f}</span></div>'
-        )
-    return (
-        '<div class="colhead"><span class="t">Grade drift (30d)</span>'
-        f'<span class="a">{len(snaps)} photos &middot; '
-        f'{score_drift.get("first_date","?")} → {score_drift.get("last_date","?")}</span></div>'
-        '<div class="card pad trajcard" style="margin-bottom:var(--s4)">'
-        f'<div class="tr-hero">Score : {score_drift.get("first", "?")} '
-        f'<span class="tr-arr">→</span> '
-        f'{score_drift.get("last", "?")} '
-        f'<span class="tr-delta {cls} mono">{arrow} {delta_score:+d}</span></div>'
-        + "".join(rows)
-        + "</div>"
-    )
+# _trajectory_panel supprimé (Grade drift dégradé en chip monitors, KILL list 04/07)
 
 
 def _pref_row(key: str, n: int, mean_ret: float, win: float) -> str:
@@ -7188,6 +7132,65 @@ def _monitors_live_band(near_stop_alerts: list | None = None) -> str:
     except Exception:
         pass
 
+    # RSI SMH — momentum de la grappe compute_ai devenu DÉCISIONNEL (arbitrage
+    # user 04/07 : 2 paliers gradués comme les digues). Avant : RSI affiché sans
+    # seuil consommé = jauge décorative. SMH = ETF semis = proxy direct de ta grappe.
+    try:
+        _rsi_smh = _rsi_14("SMH")
+        if _rsi_smh is not None:
+            if _rsi_smh >= 80:
+                _rcls, _rlab = "ml-bad", "surchauffe extrême"
+            elif _rsi_smh >= 70:
+                _rcls, _rlab = "ml-warn", "surachat"
+            else:
+                _rcls, _rlab = "ml-info", "normal"
+            # chip visible seulement quand ça parle (>=70) — sinon zéro bruit
+            if _rsi_smh >= 70:
+                _rtt = (
+                    f"RSI(14) SMH = {_rsi_smh:.0f}. Momentum de la grappe compute_ai "
+                    "(ETF semis). Paliers : 70 surachat (warn) · 80 surchauffe extrême "
+                    "(alerte). Contexte de timing, pas un ordre — tu es concentré sur "
+                    "cette grappe. Click → Alerts."
+                )
+                chips.append(
+                    f'<a class="ml-chip {_rcls}" onclick="presageNav(&#39;urgence&#39;)" title="{_rtt}">'
+                    f'<span class="ml-lab">RSI SMH</span>'
+                    f'<span class="ml-val">{_rsi_smh:.0f} &middot; {_rlab}</span></a>'
+                )
+    except Exception:
+        pass
+
+    # grade — pouls du grade portefeuille + dérive 30j en UNE chip (arbitrage user
+    # 04/07 : dégradé de 2 panneaux à une chip, PAS un item Needs-you — le grade
+    # est un composite, pas une action directe).
+    try:
+        from intelligence import factor_exposures as _fe
+        _gt = _fe.format_grade_trajectory(n_days=30)
+        _gscore = (_gt.get("drift") or {}).get("score") or {}
+        _g_last = _gscore.get("last")
+        _g_delta = _gscore.get("delta")
+        if _g_last is not None:
+            from intelligence.portfolio_grade import score_to_grade
+            _g_letter = score_to_grade(int(_g_last))
+            if _g_delta is not None and _g_delta <= -10:
+                _gcls, _garrow = "ml-warn", f" &#8595;{_g_delta:.0f}/30j"
+            elif _g_delta is not None and _g_delta > 0:
+                _gcls, _garrow = "ml-info", f" &#8593;+{_g_delta:.0f}/30j"
+            else:
+                _gcls, _garrow = "ml-info", (f" {_g_delta:+.0f}/30j" if _g_delta else "")
+            _gtt = (
+                f"Grade portefeuille {_g_letter} ({_g_last:.0f}/100). Dérive 30j : "
+                f"{_g_delta:+.0f} pts. Composite 6 dimensions — pouls, pas item d'action "
+                "(le détail vit page Method). Click → Method."
+            )
+            chips.append(
+                f'<a class="ml-chip {_gcls}" onclick="presageNav(&#39;methode&#39;)" title="{_gtt}">'
+                f'<span class="ml-lab">grade</span>'
+                f'<span class="ml-val">{_g_letter}{_garrow}</span></a>'
+            )
+    except Exception:
+        pass
+
     # over_cap — click → /strategie (caps par conviction)
     oc = s["over_cap"]
     if oc["over_count"] > 0:
@@ -8404,7 +8407,7 @@ def render() -> Path:
     # _ticker_axes_panel / _factor_exposures_panel / _stress_tests_panel /
     # _spof_panel / _mauboussin_sizing_panel -- code backend conserve,
     # donnees disponibles pour reactivation future.
-    trajectory_html = _trajectory_panel()
+    # trajectory_html supprimé (Grade drift dégradé en chip, KILL list 04/07)
     valo_html = _valo_above_bull_panel()
     # Star Vue d'ensemble : extract grade data pour 3-strate hero
     try:
@@ -8837,10 +8840,9 @@ def render() -> Path:
         # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
         '<div class="strat-sh" data-tip="What you wrote as objective (theses, horizon, conviction). The reference against which book is read."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v12"/><path d="M3 3h7l-1.5 2.5L10 8H3"/></svg>Declared strategy &mdash; reference</div>'
         f'{_user_strategy_panel()}'
-        # 2. Lecture du livre -- trajectoire vs declare
-        '<div class="strat-sh" data-tip="Actual book trajectory vs declared plan."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.3 10.3L14 14"/></svg>Book reading &mdash; trajectory</div>'
-        f'{trajectory_html}'
-        # 3. Actionnable -- positions au-dessus du bull case (candidats fomo_greed)
+        # KILL list (arbitrage 04/07) : le panneau « Grade drift (30d) » dégradé
+        # en chip « grade » unique dans la bande monitors (pouls, pas item d'action).
+        # 2. Actionnable -- positions au-dessus du bull case (candidats fomo_greed)
         '<div class="strat-sh" data-tip="Positions beyond their bull case = trim candidates (mechanized via fomo_greed gate)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L14.5 13H1.5L8 2z"/><path d="M8 6.5v3.5"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg>Beyond bull &mdash; trim candidates</div>'
         f'{valo_html}'
         # Retraits 02/06 user feedback (panneaux infinis rebarbatifs) :
