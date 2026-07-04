@@ -115,9 +115,11 @@ def _render_html(record: dict, timeseries: dict) -> str:
         ("2026-05-29", "J-11 dry-run honnête",
          "Le mécanisme tourne. La calibration est mauvaise. Les deux verdicts comptent."),
     ]
+    # Pas de href tant qu'il n'y a pas d'URL réelle : un lien mort (#) sur une
+    # page publique est pire que pas de lien (audit 04/07, purge placeholders).
     posts_html = "".join(
         f'<li><span class="post-date">{d}</span>'
-        f'<span class="post-title"><a href="#">{t}</a>'
+        f'<span class="post-title">{t}'
         f'<span class="small"> · {s}</span></span></li>'
         for d, t, s in posts
     )
@@ -355,14 +357,42 @@ def _render_html(record: dict, timeseries: dict) -> str:
 <footer>
   PRESAGE · construit en solo · pas de fundraising, pas d'API payante, pas de partenaires payés.
   Le track record est l'unique référence.
-  <br>
-  <a href="mailto:hello@presage.pro">RSS / email (bientôt)</a> ·
-  <a href="https://github.com/...">repo public</a>
 </footer>
 
 </div>
 </body>
 </html>'''
+
+
+class RefusePublish(RuntimeError):
+    """Le record est incohérent (DB vide/erreur) → on REFUSE de publier des zéros
+    confiants sur la page qui, selon son propre footer, est l'unique référence.
+    Audit 04/07 (dashboard C1) : le pattern section→{"error"}→.get(...,0) pouvait
+    déposer une page toute-à-zéro (28 résolues réelles montrées comme 0)."""
+
+
+def _assert_publishable(record: dict) -> None:
+    """Garde fail-loud AVANT écriture. Refuse si une section porte une erreur, ou
+    si l'agrégat est suspicieusement vide (DB schéma-nue / mauvaise source)."""
+    errored = [k for k, v in record.items() if isinstance(v, dict) and "error" in v]
+    if errored:
+        raise RefusePublish(
+            f"sections en erreur : {errored} — pipeline cassé, on ne publie pas "
+            "une page dégradée (garde L21). Diagnostiquer la source avant de rendre."
+        )
+    pred = record.get("predictions", {}) or {}
+    theses = record.get("theses", {}) or {}
+    n_signal = (
+        int(pred.get("n_resolved", 0) or 0)
+        + int(pred.get("n_open", 0) or 0)
+        + int(theses.get("n_active", 0) or 0)
+    )
+    if n_signal == 0:
+        raise RefusePublish(
+            "record entièrement vide (0 résolue, 0 ouverte, 0 thèse) — quasi "
+            "certainement une DB de schéma nu / mauvaise source, PAS un vrai état. "
+            "On garde la page existante plutôt que publier des zéros confiants."
+        )
 
 
 def main() -> Path:
@@ -376,6 +406,8 @@ def main() -> Path:
         timeseries = compute_all_timeseries(cx)
     finally:
         cx.close()
+
+    _assert_publishable(record)  # fail-loud : jamais de zéros confiants publiés
 
     html = _render_html(record, timeseries)
     out = ROOT / "site_public" / "track.html"
