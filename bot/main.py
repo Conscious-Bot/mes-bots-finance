@@ -165,6 +165,65 @@ from bot.jobs.periodic import (
 )
 
 
+def _authorized_chat_ids() -> set[int]:
+    """Allowlist des chat_ids autorisés à commander le bot.
+
+    Owner = TELEGRAM_CHAT_ID (le destinataire des notifs = le propriétaire).
+    Extension optionnelle via TELEGRAM_ALLOWED_CHAT_IDS (CSV) pour un 2e appareil.
+    """
+    import os
+
+    ids: set[int] = set()
+    owner = config.telegram_chat_id() if hasattr(config, "telegram_chat_id") else 0
+    try:
+        owner = int(owner)
+    except (TypeError, ValueError):
+        owner = 0
+    if owner:
+        ids.add(owner)
+    for tok in os.environ.get("TELEGRAM_ALLOWED_CHAT_IDS", "").split(","):
+        tok = tok.strip()
+        if tok:
+            with contextlib.suppress(ValueError):
+                ids.add(int(tok))
+    return ids
+
+
+async def authorize_middleware(update, ctx):
+    """Gate d'identité — group=-2, AVANT la télémétrie et tous les handlers.
+
+    Sécurité (audit 04/07, finding E1) : sans ça, quiconque trouve le @username
+    du bot pouvait exécuter /position_buy, /kill_exec, /digue_override → corruption
+    DB + désarmement des mécanismes anti-biais. On refuse tout expéditeur hors
+    allowlist en levant ApplicationHandlerStop (coupe la propagation).
+
+    Fail-closed quand l'allowlist est configurée ; si TELEGRAM_CHAT_ID=0 (dev
+    local sans notif), on log une alerte et on laisse passer — le bot ne peut de
+    toute façon rien renvoyer nulle part dans ce mode.
+    """
+    from telegram.ext import ApplicationHandlerStop
+
+    allow = _authorized_chat_ids()
+    if not allow:
+        log.warning("authorize: allowlist VIDE (TELEGRAM_CHAT_ID=0) — gate désactivée (dev)")
+        return
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    user_id = update.effective_user.id if update.effective_user else None
+    if chat_id in allow or user_id in allow:
+        return
+    # Étranger : log l'intrusion (best-effort) puis coupe net.
+    uname = getattr(getattr(update, "effective_user", None), "username", None)
+    text = ""
+    with contextlib.suppress(Exception):
+        if update.message and update.message.text:
+            text = update.message.text[:80]
+    log.warning(
+        "authorize: REFUS commande d'un expéditeur non autorisé "
+        "(chat_id=%s user_id=%s @%s) : %r", chat_id, user_id, uname, text
+    )
+    raise ApplicationHandlerStop
+
+
 async def log_handler_call_middleware(update, ctx):
     """Pre-handler middleware: log every command call to handler_calls table.
 
@@ -553,6 +612,9 @@ def main():
     # Phase Solidification P0 #3 — handler usage telemetry (middleware in group=-1)
     from telegram.ext import MessageHandler, filters
 
+    # Sécurité (audit 04/07 E1) : gate d'identité en group=-2, AVANT la télémétrie
+    # (-1) et les handlers de commande. Refuse tout expéditeur hors allowlist.
+    app.add_handler(MessageHandler(filters.ALL, authorize_middleware), group=-2)
     app.add_handler(MessageHandler(filters.COMMAND, log_handler_call_middleware), group=-1)
     # Phase B refactor 21/05/2026: 80 command handlers extracted to bot/registry.py
     register_command_handlers(app)
