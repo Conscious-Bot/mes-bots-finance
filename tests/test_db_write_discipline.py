@@ -39,7 +39,10 @@ ALLOWED_FILES = {
     "packaging/trial/import_book.py",  # seeder trial one-shot (hors prod bot) : INSERT transactions/positions_meta/theses pour onboarder le book d'un ami. Ecriture assumee, hors chemin bot.
 }
 ALLOWED_PREFIXES = ("scripts/", "tests/")
-SKIP_DIRS = {"venv", ".venv", ".backups", "__pycache__", ".git", "build", "dist", "data"}
+# .claude = worktrees d'agents/tasks (copies complètes du repo) — scanner ces
+# copies = faux positifs, chaque fichier compté comme writer hors allowlist.
+# Absent en CI (checkout propre). Même cure que dist/ (04/07).
+SKIP_DIRS = {"venv", ".venv", ".backups", "__pycache__", ".git", "build", "dist", "data", ".claude"}
 EXEC_FUNCS = {"execute", "executemany", "executescript", "query"}
 WRITE_SQL = re.compile(
     r"\b(INSERT\s+(OR\s+\w+\s+)?INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|REPLACE\s+INTO)\b",

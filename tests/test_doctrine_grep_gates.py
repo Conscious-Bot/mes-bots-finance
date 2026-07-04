@@ -106,10 +106,13 @@ def _scan_violators(import_re: re.Pattern, exclude_paths: set[str]) -> list[str]
     """
     violators = []
     for py_file in _REPO_ROOT.rglob("*.py"):
-        # Skip venv / cache / git / dist (dist/ = artefact de build packaging,
-        # gitignored + absent en CI ; ne pas scanner la copie du repo qu'il contient).
+        # Skip venv / cache / git / dist / .claude — tous des COPIES du repo, pas du
+        # code actif : dist/ = build packaging (gitignored) ; .claude/worktrees/ =
+        # worktrees d'agents/tasks (git worktree = repo complet dupliqué). Scanner
+        # ces copies = faux positifs (chaque fichier compté comme nouvelle violation).
+        # Absents en CI (checkout propre) → local-only. Cf même cure shell gate 04/07.
         rel_str = str(py_file.relative_to(_REPO_ROOT)).replace("\\", "/")
-        if any(p in rel_str for p in ("venv/", "__pycache__/", ".git/", "dist/")):
+        if any(p in rel_str for p in ("venv/", "__pycache__/", ".git/", "dist/", ".claude/")):
             continue
         # Skip tests/ et alembic/ (legitimate use)
         if rel_str.startswith("tests/") or "/alembic/" in rel_str:
