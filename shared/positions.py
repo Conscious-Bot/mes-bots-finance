@@ -379,33 +379,6 @@ def get_history(ticker: str, limit: int = 50) -> list:
     return [dict(r) for r in rows]
 
 
-def format_positions_summary(positions: list) -> str:
-    if not positions:
-        return "No open positions."
-    lines = ["📊 Open positions:"]
-    total_mv, total_upl = 0, 0
-    for p in positions:
-        qty, avg = p.get("qty", 0), p.get("avg_cost", 0)
-        mv, upl, upct = p.get("market_value"), p.get("unrealized_pnl"), p.get("unrealized_pct")
-        cur = p.get("current_price")
-        if mv:
-            total_mv += mv
-        if upl:
-            total_upl += upl
-        if cur:
-            sign = "🟢" if (upl or 0) > 0 else "🔴"
-            # ADR 005: avg_cost EUR canonical; _enrich_with_live default target_cur=EUR
-            # so avg/cur/mv/upl all in EUR. Label € (no conversion needed).
-            lines.append(f"  {sign} {p['ticker']:6s} {qty:>9.3f} @ €{avg:.2f} → €{cur:.2f}")
-            lines.append(f"       MV €{mv:>10,.0f}  UPL €{upl:+,.0f} ({upct:+.1%})")
-        else:
-            lines.append(f"  ⚪ {p['ticker']:6s} {qty:>9.3f} @ €{avg:.2f} (no live price)")
-    lines.append("")
-    lines.append(f"  Total MV:  €{total_mv:>11,.0f}")
-    lines.append(f"  Total UPL: €{total_upl:>+11,.0f}")
-    return "\n".join(lines)
-
-
 def format_position_detail(p: dict, history: list) -> str:
     if not p:
         return "No open position."

@@ -137,24 +137,3 @@ def classify_one(ticker: str) -> tuple[dict | None, int | None]:
     return result, mid
 
 
-def classify_all_held_tickers() -> dict:
-    with storage.db() as cx:
-        rows = cx.execute(
-            "SELECT DISTINCT ticker FROM positions WHERE qty > 0 AND status='open' "
-            "ORDER BY ticker"
-        ).fetchall()
-    tickers = [r[0] for r in rows]
-    log.info(f"meta_classify_all_held : {len(tickers)} tickers")
-    out = {"ok": 0, "skip": 0, "fail": 0}
-    for tk in tickers:
-        try:
-            _, mid = classify_one(tk)
-            if mid:
-                out["ok"] += 1
-            else:
-                out["skip"] += 1
-        except Exception as e:
-            log.warning(f"classify {tk} crashed: {e}")
-            out["fail"] += 1
-        time.sleep(0.3)
-    return out

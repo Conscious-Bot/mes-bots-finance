@@ -40,21 +40,6 @@ def _get_current_price(ticker: str) -> float | None:
         return None
 
 
-def _fx_eur_to_usd() -> float:
-    """Display-layer FX conversion EUR→USD. Used by format functions only,
-    NOT by compute_thesis_asymmetry (which is pure-math in canonical EUR).
-
-    Aligns /asymmetry display with /portfolio and /brief which both
-    show values in USD.
-    """
-    from shared.prices import get_fx_rate
-
-    rate = get_fx_rate("EUR", "USD")
-    if rate is None:
-        raise RuntimeError("FX EUR->USD indisponible (live + hardcoded both failed)")
-    return rate
-
-
 def compute_thesis_asymmetry(thesis: dict[str, Any]) -> dict[str, Any] | None:
     """Compute asymmetry for a thesis dict. Returns dict with ratio + verdict + breakdown."""
     if not thesis:

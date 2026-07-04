@@ -99,7 +99,7 @@ Recherche rapide de logique répétée dans plusieurs modules :
 `dashboard/render.py` est à **5522 lignes**. C'est un mur. C'est déjà capturé comme task #66 "Refactor render.py → modules (dette technique)". Le refactor est P3 — pas bloquant, mais chaque modification de render.py paie une taxe cognitive.
 
 `shared/storage.py` est à **3667 lignes**. Acceptable pour la data layer mais commence à mélanger :
-- ACID accessors purs (db, log_event, active_signals)
+- ACID accessors purs (db, log_event)
 - Business logic (insert_prediction avec validation methodology_version, get_prediction_provenance)
 - Helpers state (load_state, save_state)
 - Méthodologie filters (canonical/substance — ajoutés ce matin)

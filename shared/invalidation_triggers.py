@@ -153,10 +153,3 @@ def get_trigger_status_per_thesis() -> dict[str, list[dict[str, Any]]]:
     return out
 
 
-def count_fired_triggers() -> dict[str, int]:
-    """Pour chaque ticker, retourne le nb de triggers fired.
-
-    Use case : dashboard summary "X tickers ont au moins 1 trigger fired".
-    """
-    statuses = get_trigger_status_per_thesis()
-    return {tk: sum(1 for s in lst if s["fired"]) for tk, lst in statuses.items()}

@@ -48,10 +48,6 @@ def paper_only() -> bool:
     return cast(bool, env("PAPER_ONLY", "true", bool))
 
 
-def min_conviction() -> int:
-    return cast(int, env("MIN_CONVICTION", 3, int))
-
-
 def telegram_chat_id() -> int:
     return cast(int, env("TELEGRAM_CHAT_ID", 0, int))
 
@@ -108,61 +104,6 @@ def get_ticker_tier(ticker):
     if t in get_tickers("extended"):
         return "extended"
     return None
-
-
-def get_tier_breakdown():
-    """Return dict with counts + per-sector breakdown for /tiers display."""
-    cfg = load()
-    universe = cfg.get("universe", {})
-    return {
-        "core": universe.get("core", {}),
-        "watch_count": len(_flatten_section(universe.get("watch", []))),
-        "extended": universe.get("extended", {}),
-        "total": len(get_tickers("all")),
-        "counts": {
-            "core": len(get_tickers("core")),
-            "watch": len(get_tickers("watch")),
-            "extended": len(get_tickers("extended")),
-        },
-    }
-
-
-def promote_ticker(ticker, new_tier):
-    """Move ticker to a different tier. Returns (success_bool, message)."""
-    global _config
-    if new_tier not in ("core", "watch", "extended"):
-        return False, f"Invalid tier '{new_tier}'. Use core/watch/extended."
-    ticker = ticker.upper()
-    cfg = load()
-    universe = cfg.get("universe", {})
-    old_tier = get_ticker_tier(ticker)
-    if old_tier == new_tier:
-        return False, f"{ticker} already in {new_tier}"
-    # Remove from current location
-    if old_tier:
-        section = universe.get(old_tier)
-        if isinstance(section, dict):
-            for _cat, lst in section.items():
-                if isinstance(lst, list) and ticker in lst:
-                    lst.remove(ticker)
-                    break
-        elif isinstance(section, list) and ticker in section:
-            section.remove(ticker)
-    # Add to new tier
-    target = universe.get(new_tier)
-    if isinstance(target, dict):
-        target.setdefault("promoted", []).append(ticker)
-    elif isinstance(target, list):
-        target.append(ticker)
-    else:
-        universe[new_tier] = [ticker]
-    # Persist YAML
-    import yaml as _yaml
-
-    with open(ROOT / "config.yaml", "w") as f:
-        _yaml.dump(cfg, f, default_flow_style=False, sort_keys=False, allow_unicode=True, width=120)
-    _config = None  # invalidate cache
-    return True, f"{ticker}: {old_tier or 'none'} → {new_tier}"
 
 
 # Backward-compat lazy module attributes

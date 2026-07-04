@@ -757,22 +757,3 @@ def value_eur(ticker: str, qty: float) -> Datum | None:
     return result
 
 
-def book_summary() -> dict:
-    """Resume du book : totaux + brackets etat. Utile pour diagnostiquer
-    instantanement la coherence des 3 sources."""
-    book = get_canonical_book(with_prices=True)
-    current_total = sum(line.current_eur or 0 for line in book if line.in_db)
-    target_total = sum(line.target_eur or 0 for line in book if line.in_target_70k)
-    return {
-        "current_eur": round(current_total, 2),
-        "target_eur": round(target_total, 2),
-        "gap_eur": round(target_total - current_total, 2),
-        "progress_pct": round(current_total / target_total * 100, 1) if target_total else 0,
-        "lines_in_db": sum(1 for ln in book if ln.in_db),
-        "lines_in_target": sum(1 for ln in book if ln.in_target_70k),
-        "lines_in_canonical": sum(1 for ln in book if ln.in_canonical),
-        "phantoms": [ln.ticker for ln in book if ln.is_phantom],
-        "planned_entries": [ln.ticker for ln in book if ln.is_planned_entry],
-        "open_questions": [ln.ticker for ln in book if ln.target_status == "open_question"],
-        "consensus_keep_count": sum(1 for ln in book if ln.is_consensus_keep),
-    }

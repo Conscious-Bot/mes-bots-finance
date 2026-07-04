@@ -71,37 +71,6 @@ def _build_ticker_to_gics_industry() -> dict[str, str]:
     return mapping
 
 
-def _build_ticker_to_sector() -> dict[str, str]:
-    """Map every ticker in config.yaml universe to its sector label.
-
-    Returns dict ticker -> sector_label (e.g. "core/semis_core", "watch", "ext/european_pea").
-    Unknown tickers default to "unknown" via .get() fallback in callers.
-    """
-    cfg = yaml.safe_load(config_path().read_text())
-    universe = cfg.get("universe", {})
-    mapping: dict[str, str] = {}
-
-    # Core has sub-categories
-    for sub_cat, tickers in universe.get("core", {}).items():
-        if isinstance(tickers, list):
-            for t in tickers:
-                mapping[t] = f"core/{sub_cat}"
-
-    # Watch is flat list
-    for t in universe.get("watch", []):
-        if t not in mapping:
-            mapping[t] = "watch"
-
-    # Extended has sub-categories
-    for sub_cat, tickers in universe.get("extended", {}).items():
-        if isinstance(tickers, list):
-            for t in tickers:
-                if t not in mapping:
-                    mapping[t] = f"ext/{sub_cat}"
-
-    return mapping
-
-
 _SECTOR_THESIS_RE = re.compile(r"sector_thesis_id:\s*([A-Z0-9_]+)")
 
 

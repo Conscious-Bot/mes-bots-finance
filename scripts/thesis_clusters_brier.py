@@ -163,14 +163,6 @@ def bootstrap_ci(values: list[float], n_iter: int = BOOTSTRAP_N, ci: float = 0.9
     return (means[lo_idx], means[hi_idx])
 
 
-def label_cluster(theses_in_cluster: list[dict]) -> str:
-    """Genere un label heuristique pour le cluster a partir des top tickers."""
-    if not theses_in_cluster:
-        return "(empty)"
-    tickers = sorted({t["ticker"] for t in theses_in_cluster})[:5]
-    return ", ".join(tickers) + ("..." if len(theses_in_cluster) > 5 else "")
-
-
 def decompose_by_key(
     theses: list[dict],
     pred_briers: dict[str, list[float]],

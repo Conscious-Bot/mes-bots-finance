@@ -176,19 +176,6 @@ def extract_intent(message: str) -> dict | None:
     return None
 
 
-# Backwards-compat alias (Sprint 9.b used extract_trade_intent for buy/sell only).
-def extract_trade_intent(message: str) -> dict | None:
-    parsed = extract_intent(message)
-    if not parsed:
-        return None
-    intent = parsed.get("intent") or {}
-    if intent.get("kind") in ("buy", "sell"):
-        # Reshape for legacy callers : intent.action = kind
-        intent["action"] = intent["kind"]
-        return parsed
-    return None
-
-
 # =============================================================================
 # DISPATCHERS — execute_intent switches on intent.kind
 # =============================================================================

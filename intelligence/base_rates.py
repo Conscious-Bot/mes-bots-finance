@@ -139,23 +139,3 @@ def get_empirical_base_rate(
     }
 
 
-def list_active_base_rates(cx: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Liste tous les buckets qui ont assez de data pour servir un base rate.
-    Useful pour dashboard ('voici les buckets ou le scorer peut tomber sur
-    une stat empirique vs continuer a estimer en aveugle')."""
-    active = []
-    # Enumere les combinaisons (signal_type, direction, horizon_bucket) qui
-    # ont >= MIN_N_PER_BUCKET. Brute force ok (peu de combinations).
-    types = cx.execute(
-        f"SELECT DISTINCT signal_type FROM predictions "
-        f"WHERE signal_type IS NOT NULL "
-        f"AND {storage.substance_predictions_filter()}"
-    ).fetchall()
-    type_list = [t[0] for t in types] + [None]  # None = all-types aggregate
-    for st in type_list:
-        for direction in ("bullish", "bearish"):
-            for lo, _hi in HORIZON_BUCKETS:
-                rate = get_empirical_base_rate(cx, st, direction, lo)
-                if rate is not None:
-                    active.append(rate)
-    return active

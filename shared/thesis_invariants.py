@@ -241,21 +241,3 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.20, tole
 # ─────────────────────── Helper API ─────────────────────────────────────────
 
 
-def validate_thesis_pre_insert(ticker: str, stop_price: float | None,  # noqa: ARG001
-                               invalidation_triggers: list[str] | str | None) -> list[str]:
-    """Valide une these AVANT insertion. Retourne liste d'erreurs.
-
-    Utile pour les writers (chat_intent, handlers/positions, /thesis_set, etc.)
-    qui veulent rejeter une these mal formee a la source.
-    """
-    errors = []
-    triggers = _parse_triggers(invalidation_triggers)
-    if triggers and not has_at_least_one_fundamental_trigger(triggers):
-        errors.append(
-            f"{ticker}: kill_criteria all price-only / 'a etoffer'. "
-            "Au moins UN trigger doit avoir substance fondamentale "
-            "(revenue, margin, customer, guidance, pricing, regulatory, operations)."
-        )
-    # Le currency check pre-insert est plus difficile (besoin yfinance live).
-    # On laisse run_static_gate detecter post-insert.
-    return errors

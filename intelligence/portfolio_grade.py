@@ -18,7 +18,6 @@ calcul deterministe. Pas de LLM dans cette version — c'est tout math sur
 positions + theses + thesis_relative + cluster_health.
 """
 
-import json
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -929,18 +928,6 @@ def compute_grade() -> dict:
     }
 
 
-def format_grade_for_dashboard(grade: dict) -> dict:
-    """Format the grade dict into a structure ready for dashboard rendering."""
-    return {
-        "grade": grade.get("overall_grade", "?"),
-        "score": grade.get("overall_score", 0),
-        "snapshot_date": grade.get("snapshot_date", ""),
-        "dimensions": grade.get("dimensions", {}),
-        "total_capital_eur": grade.get("total_capital_eur", 0),
-        "n_positions": grade.get("n_positions", 0),
-    }
-
-
 def _grade_from_state(state: dict) -> dict:
     """Reusable : same 7 dims + gates as compute_grade (utilise par simulate_grade)."""
     dims = {
@@ -1089,5 +1076,3 @@ def compute_trend_7d() -> str:
     return "stable"
 
 
-def serialize_for_db(grade: dict) -> str:
-    return json.dumps(grade.get("dimensions", {}), ensure_ascii=False)

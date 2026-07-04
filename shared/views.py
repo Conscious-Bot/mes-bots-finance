@@ -216,6 +216,3 @@ def get_position_view(ticker: str) -> PositionView | None:
     return compute_book_view().view_of(ticker)
 
 
-def get_total_market_eur() -> float:
-    """Une seule définition du total book (market value)."""
-    return compute_book_view().total_market_eur

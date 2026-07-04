@@ -110,17 +110,3 @@ def send_text(text: str, parse_mode: str = "Markdown"):
     _persist_telegram_push(text)  # persist apres send (1 entry par send_text, pas par chunk)
 
 
-def send_image(path: str, caption: str | None = None) -> None:
-    token = config.telegram_token()
-    chat_id = config.telegram_chat_id()
-    url = API_BASE.format(token=token, method="sendPhoto")
-    with open(path, "rb") as f:
-        requests.post(url, data={"chat_id": chat_id, "caption": caption or ""}, files={"photo": f})
-
-
-def send_document(path: str, caption: str | None = None) -> None:
-    token = config.telegram_token()
-    chat_id = config.telegram_chat_id()
-    url = API_BASE.format(token=token, method="sendDocument")
-    with open(path, "rb") as f:
-        requests.post(url, data={"chat_id": chat_id, "caption": caption or ""}, files={"document": f})

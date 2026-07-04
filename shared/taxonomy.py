@@ -332,15 +332,6 @@ def sector_color_map() -> dict[str, str]:
     }
 
 
-def driver_label(driver: str | None) -> str:
-    """Format a driver enum into a display label.
-
-    'ai_capex'         → 'AI Capex'
-    'resources_energy' → 'Resources Energy'
-    """
-    return clean_sector(driver)
-
-
 # Dict d'acronymes appliqué par lookup sur token (split sur ' '), pas par
 # substitution globale. Fermeture de la KNOWN-GAP P3 (cascade .replace fragile,
 # risque de frappe sur sous-chaîne innocente — cf "Fx" → "FX" frappait "Fxd").

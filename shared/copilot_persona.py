@@ -58,31 +58,3 @@ BANNED_TERMS = {
 }
 
 
-def get_persona_prompt(extra_context: str = "") -> str:
-    """Retourne le system prompt complet, optionnellement augmente avec contexte additionnel.
-
-    Args:
-        extra_context: texte additionnel a inject apres le SYSTEM_PROMPT
-                      (ex: contexte temporel "il est 22h dimanche", ou contexte
-                      pousses Telegram recentes).
-
-    Returns:
-        Prompt complet pret a passer comme system message au LLM.
-    """
-    if extra_context:
-        return f"{SYSTEM_PROMPT}\n\n{extra_context}"
-    return SYSTEM_PROMPT
-
-
-def lint_for_banned_terms(text: str) -> list[str]:
-    """Detecte les termes bannis dans un output (pour QA future / pas pour runtime).
-
-    Returns:
-        Liste des termes bannis trouves dans le texte. Vide si tout OK.
-    """
-    found = []
-    text_lower = text.lower()
-    for term in BANNED_TERMS:
-        if term.lower() in text_lower:
-            found.append(term)
-    return found

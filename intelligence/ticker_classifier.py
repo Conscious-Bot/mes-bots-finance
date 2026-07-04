@@ -186,25 +186,3 @@ def classify_ticker(ticker: str) -> tuple[dict | None, int | None]:
     return result, aid
 
 
-def classify_all_held_tickers() -> dict:
-    """Classify every ticker currently held (positions.qty>0)."""
-    with storage.db() as cx:
-        rows = cx.execute(
-            "SELECT DISTINCT ticker FROM positions WHERE qty > 0 AND status='open' "
-            "ORDER BY ticker"
-        ).fetchall()
-    tickers = [r[0] for r in rows]
-    log.info(f"classify_all_held_tickers : {len(tickers)} tickers")
-    out = {"ok": 0, "skip": 0, "fail": 0}
-    for tk in tickers:
-        try:
-            _, aid = classify_ticker(tk)
-            if aid:
-                out["ok"] += 1
-            else:
-                out["skip"] += 1
-        except Exception as e:
-            log.warning(f"classify {tk} crashed: {e}")
-            out["fail"] += 1
-        time.sleep(0.3)
-    return out

@@ -88,18 +88,6 @@ CONVICTION_LABELS = {
 }
 
 
-def conviction_chip(conviction: int | None, position_type: str | None = None) -> str:
-    """Return chip HTML for a thesis conviction tier.
-    SOCLE only when conviction=5 AND position_type=structural (frozen, de-gelable
-    par sentinelle structurelle uniquement).
-    """
-    if not conviction:
-        return '<span class="conv-chip">c?</span>'
-    label = CONVICTION_LABELS.get(int(conviction), "")
-    is_socle = (int(conviction) == 5 and position_type == "structural")
-    if is_socle and label:
-        return f'<span class="conv-chip socle">c{conviction}&nbsp;{label}</span>'
-    return f'<span class="conv-chip">c{conviction}</span>'
 NARRATIVE_CAP = float(_CFG.get("style", {}).get("narrative_max_pct", 0.30)) * 100
 # FX USD→EUR d'affichage (buckets secteur) : live via le gateway canonique
 # (cache _FX_TTL + fallback hardcodé interne), plus de constante figée 0.858 qui
@@ -585,27 +573,6 @@ def _llm_status_badge() -> str:
     )
 
 
-def _needle_color(frac: float, *, invert: bool = False) -> str:
-    """Couleur continue du needle calee sur le gradient de l'axe.
-    frac 0->100 = bear -> steel -> acc (defaut)
-    invert=True (sizing): 0->100 = acc -> steel -> warn -> bear (la droite = danger)."""
-    f = max(0.0, min(100.0, frac))
-    if invert:
-        if f <= 50:
-            t = f / 50
-            return f"color-mix(in srgb,var(--acc) {(1 - t) * 100:.0f}%,var(--steel) {t * 100:.0f}%)"
-        if f <= 77:
-            t = (f - 50) / 27
-            return f"color-mix(in srgb,var(--steel) {(1 - t) * 100:.0f}%,var(--warn) {t * 100:.0f}%)"
-        t = (f - 77) / 23
-        return f"color-mix(in srgb,var(--warn) {(1 - t) * 100:.0f}%,var(--bear) {t * 100:.0f}%)"
-    if f <= 50:
-        t = f / 50
-        return f"color-mix(in srgb,var(--bear) {(1 - t) * 100:.0f}%,var(--steel) {t * 100:.0f}%)"
-    t = (f - 50) / 50
-    return f"color-mix(in srgb,var(--steel) {(1 - t) * 100:.0f}%,var(--acc) {t * 100:.0f}%)"
-
-
 # Couleurs secteur = source canonique config/presage_taxonomy.yaml:layer_colors,
 # dérivées via taxonomy.sector_color_map() (keyé label-mère). Le dict jewel-tones
 # en dur (19/06) a été migré dans le YAML lors de la cure couleur (27/06) : source
@@ -692,104 +659,6 @@ def _calibration_progress_panel() -> str:
         f'</div>'
         f'<div class="calib-msg">{result.get("message", "")}</div>'
         '</div>'
-    )
-
-
-def _wire_activity_panel() -> str:
-    """Wire EDGAR activity -- timeline 8-K + insider clusters arrives dans le pipeline."""
-    try:
-        from shared import storage as _stg
-
-        with _stg.db() as cx:
-            counts = {}
-            for window, label in [(1, "24h"), (7, "7j"), (30, "30j")]:
-                n8k = cx.execute(
-                    f"SELECT COUNT(*) c FROM filings_8k_log WHERE filed_at >= date('now', '-{window} days')"
-                ).fetchone()['c']
-                ncluster = cx.execute(
-                    f"SELECT COUNT(*) c FROM insider_buy_clusters_log "
-                    f"WHERE detected_at >= datetime('now', '-{window} days')"
-                ).fetchone()['c']
-                counts[label] = (n8k, ncluster)
-            recent_8k = cx.execute(
-                "SELECT ticker, filed_at, severity, items_raw FROM filings_8k_log "
-                "ORDER BY filed_at DESC LIMIT 5"
-            ).fetchall()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">wire activity indispo: {type(e).__name__}</div></div>'
-
-    cells = "".join(
-        f'<div class="wact-cell">'
-        f'<div class="wact-label">{lbl}</div>'
-        f'<div class="wact-v"><span class="mono">{n8k}</span> 8-K &middot; '
-        f'<span class="mono">{ncluster}</span> cluster</div></div>'
-        for lbl, (n8k, ncluster) in counts.items()
-    )
-
-    last_rows = "".join(
-        f'<div class="wact-recent"><span class="wact-tk">{r["ticker"]}</span>'
-        f'<span class="wact-when mono">{r["filed_at"]}</span>'
-        f'<span class="wact-sev wact-{r["severity"]}">{r["severity"]}</span>'
-        f'<span class="wact-items mono">{r["items_raw"]}</span></div>'
-        for r in recent_8k
-    ) or '<div class="empty">no 8-K logged</div>'
-
-    return (
-        '<div class="colhead"><span class="t">Wire EDGAR activity</span>'
-        '<span class="a">8-K + insider clusters arrived in the V2 scoring pipeline</span></div>'
-        '<div class="card pad wactcard" style="margin-bottom:var(--s4)">'
-        f'<div class="wact-grid">{cells}</div>'
-        '<div class="wact-recent-head">Latest 5 8-K filings (toutes severities)</div>'
-        f'<div class="wact-recent-list">{last_rows}</div></div>'
-    )
-
-
-def _vigilance_panel() -> str:
-    """3 vigilances V2 -- watch_rate, directional_spread, insider_clusters_alive."""
-    try:
-        from intelligence import v2_vigilance
-
-        results = v2_vigilance.run_all_vigilances()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">vigilances indispo: {type(e).__name__}</div></div>'
-
-    status_cls = {
-        "OK": "vg-ok",
-        "INFO": "vg-info",
-        "WARN": "vg-warn",
-        "ALERT": "vg-alert",
-        "INSUFFICIENT_DATA": "vg-wait",
-    }
-    # HTML entity codes : check, info-i (U+2139), spark, siren, hourglass
-    status_emoji = {
-        "OK": "&#9989;",
-        "INFO": "&#8505;",
-        "WARN": "&#9889;",
-        "ALERT": "&#128680;",
-        "INSUFFICIENT_DATA": "&#8987;",
-    }
-
-    rows = []
-    for r in results:
-        cls = status_cls.get(r["status"], "vg-info")
-        emoji = status_emoji.get(r["status"], "?")
-        msg = (r.get("message") or "")
-        # Escape HTML
-        msg = msg.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        rows.append(
-            f'<div class="vg-row {cls}">'
-            f'<div class="vg-head"><span class="vg-emoji">{emoji}</span>'
-            f'<span class="vg-name">{r["name"]}</span>'
-            f'<span class="vg-status">{r["status"]}</span></div>'
-            f'<div class="vg-msg">{msg}</div></div>'
-        )
-
-    return (
-        '<div class="colhead"><span class="t">Vigilances V2</span>'
-        '<span class="a">3 fitness functions auto &middot; cron weekly lundi 7h &middot; push Telegram UNIQUEMENT si ALERT/WARN</span></div>'
-        '<div class="card pad vgcard" style="margin-bottom:var(--s4)">'
-        + "".join(rows) +
-        "</div>"
     )
 
 
@@ -1859,65 +1728,6 @@ def _glossary_panel() -> str:
     )
 
 
-def _copilot_promote_card() -> str:
-    """Pass 11 audit promotion : the copilot adversarial is the killer feature.
-    Auditor (audit 5): "C'est ta vraie proposition de valeur — et visuellement
-    elle est enterrée dans une section parmi huit. Elle devrait être beaucoup
-    plus centrale." Cure: slim card in Overview, prime real estate after hero.
-
-    Shows the latest copilot intervention headline (ticker · verdict · score)
-    + an "Ask now" CTA that opens the Copilot tab via the existing nav handler.
-    Falls back to value-prop pitch when no interventions yet.
-    """
-    try:
-        from shared import storage as _stg
-        rows = _stg.get_recent_copilot_interventions(limit=1)
-    except Exception:
-        rows = []
-    if rows:
-        r = rows[0]
-        ver = r.get("verdict") or "?"
-        cls, label = _VERDICT_LABEL.get(ver, ("calm", ver))
-        score = r.get("pressure_score")
-        score_s = f"{score:.0f}" if isinstance(score, int | float) else "?"
-        date = (r.get("created_at") or "")[:10]
-        tk = r.get("ticker") or "—"
-        dtype = (r.get("decision_type") or "?").replace("_", " ")
-        # Pull the first 200 chars of ancrage as a teaser of substance
-        anc = (r.get("ancrage") or "").strip().replace("\n", " ")
-        teaser = (anc[:180] + "…") if len(anc) > 180 else (anc or "Last pressure-test recorded — open Copilot to read.")
-        latest = (
-            f'<div class="cp-latest">'
-            f'<span class="cp-latest-meta">Last pressure-test &middot; {date} &middot; {tk} ({dtype})</span>'
-            f'<span class="cp-latest-verdict {cls}">{label} &middot; score {score_s}</span>'
-            f'<div class="cp-latest-teaser">{teaser}</div>'
-            f'</div>'
-        )
-    else:
-        latest = (
-            '<div class="cp-latest">'
-            '<span class="cp-latest-meta">No intervention yet</span>'
-            '<div class="cp-latest-teaser">The copilot uses your positions + behavioral history to pressure-test trades '
-            'before you commit. Logged interventions appear here for accountability.</div>'
-            '</div>'
-        )
-    return (
-        '<div class="card pad copilot-promote" style="margin-bottom:var(--s35)">'
-        '<div class="colhead">'
-        '<span class="t">Copilot pressure <span class="cp-promote-edge">your edge</span></span>'
-        '<span class="a">Adversarial AI &middot; uses positions + biases history &middot; archived in Method &gt; Pressure log</span>'
-        '</div>'
-        + latest +
-        '<div class="cp-promote-cta">'
-        '<button class="cp-promote-btn" data-nav-target="copilot" '
-        'onclick="presageNav(&#39;copilot&#39;)">'
-        'Ask the copilot &rarr;</button>'
-        '<span class="cp-promote-hint">or hit Cmd+K to search</span>'
-        '</div>'
-        '</div>'
-    )
-
-
 def _copilot_panel() -> str:
     """Sprint 5/6 surface : derniere prises de position du copilot adversarial.
 
@@ -2120,97 +1930,6 @@ def _fx_exposure_panel() -> str:
         + "".join(rows)
         + '<script>document.querySelectorAll(".fxcard .fx-item").forEach(function(e){'
         + 'e.addEventListener("click",function(){e.classList.toggle("open")})});</script>'
-        + "</div>"
-    )
-
-
-def _benchmark_panel() -> str:
-    """Sprint 16 — alpha vs SOX (book return vs benchmark sector)."""
-    try:
-        from intelligence import benchmark as _bm
-
-        bench = _bm.compute_alpha_vs_sox(months=6)
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">benchmark indispo: {type(e).__name__}</div></div>'
-    if "error" in bench:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Benchmark indispo (yfinance non installe ou SOX fetch failed)."
-            "</div></div>"
-        )
-    alpha = bench["alpha_pct"]
-    book_r = bench["book_return_pct"]
-    bench_r = bench["bench_return_pct"]
-    acls = "pos" if alpha > 0 else ("neg" if alpha < 0 else "neu")
-    warning = bench.get("warning")
-    warning_html = (
-        f'<div class="bm-warn">⚠️ {warning}</div>' if warning else ""
-    )
-    return (
-        '<div class="colhead"><span class="t">Real outperformance vs sector</span>'
-        f'<span class="a">{bench["bench_window"]} &middot; book vs indice semi-conducteurs PHLX</span></div>'
-        '<div class="card pad benchcard" style="margin-bottom:var(--s4)">'
-        f'{warning_html}'
-        '<div class="bm-grid">'
-        f'<div class="bm-cell"><div class="bm-h">Book</div><div class="bm-v mono">{book_r:+.1f}%</div></div>'
-        f'<div class="bm-cell"><div class="bm-h">SOX</div><div class="bm-v mono">{bench_r:+.1f}%</div></div>'
-        f'<div class="bm-cell"><div class="bm-h">Alpha</div><div class="bm-v mono {acls}">{alpha:+.1f}%</div></div>'
-        '</div>'
-        f'<div class="bm-foot">{bench["interpretation"]}</div>'
-        '</div>'
-    )
-
-
-def _kill_criteria_panel() -> str:
-    """Sprint 15 — kill-criteria status per these. Triggered/at_risk en haut."""
-    try:
-        from shared import storage as _stg
-
-        rows = _stg.get_all_latest_kca()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">kill-criteria indispo: {type(e).__name__}</div></div>'
-    if not rows:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Premiere verification quotidienne prevue demain 07h30. Les theses dont les conditions d'invalidation se declenchent apparaitront ici."
-            "</div></div>"
-        )
-    counts = {"triggered": 0, "at_risk": 0, "dormant": 0}
-    for r in rows:
-        s = r.get("status", "dormant")
-        counts[s] = counts.get(s, 0) + 1
-    items = []
-    for r in rows:
-        if r["status"] == "dormant":
-            continue
-        tk = r.get("ticker", "?")
-        s = r.get("status", "?")
-        cls = "triggered" if s == "triggered" else "at_risk"
-        conf = r.get("confidence") or 0
-        reason = (r.get("dominant_reason") or "").strip()
-        if len(reason) > 240:
-            reason = reason[:237] + "..."
-        evidence = (r.get("evidence_quote") or "").strip()[:200]
-        reason = reason.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        evidence = evidence.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        items.append(
-            f'<div class="kc-row {cls}">'
-            f'<div class="kc-head"><span class="kc-tk">{tk}</span>'
-            f'<span class="kc-status {cls}">{s}</span>'
-            f'<span class="kc-conf mono">conf {conf}</span></div>'
-            f'<div class="kc-reason">{reason}</div>'
-            f'<div class="kc-ev">{evidence}</div></div>'
-        )
-    items_html = "".join(items) or (
-        '<div class="empty" style="padding:var(--s25) 0">none these triggered/at_risk &mdash; ' +
-        f'{counts["dormant"]} dormant</div>'
-    )
-    return (
-        '<div class="colhead"><span class="t">Conditions d\'invalidation des theses</span>'
-        f'<span class="a">triggered {counts["triggered"]} &middot; at risk {counts["at_risk"]} &middot; '
-        f'dormant {counts["dormant"]} &middot; checked 07:30</span></div>'
-        '<div class="card pad killcard" style="margin-bottom:var(--s4)">'
-        + items_html
         + "</div>"
     )
 
@@ -3813,78 +3532,6 @@ def _trajectory_panel() -> str:
     )
 
 
-def _preferences_panel() -> str:
-    """Layer 3 — ce qui MARCHE deterministically pour CE user.
-
-    Pas d'opinion modele, juste les chiffres bruts groups par kind. La
-    confidence est derivee du sample size (Wilson-conservative). No
-    note magique : tout est expose avec n explicit.
-    """
-    try:
-        import json as _json
-
-        from shared import storage as _stg
-
-        prefs = _stg.get_latest_preferences()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">preferences indispo: {type(e).__name__}</div></div>'
-    if not prefs:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Monthly calibration scheduled 1st of month. Preferences (what worked for you) will appear here once decisions accumulate."
-            "</div></div>"
-        )
-    groups: list[str] = []
-    for p in prefs:
-        kind = p.get("kind", "?")
-        n = p.get("n_samples") or 0
-        conf = p.get("confidence") or 0
-        date = (p.get("snapshot_date") or "")[:10]
-        try:
-            metric = _json.loads(p.get("metric_json") or "{}")
-        except Exception:
-            metric = {}
-        rows = []
-        if kind == "conviction_calibration":
-            for c, v in (metric.get("buckets") or {}).items():
-                rows.append(_pref_row(c, v["n"], v["mean_return_30d_pct"], v["winrate_pct"]))
-        elif kind == "sector_outcome":
-            for sec, v in (metric.get("clusters") or {}).items():
-                rows.append(_pref_row(sec[:18], v["n"], v["mean_return_30d_pct"], v["winrate_pct"]))
-        elif kind == "bias_outcome":
-            for b, v in (metric.get("biases") or {}).items():
-                rows.append(_pref_row(b[:18], v["n"], v["mean_return_30d_pct"], v["winrate_pct"]))
-        elif kind == "sizing_outcome":
-            for s, v in (metric.get("sizing") or {}).items():
-                rows.append(_pref_row(s, v["n"], v["mean_return_30d_pct"], v["winrate_pct"]))
-        elif kind == "copilot_outcome":
-            for ver, v in (metric.get("verdicts") or {}).items():
-                rows.append(_pref_row(ver, v["n"], v["mean_return_30d_pct"], v.get("outcome_good_pct", 0)))
-        elif kind == "archetype_consistency":
-            for t in (metric.get("timeline") or [])[:6]:
-                rows.append(
-                    f'<div class="pr-row"><span class="pr-key">{t.get("at","?")}</span>'
-                    f'<span class="pr-mid">{t.get("label","?")}</span>'
-                    f'<span class="pr-num mono">{t.get("score","?")}</span></div>'
-                )
-        else:
-            rows.append('<div class="pr-row"><span class="pr-key">no formatter</span></div>')
-        rows_html = "".join(rows) or '<div class="empty" style="padding:var(--s2) 0">none sample</div>'
-        groups.append(
-            f'<div class="pr-group"><div class="pr-h">'
-            f'<span class="pr-kind">{kind.replace("_"," ")}</span>'
-            f'<span class="pr-meta">n={n} conf={conf} ({date})</span></div>'
-            f'{rows_html}</div>'
-        )
-    return (
-        '<div class="colhead"><span class="t">What worked for you</span>'
-        '<span class="a">samples + winrate on your real resolved decisions &middot; no model opinion</span></div>'
-        '<div class="card pad preferencescard" style="margin-bottom:var(--s4)">'
-        f'<div class="pr-grid">{"".join(groups)}</div>'
-        '</div>'
-    )
-
-
 def _pref_row(key: str, n: int, mean_ret: float, win: float) -> str:
     rcls = "pos" if mean_ret > 0 else ("neg" if mean_ret < 0 else "neu")
     return (
@@ -4011,20 +3658,6 @@ def _conversations_panel() -> str:
         + "".join(lis)
         + "</div>"
     )
-
-
-def _chat_memory_stats() -> tuple[int, int, str]:
-    """Returns (n_messages, n_sessions, oldest_date) for chat memory depth."""
-    try:
-        from shared.storage import db
-
-        with db() as cx:
-            n_msg = cx.execute("SELECT COUNT(*) FROM chat_messages").fetchone()[0]
-            n_sess = cx.execute("SELECT COUNT(DISTINCT session_id) FROM chat_messages").fetchone()[0]
-            oldest = cx.execute("SELECT MIN(created_at) FROM chat_messages").fetchone()[0]
-        return n_msg, n_sess, (oldest or "")[:10]
-    except Exception:
-        return 0, 0, ""
 
 
 def _distribution_health_panel() -> str:
@@ -4373,43 +4006,9 @@ def _planned(held: set) -> list[dict]:
     return out
 
 
-def _pnl_map(computed: list[dict]) -> dict:
-    out = {}
-    for r in computed:
-        e, c = r.get("entry") or 0, r.get("current_price") or 0
-        if e:
-            out[r["ticker"]] = (c - e) / e * 100
-    return out
-
-
 # _pnl_cost_map déplacé vers shared/portfolio_analytics.py (cure P2 audit (3)
 # reste whitelist 12/06). Ré-export pour rétro-compat des callers internes.
 from shared.portfolio_analytics import _pnl_cost_map
-
-
-def _rows_paliers(computed: list[dict]) -> tuple[str, int, str]:
-    data = []
-    for r in computed:
-        e, t, c = r.get("entry") or 0, r.get("target_full") or 0, r.get("current_price") or 0
-        if e and t and t != e:
-            data.append(((c - e) / (t - e) * 100, (c - e) / e * 100, r["ticker"]))
-    data.sort(key=lambda x: -x[0])
-    top = f"{data[0][2]} {data[0][0]:.0f}%" if data else "&mdash;"
-    rows, hits = [], 0
-    for i, (prog, pnl, tk) in enumerate(data):
-        pc = max(0.0, min(100.0, prog))
-        hit = prog >= 100
-        hits += 1 if hit else 0
-        cls, arrow = ("up", "&#9650;") if pnl >= 0 else ("down", "&#9660;")
-        flag = " &#127919;" if hit else ""
-        d = i * 0.035
-        rows.append(
-            f'<div class="row" data-tk="{tk}" style="animation-delay:{d:.2f}s"><div class="rt">'
-            f'<span class="tk">{_ticker_logo(tk)}{tk}{flag}</span><span class="tag {cls}">{arrow}&nbsp;{abs(pnl):.1f}%</span></div>'
-            f'{_tbar(pc, title=f"{pc:.1f}%")}'
-            f'<div class="rs"><span>toward target</span><span class="mono">{prog:.0f}%</span></div></div>'
-        )
-    return "".join(rows), hits, top
 
 
 def _elan_watch(computed: list[dict]) -> tuple[str, int]:
@@ -4818,49 +4417,6 @@ def _geo_bars(positions: list[dict]) -> str:
     return css + bars + js
 
 
-def _fx_status_label_html() -> str:
-    """E4 craft : badge discret FX freshness dans la foot. Resume l'etat des
-    pairs FX utilisees en pratique (USD/JPY/KRW/HKD vers EUR). Vert subtle
-    si tout live_cached, warn si une pair tombe en fallback hardcoded ou
-    stale > 24h, neutre si never_queried (= cold start dashboard).
-
-    Honnete : on dit explicitement "FX live" / "FX HARDCODED" / etc., pas
-    de fausse precision."""
-    try:
-        from shared.prices import fx_freshness, fx_is_stale, get_fx_rate
-
-        pairs = [("USD", "EUR"), ("JPY", "EUR"), ("KRW", "EUR"), ("HKD", "EUR")]
-        # Warm cache : le dashboard regen appelle deja get_fx_rate via d'autres
-        # voies (positions display, etc.), mais on s'assure pour le badge.
-        for f, t in pairs:
-            get_fx_rate(f, t)
-        statuses = [fx_freshness(f, t) for f, t in pairs]
-        n_live = sum(1 for s in statuses if s["source"] == "live_cached")
-        n_stale = sum(1 for f, t in pairs if fx_is_stale(f, t))
-        n_fallback = sum(1 for s in statuses if s["source"] in ("never_queried",))
-        if n_live == len(pairs):
-            txt, cls = "FX&nbsp;live", "calm"
-        elif n_fallback > 0:
-            txt, cls = f"FX&nbsp;{n_fallback}/{len(pairs)}&nbsp;hardcoded", "warn"
-        elif n_stale > 0:
-            txt, cls = f"FX&nbsp;{n_stale}/{len(pairs)}&nbsp;stale", "warn"
-        else:
-            txt, cls = "FX&nbsp;live", "calm"
-        # Tooltip detail : etat par pair
-        title_parts = []
-        for (f, t), s in zip(pairs, statuses, strict=False):
-            age = s.get("age_seconds")
-            title_parts.append(f"{f}/{t}: {s['source']}" + (f" ({age}s)" if age else ""))
-        title = " ; ".join(title_parts)
-        color = "var(--acc)" if cls == "calm" else "var(--warn)"
-        return (
-            f'<span class="mono" style="font-size:var(--t-data);opacity:.65;padding:0 var(--s2);color:{color}"'
-            f' title="{title}">{txt}</span>'
-        )
-    except Exception:
-        return ""
-
-
 def _insider_flow_strip_html() -> str:
     """E2 wire-up A3 (31/05/2026) : surface insider_snapshots (~401 rows
     captures quotidiennes par insider_digest cron) qui etaient ingerees mais
@@ -5182,7 +4738,6 @@ def _loop() -> str:
         f'{legend}'
         f'</div>'
     )
-
 
 
 def _vault() -> str:
@@ -5926,7 +5481,6 @@ def _vault() -> str:
         + cerebro_js
         + '</section>'
     )
-
 
 
 def _signaux() -> str:
@@ -6725,57 +6279,6 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
     )
 
 
-def _tape_8k() -> str:
-    sevcls = {"HIGH": "neg", "MEDIUM": "warn", "MED": "warn", "LOW": "pos"}
-    try:
-        # Filter book : tape8k externes au book = bruit (user mandate 02/06).
-        rows = _q(
-            "SELECT ticker, COALESCE(severity,''), COALESCE(severity_reason,''), COALESCE(item_codes,''), filed_at "
-            "FROM filings_8k_log WHERE filed_at > datetime('now','-60 day') "
-            "  AND ticker IN (SELECT DISTINCT ticker FROM positions "
-            "                 UNION SELECT DISTINCT ticker FROM portfolio_targets) "
-            "ORDER BY filed_at DESC LIMIT 18"
-        )
-    except Exception:
-        return ""
-    if not rows:
-        return ""
-    items = ""
-    for tk, sev, reason, codes, _filed in rows:
-        cls = sevcls.get(str(sev).upper(), "")
-        raw = (str(reason) or str(codes)) or ""
-        # E4 craft 31/05 : retrait truncature "..." -- 1/3 des news etaient
-        # coupees, lisibilite degradee. Le ticker scrolle horizontal de toute
-        # facon, longueur libre. Title= en bonus si CSS overflow cache encore.
-        items += f'<span class="ti" title="{raw}"><span class="tk tkc" data-tk="{tk}">{tk}</span> <span class="{cls}">8-K</span> {raw}</span>'
-    return f'<div class="tape tape8k"><div class="track2">{items}{items}</div></div>'
-
-
-def _rail_foot(near: int, heat: float) -> str:
-    try:
-        row = _q("SELECT score, phase FROM debt_composite ORDER BY rowid DESC LIMIT 1")
-        score, phase = row[0] if row else (None, None)
-    except Exception:
-        score, phase = None, None
-    if near == 0 and heat < 33:
-        posture, tone = "CALME", "calm"
-    elif heat < 60 and near <= 1:
-        posture, tone = "VIGILANCE", "warn"
-    else:
-        posture, tone = "D&Eacute;FENSIF", "alert"
-    macro = ""
-    if score is not None:
-        dcol = {1: "var(--acc)", 2: "var(--warn)", 3: "var(--warn)", 4: "var(--bear)"}.get(int(phase or 1), "var(--bear)")
-        macro = f'<span class="rfmacro" style="background:{dcol}" title="Macro phase {int(phase or 1)}"></span>'
-    return (
-        f'<div class="rfoot" title="Portefeuille {posture} &middot; surchauffe {heat:.0f}&deg; &middot; {near} marge(s) faible(s)">'
-        f'<span class="statedot {tone}"></span>'
-        f'<span class="rfm">{heat:.0f}&deg;</span>'
-        f'<span class="rfm">{near}&#9888;</span>'
-        f"{macro}</div>"
-    )
-
-
 def _sizing_overcap(positions: list[dict], conv_by_tk: dict, caps: dict, pnl: dict) -> list[str]:  # noqa: ARG001
     """Lignes dont le poids courant depasse leur cap de conviction (signal de TAILLE, prix-agnostique)."""
     vtot = sum(p["weight"] for p in positions) or 1
@@ -7238,12 +6741,8 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
     )
 
 
-
 # Direction esthetique #37 -- cahier de bord instrument (Bloomberg / cockpit).
 # Override CSS active via body.cahier-de-bord (toggle JS).
-
-
-
 
 
 _PERF_CACHE: dict = {}
@@ -7460,10 +6959,6 @@ def _loupe_data(positions: list[dict], sectors: dict, names: dict, pnl: dict, co
     return out
 
 
-
-
-
-
 def _broker(tk: str) -> str:
     return "bourso" if tk.endswith(_EU_SUFFIX) else "tr"
 
@@ -7478,38 +6973,6 @@ def _sector_mix(ps: list, pnl: dict, sectors: dict) -> list:
         sec = sectors.get(p["ticker"], "No thesis")
         agg[sec] = agg.get(sec, 0.0) + _broker_value(p, pnl)
     return sorted(agg.items(), key=lambda kv: -kv[1])
-
-
-def _sector_donut(segs: list) -> str:
-    """Horizontal bars list — modern Linear/Vercel pattern (replaces donut+legend).
-
-    19/06 : barres interactives. Chaque rangee porte data-sec=<label> ; le
-    JS (_DONUT_JS) lie clic/hover -> highlight des lignes table data-sec
-    correspondantes dans la meme carte .brk (clic = lock, re-clic = clear)."""
-    import html as _h
-    total = sum(v for _, v in segs) or 1
-    if not segs:
-        return ""
-    sorted_segs = sorted(segs, key=lambda kv: -kv[1])
-    max_pct = sorted_segs[0][1] / total * 100
-    rows = []
-    for label, v in sorted_segs:
-        col = SECTOR_COLORS.get(label, "#6B7686")
-        pct = v / total * 100
-        fill_pct = pct / max_pct * 100 if max_pct else 0
-        vstr = f"{v / 1000:.0f}k" if v >= 1000 else f"{v:.0f}"
-        _sec = _h.escape(label, quote=True)
-        rows.append(
-            f'<div class="brk-row" data-sec="{_sec}" tabindex="0" role="button" '
-            f'aria-label="Highlight {_sec} positions">'
-            f'<div class="brk-row-name"><span class="brk-row-dot" style="background:{col}"></span>'
-            f'<span class="brk-row-label">{label}</span></div>'
-            f'<div class="brk-row-bar"><div class="brk-row-fill" style="width:{fill_pct:.1f}%;background:{col}"></div></div>'
-            f'<div class="brk-row-pct">{pct:.0f}%</div>'
-            f'<div class="brk-row-val">{vstr}&nbsp;&euro;</div>'
-            f"</div>"
-        )
-    return f'<div class="brk-viz"><div class="brk-bars">{"".join(rows)}</div></div>'
 
 
 def _sector_mix_v3(segs: list) -> str:
@@ -8144,15 +7607,6 @@ def _broker_tables(positions: list[dict], names: dict, pnl: dict, sectors: dict)
         + _broker_one("Trade Republic", "hors Europe", tr, grand, names, pnl, sectors, asym, gauges, ticker_warnings)
         + _broker_one("Boursorama", "PEA &middot; Europe", eu, grand, names, pnl, sectors, asym, gauges, ticker_warnings)
     )
-
-
-
-
-
-
-
-
-
 
 
 def _dba_eur(n: float) -> str:

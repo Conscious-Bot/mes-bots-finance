@@ -162,22 +162,6 @@ def log_event(event_type: str, details: Any = None) -> None:
         )
 
 
-def active_signals(min_score: int = 5, since_hours: int = 24) -> list[dict]:
-    since = (datetime.now(UTC) - timedelta(hours=since_hours)).isoformat()
-    now = datetime.now(UTC).isoformat()
-    with db() as conn:
-        rows = conn.execute(
-            """
-            SELECT s.*, src.name as source_name, src.credibility
-            FROM signals s JOIN sources src ON s.source_id = src.id
-            WHERE s.decay_at > ? AND s.timestamp > ? AND s.score >= ?
-            ORDER BY (s.score * src.credibility) DESC
-        """,
-            (now, since, min_score),
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-
 def active_theses() -> list[dict]:
     with db() as conn:
         return [
@@ -186,49 +170,12 @@ def active_theses() -> list[dict]:
         ]
 
 
-def thesis_by_id(thesis_id: int) -> dict | None:
-    with db() as conn:
-        row = conn.execute("SELECT * FROM theses WHERE id = ?", (thesis_id,)).fetchone()
-        return dict(row) if row else None
-
-
 def update_thesis_status(thesis_id: int, status: str, notes: str | None = None):
     with db() as conn:
         conn.execute(
             "UPDATE theses SET status = ?, last_reviewed = ?, notes = COALESCE(?, notes) WHERE id = ?",
             (status, datetime.now(UTC).isoformat(), notes, thesis_id),
         )
-
-
-def add_to_watchlist(ticker: str, sector: str | None = None, notes: str | None = None) -> None:
-    with db() as conn:
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO watchlist(ticker, sector, notes) VALUES(?,?,?)
-        """,
-            (ticker, sector, notes),
-        )
-
-
-def get_watchlist() -> list[str]:
-    with db() as conn:
-        return [r["ticker"] for r in conn.execute("SELECT ticker FROM watchlist").fetchall()]
-
-
-def add_feedback(target_type: str, target_id: int, score: float, note: str | None = None) -> None:
-    with db() as conn:
-        conn.execute(
-            "INSERT INTO feedback(target_type, target_id, score, note) VALUES(?,?,?,?)",
-            (target_type, target_id, score, note),
-        )
-
-
-def seed_narratives(narratives_config: list[dict[str, Any]]) -> None:
-    with db() as conn:
-        for n in narratives_config:
-            conn.execute(
-                "INSERT OR IGNORE INTO narratives(name, definition) VALUES(?,?)", (n["name"], n.get("definition", ""))
-            )
 
 
 # === Phase 2 : Gmail ingestion helpers ===
@@ -434,19 +381,6 @@ def latest_snapshot_hwm() -> float | None:
         _ensure_snapshot_table(conn)
         row = conn.execute("SELECT MAX(hwm_value_eur) FROM portfolio_snapshots").fetchone()
     return float(row[0]) if row and row[0] is not None else None
-
-
-def get_portfolio_snapshots(limit: int = 400) -> list[dict]:
-    with db() as conn:
-        _ensure_snapshot_table(conn)
-        rows = conn.execute(
-            "SELECT snapshot_date, total_value_eur, total_cost_eur, pnl_pct, "
-            "n_positions, n_priced, hwm_value_eur, drawdown_pct "
-            "FROM portfolio_snapshots ORDER BY snapshot_date DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-    keys = ("date", "value", "cost", "pnl_pct", "n_positions", "n_priced", "hwm", "drawdown_pct")
-    return [dict(zip(keys, r)) for r in rows]
 
 
 def insert_digue_alert(
@@ -1026,33 +960,6 @@ def get_recent_processed_signals(hours=72, limit=20):
         conn.close()
 
 
-def insert_shadow_decision(decision_type, decision_id, input_data, variants):
-    """Persist a shadow decision for later outcome resolution."""
-    conn = _sqlite3.connect(DB_PATH)
-    try:
-        cur = conn.execute(
-            "INSERT INTO shadow_decisions (decision_type, decision_id, input_data, variants) VALUES (?, ?, ?, ?)",
-            (decision_type, decision_id, input_data, variants),
-        )
-        conn.commit()
-        return cur.lastrowid
-    finally:
-        conn.close()
-
-
-def get_unresolved_shadow_decisions(limit=100):
-    """Fetch shadow decisions not yet resolved."""
-    conn = _sqlite3.connect(DB_PATH)
-    conn.row_factory = _sqlite3.Row
-    try:
-        rows = conn.execute(
-            "SELECT * FROM shadow_decisions WHERE resolved_at IS NULL ORDER BY id DESC LIMIT ?", (limit,)
-        ).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
-
-
 def insert_prediction(
     signal_id,
     ticker,
@@ -1403,17 +1310,6 @@ def get_upcoming_events(days_ahead=14):
             (days_ahead,),
         ).fetchall()
         return [dict(r) for r in rows]
-    finally:
-        conn.close()
-
-
-def delete_old_events(keep_days=30):
-    """Clean up events older than keep_days."""
-    conn = _sqlite3.connect(DB_PATH)
-    try:
-        cur = conn.execute("DELETE FROM events WHERE date < date('now', '-' || ? || ' days')", (keep_days,))
-        conn.commit()
-        return cur.rowcount
     finally:
         conn.close()
 
@@ -1840,16 +1736,6 @@ def store_signal_embedding(signal_id, embedding_blob, model_name):
         conn.close()
 
 
-def get_signal_embedding(signal_id):
-    """Phase A3 — Fetch raw embedding blob for a signal."""
-    conn = _sqlite3.connect(DB_PATH)
-    try:
-        row = conn.execute("SELECT embedding FROM signal_embeddings WHERE signal_id=?", (signal_id,)).fetchone()
-        return row[0] if row else None
-    finally:
-        conn.close()
-
-
 def get_unembedded_signals(limit=100, min_chars=20):
     """Phase A3 — Signals without embedding. Uses summary or fallback title."""
     conn = _sqlite3.connect(DB_PATH)
@@ -1939,24 +1825,6 @@ def update_source_half_life(source_id, median_days, n_samples):
             (median_days, n_samples, source_id),
         )
         conn.commit()
-    finally:
-        conn.close()
-
-
-def get_all_sources_with_half_life():
-    """Phase A4 — All sources with half-life metadata for display."""
-    conn = _sqlite3.connect(DB_PATH)
-    conn.row_factory = _sqlite3.Row
-    try:
-        rows = conn.execute("""
-            SELECT s.id, s.name, s.credibility, s.n_signals,
-                   s.half_life_days, s.half_life_n_samples, s.half_life_computed_at
-            FROM sources s
-            ORDER BY
-              CASE WHEN s.half_life_days IS NULL THEN 1 ELSE 0 END,
-              s.half_life_days ASC
-        """).fetchall()
-        return [dict(r) for r in rows]
     finally:
         conn.close()
 
@@ -2385,24 +2253,6 @@ def save_debate_transcript(ticker, transcript_dict, convergence_score, verdict, 
         )
         conn.commit()
         return cur.lastrowid
-    finally:
-        conn.close()
-
-
-def get_recent_debates(ticker=None, limit=10):
-    conn = _sqlite3.connect(DB_PATH)
-    conn.row_factory = _sqlite3.Row
-    try:
-        if ticker:
-            rows = conn.execute(
-                "SELECT * FROM debate_transcripts WHERE ticker=? ORDER BY started_at DESC LIMIT ?",
-                (ticker.upper(), int(limit)),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM debate_transcripts ORDER BY started_at DESC LIMIT ?", (int(limit),)
-            ).fetchall()
-        return [dict(r) for r in rows]
     finally:
         conn.close()
 
@@ -2871,36 +2721,6 @@ def get_recent_copilot_interventions(limit: int = 20) -> list[dict]:
         return []
 
 
-def get_recent_copilot_interventions_for_ticker(ticker: str, limit: int = 5) -> list[dict]:
-    """For chat surface RAG : the bot's recent stances on this ticker."""
-    try:
-        with db() as conn:
-            _ensure_copilot_table(conn)
-            rows = conn.execute(
-                "SELECT id, created_at, decision_type, verdict, pressure_score, ancrage, brief, "
-                "biases_active_json, return_30d_pct, outcome_label "
-                "FROM bot_copilot_interventions WHERE ticker=? "
-                "ORDER BY created_at DESC LIMIT ?",
-                (ticker, limit),
-            ).fetchall()
-            cols = [
-                "id",
-                "created_at",
-                "decision_type",
-                "verdict",
-                "pressure_score",
-                "ancrage",
-                "brief",
-                "biases_active_json",
-                "return_30d_pct",
-                "outcome_label",
-            ]
-            return [dict(zip(cols, r, strict=False)) for r in rows]
-    except Exception as e:
-        _copilot_log.warning(f"get_recent_copilot_interventions failed for {ticker}: {e}")
-        return []
-
-
 # === user_profile (Phase 2 Sprint 1) ==========================================
 
 _USER_PROFILE_DDL = (
@@ -3261,22 +3081,6 @@ def get_recent_chat_messages(limit: int = 50, session_id: str | None = None) -> 
             return [dict(zip(cols, r, strict=False)) for r in rows]
     except Exception as e:
         _copilot_log.warning(f"get_recent_chat_messages failed: {e}")
-        return []
-
-
-def get_chat_session_history(session_id: str, limit: int = 20) -> list[dict]:
-    """Get a single session's turns in chronological order (for multi-turn restore)."""
-    try:
-        with db() as cx:
-            _ensure_chat_table(cx)
-            rows = cx.execute(
-                "SELECT role, content FROM chat_messages "
-                "WHERE session_id=? ORDER BY id ASC LIMIT ?",
-                (session_id, limit),
-            ).fetchall()
-            return [{"role": r[0], "content": r[1]} for r in rows]
-    except Exception as e:
-        _copilot_log.warning(f"get_chat_session_history failed: {e}")
         return []
 
 
@@ -3701,27 +3505,6 @@ def insert_ticker_axes(
             return cur.lastrowid
     except Exception as e:
         _copilot_log.warning(f"insert_ticker_axes failed: {e}")
-        return None
-
-
-def get_latest_ticker_axes(ticker: str) -> dict | None:
-    try:
-        with db() as cx:
-            _ensure_axes_table(cx)
-            row = cx.execute(
-                "SELECT ticker, demand_driver, value_chain_stage, moat_source, "
-                "macro_factor, alt_drivers_json, confidence, rationale, created_at "
-                "FROM ticker_axes WHERE ticker=? ORDER BY id DESC LIMIT 1",
-                (ticker.upper(),),
-            ).fetchone()
-            if not row:
-                return None
-            cols = ["ticker", "demand_driver", "value_chain_stage", "moat_source",
-                    "macro_factor", "alt_drivers_json", "confidence", "rationale",
-                    "created_at"]
-            return dict(zip(cols, row, strict=False))
-    except Exception as e:
-        _copilot_log.warning(f"get_latest_ticker_axes failed: {e}")
         return None
 
 
@@ -5473,24 +5256,6 @@ def update_scheduler_run_end(run_id: int, status: str, duration_s: float, error_
             conn.close()
     except Exception as e:
         _logging.getLogger(__name__).warning(f"scheduler_runs end silent miss {run_id}: {e}")
-
-
-def get_last_scheduler_run(job_name: str) -> dict | None:
-    """Latest run for a job. Returns dict ou None."""
-    try:
-        conn = _sqlite3.connect(DB_PATH)
-        conn.row_factory = _sqlite3.Row
-        try:
-            row = conn.execute(
-                "SELECT * FROM scheduler_runs WHERE job_name=? "
-                "ORDER BY started_at DESC LIMIT 1",
-                (job_name,),
-            ).fetchone()
-            return dict(row) if row else None
-        finally:
-            conn.close()
-    except Exception:
-        return None
 
 
 def __getattr__(name: str):

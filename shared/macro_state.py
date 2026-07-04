@@ -225,14 +225,6 @@ def current_regime() -> str:
     return current_macro_state()["regime"]
 
 
-def current_composite_score() -> float:
-    return current_macro_state()["score"]
-
-
-def current_bucket_counts() -> dict[str, int]:
-    return current_macro_state()["bucket_counts"]
-
-
 # Color mapping canonique : regime label -> CSS class.
 REGIME_COLOR_CLASS = {
     "COMPLACENT": "warn",  # melt-up risk

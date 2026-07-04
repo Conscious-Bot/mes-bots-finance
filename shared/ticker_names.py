@@ -72,11 +72,3 @@ def get_short_name(ticker: str) -> str | None:
     return cast(str | None, short_name)
 
 
-def get_short_names_bulk(tickers: list[str]) -> dict[str, str]:
-    """Bulk-resolve N tickers. Returns dict ticker -> short_name (or empty for misses)."""
-    result = {}
-    for tk in tickers:
-        name = get_short_name(tk)
-        if name:
-            result[tk] = name
-    return result

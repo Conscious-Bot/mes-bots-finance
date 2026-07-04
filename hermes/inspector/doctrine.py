@@ -15,7 +15,7 @@ Source de verite : docs/CONVENTIONS.md + CLAUDE.md memory.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 
 
 @dataclass(frozen=True)
@@ -136,8 +136,3 @@ def is_excluded(candidate_name: str, candidate_text: str = "") -> tuple[bool, st
     return False, None
 
 
-def grace_period_days_remaining(deprecation_date: date) -> int:
-    """CONVENTIONS §15 : combien de jours reste-t-il avant la fin de la grace
-    period de depreciation (1 mois standard)."""
-    end = deprecation_date + timedelta(days=30)
-    return max(0, (end - date.today()).days)

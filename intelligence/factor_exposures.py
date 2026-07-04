@@ -12,7 +12,6 @@ les poids par facteur + appliquer des scenarios deterministes.
 
 Trajectoire (1a) : on a deja portfolio_grades snapshots. Ce module ajoute :
   - format_grade_trajectory(n_days) -> grade + drift par dim
-  - compute_price_vs_trade_drift() -> distingue derive prix vs derive trade
 """
 
 from __future__ import annotations
@@ -305,65 +304,3 @@ def format_grade_trajectory(n_days: int = 30) -> dict:
     return {"snapshots": snaps, "drift": drift}
 
 
-def compute_price_vs_trade_drift(n_days: int = 30) -> dict:
-    """Decompose cluster_cap drift into : price-driven vs trade-driven.
-
-    Cluster-cap may breach simply because TSMC rallied. Trade-driven drift
-    requires a position_event in the window.
-    """
-    since = (datetime.now(UTC) - timedelta(days=n_days)).isoformat()
-    try:
-        with storage.db() as cx:
-            ev_rows = cx.execute(
-                "SELECT ticker, event_type, qty_delta, price "
-                "FROM position_events WHERE created_at >= ? "
-                "ORDER BY created_at ASC",
-                (since,),
-            ).fetchall()
-    except Exception:
-        ev_rows = []
-    trades_by_tk: dict = {}
-    for tk, etype, qd, px in ev_rows:
-        trades_by_tk.setdefault(tk, []).append({
-            "type": etype, "qty_delta": qd, "price": px,
-        })
-    # Sum trade-driven delta : qty_delta * (current_price - trade_price)
-    # Migration Lane 2 #8 : shared direct.
-    from shared import book as _bk
-    from shared.prices import get_current_price_in_eur
-
-    total_drift_eur = 0.0
-    price_drift_eur = 0.0
-    trade_drift_eur = 0.0
-    for ln in _bk.get_held_lines():
-        tk = ln.ticker
-        qty = float(ln.qty or 0)
-        if qty <= 0:
-            continue
-        cur = get_current_price_in_eur(tk) or 0
-        if not cur:
-            continue
-        # cost basis = qty * avg_cost_eur (canonique)
-        cost_basis = qty * float(ln.avg_cost_eur or 0)
-        current_value = qty * cur
-        total_drift = current_value - cost_basis
-        # Trade-driven : qty added in window * (current - avg_buy_in_window)
-        ev = trades_by_tk.get(tk) or []
-        if ev:
-            for x in ev:
-                qd = x.get("qty_delta") or 0
-                px = x.get("price") or 0
-                if qd > 0:
-                    trade_drift_eur += qd * (cur - px)
-        # Rest is price drift
-        position_price_drift = total_drift - (sum((x.get("qty_delta") or 0) * (cur - (x.get("price") or 0))
-                                              for x in ev if (x.get("qty_delta") or 0) > 0))
-        price_drift_eur += position_price_drift
-        total_drift_eur += total_drift
-    return {
-        "n_days": n_days,
-        "total_drift_eur": round(total_drift_eur, 0),
-        "price_drift_eur": round(price_drift_eur, 0),
-        "trade_drift_eur": round(trade_drift_eur, 0),
-        "n_positions_with_trades": sum(1 for v in trades_by_tk.values() if v),
-    }

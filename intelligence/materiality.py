@@ -426,24 +426,3 @@ def score_materiality(signal, recent_signals_24h=None, recent_signals_72h=None, 
     }
 
 
-def format_materiality(score_dict, width=10):
-    s = score_dict
-
-    def bar(v):
-        f = int(v * width)
-        return "#" * f + "." * (width - f)
-
-    noise_tag = " [NOISE]" if s.get("noise") else ""
-    return (
-        "composite: "
-        + ("{:.3f}".format(s["composite"]))
-        + "  (quality: "
-        + ("{:.2f}".format(s["quality"]))
-        + ")"
-        + noise_tag
-        + "\n"
-        "  novelty:        " + ("{:.2f}".format(s["novelty"])) + "  " + bar(s["novelty"]) + "\n"
-        "  cross-conf:     " + ("{:.2f}".format(s["cross_confirmation"])) + "  " + bar(s["cross_confirmation"]) + "\n"
-        "  market_impact:  " + ("{:.2f}".format(s["market_impact"])) + "  " + bar(s["market_impact"]) + "\n"
-        "  regime_fit:     " + ("{:.2f}".format(s["regime_relevance"])) + "  " + bar(s["regime_relevance"])
-    )

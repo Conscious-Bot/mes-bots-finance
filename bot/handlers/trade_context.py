@@ -71,12 +71,6 @@ def pop_pending(token: str) -> PendingTrade | None:
     return _PENDING.pop(token, None)
 
 
-def get_pending(token: str) -> PendingTrade | None:
-    """Lit sans retirer (pour preview)."""
-    _gc_expired()
-    return _PENDING.get(token)
-
-
 def compute_trade_context(action: str, ticker: str, qty: float, price: float) -> dict[str, Any]:
     """Compute les 4 contextes pour pre-trade surface.
 
