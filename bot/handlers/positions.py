@@ -473,27 +473,19 @@ async def _buy_impl(update, ticker: str, qty: float, price: float, reasoning: st
     assert update.message is not None
 
     # 0a. Digue 1 (ADR 015 §3) : gel des ajouts/renforts sur drawdown RÉALISÉ du
-    # book (equity vs HWM). Ne vend rien. Fail-OPEN : un signal indisponible ou un
-    # bug du monitor NE bloque PAS l'achat (ne pas fabriquer un faux gel — L15).
+    # book. Ne vend rien. Déblocage = cooldown incompressible + override substantiel
+    # (`/digue_override`), jamais un clic. Fail-OPEN : signal absent / bug du monitor
+    # NE bloque PAS l'achat (ne pas fabriquer un faux gel — L15).
     try:
         from intelligence import digue_monitor as _digue
 
-        _dg = _digue.current_digue_state()
-        if _dg["frozen"]:
-            _prorata = (
-                "\n⛔ Digue 2 armée (-35%) : prorata 20% compute_ai via /kill_exec."
-                if _dg["prorata_armed"]
-                else ""
-            )
-            await update.message.reply_text(
-                "🚫 Achat GELÉ — Digue concentration ADR 015.\n"
-                f"Drawdown réalisé {_dg['drawdown_pct']:+.1f}% (seuil gel -15%, "
-                f"état {_dg['status']}). Digue 1 gèle ajout/renfort, ne vend rien.\n"
-                "Déblocage = protocole de revue du cluster (relire thèses, "
-                "sentinelles S4/S5, inflation de conviction) + cooldown — pas un clic."
-                + _prorata
-            )
+        _allow, _gate_msg = _digue.gate_allows_buy()
+        if not _allow:
+            await update.message.reply_text(_gate_msg)
             return
+        if _gate_msg:  # achat autorisé mais sous override actif : le signaler
+            with contextlib.suppress(Exception):
+                await update.message.reply_text(_gate_msg)
     except Exception as _e_digue:
         logging.getLogger("bot.position_buy").warning(
             "digue gate check failed (fail-open): %s", _e_digue

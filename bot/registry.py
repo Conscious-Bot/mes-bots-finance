@@ -142,6 +142,10 @@ def register_command_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("kill_exec", cmd_kill_exec))
     app.add_handler(CommandHandler("kill_override", cmd_kill_override))
     app.add_handler(CommandHandler("kill_resolve", cmd_kill_resolve))
+    # Digue 1 override (ADR 015 §3) — lève le gel /position_buy (cooldown + protocole)
+    from intelligence.digue_monitor import cmd_digue_override
+
+    app.add_handler(CommandHandler("digue_override", cmd_digue_override))
     # Kelly sizing voluntary advisor (Phase 2 26/06/2026, risk/sizing.py un-darks) :
     app.add_handler(CommandHandler("size_recommend", cmd_size_recommend))
     app.add_handler(CommandHandler("adversarial", cmd_adversarial))  # 4-stage bull/bear/counter/verdicts loop (23/06/2026)

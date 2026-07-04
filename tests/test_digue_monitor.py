@@ -4,6 +4,7 @@ Classifier pur = CI-safe (déterministe). Transitions journalisées = DB temp is
 """
 
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from unittest import mock
 
 import pytest
@@ -76,6 +77,10 @@ def temp_db(tmp_path, monkeypatch):
     from shared import storage
 
     monkeypatch.setattr(storage, "DB_PATH", str(p))
+    # state store isolé (override + cooldown)
+    sp = tmp_path / "state.json"
+    sp.write_text("{}")
+    monkeypatch.setattr(storage, "STATE_PATH", sp)
     return p
 
 
@@ -147,3 +152,78 @@ def test_check_transition_skips_when_signal_unavailable(temp_db):
     from shared import storage
 
     assert storage.get_latest_digue_alert() is None
+
+
+# ---------- override Digue 1 (déblocage : cooldown + substance, jamais un clic) ----------
+
+_VALID_PROTOCOL = (
+    "Thèses cluster relues, sentinelles S4/S5 vertes, pas d'inflation de conviction, "
+    "régime jugé correction cyclique — je maintiens et rouvre les ajouts."
+)
+
+
+def test_gate_allows_when_normal(temp_db):
+    _set_snapshot(temp_db, "2026-07-02", 54646, 60258, -9.31)
+    allow, msg = dm.gate_allows_buy()
+    assert allow is True
+    assert msg == ""
+
+
+def test_gate_blocks_when_frozen_no_override(temp_db):
+    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    allow, msg = dm.gate_allows_buy()
+    assert allow is False
+    assert "GELÉ" in msg
+
+
+def test_override_refused_when_not_frozen(temp_db):
+    _set_snapshot(temp_db, "2026-07-02", 54646, 60258, -9.31)
+    ok, msg = dm.grant_override(_VALID_PROTOCOL)
+    assert ok is False
+    assert "Aucun gel" in msg
+
+
+def test_override_refused_too_short(temp_db):
+    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    ok, msg = dm.grant_override("ok débloque")
+    assert ok is False
+    assert "trop courte" in msg
+
+
+def test_override_refused_during_cooldown(temp_db):
+    """Cooldown incompressible : justification parfaite mais gel trop récent → refus."""
+    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    from shared import storage
+
+    storage.update_state(digue_gel_started_at=datetime.now(UTC).isoformat())  # gel = maintenant
+    ok, msg = dm.grant_override(_VALID_PROTOCOL)
+    assert ok is False
+    assert "Cooldown" in msg
+
+
+def test_override_granted_after_cooldown_then_gate_allows(temp_db):
+    """Cooldown écoulé + protocole substantiel → override accordé → gate ré-autorise."""
+    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    from shared import storage
+
+    old = (datetime.now(UTC) - timedelta(days=dm.DIGUE_COOLDOWN_DAYS + 1)).isoformat()
+    storage.update_state(digue_gel_started_at=old)
+    ok, msg = dm.grant_override(_VALID_PROTOCOL)
+    assert ok is True
+    assert "accordé" in msg
+    allow, gate_msg = dm.gate_allows_buy()
+    assert allow is True
+    assert "OVERRIDE" in gate_msg
+
+
+def test_override_expires(temp_db):
+    """Override expiré → gate re-bloque."""
+    _set_snapshot(temp_db, "2026-07-10", 48000, 60000, -20.0)
+    from shared import storage
+
+    past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    storage.update_state(
+        digue_override={"granted_at": past, "expires_at": past, "text": _VALID_PROTOCOL}
+    )
+    allow, _ = dm.gate_allows_buy()
+    assert allow is False

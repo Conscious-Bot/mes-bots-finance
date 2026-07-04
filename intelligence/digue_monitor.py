@@ -29,11 +29,20 @@ LE book (portfolio-level, pas per-ticker), donc pas de wiring bias_events.
 
 from __future__ import annotations
 
+import contextlib
 import logging
+from datetime import UTC, datetime, timedelta
 
 from shared import storage
 
 log = logging.getLogger(__name__)
+
+# Override Digue 1 (ADR 015 §3) : déblocage JAMAIS un simple clic. Requiert le
+# cooldown incompressible écoulé ET une justification substantielle (le protocole
+# de revue écrit). Pattern emprunté au kill_switch override (min_chars + substance).
+DIGUE_COOLDOWN_DAYS = 2  # le gel tient AU MOINS ce délai, incompressible
+DIGUE_OVERRIDE_VALID_DAYS = 3  # une fois accordé, l'override lève le gel ce délai
+DIGUE_OVERRIDE_MIN_CHARS = 40
 
 # Seuils sur drawdown réalisé (négatif). ADR 015 §3.
 GEL_15_PCT = -15.0
@@ -204,6 +213,14 @@ def check_digue_transition() -> dict:
         except Exception as e:
             log.warning("digue notify failed: %s", e)
 
+    # Épisode de gel (pour le cooldown incompressible de l'override) : stampe le
+    # début à l'ENTRÉE dans le gel (normal→frozen), efface au retour normal (+ purge
+    # l'override devenu sans objet).
+    if prev_status == "normal" and is_frozen(new_status):
+        storage.update_state(digue_gel_started_at=datetime.now(UTC).isoformat())
+    elif new_status == "normal":
+        storage.update_state(digue_gel_started_at=None, digue_override=None)
+
     storage.insert_digue_alert(
         status=new_status,
         drawdown_pct=state["drawdown_pct"],
@@ -216,6 +233,104 @@ def check_digue_transition() -> dict:
     stats["notified"] = notified
     log.info("digue check: dd=%.1f%% status=%s transition=%s", state["drawdown_pct"], new_status, transition)
     return stats
+
+
+# ───────────────────────────────────────────── override Digue 1 (déblocage)
+
+
+def _active_override() -> dict | None:
+    """Override en cours et non expiré, ou None."""
+    ov = storage.load_state().get("digue_override")
+    if not ov:
+        return None
+    try:
+        if datetime.fromisoformat(ov["expires_at"]) <= datetime.now(UTC):
+            return None
+    except Exception:
+        return None
+    return ov
+
+
+def _gel_cooldown_remaining_days() -> int | None:
+    """Jours de cooldown incompressible restants, ou None si pas de gel stampé."""
+    started = storage.load_state().get("digue_gel_started_at")
+    if not started:
+        return None
+    try:
+        elapsed = (datetime.now(UTC) - datetime.fromisoformat(started)).days
+    except Exception:
+        return None
+    return max(0, DIGUE_COOLDOWN_DAYS - elapsed)
+
+
+def gate_allows_buy() -> tuple[bool, str]:
+    """Décision du gate d'achat Digue 1. (allow, message). Fail-OPEN si signal absent.
+
+    Bloque si gel actif SANS override valide. Un override exige cooldown écoulé +
+    justification (cf grant_override) — jamais un simple clic.
+    """
+    st = current_digue_state()
+    if not st["frozen"]:
+        return True, ""
+    if _active_override() is not None:
+        ov = _active_override()
+        return True, (
+            f"⚠ Achat sous OVERRIDE Digue 1 (expire {ov['expires_at'][:10]}). "
+            f"DD réalisé {st['drawdown_pct']:+.1f}%."
+        )
+    rem = _gel_cooldown_remaining_days()
+    if rem and rem > 0:
+        cd = f" Cooldown incompressible : {rem}j restants avant tout déblocage."
+    else:
+        cd = " Cooldown écoulé — `/digue_override <protocole de revue ≥40 car.>` pour débloquer."
+    return False, (
+        f"🚫 Achat GELÉ — Digue 1 ADR 015. DD réalisé {st['drawdown_pct']:+.1f}% "
+        f"(état {st['status']}). Gèle ajout/renfort, ne vend rien.{cd}"
+    )
+
+
+def grant_override(text: str) -> tuple[bool, str]:
+    """Accorde l'override Digue 1 si cooldown écoulé ET justification substantielle.
+
+    Le texte DOIT être le protocole de revue écrit (thèses relues, sentinelles
+    S4/S5, inflation de conviction, constat de régime) — pas un accusé de réception.
+    """
+    st = current_digue_state()
+    if not st["frozen"]:
+        return False, "Aucun gel actif — rien à outrepasser."
+    text = (text or "").strip()
+    if len(text) < DIGUE_OVERRIDE_MIN_CHARS:
+        return False, (
+            f"Justification trop courte ({len(text)}<{DIGUE_OVERRIDE_MIN_CHARS}). "
+            "Écris le protocole de revue : thèses du cluster relues, état sentinelles "
+            "S4/S5, métrique d'inflation de conviction, constat de régime."
+        )
+    rem = _gel_cooldown_remaining_days()
+    if rem and rem > 0:
+        return False, (
+            f"Cooldown incompressible : {rem}j restants. Le gel doit tenir "
+            f"{DIGUE_COOLDOWN_DAYS}j avant tout déblocage — pas un clic, même justifié."
+        )
+    now = datetime.now(UTC)
+    ov = {
+        "granted_at": now.isoformat(),
+        "expires_at": (now + timedelta(days=DIGUE_OVERRIDE_VALID_DAYS)).isoformat(),
+        "text": text,
+    }
+    storage.update_state(digue_override=ov)
+    with contextlib.suppress(Exception):
+        storage.log_event("digue_override_granted", {"dd_pct": st["drawdown_pct"], "text": text})
+    return True, (
+        f"Override Digue 1 accordé {DIGUE_OVERRIDE_VALID_DAYS}j (jusqu'au "
+        f"{ov['expires_at'][:10]}). /position_buy ré-autorisé. Protocole loggé."
+    )
+
+
+async def cmd_digue_override(update, ctx):
+    """`/digue_override <protocole de revue>` — lève le gel Digue 1 (cooldown + substance)."""
+    text = " ".join(ctx.args) if getattr(ctx, "args", None) else ""
+    ok, msg = grant_override(text)
+    await update.message.reply_text(("✅ " if ok else "🚫 ") + msg)
 
 
 if __name__ == "__main__":
