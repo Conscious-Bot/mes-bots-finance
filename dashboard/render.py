@@ -1308,6 +1308,53 @@ def _performance_panel() -> str:
     except Exception:
         pass
 
+    # === PRESAGE-managed (flux-neutralisé) — LE chiffre honnête, fin audit C #3 ===
+    # Le bloc ci-dessous = la SEULE perf publishable : rendement réel depuis
+    # l'inception avec les apports/retraits neutralisés (pas le pro-forma
+    # rétro-fictif du grid ffn plus bas). Relatif aux benchmarks fetché FRAIS
+    # (get_close_on_in_eur, pas price_history figé). À N<90j, le relatif est le
+    # seul angle porteur (l'absolu oscille de ±50% sur une séance) — dit en clair.
+    _managed_block = ""
+    try:
+        from intelligence.track_record import managed_vs_benchmark
+        _mvb = managed_vs_benchmark()
+        if _mvb is not None:
+            _low_n = _mvb.get("low_n_warning")
+            _perf = _mvb.get("perf_pct")
+            _perf_cls = "acc" if (_perf or 0) >= 0 else "bear"
+            _xirr = _mvb.get("xirr_pct")
+            _warn = (
+                ' <span class="perf-lown" style="color:var(--warn)">N&lt;90j · variance-dominé</span>'
+                if _low_n else ""
+            )
+            _bench_rows = ""
+            for _tk, _b in (_mvb.get("benchmarks") or {}).items():
+                if _b is None:
+                    _bench_rows += f'<span class="mgd-b">{_tk} <span class="mono">n/a</span></span>'
+                    continue
+                _dpp = _b["delta_pp"]
+                _vcls = "acc" if _dpp >= 0 else "bear"
+                _verb = "bat" if _dpp >= 0 else "traîne"
+                _bench_rows += (
+                    f'<span class="mgd-b">vs {_tk} '
+                    f'<span class="mono {_vcls}">{_verb} {_dpp:+.1f}pp</span> '
+                    f'<span class="mono" style="opacity:.6">(bench {_b["eur_ret_pct"]:+.1f}%)</span></span>'
+                )
+            _managed_block = (
+                '<div class="mgd-hero">'
+                '<div class="mgd-lbl">PRESAGE-managed &middot; flux-neutralisé '
+                '<span style="opacity:.6;font-weight:400">(perf réelle publishable)</span></div>'
+                f'<div class="mgd-row"><span class="mgd-perf {_perf_cls} mono">{_perf:+.2f}%</span>'
+                f'<span class="mgd-meta">{_mvb.get("perf_eur", 0):+,.0f}&euro; sur {_mvb.get("days", 0)}j'
+                f' &middot; XIRR &asymp; {_xirr:+.0f}%/an{_warn}</span></div>'
+                f'<div class="mgd-bench">{_bench_rows}</div>'
+                '<div class="mgd-cap" style="opacity:.6">Relatif fetché frais (SMH = comp dur, book ~73% AI-compute). '
+                'Le bloc ffn ci-dessous est un rétro-test pro-forma, PAS cette mesure.</div>'
+                '</div>'
+            )
+    except Exception:
+        pass
+
     ir_fmt = _fmt_num(ir_value)
     bench_sharpe = _fmt_num(bench_metrics.get("sharpe"))
     bench_total = _fmt_sign(bench_metrics.get("total_return"))
@@ -1320,8 +1367,12 @@ def _performance_panel() -> str:
 
     return (
         '<div class="card performance-card">'
-        '<div class="card-h">'
-        'Performance · ffn analytics (1y rolling) '
+        '<div class="card-h">Performance</div>'
+        # LE chiffre honnête d'abord (fin audit C #3)
+        + _managed_block +
+        # Puis le rétro-test pro-forma, clairement secondaire + badgé
+        '<div class="card-h" style="margin-top:var(--s4);font-size:var(--t-h3)">'
+        'Rétro-test ffn (1y rolling) '
         '<span style="display:inline-block;padding:2px 8px;border-radius:var(--r1);'
         'font-size:var(--t-fine);font-weight:600;background:#7a1f1f;color:#fff;'
         'margin-left:8px;letter-spacing:0.5px;">PRO-FORMA · PAS TRACK RECORD</span>'
@@ -1329,7 +1380,8 @@ def _performance_panel() -> str:
         '<div class="card-meta" style="margin-bottom:4px;color:#a06;font-weight:500;">'
         'Calcul = sum(qty_actuelle x prix_historique) sur 1y. Allocation d\'aujourd\'hui '
         'projetee retroactivement. Survivorship + construction-phase ignorees. '
-        'Pas une mesure publishable de performance reelle.'
+        'Ratios annualisés (CAGR/Calmar) sur petit N = précision fabriquée — lire le '
+        'bloc PRESAGE-managed ci-dessus pour la perf réelle.'
         '</div>'
         f'<div class="card-meta">N={n_days}j · rf=2.5%{bench_meta} · KNOWN-GAP: FX exact non applique</div>'
         '<div class="perf-grid">'

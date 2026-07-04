@@ -1023,6 +1023,18 @@ _CSS = """
   .performance-card .perf-kpi .k { font-family:var(--fb); font-size:var(--t-small); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s15); }
   .performance-card .perf-kpi .v { font-family:var(--fm); font-size:var(--t-h2); font-weight:500; color:var(--ink); line-height:1; }
   .performance-card .perf-kpi .v.neg { color:var(--bear); }
+  /* PRESAGE-managed hero (fin audit C #3) : LE chiffre honnête, prominence par
+     taille (barre de gout : pas de deco). Encadre sobre pour le distinguer du
+     retro-test pro-forma en dessous. */
+  .performance-card .mgd-hero { border:1px solid var(--line); border-left:2px solid var(--acc); border-radius:var(--r1); padding:var(--s3) var(--s35); margin-bottom:var(--s35); background:color-mix(in srgb,var(--acc) 3%,transparent); }
+  .performance-card .mgd-lbl { font-family:var(--fb); font-size:var(--t-small); letter-spacing:.14em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s2); }
+  .performance-card .mgd-row { display:flex; align-items:baseline; gap:var(--s3); flex-wrap:wrap; }
+  .performance-card .mgd-perf { font-size:var(--t-h1); font-weight:600; line-height:1; }
+  .performance-card .mgd-perf.acc { color:var(--acc); } .performance-card .mgd-perf.bear { color:var(--bear); }
+  .performance-card .mgd-meta { font-family:var(--fm); font-size:var(--t-data); color:var(--steel); }
+  .performance-card .mgd-bench { display:flex; gap:var(--s3); flex-wrap:wrap; margin-top:var(--s2); }
+  .performance-card .mgd-b { font-family:var(--fm); font-size:var(--t-mini); color:var(--steel); }
+  .performance-card .mgd-cap { font-family:var(--fm); font-size:var(--t-mini); color:var(--steel); margin-top:var(--s2); font-style:italic; }
   .performance-card .perf-chart-block { margin-top:var(--s35); }
   .performance-card .perf-chart-h { font-family:var(--fb); font-size:var(--t-small); letter-spacing:.16em; text-transform:uppercase; color:var(--steel); margin-bottom:var(--s15); }
   .performance-card .perf-equity-svg { display:block; width:100%; max-height:60px; }
