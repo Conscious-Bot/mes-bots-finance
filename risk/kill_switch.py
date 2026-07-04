@@ -43,9 +43,15 @@ STAGE_LABELS: dict[int, str] = {
     2: "DÉ-RISQUE — trim partiel mécanique vers le plancher-cap",
     3: "THÈSE CASSÉE — sortie au plancher/ballast",
 }
+# ADR 015 Digue 2 : le trim de Stage 2 est requalifié de SÉLECTIF en PRORATA
+# UNIFORME. Ratio fixe sur CHAQUE ligne compute_ai, sans sélection — pour que le
+# biais #1 ne reprenne pas la main via le choix de quel winner couper.
+PRORATA_PCT: float = 0.20
+
 STAGE_ACTION: dict[int, str] = {
     1: "geler la grappe (aucun nouvel ajout) + écrire la réévaluation datée",
-    2: "exécuter le trim partiel — lignes plus-corrélées / plus-basse-conviction d'abord",
+    2: f"exécuter le trim PRORATA UNIFORME {PRORATA_PCT:.0%} sur chaque ligne compute_ai "
+    "(non-discrétionnaire, ADR 015 digue 2) — le bot calcule l'exact, cash levé en réserve",
     3: "sortir la grappe vers l'allocation plancher",
 }
 
@@ -134,6 +140,83 @@ def compute_cluster_value_eur() -> float:
     if missing:
         logger.warning("kill_switch: prix EUR manquant pour %s, exclus du calcul grappe", missing)
     return total
+
+
+def compute_prorata_plan(pct: float = PRORATA_PCT) -> dict:
+    """ADR 015 Digue 2 — plan de trim PRORATA UNIFORME sur chaque ligne compute_ai tenue.
+
+    Non-discrétionnaire : `pct` de la quantité de CHAQUE ligne, sans sélection
+    (pas « plus-corrélées / plus-basse-conviction d'abord »). Le bot calcule
+    l'exact ; exécution manuelle chez le courtier. Cash levé = réserve.
+
+    Fail-soft : une ligne sans prix EUR est exclue + loggée (pas de trim fabriqué).
+    Returns {pct, lines:[{ticker, qty_held, qty_trim, price_eur, value_trim_eur}],
+             total_trim_eur, cluster_value_eur, n_lines, missing}.
+    """
+    cluster = _cluster_membership()
+    lines: list[dict] = []
+    total_trim = 0.0
+    cluster_value = 0.0
+    missing: list[str] = []
+    for pos in storage.get_open_positions():
+        ticker = str(pos.get("ticker", "")).upper()
+        if ticker not in cluster:
+            continue
+        try:
+            qty = float(pos.get("qty") or 0)
+        except (TypeError, ValueError):
+            qty = 0.0
+        if qty <= 0:
+            continue
+        px = prices.get_current_price_in_eur(ticker)
+        if px is None:
+            missing.append(ticker)
+            continue
+        qty_trim = qty * pct
+        value_trim = qty_trim * px
+        cluster_value += qty * px
+        total_trim += value_trim
+        lines.append(
+            {
+                "ticker": ticker,
+                "qty_held": round(qty, 6),
+                "qty_trim": round(qty_trim, 4),
+                "price_eur": round(px, 2),
+                "value_trim_eur": round(value_trim, 2),
+            }
+        )
+    if missing:
+        logger.warning("prorata_plan: prix EUR manquant pour %s, exclus", missing)
+    lines.sort(key=lambda x: -x["value_trim_eur"])
+    return {
+        "pct": pct,
+        "lines": lines,
+        "total_trim_eur": round(total_trim, 2),
+        "cluster_value_eur": round(cluster_value, 2),
+        "n_lines": len(lines),
+        "missing": missing,
+    }
+
+
+def format_prorata_plan(plan: dict, limit: int = 12) -> str:
+    """Rend le plan prorata pour Telegram. limit = nb de lignes affichées en détail."""
+    if not plan["lines"]:
+        return "prorata : aucune ligne compute_ai tenue / prix indisponible."
+    head = (
+        f"*Prorata {plan['pct']:.0%} — {plan['n_lines']} lignes compute_ai* "
+        f"(cash levé ≈ {plan['total_trim_eur']:,.0f} € sur "
+        f"{plan['cluster_value_eur']:,.0f} € de grappe)\n"
+    )
+    rows = "\n".join(
+        f"  • {ln['ticker']}: −{ln['qty_trim']:g} sh ≈ {ln['value_trim_eur']:,.0f} €"
+        for ln in plan["lines"][:limit]
+    )
+    tail = ""
+    if len(plan["lines"]) > limit:
+        tail = f"\n  … +{len(plan['lines']) - limit} autres lignes"
+    if plan["missing"]:
+        tail += f"\n  ⚠ exclues (prix absent) : {', '.join(plan['missing'])}"
+    return head + rows + tail
 
 
 def snapshot_cluster_value() -> None:
@@ -336,11 +419,18 @@ async def cmd_kill_exec(update, ctx):
         await update.message.reply_text(f"Trigger #{tid} introuvable.")
         return
     storage.update_kill_trigger(tid, status="executed", resolved_at=_now_iso())
-    await update.message.reply_text(
+    body = (
         f"✅ Trigger #{tid} marqué *exécuté* (Stage {t['stage']}). "
-        f"Exécute le trim chez ton courtier — le statut est loggé.",
-        parse_mode="Markdown",
+        f"Exécute le trim chez ton courtier — le statut est loggé."
     )
+    # ADR 015 Digue 2 : sur un Stage 2 (dé-risque), le bot calcule le prorata
+    # UNIFORME exact à passer chez le courtier (non-discrétionnaire).
+    if int(t.get("stage") or 0) >= 2:
+        try:
+            body += "\n\n" + format_prorata_plan(compute_prorata_plan())
+        except Exception as e:  # fail-soft : ne bloque pas la confirmation
+            logger.warning("kill_exec: prorata plan compute failed: %s", e)
+    await update.message.reply_text(body, parse_mode="Markdown")
 
 
 async def cmd_kill_override(update, ctx):

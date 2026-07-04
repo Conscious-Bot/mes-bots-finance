@@ -182,6 +182,14 @@ def check_digue_transition() -> dict:
                     "\n⛔ Digue 2 armée : prorata 20% uniforme sur chaque ligne "
                     "compute_ai — reco /kill_exec (exécution manuelle)."
                 )
+                # Source unique du calcul prorata = risk.kill_switch (réutilisé
+                # par les deux déclencheurs : DD book ici, DD cluster côté kill).
+                try:
+                    from risk.kill_switch import compute_prorata_plan, format_prorata_plan
+
+                    body += "\n\n" + format_prorata_plan(compute_prorata_plan())
+                except Exception as e:
+                    log.warning("digue prorata plan compute failed: %s", e)
             if new_status == "normal":
                 body += "\n✓ Digues levées — /position_buy de nouveau autorisé."
             notify.send_text(body)
