@@ -636,7 +636,29 @@ def _render_ballast_cell(target: dict, views: dict | None = None) -> str:
     )
 
 
-def _risk_watch_panel(views: dict | None = None) -> str:
+def _rw_live_expo(exposure: dict, positions: list | None) -> str:
+    """Part de book LIVE pour la card risque (remplace le pct_book YAML figé).
+
+    Driver taxonomy dérivé du champ factor ('AI capex' → 'ai_capex'). Fail-closed :
+    sans positions ou sans part calculable → « — (live indisponible) », jamais le
+    chiffre déclaré re-servi comme live.
+    """
+    try:
+        if positions:
+            from shared.sectors import book_share_by_driver
+
+            drv = str(exposure.get("factor") or "").strip().lower().replace(" ", "_")
+            if drv:
+                bs = book_share_by_driver(positions, drv)
+                pct = bs.get("share_pct")
+                if pct is not None and pct > 0:
+                    return f"{pct:.0f}% of book (live)"
+    except Exception:
+        pass
+    return "&mdash; (live indisponible)"
+
+
+def _risk_watch_panel(views: dict | None = None, positions: list | None = None) -> str:
     """Top Risks declares - first-class surveillance sur Vue d'ensemble.
 
     Lit scripts/risk_watch.json (declaration user) + status courant des
@@ -726,8 +748,14 @@ def _risk_watch_panel(views: dict | None = None) -> str:
             f'<div class="rw-head"><span class="rw-rank">#{r.get("rank", "?")}</span>'
             f'<span class="rw-name">{r.get("name", "?")}</span>'
             f'<span class="rw-sev {sev_cls}">{r.get("severity", "?")}</span></div>'
-            f'<div class="rw-expo">Exposure: {exposure.get("pct_book", "?")}% of book '
-            f'(cluster {exposure.get("cluster", "?")} &middot; factor {exposure.get("factor", "?")})</div>'
+            # Exposure LIVE (cure 04/07 audit) : le pct_book YAML est un DÉCLARATIF
+            # daté (29/05) qui s'affichait comme live à côté de chiffres live —
+            # violation L21. Live = book_share_by_driver (même source que
+            # macro_book_warnings, « jamais de chiffre figé ») ; le déclaré reste
+            # visible AVEC sa date (provenance, pas mensonge).
+            f'<div class="rw-expo">Exposure: {_rw_live_expo(exposure, positions)} '
+            f'(cluster {exposure.get("cluster", "?")} &middot; factor {exposure.get("factor", "?")} '
+            f'&middot; d&eacute;clar&eacute; {exposure.get("pct_book", "?")}% au {r.get("declared_at", "?")})</div>'
             '<div class="rw-grid">'
             f'<div class="rw-cell"><div class="rw-h">Estimated drawdown stress</div>'
             f'<div class="rw-v mono neg">{target.get("current_estimated_drawdown_stress", "?")}%</div>'
@@ -4278,7 +4306,10 @@ def _sector_blocks(
         # la card risque qui affiche un autre chiffre, on label explicitement "cluster".
         blocks += (
             f'<div class="sec-super"><div class="sec-superh"><span class="sec-supername" title="Cluster narratif (membres detenus du super-groupe). Distinct du facteur exposure plus large affiche dans la card risque.">Compute AI cluster</span>'
-            f'<span class="sec-meta">{len(c_rows)} &middot; {c_sw:,.0f}&euro; &middot; {c_pct:.1f}% of book{c_pm}</span></div>'
+            # « of book+planned » (cure 04/07) : le dénominateur `total` inclut les
+            # positions PLANNED (~81.6k€ ≠ book 55.2k€) — l'ancien label « of book »
+            # affichait 70.3% et contredisait le 77% held-only des autres surfaces.
+            f'<span class="sec-meta">{len(c_rows)} &middot; {c_sw:,.0f}&euro; &middot; {c_pct:.1f}% of book+planned{c_pm}</span></div>'
             f'<div class="sec-subwrap">{subhtml}</div></div>'
         )
     order = sorted(standalone, key=lambda fb: -sum(r["w"] for r in standalone[fb]))
@@ -4287,7 +4318,7 @@ def _sector_blocks(
         blocks += h
     return (
         f'<div class="sec-cols"><span></span><span class="num" title="Market value EUR">&euro;</span><span class="num" title="Market value USD">$</span>'
-        f'<span class="num" title="Weight as share of total book (cost basis).">% of book</span><span class="num" title="Day change, native currency">Day</span><span class="num" title="P&L vs cost basis, position-level">P&amp;L</span></div>'
+        f'<span class="num" title="Weight as share of total shown (MARKET value; planned lines at planned entry). Tooltip corrig&eacute; 04/07 : disait \'cost basis\' sur des market values.">% of book+planned</span><span class="num" title="Day change, native currency">Day</span><span class="num" title="P&L vs cost basis, position-level">P&amp;L</span></div>'
         f"{blocks}"
     )
 
@@ -8832,7 +8863,7 @@ def render() -> Path:
         f'</div>'
         # ── BLOC 3 : URGENCE -- positions en danger immediat (top risque) ──
         '<div class="vigie-sh" data-tip="Book positions to review first: critical margins (stop &lt; 10%), at_risk kill_criteria zones, blind vol."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>State &mdash; positions to review</div>'
-        f'{_risk_watch_panel(views=_views)}'
+        f'{_risk_watch_panel(views=_views, positions=positions)}'
         f"{blind_html}"
         # Journal & deadlines retire 02/06 user (useless boards :
         # TEST_E2E_DEC pollue + deadlines disponibles ailleurs).
