@@ -6225,6 +6225,10 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         f'<section data-page="urgence" role="region" aria-label="Alerts"><div class="phead"><h1>Alerts</h1>'
         f'<div class="sub">Stops near &middot; targets reached &middot; kill-criteria firing</div>'
         f'</div>'
+        # Digue ADR 015 en tête d'Alerts (cure 04/07 audit : l'état vital Path B
+        # n'existait que dans une caption page Method). Même source que la chip
+        # Overview : current_digue_state (fail-open honnête).
+        f'{_digue_head_line()}'
         f"{star}"
         # Layout 02/06 user "organize, evitons les trous" : macro stress
         # full-width au-dessus (indicateurs naturellement nombreux), puis
@@ -7202,6 +7206,40 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
     )
 
 
+def _digue_head_line() -> str:
+    """Ligne d'état digue ADR 015 pour la tête de page Alerts (cure 04/07).
+
+    Même source que la chip Overview (current_digue_state) — un seul état,
+    deux surfaces, zéro re-calcul. Fail-open honnête : l'indisponibilité se DIT.
+    """
+    try:
+        from intelligence.digue_monitor import current_digue_state
+        ds = current_digue_state()
+        dd = ds.get("drawdown_pct")
+        if ds.get("available") and dd is not None:
+            hwm = ds.get("hwm_value_eur")
+            frozen = bool(ds.get("frozen"))
+            margin = dd - (-15.0)
+            cls = "bear" if frozen else ("warn" if margin < 3.0 else "calm")
+            state_txt = "GEL&Eacute; (/digue_override apr&egrave;s cooldown)" if frozen else f"digue {ds.get('status')}"
+            hwm_txt = f" &middot; HWM {hwm:,.0f}&euro;" if hwm else ""
+            return (
+                f'<div class="ph3">Digues ADR 015 &mdash; '
+                f'<span class="{cls}" style="font-weight:600">DD r&eacute;alis&eacute; {dd:+.1f}% &middot; {state_txt}</span>'
+                f'<span class="small" style="margin-left:var(--s3)">gel &minus;15 &middot; vigilance &minus;25 &middot; '
+                f'prorata &minus;35 (grappe){hwm_txt} &middot; snapshot {ds.get("snapshot_date")}</span></div>'
+            )
+        hold = bool(ds.get("signal_stale_hold"))
+        msg = (
+            "signal indisponible &mdash; GEL MAINTENU sur derni&egrave;re &eacute;vidence"
+            if hold else "signal indisponible (snapshot absent/stale) &mdash; fail-open, pas de gel fabriqu&eacute;"
+        )
+        cls = "bear" if hold else "steel"
+        return f'<div class="ph3">Digues ADR 015 &mdash; <span class="{cls}">{msg}</span></div>'
+    except Exception:
+        return ""
+
+
 def _monitors_live_band() -> str:
     """Phase 1 wiring (26/06) : bandeau MONITORS LIVE en haut d'Overview.
 
@@ -7219,6 +7257,52 @@ def _monitors_live_band() -> str:
         return ""
 
     chips = []
+
+    # digue ADR 015 — chip PERMANENTE en tête (cure 04/07 audit : le cœur de
+    # Path B était invisible — DD réalisé + état digue n'existaient que dans une
+    # caption de la DERNIÈRE page, HWM nulle part). Trois états honnêtes :
+    # normal (marge au gel), gel/hold (rouge), signal indisponible (dit, pas tu).
+    try:
+        from intelligence.digue_monitor import current_digue_state
+        _ds = current_digue_state()
+        _dd = _ds.get("drawdown_pct")
+        if _ds.get("available") and _dd is not None:
+            _hwm = _ds.get("hwm_value_eur")
+            _frozen = bool(_ds.get("frozen"))
+            _margin = _dd - (-15.0)  # pp au-dessus du seuil gel
+            _cls = "ml-bad" if _frozen else ("ml-warn" if _margin < 3.0 else "ml-info")
+            _val = f"DD {_dd:+.1f}%" + (" &middot; GEL&Eacute;" if _frozen else f" &middot; gel &agrave; &minus;15 ({_margin:.1f}pp)")
+            _hwm_txt = f" HWM {_hwm:,.0f}€." if _hwm else ""
+            _tt = (
+                f"Digues ADR 015 sur drawdown RÉALISÉ (book vs HWM).{_hwm_txt} "
+                f"État : {_ds.get('status')}. Seuils : gel −15 · vigilance −25 · "
+                f"prorata −35 (grappe, via kill_switch). Snapshot {_ds.get('snapshot_date')}. Click → Alerts."
+            )
+            chips.append(
+                f'<a class="ml-chip {_cls}" onclick="presageNav(&#39;urgence&#39;)" title="{_tt}">'
+                f'<span class="ml-lab">digue</span>'
+                f'<span class="ml-val">{_val}</span></a>'
+            )
+        else:
+            # Aveuglement VISIBLE (L31) : signal absent/stale ≠ silence. Gel-hold
+            # = rouge (gel maintenu sur dernière évidence) ; sinon chip neutre.
+            _hold = bool(_ds.get("signal_stale_hold"))
+            _cls = "ml-bad" if _hold else "ml-info"
+            _val = "signal indisponible" + (" &middot; GEL MAINTENU" if _hold else "")
+            _tt = (
+                "Digue ADR 015 : snapshot book absent/partiel/stale — le signal drawdown "
+                "est indisponible. " + ("Gel MAINTENU sur dernière évidence journalisée "
+                "(déblocage = /digue_override)." if _hold else
+                "Fail-open : pas de gel fabriqué. Voir scheduler_runs (snapshot).")
+            )
+            chips.append(
+                f'<a class="ml-chip {_cls}" onclick="presageNav(&#39;urgence&#39;)" title="{_tt}">'
+                f'<span class="ml-lab">digue</span>'
+                f'<span class="ml-val">{_val}</span></a>'
+            )
+    except Exception:
+        pass
+
     # over_cap — click → /strategie (caps par conviction)
     oc = s["over_cap"]
     if oc["over_count"] > 0:
