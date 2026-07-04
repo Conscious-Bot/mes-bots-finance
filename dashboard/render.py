@@ -1607,83 +1607,7 @@ def _blind_positions_panel() -> str:
     )
 
 
-_GLOSSARY = (
-    # Pass 12 audit lexicon : 25 termes canoniques user-facing PRESAGE.
-    # Source single = ce panel. Toute reference ailleurs link ici via #glossary-{slug}.
-    ("Conviction c1–c5",
-     "Conviction tier per thesis (c1 = exploratory, c5 = highest). Drives the position-size cap (c5 ≈ 5%, c4 ≈ 4%, etc.). The book composition is a weighted average of tier caps that sums to ~100%."),
-    ("target_full",
-     "Take-profit-full price (native currency). When the position price reaches it, the thesis verdict reads 'cible atteinte'. Exit signal full."),
-    ("target_partial",
-     "Take-profit-partial price (native). Earlier than target_full. Signals 'trim some, let the rest run'. Optional per thesis."),
-    ("stop_price",
-     "Maximum acceptable downside (native). If price crosses, thesis is invalidated mechanically. Not a stop-loss order — a discipline reference."),
-    ("asymmetry",
-     "upside_to_target / downside_to_stop. >3 = barbell, let it run. <1 = inverse, candidate trim. Decision metric, not a forecast."),
-    ("ballast",
-     "Defensive positions that stabilize the book under stress (gold, treasuries, defense). Low correlation with the main AI bet."),
-    ("strict ballast",
-     "Ballast meeting strict criteria: truly uncorrelated empirically over the last 24 months, not just labelled 'defensive'."),
-    ("decorrelator",
-     "Position chosen specifically for low correlation with the main narrative (e.g., uranium, LNG, defense within an AI book)."),
-    ("invalidation_triggers",
-     "Pre-registered conditions that, if fired, mean the thesis is wrong. Each thesis declares 3-5. Tamper-evident (hashed at creation)."),
-    ("sentinelle",
-     "Pre-registered prediction with binary outcome (event-type). Distinct from probabilistic price-targets — resolves on fire/not-fire."),
-    ("kill-criteria",
-     "Specific invalidation triggers monitored automatically. When fired, the system flags the thesis as broken and notifies."),
-    ("Brier",
-     "Brier score = calibration metric for probabilistic predictions. Lower = better calibration. Honest reading needs N ≥ 10."),
-    ("axe(s)",
-     "Quality Bar axes: Solidité (moat), Pari (bet engine), Doublon (overlap), Santé (fundamentals), Calibrage (sizing match). Domain terms in French by design."),
-    ("hors bande",
-     "Out-of-band : the displayed value is outside the gauge's plotted range (e.g., position 50% past target). Signals 'normalize this'."),
-    ("top stressor",
-     "Largest single source of macro stress in the current state. Surfaced from macro_book_warnings rules engine."),
-    ("phase 1–4",
-     "Macro state phase: 1 = STABLE, 2 = STRESSED, 3 = FRAGILE, 4 = BROKEN. Drives sizing modulation and alert thresholds."),
-    ("over_cap",
-     "Position exceeds its sizing cap by conviction tier. Rebalance candidate — trim back toward target. Visually amber, not red (decision, not danger)."),
-    ("narrative_cap",
-     "Max % of book in a single thematic narrative (default 30%). Above triggers cluster_breached warning."),
-    ("pressure_score",
-     "Copilot adversarial intensity (0–100). Higher = the copilot is pressing harder against the proposed trade. Logged per intervention."),
-    ("anchoring",
-     "Behavioral bias: sticking to the original entry price as reference, rejecting new info. Detected via repeat-trim pattern on same ticker."),
-    ("loss_aversion",
-     "Behavioral bias: cutting winners early and holding losers. Detected via early-exit on profitable thesis vs sustained hold on underwater."),
-    ("lock_in",
-     "Bias #1 by impact: selling winners too early. Mechanized via lock_in_detector hook on add_sell when pnl_pct ≥ 15% AND conviction ≥ 3."),
-    ("fomo_greed",
-     "Behavioral bias: not reducing the position when discipline mandates trim. Two channels monitored: kill_criteria active + over_cap dormant."),
-    ("living_graph",
-     "Provenance graph: every monetary datum carries (value, asof, source, degraded flag). The system never reads a value without its lineage."),
-    ("Datum",
-     "Primitive of the money-invariant layer: tuple (value, asof, source, degraded). Used in lieu of raw float to preserve auditability."),
-)
-
-
-def _glossary_panel() -> str:
-    """Pass 12 audit lexicon : single-source definitions for 25+ jargon terms
-    that the auditor flagged as a 'wall of vocabulary'. Lives in Method section,
-    surfaceable via Cmd+K (term name match) or direct anchor link."""
-    items = []
-    for term, defn in _GLOSSARY:
-        slug = term.lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-").replace("–", "-")
-        items.append(
-            f'<div class="gloss-item" id="glossary-{slug}">'
-            f'<dt class="gloss-term">{term}</dt>'
-            f'<dd class="gloss-def">{defn}</dd>'
-            f'</div>'
-        )
-    return (
-        '<div class="colhead"><span class="t">Lexicon</span>'
-        f'<span class="a">{len(_GLOSSARY)} jargon terms used across the dashboard &middot; anchor via #glossary-{{term}}</span></div>'
-        '<div class="card pad glosscard" style="margin-bottom:var(--s4)">'
-        '<dl class="gloss-list">'
-        + "".join(items) +
-        '</dl></div>'
-    )
+# _GLOSSARY + _glossary_panel supprimés (KILL list Lexicon, arbitrage 04/07)
 
 
 def _copilot_panel() -> str:
@@ -5452,13 +5376,9 @@ def _vault() -> str:
 
 
 def _signaux() -> str:
-    try:
-        s24 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-1 day')")[0][0]
-        s30 = _q("SELECT COUNT(*) FROM signals WHERE timestamp > datetime('now','-30 day')")[0][0]
-        n8k = _q("SELECT COUNT(*) FROM filings_8k_log WHERE filed_at > datetime('now','-60 day')")[0][0]
-    except Exception as e:
-        return f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h1>Method</h1></div>{_err(e)}</section>'
-
+    # KILL list (arbitrage 04/07) : compteurs de volume (s24/s30/n8k) supprimés
+    # avec la page-star Signal activity qu'ils alimentaient. Le 8-K severity tally
+    # (tally_str/eightk) survit pour la col « Recent 8-K ».
     sevcls = {"HIGH": "danger", "MEDIUM": "warn", "MED": "warn", "LOW": "calm"}
     sev_order = (
         "CASE UPPER(COALESCE(severity,'')) WHEN 'HIGH' THEN 0 "
@@ -5526,91 +5446,19 @@ def _signaux() -> str:
     except Exception as e:
         insiders = _err(e)
 
-    try:
-        nsrc = _q("SELECT COUNT(*) FROM sources")[0][0]
-        # #72 + #75 : Brier mesure rolling 180j par source (calibration empirique).
-        # Pre-J-day, N=0 -> badge "—". Post-J+30, badge OK/WARN/ALERT visible.
-        brier_by_src: dict[str, dict] = {}
-        try:
-            from intelligence.calibration_audit import compute_brier_by_source
-            cx = sqlite3.connect(DB, uri=True)
-            try:
-                cx.row_factory = sqlite3.Row
-                brier_data = compute_brier_by_source(cx, days=180)
-            finally:
-                cx.close()
-            brier_by_src = {b["source_name"]: b for b in brier_data}
-        except Exception:
-            brier_by_src = {}
+    # KILL list (arbitrage 04/07) : le calcul de la col « Source credibility »
+    # (nsrc/src_rows/brier_by_src) supprimé avec la col. La crédibilité vit en DB
+    # et se recalibre au recal Brier mensuel — pas une lecture quotidienne.
 
-        src_rows = ""
-        for name, cred, n in _q(
-            "SELECT name, credibility, COALESCE(n_signals,0) FROM sources ORDER BY credibility DESC, n_signals DESC LIMIT 10"
-        ):
-            cv = float(cred or 0)
-            col = "acc2" if cv >= 0.65 else ("warn" if cv >= 0.45 else "calm")
-            # Brier badge si dispo
-            b_info = brier_by_src.get(name)
-            if b_info and b_info["status"] != "INSUFFICIENT_DATA":
-                b_cls = {"OK": "acc", "WARN": "warn", "ALERT": "bear"}.get(b_info["status"], "")
-                b_badge = (
-                    f' <span class="tag {b_cls}" '
-                    f'title="Brier {b_info["brier_avg"]:.2f} sur {b_info["n_resolved"]} resolutions">'
-                    f'B={b_info["brier_avg"]:.2f}</span>'
-                )
-            elif b_info:
-                b_badge = (
-                    f' <span class="tag" title="N={b_info["n_resolved"]} insufficient">'
-                    f'B=—</span>'
-                )
-            else:
-                b_badge = ''
-            src_rows += (
-                f'<div class="row"><div class="rt"><span class="tk">{str(name)[:24]}</span>'
-                f'<span class="tag {col}">{cv:.2f}</span>{b_badge}</div>'
-                f'{_tbar(cv * 100, title=f"credibility {cv:.2f}")}'
-                f'<div class="rs"><span>credibility a priori</span><span class="mono">{int(n)} signaux</span></div></div>'
-            )
-    except Exception as e:
-        src_rows, nsrc = _err(e), 0
-
-    # === Star Signaux : verdict activite + 3 KPIs flow + tally severite ===
-    # Verdict activite 24h : ACTIF si s24 >= 5, sinon CALME (seuil approximatif
-    # ajuste si besoin avec backlog reel observe).
-    if s24 >= 5:
-        _act_cls, _act_lbl, _act_cap = "warn", "ACTIVE", f"{s24} incoming signals 24h"
-    elif s24 >= 1:
-        _act_cls, _act_lbl, _act_cap = "", "MOD&Eacute;R&Eacute;", f"{s24} signal(aux) 24h &middot; flux normal"
-    else:
-        _act_cls, _act_lbl, _act_cap = "acc", "CALME", "none signal 24h"
-    star_strate_act = (
-        '<div class="ps-strate">'
-        + '<div class="ps-lbl">Signal activity 24h</div>'
-        + '<div class="ps-macro-row">'
-        + f'<div class="ps-val {_act_cls}">{_act_lbl}</div>'
-        + f'<div class="ps-macro-meta">{_act_cap}</div>'
-        + "</div>"
-        + "</div>"
-    )
-    star_strate_kpis = (
-        '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Incoming signals over last 24h via Gmail (analyst newsletters) + EDGAR (8-K and insider Form 4).">Signaux 24&nbsp;h</div><div class="ps-val">{s24}</div><div class="ps-cap">Gmail + EDGAR</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Total signal volume ingested over rolling 30 days. Used to judge overall activity.">Signals 30d</div><div class="ps-val">{s30}</div><div class="ps-cap">rolling window</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Regulatory 8-K filings over 60 days (material SEC changes). Tally shows HIGH/MEDIUM/LOW severity breakdown.">8-K &middot; 60&nbsp;j</div><div class="ps-val">{n8k}</div><div class="ps-cap">{tally_str}</div></div>'
-        + "</div>"
-    )
-    star_strate_foot = (
-        '<div class="ps-strate ps-foot">'
-        + f'{nsrc} active sources &middot; credibility recalibration 1st of month'
-        + "</div>"
-    )
-    star_signaux = (
-        f'<div class="page-star">{star_strate_act}{star_strate_kpis}{star_strate_foot}</div>'
-    )
+    # KILL list (arbitrage 04/07) : la page-star « Signal activity 24h » (verdict
+    # ACTIF/CALME + 3 KPIs de volume) supprimée — compteurs de vanité (PHILOSOPHY :
+    # l'activité n'est pas de la valeur ; ce qui compte sort dans les thèses/triggers).
+    # KILL list (arbitrage 04/07) : col « Source credibility » supprimée (91
+    # crédibilités statiques = matière d'audit mensuel, pas de lecture quotidienne ;
+    # la crédibilité vit en DB + se recalibre au recal mensuel Brier).
     cols = (
         f'<div class="cols">'
         f'<div class="col"><div class="colhead"><span class="t">Recent 8-K</span><span class="a">{tally_str}</span></div><div class="card">{eightk}</div></div>'
-        f'<div class="col"><div class="colhead"><span class="t">Source credibility</span><span class="a">{nsrc} sources &middot; recal 1st of month</span></div><div class="card">{src_rows}</div></div>'
         f"</div>"
     )
     insider_flow = _insider_flow_strip_html()
@@ -5642,9 +5490,11 @@ def _signaux() -> str:
     return (
         f'<section data-page="methode" role="region" aria-label="Method"><div class="phead"><h1>Method</h1>'
         f'<div class="sub">Track record &middot; signal quality &middot; loop provenance</div></div>'
-        f"{star_signaux}{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}"
+        # KILL list (arbitrage 04/07) : star_signaux (Signal activity 24h = compteurs
+        # vanité) et _glossary_panel (Lexicon 25 termes = jargon connu du single-user,
+        # vit dans docs/GLOSSARY.md + vault) supprimés.
+        f"{_track_record_panel()}{_distribution_health_panel()}{cols}{insider_flow_strip}{insider_clusters_strip}"
         f"{_discipline_biais_panel()}"
-        f"{_glossary_panel()}"
         f"{data_health_html_method}"
         f"{performance_html_method}"
         f"{_loop()}"
@@ -8975,50 +8825,15 @@ def render() -> Path:
 
     # ─── Page Strategie : lecture analytique du book (vocabulaire canonique) ───
     # Refonte 31/05 user feedback : retire placement fiscal + chat_signals + conversations
-    # Ordre : declaration -> etat -> risques caches -> meta (4 sections au lieu de 5)
-    # === Star Strategie : 4 axes lecture + conviction stats ===
-    try:
-        _t_rows = _q("SELECT conviction FROM theses WHERE status='active'")
-        _conv_list = [int(r[0]) for r in _t_rows if r[0]]
-        _n_act_t = len(_conv_list)
-        _conv_med_s = sorted(_conv_list)[_n_act_t // 2] if _n_act_t else 0
-        _n_c5_s = sum(1 for c in _conv_list if c == 5)
-        _pct_c5_s = (_n_c5_s / _n_act_t * 100) if _n_act_t else 0
-    except Exception:
-        _n_act_t, _conv_med_s, _pct_c5_s = 0, 0, 0
-    try:
-        _n_bias_open_s = _q("SELECT COUNT(*) FROM bias_events WHERE status='open'")[0][0]
-        _n_bias_resolved_s = _q("SELECT COUNT(*) FROM bias_events WHERE status='resolved'")[0][0]
-    except Exception:
-        _n_bias_open_s, _n_bias_resolved_s = 0, 0
-    # Determine biais mecanise status : ✓ si au moins 1 surface lock_in cable
-    _bias_msg = "lock_in (winners sold too early) + fomo_greed mechanized"
-    _bias_cls = "acc"
-    _med_cls = "acc" if _conv_med_s >= 4 else ("warn" if _pct_c5_s > 20 else "")
-    star_strategie = (
-        '<div class="page-star">'
-        + '<div class="ps-strate">'
-        + '<div class="ps-lbl">Book reading</div>'
-        + '<div class="ps-macro-row">'
-        + f'<div class="ps-val {_med_cls}">MEDIAN c{_conv_med_s}</div>'
-        + f'<div class="ps-macro-meta">{_n_act_t} active theses &middot; {_n_c5_s} c5 ({_pct_c5_s:.0f}%)</div>'
-        + '</div>'
-        + '<div class="ps-cap">Declared vs book reading vs hidden risks &mdash; 3 levels below</div>'
-        + '</div>'
-        + '<div class="ps-strate ps-grid">'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Number of instrumented behavioral biases (automatic capture). lock_in = selling winners too early. fomo_greed = holding beyond top.">Mechanized biases</div><div class="ps-val {_bias_cls}">2</div><div class="ps-cap">{_bias_msg}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="bias_event candidates under observation (+30d window post-detection). Verdict frozen at +30d then enriched +60/+90.">Open biases</div><div class="ps-val">{_n_bias_open_s}</div><div class="ps-cap">events under observation</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Post-resolution bias events +30d with immutable canonical scoring. Enriched with +60/+90d observations per B3 architecture.">Resolved biases</div><div class="ps-val acc">{_n_bias_resolved_s}</div><div class="ps-cap">events post-resolution</div></div>'
-        + '</div>'
-        + '<div class="ps-strate ps-foot">'
-        + 'Declared strategy &middot; book reading &middot; hidden risks below'
-        + '</div>'
-        + '</div>'
-    )
+    # KILL list (arbitrage 04/07) : la page-star « Book reading » supprimée —
+    # fusionnée dans les surfaces existantes : les counts de thèses (median
+    # conviction, c5%) vivent sur la page Theses, les counts de biais
+    # (mechanized/open/resolved) sur le discipline panel (Method). Le hero
+    # doublonnait sans ajouter de décision. Les 3 sections réelles de Strategie
+    # (declared · trajectory · beyond-bull) sont conservées.
     strategie_html = (
         '<section data-page="strategie" role="region" aria-label="Strategy"><div class="phead"><h1>Strategy</h1>'
         '<div class="sub">Declared reference &middot; trajectory vs plan &middot; positions beyond bull</div></div>'
-        f'{star_strategie}'
         # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
         '<div class="strat-sh" data-tip="What you wrote as objective (theses, horizon, conviction). The reference against which book is read."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v12"/><path d="M3 3h7l-1.5 2.5L10 8H3"/></svg>Declared strategy &mdash; reference</div>'
         f'{_user_strategy_panel()}'
