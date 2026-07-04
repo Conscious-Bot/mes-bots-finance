@@ -394,3 +394,38 @@ def _cluster_health(positions: list[dict], pnl: dict) -> list[dict]:  # noqa: AR
             }
         )
     return out
+
+
+# ─────────────────────────────── near-stop canonique ────────────────────────
+# Cure 04/07 (audit dashboard) : « position proche du stop » existait en SIX
+# définitions divergentes (seuils 5/10 mélangés, frame perdante entrée-THÈSE vs
+# P&L BROKER, un site sans filtre) → le hero Positions disait « Near stop 0 ·
+# no losing position critical » pendant que la table du même écran taguait CCJ
+# « AT STOP ». Un seul prédicat, deux seuils NOMMÉS, une seule frame.
+
+NEAR_STOP_ALERT_PCT = 5.0  # « AT STOP » : vraiment proche (fix 23/06, market-noise exclu)
+NEAR_STOP_WATCH_PCT = 10.0  # « watch » : marge faible, à vérifier avant séance
+
+
+def is_near_stop(
+    downside_pct: float | None,
+    pnl_pct: float | None,
+    threshold_pct: float = NEAR_STOP_ALERT_PCT,
+) -> bool:
+    """Prédicat CANONIQUE near-stop. TOUTES les surfaces passent par ici.
+
+    Args:
+        downside_pct : distance prix→stop en % du prix courant, frame NATIVE
+            (négatif = stop déjà franchi, donc near a fortiori).
+        pnl_pct : P&L position frame BROKER (convention « In profit » 31/05).
+            Un winner dont le stop trailing est remonté sous le prix =
+            sécurisation de gains, PAS une alerte (user 19/06 : « astera labs
+            +90% pas du tout near stop »).
+        threshold_pct : NEAR_STOP_ALERT_PCT (5) ou NEAR_STOP_WATCH_PCT (10) —
+            les deux seuils légitimes, à NOMMER à l'écran.
+
+    Fail-closed : donnée manquante → False (pas d'alerte fabriquée, L15).
+    """
+    if downside_pct is None or pnl_pct is None:
+        return False
+    return pnl_pct < 0 and downside_pct < threshold_pct

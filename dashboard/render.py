@@ -4001,7 +4001,11 @@ def _elan_watch(computed: list[dict]) -> tuple[str, int]:
     return watch, len(data)
 
 
-def _rows_risque(computed: list[dict], positions: list[dict] | None = None) -> tuple[str, int, float, str]:
+def _rows_risque(
+    computed: list[dict],
+    positions: list[dict] | None = None,
+    pnl: dict | None = None,
+) -> tuple[str, int, float, str]:
     data = sorted(((r.get("downside_pct", 0), r["ticker"]) for r in computed), key=lambda x: x[0])
     tensions = [max(0.0, min(1.0, (20 - d) / 20)) for d, _ in data]
     # AUDIT v5 fix STRUCTUREL : heat = sum(weight_share * downside_pct) en %
@@ -4021,10 +4025,13 @@ def _rows_risque(computed: list[dict], positions: list[dict] | None = None) -> t
     else:
         # Fallback legacy (single-max) si positions pas fournies
         heat = (max(tensions) * 100) if tensions else 0.0
+    # Prédicat CANONIQUE seuil WATCH (cure 04/07 : ce site comptait « 9 to
+    # watch » SANS filtre perdant pendant que le header en comptait 2 avec).
+    from shared.portfolio_analytics import NEAR_STOP_WATCH_PCT as _NSW_r, is_near_stop as _ins_r
     rows, near, near_rows = [], 0, []
     for i, (down, tk) in enumerate(data):
         buf = max(0.0, min(100.0, down / 30 * 100))
-        is_near = down < 10
+        is_near = _ins_r(down, (pnl or {}).get(tk), _NSW_r)
         near += 1 if is_near else 0
         cls = "danger" if is_near else ("warn" if down < 20 else "calm")
         flag = " &#128308;" if is_near else ""
@@ -6209,7 +6216,7 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         '<div class="ps-strate ps-grid">'
         + f'<div class="ps-cell" aria-live="polite" aria-atomic="true"><div class="ps-lbl" data-tip="Correlated cluster whose cumulative position exceeds cap = action recommended.">{f_lbl}</div><div class="ps-val {f_cls}">{f_val}</div><div class="ps-cap">{f_cap}</div></div>'
         + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions ≥75% along entry -> target path. Take-profit zone to watch.">Targets &ge;75%</div><div class="ps-val">{near_t}</div><div class="ps-cap">{t_cap}</div></div>'
-        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions less than 10% from their stop. Low margin, check before session.">Stops &lt;10%</div><div class="ps-val {s_cls}">{near}</div><div class="ps-cap">{s_cap}</div></div>'
+        + f'<div class="ps-cell"><div class="ps-lbl" data-tip="Positions PERDANTES (P&amp;L broker) &agrave; moins de 10% du stop &mdash; pr&eacute;dicat canonique (04/07), m&ecirc;me d&eacute;finition que le header FRICTIONS. Un winner au stop trailing proche = s&eacute;curisation, pas alerte.">Stops &lt;10% (losing)</div><div class="ps-val {s_cls}">{near}</div><div class="ps-cap">{s_cap}</div></div>'
         + "</div>"
     )
     # Strate 3 : footer technique (VIX + sizing)
@@ -6551,7 +6558,7 @@ def _theses(names: dict, sectors: dict, positions: list, pnl: dict) -> str:
         f'<div class="ps-strate ps-grid">'
         f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current position is less than 12% from target_full. Take-profit zone.">Closer to target</div><div class="ps-val {_tg_cls}">{n_near_tgt}</div><div class="ps-cap">margin &lt; 12%</div></div>'
         f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses whose current price is above thesis entry cost (entry_price).">In profit</div><div class="ps-val {pcls}">{n_profit}/{n}</div><div class="ps-cap">price &gt; entry cost</div></div>'
-        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Theses less than 10% from stop. Critical zone to review.">Low margins</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">margin &lt; 10% from stop</div></div>'
+        f'<div class="ps-cell"><div class="ps-lbl" data-tip="Marge de la TH&Egrave;SE au stop (frame native, sans P&amp;L position) &mdash; concept DISTINCT du near-stop positions (frame broker, pages Positions/Alerts). Renomm&eacute; 04/07 pour casser la collision.">Stop margin (thesis)</div><div class="ps-val {ncls}">{n_near}</div><div class="ps-cap">th&egrave;se &lt; 10% du stop &middot; frame th&egrave;se</div></div>'
         f'</div>'
         f'<div class="ps-strate"><div class="ps-lbl">Convictions</div>'
         f'<div class="ps-macro-row"><div class="ps-val {_conv_cls}">{_conv_lbl}</div>'
@@ -7136,11 +7143,10 @@ def _broker_one(label: str, note: str, ps: list, grand: float, names: dict, pnl:
         _near_stop_chk = None
         if _cur_chk and _stop_chk and _cur_chk > 0:
             _near_stop_chk = (_cur_chk - _stop_chk) / _cur_chk * 100
-        _is_losing = pc is not None and pc < 0
-        # Threshold 5% (was 10%) post user 23/06 feedback : 10% trop sensible aux
-        # nouvelles positions market-noise (-2-5% normal vol intraday qui n'est pas
-        # une vraie alerte stop). 5% = "vraiment proche stop" = signal actionable.
-        _alert_cls_v3 = "pos-alert" if (_near_stop_chk is not None and _near_stop_chk < 5 and _is_losing) else ""
+        # Prédicat CANONIQUE (cure 04/07 : 6 définitions → 1). Seuil ALERT=5
+        # (post user 23/06 : 10% catchait le market-noise des fresh BUYs).
+        from shared.portfolio_analytics import NEAR_STOP_ALERT_PCT as _NSA_c, is_near_stop as _ins_c
+        _alert_cls_v3 = "pos-alert" if _ins_c(_near_stop_chk, pc, _NSA_c) else ""
         _stop_chip_v3 = '<span class="pos-stop-chip">AT&nbsp;STOP</span>' if _alert_cls_v3 else ""
         # Progress gauge v3 : reuse _position_axis_price canonique (5 repères :
         # stop rouge / entry steel / target_partial warn / target_full vert / dot prix actuel).
@@ -7240,7 +7246,7 @@ def _digue_head_line() -> str:
         return ""
 
 
-def _monitors_live_band() -> str:
+def _monitors_live_band(near_stop_alerts: list | None = None) -> str:
     """Phase 1 wiring (26/06) : bandeau MONITORS LIVE en haut d'Overview.
 
     Source : intelligence.monitors_summary.get_monitors_summary().
@@ -7316,35 +7322,24 @@ def _monitors_live_band() -> str:
             f'{today_marker}</a>'
         )
 
-    # near_stop — VRAI signal stop-proximity (pas stale_target qui = thèse edge)
-    try:
-        from shared import storage as _sto
-        with _sto.db() as cx:
-            ns_rows = cx.execute("""
-                SELECT t.ticker,
-                       ROUND((p.last_price_native - t.stop_price) / p.last_price_native * 100, 1) as dist_pct
-                FROM theses t
-                INNER JOIN positions p ON p.ticker=t.ticker
-                WHERE t.status='active' AND p.qty > 0
-                  AND t.stop_price > 0
-                  AND p.last_price_native > t.stop_price
-                  AND p.last_price_native < t.entry_price
-                  AND (p.last_price_native - t.stop_price) / p.last_price_native < 0.05
-                ORDER BY (p.last_price_native - t.stop_price) / p.last_price_native ASC
-            """).fetchall()
-        if ns_rows:
-            urgent = ns_rows[0]
-            tt = (
-                f"Position(s) en perte ET prix actuel à moins de 5% du stop. "
-                f"La + critique : {urgent[0]} à {urgent[1]}% du stop. Click → Position card."
-            )
-            chips.append(
-                f'<a class="ml-chip ml-bad" onclick="presageNav(&#39;position-card&#39;,&#39;card-{urgent[0]}&#39;)" title="{tt}">'
-                f'<span class="ml-lab">near_stop</span>'
-                f'<span class="ml-val">{urgent[0]} {urgent[1]}%</span></a>'
-            )
-    except Exception:
-        pass
+    # near_stop — PRÉDICAT CANONIQUE via le caller (cure 04/07 : ce chip avait
+    # sa PROPRE définition SQL — 6e du dashboard — en frame entrée-THÈSE
+    # (`last < entry_price`) au lieu du P&L broker. Le caller (render) passe les
+    # alertes calculées par shared.portfolio_analytics.is_near_stop : un seul
+    # prédicat, ce chip ne peut plus diverger du hero/table/header).
+    if near_stop_alerts:
+        _u_tk, _u_dist = near_stop_alerts[0]
+        _u_dist_txt = f"{_u_dist:.1f}%" if _u_dist is not None else "&mdash;"
+        tt = (
+            f"Position(s) perdantes (P&L broker) à moins de 5% du stop "
+            f"(prédicat canonique). La + critique : {_u_tk} à {_u_dist_txt} du stop. "
+            f"Click → Position card."
+        )
+        chips.append(
+            f'<a class="ml-chip ml-bad" onclick="presageNav(&#39;position-card&#39;,&#39;card-{_u_tk}&#39;)" title="{tt}">'
+            f'<span class="ml-lab">near_stop</span>'
+            f'<span class="ml-val">{_u_tk} {_u_dist_txt}</span></a>'
+        )
 
     # priced_in Tetlock — Tier 3 #10 wiring (26/06). Non-clickable, info chip.
     pi = s.get("priced_in")
@@ -8308,14 +8303,15 @@ def render() -> Path:
     sb_ordered = sorted(sb_secs.items(), key=lambda kv: (kv[0] == "No thesis", -sum(x["w"] for x in kv[1])))
     sb_data = [{"name": nm, "col": SECTOR_COLORS.get(nm, "#6B7686"), "t": rows} for nm, rows in sb_ordered]
 
-    _ris, near, _heat, watch = _rows_risque(computed, positions)  # AUDIT v5 : pass positions pour weighted heat
+    _ris, near, _heat, watch = _rows_risque(computed, positions, pnl=pnl)  # heat pondérée + frame perdante broker (04/07)
     # FRICTIONS strip filter (audit 20/06) : "near stop" = downside<10 ET pnl<0.
     # Winners avec trailing stop tight ne sont pas en danger (alignment avec
     # Positions hero qui applique deja ce filter, cure 'ALAB +90% pas near stop').
+    # Même prédicat canonique, seuil WATCH nommé (cure 04/07).
+    from shared.portfolio_analytics import NEAR_STOP_WATCH_PCT as _NSW, is_near_stop as _ins
     _near_losing = sum(
         1 for r in computed
-        if r.get("downside_pct") is not None and r["downside_pct"] < 10
-        and pnl.get(r.get("ticker")) is not None and pnl[r["ticker"]] < 0
+        if _ins(r.get("downside_pct"), pnl.get(r.get("ticker")), _NSW)
     )
     gain, _lose = _movers(pnl)
     # day_up/day_dn computes pour _urgence() seulement (D2 retire de Vigie 02/06).
@@ -8352,23 +8348,15 @@ def render() -> Path:
     pf_val_str = f"{pf_value:,.0f}"
     _pf_cost_str = f"{_pfcost:,.0f}".replace(",", "&#8239;")  # D5 retire Vigie, conserve compute (re-use eventuelle)
     _ = f"{abs(pf_pnl_eur):,.0f}"  # legacy pf_pe
-    # Threshold 5% (was 10%) + filtre is-losing : aligned avec position card
-    # AT STOP chip (cf fix 7447fec 23/06). 10% catchait fresh BUYs market-noise
-    # (GEV+HDS le 23/06 = -8% et -9% du stop alors que nouvelles positions normales),
-    # 5% = vraiment proche stop. Plus losing-filter : winners avec stop trail
-    # remonte = securisation gains, pas alerte. pnl-frame = (current/entry-1)
-    # car asym rows ont current_price + entry directement, pas pnl_pct precompute.
-    def _is_losing_row(r):
-        cur, ent = r.get("current_price"), r.get("entry")
-        if not cur or not ent or ent == 0:
-            return False
-        return (cur / ent - 1) < 0
+    # PRÉDICAT CANONIQUE is_near_stop (cure 04/07 : 6 définitions → 1).
+    # Frame perdante = P&L BROKER (l'ancien _is_losing_row utilisait l'entrée
+    # THÈSE → CCJ à +7.4% vs thèse mais −11.2% broker était exclu du hero
+    # pendant que la table du même écran le taguait AT STOP).
+    from shared.portfolio_analytics import NEAR_STOP_ALERT_PCT as _NS_ALERT, is_near_stop as _is_near_stop
     near_stop_tk = [
         r["ticker"]
         for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
-        if (r.get("downside_pct") is not None
-            and r["downside_pct"] < 5
-            and _is_losing_row(r))
+        if _is_near_stop(r.get("downside_pct"), pnl.get(r.get("ticker")), _NS_ALERT)
     ]
     near_tgt_tk = [
         r["ticker"]
@@ -8912,7 +8900,9 @@ def render() -> Path:
         + ''
         # Phase 1 wiring monitors (26/06) : bandeau MONITORS LIVE en haut Overview.
         # Source unique intelligence.monitors_summary, fail-soft si DB.
-        + _monitors_live_band()
+        + _monitors_live_band(
+            near_stop_alerts=[(t, sb_down.get(t)) for t in near_stop_tk]
+        )
         # v3 19/06 evening : crochet decisionnel "Needs you today" juste sous le hero.
         # Cartes riches per ticker (stop margin critical, PERDANT) + per cluster
         # (over cap). Filtre les winners avec trailing stop tight (pas un cri).
@@ -9104,13 +9094,9 @@ def render() -> Path:
     # cluster est triviallement >50% et porte zero signal d'action. La vraie
     # concentration check vit dans cluster-cap (page Concentration).
     #
-    # 'Near stop' filter pnl<0 (user 'astera labs n'est pas du tout near stop
-    # mais a +90%'). Logique : winner avec stop statique proche = trailing room
-    # restante, PAS danger. Vrai 'near stop' = position perdante + downside<10.
-    _losing_near_stop_tk = [
-        _tk for _tk in near_stop_tk
-        if pnl.get(_tk) is not None and pnl[_tk] < 0
-    ]
+    # near_stop_tk est DÉJÀ broker-losing (prédicat canonique 04/07) — l'ancien
+    # re-filtre pnl<0 ici corrigeait le frame thèse d'amont, devenu identité.
+    _losing_near_stop_tk = near_stop_tk
     _ns = len(_losing_near_stop_tk)
     _ns_label = _losing_near_stop_tk[0] if _losing_near_stop_tk else ""
     _ns_margin = ""
