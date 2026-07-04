@@ -4329,9 +4329,12 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 
 **Réconciliation signaux TRANCHÉE 04/07** (commit `7b2ba0d`) : deux signaux, deux jobs. **GEL (Digue 1, comportemental) = DD BOOK** (digue_monitor) ; **PRORATA (Digue 2, frein capital concentration) = DD GRAPPE compute_ai** (kill_switch, cluster vs pic 90j) — un frein de concentration se déclenche sur la détresse de concentration, pas sur une baisse book portée par le ballast. Prorata MONO-déclencheur (kill_switch) ; digue_monitor.prorata_35 défère (heads-up, pas de 2e prorata book-side). Graduation vécue : book −15% stop-add → grappe −25% vigilance → grappe −35% prorata. Honore l'esprit ADR (DD réalisé objectif, JAMAIS classify_regime).
 
-**Restes digues (raffinements légers, sessions dédiées)** :
-1. **Override Digue 1** : protocole revue + cooldown incompressible (aujourd'hui refus fail-closed sans déblocage propre). Réutiliser le pattern override kill_switch (min_chars 40 + date falsification) ?
-2. **Labels config** kill_switch `-25/-35` (cosmétique).
-3. **Dashboard** : afficher DD réalisé vs seuils digues (−15/−25/−35) + cap 70% en flag (ADR §Conséquences).
+**Override Digue 1 LIVRÉ 04/07** (commit `e0efe1c`) : déblocage du gel `/position_buy` conditionné à cooldown incompressible (2j, le gel tient au moins ça) ÉCOULÉ **ET** justification substantielle ≥40 car (le protocole de revue) — jamais un clic. `gate_allows_buy()` remplace le refus sec ; `grant_override(text)` + `/digue_override` (3j de validité). Épisode de gel stampé (`digue_gel_started_at`). 7 tests override, 24 tests digue total.
+
+**Restes digues (cosmétiques, non bloquants)** :
+1. **Labels config** kill_switch `-25/-35` (cosmétique, aligner le vocabulaire avec les états digue).
+2. **Dashboard** : afficher DD réalisé vs seuils digues (−15/−25/−35) + cap 70% en flag (ADR §Conséquences). = la dernière surface visible.
+
+**ADR 015 substantiellement CLOSE** : Digue 1 (gel book −15% + override) + Digue 2 (prorata grappe −35%) + réconciliation signaux, toutes déployées et dormantes. Restent 2 cosmétiques.
 
 **Digues ADR 015 = les DEUX livrées et déployées** (Digue 1 gate −15% + Digue 2 prorata −35%). Path B étape 2 substantiellement close ; restent 4 raffinements (réconciliation signaux, override, labels, dashboard).
