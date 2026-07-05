@@ -4375,3 +4375,21 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 - **Concept Path B** : métrique valeur-de-la-discipline (€) — LE chiffre-produit · détecteur conviction vs proba calibrée.
 - **Robustesse** : fixture DB synthèse pour la classe live_data en CI (plus gros trou de filet) · crash-test mensuel fail-closed.
 - Consolider helpers Wilson/bootstrap ×8 + telegram send ×3.
+
+## Triggers check 2026-07-05 (hebdo, méthode #135 sans Bigdata)
+
+**0 / 89 triggers FIRED sur 27 thèses actives.** Moteur cross-ref DB = 0 fired ; ancre externe = WebSearch (Bigdata hors-boucle depuis 24/06, cf [[project_bigdata_out_of_loop_2026-06-24]]). Facts-not-keyword, zéro anchoring proba.
+
+**Macro toile de fond (couvre la majorité des triggers) — massivement favorable :**
+- Hyperscaler capex : **$725B 2026, +77% YoY**, les 4 relèvent (AWS +28%) → ASML/4063/AMZN/GOOGL/AVGO/SU/ENTG/7011/KLAC/6857 « capex pause » = STRONG SAFE
+- HBM : sold-out 2026, **+20% prix**, CXMT ne peut pas répliquer → 000660/MU (S2)/6857/BESI = STRONG SAFE
+- Rare earth : NdPr **$133/kg (+136% YTD)**, Chine durcit export → MP T1+T4 = STRONG SAFE (= catalyseur bull)
+- Uranium : Kazatomprom **cut −10%/−20%**, Cameco cut → CCJ T2 = STRONG SAFE (opposé)
+- Foundry : TSM N2 sold-out yield ~78% ; Samsung 40% « pas viable » ; Intel 18A H2 2026 → TSM T2 SAFE, T3 monitor
+- Défense EU : ReArm **€800B**, 2,1%→5% PIB → HO T2/T3 + SAF T4 = SAFE
+
+**5 veilles AT_RISK (aucune fired)** : GOOGL T2 (migration requêtes IA, Google encore 80-90%), AVGO T1 (dual-source TPU, aucune prod tierce), TSM T3 (Intel 18A yield 55-65%), 6324 T1 (Nidec/robotique), GEV T1 (éolien perte, compensé gas turbines).
+
+**Rewrite appliqué (VM authoritative, commit `5ca4bcc`)** : SNPS T1 « Ansys merger blocked antitrust » → OBSOLÈTE (deal clos 07/2025, consent order FTC 10/2025) → requalifié « synergies Ansys ratées, cross-sell <guidance 2 quarters » (mesurable). Script `scripts/trigger_rewrites_2026-07-05.py` idempotent.
+
+**Side-flag NON résolu (décision risque à Olivier)** : ENTG stop_price=165 casse l'invariant long (stop 165 > entry 135 > partial 159 = impossible). À recalculer par décision humaine (pas invention). Génère un faux « sous stop » au dashboard.
