@@ -429,3 +429,22 @@ def is_near_stop(
     if downside_pct is None or pnl_pct is None:
         return False
     return pnl_pct < 0 and downside_pct < threshold_pct
+
+
+def is_stop_breached(downside_pct: float | None) -> bool:
+    """Stop FRANCHI (prix <= stop) — SANS filtre PnL, contrairement à is_near_stop.
+
+    Cas fondateur (20/07/2026, baisse KOSPI) : SK Hynix, winner +16% vs entrée
+    thèse, trailing stop 2.2M ₩ franchi à la baisse (prix 1.76M) → AUCUNE alerte,
+    parce que le filtre « winner au trailing proche = sécurisation, pas alerte »
+    de is_near_stop masquait aussi le FRANCHISSEMENT. Or franchir un stop est un
+    signal de sortie DÉCLENCHÉ (exécuter ou réviser), winner ou pas — c'est
+    précisément la discipline que l'instrument doit rendre impossible à rater.
+
+    Distinction sémantique :
+    - is_near_stop : s'APPROCHE du stop (0 <= distance < seuil) — filtré perdantes.
+    - is_stop_breached : l'a FRANCHI (distance <= 0) — jamais filtré.
+
+    Fail-closed : donnée manquante → False.
+    """
+    return downside_pct is not None and downside_pct <= 0

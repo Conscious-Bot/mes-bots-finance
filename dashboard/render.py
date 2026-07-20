@@ -7094,7 +7094,10 @@ def _digue_head_line() -> str:
         return ""
 
 
-def _monitors_live_band(near_stop_alerts: list | None = None) -> str:
+def _monitors_live_band(
+    near_stop_alerts: list | None = None,
+    stop_breached: list | None = None,
+) -> str:
     """Phase 1 wiring (26/06) : bandeau MONITORS LIVE en haut d'Overview.
 
     Source : intelligence.monitors_summary.get_monitors_summary().
@@ -7256,6 +7259,25 @@ def _monitors_live_band(near_stop_alerts: list | None = None) -> str:
             f'<span class="ml-lab">over_cap</span>'
             f'<span class="ml-val">{oc["over_count"]} pos</span>'
             f'{today_marker}</a>'
+        )
+
+    # stop FRANCHI — sans filtre PnL (cure 20/07, cas SK Hynix/KOSPI : trailing
+    # franchi sur un winner = signal de sortie déclenché resté invisible).
+    if stop_breached:
+        _b_tk, _b_dn = stop_breached[0]
+        _b_dn_txt = f"{_b_dn:.0f}%" if _b_dn is not None else "&mdash;"
+        _btt = (
+            f"{len(stop_breached)} position(s) sous leur stop (signal de sortie "
+            f"déclenché, winner ou pas — is_stop_breached). La + enfoncée : "
+            f"{_b_tk} à {_b_dn_txt}. Exécuter la sortie ou réviser le stop (daté). "
+            "Click → Position card."
+        )
+        chips.append(
+            f'<a class="ml-chip ml-bad" onclick="presageNav(&#39;position-card&#39;,&#39;card-{_b_tk}&#39;)" title="{_btt}">'
+            f'<span class="ml-lab">stop franchi</span>'
+            f'<span class="ml-val">{_b_tk} {_b_dn_txt}'
+            + (f' <small>+{len(stop_breached) - 1}</small>' if len(stop_breached) > 1 else '')
+            + '</span></a>'
         )
 
     # near_stop — PRÉDICAT CANONIQUE via le caller (cure 04/07 : ce chip avait
@@ -7431,6 +7453,33 @@ def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
     # Index downside_pct par ticker depuis computed (asym results)
     _dn_by_tk = {r.get("ticker"): r.get("downside_pct") for r in computed if r.get("ticker")}
     items = []  # dict per card
+    # === Stop FRANCHI (breach) — SANS filtre PnL (cure 20/07, cas SK Hynix) ===
+    # Un trailing franchi sur un WINNER pendant une baisse (KOSPI) ne levait
+    # AUCUNE alerte (le filtre winner de near_stop masquait le franchissement).
+    # Franchir un stop = signal de sortie DÉCLENCHÉ → tête de file, tout PnL.
+    try:
+        from shared.portfolio_analytics import is_stop_breached as _isb
+        for _r in computed:
+            _dn_b = _r.get("downside_pct")
+            _tk_b = _r.get("ticker")
+            if not _tk_b or not _isb(_dn_b):
+                continue
+            _pnl_b = pnl.get(_tk_b)
+            _pnl_txt = (
+                f"{'+' if _pnl_b >= 0 else ''}{_pnl_b:.0f}% on cost"
+                if _pnl_b is not None else "PnL &mdash;"
+            )
+            items.append({
+                "cls": "crit", "sv": "S!", "sev": 0,
+                "title": f"{names.get(_tk_b, _tk_b)} &mdash; STOP FRANCHI",
+                "tag": f"{_dn_b:.0f}%",
+                "desc": f"prix sous le stop ({_dn_b:.0f}% de marge) &middot; {_pnl_txt} &middot; "
+                        "signal de sortie d&eacute;clench&eacute; : ex&eacute;cuter la sortie ou r&eacute;viser le stop (dat&eacute;)",
+                "nav": "position-card", "hash": f"card-{_tk_b}",
+            })
+    except Exception:
+        pass
+
     # === Stop margin critical (only losing positions) ===
     for _tk in near_stop_tk:
         _pnl_pct = pnl.get(_tk)
@@ -8449,7 +8498,11 @@ def render() -> Path:
     # Frame perdante = P&L BROKER (l'ancien _is_losing_row utilisait l'entrée
     # THÈSE → CCJ à +7.4% vs thèse mais −11.2% broker était exclu du hero
     # pendant que la table du même écran le taguait AT STOP).
-    from shared.portfolio_analytics import NEAR_STOP_ALERT_PCT as _NS_ALERT, is_near_stop as _is_near_stop
+    from shared.portfolio_analytics import (
+        NEAR_STOP_ALERT_PCT as _NS_ALERT,
+        is_near_stop as _is_near_stop,
+        is_stop_breached as _is_stop_breached,
+    )
     near_stop_tk = [
         r["ticker"]
         for r in sorted(computed, key=lambda r: r.get("downside_pct", 999.0))
@@ -8998,7 +9051,15 @@ def render() -> Path:
         # Phase 1 wiring monitors (26/06) : bandeau MONITORS LIVE en haut Overview.
         # Source unique intelligence.monitors_summary, fail-soft si DB.
         + _monitors_live_band(
-            near_stop_alerts=[(t, sb_down.get(t)) for t in near_stop_tk]
+            near_stop_alerts=[(t, sb_down.get(t)) for t in near_stop_tk],
+            stop_breached=sorted(
+                (
+                    (r["ticker"], r.get("downside_pct"))
+                    for r in computed
+                    if _is_stop_breached(r.get("downside_pct"))
+                ),
+                key=lambda x: (x[1] if x[1] is not None else 0),
+            )
         )
         # v3 19/06 evening : crochet decisionnel "Needs you today" juste sous le hero.
         # Cartes riches per ticker (stop margin critical, PERDANT) + per cluster
