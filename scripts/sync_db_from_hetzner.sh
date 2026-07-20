@@ -34,13 +34,19 @@ if ! ssh -o ConnectTimeout=3 -o BatchMode=yes "$VM_HOST" "echo ok" >/dev/null 2>
 fi
 
 # 2. VM-side snapshot (SQLite .backup = WAL-consistent)
-if ! ssh "$VM_HOST" "sqlite3 $VM_DB \".backup $VM_SNAPSHOT\"" 2>>"$LOG"; then
+# Timeouts OBLIGATOIRES (post-mortem 20/07) : ce ssh sans timeout s'est accroché
+# 9 JOURS sur une connexion morte (11→20/07), bloquant launchd (qui ne relance
+# pas un job en cours) → DB Mac figée au 06/07 pendant que le mtime bougeait
+# (writes du render local) = staleness invisible. ServerAlive tue la session
+# morte en ~30s ; la classe, pas l'instance (L25).
+SSH_OPTS="-o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o BatchMode=yes"
+if ! ssh $SSH_OPTS "$VM_HOST" "sqlite3 $VM_DB \".backup $VM_SNAPSHOT\"" 2>>"$LOG"; then
     log "ABORT : VM sqlite .backup failed"
     exit 1
 fi
 
 # 3. Transfer
-if ! rsync -az --timeout=30 "$VM_HOST:$VM_SNAPSHOT" "$LOCAL_TMP" 2>>"$LOG"; then
+if ! rsync -az --timeout=30 -e "ssh $SSH_OPTS" "$VM_HOST:$VM_SNAPSHOT" "$LOCAL_TMP" 2>>"$LOG"; then
     log "ABORT : rsync failed"
     exit 1
 fi
@@ -71,7 +77,7 @@ mv "$LOCAL_TMP" "$LOCAL_DB"
 rm -f "$LOCAL_DB-wal" "$LOCAL_DB-shm" "$LOCAL_TMP-wal" "$LOCAL_TMP-shm"
 
 # 7. Cleanup VM snapshot
-ssh "$VM_HOST" "rm -f $VM_SNAPSHOT" 2>/dev/null || true
+ssh $SSH_OPTS "$VM_HOST" "rm -f $VM_SNAPSHOT" 2>/dev/null || true
 
 SIZE_KB=$(du -k "$LOCAL_DB" | cut -f1)
 log "OK : $SIZE_KB KB synced from $VM_HOST"
