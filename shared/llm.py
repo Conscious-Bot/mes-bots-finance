@@ -275,6 +275,14 @@ def _classify_anthropic_error(e: Exception) -> LLMUnavailableError | None:
                 retry_after = int(token)
                 break
         return LLMUnavailableError("rate_limited", upstream_msg=msg, retry_after=retry_after)
+    # Plafond de depense API Anthropic (usage limit mensuel) : 400 invalid_request
+    # avec message specifique "reached your specified API usage limits". Mappe ->
+    # indispo pour que la couche LLM fail-close PROPREMENT (LLMUnavailableError ->
+    # pending_llm + digest vacances + set_llm_status("degraded") + alerte Telegram
+    # une fois) au lieu de laisser fuir des 400 bruts en boucle. Ferme la CLASSE :
+    # le cap 40-50$ se re-atteint chaque mois -> auto-degrade. Incident 26/07->01/08.
+    if "specified api usage limits" in msg_low or "reached your specified api usage" in msg_low:
+        return LLMUnavailableError("api_usage_cap", upstream_msg=msg)
     return None
 
 
