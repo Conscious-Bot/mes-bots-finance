@@ -986,3 +986,26 @@ Cas relevés 10/06 panneau asym `CLOSEST_TO_TARGET` : AMZN/6857.T morts, CCJ en 
 - **L'aveuglement doit être VISIBLE** : un monitor de capital qui n'écrit plus / n'évalue plus doit le crier (FAIL `scheduler_runs` + notify Telegram once-per-épisode), jamais mourir dans le logger APScheduler.
 
 **Référencer** : [[L15]] fail-closed (None > faux) ; [[L21]] jamais plus confiant que l'évidence ; [[L29]] diffusion (chaque chemin qui sert le nombre corrigé ou fail-closed) ; `intelligence/snapshot.py:MIN_COST_COVERAGE` + `intelligence/digue_monitor.py:DIGUE_MAX_UNPRICED_GAP/DIGUE_STALE_AFTER_DAYS` + `risk/kill_switch.py:snapshot_cluster_value` (fail-closed) ; tests `test_snapshot.py::test_aggregate_partial_refused`, `test_digue_monitor.py::test_gel_hold_when_signal_lost_during_active_gel`.
+
+## L32 — Fraîcheur du wrapper ≠ fraîcheur de la substance : tout gate de fraîcheur doit tester la FIN de fenêtre
+
+Deux instances de la même classe en 8 jours :
+1. **Zombie sync (20/07)** : mtime de `bot.db` Mac bougeait chaque regen (writes
+   locaux) pendant que la substance était figée au 06/07 — le ssh du sync
+   pendait depuis 9 jours. Le signal « fichier récent » mentait.
+2. **BTC drawdown (28/07)** : `debt_signals` tamponnait −34,9 % « frais de
+   16:10 » chaque 6 h, calculé sur une série `price_history` figée au 08/06.
+   Le gate de `ensure_price_history` mesurait le VOLUME (coverage 70 % —
+   crypto 7/7 = 109 % avec 50 j manquants au bout), jamais la fin de fenêtre.
+   Conséquence décisionnelle : BTC classé ACT NOW au lieu de WATCH, composite
+   115,5/phase 4 au lieu de 107,5/phase 3.
+
+**Règle** : un timestamp de calcul ne certifie que le calcul, jamais les
+données. Tout gate de fraîcheur (cache, sync, coverage) doit répondre à DEUX
+questions : « ai-je assez de points ? » ET « ai-je la FIN de la fenêtre ? »
+(dernier asof ≤ N jours de end). Cure : `tail_stale` dans
+`ensure_price_history` (marge 5 j, comparaison dates pures) + timeouts ssh
+sync. Tests : `test_prices_gateway.py::test_ensure_tail_stale_*`.
+
+Grep target de la classe : tout consommateur d'un cache/copie qui affiche un
+« as of » — vérifier qu'il propage l'asof de la SUBSTANCE, pas du wrapper.
