@@ -4393,3 +4393,22 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 **Rewrite appliqué (VM authoritative, commit `5ca4bcc`)** : SNPS T1 « Ansys merger blocked antitrust » → OBSOLÈTE (deal clos 07/2025, consent order FTC 10/2025) → requalifié « synergies Ansys ratées, cross-sell <guidance 2 quarters » (mesurable). Script `scripts/trigger_rewrites_2026-07-05.py` idempotent.
 
 **Side-flag NON résolu (décision risque à Olivier)** : ENTG stop_price=165 casse l'invariant long (stop 165 > entry 135 > partial 159 = impossible). À recalculer par décision humaine (pas invention). Génère un faux « sous stop » au dashboard.
+
+## Triggers check 2026-07-28 (rituel hebdo — 5 agents web, 88 clauses / 25 thèses)
+
+**Verdict global : 1 FIRED / 88** (GEV T2 tarifs : impact net 2026 guidé 100-200 M$ > seuil 50 M$ — mais seuil mal calibré, franchi depuis avril, direction en AMÉLIORATION vs 250-350 M$, absorbé dans une guidance CA relevée → rewrite proposé >250 M$). 14 AT_RISK, 3 UNVERIFIABLE, 70 SAFE/STRONG_SAFE.
+
+**Découverte principale — les 3 plus grosses pertes du book sont HORS-GRILLE** :
+1. **SPCX** (−25,4 %) : SpaceX est COTÉE depuis ~06/2026 (IPO post-absorption xAI, cap ~2,4 T$, −23 % depuis inclusion Nasdaq-100). Les 4 triggers verts (Starship Flight 13 succès 24/07, Starlink 12 M+ subs). La thèse « véhicule pre-IPO » est périmée dans son CADRE, pas dans ses triggers → re-framing à décider.
+2. **SNPS** (−22,5 %) : chute pilotée par la Chine (−22 % rev, driver n°1 du reset fév.) — AUCUN des 3 triggers ne couvre la Chine. Q2 beat+raise, Elliott au board 27/05, Design IP −6 % YoY 2 Q consec (AT_RISK ×2).
+3. **MP** (−32,3 %) : NdPr au plus haut 2026 (133 $/kg) pendant que l'equity chute — cause = MP mise sur liste de contrôle export CHINOISE 22/06 + ventes insiders. Vecteur couvert par aucun trigger. Échéance : expiration suspension chinoise 10/11/2026.
+
+**AT_RISK (14)** : TSM T2 (Samsung 2nm MP H2-2026, yields 55 %), 6857.T T1 (Teradyne Magnum 7H en volume HBM), AMZN T5 (Kuiper deadline FCC 07/2026 ratée, extension 2028 demandée), SNPS T1/T2, ALAB T2 (Broadcom/Credo entrent) /T3 (top-1 client >70 %), AVGO T1 (MediaTek co-design TPUv7 prod 2026 ; Marvell talks non signés), GEV T1 (perte wind Q2 −275 M$ vs −165 a/a, run-rate menace le guide 400 M$ FY), HO.PA T1 (dynamique négociation Ukraine — seul trigger vivant du +152 %), CCJ T2 (Kazatomprom +9 % prod 2026), COHR T1 (ASP 800G ~400 $ en érosion, MAIS GM COHR 39,6 % en hausse), SAF.PA T1 (GTF recovery réelle, seuil non atteint), 6324.T T1 (RN FY26 −54 %, guidance rebond FY27 testée le 07/08).
+
+**Classe systémique attrapée : ~12 triggers ancrés sur des métriques NON PUBLIÉES** (AWS gross margin, GCP gross margin, marge « SoC test » Advantest, segment « advanced materials » ENTG inexistant, marge aftermarket SAF, production cost CCJ, bookings ASML DISCONTINUÉS depuis Q1 2026, baseline AVGO 110 Md$ = backlog TOTAL vs série AI, KLAC « margin <50 % » ambigu GM 62 %/OM 43 %). → **23 rewrites proposés** re-ancrés sur métriques publiées avec baselines datées. En attente validation Olivier (col 3 méthode #135) avant application VM + script d'audit.
+
+**Data-format** : GEV id=56 + 6324.T id=55 = invalidation_triggers en TEXTE BRUT (pas JSON) ; le « >guided 00M » de GEV = troncature du « $400M ». À réparer avec les rewrites. Faux positif M&A démonté (rumeur « Nabtesco acquiert HDS » = fausse, alliance dissoute 2022).
+
+**Calendrier chaud** : KLA ce soir 28/07 · Advantest 29/07 · AMZN + Schneider H1 + Meta/MSFT 30/07 · Cameco 31/07 · ALAB + MHI + ENTG 04/08 · Cheniere 06/08 · Harmonic 07/08 (décisif T1) · Lasertec début août. Safran H1 publié CE JOUR : guidance FY relevée, LEAP 1030 S1 (+41 %).
+
+**Évolution vs 05/07** : GOOGL T2 et TSM T3 (Intel 18A) redescendus AT_RISK→SAFE ; AVGO T1, GEV T1, 6324.T T1 persistent AT_RISK 2 tours consécutifs.
