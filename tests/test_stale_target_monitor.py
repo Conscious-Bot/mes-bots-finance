@@ -371,3 +371,41 @@ def test_fail_safe_one_thesis_missing_data_others_continue(
     assert out["checked"] == 2  # les 2 lignes parcourues
     assert out["errors"] == 1   # BAD compté en errors
     assert out["alive"] == 1    # GOOD classifié alive
+
+
+# ---------------------------------------------------------------------------
+# Cure 28/07/2026 — currency NULL ≠ EUR (cas fondateur Hynix id=28 :
+# target_full_value 4.0M KRW + currency NULL -> "or EUR" fabriquait un frame
+# -> edge +361 170 % journalisé. L15 : frame = invariant currency-native
+# (NATIF), conversion fx obligatoire, sinon non-classifiable.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_target_currency_null_converts_native_founding_case():
+    """Hynix : 4.0M KRW currency NULL + fx 0.00059 -> ~2360 €, PAS 4.0M €."""
+    th = {"target_full_value": 4_000_000.0, "target_full_currency": None,
+          "target_full": 4_000_000.0}
+    out = _m._resolve_target_eur(th, fx_rate=0.00059)
+    assert out == pytest.approx(2360.0)
+    assert out < 10_000, "4.0M KRW ne doivent JAMAIS ressortir comme 4.0M EUR"
+
+
+def test_resolve_target_currency_null_no_fx_fails_closed():
+    """currency NULL + fx absent : non-classifiable (None), pas de frame inventé."""
+    th = {"target_full_value": 4_000_000.0, "target_full_currency": None}
+    assert _m._resolve_target_eur(th, fx_rate=None) is None
+
+
+def test_resolve_target_currency_eur_explicit_unchanged():
+    """currency EUR explicite : passthrough inchangé."""
+    th = {"target_full_value": 150.0, "target_full_currency": "EUR"}
+    assert _m._resolve_target_eur(th, fx_rate=None) == 150.0
+
+
+def test_resolve_target_legacy_fallback_same_native_rule():
+    """Fallback target_full plain : même frame natif — fx présent convertit,
+    fx absent -> None (avant : retourné tel quel comme EUR implicite)."""
+    th = {"target_full_value": None, "target_full_currency": None,
+          "target_full": 150.0}
+    assert _m._resolve_target_eur(th, fx_rate=1.0) == 150.0
+    assert _m._resolve_target_eur(th, fx_rate=None) is None

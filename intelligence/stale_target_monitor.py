@@ -164,9 +164,13 @@ def _resolve_target_eur(thesis: dict, fx_rate: float | None = None) -> float | N
 
     Returns None si pas de target ou conversion FX impossible.
     """
-    # Priorité 1 : target_full_value en native + currency (M1)
+    # Priorité 1 : target_full_value en native + currency (M1).
+    # currency NULL ≠ EUR : l'invariant currency-native déclare les prix de
+    # thèse en devise NATIVE de la ligne. Défaut "EUR" ici = fabriquer un
+    # frame (Hynix id=28 : 4.0M KRW lus 4.0M € -> edge +361 170 % journalisé
+    # 07/2026, L15). NULL -> native × fx_rate ligne, sinon non-classifiable.
     tv = thesis.get("target_full_value")
-    tc = (thesis.get("target_full_currency") or "EUR").upper()
+    tc = (thesis.get("target_full_currency") or "").upper()
     if tv is not None and tv > 0:
         if tc == "EUR":
             return float(tv)
@@ -174,10 +178,13 @@ def _resolve_target_eur(thesis: dict, fx_rate: float | None = None) -> float | N
             return float(tv) * fx_rate
         # FX manquant -> non-classifiable cette evaluation (skip silent OK)
         return None
-    # Priorité 2 (fallback legacy) : target_full plain
+    # Priorité 2 (fallback legacy) : target_full plain — même frame natif
+    # (invariant), même règle : fx présent sinon non-classifiable.
     tf = thesis.get("target_full")
     if tf is not None and tf > 0:
-        return float(tf)
+        if fx_rate is not None and fx_rate > 0:
+            return float(tf) * fx_rate
+        return None
     return None
 
 
