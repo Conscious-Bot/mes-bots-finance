@@ -523,18 +523,25 @@ async def daily_kill_criteria_check_job():
     Status global per these : dormant | at_risk | triggered. Notify Telegram
     sur transition X -> triggered (action requise). Tourne quotidien matin
     pour laisser le temps a la decision dans la journee.
+
+    PAS de try/except interne : il masquait le fail a _safe_run → scheduler_runs
+    affichait « success » sur un monitor muet (meme classe que la cure over_cap
+    04/07 ; instance attrapee 28/07 apres 16j de silence LLM-down 04→20/07).
     """
     log.info("Daily kill-criteria check starting")
-    try:
-        from intelligence import kill_criteria_monitor as _kcm
+    from intelligence import kill_criteria_monitor as _kcm
 
-        out = _kcm.check_all_active_theses()
-        log.info(
-            f"kill_criteria_check : triggered={out['triggered']} at_risk={out['at_risk']} "
-            f"dormant={out['dormant']} skipped={out['skipped']} failed={out['failed']}"
-        )
-    except Exception as e:
-        log.error(f"daily_kill_criteria_check failed: {e}")
+    out = _kcm.check_all_active_theses()
+    log.info(
+        f"kill_criteria_check : triggered={out['triggered']} at_risk={out['at_risk']} "
+        f"dormant={out['dormant']} skipped={out['skipped']} failed={out['failed']} "
+        f"llm_down={out.get('llm_down', 0)}"
+    )
+    produced = out["triggered"] + out["at_risk"] + out["dormant"]
+    eligible = sum(out.values())
+    if out.get("llm_down") or (eligible and not produced):
+        # L21 : 0 evaluation produite = pas le droit d'afficher success.
+        raise RuntimeError(f"kill_criteria degraded : evaluations non produites ({out})")
 
 
 async def daily_over_cap_check_job():

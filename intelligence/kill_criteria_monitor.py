@@ -218,6 +218,11 @@ def check_one_thesis(thesis: dict) -> tuple[dict | None, int | None]:
     )
     try:
         result = llm.call_json(prompt, tier="extract", max_tokens=900)
+    except llm.LLMUnavailableError:
+        # Panne infra ≠ skip de these. Remonte au caller (#93) : avale ici,
+        # 16j de LLM-down 04→20/07 = 25 "skipped"/jour et le job affichait
+        # success alors que 0 evaluation n'etait produite.
+        raise
     except Exception as e:
         log.warning(f"kca {ticker} LLM failed: {e}")
         return None, None
@@ -316,14 +321,20 @@ def check_all_active_theses() -> dict:
     cols = ["id", "ticker", "conviction", "direction", "opened_at", "last_reviewed",
             "entry_price", "target_partial", "target_full", "stop_price", "invalidation_triggers"]
     theses = [dict(zip(cols, r, strict=False)) for r in rows]
-    out = {"triggered": 0, "at_risk": 0, "dormant": 0, "skipped": 0, "failed": 0}
-    for th in theses:
+    out = {"triggered": 0, "at_risk": 0, "dormant": 0, "skipped": 0, "failed": 0, "llm_down": 0}
+    for i, th in enumerate(theses):
         try:
             res, _ = check_one_thesis(th)
             if not res:
                 out["skipped"] += 1
                 continue
             out[res.get("global_status", "skipped")] = out.get(res.get("global_status", "skipped"), 0) + 1
+        except llm.LLMUnavailableError as e:
+            # #93 : API morte -> on ne martele pas les theses restantes.
+            # llm_down = non-evaluees ; le verdict degraded appartient au job.
+            out["llm_down"] = len(theses) - i
+            log.error(f"kca : LLM indisponible ({e}) — {out['llm_down']} theses non evaluees, break")
+            break
         except Exception as e:
             log.warning(f"kca {th['ticker']} crashed: {e}")
             out["failed"] += 1
