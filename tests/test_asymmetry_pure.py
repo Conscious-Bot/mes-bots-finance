@@ -98,6 +98,10 @@ def test_stop_breached_when_current_below_stop(patch_price):
     })
     assert r["verdict"] == "STOP_BREACHED"
     assert r["upside_pct"] == pytest.approx((150 - 70) / 70 * 100)
+    # Cure 28/07 : la vraie profondeur du franchissement, plus le clamp 0.0
+    # (12 cartes STOP FRANCHI affichaient toutes « 0% de marge »).
+    assert r["downside_pct"] == pytest.approx((70 - 80) / 70 * 100)
+    assert r["downside_pct"] < 0
 
 
 def test_target_hit_when_current_at_target(patch_price):

@@ -85,7 +85,11 @@ def compute_thesis_asymmetry(thesis: dict[str, Any]) -> dict[str, Any] | None:
             "verdict": "STOP_BREACHED",
             "note": f"current ${current:.2f} ≤ stop ${stop:.2f}",
             "upside_pct": (target_full - current) / current * 100,
-            "downside_pct": 0.0,
+            # Vraie profondeur du franchissement (négatif ; 0.0 exactement AU
+            # stop). Le clamp 0.0 d'origine écrasait l'info : 12 cartes STOP
+            # FRANCHI affichaient toutes « 0% » (Olivier 28/07). Les consommateurs
+            # qui exigent ≥0 (heat) clampent CHEZ EUX, pas à la source.
+            "downside_pct": (current - stop) / current * 100,
         }
     if current >= target_full:
         return {

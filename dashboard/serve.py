@@ -40,6 +40,8 @@ _WATCHED_PATHS = [
     Path(__file__).with_name("_scripts.py"),  # _NAV / _APP_JS / _THEME_INIT / etc.
     _REPO_ROOT / "shared" / "storage.py",
     _REPO_ROOT / "shared" / "ticker_logos.py",
+    _REPO_ROOT / "shared" / "portfolio_analytics.py",  # prédicats near/breached
+    _REPO_ROOT / "intelligence" / "asymmetry.py",  # downside_pct des cartes stop
     _REPO_ROOT / "intelligence" / "portfolio_grade.py",
     _REPO_ROOT / "intelligence" / "bot_conceptions.py",
     _REPO_ROOT / "intelligence" / "bot_preferences.py",

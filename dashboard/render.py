@@ -3940,8 +3940,10 @@ def _rows_risque(
         weight_map = {p["ticker"]: float(p.get("weight", 0)) for p in positions}
         total_weight = sum(weight_map.values()) or 1.0
         # % capital at risk if all stops hit = sum (weight_share_i * downside_pct_i)
+        # max(0, d) : un stop FRANCHI (downside négatif depuis 28/07) n'est pas
+        # un risque négatif — il ne doit pas RÉDUIRE le heat agrégé.
         heat = sum(
-            (weight_map.get(tk, 0) / total_weight) * d
+            (weight_map.get(tk, 0) / total_weight) * max(0.0, d)
             for d, tk in data
         )
     else:
@@ -7265,7 +7267,7 @@ def _monitors_live_band(
     # franchi sur un winner = signal de sortie déclenché resté invisible).
     if stop_breached:
         _b_tk, _b_dn = stop_breached[0]
-        _b_dn_txt = f"{_b_dn:.0f}%" if _b_dn is not None else "&mdash;"
+        _b_dn_txt = f"{_b_dn:.1f}%" if _b_dn is not None else "&mdash;"
         _btt = (
             f"{len(stop_breached)} position(s) sous leur stop (signal de sortie "
             f"déclenché, winner ou pas — is_stop_breached). La + enfoncée : "
@@ -7458,12 +7460,24 @@ def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
     # AUCUNE alerte (le filtre winner de near_stop masquait le franchissement).
     # Franchir un stop = signal de sortie DÉCLENCHÉ → tête de file, tout PnL.
     try:
+        from shared import book as _bk_breach
         from shared.portfolio_analytics import is_stop_breached as _isb
+        _bidx_breach = _bk_breach.get_book_index()
         for _r in computed:
             _dn_b = _r.get("downside_pct")
             _tk_b = _r.get("ticker")
             if not _tk_b or not _isb(_dn_b):
                 continue
+            # Vrai deficit SIGNE sous le stop (native vs native, helper canonique),
+            # PAS le downside_pct clampe a 0 : "0%" ecrase la profondeur et met TSM
+            # (-2%, franchissement marginal d'un winner) et ENTG (-39%, profond) au
+            # meme niveau. Fallback sur _dn_b si stop/price indispo. Honnete > 0%.
+            _ln_b = _bidx_breach.get(_tk_b)
+            _true_b = (
+                _stop_distance_pct_native(_tk_b, _ln_b.stop_price)
+                if _ln_b and _ln_b.stop_price else None
+            )
+            _mrg_b = _true_b if _true_b is not None else _dn_b
             _pnl_b = pnl.get(_tk_b)
             _pnl_txt = (
                 f"{'+' if _pnl_b >= 0 else ''}{_pnl_b:.0f}% on cost"
@@ -7472,8 +7486,8 @@ def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
             items.append({
                 "cls": "crit", "sv": "S!", "sev": 0,
                 "title": f"{names.get(_tk_b, _tk_b)} &mdash; STOP FRANCHI",
-                "tag": f"{_dn_b:.0f}%",
-                "desc": f"prix sous le stop ({_dn_b:.0f}% de marge) &middot; {_pnl_txt} &middot; "
+                "tag": f"{_mrg_b:.1f}%",
+                "desc": f"prix {abs(_mrg_b):.1f}% SOUS le stop &middot; {_pnl_txt} &middot; "
                         "signal de sortie d&eacute;clench&eacute; : ex&eacute;cuter la sortie ou r&eacute;viser le stop (dat&eacute;)",
                 "nav": "position-card", "hash": f"card-{_tk_b}",
             })
@@ -7487,6 +7501,14 @@ def _needs_today(positions: list[dict], pnl: dict, near_stop_tk: list,
         # Si pnl >= 0 = winner avec trailing stop -> pas un cri d'urgence.
         if _pnl_pct is None or _pnl_pct >= 0:
             continue
+        # Dédoublonnage : un stop FRANCHI a déjà sa carte tête-de-file — la
+        # carte « margin critical » en double diluait la file (vu 28/07).
+        try:
+            from shared.portfolio_analytics import is_stop_breached as _isb2
+            if _isb2(_dn_by_tk.get(_tk)):
+                continue
+        except Exception:
+            pass
         _dn = _dn_by_tk.get(_tk)
         _name = names.get(_tk, _tk)
         _mono = "".join(c for c in _tk if c.isalnum())[:2].upper()
