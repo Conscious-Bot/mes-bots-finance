@@ -150,3 +150,89 @@ def test_value_eur_propagates_degraded_from_stale_price(monkeypatch) -> None:
     value_eur = derive(lambda q, p, fx_: q * p * fx_, qty, price, fx_rate, op="value_eur")
     assert value_eur.degraded is True  # fail-closed propage
     assert value_eur.confidence == 0.4  # min des inputs
+
+
+# === Tail-freshness ensure_price_history (cure 28/07/2026, cas BTC-USD) ===
+# Série DENSE mais TRONQUÉE en fin de fenêtre : le gate volume seul (70 %)
+# la laissait passer (crypto 7/7 = surplus de rows qui masque 50 j manquants)
+# → BTC_drawdown180 calculé sur substance figée au 08/06 avec timestamp du
+# jour. Contrat : le gate répond à DEUX questions — volume ET fin de fenêtre.
+
+
+def _seed_price_history(tmp_path, monkeypatch, rows):
+    import sqlite3
+    db = tmp_path / "px.db"
+    cx = sqlite3.connect(db)
+    cx.executescript(
+        """
+        CREATE TABLE price_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker TEXT NOT NULL, asof TEXT NOT NULL,
+            price_native REAL NOT NULL, currency TEXT NOT NULL,
+            source TEXT NOT NULL
+        );
+        """
+    )
+    cx.executemany(
+        "INSERT INTO price_history (ticker, asof, price_native, currency, source) "
+        "VALUES (?, ?, ?, ?, ?)",
+        rows,
+    )
+    cx.commit()
+    cx.close()
+    monkeypatch.setattr("shared.storage.DB_PATH", db)
+    return db
+
+
+def _dense_truncated_rows(end_lag_days: int, n: int = 80):
+    from datetime import UTC, datetime, timedelta
+    now = datetime.now(UTC)
+    return [
+        (
+            "BTC-USD",
+            (now - timedelta(days=end_lag_days + i)).strftime("%Y-%m-%dT00:00:00+00:00"),
+            60000.0 + i,
+            "USD",
+            "yfinance_backfill",
+        )
+        for i in range(n)
+    ]
+
+
+def test_ensure_tail_stale_triggers_backfill(tmp_path, monkeypatch) -> None:
+    """80 rows 7/7 finissant il y a 50 j sur fenêtre 100 j : coverage >100 %
+    mais queue morte -> le backfill DOIT se déclencher (avant la cure : non)."""
+    from datetime import UTC, datetime, timedelta
+
+    import pandas as pd
+
+    _seed_price_history(tmp_path, monkeypatch, _dense_truncated_rows(end_lag_days=50))
+    called = {"n": 0}
+
+    class _FakeTicker:
+        def history(self, **kw):
+            called["n"] += 1
+            idx = pd.date_range(end=datetime.now(UTC).date(), periods=10, freq="D")
+            return pd.DataFrame({"Close": [65000.0] * 10}, index=idx)
+
+    monkeypatch.setattr(prices, "_yf_ticker", lambda tk: _FakeTicker())
+    start = datetime.now(UTC) - timedelta(days=100)
+    df = prices.ensure_price_history("BTC-USD", start, datetime.now(UTC))
+    assert called["n"] == 1, "queue morte (50 j) doit déclencher le backfill malgré coverage >70 %"
+    assert df is not None and not df.empty
+    assert df.index.max().date() >= (datetime.now(UTC) - timedelta(days=6)).date()
+
+
+def test_ensure_fresh_tail_no_backfill(tmp_path, monkeypatch) -> None:
+    """Série dense et fraîche (queue < 5 j) : aucun appel yfinance."""
+    from datetime import UTC, datetime, timedelta
+
+    _seed_price_history(tmp_path, monkeypatch, _dense_truncated_rows(end_lag_days=1))
+
+    def _boom(tk):
+        raise AssertionError("yfinance ne doit PAS être appelé sur série fraîche")
+
+    monkeypatch.setattr(prices, "_yf_ticker", _boom)
+    start = datetime.now(UTC) - timedelta(days=100)
+    df = prices.ensure_price_history("BTC-USD", start, datetime.now(UTC))
+    assert df is not None and not df.empty

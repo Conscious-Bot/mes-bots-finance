@@ -804,12 +804,27 @@ def ensure_price_history(
     n_obs = len(rows)
     coverage = n_obs / n_business_days_expected if n_business_days_expected else 0.0
 
-    # Backfill if coverage low
-    if coverage < min_coverage_pct:
+    # Tail-freshness (28/07/2026, cas BTC-USD) : une série DENSE mais TRONQUÉE
+    # en fin de fenêtre passait le gate volume — crypto 7/7 = 109 % de coverage
+    # avec 50 j manquants au bout → BTC_drawdown180 calculé sur substance figée
+    # au 08/06, tamponnée « fraîche » par le job (même classe que le zombie
+    # sync : le wrapper date d'aujourd'hui, la substance non — L31 cousin).
+    # Le gate doit répondre à DEUX questions : assez de points, ET la FIN de
+    # la fenêtre est-elle couverte ? Marge 5 j = week-ends/fériés marchés.
+    # Comparaison en dates pures : end_dt peut être aware (now(UTC)) et l'asof
+    # stocké est naive — soustraire les deux datetimes lève TypeError.
+    _last_asof = rows[-1][0][:10] if rows else None
+    tail_stale = (
+        _last_asof is None
+        or (end_dt.date() - datetime.fromisoformat(_last_asof).date()).days > 5
+    )
+
+    # Backfill if coverage low OR tail stale
+    if coverage < min_coverage_pct or tail_stale:
         _log.info(
             f"ensure_price_history {ticker}: coverage {coverage:.0%} "
-            f"({n_obs}/{n_business_days_expected}j) < {min_coverage_pct:.0%}, "
-            "backfill yfinance"
+            f"({n_obs}/{n_business_days_expected}j), last_asof={_last_asof}, "
+            f"tail_stale={tail_stale} -> backfill yfinance"
         )
         try:
             t = _yf_ticker(ticker)
