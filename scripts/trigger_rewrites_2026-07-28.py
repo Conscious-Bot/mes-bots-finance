@@ -264,7 +264,9 @@ def _save(cx: sqlite3.Connection, ticker: str, trigs: list[str]) -> None:
 
 
 def main() -> int:
-    cx = sqlite3.connect(DB_PATH)
+    # timeout=30 : la VM a le bot qui écrit en parallèle (WAL) — sans busy
+    # timeout le run 28/07 a pris "database is locked" en pleine boucle.
+    cx = sqlite3.connect(DB_PATH, timeout=30)
     done = skipped = aborted = 0
 
     # 1. Réparations texte brut -> JSON (avant les prefix-rewrites)
