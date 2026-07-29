@@ -335,6 +335,52 @@ def _get_canonical_perimeter() -> set[str]:
         return set()
 
 
+def book_state_header() -> str | None:
+    """Bloc mécanique ÉTAT BOOK (zéro LLM) : digue + stops franchis.
+
+    Cure 29/07/2026 (Olivier : « le digest coupe trop d'infos ») : la partie
+    du digest qui n'a PAS le droit d'être résumée/coupée est déterministe par
+    construction — elle ne passe pas par le narratif LLM. Fail-soft : None si
+    données indisponibles, le digest narratif reste utilisable sans.
+    """
+    import sqlite3
+
+    from shared import storage
+    from shared.portfolio_analytics import is_stop_breached
+
+    lines: list[str] = []
+    try:
+        con = sqlite3.connect(storage._DB_PATH)
+        con.row_factory = sqlite3.Row
+        d = con.execute(
+            "SELECT status, drawdown_pct, hwm_value_eur, current_value_eur "
+            "FROM digue_alerts ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        con.close()
+        if d and d["drawdown_pct"] is not None:
+            lines.append(
+                f"Digue: {d['status']} | DD réalisé: {d['drawdown_pct']:+.1f}% "
+                f"(HWM {d['hwm_value_eur']:,.0f}€ -> {d['current_value_eur']:,.0f}€)"
+            )
+    except Exception as e:
+        log.warning(f"book_state_header digue read failed (soft): {e}")
+    try:
+        from intelligence import asymmetry as _asym
+
+        computed = [r for r in _asym.compute_portfolio_asymmetry() if "asymmetry_ratio" in r]
+        breached = sorted(
+            ((r["ticker"], r.get("downside_pct")) for r in computed
+             if is_stop_breached(r.get("downside_pct"))),
+            key=lambda x: (x[1] if x[1] is not None else 0.0),
+        )
+        if breached:
+            worst = ", ".join(f"{tk} {dn:.1f}%" for tk, dn in breached[:3] if dn is not None)
+            lines.append(f"Stops franchis: {len(breached)} | pires: {worst}")
+    except Exception as e:
+        log.warning(f"book_state_header breached compute failed (soft): {e}")
+    return "\n".join(lines) if lines else None
+
+
 def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclude_low_score: bool = True) -> str:
     """Single narrative synthesizing all recent signals into themes + catalysts + noise + actions.
 
@@ -452,11 +498,11 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         boost = r["materiality_boost"] or 1.0
         adj = score * boost
         imp = r["impact_magnitude"]
-        line = "[" + st + " | adj=" + str(round(adj, 1)) + "/10"
+        line = "[#" + str(r["id"]) + " " + st + " | adj=" + str(round(adj, 1)) + "/10"
         if imp is not None:
             line += " impact=" + str(int(imp)) + "/5 time=" + str(r["time_to_realization"] or "?")
-        line += "] " + (r["source"] or "?") + ": " + (r["title"] or "?")[:140] + ents
-        summary = (r["summary"] or "")[:300]
+        line += "] " + (r["source"] or "?") + ": " + (r["title"] or "?")[:160] + ents
+        summary = (r["summary"] or "")[:400]
         if summary:
             line += "\n   " + summary
         blocks.append(line)
@@ -498,21 +544,28 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         "REGLE CATALYSTS: un CATALYST est un event marche concret avec date approximative (earnings, FOMC, FDA decision, etc). "
         "Une 'newsletter a lire' ou 'reunion regulateurs dans semaines/mois' N'EST PAS un catalyst. Si rien de concret: dis 'Aucun catalyst date concret detecte dans ce window'.\n\n"
         "Structure obligatoire:\n\n"
-        "VERDICT: X urgent / Y monitoring / Z noise\n"
+        "VERDICT: X urgent / Y monitoring / Z noise -- et NOMME les urgents : 'urgent: TICKER (motif 3-5 mots)'\n"
         "(1 ligne tout en haut. X+Y+Z doit correspondre a ton analyse globale, pas au count brut.)\n\n"
-        "THEMES MAJEURS (3-5 max)\n"
-        "Pour chaque theme: nom court, tickers concernes, signaux convergents (multi-source = boost credibilite), "
-        "1-2 phrases sur pourquoi ca matte ou pas pour Olivier.\n\n"
-        "CATALYSTS A SURVEILLER\n"
-        "Top 3-5 events specifiques avec ticker + date approximative + impact attendu. Si aucun: une ligne explicite.\n\n"
+        "PAR POSITION TOUCHEE (ordre = pertinence book decroissante)\n"
+        "Une entree par ticker canonique avec >=1 signal. Format par entree :\n"
+        "TICKER -- 2-4 lignes : le fait nouveau PRECIS (chiffres exacts des signaux, pas de paraphrase vague), "
+        "reference [#id] de chaque signal utilise, et si le rerank book-anchored le signale : quel "
+        "trigger/kill-criterion ca rapproche. Ne fusionne JAMAIS deux tickers dans une meme entree.\n\n"
+        "THEMES TRANSVERSAUX (0-3, seulement si un meme fait touche >=3 positions)\n"
+        "Nom court + tickers + pourquoi ca matte. Pas de remplissage si rien de transversal.\n\n"
+        "CATALYSTS DATES\n"
+        "TOUS ceux trouves dans les signaux (pas de cap), format : JJ/MM | TICKER | event | impact attendu | [#id]. "
+        "Si aucun : 'Aucun catalyst date concret detecte dans ce window'.\n\n"
         "BRUIT JETE\n"
         "UNE SEULE LIGNE format: 'Skipped: N sources, mostly [theme1, theme2]'. Pas de details, pas de liste.\n\n"
-        "ACTION ITEMS POUR OLIVIER (max 3 bullets)\n"
-        "Decisions concretes a prendre/surveiller selon son thesis active et ses biais asymetriques.\n\n"
-        "Ton: direct, jargon pro francais, pragmatique, max 600 mots. Pas de fawning, dire les choses sans edulcorer."
+        "ACTIONS POUR OLIVIER (max 5 bullets)\n"
+        "Chaque action LIEE explicitement a une these/trigger/biais nomme. Concret et datable, "
+        "pas de 'surveiller le secteur'.\n\n"
+        "Ton: direct, jargon pro francais, pragmatique, max 900 mots. Precision > brievete : "
+        "cite les chiffres des signaux. Pas de fawning, dire les choses sans edulcorer."
     )
     try:
-        narrative = llm.call(prompt, tier="enrich", max_tokens=2000)
+        narrative = llm.call(prompt, tier="enrich", max_tokens=3000)
         if not narrative:
             return "Synthesis failed (empty response). " + str(len(rows)) + " signaux disponibles."
         return narrative.strip()

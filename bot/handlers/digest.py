@@ -57,10 +57,21 @@ async def cmd_digest(update, ctx):  # noqa: ARG001
 
         now_str = _dt.now().strftime("%d/%m %H:%M")
         brief = build_degraded_brief(_storage._DB_PATH, hours=hours)
+        # Bloc mécanique ÉTAT BOOK (cure 29/07) : déterministe, zéro LLM —
+        # disponible même en mode vacances.
+        try:
+            from intelligence.digest import book_state_header as _bsh
+            _bh = _bsh()
+        except Exception:
+            _bh = None
         lines = [
             f"DIGEST {now_str} ({hours}h window) -- MODE VACANCES",
             f"Raw ingere: {n_raw} | Scoring LLM: en pause | Synthese: en pause",
             "Track record predictions: autonome (resolutions automatiques).",
+        ]
+        if _bh:
+            lines += ["-" * 40, "ETAT BOOK", _bh]
+        lines += [
             "-" * 40,
             "",
             brief or "(pipeline OK, aucun signal au-dela du metadata)",
@@ -101,7 +112,7 @@ async def cmd_digest(update, ctx):  # noqa: ARG001
     try:
         from intelligence import digest as _digest_mod
 
-        narrative = _digest_mod.generate_unified_digest(since_hours=hours, max_signals=40)
+        narrative = _digest_mod.generate_unified_digest(since_hours=hours, max_signals=60)
     except Exception as e:
         await update.message.reply_text(f"Digest failed: {type(e).__name__}: {e}")
         return
@@ -137,7 +148,14 @@ async def cmd_digest(update, ctx):  # noqa: ARG001
         f"  /thesis health     -> portfolio coverage check"
     )
 
-    full_output = header + "\n\n" + narrative + "\n\n" + footer
+    # Bloc mécanique ÉTAT BOOK (cure 29/07 : « le digest coupe trop d'infos »)
+    # — déterministe, jamais résumé/coupé par le narratif LLM.
+    try:
+        _book_hdr = _digest_mod.book_state_header()
+    except Exception:
+        _book_hdr = None
+    _book_block = ("ETAT BOOK\n" + _book_hdr + "\n\n") if _book_hdr else ""
+    full_output = header + "\n\n" + _book_block + narrative + "\n\n" + footer
 
     # Chunk if needed
     if len(full_output) > 3900:
