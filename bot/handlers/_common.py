@@ -12,8 +12,17 @@ __all__ = ["config_path", "db_path", "telegram_safe"]
 
 
 def db_path() -> Path:
-    """Resolve repo_root/data/bot.db. Single source of truth."""
-    return Path(__file__).resolve().parent.parent.parent / "data" / "bot.db"
+    """Délègue à storage.DB_PATH — la VRAIE source de vérité (honore PRESAGE_DB_PATH).
+
+    Cure 29/07/2026 : l'ancien chemin en dur repo_root/data/bot.db était une
+    réintroduction masquée de la classe interdite « chemin DB statique » (bug
+    prod 30/05, memory storage-db-path-consolidated) — invisible en prod (les
+    deux chemins coïncident), mais sur CI le connect() CRÉAIT une DB vide
+    fantôme → « no such table » sur 19 tests via 8 handlers.
+    """
+    from shared import storage
+
+    return Path(storage.DB_PATH)
 
 
 def config_path() -> Path:
