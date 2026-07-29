@@ -173,6 +173,25 @@ def main() -> Path:
     # bot_state minimal (PRESAGE_STATE_PATH conseillé en CI)
     storage.save_state({"bootstrapped": _iso(0), "llm_status": "healthy"})
 
+    # Diagnostic schéma (29/07/2026) : CI rouge / local vert sur les MÊMES
+    # migrations 0040→0065 — ce dump imprime la vérité terrain du runner
+    # (version sqlite + colonnes réelles) pour diff avec le Mac.
+    import sqlite3 as _sq
+    _dcx = _sq.connect(target)
+    print(f"DIAG sqlite_version={_sq.sqlite_version} module={_sq.version if hasattr(_sq, 'version') else '?'}")
+    _head = _dcx.execute("SELECT version_num FROM alembic_version").fetchone()
+    print(f"DIAG alembic_head={_head[0] if _head else '?'}")
+    for _t in ("predictions", "theses", "positions"):
+        try:
+            _cols = [c[1] for c in _dcx.execute(f"PRAGMA table_info({_t})").fetchall()]
+            print(f"DIAG {_t} ({len(_cols)} cols): {','.join(_cols)}")
+        except Exception as _e:
+            print(f"DIAG {_t}: ERROR {_e}")
+    _n_tables = _dcx.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+    _tn = _dcx.execute("SELECT name FROM sqlite_master WHERE name='ticker_names'").fetchone()
+    print(f"DIAG tables={_n_tables} ticker_names={'present' if _tn else 'ABSENT'}")
+    _dcx.close()
+
     print(f"fixture OK -> {target}")
     return target
 
