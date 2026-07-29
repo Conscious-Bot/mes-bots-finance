@@ -1,0 +1,66 @@
+# open_questions.yaml — les interrogations VIVANTES du gérant (L17 déclaratif).
+#
+# Édité par OLIVIER uniquement, en français libre. Lu par le digest (SPEC
+# enrichissement v2) : chaque signal enrichi est routé vers les questions qu'il
+# informe → le digest cesse d'être un flux, il fait avancer des questions nommées.
+# C'est le pont entre les débats de tête et le pipeline (fin du « je colle des
+# threads X à Claude pour réfléchir »).
+#
+# Structure par entrée :
+#   id        : Qn stable (ne pas renuméroter, les signaux historiques y référent)
+#   question  : la problématique, falsifiable, en 1-2 phrases
+#   marqueurs : les FAITS datés qui la font avancer (pas des humeurs) — ce que le
+#               digest cherche dans les signaux pour la nourrir
+#   lignes    : tickers du book concernés ("tout le book" si systémique)
+#
+# Ajoute/retire/reformule librement. Scaffoldé 29/07/2026 depuis les débats de la
+# session (crash IA/semi) — à faire vivre.
+
+- id: Q1
+  question: >
+    HBM = infrastructure CONTRACTÉE (LTA 5 ans, acomptes, sold-out 2026-27) ou
+    pic cyclique classique qui se retournera comme toute mémoire ?
+  marqueurs:
+    - "prix contrat HBM4 négociés H2 2026 (1er price discovery post-sold-out)"
+    - "qualification Samsung HBM4 en volume"
+    - "tenue des LTA / take-or-pay si le spot DRAM casse"
+    - "SK Hynix : ralentissement ramp HBM4 = discipline capacité ou cooling demande ?"
+  lignes: ["000660.KS", "MU", "6857.T", "BESI.AS"]
+
+- id: Q2
+  question: >
+    Régime capex : le marché a-t-il basculé de « capex = croissance = achète » à
+    « capex = destruction de FCF = vends » ? (fin du régime récompense = Type-2 grind)
+  marqueurs:
+    - "réaction PRIX aux prints META/MSFT/GOOGL/AMZN vs direction du capex"
+    - "GOOGL 22/07 : capex relevé $205B MAIS titre -5% sur FCF négatif = 1er data point"
+    - "guidances capex 2026/2027 (tenues/relevées/coupées)"
+    - "gap capex/revenus (Sequoia ~$600B) cité par le sell-side"
+  lignes: ["tout le book"]
+
+- id: Q3
+  question: >
+    China DUV / CXMT : timeline de la menace RÉELLE sur les équipementiers
+    (revenus Chine) et la DRAM commodity ? Bidirectionnel : durcissement US frappe
+    les revenus mais accélère la substitution domestique chinoise.
+  marqueurs:
+    - "cadence machines SMEE (5/an) vs 130+/an ASML — écart qui se comble ?"
+    - "part CXMT du bit supply DRAM mondial (fin 2026 ~17% ?)"
+    - "roadmap HBM chinoise (gap estimé ~3 ans, Seoul Econ Daily)"
+    - "executive order US export-control (le seul vrai risque fondamental sur ASML/KLAC/TEL)"
+  lignes: ["ASML.AS", "KLAC", "MU", "000660.KS"]
+
+- id: Q4
+  question: >
+    Qualité du financement du buildout IA : self-funded (OCF hyperscaler) ou
+    de plus en plus HORS-BILAN / private-credit (SPV non-recourse) ? = le tail
+    Type-3 (rupture de demande → le circulaire casse). Mes noms sont-ils du côté
+    solide (hyperscalers balance-sheet + chokepoints) vs le fragile (neoclouds) ?
+  marqueurs:
+    - "FCF hyperscaler vs capex (GOOGL déjà négatif -$5.9B)"
+    - "croissance dette hors-bilan SPV/leases (Nikkei ~$1650B > dette officielle $1350B)"
+    - "RÉVISIONS DE NOTATION ORACLE (le maillon fragile désigné)"
+    - "taux d'utilisation RÉEL des datacenters déjà construits (la demande se matérialise ?)"
+    - "craquements private credit : spreads, 1er défaut de neocloud (CoreWeave/Nebius)"
+    - "yen carry trade (¥163, jauge du dé-levier qui amplifierait tout accident)"
+  lignes: ["tout le book", "GOOGL", "AMZN"]
