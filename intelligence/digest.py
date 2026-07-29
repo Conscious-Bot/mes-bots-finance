@@ -381,6 +381,67 @@ def book_state_header() -> str | None:
     return "\n".join(lines) if lines else None
 
 
+_CATALYST_STATIC_SEED = [
+    # Catalysts que le calendrier yfinance rate (internationales + macro annuelle).
+    # A maintenir a la main jusqu'au P1 (universe.yaml + refresh elargi).
+    ("2026-07-30", "Samsung earnings (matin KST)"),
+    ("2026-08-05", "Infineon earnings (cible d'achat)"),
+    ("2026-08-06", "Ajinomoto earnings (cible d'achat)"),
+    ("2026-08-07", "Harmonic Drive earnings (cible d'achat)"),
+    ("2026-09-15", "FOMC + dot plot (hausse pricee ~82%)"),
+]
+
+
+def _deterministic_catalysts(days_ahead: int = 14) -> str:
+    """Section CATALYSTS deterministe (table `events` + seed statique), ZERO NLP.
+
+    Incident Heimdall 29/07 : la section catalysts etait extraite par le LLM
+    depuis les newsletters (qui ne publient pas de calendriers earnings) ->
+    rendait 'Aucun catalyst' pendant la semaine la plus dense du trimestre =
+    fail-silent. Fix : jointure deterministe de `events` (peuplee par
+    daily_calendar_refresh_job) + seed pour les internationales que yfinance rate.
+    Never-fail-silent : un vide PROUVE qu'il a cherche (bornes + source affichees).
+    """
+    import sqlite3
+
+    from shared import storage
+
+    today = datetime.now(UTC).date()
+    end = today + timedelta(days=days_ahead)
+    rows: list[tuple[str, str]] = []
+    try:
+        conn = sqlite3.connect(storage._DB_PATH)
+        conn.row_factory = sqlite3.Row
+        for r in conn.execute(
+            "SELECT date, event_type, ticker, description FROM events "
+            "WHERE date >= ? AND date <= ? ORDER BY date",
+            (today.isoformat(), end.isoformat()),
+        ):
+            lbl = r["description"] or str(r["event_type"])
+            tk = r["ticker"]
+            rows.append((str(r["date"]), lbl if tk in (None, "MACRO") else f"{tk} — {lbl}"))
+        conn.close()
+    except Exception as e:
+        return (
+            "CATALYSTS DATES\n"
+            f"\U0001F6A8 INCIDENT : module catalysts en echec ({type(e).__name__}) "
+            "— sortie NON FIABLE (never-fail-silent).\n"
+        )
+    seen = set(rows)
+    for d, lbl in _CATALYST_STATIC_SEED:
+        if today.isoformat() <= d <= end.isoformat() and (d, lbl) not in seen:
+            rows.append((d, lbl))
+    rows.sort()
+    if not rows:
+        return (
+            "CATALYSTS DATES\n"
+            f"Aucun catalyst (fenetre VERIFIEE {today} -> {end}, source: events + seed). "
+            "Si suspect en fenetre active -> INCIDENT module.\n"
+        )
+    body = "\n".join(f"- {d} : {lbl}" for d, lbl in rows)
+    return f"CATALYSTS DATES (deterministe — events + seed, fenetre {today}->{end})\n{body}\n"
+
+
 def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclude_low_score: bool = True) -> str:
     """Single narrative synthesizing all recent signals into themes + catalysts + noise + actions.
 
@@ -541,8 +602,8 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         "Si tu references une date, elle doit etre soit la date du jour ("
         + today_str[:10]
         + ") soit une date explicite d'un signal cite.\n\n"
-        "REGLE CATALYSTS: un CATALYST est un event marche concret avec date approximative (earnings, FOMC, FDA decision, etc). "
-        "Une 'newsletter a lire' ou 'reunion regulateurs dans semaines/mois' N'EST PAS un catalyst. Si rien de concret: dis 'Aucun catalyst date concret detecte dans ce window'.\n\n"
+        "REGLE CATALYSTS: NE GENERE PAS de section CATALYSTS — elle est fournie de facon "
+        "DETERMINISTE en amont (table events + seed). N'invente aucune date d'event.\n\n"
         "Structure obligatoire:\n\n"
         "VERDICT: X urgent / Y monitoring / Z noise -- et NOMME les urgents : 'urgent: TICKER (motif 3-5 mots)'\n"
         "(1 ligne tout en haut. X+Y+Z doit correspondre a ton analyse globale, pas au count brut.)\n\n"
@@ -553,9 +614,7 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         "trigger/kill-criterion ca rapproche. Ne fusionne JAMAIS deux tickers dans une meme entree.\n\n"
         "THEMES TRANSVERSAUX (0-3, seulement si un meme fait touche >=3 positions)\n"
         "Nom court + tickers + pourquoi ca matte. Pas de remplissage si rien de transversal.\n\n"
-        "CATALYSTS DATES\n"
-        "TOUS ceux trouves dans les signaux (pas de cap), format : JJ/MM | TICKER | event | impact attendu | [#id]. "
-        "Si aucun : 'Aucun catalyst date concret detecte dans ce window'.\n\n"
+        "(Section CATALYSTS DATES fournie deterministiquement en amont — ne la genere PAS.)\n\n"
         "BRUIT JETE\n"
         "UNE SEULE LIGNE format: 'Skipped: N sources, mostly [theme1, theme2]'. Pas de details, pas de liste.\n\n"
         "ACTIONS POUR OLIVIER (max 5 bullets)\n"
@@ -567,7 +626,9 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     try:
         narrative = llm.call(prompt, tier="enrich", max_tokens=3000)
         if not narrative:
-            return "Synthesis failed (empty response). " + str(len(rows)) + " signaux disponibles."
-        return narrative.strip()
+            return _deterministic_catalysts() + "\n\nSynthesis failed (empty response). " + str(len(rows)) + " signaux disponibles."
+        # Catalysts DETERMINISTES prefixes (Heimdall fix 29/07) : autoritaires,
+        # le LLM ne genere plus sa section catalysts (fail-silent supprime).
+        return _deterministic_catalysts() + "\n\n" + narrative.strip()
     except Exception as e:
         return "Synthesis failed: " + type(e).__name__ + ": " + str(e)[:200]
