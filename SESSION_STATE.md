@@ -4518,3 +4518,15 @@ SPCX/SNPS = les ajouts de JUIN près du top de cycle. Leçon = pas « tu chasses
 - **Gaps macro seed** : GDP/PCE/BOJ pas dans `events` ni seed (à ajouter en P1 static_macro.yaml) ; TEL date à confirmer.
 
 **Findings connexes (verified ce jour, non-digest) :** oil +20-30% (Houthis, prime réelle = input hawkish cross-book, renforce Type-2) · GOOGL capex RELEVÉ $205B (pas Type-3, thèse renforcée, marché punit le FCF) · Fed HOLD 3.50-3.75% (tail hausse-surprise retiré) · Howmet = safest/shift-proof mais 49× (bid, ne pas chasser) · ordre sell-first si compression : SPCX→ALAB→6324→COHR.
+
+---
+
+## Digest v2 (SPEC enrichissement) — scaffold + backlog Phase-2 — 2026-07-29
+
+**Livré maintenant (pièce indépendante, `1dbb02d`)** : `config/open_questions.yaml` — 4 interrogations vivantes du gérant (Q1 HBM contracté-vs-cyclique · Q2 régime-punition-capex · Q3 China DUV/CXMT · Q4 qualité financement capex/tail Type-3 avec indicateurs Oracle/utilisation/private-credit). Fichier UTILISATEUR (Olivier édite, digest lira). Zéro risque, capture les débats de la session.
+
+**Phase-2 (session dédiée, APRÈS SPEC 2 phase 1 / T6) :** `build_book_context()` (généré depuis theses+positions, L17, jamais écrit à la main) + prompt tier-haut (template THÈSE/DONNÉES/MÉCANISME/FALSIFIEUR/BOOK/QUESTIONS) + routing signaux→open_questions + tests T9-T13.
+
+**⚠️ 2 GARDES COÛT à graver dans le spec avant tout code** (sinon = prochain incident billing, cf [[billing-pro-plus-api40]] cap $40-50) : (1) borne explicite `top_n ≤ 8` + chiffrage mensuel avant merge ; (2) **prompt caching** sur `book_context`+`open_questions` (invariants dans un run → `cache_invariant`, sinon ~800 tok×n input non-caché à chaque digest ×2/jour). Cf skill claude-api. Design par ailleurs solide (open_questions = pont élégant ; no-buy/sell L9 = frontière honnête ; payload untrusted L14#6).
+
+**Éditeur digest.py / pipeline enrichissement = Claude (moi), pas la session parallèle** (§14, éviter re-clobber CI-style).
