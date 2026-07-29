@@ -27,9 +27,38 @@ log() { echo "[$TS] $*" | tee -a "$LOG"; }
 
 mkdir -p "$REPO/logs"
 
-# 1. Reachability check (TCP probe, 3s timeout)
-if ! ssh -o ConnectTimeout=3 -o BatchMode=yes "$VM_HOST" "echo ok" >/dev/null 2>&1; then
-    log "SKIP : VM unreachable"
+# Heartbeat de staleness (cf mémoire mac-sync-launchd-silent-fail) : si le dernier
+# sync réussi est trop vieux, notifier macOS + log LOUD. Dedup via marker. Appelé
+# sur chaque sortie non-OK pour que les échecs répétés ne restent JAMAIS silencieux
+# (le trou du 21-28/07 : 7 jours de SKIP sans une seule alerte).
+STALE_HOURS=6
+STALE_MARKER="$REPO/data/.sync_stale_alerted"
+check_staleness() {
+    local last_ok age_h now
+    last_ok=$(ls -t "$REPO/data/bot.db.backup_sync_"* 2>/dev/null | head -1)
+    [ -z "$last_ok" ] && return 0
+    now=$(date +%s)
+    age_h=$(( (now - $(stat -f %m "$last_ok")) / 3600 ))
+    if [ "$age_h" -ge "$STALE_HOURS" ]; then
+        if [ ! -f "$STALE_MARKER" ] || [ $(( now - $(stat -f %m "$STALE_MARKER") )) -ge $((STALE_HOURS*3600)) ]; then
+            osascript -e "display notification \"Sync VM→Mac muet depuis ${age_h}h — le dashboard peut servir du périmé daté du jour\" with title \"PRESAGE : sync stale\"" 2>/dev/null || true
+            log "ALERT staleness : dernier sync OK il y a ${age_h}h ($last_ok)"
+            touch "$STALE_MARKER"
+        fi
+    else
+        rm -f "$STALE_MARKER"
+    fi
+}
+# Couvre TOUS les chemins de sortie (SKIP + ABORT sqlite/rsync/integrity) : sur un
+# sync réussi, le backup frais rend le check non-stale → zéro fausse alerte.
+trap 'check_staleness' EXIT
+
+# 1. Reachability check (TCP probe, 3s timeout). L'erreur ssh est LOGUÉE (pas
+# avalée) : le `>/dev/null 2>&1` d'avant masquait la cause pendant 7 jours (28/07),
+# cf mémoire mac-sync-launchd-silent-fail.
+if ! ssh -o ConnectTimeout=3 -o BatchMode=yes "$VM_HOST" "echo ok" >/dev/null 2>>"$LOG"; then
+    log "SKIP : VM unreachable (stderr ssh ci-dessus dans le log)"
+    check_staleness
     exit 0
 fi
 
