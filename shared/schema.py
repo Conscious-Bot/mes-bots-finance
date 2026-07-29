@@ -23,7 +23,19 @@ import sqlite3
 from functools import lru_cache
 from pathlib import Path
 
-_DB_DEFAULT = Path(__file__).resolve().parent.parent / "data" / "bot.db"
+
+def _db_default() -> Path:
+    """DB canonique via storage.DB_PATH (honore PRESAGE_DB_PATH), résolue à
+    L'APPEL — pas de constante figée à l'import.
+
+    Cure 29/07/2026 : l'ancien `_DB_DEFAULT` statique était la 3e instance de
+    la classe « chemin DB en dur » (cf bug prod 30/05, puis tests CI, puis
+    handlers db_path) — sur CI les helpers listaient 0 table dans une DB
+    fantôme vide au lieu de lire la fixture.
+    """
+    from shared import storage
+
+    return Path(storage.DB_PATH)
 
 
 class SchemaError(LookupError):
@@ -53,27 +65,27 @@ def _schema_cache(db_path: str) -> dict[str, tuple[str, ...]]:
         conn.close()
 
 
-def list_tables(db: Path | str = _DB_DEFAULT) -> list[str]:
+def list_tables(db: Path | str | None = None) -> list[str]:
     """Return sorted list of table names in the DB."""
-    return sorted(_schema_cache(str(db)).keys())
+    return sorted(_schema_cache(str(db if db is not None else _db_default())).keys())
 
 
-def list_columns(table: str, db: Path | str = _DB_DEFAULT) -> list[str]:
+def list_columns(table: str, db: Path | str | None = None) -> list[str]:
     """Return list of column names for `table`. Raises SchemaError if table missing."""
-    schema = _schema_cache(str(db))
+    schema = _schema_cache(str(db if db is not None else _db_default()))
     if table not in schema:
         raise SchemaError(f"Table '{table}' does not exist. Available: {sorted(schema.keys())}")
     return list(schema[table])
 
 
-def assert_table_exists(table: str, db: Path | str = _DB_DEFAULT) -> None:
+def assert_table_exists(table: str, db: Path | str | None = None) -> None:
     """Raise SchemaError if `table` is not in the DB."""
-    schema = _schema_cache(str(db))
+    schema = _schema_cache(str(db if db is not None else _db_default()))
     if table not in schema:
         raise SchemaError(f"Table '{table}' does not exist. Available: {sorted(schema.keys())}")
 
 
-def assert_column_exists(table: str, column: str, db: Path | str = _DB_DEFAULT) -> None:
+def assert_column_exists(table: str, column: str, db: Path | str | None = None) -> None:
     """Raise SchemaError if `column` is not in `table` (table must also exist)."""
     cols = list_columns(table, db)
     if column not in cols:
