@@ -71,6 +71,16 @@ jobs:
           PRESAGE_DB_PATH: ${{ runner.temp }}/presage_fixture/bot.db
           PRESAGE_STATE_PATH: ${{ runner.temp }}/presage_fixture/bot_state.json
         run: |
+          # Garde anti-fantôme (29/07) : le step unit peut créer data/bot.db par
+          # effet de bord (connect sur chemin défaut = sqlite crée le fichier).
+          # Cette DB partielle faisait échouer les tests à chemin en dur avec
+          # « no such column » (verts en local contre la prod Mac, rouges ici).
+          # Les chemins tests sont maintenant storage.DB_PATH ; on purge ET on
+          # rend le fantôme VISIBLE pour traquer son créateur.
+          if [ -f data/bot.db ]; then
+            echo "::warning::data/bot.db FANTÔME créée pendant le step unit (side-effect à traquer) — purgée"
+            rm -f data/bot.db data/bot.db-wal data/bot.db-shm
+          fi
           python scripts/ci_fixture_db.py
           pytest tests/ -v --tb=short -m "live_data and not live_book and not slow"
       

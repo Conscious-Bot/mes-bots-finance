@@ -8,7 +8,9 @@ import sqlite3
 from intelligence import digest
 from shared import storage
 
-DB = "data/bot.db"
+# Cure 29/07/2026 : via storage.DB_PATH (honore PRESAGE_DB_PATH / fixture CI) —
+# le chemin relatif en dur dépendait du cwd ET ignorait la fixture.
+DB = str(storage.DB_PATH)
 
 
 def n_rows():
