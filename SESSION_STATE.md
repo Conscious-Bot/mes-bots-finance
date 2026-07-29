@@ -4498,3 +4498,23 @@ SPCX/SNPS = les ajouts de JUIN près du top de cycle. Leçon = pas « tu chasses
 **Dette portée (pas urgent) :** EUR-canonique de stockage (gros, cf [[currency-eur-canonical-vs-native-invariant]]) · pin ripgrep pour le gate money-invariant (grep BSD/GNU non-portable) · path corporate-action pour le write-once entry_value (KLAC) · 4 handlers hardcodent encore `data/bot.db` (positions/journal_bias/sources_admin/echo_crypto_macro) — latents, à passer sous `db_path()`.
 
 **Protocole deux-sessions ACTÉ** (CLAUDE.md §14) : un seul éditeur par chantier, `git status <fichier>` avant d'éditer. Origine : saga CI corrigée en double aujourd'hui (3 courses évitées de justesse).
+
+---
+
+## Incident Heimdall RÉSOLU (P0) 2026-07-29 — digest catalyst-blind + backlog SPEC digest
+
+**Incident** : le digest rendait « Aucun catalyst » pendant la semaine la plus dense du trimestre (FOMC + Meta/MSFT/AMZN) = fail-silent, veille du print-gate des €2 160. Root cause = **H1 (design fault)** : section catalysts LLM-extraite des newsletters (qui n'ont pas de calendriers earnings). Diagnostic clé : la table `events` **existe et est peuplée** (par `daily_calendar_refresh_job`) — le digest l'ignorait.
+
+**Fix livré `fc15ff4` (VM==Mac, bot restarté)** : `_deterministic_catalysts()` (digest.py) joint `events` + seed statique pour les internationales que yfinance rate (Infineon/Ajinomoto/Harmonic/Samsung/FOMC-Sept). Préfixé au digest, autoritaire ; LLM ne génère plus sa section. Never-fail-silent : vide→prouve bornes+source, exception→section INCIDENT. **T1 (28 events, Meta/MSFT/AMZN/FOMC présents) + T4 PASS.** Le digest de demain couvre le print-gate.
+
+**⚠️ COORDINATION** : j'ai édité `intelligence/digest.py` — per protocole §14, **je suis l'éditeur de ce fichier**, la session parallèle ne doit PAS réimplémenter le spec dessus (re-clobber).
+
+**BACKLOG digest (spec parallèle, non fait — session fraîche) :**
+- **P0.3** timestamps source sur signaux (`#id [src, date]` + `⏳ périmé >72h`) — cœur de SPEC 2.
+- **T2 partiel** : vide prouve ses bornes mais pas l'escalade `🚨 INCIDENT` en régime crise (câbler le signal de régime).
+- **P1** : `catalysts/universe.yaml` + refresh élargi (remplace le seed hardcodé) · **bloc tape** dans le digest (DD book/grappe/movers = pipe interne du moniteur digue, zéro nouvelle source) · ordre des sections par régime (crise → catalysts+tape d'abord).
+- **P2** : cross-check fraîcheur (signal géopolitique/prix confronté à un fact-check daté ; le cas #1447 Iran = fixture) · test post-mortem en CI.
+- **SPEC 2 densité** (gros chantier) : template par signal impact≥3 (THÈSE/DONNÉES/MÉCANISME/FALSIFIEUR/BOOK) + gardes extraction-vide (« sans chiffres divulgués » = flag ⚠, pas un fait) + interdits verbosité. T6/T7/T8. « Moins résumé, plus de matière, zéro verbosité. »
+- **Gaps macro seed** : GDP/PCE/BOJ pas dans `events` ni seed (à ajouter en P1 static_macro.yaml) ; TEL date à confirmer.
+
+**Findings connexes (verified ce jour, non-digest) :** oil +20-30% (Houthis, prime réelle = input hawkish cross-book, renforce Type-2) · GOOGL capex RELEVÉ $205B (pas Type-3, thèse renforcée, marché punit le FCF) · Fed HOLD 3.50-3.75% (tail hausse-surprise retiré) · Howmet = safest/shift-proof mais 49× (bid, ne pas chasser) · ordre sell-first si compression : SPCX→ALAB→6324→COHR.
