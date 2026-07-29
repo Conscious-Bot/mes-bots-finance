@@ -388,8 +388,77 @@ _CATALYST_STATIC_SEED = [
     ("2026-08-05", "Infineon earnings (cible d'achat)"),
     ("2026-08-06", "Ajinomoto earnings (cible d'achat)"),
     ("2026-08-07", "Harmonic Drive earnings (cible d'achat)"),
-    ("2026-09-15", "FOMC + dot plot (hausse pricee ~82%)"),
+    # L17 : pas de donnee de marche perissable (proba pricee etc.) dans un seed
+    # statique — les probas vivent dans le flux, pas dans le declaratif.
+    ("2026-09-15", "FOMC + dot plot"),
 ]
+
+
+def _dedup_ticker_events(raw: list[dict]) -> list[dict]:
+    """Dedup des events par (ticker, event_type) : garde l'estimation la plus
+    RECENTE (max created_at ; tie-break = date la plus proche).
+
+    Cause (digest 29/07) : daily_calendar_refresh insere une nouvelle row quand
+    l'API deplace une date d'earnings, et UNIQUE(etype,ticker,date) ON CONFLICT
+    IGNORE laisse vivre l'ancienne estimation -> doublons (META 29+30/07,
+    AMD 04+05/08...). La derniere estimation API = la meilleure connaissance.
+    Les macro (ticker NULL/'MACRO') ne sont PAS dedupliques : dates distinctes
+    = events distincts (FOMC, NFP, CPI).
+    """
+    out: list[dict] = []
+    keep: dict[tuple, dict] = {}
+    for r in raw:
+        tk = r.get("ticker")
+        if tk in (None, "", "MACRO"):
+            out.append(r)
+            continue
+        key = (tk, r.get("event_type"))
+        cur = keep.get(key)
+        if cur is None:
+            keep[key] = r
+            continue
+        r_created = str(r.get("created_at") or "")
+        c_created = str(cur.get("created_at") or "")
+        if r_created > c_created or (r_created == c_created and str(r.get("date")) < str(cur.get("date"))):
+            keep[key] = r
+    out.extend(keep.values())
+    out.sort(key=lambda x: str(x.get("date")))
+    return out
+
+
+# T13 (SPEC digest_enrichment_v2) : le digest INFORME, il ne recommande jamais
+# une transaction. Verbes de trade a l'imperatif/infinitif d'ordre = violation.
+_T13_RE = None
+
+
+def _t13_guard(narrative: str) -> str:
+    """Garde post-rendu T13 : detecte les formulations imperatives de trade
+    dans la synthese LLM et APPEND un avertissement (ne censure jamais en
+    silence — etat honnete L3 : le lecteur voit le texte ET le drapeau).
+
+    La vraie defense est dans le prompt (section POINTS DE DECISION) ; cette
+    garde est le filet mecanique (L27 : coherence mecanique > vigilance).
+    """
+    import re
+
+    global _T13_RE
+    if _T13_RE is None:
+        _T13_RE = re.compile(
+            r"(?i)\b("
+            r"vend(?:re|s|ez)|ach(?:e|è)te(?:r|z)?|all(?:è|é|e)ge(?:r|z)?|"
+            r"renforce(?:r|z)?|r(?:é|e)dui(?:re|s|sez)|sor(?:s|tir|tez)|"
+            r"coupe(?:r|z)?|poser? un stop|prend(?:re|s|ez) (?:des |tes )?profits"
+            r")\b"
+        )
+    if _T13_RE.search(narrative):
+        return (
+            narrative
+            + "\n\n⚠ GARDE T13 : formulation imperative de trade detectee "
+            "ci-dessus. Les ordres d'un LLM ne sont PAS autoritatifs (L9) — "
+            "seuls les FAITS comptent ; la decision passe par le framework "
+            "(Q1 these intacte ? / Q2 poids vs cible)."
+        )
+    return narrative
 
 
 def _deterministic_catalysts(days_ahead: int = 14) -> str:
@@ -412,15 +481,19 @@ def _deterministic_catalysts(days_ahead: int = 14) -> str:
     try:
         conn = sqlite3.connect(storage._DB_PATH)
         conn.row_factory = sqlite3.Row
-        for r in conn.execute(
-            "SELECT date, event_type, ticker, description FROM events "
-            "WHERE date >= ? AND date <= ? ORDER BY date",
-            (today.isoformat(), end.isoformat()),
-        ):
+        raw = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT date, event_type, ticker, description, created_at FROM events "
+                "WHERE date >= ? AND date <= ? ORDER BY date",
+                (today.isoformat(), end.isoformat()),
+            )
+        ]
+        conn.close()
+        for r in _dedup_ticker_events(raw):
             lbl = r["description"] or str(r["event_type"])
             tk = r["ticker"]
             rows.append((str(r["date"]), lbl if tk in (None, "MACRO") else f"{tk} — {lbl}"))
-        conn.close()
     except Exception as e:
         return (
             "CATALYSTS DATES\n"
@@ -617,9 +690,17 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         "(Section CATALYSTS DATES fournie deterministiquement en amont — ne la genere PAS.)\n\n"
         "BRUIT JETE\n"
         "UNE SEULE LIGNE format: 'Skipped: N sources, mostly [theme1, theme2]'. Pas de details, pas de liste.\n\n"
-        "ACTIONS POUR OLIVIER (max 5 bullets)\n"
-        "Chaque action LIEE explicitement a une these/trigger/biais nomme. Concret et datable, "
-        "pas de 'surveiller le secteur'.\n\n"
+        "POINTS DE DECISION (max 5 bullets)\n"
+        "Format STRICT par bullet : 'TICKER : [fait + chiffre, ref #id] touche "
+        "[trigger/kill-criterion/question ouverte NOMME] -> a passer dans le framework "
+        "(Q1 these intacte ? / Q2 poids vs cible)'.\n"
+        "INTERDIT ABSOLU (doctrine L9 - le digest INFORME, il ne recommande JAMAIS une "
+        "transaction) : tout imperatif de trade (vendre, acheter, alleger, reduire, "
+        "renforcer, sortir, couper, prendre des profits, poser un stop), tout pourcentage "
+        "de sizing, toute urgence d'execution ('aujourd'hui', 'maintenant', 'cette "
+        "semaine' comme injonction). Les biais documentes servent a CONTEXTUALISER un "
+        "fait, jamais a presser une action. La decision appartient au framework du "
+        "gerant, pas a toi.\n\n"
         "Ton: direct, jargon pro francais, pragmatique, max 900 mots. Precision > brievete : "
         "cite les chiffres des signaux. Pas de fawning, dire les choses sans edulcorer."
     )
@@ -629,6 +710,6 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
             return _deterministic_catalysts() + "\n\nSynthesis failed (empty response). " + str(len(rows)) + " signaux disponibles."
         # Catalysts DETERMINISTES prefixes (Heimdall fix 29/07) : autoritaires,
         # le LLM ne genere plus sa section catalysts (fail-silent supprime).
-        return _deterministic_catalysts() + "\n\n" + narrative.strip()
+        return _deterministic_catalysts() + "\n\n" + _t13_guard(narrative.strip())
     except Exception as e:
         return "Synthesis failed: " + type(e).__name__ + ": " + str(e)[:200]
