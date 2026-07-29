@@ -204,6 +204,19 @@ async def resolve_journal_decisions_job():
                 p0 = d["price_at_decision"]
                 ret = (price_now / p0) - 1.0
 
+                # Garde fail-closed anti-garbage (cure 29/07, cf mémoire
+                # currency-eur-canonical) : un return >1000 % sur 30-90j n'est
+                # quasi-jamais un vrai move — c'est un mismatch d'échelle/currency
+                # (price_at_decision EUR vs price_now natif). Ne PAS stocker de
+                # garbage qui empoisonne mistake_tag/copilot/apprentissage ; skip + warn.
+                if abs(ret) > 10.0:
+                    log.warning(
+                        f"resolve_journal: return absurde {ret:.1f} pour #{d['id']} "
+                        f"{ticker} (p0={p0} vs px_now={price_now}) — SKIP "
+                        "(probable mismatch currency/scale, cf currency-eur-canonical)"
+                    )
+                    continue
+
                 thesis_rel = None
                 if d.get("thesis_id"):
                     try:
