@@ -169,6 +169,16 @@ def main() -> Path:
     from intelligence import debt_monitor
 
     debt_monitor._ensure_tables()
+    # ticker_names : cache créé à la main en prod (aucune migration, aucun
+    # CREATE dans le code) — sans elle, test_no_orphan_table_refs la voit
+    # orpheline dès que les helpers schema lisent VRAIMENT la fixture (29/07).
+    with storage.db() as cx:
+        cx.execute(
+            "CREATE TABLE IF NOT EXISTS ticker_names ("
+            "ticker TEXT PRIMARY KEY, short_name TEXT, long_name TEXT, "
+            "fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+        )
+        cx.commit()
 
     # bot_state minimal (PRESAGE_STATE_PATH conseillé en CI)
     storage.save_state({"bootstrapped": _iso(0), "llm_status": "healthy"})
