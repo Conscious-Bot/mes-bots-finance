@@ -4459,3 +4459,42 @@ Suite du close 29/07 : Olivier « toutes » → les 4 restes exécutés dans l'o
 ## Revue des 13 stops franchis — 2026-07-29
 
 **Décision Olivier (verbatim « pour l'instant on n'applique rien et ne révise rien ») : HOLD GLOBAL** — aucune sortie exécutée, aucun stop révisé, malgré 13 franchissements (DD −21,8 %, gel_15). Contexte au moment de la décision : print Advantest record (marge 47 %, 0 trigger fondamental déclenché), massacre séance JP (Lasertec −21 %), fondamentaux secteur solides vs de-rating de multiple. Dossier 3-groupes présenté (données cassées ENTG/ALAB · perdants · trailing-winners), cartes de décision servies avec commandes prêtes (cas Advantest détaillé). Conséquences mécaniques : les 13 cartes STOP FRANCHI restent en tête de file, gel_15 continue de bloquer les achats, rituel lundi 04/08 re-présentera la file. Non journalisé en DB (proposition d'un hold daté avec contrefactuel déclinée implicitement — à re-proposer si récidive).
+
+---
+
+## Note data 2026-07-29 (3) — KLAC entry_value pré-split (write-once) + analyse entrées
+
+**KLAC `entry_value=1626.22` est PRÉ-split** (split 10:1 du 12/06). `entry_price=162.62`
+EST correct (post-split). L'`entry_value` ne peut PAS être corrigé : trigger SQL
+`theses_entry_value_writeonce` (SPEC_MONEY_INVARIANT §3 / L28, anti-révisionnisme) —
+la cure du 12/06 s'y était heurtée aussi. **Décision Olivier (option B) : respecter
+la digue, ne PAS la lever.** `price_7d` (1620→162, non protégé) corrigé sur VM
+(backup `bot.db.backup_klacsplit_20260729_145109`).
+
+**RÈGLE pour toute analyse d'entrée** : KLAC = SEUL ticker actif où `entry_price != entry_value`
+(vérifié : 900% d'écart, tous les autres cohérents). **Lire `entry_price` pour KLAC**,
+sinon return naïf via entry_value = artefact −87%. KNOWN-GAP : le code prod qui lit
+entry_value devrait COALESCE→entry_price quand ils divergent (split). Doctrine future
+= le trigger write-once devrait connaître les corporate actions (re-dénomination tracée).
+
+**Analyse des prix d'entrée (post-mortem du post Twitter « when you buy ») :** entrées
+GLOBALEMENT BONNES — toutes sous le sommet 30j (jamais de top-chasing, contraire au retail).
+Core de mai bien placé (pullbacks profonds, MAE positive/faible). **4 entrées faibles
+convergentes** (2 méthodes indép : asym basse À l'entrée + MAE profonde après) = 6324/GEV/
+SPCX/SNPS = les ajouts de JUIN près du top de cycle. Leçon = pas « tu chasses les tops »
+(faux) mais « garde la poudre pour le dip au lieu d'ajouts late-cycle ». Tranching = le fix
+(≠ « attendre le dip parfait » du post). €2 160 cash actuel = 1re position de tranching réel.
+
+---
+
+## ENTRY NEXT SESSION (au démarrage, lire ici en premier — close 2026-07-29)
+
+**LE truc à regarder d'abord :** le print **capex Meta/MSFT du 30/07 au soir** = juge S4/S5 (⚠️ sentinelles désarmées si plafond API re-atteint — vérifier `llm_status`). Capex tenu/relevé → thèses intactes, le crash était bêta → override digue `gel_15` justifiable pour redéployer les **€2 160 CTO** (cash Hynix 20/07) en **tranche-2** sur les hautes convictions crashées (TSM c5 +75% upside, 6857/4063/KLAC c4). Capex coupé → S4/S5 rouge, la digue prend un autre sens, on ne redéploie pas. **Décision déjà prise par Olivier : pas de redéploiement AVANT ce print.**
+
+**Calendrier chaud :** Fed 30/07 · **Meta/MSFT 30/07 soir** · Cameco/PCE/AMZN 31/07 · ALAB/MHI/ENTG 04/08 · **Coherent 12/08** (falsification COHR : rev<mid-guidance OU GM<39% OU backlog faiblit) · réplication **Kimi K3** 4-6 sem (falsification SNPS).
+
+**État sain, rien d'urgent infra :** CI VERTE (HEAD stable) · sync heartbeat posé (plus de fail-silent) · plafond API auto-dégrade · cure currency 16 décisions faite · KLAC réglé (option B). Book en `gel_15` (DD −21.8%), Digue 1 gèle les adds — c'est voulu.
+
+**Dette portée (pas urgent) :** EUR-canonique de stockage (gros, cf [[currency-eur-canonical-vs-native-invariant]]) · pin ripgrep pour le gate money-invariant (grep BSD/GNU non-portable) · path corporate-action pour le write-once entry_value (KLAC) · 4 handlers hardcodent encore `data/bot.db` (positions/journal_bias/sources_admin/echo_crypto_macro) — latents, à passer sous `db_path()`.
+
+**Protocole deux-sessions ACTÉ** (CLAUDE.md §14) : un seul éditeur par chantier, `git status <fichier>` avant d'éditer. Origine : saga CI corrigée en double aujourd'hui (3 courses évitées de justesse).
