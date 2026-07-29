@@ -25,7 +25,7 @@ import pytest
 # CI skip via . Local : tourne normalement.
 pytestmark = pytest.mark.live_data
 
-DB = Path(__file__).resolve().parent.parent / "data" / "bot.db"
+from shared.storage import DB_PATH as DB
 
 
 @pytest.fixture(scope="module")

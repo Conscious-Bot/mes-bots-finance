@@ -120,13 +120,13 @@ def main() -> Path:
                 (_iso(d),),
             )
         # Prédictions : 3 résolues (Brier) + 2 ouvertes
-        for i, (brier, outcome) in enumerate([(0.04, "correct"), (0.36, "wrong"), (0.09, "correct")]):
+        for i, (brier, outcome) in enumerate([(0.04, "correct"), (0.36, "incorrect"), (0.09, "correct")]):
             cx.execute(
                 "INSERT INTO predictions(ticker, direction, horizon_days, baseline_price, "
                 "baseline_date, target_date, resolved_at, final_price, outcome, "
-                "probability_at_creation, brier_score, methodology_version, claim_type, origin) "
+                "probability_at_creation, brier_score, methodology_version, claim_type, origin, return_pct) "
                 "VALUES('TSM', 'up', 30, 180.0, ?, ?, ?, 190.0, ?, 0.8, ?, 'v2', "
-                "'price', 'signal')",
+                "'price', 'manual', 0.0556)",
                 (_day(60 + i), _day(30 + i), _iso(30 + i), outcome, brier),
             )
         for i in range(2):
@@ -135,7 +135,7 @@ def main() -> Path:
                 "baseline_date, target_date, probability_at_creation, methodology_version, "
                 "claim_type, origin) "
                 "VALUES('CCJ', 'up', 60, 50.0, ?, ?, 0.7, 'v2', 'price', "
-                "'signal')",
+                "'manual')",
                 (_day(10 + i), _day(-50 + i)),
             )
         # Grappe kill_switch : 3 snapshots complets

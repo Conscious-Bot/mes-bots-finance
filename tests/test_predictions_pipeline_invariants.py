@@ -29,7 +29,7 @@ import pytest
 # CI skip via -m "not slow and not live_data". Local : tourne normalement.
 pytestmark = pytest.mark.live_data
 
-DB = Path(__file__).resolve().parent.parent / "data" / "bot.db"
+from shared.storage import DB_PATH as DB
 
 OUTCOME_ENUM = {"correct", "incorrect", "neutral"}
 

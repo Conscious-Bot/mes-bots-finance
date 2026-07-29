@@ -7,6 +7,7 @@ Perf as ratio % (currency-invariant). DB read-only; per-panel try/except. Leafle
 import contextlib
 import importlib
 import json
+import os
 import re
 import sqlite3
 from datetime import UTC, datetime, timedelta
@@ -103,7 +104,11 @@ REVIEWS = [
 ]
 
 OUTPUT = Path("dashboard/dashboard.html")
-DB = "file:data/bot.db?mode=ro"
+# DB_PATH honore PRESAGE_DB_PATH (fixture CI) — sinon data/bot.db gitignored en CI
+# = "no such column" sur les tests render_smoke. Défini en GLOBAL => le fallback
+# _q.__globals__["DB_PATH"] (~L3620) le voit aussi, plus de hardcode CWD-relatif.
+DB_PATH = os.environ.get("PRESAGE_DB_PATH") or "data/bot.db"
+DB = f"file:{DB_PATH}?mode=ro"
 
 COUNTRY = {
     "TSM": "Taiwan",
