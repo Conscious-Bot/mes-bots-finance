@@ -4412,3 +4412,50 @@ check chiffré entre chaque, leçon "symbole vs fichier" appliquée à chaque so
 **Calendrier chaud** : KLA ce soir 28/07 · Advantest 29/07 · AMZN + Schneider H1 + Meta/MSFT 30/07 · Cameco 31/07 · ALAB + MHI + ENTG 04/08 · Cheniere 06/08 · Harmonic 07/08 (décisif T1) · Lasertec début août. Safran H1 publié CE JOUR : guidance FY relevée, LEAP 1030 S1 (+41 %).
 
 **Évolution vs 05/07** : GOOGL T2 et TSM T3 (Intel 18A) redescendus AT_RISK→SAFE ; AVGO T1, GEV T1, 6324.T T1 persistent AT_RISK 2 tours consécutifs.
+
+---
+
+## Close 2026-07-29 — Marathon : audit thèses (crash IA/semis) → cascade pannes infra → forensique currency → carnet ventes
+
+**Trigger** : « reprends où on en était » pendant le crash IA/semis du 28/07. Dérive vers infra + currency. Session TRÈS longue (billing Pro, être économe cf [[billing-pro-plus-api40]]).
+
+**LIVRÉ (Mac==VM sauf mention) :**
+1. `224456a` fix(llm) — plafond API Anthropic → `LLMUnavailableError` dans `_classify_anthropic_error`. Ferme la CLASSE : chaque cap mensuel auto-dégrade proprement (pending_llm + digest vacances + set_llm_status + alerte Telegram once) au lieu du spam 400 silencieux. Bot VM restarté. Testé unitaire (positif+négatif).
+2. `e0cc3df` fix(dashboard) STOP FRANCHI vraie profondeur signée [commit session PARALLÈLE, mon edit dupliqué absorbé — leçon : `git log -- <file>` AVANT d'éditer].
+3. `40f7ed1`+`be5f0ae` fix(ci) money_invariant baseline 49→**45** (46 était pollué par l'injection du méta-test). ⚠️ Compteur NON-PORTABLE : BSD grep(Mac)=44, GNU(CI)=45 même commit → `--update` local CASSE CI. Dette : pinner ripgrep.
+4. **Sync Mac dégelé** manuel (442 Mo). ⚠️ Auto-sync launchd TOUJOURS mort (silence) cf [[mac-sync-launchd-silent-fail]].
+5. **Digest ressuscité** : c'était le plafond API (Olivier a relevé la limite Console). Vérifié live.
+6. **Cure currency 6 returns** (⚠️ NON committée — UPDATE inline ssh, backup VM `bot.db.backup_fxcure_20260729_073210`). `decisions.return_30d_pct` recalculé EUR via `get_fx_rate_on` : id10 +35.7%, id11 +21.1%, id12 +23.2%, id18 +10.7%, id84/85 −3.9% (remplaçait +24875%/+193764% garbage).
+
+**DÉCOUVERTE currency EUR-canonique** cf [[currency-eur-canonical-vs-native-invariant]] : proof-of-value (`thesis_alpha_resolver`) SAIN (natif fx-strippé). Bug dans `decisions.return_30d_pct` (`resolve_journal_decisions_job` daily.py:205, sans fx) → couche apprentissage seulement.
+
+**RESTE (priorisé) :**
+- Downstream cure : `mistake_tag_auto` id84/85 encore `sold_too_early` (FAUX, −3.9%=bonne vente) → re-dériver (`auto_classify_mistake` journal.py:18) + outcome_label 5 interventions copilote.
+- Résolveur : normaliser `decisions.return_30d_pct` en EUR (7 USD subtils pré-migration ~+10% + forward).
+- Auto-sync launchd : dé-masquer erreur + heartbeat staleness.
+- CI fixture live_data : build alembic OK à head 0065 avec colonnes, tests PASSENT en local contre la fixture mais ÉCHOUENT en CI → chemin/env DB en CI à débugger (`scripts/ci_fixture_db.py`, PRESAGE_DB_PATH).
+
+**CARNET VENTES (fenêtre manual 12/06→20/07/2026) :** vendu ~€13 285 (net, 6857 dédupé) · racheté ~€11 102 (12/06→**26/06** seulement) · non réinvesti ~€2 180. PEA STMPA €2 713→SU/HO/SAF €2 693 (recyclé) ; CTO €10 572→€8 409 = **~€2 163 cash CTO = essentiellement vente Hynix €1 447 du 20/07** (24j après dernier achat). ⚠️ Cash buffer NON tracké = flux net pas solde.
+
+**DÉCISION EN ATTENTE** : redéployer ~€2 160 CTO. Asymétrie prix crashés : TSM(c5)+75%, 6857(c4)+90%, 4063(c4)+67%, KLAC(c4)+62% intacts. GATÉ sur (1) capex Meta/MSFT 30/07 + (2) digue gel_15 (DD −21.8% gèle adds → override requis).
+
+**AUDIT THÈSES 28/07** : aucune morte, crash = bêta/compression + unwind levier sur fondamentaux intacts. SNPS/COHR sous falsification datée (K3 / 12/08). Circular-financing NVDA-OpenAI = S4/S5 orange.
+
+---
+
+## Addendum 2026-07-29 (2) — les 4 « RESTE » livrés + thème HEIMDALL (never-fail-silent)
+
+Suite du close 29/07 : Olivier « toutes » → les 4 restes exécutés dans l'ordre sûreté/taille.
+
+**LIVRÉ (commits Mac==VM sauf cures = UPDATE VM directes, backupées) :**
+- **#5+#8 Cure currency COMPLÈTE (16 décisions)** : les 6 flagrants ¥/₩ + les **10 USD subtils du 29/05** (EUR-scale confirmé en comparant aux prix natifs yfinance : price_at_decision ≈ natif × fx). Returns recalculés EUR via `get_fx_rate_on`, mistake_tags re-dérivés (seuils 0.05/0.10), **6 flips copilote** (leçons inversées récupérées : ex MP « bonne entrée » → −11 % réel ; 6857 84/85 « sold_too_early » → `flat_exit`). Backups `bot.db.backup_downstream_20260729_085532` + `bot.db.backup_usdcure_20260729_085840`. Agrégats (bot_conceptions/preferences) laissés au recal du 1er (doctrine). **Garde fail-closed** `4f2afae` : resolve_journal_decisions_job skip+warn si return >1000 % (ferme la classe forward).
+- **#6 Auto-sync launchd** `858d9ae` : erreur ssh dé-masquée (`2>>LOG` au lieu de `>/dev/null 2>&1`) + `check_staleness` (notification macOS + log LOUD, dedup, `trap` sur TOUS chemins). Job launchd re-testé via kickstart = OK. Cause racine du trou 21-28/07 non reproductible à froid → non diagnosticable, mais **plus jamais silencieux**.
+- **#7 CI fixture live_data** `3e89255` (CI en cours au moment du save) : DEUX bugs empilés, masqués en local car `./data/bot.db` réel a les colonnes. (a) CHEMIN : tests + render.py hardcodaient `data/bot.db` (gitignored CI) → tous honorent `PRESAGE_DB_PATH`/`storage.DB_PATH` ; render `DB_PATH` global (le fallback `_q.__globals__` le voit). (b) DONNÉE : `ci_fixture_db.py` seedait des predictions invalides (origin='signal' sans signal_id, outcome='wrong' hors enum, resolved sans return_pct) → seed valide. 22 passed local.
+
+**THÈME HEIMDALL** cf [[heimdall-never-fail-silent]] : fil rouge de la session = tuer la défaillance SILENCIEUSE. API cap → auto-dégrade+alerte · sync → heartbeat staleness · résolveur → garde anti-garbage · STOP FRANCHI → vraie profondeur. Le système a le droit de dire « je ne sais pas / stale / dégradé », jamais de mentir en silence.
+
+**RESTE (inchangé, gaté) :** redéploiement ~€2 160 CTO (cash Hynix 20/07) gaté sur capex Meta/MSFT 30/07 + override digue gel_15 · EUR-canonique de stockage (gros chantier, parallèle) · dette CI grep money-invariant non-portable (pin ripgrep).
+
+## Revue des 13 stops franchis — 2026-07-29
+
+**Décision Olivier (verbatim « pour l'instant on n'applique rien et ne révise rien ») : HOLD GLOBAL** — aucune sortie exécutée, aucun stop révisé, malgré 13 franchissements (DD −21,8 %, gel_15). Contexte au moment de la décision : print Advantest record (marge 47 %, 0 trigger fondamental déclenché), massacre séance JP (Lasertec −21 %), fondamentaux secteur solides vs de-rating de multiple. Dossier 3-groupes présenté (données cassées ENTG/ALAB · perdants · trailing-winners), cartes de décision servies avec commandes prêtes (cas Advantest détaillé). Conséquences mécaniques : les 13 cartes STOP FRANCHI restent en tête de file, gel_15 continue de bloquer les achats, rituel lundi 04/08 re-présentera la file. Non journalisé en DB (proposition d'un hold daté avec contrefactuel déclinée implicitement — à re-proposer si récidive).
