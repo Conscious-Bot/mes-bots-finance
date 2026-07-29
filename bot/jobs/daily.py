@@ -53,24 +53,50 @@ async def daily_digest_job():
         from intelligence import digest as _digest_mod
         from shared import notify as _notify
 
-        narrative = _digest_mod.generate_unified_digest(since_hours=12, max_signals=30)
+        narrative = _digest_mod.generate_unified_digest(since_hours=12, max_signals=60)
         # Phase 1 wiring (26/06) : préfixe monitors summary live pour surface user
         try:
             from intelligence.monitors_summary import format_text_summary as _monitors_txt
             monitors_block = _monitors_txt()
         except Exception:
             monitors_block = ""
+        # Bloc ÉTAT BOOK mécanique (cure 29/07, aligné cmd_digest) : digue + DD
+        # + stops franchis — déterministe, jamais résumé/coupé par le LLM.
+        try:
+            _book_hdr = _digest_mod.book_state_header()
+        except Exception:
+            _book_hdr = None
+
+        def _send_chunked(msg: str) -> None:
+            # Cure 29/07 (« le digest coupe trop d'infos ») : chunking par
+            # paragraphes comme cmd_digest — fini le [:3900] + [truncated]
+            # qui amputait la fin du digest AUTO 2×/jour.
+            if len(msg) <= 3900:
+                _notify.send_text(msg)
+                return
+            cur = ""
+            for para in msg.split("\n\n"):
+                if len(cur) + len(para) + 2 < 3900:
+                    cur = cur + "\n\n" + para if cur else para
+                else:
+                    if cur:
+                        _notify.send_text(cur)
+                    cur = para
+            if cur:
+                _notify.send_text(cur)
+
         if narrative and not narrative.startswith("Aucun signal"):
             msg = "DIGEST AUTO (12h)\n\n"
+            if _book_hdr:
+                msg += "ETAT BOOK\n" + _book_hdr + "\n\n"
             if monitors_block:
                 msg += monitors_block + "\n\n"
             msg += narrative
-            if len(msg) > 3900:
-                msg = msg[:3900] + "\n[truncated]"
-            _notify.send_text(msg)
+            _send_chunked(msg)
         elif monitors_block and "tout sain" not in monitors_block:
             # Si pas de digest narrative mais monitors ont signal → envoie tout de même
-            _notify.send_text("DIGEST AUTO (12h)\n\n" + monitors_block)
+            _hdr = ("ETAT BOOK\n" + _book_hdr + "\n\n") if _book_hdr else ""
+            _notify.send_text("DIGEST AUTO (12h)\n\n" + _hdr + monitors_block)
         try:
             from shared.healthcheck_ping import ping as _hc_ping
             _hc_ping("daily_digest_job", status="success")
