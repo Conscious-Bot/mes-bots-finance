@@ -4530,3 +4530,37 @@ SPCX/SNPS = les ajouts de JUIN près du top de cycle. Leçon = pas « tu chasses
 **⚠️ 2 GARDES COÛT à graver dans le spec avant tout code** (sinon = prochain incident billing, cf [[billing-pro-plus-api40]] cap $40-50) : (1) borne explicite `top_n ≤ 8` + chiffrage mensuel avant merge ; (2) **prompt caching** sur `book_context`+`open_questions` (invariants dans un run → `cache_invariant`, sinon ~800 tok×n input non-caché à chaque digest ×2/jour). Cf skill claude-api. Design par ailleurs solide (open_questions = pont élégant ; no-buy/sell L9 = frontière honnête ; payload untrusted L14#6).
 
 **Éditeur digest.py / pipeline enrichissement = Claude (moi), pas la session parallèle** (§14, éviter re-clobber CI-style).
+
+---
+
+## Close 2026-07-30 — Tribunal du book exécuté + doctrine (North Star, §XI/§XIII/§XIV) + ⚠️ ÉTAT INFRA ANORMAL
+
+**⚠️⚠️ LIRE EN PREMIER — ÉTAT INFRA ANORMAL, NON RÉCONCILIÉ :**
+Le sync VM→Mac est **EN PAUSE** (`launchctl bootout com.olivier.presage-sync-from-vm`). Raison : le sync horaire (:05) rsync la copie VM par-dessus `data/bot.db` du Mac — il a **détruit 3× le logging des trades du jour** avant qu'on trace la cause (script `sync_db_from_hetzner.sh` : « Mac = view-only client, VM = production source of truth »). Conséquence : **TOUT le travail data du jour (14 trades, thèses, 21 stops, 10 décisions) n'existe QUE sur le Mac.** La VM est PÉRIMÉE (dernier trade id 246, 20/07).
+- Backup protégé : `data/bot.db.SAFE_tribunal30-07_20260730_171631` (439M).
+- **NE PAS réactiver le sync avant réconciliation Mac→VM** (sinon tout est re-détruit). Réactivation : `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.olivier.presage-sync-from-vm.plist`.
+- Note : NB — modèle mental gérant (« Mac = writer, VM = réplique ») ≠ script (VM = source, Mac view-only). À trancher : sens du sync (one-way strict Mac→VM ?).
+
+**Livré (git, poussé) :** decision log `docs/decision_logs/revue_complete_book_2026-07-30.md` — `e95c7ae` (§I-XI) + `b7bf44e` (§XII-XIV). §XI règle preuve-de-monétisation · §XII rationnels gérant · §XIII SPCX override · §XIV stops frais.
+
+**Livré (DB Mac, sync-paused — PAS commité, c'est de la data) :**
+- Tribunal : 6 ventes (COHR/ALAB/ENTG/6920/6324 clôturées + 4063 trim) + 8 achats (KLAC/000660×2/MU/SPCX×2/AMZN/2802 Ajinomoto) = **14 rows**. EUR=vérité, natif reconstruit via `get_fx` (fx-approx → à curer).
+- Thèses : 5 → concluded ; **000660 re-créée** (id 58, c4, signée §XII, stop 1M KRW) + **2802 Ajinomoto** (id 59, c3, sans stop post-print) ; triggers amendés KLAC/SNPS/MU.
+- Décisions : **10** (4 overrides+CF, §XIII SPCX, 5 policy). Rule #7 vert.
+- **21 stops frais** (low-juillet − buffer vol) + 3 bugs devise réparés (AVGO/AMZN/SPCX EUR→USD).
+- **Backstop §IX gravé : 30 000€** (2 closes → expo ~50%). Digue gel_25 levée de facto §X.
+
+**Livré (Obsidian, Mac) :** « Revue complète du book — 2026-07-30 » · **26 notes `Invalidation — <TICKER>`** (mirror verbatim theses.invalidation_triggers) · « Bar Maximal — North Star qualité 2040 ».
+
+**Doctrine gravée :** §XI preuve-de-monétisation (typage capex marginal, bump interdit si claim-only/dette) · North Star / Bar Maximal (7 critères + 6 forces + watchlist 12) · **trou structurel = démographie 0% du book**.
+
+**Findings :** SPGI = thèse c4 SANS position → parkée `out_of_scope` (réversible) · MU fork valeur (943 vs 1447€, classe bug 198-201) · sync VM→Mac écrase le Mac (prouvé).
+
+**Non fait / pas mon chantier :** pytest full + audit drift NON lancés (DB Mac-only précieuse pré-réconciliation — à relancer après). Commit (a) digest (`intelligence/digest.py` M) = autre éditeur.
+
+**Entry next session (PRIORITÉ) :**
+1. 🔴 **Réconciliation Mac→VM** — le travail du jour est sur le Mac SEUL. Pousser sur la VM + trancher sens du sync + réactiver le sync APRÈS seulement.
+2. Cure natifs fx (trades du jour) + fork valeur MU.
+3. Décisions params gérant : SPGI (acheter ballast / laisser out) · cible 000660 rebaser · cible/stop 2802 post-print 06/08 · typage ballast §XII.
+4. North Star : 1er nom qualité (dossier 7 critères + gate prix, financé par résolution manche non-qualité).
+5. Prints : AMZN ce soir · Infineon 05/08 · Ajinomoto 06/08 (juge l'override timing).
