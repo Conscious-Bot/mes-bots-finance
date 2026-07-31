@@ -55,6 +55,12 @@
 - **Stop / Cible** (*stop / target*) — les deux bornes de l'axe ; la primitive de lecture réutilisée à l'identique partout.
 - **Asymétrie** (*asymmetry*) — distances brutes vers stop vs cible. Aucun verdict auto-dérivé du framework (fix anti-tautologie).
 
+### Nature de thèse & construction (North Star — ratifié 31/07/2026)
+
+- **Sleeve-croyance** (*belief-sleeve*) — ligne dont la thèse repose au 1er ordre sur une croyance **non-falsifiable** (ex : Starship) ; seule une sous-partie est falsifiable (ex : Starlink). Distincte d'un pari-sur-preuve. Taille ≤ venture (~1 %), zéro stop prix. Cf `docs/NORTH_STAR_QUALITE.md`.
+- **Régime A / B** (*regime A/B*) — **A** = thèse falsifiable sur faits auditables ; **B** = sleeve-croyance (pari sur un futur non-encore-observable). Un nom peut mélanger les deux (SPCX : Starlink = A, Starship = B).
+- **Faux décorrélateur** (*false decorrelator*) — ligne présentée comme diversifiante mais dont le **driver marginal est le même facteur que le cluster** (GEV/SU = capex datacenter déguisé en électrification). Sa qualité intrinsèque peut tenir ; sa fonction de diversification, non. Oppose au décorrélateur authentique (LNG).
+
 ### Signaux & sources
 
 - **Signal** (*signal*) — unité ingérée (newsletter, 8-K, macro…), typée + sentiment.
