@@ -4564,3 +4564,24 @@ Le sync VM→Mac est **EN PAUSE** (`launchctl bootout com.olivier.presage-sync-f
 3. Décisions params gérant : SPGI (acheter ballast / laisser out) · cible 000660 rebaser · cible/stop 2802 post-print 06/08 · typage ballast §XII.
 4. North Star : 1er nom qualité (dossier 7 critères + gate prix, financé par résolution manche non-qualité).
 5. Prints : AMZN ce soir · Infineon 05/08 · Ajinomoto 06/08 (juge l'override timing).
+
+---
+
+## Close 2026-07-31 — North Star v1.1 + CCJ signée + module weekly + specs digest ; ⚠️ replay VM TOUJOURS bloquant
+
+**⚠️⚠️ ÉTAT INFRA INCHANGÉ depuis le 30/07 — LIRE le close 30/07 en premier :** sync VM→Mac EN PAUSE (`bootout`), tout le travail data (tribunal 30/07 + CCJ 31/07) sur le **Mac SEUL**, VM périmée. Backup `data/bot.db.SAFE_tribunal30-07_*`. **NE PAS réactiver le sync avant réconciliation.** Bloc `scratchpad/vm_replay_complet.py` (portable, dup-safe, merge) prêt pour ton terminal VM. **Preuve vivante du problème** : le digest 31/07 (tournant sur la VM) affichait ENTG/6920.T comme DÉTENUS+stoppés alors que vendus 30/07 → le book du digest est fiction tant que le replay n'est pas passé. **Gel des écritures DB Mac** tenu toute la session (rien ajouté à la divergence sauf CCJ, déjà dans le replay).
+
+**Livré (git, poussé) :**
+- North Star **v1.1** (`docs/NORTH_STAR_QUALITE.md`) — critère 2 « à travers un DOWNTURN » intégré, GEV/BESI/CCJ/SPCX re-typés, **dossier #1 LINDE instruit** (passe critère 2 pour de vrai), gates de prix armées watchlist + ARM/INTC/PLTR. Extension `QUALITY_BAR.md`. TODO refresh. → `52ad630`.
+- **`intelligence/weekly_synthesis.py`** (Format B) : payload (signals 7j + events + book_context + open_questions, reactions fail-soft) → render → guards (provenance regex + `_t13_guard` réutilisé + fail-closed L15). **8 tests verts** (`tests/test_weekly_synthesis.py`). → `343a152`. Reste wire-up : transport mail/Telegram + cron VM dim 18h.
+
+**Livré (DB Mac, sync-paused — dans le replay) :** CCJ **re-souscrite signée §XV** (supersede id 46 → nouvelle active, variant cycle-de-contrats, 4 falsifieurs, stop $78, cible à donner). SPGI parkée `out_of_scope`.
+
+**Livré (mémoire/spec) :** contrat de style weekly (`docs/templates/weekly_synthesis_prompt.md`) · spec weekly · digest v2 phase2 guards + v2.2 §XV (fact-anchor, indépendance, nature, sentinel NVDA amont, routing régime, plateau_tag, trigger AVGO) + **incident fondateur : digest a scoré AVGO URGENT sur claim FAUSSE « Microsoft coupe le capex » alors que MSFT +8% capex↑**.
+
+**Entry next session (PRIORITÉ) :**
+1. 🔴 **REPLAY VM** (`vm_replay_complet.py`, ton terminal) — débloque TOUT (targets, plateau_tag, trigger AVGO, digest fiable). Rien d'autre côté DB avant.
+2. Réactiver le sync → Mac converge.
+3. **Post-réconciliation** : targets CCJ/000660/2802 · plateau_tag + trigger AVGO (v2.2) · cure natifs fx.
+4. **Chantiers code (session fraîche, coordonner éditeur digest.py)** : guards digest v2.2 · wire-up weekly (transport + cron VM).
+5. Prints : AMZN passé · AAPL 31/07 · Infineon 05/08 · Ajinomoto 06/08.
