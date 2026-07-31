@@ -74,6 +74,8 @@ Quand M1/M2/M3 ne peuvent être satisfaits (data stale, edge non-prouvé, chaîn
 
 Source unique : `docs/QUALITY_BAR.md`. Pas de re-formulation ailleurs. Pointage depuis `CLAUDE.md` « Catches récurrents » + L21 LESSONS pour les 3 mécanismes. Toute décision PRESAGE qui contredit cette base = revue à zéro.
 
+**Extension portefeuille** : `docs/NORTH_STAR_QUALITE.md` (gravé 30/07/2026, amendé v1.1) — le **Bar Maximal**, constitution d'ENTRÉE du book à horizon 2040 : 7 critères qualité + 6 forces séculaires + watchlist mondiale + gates de prix armées (§XI appliqué à la qualité elle-même). Même esprit que cette base : aucune claim de qualité sans preuve auditable. Note vault miroir : « Bar Maximal — North Star qualité 2040 ».
+
 ---
 
 ## Addendum opérationnel — fusionné de `QUALITY_BAR.md` (racine, 08/06/2026)
