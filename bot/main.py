@@ -324,6 +324,10 @@ async def post_init(app):
                   id="kill_escalate", replace_existing=True)
     sched.add_job(daily_calendar_refresh_job, "cron", hour=5, minute=0)
     sched.add_job(daily_backup_job, "cron", hour=4, minute=0, misfire_grace_time=14400)
+    # SYNTHÈSE HEBDO (Format B) : dimanche 18h (tz scheduler = Europe/Paris). Cf docs/templates/weekly_synthesis_prompt.md.
+    from bot.jobs.weekly import weekly_synthesis_job
+    sched.add_job(weekly_synthesis_job, "cron", day_of_week="sun", hour=18, minute=0,
+                  misfire_grace_time=14400, id="weekly_synthesis", replace_existing=True)
     # SOCLE S0 : OTS anchor chain-head daily 6h. Cf SPEC_SOCLE.md S5 + HANDOFF_SOCLE.md.
     # Lignage = integrite (Merkle-DAG). Track-record provable -- chaque jour compte.
     from bot.jobs.integrity_anchor import integrity_anchor_daily_job
