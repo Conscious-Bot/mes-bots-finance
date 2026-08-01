@@ -1,0 +1,139 @@
+# PRESAGE — FILE D'ATTENTE DE PRESSION (créée 2026-08-01)
+# ---------------------------------------------------------------------------
+# Mécanisme de gouvernance contre le risque n°1 d'un système cohérent : confondre
+# une intuition brillante avec une amélioration démontrée.
+#
+# RÈGLE : toute envie de modifier la constitution, une politique ou l'interface
+# est NOTÉE, pas exécutée. Après quelques semaines, l'essentiel se révélera lié à
+# un événement isolé ; ce qui revient sans cesse mérite une évolution.
+#
+# FRONTIÈRE STRICTE (sinon la file devient une excuse pour ne rien réparer) :
+#   - changement CONCEPTUEL         → file d'attente
+#   - défaut DÉMONTRÉ               → correction immédiate, hors file
+#     (un défaut prouvé a déjà sa preuve, il n'a pas besoin de récurrence)
+#
+# AUSTÉRITÉ : une entrée ne contient QUE les champs ci-dessous. Aucune proposition
+# de solution — sinon la file devient une boîte à idées, ce qu'elle doit empêcher.
+# Champs : date · observation · violation_demontree · impact · donnees_manquantes ·
+#          decision (ignore | observe | implement) · occurrences
+#
+# REVUE : mensuelle. Une entrée avec ≥3 occurrences et une violation démontrée
+# passe en `implement`. Une entrée isolée après 3 mois passe en `ignore`.
+# ---------------------------------------------------------------------------
+
+meta:
+  version: 1
+  created: 2026-08-01
+  review_cadence: monthly
+  promote_rule: "occurrences >= 3 ET violation_demontree = true -> implement"
+  expire_rule: "occurrence unique après 3 mois -> ignore"
+
+entries:
+
+  - id: PQ-001
+    date: 2026-08-01
+    observation: >
+      L'interface est organisée par catégories documentaires (Overview, Positions,
+      Strategy, Method, Alerts) alors que le moteur est devenu causal. Proposition
+      d'inverser la navigation : obligations → interdictions → observations, et
+      navigation par causalité (décision → obligation → hypothèse → preuve).
+    violation_demontree: false
+    impact: "cognitif — hiérarchie visuelle non alignée sur la hiérarchie du moteur"
+    donnees_manquantes: >
+      Le registre d'attribution des décisions (Decision Provenance Graph) n'existe
+      pas. Sans lui, une navigation causale afficherait un graphe non alimenté.
+    decision: observe
+    occurrences: 1
+
+  - id: PQ-002
+    date: 2026-08-01
+    observation: >
+      Cerebro fonctionne comme un moteur de recherche ; proposition d'en faire un
+      moteur d'explication (« pourquoi cette ligne est-elle en c4 ? » → hypothèses,
+      preuves, solveurs, politiques, historique).
+    violation_demontree: false
+    impact: "capacité d'investigation"
+    donnees_manquantes: "idem PQ-001 — dépend entièrement du registre de provenance"
+    decision: observe
+    occurrences: 1
+
+  - id: PQ-004
+    date: 2026-08-01
+    observation: >
+      Six panneaux retirés le 02/06 (« panneaux infinis rébarbatifs ») restent dans
+      render.py : stress-tests, factor exposures, return clustering, Mauboussin
+      sizing, SPOF, calibration progress. ~430 lignes, aucun appelant, zéro
+      réactivation en deux mois. Le motif inscrit au code — « code backend conservé
+      pour réactivation future » — ne tient pas : git conserve déjà tout, la
+      restauration est un `git show`.
+    violation_demontree: false
+    impact: >
+      ~4% du fichier. Gain de maintenabilité réel mais modeste ; la dette de taille
+      est ailleurs (render() 1386 lignes, _vault 743, _position_card 717).
+    donnees_manquantes: >
+      Aucune — le dossier est complet. Le seul obstacle est l'impossibilité
+      d'exécuter le rendu depuis le sandbox (Python 3.10 vs 3.14 en production)
+      pour prouver l'absence de régression.
+    decision: implement
+    occurrences: 1
+
+  - id: PQ-005
+    date: 2026-08-01
+    observation: >
+      render() fait 1386 lignes, _vault 743, _position_card 717, _urgence 433 :
+      les 15 plus grosses fonctions concentrent ~6000 des 10000 lignes. Toute
+      refonte de navigation toucherait d'abord ce monolithe.
+    violation_demontree: false
+    impact: "maintenabilité ; conditionne le coût de tout chantier UI ultérieur"
+    donnees_manquantes: >
+      Aucune donnée ne manque — c'est un chantier de découpe seam-par-seam, pas
+      une question ouverte. Il doit précéder la refonte de navigation (PQ-001),
+      sans quoi celle-ci se ferait dans le monolithe.
+    decision: observe
+    occurrences: 1
+
+  - id: PQ-006
+    date: 2026-08-01
+    observation: >
+      Fusion Positions/Thèses proposée à l'audit. Argument retenu (différent de
+      celui avancé) : ce n'est pas de la déduplication, c'est que toute position
+      SANS thèse deviendrait un trou visible au premier écran. SPCX a vécu sept
+      mois comme position non instruite.
+    violation_demontree: true
+    impact: >
+      Détection d'erreur — passe la règle souveraine par la seconde porte.
+      Aurait rendu visible immédiatement la seule ligne du book jamais underwritée.
+    donnees_manquantes: >
+      Aucune sur le fond. Bloqué opérationnellement : nécessite app.css, en cours
+      d'édition par la session terminale (protocole deux-sessions).
+    decision: implement
+    occurrences: 1
+
+  - id: PQ-007
+    date: 2026-08-01
+    observation: >
+      Bande d'obligations bloquantes en tête d'écran (cinq ouvertes actuellement,
+      aucune visible au premier coup d'œil).
+    violation_demontree: true
+    impact: >
+      Détection d'erreur. Invariant de conception associé : cette bande doit être
+      VIDE la plupart des jours — si elle ne l'est jamais, la porte des obligations
+      est trop lâche et c'est un défaut, pas une information (leçon des « urgents »
+      du digest).
+    donnees_manquantes: "aucune — bloqué sur app.css (session terminale)"
+    decision: implement
+    occurrences: 1
+
+  - id: PQ-003
+    date: 2026-08-01
+    observation: >
+      Plusieurs widgets (sector mix, pays) ne sont liés à aucune politique ni
+      obligation. Proposition de les rétrograder en couche observation, voire de
+      les supprimer.
+    violation_demontree: false
+    impact: "H11 — coût d'attention sans gain décisionnel démontré"
+    donnees_manquantes: >
+      Aucune mesure d'usage réel : combien de fois un widget a-t-il précédé ou
+      modifié une décision ? Le registre de provenance répondra.
+    decision: observe
+    occurrences: 1

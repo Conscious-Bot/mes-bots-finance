@@ -209,6 +209,36 @@ Cette carte est **vivante**. Mise à jour requise quand :
 
 **Pas de mise à jour requise** pour : commits ad-hoc, refactors locaux, bug fixes.
 
+## 11. Topologie des écritures — single-writer par store (gravée 31/07/2026, leçon incident sync 30/07)
+
+Le graphe que l'incident du 30/07 a prouvé manquant : 13 trades CORRECTS écrits sur le
+MAUVAIS nœud (réplique), détruits by design par le sync de :05. Les incidents vivent
+sur les arêtes non-dessinées. Cf [[L33]] [[L34]].
+
+```
+VM Hetzner (37.27.247.126) — SOURCE DE VÉRITÉ
+  writers : crons PRESAGE (bot.main, digest, monitors) + session terminale Olivier (ssh)
+  stores  : bot.db (TOUTES tables) · logs prod
+     │  sync horaire :05 — SENS UNIQUE VM→Mac (sync_db_from_hetzner.sh, backup avant mv)
+     ▼
+Mac — RÉPLIQUE VIEW-ONLY
+  writers bot.db : AUCUN (garde PRESAGE_ROLE=replica : add_buy/add_sell/migrations REFUSENT — à implémenter)
+  writers légitimes : repo git code/docs (les deux sessions Claude, protocole un-éditeur-par-chantier)
+  lecteurs : dashboard/serve.py (réplique), digest local éventuel
+     │  mount
+     ▼
+Cowork (sandbox) — FORENSICS READ-ONLY sur bot.db
+  ⚠ lectures live suspectes (WAL non cohérent à travers le mount — vu 30/07) ; backups fiables
+  writers légitimes : docs/* via file-tools uniquement
+
+GIT (sens inverse des données) : Mac commit/push → VM pull. Le code descend vers la prod,
+les données remontent vers le poste.
+```
+
+**Règle d'or** : tout nouveau store (table, fichier d'état, config) déclare son writer
+unique et son nœud ICI à la création. Écriture hors-nœud = incident à logger même
+réussie ([[L34]]). Les rôles s'imposent par harness (env/garde), jamais par vigilance ([[L27]]).
+
 ## Référencer
 
 Source unique : `docs/CANONICAL_MAP.md`. Pointage depuis `CLAUDE.md` § "Navigation". Pas de re-formulation ailleurs.

@@ -1,0 +1,556 @@
+# PRESAGE — GRAPHE D'HYPOTHÈSES EXÉCUTABLE (v3, 2026-08-01)
+# ---------------------------------------------------------------------------
+# v3 applique : A8 (aucune dérivée persistée) + A9 (reproductibilité).
+#   - `observations: N` SUPPRIMÉ → `evidence: [objets]`. Le compte est DÉRIVÉ.
+#     Effet immédiat et assumé : la conversion a exposé que plusieurs compteurs
+#     de la v2 étaient des ordres de grandeur inventés, pas des observations
+#     tracées. Ce qui n'est pas citable est désormais visible comme tel.
+#   - `conduct` (prose) SUPPRIMÉ → registre `actions:` avec identifiants.
+#     Le moteur propage des OBLIGATIONS, pas seulement des cassures (Flight Rules).
+#   - poids d'étayage retirés du code → `policy.yaml: support_policy`.
+#
+# RELATIONS : requires (logique dure) | supports (appui probant) |
+#             modulates (paramètre à recalculer) | correlated (aucune propagation)
+# support.basis : empirical | theoretical | engineering | institutional | asserted
+# ---------------------------------------------------------------------------
+
+meta:
+  version: 3
+  updated: 2026-08-01
+  review_cadence: quarterly_and_on_incident
+  owner_note: "Tous les current_owner = olivier : ce fait EST la mesure de H10, non masqué."
+
+assumptions:
+
+  H1:
+    statement: "Les corrélations observées restent un proxy utile du futur (hors dé-levier forcé)"
+    class: statistical
+    status: PARTIELLEMENT_FALSIFIEE
+    severity: CRITICAL
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: true
+      evidence:
+        - {id: EV-2026-07-UNWIND, date: 2026-07-31, source: book_pnl, type: observation,
+           claim: "corrélations intra-book → ~1 pendant l'unwind, décorrélateurs déclarés inclus"}
+        - {id: EV-LIT-LIQCRISIS, date: 2026-08-01, source: literature, type: theoretical,
+           claim: "corrélations montent en crise de liquidité (résultat établi)"}
+    falsifier: "≥3 décorrélateurs déclarés perdant >15% dans une fenêtre de 10 jours"
+    logical_owner: research
+    current_owner: olivier
+    trigger: "3 décorrélateurs -15% / 10j"
+    deadline: "30j"
+    actions: [ACT-001]
+    modules: [allocation_solver.d_correlation, exposure.factor_caps, ballast_definition]
+
+  H2:
+    statement: "Les marchés restent liquides aux tailles pratiquées (≤ quelques k€)"
+    class: market
+    status: TENUE
+    severity: MEDIUM
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: true
+      evidence:
+        - {id: EV-2026-07-30-EXEC, date: 2026-07-30, source: broker, type: observation,
+           claim: "13 exécutions du tribunal sans impact de prix notable"}
+      note: "v2 annonçait n=200 : ordre de grandeur INVENTÉ, non tracé. Corrigé."
+    falsifier: "spread >1% OU impossibilité d'exécuter 1k€ en une séance"
+    logical_owner: execution
+    current_owner: olivier
+    trigger: "spread >1% sur une ligne détenue"
+    deadline: "7j"
+    actions: [ACT-002]
+    modules: [execution, sizing.illiquid_sleeve, drawdown_ladder.R3]
+
+  H3:
+    statement: "Le porteur peut tenir ses positions sans jamais être forcé de vendre"
+    class: behavioral
+    status: SOUS_TENSION
+    severity: EXISTENTIAL
+    support:
+      basis: asserted
+      reproducible: false
+      external_validation: false
+      evidence: []
+      note: "life.dated_liquidity_needs = MISSING → aucune preuve possible aujourd'hui"
+    falsifier: "toute vente motivée par un besoin de cash externe au book"
+    logical_owner: gerant
+    current_owner: olivier
+    trigger: "life.dated_liquidity_needs encore MISSING au 30/09/2026"
+    deadline: "avant toute nouvelle politique scellée"
+    actions: [ACT-010]
+    modules: [horizon_long, theses_pluriannuelles, drawdown_tolerance, north_star_gates]
+
+  H4:
+    statement: "Les publications d'entreprise sont suffisamment fiables (émetteurs cotés audités)"
+    class: institutional
+    status: TENUE
+    severity: HIGH
+    support:
+      basis: institutional
+      reproducible: false
+      external_validation: true
+      evidence:
+        - {id: EV-REG-AUDIT, date: 2026-08-01, source: regime, type: institutional,
+           claim: "obligation d'audit + sanctions ; base de contre-exemples connue (Enron/Wirecard/Luckin)"}
+    falsifier: "fraude avérée, retraitement majeur ou démission d'auditeur sur une ligne détenue"
+    logical_owner: research
+    current_owner: olivier
+    trigger: "alerte auditeur / retraitement sur une ligne détenue"
+    deadline: "48h"
+    actions: [ACT-003]
+    modules: [evidence_weight.L1, rule_XI, all_numeric_triggers]
+
+  H5:
+    statement: "Les sources de prix/FX gratuites restent disponibles et exactes"
+    class: engineering
+    status: SOUS_TENSION
+    severity: HIGH
+    support:
+      basis: engineering
+      reproducible: false
+      external_validation: false
+      evidence: []
+      note: "mono-source, AUCUNE réconciliation broker systématique — rien de tracé"
+    falsifier: "écart >1% vs broker sur contrôle ponctuel OU indisponibilité >48h"
+    logical_owner: infrastructure
+    current_owner: olivier
+    trigger: "écart >1% vs broker OU source muette 48h"
+    deadline: "7j"
+    actions: [ACT-004]
+    modules: [valuation, drawdown_ladder, dashboard, decision_triggers]
+
+  H5b:
+    statement: "Les corporate actions (splits, dividendes, spin-offs) sont correctement intégrées"
+    class: engineering
+    status: SOUS_TENSION
+    severity: HIGH
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: false
+      evidence:
+        - {id: EV-2026-07-30-KLAC, date: 2026-07-30, source: price_history, type: incident,
+           claim: "split non ajusté → drawdown KLAC affiché -93% au lieu de ~-30%"}
+    falsifier: "P&L ou drawdown divergeant du broker de >5% sans explication"
+    logical_owner: infrastructure
+    current_owner: olivier
+    trigger: "divergence >5% vs broker sur une ligne"
+    deadline: "48h"
+    actions: [ACT-005]
+    modules: [price_history, pnl, drawdown_ladder, decision_triggers]
+
+  H6:
+    statement: "Les faits extraits par le pipeline sont attribués au bon fait, à la bonne date"
+    class: engineering
+    status: PARTIELLEMENT_FALSIFIEE
+    severity: HIGH
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: false
+      evidence:
+        - {id: EV-2026-07-31-DIGEST, date: 2026-07-31, source: digest_audit, type: incident,
+           claim: "claim 'Microsoft coupe le capex' contredite par le print de la même semaine"}
+        - {id: EV-2026-08-01-DIGEST-A, date: 2026-08-01, source: digest_audit, type: incident,
+           claim: "settlement copyright de 2025 présenté dans une fenêtre 24h"}
+        - {id: EV-2026-08-01-DIGEST-B, date: 2026-08-01, source: digest_audit, type: incident,
+           claim: "causalité inversée : CUDA jugé baissier pour un fournisseur d'ASIC anti-CUDA"}
+    falsifier: "≥1 fait de plus de 30 jours présenté dans une fenêtre 24h"
+    logical_owner: research
+    current_owner: olivier
+    trigger: "défaut d'attribution constaté en audit"
+    deadline: "14j"
+    actions: [ACT-006]
+    modules: [digest.scoring, digest.urgent_gate]
+
+  H7:
+    statement: "Répétition ≠ confirmation : confirmer exige des chaînes causales indépendantes"
+    class: theoretical
+    status: SOUS_TENSION
+    severity: MEDIUM
+    support:
+      basis: theoretical
+      reproducible: true
+      external_validation: true
+      evidence:
+        - {id: EV-THEO-INDEP, date: 2026-08-01, source: theory, type: theoretical,
+           claim: "l'information conjointe de sources dépendantes ne s'additionne pas"}
+      note: "vrai par construction ; NON IMPLÉMENTÉ dans le pipeline"
+    falsifier: "un urgent construit sur N sources de même origine"
+    logical_owner: research
+    current_owner: olivier
+    trigger: "urgent émis sur sources de même origine"
+    deadline: "30j"
+    actions: [ACT-007]
+    modules: [digest.clustering, evidence_weight]
+
+  H8:
+    statement: "Un seul écrivain par store, sur le nœud déclaré"
+    class: engineering
+    status: FALSIFIEE_PUIS_CORRIGEE
+    severity: CRITICAL
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: false
+      evidence:
+        - {id: EV-2026-07-30-REPLICA, date: 2026-07-30, source: ledger, type: incident,
+           claim: "13 transactions correctes écrites sur la réplique, détruites par le sync :05"}
+    falsifier: "une écriture réussie hors du nœud déclaré"
+    logical_owner: infrastructure
+    current_owner: olivier
+    trigger: "écriture détectée hors nœud"
+    deadline: "14j"
+    actions: [ACT-008]
+    modules: [ledger, resolver, all_measurement]
+
+  # H9 SCINDÉE le 01/08 : un statut unique sur une hypothèse à DEUX JAMBES ment
+  # forcément dans un sens. Les jambes ont des propriétaires, des RPO et des modes
+  # de défaillance différents — l'une est prouvée, l'autre est en brèche.
+  H9:
+    statement: "L'infrastructure de la DB de production reste sauvegardée et RESTAURABLE (jambe LEDGER)"
+    class: engineering
+    status: FALSIFIEE
+    severity: CRITICAL
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: false
+      evidence:
+        - {id: EV-2026-07-28-SYNC, date: 2026-07-28, source: logs, type: incident,
+           claim: "sync muet 7 jours sans une seule alerte"}
+        - {id: EV-2026-08-01-BACKUP, date: 2026-08-01, source: systemd, type: incident,
+           claim: "presage-backup.service (offsite VM) en échec — le falsifieur 'backup en échec >24h' A FIRÉ"}
+        - {id: EV-2026-08-01-RESTORE, date: 2026-08-01, source: drill, type: observation,
+           claim: "restauration REJOUÉE : snapshot 30/07 → integrity=ok ; 59 thèses restaurées vs 60 live (snapshot antérieur à la fill du tribunal)"}
+      note: >
+        RPO-1h N'APPARTIENT PAS au Mac : la DB y est une RÉPLIQUE, gelée depuis le
+        30/07 (sync en pause, replay du ledger non rejoué). Un backup horaire du Mac
+        afficherait « RPO-1h ✓ » sur une substance périmée — L32 (fraîcheur du wrapper
+        ≠ fraîcheur de la substance). Le propriétaire de la jambe RPO-1h est le service
+        offsite de la VM, actuellement EN BRÈCHE. Ne pas diluer rpo_hours à 24 pour
+        épouser un job faible : enregistrer la brèche.
+    falsifier: "backup en échec >24h OU sync muet >6h sans alerte OU restauration non testée depuis 6 mois"
+    logical_owner: infrastructure
+    current_owner: olivier
+    trigger: "service offsite VM en échec (ACTUELLEMENT VRAI)"
+    deadline: "48h"
+    rto_hours: 24
+    rpo_hours: 1
+    rpo_owner: "service offsite VM (backup.sh → Storage Box)"
+    rpo_status: BRECHEE
+    actions: [ACT-009]
+    modules: [crons, digest, monitors, ledger]
+
+  H9b:
+    statement: "Le vault documentaire (cerveau irrécupérable, mono-copie Mac) est sauvegardé et restaurable"
+    class: engineering
+    status: TENUE
+    severity: CRITICAL
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: true
+      evidence:
+        - {id: EV-2026-08-01-VAULT-GAP, date: 2026-08-01, source: logs, type: incident,
+           claim: "backup vault mort depuis le 27/06 — 5 semaines d'exposition d'un actif SANS aucune autre copie (la VM ne peut pas l'atteindre)"}
+        - {id: EV-2026-08-01-VAULT-CAP, date: 2026-08-01, source: drill, type: observation,
+           claim: "PRESAGE_vault_20260801_200203.tgz — 294/294 notes, 0 échec"}
+        - {id: EV-2026-08-01-VAULT-AUTO, date: 2026-08-01, source: launchd, type: observation,
+           claim: "LaunchAgent quotidien 21h (kickstart exit 0) + offsite VM + checksum bilatéral + staleness 48h fail-LOUD — commit dbd5319"}
+        - id: EV-2026-08-01-VAULT-DRILL
+          date: 2026-08-01
+          source: drill
+          type: drill
+          exercises: >
+            (a) MODE REJOUÉ : « disque Mac mort, vault inaccessible » — restauration
+            DEPUIS l'offsite VM sur dossier vierge.
+            (b) NE COUVRE PAS : corruption silencieuse de l'archive, perte simultanée
+            VM+Mac.
+            (c) PRÉSUPPOSÉ DISPONIBLE ET QUE LA PANNE RETIRE : la clé ssh du Mac
+            (~/.ssh/id_ed25519) a été utilisée pour tirer depuis la VM — or elle meurt
+            AVEC le Mac, et aucun backup ne la capture (vérifié). Le drill a donc
+            emprunté un chemin qui n'existe pas dans le scénario couvert. Fidélité
+            réelle < 0,8 tant que H9c n'est pas prouvée. Un drill 1,0 se rejoue depuis
+            une machine SANS la clé du Mac.
+          claim: >
+            DRILL HAUTE FIDÉLITÉ — scénario réel rejoué (Mac supposé mort) : cerveau
+            tiré DEPUIS L'OFFSITE VM sur dossier vierge, 294 notes lisibles
+            (291 .md + 3 .canvas, + 1 .txt = 295 fichiers), frontmatter intact
+            (type/date/aliases/tickers vérifiés sur la note SPGI restaurée), zéro perte.
+            L'écart apparent 291/294 était un artefact de comptage, pas une perte.
+      note: >
+        Seul actif du système à perte DÉFINITIVE en cas de panne disque : la DB existe
+        en double (VM source + réplique Mac), le vault non. 261 Ko — d'où la priorité
+        absolue donnée à sa mise à l'abri avant l'automatisation de la DB.
+        H9b ne tient PAS sur « checksum bilatéral » (qui prouve un transfert, pas une
+        restauration) mais sur une RESTAURATION DEPUIS L'OFFSITE, substance vérifiée —
+        l'exposition qui reproduit son propre mode de défaillance.
+        ⚠ DEMI-VIE : exposition CRITICAL périmée à 90 j → re-drill requis avant
+        le 30/10/2026, sinon retour au statut « tenue par absence de contradiction ».
+    falsifier: "backup vault en échec >48h sans notification OU restauration du vault jamais testée depuis 6 mois"
+    logical_owner: infrastructure
+    current_owner: olivier
+    trigger: "staleness vault >48h"
+    deadline: "48h"
+    rpo_hours: 24
+    actions: [ACT-009]
+    modules: [doctrine, decision_logs, theses_notes]
+
+  H9c:
+    statement: "L'accès à l'offsite reste récupérable SANS le Mac (identifiants hors-machine)"
+    class: engineering
+    status: INCONNUE
+    severity: CRITICAL
+    support:
+      basis: asserted
+      reproducible: false
+      external_validation: false
+      evidence: []
+      note: >
+        Découverte le 01/08 en écrivant le champ `exercises` du drill vault : la
+        restauration a utilisé ~/.ssh/id_ed25519 du Mac, qui meurt AVEC le Mac et
+        n'est capturée par AUCUN backup (vérifié). La récupération réelle dépend donc
+        d'identifiants Hetzner stockés hors-Mac (gestionnaire de mots de passe, autre
+        appareil) — très probablement vrais, mais JAMAIS vérifiés. H9b en dépend
+        logiquement : sans cet accès, la restauration est impossible dans le scénario
+        même que H9b prétend couvrir.
+    falsifier: "un drill de restauration depuis une machine SANS la clé du Mac échoue à accéder à l'offsite"
+    logical_owner: infrastructure
+    current_owner: olivier
+    trigger: "toute revue de H9b"
+    deadline: "avant le prochain re-drill (30/10/2026)"
+    actions: [ACT-009]
+    modules: [vault_recovery, offsite_access]
+
+  H10:
+    statement: "Le décideur reste unique, disponible et capable d'opérer le système"
+    class: behavioral
+    status: SOUS_TENSION
+    severity: EXISTENTIAL
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: false
+      evidence:
+        - {id: EV-2026-08-01-SPOF, date: 2026-08-01, source: assumptions_graph, type: observation,
+           claim: "tous les current_owner = olivier ; aucun plan de continuité écrit"}
+    falsifier: "indisponibilité >30j OU revue trimestrielle sautée OU décisions hors cycle"
+    logical_owner: gerant
+    current_owner: olivier
+    trigger: "indisponibilité prévue ou constatée >14j"
+    deadline: "2026-12-31"
+    actions: [ACT-011]
+    modules: [ALL]
+
+  H11:
+    statement: "La complexité croît moins vite que la capacité du système à l'appliquer"
+    class: behavioral
+    status: SOUS_TENSION
+    severity: EXISTENTIAL
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: false
+      evidence:
+        - {id: EV-2026-08-01-DOCS, date: 2026-08-01, source: repo, type: observation,
+           claim: "~20 documents de doctrine pour ~22 lignes ; 6 documents créés en 48h"}
+    falsifier: "règle écrite non appliquée · document non relu >6 mois · digest non lu 5 jours d'affilée"
+    logical_owner: gerant
+    current_owner: olivier
+    trigger: "audit trimestriel constatant ≥3 règles écrites non appliquées"
+    deadline: "trimestre suivant"
+    actions: [ACT-012]
+    modules: [ALL]
+
+  H12:
+    statement: "Les apports futurs continueront"
+    class: behavioral
+    status: INCONNUE
+    severity: EXISTENTIAL
+    support:
+      basis: asserted
+      reproducible: false
+      external_validation: false
+      evidence: []
+      note: "life.monthly_contribution_eur = MISSING — hypothèse jamais énoncée avant le 01/08/2026"
+    falsifier: "arrêt des apports >6 mois"
+    logical_owner: gerant
+    current_owner: olivier
+    trigger: "aucun apport constaté sur 6 mois glissants"
+    deadline: "30j"
+    actions: [ACT-013]
+    modules: [factor_cap_ratchet, north_star_migration, backstop_as_rule]
+
+  H13:
+    statement: "Les probabilités sont estimables avec une erreur acceptable"
+    class: epistemic
+    status: NON_TESTABLE
+    severity: HIGH
+    support:
+      basis: asserted
+      reproducible: false
+      external_validation: false
+      evidence: []
+      note: "aucune proposition résoluble encore enregistrée → rien à scorer"
+    falsifier: "Brier ne s'améliorant pas après N≥100 résolutions OU biais >20 pts persistant"
+    logical_owner: research
+    current_owner: olivier
+    trigger: "toute proposition d'augmenter KELLY_FRACTION"
+    deadline: "bloquée jusqu'à N ≥ MIN_N_FOR_DEBIAS"
+    minimum_sample_size: 100
+    actions: [ACT-014]
+    modules: [allocation_solver, sizing.venture, calibration]
+
+  H14:
+    statement: "Les triggers pré-enregistrés capturent les vrais modes de rupture"
+    class: epistemic
+    status: PARTIELLEMENT_FALSIFIEE
+    severity: CRITICAL
+    support:
+      basis: empirical
+      reproducible: true
+      external_validation: false
+      evidence:
+        - {id: EV-2026-07-JUILLET, date: 2026-07-30, source: book_pnl, type: incident,
+           claim: "-25.2% de drawdown, ZÉRO trigger de thèse déclenché sur 13 lignes sous stop"}
+    falsifier: "un drawdown >15% sans qu'aucun trigger n'ait fired"
+    logical_owner: research
+    current_owner: olivier
+    trigger: "drawdown >15% sans trigger fired"
+    deadline: "14j"
+    actions: [ACT-015]
+    modules: [decision_cycle.Q1, theses, monitors]
+
+  H15:
+    statement: "Le passé du système informe son futur (Knowledge Transfer)"
+    class: epistemic
+    status: TENUE
+    severity: MEDIUM
+    support:
+      basis: empirical
+      reproducible: false
+      external_validation: false
+      evidence:
+        - {id: EV-2026-LESSONS, date: 2026-08-01, source: repo, type: observation,
+           claim: "34 doctrines L# écrites, dont plusieurs ont prévenu une répétition (L4, L15, L27)"}
+      note: "v2 annonçait n=34 comme des observations : c'est un compte de DOCTRINES, pas de tests. Corrigé."
+    falsifier: "≥3 doctrines successives contredites par les faits"
+    logical_owner: research
+    current_owner: olivier
+    trigger: "3 doctrines contredites"
+    deadline: "30j"
+    actions: [ACT-016]
+    modules: [learning_engine, resolver, lessons]
+
+# ---------------------------------------------------------------------------
+# ACTIONS — registre d'obligations (Flight Rules). Le moteur les PROPAGE.
+# ---------------------------------------------------------------------------
+actions:
+  ACT-001: {do: "Redéfinir le ballast sur la nature du cash-flow (contracté), jamais sur une corrélation historique", blocking: false}
+  ACT-002: {do: "Reclasser la ligne et vérifier la liquidité AVANT tout dimensionnement", blocking: false}
+  ACT-003: {do: "Instruire la ligne sous 48h ; maintenir plafond par ligne pour que la fraude reste survivable", blocking: false}
+  ACT-004: {do: "Réconcilier avec le broker ou basculer de source ; fail-closed maintenu", blocking: true}
+  ACT-005: {do: "Contrôle automatique de cohérence des corporate actions vs broker", blocking: false}
+  ACT-006: {do: "Rendre date_du_fait et evidence_origin obligatoires ; aucun urgent sur évidence secondaire seule", blocking: true}
+  ACT-007: {do: "Implémenter evidence origin / path / independence dans le clustering", blocking: false}
+  ACT-008: {do: "Implémenter la garde ROLE=replica (écriture refusée hors nœud)", blocking: true}
+  ACT-009: {do: "Rétablir le backup offsite et TESTER une restauration complète (RTO 24h / RPO 1h)", blocking: true}
+  ACT-010: {do: "GELER toute nouvelle politique scellée jusqu'à renseignement de la couche vie", blocking: true}
+  ACT-011: {do: "Écrire le Continuity Plan (que faire du book en cas d'indisponibilité 6 mois)", blocking: false}
+  ACT-012: {do: "Suppression nette au trimestre suivant : nommer ce qu'on retire avant tout ajout", blocking: false}
+  ACT-013: {do: "Arbitrage écrit : accepter la concentration OU amender 'jamais de vente forcée'. GEL des politiques dépendant du cliquet", blocking: true}
+  ACT-014: {do: "Interdire toute hausse de KELLY_FRACTION avant calibration mesurée", blocking: true}
+  ACT-015: {do: "Instaurer la hiérarchie de triggers : thèse → driver → portefeuille → macro", blocking: false}
+  ACT-016: {do: "Revue du corpus de doctrines (biais du survivant)", blocking: false}
+
+# ---------------------------------------------------------------------------
+# ARÊTES — objets auditables (justification + revue obligatoires)
+# ---------------------------------------------------------------------------
+edges:
+  - {from: H12, to: exposure.factor_cap_ratchet, relation: requires, review: annual,
+     justification: "le cliquet ne descend QUE par dilution ; sans apports il est mécaniquement impossible"}
+  - {from: H12, to: H3, relation: supports, review: annual,
+     justification: "des apports réguliers absorbent les besoins de cash et évitent la vente forcée"}
+  - {from: H12, to: H1, relation: modulates, review: annual,
+     justification: "sans dilution la concentration persiste, donc la corrélation mord davantage"}
+  - {from: H3, to: H13, relation: modulates, review: annual,
+     justification: "un horizon non garanti change les distributions long terme du solveur"}
+  - {from: H1, to: H13, relation: modulates, review: annual,
+     justification: "d_corrélation est une ENTRÉE du solveur : fausse corrélation → fausse taille"}
+  - {from: H8, to: ledger_integrity, relation: requires, review: quarterly,
+     justification: "sans écrivain unique, l'intégrité du ledger est logiquement impossible"}
+  - {from: H8, to: H15, relation: requires, review: quarterly,
+     justification: "un track record écrit au mauvais nœud ne peut rien enseigner"}
+  - {from: H9, to: H8, relation: supports, review: quarterly,
+     justification: "sans backup vérifié ni restauration testée, une erreur d'écriture est irréversible"}
+  - {from: H7, to: H6, relation: supports, review: quarterly,
+     justification: "sans origine tracée, l'écho est compté comme convergence"}
+  - {from: H5, to: H5b, relation: requires, review: quarterly,
+     justification: "l'ajustement des corporate actions dépend de la source de prix elle-même"}
+  - {from: H5, to: H14, relation: modulates, review: quarterly,
+     justification: "des niveaux calculés sur de faux prix déclenchent ou masquent des triggers"}
+  - {from: H5b, to: H14, relation: modulates, review: quarterly,
+     justification: "un prix non ajusté d'un split fausse le franchissement d'un decision-trigger"}
+  - {from: H4, to: H14, relation: supports, review: annual,
+     justification: "des triggers chiffrés sur des comptes faux ne déclenchent jamais"}
+  - {from: H6, to: H14, relation: supports, review: quarterly,
+     justification: "un trigger évalué sur un fait mal daté est faux"}
+  - {from: H10, to: H11, relation: modulates, review: quarterly,
+     justification: "moins de disponibilité = moins de capacité à appliquer la doctrine"}
+  - {from: H11, to: H14, relation: modulates, review: quarterly,
+     justification: "des triggers non relus ne sont pas surveillés"}
+  - {from: H10, to: execution, relation: requires, review: quarterly,
+     justification: "aucun autre opérateur ne sait exécuter le système aujourd'hui"}
+  - {from: H2, to: H3, relation: supports, review: annual,
+     justification: "l'illiquidité force des ventes à mauvais prix, donc érode la capacité à tenir"}
+  - {from: H9c, to: H9b, relation: requires, review: quarterly,
+     justification: "sans identifiants d'accès récupérables hors-Mac, la restauration depuis
+                     l'offsite est IMPOSSIBLE dans le scénario même que H9b prétend couvrir —
+                     le drill du 01/08 a emprunté la clé ssh du Mac, que la panne supprime"}
+  - {from: H13, to: allocation_solver, relation: modulates, review: annual,
+     justification: "la fraction de Kelly dépend de la qualité de l'estimation de p"}
+  - {from: H1, to: H2, relation: correlated, review: annual,
+     justification: "crises de corrélation et de liquidité coïncident souvent (aucun lien logique)"}
+
+  # --- Arêtes ajoutées le 01/08 après la vue d'audit « asymétrie entrée/sortie ».
+  # Les raccourcis `modules: [ALL]` masquaient les sorties de H10, H11, H14, H3, H13.
+  # Croissance CONNECTIVE (autorisée par H11) : aucun concept neuf, uniquement des
+  # liens entre objets existants, chacun justifié causalement.
+  - {from: H14, to: decision_cycle.Q1, relation: requires, review: quarterly,
+     justification: "Q1 juge l'intégrité d'une thèse UNIQUEMENT via ses triggers pré-enregistrés ;
+                     si ces triggers ne capturent pas les modes de rupture, Q1 ne détecte
+                     structurellement rien — le cycle devient un rituel vide"}
+  - {from: H14, to: monitors, relation: requires, review: quarterly,
+     justification: "les monitors évaluent des triggers : des triggers aveugles rendent
+                     les monitors incapables de signaler, quelle que soit leur qualité d'exécution"}
+  - {from: H14, to: H3, relation: supports, review: quarterly,
+     justification: "des ruptures non détectées érodent la capacité à tenir : on subit
+                     le drawdown au lieu de décider"}
+  - {from: H10, to: revue_trimestrielle, relation: requires, review: quarterly,
+     justification: "la revue est un acte humain ; sans opérateur disponible elle n'a pas lieu"}
+  - {from: H10, to: override_mechanism, relation: requires, review: quarterly,
+     justification: "un override est une décision humaine écrite : sans décideur, le
+                     mécanisme n'existe pas — le système perd sa soupape"}
+  - {from: H10, to: H15, relation: supports, review: quarterly,
+     justification: "sans opérateur, aucune leçon n'est écrite ni relue : le transfert
+                     de connaissance s'interrompt"}
+  - {from: H11, to: doctrine_application, relation: requires, review: quarterly,
+     justification: "une doctrine dont le coût d'attention dépasse la capacité n'est pas
+                     appliquée — elle existe sur le papier, pas dans les décisions"}
+  - {from: H11, to: H15, relation: modulates, review: quarterly,
+     justification: "une doctrine non relue ne transmet rien : le volume dégrade la
+                     qualité du transfert sans le rendre impossible"}
+  - {from: H3, to: horizon_long, relation: requires, review: annual,
+     justification: "l'horizon long n'est pas une préférence mais une CAPACITÉ :
+                     sans elle, la durée de détention devient subie"}
+  - {from: H3, to: theses_pluriannuelles, relation: requires, review: annual,
+     justification: "une thèse à 3-5 ans est logiquement intenable si la position peut
+                     être liquidée par un besoin externe"}
+  - {from: H13, to: calibration, relation: requires, review: annual,
+     justification: "sans probabilités estimables, il n'y a rien à calibrer :
+                     le Brier n'a pas d'objet"}

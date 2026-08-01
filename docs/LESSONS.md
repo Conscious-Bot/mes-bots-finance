@@ -1009,3 +1009,47 @@ sync. Tests : `test_prices_gateway.py::test_ensure_tail_stale_*`.
 
 Grep target de la classe : tout consommateur d'un cache/copie qui affiche un
 « as of » — vérifier qu'il propage l'asof de la SUBSTANCE, pas du wrapper.
+
+## L33 — Preuve, pas confiance : aucune clôture d'agent sur sa propre déclaration
+
+Deux instances le même jour (30-31/07, ère multi-agents) :
+1. **Saga replay** : la session terminale annonce « trades loggés » (13:02) —
+   détruits par le sync (13:05) ; ré-annonce « je confirme à 15:05 » ; la session
+   Cowork affirme de son côté « tout est déjà loggé » sur une lecture de mount
+   instable. **Deux clôtures déclarées, zéro prouvée** — au 31/07 matin le digest
+   décrivait encore un book fantôme.
+2. **Digest 31/07** : « urgent AVGO » bâti sur « Microsoft coupe le capex » —
+   claim d'agrégateur contredite par le print primaire de la même fenêtre.
+
+**Règle** : une tâche d'agent (LLM, script, session) n'est DONE que lorsqu'une
+vérification **déterministe et indépendante du déclarant** l'atteste (SELECT
+count, assert, test, diff). Sinon l'état canonique est « annoncé, non prouvé »
+et il est INTERDIT de bâtir dessus (pas de mission aval, pas de digest qui le
+consomme, pas de « fait » en conversation). Corollaire multi-agents : le
+vérificateur ≠ l'exécutant — l'exécutant prouve DANS son run (asserts embarqués),
+un autre nœud re-lit après propagation. « L'agent dit que c'est fait » n'est pas
+un stopping condition ; « le SELECT retourne 14 rows » en est un.
+
+**Référencer** : verify-before-patch (pré-action ; L33 = post-action) ; [[L4]]
+(le monitor lit son propre journal, pas sa mémoire) ; [[L21]] (jamais plus
+confiant que l'évidence) ; garde fact-anchor digest (SPEC v2.2).
+
+## L34 — Toute donnée a UN écrivain déclaré : écrire juste au mauvais nœud = incident quand même
+
+Instance fondatrice (30/07) : 13 transactions **correctes** (qty/prix/notes
+exacts) écrites sur la réplique Mac au lieu de la VM source — détruites by
+design par le sync horaire. Le succès local d'une écriture (commit SQLite OK,
+asserts passés) ne dit RIEN de sa légitimité topologique.
+
+**Règle** : chaque store (table, fichier d'état, config) a UN writer déclaré et
+UN nœud, inscrits à la création dans CANONICAL_MAP §11 (topologie des
+écritures). Toute écriture hors de son nœud = incident à logger MÊME RÉUSSIE.
+Les rôles s'imposent par le harness (`PRESAGE_ROLE=replica` → add_buy/add_sell/
+migrations REFUSENT, fail-closed), jamais par la vigilance ([[L27]] : cohérence
+mécanique > vigilance). Les incidents vivent sur les arêtes non-dessinées du
+graphe d'exécution — dessiner la topologie UNE fois coûte dix lignes, ne pas la
+dessiner a coûté une journée de ledger.
+
+**Référencer** : CANONICAL_MAP §11 ; [[L17]] (déclaratif vs live state — L34 en
+est l'extension spatiale : où, pas seulement quoi) ; chantier garde replica
+(TODO) ; [[L33]] (la preuve de l'écriture ne vaut que sur le bon nœud).

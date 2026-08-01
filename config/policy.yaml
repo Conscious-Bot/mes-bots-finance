@@ -1,0 +1,306 @@
+# PRESAGE — POLITIQUES (couche 3 de la CONSTITUTION)
+# ---------------------------------------------------------------------------
+# AXIOME 3 : aucune constante ne vit dans un document. Toute valeur numérique
+# du système est ICI, nommée, datée, justifiée, avec sa condition de révision
+# et l'axiome qu'elle instancie. Les docs référencent des NOMS, jamais des
+# chiffres. Le code lit ce fichier, jamais des littéraux.
+#
+# Statut des valeurs : VALIDE (gérant) | PROPOSE (défaut en attente) | PLACEHOLDER
+# (non calibré tant que la couche VIE est vide — cf CONSTITUTION §non-résolu 1).
+# ---------------------------------------------------------------------------
+
+meta:
+  version: 1
+  created: 2026-08-01
+  owner: olivier
+  revision_rule: >
+    Révision annuelle (avec la revue NORTH_STAR) OU sur événement de vie.
+    JAMAIS en drawdown (les règles ne se réécrivent pas sous le feu).
+    Toute modification = nouvelle entrée datée, l'ancienne conservée en historique.
+
+# --- COUCHE VIE (fondation — recalibre TOUT le reste) ----------------------
+life:
+  horizon_years:            {value: null, status: MISSING, axiom: A5}
+  monthly_contribution_eur: {value: null, status: MISSING, axiom: A4}
+  dated_liquidity_needs:    {value: null, status: MISSING, axiom: A6}
+  book_share_of_networth:   {value: null, status: MISSING, axiom: A4}
+  # Tant que ces 4 champs sont MISSING, toute politique ci-dessous est un
+  # placeholder plausible, pas une limite calibrée.
+
+# --- SIZING (sorties de l'Allocation Solver, bornées ici) ------------------
+sizing:
+  MAX_VENTURE_POSITION:      {value: 0.03, status: VALIDE,  axiom: A2, note: "≈ quart-Kelly sur asymétrie extrême ; erreur d'estimation"}
+  VENTURE_ILLIQUID_SLEEVE:   {value: 0.05, status: PROPOSE, axiom: A6, note: "budget de poche — contrainte mordante"}
+  KELLY_FRACTION:            {value: 0.25, status: VALIDE,  axiom: A2, note: "surparier ruine, sous-parier coûte peu"}
+  OBS_DISCOUNT:              {public_verifiable: 1.0, partial: 0.6, opaque: 0.3, status: PROPOSE, axiom: A1}
+  CAP_BY_EVIDENCE_WEIGHT:    {e5: 0.07, e4: 0.055, e3: 0.04, e2: 0.0, status: PROPOSE, axiom: A1,
+                              note: "ex-'conviction' — caps compressés tant que N décisions < 100"}
+  MAX_RISK_PER_LINE:         {value: 0.01, status: PROPOSE, axiom: A3, note: "poids × distance au decision-trigger"}
+
+# --- EXPOSITION (drivers canoniques, tickers opérationnels) ---------------
+exposure:
+  FACTOR_CAP_DOMINANT:       {value: 0.65, status: VALIDE, axiom: A2, ratchet: down,
+                              note: "cliquet : descend par apports/migration, jamais par vente forcée ;
+                                     breach par appréciation 4 semaines → trim-to-cap, jamais sous le cap"}
+  FACTOR_CAP_TARGET_LT:      {value: 0.55, status: PROPOSE, axiom: A2}
+  ACCELERATION_SLEEVE_MAX:   {value: 0.45, status: PROPOSE, axiom: A2, note: "tag plateau niveau|accélération"}
+  CURRENCY_CLUSTER_MAX:      {value: 0.20, status: PROPOSE, axiom: A2, note: "par devise hors EUR/USD"}
+  BALLAST_MIN:               {value: 0.20, status: PROPOSE, axiom: A3, note: "contracté + cash ; cible LT 0.25-0.30"}
+  IDIOSYNCRATIC_MAX_LINE:    {value: null, status: MISSING, axiom: A2,
+                              note: "résidu non-factoriel par ligne — nommé mais non chiffré (cf axiome 11 corrigé)"}
+
+# --- ÉCHELLE DE DRAWDOWN (mécanique, depuis le HWM) -----------------------
+drawdown_ladder:
+  R1_FREEZE_DD:              {value: -0.15, status: VALIDE, axiom: A3, action: "gel des achats, revue triggers <7j"}
+  R2_TRIBUNAL_DD:            {value: -0.25, status: VALIDE, axiom: A3, action: "tribunal complet forcé <7j"}
+  R3_BACKSTOP_VALUE_EUR:     {value: 30000, status: VALIDE, axiom: A3, confirm: "2 closes consécutifs",
+                              action: "dé-risque à ~50% investi, ordre de coupe pré-défini, zéro re-délibération"}
+  R3_AS_RULE_FROM_2027:      {value: -0.35, status: PROPOSE, axiom: A3, note: "% du HWM annuel — remplace la valeur absolue"}
+  HYSTERESIS_POINTS:         {value: 0.05, status: PROPOSE, axiom: A3}
+
+# --- HIÉRARCHIE DE L'ÉVIDENCE (axiome 10 du gérant → poids A1) ------------
+evidence_weight:
+  L1_audited_filing_contract: 1.00   # 10-K/S-1, contrat, facture, données auditées
+  L2_earnings_call:           0.75   # transcript, guidance officielle
+  L3_management_claim:        0.50   # interview, blog corporate, claim non audité
+  L4_sell_side_analyst:       0.35
+  L5_social_press_secondary:  0.15   # X, presse secondaire, agrégateurs
+  status: PROPOSE
+  axiom: A1
+  rules:
+    - "N sources de même niveau répétant la même claim = 1 fait pondéré, jamais N (anti-écho)"
+    - "date_du_fait ≠ date_de_publication : un fait hors fenêtre est dégradé"
+    - "un urgent ne peut jamais reposer sur du L4/L5 seul"
+
+# --- ENTRÉE / SÉLECTION ----------------------------------------------------
+entry:
+  EXCEPTION_COMMERCIAL_COVERAGE_MIN: {value: 0.25, status: VALIDE, axiom: A1,
+                                      note: "condition (c') — activités déjà commerciales / capitalisation"}
+  EXCEPTION_NON_REGIME_SHARE_MIN:    {value: 0.50, status: VALIDE, axiom: A1,
+                                      note: "part de cette couverture indépendante du régime en question (anti-circularité)"}
+  ACTIVE_EXCEPTIONS_MAX:             {value: 1, status: VALIDE, axiom: A7, note: "anti-érosion"}
+
+# --- OVERRIDES (friction, PAS verrou — cf red-team axiome 9) --------------
+overrides:
+  DISPLAY_BASE_RATE_AT_DECISION: {value: true, status: VALIDE, axiom: A7,
+                                  note: "afficher n, taux de succès et coût cumulé des overrides passés AU MOMENT du choix"}
+  BINDING_LOCKOUT:               {value: false, status: VALIDE, axiom: A7,
+                                  note: "REFUSÉ : sur N faible le score est du bruit ; un verrou inciterait à ne plus logger"}
+  RESOLUTION_HORIZONS_DAYS:      {value: [30, 60, 90], status: VALIDE, axiom: A7}
+
+# --- CALIBRATION (chantier bayésien) --------------------------------------
+calibration:
+  SCORER:                    {value: "brier", status: PROPOSE, axiom: A7}
+  MIN_N_FOR_DEBIAS:          {value: 100, status: PROPOSE, axiom: A7, note: "avant : aucune correction de p, l'estimation reste brute"}
+  REQUIRE_RESOLVABLE_CLAIM:  {value: true, status: PROPOSE, axiom: A2,
+                              note: "chaque thèse porte ≥1 proposition falsifiable AVEC date de résolution"}
+
+# --- ÉTAYAGE (poids consommés par le solveur — retirés du code, A3) --------
+# Le solveur ne contient AUCUNE constante : il compose cette politique.
+# La « force d'étayage » mesure la fiabilité du STATUT affiché d'une hypothèse,
+# jamais P(l'hypothèse tient). Grandeur DÉRIVÉE : calculée, jamais persistée (A8).
+support_policy:
+  base_by_basis:      {empirical: 0.55, theoretical: 0.75, engineering: 0.50,
+                       institutional: 0.60, asserted: 0.20}
+  evidence_gain_max:  0.30       # apport maximal du nombre de preuves
+  evidence_gain_coef: 0.10       # × sqrt(n) — saturant, jamais linéaire
+  bonus_reproducible: 0.10
+  bonus_external:     0.10
+  cap_total:          0.95       # jamais de certitude
+  cap_asserted_no_evidence: 0.35 # une affirmation sans preuve n'est pas une mesure
+  status: PROPOSE
+  axiom: A1
+  justification: >
+    Valeurs ordinales, pas mesurées : elles ordonnent les bases de justification
+    (théorique > institutionnel > empirique > ingénierie > affirmé) et bornent
+    l'apport des preuves. À réviser dès qu'une calibration empirique existe.
+
+# --- SÉVÉRITÉ DÉRIVÉE (A8 : la sévérité est une SORTIE, pas une entrée) ----
+# Rayon de souffle calculé sur le graphe (chute simulée de chaque hypothèse),
+# corrigé par la réversibilité (peut-on revenir en arrière ?) et la détectabilité
+# (le falsifieur est-il observable rapidement ?). Aucun humain n'attribue le label.
+severity_policy:
+  blast_weights:      {invalid: 1.0, unsupported: 0.5, recompute: 0.25, modules: 0.4}
+  reversibility_mult: {engineering: 0.8, market: 1.0, epistemic: 1.2, institutional: 1.2,
+                       statistical: 1.1, theoretical: 1.0, behavioral: 1.5}
+  undetectable_mult:  1.3          # falsifieur sans trigger observable → aggravé
+  thresholds:         {EXISTENTIAL: 6.0, CRITICAL: 3.5, HIGH: 2.0, MEDIUM: 0.8}
+  status: PROPOSE
+  axiom: A8
+  justification: >
+    Le rayon de souffle est entièrement dérivable du graphe. Les multiplicateurs
+    de réversibilité sont ordinaux (le comportemental se répare plus lentement que
+    l'ingénierie) et restent une politique révisable, pas une mesure.
+
+# --- EXPOSITION : fidélité et demi-vie (A3 — dérivées de type + date) ------
+# Deux raffinements de `tenue_requires_exposure`, tous deux DÉRIVÉS des champs
+# existants (aucun champ neuf sur les preuves) :
+#
+#  1. FIDÉLITÉ — tout contact n'est pas une épreuve. « 13 exécutions sans
+#     incident » n'est de l'exposition que si l'une a mordu dans les conditions
+#     de risque ; sinon c'est H4 en volume. La fidélité se lit dans le TYPE :
+#     un `incident` est la réalité qui teste, un `drill` une reproduction
+#     délibérée du mode de défaillance, une `observation` un constat passif.
+#     La fidélité EXIGÉE croît avec le poids porteur de l'hypothèse.
+#
+#  2. DEMI-VIE — l'exposition périme. Une restauration prouvée aujourd'hui est
+#     une épreuve ; dans six mois sans re-drill, si le format offsite a dérivé,
+#     l'hypothèse redevient « tenue par absence de contradiction » — H4 à
+#     retardement. TENUE exige donc une exposition ENCORE VALIDE, pas une
+#     exposition ayant existé un jour.
+exposure_policy:
+  fidelity_by_type:
+    incident: 1.0        # la réalité a testé, sans qu'on le demande
+    drill: 0.8           # reproduction délibérée du mode de défaillance
+    observation: 0.4     # constat passif — le falsifieur n'a pas mordu
+    theoretical: 0.0     # un argument n'est pas une épreuve
+    institutional: 0.0
+  min_fidelity_by_severity:
+    EXISTENTIAL: 0.8     # load-bearing : exige un drill ou un incident réel
+    CRITICAL: 0.8
+    HIGH: 0.4
+    MEDIUM: 0.4
+    LOW: 0.0
+  half_life_days_by_severity:
+    EXISTENTIAL: 90      # re-drill trimestriel sur les hypothèses porteuses
+    CRITICAL: 90
+    HIGH: 180
+    MEDIUM: 365
+    LOW: 730
+  drill_requires_exercises: true   # un drill doit NOMMER le mode de défaillance rejoué
+  status: PROPOSE
+  axiom: A1
+  justification: >
+    Valeurs ordinales et cadences prudentielles, à réviser dès qu'un historique
+    de dérives (format, dépendance, régime) permet de les calibrer. La demi-vie
+    est l'équivalent, pour la PREUVE, du heartbeat de péremption posé sur les
+    sauvegardes : ce qui n'est plus re-testé cesse d'être su.
+  JUGEMENT_RESIDUEL: >
+    ⚠ POINT DE JUGEMENT NON MÉCANISABLE, nommé plutôt que caché : la fidélité se
+    dérive du `type`, mais le `type` est AUTO-DÉCLARÉ. Deux preuves également
+    taguées `drill` peuvent valoir 0,8 et 0,3 de réalité selon qu'elles
+    échantillonnent ou non le mode de défaillance (cas vécu le 01/08 : un
+    « drill » par checksum ne reproduisait rien — rétrogradé à la main, par
+    jugement). Le moteur fait confiance au label ; qui tague une observation
+    « drill » contourne la gate par l'étiquette. Mitigation partielle :
+    `drill_requires_exercises` force le drill à NOMMER ce qu'il rejoue — le
+    jugement demeure, mais il doit s'écrire et devient auditable. Le système ne
+    supprime pas le jugement : il le rend atomique, explicite et falsifiable.
+
+# --- MÉTA-RÈGLES (cohérence LOGIQUE, pas seulement syntaxique) -------------
+meta_rules:
+  existential_requires_edges:      {value: true, note: "une hypothèse EXISTENTIAL sans arête est probablement mal reliée"}
+  existential_requires_action:     {value: true, note: "sévérité maximale sans obligation = décoration"}
+  failed_requires_blocking_action: {value: true, note: "une hypothèse falsifiée doit déclencher au moins une action bloquante"}
+  asserted_cannot_be_TENUE:        {value: true, note: "statut TENUE sur base 'asserted' sans preuve = prétention"}
+  low_severity_no_gerant_owner:    {value: true, note: "si le gérant en est propriétaire, ce n'est pas LOW"}
+  tenue_requires_exposure:
+    value: true
+    note: >
+      Statut TENUE interdit sans exposition : si la situation permettant au falsifieur
+      de se déclencher ne s'est JAMAIS présentée, le statut correct est NON_TESTEE.
+      « Jamais mis en défaut » n'est pas « confirmé » — historiques identiques (zéro
+      échec), valeurs épistémiques opposées. Répond au scénario du régime durablement
+      favorable : cinq ans sans contradiction ne valident rien, ils privent de tests.
+  status: PROPOSE
+  axiom: A1
+
+# --- ÉLAGAGE (H11 devient un TEST, pas une intuition — dès que le registre
+#     d'attribution des décisions existe) --------------------------------------
+# ⚠ PIÈGE MORTEL identifié le 01/08 : « zéro influence sur N décisions → supprimer »
+#   détruirait le backstop, les paliers R1/R2, la garde T13 et toutes les sentinelles
+#   — aucun n'a JAMAIS influencé une décision. Leur valeur est contingente : nulle
+#   jusqu'au jour où elle est totale. Dans un régime durablement favorable, un moteur
+#   d'élagage naïf supprimerait tout l'appareil de protection juste avant qu'il serve.
+pruning_policy:
+  component_kinds:
+    active:     "produit des décisions — valeur mesurée en influence décisionnelle"
+    contingent: "garde / backstop / palier / sentinelle — influence nulle PAR CONSTRUCTION"
+  active_zero_influence_decisions: {value: 50, note: "0 décision influencée sur N → REVUE obligatoire (jamais suppression automatique)"}
+  contingent_pruning_rule: >
+    JAMAIS élagué sur l'influence. Deux preuves seulement autorisent la revue :
+    (a) le scénario couvert est devenu impossible (démontré), OU
+    (b) redondance prouvée — un autre composant couvre exactement le même scénario.
+  output_is_obligation_not_verdict: {value: true, note: "le moteur dit 'revue obligatoire', jamais 'supprime'"}
+  status: PROPOSE
+  axiom: A7
+  blocked_by: "registre d'attribution des décisions (inexistant)"
+
+# --- FRONTIÈRES ÉPISTÉMIQUES (audit 01/08) ---------------------------------
+# Chaque composant est classé selon la REPRODUCTIBILITÉ de sa sortie.
+# Le danger n'est pas qu'un composant soit interprétatif : c'est qu'un composant
+# INTERPRÉTATIF alimente un composant DÉTERMINISTE sans frontière marquée —
+# un jugement devient un nombre, puis le nombre devient un fait.
+epistemic_classes:
+  deterministic: "rejouable bit à bit (ledger, propagation du graphe, seuils, validateurs)"
+  statistical:   "rejouable avec une distribution connue (solveur d'allocation, scoring calibré)"
+  interpretive:  "dépend d'un modèle ou d'un humain (sorties LLM, rédaction de thèses, choix des triggers)"
+  boundary_rule: >
+    Toute sortie INTERPRÉTATIVE consommée par un composant DÉTERMINISTE doit être
+    matérialisée en artefact archivé et étiquetée à la frontière. Interdit : qu'un
+    jugement traverse silencieusement vers un calcul.
+  known_boundaries:
+    - {from: interpretive, to: deterministic, where: "rédaction des invalidation_triggers → évaluation mécanique par les monitors",
+       guard: "les triggers sont pré-enregistrés et datés ; leur rédaction est un acte humain tracé"}
+    - {from: interpretive, to: statistical, where: "estimation de p → Allocation Solver",
+       guard: "Kelly fractionnaire 0.25 + interdiction de hausse avant calibration mesurée (H13)"}
+    - {from: interpretive, to: deterministic, where: "sorties LLM du digest → sections rendues",
+       guard: "garde T13 mécanique + provenance obligatoire + gating mécanique des urgents"}
+    - {from: interpretive, to: deterministic, where: "attribution des classes/severity dans le graphe",
+       guard: "sévérité dérivée en parallèle ; toute divergence exposée (roues d'entraînement)"}
+  status: PROPOSE
+  axiom: A9
+
+# --- RATIONALE DES POLITIQUES BLOQUANTES (audit 01/08) ---------------------
+# Une politique bloquante DOIT dire ce qu'elle protège : sinon le futur moteur
+# d'élagage saura qu'elle n'est plus utilisée, sans savoir ce qu'elle couvrait.
+# ⚠ Parcimonie (H11) : exigé UNIQUEMENT pour les politiques qui peuvent empêcher
+# une décision. Appliqué aux ~40 politiques, le quadruplet deviendrait du théâtre.
+policy_rationale:
+  KELLY_FRACTION:
+    objectif:   "borner l'erreur d'estimation sur p, non mesurée à ce jour"
+    metrique:   "écart de calibration (Brier) une fois N ≥ 100 résolutions"
+    trade_off:  "croissance plus lente du capital"
+    fail_mode:  "sur-conservatisme systématique : sous-dimensionnement des vraies asymétries"
+    protege_contre: "la ruine par surdimensionnement — asymétrique et irréversible"
+  FACTOR_CAP_DOMINANT:
+    objectif:   "empêcher la re-dérive vers un book mono-facteur (cause du -25% de juillet)"
+    metrique:   "poids du driver dominant vs 65%"
+    trade_off:  "interdit d'ajouter aux meilleures idées quand elles sont dans le facteur plein"
+    fail_mode:  "blocage d'achats de qualité au pire moment (constaté dès le 01/08 : BESI/KLAC bloqués)"
+    protege_contre: "la concentration invisible — sur-diversifié en noms, sous-diversifié en risques"
+  R3_BACKSTOP_VALUE_EUR:
+    objectif:   "borner la perte totale à un niveau survivable et laisser un capital de contre-attaque"
+    metrique:   "valeur du compte vs 30 000 € sur 2 closes"
+    trade_off:  "peut déclencher juste avant un rebond (prime d'assurance)"
+    fail_mode:  "vente au plus bas d'un choc temporaire"
+    protege_contre: "le scénario où « j'attends le rebond » ne marche pas — jamais testé (contingent)"
+  URGENT_REQUIRES_MECHANICAL_GATE:
+    objectif:   "empêcher la fabrication d'urgences par un LLM sans fait déclencheur"
+    metrique:   "taux urgent → décision effective (cible ≥50%)"
+    trade_off:  "des signaux réels mais non pré-enregistrés seront classés monitoring"
+    fail_mode:  "cécité à une rupture d'un type jamais anticipé"
+    protege_contre: "le bruit présenté comme signal — 3 audits, 3 défauts constatés"
+  DECISION_MUST_PIN:
+    objectif:   "permettre de rejouer une décision avec l'état de l'époque"
+    metrique:   "part des décisions portant les 4 hashes"
+    trade_off:  "surcoût d'écriture à chaque décision"
+    fail_mode:  "faux sentiment de reproductibilité si la couche interprétative n'est pas archivée"
+    protege_contre: "la réécriture rétrospective de l'histoire par un changement de solveur"
+
+# --- REPRODUCTIBILITÉ (A9) -------------------------------------------------
+reproducibility:
+  HASH_CANONICAL_STRUCTURE: {value: true, status: VALIDE, axiom: A9,
+                             note: "hacher la structure PARSÉE, pas le fichier — un commentaire ne doit pas changer le hash"}
+  DECISION_MUST_PIN:        {value: [assumptions_hash, policy_hash, solver_version, data_asof],
+                             status: VALIDE, axiom: A9}
+  LLM_OUTPUTS_ARE_ARTIFACTS: {value: true, status: VALIDE, axiom: A9,
+                              note: "toute sortie de LLM est ARCHIVÉE telle quelle, jamais présumée rejouable"}
+
+# --- PIPELINE D'INFORMATION ------------------------------------------------
+digest:
+  URGENT_REQUIRES_MECHANICAL_GATE: {value: true, status: VALIDE, axiom: A1,
+                                    note: "trigger pré-enregistré touché OU niveau franchi OU catalyst <48h"}
+  CATALYST_URGENT_WINDOW_HOURS:    {value: 48, status: VALIDE, axiom: A5}
+  ZERO_URGENT_IS_NORMAL:           {value: true, status: VALIDE, axiom: A1}
+  TARGET_URGENT_TO_DECISION_RATE:  {value: 0.50, status: PROPOSE, axiom: A7, note: "sous ce seuil sur 4 semaines → resserrer les préconditions"}
