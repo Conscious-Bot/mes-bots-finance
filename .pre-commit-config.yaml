@@ -32,3 +32,16 @@ repos:
       # Si fix applique : commit aborte, on re-stage les fichiers modifies.
       - id: ruff-check
         args: [--fix]
+
+  # Parse YAML (safe_load) : ferme la classe ScannerError (scalaire bloc `>`
+  # dans un mapping en flux, prise 2x le 01/08 = doctrine mecanisee, pas
+  # vigilance). Local (venv/pyyaml, zero reseau). La couche semantique
+  # (assumption_graph.py sur assumptions.yaml) chaine derriere, deja a code
+  # de retour.
+  - repo: local
+    hooks:
+      - id: yaml-parse
+        name: yaml parse (safe_load) — ferme ScannerError
+        entry: venv/bin/python scripts/check_yaml_parse.py
+        language: system
+        files: \.ya?ml$
