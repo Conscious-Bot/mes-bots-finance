@@ -711,9 +711,13 @@ def _risk_watch_panel(views: dict | None = None, positions: list | None = None) 
                 reason_safe = reason.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 ev_str = (f" · evidence : signal_{', signal_'.join(str(i) for i in evidence[:3])}"
                           if evidence else "")
+                # A8 : aucun scalaire de confiance nu (un nombre isolé se lit comme
+                # une MESURE). On affiche les primitives : nature de l'évaluation +
+                # nombre et identité des preuves. `conf` reste en title= pour l'audit.
                 extra_html = (
                     f'<div class="rw-sig-reason">{reason_safe[:200]} '
-                    f'<span class="rw-sig-conf">(conf {conf}{ev_str})</span></div>'
+                    f'<span class="rw-sig-conf" title="éval LLM non mesurée, conf brute={conf}">'
+                    f'(éval LLM · {len(evidence)} preuve(s){ev_str})</span></div>'
                 )
             sig_rows.append(
                 f'<div class="rw-sig {scls}">'
@@ -1455,10 +1459,20 @@ def _grade_panel() -> str:
     construction_dims, fragilite_dims = [], []
     cw_total = fw_total = 0
     c_score_sum = f_score_sum = 0
+    # L31 — agrégat partiel ≠ total : une dimension exclue faute de données rend
+    # le composite INCOMPLET, pas approximatif. On compte la couverture pour la
+    # DÉCLARER à l'affichage au lieu de servir un « /100 » qui se lit comme entier.
+    c_dims_total = sum(1 for _k, (_l, _kd, b) in _DIM_LABELS.items() if b == "construction")
+    f_dims_total = sum(1 for _k, (_l, _kd, b) in _DIM_LABELS.items() if b != "construction")
+    c_dims_used = f_dims_used = 0
     for dk, (_label, _kind, bucket) in _DIM_LABELS.items():
         d = dims.get(dk) or {}
         if d.get("status") == "data_insufficient":
             continue
+        if bucket == "construction":
+            c_dims_used += 1
+        else:
+            f_dims_used += 1
         wt = d.get("weight", 0)
         sc = d.get("score", 0)
         if bucket == "construction":
@@ -1486,6 +1500,17 @@ def _grade_panel() -> str:
             if t not in seen:
                 seen.append(t)
         return seen[:10]
+
+    def _coverage_tag(used: int, total: int) -> str:
+        """L31 : un composite calculé sur une couverture incomplète le DÉCLARE.
+
+        Couverture pleine -> rien (pas de bruit). Couverture partielle -> mention
+        visible : le lecteur sait que le /100 ne porte pas sur toutes les dimensions.
+        """
+        if total and used < total:
+            return (f'<span class="gsub-cov" style="opacity:0.75;font-size:var(--t-meta)"> '
+                    f'· partiel {used}/{total} dim.</span>')
+        return ""
 
     def _build_rows(keys: list[str]) -> str:
         rows = []
@@ -1550,12 +1575,12 @@ def _grade_panel() -> str:
         # Sub-notes split
         '<div class="gsplit">'
         '<div class="gsub">'
-        f'<div class="gsubh">Construction</div>'
+        f'<div class="gsubh">Construction{_coverage_tag(c_dims_used, c_dims_total)}</div>'
         f'<div class="gsubscore mono {c_cls}">{construction_score}<span class="gsubmax">/100</span></div>'
         f'<div class="gbody">{_build_rows(construction_dims)}</div>'
         '</div>'
         '<div class="gsub">'
-        f'<div class="gsubh">Fragility</div>'
+        f'<div class="gsubh">Fragility{_coverage_tag(f_dims_used, f_dims_total)}</div>'
         f'<div class="gsubscore mono {f_cls}">{fragilite_score}<span class="gsubmax">/100</span></div>'
         f'<div class="gbody">{_build_rows(fragilite_dims)}</div>'
         '</div>'
@@ -2554,8 +2579,11 @@ def _position_card(inputs, steer_v2) -> str:
                 '<div class="pc-changed-row">'
                 f'<span class="pc-changed-rel {rel_cls} mono">{rel}</span>'
                 f'<span class="pc-changed-target mono">{target_label}</span>'
+                # A8 : la base de chaque grandeur est nommée — `mat` est un score
+                # calculé par le pipeline de matérialité (artefact figé, auditable),
+                # `conf` est une extraction LLM affirmée, jamais une mesure.
                 f'<span class="pc-changed-conf mono" style="opacity:0.7">'
-                f'mat {mat:.1f} · conf {conf:.2f}</span>'
+                f'mat {mat:.1f} (calc) · conf {conf:.2f} (LLM)</span>'
                 f'<span class="pc-changed-quote" style="font-size:var(--t-meta)">'
                 f'{rationale or quote or "—"}</span>'
                 '</div>'
@@ -3315,8 +3343,13 @@ def _user_strategy_panel() -> str:
             "</div></div>"
         )
     desc = us.get("description", "")
-    cap = us.get("target_cluster_cap_pct", 35)
-    dec = us.get("target_decorrelation_pct", 15)
+    # A3 + L15 : aucun seuil de politique en dur dans le renderer, et une valeur
+    # absente devient « — » (état honnête), jamais un défaut fabriqué qui
+    # s'afficherait comme un fait. Le dashboard REND la politique, il ne la définit pas.
+    _cap_raw = us.get("target_cluster_cap_pct")
+    _dec_raw = us.get("target_decorrelation_pct")
+    cap = _cap_raw if _cap_raw is not None else "—"
+    dec = _dec_raw if _dec_raw is not None else "—"
     bench = us.get("benchmark_ticker", "?")
     horizon = us.get("thesis_horizon_years", "?")
     accepted = us.get("accepted_concentrated_factors") or []
