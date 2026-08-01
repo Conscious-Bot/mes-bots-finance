@@ -426,6 +426,69 @@ def _dedup_ticker_events(raw: list[dict]) -> list[dict]:
     return out
 
 
+def _past_catalysts_reactions(days_back: int = 2, max_lines: int = 8) -> str:
+    """Section REACTIONS CATALYSTS PASSES (48h) — deterministe, zero LLM.
+
+    Trou constate 30/07 : les prints META/MSFT du 29/07 soir etaient ABSENTS
+    du digest du 30 matin — les newsletters ont un cycle editorial en retard
+    d'un jour sur la tape, donc le digest etait structurellement aveugle aux
+    events les plus decisionnels (gates). Fix : pour chaque event TICKER passe
+    dans [today-days_back, today[, afficher la reaction prix depuis le close
+    du jour de l'event (natif, gateway canonique). L'INTERPRETATION reste aux
+    signaux/LLM quand les newsletters rattrapent ; le FAIT de la reaction est
+    deterministe et jamais manquant.
+
+    Baseline = close du jour de l'event : exact pour un print US after-close
+    (prix pre-annonce), approximation d'un jour pour un print matinal (KST) —
+    assume et documente. Fail-closed : prix manquant -> 'reaction —', jamais
+    un chiffre fabrique (L15). Fenetre vide -> section absente (rien rate).
+    """
+    import sqlite3
+
+    from shared import storage
+    from shared.prices import get_current_price, get_price_on_date
+
+    today = datetime.now(UTC).date()
+    start = today - timedelta(days=days_back)
+    try:
+        conn = sqlite3.connect(storage._DB_PATH)
+        conn.row_factory = sqlite3.Row
+        raw = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT date, event_type, ticker, description, created_at FROM events "
+                "WHERE date >= ? AND date < ? AND ticker IS NOT NULL AND ticker != 'MACRO' "
+                "ORDER BY date",
+                (start.isoformat(), today.isoformat()),
+            )
+        ]
+        conn.close()
+    except Exception as e:
+        return (
+            "\nREACTIONS CATALYSTS PASSES\n"
+            f"\U0001F6A8 module en echec ({type(e).__name__}) — sortie non fiable (never-fail-silent).\n"
+        )
+    deduped = _dedup_ticker_events(raw)[:max_lines]
+    if not deduped:
+        return ""
+    lines = [
+        f"REACTIONS CATALYSTS PASSES (fenetre {start} -> {today}, baseline = close du jour de l'event)"
+    ]
+    for r in deduped:
+        tk = r["ticker"]
+        lbl = r["description"] or str(r["event_type"])
+        pct_s = "— (prix indisponible)"
+        try:
+            _, base = get_price_on_date(tk, str(r["date"]))
+            cur = get_current_price(tk)
+            if base and cur:
+                pct_s = f"{(cur / base - 1) * 100:+.1f}%"
+        except Exception:
+            pass
+        lines.append(f"- {r['date']} : {tk} — {lbl} -> reaction {pct_s}")
+    return "\n" + "\n".join(lines) + "\n"
+
+
 # T13 (SPEC digest_enrichment_v2) : le digest INFORME, il ne recommande jamais
 # une transaction. Verbes de trade a l'imperatif/infinitif d'ordre = violation.
 _T13_RE = None
@@ -707,9 +770,10 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     try:
         narrative = llm.call(prompt, tier="enrich", max_tokens=3000)
         if not narrative:
-            return _deterministic_catalysts() + "\n\nSynthesis failed (empty response). " + str(len(rows)) + " signaux disponibles."
+            return _deterministic_catalysts() + _past_catalysts_reactions() + "\n\nSynthesis failed (empty response). " + str(len(rows)) + " signaux disponibles."
         # Catalysts DETERMINISTES prefixes (Heimdall fix 29/07) : autoritaires,
         # le LLM ne genere plus sa section catalysts (fail-silent supprime).
-        return _deterministic_catalysts() + "\n\n" + _t13_guard(narrative.strip())
+        # + REACTIONS aux events passes (fix 30/07 : le digest ne rate plus un print).
+        return _deterministic_catalysts() + _past_catalysts_reactions() + "\n\n" + _t13_guard(narrative.strip())
     except Exception as e:
         return "Synthesis failed: " + type(e).__name__ + ": " + str(e)[:200]
