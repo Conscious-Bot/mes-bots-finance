@@ -88,9 +88,9 @@ def main() -> None:
             (VARIANT, json.dumps(INVAL, ensure_ascii=False), NOTES, NOW, sid),
         )
 
-    # 3. Décision override (re-typage). PAS de CF : le CF fomo_greed appartient au
-    #    trim (partial_exit), journalisé au fill. Contrefactuels notés en texte.
-    storage.insert_decision_with_cf(
+    # 3. Décision override (re-typage). PAS de CF (override) : le CF fomo_greed
+    #    résolvable appartient au trim (partial_exit), journalisé au fill.
+    dec_id, _ = storage.insert_decision_with_cf(
         ticker="SPCX", decision_type="override",
         reasoning=(
             "[STRUCTURED] §XVI typage venture V2 (cap 2%=c1) apres tribunal SPCX ; "
@@ -100,8 +100,11 @@ def main() -> None:
             "sortie totale / panier KLAC-TEL-000660 | conviction: 1"
         ),
         thesis_id=sid, conviction=1, price_native=0, qty_before=0, currency="USD",
-        bias_hypothesis_json=json.dumps(["fomo_greed"]),
     )
+    # Biais sur decisions.bias_tags (canal lu par get_bias_stats + copilot). Un override
+    # n'a PAS de CF, donc le param bias_hypothesis_json d'insert_decision_with_cf serait
+    # SILENCIEUSEMENT JETÉ (il ne vit que dans decision_counterfactual). Catch dry-run 02/08.
+    storage.update_decision_bias_tags(dec_id, ["fomo_greed"])
 
     # PREUVE
     with storage.db() as cx:
