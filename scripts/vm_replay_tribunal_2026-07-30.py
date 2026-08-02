@@ -12,9 +12,15 @@ import json
 from datetime import UTC, datetime
 
 from intelligence.thesis import add_thesis
-from shared import positions, prices, storage
+from shared import positions, storage
 
 NOW = datetime.now(UTC).isoformat()
+
+# trade_date ÉPINGLÉ au 30/07 (défauts 1+2, catch 02/08) : add_buy/add_sell defaultent
+# a now() -> sur la VM aujourd'hui les 14 trades seraient dates 08-02, et l'assert
+# n==14 (post-inserts) leverait APRES insertion sur une table append-only = 14 trades
+# mal dates INDESTRUCTIBLES. Valeur = cluster reel du run Mac (12:41:xx).
+TRADE_DATE = "2026-07-30T12:41:00+00:00"
 
 
 def tid(ticker: str) -> int | None:
@@ -32,9 +38,19 @@ def main() -> None:
             "SELECT count(*) FROM transactions WHERE trade_date LIKE '2026-07-30%'"
         ).fetchone()[0]
     assert n0 == 0, f"STOP: {n0} trades 30/07 deja sur la VM — reconcilier a la main, NE PAS re-jouer"
+    # Garde AVANT écritures (défaut 2, catch 02/08) : sur append-only, valider en amont
+    # — un assert post-insert ne protège rien (les lignes sont déjà là, indestructibles).
+    assert TRADE_DATE.startswith("2026-07-30"), f"STOP: TRADE_DATE={TRADE_DATE} != 30/07"
 
-    fx = {c: prices.get_fx_rate(c, "EUR") for c in ("USD", "JPY", "KRW")}
-    assert all(fx.values()), f"fx indispo {fx}"
+    # FX ÉPINGLÉ aux taux du 30/07 (ceux que le run Mac a stockés), PAS get_fx_rate
+    # (défaut 3, catch 02/08) : le fx du jour du run dériverait de +1.12% USD / +2.78%
+    # JPY / +0.78% KRW = natifs faux, classe L12/L28 (bug trades 198-201). Épingler
+    # garantit en prime la convergence bit-à-bit VM/Mac (mêmes price_native).
+    fx = {
+        "USD": 0.870700001716614,
+        "JPY": 0.00534910010173917,
+        "KRW": 0.000606500019785017,
+    }
 
     def nat(eur: float, cur: str) -> float:
         return round(eur / fx[cur], 4)
@@ -50,12 +66,12 @@ def main() -> None:
     for tk, qty, eur, cur, note in sells:
         r = positions.add_sell(
             tk, qty=qty, price=nat(eur, cur), currency=cur, fx_at_trade=fx[cur],
-            notes=f"{note} | ancre EUR {eur}/sh",
+            notes=f"{note} | ancre EUR {eur}/sh", trade_date=TRADE_DATE,
         )
         print("SELL", tk, "closed", r["closed"])
     positions.add_sell(
         "4063.T", qty=22.764, price=nat(30.71, "JPY"), currency="JPY",
-        fx_at_trade=fx["JPY"], notes="rightsize cluster JPY",
+        fx_at_trade=fx["JPY"], notes="rightsize cluster JPY", trade_date=TRADE_DATE,
     )
 
     # ===== 2. ACHATS (8) =====
@@ -70,7 +86,10 @@ def main() -> None:
         ("SPCX", 4.93, 100.12, "USD", "2e bump SPCX OVERRIDE §XI ref §XIII"),
     ]
     for tk, qty, eur, cur, note in buys:
-        positions.add_buy(tk, qty=qty, price=nat(eur, cur), currency=cur, fx_at_trade=fx[cur], notes=note)
+        positions.add_buy(
+            tk, qty=qty, price=nat(eur, cur), currency=cur, fx_at_trade=fx[cur],
+            notes=note, trade_date=TRADE_DATE,
+        )
         print("BUY", tk)
 
     with storage.db() as cx:
