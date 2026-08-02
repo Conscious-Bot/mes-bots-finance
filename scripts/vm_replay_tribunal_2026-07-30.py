@@ -1,4 +1,20 @@
-"""REPLAY VM — tribunal 30/07 + CCJ signée. À LANCER SUR LA VM (source de vérité).
+"""⛔ DO-NOT-RUN (02/08) — SCRIPT MORT, conservé comme trace uniquement. ⛔
+
+Le dry-run du 02/08 a prouvé que le tribunal est DÉJÀ sur la VM : un run antérieur
+l'y a écrit le 31/07 (14 trades datés 2026-07-31, fx du 31/07). Relancer ce script
+échouerait (positions déjà vendues -> `No open position`) ou doublerait. Le
+dup-check `LIKE '2026-07-30%'` est AVEUGLE aux trades datés 31.
+
+Décision 02/08 : on ACCEPTE la version VM (natif = reconstruction EUR÷fx31, l'EUR
+observé est identique des deux côtés) ; PAS de chirurgie append-only. Le natif VM
+porte un biais de reconstruction (~0,1% USD / 0,33% KRW / 1,55% JPY), déclaré, sans
+impact décision (Q1=triggers, Q2=poids EUR). Fix durable = stocker l'ancre EUR
+observée + fx + date, dériver le natif à la lecture (A8, entrée file de pression).
+
+Un hard-guard ci-dessous empêche toute exécution. Ne pas retirer sans relire ceci.
+
+--- Doc historique d'origine (pour mémoire) ---
+REPLAY VM — tribunal 30/07 + CCJ signée. À LANCER SUR LA VM (source de vérité).
 
 MERGE sur l'état VM actuel (préserve les écritures cron de la nuit) — n'écrase RIEN.
 Portable : ids existants partagés VM/Mac ; nouveaux ids (000660/2802/CCJ) via lookup ticker.
@@ -33,6 +49,12 @@ def tid(ticker: str) -> int | None:
 
 
 def main() -> None:
+    # ⛔ HARD-GUARD DO-NOT-RUN (02/08) : le tribunal est déjà sur la VM (daté 31/07).
+    # Relancer échouerait/doublerait. Cf docstring. Retrait volontaire = décision écrite.
+    raise SystemExit(
+        "⛔ DO-NOT-RUN : tribunal déjà présent sur la VM (daté 31/07). "
+        "Ce replay est mort — cf docstring (dry-run 02/08). Ne pas exécuter."
+    )
     with storage.db() as cx:
         n0 = cx.execute(
             "SELECT count(*) FROM transactions WHERE trade_date LIKE '2026-07-30%'"
