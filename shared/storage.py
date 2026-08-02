@@ -1456,6 +1456,56 @@ def log_decision(
         conn.close()
 
 
+# ── Enum canonique des biais (source unique) ────────────────────────────────
+# Vérité = docs/specs/terminologie_bias_events_fr.md (31/05). TROIS valeurs strictes.
+# Les cognitifs (recency, confirmation, sunk cost…) sont 'other' + nuance dans le
+# reasoning, JAMAIS dans l'enum. La garde valide contre CECI, jamais contre les
+# valeurs historiquement présentes en base (sinon elle canonise la dette).
+CANONICAL_BIAS = ("lock_in", "fomo_greed", "other")
+
+# Mapping LECTURE legacy -> enum. Le CF est append-only (dcf_no_update) : on TRADUIT
+# à la lecture sans réécrire le passé (déclaration datée 02/08, cf docs). Même principe
+# qu'accepter+déclarer la reconstruction native : le journal garde ses erreurs.
+_LEGACY_BIAS_MAP = {
+    "vend_winners_trop_tot": "lock_in",        # doublon francophone de lock_in (L1)
+    "override_vs_tribunal": "fomo_greed",      # impulsions 30/07 = agir contre le cadre
+    "bottom_timing_instinct": "fomo_greed",
+    "override_timing_taille": "fomo_greed",
+    "override_pre_print": "fomo_greed",
+    "recency_bias": "other", "confirmation_bias": "other",   # cognitifs (tagger) -> other
+    "overconfidence": "other", "availability_heuristic": "other", "sunk_cost": "other",
+    "backfill_05_06_orphan": "other",          # marqueur technique
+}
+
+
+def canonical_bias(raw):
+    """Normalise un label de biais vers l'enum canonique — LECTURE seule, ne réécrit
+    jamais la base. Legacy -> enum via _LEGACY_BIAS_MAP ; inconnu -> 'other' (conservatif,
+    cf bias_events.classify)."""
+    if raw in CANONICAL_BIAS:
+        return raw
+    return _LEGACY_BIAS_MAP.get(raw, "other")
+
+
+def _validate_bias_enum(values):
+    """Garde ÉCRITURE (H11 : la règle écrite de la spec, rendue mécanique). Rejette tout
+    label hors enum — y compris les doublons sémantiques (vend_winners_trop_tot) et les
+    cognitifs granulaires, qui doivent s'écrire 'other'. Fail-loud contre la SPEC."""
+    import json as _json
+
+    if isinstance(values, str):
+        try:
+            values = _json.loads(values) if values else []
+        except Exception:
+            values = [values]
+    bad = [v for v in (values or []) if v not in CANONICAL_BIAS]
+    if bad:
+        raise ValueError(
+            f"bias non-canonique {bad} — enum = {CANONICAL_BIAS} "
+            "(spec terminologie_bias_events_fr.md). Cognitif -> 'other' + nuance dans reasoning."
+        )
+
+
 def insert_decision_with_cf(
     *,
     ticker,
@@ -1511,6 +1561,10 @@ def insert_decision_with_cf(
     valid_types = {"entry", "scale_in", "partial_exit", "full_exit", "override", "no_action_flag"}
     if decision_type not in valid_types:
         raise ValueError(f"decision_type must be in {valid_types}, got {decision_type}")
+
+    # Garde H11 (02/08) : rejette tout bias non-canonique AVANT écriture. Seul caller
+    # passant ce param = le replay DO-NOT-RUN (mort) -> fail-loud réel, zéro risque live.
+    _validate_bias_enum(bias_hypothesis_json)
 
     needs_cf = decision_type in {"entry", "scale_in", "partial_exit", "full_exit"}
 
@@ -1980,7 +2034,10 @@ def get_bias_stats(ticker=None, since_days=180):
                 tags = []
             if tags:
                 total_with_tags += 1
-                for t in tags:
+                # Mapping LECTURE (02/08) : legacy/cognitif -> enum canonique. Rend le passé
+                # append-only ET la sortie live du tagger agrégeables sans réécrire la base
+                # (cognitifs -> 'other' conformément à la spec). Le writer reste inchangé.
+                for t in (canonical_bias(_t) for _t in tags):
                     counts[t] = counts.get(t, 0) + 1
                     type_counts.setdefault(r["decision_type"], {})
                     type_counts[r["decision_type"]][t] = type_counts[r["decision_type"]].get(t, 0) + 1
