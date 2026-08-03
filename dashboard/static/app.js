@@ -25,8 +25,8 @@
   /* Pass 5 audit P3 : section label map -> dynamic <title> per page +
      aria-current="page" sync. */
   var _SECTION_LABELS = {vigie:'Overview', positions:'Positions', theses:'Theses',
-                         concentration:'Concentration', strategie:'Strategy',
-                         urgence:'Alerts', copilot:'Copilot', methode:'Method',
+                         concentration:'Concentration',
+                         urgence:'Alerts', copilot:'Copilot',
                          'position-card':'Cards'};
   function show(id){
     pages.forEach(p=>p.classList.toggle('active',p.dataset.page===id));

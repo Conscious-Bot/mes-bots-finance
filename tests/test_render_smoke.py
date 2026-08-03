@@ -19,9 +19,13 @@ def test_render_smoke():
     assert len(html) > 15000, f"page trop petite: {len(html)} bytes"
     assert html.startswith("<!doctype html")
     assert html.rstrip().endswith("</html>")
-    # 02/06 nav refactor : "signaux" -> "methode" (renamed). Method/Loop deplaces dans foot (cf _scripts._FOOT_METHOD).
-    for nav in ("vigie", "positions", "theses", "concentration", "methode", "urgence"):
+    # 03/08 user : strategie/cerebro/methode retirés du nav (pages/fonctions conservées,
+    # juste non affichées). Le nav garde les 6 pages décision-relevantes.
+    for nav in ("vigie", "positions", "theses", "concentration", "urgence"):
         assert f'data-nav="{nav}"' in html, f"nav manquant: {nav}"
+    # Retirés du nav le 03/08 : plus jamais dans la barre de contrôle.
+    for gone in ("strategie", "cerebro", "methode"):
+        assert f'data-nav="{gone}"' not in html, f"nav {gone} devrait être retiré"
     for page in ("vigie", "positions", "theses"):
         assert f'data-page="{page}"' in html, f"section manquante: {page}"
     assert "PRESAGE" in html

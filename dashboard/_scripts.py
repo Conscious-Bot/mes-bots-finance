@@ -21,8 +21,6 @@ _NAV = (
     '<div class="nitem" data-nav="concentration" title="Concentration — Sector / country / currency / cluster breakdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
     '<div class="nitem" data-nav="theses" title="Theses — Target/stop asymmetry by conviction tier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg><span class="nlab">Theses</span></div>'
     '<div class="nitem" data-nav="position-card" title="Cards — Per-ticker deep-dive cards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="16" x2="13" y2="16"/></svg><span class="nlab">Cards</span></div>'
-    '<div class="nitem" data-nav="strategie" title="Strategy — Cap by conviction, wrappers, FX exposure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="3.2" r="0.9"/><path d="M12 4.5 C 8.5 4.5, 7.5 9, 9.5 13 L 14.5 13 C 16.5 9, 15.5 4.5, 12 4.5 Z"/><path d="M10.5 7.5 L 13.5 9.5"/><line x1="9" y1="13" x2="15" y2="13"/><path d="M9.5 13 L 8.5 18 L 15.5 18 L 14.5 13"/><path d="M6 18 L 18 18 L 19.5 22 L 4.5 22 Z"/></svg><span class="nlab">Strategy</span></div>'
-    '<div class="nitem" data-nav="cerebro" title="Cerebro — Vault PRESAGE (sentinelles, dialogues, search Obsidian)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5c-2 0-3.5 1.5-3.5 3.5 0 .8.3 1.5.7 2-1 .6-1.7 1.7-1.7 3 0 1.5.9 2.8 2.2 3.3-.1.3-.2.6-.2 1 0 1.7 1.3 3 3 3s3-1.3 3-3V4.5C12.5 4.5 11 3 9 4.5z"/><path d="M15 4.5c2 0 3.5 1.5 3.5 3.5 0 .8-.3 1.5-.7 2 1 .6 1.7 1.7 1.7 3 0 1.5-.9 2.8-2.2 3.3.1.3.2.6.2 1 0 1.7-1.3 3-3 3s-3-1.3-3-3"/></svg><span class="nlab">Cerebro</span></div>'
     '<div class="nitem" data-nav="copilot" title="Copilot — Adversarial AI pressure-tests + biases log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
     '<div class="nitem" data-nav="urgence" title="Alerts — Stops near, targets reached, kill-criteria firing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Alerts</span></div>'
     '</nav>'
@@ -245,8 +243,8 @@ _APP_JS = """
   /* Pass 5 audit P3 : section label map -> dynamic <title> per page +
      aria-current="page" sync. */
   var _SECTION_LABELS = {vigie:'Overview', positions:'Positions', theses:'Theses',
-                         concentration:'Concentration', strategie:'Strategy',
-                         urgence:'Alerts', copilot:'Copilot', methode:'Method',
+                         concentration:'Concentration',
+                         urgence:'Alerts', copilot:'Copilot',
                          'position-card':'Cards'};
   function show(id){
     pages.forEach(p=>p.classList.toggle('active',p.dataset.page===id));
@@ -585,14 +583,7 @@ _MODE_BTN = """<button class="modetgl" title="Day / night mode" aria-label="Togg
 # Method nitem sorti du nav principal (02/06 user) -- vit dans le foot
 # au-dessus du switch de mode, comme une seconde tier "outillage / methode".
 # Garde data-nav="methode" pour rester pilote par la meme JS handler.
-_FOOT_METHOD = (
-    '<div class="nitem" data-nav="methode" title="Method (signals + loop + biases + insider flow)">'
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
-    '<circle cx="12" cy="13" r="1.6" fill="currentColor" stroke="none"/>'
-    '<path d="M8.6 9.6a5 5 0 0 0 0 6.8"/><path d="M15.4 9.6a5 5 0 0 1 0 6.8"/>'
-    '<path d="M6 7a8.5 8.5 0 0 0 0 12"/><path d="M18 7a8.5 8.5 0 0 1 0 12"/>'
-    '</svg><span class="nlab">Method</span></div>'
-)
+_FOOT_METHOD = ""  # Method retiré du nav (03/08 user) — page/fonctions conservées
 
 _THEME_INIT = (
     "<script>"
