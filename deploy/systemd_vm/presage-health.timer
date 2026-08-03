@@ -1,0 +1,9 @@
+[Unit]
+Description=PRESAGE dead-man's-switch — battement horaire
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

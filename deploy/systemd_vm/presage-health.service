@@ -1,0 +1,10 @@
+[Unit]
+Description=PRESAGE dead-man's-switch (disque, backup, token, bot) — cron unique
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash %h/mes-bots-finance/scripts/health_deadman.sh
+
+[Install]
+WantedBy=default.target

@@ -94,9 +94,12 @@ else
     log "  -> Acceptable sur Mac dev ; INTERDIT sur serveur distant (cf doctrine 05/06)"
 fi
 
-# Rotation locale : delete > 14 days
-find "$BACKUP_DIR" -name "snapshot_*.tar.gz" -mtime +14 -delete 2>>"$LOG_FILE" || true
-find "$BACKUP_DIR" -name "bot.db.*" -mtime +14 -delete 2>>"$LOG_FILE" || true
-log "Rotation locale: kept last 14 days"
+# Rotation locale COUNT-BASED (cure incident 03/08 : retention 14j a rempli le
+# disque 38G -> 100% -> writes tronques = racine des echecs silencieux). Borne
+# DURE en nombre, pas en jours : le disque ne peut plus deborder par accumulation.
+ls -1t "$BACKUP_DIR"/snapshot_*.tar.gz 2>/dev/null | tail -n +4 | xargs -r rm -f 2>>"$LOG_FILE"
+ls -1t "$BACKUP_DIR"/bot.db.20* 2>/dev/null | grep -v journal | tail -n +7 \
+    | while read -r f; do rm -f "$f" "$f-journal" 2>>"$LOG_FILE"; done
+log "Rotation locale: kept last 3 tarballs + 6 DB backups (count-based, disk-safe)"
 
 log "=== Backup complete"
