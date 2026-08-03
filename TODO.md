@@ -1,5 +1,63 @@
 # TODO — PRESAGE (mes-bots-finance)
 
+**Refresh** : 03 août 2026 — **SEMAINE DE GEL planifiée** (cf section 🧊 ci-dessous, prioritaire sur tout le reste). Journée : couche vie scellée (`8bce1b4`) · socle performance (`d2b162b`) · gate digest ACT-006 (`f3d7154`) · ACT-013 arbitré (`134bc19`) · ACT-009 prouvé DR offsite (`b8bf00f`) · dead-man's-switch live VM · disque VM 100%→57% (racine des échecs silencieux) · **sync VM→Mac RÉACTIVÉ + convergé** (l'alerte replay des Refresh 30-31/07 est OBSOLÈTE : replay DO-NOT-RUN, version VM acceptée+déclarée). Digue **gel_15 −19,9%** active, gates 5-7/08 suspendues par protocole. — *Refresh préc. 31/07 ci-dessous.*
+
+---
+
+## 🧊 SEMAINE DE GEL (04→08/08) — clôture du concept, puis USAGE SEUL
+
+> Objectif : vendredi soir, `CONCEPT_FREEZE.md` committé = plus aucun travail de concept.
+> Après : seuls (1) réparation de cassé, (2) soustraction, (3) déclenché-par-falsifieur.
+> Tout le reste interdit jusqu'à **N ≥ 50 paris résolus** (cliquet). Audit source : session 03/08.
+
+### 5 interrupteurs (Olivier, une ligne chacun — répondre AVANT les tâches associées)
+- [ ] ① **Hedgeye** (32 signaux/30j, 25% matériel = 1er producteur de bruit en volume) : tuer / garder
+- [ ] ② **The Defiant** (17 signaux "haut impact" crypto sur book stock-only) : tuer / garder
+- [x] ③ **Digest** : fix-1 v2.3 SHIPPÉ (`f3d7154`, gate mécanique) → vérifier digest 12h du 04/08 puis GELER
+- [ ] ④ **ACT-017 / H9c** : drill 30 min (machine SANS clé Mac) ou « risque accepté » écrit
+- [ ] ⑤ **`dist/`** : purger (si régénérable) ou archiver hors repo
+
+### LUNDI 04/08
+- [ ] **Olivier (25 min)** : kill-list sources Gmail — désabonner/délabelliser : Moby, Snowball, The Weekender, All In, N. Cheron, tickeron, Unusual Whales, MoneyRadar Crypto (+ ① ② tranchés)
+- [ ] **Olivier (10 min)** : nombres broker TR → GOOGL/KLAC/MP : valeur EUR + P&L affiché · COHR : P&L réalisé
+- [ ] **Claude** : ACT-004 — réconciliation 4 tickers + test invariant + levée garde-fou #123 (dès nombres reçus ; `ledger_pmp` committé, plus de bloqueur)
+- [ ] **Claude** : token Gmail write atomique (`tmp + os.replace`, 10 lignes — le dead-man détecte, ceci prévient)
+- [ ] **Vérif** : digest 12h — le gate tient en prod (dry-run 03/08 : 3 urgents tombent, 0 primaire/49)
+
+### MARDI 05/08
+- [ ] **Cowork** : rewire `digue_monitor` → `compute_book_performance` (HWM canonique unique 59 224, ferme le fork L1 snapshot-vs-reconstruction)
+- [ ] **Cowork** : fin refactor render.py + surfacer DD réalisé vs seuils digues + dates gates + **couper sec** data_health / distribution_health (→ logs)
+- [ ] **Claude/VM** : run §XVI SPCX (bot-stop, script prêt + dry-runné : venture c1, stop 98 annulé)
+- [ ] ~~Gate Infineon 5/08~~ **SUSPENDUE** (protocole digue 1) → revue fait/prix journalisée à la place
+
+### MERCREDI 06/08
+- [ ] Print Ajinomoto 2802.T : poser cible/stop post-print (noté dans la thèse « à poser 06/08 »)
+- [ ] Digest gelé officiellement si vérif lundi OK
+- [ ] Rattrapage lundi/mardi si débord
+
+### JEUDI 07/08 — méthode, 3 items FINIS
+- [ ] **Olivier (10 lignes)** : redondance Digue 1 (−15%) vs kill Stage 1 (−25%) — un seul gel gradué, décision écrite (ADR 015 §3 le note « à réconcilier »)
+- [ ] ACT-006 résidu : `date_du_fait` amont — mini-implémentation OU dette déclarée gelée (le gate `f3d7154` couvre déjà l'essentiel)
+- [ ] PQ-009 : lire `bias_tagger` (30 min) → conformer à l'enum OU divorcer les champs. Une fois, puis clos.
+- [ ] ~~Gate Harmonic 7/08~~ **SUSPENDUE** (digue 1) → revue journalisée
+
+### VENDREDI 08/08 — GEL
+- [ ] ④ exécuté (drill H9c ou risque-accepté)
+- [ ] Hygiène one-shot (15 min, soustraction pure) : ⑤ `dist/` + `git worktree remove .claude/worktrees/…` + 3 items vulture (`adversarial_research_loop:192-193`, `backtest:84`) + `bot.log.day11.keep`
+- [ ] **`CONCEPT_FREEZE.md`** : écrire (1 page : périmètre gelé + 3 exceptions + cliquet N≥50) + committer → **GEL DÉCLARÉ**
+- [ ] `/close` rituel complet
+
+### ☠️ MORT POUR TOUJOURS (pas « plus tard » — mort)
+Ajout de sources · tuning scorer/seuils (L15/L16) · v2.2/v2.3 au-delà du fix-1 (nature, claim_id, lane variante) · tout travail visuel dashboard · nouveaux panneaux/monitors/hypothèses/couches doctrine · extensions assumption_graph · chantiers ADAPTABILITÉ au-delà des notes v1.
+
+### 📆 OPÉRATION (dès samedi 09/08 — ce n'est PAS du build)
+- **20 paris pré-enregistrés / 60 jours** — la seule chose qui compose (échec à J+60 = remise en cause de la vision SaaS, pas re-polissage)
+- KPI digest 4 sem. : urgent→(décision OU résistance journalisée) ≥50%, sinon le digest **meurt**
+- Weekly synthesis : mesure 4 sem., sinon mort · Coherent 12/08 (3 seuils) · K3 ~mi-sept · re-drill H9b avant 30/10
+- Protocole digue 1 : revue fait/prix par ligne + journal avant tout déblocage d'achats
+
+---
+
 **Refresh** : 31 juil 2026 **session continue** (pas encore close). North Star v1.1 amendée (critère 2 « à travers un DOWNTURN » intégré, GEV/BESI/CCJ/SPCX re-typés) + **dossier #1 LINDE instruit** + gates de prix armées watchlist (`docs/NORTH_STAR_QUALITE.md` committé) + extension `QUALITY_BAR.md`. CCJ re-souscrite signée (supersede §XV). Contrat de style weekly (`docs/templates/weekly_synthesis_prompt.md`). Digest v2.2 guards + incident MSFT-faux-« capex cut » capturés (mémoire). ⚠️ **REPLAY VM toujours BLOQUANT** — DB Mac-only, sync pausé, GEL des écritures DB (targets/plateau_tag/AVGO-trigger) jusqu'à réconciliation. Détail : SESSION_STATE. — *Refresh préc. 30/07 ci-dessous.*
 **Refresh** : 30 juil 2026 close **TRIBUNAL DU BOOK + DOCTRINE**. Decision log §XII-XIV poussé (`e95c7ae`+`b7bf44e`). ⚠️ Data du jour (14 trades, 5 clôtures, 000660+2802 Ajinomoto, 21 stops frais, backstop 30k §IX) sur **Mac SEUL, sync PAUSÉ** — réconciliation **Mac→VM = chantier #1**, NE PAS réactiver le sync avant (backup `bot.db.SAFE_tribunal30-07_*`). Doctrine gravée : §XI preuve-monétisation · §XIII SPCX override · North Star Bar Maximal (7 critères + watchlist 12 + trou démographie 0%). SPGI parkée `out_of_scope`. Bug reste : fork valeur MU (943 vs 1447€). Détail : SESSION_STATE close 2026-07-30. — *Refresh préc. 29/07 ci-dessous.*
 **Refresh** : 29 juil 2026 close **MARATHON** (audit thèses crash IA/semis + cascade infra + forensique currency). CI VERTE rétablie (classe « chemin DB en dur » fermée en 4 instances : tests/handlers/schema/fixture). Patch plafond API fail-closed (`224456a`) · sync launchd dé-masqué + heartbeat staleness (`858d9ae`) · digest chunking (`0963fdc`) · cure currency 16 décisions (returns EUR + mistake_tags + copilot, backups VM) · STOP FRANCHI profondeur signée (`e0cc3df`). Doctrine **Heimdall** (never-fail-silent) cristallisée. KLAC split réglé option B (entry_value write-once respecté). Book `gel_15` DD −21.8%, décision : PAS de redéploiement avant capex Meta/MSFT 30/07. Détail : SESSION_STATE close 2026-07-29 (+ addenda). — *Refresh préc. 01/07 ci-dessous.*
