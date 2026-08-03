@@ -668,6 +668,7 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
     except Exception as _e:
         log.warning(f"book_anchored reranking failed: {_e}")
         rerank_meta = ""
+        rows_dicts = [dict(r) for r in rows]  # requis par le gate ACT-006 en aval
 
     sources_set = set()
     catalysts = narratives = opinions = data = 0
@@ -742,12 +743,18 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         "DETERMINISTE en amont (table events + seed). N'invente aucune date d'event.\n\n"
         "Structure obligatoire:\n\n"
         "VERDICT: X urgent / Y monitoring / Z noise -- et NOMME les urgents : 'urgent: TICKER (motif 3-5 mots)'\n"
-        "(1 ligne tout en haut. X+Y+Z doit correspondre a ton analyse globale, pas au count brut.)\n\n"
+        "(1 ligne tout en haut. X+Y+Z doit correspondre a ton analyse globale, pas au count brut. "
+        "'0 urgent' est un resultat NORMAL et frequent — ne fabrique JAMAIS un urgent pour remplir. "
+        "Un urgent exige un fait PRIMAIRE (print, filing, donnee officielle) : un tweet, une opinion "
+        "ou un narratif ne peuvent pas porter un urgent. NOTE : tes urgents sont ensuite VERIFIES "
+        "mecaniquement (gate ACT-006) — tout urgent sans signal primaire sera degrade publiquement.)\n\n"
         "PAR POSITION TOUCHEE (ordre = pertinence book decroissante)\n"
         "Une entree par ticker canonique avec >=1 signal. Format par entree :\n"
         "TICKER -- 2-4 lignes : le fait nouveau PRECIS (chiffres exacts des signaux, pas de paraphrase vague), "
         "reference [#id] de chaque signal utilise, et si le rerank book-anchored le signale : quel "
-        "trigger/kill-criterion ca rapproche. Ne fusionne JAMAIS deux tickers dans une meme entree.\n\n"
+        "trigger/kill-criterion ca RAPPROCHE (le rerank mesure une proximite thematique, JAMAIS un "
+        "franchissement — n'ecris jamais 'touche le kill-criterion' : seul kill_criteria_monitor "
+        "constate un franchissement). Ne fusionne JAMAIS deux tickers dans une meme entree.\n\n"
         "THEMES TRANSVERSAUX (0-3, seulement si un meme fait touche >=3 positions)\n"
         "Nom court + tickers + pourquoi ca matte. Pas de remplissage si rien de transversal.\n\n"
         "(Section CATALYSTS DATES fournie deterministiquement en amont — ne la genere PAS.)\n\n"
@@ -774,6 +781,23 @@ def generate_unified_digest(since_hours: int = 24, max_signals: int = 40, exclud
         # Catalysts DETERMINISTES prefixes (Heimdall fix 29/07) : autoritaires,
         # le LLM ne genere plus sa section catalysts (fail-silent supprime).
         # + REACTIONS aux events passes (fix 30/07 : le digest ne rate plus un print).
-        return _deterministic_catalysts() + _past_catalysts_reactions() + "\n\n" + _t13_guard(narrative.strip())
+        # GATE ACT-006 : verification mecanique des urgents + claims kill-criterion
+        # (le LLM propose, le gate dispose — spec v2.3 Fix 1, cf digest_evidence_gate)
+        try:
+            from intelligence.digest_evidence_gate import (
+                apply_evidence_gate,
+                fetch_kill_status_by_ticker,
+            )
+            _kcx = sqlite3.connect(storage._DB_PATH)
+            _kill_status = fetch_kill_status_by_ticker(_kcx)
+            _kcx.close()
+            narrative = apply_evidence_gate(narrative.strip(), rows_dicts, _kill_status)
+        except Exception as _ge:
+            # fail-loud : un controle en panne s'affiche, il ne se tait pas (L15)
+            narrative = (
+                "⚠ GATE ACT-006 INDISPONIBLE (" + type(_ge).__name__ + ") — "
+                "verdicts NON verifies mecaniquement.\n\n" + narrative.strip()
+            )
+        return _deterministic_catalysts() + _past_catalysts_reactions() + "\n\n" + _t13_guard(narrative)
     except Exception as e:
         return "Synthesis failed: " + type(e).__name__ + ": " + str(e)[:200]

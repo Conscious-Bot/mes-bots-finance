@@ -231,9 +231,9 @@ def score_signal_book_anchored(signal_row: dict) -> dict:
 
     reasoning_parts = [f"book match: {', '.join(matched[:3])}"]
     if best_components["kill"] >= 5:
-        reasoning_parts.append(f"kill-criterion match ({best_tk})")
+        reasoning_parts.append(f"proximite thematique d'un invalidateur ({best_tk}) — PAS un franchissement (keywords ; statut reel = kill_criteria_monitor)")
     if best_components["validation"] >= 3:
-        reasoning_parts.append(f"validation driver ({best_tk})")
+        reasoning_parts.append(f"proximite thematique d'un driver ({best_tk})")
     if best_components["urgency"] >= 2:
         reasoning_parts.append(f"position tendue ({best_tk})")
 
