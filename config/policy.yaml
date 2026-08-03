@@ -19,13 +19,39 @@ meta:
     Toute modification = nouvelle entrée datée, l'ancienne conservée en historique.
 
 # --- COUCHE VIE (fondation — recalibre TOUT le reste) ----------------------
+# Scellée 03/08/2026 (session Cowork). Source : déclarations Olivier, verbatim
+# au decision log couche_vie_hwm_2026-08-03.md. 1 champ reste MISSING.
 life:
-  horizon_years:            {value: null, status: MISSING, axiom: A5}
-  monthly_contribution_eur: {value: null, status: MISSING, axiom: A4}
-  dated_liquidity_needs:    {value: null, status: MISSING, axiom: A6}
-  book_share_of_networth:   {value: null, status: MISSING, axiom: A4}
-  # Tant que ces 4 champs sont MISSING, toute politique ci-dessous est un
-  # placeholder plausible, pas une limite calibrée.
+  horizon_years:            {value: 7, status: PROPOSE, axiom: A5,
+                             note: "DÉRIVÉ de l'objectif (pas déclaré tel quel) : bande 5-10 ans.
+                                    5 ans exige 16,8 %/an, 7 ans 9,6 %/an, 10 ans 4,5 %/an
+                                    (book 48-49k + 500 EUR/mois vers 150k). Le '1 an' déclaré
+                                    est une DATE DE REVUE, pas un horizon (cf revue_allocation)."}
+  monthly_contribution_eur: {value: 500, status: VALIDE, axiom: A4,
+                             note: "déclaré 03/08/2026. Échelle : 12,4 %/an du book — les apports
+                                    ne dominent pas l'issue, le stock de 48k la domine."}
+  dated_liquidity_needs:    {value: "150000 pour appartement Séoul, 'le plus vite possible'",
+                             status: VALIDE, axiom: A6,
+                             note: "déclaré 03/08/2026. NON TRANCHÉ : devise de la cible (EUR vs
+                                    KRW). Un appart à Séoul coûte des KRW ; une seule ligne du
+                                    book (000660.KS) est dans la devise de l'objectif."}
+  book_share_of_networth:   {value: null, status: MISSING, axiom: A4,
+                             note: "jamais déclaré — seule pièce manquante de la couche vie."}
+  seuil_desengagement_eur:  {value: 35000, status: VALIDE, axiom: A5,
+                             note: "déclaré 03/08/2026 : niveau AFFICHÉ où Olivier cesse d'ouvrir
+                                    le dashboard. Séquence d'ancrage documentée (18k→30k→35k) au
+                                    decision log. CLIQUET : révision vers le HAUT uniquement ;
+                                    à la baisse = écrit daté + délai 7 jours, INTERDIT en
+                                    drawdown actif (anti plancher-roulant)."}
+  cash_floor_eur:           {value: 0, status: VALIDE, axiom: A4,
+                             note: "déclaré 03/08/2026 : 'très peu, je préfère lump sum'.
+                                    TENSION DÉCLARÉE non résolue : R3 génère ~50 % de cash à
+                                    l'exécution, et le 30/07 chaque achat a exigé une vente
+                                    (flexibilité à somme nulle). Règle compagne : apport mensuel
+                                    → ballast (DCA), capital existant → conviction (lump sum)."}
+  revue_allocation:         {value: "2027-08", status: VALIDE, axiom: A5,
+                             note: "déclaré 03/08/2026 : 'encore 1 an avant de re-réfléchir à une
+                                    nouvelle allocation'. C'est une revue, pas un horizon."}
 
 # --- SIZING (sorties de l'Allocation Solver, bornées ici) ------------------
 sizing:
@@ -53,8 +79,16 @@ exposure:
 drawdown_ladder:
   R1_FREEZE_DD:              {value: -0.15, status: VALIDE, axiom: A3, action: "gel des achats, revue triggers <7j"}
   R2_TRIBUNAL_DD:            {value: -0.25, status: VALIDE, axiom: A3, action: "tribunal complet forcé <7j"}
-  R3_BACKSTOP_VALUE_EUR:     {value: 30000, status: VALIDE, axiom: A3, confirm: "2 closes consécutifs",
-                              action: "dé-risque à ~50% investi, ordre de coupe pré-défini, zéro re-délibération"}
+  R3_BACKSTOP_VALUE_EUR:     {value: 37000, status: VALIDE, axiom: A3, confirm: "2 closes consécutifs",
+                              action: "dé-risque à ~50% investi, ordre de coupe pré-défini, zéro re-délibération",
+                              note: "révisé 30000→37000 le 03/08/2026. DÉRIVATION (pas une préférence) :
+                                     doit être > seuil_desengagement_eur (35000) sinon le mécanisme se
+                                     déclenche là où Olivier a déclaré ne plus regarder ; ancré au point
+                                     mort (capital net injecté 36 968 EUR au 03/08) = agir AVANT d'entamer
+                                     le capital. Révision faite en drawdown actif : autorisée car dans le
+                                     sens CONSERVATEUR (déclenchement plus tôt) — la revision_rule protège
+                                     contre l'assouplissement sous le feu, pas contre le resserrement.
+                                     Historique : 30000 (01/08, dérivé du plus-bas vécu 32 900)."}
   R3_AS_RULE_FROM_2027:      {value: -0.35, status: PROPOSE, axiom: A3, note: "% du HWM annuel — remplace la valeur absolue"}
   HYSTERESIS_POINTS:         {value: 0.05, status: PROPOSE, axiom: A3}
 
