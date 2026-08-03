@@ -42,7 +42,94 @@ class PositionPMP:
 _TOL_ZERO = 1e-6  # qty considérée nulle (close complète)
 
 
-def compute_pmp_realized(cx: Any, ticker: str) -> PositionPMP:
+@dataclass(frozen=True)
+class NormalizedTx:
+    """Une transaction, overrides appliqués. Unité de lecture du ledger."""
+    tx_id: int
+    ticker: str
+    side: str            # "BUY" | "SELL" (les ADJUST ont été absorbés)
+    qty: float
+    price_native: float
+    fees_native: float
+    fx_at_trade: float
+    trade_date: str
+
+
+def normalized_transactions(
+    cx: Any, ticker: str | None = None, upto: str | None = None
+) -> list[NormalizedTx]:
+    """Flux de transactions NORMALISÉ — source unique de lecture du ledger (L1).
+
+    Applique les overrides `ADJUST` (cure currency 14/06/2026) puis retire les
+    lignes ADJUST du flux. Tout consumer du ledger — PMP, réalisé, capital net
+    injecté — DOIT passer par ici : deux façons de lire une transaction
+    produisent deux vérités.
+
+    Origine (audit 03/08/2026) : le capital net injecté, calculé sans les
+    overrides ADJUST, divergeait du réalisé de 26 € sur 48 207 €. Assez petit
+    pour passer inaperçu pendant des mois, assez gros pour prouver qu'il
+    existait deux lectures du même ledger.
+
+    Args:
+        cx     : connexion sqlite3 (doctrine : pas d'import sqlite3 hors storage)
+        ticker : restreint à un ticker, ou None pour tout le ledger.
+        upto   : borne HAUTE incluse (ISO). Indispensable à toute lecture
+                 historique : sans elle, un calcul « as-of le 22/06 » compte
+                 des ventes de juillet et fabrique un passé qui n'a jamais
+                 existé. Les ADJUST sont bornés eux aussi — une correction
+                 postérieure ne doit pas réécrire un état antérieur.
+
+    Returns:
+        Transactions ordonnées (trade_date, id), ADJUST appliqués et absorbés.
+    """
+    import json as _json
+
+    cols = ("SELECT id, ticker, side, qty, price_native, fees_native, "
+            "fx_at_trade, trade_date, notes FROM transactions")
+    where, params = [], []
+    if ticker is not None:
+        where.append("ticker = ?")
+        params.append(ticker)
+    if upto is not None:
+        where.append("trade_date <= ?")
+        params.append(upto)
+    sql = cols + (" WHERE " + " AND ".join(where) if where else "")
+    rows_raw = cx.execute(sql + " ORDER BY trade_date ASC, id ASC", tuple(params)).fetchall()
+
+    adjust_map: dict[int, dict[str, float]] = {}
+    kept: list[tuple] = []
+    for tx_id, tk, side, qty, price_native, fees_native, fx, trade_date, notes in rows_raw:
+        if side == "ADJUST":
+            try:
+                notes_data = _json.loads(notes) if notes else {}
+                target_id = notes_data.get("target_tx_id")
+                if target_id is not None:
+                    adjust_map[int(target_id)] = {
+                        "price_native": float(price_native),
+                        "fx_at_trade": float(fx),
+                    }
+            except (ValueError, TypeError, _json.JSONDecodeError):
+                continue  # ADJUST mal formé -> ignore (fail-soft, cf original)
+        else:
+            kept.append((tx_id, tk, side, qty, price_native, fees_native, fx, trade_date))
+
+    out: list[NormalizedTx] = []
+    for tx_id, tk, side, qty, price_native, fees_native, fx, trade_date in kept:
+        ov = adjust_map.get(tx_id)
+        out.append(NormalizedTx(
+            tx_id=int(tx_id),
+            ticker=str(tk),
+            side=str(side),
+            qty=float(qty),
+            price_native=float(ov["price_native"]) if ov else float(price_native),
+            fees_native=float(fees_native),
+            fx_at_trade=float(ov["fx_at_trade"]) if ov else float(fx),
+            trade_date=str(trade_date),
+        ))
+    return out
+
+
+def compute_pmp_realized(cx: Any, ticker: str, upto: str | None = None) -> PositionPMP:
     """Calcule PMP roulant + realized_pnl date-ordonné pour ce ticker.
 
     Itère TOUTES les transactions (BUYs + SELLs) ordonnées par trade_date.
@@ -55,32 +142,10 @@ def compute_pmp_realized(cx: Any, ticker: str) -> PositionPMP:
     structural preserved) ni pansement reversal-BUY (qui pollue PMP
     path-dependent). Cf SPEC_LEDGER §1 "extensible 'SPLIT'/'ADJUST' (futur)".
     """
-    import json as _json
-    rows_raw = cx.execute("""
-        SELECT id, side, qty, price_native, fees_native, fx_at_trade, trade_date, notes
-        FROM transactions
-        WHERE ticker = ?
-        ORDER BY trade_date ASC, id ASC
-    """, (ticker,)).fetchall()
-
-    # Pre-pass : extract ADJUST overrides + filter for BUY/SELL iteration
-    adjust_map: dict[int, dict[str, float]] = {}
-    iter_rows: list[tuple] = []
-    for r in rows_raw:
-        tx_id, side, qty, price_native, fees_native, fx, _trade_date, notes = r
-        if side == "ADJUST":
-            try:
-                notes_data = _json.loads(notes) if notes else {}
-                target_id = notes_data.get("target_tx_id")
-                if target_id is not None:
-                    adjust_map[int(target_id)] = {
-                        "price_native": float(price_native),
-                        "fx_at_trade": float(fx),
-                    }
-            except (ValueError, TypeError, _json.JSONDecodeError):
-                continue  # ADJUST mal formé → ignore (fail-soft)
-        else:
-            iter_rows.append((tx_id, side, qty, price_native, fees_native, fx))
+    iter_rows = [
+        (t.tx_id, t.side, t.qty, t.price_native, t.fees_native, t.fx_at_trade)
+        for t in normalized_transactions(cx, ticker, upto)
+    ]
 
     qty_pool = 0.0
     cost_pool_native = 0.0  # somme cumulée qty x price + fees (en native)
@@ -88,11 +153,8 @@ def compute_pmp_realized(cx: Any, ticker: str) -> PositionPMP:
     realized_eur = 0.0
     n_closures = 0
 
-    for tx_id, side, qty, price_native, fees_native, fx in iter_rows:
-        # Apply ADJUST override si applicable (currency bug cure)
-        if tx_id in adjust_map:
-            price_native = adjust_map[tx_id]["price_native"]
-            fx = adjust_map[tx_id]["fx_at_trade"]
+    for _tx_id, side, qty, price_native, fees_native, fx in iter_rows:
+        # (overrides ADJUST déjà appliqués par normalized_transactions)
         qty = float(qty)
         price_native = float(price_native)
         fees_native = float(fees_native)
@@ -141,7 +203,7 @@ def compute_pmp_realized(cx: Any, ticker: str) -> PositionPMP:
     # Si une autre source (VUE SQL ex-helper, autre chemin) publie une valeur
     # différente au-delà de ε=0.001 pour ce ticker/jour → fork détecté = L29
     # mécanisé. Silent-miss L7 si living_graph DB indispo.
-    if pmp_eur_final is not None:
+    if pmp_eur_final is not None and upto is None:  # jamais publier un état passé
         try:
             from shared.living_graph import register_concept
             register_concept(

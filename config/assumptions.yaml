@@ -68,14 +68,20 @@ assumptions:
   H3:
     statement: "Le porteur peut tenir ses positions sans jamais être forcé de vendre"
     class: behavioral
-    status: SOUS_TENSION
+    status: TENUE
     severity: EXISTENTIAL
     support:
-      basis: asserted
+      basis: declared
       reproducible: false
       external_validation: false
-      evidence: []
-      note: "life.dated_liquidity_needs = MISSING → aucune preuve possible aujourd'hui"
+      evidence:
+        - {id: EV-2026-08-03-VIE-SCELLEE, date: 2026-08-03, source: config/policy.yaml, type: declaration,
+           claim: "couche vie scellée 6/7 (seuil désengagement 35k cliquet, apport 500, cash_floor 0, besoin 150k Séoul, revue 2027-08, horizon dérivé 5-10a). Verbatims: decision_logs/couche_vie_hwm_2026-08-03.md"}
+      note: >
+        Résidus déclarés : book_share_of_networth MISSING ; devise de l'objectif
+        Séoul non tranchée (EUR vs KRW) ; cash_floor=0 en tension avec R3 (~50 %
+        cash à l'exécution). TENUE sur base déclarative — pas prouvée par
+        comportement, le falsifier reste armé.
     falsifier: "toute vente motivée par un besoin de cash externe au book"
     logical_owner: gerant
     current_owner: olivier
@@ -214,13 +220,15 @@ assumptions:
   H9:
     statement: "L'infrastructure de la DB de production reste sauvegardée et RESTAURABLE (jambe LEDGER)"
     class: engineering
-    status: FALSIFIEE
+    status: TENUE
     severity: CRITICAL
     support:
       basis: empirical
       reproducible: true
       external_validation: false
       evidence:
+        - {id: EV-2026-08-03-DR-TEST, date: 2026-08-03, source: docs/runbooks/restore_test_20260803.md, type: drill,
+           claim: "restauration DEPUIS Storage Box en 7s (RTO 24h), integrity ok, checksum bit-identique, smoke code OK (224 tx). Cause racine des échecs silencieux : disque VM 100% plein, purgé. Commit b8bf00f"}
         - {id: EV-2026-07-28-SYNC, date: 2026-07-28, source: logs, type: incident,
            claim: "sync muet 7 jours sans une seule alerte"}
         - {id: EV-2026-08-01-BACKUP, date: 2026-08-01, source: systemd, type: incident,
@@ -237,12 +245,12 @@ assumptions:
     falsifier: "backup en échec >24h OU sync muet >6h sans alerte OU restauration non testée depuis 6 mois"
     logical_owner: infrastructure
     current_owner: olivier
-    trigger: "service offsite VM en échec (ACTUELLEMENT VRAI)"
+    trigger: "service offsite VM en échec OU staleness backup >48h"
     deadline: "48h"
     rto_hours: 24
     rpo_hours: 1
     rpo_owner: "service offsite VM (backup.sh → Storage Box)"
-    rpo_status: BRECHEE
+    rpo_status: RETABLIE  # 03/08 : purge disque VM (100%→55%), backup+push relancés
     actions: [ACT-009]
     modules: [crons, digest, monitors, ledger]
 
@@ -324,8 +332,13 @@ assumptions:
     current_owner: olivier
     trigger: "toute revue de H9b"
     deadline: "avant le prochain re-drill (30/10/2026)"
-    actions: [ACT-009]
+    actions: [ACT-017]
     modules: [vault_recovery, offsite_access]
+    # 03/08 : le runbook DR affirme "H9c vérifié" — SURDÉCLARATION corrigée ici.
+    # Le test prouve le chemin VM→StorageBox (clé backup.env de la VM) : première
+    # évidence d'un accès non-Mac. Mais le falsifier de H9c — atteindre Hetzner
+    # SANS le Mac (console, identifiants hors-machine) — reste NON testé.
+    # L'action résiduelle est ACT-017 (drill 10 min), plus ACT-009 (accompli).
 
   H10:
     statement: "Le décideur reste unique, disponible et capable d'opérer le système"
@@ -370,14 +383,18 @@ assumptions:
   H12:
     statement: "Les apports futurs continueront"
     class: behavioral
-    status: INCONNUE
+    status: TENUE
     severity: EXISTENTIAL
     support:
-      basis: asserted
+      basis: declared
       reproducible: false
       external_validation: false
-      evidence: []
-      note: "life.monthly_contribution_eur = MISSING — hypothèse jamais énoncée avant le 01/08/2026"
+      evidence:
+        - {id: EV-2026-08-03-APPORT, date: 2026-08-03, source: config/policy.yaml, type: declaration,
+           claim: "apport 500 EUR/mois déclaré (couche vie) ; règle de financement : apports → ballast (DCA), capital → conviction"}
+        - {id: EV-2026-08-03-ADR015, date: 2026-08-03, source: docs/adrs, type: decision,
+           claim: "ACT-013 accompli : arbitrage vente forcée vs Digue 2 écrit dans ADR-015 (commit 134bc19)"}
+      note: "TENUE sur base déclarative — le falsifier (arrêt >6 mois) reste armé."
     falsifier: "arrêt des apports >6 mois"
     logical_owner: gerant
     current_owner: olivier
@@ -464,6 +481,7 @@ actions:
   ACT-011: {do: "Écrire le Continuity Plan (que faire du book en cas d'indisponibilité 6 mois)", blocking: false}
   ACT-012: {do: "Suppression nette au trimestre suivant : nommer ce qu'on retire avant tout ajout", blocking: false}
   ACT-013: {do: "Arbitrage écrit : accepter la concentration OU amender 'jamais de vente forcée'. GEL des politiques dépendant du cliquet", blocking: true}
+  ACT-017: {do: "Drill 10 min : atteindre Hetzner/Storage Box depuis un appareil NON-Mac avec identifiants hors-machine (falsifier H9c)", blocking: false, deadline: "2026-10-30"}
   ACT-014: {do: "Interdire toute hausse de KELLY_FRACTION avant calibration mesurée", blocking: true}
   ACT-015: {do: "Instaurer la hiérarchie de triggers : thèse → driver → portefeuille → macro", blocking: false}
   ACT-016: {do: "Revue du corpus de doctrines (biais du survivant)", blocking: false}
