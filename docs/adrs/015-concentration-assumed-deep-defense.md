@@ -126,3 +126,27 @@ Caps de conviction (c5=8% … c1=2%) intacts. Étage séparé de la gouvernance 
 - Si un vrai épisode de stress survient : revoir l'hypothèse de choc (57%) et les seuils de digues
   à la lumière du drawdown réellement observé. « Réviser l'ADR » = décision réflexive, jamais un
   auto-trade.
+
+## AMENDEMENT ACT-013 (2026-08-03) — « jamais de vente forcée » vs Digue 2
+
+**Contradiction identifiée par l'audit (registre H-hypothèses)** : la politique scellée
+« jamais de vente forcée » contredit la Digue 2 (§3 — réduction prorata 20% de `compute_ai`
+à −35% réalisé via `cmd_kill_exec`).
+
+**Arbitrage retenu : AMENDER la politique, PAS supprimer la digue.**
+
+Formulation amendée :
+> « Jamais de vente forcée AU NIVEAU LIGNE : les stops de ligne sont non-binding,
+> informationnels — ils déclenchent une revue fait/prix journalisée, jamais une vente.
+> UNIQUE exception, au niveau BOOK : Digue 2 / kill Stage 2 — drawdown réalisé ≥ −35% vs
+> high-water mark → réduction prorata uniforme de 20% sur chaque ligne du cluster
+> `compute_ai`, pré-calculée, exécutée via `cmd_kill_exec`, sans discrétion de sélection. »
+
+**Rationale** : la politique interdit la *discrétion à chaud* (vendre sous la panique, choisir
+quel nom sacrifier), pas le *mécanisme pré-engagé à froid*. La vente prorata à −35% est un
+disjoncteur conçu précisément pour retirer le choix à l'émotion — elle est l'application de
+l'esprit de la politique, pas sa violation. Décision prise à froid en juin (§3), confirmée à
+froid ce jour. **Lève le gel ACT-010 sur ce point.**
+
+**Item connexe laissé OUVERT** (hors périmètre ACT-013) : redondance gel Digue 1 (−15%) vs
+kill Stage 1 (−25%) — déjà notée §3, à trancher au chantier digues.
