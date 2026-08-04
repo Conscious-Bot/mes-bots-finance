@@ -11,14 +11,14 @@
 > Tout le reste interdit jusqu'à **N ≥ 50 paris résolus** (cliquet). Audit source : session 03/08.
 
 ### 5 interrupteurs (Olivier, une ligne chacun — répondre AVANT les tâches associées)
-- [ ] ① **Hedgeye** (32 signaux/30j, 25% matériel = 1er producteur de bruit en volume) : tuer / garder
-- [ ] ② **The Defiant** (17 signaux "haut impact" crypto sur book stock-only) : tuer / garder
+- [x] ① **Hedgeye : TUÉ** (04/08, désabonné + blocklist)
+- [x] ② **The Defiant : TUÉ** (04/08, désabonné + blocklist)
 - [x] ③ **Digest** : fix-1 v2.3 SHIPPÉ (`f3d7154`, gate mécanique) → vérifier digest 12h du 04/08 puis GELER
 - [ ] ④ **ACT-017 / H9c** : drill 30 min (machine SANS clé Mac) ou « risque accepté » écrit
 - [ ] ⑤ **`dist/`** : purger (si régénérable) ou archiver hors repo
 
 ### LUNDI 04/08
-- [x] Kill-list **FAITE 04/08** : système (`7195643`, 8 bloquées + test-verrou) **ET source (désabonnements Gmail faits par Olivier)**. Restent les interrupteurs ① Hedgeye ② The Defiant (une ligne chacun)
+- [x] Kill-list **FAITE 04/08** : système (`7195643`, 8 bloquées + test-verrou) **ET source (désabonnements Gmail faits par Olivier)**. ①② tranchés : TUÉS (blocklist 10)
 - [ ] **Olivier (10 min)** : nombres broker TR → GOOGL/KLAC/MP : valeur EUR + P&L affiché · COHR : P&L réalisé
 - [ ] **Claude** : ACT-004 — réconciliation 4 tickers + test invariant + levée garde-fou #123 (dès nombres reçus ; `ledger_pmp` committé, plus de bloqueur)
 - [ ] **Claude** : token Gmail write atomique (`tmp + os.replace`, 10 lignes — le dead-man détecte, ceci prévient)
