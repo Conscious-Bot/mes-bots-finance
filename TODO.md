@@ -20,7 +20,7 @@
 ### LUNDI 04/08
 - [x] Kill-list **FAITE 04/08** : système (`7195643`, 8 bloquées + test-verrou) **ET source (désabonnements Gmail faits par Olivier)**. ①② tranchés : TUÉS (blocklist 10)
 - [ ] **Olivier (10 min)** : nombres broker TR → GOOGL/KLAC/MP : valeur EUR + P&L affiché · COHR : P&L réalisé
-- [ ] **Claude** : ACT-004 — réconciliation 4 tickers + test invariant + levée garde-fou #123 (dès nombres reçus ; `ledger_pmp` committé, plus de bloqueur)
+- [x] **ACT-004 CLOSE 04/08** : chaîne canonique unique (ledger_pmp+BookLine) + invariant LIVING_GRAPH vivant + **confirmation TR par Olivier (« ça matche totalement »)** : GOOGL +513/+1742 · KLAC +181/+227 · MP −309/−67 · COHR −932. Garde-fou #123 LEVÉ. (Bascule registre H5 : dès fix moteur)
 - [ ] **Claude** : token Gmail write atomique (`tmp + os.replace`, 10 lignes — le dead-man détecte, ceci prévient)
 - [ ] **Vérif** : digest 12h — le gate tient en prod (dry-run 03/08 : 3 urgents tombent, 0 primaire/49)
 
