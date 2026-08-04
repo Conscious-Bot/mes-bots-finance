@@ -1,6 +1,6 @@
 # TODO — PRESAGE (mes-bots-finance)
 
-**Refresh** : 03 août 2026 — **SEMAINE DE GEL planifiée** (cf section 🧊 ci-dessous, prioritaire sur tout le reste). Journée : couche vie scellée (`8bce1b4`) · socle performance (`d2b162b`) · gate digest ACT-006 (`f3d7154`) · ACT-013 arbitré (`134bc19`) · ACT-009 prouvé DR offsite (`b8bf00f`) · dead-man's-switch live VM · disque VM 100%→57% (racine des échecs silencieux) · **sync VM→Mac RÉACTIVÉ + convergé** (l'alerte replay des Refresh 30-31/07 est OBSOLÈTE : replay DO-NOT-RUN, version VM acceptée+déclarée). Digue **gel_15 −19,9%** active, gates 5-7/08 suspendues par protocole. — *Refresh préc. 31/07 ci-dessous.*
+**Refresh** : 04 août 2026 close — **GEL DÉCLARÉ** (`CONCEPT_FREEZE.md` 0f1a0ed, semaine exécutée en 1 jour, obligations 5→1, interrupteurs 5/5, CI verte). Reste : one-liner moteur (Cowork) + N=0/20 paris. — *Refresh préc. 03/08 :* **SEMAINE DE GEL planifiée** (cf section 🧊 ci-dessous, prioritaire sur tout le reste). Journée : couche vie scellée (`8bce1b4`) · socle performance (`d2b162b`) · gate digest ACT-006 (`f3d7154`) · ACT-013 arbitré (`134bc19`) · ACT-009 prouvé DR offsite (`b8bf00f`) · dead-man's-switch live VM · disque VM 100%→57% (racine des échecs silencieux) · **sync VM→Mac RÉACTIVÉ + convergé** (l'alerte replay des Refresh 30-31/07 est OBSOLÈTE : replay DO-NOT-RUN, version VM acceptée+déclarée). Digue **gel_15 −19,9%** active, gates 5-7/08 suspendues par protocole. — *Refresh préc. 31/07 ci-dessous.*
 
 ---
 

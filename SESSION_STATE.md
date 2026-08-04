@@ -4585,3 +4585,69 @@ Le sync VM→Mac est **EN PAUSE** (`launchctl bootout com.olivier.presage-sync-f
 3. **Post-réconciliation** : targets CCJ/000660/2802 · plateau_tag + trigger AVGO (v2.2) · cure natifs fx.
 4. **Chantiers code (session fraîche, coordonner éditeur digest.py)** : guards digest v2.2 · wire-up weekly (transport + cron VM).
 5. Prints : AMZN passé · AAPL 31/07 · Infineon 05/08 · Ajinomoto 06/08.
+
+
+---
+
+## CLOSE 03/08/2026 — session Cowork (audit + socle + couche vie + ACT-006)
+
+**Commité ce soir** (d2b162b, f3d7154 + lot dashboard ci-dessous) :
+- `shared/book_performance.py` — perf canonique réconciliée ±0,0001 € (réalisé INCLUS ;
+  le book est à **+30,3 %**, pas −1,1 % — pnl_pct snapshot = latent-seulement, L31).
+- `shared/ledger_pmp.normalized_transactions` — lecture UNIQUE du ledger + borne `upto`.
+- `intelligence/erosion_monitor.py` — pente tronquée, seuil PROPOSE non armé (L16).
+- `intelligence/digest_evidence_gate.py` — ACT-006 : urgents exigent un signal PRIMAIRE,
+  claims kill-criterion confrontées au moteur. Dry-run 03/08 : les 3 urgents tombent (0/49 primaire).
+  RÉSIDU : date_du_fait = enrichissement amont.
+- Couche vie scellée 6/7 (35k cliquet · 500 €/m · cash 0 · 150k Séoul devise? · revue 2027-08) ;
+  R3 30k→37k (dérivé : > désengagement + point mort 36 968 €).
+- HWM canonique **59 224 € (22/06)** → DD −17,1 % → **DIGUE 1 FRANCHIE** (gel achats).
+- Registre : bande 5→2 bloquantes (ACT-004 broker, ACT-006 résidu). H9c : surdéclaration
+  runbook corrigée → ACT-017 (drill accès Hetzner sans Mac, 30/10).
+
+**Verdicts d'audit à retenir** (PRESAGE jugé par sa propre base) :
+- Brier Skill Score **−0,046** [IC95 −0,115;−0,009] : pire que la référence naïve. Surconfiance +8,6 pts.
+- kill_criteria : 713/713 dormant à vie. thesis_predictions : 10 posées, 0 résolue.
+- Sélection réelle : hérité +27,9 % (14 lignes) vs choisi-par-PRESAGE **−5,4 %** (16 lignes, 10 sem., N faible).
+- Semis : chute −33 % en 37j = profil LIQUIDATION (asymétrie séances 2,6×), pas dé-rating — suggestif, N=1.
+
+**Ouvert (post-gel)** : trim +1 716/1 734 € = PROPOSITION non exécutée (go/no-go Olivier) ·
+divergence book 47k vs 49k (ACT-004) · book_share_of_networth · devise Séoul ·
+PQ-006 fusion Positions/Thèses · tâches #2/#3 dashboard (monitors→Alerts, Brier→Overview) PARKÉES.
+
+**Semaine 04-08/08 : GEL (d42a80c). Usage seul, zéro construction.**
+
+---
+
+## Close 2026-08-04 — SEMAINE DE GEL exécutée en UNE journée → CONCEPT_FREEZE déclaré
+
+**Livré (session terminal, ~20 commits `bec47ad`→`b8bdbb4`)** :
+- **CONCEPT_FREEZE.md (`0f1a0ed`)** : le concept est CLOS. 3 seules classes de changement
+  (réparation / soustraction / déclenché-par-falsifieur), tout le reste interdit jusqu'à
+  **N ≥ 50 paris résolus**. Gravé en tête de MEMORY (toute session future le lit d'abord).
+- **Obligations 5 → 1** : ACT-013 (D1 : le gel = propriété échelle BOOK, kill Stage 1 =
+  vigilance pure — le « doublon » n'était que verbal) · ACT-009 (déjà prouvé) · ACT-010
+  (levé) · ACT-006 (gate + résidu `date_du_fait` = dette gelée, option b) · **ACT-004
+  (réconciliation broker CONFIRMÉE Olivier « ça matche totalement » : GOOGL +513/+1742 ·
+  KLAC +181/+227 · MP −309/−67 · COHR −932 → garde-fou #123 LEVÉ)** · ACT-017 (drill H9c
+  non-Mac exécuté) → registre `b8bdbb4` : H5 + H9c TENUE.
+- **Interrupteurs 5/5** : ①② Hedgeye+Defiant tués (désabonnés + blocklist 10, test-verrou) ·
+  ③ digest gelé (gate mécanique vérifié prod : « 0 urgent » normal ; 2 fixes Cowork relayés) ·
+  ④ H9c drill fait · ⑤ dist/ archivé+purgé + worktree (greps mono-arbre prouvés).
+- **Avancés hors-jour** : §XVI SPCX en prod (venture c1, integrity ok) · PQ-009 (DIVORCE
+  tagger/enum déclaré, zéro code) · rewire HWM + dashboard Cowork relayés + **fix CI**
+  (2 tests digue alignés sur l'ancre canonique, `54768f7` **CI VERTE**) · token Gmail
+  atomique · vulture = faux positif vérifié.
+
+**⚠️ UNE réparation reste** : `assumption_graph.py:120` (tie de fidélité → TypeError,
+préexistant `d2b162b`) — patch one-liner fourni, fichier WIP Cowork. **L'emitter de 8h
+hurlera chaque matin jusqu'au fix** (comportement voulu).
+
+**Entry next session** :
+1. **GEL ACTIF — refuser tout chantier hors 3 classes** (cf MEMORY tête + CONCEPT_FREEZE).
+2. **N = 0/20 paris, échéance ~03/10.** Ajinomoto print 06/08 = candidat pari #1
+   (cible/stop à poser post-print, déjà dans la thèse). Gates 5-7/08 SUSPENDUES
+   (protocole digue 1, gel_15 actif −17 %) → revues journalisées à la place.
+3. Le one-liner moteur (classe réparation, Cowork) → puis le validateur redevient vert.
+4. Contrats de mort 4 sem. : digest (urgent→décision|résistance ≥50 %) · weekly.
+   Re-drill H9b+H9c avant le **30/10**.
