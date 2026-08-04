@@ -131,3 +131,37 @@ def test_primary_backing_filtre_type_et_ticker():
     sigs = [_sig(1, "data", ["MU"]), _sig(2, "narrative", ["MU"]), _sig(3, "data", ["TSM"])]
     assert primary_backing("MU", sigs) == [1]
     assert primary_backing("XXX", sigs) == []
+
+
+# ── 5. Formats réels attrapés en production (04/08) ─────────────────────────
+
+def test_format_liste_du_04_08_tous_les_urgents_sont_traites():
+    """« urgent: A (...) | B (...) | C (...) » — B et C n'ont pas le mot urgent.
+
+    Bug attrapé par dry-run : seuls les tickers précédés de « urgent: » étaient
+    parsés ; les suivants DISPARAISSAIENT du verdict réécrit — ni gardés ni
+    dégradés. Un urgent ne peut pas s'évaporer en silence.
+    """
+    txt = ("**VERDICT: 3 urgent / 4 monitoring / 11 noise**\n"
+           "urgent: AVGO (insider -$283M) | MU (CXMT) | AMZN (AWS +37%)\n"
+           "\ncorps.")
+    assert parse_urgents(txt) == ["AVGO", "MU", "AMZN"]
+    out = apply_evidence_gate(txt, [_sig(1, "narrative", ["AVGO"])], {})
+    assert "↓ AVGO" in out and "↓ MU" in out and "↓ AMZN" in out, (
+        "les TROIS doivent être dégradés à découvert, aucun ne s'évapore"
+    )
+    assert "VERDICT (gated): 0 urgent / 7 monitoring" in out
+
+
+def test_cecite_entities_est_declaree_pas_silencieuse():
+    """0 signal taggé dans la fenêtre → le gate DOIT dire qu'il est aveugle.
+
+    Constat 04/08 : enrichissement entities en retard (44 % juin → 20 % juillet
+    → 0 % sur la fenêtre fraîche). Sans cette déclaration, « 0 urgent » se
+    lirait comme « rien d'urgent » alors que c'est « rien de vérifiable » (L31).
+    """
+    txt = ("VERDICT: 1 urgent / 2 monitoring / 3 noise\n"
+           "urgent: MU (x)\n\ncorps.")
+    out = apply_evidence_gate(txt, [_sig(1, "catalyst", [])], {})
+    assert "CÉCITÉ DÉCLARÉE" in out
+    assert "invérifiable" in out

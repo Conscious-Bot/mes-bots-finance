@@ -107,13 +107,29 @@ def _verdict_block(narrative: str) -> tuple[int, int] | None:
     return (start, end)
 
 
+_URGENT_LIST_RE = re.compile(
+    r"\|\s*\*{0,2}([A-Z0-9][A-Z0-9.\-]{0,11})\*{0,2}\s*\("
+)  # format 04/08 : "urgent: A (...) | B (...) | C (...)" — B et C sans le mot "urgent"
+
+
 def parse_urgents(narrative: str) -> list[str]:
-    """Tickers nommés urgents dans le BLOC verdict (ligne + continuation)."""
+    """Tickers nommés urgents dans le BLOC verdict (ligne + continuation).
+
+    Deux formats réels observés :
+      03/08 : "urgent: MU | urgent: TSM"           -> _URGENT_RE suffit
+      04/08 : "urgent: AVGO (...) | MU (...) | AMZN (...)" -> les suivants n'ont
+              pas le mot "urgent" ; sans _URGENT_LIST_RE ils DISPARAISSAIENT du
+              verdict réécrit au lieu d'être dégradés à découvert (bug attrapé
+              par dry-run le 04/08, avant déploiement).
+    """
     span = _verdict_block(narrative)
     if span is None:
         return []
     block = narrative[span[0]:span[1]]
-    return list(dict.fromkeys(t.upper() for t in _URGENT_RE.findall(block)))
+    found = [t.upper() for t in _URGENT_RE.findall(block)]
+    if found:  # la liste "| TICKER (" ne vaut que si un "urgent:" ouvre le bloc
+        found += [t.upper() for t in _URGENT_LIST_RE.findall(block)]
+    return list(dict.fromkeys(found))
 
 
 def apply_evidence_gate(
@@ -202,10 +218,17 @@ def _apply(
         out = out[:span[0]] + new_block + out[span[1]:]
 
     # ── trailer : chaque dégradation, à découvert ──
-    if demoted:
+    n_tagged = sum(1 for s_ in signals if _signal_tickers(s_))
+    if demoted or (urgents and not n_tagged):
         trailer = ["", "─── GATE ACT-006 (mécanique — le LLM propose, le gate dispose) ───"]
         for tk, why in demoted:
             trailer.append(f"  ↓ {tk} : urgent→monitoring — {why}")
+        if urgents and n_tagged == 0:
+            trailer.append(
+                f"  ⚠ CÉCITÉ DÉCLARÉE : 0/{len(signals)} signaux de la fenêtre ont des "
+                "tickers taggés (enrichissement entities en retard) — le gate ne peut "
+                "VALIDER aucun urgent. Ce 0 urgent signifie « invérifiable », pas « calme »."
+            )
         out += "\n" + "\n".join(trailer)
 
     return out
