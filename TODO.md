@@ -38,7 +38,7 @@
 ### JEUDI 07/08 — méthode, 3 items FINIS
 - [ ] **Olivier (10 lignes)** : redondance Digue 1 (−15%) vs kill Stage 1 (−25%) — un seul gel gradué, décision écrite (ADR 015 §3 le note « à réconcilier »)
 - [ ] ACT-006 résidu : `date_du_fait` amont — mini-implémentation OU dette déclarée gelée (le gate `f3d7154` couvre déjà l'essentiel)
-- [ ] PQ-009 : lire `bias_tagger` (30 min) → conformer à l'enum OU divorcer les champs. Une fois, puis clos.
+- [x] PQ-009 **CLOS 04/08** (`3baa3f0`, avancé de jeudi) : DIVORCE déclaré — deux objets (annotation cognitive vs écart discipline), spec amendée, zéro code (tagger auto-whitelisté + mapping lecture déjà en place).
 - [ ] ~~Gate Harmonic 7/08~~ **SUSPENDUE** (digue 1) → revue journalisée
 
 ### VENDREDI 08/08 — GEL
