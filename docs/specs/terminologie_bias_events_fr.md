@@ -85,3 +85,32 @@ Les deux peuvent coexister sans collision.
 - **Future Pile 1.1 panneau discipline + handler `/resisted`** : utiliser le mapping ci-dessus pour TOUS labels user-facing.
 
 Triage close (< 30 min). #16 sort du chemin critique : pas de blocage sur build #20.
+
+---
+
+## AMENDEMENT PQ-009 (04/08/2026) — DEUX vocabulaires de biais, périmètres déclarés
+
+**Question posée (registre, 02/08)** : le `bias_tagger` mesure-t-il le même objet que
+`bias_events` ? **Réponse après lecture (04/08) : NON — divorce déclaré, pas de conformation.**
+
+| | vocabulaire DISCIPLINE | vocabulaire COGNITIF |
+|---|---|---|
+| **valeurs** | `lock_in` · `fomo_greed` · `other` (enum strict ci-dessus) | les 10 labels de `bias_tagger.BIASES` (anchoring, recency_bias, …) |
+| **objet mesuré** | écart discipline↔action (FAITS DB : winner vendu, over_cap, kill_criteria) | lecture du RAISONNEMENT d'une décision (annotation LLM) |
+| **résolution** | prix +30/60/90j, falsifiable | aucune — annotation, jamais résolue |
+| **droit de GATE** | oui (bias_events, digues, CF) | **JAMAIS** (annotation pure, ne déclenche rien) |
+| **canal d'écriture** | `insert_decision_with_cf` (garde enum fail-loud) + hooks | `update_decision_bias_tags` via `auto_tag_biases` (auto-whitelisté sur BIASES) |
+
+**Pourquoi pas de conformation** : écraser les 10 cognitifs dans `other` détruirait
+l'information d'annotation sous couvert de propreté (leçon 02/08 : « ne pas répondre à une
+question de frontière avec l'outil d'une erreur »).
+
+**Mécanique déjà en place (zéro code nouveau requis)** :
+1. le tagger **s'auto-whiteliste** (`[t for t in result if t in BIASES]`) → invention de label impossible ;
+2. la garde enum (`storage._validate_bias_enum`) couvre le canal discipline/CF ;
+3. le mapping LECTURE (`storage.canonical_bias`) replie les cognitifs sur `other` pour
+   toute stat au niveau enum — les labels bruts restent en colonne pour l'analyse fine.
+
+**Règle unique ajoutée** : tout NOUVEAU consommateur de `decisions.bias_tags` qui veut
+gater/décider lit via `canonical_bias()` (niveau enum). L'accès aux labels cognitifs bruts
+est réservé à l'analyse descriptive. PQ-009 : **CLOS**.
