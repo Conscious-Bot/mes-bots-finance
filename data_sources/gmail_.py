@@ -163,6 +163,32 @@ def _is_onboarding_noise(subject: str) -> bool:
     return any(p in s for p in _ONBOARDING_PATTERNS)
 
 
+# Kill-list sources (audit 03/08, donnees 30j) : 0 signal materiel (impact>=2)
+# pour les 5 premieres, <25% pour les 3 suivantes. Bloquees COTE INGESTION via
+# le mecanisme noise existant — le desabonnement Gmail (la source) reste la main
+# d'Olivier ; ceci est la garantie systeme, effective immediatement et durable.
+# NE PAS ajouter Hedgeye ni The Defiant sans decision explicite (interrupteurs
+# ①/② de la semaine de gel, en attente). Retrait-seulement apres le gel.
+_BLOCKED_SENDERS = frozenset({
+    "hello@moby.co",                       # Moby — 6 sig, 0% materiel
+    "yoann@media.snowball.xyz",            # Snowball — 5, 0%
+    "post+the-weekender@substack.com",     # The Weekender — 5, 0%
+    "info@allin.com",                      # All In — 3, 0%
+    "nicolas-cheron@mail.beehiiv.com",     # N. Cheron — 3, 0%
+    "aidvisor@tickeron.com",               # tickeron — 8, 13%
+    "unusualwhales@substack.com",          # Unusual Whales — 6, 17%
+    "moneyradarcrypto@substack.com",       # MoneyRadar Crypto — 4, 25%
+})
+
+
+def _is_blocked_sender(from_addr: str) -> bool:
+    """True si l'expediteur est sur la kill-list (match adresse dans 'Nom <addr>')."""
+    if not from_addr:
+        return False
+    f = from_addr.lower()
+    return any(addr in f for addr in _BLOCKED_SENDERS)
+
+
 class GmailSignal(BaseModel):
     """Validated gmail signal ready to persist (Sprint 1.2 Pydantic schema)."""
 
@@ -204,6 +230,9 @@ class GmailSource(BaseDataSource):
             self.skipped_duplicates += 1
             return None
         if _is_onboarding_noise(raw.get("subject", "")):
+            self.skipped_noise += 1
+            return None
+        if _is_blocked_sender(raw.get("from", "")):
             self.skipped_noise += 1
             return None
         return GmailSignal.model_validate(raw)
