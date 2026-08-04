@@ -25,9 +25,9 @@
 - [ ] **Vérif** : digest 12h — le gate tient en prod (dry-run 03/08 : 3 urgents tombent, 0 primaire/49)
 
 ### MARDI 05/08
-- [ ] **Cowork** : rewire `digue_monitor` → `compute_book_performance` (HWM canonique unique 59 224, ferme le fork L1 snapshot-vs-reconstruction)
+- [x] **Rewire HWM FAIT 04/08** (`3893c1f` design (a) ancre policy + rolling max, DD −16,98%, même verdict gel_15, fallback bruyant L15)
   - ⚠️ note design (session terminal 04/08) : `book_performance` n'expose PAS de HWM — le 59 224 vient d'un balayage quotidien. Deux options : (a) rolling-max par balayage (auto-entretenu, mais `current_digue_state()` est appelé à chaque `/position_buy` → cacher le HWM, pas le recalculer à chaque appel) ; (b) HWM déclaré dans policy.yaml + règle de révision sur nouveau plus-haut. Pas de fallback silencieux vers snapshots (L15) — si book_performance échoue, fail-open bruyant comme aujourd'hui.
-- [ ] **Cowork** : fin refactor render.py + surfacer DD réalisé vs seuils digues + dates gates + **couper sec** data_health / distribution_health (→ logs)
+- [x] **Dashboard FINI 04/08** (`3893c1f` — 3 pages hors DOM, monitors→Alerts, track+data health→Overview, regen Mac 217s sans FAILED, 13 tests doctrine)
 - [ ] **Claude/VM** : run §XVI SPCX (bot-stop, script prêt + dry-runné : venture c1, stop 98 annulé)
 - [ ] ~~Gate Infineon 5/08~~ **SUSPENDUE** (protocole digue 1) → revue fait/prix journalisée à la place
 
