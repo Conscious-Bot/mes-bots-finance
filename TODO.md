@@ -18,7 +18,7 @@
 - [ ] ⑤ **`dist/`** : purger (si régénérable) ou archiver hors repo
 
 ### LUNDI 04/08
-- [~] Kill-list : **côté SYSTÈME FAIT 04/08** (`7195643` — les 8 bloquées à l'ingestion, test-verrouillé, ①② non bloquées en attente). Reste **Olivier (15 min)** : désabonnement Gmail (hygiène à la source) + trancher ① Hedgeye ② The Defiant
+- [x] Kill-list **FAITE 04/08** : système (`7195643`, 8 bloquées + test-verrou) **ET source (désabonnements Gmail faits par Olivier)**. Restent les interrupteurs ① Hedgeye ② The Defiant (une ligne chacun)
 - [ ] **Olivier (10 min)** : nombres broker TR → GOOGL/KLAC/MP : valeur EUR + P&L affiché · COHR : P&L réalisé
 - [ ] **Claude** : ACT-004 — réconciliation 4 tickers + test invariant + levée garde-fou #123 (dès nombres reçus ; `ledger_pmp` committé, plus de bloqueur)
 - [ ] **Claude** : token Gmail write atomique (`tmp + os.replace`, 10 lignes — le dead-man détecte, ceci prévient)
