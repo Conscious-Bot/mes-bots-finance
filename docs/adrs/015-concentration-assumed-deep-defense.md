@@ -149,4 +149,26 @@ l'esprit de la politique, pas sa violation. Décision prise à froid en juin (§
 froid ce jour. **Lève le gel ACT-010 sur ce point.**
 
 **Item connexe laissé OUVERT** (hors périmètre ACT-013) : redondance gel Digue 1 (−15%) vs
-kill Stage 1 (−25%) — déjà notée §3, à trancher au chantier digues.
+kill Stage 1 (−25%) — déjà notée §3, à trancher au chantier digues. → **Tranché ci-dessous (D1).**
+
+## AMENDEMENT D1 (2026-08-04) — un seul gel, propriété de l'échelle BOOK
+
+**Constat au code (vérifié 04/08)** : le « doublon de gel » n'existait que dans les MOTS.
+`gate_allows_buy()` ne lit QUE l'état digue (book) ; le kill_switch Stage 1 (−25% cluster)
+ne gèle rien — c'est une notification étiquetée « (gel) » dans la config. Le code avait
+déjà tranché ; cet amendement aligne la doctrine.
+
+**Décision (option A, Olivier 04/08)** :
+- **Le GEL a UN propriétaire : l'échelle BOOK (digue)** — −15% gel achats (enforced) ·
+  −25% escalade (`gel_25`, journalisée+notifiée) · −35% prorata (Digue 2, unique exception
+  ACT-013). Signal = DD réalisé vs HWM canonique (`canonical_hwm()`, 59 224 @ 22/06).
+- **La couche FACTEUR (kill_switch, grappe ai_capex) surveille et véhicule** : Stage 1
+  (−25% cluster) = **VIGILANCE pure** (notification, aucune sémantique de gel) ; Stage 2
+  reste le canal d'exécution du prorata (`/kill_exec` calcule), mais le **déclencheur**
+  est le book (−35%, §3 : « signal = drawdown réalisé du book, jamais autre chose »).
+- **Les deux capteurs restent** : couches facteur/book du RISK_FRAMEWORK, pas un doublon.
+  C'est l'ACTION qui n'a qu'un seul maître. Les états facteur ne gatent jamais — ils
+  informent.
+
+**Coût : zéro code** (le code fait déjà cela). Livraison = cet amendement + le commentaire
+`config.yaml:drawdown_reduce_pct` corrigé (« (gel) » → « notification, PAS un gel »).

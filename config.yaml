@@ -831,8 +831,8 @@ kill_switch:
   # n'est plus un signal — compute_drawdown() retourne None (le disjoncteur dit
   # « je ne sais pas » au lieu d'évaluer un état de marché sur du fossile).
   snapshot_max_age_days: 3
-  drawdown_reduce_pct: 0.25            # Stage 1 — VIGILANCE (gel)
-  drawdown_stop_pct: 0.35              # Stage 2 — DÉ-RISQUE (trim partiel)
+  drawdown_reduce_pct: 0.25            # Stage 1 — VIGILANCE (notification, PAS un gel — D1 04/08 : le gel appartient à l'échelle BOOK/digue)
+  drawdown_stop_pct: 0.35              # Stage 2 — DÉ-RISQUE (canal d'exécution du prorata ; déclencheur = book −35, ADR 015 §3+D1)
   drawdown_hard_pct: null              # Stage 3 par prix DÉSACTIVÉ (à décider août 2026)
   override_min_chars: 40
   override_failure_policy: re_arm      # notify | re_arm (défaut O.) | auto_execute

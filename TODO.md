@@ -37,7 +37,7 @@
 - [ ] Rattrapage lundi/mardi si débord
 
 ### JEUDI 07/08 — méthode, 3 items FINIS
-- [ ] **Olivier (10 lignes)** : redondance Digue 1 (−15%) vs kill Stage 1 (−25%) — un seul gel gradué, décision écrite (ADR 015 §3 le note « à réconcilier »)
+- [x] **D1 TRANCHÉ 04/08 (option A, avancé de jeudi)** : le gel a UN propriétaire = échelle BOOK (digue −15/−25/−35) ; kill Stage 1 = VIGILANCE pure (le « doublon » n'était que verbal — gate_allows_buy ne lit que la digue). Zéro code, ADR 015 amendé + config commentée
 - [ ] ACT-006 résidu : `date_du_fait` amont — mini-implémentation OU dette déclarée gelée (le gate `f3d7154` couvre déjà l'essentiel)
 - [x] PQ-009 **CLOS 04/08** (`3baa3f0`, avancé de jeudi) : DIVORCE déclaré — deux objets (annotation cognitive vs écart discipline), spec amendée, zéro code (tagger auto-whitelisté + mapping lecture déjà en place).
 - [ ] ~~Gate Harmonic 7/08~~ **SUSPENDUE** (digue 1) → revue journalisée
