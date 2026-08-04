@@ -18,7 +18,7 @@
 - [ ] ⑤ **`dist/`** : purger (si régénérable) ou archiver hors repo
 
 ### LUNDI 04/08
-- [ ] **Olivier (25 min)** : kill-list sources Gmail — désabonner/délabelliser : Moby, Snowball, The Weekender, All In, N. Cheron, tickeron, Unusual Whales, MoneyRadar Crypto (+ ① ② tranchés)
+- [~] Kill-list : **côté SYSTÈME FAIT 04/08** (`7195643` — les 8 bloquées à l'ingestion, test-verrouillé, ①② non bloquées en attente). Reste **Olivier (15 min)** : désabonnement Gmail (hygiène à la source) + trancher ① Hedgeye ② The Defiant
 - [ ] **Olivier (10 min)** : nombres broker TR → GOOGL/KLAC/MP : valeur EUR + P&L affiché · COHR : P&L réalisé
 - [ ] **Claude** : ACT-004 — réconciliation 4 tickers + test invariant + levée garde-fou #123 (dès nombres reçus ; `ledger_pmp` committé, plus de bloqueur)
 - [ ] **Claude** : token Gmail write atomique (`tmp + os.replace`, 10 lignes — le dead-man détecte, ceci prévient)
@@ -44,7 +44,7 @@
 
 ### VENDREDI 08/08 — GEL
 - [ ] ④ exécuté (drill H9c ou risque-accepté)
-- [ ] Hygiène one-shot (15 min, soustraction pure) : ⑤ `dist/` + `git worktree remove .claude/worktrees/…` + 3 items vulture (`adversarial_research_loop:192-193`, `backtest:84`) + `bot.log.day11.keep`
+- [ ] Hygiène one-shot : ⑤ `dist/` + `git worktree remove .claude/worktrees/…` + `bot.log.day11.keep`. ~~3 items vulture~~ **FAUX POSITIF vérifié 04/08** (params réservés `# noqa: ARG001` volontaires — ne pas toucher)
 - [ ] **`CONCEPT_FREEZE.md`** : écrire (1 page : périmètre gelé + 3 exceptions + cliquet N≥50) + committer → **GEL DÉCLARÉ**
 - [ ] `/close` rituel complet
 
