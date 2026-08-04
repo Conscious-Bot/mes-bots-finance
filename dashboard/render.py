@@ -536,67 +536,6 @@ _DIM_LABELS = {
 }
 
 
-def _calibration_progress_panel() -> str:
-    """Calibration scorer V2 -- progress bar n/30 (INSUFFICIENT_DATA) ou verdict OK/WARN/ALERT.
-
-    Surface l'attente data-driven en signal visible quotidien. Cohorte calibration
-    s'active automatiquement quand n_total >= 30 predictions resolved non-neutral.
-
-    Pattern aligne v2_vigilance / wire_activity (cron-friendly, silent-success).
-    """
-    try:
-        import sqlite3
-
-        from intelligence import calibration_audit as _calib
-        from shared import storage as _stg
-
-        cx = sqlite3.connect(_stg.DB_PATH)
-        cx.row_factory = sqlite3.Row
-        result = _calib.check_scorer_calibration(cx)
-        cx.close()
-    except Exception as e:
-        return (
-            '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
-            f'<div class="empty">calibration unavailable: {type(e).__name__}</div></div>'
-        )
-
-    target = _calib.MIN_N_TOTAL  # 30
-    n_total = result.get("n_total", 0)
-
-    if result["status"] == "INSUFFICIENT_DATA":
-        pct = min(n_total / target * 100, 100) if target else 0
-        remaining = max(target - n_total, 0)
-        return (
-            '<div class="colhead"><span class="t">Calibration scorer V2</span>'
-            f'<span class="a">cohort accumulation &mdash; verdict activates at n&ge;{target} non-neutral resolved predictions</span></div>'
-            '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
-            '<div class="calib-progress">'
-            f'<div class="calib-bar"><div class="calib-fill" style="width:{pct:.1f}%"></div></div>'
-            '<div class="calib-meta">'
-            f'<span class="calib-n mono">{n_total}/{target}</span>'
-            f'<span class="calib-rem">{remaining} to wait</span>'
-            '</div></div></div>'
-        )
-
-    # status = OK / WARN / ALERT
-    brier = result.get("avg_brier")
-    max_gap = result.get("max_gap_pp", 0)
-    status_cls = {"OK": "acc", "WARN": "warn", "ALERT": "neg"}.get(result["status"], "")
-    brier_str = f"{brier:.4f}" if brier is not None else "&mdash;"
-    return (
-        '<div class="colhead"><span class="t">Calibration scorer V2</span>'
-        f'<span class="a">verdict reliability + mean Brier on cohort n={n_total}</span></div>'
-        '<div class="card pad calibcard" style="margin-bottom:var(--s4)">'
-        f'<div class="calib-verdict">'
-        f'<span class="calib-status {status_cls}">{result["status"]}</span>'
-        f'<span class="calib-brier">Brier <span class="mono">{brier_str}</span></span>'
-        f'<span class="calib-gap">max gap <span class="mono">{max_gap:+.1f}pp</span></span>'
-        f'</div>'
-        f'<div class="calib-msg">{result.get("message", "")}</div>'
-        '</div>'
-    )
-
-
 def _render_ballast_cell(target: dict, views: dict | None = None) -> str:
     """Axe 4 (b) M1 doctrine : ballast live derive, jamais YAML statique.
 
@@ -1420,6 +1359,73 @@ def _performance_panel() -> str:
     )
 
 
+def _obligations_band() -> str:
+    """Bande OBLIGATIONS — ce que le registre m'impose AUJOURD'HUI (PQ-007).
+
+    Le moteur d'hypothèses produit des obligations bloquantes et signale les
+    hypothèses en défaut ; jusqu'ici rien de tout cela n'apparaissait dans
+    l'interface consultée quotidiennement — doctrine invisible = doctrine non
+    appliquée (H11).
+
+    INVARIANT DE RARETÉ (critère de conception, pas d'affichage) : cette bande
+    doit être VIDE la plupart des jours. Une bande toujours pleine devient
+    invisible — c'est la fatigue d'alarme qui tue tous les systèmes d'alerte.
+    Si elle ne se vide jamais, la porte des obligations est trop lâche : c'est
+    un défaut de CONCEPTION, pas une information. Donc : rien à l'écran quand le
+    registre est serein, bruyant sinon.
+
+    Fail-loud (jamais silencieux) : registre illisible ou exception → bandeau
+    INCIDENT visible. Un silence ne doit jamais pouvoir se lire comme « calme ».
+    """
+    try:
+        import importlib.util as _il
+        _p = Path(__file__).resolve().parent.parent / "scripts" / "assumption_graph.py"
+        _spec = _il.spec_from_file_location("_ag", _p)
+        _ag = _il.module_from_spec(_spec)
+        _spec.loader.exec_module(_ag)
+        st = _ag.blocking_obligations()
+    except Exception as e:
+        return ('<div class="oband oband-err" style="padding:var(--s2) var(--s3);'
+                'border-left:3px solid var(--bear);font-family:var(--fm);'
+                f'font-size:var(--t-data)">⚠ REGISTRE INJOIGNABLE — {e!s:.90}</div>')
+
+    if st.get("error"):
+        return ('<div class="oband oband-err" style="padding:var(--s2) var(--s3);'
+                'border-left:3px solid var(--bear);font-family:var(--fm);'
+                f'font-size:var(--t-data)">⚠ REGISTRE EN ÉCHEC — {st["error"]!s:.90}</div>')
+
+    obs, failed = st.get("obligations") or [], st.get("failed") or []
+    exp_d, exp_id = st.get("next_expiry_days"), st.get("next_expiry_id")
+    imminent = exp_d is not None and exp_d <= 14
+
+    if not obs and not failed and not imminent:
+        return ""  # registre serein — l'absence EST l'information
+
+    rows = "".join(
+        f'<div class="oband-row" style="display:flex;gap:var(--s2);align-items:baseline">'
+        f'<span style="opacity:.6;min-width:5.2em">{o["id"]}</span>'
+        f'<span style="opacity:.55;min-width:6em">{",".join(o["hypotheses"])}</span>'
+        f'<span>{o["do"][:150]}</span></div>'
+        for o in obs
+    )
+    meta = []
+    if failed:
+        meta.append(f'hypothèses en défaut : {", ".join(failed)}')
+    if exp_d is not None:
+        meta.append(f'prochaine péremption d\'exposition : {exp_d}j ({exp_id})')
+    meta_html = (f'<div style="opacity:.6;margin-top:var(--s1)">{" · ".join(meta)}</div>'
+                 if meta else "")
+    n = len(obs)
+    return (
+        '<div class="oband" style="padding:var(--s2) var(--s3);margin-bottom:var(--s2);'
+        'border-left:3px solid var(--warn);font-family:var(--fm);'
+        'font-size:var(--t-data);line-height:1.5">'
+        f'<div style="font-weight:600;margin-bottom:var(--s1)">'
+        f'OBLIGATIONS — {n} bloquante{"s" if n > 1 else ""}</div>'
+        f'{rows}{meta_html}</div>'
+    )
+
+
 def _grade_panel() -> str:
     """Glossaire canonique : DEUX notes (Construction + Fragilite), chacune
     decomposee par axe. Vocabulaire FR clair, plus de jargon T1/T1★/cluster.
@@ -1779,80 +1785,6 @@ def _copilot_panel() -> str:
     )
 
 
-def _return_clustering_panel() -> str:
-    """Sprint 17 — Data-defined clusters par correlation rendements reels.
-
-    Per la critique : 'Laisser les donnees definir les clusters. Plutot que
-    des etiquettes de theme posees a la main, clusteriser par correlation
-    de rendements reels.'
-    """
-    # Cache : on ne recompute pas a chaque regen serve (cout yfinance)
-    # On lit le dernier snapshot persiste, ou message + bouton trigger.
-    try:
-        from shared import storage as _stg
-
-        with _stg.db() as cx:
-            row = cx.execute(
-                "SELECT id, snapshot_date, snapshot_json FROM data_clusters_snapshots "
-                "ORDER BY id DESC LIMIT 1"
-            ).fetchone()
-    except Exception:
-        row = None
-    if not row:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "First overlap measurement by correlation scheduled Saturday 18:00. Once available, pairs moving together will appear here."
-            "</div></div>"
-        )
-    import json as _json
-
-    try:
-        data = _json.loads(row[2] or "{}")
-    except Exception:
-        return '<div class="card pad"><div class="empty">snapshot corrompu</div></div>'
-    pairs = data.get("high_corr_pairs") or []
-    clusters = data.get("clusters") or []
-    n_mixed = sum(1 for c in clusters if c.get("mixed"))
-    snapshot_date = row[1]
-
-    pairs_html = "".join(
-        f'<div class="dc-row">'
-        f'<span class="dc-pair">{p["ticker_a"]} &harr; {p["ticker_b"]}</span>'
-        f'<span class="dc-corr mono">{p["correlation"]:.2f}</span></div>'
-        for p in pairs[:12]
-    ) or '<div class="empty" style="padding:var(--s2) 0">none paire >0.7</div>'
-
-    cluster_rows = []
-    for c in clusters:
-        if not c.get("mixed"):
-            continue
-        members = ", ".join(
-            f'{m["ticker"]}<span class="dc-mf">({m["macro_factor"][:14]})</span>'
-            for m in c["members"]
-        )
-        cluster_rows.append(
-            f'<div class="dc-mix">'
-            f'<div class="dc-mix-h">cluster #{c["cluster_id"]} (n={c["n_members"]})</div>'
-            f'<div class="dc-mix-members">{members}</div></div>'
-        )
-    mix_html = "".join(cluster_rows) or '<div class="empty" style="padding:var(--s2) 0">none cluster avec macro_factor melange</div>'
-
-    return (
-        # Vocab canonique (glossaire 5 axes) : « Doublon » = même pari + substituable.
-        # Ce panneau lit les doublons par la corrélation des prix (cure diffusion 04/07).
-        '<div class="colhead"><span class="t">Doublons &mdash; vus par les prix</span>'
-        f'<span class="a">{snapshot_date} &middot; corrélation des rendements &middot; ce qui bouge vraiment ensemble</span></div>'
-        '<div class="card pad clustercard" style="margin-bottom:var(--s4)">'
-        '<div class="dc-sub">'
-        f'<div class="dc-sh">Paires correlees (>0.7)</div>'
-        f'<div class="dc-list">{pairs_html}</div></div>'
-        '<div class="dc-sub">'
-        f'<div class="dc-sh">Clusters mixed macro_factor (concentration cachee) — n={n_mixed}</div>'
-        f'<div class="dc-list">{mix_html}</div></div>'
-        '</div>'
-    )
-
-
 def _fx_exposure_panel() -> str:
     """Sprint 16 — exposition par devise (book euro avec sleeve USD/JPY/KRW)."""
     try:
@@ -1900,124 +1832,6 @@ def _fx_exposure_panel() -> str:
     )
 
 
-def _spof_panel() -> str:
-    """Sprint 14 — Single points of failure upstream.
-
-    Critique : 'Ta vraie concentration n'est pas dans le book, elle est en
-    amont : TSMC fabrique pour AMD, Broadcom, Astera. Un incident TSMC touche
-    far more than TSMC alone. HBM = 3 suppliers, EUV = ASML only.'
-    """
-    try:
-        from intelligence import spof_and_sizing as _sp
-
-        spofs = _sp.compute_spof_graph()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">SPOF indispo: {type(e).__name__}</div></div>'
-    if not spofs:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Ticker classification in progress. Tech sheets will appear here once the pass is complete."
-            "</div></div>"
-        )
-    rows = []
-    for node, d in list(spofs.items())[:10]:
-        pct = d["pct_of_book"]
-        wcls = "high" if pct >= 30 else ("mid" if pct >= 15 else "low")
-        deps = ", ".join(f"{x['ticker']}({x['share']:.0%})" for x in d["dependents"][:8])
-        if len(d["dependents"]) > 8:
-            deps += f" +{len(d['dependents']) - 8}"
-        rows.append(
-            f'<div class="sp-row">'
-            f'<div class="sp-head"><span class="sp-node">{node}</span>'
-            f'<span class="sp-pct {wcls} mono">{pct:.1f}%</span>'
-            f'<span class="sp-eur mono">{d["total_exposure_eur"]:,.0f}€</span>'
-            f'<span class="sp-n">n={d["n_dependents"]}</span></div>'
-            f'<div class="sp-bar"><div class="sp-fill {wcls}" style="width:{min(pct, 100):.1f}%"></div></div>'
-            f'<div class="sp-deps">{deps}</div></div>'
-        )
-    return (
-        '<div class="colhead"><span class="t">Hidden upstream dependencies</span>'
-        '<span class="a">if an upstream supplier breaks, everything depending on it breaks too</span></div>'
-        '<div class="card pad spofcard" style="margin-bottom:var(--s4)">'
-        + "".join(rows)
-        + "</div>"
-    )
-
-
-def _mauboussin_sizing_panel() -> str:
-    """Sprint 14 — sizing implied par fade-rate vs sizing reel.
-
-    Critique : 'Le sizing conviction devient alors l'ecart entre poids
-    reel et poids-implicite-par-le-fade — rigoureux, pas un nombre magique'.
-    """
-    try:
-        from intelligence import spof_and_sizing as _sp
-        from shared import book as _bk
-
-        sizing = _sp.compute_mauboussin_sizing()
-        # F5 fix 29/05 : cross-reference valo_above_bull_case
-        bull_tickers = {x["ticker"] for x in _sp.list_above_bull_case()}
-        # F10 fix 29/05 round 2 : surface stop_distance% par row pour rendre
-        # la contradiction stops decroches du fade visible. Astera fade=80
-        # mais stop -51% (large), Synopsys fade=8 mais stop -20% (idem),
-        # SK Hynix stop -43%. No relation coherente -- regression du
-        # Day 5 sur l'asymetrie tautologique. Au lieu de le decrire dans
-        # le TODO, on l'affiche : 3 colonnes (conv, fade, stop_dist%)
-        # cote a cote permettent de voir l'incoherence d'un coup d'oeil.
-        book_idx = _bk.get_book_index()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">Mauboussin sizing indispo: {type(e).__name__}</div></div>'
-    if not sizing:
-        return (
-            '<div class="card pad"><div class="empty" style="padding:var(--s35) 0">'
-            "Not yet de meta classifies pour calculer le sizing implicite."
-            "</div></div>"
-        )
-    rows = []
-    for tk, d in sizing.items():
-        gap = d["gap_pp"]
-        gcls = "neg" if gap > 0.5 else ("pos" if gap < -0.5 else "neu")
-        fade = d.get("fade_rate_score") or 0
-        fcls = "high" if fade >= 60 else ("mid" if fade >= 30 else "low")
-        # Canonise via [[currency-native-invariant]] : stop_price stocke en
-        # NATIVE -> doit etre compare a un current NATIVE, pas EUR.
-        ln = book_idx.get(tk)
-        stop_dist_html = '<span class="ms-stopd mono">stop ?</span>'
-        stop_dist = _stop_distance_pct_native(tk, ln.stop_price) if ln and ln.stop_price else None
-        if stop_dist is not None:
-            outlier = (fade >= 60 and stop_dist > 40) or (fade <= 20 and stop_dist < 25)
-            ocls = " outlier" if outlier else ""
-            stop_dist_html = (
-                f'<span class="ms-stopd mono{ocls}" '
-                f'title="distance courant -> stop ; fade-coherence">'
-                f'stop &minus;{stop_dist:.0f}%</span>'
-            )
-        fragile_flag = ""
-        if tk in bull_tickers:
-            fragile_flag = (
-                '<span class="ms-frag" title="also flags valo > bull case '
-                'in another view">valo &gt; bull</span>'
-            )
-        rows.append(
-            f'<div class="ms-row">'
-            f'<span class="ms-tk">{tk}</span>'
-            f'<span class="ms-conv mono">c{d["conviction"]}</span>'
-            f'<span class="ms-fade {fcls} mono">fade {fade}</span>'
-            f'{stop_dist_html}'
-            f'<span class="ms-target mono">target {d["target_pct"]:.1f}%</span>'
-            f'<span class="ms-actual mono">reel {d["actual_pct"]:.1f}%</span>'
-            f'<span class="ms-gap {gcls} mono">{gap:+.1f}pp</span>'
-            f'{fragile_flag}</div>'
-        )
-    return (
-        '<div class="colhead"><span class="t">Rigorous calibration</span>'
-        '<span class="a">real size vs theoretical size (conviction &times; moat erosion speed)</span></div>'
-        '<div class="card pad mauboussincard" style="margin-bottom:var(--s4)">'
-        + "".join(rows)
-        + "</div>"
-    )
-
-
 def _valo_above_bull_panel() -> str:
     """Sprint 14 — flag positions ou expectations > bull case (reverse-DCF)."""
     try:
@@ -2049,81 +1863,6 @@ def _valo_above_bull_panel() -> str:
         + "".join(rows)
         + "</div>"
     )
-
-
-def _factor_exposures_panel() -> str:
-    """Sprint 13 — Decomposition du book en facteurs macro reels.
-
-    Per critique : 'transforme 78% compute en risque chiffre et actionnable'.
-    """
-    try:
-        from intelligence import factor_exposures as _fe
-
-        facts = _fe.compute_factor_exposures()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">factor exposures indispo: {type(e).__name__}</div></div>'
-    if not facts:
-        return '<div class="card pad"><div class="empty">none position classifiee</div></div>'
-    # Tri : composites en TETE (vue agregée d'abord), puis sub-buckets par pct
-    sorted_f = sorted(facts.items(), key=lambda kv: (not kv[1].get("is_composite"), -kv[1]["pct_of_book"]))
-    rows = []
-    for name, d in sorted_f:
-        pct = d["pct_of_book"]
-        wcls = "high" if pct >= 30 else ("mid" if pct >= 10 else "low")
-        # F9 fix : afficher le theme thesis user a cote de chaque ticker
-        # quand il y a divergence entre le macro_factor (vue Bets) et le
-        # theme (vue Theses). Ex MHI : macro="Industrial reshoring" mais
-        # theme="Defense" -> classification croisee enfin visible.
-        themes_overlay = d.get("themes_overlay") or {}
-        tks_html_list = []
-        for t in d["tickers"][:8]:
-            th = themes_overlay.get(t)
-            if th and th.lower() != name.lower():
-                tks_html_list.append(f'{t}<span class="fe-th">→{th}</span>')
-            else:
-                tks_html_list.append(t)
-        tks = ", ".join(tks_html_list)
-        if len(d["tickers"]) > 8:
-            tks += f" +{len(d['tickers']) - 8}"
-        is_comp = d.get("is_composite")
-        row_extra = ""
-        if is_comp:
-            row_extra = (
-                f'<div class="fe-comp-note">'
-                f'aggregat de {len(d.get("composes") or [])} facteurs co-stresses ('
-                f'{", ".join(d.get("composes") or [])}) &middot; '
-                "le scenario AI capex -30% les frappe ensemble"
-                "</div>"
-            )
-        row_cls = "fe-row" + (" fe-composite" if is_comp else "")
-        rows.append(
-            f'<div class="{row_cls}">'
-            f'<div class="fe-head"><span class="fe-name">{name}</span>'
-            f'<span class="fe-pct {wcls} mono">{pct:.1f}%</span>'
-            f'<span class="fe-eur mono">{d["eur"]:,.0f}€</span></div>'
-            f'<div class="fe-bar"><div class="fe-fill {wcls}" style="width:{min(pct, 100):.1f}%"></div></div>'
-            f'<div class="fe-tks">{tks}  (n={d["n_positions"]})</div>'
-            f'{row_extra}'
-            "</div>"
-        )
-    return (
-        '<div class="colhead"><span class="t">Portfolio bets</span>'
-        '<span class="a">what you really bet on, by macro factor &middot; a single big bet dominates</span></div>'
-        '<div class="card pad factorscard" style="margin-bottom:var(--s4)">'
-        + "".join(rows)
-        + "</div>"
-    )
-
-
-# ============================================================================
-# Position-card #1 (couche 3 render, spec user red-team 07/06)
-# ----------------------------------------------------------------------------
-# Vue plein-ecran d'UNE position. Spec corrigee (3 catches absorbes) :
-# - Catch 1 : position_type assigne via hook tamper-evident (couche 1)
-# - Catch 2 : exit_policy != size_action (couche 2 derive_steer)
-# - Catch 3 : "ratio infini" remplace par "downside structurel non-borne par prix"
-# Deep-link : section data-page="position-card", chaque card id="card-TICKER"
-# ============================================================================
 
 
 def _slug_ticker(ticker: str) -> str:
@@ -3230,98 +2969,6 @@ def _position_card_panel() -> str:
         + summary_html
         + "".join(cards)
         + '</section>'
-    )
-
-
-def _stress_tests_panel() -> str:
-    """Sprint 13 + Axe 4 QUALITY_BAR — scenarios deterministes appliques sur les
-    factor exposures, taggues par gate status (ok/warn/breach) lu depuis le
-    journal append-only stress_gate_alerts.
-    """
-    try:
-        from intelligence import factor_exposures as _fe
-
-        results = _fe.run_all_stress_tests()
-    except Exception as e:
-        return f'<div class="card pad"><div class="empty">stress indispo: {type(e).__name__}</div></div>'
-
-    # Charge gate status par scenario depuis le journal (Axe 4 L17).
-    # Source unique : stress_gate_alerts. Si vide -> tag absent (rien fabrique).
-    from shared import storage
-    gate_by_scenario: dict[str, dict] = {}
-    try:
-        for row in storage.get_latest_stress_gate_all():
-            gate_by_scenario[row["scenario_name"]] = row
-    except Exception:
-        pass
-
-    n_breach = sum(1 for g in gate_by_scenario.values() if g["status"] == "breach")
-    n_warn = sum(1 for g in gate_by_scenario.values() if g["status"] == "warn")
-
-    # Header gate-aware : badge global etat (utilitaires existants pos/danger/warn)
-    _bdg = ("display:inline-block;padding:2px 8px;border-radius:var(--r1);"
-            "font-weight:600;font-size:var(--t-meta);margin-left:6px;")
-    if n_breach > 0:
-        gate_header = (
-            f'<span style="{_bdg}background:#7a1f1f;color:#fff;">'
-            f'BREACH&nbsp;x{n_breach}</span>'
-        )
-    elif n_warn > 0:
-        gate_header = (
-            f'<span style="{_bdg}background:#6e5410;color:#fff;">'
-            f'WARN&nbsp;x{n_warn}</span>'
-        )
-    else:
-        gate_header = (
-            f'<span style="{_bdg}background:transparent;color:var(--ink-2,#888);'
-            'border:1px solid var(--line,#3a3a3a);">gate ok</span>'
-        )
-
-    rows = []
-    for s in results:
-        if "error" in s:
-            continue
-        scenario = s["scenario"]
-        dd_pct = s["total_drawdown_pct"]
-        dd_eur = s["total_drawdown_eur"]
-        n = s.get("n_positions_affected", 0)
-        # Couleur lue depuis le journal (pas re-calculee ici -> source unique L17).
-        gate = gate_by_scenario.get(scenario)
-        _tag_base = ("display:inline-block;padding:1px 6px;border-radius:var(--r0);"
-                     "font-size:var(--t-fine);margin-left:4px;font-weight:500;")
-        if gate and gate["status"] == "breach":
-            dcls = "danger"
-            gate_tag = (
-                f'<span style="{_tag_base}background:#7a1f1f;color:#fff;">breach</span>'
-            )
-        elif gate and gate["status"] == "warn":
-            dcls = "warn"
-            gate_tag = (
-                f'<span style="{_tag_base}background:#6e5410;color:#fff;">warn</span>'
-            )
-        else:
-            # ok ou gate absent (jamais evalue) : fallback fine couleur draw
-            dcls = "pos" if dd_pct > 0 else ("warn" if dd_pct < -10 else "neu")
-            if gate:
-                gate_tag = (
-                    f'<span style="{_tag_base}background:transparent;'
-                    'color:var(--ink-3,#666);border:1px solid var(--line,#3a3a3a);">ok</span>'
-                )
-            else:
-                gate_tag = ""
-        rows.append(
-            f'<div class="st-row">'
-            f'<div class="st-name">{scenario} {gate_tag}</div>'
-            f'<div class="st-impact"><span class="st-pct {dcls} mono">{dd_pct:+.1f}%</span>'
-            f'<span class="st-eur mono">{dd_eur:+,.0f}€</span>'
-            f'<span class="st-n">n={n}</span></div></div>'
-        )
-    return (
-        '<div class="colhead"><span class="t">Si tel pari rate</span>'
-        f'<span class="a">drawdown estime par scenario macro · gate Axe 4 {gate_header}</span></div>'
-        '<div class="card pad stresscard" style="margin-bottom:var(--s4)">'
-        + "".join(rows)
-        + "</div>"
     )
 
 
@@ -4670,6 +4317,175 @@ def _loop() -> str:
     )
 
 
+def _monitors_live_panel() -> str:
+    """Monitors live (kill/over_cap/stress/stale/Brier/priced-in/fx/benchmark).
+
+    EXTRAIT de _vault le 04/08/2026 (fin dashboard) : la page Cerebro n'est
+    plus affichée mais ces monitors sont des DÉCLENCHEURS de décision — ils
+    vivent désormais dans Alerts. Styles .cer-* embarqués (autonomes).
+    Source : intelligence.monitors_summary (L1, le panneau ne calcule rien).
+    """
+    import html as _html_esc
+    e = _html_esc.escape
+    _css = (
+        '<style>'
+        '.cer-acc{background:var(--paper);border:1px solid var(--rule);border-radius:10px;margin-bottom:10px;overflow:hidden}'
+        '.cer-acc-head{padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none;user-select:none}'
+        '.cer-acc-count{margin-left:auto;font-size:11px;opacity:.7}'
+        '.cer-acc-body{padding:6px 16px 14px;border-top:1px solid color-mix(in oklch, var(--rule), transparent 40%)}'
+        '.cer-empty{padding:18px;text-align:center;color:var(--ink-soft);font-size:12px;opacity:.7}'
+        '</style>'
+    )
+    monitors_content = ""
+    monitors_n = 0
+    try:
+        from intelligence.monitors_summary import get_monitors_summary
+        ms = get_monitors_summary()
+        rows = []
+        if ms["over_cap"]["today_transitions"]:
+            for t in ms["over_cap"]["today_transitions"]:
+                rows.append(f'<div class="cer-mon-row cer-mon-warn">🔺 OVER_CAP today : <b>{e(t["ticker"])}</b> {t["weight_pct"]}% (cap {t["cap_pct"]}%)</div>')
+                monitors_n += 1
+        if ms["over_cap"]["over_tickers"]:
+            for tk in ms["over_cap"]["over_tickers"]:
+                rows.append(f'<div class="cer-mon-row">🔸 over_cap : <b>{e(tk)}</b></div>')
+                monitors_n += 1
+        if ms["stress_gate"]["worst_scenario"]:
+            w = ms["stress_gate"]["worst_scenario"]
+            cls = "cer-mon-bad" if w["status"] == "breach" else ("cer-mon-warn" if w["status"] == "warn" else "")
+            rows.append(f'<div class="cer-mon-row {cls}">📉 worst stress : <b>{e(w["scenario_name"])}</b> drawdown {w["drawdown_pct"]:+.1f}% (warn {w["warn_pct"]}%, breach {w["breach_pct"]}%)</div>')
+            monitors_n += 1
+        if ms["kill_criteria"]["triggered_tickers"]:
+            rows.append(f'<div class="cer-mon-row cer-mon-bad">🚨 KILL TRIGGERED : <b>{e(", ".join(ms["kill_criteria"]["triggered_tickers"]))}</b></div>')
+            monitors_n += 1
+        if ms["kill_criteria"]["at_risk_tickers"]:
+            rows.append(f'<div class="cer-mon-row cer-mon-warn">⚠ kill at_risk : <b>{e(", ".join(ms["kill_criteria"]["at_risk_tickers"]))}</b></div>')
+            monitors_n += 1
+        if ms["stale_target"]["dead_tickers"]:
+            rows.append(f'<div class="cer-mon-row cer-mon-bad">💀 stale DEAD : <b>{e(", ".join(ms["stale_target"]["dead_tickers"]))}</b></div>')
+            monitors_n += 1
+        if ms["stale_target"]["dying_tickers"]:
+            rows.append(f'<div class="cer-mon-row cer-mon-warn">💭 stale dying : <b>{e(", ".join(ms["stale_target"]["dying_tickers"]))}</b></div>')
+            monitors_n += 1
+        # Tier 3 #9 Brier per-domain audit — global + per ticker + per sector
+        br = ms.get("brier")
+        if br and br.get("ok"):
+            rows.append(
+                f'<div class="cer-mon-row">📏 <b>Brier global {br["avg_brier_global"]:.3f}</b> '
+                f'sur N={br["n_total"]} (baseline 0.25 = pile/face binaire). '
+                f'<small>Plus bas = mieux calibré. CI large sur petits buckets, '
+                f'caveat affiché.</small></div>'
+            )
+            monitors_n += 1
+            for tk_row in br.get("per_ticker", [])[:5]:
+                rows.append(
+                    f'<div class="cer-mon-row" style="padding-left:24px;font-size:11px">'
+                    f'· <b>{e(tk_row["ticker"])}</b> Brier {tk_row["avg_brier"]:.3f} '
+                    f'<small style="opacity:.6">| {e(tk_row["caveat"])}</small></div>'
+                )
+                monitors_n += 1
+            for sec_row in br.get("per_sector", [])[:5]:
+                rows.append(
+                    f'<div class="cer-mon-row" style="padding-left:24px;font-size:11px">'
+                    f'· <i>{e(sec_row["sector"])}</i> Brier {sec_row["avg_brier"]:.3f} '
+                    f'<small style="opacity:.6">| {e(sec_row["caveat"])}</small></div>'
+                )
+                monitors_n += 1
+        # Tier 3 #10 priced_in (Tetlock 'what's priced in') — agg + top 3 par catégorie
+        pi = ms.get("priced_in")
+        if pi and pi.get("ok"):
+            agg = (
+                f'<div class="cer-mon-row">📐 Priced-in ({pi["n_rated"]}/{pi["n_total"]} rated) : '
+                f'<b>{pi["n_asymmetric"]}</b> asymmetric · '
+                f'<b>{pi["n_at_consensus"]}</b> at_consensus · '
+                f'<b>{pi["n_above_consensus"]}</b> above_consensus · '
+                f'<b>{pi["n_priced_for_perfection"]}</b> priced_for_perfection · '
+                f'<b>{pi["n_crowded_buy"]}</b> crowded_buy (rm&lt;1.5)</div>'
+            )
+            rows.append(agg)
+            monitors_n += 1
+            if pi.get("top_priced_for_perfection"):
+                rows.append(
+                    f'<div class="cer-mon-row cer-mon-warn">🎯 top priced_for_perfection : '
+                    f'<b>{e(", ".join(pi["top_priced_for_perfection"]))}</b></div>'
+                )
+                monitors_n += 1
+            if pi.get("top_asymmetric"):
+                rows.append(
+                    f'<div class="cer-mon-row">↗ top asymmetric (upside consensus) : '
+                    f'<b>{e(", ".join(pi["top_asymmetric"]))}</b></div>'
+                )
+                monitors_n += 1
+        # Tier 3 #7 fx tripwire (26/06) — USD/EUR rate move + silent EUR impact
+        fxm = ms.get("fx") or {}
+        for window_lbl, key in (("30j", "w30"), ("90j", "w90")):
+            fxw = fxm.get(key) or {}
+            if not fxw.get("ok"):
+                continue
+            rc = fxw.get("rate_change_pct", 0)
+            si = fxw.get("silent_eur_impact", 0)
+            expo = fxw.get("usd_exposure_eur", 0)
+            n_usd = fxw.get("n_positions_usd", 0)
+            eff = fxw.get("effective_days", 0)
+            cls = {"info": "", "warn": "cer-mon-warn", "bad": "cer-mon-bad"}.get(fxw.get("status", "info"), "")
+            direction = {"usd_up": "USD↑ apprécié", "usd_down": "USD↓ déprécié", "flat": "USD→ flat"}.get(fxw.get("direction"), "")
+            rows.append(
+                f'<div class="cer-mon-row {cls}">💱 USD/EUR {window_lbl} (eff {eff}j) : '
+                f'<b>{rc:+.2f}%</b> · {direction} · impact silencieux <b>{si:+,.0f}€</b> '
+                f'sur {expo:,.0f}€ expo USD ({n_usd} pos)</div>'
+            )
+            monitors_n += 1
+        # Tier 2 #5 benchmark (26/06) — affiche les 2 windows × 3 benchmarks
+        bm = ms.get("benchmark") or {}
+        for window_lbl, key in (("30j", "w30"), ("90j", "w90")):
+            w = bm.get(key) or {}
+            if not w.get("ok"):
+                continue
+            pr_pct = w.get("portfolio_return_pct", 0)
+            bm_rows = []
+            for tk in ("SMH", "SPY", "QQQ"):
+                b = (w.get("benchmarks") or {}).get(tk)
+                if not b:
+                    continue
+                cls = {"green": "", "yellow": "cer-mon-warn", "red": "cer-mon-bad"}.get(b["status"], "")
+                bm_rows.append(
+                    f'<span class="{cls}" style="margin-right:14px">{tk} {b["return_pct"]:+.2f}% → Δ {b["delta_pp"]:+.2f}pp</span>'
+                )
+            if bm_rows:
+                rows.append(
+                    f'<div class="cer-mon-row">📊 Portfolio {window_lbl} : <b>{pr_pct:+.2f}%</b> &middot; '
+                    + "".join(bm_rows) + '</div>'
+                )
+                monitors_n += 1
+        if not rows:
+            monitors_content = '<div class="cer-empty">Tout sain — over_cap=0, stress ok, kill_criteria=0, stale=0.</div>'
+        else:
+            monitors_content = (
+                '<style>'
+                '.cer-mon-row{padding:8px 4px;border-bottom:1px solid color-mix(in oklch, var(--rule), transparent 50%);font-size:12px}'
+                '.cer-mon-row:last-child{border-bottom:none}'
+                '.cer-mon-warn{color:var(--acc, #e67e22)}'
+                '.cer-mon-bad{color:var(--bear, #c0392b)}'
+                '</style>'
+                + "".join(rows)
+            )
+    except Exception as exc:
+        monitors_content = f'<div class="cer-empty">Erreur monitors : {e(str(exc))}</div>'
+
+    return _css + (
+        '<details class="cer-acc" open>'  # open par défaut — c'est ce qui mérite ton attention
+        '<summary class="cer-acc-head">'
+        '<span class="cer-acc-icon">📊</span>'
+        '<span class="cer-acc-title">Monitors live</span>'
+        f'<span class="cer-acc-count">{monitors_n}</span>'
+        '<span class="cer-acc-chevron">▸</span>'
+        '</summary>'
+        f'<div class="cer-acc-body">{monitors_content}</div>'
+        '</details>'
+    )
+
+
+
 def _vault() -> str:
     """Cerebro page : search-first vault PRESAGE explorer (v2 26/06).
 
@@ -5192,153 +5008,7 @@ def _vault() -> str:
     # 9. Assemble
     # Phase 1 wiring (26/06) : accordion Monitors live en HAUT (avant sentinelles)
     # — source intelligence.monitors_summary
-    monitors_content = ""
-    monitors_n = 0
-    try:
-        from intelligence.monitors_summary import get_monitors_summary
-        ms = get_monitors_summary()
-        rows = []
-        if ms["over_cap"]["today_transitions"]:
-            for t in ms["over_cap"]["today_transitions"]:
-                rows.append(f'<div class="cer-mon-row cer-mon-warn">🔺 OVER_CAP today : <b>{e(t["ticker"])}</b> {t["weight_pct"]}% (cap {t["cap_pct"]}%)</div>')
-                monitors_n += 1
-        if ms["over_cap"]["over_tickers"]:
-            for tk in ms["over_cap"]["over_tickers"]:
-                rows.append(f'<div class="cer-mon-row">🔸 over_cap : <b>{e(tk)}</b></div>')
-                monitors_n += 1
-        if ms["stress_gate"]["worst_scenario"]:
-            w = ms["stress_gate"]["worst_scenario"]
-            cls = "cer-mon-bad" if w["status"] == "breach" else ("cer-mon-warn" if w["status"] == "warn" else "")
-            rows.append(f'<div class="cer-mon-row {cls}">📉 worst stress : <b>{e(w["scenario_name"])}</b> drawdown {w["drawdown_pct"]:+.1f}% (warn {w["warn_pct"]}%, breach {w["breach_pct"]}%)</div>')
-            monitors_n += 1
-        if ms["kill_criteria"]["triggered_tickers"]:
-            rows.append(f'<div class="cer-mon-row cer-mon-bad">🚨 KILL TRIGGERED : <b>{e(", ".join(ms["kill_criteria"]["triggered_tickers"]))}</b></div>')
-            monitors_n += 1
-        if ms["kill_criteria"]["at_risk_tickers"]:
-            rows.append(f'<div class="cer-mon-row cer-mon-warn">⚠ kill at_risk : <b>{e(", ".join(ms["kill_criteria"]["at_risk_tickers"]))}</b></div>')
-            monitors_n += 1
-        if ms["stale_target"]["dead_tickers"]:
-            rows.append(f'<div class="cer-mon-row cer-mon-bad">💀 stale DEAD : <b>{e(", ".join(ms["stale_target"]["dead_tickers"]))}</b></div>')
-            monitors_n += 1
-        if ms["stale_target"]["dying_tickers"]:
-            rows.append(f'<div class="cer-mon-row cer-mon-warn">💭 stale dying : <b>{e(", ".join(ms["stale_target"]["dying_tickers"]))}</b></div>')
-            monitors_n += 1
-        # Tier 3 #9 Brier per-domain audit — global + per ticker + per sector
-        br = ms.get("brier")
-        if br and br.get("ok"):
-            rows.append(
-                f'<div class="cer-mon-row">📏 <b>Brier global {br["avg_brier_global"]:.3f}</b> '
-                f'sur N={br["n_total"]} (baseline 0.25 = pile/face binaire). '
-                f'<small>Plus bas = mieux calibré. CI large sur petits buckets, '
-                f'caveat affiché.</small></div>'
-            )
-            monitors_n += 1
-            for tk_row in br.get("per_ticker", [])[:5]:
-                rows.append(
-                    f'<div class="cer-mon-row" style="padding-left:24px;font-size:11px">'
-                    f'· <b>{e(tk_row["ticker"])}</b> Brier {tk_row["avg_brier"]:.3f} '
-                    f'<small style="opacity:.6">| {e(tk_row["caveat"])}</small></div>'
-                )
-                monitors_n += 1
-            for sec_row in br.get("per_sector", [])[:5]:
-                rows.append(
-                    f'<div class="cer-mon-row" style="padding-left:24px;font-size:11px">'
-                    f'· <i>{e(sec_row["sector"])}</i> Brier {sec_row["avg_brier"]:.3f} '
-                    f'<small style="opacity:.6">| {e(sec_row["caveat"])}</small></div>'
-                )
-                monitors_n += 1
-        # Tier 3 #10 priced_in (Tetlock 'what's priced in') — agg + top 3 par catégorie
-        pi = ms.get("priced_in")
-        if pi and pi.get("ok"):
-            agg = (
-                f'<div class="cer-mon-row">📐 Priced-in ({pi["n_rated"]}/{pi["n_total"]} rated) : '
-                f'<b>{pi["n_asymmetric"]}</b> asymmetric · '
-                f'<b>{pi["n_at_consensus"]}</b> at_consensus · '
-                f'<b>{pi["n_above_consensus"]}</b> above_consensus · '
-                f'<b>{pi["n_priced_for_perfection"]}</b> priced_for_perfection · '
-                f'<b>{pi["n_crowded_buy"]}</b> crowded_buy (rm&lt;1.5)</div>'
-            )
-            rows.append(agg)
-            monitors_n += 1
-            if pi.get("top_priced_for_perfection"):
-                rows.append(
-                    f'<div class="cer-mon-row cer-mon-warn">🎯 top priced_for_perfection : '
-                    f'<b>{e(", ".join(pi["top_priced_for_perfection"]))}</b></div>'
-                )
-                monitors_n += 1
-            if pi.get("top_asymmetric"):
-                rows.append(
-                    f'<div class="cer-mon-row">↗ top asymmetric (upside consensus) : '
-                    f'<b>{e(", ".join(pi["top_asymmetric"]))}</b></div>'
-                )
-                monitors_n += 1
-        # Tier 3 #7 fx tripwire (26/06) — USD/EUR rate move + silent EUR impact
-        fxm = ms.get("fx") or {}
-        for window_lbl, key in (("30j", "w30"), ("90j", "w90")):
-            fxw = fxm.get(key) or {}
-            if not fxw.get("ok"):
-                continue
-            rc = fxw.get("rate_change_pct", 0)
-            si = fxw.get("silent_eur_impact", 0)
-            expo = fxw.get("usd_exposure_eur", 0)
-            n_usd = fxw.get("n_positions_usd", 0)
-            eff = fxw.get("effective_days", 0)
-            cls = {"info": "", "warn": "cer-mon-warn", "bad": "cer-mon-bad"}.get(fxw.get("status", "info"), "")
-            direction = {"usd_up": "USD↑ apprécié", "usd_down": "USD↓ déprécié", "flat": "USD→ flat"}.get(fxw.get("direction"), "")
-            rows.append(
-                f'<div class="cer-mon-row {cls}">💱 USD/EUR {window_lbl} (eff {eff}j) : '
-                f'<b>{rc:+.2f}%</b> · {direction} · impact silencieux <b>{si:+,.0f}€</b> '
-                f'sur {expo:,.0f}€ expo USD ({n_usd} pos)</div>'
-            )
-            monitors_n += 1
-        # Tier 2 #5 benchmark (26/06) — affiche les 2 windows × 3 benchmarks
-        bm = ms.get("benchmark") or {}
-        for window_lbl, key in (("30j", "w30"), ("90j", "w90")):
-            w = bm.get(key) or {}
-            if not w.get("ok"):
-                continue
-            pr_pct = w.get("portfolio_return_pct", 0)
-            bm_rows = []
-            for tk in ("SMH", "SPY", "QQQ"):
-                b = (w.get("benchmarks") or {}).get(tk)
-                if not b:
-                    continue
-                cls = {"green": "", "yellow": "cer-mon-warn", "red": "cer-mon-bad"}.get(b["status"], "")
-                bm_rows.append(
-                    f'<span class="{cls}" style="margin-right:14px">{tk} {b["return_pct"]:+.2f}% → Δ {b["delta_pp"]:+.2f}pp</span>'
-                )
-            if bm_rows:
-                rows.append(
-                    f'<div class="cer-mon-row">📊 Portfolio {window_lbl} : <b>{pr_pct:+.2f}%</b> &middot; '
-                    + "".join(bm_rows) + '</div>'
-                )
-                monitors_n += 1
-        if not rows:
-            monitors_content = '<div class="cer-empty">Tout sain — over_cap=0, stress ok, kill_criteria=0, stale=0.</div>'
-        else:
-            monitors_content = (
-                '<style>'
-                '.cer-mon-row{padding:8px 4px;border-bottom:1px solid color-mix(in oklch, var(--rule), transparent 50%);font-size:12px}'
-                '.cer-mon-row:last-child{border-bottom:none}'
-                '.cer-mon-warn{color:var(--acc, #e67e22)}'
-                '.cer-mon-bad{color:var(--bear, #c0392b)}'
-                '</style>'
-                + "".join(rows)
-            )
-    except Exception as exc:
-        monitors_content = f'<div class="cer-empty">Erreur monitors : {e(str(exc))}</div>'
-
-    monitors_acc = (
-        '<details class="cer-acc" open>'  # open par défaut — c'est ce qui mérite ton attention
-        '<summary class="cer-acc-head">'
-        '<span class="cer-acc-icon">📊</span>'
-        '<span class="cer-acc-title">Monitors live</span>'
-        f'<span class="cer-acc-count">{monitors_n}</span>'
-        '<span class="cer-acc-chevron">▸</span>'
-        '</summary>'
-        f'<div class="cer-acc-body">{monitors_content}</div>'
-        '</details>'
-    )
+    monitors_acc = _monitors_live_panel()
 
     sent_acc = (
         '<details class="cer-acc">'
@@ -5706,7 +5376,7 @@ def _breadth_rsp_spy() -> str:
     )
 
 
-def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: str = "", near_t: int = 0) -> str:
+def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: str = "", near_t: int = 0, beyond_bull_html: str = "") -> str:
     debt_map = {
         # Tier 1: Marché & liquidité — alertes en haut, crédit/peur/FX/sentiment, hedge en bas
         "TYX": (1, "US 30Y rate (%)", 4, False),
@@ -6135,7 +5805,15 @@ def _urgence(_watch: str, near: int, positions: list[dict], pnl: dict, _elan: st
         f'<div class="card pad"><div class="dlist">{rsi_html}</div></div></div>'
         f'<div><div class="ph3">Market breadth &middot; participation</div>'
         f'<div class="card pad"><div class="dlist">{breadth_html}</div></div></div>'
-        f"</div></section>"
+        f"</div>"
+        # ── Migrés 04/08 (fin dashboard) : Cerebro/Strategy ne sont plus affichées,
+        # leurs organes DÉCISIONNELS vivent ici (kill/over_cap/stress = déclencheurs ;
+        # beyond-bull = candidats trim fomo_greed). Le reste des pages mortes demeure
+        # en fonctions vivantes non affichées (git + code, réactivables).
+        f'<div class="ph3">Monitors live &middot; ex-Cerebro</div>'
+        f"{_monitors_live_panel()}"
+        f"{beyond_bull_html}"
+        f"</section>"
     )
 
 
@@ -7278,10 +6956,10 @@ def _monitors_live_band(
             _gtt = (
                 f"Grade portefeuille {_g_letter} ({_g_last:.0f}/100). Dérive 30j : "
                 f"{_g_delta:+.0f} pts. Composite 6 dimensions — pouls, pas item d'action "
-                "(le détail vit page Method). Click → Method."
+                "(pouls, pas item d'action). Click → Overview (track record)."
             )
             chips.append(
-                f'<a class="ml-chip {_gcls}" onclick="presageNav(&#39;methode&#39;)" title="{_gtt}">'
+                f'<a class="ml-chip {_gcls}" onclick="presageNav(&#39;vigie&#39;)" title="{_gtt}">'
                 f'<span class="ml-lab">grade</span>'
                 f'<span class="ml-val">{_g_letter}{_garrow}</span></a>'
             )
@@ -7293,9 +6971,9 @@ def _monitors_live_band(
     if oc["over_count"] > 0:
         cls = "ml-warn" if oc["today_transitions"] else "ml-info"
         today_marker = " <small>(+1 aujourd'hui)</small>" if oc["today_transitions"] else ""
-        tt = "Positions qui pèsent + que leur cap par conviction (c5=8%, c4=6%, c3=4.5%, c2=3%, c1=2%). Click → Strategy."
+        tt = "Positions qui pèsent + que leur cap par conviction (c5=8%, c4=6%, c3=4.5%, c2=3%, c1=2%). Click → Alerts (monitors)."
         chips.append(
-            f'<a class="ml-chip {cls}" onclick="presageNav(&#39;strategie&#39;)" title="{tt}">'
+            f'<a class="ml-chip {cls}" onclick="presageNav(&#39;urgence&#39;)" title="{tt}">'
             f'<span class="ml-lab">over_cap</span>'
             f'<span class="ml-val">{oc["over_count"]} pos</span>'
             f'{today_marker}</a>'
@@ -8731,10 +8409,13 @@ def render() -> Path:
     # alertes Telegram via cron weekly prennent le relais)
     # v2_cohort_html / wire_activity_html / vigilance_html / calib_progress_html
     # Sprint 18 : _narrative_panel deprecated (faux flags AMD~TSM, SAF~HO)
-    # Retraits 02/06 page Strategie (panneaux infinis rebarbatifs) :
-    # _ticker_axes_panel / _factor_exposures_panel / _stress_tests_panel /
-    # _spof_panel / _mauboussin_sizing_panel -- code backend conserve,
-    # donnees disponibles pour reactivation future.
+    # Retraits 02/06 page Strategie (panneaux infinis rebarbatifs).
+    # SUPPRIMÉS 02/08 (PQ-004) : _factor_exposures_panel, _stress_tests_panel,
+    # _spof_panel, _mauboussin_sizing_panel, _return_clustering_panel,
+    # _calibration_progress_panel — 420 lignes, zéro appelant depuis 2 mois.
+    # « Code conservé pour réactivation future » ne tenait pas : git conserve tout,
+    # la restauration est un `git show <sha>:dashboard/render.py`. Le code mort
+    # dans l'arbre de travail pollue les recherches et les audits d'usage.
     # trajectory_html supprimé (Grade drift dégradé en chip, KILL list 04/07)
     valo_html = _valo_above_bull_panel()
     # Star Vue d'ensemble : extract grade data pour 3-strate hero
@@ -9159,6 +8840,12 @@ def render() -> Path:
         f"{blind_html}"
         # Journal & deadlines retire 02/06 user (useless boards :
         # TEST_E2E_DEC pollue + deadlines disponibles ailleurs).
+        # ── Migrés 04/08 (fin dashboard) : la page Method n'est plus affichée —
+        # ses deux organes de PREUVE montent sur Overview : le track record
+        # (calibration réelle, l'actif qui compose) et data health (axe 5
+        # QUALITY_BAR : aucun nombre sans as-of).
+        f"{_track_record_panel()}"
+        f"{_data_health_panel()}"
         f"</section>"
     )
 
@@ -9170,23 +8857,9 @@ def render() -> Path:
     # (mechanized/open/resolved) sur le discipline panel (Method). Le hero
     # doublonnait sans ajouter de décision. Les 3 sections réelles de Strategie
     # (declared · trajectory · beyond-bull) sont conservées.
-    strategie_html = (
-        '<section data-page="strategie" role="region" aria-label="Strategy"><div class="phead"><h1>Strategy</h1>'
-        '<div class="sub">Declared reference &middot; trajectory vs plan &middot; positions beyond bull</div></div>'
-        # 1. Strategie declaree -- referentiel (ce qu'on veut faire)
-        '<div class="strat-sh" data-tip="What you wrote as objective (theses, horizon, conviction). The reference against which book is read."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v12"/><path d="M3 3h7l-1.5 2.5L10 8H3"/></svg>Declared strategy &mdash; reference</div>'
-        f'{_user_strategy_panel()}'
-        # KILL list (arbitrage 04/07) : le panneau « Grade drift (30d) » dégradé
-        # en chip « grade » unique dans la bande monitors (pouls, pas item d'action).
-        # 2. Actionnable -- positions au-dessus du bull case (candidats fomo_greed)
-        '<div class="strat-sh" data-tip="Positions beyond their bull case = trim candidates (mechanized via fomo_greed gate)."><svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L14.5 13H1.5L8 2z"/><path d="M8 6.5v3.5"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg>Beyond bull &mdash; trim candidates</div>'
-        f'{valo_html}'
-        # Retraits 02/06 user feedback (panneaux infinis rebarbatifs) :
-        # factor_html / stress_html / spof_html / mauboussin_html /
-        # _return_clustering_panel / axes_html -- code backend conserve,
-        # donnees disponibles pour reactivation future.
-        '</section>'
-    )
+    # strategie_html retirée du DOM le 04/08 (fin dashboard) : la page Strategy
+    # n'est plus affichée. _user_strategy_panel() reste une fonction vivante ;
+    # valo_html (beyond-bull) migre dans Alerts via _urgence(beyond_bull_html=).
 
     watch_zone_tk = [
         r["ticker"]
@@ -9367,6 +9040,7 @@ def render() -> Path:
                    for item in _dev_items)
         if _dev_items else "none friction de discipline"
     )
+    _oband = _obligations_band()
     _dband = (
         f'<div class="dband {_dcls}" title="{_dtitle}" '
         f'onclick="presageNav(&#39;{_nav_target}&#39;)">'
@@ -9380,20 +9054,19 @@ def render() -> Path:
         f'{_NAV}<div class="foot">'
         f'{_FOOT_METHOD}<div class="foot-sep"></div>{_MODE_BTN}'
         f'</div></aside>{_SORT_JS}{_CSORT_JS}{_DONUT_JS}'
-        f'<div class="wrap">{tape}{tape8k}<main class="main">{_dband}'
+        f'<div class="wrap">{tape}{tape8k}<main class="main">{_oband}{_dband}'
         + vigie
         + positions_pg
         + _concentration(positions, planned, sectors, names, pnl, daily)
         + _theses(names, sectors, positions, pnl)
-        + strategie_html
-        + _signaux()
-        + _urgence(watch, near, positions, pnl, elan, near_t)
+        + _urgence(watch, near, positions, pnl, elan, near_t,
+                   beyond_bull_html=valo_html)
         + _copilot()
         # Position-card #1 couche 3 : section deep-linkable par ticker.
         # Acces via nav (a ajouter dans _NAV) OU via hash #card-TICKER deep-link.
         + _position_card_panel()
-        # Vault PRESAGE (26/06) — Niveau 1 + 2 minimal. Fail-soft si Obsidian offline.
-        + _vault()
+        # _vault() (Cerebro) retiré du DOM le 04/08 — fonction vivante non affichée ;
+        # ses monitors vivent dans Alerts (_monitors_live_panel).
         + "</main></div>"
         + _LOUPE_HTML
     )
