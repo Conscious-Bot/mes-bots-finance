@@ -167,8 +167,8 @@ def _is_onboarding_noise(subject: str) -> bool:
 # pour les 5 premieres, <25% pour les 3 suivantes. Bloquees COTE INGESTION via
 # le mecanisme noise existant — le desabonnement Gmail (la source) reste la main
 # d'Olivier ; ceci est la garantie systeme, effective immediatement et durable.
-# NE PAS ajouter Hedgeye ni The Defiant sans decision explicite (interrupteurs
-# ①/② de la semaine de gel, en attente). Retrait-seulement apres le gel.
+# Interrupteurs ①/② tranches par Olivier le 04/08 (desabonnements inclus) :
+# Hedgeye + The Defiant TUES. Liste desormais retrait-seulement (gel).
 _BLOCKED_SENDERS = frozenset({
     "hello@moby.co",                       # Moby — 6 sig, 0% materiel
     "yoann@media.snowball.xyz",            # Snowball — 5, 0%
@@ -178,6 +178,8 @@ _BLOCKED_SENDERS = frozenset({
     "aidvisor@tickeron.com",               # tickeron — 8, 13%
     "unusualwhales@substack.com",          # Unusual Whales — 6, 17%
     "moneyradarcrypto@substack.com",       # MoneyRadar Crypto — 4, 25%
+    "hedgeye@hedgeye.com",                 # ① Hedgeye (+K.McCullough, meme addr) — 32, 25%
+    "no-reply@mail.thedefiant.io",         # ② The Defiant — crypto, book stock-only
 })
 
 
