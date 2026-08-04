@@ -15,7 +15,7 @@
 - [x] ② **The Defiant : TUÉ** (04/08, désabonné + blocklist)
 - [x] ③ **Digest** : fix-1 v2.3 SHIPPÉ (`f3d7154`, gate mécanique) → vérifier digest 12h du 04/08 puis GELER
 - [ ] ④ **ACT-017 / H9c** : drill 30 min (machine SANS clé Mac) ou « risque accepté » écrit
-- [ ] ⑤ **`dist/`** : purger (si régénérable) ou archiver hors repo
+- [x] ⑤ **`dist/` FAIT 04/08** : archivé (`~/backups/mes-bots-finance/dist_presage_trial_archive_20260804.tar.gz`, 1,3M) puis purgé + worktree mort retiré — greps mono-arbre prouvés
 
 ### LUNDI 04/08
 - [x] Kill-list **FAITE 04/08** : système (`7195643`, 8 bloquées + test-verrou) **ET source (désabonnements Gmail faits par Olivier)**. ①② tranchés : TUÉS (blocklist 10)
@@ -44,7 +44,7 @@
 
 ### VENDREDI 08/08 — GEL
 - [ ] ④ exécuté (drill H9c ou risque-accepté)
-- [ ] Hygiène one-shot : ⑤ `dist/` + `git worktree remove .claude/worktrees/…` + `bot.log.day11.keep`. ~~3 items vulture~~ **FAUX POSITIF vérifié 04/08** (params réservés `# noqa: ARG001` volontaires — ne pas toucher)
+- [x] Hygiène **FAITE 04/08** (dist/ + worktree ✅, vulture = faux positif ✅). Seul survivant : `bot.log.day11.keep` (nommé .keep volontairement — un mot d'Olivier pour le tuer, sinon il reste)
 - [ ] **`CONCEPT_FREEZE.md`** : écrire (1 page : périmètre gelé + 3 exceptions + cliquet N≥50) + committer → **GEL DÉCLARÉ**
 - [ ] `/close` rituel complet
 
