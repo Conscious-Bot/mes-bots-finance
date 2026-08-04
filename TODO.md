@@ -45,7 +45,7 @@
 ### VENDREDI 08/08 — GEL
 - [ ] ④ exécuté (drill H9c ou risque-accepté)
 - [x] Hygiène **FAITE 04/08** (dist/ + worktree ✅, vulture = faux positif ✅). Seul survivant : `bot.log.day11.keep` (nommé .keep volontairement — un mot d'Olivier pour le tuer, sinon il reste)
-- [ ] **`CONCEPT_FREEZE.md`** : écrire (1 page : périmètre gelé + 3 exceptions + cliquet N≥50) + committer → **GEL DÉCLARÉ**
+- [x] **`CONCEPT_FREEZE.md` COMMITTÉ 04/08 → GEL DÉCLARÉ** (3 jours d'avance — la semaine s'est pliée en une journée)
 - [ ] `/close` rituel complet
 
 ### ☠️ MORT POUR TOUJOURS (pas « plus tard » — mort)
