@@ -113,14 +113,31 @@ assumptions:
   H5:
     statement: "Les sources de prix/FX gratuites restent disponibles et exactes"
     class: engineering
-    status: SOUS_TENSION
+    status: TENUE
     severity: HIGH
     support:
-      basis: engineering
-      reproducible: false
-      external_validation: false
-      evidence: []
-      note: "mono-source, AUCUNE réconciliation broker systématique — rien de tracé"
+      basis: empirical
+      reproducible: true
+      external_validation: true
+      evidence:
+        - id: EV-2026-08-04-BROKER-RECON
+          date: 2026-08-04
+          source: "app broker (lecture Olivier) vs ledger canonique"
+          type: reconciliation
+          claim: >
+            Réconciliation par ÉCHANTILLON ADVERSARIAL — les 4 lignes les plus
+            susceptibles de diverger, choisies pour leur mécanique : GOOGL
+            (3 cycles close-rebuy, PMP reset), KLAC (split 10:1 du 12/06),
+            MP (close-rebuy), COHR (P&L réalisé d'une ligne soldée −932 €).
+            Côté système : qty/PMP via ledger_pmp, prix 04/08 13:52 UTC,
+            USD 0,8676. Verdict Olivier : « ça match » sur valeur EUR + P&L.
+            Résout aussi la divergence 47k vs 49k du 03/08 (le 47k était une
+            lecture approximative ; le book système est confirmé).
+          note: >
+            Échantillon (4/22 lignes), PAS un audit complet — mais adversarial :
+            si le ledger devait casser, c'était sur ces mécaniques-là. La
+            mono-source yfinance demeure ; le falsifier reste armé (>1 % vs
+            broker sur contrôle ponctuel, indisponibilité >48h).
     falsifier: "écart >1% vs broker sur contrôle ponctuel OU indisponibilité >48h"
     logical_owner: infrastructure
     current_owner: olivier
@@ -312,21 +329,41 @@ assumptions:
   H9c:
     statement: "L'accès à l'offsite reste récupérable SANS le Mac (identifiants hors-machine)"
     class: engineering
-    status: INCONNUE
+    status: TENUE
     severity: CRITICAL
     support:
-      basis: asserted
-      reproducible: false
+      basis: empirical
+      reproducible: true
       external_validation: false
-      evidence: []
+      evidence:
+        - id: EV-2026-08-04-H9C-DRILL
+          date: 2026-08-04
+          source: drill
+          type: drill
+          exercises: >
+            (a) MODE REJOUÉ : « Mac mort » — console Hetzner atteinte depuis un
+            appareil NON-Mac (téléphone), identifiants tirés du gestionnaire de
+            mots de passe hors-machine ; VM visible (rescue/reset possible) +
+            Storage Box u608897 visible (reset des accès possible → backups
+            récupérables). C'est exactement le falsifier d'ACT-017, exécuté.
+            (b) NE COUVRE PAS : perte simultanée du téléphone ET du gestionnaire ;
+            panne côté Hetzner (couverte par aucun drill local).
+            (c) PRÉSUPPOSÉ DISPONIBLE ET QUE LA PANNE NE RETIRE PAS : le compte du
+            gestionnaire de mots de passe lui-même (chaîne d'identité personnelle,
+            hors périmètre H9c).
+          claim: >
+            Drill ACT-017 exécuté par Olivier le 04/08 : chaîne de récupération
+            prouvée SANS aucun artefact du Mac. Déclaratif opérateur (rapporté en
+            session, non répliqué par un tiers) — d'où external_validation: false.
       note: >
         Découverte le 01/08 en écrivant le champ `exercises` du drill vault : la
         restauration a utilisé ~/.ssh/id_ed25519 du Mac, qui meurt AVEC le Mac et
         n'est capturée par AUCUN backup (vérifié). La récupération réelle dépend donc
         d'identifiants Hetzner stockés hors-Mac (gestionnaire de mots de passe, autre
-        appareil) — très probablement vrais, mais JAMAIS vérifiés. H9b en dépend
-        logiquement : sans cet accès, la restauration est impossible dans le scénario
-        même que H9b prétend couvrir.
+        appareil) — très probablement vrais, mais JAMAIS vérifiés.
+        → PROUVÉ le 04/08 (EV-2026-08-04-H9C-DRILL). H9b retrouve sa fidélité
+        pleine (le présupposé (c) de son drill est levé). Re-drill conjoint avec
+        H9b avant le 30/10 (demi-vie 90j des expositions CRITICAL).
     falsifier: "un drill de restauration depuis une machine SANS la clé du Mac échoue à accéder à l'offsite"
     logical_owner: infrastructure
     current_owner: olivier
