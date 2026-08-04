@@ -5,6 +5,7 @@ Subsequent runs: token.json reused (auto-refreshed when needed).
 """
 
 import base64
+import os
 import re
 from pathlib import Path
 from typing import Any, cast
@@ -37,7 +38,14 @@ def get_service() -> Any:  # googleapiclient resource
         else:
             flow = InstalledAppFlow.from_client_secrets_file(str(CREDS_PATH), SCOPES)
             creds = flow.run_local_server(port=0)
-        TOKEN_PATH.write_text(creds.to_json())
+        # Write ATOMIQUE (cure incident 01/08 : disque plein + write 'w' interrompu
+        # = token.json tronque a 0 octet -> auth Gmail morte 34h EN SILENCE, digest
+        # vide). tmp + os.replace : le fichier est soit l'ancien token valide, soit
+        # le nouveau — jamais un 0-octet. Le dead-man DETECTE (token vide) ; ceci
+        # PREVIENT (la troncature ne peut plus se produire).
+        tmp_path = TOKEN_PATH.with_suffix(".json.tmp")
+        tmp_path.write_text(creds.to_json())
+        os.replace(tmp_path, TOKEN_PATH)
     return build("gmail", "v1", credentials=creds)
 
 
