@@ -252,14 +252,18 @@ def _purge_snapshots(db_path):
 
 def test_partial_snapshot_row_ignored(temp_db):
     """Row partielle (13/26 pricées, dd -50 fabriqué) IGNORÉE : l'état se lit
-    sur la dernière row complète (dd -9.31 → normal, pas de faux gel)."""
+    sur la dernière row complète (→ normal, pas de faux gel).
+
+    HWM canonique (rewire 04/08) : le DD est RECALCULÉ contre canonical_hwm()
+    (ancre policy 59 224), plus lu depuis la row (hwm_value_eur legacy).
+    1 - 54646/59224 = -7.73%."""
     _set_snapshot(temp_db, _iso(1), 54646, 60258, -9.31)  # complète, hier
     _set_snapshot(temp_db, _iso(0), 30000, 60258, -50.0, n_priced=13)  # partielle
     st = dm.current_digue_state()
     assert st["available"] is True
     assert st["status"] == "normal"
     assert st["frozen"] is False
-    assert st["drawdown_pct"] == -9.31
+    assert st["drawdown_pct"] == pytest.approx(-7.73, abs=0.01)
 
 
 def test_partial_only_fail_open(temp_db):
@@ -313,7 +317,8 @@ def test_tolerated_gap_rows_consumed(temp_db):
     st = dm.current_digue_state()
     assert st["available"] is True
     assert st["status"] == "normal"
-    assert st["drawdown_pct"] == -9.31
+    # HWM canonique (04/08) : DD recalculé vs ancre 59 224, cf test_partial ci-dessus.
+    assert st["drawdown_pct"] == pytest.approx(-7.73, abs=0.01)
 
 
 def test_gel_hold_when_signal_lost_during_active_gel(temp_db):
