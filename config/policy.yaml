@@ -91,6 +91,16 @@ drawdown_ladder:
                                      Historique : 30000 (01/08, dérivé du plus-bas vécu 32 900)."}
   R3_AS_RULE_FROM_2027:      {value: -0.35, status: PROPOSE, axiom: A3, note: "% du HWM annuel — remplace la valeur absolue"}
   HYSTERESIS_POINTS:         {value: 0.05, status: PROPOSE, axiom: A3}
+  HWM_ANCHOR:                {value_eur: 59224, date: "2026-06-22", status: VALIDE, axiom: A3,
+                              note: "ANCRE du rolling max — arbitrée 03/08/2026 (decision log
+                                     couche_vie_hwm) : reconstruction ledger+prix réconciliée
+                                     ±0,0001 €, retenue contre le 60 258 des snapshots (méthode
+                                     legacy, écart intraday ~1 000 €). Le HWM VIVANT =
+                                     max(ancre, total_value_eur des snapshots POSTÉRIEURS à la
+                                     date d'ancre) — lu par digue_monitor.canonical_hwm(),
+                                     SOURCE UNIQUE (L1). Le champ hwm_value_eur des rows
+                                     snapshots est legacy : append-only conservé, plus consommé.
+                                     Révision de l'ancre = nouvel arbitrage daté, jamais en DD."}
 
 # --- HIÉRARCHIE DE L'ÉVIDENCE (axiome 10 du gérant → poids A1) ------------
 evidence_weight:

@@ -92,6 +92,59 @@ def is_prorata_armed(status: str) -> bool:
     return status == "prorata_35"
 
 
+
+# ── HWM CANONIQUE (rewire 04/08/2026 — ferme le fork L1 snapshot vs reconstruction) ──
+# Ancre arbitrée dans config/policy.yaml (drawdown_ladder.HWM_ANCHOR) ; le HWM
+# vivant = max(ancre, snapshots POSTÉRIEURS à l'ancre). Rolling max auto-entretenu
+# par la table portfolio_snapshots existante — aucun nouvel état, aucun cache.
+# Le champ hwm_value_eur des rows (rolling legacy, porte le 60 258 intraday)
+# n'est PLUS consommé ici. KNOWN-GAP: le writer snapshot.aggregate continue de
+# l'écrire pour compat append-only — lecteur et écrivain divergent sciemment,
+# documenté, jusqu'à retrait du champ côté writer.
+
+def _hwm_anchor() -> tuple[float, str] | None:
+    """Lit l'ancre depuis policy.yaml. None si illisible (JAMAIS un défaut inventé)."""
+    try:
+        from pathlib import Path
+
+        import yaml
+        pol = Path(__file__).resolve().parent.parent / "config" / "policy.yaml"
+        d = yaml.safe_load(pol.read_text(encoding="utf-8"))
+        a = d["drawdown_ladder"]["HWM_ANCHOR"]
+        return float(a["value_eur"]), str(a["date"])
+    except Exception as e:  # ancre illisible → le caller retombe en legacy BRUYAMMENT
+        log.error("digue: HWM_ANCHOR illisible dans policy.yaml (%s) — "
+                  "fallback legacy hwm_value_eur, fork L1 ROUVERT", e)
+        return None
+
+
+def canonical_hwm() -> dict | None:
+    """HWM canonique = max(ancre policy, snapshots complets POSTÉRIEURS à l'ancre).
+
+    SOURCE UNIQUE (L1) du HWM — digest, dashboard et gates lisent CE résultat
+    via _latest_drawdown/current_digue_state. Retour None si l'ancre est
+    illisible (le caller décide du fallback, bruyamment).
+    """
+    anchor = _hwm_anchor()
+    if anchor is None:
+        return None
+    anchor_val, anchor_date = anchor
+    post_max = None
+    try:
+        with storage.db_ro() as cx:
+            row = cx.execute(
+                "SELECT MAX(total_value_eur) FROM portfolio_snapshots "
+                "WHERE snapshot_date > ? AND (n_positions - n_priced) <= ?",
+                (anchor_date, DIGUE_MAX_UNPRICED_GAP),
+            ).fetchone()
+        post_max = float(row[0]) if row and row[0] is not None else None
+    except Exception as e:
+        log.warning("digue: lecture post-anchor max échouée (%s) — ancre seule", e)
+    if post_max is not None and post_max > anchor_val:
+        return {"hwm_eur": post_max, "hwm_source": "post_anchor_snapshot"}
+    return {"hwm_eur": anchor_val, "hwm_source": f"anchor_{anchor_date}"}
+
+
 def _latest_drawdown() -> dict | None:
     """Lit le drawdown réalisé du dernier snapshot COMPLET et FRAIS. None sinon.
 
@@ -133,10 +186,26 @@ def _latest_drawdown() -> dict | None:
             row[0], age_days, DIGUE_STALE_AFTER_DAYS,
         )
         return None
+    current = float(row[1]) if row[1] is not None else None
+    # ── REWIRE 04/08 : DD recalculé contre le HWM CANONIQUE, pas le rolling
+    # legacy de la row (qui fige le 60 258 intraday pour toujours).
+    canon = canonical_hwm()
+    if canon is not None and current is not None and canon["hwm_eur"] > 0:
+        return {
+            "snapshot_date": row[0],
+            "current_value_eur": current,
+            "hwm_value_eur": canon["hwm_eur"],
+            "hwm_source": canon["hwm_source"],
+            "drawdown_pct": (current / canon["hwm_eur"] - 1.0) * 100.0,
+        }
+    # Fallback legacy BRUYANT (ancre illisible) — jamais silencieux (L15).
+    log.error("digue: HWM canonique indisponible — drawdown calculé sur le "
+              "rolling LEGACY de la row (fork L1 actif)")
     return {
         "snapshot_date": row[0],
-        "current_value_eur": float(row[1]) if row[1] is not None else None,
+        "current_value_eur": current,
         "hwm_value_eur": float(row[2]) if row[2] is not None else None,
+        "hwm_source": "legacy_snapshot_rolling",
         "drawdown_pct": float(row[3]),
     }
 
