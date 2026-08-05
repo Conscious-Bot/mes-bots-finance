@@ -14,27 +14,27 @@
 - [x] ① **Hedgeye : TUÉ** (04/08, désabonné + blocklist)
 - [x] ② **The Defiant : TUÉ** (04/08, désabonné + blocklist)
 - [x] ③ **Digest** : fix-1 v2.3 SHIPPÉ (`f3d7154`, gate mécanique) → vérifier digest 12h du 04/08 puis GELER
-- [ ] ④ **ACT-017 / H9c** : drill 30 min (machine SANS clé Mac) ou « risque accepté » écrit
+- [x] ④ **ACT-017 FAIT 04/08** (drill téléphone non-Mac, H9c→TENUE au registre `b8bdbb4`)
 - [x] ⑤ **`dist/` FAIT 04/08** : archivé (`~/backups/mes-bots-finance/dist_presage_trial_archive_20260804.tar.gz`, 1,3M) puis purgé + worktree mort retiré — greps mono-arbre prouvés
 
 ### LUNDI 04/08
 - [x] Kill-list **FAITE 04/08** : système (`7195643`, 8 bloquées + test-verrou) **ET source (désabonnements Gmail faits par Olivier)**. ①② tranchés : TUÉS (blocklist 10)
-- [ ] **Olivier (10 min)** : nombres broker TR → GOOGL/KLAC/MP : valeur EUR + P&L affiché · COHR : P&L réalisé
+- [x] Nombres broker **FAIT 04/08** (« ça matche totalement » → ACT-004 close)
 - [x] **ACT-004 CLOSE 04/08** : chaîne canonique unique (ledger_pmp+BookLine) + invariant LIVING_GRAPH vivant + **confirmation TR par Olivier (« ça matche totalement »)** : GOOGL +513/+1742 · KLAC +181/+227 · MP −309/−67 · COHR −932. Garde-fou #123 LEVÉ. (Bascule registre H5 : dès fix moteur)
-- [ ] **Claude** : token Gmail write atomique (`tmp + os.replace`, 10 lignes — le dead-man détecte, ceci prévient)
-- [ ] **Vérif** : digest 12h — le gate tient en prod (dry-run 03/08 : 3 urgents tombent, 0 primaire/49)
+- [x] Token atomique **FAIT 04/08** (`bec47ad`, déployé VM)
+- [x] Gate vérifié prod **04/08** (« 0 urgent / 5 monitoring / 17 noise »)
 
 ### MARDI 05/08
 - [x] **Rewire HWM FAIT 04/08** (`3893c1f` design (a) ancre policy + rolling max, DD −16,98%, même verdict gel_15, fallback bruyant L15)
   - ⚠️ note design (session terminal 04/08) : `book_performance` n'expose PAS de HWM — le 59 224 vient d'un balayage quotidien. Deux options : (a) rolling-max par balayage (auto-entretenu, mais `current_digue_state()` est appelé à chaque `/position_buy` → cacher le HWM, pas le recalculer à chaque appel) ; (b) HWM déclaré dans policy.yaml + règle de révision sur nouveau plus-haut. Pas de fallback silencieux vers snapshots (L15) — si book_performance échoue, fail-open bruyant comme aujourd'hui.
 - [x] **Dashboard FINI 04/08** (`3893c1f` — 3 pages hors DOM, monitors→Alerts, track+data health→Overview, regen Mac 217s sans FAILED, 13 tests doctrine)
-- [ ] **Claude/VM** : run §XVI SPCX (bot-stop, script prêt + dry-runné : venture c1, stop 98 annulé)
+- [x] §XVI **EXÉCUTÉ VM 04/08** (integrity ok, conv=1/tactical/venture, décision+bias journalisés)
 - [ ] ~~Gate Infineon 5/08~~ **SUSPENDUE** (protocole digue 1) → revue fait/prix journalisée à la place
 
 ### MERCREDI 06/08
 - [ ] Print Ajinomoto 2802.T : poser cible/stop post-print (noté dans la thèse « à poser 06/08 »)
-- [ ] Digest gelé officiellement si vérif lundi OK
-- [ ] Rattrapage lundi/mardi si débord
+- [x] Digest **GELÉ 04/08** (interrupteur ③)
+- [x] (aucun débord — semaine pliée lundi)
 
 ### JEUDI 07/08 — méthode, 3 items FINIS
 - [x] **D1 TRANCHÉ 04/08 (option A, avancé de jeudi)** : le gel a UN propriétaire = échelle BOOK (digue −15/−25/−35) ; kill Stage 1 = VIGILANCE pure (le « doublon » n'était que verbal — gate_allows_buy ne lit que la digue). Zéro code, ADR 015 amendé + config commentée
@@ -43,10 +43,10 @@
 - [ ] ~~Gate Harmonic 7/08~~ **SUSPENDUE** (digue 1) → revue journalisée
 
 ### VENDREDI 08/08 — GEL
-- [ ] ④ exécuté (drill H9c ou risque-accepté)
+- [x] ④ exécuté (cf ci-dessus)
 - [x] Hygiène **FAITE 04/08** (dist/ + worktree ✅, vulture = faux positif ✅). Seul survivant : `bot.log.day11.keep` (nommé .keep volontairement — un mot d'Olivier pour le tuer, sinon il reste)
 - [x] **`CONCEPT_FREEZE.md` COMMITTÉ 04/08 → GEL DÉCLARÉ** (3 jours d'avance — la semaine s'est pliée en une journée)
-- [ ] `/close` rituel complet
+- [x] `/close` **FAIT 04/08** (`8a43d79`, inclut close Cowork 03/08)
 
 ### ☠️ MORT POUR TOUJOURS (pas « plus tard » — mort)
 Ajout de sources · tuning scorer/seuils (L15/L16) · v2.2/v2.3 au-delà du fix-1 (nature, claim_id, lane variante) · tout travail visuel dashboard · nouveaux panneaux/monitors/hypothèses/couches doctrine · extensions assumption_graph · chantiers ADAPTABILITÉ au-delà des notes v1.
