@@ -117,7 +117,10 @@ def _check_exposure(hid: str, h: dict, sup: dict, pol: dict) -> list[str]:
                 "jamais mise à l'épreuve, statut honnête = NON_TESTEE"]
 
     # (b) fidélité : le meilleur contact atteint-il le niveau exigé par le poids ?
-    best = max((fid_by_type.get(ev.get("type"), 0.0), ev) for ev in expo)
+    # key= obligatoire : sans lui, un TIE de fidélité fait comparer les dicts ev
+    # entre eux -> TypeError (constaté 04/08, emitter 8h en échec chaque matin).
+    best = max(((fid_by_type.get(ev.get("type"), 0.0), ev) for ev in expo),
+               key=lambda t: t[0])
     if best[0] < min_fid:
         out.append(
             f"{hid} TENUE avec exposition de FIDÉLITÉ INSUFFISANTE "
@@ -142,6 +145,63 @@ def _check_exposure(hid: str, h: dict, sup: dict, pol: dict) -> list[str]:
                 f"pour {sev}) — re-drill requis, sinon retour à « tenue par "
                 "absence de contradiction »"
             )
+    return out
+
+
+def blocking_obligations() -> dict:
+    """Obligations bloquantes ACTIVES + hypothèses en défaut + péremption la plus proche.
+
+    SOURCE UNIQUE de cette lecture (L1) : le dashboard, le heartbeat et tout autre
+    consommateur passent par ici — jamais par une réimplémentation du filtre.
+
+    Fail-closed : toute erreur de lecture rend un état EXPLICITE (`error`), jamais
+    un dict vide qui se lirait « aucune obligation » — un registre illisible n'est
+    pas un registre serein.
+
+    Retourne : {obligations: [{id, do, hypotheses}], failed: [ids],
+                next_expiry_days: int|None, next_expiry_id: str|None, error: str|None}
+    """
+    from datetime import date as _d
+    out = {"obligations": [], "failed": [], "next_expiry_days": None,
+           "next_expiry_id": None, "error": None}
+    try:
+        a_doc, pol = load()
+    except Exception as e:
+        out["error"] = f"registre illisible : {e}"
+        return out
+    A, ACT = a_doc.get("assumptions", {}), a_doc.get("actions", {})
+    at_risk = {"SOUS_TENSION", "INCONNUE"} | FAILED
+
+    by_action: dict[str, list[str]] = {}
+    for hid, h in A.items():
+        if h.get("status") in FAILED:
+            out["failed"].append(hid)
+        if h.get("status") in at_risk:
+            for aid in h.get("actions") or []:
+                if ACT.get(aid, {}).get("blocking"):
+                    by_action.setdefault(aid, []).append(hid)
+    out["obligations"] = [
+        {"id": aid, "do": ACT[aid]["do"], "hypotheses": sorted(hs)}
+        for aid, hs in sorted(by_action.items())
+    ]
+
+    hl = (pol.get("exposure_policy") or {}).get("half_life_days_by_severity") or {}
+    for hid, h in A.items():
+        if h.get("status") != "TENUE":
+            continue
+        life = hl.get(h.get("severity"))
+        if not life:
+            continue
+        dts = []
+        for ev in (h.get("support") or {}).get("evidence") or []:
+            if ev.get("type") in EXPOSURE_TYPES and ev.get("date"):
+                d = ev["date"]
+                with suppress(ValueError, TypeError):
+                    dts.append(d if isinstance(d, _d) else _d.fromisoformat(str(d)[:10]))
+        if dts:
+            left = life - (_d.today() - max(dts)).days
+            if out["next_expiry_days"] is None or left < out["next_expiry_days"]:
+                out["next_expiry_days"], out["next_expiry_id"] = left, hid
     return out
 
 
