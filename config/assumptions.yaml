@@ -71,7 +71,7 @@ assumptions:
     status: TENUE
     severity: EXISTENTIAL
     support:
-      basis: declared
+      basis: asserted  # déclaré par le porteur (couche vie) — asserted, l'exposition viendra
       reproducible: false
       external_validation: false
       evidence:
@@ -244,8 +244,20 @@ assumptions:
       reproducible: true
       external_validation: false
       evidence:
-        - {id: EV-2026-08-03-DR-TEST, date: 2026-08-03, source: docs/runbooks/restore_test_20260803.md, type: drill,
-           claim: "restauration DEPUIS Storage Box en 7s (RTO 24h), integrity ok, checksum bit-identique, smoke code OK (224 tx). Cause racine des échecs silencieux : disque VM 100% plein, purgé. Commit b8bf00f"}
+        - id: EV-2026-08-03-DR-TEST
+          date: 2026-08-03
+          source: docs/runbooks/restore_test_20260803.md
+          type: drill
+          exercises: >
+            (a) MODE REJOUÉ : « le backup local VM est perdu/corrompu » — restauration
+            DEPUIS l'offsite Storage Box vers un chemin jetable, via les identifiants
+            backup.env de la VM (chemin non-Mac).
+            (b) NE COUVRE PAS : panne côté Hetzner ; corruption déjà présente DANS le
+            backup poussé (checksum prouve le transfert, pas la saineté d'origine —
+            couverte par l'integrity_check pré-push de backup.sh).
+            (c) PRÉSUPPOSAIT : l'accès à la VM elle-même — levé depuis par
+            EV-2026-08-04-H9C-DRILL (chaîne d'accès sans Mac prouvée).
+          claim: "restauration DEPUIS Storage Box en 7s (RTO 24h), integrity ok, checksum bit-identique, smoke code OK (224 tx). Cause racine des échecs silencieux : disque VM 100% plein, purgé. Commit b8bf00f"
         - {id: EV-2026-07-28-SYNC, date: 2026-07-28, source: logs, type: incident,
            claim: "sync muet 7 jours sans une seule alerte"}
         - {id: EV-2026-08-01-BACKUP, date: 2026-08-01, source: systemd, type: incident,
@@ -423,7 +435,7 @@ assumptions:
     status: TENUE
     severity: EXISTENTIAL
     support:
-      basis: declared
+      basis: asserted  # déclaré par le porteur (couche vie) — asserted, l'exposition viendra
       reproducible: false
       external_validation: false
       evidence:
