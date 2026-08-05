@@ -194,13 +194,17 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.20, tole
 
     rows = conn.execute("""
         SELECT t.ticker, t.stop_price, t.entry_price, t.target_price,
-               t.target_partial, t.target_full
+               t.target_partial, t.target_full,
+               t.stop_value, t.stop_currency,
+               t.target_partial_value, t.target_partial_currency,
+               t.target_full_value, t.target_full_currency
         FROM theses t
         INNER JOIN positions p ON p.ticker = t.ticker
         WHERE t.status='active' AND p.qty > 0 AND p.status='open'
     """).fetchall()
 
-    for tk, stop_price, entry_price, target_price, target_partial, target_full in rows:
+    for (tk, stop_price, entry_price, target_price, target_partial, target_full,
+         stop_value, stop_currency, _tp_value, tp_currency, _tf_value, tf_currency) in rows:
         expected_cur = expected_native_currency(tk)
         # Get current price natif via gateway canonique
         try:
@@ -235,6 +239,37 @@ def check_currency_native_consistency(conn, *, tolerance_low: float = 0.20, tole
                     f"(ratio {ratio:.3f} hors [{tolerance_low}, {tolerance_high}]). "
                     f"Probable mismatch devise -- entry_price={entry_price}"
                 )
+
+        # ── DURCISSEMENT 04/08/2026 (cure §XIV : 19/21 stops jamais persistés,
+        # AVGO/AMZN en devise EUR sur tickers USD, MU stop>prix depuis mai,
+        # KLAC pré-split ; l'ancien check ne lisait QUE les colonnes legacy
+        # pendant que la vérité vit dans stop_value/stop_currency).
+        # Règle 1 — devise DÉCLARÉE ≠ devise native : violation directe,
+        # zéro heuristique (attrape 'stop 340 EUR' sur un ticker USD).
+        for fname, fcur in (("stop", stop_currency),
+                            ("target_partial", tp_currency),
+                            ("target_full", tf_currency)):
+            if fcur and str(fcur).upper() != expected_cur:
+                violations.append(
+                    f"currency_declared : {tk} {fname}_currency={fcur} mais devise "
+                    f"native={expected_cur} — champ écrit dans la MAUVAISE devise (L12/L28)"
+                )
+        # Règle 2 — stop mort-né : un stop ≥ prix courant est franchi à la
+        # POSE (book long-only). Cas MU 24/05 : stop 1 000 posé prix 751.
+        if stop_value is not None and stop_value > 0 and stop_value >= cur_native                 and (not stop_currency or str(stop_currency).upper() == expected_cur):
+            violations.append(
+                f"stop_mort_ne : {tk} stop_value={stop_value} >= prix courant "
+                f"{cur_native:.2f} {expected_cur} — stop invalide dès la pose "
+                f"(exécuter OU réviser par écrit, jamais de limbo — §XIV)"
+            )
+        # Règle 3 — ratio écrasé : stop_value/prix < tolerance_low = probable
+        # SPLIT non répercuté sur la thèse (cas KLAC 10:1 du 12/06 : 23 vs 194).
+        if stop_value is not None and stop_value > 0                 and (not stop_currency or str(stop_currency).upper() == expected_cur)                 and stop_value / cur_native < tolerance_low:
+            violations.append(
+                f"stop_unite_suspecte : {tk} stop_value={stop_value} vs prix "
+                f"{cur_native:.2f} (ratio {stop_value/cur_native:.3f} < {tolerance_low}) "
+                f"— probable split/unité non répercuté sur la thèse"
+            )
     return violations
 
 

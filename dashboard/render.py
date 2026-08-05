@@ -4472,6 +4472,30 @@ def _monitors_live_panel() -> str:
     except Exception as exc:
         monitors_content = f'<div class="cer-empty">Erreur monitors : {e(str(exc))}</div>'
 
+    # ── STATIC GATE (invariants book) — exécuté en PROD pour la 1re fois le
+    # 04/08/2026. Avant : appelé UNIQUEMENT par la CI sur fixture, verte,
+    # pendant que la vraie base portait 6 violations invisibles (stops
+    # morts-nés MU/KLAC, devises EUR sur tickers USD) — H11 pur.
+    # Bloc séparé du try monitors : une panne du gate s'affiche pour
+    # elle-même, elle n'est pas avalée par l'except générique (L15).
+    try:
+        from shared import storage as _st_gate
+        from shared.position_invariants import run_static_gate_silent as _rsg
+        with _st_gate.db_ro() as _cx_gate:
+            _gate = _rsg(_cx_gate)
+        if _gate["n_violations"]:
+            monitors_content += "".join(
+                f'<div class="cer-mon-row cer-mon-bad">⛔ invariant : {e(v[:170])}</div>'
+                for v in _gate["violations"][:8]
+            )
+            monitors_n += _gate["n_violations"]
+    except Exception as _gexc:
+        monitors_content += (
+            f'<div class="cer-mon-row cer-mon-warn">⚠ static gate injoignable : '
+            f'{e(str(_gexc)[:90])} — invariants NON vérifiés ce cycle</div>'
+        )
+        monitors_n += 1
+
     return _css + (
         '<details class="cer-acc" open>'  # open par défaut — c'est ce qui mérite ton attention
         '<summary class="cer-acc-head">'
