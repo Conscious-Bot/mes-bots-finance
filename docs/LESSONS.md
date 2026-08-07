@@ -1053,3 +1053,39 @@ dessiner a coûté une journée de ledger.
 **Référencer** : CANONICAL_MAP §11 ; [[L17]] (déclaratif vs live state — L34 en
 est l'extension spatiale : où, pas seulement quoi) ; chantier garde replica
 (TODO) ; [[L33]] (la preuve de l'écriture ne vaut que sur le bon nœud).
+
+## L35 — Invariants d'environnement : une automatisation dépend d'un contrat explicite, jamais d'une convention de la machine
+
+**Attrapé 07/08** : hook PostToolUse (outillage Claude, session app) appelant
+`python` nu → `/bin/sh: python: command not found` à chaque édition, en
+**non-bloquant** — l'échec ne casse rien, donc il ment en silence (doctrine
+Heimdall). `python` n'est pas un invariant macOS : selon la machine c'est
+python, python3, pyenv, Homebrew, ou rien. Le hook dépendait d'un
+*environnement*, pas d'un *contrat* — exactement la classe que PRESAGE élimine
+côté données (valeur+asof+source) et côté carte (contrat V3). Même philosophie,
+appliquée à l'infrastructure.
+
+**Audit du jour (verify-before-assert)** : la classe était DÉJÀ fermée sur les
+surfaces contrôlées — 0 shebang `python` nu dans le repo, 0 subprocess nu,
+3 LaunchAgents en chemins d'interpréteur absolus. L'incident venait de la seule
+surface hors contrat (outillage tiers). Dette de cohérence relevée : 2 plists
+(weekly-audit, weekly-triggers) pointent le Python framework 3.14 et non le
+venv — deux contrats au lieu d'un ; fonctionne, à unifier « quand on touche ».
+
+**Règle (invariants E)** :
+- **E1** — aucun script/hook/plist/cron n'invoque `python` nu : interpréteur
+  explicite (`venv/bin/python3` absolu de préférence, `#!/usr/bin/env python3`
+  minimum).
+- **E2** — tout chemin (DB, vault, binaire) passe par son contrat déclaré
+  (`storage.DB_PATH`, `config/*.yaml` [[L17]]) — jamais une résolution
+  PATH/HOME implicite.
+- **E3** — aucune dépendance implicite au shell de la machine : les hooks
+  tournent sous `/bin/sh`, pas sous le zsh configuré du gérant.
+- **E4** — la reproductibilité s'éprouve par DRILL (H9c : restore prouvé 7 s),
+  pas par abstraction. Pas d'« Environment Contract » central sous gel : les
+  contrats existants (venv, DB_PATH, YAML) suffisent, le verrou tient le reste.
+
+**Référencer** : test verrou `tests/test_environment_invariants.py` (shebangs +
+subprocess + plists locaux) ; [[L17]] déclaratif ; [[L33]] (un échec
+non-bloquant qui ne s'auto-signale pas = mensonge en silence) ; leçons
+canal-paste CLAUDE.md §1 (zsh quoting, même famille).
