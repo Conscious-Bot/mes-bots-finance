@@ -51,12 +51,22 @@
 ### ☠️ MORT POUR TOUJOURS (pas « plus tard » — mort)
 Ajout de sources · tuning scorer/seuils (L15/L16) · v2.2/v2.3 au-delà du fix-1 (nature, claim_id, lane variante) · tout travail visuel dashboard · nouveaux panneaux/monitors/hypothèses/couches doctrine · extensions assumption_graph · chantiers ADAPTABILITÉ au-delà des notes v1.
 
-### 📅 LE MOIS DE SIMPLIFICATION (07/08 → ~07/09) — Ajouts: 0 / Suppressions: 100+
-- **S1 (en cours)** : finir tribunaux + paris · résoudre Ajinomoto proprement (P2 → clôture lundi 10/08 ; P1 → lecture O.) · COMMENCER l'élagage dashboard · rien construire
-- **S2** : refaire les cards (25 métriques → 4 réponses : pourquoi je possède · pourquoi je vendrais · qu'est-ce qui invalide · que surveiller aujourd'hui) · enlever tout ce qui ne répond pas à une décision
-- **S3** : 2-3 pilotes utilisent PRESAGE · observer en silence · ZÉRO correction pendant les tests
-- **S4** : compiler les observations · rien construire · vérifier que les suppressions ont amélioré l'usage
-- Compteur tenu à chaque close : `Ajouts: X · Suppressions: Y` (cible 0 / 100+)
+### 📅 LE MOIS DE SIMPLIFICATION (07/08 → ~07/09) — « déficit d'exposition, pas d'intelligence »
+**Critère unique (miroir V2)** : *existe-t-il une décision importante où cette capacité n'est jamais consultée ?*
+**Règle** : on ne supprime pas des widgets — on supprime des CHEMINS (position→CF en 1, pas en 4).
+**Baseline mesurée 07/08** : Tier-S = distance ∄ sur le dashboard (0 occurrence render.py) ; bot = pull-only.
+**Tiers d'excavation (ROI décisionnel)** :
+- **S (inévitables)** : ① dernier contrefactuel résolu SUR chaque card (« hold aurait fait +8,4 % ») ·
+  ② historique biais du ticker SUR la card (« 17 décisions : lock_in 3, fomo 2 ») ·
+  ③ situations similaires Voyage SUR la card (« 2019 : vendu trop tôt »)
+- **A** : open_questions qui VIEILLISSENT (âge affiché) · kill criteria qui ATTAQUENT (chaque digest : « quels KC ont bougé ? » — le gate en fait la moitié)
+- **B** : events avec CONFIANCE affichée (06/08 · IR · 100 % vs 06/08? · Twitter · 35 % — la leçon Ajinomoto)
+**Semaines** :
+- **S1** : résoudre Ajinomoto (P2 lundi 10/08 · P1 lecture O.) · SUPPRESSION DE NAVIGATION (clics, pas widgets — compter chaque clic économisé) · rien construire
+- **S2** : les CARDS deviennent le centre — 4 réponses (pourquoi je possède · pourquoi je vendrais · qu'est-ce qui invalide · que surveiller aujourd'hui) + les 3 lignes Tier-S (données DÉJÀ calculées, surfaces existantes = autorisé par la lecture du gel « améliorer une carte existante »)
+- **S3** : 2-3 pilotes · observer OÙ ILS CHERCHENT (pas ce qu'ils demandent) · zéro correction
+- **S4** : élagage final — tout ce qui n'a été utilisé ni par O. ni par les pilotes disparaît
+**Compteur à chaque close** : `Ajouts: 0 (capacités/surfaces) · Suppressions: X (cible 100+) · Expositions: Y (données existantes rendues visibles — comptées à part, bornées par le miroir V2)`
 
 ### 🧊 APRÈS LE GEL (N ≥ 50 paris résolus — PAS AVANT, aucune exception)
 - [ ] **PRESAGE-B « OS des décisions d'investissement »** (redéfini 07/08 — SaaS B :
