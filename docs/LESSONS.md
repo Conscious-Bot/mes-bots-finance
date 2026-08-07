@@ -1132,3 +1132,26 @@ des témoins EST la liste des propriétés ; pas de registre de propriétés sé
 RÉPARATION ; [[L35]] (fermeture fondatrice) ; commits-exemples : d1a2ebd
 (verrou python-nu), 4e130e5 (exception plists fermée), a6be029 (table dead-man,
 généralisation minimale canonique).
+
+**Addendum L36 (07/08 soir, gérant) — les trois états + le témoin comme unité de vérité** :
+- **Trois états, pas deux** : classe ouverte → classe SOUS SURVEILLANCE →
+  classe fermée. La transition exige une **preuve vivante** (le témoin a tourné
+  au moins une fois sur le chemin RÉEL), pas une **preuve potentielle** (test
+  écrit, protocole papier, simulation de la seule moitié watcher). Cas
+  fondateur : la fermeture dead-man du 07/08 elle-même — marqueurs armés à la
+  main, chaîne émettrice jamais exécutée → sous surveillance ; promue fermée le
+  soir même par kickstart réel (marqueurs touchés par les scripts, 23:10). Le
+  test 20 s des cards est une preuve potentielle jusqu'aux premiers pilotes.
+- **Hiérarchie de vérité** : doctrine → code → témoin → observation. En cas de
+  conflit, l'observation gagne toujours — à condition d'être VÉRIFIÉE comme
+  fait et non comme artefact d'instrument (les ticks du soir du registre
+  mentaient : un cache stale est une observation qui ment, cf cure résolutions
+  session-closes). Si le README, la doctrine et le code disent « observabilité »
+  mais que le témoin ne tourne plus, l'observabilité n'existe plus.
+- **Convention [CLOSE]** (discipline d'écriture, pas un outil) : tout commit de
+  fermeture porte le bloc `[CLOSE] Classe : / Observation : / Réparation : /
+  Témoin : / Ratchet :`. Dans deux ans, `git log --grep="\[CLOSE\]"` relit
+  l'historique comme un registre de classes fermées, sans la mémoire de l'époque.
+- **Cohérence du seuil-2** : deux occurrences → leçon ; deux instances →
+  généralisation ; cinquante paris → dégel. Le système préfère systématiquement
+  deux preuves avant une abstraction.

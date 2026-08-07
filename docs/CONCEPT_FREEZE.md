@@ -99,6 +99,15 @@ pilotes silencieux.
 > Avant le dégel, PRESAGE ne gagne pas en ajoutant des capacités. Il gagne en
 > rendant les capacités existantes inévitables, visibles et impossibles à contourner.
 
+**Lecture 07/08 (propriété émergente)** : le gel n'est pas qu'une contrainte —
+c'est un **opérateur de projection**. Il prend toutes les idées possibles et les
+projette sur le seul espace autorisé : réparation · cohérence · suppression ·
+ratchet · preuve. Tout le reste est rejeté. « Le mois de suppression produit des
+propriétés parce qu'il ne peut rien produire d'autre » — les composants évoluent,
+les propriétés (observabilité, reproductibilité, déterminisme, falsifiabilité,
+compression) deviennent permanentes, chacune tenue par un témoin qui tourne
+(L36 : une propriété sans témoin actif n'existe plus).
+
 **Métrique du mois (le seul compteur)** : ratio Suppression/Ajout — cible extrême
 **Ajouts : 0 · Suppressions : 100+**. Le diagnostic : PRESAGE souffre de
 surprésentation, pas de manque d'intelligence — elle est là, noyée.
