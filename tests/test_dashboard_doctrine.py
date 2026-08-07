@@ -50,10 +50,16 @@ def test_a8_pas_de_confiance_scalaire_nue(src: str):
 
 
 def test_a8_la_base_est_nommee(src: str):
-    """Toute grandeur affichée déclare sa nature : LLM affirmé vs calculé."""
+    """Toute grandeur affichée déclare sa nature : LLM affirmé vs calculé.
+
+    07/08/2026 : les labels (calc)/(LLM) vivaient dans la card legacy, morte
+    avec la V3. Le porteur A8 de la carte est désormais la provenance de
+    l'anti-thèse (copilot/LLM vs thèse écrite) dans dashboard/position_card.py.
+    """
     assert "éval LLM" in src, "A8 : la nature de l'évaluation (LLM) n'est plus affichée"
-    assert "(calc)" in src and "(LLM)" in src, (
-        "A8 : materialité (calculée) et confiance (LLM) doivent nommer leur base"
+    card_src = (RENDER.parent / "position_card.py").read_text(encoding="utf-8")
+    assert "copilot, LLM" in card_src and '"thèse"' in card_src, (
+        "A8 : l'anti-thèse de la carte doit nommer sa base (copilot/LLM vs thèse)"
     )
 
 

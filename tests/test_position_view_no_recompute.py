@@ -61,20 +61,29 @@ def test_position_card_does_not_recompute_ratio_from_entry(position_card_source:
         ), f"Pattern interdit trouve dans _position_card : {pat} -- compute_position est la source unique"
 
 
-def test_position_card_uses_view_asym_ratio(position_card_source: str) -> None:
-    """_position_card DOIT consommer view.asym_ratio (preuve positive du wiring)."""
-    assert (
-        "_view.asym_ratio" in position_card_source
-        or "view.asym_ratio" in position_card_source
-    ), "_position_card ne consomme PAS view.asym_ratio -- le wiring SPEC Phase 3 n'est pas applique"
+def test_position_card_delegue_a_v3(position_card_source: str) -> None:
+    """V3 (07/08/2026) : _position_card est un wrapper — le rendu vit dans
+    dashboard/position_card.py. L'asymétrie n'est plus affichée sur la carte
+    (P2/P6 : exclue par la doctrine), donc plus de wiring asym à prouver ICI ;
+    la pureté de la V3 est verrouillée par le test suivant."""
+    assert "from dashboard.position_card import render_position_card" in position_card_source
 
 
-def test_position_card_imports_compute_position(position_card_source: str) -> None:
-    """_position_card DOIT importer compute_position depuis shared.position_view."""
-    assert (
-        "from shared.position_view import compute_position" in position_card_source
-        or "shared.position_view" in position_card_source
-    ), "_position_card n'importe PAS shared.position_view -- le wiring n'est pas applique"
+def test_position_card_v3_est_pure() -> None:
+    """La carte LIT (CardInputs + SteerOutput), ne recalcule JAMAIS (P7, L1/L4).
+
+    Plus fort que l'ancien test d'import : ZÉRO accès données dans le module —
+    ni storage, ni sqlite3, ni position_view, ni book_performance. La seule
+    exception tolérée : ticker_names (cosmétique, sous try)."""
+    src = (Path(__file__).resolve().parent.parent / "dashboard" / "position_card.py"
+           ).read_text(encoding="utf-8")
+    for forbidden in ("import sqlite3", "from shared import storage",
+                      "from shared.storage", "shared.position_view",
+                      "book_performance", "yfinance"):
+        assert forbidden not in src, (
+            f"V3 impure : « {forbidden} » — la carte est une fonction de "
+            "(inputs, steer), toute donnée se calcule en amont"
+        )
 
 
 def test_no_local_up_pct_dn_pct_calc_in_card(position_card_source: str) -> None:
