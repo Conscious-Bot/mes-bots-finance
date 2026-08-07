@@ -167,7 +167,7 @@ positions:
   INFINEON:   {ticker: "IFX.DE", name: "Infineon", layer: [energy/power_semis], layer_primary: energy/power_semis, driver: ai_capex, geo: europe, status: planned}
   PRYSMIAN:   {ticker: "PRY.MI", name: "Prysmian", layer: [energy/transmission], layer_primary: energy/transmission, driver: ai_capex, geo: europe, status: planned}
   ARM:        {ticker: "ARM", name: "ARM", layer: [design/ip_cores], layer_primary: design/ip_cores, driver: ai_capex, geo: uk, status: planned}
-  AJINOMOTO:  {ticker: "2802.T", name: "Ajinomoto", layer: [assembly/substrate_film], layer_primary: assembly/substrate_film, driver: ai_capex, geo: japan, status: planned}   # TROU substrat film (monopole ABF)
+  AJINOMOTO:  {ticker: "2802.T", name: "Ajinomoto", layer: [assembly/substrate_film], layer_primary: assembly/substrate_film, driver: ai_capex, geo: japan, status: held}   # entré 05/08/2026 (paris tribunal) — ex-TROU substrat film (monopole ABF)
   IBIDEN:     {ticker: "4062.T", name: "Ibiden", layer: [assembly/substrate], layer_primary: assembly/substrate, driver: ai_capex, geo: japan, status: planned}   # TROU substrat FC-BGA
   AURUBIS:    {ticker: "NDA.DE", name: "Aurubis", layer: [materials/multimetal], layer_primary: materials/multimetal, driver: commodities, geo: europe, status: planned}   # seul vrai décorrélateur de la file
   TEL:        {ticker: "8035.T", name: "Tokyo Electron", layer: [capital_equipment/deposition_etch], layer_primary: capital_equipment/deposition_etch, driver: ai_capex, geo: japan, status: planned}

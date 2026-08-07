@@ -16,8 +16,9 @@ def test_parse_ok():
 
 
 def test_held_planned_sorti_counts():
-    assert len(taxonomy.held_tickers()) == 26
-    assert len(taxonomy.planned_tickers()) == 7
+    # 05/08/2026 : Ajinomoto (2802.T) planned -> held (entree paris tribunal)
+    assert len(taxonomy.held_tickers()) == 27
+    assert len(taxonomy.planned_tickers()) == 6
 
 
 def test_get_taxonomy_known():
@@ -41,9 +42,9 @@ def test_layer_primary_in_layer_invariant():
         )
 
 
-def test_ai_capex_held_19():
+def test_ai_capex_held_20():
     ai = taxonomy.by_driver("ai_capex", status="held")
-    assert len(ai) == 19, f"ai_capex held = {len(ai)} (attendu 19)"
+    assert len(ai) == 20, f"ai_capex held = {len(ai)} (attendu 20)"
     for tk in ("TSM", "AMZN", "GOOGL", "GEV", "SU.PA", "AVGO", "ASML.AS"):
         assert tk in ai, f"{tk} doit être dans ai_capex held"
     for tk in ("CCJ", "HO.PA", "MP", "SPCX", "6324.T", "LNG", "SAF.PA"):
@@ -59,9 +60,9 @@ def test_decorrelators_7():
     assert decorr == {"LNG", "CCJ", "HO.PA", "SAF.PA", "MP", "SPCX", "6324.T"}
 
 
-def test_geo_japan_5_held():
+def test_geo_japan_6_held():
     j = taxonomy.by_geo("japan", status="held")
-    assert set(j) == {"6857.T", "6920.T", "4063.T", "7011.T", "6324.T"}
+    assert set(j) == {"6857.T", "6920.T", "4063.T", "7011.T", "6324.T", "2802.T"}
 
 
 def test_compute_hyperscaler_subcategory():
@@ -74,13 +75,14 @@ def test_coverage_holes_held():
     for sub in (
         "assembly/molding_equip",
         "assembly/substrate",
-        "assembly/substrate_film",
         "capital_equipment/deposition_etch",
         "design/ip_cores",
         "energy/power_semis",
         "materials/multimetal",
     ):
         assert sub in holes, f"{sub} doit être un trou en held"
+    # substrate_film n'est PLUS un trou depuis Ajinomoto held (05/08/2026)
+    assert "assembly/substrate_film" not in holes
 
 
 def test_coverage_holes_planned_only_molding_open():
@@ -161,9 +163,10 @@ def test_validate_against_db_no_missing():
     )
 
 
-def test_planned_tickers_7():
+def test_planned_tickers_6():
     p = set(taxonomy.planned_tickers())
-    assert p == {"IFX.DE", "PRY.MI", "ARM", "2802.T", "4062.T", "NDA.DE", "8035.T"}
+    # 2802.T sortie de planned : held depuis 05/08/2026
+    assert p == {"IFX.DE", "PRY.MI", "ARM", "4062.T", "NDA.DE", "8035.T"}
 
 
 def test_clean_sector_preserves_legacy_output():

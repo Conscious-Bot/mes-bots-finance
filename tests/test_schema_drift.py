@@ -56,6 +56,11 @@ _WHITELIST = {
     # migration upgrade()/downgrade(), pas dans le schema final.
     "predictions_new",
     "predictions_old",
+    # Table optionnelle DECLAREE : weekly_synthesis._reactions_7d est garde par
+    # PRAGMA table_info + try/except fail-soft ("non deployee au 31/07" — spec
+    # weekly). La table ne peut naitre avant degel (CONCEPT_FREEZE) ; le code
+    # est honnete sur son absence, pas un orphelin accidentel.
+    "reactions",
     # Faux positif regex : mot francais "interdit" dans messages RAISE
     # des triggers append-only (cf migrations 0061 research_brief_log + 0062
     # scheduler_runs). Cure 14/06/2026 post pytest fail.
