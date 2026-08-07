@@ -492,6 +492,7 @@ concentration:
       - 6920.T        # inspection actinique (Lasertec)
       - 6857.T        # test ATE (Advantest)
       - 000660.KS     # HBM (SK Hynix)
+      - 2802.T        # substrat ABF (Ajinomoto, driver ai_capex — held 05/08, meme regle que MHI 27/06)
       - CRWV          # neocloud
       - NBIS          # neocloud
       - 8035.T        # TEL équipement
