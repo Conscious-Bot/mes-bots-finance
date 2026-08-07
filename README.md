@@ -1,8 +1,14 @@
-# mes-bots-finance (PRESAGE)
+# PRESAGE — Operating System for Investment Decisions
 
 > **La vérité dans le bruit. / Truth in the noise.**
 
-Closed-loop personal finance intelligence: Telegram bot (`@Hawk_Dove_bot`) + Claude. Self-learning thesis tracker with bidirectional discipline enforcement.
+**PRESAGE ne prend pas de positions. Il impose un processus falsifiable avant qu'un humain ne prenne une position.**
+
+Ce qu'il garantit (indépendant de l'alpha) : aucune hypothèse oubliée · aucun trigger ignoré en silence · aucun sizing incohérent avec la conviction écrite · aucune thèse jamais revisitée · chaque décision auditable des années plus tard — la thèse, les hypothèses, les paris, les erreurs, les résolutions. Famille Git/Linear (processus), pas Renaissance (performance) : *Git ne promet pas un meilleur logiciel, il promet de ne plus perdre l'historique.*
+
+Ce qu'il n'est **pas** : une IA qui choisit des actions.
+
+Implémentation : closed-loop intelligence (Telegram `@Hawk_Dove_bot` + Claude), thèses falsifiables, tribunal des hypothèses, digues sur drawdown réalisé, registre de paris pré-enregistrés (calibration + reason-match), dead-man's-switch — *tout échec doit s'auto-signaler*. (Identité SaaS-B actée 07/08/2026 — cf `docs/CONCEPT_FREEZE.md` : le build attend N ≥ 50 paris résolus ; les pilotes observent dès maintenant.)
 
 **Le bot ne trade pas.** Il mécanise la discipline pré-commit. Deux biais empiriquement documentés (cf [`docs/glossary.md` § Biais documentés](docs/glossary.md)) : **`lock_in`** (vendre les winners trop tôt) = biais #1, raison d'être de PRESAGE — **non instrumenté à ce jour**, chemin prévu Surface 2 ADR-010 §2 ; **biais #2 historique** (anti-FOMO crypto aux tops) dormant ortho (stock-only depuis 26/05). L'enum technique `fomo_greed` (acception large = « pas réduit/sorti quand la discipline le disait ») est mécanisé sur 2 canaux (`kill_criteria` actif, `over_cap` en veille phase construction) — distinct du biais #2 crypto-tops. Boucle : ingestion → process LLM → décision → prédiction (horizon mesurable) → outcome → calibration → réinjection contexte.
 
