@@ -98,6 +98,13 @@ class CardInputs:
     price_asof_severity: str | None = None   # 'green' | 'amber' | 'rouge' | 'unknown'
     thesis_review_age_days: int | None = None
 
+    # Intelligence Tier-S sur card (S2 mois de simplification 07/08) —
+    # EXPOSITION de donnees deja calculees ; regle « aucune re-query dans render ».
+    bias_history: dict = field(default_factory=dict)              # get_bias_stats(ticker)
+    last_cf: dict | None = None                                   # derniere resolution CF, sinon prochaine due
+    similar_situations: list[dict] = field(default_factory=list)  # voyage find_similar, cache 24h fail-soft
+    next_event: dict | None = None                                # prochain event calendrier ticker <= 7j
+
 
 def _fetch_bias_events_open_for_ticker(ticker: str) -> list[dict]:
     """Lit bias_events open pour 1 ticker."""
@@ -151,6 +158,102 @@ def _fetch_ballast_membership(ticker: str) -> bool:
     except Exception as e:
         log.warning(f"_fetch_ballast_membership failed: {e}")
         return False
+
+
+def _fetch_bias_history(ticker: str) -> dict:
+    """Historique de biais du ticker (canal bias_tags, lecture canonique)."""
+    try:
+        return storage.get_bias_stats(ticker=ticker, since_days=3650) or {}
+    except Exception as e:
+        log.warning(f"_fetch_bias_history failed: {e}")
+        return {}
+
+
+def _fetch_last_cf(ticker: str) -> dict | None:
+    """Derniere resolution contrefactuelle du ticker ; sinon la prochaine DUE.
+
+    Le bloc le plus rentable de la card (S2) : « hold aurait fait +X % »."""
+    try:
+        with storage.db() as cx:
+            row = cx.execute(
+                "SELECT cr.horizon_days, cr.delta_pct, cr.verdict, substr(cr.resolved_at,1,10), "
+                "dc.decision_type, dc.counterfactual_branch, substr(dc.decided_at,1,10) "
+                "FROM counterfactual_resolution cr "
+                "JOIN decision_counterfactual dc ON dc.id = cr.decision_counterfactual_id "
+                "WHERE cr.ticker=? ORDER BY cr.resolved_at DESC LIMIT 1",
+                (ticker.upper(),),
+            ).fetchone()
+            if row:
+                return {"state": "resolved", "horizon": row[0], "delta_pct": row[1],
+                        "verdict": row[2], "resolved_at": row[3], "decision_type": row[4],
+                        "branch": row[5], "decided_at": row[6]}
+            row = cx.execute(
+                "SELECT decision_type, counterfactual_branch, substr(decided_at,1,10), "
+                "date(decided_at, '+30 days') "
+                "FROM decision_counterfactual WHERE ticker=? ORDER BY decided_at DESC LIMIT 1",
+                (ticker.upper(),),
+            ).fetchone()
+            if row:
+                return {"state": "pending", "decision_type": row[0], "branch": row[1],
+                        "decided_at": row[2], "due": row[3]}
+    except Exception as e:
+        log.warning(f"_fetch_last_cf failed: {e}")
+    return None
+
+
+def _fetch_next_event(ticker: str) -> dict | None:
+    """Prochain event calendrier du ticker sous 7 jours (bloc « decision aujourd'hui »)."""
+    try:
+        with storage.db() as cx:
+            base = ticker.upper().split(".")[0]
+            row = cx.execute(
+                "SELECT date, event_type, description FROM events "
+                "WHERE (ticker=? OR ticker=?) AND date >= date('now') "
+                "AND date <= date('now','+7 days') ORDER BY date LIMIT 1",
+                (ticker.upper(), base),
+            ).fetchone()
+            if row:
+                return {"date": row[0], "type": row[1], "description": row[2]}
+    except Exception as e:
+        log.warning(f"_fetch_next_event failed: {e}")
+    return None
+
+
+# Cache 24h des similaires (pattern maison _PX_CACHE) : find_similar appelle
+# l'API Voyage — JAMAIS a chaque regen (~5 min). Fail-soft : indispo => [].
+_SIMILAR_CACHE: dict = {}
+_SIMILAR_TTL_S = 86400
+
+
+def _fetch_similars_cached(ticker: str, thesis: dict) -> list[dict]:
+    import time as _time
+    now = _time.time()
+    hit = _SIMILAR_CACHE.get(ticker)
+    if hit and now - hit[0] < _SIMILAR_TTL_S:
+        return hit[1]
+    out: list[dict] = []
+    try:
+        from shared.thesis_library import find_similar
+        q = (thesis.get("variant_perception") or "") or " ".join(
+            (json.loads(thesis.get("key_drivers") or "[]") or [])[:2]
+        )
+        if q:
+            for r in find_similar(q, k=4) or []:
+                meta = r.get("metadata") or {}
+                if str(meta.get("thesis_id") or "") == str(thesis.get("id") or ""):
+                    continue  # soi-meme
+                out.append({
+                    "ticker": meta.get("ticker") or "?",
+                    "date": (meta.get("opened_at") or meta.get("date") or "")[:7],
+                    "snippet": (r.get("document") or "")[:90],
+                    "status": meta.get("status") or "",
+                })
+                if len(out) >= 2:
+                    break
+    except Exception as e:
+        log.warning(f"_fetch_similars_cached failed (fail-soft): {e}")
+    _SIMILAR_CACHE[ticker] = (now, out)
+    return out
 
 
 def _fetch_risk_config() -> dict:
@@ -329,6 +432,12 @@ def assemble_card_inputs(thesis_id: int) -> CardInputs | None:
     price_sev = _classify_price_asof(book_line)
     review_age = _thesis_review_age_days(thesis)
 
+    # Intelligence Tier-S (S2)
+    bias_history = _fetch_bias_history(ticker)
+    last_cf = _fetch_last_cf(ticker)
+    similar_situations = _fetch_similars_cached(ticker, thesis)
+    next_event = _fetch_next_event(ticker)
+
     return CardInputs(
         thesis_id=thesis_id,
         ticker=ticker,
@@ -369,4 +478,8 @@ def assemble_card_inputs(thesis_id: int) -> CardInputs | None:
         allow_add_steer=risk_cfg["allow_add_steer"],
         price_asof_severity=price_sev,
         thesis_review_age_days=review_age,
+        bias_history=bias_history,
+        last_cf=last_cf,
+        similar_situations=similar_situations,
+        next_event=next_event,
     )

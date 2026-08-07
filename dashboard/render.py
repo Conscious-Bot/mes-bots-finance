@@ -1870,6 +1870,149 @@ def _slug_ticker(ticker: str) -> str:
     return ticker.replace(".", "-").upper()
 
 
+def _position_card_v2(inputs, steer_v2) -> str:  # noqa: ARG001 — steer reserve bloc DECIDER v2.1
+    """Position Card V2 — gabarit S2 (07/08, dicte O.) : « la card EST le produit ».
+
+    Une question : « dois-je modifier cette position aujourd'hui ? » — si la reponse
+    exige une autre page, la carte a echoue. 7 blocs + bloc cognitif, discipline
+    aviation (DECIDER / APPRENDRE / PROUVER), asymetrie 80/20 decision/contexte.
+    Prototype : 000660.KS uniquement — validation gerant avant generalisation.
+    Zero re-query : tout vient de CardInputs (dont les 4 champs Tier-S).
+    """
+    import json as _json
+
+    thesis = inputs.thesis
+    ticker = inputs.ticker
+    slug = _slug_ticker(ticker)
+    bl = inputs.book_line
+
+    import html as _html_mod
+
+    def _esc(t):
+        return _html_mod.escape(str(t or ""))
+
+    # B1 — pourquoi je la possede : premiere clause du variant (une phrase, 3 s)
+    variant = thesis.get("variant_perception") or ""
+    own = variant.split(" | ")[0].split(" ; ")[0].strip()[:130] or "(variant a ecrire)"
+
+    # B2 — anti-these : copilot adversarial FRAIS (>= opened_at, sinon il parle
+    # d'une campagne precedente — bug attrape au premier render), sinon trigger vendeur
+    raw_trig = thesis.get("invalidation_triggers") or []
+    if isinstance(raw_trig, str):
+        with contextlib.suppress(Exception):
+            raw_trig = _json.loads(raw_trig or "[]")
+    triggers = list(raw_trig) if isinstance(raw_trig, list) else []
+    ca_fresh = (
+        inputs.counter_argument_brief
+        if (inputs.counter_argument_at or "") >= (thesis.get("opened_at") or "")[:10]
+        else None
+    )
+    anti = (ca_fresh or (triggers[1] if len(triggers) > 1 else (triggers[0] if triggers else ""))).strip()[:150]
+
+    # B3 — ce qui demande une decision AUJOURD'HUI
+    decide = []
+    if inputs.kill_status == "triggered":
+        decide.append(("\U0001F534", f"kill-criterion DECLENCHE ({(inputs.kill_at or '')[:10]})"))
+    elif inputs.kill_status == "at_risk":
+        decide.append(("\U0001F7E0", "kill-criterion at_risk"))
+    if inputs.next_event:
+        decide.append(("\U0001F7E0", f"{_esc(inputs.next_event.get('description'))} le {_esc(inputs.next_event.get('date'))}"))
+    px = getattr(bl, "last_price_native", None) if bl else None
+    stopv = thesis.get("stop_value")
+    if px and stopv:
+        with contextlib.suppress(Exception):
+            dist = (float(px) - float(stopv)) / float(px) * 100
+            if dist < 10:
+                decide.append(("\U0001F7E0", f"stop a {dist:.1f}%"))
+    if not decide:
+        decide.append(("\U0001F7E2", "Rien."))
+
+    # B4 — similaires (voyage, cache 24h)
+    import re as _re
+    sims = []
+    for sim in (inputs.similar_situations or [])[:2]:
+        raw = sim.get("snippet") or ""
+        fields = dict(_re.findall(r"(\w+):([^|]+?)(?:\s*\||$)", raw))
+        if fields.get("Direction"):
+            label = f"{fields.get('Direction','?').strip()} \u00b7 {fields.get('ClaimType','?').strip()}" + \
+                    (f" \u00b7 H{fields['Horizon'].strip().split()[0]}j" if fields.get("Horizon") else "")
+        else:
+            label = _re.sub(r"ID:\d+ \| Ticker:\S+ \| ", "", raw)[:70]
+        sims.append(f"{_esc(sim.get('ticker'))} \u2014 {_esc(label)}")
+
+    # B5 — biais personnels du ticker
+    counts = (inputs.bias_history or {}).get("bias_counts") or []
+    if counts:
+        bias_line = " · ".join(f"{_esc(b)}: {n}" for b, n in counts[:4])
+    else:
+        bias_line = "aucune decision taggee — historique jeune"
+    if inputs.bias_events_open:
+        bias_line += f" · {len(inputs.bias_events_open)} exposition(s) OUVERTE(s)"
+
+    # B6 — dernier contrefactuel (le bloc le plus rentable)
+    cf = inputs.last_cf
+    if not cf:
+        cf_line = "aucun contrefactuel — poser une decision en cree un (regle n\u00b07)"
+    elif cf.get("state") == "resolved":
+        cf_line = (f"{_esc(cf.get('decision_type'))} du {_esc(cf.get('decided_at'))} : "
+                   f"« {_esc(cf.get('branch'))} » aurait fait {cf.get('delta_pct', 0):+.1f}% "
+                   f"(J+{cf.get('horizon')}) — verdict {_esc(cf.get('verdict'))}")
+    else:
+        cf_line = (f"{_esc(cf.get('decision_type'))} du {_esc(cf.get('decided_at'))} : "
+                   f"verdict contrefactuel (vs « {_esc(cf.get('branch'))} ») du au {_esc(cf.get('due'))}")
+
+    # B7 — hypotheses vivantes (etats, pas de texte)
+    hyps = []
+    for d in (inputs.erosion_driver_status or [])[:5]:
+        nm = (d.get("driver") or d.get("name") or "?")[:38]
+        stt = (d.get("status") or "").lower()
+        dot = {"confirm": "\U0001F7E2", "erode": "\U0001F7E1", "invalidation": "\U0001F534"}.get(stt, "\u26AA")
+        hyps.append(f"{dot} {_esc(nm)}")
+    if not hyps:
+        hyps = [f"\u26AA {_esc(t[:38])}" for t in triggers[:4]] or ["\u26AA (aucun trigger)"]
+
+    # contexte 20 % (une ligne)
+    qty = (getattr(bl, "qty", 0) or 0) if bl else 0
+    ccy = (getattr(bl, "last_price_currency", None) if bl else None) or thesis.get("stop_currency") or ""
+    def _n(v):
+        try:
+            return f"{float(v):,.0f}".replace(",", "\u202f")
+        except Exception:
+            return str(v)
+    ctx = (f"{qty:g} @ {_n(px)} {ccy}" if px else f"{qty:g}") + \
+          f" · poids {inputs.weight_pct:.1f}% · conv c{inputs.conviction_current or '?'}" + \
+          (f" · stop {_n(stopv)}" if stopv else " · stop \u2014") + \
+          f" · horizon {_esc(thesis.get('horizon') or '?')}"
+
+    try:
+        from shared.ticker_names import get_short_name as _gsn
+        name = _gsn(ticker) or ticker
+    except Exception:
+        name = ticker
+    rows_decide = "".join(f'<div class="v2-alert">{d}&nbsp;{_esc(m) if not isinstance(m, str) else m}</div>' for d, m in decide)
+    rows_sims = "".join(f'<div class="v2-line">{x}</div>' for x in sims) or '<div class="v2-line v2-mut">index similarite indisponible</div>'
+    rows_hyps = " &nbsp; ".join(hyps)
+
+    return (
+        f'<div class="pc-card v2" id="card-{slug}">'
+        '<style>.pc-card.v2{padding:18px 20px}.v2-cog{border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:var(--fm);font-size:12px;letter-spacing:.04em}.v2-cog b{display:block;margin-bottom:4px}.v2-sec{margin:10px 0}.v2-cat{font-family:var(--fm);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--steel);margin:14px 0 4px}.v2-own{font-size:16px;font-weight:600;line-height:1.35}.v2-anti{font-size:13px;color:var(--bear,#a5533f);margin-top:2px}.v2-alert{font-size:15px;font-weight:600;margin:3px 0}.v2-line{font-size:12px;margin:2px 0}.v2-mut{color:var(--steel)}.v2-ctx{font-family:var(--fm);font-size:11px;color:var(--steel);border-top:1px solid var(--line);margin-top:14px;padding-top:8px}</style>'
+        f'<div class="v2-cog"><b>SI JE N\u2019AVAIS PAS CETTE LIGNE, L\u2019ACH\u00c8TERAIS-JE AUJOURD\u2019HUI ?</b>'
+        '\u25a1 oui &nbsp; \u25a1 non &nbsp; \u25a1 incertain <span class="v2-mut">(reponse au journal, pas ici — anti lock-in)</span></div>'
+        f'<div class="v2-own">{_esc(name)} <span class="v2-mut">({_esc(ticker)})</span> — {_esc(own)}</div>'
+        f'<div class="v2-anti">\u2696 Anti-these : {_esc(anti)}</div>'
+        '<div class="v2-cat">DECIDER — aujourd\u2019hui</div>'
+        f'{rows_decide}'
+        '<div class="v2-cat">APPRENDRE — similaires \u00b7 biais \u00b7 contrefactuel</div>'
+        f'{rows_sims}'
+        f'<div class="v2-line">{bias_line}</div>'
+        f'<div class="v2-line"><b>CF</b> : {cf_line}</div>'
+        '<div class="v2-cat">PROUVER — hypotheses vivantes</div>'
+        f'<div class="v2-line">{rows_hyps}</div>'
+        f'<div class="v2-ctx">{ctx}</div>'
+        '</div>'
+    )
+
+
 def _position_card(inputs, steer_v2) -> str:
     """Rendre une seule position-card depuis CardInputs (etape 2) + SteerOutput
     (etape 3). Source UNIQUE -- aucune re-query, lis tout depuis inputs.
@@ -1879,6 +2022,11 @@ def _position_card(inputs, steer_v2) -> str:
       steer_v2 : intelligence.card_steer.SteerOutput (frozen, etape 3)
     """
     from intelligence.position_steer import derive_steer
+
+    # Gabarit S2 (07/08) : 000660 = card V2 prototype ; les autres suivront
+    # apres validation gerant (puis la legacy sera SUPPRIMEE — compteur du mois).
+    if (inputs.ticker or "").upper() == "000660.KS":
+        return _position_card_v2(inputs, steer_v2)
 
     thesis = inputs.thesis
     ticker = inputs.ticker
