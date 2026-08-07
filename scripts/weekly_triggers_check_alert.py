@@ -7,7 +7,7 @@ every Monday at 09:00 local. Sends a Telegram alert summarizing thesis
 triggers state + urging /triggers-check invocation in Claude Code.
 
 Lightweight by design : count active theses, total triggers, fired triggers
-via cross-ref module. Full Bigdata.com fact-check happens when user actually
+via cross-ref module. Full fact-check happens when user actually
 runs /triggers-check.
 """
 import json
@@ -102,7 +102,7 @@ def triggers_summary() -> str:
         msg.append("")
         msg.append("Aucun trigger fired actuellement. Toutes thèses INTACTES.")
     msg.append("")
-    msg.append("Run /triggers-check in Claude Code for full Bigdata.com fact-check + rewrites.")
+    msg.append("Run /triggers-check in Claude Code for full fact-check + rewrites.")
     return "\n".join(msg)
 
 
