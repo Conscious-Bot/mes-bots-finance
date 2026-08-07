@@ -52,13 +52,21 @@
 Ajout de sources · tuning scorer/seuils (L15/L16) · v2.2/v2.3 au-delà du fix-1 (nature, claim_id, lane variante) · tout travail visuel dashboard · nouveaux panneaux/monitors/hypothèses/couches doctrine · extensions assumption_graph · chantiers ADAPTABILITÉ au-delà des notes v1.
 
 ### 🧊 APRÈS LE GEL (N ≥ 50 paris résolus — PAS AVANT, aucune exception)
-- [ ] **PRESAGE envoyable / multi-tenant** (demandé 07/08). Gates d'entrée, TOUS requis :
-      (a) N ≥ 50 paris résolus · (b) re-poser à froid la question de l'Outsider
-      (« un solo doit-il viser un SaaS tout court ? », échéance conseil ~03/11) ·
-      (c) ≥ 1 signal demand-pull réel (quelqu'un a vu track.html et demande à payer).
-      Réalité technique : single-user partout (KNOWN-GAP tenant, DB, .env, Telegram,
-      broker) = réécriture, pas emballage. Le précédent essai (dist/presage-trial
-      01/07) est mort en copie stale — leçon.
+- [ ] **PRESAGE-B « OS des décisions d'investissement »** (redéfini 07/08 — SaaS B :
+      processus auditable, PAS prédiction ; famille Git/Linear, pas hedge fund).
+      Promesse canonique : « PRESAGE ne prend pas de positions. Il impose un
+      processus falsifiable avant qu'un humain ne prenne une position. »
+      BUILD gates (TOUS requis) : (a) N ≥ 50 résolus (le processus tient) ·
+      (b) corpus pilotes ≥ 6 sessions consignées · (c) question Outsider à froid ~03/11.
+      Stratégie Linear : pour des gens qui pensent comme O., 5 pilotes sérieux
+      (family office / PM / buy-side / fondateur), regarder OÙ ILS CASSENT.
+      Risque nommé (red-team O.) : 100 users = 100 taxonomies = explosion.
+      Réalité : single-user partout = réécriture. dist/presage-trial mort = leçon.
+- [ ] **Boucle pilotes — PERMISE DÈS MAINTENANT (apprentissage, pas build)** :
+      screen-share sur l'instance d'O., lui aux commandes · observations consignées
+      comme FAITS (où ils se perdent, mots incompris, info cherchée en premier) ·
+      TOUTE demande-feature → ce backlog, datée — ZÉRO code avant N≥50.
+      Démo existante : PV tribunal + digest gaté + compteur gel + track.html.
 - [ ] **Prédiction = unité atomique** (05/08) : schéma découvert par les 50 premiers
       paris manuels, jamais conçu avant (langage-avant-structure).
 
