@@ -112,6 +112,10 @@ def main():
     ok = send_telegram(msg)
     if ok:
         print("[OK] Telegram alert envoyee")
+        # Dead-man jobs planifies (arbitrage 07/08) : signe de vie POSITIF, lu par
+        # registry_heartbeat_watch.sh. Touche sur SUCCES seulement — un job en
+        # faute ne produit pas de signe de vie, son silence EST l'alarme.
+        (Path(__file__).resolve().parent.parent / "data" / ".job_ok_weekly_triggers").touch()
         sys.exit(0)
     else:
         print("[FAIL] Telegram send failed", file=sys.stderr)
