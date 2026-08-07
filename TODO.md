@@ -51,6 +51,17 @@
 ### ☠️ MORT POUR TOUJOURS (pas « plus tard » — mort)
 Ajout de sources · tuning scorer/seuils (L15/L16) · v2.2/v2.3 au-delà du fix-1 (nature, claim_id, lane variante) · tout travail visuel dashboard · nouveaux panneaux/monitors/hypothèses/couches doctrine · extensions assumption_graph · chantiers ADAPTABILITÉ au-delà des notes v1.
 
+### 🧊 APRÈS LE GEL (N ≥ 50 paris résolus — PAS AVANT, aucune exception)
+- [ ] **PRESAGE envoyable / multi-tenant** (demandé 07/08). Gates d'entrée, TOUS requis :
+      (a) N ≥ 50 paris résolus · (b) re-poser à froid la question de l'Outsider
+      (« un solo doit-il viser un SaaS tout court ? », échéance conseil ~03/11) ·
+      (c) ≥ 1 signal demand-pull réel (quelqu'un a vu track.html et demande à payer).
+      Réalité technique : single-user partout (KNOWN-GAP tenant, DB, .env, Telegram,
+      broker) = réécriture, pas emballage. Le précédent essai (dist/presage-trial
+      01/07) est mort en copie stale — leçon.
+- [ ] **Prédiction = unité atomique** (05/08) : schéma découvert par les 50 premiers
+      paris manuels, jamais conçu avant (langage-avant-structure).
+
 ### 📆 OPÉRATION (dès samedi 09/08 — ce n'est PAS du build)
 - **20 paris pré-enregistrés / 60 jours** — la seule chose qui compose (échec à J+60 = remise en cause de la vision SaaS, pas re-polissage)
 - KPI digest 4 sem. : urgent→(décision OU résistance journalisée) ≥50%, sinon le digest **meurt**
