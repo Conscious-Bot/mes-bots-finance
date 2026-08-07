@@ -53,3 +53,32 @@ Le pourcentage d'amélioration possible n'est pas un argument — c'est le musé
 > Le système a le droit de dire « je ne sais pas ». Il n'a pas le droit de se taire en tombant.
 > Le gérant a le droit de désobéir à une règle. Il n'a pas le droit de le faire sans l'écrire.
 > L'instrument est fini. **Ce qui compose maintenant, c'est le temps — et il ne se rachète pas.**
+
+---
+
+## LA FONCTION OBJECTIF (scellée le 07/08 — tout le reste est moyen)
+
+> **PRESAGE maximise la vitesse d'apprentissage d'un décideur tout en minimisant
+> la récurrence des erreurs coûteuses.**
+
+Dashboards, graphes, digests, tribunaux, hypothèses, paris : des moyens, pas la fin.
+
+**Le filtre (toute fonctionnalité future, sans exception)** : *réduit-elle la fréquence,
+le coût ou la récurrence d'une classe d'erreurs ?* « Intéressante » → rejet. « Plus joli »
+→ rejet. « Aide à explorer » → insuffisant. « Réduit durablement les erreurs de sizing » /
+« diminue le délai d'admission d'une erreur » → mérite d'exister.
+
+**Le dashboard ne répond qu'à trois questions** : que risque-je de faire de faux
+aujourd'hui ? · quelles erreurs suis-je en train de ne plus faire ? · qu'est-ce qui
+exige réellement une décision ? Le reste est de la navigation.
+
+**Développement post-gel, inversé** : on ne part plus d'une fonctionnalité — on part
+d'une CLASSE D'ERREURS (comment la détecte-t-on ? la bloque-t-on ? mesure-t-on sa
+disparition ? prouve-t-on qu'elle ne revient plus ?) et alors seulement on code.
+
+**L'objectif unique des trois prochains mois** : accumuler assez de données pour
+RÉFUTER tout ce que nous croyons aujourd'hui. Si le reason-matching ne sert à rien,
+si des classes ne disparaissent jamais, si des protections sont inutiles → suppression.
+Ce qui survivra à la réfutation est le cœur irréductible de PRESAGE. Le gel protège,
+l'operate nourrit, **le dégel juge** — ce n'est pas une release, c'est un jour de
+résultats.
