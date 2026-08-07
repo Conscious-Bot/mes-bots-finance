@@ -105,7 +105,20 @@ def test_seam_value_eur_coherent_with_qty_price_fx(ticker: str):
     # value_eur_datum.value = Monetary(amount, currency="EUR") (book.value_eur primitif)
     _v = v.value_eur_datum.value
     value_eur = _v.amount if hasattr(_v, "amount") else _v
-    qty = known["qty"]
+    # qty : LEDGER VIVANT, plus le snapshot 23/06 — le hardcode pourrissait a
+    # chaque trade (000660 re-tradee, 4063 aussi : 34% d'ecart fabrique par le
+    # temoin lui-meme, pas par le seam). L'objet du test est la coherence
+    # datum <-> qty x price x fx INTRA-VIEW (classe fork SK 7%, #118) ; la qty
+    # independante hardcodee n'etait pas une protection, c'etait une horloge morte.
+    import sqlite3 as _sq
+
+    from shared import storage as _st
+    _cx = _sq.connect(f"file:{_st.DB_PATH}?mode=ro", uri=True)
+    _row = _cx.execute("SELECT qty FROM positions WHERE ticker=?", (ticker,)).fetchone()
+    _cx.close()
+    if not _row or not _row[0]:
+        pytest.skip(f"{ticker} : qty ledger introuvable -- skipped")
+    qty = _row[0]
     price_native = v.price_native
     fx_rate = v.fx_rate
 
