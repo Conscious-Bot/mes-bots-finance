@@ -234,8 +234,17 @@ def _fetch_similars_cached(ticker: str, thesis: dict) -> list[dict]:
     out: list[dict] = []
     try:
         from shared.thesis_library import find_similar
+        # key_drivers arrive tantot deja-parse (list), tantot JSON string,
+        # tantot texte nu — coercion tolerante (bug 07/08 : json.loads(list)
+        # -> similaires morts sur ~19 cartes, spam fail-soft a chaque render).
+        raw_kd = thesis.get("key_drivers") or []
+        if isinstance(raw_kd, str):
+            try:
+                raw_kd = json.loads(raw_kd)
+            except (json.JSONDecodeError, TypeError):
+                raw_kd = [raw_kd] if raw_kd.strip() else []
         q = (thesis.get("variant_perception") or "") or " ".join(
-            (json.loads(thesis.get("key_drivers") or "[]") or [])[:2]
+            str(x) for x in (raw_kd or [])[:2]
         )
         if q:
             for r in find_similar(q, k=4) or []:
