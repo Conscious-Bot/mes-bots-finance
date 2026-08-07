@@ -1089,3 +1089,46 @@ venv — deux contrats au lieu d'un ; fonctionne, à unifier « quand on touche 
 subprocess + plists locaux) ; [[L17]] déclaratif ; [[L33]] (un échec
 non-bloquant qui ne s'auto-signale pas = mensonge en silence) ; leçons
 canal-paste CLAUDE.md §1 (zsh quoting, même famille).
+
+## L36 — Généralisation minimale + cycle de fermeture de classe (la méthode, explicitée)
+
+**Actée 07/08 (gérant), après trois fermetures en 24 h** — python-nu ([[L35]]),
+dead-man jobs planifiés (a6be029), cards V3 — qui ont suivi le même algorithme
+sans le nommer. Consolide en UN cycle des étapes déjà doctrinales mais
+dispersées (verify-before-patch, « corriger l'instance, fermer la classe »
+CONCEPT_FREEZE classe 1, ratchet decreasing-only, plug-and-animate).
+
+**Vocabulaire** : on ne « corrige plus un bug », on ferme une classe. Un bug
+appelle un correctif ; une classe appelle un audit.
+
+**Le cycle de fermeture de classe** :
+1. **Observation** (l'incident, même bénin — un hook non-bloquant qui ment)
+2. **Délimitation de la classe** (de quoi est-ce une instance ?)
+3. **Audit du périmètre** (verify-before-patch : TOUTES les surfaces avant tout geste)
+4. **Réparation minimale** (l'instance)
+5. **Généralisation minimale OU ratchet** (règle ci-dessous)
+6. **Vérification live** (plug-and-animate : trigger réel, machine d'états simulée)
+7. **Témoin** — preuve de non-régression qui SURVIT à la session : test CI,
+   verrou grep, drill daté re-jouable, simulation scriptée. Une fermeture sans
+   témoin n'est pas fermée — elle est en rémission.
+8. **Fermeture** (commit qui nomme la classe ET le témoin)
+
+**Règle de généralisation minimale** : quand une réparation révèle ≥ 2 instances
+du même mécanisme, généraliser le mécanisme EXISTANT (`watch X` → `watch table`),
+jamais ajouter une exception (`if weekly_audit`) ni créer un sous-système
+(HeartbeatManager / JobRegistry / SchedulerMonitor). Le déclencheur est la
+DEUXIÈME instance — même seuil que les leçons elles-mêmes (catch ×2 → entrée
+LESSONS). Une instance unique = réparer l'instance, point : généraliser à la
+première instance est la génèse des frameworks.
+
+**Garde (propriétés vs composants)** : une propriété système (observabilité,
+reproductibilité, déterminisme, falsifiabilité…) n'est permanente que si son
+témoin TOURNE. Une propriété sans témoin actif pourrit en silence — les runs
+des 26-27/07 étaient une observabilité revendiquée, non témoignée. L'inventaire
+des témoins EST la liste des propriétés ; pas de registre de propriétés séparé
+(il divergerait, [[L25]]).
+
+**Référencer** : CLAUDE.md §1 (verify-before-patch) ; CONCEPT_FREEZE classe
+RÉPARATION ; [[L35]] (fermeture fondatrice) ; commits-exemples : d1a2ebd
+(verrou python-nu), 4e130e5 (exception plists fermée), a6be029 (table dead-man,
+généralisation minimale canonique).
