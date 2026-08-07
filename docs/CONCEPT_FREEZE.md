@@ -82,3 +82,23 @@ si des classes ne disparaissent jamais, si des protections sont inutiles → sup
 Ce qui survivra à la réfutation est le cœur irréductible de PRESAGE. Le gel protège,
 l'operate nourrit, **le dégel juge** — ce n'est pas une release, c'est un jour de
 résultats.
+
+---
+
+## LECTURE PRÉCISÉE DU GEL (07/08 — synthèse, le gel ne bouge pas)
+
+**Interdit jusqu'au dégel** : nouvelle architecture · nouvelle couche · nouveau
+sous-système · ledger d'erreurs dédié · écran « Improve » · multi-tenant · nouveau
+moteur/base/registres.
+**Autorisé immédiatement** : supprimer · fusionner · renommer pour clarifier ·
+changer la hiérarchie visuelle · améliorer une carte existante · modifier un
+workflow existant — tribunaux, paris, nettoyage, cards, regroupement d'écrans,
+pilotes silencieux.
+
+**La règle qui remplace les discussions de priorisation** :
+> Avant le dégel, PRESAGE ne gagne pas en ajoutant des capacités. Il gagne en
+> rendant les capacités existantes inévitables, visibles et impossibles à contourner.
+
+**Métrique du mois (le seul compteur)** : ratio Suppression/Ajout — cible extrême
+**Ajouts : 0 · Suppressions : 100+**. Le diagnostic : PRESAGE souffre de
+surprésentation, pas de manque d'intelligence — elle est là, noyée.
