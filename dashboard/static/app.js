@@ -26,7 +26,7 @@
      aria-current="page" sync. */
   var _SECTION_LABELS = {vigie:'Overview', positions:'Positions', theses:'Theses',
                          concentration:'Concentration',
-                         urgence:'Alerts', copilot:'Copilot',
+                         urgence:'Alerts',
                          'position-card':'Cards'};
   function show(id){
     pages.forEach(p=>p.classList.toggle('active',p.dataset.page===id));

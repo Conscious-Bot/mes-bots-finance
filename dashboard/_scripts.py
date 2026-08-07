@@ -21,7 +21,6 @@ _NAV = (
     '<div class="nitem" data-nav="concentration" title="Concentration — Sector / country / currency / cluster breakdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4"/><path d="M12 12l6.5 4"/></svg><span class="nlab">Concentration</span></div>'
     '<div class="nitem" data-nav="theses" title="Theses — Target/stop asymmetry by conviction tier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg><span class="nlab">Theses</span></div>'
     '<div class="nitem" data-nav="position-card" title="Cards — Per-ticker deep-dive cards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="16" x2="13" y2="16"/></svg><span class="nlab">Cards</span></div>'
-    '<div class="nitem" data-nav="copilot" title="Copilot — Adversarial AI pressure-tests + biases log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="nlab">Copilot</span></div>'
     '<div class="nitem" data-nav="urgence" title="Alerts — Stops near, targets reached, kill-criteria firing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 15H3.5L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.5" r="0.7" fill="currentColor" stroke="none"/></svg><span class="nlab">Alerts</span></div>'
     '</nav>'
 )
@@ -244,7 +243,7 @@ _APP_JS = """
      aria-current="page" sync. */
   var _SECTION_LABELS = {vigie:'Overview', positions:'Positions', theses:'Theses',
                          concentration:'Concentration',
-                         urgence:'Alerts', copilot:'Copilot',
+                         urgence:'Alerts',
                          'position-card':'Cards'};
   function show(id){
     pages.forEach(p=>p.classList.toggle('active',p.dataset.page===id));

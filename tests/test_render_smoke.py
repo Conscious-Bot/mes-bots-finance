@@ -24,7 +24,7 @@ def test_render_smoke():
     for nav in ("vigie", "positions", "theses", "concentration", "urgence"):
         assert f'data-nav="{nav}"' in html, f"nav manquant: {nav}"
     # Retirés du nav le 03/08 : plus jamais dans la barre de contrôle.
-    for gone in ("strategie", "cerebro", "methode"):
+    for gone in ("strategie", "cerebro", "methode", "copilot"):
         assert f'data-nav="{gone}"' not in html, f"nav {gone} devrait être retiré"
     for page in ("vigie", "positions", "theses"):
         assert f'data-page="{page}"' in html, f"section manquante: {page}"
