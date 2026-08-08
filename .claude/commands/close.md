@@ -33,6 +33,8 @@ description: Rituel de clôture de session (5 min) — handoff vivant pour la se
 
 6. **Audit canonical drift** (L25) : `python3 scripts/audit_canonical_drift.py | tail -20`. Reporte par SPEC le ratio référence-code / orphelin + doublons candidats. Si exit code 1 (SPEC sans footer Implementation Status) → noter dans SESSION_STATE comme dette doctrinale (pas blocker du close, mais visible pour la session suivante).
 
+7. **Passage obligé vault (dicté 08/08)** : chaque sortie COGNITIVE de la session — verdict de tribunal, résolution de pari, revue, protocole, note de recherche — a sa note Obsidian (via `shared/obsidian.py` REST). **Pas de note = pas fermé.** Frontière L17 stricte : la DB porte faits/état (source unique des chiffres), le vault porte jugements + raisonnements ; jamais de doublon de chiffres. Vérifier avant commit de close ; toute sortie sans note → la créer ou la lister comme dette dans SESSION_STATE.
+
 ## Anti-pattern à éviter
 
 - Skipper le rituel "parce que la session est courte" → 2 sessions plus tard, le SESSION_STATE est stale et la friction de re-onboarding revient.
