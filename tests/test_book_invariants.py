@@ -94,6 +94,12 @@ def test_active_thesis_has_complete_inputs(held_lines):
         "MU",        # Micron RÉGIME A STRUCTURAL (15/06) -- aligné avec 000660.KS sur les memes triggers HBM.
                      # Target/stop/entry supprimes volontairement par user, invalidation par events S2/S12,
                      # group cap 6% partage avec Hynix. Cf session 15/06.
+        "SPCX",      # Venture c1 (§XVI en prod) -- stop-prix = erreur de categorie par design,
+                     # invalidation par events (capex AI non couvert 2 trim. / emission >5% flottant,
+                     # cf mutation 07/08). La garde de la ligne = les 6 cas §XVI.
+        "2802.T",    # PROVISOIRE (08/08) : entree paris tribunal 05/08, invalidation par events
+                     # (arbitres P1 : marges food + pass-through yen 164). Cibles/stop jamais dictes
+                     # = dette gerant -- dicter partial/full/stop OU confirmer blind-par-design ici.
     }
     unexpected = sorted(set(blind_tk) - accepted_blind)
     assert not unexpected, (
