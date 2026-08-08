@@ -159,3 +159,6 @@ config.yaml.backup*
 
 # Dump projet régénérable (sortie de scripts/make_project_dump.py, ~12M markdown)
 dumps/
+
+# donnees cobayes beta (protocole docs/beta/ versionne, les PORTEFEUILLES jamais)
+/beta/
