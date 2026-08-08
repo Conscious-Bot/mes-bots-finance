@@ -4651,3 +4651,69 @@ hurlera chaque matin jusqu'au fix** (comportement voulu).
 3. Le one-liner moteur (classe réparation, Cowork) → puis le validateur redevient vert.
 4. Contrats de mort 4 sem. : digest (urgent→décision|résistance ≥50 %) · weekly.
    Re-drill H9b+H9c avant le **30/10**.
+
+## Close 2026-08-07 — Cards V2→V3 (deux sessions convergées) + compression/4 lois + fermetures L35/L36 + MORATOIRE
+
+**Livré (session terminal)** :
+- **Position Card** : V2 prototype 000660 (`6245543` — 4 champs Tier-S dans CardInputs :
+  bias/CF/similaires/next_event, cache Voyage 24h fail-soft) → V3 « 8 principes » implémentée
+  ici puis DÉPASSÉE le soir même par les 7 critiques gérant → chantier remis à la **session
+  app = éditeur unique** (`dashboard/position_card.py`). Travail terminal préservé branche
+  `wip/position-card-v3-terminal` (`2180398`) : autopsie gratuite (5 organes + piège
+  test source-lock `test_position_view_no_recompute` relayés). Supprimer la branche post-greffe.
+- **L35** (`d1a2ebd`) : invariants d'environnement E1-E4 + témoin `test_environment_invariants.py`.
+- **Env** (`4e130e5`) : weekly-audit/triggers → venv python3 (validé live kickstart), plists
+  versionnés `deploy/launchd_mac/`, réf Bigdata morte retirée (décision 24/06 honorée).
+- **Dead-man jobs planifiés** (`a6be029`, arbitrage tribunal gérant = RÉPARATION) :
+  `registry_heartbeat_watch.sh` généralisé en TABLE (nom|marqueur|SLA), signes de vie
+  positifs dans les 2 scripts weekly, machine d'états validée (OK/ALERT/dedup/recover)
+  + **preuve vivante** 23:10 (marqueurs touchés par les scripts eux-mêmes, chemin launchd réel).
+- **L36 + addendum + complément** (`eaf10fa`, `d35ffc3`, commit de ce close) : cycle de
+  fermeture 8 étapes (témoin obligatoire), 3 états (ouverte/SOUS SURVEILLANCE/fermée,
+  preuve potentielle vs vivante — a attrapé ma propre fermeture prématurée le jour même),
+  échelle signal→observation→vérifiée→FAIT, convention **[CLOSE]** (1re instance `d35ffc3`),
+  lecture « gel = opérateur de projection » (CONCEPT_FREEZE).
+- **Doctrine compression** (mémoire durable `presage_compression_decisionnelle`) : PRESAGE =
+  système de compression décisionnelle · card = API cognitive · 4 LOIS (conservation info
+  décisionnelle / compression = claim, 2 classes 2 instruments / contrat versionné /
+  réversibilité) · phrase fondatrice amendée (l'humain transforme la réponse en position) ·
+  **MORATOIRE DOCTRINAL déclaré par le gérant** — théorie close, empirie seule.
+
+**Incidents/notes** : 2 locks git fossiles (0-byte, aucun processus) de la session app
+retirés — elle doit comprendre pourquoi ses opérations git avortent · runs weekly 26-27/07
+échoués en silence (DNS down) = origine du chantier dead-man · hook PostToolUse app appelle
+`python` nu — fix 1 ligne côté app, hors de portée terminal.
+
+**Entry next session** :
+1. **MORATOIRE DOCTRINAL + GEL actifs** : refuser tout ajout doctrinal (réponse = le
+   moratoire, L36 fin) et tout chantier hors 3 classes. La pratique a le volant.
+2. **P2 à résoudre lundi 10/08** clôture Tokyo (session closes ≤ 06:30 UTC, JAMAIS ticks
+   du soir) — trend FAUX, cause observée = run-up pré-print. P1 = lecture print par O.
+   P3 ~fin oct. CF 000660 dû 19/08.
+3. **Cards V3** : vérifier l'atterrissage session app (`position_card.py` commité ? tests
+   déplacés ?), contrôler les 5 organes greffés, puis `git branch -D wip/position-card-v3-terminal`.
+4. **Premiers battements réels du contrat jobs** : dim 9:13 (audit) / lun 9:00 (triggers) —
+   marqueurs auto-touchés attendus + watcher 3× OK.
+
+**Addendum close (nuit 07→08/08 + matinée)** :
+- **V3.1 canonique LIVRÉE** (`e1a0e6e`, bloc session app exécuté par terminal) : 22 cartes
+  sur données réelles, doctrine 9 principes + passe UX, −854 l de legacy. Deux accrocs
+  fermés en route : `python3 -m ruff` hors venv (L35 en action) · règle gitignore
+  `AUDIT_*.md` vs audit_cards (règle historique préservée, `add -f` documenté).
+- **Opérations DB (VM, nœud autoritaire, sync Mac vérifié)** : events 16 earnings →
+  **22/22 positions couvertes** d'un prochain fait daté · thèses : 10 mutations validées
+  (v2) + convergence texte canonique v4 (photographies archivent leur devancière) ·
+  protocole plan-ID adopté (`docs/templates/mutation_plan_pattern.md`, session app).
+- **P1 RÉSOLU VRAI reason-matched — N = 1/20** (PV Audience 1, signature auditeur O.).
+  Témoignage 7011.T versé au tribunal : variant None, driver n°1 = turbines, nucléaire
+  = clause du driver n°2. Verdict gérant pendant.
+- **Suite 2246+ verts** : 8 rouges initiaux → 6 classes fermées ([CLOSE] cf2d16e cluster
+  2802.T · fa92b14 seam qty-hardcodée 23/06 · 4f3e946 similaires ×22 cartes · 7df78c9
+  vol-aveugle SPCX/2802.T + dette currency/A8 en xfail VISIBLE — rouge muet depuis fin
+  juillet, surfacé par ce close).
+- **Dettes explicites nouvelles** : 2802.T cibles/stop à dicter OU blind à confirmer
+  (accepted_blind PROVISOIRE) · dette A8 returns décisions (xfail nommé, fix = ancre
+  EUR+fx+date) · candidates LESSONS en moratoire (« observable/daté/causal/robuste »,
+  « baseline = photographie ») · nœud d'exécution à ajouter au template mutation_plan.
+- **Règle du cycle actée (gérant)** : le prochain changement est provoqué par une
+  OBSERVATION, jamais par une idée. Compteurs existants suffisants — pas de 6e.

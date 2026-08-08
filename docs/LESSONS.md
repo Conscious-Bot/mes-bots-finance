@@ -1155,3 +1155,21 @@ généralisation minimale canonique).
 - **Cohérence du seuil-2** : deux occurrences → leçon ; deux instances →
   généralisation ; cinquante paris → dégel. Le système préfère systématiquement
   deux preuves avant une abstraction.
+
+**Complément final L36 (07/08, dernier ajout doctrinal avant moratoire)** :
+- **Échelle de qualification** : signal → observation → observation vérifiée →
+  FAIT ; seule la dernière marche autorise une décision. Le témoin lui-même
+  n'est PAS la vérité : il produit une observation, qui doit encore être
+  qualifiée (chaîne complète : doctrine → code → témoin → observation →
+  vérification → fait). Instances passées : ticks du soir Ajinomoto, ledger,
+  caches, dead-man.
+- **La philosophie en une phrase** : une affirmation n'existe que lorsqu'elle a
+  survécu à son propre mécanisme de falsification — thèse→tribunal→paris→
+  résolution et propriété→test→drill→témoin→observation vérifiée sont le MÊME
+  motif. PRESAGE ne cherche pas la vérité des résultats, il cherche la vérité
+  du mécanisme causal (reason-matching partout : décisions, code, infra, cards).
+- **MORATOIRE DOCTRINAL (gérant, 07/08)** : la théorie est suffisamment riche.
+  Les prochains raffinements viennent de l'EMPIRIE — premiers tribunaux, 50
+  paris, premiers pilotes, relecture des [CLOSE] à +6 mois. Aucun ajout
+  doctrinal d'ici là ; toute proposition théorique nouvelle se répond par ce
+  moratoire (même mécanique que la barrière du 13/06).
